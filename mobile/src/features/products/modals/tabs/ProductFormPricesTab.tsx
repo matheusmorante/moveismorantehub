@@ -1,5 +1,17 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  calculateProductDiscountFromFixed,
+  calculateProductDiscountFromPercent,
+  calculateProductDiscountFromPromoPrice,
+} from '../../../../../../shared-utils/productDiscountFields';
+import { parseProductMinimumStockInput } from '../../../../../../shared-utils/productMinimumStockInput';
+import { calculateProductFinalPurchasePrice } from '../../../../../../shared-utils/productPurchasePricing';
+import { resolveProductSupplierPricingDefaults } from '../../../../../../shared-utils/productSupplierPricingDefaults';
+import {
+  getProductSupplierDisplayName,
+  matchesProductSupplierSearch,
+} from '../../../../../../shared-utils/productSupplierDisplayName';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Truck, DollarSign, Search, X, Plus } from 'lucide-react-native';
 import { saveSupplier as persistSupplier } from '../../../../services/stockService';
@@ -28,18 +40,6 @@ const syncInheritedVariationPrices = (
     ...(variation.syncPromoPrice !== false ? { promoPrice: promoPrice ?? '' } : {}),
   })),
 });
-
-const calculateFinalPurchasePrice = (
-  costPrice: number,
-  ipiPercent: number,
-  freightCost: number,
-  freightType: string
-) => {
-  const withIpi = costPrice + costPrice * (ipiPercent / 100);
-  if (freightType === 'none') return Number(withIpi.toFixed(2));
-  const freight = freightType === 'percentage' ? costPrice * (freightCost / 100) : freightCost;
-  return Number((withIpi + freight).toFixed(2));
-};
 
 export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
   const [suppliers, setSuppliers] = useState<MobileProductSupplier[]>([]);
@@ -78,9 +78,10 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
     if (q.length < 2) return [];
     return suppliers.filter((sup) => {
       if (selectedIds.includes(sup.id)) return false;
-      const name = `${sup.nickname || ''} ${sup.full_name || ''}`.toLocaleLowerCase('pt-BR');
       const stockOrigins = Array.isArray(sup.stock_origins) ? sup.stock_origins : ['normal'];
-      return stockOrigins.includes(selectedStockOrigin) && name.includes(q);
+      return (
+        stockOrigins.includes(selectedStockOrigin) && matchesProductSupplierSearch(sup, q)
+      );
     });
   }, [
     suppliers,
@@ -97,15 +98,13 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
       setFormData((prev) => {
         const promo = parsePrice(promoStr);
         const orig = parsePrice(prev.unitPrice);
-        const next: any = { ...prev, promoPrice: promoStr };
-        if (orig > 0 && promo > 0 && promo < orig) {
-          const fixed = orig - promo;
-          next.discountFixed = fixed.toFixed(2);
-          next.discountPercent = ((fixed / orig) * 100).toFixed(1);
-        } else {
-          next.discountFixed = '';
-          next.discountPercent = '';
-        }
+        const discount = calculateProductDiscountFromPromoPrice(orig, promo);
+        const next: any = {
+          ...prev,
+          promoPrice: discount.promoPrice === undefined ? '' : String(discount.promoPrice),
+          discountFixed: discount.discountFixed,
+          discountPercent: discount.discountPercent,
+        };
         return syncInheritedVariationPrices(next, orig, promo > 0 ? promo : undefined);
       });
     },
@@ -123,18 +122,15 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
           next.discountPercent = '';
         } else if (String(prev.discountPercent || '').trim()) {
           const percent = Number(String(prev.discountPercent).replace(',', '.'));
-          if (Number.isFinite(percent) && percent >= 0) {
-            const fixed = orig * (percent / 100);
-            next.discountFixed = fixed.toFixed(2);
-            next.promoPrice = String(Number(Math.max(0, orig - fixed).toFixed(2)));
-          }
+          const discount = calculateProductDiscountFromPercent(orig, percent);
+          next.discountFixed = discount.discountFixed;
+          next.promoPrice = discount.promoPrice === undefined ? '' : String(discount.promoPrice);
         } else {
           const previousPromo = parsePrice(prev.promoPrice);
-          if (previousPromo > 0 && previousPromo < orig) {
-            const fixed = orig - previousPromo;
-            next.discountFixed = fixed.toFixed(2);
-            next.discountPercent = ((fixed / orig) * 100).toFixed(1);
-          }
+          const discount = calculateProductDiscountFromPromoPrice(orig, previousPromo);
+          next.promoPrice = discount.promoPrice === undefined ? '' : String(discount.promoPrice);
+          next.discountFixed = discount.discountFixed;
+          next.discountPercent = discount.discountPercent;
         }
         return syncInheritedVariationPrices(
           next,
@@ -150,16 +146,14 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
     (pctStr: string) => {
       setFormData((prev) => {
         const orig = parsePrice(prev.unitPrice);
-        const pct = parseFloat(pctStr);
-        const next: any = { ...prev, discountPercent: pctStr };
-        if (orig > 0 && !isNaN(pct) && pct > 0) {
-          const fixed = orig * (pct / 100);
-          next.discountFixed = fixed.toFixed(2);
-          next.promoPrice = String(Number((orig - fixed).toFixed(2)));
-        } else {
-          next.discountFixed = '';
-          next.promoPrice = '';
-        }
+        const pct = pctStr.trim() ? Number(pctStr.replace(',', '.')) : 0;
+        const discount = calculateProductDiscountFromPercent(orig, pct);
+        const next: any = {
+          ...prev,
+          discountPercent: pctStr,
+          discountFixed: discount.discountFixed,
+          promoPrice: discount.promoPrice === undefined ? '' : String(discount.promoPrice),
+        };
         return syncInheritedVariationPrices(
           next,
           orig,
@@ -175,14 +169,13 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
       setFormData((prev) => {
         const orig = parsePrice(prev.unitPrice);
         const fixed = parsePrice(fixedStr);
-        const next: any = { ...prev, discountFixed: fixedStr };
-        if (orig > 0 && fixed > 0) {
-          next.discountPercent = ((fixed / orig) * 100).toFixed(1);
-          next.promoPrice = String(Number((orig - fixed).toFixed(2)));
-        } else {
-          next.discountPercent = '';
-          next.promoPrice = '';
-        }
+        const discount = calculateProductDiscountFromFixed(orig, fixed);
+        const next: any = {
+          ...prev,
+          discountFixed: fixedStr,
+          discountPercent: discount.discountPercent,
+          promoPrice: discount.promoPrice === undefined ? '' : String(discount.promoPrice),
+        };
         return syncInheritedVariationPrices(
           next,
           orig,
@@ -201,7 +194,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         const ipiPercent = parsePrice(field === 'ipiPercent' ? value : next.ipiPercent);
         const freightCost = parsePrice(field === 'freightCost' ? value : next.freightCost);
         const freightType = field === 'freightType' ? value : next.freightType || 'fixed';
-        next.finalPurchasePrice = calculateFinalPurchasePrice(
+        next.finalPurchasePrice = calculateProductFinalPurchasePrice(
           costPrice,
           ipiPercent,
           freightCost,
@@ -232,12 +225,26 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
       : ['normal'];
     if (!stockOrigins.includes(selectedStockOrigin)) return;
     const nextIds = [...selectedSupplierIds, supplier.id];
-    setFormData((prev) => ({
-      ...prev,
-      supplierIds: nextIds,
-      mainSupplierId: nextIds[0],
-      supplierId: nextIds[0],
-    }));
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        supplierIds: nextIds,
+        mainSupplierId: nextIds[0],
+        supplierId: nextIds[0],
+        ...resolveProductSupplierPricingDefaults(prev, {
+          defaultIpiPercent: supplier.default_ipi_percent,
+          defaultFreightCost: supplier.default_freight_cost,
+          defaultFreightType: supplier.default_freight_type || 'none',
+        }),
+      };
+      next.finalPurchasePrice = calculateProductFinalPurchasePrice(
+        parsePrice(next.costPrice),
+        parsePrice(next.ipiPercent),
+        parsePrice(next.freightCost),
+        next.freightType || 'fixed'
+      );
+      return next;
+    });
   };
   const removeSupplier = (supplierId: string) => {
     const nextIds = selectedSupplierIds.filter((id) => id !== supplierId);
@@ -420,7 +427,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
           <View style={styles.selectedSuppliers}>
             {selectedSupplierIds.map((id) => {
               const supplier = suppliers.find((item) => item.id === id);
-              const name = supplier?.nickname || supplier?.full_name || 'Fornecedor';
+              const name = getProductSupplierDisplayName(supplier) || 'Fornecedor';
               return (
                 <TouchableOpacity
                   key={id}
@@ -451,7 +458,9 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         <View style={styles.row}>
           <View style={styles.flex1}>
             <Text style={[styles.label, dark && styles.dimText]}>
-              Preço de Venda (R$) <Text style={{ color: '#ef4444' }}>*</Text>
+              Preço de Venda (R$) {!formData.hasVariations && (
+                <Text style={{ color: '#ef4444' }}>*</Text>
+              )}
             </Text>
             <TextInput
               value={f(formData.unitPrice)}
@@ -592,7 +601,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
           <Text style={[styles.label, dark && styles.dimText]}>Estoque Mínimo</Text>
           <TextInput
             value={f(formData.minStock)}
-            onChangeText={(v) => set('minStock', v)}
+            onChangeText={(value) => set('minStock', parseProductMinimumStockInput(value))}
             keyboardType="numeric"
             placeholder="0"
             placeholderTextColor="#94a3b8"

@@ -7,10 +7,6 @@ import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { InboundDuplicateKeyAlertModal } from './InboundDuplicateKeyAlertModal';
 import { useInboundDocumentImport } from '../hooks/useInboundDocumentImport';
 import QRScannerModal from '@/components/shared/QRScannerModal';
-import {
-  consultInvoiceByAccessKey,
-  sendInboundScienceOfEmission,
-} from '@/pages/utils/inboundNfe/services/sefazInboundSyncService';
 
 interface InboundDocumentImportModalProps {
   readonly isOpen: boolean;
@@ -30,8 +26,6 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [accessKey, setAccessKey] = useState('');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [isDirectSyncing, setIsDirectSyncing] = useState(false);
-  const directInFlight = useRef(false);
   const form = useZodForm(inboundAccessKeyFormSchema, { accessKey });
   const {
     isLoading,
@@ -44,82 +38,21 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
     duplicateExistingInvoice,
     isImportInFlight,
     handleFile,
-    handleXmlString,
   } = useInboundDocumentImport({ isOpen, onClose, onImportSuccess, initialFile });
 
   if (!isOpen) return null;
 
-  const busy = isLoading || isDirectSyncing;
+  const busy = isLoading;
   const importFile = async (file?: File) => {
-    if (directInFlight.current) return;
     await handleFile(file);
   };
   const handleScan = async (value: string) => {
-    if (directInFlight.current || isImportInFlight()) return;
+    if (isImportInFlight()) return;
     const normalized = normalizeFiscalIdentifier(value);
     const candidate = normalized.length === 44 ? normalized : value.toUpperCase().match(/(?:^|[^A-Z0-9])([0-9]{6}[A-Z0-9]{12}[0-9]{26})(?:[^A-Z0-9]|$)/)?.[1];
     const parsed = await form.validateValues({ accessKey: candidate || '' }, (errors) => toast.warn(Object.values(flattenFormErrors(errors))[0]));
     if (parsed) setAccessKey(parsed.accessKey);
     setIsScannerOpen(false);
-  };
-
-  const handleDirectSefazQuery = async () => {
-    if (directInFlight.current || isImportInFlight()) return;
-    directInFlight.current = true;
-    setIsDirectSyncing(true);
-    try {
-      await form.validateAndRun({ accessKey }, async (validated) => {
-        const clean = validated.accessKey;
-
-        try {
-          const res = await consultInvoiceByAccessKey(clean);
-          if (res.success && res.document?.kind === 'full' && res.document.xml) {
-            toast.success('XML oficial obtido diretamente do Web Service SEFAZ!');
-            await handleXmlString(res.document.xml);
-          } else if (res.success && res.document?.kind === 'summary') {
-            const isProduction = res.environment !== 'homologation';
-            const confirmed = window.confirm(
-              `A SEFAZ retornou apenas o resumo desta NF-e. Enviar Ciência da Emissão em ${isProduction ? 'Produção' : 'Homologação'} para tentar liberar o XML completo?\n\nA Ciência registra conhecimento da emissão. Ela não confirma a compra nem o recebimento da mercadoria.`
-            );
-            if (!confirmed) {
-              toast.info('Nenhuma manifestação foi enviada.');
-              return;
-            }
-
-            const manifestation = await sendInboundScienceOfEmission(clean, true);
-            if (!manifestation.success) {
-              toast.warn(
-                manifestation.error || 'Não foi possível confirmar a Ciência da Emissão. Não reenvie enquanto houver uma tentativa pendente.'
-              );
-              return;
-            }
-
-            const refreshed = await consultInvoiceByAccessKey(clean, {
-              environment: res.environment || 'production',
-            });
-            if (refreshed.success && refreshed.document?.kind === 'full' && refreshed.document.xml) {
-              toast.success('Ciência registrada e XML oficial completo obtido.');
-              await handleXmlString(refreshed.document.xml);
-            } else {
-              toast.info(
-                'Ciência registrada. O XML completo ainda não foi disponibilizado; consulte a nota novamente mais tarde.'
-              );
-            }
-          } else if (res.success) {
-            toast.info(res.message || 'Dados da NF-e processados com sucesso no Ambiente Nacional.');
-          } else {
-            toast.error(
-              res.message || 'Documento não localizado no Ambiente Nacional para esta chave.'
-            );
-          }
-        } catch (err: unknown) {
-          toast.error(err instanceof Error ? err.message : 'Erro na consulta mTLS com a SEFAZ.');
-        }
-      }, (errors) => toast.warn(Object.values(flattenFormErrors(errors))[0]));
-    } finally {
-      directInFlight.current = false;
-      setIsDirectSyncing(false);
-    }
   };
 
   return (
@@ -213,35 +146,18 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                   </button>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    disabled={isDirectSyncing || isLoading}
-                    onClick={handleDirectSefazQuery}
-                    title="Buscar e importar NF-e diretamente pelo Web Service do Ambiente Nacional"
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-bold text-white transition-all ${
-                      !isDirectSyncing && !isLoading
-                        ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-sm'
-                        : 'bg-slate-300 dark:bg-slate-700 cursor-not-allowed text-slate-500 dark:text-slate-400 opacity-60'
-                    }`}
-                  >
-                    <i
-                      className={`bi ${isDirectSyncing ? 'bi-arrow-repeat animate-spin' : 'bi-cloud-arrow-down-fill'}`}
-                      aria-hidden="true"
-                    />
-                    {isDirectSyncing ? 'Buscando...' : 'Buscar SEFAZ Direto'}
-                  </button>
                   <a
                     href={`https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${accessKey}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title="Abrir portal da SEFAZ para consulta manual no navegador (contingência)"
+                    title="Abrir o Portal Nacional da NF-e para consulta manual"
                     className={`inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 transition-colors ${
                       accessKey.length === 44
                         ? 'cursor-pointer'
                         : 'cursor-not-allowed text-slate-400 dark:text-slate-500 border-dashed opacity-50'
                     }`}
-                    onClick={(e) => {
-                      if (accessKey.length !== 44) e.preventDefault();
+                    onClick={(event) => {
+                      if (accessKey.length !== 44) event.preventDefault();
                     }}
                   >
                     <i className="bi bi-box-arrow-up-right text-[11px]" aria-hidden="true" />

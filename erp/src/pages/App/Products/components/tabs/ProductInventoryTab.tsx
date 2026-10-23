@@ -6,6 +6,8 @@ import { ProductPricingFields } from './ProductPricingFields';
 import { ProductManufacturingTypeToggle } from './ProductManufacturingTypeToggle';
 import { syncVariationsWithParent } from '../../domain/variationParentSync';
 import type { SuggestPricesResult } from '../../hooks/form/useProductFormAi';
+import { calculateProductFinalPurchasePrice } from '../../../../../../../shared-utils/productPurchasePricing';
+import { parseProductMinimumStockInput } from '../../../../../../../shared-utils/productMinimumStockInput';
 
 interface ProductInventoryTabProps {
   readonly formData: Partial<Product>;
@@ -19,14 +21,14 @@ interface ProductInventoryTabProps {
   readonly setDiscountPercent?: React.Dispatch<React.SetStateAction<string>>;
   readonly discountFixed: string;
   readonly setDiscountFixed?: React.Dispatch<React.SetStateAction<string>>;
-  readonly handlePriceChange?: (newPrice: string) => void;
-  readonly onPriceChange?: (newPrice: string) => void;
+  readonly handlePriceChange?: (newPrice: string | number) => void;
+  readonly onPriceChange?: (newPrice: string | number) => void;
   readonly handleDiscountPercentChange?: (valStr: string) => void;
   readonly onDiscountPercentChange?: (valStr: string) => void;
-  readonly handleDiscountFixedChange?: (valStr: string) => void;
-  readonly onDiscountFixedChange?: (valStr: string) => void;
-  readonly handlePromoPriceFieldChange?: (valStr: string) => void;
-  readonly onPromoPriceChange?: (valStr: string) => void;
+  readonly handleDiscountFixedChange?: (value: string | number) => void;
+  readonly onDiscountFixedChange?: (value: string | number) => void;
+  readonly handlePromoPriceFieldChange?: (value: string | number) => void;
+  readonly onPromoPriceChange?: (value: string | number) => void;
   readonly validationErrors?: Record<string, boolean>;
   readonly setValidationErrors?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
@@ -68,15 +70,13 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
       const ipi = Number(next.ipiPercent) || 0;
       const freight = Number(next.freightCost) || 0;
       const freightType = next.freightType || 'fixed';
-
-      let finalCost = cost + cost * (ipi / 100);
-      if (freightType === 'fixed') {
-        finalCost += freight;
-      } else {
-        finalCost += cost * (freight / 100);
-      }
-
-      next.finalPurchasePrice = Number(finalCost.toFixed(2));
+      next.finalPurchasePrice = calculateProductFinalPurchasePrice(
+        cost,
+        ipi,
+        freight,
+        freightType,
+        next.ipiType || 'percentage'
+      );
 
       // Propagar campos de custo para variações herdando do pai
       if (next.variations?.length) {
@@ -185,8 +185,10 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
               aria-label="Estoque mínimo do produto"
               value={minStockValue}
               onChange={(e) => {
-                const parsed = parseInt(e.target.value, 10);
-                setFormData((prev) => ({ ...prev, minStock: Number.isNaN(parsed) ? 0 : parsed }));
+                setFormData((prev) => ({
+                  ...prev,
+                  minStock: parseProductMinimumStockInput(e.target.value),
+                }));
               }}
               className="w-full px-4 py-2.5 bg-white dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500/20"
               placeholder="0"

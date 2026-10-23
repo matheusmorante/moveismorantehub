@@ -10,6 +10,11 @@ import {
   getCompleteVariationName,
   normalizeCompleteVariationName,
 } from './productVariationNameValidation';
+import { getProductDiscountValidationIssues } from './productDiscountFields';
+import {
+  hasRequiredProductSupplier,
+  PRODUCT_SUPPLIER_REQUIRED_MESSAGE,
+} from './productSupplierRequirement';
 
 const numericInput = z.union([z.number(), z.string()]).refine((value) => {
   if (typeof value === 'number') return Number.isFinite(value) && value >= 0;
@@ -22,6 +27,7 @@ const productNumbers = {
   stock: numericInput.optional(), minStock: numericInput.optional(), width: numericInput.optional(), height: numericInput.optional(), depth: numericInput.optional(), weight: numericInput.optional(),
   ipiPercent: numericInput.optional(), freightCost: numericInput.optional(), finalPurchasePrice: numericInput.optional(),
 };
+const discountInput = z.union([z.number(), z.string()]).optional();
 const component = z.object({ productId: z.string(), variationId: z.string().nullish(), quantity: numericInput }).passthrough();
 const attributeValue = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 const structuredAttributes = z.union([
@@ -31,6 +37,7 @@ const structuredAttributes = z.union([
 const attributesInput = z.union([structuredAttributes, z.string().refine((value) => { try { return structuredAttributes.safeParse(JSON.parse(value)).success; } catch { return false; } }, 'As características devem conter valores válidos.')]);
 const variationInput = z.object({
   ...productNumbers, id: z.string().optional(), sku: z.string().optional(), name: z.string().optional(),
+  discountPercent: discountInput, discountFixed: discountInput,
   images: z.array(z.string()).optional(),
   attributes: attributesInput.optional(),
   comboItems: z.array(component).optional(), syncUnitPrice: z.boolean().optional(), syncPromoPrice: z.boolean().optional(), active: z.boolean().optional(),
@@ -69,10 +76,24 @@ export const createMobileProductFormSchema = (options: {
       }
     });
   }
+  const variations = data.variations || [];
+  const isMultiVariationMode = Boolean(data.hasVariations) || variations.length > 1;
+  if (variations.length > 1) {
+    variations.forEach((variation, index) => {
+      if (variation.syncUnitPrice !== false) return;
+      const unitPrice = parseLocalizedNumber(variation.price ?? variation.unitPrice ?? data.unitPrice);
+      getProductDiscountValidationIssues(
+        variation.discountPercent,
+        variation.discountFixed,
+        unitPrice
+      ).forEach(({ field, message }) =>
+        ctx.addIssue({ code: 'custom', path: ['variacoes', index, field], message })
+      );
+    });
+  }
   if (options.draft) return;
   const issue = (tab: string, message: string) => ctx.addIssue({ code: 'custom', path: [tab], message });
   if (data.itemType !== 'service' && !['normal', 'salvado', 'usado'].includes(data.productKind || '')) issue('geral', 'Selecione a origem do estoque do produto.');
-  const variations = data.variations || [];
   const validateComboItems = (
     items: Array<{ productId: string; variationId?: string | null; quantity?: string | number }>,
     path: Array<string | number>
@@ -104,25 +125,27 @@ export const createMobileProductFormSchema = (options: {
   variations.forEach((variation, index) =>
     validateComboItems(variation.comboItems || [], ['variacoes', index, 'comboItems'])
   );
-  const isMultiVariationMode = Boolean(data.hasVariations) || variations.length > 1;
   if (isMultiVariationMode && variations.length < 2) {
     issue('variacoes', 'Produto com variações precisa ter pelo menos 2 variações para concluir o cadastro.');
   }
   const parentImages = Array.isArray(data.images) ? data.images.filter(Boolean) : [];
-  const variationMissingImage = variations.find((variation) => {
-    const images = Array.isArray(variation.images)
-      ? variation.images.filter(Boolean)
-      : typeof (variation as any).image_url === 'string' && (variation as any).image_url.trim()
-        ? (variation as any).image_url.split(',').filter(Boolean)
-        : [];
-    return images.length === 0 && (isMultiVariationMode || parentImages.length === 0);
-  });
+  const variationMissingImage = variations
+    .map((variation, index) => ({ variation, index }))
+    .find(({ variation }) => {
+      const images = Array.isArray(variation.images)
+        ? variation.images.filter(Boolean)
+        : typeof (variation as any).image_url === 'string' && (variation as any).image_url.trim()
+          ? (variation as any).image_url.split(',').filter(Boolean)
+          : [];
+      return images.length === 0 && (isMultiVariationMode || parentImages.length === 0);
+    });
   if (variationMissingImage) {
-    const variationName = variationMissingImage.name || variationMissingImage.sku || 'sem nome';
-    issue(
-      'variacoes',
-      `A variação "${variationName}" deve ter pelo menos 1 foto vinculada para concluir o cadastro.`
-    );
+    const variationName = variationMissingImage.variation.name || variationMissingImage.variation.sku || 'sem nome';
+    ctx.addIssue({
+      code: 'custom',
+      path: ['variacoes', variationMissingImage.index, 'images'],
+      message: `A variação "${variationName}" deve ter pelo menos 1 foto vinculada para concluir o cadastro.`,
+    });
   }
   if (isMultiVariationMode && variations.length > 1) {
     const parentName = String(data.name || data.title || data.marketplaceTitle || '').trim();
@@ -177,39 +200,54 @@ export const createMobileProductFormSchema = (options: {
   if (!options.isStockistOnly && isSalvaged && !data.opportunityId) {
     issue('geral', 'A oportunidade é obrigatória para produtos salvados.');
   }
-  const ownProduction = data.merchandiseOrigin === 'own_production' || data.isOwnProduction === true || fiscal?.merchandiseOrigin === 'own_production';
-  if (!ownProduction && !data.mainSupplierId && !data.supplierId) issue('estoque', 'Selecione o fornecedor principal na aba Estoque e Precificação.');
+  if (!hasRequiredProductSupplier(data)) issue('estoque', PRODUCT_SUPPLIER_REQUIRED_MESSAGE);
   if (!variations.length) issue('variacoes', 'Mantenha a variação principal do produto ou adicione uma nova na aba Variações.');
   const parentPrice = parseLocalizedNumber(data.unitPrice);
-  if (!(parentPrice > 0 || variations.some((variation) => parseLocalizedNumber(variation.syncUnitPrice !== false ? parentPrice : variation.price ?? variation.unitPrice) > 0))) issue('estoque', 'Informe o preço de venda do produto.');
+  const hasSellablePrice = parentPrice > 0 || variations.some((variation) =>
+    parseLocalizedNumber(variation.syncUnitPrice !== false ? parentPrice : variation.price ?? variation.unitPrice) > 0
+  );
+  if (!hasSellablePrice && !isMultiVariationMode) {
+    issue('estoque', 'Informe o preço de venda do produto.');
+  }
   if (options.isStockistOnly && data.itemType !== 'service' && !bulkNcmFormSchema.safeParse({ ncm: String(fiscal?.ncm || '') }).success) issue('fiscal', 'Informe um NCM válido com 8 dígitos na aba Tributário / NF.');
-  const invalidVariation = variations.map((variation) => getMobileVariationRegistrationIssue(data, variation, variations)).find(Boolean);
-  if (invalidVariation) {
+  const invalidVariation = variations
+    .map((variation, index) => ({
+      index,
+      issue: getMobileVariationRegistrationIssue(data, variation, variations),
+    }))
+    .find((entry) => Boolean(entry.issue));
+  if (invalidVariation?.issue) {
     if (variations.length <= 1) {
-      const msg = invalidVariation.message.toLowerCase();
+      const msg = invalidVariation.issue.message.toLowerCase();
       if (
         msg.includes('dimensões') ||
         msg.includes('largura') ||
         msg.includes('altura') ||
         msg.includes('profundidade') ||
         msg.includes('características') ||
-        invalidVariation.tab === 'tecnico'
+        invalidVariation.issue.tab === 'tecnico'
       ) {
-        issue('technical', invalidVariation.message);
+        issue('technical', invalidVariation.issue.message);
       } else if (
         msg.includes('preço') ||
         msg.includes('valor') ||
         msg.includes('fornecedor') ||
-        invalidVariation.tab === 'estoque'
+        invalidVariation.issue.tab === 'estoque'
       ) {
-        issue('estoque', invalidVariation.message);
+        issue('estoque', invalidVariation.issue.message);
       } else if (msg.includes('ncm') || msg.includes('tribut')) {
-        issue('fiscal', invalidVariation.message);
+        issue('fiscal', invalidVariation.issue.message);
       } else {
-        issue('geral', invalidVariation.message);
+        issue('geral', invalidVariation.issue.message);
       }
+    } else if (invalidVariation.issue.tab === 'estoque') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['variacoes', invalidVariation.index, 'price'],
+        message: invalidVariation.issue.message,
+      });
     } else {
-      issue('variacoes', invalidVariation.message);
+      issue('variacoes', invalidVariation.issue.message);
     }
   }
   if (options.published && !isMobileEcommerceLegible(data)) issue('geral', 'Despublique o Catálogo antes de remover ou alterar um campo obrigatório.');

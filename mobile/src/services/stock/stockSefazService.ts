@@ -29,15 +29,9 @@ export const triggerSefazSync = async () => {
   });
 };
 
-/**
- * Consulta e importa uma NF-e pontual diretamente do Ambiente Nacional pela chave de 44 dígitos
- */
-export const consultSefazByAccessKey = async (accessKey: string) => {
-  const cleanKey = accessKey.replace(/\D/g, '');
-  if (cleanKey.length !== 44) {
-    throw new Error('Chave de acesso deve conter exatamente 44 dígitos.');
-  }
+/** Processa no máximo um NSU faltante da fila, respeitando a trava global de cinco minutos. */
+export const recoverNextMissingNsuFromSefaz = async () => {
   return await supabase.functions.invoke('sefaz-inbound-sync', {
-    body: { accessKey: cleanKey, environment: 'production' },
+    body: { action: 'recover-missing-nsu', environment: 'production' },
   });
 };

@@ -9,9 +9,10 @@ interface Props {
   shipping: Shipping;
   isBudget?: boolean;
   itemsTotalValue?: number;
+  routeUrl?: string;
 }
 
-const ShippingData = ({ shipping, isBudget, itemsTotalValue }: Props) => {
+const ShippingData = ({ shipping, isBudget, itemsTotalValue, routeUrl }: Props) => {
   const shippingDate = shipping.scheduling?.date;
   const resolution = resolveEffectiveSchedule({ shipping });
 
@@ -89,6 +90,15 @@ const ShippingData = ({ shipping, isBudget, itemsTotalValue }: Props) => {
                 fixedDecimalScale
               />
             </span>
+          </div>
+        )}
+
+        {routeUrl?.trim() && (
+          <div className="mt-2 break-all rounded-xl border border-blue-100 bg-blue-50/60 p-2 text-[10px] font-semibold text-blue-700 print-exact-bg">
+            <span className="font-black uppercase tracking-wider">Rota no Google Maps: </span>
+            <a href={routeUrl} target="_blank" rel="noreferrer" className="underline">
+              {routeUrl}
+            </a>
           </div>
         )}
       </div>

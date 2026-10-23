@@ -1,13 +1,13 @@
-# Decisões pendentes de histórico e comentários — Central de Atendimento
+# Decisões de histórico e comentários — Central de Atendimento
 
 **Data:** 23/10/2026  
-**Status:** decisões aprovadas pelo proprietário; implementação local concluída; migration remota aplicada; prova remota de persistência concluída. Publicação do candidato autorizada condicionalmente e em andamento.
+**Status:** decisões aprovadas pelo proprietário; implementação local e migration remota concluídas; prova de persistência aprovada; candidato publicado. Implantação atual verificada: `dpl_9wN2dRxXZ3GjQX1QW4yRmy8jw7nh` (`READY`, commit `e45141b736592f6f92d6b928ffb8a479fb8c999b`).
 
 ## Decisões do proprietário
 
 O proprietário escolheu resolver a mensagem citada sob o RLS da conversa e permitir o salto à origem; paginar atividades e anexos por cursores próprios, com busca literal validada na galeria; e manter comentários cronológicos separados do resumo interno editável. A migration remota e a publicação foram autorizadas separadamente, com a publicação condicionada ao sucesso da prova remota.
 
-## Estado observado no MoranteHub
+## Estado antes da implementação (referência histórica)
 
 - Mensagem com `replyToWamid` exibe o placeholder genérico “Referência à mensagem anterior”; `MessageBubble` não recebe o conjunto de mensagens nem resolve o WAMID.
 - A conversa carrega primeiro 80 mensagens e busca 50 anteriores ao chegar ao topo. A timeline de eventos e a galeria filtram esse mesmo conjunto carregado, sem afirmar cobertura integral.
@@ -65,4 +65,4 @@ O Playwright deste lote não selecionou conversa operacional nem validou visualm
 
 Após a migration, o catálogo confirmou `SECURITY DEFINER`, `search_path` vazio, timeout de 10 segundos, gate por `auth.uid()` e `customer_support_can_view()`, `anon` sem execução e `authenticated` com execução. A função não atualiza mais `internal_notes`. O registro da aplicação, incluindo os advisors e as contagens remotas, está em [migration remota e próximo gate](central-de-atendimento-migration-remota-2026-10-23.md).
 
-A fixture anterior (`8eaed14f-364d-47ab-be41-66be54b3fb65`) permanece encerrada e preservada. A nova prova autorizada (`e9e22a13-f509-41c9-80c5-ecd21a0349c6`) passou no Supabase remoto: 1 conversa sintética própria, 3 mensagens/eventos no total, comentário persistido, `internal_notes` inalterado, gates aprovados e conversa arquivada com histórico retido. O resultado detalhado está em [registro da prova de comentário](central-de-atendimento-comentario-persistencia-proposta-2026-10-23.md). O candidato `C:\Users\mathe\morantehub-central-history-release-20261023` corresponde ao manifesto de 25 caminhos e está autorizado para publicação; o envio de mensagens permanece bloqueado.
+A fixture anterior (`8eaed14f-364d-47ab-be41-66be54b3fb65`) permanece encerrada e preservada. A nova prova autorizada (`e9e22a13-f509-41c9-80c5-ecd21a0349c6`) passou no Supabase remoto: 1 conversa sintética própria, 3 mensagens/eventos no total, comentário persistido, `internal_notes` inalterado, gates aprovados e conversa arquivada com histórico retido. O resultado detalhado está em [registro da prova de comentário](central-de-atendimento-comentario-persistencia-proposta-2026-10-23.md). O candidato de 25 caminhos foi publicado como `dpl_7nPegi5o1D8f9xtNCDh2ga6YnEJW` (`READY`, Production); `/` e `/atendimento` responderam 200. A implantação de produção mais recente verificada é `dpl_9wN2dRxXZ3GjQX1QW4yRmy8jw7nh` (`READY`, commit `e45141b736592f6f92d6b928ffb8a479fb8c999b`). O envio de mensagens permanece bloqueado. O webhook legítimo ainda não foi exercitado e a telemetria de produção registrou uma resposta 401 sem detalhe suficiente para determinar a causa.

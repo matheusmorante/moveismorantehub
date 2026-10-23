@@ -1,5 +1,6 @@
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { createMobileProductFormSchema } from '../../../../../shared-utils/mobileProductFormSchema';
+import { deriveProductDiscountFields } from '../../../../../shared-utils/productDiscountFields';
 import {
   Check,
   ChevronLeft,
@@ -39,6 +40,11 @@ import {
   shouldShowMobileProductVariationsTab,
 } from '../domain/mobileProductVariationMode';
 import {
+  resolveMobileProductFormErrorNavigation,
+  type MobileProductFormErrorNavigation,
+  type MobileProductFormTabId,
+} from '../domain/mobileProductFormErrorNavigation';
+import {
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
   getMissingRequiredCharacteristics,
@@ -68,7 +74,7 @@ import { getNextSequentialProductCode } from '../services/mobileProductCodeServi
 import { fetchMobileProductFiscalDefaults } from '../services/mobileProductFiscalService';
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
-type TabId = 'geral' | 'fotos' | 'technical' | 'description' | 'estoque' | 'variacoes' | 'fiscal';
+type TabId = MobileProductFormTabId;
 
 interface Tab {
   id: TabId;
@@ -197,6 +203,8 @@ export const ProductFormScreen: React.FC<Props> = ({
     hideCatalogPublicationStatus,
   } = useProductFormPermissions();
   const [activeTab, setActiveTab] = useState<TabId>('geral');
+  const [variationValidationTarget, setVariationValidationTarget] =
+    useState<MobileProductFormErrorNavigation | null>(null);
   const [formData, setFormDataRaw] = useState<any>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [ncmError, setNcmError] = useState(false);
@@ -206,6 +214,11 @@ export const ProductFormScreen: React.FC<Props> = ({
   const clientProductIdRef = useRef<string | null>(null);
   const clientProductCodeRef = useRef<string | null>(null);
   const insets = useSafeAreaInsets();
+
+  const clearVariationValidationTarget = useCallback(
+    () => setVariationValidationTarget(null),
+    []
+  );
 
   const categoryIds: string[] =
     Array.isArray(formData.categoryIds) && formData.categoryIds.length
@@ -311,6 +324,12 @@ export const ProductFormScreen: React.FC<Props> = ({
         }
       }
       const comboItems = getMobileProductRootCompositionItems(product);
+      const unitPrice = product.unitPrice ?? product.unit_price ?? '';
+      const promoPrice = product.promoPrice ?? product.promo_price ?? '';
+      const discountFields = deriveProductDiscountFields(
+        parseLocalizedPrice(unitPrice),
+        parseLocalizedPrice(promoPrice)
+      );
       setFormDataRaw({
         ...INITIAL_FORM,
         ...product,
@@ -352,8 +371,9 @@ export const ProductFormScreen: React.FC<Props> = ({
         mainSupplierId: product.main_supplier_id || product.mainSupplierId || '',
         description: product.description || '',
         observations: product.observations || '',
-        unitPrice: product.unitPrice ?? product.unit_price ?? '',
-        promoPrice: product.promoPrice ?? product.promo_price ?? '',
+        unitPrice,
+        promoPrice,
+        ...discountFields,
         costPrice: product.costPrice ?? product.cost_price ?? '',
         ipiPercent: product.ipi_percent ?? product.ipiPercent ?? '',
         freightType: product.freight_type || product.freightType || 'fixed',
@@ -584,10 +604,17 @@ export const ProductFormScreen: React.FC<Props> = ({
         },
         (errors) => {
           const messages = flattenFormErrors(errors);
-          const tab = Object.keys(messages)[0];
-          if (['geral', 'variacoes', 'estoque', 'fiscal', 'technical', 'fotos', 'description'].includes(tab)) setActiveTab(tab as TabId);
-          setNcmError(tab === 'fiscal');
-          Alert.alert('Confira os campos', Object.values(messages)[0]);
+          const firstErrorPath = Object.keys(messages)[0] || '';
+          const navigation = resolveMobileProductFormErrorNavigation(firstErrorPath);
+          if (navigation) setActiveTab(navigation.tab);
+          setVariationValidationTarget(
+            navigation?.variationIndex !== undefined ? navigation : null
+          );
+          setNcmError(navigation?.tab === 'fiscal');
+          Alert.alert(
+            'Confira os campos',
+            messages[firstErrorPath] || Object.values(messages)[0] || 'Revise os campos informados.'
+          );
         }
       );
     },
@@ -700,6 +727,8 @@ export const ProductFormScreen: React.FC<Props> = ({
             isExistingProduct={Boolean(product?.id)}
             isStockistOnly={isStockistOnly}
             selectedVariationId={product?.selectedVariationId}
+            validationTarget={variationValidationTarget}
+            onValidationTargetHandled={clearVariationValidationTarget}
           />
         );
       case 'fiscal':

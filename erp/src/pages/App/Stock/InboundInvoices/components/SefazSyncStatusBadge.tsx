@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   fetchSefazSyncStatus,
+  recoverNextMissingNsuFromSefaz,
   syncInboundInvoicesFromSefaz,
   SefazSyncStatus,
 } from '@/pages/utils/inboundNfe/services/sefazInboundSyncService';
@@ -12,19 +13,42 @@ interface SefazSyncStatusBadgeProps {
 export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSyncSuccess }) => {
   const [status, setStatus] = useState<SefazSyncStatus | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const onSyncSuccessRef = useRef(onSyncSuccess);
+
+  useEffect(() => {
+    onSyncSuccessRef.current = onSyncSuccess;
+  }, [onSyncSuccess]);
 
   const loadStatus = useCallback(async () => {
     const current = await fetchSefazSyncStatus();
     setStatus(current);
   }, []);
 
+  const recoverMissingNsu = useCallback(async () => {
+    try {
+      const result = await recoverNextMissingNsuFromSefaz();
+      if (result.success && (result.newDocsCount || 0) > 0) {
+        onSyncSuccessRef.current?.();
+      }
+    } catch (error) {
+      console.error('[SefazSyncStatusBadge] Falha ao recuperar NSU pendente:', error);
+    }
+  }, []);
+
   useEffect(() => {
     void loadStatus();
+    void recoverMissingNsu();
     const interval = setInterval(() => {
       void loadStatus();
     }, 45000); // Polling leve a cada 45 segundos para atualizar o indicador
-    return () => clearInterval(interval);
-  }, [loadStatus]);
+    const recoveryInterval = setInterval(() => {
+      void recoverMissingNsu();
+    }, 5 * 60 * 1000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(recoveryInterval);
+    };
+  }, [loadStatus, recoverMissingNsu]);
 
   const handleRetry = async () => {
     if (isRetrying) return;

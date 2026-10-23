@@ -1,11 +1,13 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { WhatsAppMessage } from '../../types';
 import { MessageBubble } from '../MessageBubble';
+import { useCustomerSupportMessageSearch } from '../../hooks/useCustomerSupportMessageSearch';
 
 interface ChatMessageTimelineProps {
   messages: WhatsAppMessage[];
   displayName: string;
   inChatSearch: string;
+  searchRevision?: number;
   isLoadingMessages: boolean;
   conversationId: string;
   hasOlderMessages?: boolean;
@@ -64,6 +66,7 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   messages,
   displayName,
   inChatSearch,
+  searchRevision = 0,
   isLoadingMessages,
   conversationId,
   hasOlderMessages = false,
@@ -81,11 +84,16 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   const previousConversationIdRef = useRef<string | null>(null);
   const loadingOlderRef = useRef(false);
   const [preserveScroll, setPreserveScroll] = useState<{ height: number; top: number } | null>(null);
+  const search = useCustomerSupportMessageSearch(conversationId, inChatSearch, searchRevision);
+  const isSearching = Boolean(inChatSearch.trim());
+  const timelineMessages = isSearching ? search.messages : messages;
+  const timelineError = isSearching ? search.error : error;
+  const isLoadingTimeline = isSearching ? search.isLoading && search.messages.length === 0 : isLoadingMessages;
 
   // Mantém a posição ao anexar mensagens antigas; novas mensagens seguem para o final.
   useEffect(() => {
     const conversationChanged = previousConversationIdRef.current !== conversationId;
-    const latestId = messages[messages.length - 1]?.id || null;
+    const latestId = timelineMessages[timelineMessages.length - 1]?.id || null;
     const latestChanged = previousLastMessageIdRef.current !== latestId;
     previousConversationIdRef.current = conversationId;
     previousLastMessageIdRef.current = latestId;
@@ -97,11 +105,11 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
     } else if (conversationChanged || latestChanged) {
       messagesEndRef.current?.scrollIntoView({ behavior: conversationChanged ? 'auto' : 'smooth' });
     }
-  }, [messages, conversationId, preserveScroll]);
+  }, [timelineMessages, conversationId, preserveScroll]);
 
   const handleTimelineScroll = async () => {
     const container = timelineRef.current;
-    if (!container || container.scrollTop > 24 || !hasOlderMessages || !onLoadOlderMessages || loadingOlderRef.current) return;
+    if (isSearching || !container || container.scrollTop > 24 || !hasOlderMessages || !onLoadOlderMessages || loadingOlderRef.current) return;
     loadingOlderRef.current = true;
     const currentPosition = { height: container.scrollHeight, top: container.scrollTop };
     setPreserveScroll(currentPosition);
@@ -119,22 +127,16 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
     }
   };
 
-  // Filtragem local se busca interna estiver ativa
-  const matchedMessages = inChatSearch.trim()
-    ? messages.filter(
-        (m) =>
-          m.textContent?.toLowerCase().includes(inChatSearch.toLowerCase().trim()) ||
-          m.mediaFilename?.toLowerCase().includes(inChatSearch.toLowerCase().trim())
-      )
-    : messages;
+  const matchedMessages = timelineMessages;
   const filteredMessages = jumpToMessageId && !matchedMessages.some((message) => message.id === jumpToMessageId)
     ? [...matchedMessages, ...messages.filter((message) => message.id === jumpToMessageId)].sort((a, b) =>
         a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id)
       )
     : matchedMessages;
 
-  const messagesById = new Map(messages.map((message) => [message.id, message]));
-  const messagesByApiId = new Map(messages.filter((message) => message.apiMessageId).map((message) => [message.apiMessageId as string, message]));
+  const contextMessages = [...messages, ...search.messages];
+  const messagesById = new Map(contextMessages.map((message) => [message.id, message]));
+  const messagesByApiId = new Map(contextMessages.filter((message) => message.apiMessageId).map((message) => [message.apiMessageId as string, message]));
 
   useEffect(() => {
     if (!jumpToMessageId || !timelineRef.current) return;
@@ -149,19 +151,19 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
 
   return (
     <div ref={timelineRef} role="region" aria-label="Histórico da conversa" onScroll={handleTimelineScroll} className="flex-1 overflow-y-auto p-4 space-y-3 z-0">
-      {error && <p role="alert" className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950 text-xs text-amber-800 dark:text-amber-300">{error}</p>}
-      {error && hasOlderMessages && onLoadOlderMessages && <button type="button" disabled={isLoadingOlderMessages} onClick={() => void onLoadOlderMessages()} className="text-xs underline text-emerald-700 dark:text-emerald-400">Tentar carregar mensagens anteriores</button>}
-      {isLoadingOlderMessages && (
+      {timelineError && <p role="alert" className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950 text-xs text-amber-800 dark:text-amber-300">{timelineError}</p>}
+      {!isSearching && error && hasOlderMessages && onLoadOlderMessages && <button type="button" disabled={isLoadingOlderMessages} onClick={() => void onLoadOlderMessages()} className="text-xs underline text-emerald-700 dark:text-emerald-400">Tentar carregar mensagens anteriores</button>}
+      {!isSearching && isLoadingOlderMessages && (
         <div className="sticky top-0 z-20 flex justify-center py-2 text-[11px] text-slate-500">
           <span className="rounded-full bg-white/90 dark:bg-slate-800/90 px-3 py-1 shadow-sm">Carregando mensagens anteriores…</span>
         </div>
       )}
-      {isLoadingMessages ? (
+      {isLoadingTimeline ? (
         <div className="py-16 flex flex-col items-center justify-center gap-2">
           <div className="w-7 h-7 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-          <span className="text-xs text-slate-400">Carregando mensagens...</span>
+          <span role="status" className="text-xs text-slate-400">{isSearching ? 'Pesquisando mensagens…' : 'Carregando mensagens...'}</span>
         </div>
-      ) : filteredMessages.length === 0 && !error ? (
+      ) : filteredMessages.length === 0 && !timelineError ? (
         <div className="py-16 text-center text-slate-400 text-xs flex flex-col items-center justify-center">
           <i className="bi bi-chat-square-text text-3xl block mb-2 opacity-40"></i>
           {inChatSearch
@@ -193,6 +195,12 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
             ))}
           </div>
         ))
+      )}
+      {isSearching && (search.hasMore || search.error) && (
+        <button type="button" disabled={search.isLoading} onClick={() => void search.loadMore()}
+          className="w-full py-2 text-xs text-blue-600 dark:text-blue-400 disabled:opacity-50">
+          {search.isLoading ? 'Pesquisando mensagens…' : search.error ? 'Tentar pesquisar novamente' : 'Carregar mais resultados'}
+        </button>
       )}
       <div ref={messagesEndRef} />
     </div>

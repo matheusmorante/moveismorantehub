@@ -8,12 +8,38 @@ import {
   formatCurrency,
   toTitleCase,
 } from './formatters';
-import { getShippingRouteUrl } from './maps';
 import { formatOrderCode } from './orderCode';
+import {
+  getEffectiveOrderDeliveryAddress,
+  getEffectiveOrderDeliveryMapUrl,
+} from './orderDeliveryAddress';
 
 export const stringifyAdditionalContacts = (contacts?: { name: string; phone: string }[]) => {
   if (!contacts || contacts.length === 0) return '';
   return contacts.map((c) => `• ${c.name}: ${c.phone}`).join('\n');
+};
+
+const removeOptionalRouteUrlSection = (template: string) => {
+  const lines = template.split(/\r?\n/);
+  const visibleLines: string[] = [];
+
+  for (const line of lines) {
+    if (!line.includes('{{routeUrl}}')) {
+      visibleLines.push(line);
+      continue;
+    }
+
+    if (line.trim() === '{{routeUrl}}') {
+      let headingIndex = visibleLines.length - 1;
+      while (headingIndex >= 0 && !visibleLines[headingIndex].trim()) headingIndex -= 1;
+      const heading = visibleLines[headingIndex] || '';
+      if (/(?:rota|route|google\s*maps|maps?|mapa|localiza|url)/i.test(heading)) {
+        visibleLines.splice(headingIndex);
+      }
+    }
+  }
+
+  return visibleLines.join('\n').replace(/\n{3,}/g, '\n\n');
 };
 
 export const buildDeliveryMessage = (order: Order) => {
@@ -34,8 +60,10 @@ export const buildDeliveryMessage = (order: Order) => {
   }
   const customer = order.customerData;
   const customerNameFormatted = toTitleCase(customer?.fullName || 'Cliente');
-  const deliveryAddress = order.shipping?.deliveryAddress;
-  const deliveryAddressText = stringifyFullAddressWithObservation(deliveryAddress);
+  const deliveryAddress = getEffectiveOrderDeliveryAddress(order);
+  const deliveryAddressText = order.shipping?.noAddress
+    ? ''
+    : stringifyFullAddressWithObservation(deliveryAddress);
 
   let message = settings.whatsappTemplates?.deliveryInfo || '';
 
@@ -51,13 +79,8 @@ export const buildDeliveryMessage = (order: Order) => {
     itemsBlock += `\n*Frete:* ${formatCurrency(order.shipping.value)}`;
   }
 
-  const mapsLink =
-    (
-      order.shipping?.deliveryAddress?.mapsUrl ||
-      (order.shipping?.deliveryAddress as any)?.googleMapsUrl ||
-      (order.shipping?.deliveryAddress as any)?.mapsLink ||
-      ''
-    )?.trim() || null;
+  const routeUrl = getEffectiveOrderDeliveryMapUrl(order);
+  if (!routeUrl) message = removeOptionalRouteUrlSection(message);
 
   let finalMessage = message
     .replace(/{{customerName}}/g, () => customerNameFormatted)
@@ -71,25 +94,14 @@ export const buildDeliveryMessage = (order: Order) => {
     .replace(/{{address}}/g, () => {
       if (order.shipping?.noAddress)
         return order.shipping?.deliveryMethod === 'pickup' ? 'Retirada em loja' : 'Não informado';
-      let addrStr = deliveryAddressText || 'Endereço não informado';
-      if (mapsLink) {
-        addrStr += `\n📍 *Localização (Google Maps):* ${mapsLink}`;
-      }
-      return addrStr;
+      return deliveryAddressText || 'Endereço não informado';
     })
     .replace(/{{items}}/g, () => itemsBlock)
     .replace(/{{payments}}/g, () => stringifyPayments(order.payments || []))
     .replace(/{{totalValue}}/g, () => formatCurrency(order.paymentsSummary?.totalOrderValue || 0))
     .replace(/{{observation}}/g, () => order.observation || 'Sem observações')
     .replace(/{{seller}}/g, () => order.seller || 'Não informado')
-    .replace(
-      /{{routeUrl}}/g,
-      () =>
-        mapsLink ||
-        (deliveryAddressText
-          ? getShippingRouteUrl(deliveryAddress)
-          : 'Endereço não informado')
-    );
+    .replace(/{{routeUrl}}/g, () => routeUrl);
 
   if (order.shipping?.deliveryMethod === 'pickup') {
     finalMessage = finalMessage

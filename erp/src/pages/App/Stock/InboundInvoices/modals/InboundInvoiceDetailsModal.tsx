@@ -34,6 +34,7 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
   }, [invoice, onClose]);
 
   if (!invoice) return null;
+  const sefazReturnedSummary = /<(?:[\w.-]+:)?resNFe\b/i.test(invoice.rawXml || '');
 
   return (
     <div
@@ -129,7 +130,9 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
             <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
               {(invoice.items ?? []).length === 0 ? (
                 <p className="p-4 text-center text-xs text-slate-400">
-                  Itens não disponíveis para esta nota fiscal.
+                  {sefazReturnedSummary
+                    ? 'A SEFAZ retornou somente o resumo desta NF-e, que não contém os itens. Eles aparecem quando o XML completo chegar pela distribuição; para lançar agora, importe o XML recebido do fornecedor.'
+                    : 'Itens não disponíveis para esta nota fiscal.'}
                 </p>
               ) : (
                 (invoice.items ?? []).map((item, idx) => (

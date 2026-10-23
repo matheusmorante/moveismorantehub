@@ -43,6 +43,7 @@ export const productAiSourceItemSchema = z.preprocess((val) => {
 export const productDescriptionAiFormSchema = z.object({
   title: z.string().trim().min(1, 'Informe o nome antes de aperfeiçoar a descrição.'),
   currentDescription: z.string(),
+  categoryName: z.string().optional(),
   material: z.string().optional(), brand: z.string().optional(), line: z.string().optional(),
   model: z.string().optional(), modelOrLine: z.string().optional(),
   width: nonnegativeMeasure.optional(), height: nonnegativeMeasure.optional(),

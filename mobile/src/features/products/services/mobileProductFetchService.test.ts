@@ -5,6 +5,8 @@ const { supabaseMock } = vi.hoisted(() => ({ supabaseMock: { from: vi.fn() } }))
 vi.mock('../../../services/supabaseClient', () => ({ supabase: supabaseMock }));
 
 import { fetchMobileProductsPage } from './mobileProductFetchService';
+import { PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER } from '../../../../../shared-utils/productListTypeFilters';
+import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
 
 describe('fetchMobileProductsPage', () => {
   beforeEach(() => {
@@ -21,6 +23,37 @@ describe('fetchMobileProductsPage', () => {
     supabaseMock.from.mockReturnValue(query);
 
     await expect(fetchMobileProductsPage(1, 15, { throwOnError: true })).rejects.toBe(queryError);
+  });
+
+  it('usa o predicado compartilhado para categorias primárias, relações e registros legados', async () => {
+    const productQuery: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      productQuery[method] = vi.fn(() => productQuery);
+    }
+    productQuery.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    const categoryQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { name: 'Sala' }, error: null }),
+    };
+    const categoryLinksQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [{ product_id: 'product-1' }], error: null })),
+    };
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'categories') return categoryQuery;
+      if (table === 'product_categories') return categoryLinksQuery;
+      return productQuery;
+    });
+
+    await fetchMobileProductsPage(1, 15, { category: 'category-1', throwOnError: true });
+
+    expect(productQuery.or).toHaveBeenCalledWith(
+      'category_id.eq.category-1,category.eq."Sala",id.in.(product-1)'
+    );
+    expect(categoryQuery.eq).toHaveBeenCalledWith('id', 'category-1');
+    expect(categoryLinksQuery.eq).toHaveBeenCalledWith('category_id', 'category-1');
   });
 
   it('uses a compact projection for agent summaries and keeps virtual variant SKUs', async () => {
@@ -68,6 +101,94 @@ describe('fetchMobileProductsPage', () => {
       allVariations: [{ sku: 'MESA-1-01' }],
     });
     expect(result.total).toBe(1);
+  });
+
+  it('filtra Somente Produtos com composições quando a permissão foi concedida', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    supabaseMock.from.mockReturnValue(query);
+
+    await fetchMobileProductsPage(1, 15, {
+      itemType: 'standard',
+      generalType: 'product',
+      canViewCompositions: true,
+    });
+
+    expect(query.or).toHaveBeenCalledWith(PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER);
+    expect(query.filter).not.toHaveBeenCalledWith('item_type', 'isdistinct', 'composition');
+    expect(query.eq).not.toHaveBeenCalledWith('item_type', 'product');
+  });
+
+  it('mantém composições fora de Somente Produtos sem a permissão', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    supabaseMock.from.mockReturnValue(query);
+
+    await fetchMobileProductsPage(1, 15, {
+      itemType: 'standard',
+      generalType: 'product',
+      canViewCompositions: false,
+    });
+
+    expect(query.filter).toHaveBeenCalledWith('item_type', 'isdistinct', 'composition');
+    expect(query.eq).toHaveBeenCalledWith('item_type', 'product');
+    expect(query.or).not.toHaveBeenCalledWith(PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER);
+  });
+
+  it('inclui composições no estado Todos quando a permissão foi concedida', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    supabaseMock.from.mockReturnValue(query);
+
+    await fetchMobileProductsPage(1, 15, {
+      itemType: 'standard',
+      generalType: 'all',
+      canViewCompositions: true,
+    });
+
+    expect(query.filter).not.toHaveBeenCalledWith('item_type', 'isdistinct', 'composition');
+    expect(query.eq).not.toHaveBeenCalledWith('item_type', expect.anything());
+    expect(query.or).not.toHaveBeenCalledWith(PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER);
+  });
+
+  it('mantém composições fora do estado Todos sem a permissão', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    supabaseMock.from.mockReturnValue(query);
+
+    await fetchMobileProductsPage(1, 15, {
+      itemType: 'standard',
+      generalType: 'all',
+      canViewCompositions: false,
+    });
+
+    expect(query.filter).toHaveBeenCalledWith('item_type', 'isdistinct', 'composition');
+    expect(query.eq).not.toHaveBeenCalledWith('item_type', expect.anything());
+  });
+
+  it('usa o predicado compartilhado para localizar rascunhos legados', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    supabaseMock.from.mockReturnValue(query);
+
+    await fetchMobileProductsPage(1, 15, { statusFilter: 'draft' });
+
+    expect(query.or).toHaveBeenCalledWith(PRODUCT_LIST_DRAFT_FILTER);
   });
 
   it('limits product autocomplete to active non-draft products from the selected supplier', async () => {

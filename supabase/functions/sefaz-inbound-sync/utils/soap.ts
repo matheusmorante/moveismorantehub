@@ -1,8 +1,16 @@
-export function buildSoapEnvelope(cleanCnpj: string, nsu: string, tpAmb: "1" | "2", accessKey?: string): string {
+export function buildSoapEnvelope(
+  cleanCnpj: string,
+  nsu: string,
+  tpAmb: "1" | "2",
+  accessKey?: string,
+  queryType: "distNSU" | "consNSU" = "distNSU",
+): string {
   const paddedNsu = nsu.padStart(15, "0");
   const query = accessKey
     ? `<consChNFe><chNFe>${accessKey}</chNFe></consChNFe>`
-    : `<distNSU><ultNSU>${paddedNsu}</ultNSU></distNSU>`;
+    : queryType === "consNSU"
+      ? `<consNSU><NSU>${paddedNsu}</NSU></consNSU>`
+      : `<distNSU><ultNSU>${paddedNsu}</ultNSU></distNSU>`;
   return `<?xml version="1.0" encoding="utf-8"?>
 <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
   <soap12:Body>

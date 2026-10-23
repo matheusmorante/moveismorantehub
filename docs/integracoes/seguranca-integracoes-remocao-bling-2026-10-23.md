@@ -23,7 +23,7 @@ O `VITE_GEMINI_API_KEY` antigo foi removido. As credenciais do operador fiscal f
 
 ## Migration e publicação
 
-A versão compatível foi publicada antes da migration. A implantação inicial do candidato foi `dpl_24pSb1FNTAsETZXoNRZWTMKEt265`; a implantação de produção mais recente é `dpl_8BqN79XPkSLtVfuPkF6WeWWdzkAk`, estado `READY`, commit `7ba140f4a5058ecd95dec77e3b43639f82a448c4`, com os aliases `morantehub.vercel.app` e `morantehub.com`. O pacote selecionado está incluído no commit de produção. A migration foi aplicada ao projeto Supabase operacional e aparece no histórico como versão `20261023130851`, nome `20261023103833_remove_bling_and_settings_credentials`. Os valores removidos de `public.settings` só podem ser recuperados por backup. Não foram criados pedidos, clientes ou outras fixtures nesta etapa.
+A versão compatível foi publicada antes da migration. A implantação inicial do candidato foi `dpl_24pSb1FNTAsETZXoNRZWTMKEt265`; a implantação deste lote foi `dpl_8BqN79XPkSLtVfuPkF6WeWWdzkAk`, estado `READY`, commit `7ba140f4a5058ecd95dec77e3b43639f82a448c4`, com os aliases `morantehub.vercel.app` e `morantehub.com`. A implantação atual verificada é `dpl_9wN2dRxXZ3GjQX1QW4yRmy8jw7nh`, estado `READY`, commit `e45141b736592f6f92d6b928ffb8a479fb8c999b`. A migration foi aplicada ao projeto Supabase operacional e aparece no histórico como versão `20261023130851`, nome `20261023103833_remove_bling_and_settings_credentials`. A verificação posterior encontrou zero credenciais não vazias em `public.settings`; a policy autenticada ainda permite ler configurações não secretas. Os valores removidos só podem ser recuperados por backup. Não foram criados pedidos, clientes ou outras fixtures nesta etapa.
 
 ## Validação executada
 

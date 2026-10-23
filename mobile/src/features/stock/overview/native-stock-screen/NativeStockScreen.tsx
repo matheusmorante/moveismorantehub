@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, ScrollView } from 'react-native';
-import PagerView from '../../../../components/Pager';
+import React, { useState } from 'react';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ArrowLeft, ChevronRight } from 'lucide-react-native';
 
 import { StockSummaryScreen } from '../StockSummaryScreen';
 import { StockMovesScreen } from '../../moves';
@@ -10,9 +10,8 @@ import { InvoicesScreen } from '../../invoices';
 import { ReceiptsScreen } from '../../receipts';
 import { SuppliersScreen } from '../../suppliers/SuppliersScreen';
 import { UnavailabilitiesScreen } from '../../unavailabilities';
-import { TABS } from './nativeStockScreen.types';
+import { STOCK_MODULES } from './nativeStockScreen.types';
 import { styles } from './nativeStockScreen.styles';
-import { StockModuleTabBar } from './StockModuleTabBar';
 
 interface Props {
   isDarkMode: boolean;
@@ -20,96 +19,35 @@ interface Props {
 }
 
 export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) => {
-  const [tabIndex, setTabIndex] = useState(0);
-  const pagerRef = useRef<PagerView>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const tabsScrollMetrics = useRef({ viewport: 0, content: 0, offset: 0 });
-  const tabLayouts = useRef<Partial<Record<number, { x: number; width: number }>>>({});
-  const [tabsScrollEdges, setTabsScrollEdges] = useState({ left: false, right: false });
-  const [tabWidth, setTabWidth] = useState(78);
-  const [loadedTabs, setLoadedTabs] = useState<number[]>([0]);
-
-  const updateTabsScrollMetrics = (update: Partial<typeof tabsScrollMetrics.current>) => {
-    const metrics = { ...tabsScrollMetrics.current, ...update };
-    tabsScrollMetrics.current = metrics;
-    const maxOffset = Math.max(0, metrics.content - metrics.viewport);
-    const edges = {
-      left: metrics.offset > 1,
-      right: maxOffset > 1 && metrics.offset < maxOffset - 1,
-    };
-    setTabsScrollEdges((current) =>
-      current.left === edges.left && current.right === edges.right ? current : edges
-    );
-  };
-
-  const scrollTabIntoView = (index: number) => {
-    const layout = tabLayouts.current[index];
-    const { viewport, offset } = tabsScrollMetrics.current;
-    if (!layout || !viewport) return;
-
-    if (layout.x < offset) {
-      scrollViewRef.current?.scrollTo({ x: Math.max(0, layout.x - 8), animated: true });
-    } else if (layout.x + layout.width > offset + viewport) {
-      scrollViewRef.current?.scrollTo({
-        x: layout.x + layout.width - viewport + 8,
-        animated: true,
-      });
-    }
-  };
-
-  const scrollTabs = (direction: -1 | 1) => {
-    const { viewport, content, offset } = tabsScrollMetrics.current;
-    const maxOffset = Math.max(0, content - viewport);
-    const nextOffset =
-      direction > 0
-        ? Math.min(maxOffset, offset + Math.max(120, viewport * 0.75))
-        : Math.max(0, offset - Math.max(120, viewport * 0.75));
-    scrollViewRef.current?.scrollTo({ x: nextOffset, animated: true });
-  };
-
-  const handleTabPress = (index: number) => {
-    setTabIndex(index);
-    pagerRef.current?.setPage(index);
-    if (!loadedTabs.includes(index)) {
-      setLoadedTabs((prev) => [...prev, index]);
-    }
-    scrollTabIntoView(index);
-  };
+  const [selectedModuleIndex, setSelectedModuleIndex] = useState<number | null>(null);
+  const selectedModule =
+    selectedModuleIndex === null ? null : STOCK_MODULES[selectedModuleIndex];
+  const returnToMenu = () => setSelectedModuleIndex(null);
 
   const renderModuleHeader = () => (
-    <StockModuleTabBar
-      isDarkMode={isDarkMode}
-      tabIndex={tabIndex}
-      tabWidth={tabWidth}
-      setTabWidth={setTabWidth}
-      onTabPress={handleTabPress}
-      scrollViewRef={scrollViewRef}
-      tabLayouts={tabLayouts}
-      scrollTabIntoView={scrollTabIntoView}
-      updateTabsScrollMetrics={updateTabsScrollMetrics}
-      tabsScrollEdges={tabsScrollEdges}
-      scrollTabs={scrollTabs}
-    />
+    <View style={[styles.moduleHeader, isDarkMode && styles.moduleHeaderDark]}>
+      <TouchableOpacity
+        style={[styles.backButton, isDarkMode && styles.backButtonDark]}
+        onPress={returnToMenu}
+        accessibilityRole="button"
+        accessibilityLabel="Voltar para o menu de Estoque"
+      >
+        <ArrowLeft size={18} color={isDarkMode ? '#f8fafc' : '#334155'} />
+      </TouchableOpacity>
+      <Text style={[styles.moduleTitle, isDarkMode && styles.textLight]} numberOfLines={1}>
+        {selectedModule?.title}
+      </Text>
+    </View>
   );
 
-  const renderContent = (index: number) => {
-    if (!loadedTabs.includes(index) && index !== tabIndex) {
-      return (
-        <View style={styles.center}>
-          <Text style={isDarkMode ? styles.textMutedDark : { color: '#64748b' }}>
-            Carregando...
-          </Text>
-        </View>
-      );
-    }
-
-    switch (index) {
+  const renderSelectedModule = () => {
+    switch (selectedModuleIndex) {
       case 0:
         return (
           <StockSummaryScreen
             isDarkMode={isDarkMode}
             renderHeader={renderModuleHeader}
-            onNavigate={handleTabPress}
+            onNavigate={(index) => setSelectedModuleIndex(index)}
           />
         );
       case 1:
@@ -117,7 +55,7 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
           <StockMovesScreen
             isDarkMode={isDarkMode}
             renderHeader={renderModuleHeader}
-            onBack={() => handleTabPress(0)}
+            onBack={returnToMenu}
           />
         );
       case 2:
@@ -126,7 +64,7 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
             isDarkMode={isDarkMode}
             userProfile={userProfile}
             renderHeader={renderModuleHeader}
-            onBack={() => handleTabPress(0)}
+            onBack={returnToMenu}
           />
         );
       case 3:
@@ -134,7 +72,7 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
           <PurchasesScreen
             isDarkMode={isDarkMode}
             renderHeader={renderModuleHeader}
-            onBack={() => handleTabPress(0)}
+            onBack={returnToMenu}
           />
         );
       case 4:
@@ -142,7 +80,7 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
           <InvoicesScreen
             isDarkMode={isDarkMode}
             renderHeader={renderModuleHeader}
-            onBack={() => handleTabPress(0)}
+            onBack={returnToMenu}
           />
         );
       case 5:
@@ -150,7 +88,7 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
           <ReceiptsScreen
             isDarkMode={isDarkMode}
             renderHeader={renderModuleHeader}
-            onBack={() => handleTabPress(0)}
+            onBack={returnToMenu}
           />
         );
       case 6:
@@ -158,7 +96,7 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
           <SuppliersScreen
             isDarkMode={isDarkMode}
             renderHeader={renderModuleHeader}
-            onBack={() => handleTabPress(0)}
+            onBack={returnToMenu}
           />
         );
       case 7:
@@ -176,25 +114,40 @@ export const NativeStockScreen: React.FC<Props> = ({ isDarkMode, userProfile }) 
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <PagerView
-        ref={pagerRef}
-        style={styles.pager}
-        initialPage={0}
-        onPageSelected={(e) => {
-          const pos = e.nativeEvent.position;
-          setTabIndex(pos);
-          scrollTabIntoView(pos);
-          if (!loadedTabs.includes(pos)) {
-            setLoadedTabs((prev) => [...prev, pos]);
-          }
-        }}
-      >
-        {TABS.map((tab, idx) => (
-          <View key={tab.key} style={styles.page}>
-            {renderContent(idx)}
-          </View>
-        ))}
-      </PagerView>
+      {selectedModuleIndex === null ? (
+        <ScrollView contentContainerStyle={styles.menuContent}>
+          <Text style={[styles.menuTitle, isDarkMode && styles.textLight]}>Estoque</Text>
+          <Text style={[styles.menuSubtitle, isDarkMode && styles.textMutedDark]}>
+            Escolha o módulo que deseja consultar.
+          </Text>
+          {STOCK_MODULES.map(({ key, title, description, Icon }, index) => (
+            <TouchableOpacity
+              key={key}
+              testID={`stock-module-${key}`}
+              onPress={() => setSelectedModuleIndex(index)}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={`Abrir ${title}`}
+              style={[styles.menuCard, isDarkMode && styles.menuCardDark]}
+            >
+              <View style={[styles.iconBox, isDarkMode && styles.iconBoxDark]}>
+                <Icon size={21} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
+              </View>
+              <View style={styles.menuCardText}>
+                <Text style={[styles.menuCardTitle, isDarkMode && styles.textLight]}>
+                  {title}
+                </Text>
+                <Text style={[styles.menuCardDescription, isDarkMode && styles.textMutedDark]}>
+                  {description}
+                </Text>
+              </View>
+              <ChevronRight size={19} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : (
+        renderSelectedModule()
+      )}
     </View>
   );
 };

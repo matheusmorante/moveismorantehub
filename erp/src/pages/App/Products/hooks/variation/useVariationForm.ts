@@ -265,7 +265,8 @@ export function useVariationForm({
         next.costPrice || 0,
         next.ipiPercent || 0,
         next.freightCost || 0,
-        next.freightType || 'fixed'
+        next.freightType || 'fixed',
+        next.ipiType || 'percentage'
       );
       next.finalPurchasePrice = finalCost;
       return next;

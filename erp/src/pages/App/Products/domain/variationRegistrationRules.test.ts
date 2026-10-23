@@ -36,6 +36,10 @@ const parent: Partial<Product> = {
 };
 
 describe('requisitos existentes para concluir uma variação', () => {
+  it('ignora variação nula na verificação contextual para que o schema apresente o erro de forma', () => {
+    expect(getVariationRegistrationIssue(parent, null)).toBeNull();
+  });
+
   it('permite concluir uma variação completa e usa os mesmos valores na persistência', () => {
     expect(getVariationRegistrationIssue(parent, variation)).toBeNull();
     expect(resolveVariationDimensions(parent, variation)).toEqual({

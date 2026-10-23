@@ -64,7 +64,7 @@ export function useNativeBottomNav({
       },
       {
         key: 'pedidos',
-        label: 'Pedidos',
+        label: 'Vendas',
         icon: ShoppingBag,
         url: `${WEB_URL}/mobile-orders`,
         visible: true,

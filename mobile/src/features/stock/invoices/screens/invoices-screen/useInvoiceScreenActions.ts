@@ -83,7 +83,7 @@ export const useInvoiceScreenActions = (reload: () => void) => {
       await Linking.openURL(url);
     } catch (openError) {
       console.error('Failed to open SEFAZ consultation:', openError);
-      Alert.alert('Não foi possível abrir o SEFAZ', 'Tente novamente em instantes.');
+      Alert.alert('Não foi possível abrir o Portal Nacional da NF-e', 'Tente novamente em instantes.');
     }
   };
 
@@ -154,40 +154,6 @@ export const useInvoiceScreenActions = (reload: () => void) => {
     );
   };
 
-  const handleFetchXml = async (invoice: Invoice) => {
-    if (!invoice.accessKey) {
-      Alert.alert('Chave indisponível', 'Esta nota não possui chave de acesso válida cadastrada.');
-      return;
-    }
-    try {
-      const res = await stockService.consultSefazByAccessKey(invoice.accessKey);
-      const data = res?.data;
-      if (data?.success && data?.document?.xml) {
-        Alert.alert('Sucesso', 'XML completo obtido com sucesso da SEFAZ!');
-        reload();
-      } else if (data?.success) {
-        Alert.alert(
-          'Consulta Realizada',
-          'A SEFAZ ainda disponibiliza apenas o resumo para este documento. Se necessário, importe o XML oficial do fornecedor manualmente.'
-        );
-        reload();
-      } else {
-        Alert.alert(
-          'Consulta SEFAZ',
-          data?.message ||
-            res?.error?.message ||
-            'Não foi possível obter o XML completo neste momento.'
-        );
-      }
-    } catch (err: any) {
-      console.error('Falha ao obter XML da SEFAZ:', err);
-      Alert.alert(
-        'Erro ao consultar SEFAZ',
-        err?.message || 'Falha ao comunicar com o servidor da SEFAZ.'
-      );
-    }
-  };
-
   return {
     activeInvoice,
     setActiveInvoice,
@@ -206,6 +172,5 @@ export const useInvoiceScreenActions = (reload: () => void) => {
     consultSefaz,
     importXml,
     confirmInvoiceDeletion,
-    handleFetchXml,
   };
 };

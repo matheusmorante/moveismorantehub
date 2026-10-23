@@ -78,7 +78,6 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
     consultSefaz,
     importXml,
     confirmInvoiceDeletion,
-    handleFetchXml,
   } = useInvoiceScreenActions(reload);
 
   const periodLabel = useMemo(
@@ -140,9 +139,6 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
                 onPress={(invoice) => {
                   void loadInvoiceDetails(invoice);
                 }}
-                onFetchXml={(invoice) => {
-                  void handleFetchXml(invoice);
-                }}
               />
             </View>
           );
@@ -185,9 +181,6 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
           void downloadInvoiceXml(invoice);
         }}
         onManageMappings={setMappingInvoice}
-        onFetchXml={(invoice) => {
-          void handleFetchXml(invoice);
-        }}
         onDelete={confirmInvoiceDeletion}
       />
       <InvoiceDetailsModal
@@ -195,9 +188,6 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
         isDarkMode={isDarkMode}
         invoice={detailsInvoice}
         loading={detailsLoading}
-        onFetchXml={(invoice) => {
-          void handleFetchXml(invoice);
-        }}
         onClose={() => {
           setDetailsInvoice(null);
           setDetailsLoading(false);
@@ -217,7 +207,6 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
         onConsultSefaz={(key) => {
           void consultSefaz(key);
         }}
-        onDirectSyncSuccess={reload}
         onUploadXml={importXml}
       />
 

@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ChevronRight, FileText, RotateCcw, ShoppingBag, Wrench } from 'lucide-react-native';
+import { ChevronRight, FileText, ShoppingBag, Wrench } from 'lucide-react-native';
+import ReturnIcon from '../../../components/shared/ReturnIcon';
 import { MobileOrderCard } from '../components/MobileOrderCard';
 import { OrdersHeader } from '../components/OrdersHeader';
 import { MobileOrderPagination } from '../components/MobileOrderPagination';
@@ -25,7 +26,7 @@ const ORDER_SECTIONS: {
   type: MobileOrderType;
   title: string;
   description: string;
-  Icon: typeof ShoppingBag;
+  Icon: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 }[] = [
   {
     type: 'sale',
@@ -49,7 +50,7 @@ const ORDER_SECTIONS: {
     type: 'return',
     title: 'Devoluções',
     description: 'Trocas e devoluções',
-    Icon: RotateCcw,
+    Icon: ReturnIcon,
   },
 ];
 
@@ -68,7 +69,7 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder 
         />
       ) : (
         <ScrollView contentContainerStyle={styles.menuContent}>
-          <Text style={[styles.menuTitle, isDarkMode && styles.light]}>Pedidos</Text>
+          <Text style={[styles.menuTitle, isDarkMode && styles.light]}>Vendas</Text>
           <Text style={[styles.menuSubtitle, isDarkMode && styles.mutedDark]}>
             Escolha o módulo que deseja consultar.
           </Text>
@@ -86,9 +87,15 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder 
                 ]}
               >
                 <Icon
-                  size={21}
+                  size={type === 'return' ? 24 : 21}
                   color={
-                    type === 'assistance' ? '#fef08a' : isDarkMode ? '#93c5fd' : '#2563eb'
+                    type === 'assistance'
+                      ? '#fef08a'
+                      : type === 'return'
+                        ? '#f97316'
+                        : isDarkMode
+                          ? '#93c5fd'
+                          : '#2563eb'
                   }
                 />
               </View>

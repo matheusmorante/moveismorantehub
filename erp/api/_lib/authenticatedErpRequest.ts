@@ -60,11 +60,13 @@ export async function authenticateErpRequest(
     res.status(503).json({ error: 'Não foi possível validar o perfil.' });
     return null;
   }
-  const roles = [
-    ...(Array.isArray(profile?.roles) ? profile.roles : []),
-    ...(typeof profile?.role === 'string' ? [profile.role] : []),
-  ].filter((role): role is string => typeof role === 'string' && role.trim().length > 0);
-  if (!roles.length || roles.includes('pending')) {
+  const roles = (Array.isArray(profile?.roles) ? profile.roles : [])
+    .filter((role): role is string => typeof role === 'string' && role.trim().length > 0 && role !== 'pending');
+  // Match the ERP and support RLS: current roles take precedence over the legacy field.
+  if (!roles.length && typeof profile?.role === 'string' && profile.role.trim() && profile.role !== 'pending') {
+    roles.push(profile.role);
+  }
+  if (!roles.length) {
     res.status(403).json({ error: 'Perfil sem acesso ao serviço.' });
     return null;
   }

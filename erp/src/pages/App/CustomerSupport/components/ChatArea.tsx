@@ -71,6 +71,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 }) => {
   const { profile, user } = useAuth();
   const [inChatSearch, setInChatSearch] = useState('');
+  const [searchRevision, setSearchRevision] = useState(0);
   const [isSearchingInChat, setIsSearchingInChat] = useState(false);
   const [isSnippetsModalOpen, setIsSnippetsModalOpen] = useState(false);
 
@@ -125,7 +126,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         onUpdateStatus={onUpdateStatus}
         currentUserId={profile?.id || user?.id}
         currentUserName={currentUserName}
-        onRefreshMessages={onRefreshMessages}
+        onRefreshMessages={async () => {
+          if (isSearchingInChat) setSearchRevision((revision) => revision + 1);
+          await onRefreshMessages?.();
+        }}
         isRefreshingMessages={isRefreshingMessages}
       />
 
@@ -133,7 +137,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       {isSearchingInChat && (
         <ChatInChatSearch
           searchQuery={inChatSearch}
-          onSearchChange={setInChatSearch}
+          onSearchChange={(query) => {
+            setInChatSearch(query);
+            setSearchRevision((revision) => revision + 1);
+          }}
           onClose={() => {
             setIsSearchingInChat(false);
             setInChatSearch('');
@@ -147,6 +154,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         messages={messages}
         displayName={displayName}
         inChatSearch={inChatSearch}
+        searchRevision={searchRevision}
         isLoadingMessages={isLoadingMessages}
         error={messagesError}
         conversationId={conversation.id}

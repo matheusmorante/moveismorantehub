@@ -41,6 +41,36 @@ describe('inheritMobileSimpleVariationFromParent', () => {
 });
 
 describe('syncMobileVariationsWithParent', () => {
+  it('propaga valores técnicos do pai para a variação única de um produto novo', () => {
+    const updated = syncMobileVariationsWithParent(
+      [{ technicalValues: { Material: 'legado' }, attributes: [] }],
+      {
+        hasVariations: false,
+        technicalValues: { Material: 'MDF', Acabamento: 'Fosco' },
+      }
+    );
+
+    expect(updated[0].technicalValues).toEqual({ Material: 'MDF', Acabamento: 'Fosco' });
+  });
+
+  it('preserva valores próprios em produto salvo ou em família com várias variações', () => {
+    const current = { Material: 'Madeira maciça' };
+    const saved = syncMobileVariationsWithParent(
+      [{ technicalValues: current }],
+      { id: 'saved-product', hasVariations: false, technicalValues: { Material: 'MDF' } }
+    );
+    const family = syncMobileVariationsWithParent(
+      [{ technicalValues: current }, { technicalValues: { Material: 'Aço' } }],
+      { hasVariations: true, technicalValues: { Material: 'MDF' } }
+    );
+
+    expect(saved[0].technicalValues).toBe(current);
+    expect(family.map((variation) => variation.technicalValues)).toEqual([
+      current,
+      { Material: 'Aço' },
+    ]);
+  });
+
   it('atualiza os valores herdados e preserva campos personalizados', () => {
     const variations = [
       {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { MoreVertical, CloudDownload } from 'lucide-react-native';
+import { MoreVertical } from 'lucide-react-native';
 import { Invoice } from '../../../types/stock.types';
 
 interface Props {
@@ -8,7 +8,6 @@ interface Props {
   isDarkMode: boolean;
   onMenuPress: (item: Invoice) => void;
   onPress: (item: Invoice) => void;
-  onFetchXml?: (item: Invoice) => void;
 }
 
 export const InvoiceCardContent: React.FC<Props> = ({
@@ -16,7 +15,6 @@ export const InvoiceCardContent: React.FC<Props> = ({
   isDarkMode,
   onMenuPress,
   onPress,
-  onFetchXml,
 }) => {
   const isSummaryOnly = Boolean(item.isSummaryOnly ?? item.itemsCount === 0);
   const isReceived = item.status === 'received';
@@ -132,20 +130,6 @@ export const InvoiceCardContent: React.FC<Props> = ({
               ? '— itens'
               : `${item.itemsCount} ${item.itemsCount === 1 ? 'item' : 'itens'}`}
           </Text>
-          {isSummaryOnly && onFetchXml && (
-            <TouchableOpacity
-              style={[styles.fetchXmlBtn, isDarkMode && styles.fetchXmlBtnDark]}
-              onPress={(e) => {
-                e.stopPropagation();
-                onFetchXml(item);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Obter XML completo da SEFAZ"
-            >
-              <CloudDownload size={12} color="#ffffff" />
-              <Text style={styles.fetchXmlBtnText}>Obter XML</Text>
-            </TouchableOpacity>
-          )}
         </View>
         <Text style={[styles.valueText, isDarkMode && { color: '#34d399' }]}>
           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
@@ -244,23 +228,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  fetchXmlBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  fetchXmlBtnDark: {
-    backgroundColor: '#1d4ed8',
-  },
-  fetchXmlBtnText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#ffffff',
   },
   itemsText: {
     fontSize: 13,

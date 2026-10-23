@@ -1,4 +1,9 @@
+import { getSimpleProductVariationTechnicalValues } from '../../../../../shared-utils/simpleProductVariationTechnicalValues';
+
 type ParentVariationFields = {
+  id?: unknown;
+  hasVariations?: unknown;
+  technicalValues?: Record<string, unknown> | null;
   unitPrice?: unknown;
   unit_price?: unknown;
   price?: unknown;
@@ -109,6 +114,18 @@ export const syncMobileVariationsWithParent = <T extends Record<string, any>>(
     if (variation.syncFiscal !== false && !sameValue(variation.fiscal, parent.fiscal)) {
       if (next === variation) next = { ...variation };
       next.fiscal = parent.fiscal ? { ...parent.fiscal } : undefined;
+    }
+
+    const technicalValues = getSimpleProductVariationTechnicalValues({
+      isExistingProduct: Boolean(parent.id),
+      hasVariations: Boolean(parent.hasVariations),
+      variationCount: variations.length,
+      parentTechnicalValues: parent.technicalValues,
+      currentVariationTechnicalValues: variation.technicalValues,
+    });
+    if (!sameValue(variation.technicalValues, technicalValues)) {
+      if (next === variation) next = { ...variation };
+      next.technicalValues = technicalValues;
     }
 
     const parentImages = Array.isArray(parent.images) ? parent.images : undefined;

@@ -11,6 +11,10 @@ import BudgetTermsAndConditions from './BudgetTermsAndConditions';
 import OrderPrintStyles from './OrderPrintStyles';
 import { splitNoticeTags } from '../utils/noticeTags';
 import Order from '@/pages/types/order.type';
+import {
+  getEffectiveOrderDeliveryAddress,
+  getEffectiveOrderDeliveryMapUrl,
+} from '@/pages/utils/orderDeliveryAddress';
 
 interface OrderPrintDocumentProps {
   order: Order;
@@ -28,7 +32,11 @@ export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
   }
   const tags = allObs.filter((t: string) => t.trim() !== '');
 
-  const addr = order?.customerData?.fullAddress || {};
+  const printableCustomerData = {
+    ...order.customerData,
+    fullAddress: getEffectiveOrderDeliveryAddress(order) || {},
+  };
+  const addr = printableCustomerData.fullAddress || {};
   const hasAnyAddress = !!(addr.street || addr.neighborhood || addr.city);
   const showShippingColumn =
     !isBudget || hasAnyAddress || !!order.shipping?.distance || (order.shipping?.value ?? 0) > 0;
@@ -43,7 +51,7 @@ export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
       <OrderOperationalNotices tags={tags} isBudget={isBudget} />
 
       <CustomerData
-        customerData={order.customerData}
+        customerData={printableCustomerData}
         isPickup={isPickup}
         noAddress={order.shipping?.noAddress}
       />
@@ -70,6 +78,7 @@ export const OrderPrintDocument: React.FC<OrderPrintDocumentProps> = ({
                 shipping={order.shipping}
                 isBudget={isBudget}
                 itemsTotalValue={order.itemsSummary?.itemsTotalValue}
+                routeUrl={isBudget ? '' : getEffectiveOrderDeliveryMapUrl(order)}
               />
             </div>
           </div>

@@ -25,7 +25,8 @@ vi.mock('@/pages/utils/settingsService', () => ({
     deliveryHandlingOptions: [{ label: 'Entrega Padrão' }],
     pickupHandlingOptions: [{ label: 'Retirada na Loja' }],
     whatsappTemplates: {
-      deliveryInfo: 'Pedido para {{customerName}}\nItens:\n{{items}}\nTotal: {{totalValue}}',
+      deliveryInfo:
+        'Pedido para {{customerName}}\nEndereço: {{address}}\n\n📍🗺️ *Google Maps Rota:*\n{{routeUrl}}\n\nItens:\n{{items}}\nTotal: {{totalValue}}',
       orderConfirmation:
         'Olá {{customerName}}, seu pedido foi confirmado!\n{{items}}\nTotal: {{totalValue}}',
     },
@@ -121,5 +122,73 @@ describe('Serviços como itens normais no Recibo, Pedido Impresso e WhatsApp', (
     const customerMsg = buildCustomerOrderMessage(mockOrder);
     expect(customerMsg).toContain('Guarda-Roupa Casal 6 Portas');
     expect(customerMsg).toContain('Serviço de Montagem e Fixação');
+  });
+
+  it('usa o endereço do cliente na mensagem da equipe quando o pedido reutiliza o cadastro', () => {
+    const orderWithCustomerAddress = {
+      ...mockOrder,
+      shipping: {
+        ...mockOrder.shipping,
+        useCustomerAddress: true,
+        deliveryAddress: {
+          street: '',
+          number: '',
+          complement: '',
+          observation: '',
+          neighborhood: '',
+          city: '',
+          state: 'PR',
+        },
+      },
+    };
+    const deliveryMessage = buildDeliveryMessage(orderWithCustomerAddress);
+    const salesOrderHtml = buildSalesOrderHtml(orderWithCustomerAddress);
+    const receiptHtml = buildReceiptHtml(orderWithCustomerAddress);
+
+    expect(deliveryMessage).toContain('Rua das Flores, 123, Centro, Curitiba');
+    expect(deliveryMessage).not.toContain('Endereço não informado');
+    expect(deliveryMessage).not.toContain('Google Maps Rota');
+    expect(salesOrderHtml).not.toContain('Rota no Google Maps');
+    expect(receiptHtml).not.toContain('Rota no Google Maps');
+  });
+
+  it('usa o endereço de entrega selecionado no recibo e no pedido impresso', () => {
+    const orderWithCustomDeliveryAddress = {
+      ...mockOrder,
+      customerData: {
+        ...mockOrder.customerData,
+        fullAddress: {
+          ...mockOrder.customerData.fullAddress,
+          street: 'Rua Residencial',
+        },
+      },
+      shipping: {
+        ...mockOrder.shipping,
+        useCustomerAddress: false,
+        deliveryAddress: {
+          street: 'Avenida Destino',
+          number: '456',
+          complement: '',
+          observation: '',
+          neighborhood: 'Centro',
+          city: 'Colombo',
+          state: 'PR',
+          mapsUrl: 'https://maps.google.com/?q=Avenida+Destino+456',
+        },
+      },
+    } as Order;
+
+    const salesOrderHtml = buildSalesOrderHtml(orderWithCustomDeliveryAddress);
+    const receiptHtml = buildReceiptHtml(orderWithCustomDeliveryAddress);
+    const deliveryMessage = buildDeliveryMessage(orderWithCustomDeliveryAddress);
+
+    expect(salesOrderHtml).toContain('Avenida Destino');
+    expect(salesOrderHtml).not.toContain('Rua Residencial');
+    expect(salesOrderHtml).toContain('https://maps.google.com/?q=Avenida+Destino+456');
+    expect(receiptHtml).toContain('Avenida Destino');
+    expect(receiptHtml).not.toContain('Rua Residencial');
+    expect(receiptHtml).toContain('https://maps.google.com/?q=Avenida+Destino+456');
+    expect(deliveryMessage).toContain('Google Maps Rota');
+    expect(deliveryMessage).toContain('https://maps.google.com/?q=Avenida+Destino+456');
   });
 });

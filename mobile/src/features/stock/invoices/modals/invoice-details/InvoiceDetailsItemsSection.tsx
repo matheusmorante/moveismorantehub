@@ -1,6 +1,5 @@
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import { CloudDownload } from 'lucide-react-native';
+import { Text, View } from 'react-native';
 import type { InvoiceDetail } from '../../../types/stock.types';
 import { money } from './invoiceDetailsFormatters';
 import { styles } from './invoiceDetailsModal.styles';
@@ -8,15 +7,11 @@ import { styles } from './invoiceDetailsModal.styles';
 interface InvoiceDetailsItemsSectionProps {
   invoice: InvoiceDetail;
   isDarkMode: boolean;
-  onFetchXml?: (invoice: InvoiceDetail) => void;
-  onClose: () => void;
 }
 
 export const InvoiceDetailsItemsSection: React.FC<InvoiceDetailsItemsSectionProps> = ({
   invoice,
   isDarkMode,
-  onFetchXml,
-  onClose,
 }) => {
   return (
     <View style={[styles.itemSection, isDarkMode && styles.itemSectionDark]}>
@@ -26,25 +21,9 @@ export const InvoiceDetailsItemsSection: React.FC<InvoiceDetailsItemsSectionProp
       {invoice.items.length === 0 ? (
         <View style={styles.emptyItemsBox}>
           <Text style={[styles.emptyText, isDarkMode && styles.textMutedDark]}>
-            Nota recebida via SEFAZ em formato de resumo (resNFe). Os itens completos
-            ficam disponíveis após a obtenção do XML completo.
+            A SEFAZ retornou somente o resumo (resNFe), que não contém os produtos. Para lançar os
+            itens, importe o XML completo recebido do fornecedor.
           </Text>
-          {onFetchXml && (
-            <TouchableOpacity
-              style={styles.fetchXmlDetailBtn}
-              onPress={() => {
-                onFetchXml(invoice);
-                onClose();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Obter XML completo da SEFAZ"
-            >
-              <CloudDownload size={15} color="#ffffff" />
-              <Text style={styles.fetchXmlDetailBtnText}>
-                Obter XML Completo da SEFAZ
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       ) : (
         invoice.items.map((item, index) => (

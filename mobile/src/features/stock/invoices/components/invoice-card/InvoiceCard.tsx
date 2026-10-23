@@ -7,7 +7,6 @@ export interface InvoiceCardProps {
   isDarkMode: boolean;
   onMenuPress: (item: Invoice) => void;
   onPress: (item: Invoice) => void;
-  onFetchXml?: (item: Invoice) => void;
 }
 
 export const InvoiceCard: React.FC<InvoiceCardProps> = (props) => {

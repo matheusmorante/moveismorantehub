@@ -11,6 +11,7 @@ import { validateProductFormSubmission } from './productFormValidation';
 import { createProductFormSchema } from './productFormValidation';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import type { useProductFormDraft } from './useProductFormDraft';
+import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productSupplierRequirement';
 
 interface SubmitProps {
   formData: Partial<Product>;
@@ -121,7 +122,7 @@ export const useProductFormSubmit = ({
               } else if (errors.variations) {
                 toast.error(validationResult.errorMessage || 'Adicione pelo menos uma variação ao produto.');
               } else if (errors.mainSupplierId) {
-                toast.error('Selecione um fornecedor.');
+                toast.error(PRODUCT_SUPPLIER_REQUIRED_MESSAGE);
               } else {
                 toast.error('Preencha todos os campos obrigatórios.');
               }

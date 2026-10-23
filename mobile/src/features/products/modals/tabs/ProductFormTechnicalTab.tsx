@@ -30,6 +30,7 @@ import {
   canUseProductCharacteristicInVariationName,
   isProductCharacteristicIncludedInVariationNames,
 } from '../../domain/productVariationName';
+import { getProductTechnicalRootPatch } from '../../../../../../shared-utils/productTechnicalRootPatch';
 import {
   fetchMobileProductTechnicalFields,
   type MobileProductTechnicalField,
@@ -287,6 +288,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     setFormData((prev: any) => {
       const next: any = {
         ...prev,
+        ...getProductTechnicalRootPatch(name, value),
         technicalValues: {
           ...Object.fromEntries(
             Object.entries(prev.technicalValues || {}).filter(
@@ -337,8 +339,8 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
           ...next,
           technicalValues,
           attributes,
+          ...getProductTechnicalRootPatch(fieldName, undefined),
           ...(dimensionField ? { [dimensionField]: '' } : {}),
-          ...(normalizeName(fieldName) === 'marca' ? { brand: '' } : {}),
         };
       }
       if (scope === 'global' && !hasTechnicalValue(getEffectiveProductTechnicalValues(previous), fieldName)) {

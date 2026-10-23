@@ -315,22 +315,30 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
           if (rendered.width !== 1080 || rendered.height !== 1080) {
             throw new Error('A imagem preparada não ficou no formato quadrado esperado.');
           }
-          const result = await withTimeout(
-            rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.9 }),
-            15_000,
-            null,
-            'Salvar foto recortada'
-          );
-          if (!result?.uri) throw new Error('Não foi possível salvar a foto recortada.');
-
-          const response = await withTimeout(fetch(result.uri), 12_000, null, 'Ler foto recortada');
-          if (!response?.ok) throw new Error('Não foi possível preparar a foto recortada para envio.');
-          const file = await withTimeout(response.blob(), 12_000, null, 'Preparar foto recortada');
-          if (!file || file.size === 0) throw new Error('A foto recortada ficou vazia. Tente novamente.');
+          let file: Blob | null = null;
+          for (const compress of [0.95, 0.85, 0.75, 0.65, 0.55]) {
+            const result = await withTimeout(
+              rendered.saveAsync({ format: SaveFormat.WEBP, compress }),
+              15_000,
+              null,
+              'Salvar foto recortada'
+            );
+            if (!result?.uri) throw new Error('Não foi possível salvar a foto recortada.');
+            try {
+              const response = await withTimeout(fetch(result.uri), 12_000, null, 'Ler foto recortada');
+              if (!response?.ok) throw new Error('Não foi possível preparar a foto recortada para envio.');
+              file = await withTimeout(response.blob(), 12_000, null, 'Preparar foto recortada');
+              if (!file || file.size === 0) throw new Error('A foto recortada ficou vazia. Tente novamente.');
+            } finally {
+              await FileSystem.deleteAsync(result.uri, { idempotent: true }).catch(() => undefined);
+            }
+            if (file.size <= 0.3 * 1024 * 1024) break;
+          }
+          if (!file) throw new Error('Não foi possível preparar a foto recortada para envio.');
 
           const uploadedUrl = await uploadForm.validateAndRun(
             {
-              photos: [{ file, name: `produto-recortado-${Date.now()}.jpg`, contentType: 'image/jpeg' }],
+              photos: [{ file, name: `produto-recortado-${Date.now()}.webp`, contentType: 'image/webp' }],
             },
             async ({ photos }) => {
               const photo = photos[0];

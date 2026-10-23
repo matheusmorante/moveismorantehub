@@ -150,21 +150,41 @@ const Agendamento = ({
       : errors[`shipping_alternative_${activeOptionId}_time`]
     : undefined;
 
-  const updateScheduleField = (
-    key: keyof Shipping['scheduling'],
-    value: string | Date | boolean
-  ) => {
+  type ScheduleOptionField = 'date' | 'endDate' | 'dateType' | 'type' | 'startTime' | 'endTime';
+  type ScheduleOptionFields = Partial<Pick<Shipping['scheduling'], ScheduleOptionField>>;
+
+  const updateScheduleFields = (fields: ScheduleOptionFields) => {
     if (activeOptionId === 'primary') {
-      if (key !== 'immediatePickup') onChangeScheduling('immediatePickup', false);
-      onChangeScheduling(key, value);
+      onChangeScheduling('immediatePickup', false);
+      Object.entries(fields).forEach(([key, value]) => {
+        if (value !== undefined) {
+          onChangeScheduling(
+            key as ScheduleOptionField,
+            value as string
+          );
+        }
+      });
     } else {
       onChangeScheduling(
         'alternatives',
-        alternatives.map((option) =>
-          option.id === activeOptionId ? { ...option, [key]: value } : option
-        )
+        alternatives.map((option) => {
+          if (option.id !== activeOptionId) return option;
+          return {
+            ...option,
+            date: fields.date ?? option.date,
+            endDate: fields.endDate ?? option.endDate,
+            dateType: fields.dateType ?? option.dateType,
+            type: fields.type ?? option.type,
+            startTime: fields.startTime ?? option.startTime,
+            endTime: fields.endTime ?? option.endTime,
+          };
+        })
       );
     }
+  };
+
+  const updateScheduleField = (key: ScheduleOptionField, value: string) => {
+    updateScheduleFields({ [key]: value });
   };
 
   const effectiveDateMode = resolveEffectiveDateMode(memory, activeScheduling, dateError);
@@ -175,21 +195,25 @@ const Agendamento = ({
     memory.dateMode = mode;
 
     if (mode === 'today') {
-      updateScheduleField('dateType', 'fixed');
-      updateScheduleField('date', getSaoPauloDayInfo(0).isoDate);
-      updateScheduleField('endDate', '');
+      updateScheduleFields({
+        dateType: 'fixed',
+        date: getSaoPauloDayInfo(0).isoDate,
+        endDate: '',
+      });
     } else if (mode === 'tomorrow') {
-      updateScheduleField('dateType', 'fixed');
-      updateScheduleField('date', getSaoPauloDayInfo(1).isoDate);
-      updateScheduleField('endDate', '');
+      updateScheduleFields({
+        dateType: 'fixed',
+        date: getSaoPauloDayInfo(1).isoDate,
+        endDate: '',
+      });
     } else if (mode === 'custom_date') {
-      updateScheduleField('dateType', 'fixed');
-      updateScheduleField('date', memory.customDate);
-      updateScheduleField('endDate', '');
+      updateScheduleFields({ dateType: 'fixed', date: memory.customDate, endDate: '' });
     } else if (mode === 'custom_date_range') {
-      updateScheduleField('dateType', 'range');
-      updateScheduleField('date', memory.customRangeStartDate);
-      updateScheduleField('endDate', memory.customRangeEndDate);
+      updateScheduleFields({
+        dateType: 'range',
+        date: memory.customRangeStartDate,
+        endDate: memory.customRangeEndDate,
+      });
     }
 
     forceRender();
@@ -198,9 +222,7 @@ const Agendamento = ({
   const handleCustomDateChange = (value: string) => {
     memory.dateMode = 'custom_date';
     memory.customDate = value;
-    updateScheduleField('dateType', 'fixed');
-    updateScheduleField('date', value);
-    updateScheduleField('endDate', '');
+    updateScheduleFields({ dateType: 'fixed', date: value, endDate: '' });
     forceRender();
   };
 
@@ -211,8 +233,7 @@ const Agendamento = ({
     } else {
       memory.customRangeEndDate = value;
     }
-    updateScheduleField('dateType', 'range');
-    updateScheduleField(field, value);
+    updateScheduleFields({ dateType: 'range', [field]: value });
     forceRender();
   };
 
@@ -221,21 +242,25 @@ const Agendamento = ({
     memory.timeMode = mode;
 
     if (mode === 'morning') {
-      updateScheduleField('type', 'range');
-      updateScheduleField('startTime', MORNING_SHIFT.startTime);
-      updateScheduleField('endTime', MORNING_SHIFT.endTime);
+      updateScheduleFields({
+        type: 'range',
+        startTime: MORNING_SHIFT.startTime,
+        endTime: MORNING_SHIFT.endTime,
+      });
     } else if (mode === 'afternoon') {
-      updateScheduleField('type', 'range');
-      updateScheduleField('startTime', AFTERNOON_SHIFT.startTime);
-      updateScheduleField('endTime', AFTERNOON_SHIFT.endTime);
+      updateScheduleFields({
+        type: 'range',
+        startTime: AFTERNOON_SHIFT.startTime,
+        endTime: AFTERNOON_SHIFT.endTime,
+      });
     } else if (mode === 'custom_time') {
-      updateScheduleField('type', 'fixed');
-      updateScheduleField('startTime', memory.customTime);
-      updateScheduleField('endTime', '');
+      updateScheduleFields({ type: 'fixed', startTime: memory.customTime, endTime: '' });
     } else if (mode === 'custom_time_range') {
-      updateScheduleField('type', 'range');
-      updateScheduleField('startTime', memory.customRangeStartTime);
-      updateScheduleField('endTime', memory.customRangeEndTime);
+      updateScheduleFields({
+        type: 'range',
+        startTime: memory.customRangeStartTime,
+        endTime: memory.customRangeEndTime,
+      });
     }
 
     forceRender();
@@ -244,9 +269,7 @@ const Agendamento = ({
   const handleCustomTimeChange = (value: string) => {
     memory.timeMode = 'custom_time';
     memory.customTime = value;
-    updateScheduleField('type', 'fixed');
-    updateScheduleField('startTime', value);
-    updateScheduleField('endTime', '');
+    updateScheduleFields({ type: 'fixed', startTime: value, endTime: '' });
     forceRender();
   };
 
@@ -257,8 +280,7 @@ const Agendamento = ({
     } else {
       memory.customRangeEndTime = value;
     }
-    updateScheduleField('type', 'range');
-    updateScheduleField(field, value);
+    updateScheduleFields({ type: 'range', [field]: value });
     forceRender();
   };
 

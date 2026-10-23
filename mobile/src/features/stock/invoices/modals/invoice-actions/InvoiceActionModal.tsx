@@ -7,7 +7,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { Download, Link2, Trash2, CloudDownload } from 'lucide-react-native';
+import { Download, Link2, Trash2 } from 'lucide-react-native';
 import { Invoice } from '../../../types/stock.types';
 
 interface Props {
@@ -17,7 +17,6 @@ interface Props {
   onClose: () => void;
   onDownloadXML?: (invoice: Invoice) => void;
   onManageMappings?: (invoice: Invoice) => void;
-  onFetchXml?: (invoice: Invoice) => void;
   onDelete?: (invoice: Invoice) => void;
 }
 
@@ -28,7 +27,6 @@ export const InvoiceActionModal: React.FC<Props> = ({
   onClose,
   onDownloadXML,
   onManageMappings,
-  onFetchXml,
   onDelete,
 }) => {
   if (!activeInvoice) return null;
@@ -45,22 +43,7 @@ export const InvoiceActionModal: React.FC<Props> = ({
                 NF-e {activeInvoice.number}
               </Text>
 
-              {isSummaryOnly ? (
-                <TouchableOpacity
-                  style={styles.bsActionBtn}
-                  onPress={() => {
-                    onFetchXml?.(activeInvoice);
-                    onClose();
-                  }}
-                >
-                  <CloudDownload size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
-                  <Text
-                    style={[styles.bsActionText, { color: isDarkMode ? '#60a5fa' : '#3b82f6' }]}
-                  >
-                    Obter XML da SEFAZ
-                  </Text>
-                </TouchableOpacity>
-              ) : (
+              {!isSummaryOnly && (
                 <TouchableOpacity
                   style={styles.bsActionBtn}
                   onPress={() => {

@@ -5,12 +5,18 @@ export interface MobileProductSupplier {
   full_name: string | null;
   nickname: string | null;
   stock_origins: string[] | null;
+  default_ipi_percent: number | null;
+  default_freight_cost: number | null;
+  default_freight_type: 'fixed' | 'percentage' | 'none';
+  social_name: string | null;
 }
 
 export const fetchActiveMobileProductSuppliers = async (): Promise<MobileProductSupplier[]> => {
   const { data, error } = await supabase
     .from('people')
-    .select('id, full_name, nickname, stock_origins')
+    .select(
+      'id, full_name, social_name, nickname, stock_origins, default_ipi_percent, default_freight_cost, default_freight_type'
+    )
     .in('person_type', ['supplier', 'suppliers'])
     .eq('active', true)
     .eq('deleted', false)
@@ -21,7 +27,10 @@ export const fetchActiveMobileProductSuppliers = async (): Promise<MobileProduct
     return [];
   }
 
-  return (data || []) as MobileProductSupplier[];
+  return (data || []).map((supplier) => ({
+    ...supplier,
+    default_freight_type: supplier.default_freight_type || 'none',
+  })) as MobileProductSupplier[];
 };
 
 export const fetchMobileSuppliers = async (): Promise<any[]> => {

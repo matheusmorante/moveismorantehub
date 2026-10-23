@@ -268,7 +268,6 @@ export const updateProduct = async (
     const dbUpdate = mapToDB({ ...productToUpdate, id: resolvedId });
     delete dbUpdate.id;
     delete dbUpdate.variations;
-    delete dbUpdate.brand;
     delete dbUpdate.category;
     delete dbUpdate.ecommerce_description;
     delete dbUpdate.whatsapp_description;

@@ -11,10 +11,6 @@ import {
   fetchInboundInvoicesPage,
   deleteInboundInvoice,
 } from '@/pages/utils/inboundNfe/inboundInvoicesService';
-import {
-  consultInvoiceByAccessKey,
-  sendInboundScienceOfEmission,
-} from '@/pages/utils/inboundNfe/services/sefazInboundSyncService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 
 const getCurrentYearMonth = (): string => {
@@ -144,63 +140,6 @@ export default function InboundInvoicesPage() {
     [currentPage, loadInvoices]
   );
 
-  const handleFetchXml = useCallback(
-    async (invoice: InboundInvoice) => {
-      try {
-        toast.info('Buscando XML completo junto ao Ambiente Nacional...');
-        const res = await consultInvoiceByAccessKey(
-          invoice.nfeKey,
-          invoice.environment
-            ? { environment: invoice.environment === 1 ? 'production' : 'homologation' }
-            : undefined
-        );
-        if (res.success && res.document?.kind === 'full' && res.document.xml) {
-          toast.success('XML completo obtido com sucesso da SEFAZ!');
-          void loadInvoices(currentPage);
-        } else if (res.success && res.document?.kind === 'summary') {
-          const isProduction = res.environment !== 'homologation';
-          const confirmed = window.confirm(
-            `A SEFAZ retornou apenas o resumo desta NF-e. Enviar Ciência da Emissão em ${isProduction ? 'Produção' : 'Homologação'} para tentar liberar o XML completo?\n\nA Ciência registra conhecimento da emissão. Ela não confirma a compra nem o recebimento da mercadoria.`
-          );
-          if (!confirmed) {
-            toast.info('Nenhuma manifestação foi enviada.');
-            return;
-          }
-
-          const manifestation = await sendInboundScienceOfEmission(invoice.nfeKey, true);
-          if (!manifestation.success) {
-            toast.warn(
-              manifestation.error || 'Não foi possível confirmar a Ciência da Emissão. Não reenvie enquanto houver uma tentativa pendente.'
-            );
-            return;
-          }
-
-          const refreshed = await consultInvoiceByAccessKey(invoice.nfeKey, {
-            environment: res.environment || 'production',
-          });
-          if (refreshed.success && refreshed.document?.kind === 'full' && refreshed.document.xml) {
-            toast.success('Ciência registrada e XML completo obtido.');
-          } else {
-            toast.info(
-              'Ciência registrada. O XML completo ainda não foi disponibilizado; consulte a nota novamente mais tarde.'
-            );
-          }
-          void loadInvoices(currentPage);
-        } else if (res.success) {
-          toast.info(
-            'Consulta realizada, mas a SEFAZ não retornou o XML da NF-e.'
-          );
-          void loadInvoices(currentPage);
-        } else {
-          toast.warn(res.message || 'Não foi possível obter o XML completo neste momento.');
-        }
-      } catch (err: any) {
-        toast.error(err.message || 'Erro ao consultar SEFAZ.');
-      }
-    },
-    [currentPage, loadInvoices]
-  );
-
   return (
     <div
       className="flex flex-col relative min-h-screen"
@@ -239,7 +178,6 @@ export default function InboundInvoicesPage() {
         onDownloadXml={handleDownloadXml}
         onManageMappings={setSelectedMappingInvoice}
         onDelete={handleDeleteInvoice}
-        onFetchXml={handleFetchXml}
       />
 
       <InboundInvoicesPagination

@@ -180,6 +180,46 @@ describe('Paginação da Inbox', () => {
 });
 
 describe('Paginação do histórico', () => {
+  it('preserva a continuidade do histórico ao saltar das últimas m121–m200 para a citação m20', async () => {
+    const history = Array.from({ length: 200 }, (_, index) => ({
+      id: `m${String(index + 1).padStart(3, '0')}`,
+      conversationId: 'a',
+      timestamp: new Date(Date.UTC(2026, 9, 21, 0, index)).toISOString(),
+    } as WhatsAppMessage));
+    mocks.fetchConversationMessages.mockResolvedValue(history.slice(120));
+    mocks.fetchPreviousConversationMessages.mockImplementation(async (_client, _conversationId, before, limit) =>
+      history.filter((message) => message.timestamp < before.timestamp
+        || (message.timestamp === before.timestamp && message.id < before.id)).slice(-limit)
+    );
+    const { result } = renderHook(() => useCustomerSupportMessages({
+      selectedConversation: conversation(), onClearUnread: vi.fn(),
+    }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+
+    act(() => result.current.jumpToMessage(history[19]));
+    expect(result.current.jumpToMessageId).toBe('m020');
+    expect(result.current.messages[0].id).toBe('m020');
+    await act(() => result.current.refreshMessages());
+    await act(() => result.current.loadOlderMessages());
+    expect(mocks.fetchPreviousConversationMessages).toHaveBeenLastCalledWith(expect.anything(), 'a', {
+      timestamp: history[120].timestamp, id: 'm121',
+    }, 50);
+    expect(result.current.messages.map((message) => message.id))
+      .toEqual([history[19], ...history.slice(70)].map((message) => message.id));
+    expect(result.current.hasOlderMessages).toBe(true);
+
+    await act(() => result.current.loadOlderMessages());
+    expect(mocks.fetchPreviousConversationMessages).toHaveBeenLastCalledWith(expect.anything(), 'a', {
+      timestamp: history[70].timestamp, id: 'm071',
+    }, 50);
+    await act(() => result.current.loadOlderMessages());
+    expect(mocks.fetchPreviousConversationMessages).toHaveBeenLastCalledWith(expect.anything(), 'a', {
+      timestamp: history[20].timestamp, id: 'm021',
+    }, 50);
+    expect(result.current.messages.map((message) => message.id)).toEqual(history.map((message) => message.id));
+    expect(result.current.hasOlderMessages).toBe(false);
+  });
+
   it('confirma novas não lidas da conversa aberta mesmo quando o INSERT em tempo real não chega', async () => {
     const read = deferred<boolean>();
     const clear = vi.fn();

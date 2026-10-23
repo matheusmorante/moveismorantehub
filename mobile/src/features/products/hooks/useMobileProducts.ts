@@ -27,7 +27,8 @@ const ITEMS_PER_PAGE = 15;
 
 export function useMobileProducts(
   mode: 'standard' | 'composition' = 'standard',
-  enabled = true
+  enabled = true,
+  canViewCompositions = false
 ) {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(enabled);
@@ -100,6 +101,7 @@ export function useMobileProducts(
           catalogStatus: values.catalogStatus,
           itemType: values.itemType,
           generalType: values.itemType === 'standard' ? values.generalType : 'all',
+          canViewCompositions,
           showTrash: values.showTrash,
           // A lista precisa distinguir erro de consulta de uma consulta sem resultados,
           // como no ERP, que chama fetchProductsPage com throwOnError habilitado.
@@ -130,6 +132,7 @@ export function useMobileProducts(
       showTrash,
       showMergedProducts,
       mode,
+      canViewCompositions,
       enabled,
       validateList,
     ]

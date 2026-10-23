@@ -4,6 +4,10 @@ import {
   getCompleteVariationName,
   normalizeCompleteVariationName,
 } from './productVariationNameValidation';
+import {
+  hasRequiredProductSupplier,
+  PRODUCT_SUPPLIER_REQUIRED_MESSAGE,
+} from './productSupplierRequirement';
 
 const productNumericFields = productVariationDraftSchema.pick({
   unitPrice: true, promoPrice: true, costPrice: true, freightCost: true, ipiPercent: true,
@@ -162,14 +166,10 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
         });
       }
 
-      const isOwnProduction =
-        data.merchandiseOrigin === 'own_production' ||
-        data.isOwnProduction === true ||
-        data.fiscal?.merchandiseOrigin === 'own_production';
-      if (!isOwnProduction && !data.mainSupplierId && !data.supplierId) {
+      if (!hasRequiredProductSupplier(data)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Selecione um fornecedor para mercadoria de terceiros.',
+          message: PRODUCT_SUPPLIER_REQUIRED_MESSAGE,
           path: ['mainSupplierId'],
         });
       }

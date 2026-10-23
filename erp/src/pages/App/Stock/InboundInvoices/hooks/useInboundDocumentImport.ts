@@ -78,19 +78,47 @@ export function useInboundDocumentImport({
   /**
    * Persiste a nota no banco de dados e aciona o callback de sucesso
    */
-  const persistAndFinish = async (parsedInvoice: InboundInvoice) => {
+  const persistAndFinish = async (
+    parsedInvoice: InboundInvoice,
+    source: 'file' | 'sefaz' = 'file'
+  ) => {
     await validateAndRun({ ...parsedInvoice, items: parsedInvoice.items.map((item) => ({ ...item })) }, async (data) => {
-      const validated = data as InboundInvoice;
+      let validated = data as InboundInvoice;
       const cleanKey = validated.nfeKey;
 
       // Verifica duplicidade no banco
       setStatusMessage('Verificando notas existentes...');
       const existing = await checkInboundInvoiceKeyExists(cleanKey);
-      if (existing) {
+      if (existing && source !== 'sefaz') {
         setDuplicateKey(cleanKey);
         setDuplicateExistingInvoice(existing);
         setDuplicateAlertOpen(true);
         return;
+      }
+
+      if (existing && source === 'sefaz') {
+        if (existing.items?.length) {
+          toast.success('XML completo da SEFAZ sincronizado com os itens desta NF-e.');
+          onImportSuccess(existing);
+          onClose();
+          return;
+        }
+
+        validated = {
+          ...existing,
+          ...validated,
+          id: existing.id,
+          status: existing.status,
+          supplierId: existing.supplierId || validated.supplierId,
+          receiptId: existing.receiptId || validated.receiptId,
+          receivedAt: existing.receivedAt || validated.receivedAt,
+          additionalCosts: existing.additionalCosts || validated.additionalCosts,
+          additionalCostsTotal: existing.additionalCostsTotal ?? validated.additionalCostsTotal,
+          additionalCostAllocations: existing.additionalCostAllocations ?? validated.additionalCostAllocations,
+          originalDocumentPath: existing.originalDocumentPath || validated.originalDocumentPath,
+          originalDocumentMime: existing.originalDocumentMime || validated.originalDocumentMime,
+          createdAt: existing.createdAt || validated.createdAt,
+        };
       }
 
       // Localiza um fornecedor já cadastrado.
@@ -143,7 +171,11 @@ export function useInboundDocumentImport({
 
       setStatusMessage('Salvando nota fiscal no sistema...');
       const saved = await saveInboundInvoice(invoiceToSave);
-      toast.success(`NF-e #${saved.nfeNumber || ''} adicionada com sucesso!`);
+      toast.success(
+        source === 'sefaz'
+          ? `NF-e #${saved.nfeNumber || ''} sincronizada com os itens da SEFAZ.`
+          : `NF-e #${saved.nfeNumber || ''} adicionada com sucesso!`
+      );
       onImportSuccess(saved);
       onClose();
     }, showValidationError);
@@ -175,16 +207,16 @@ export function useInboundDocumentImport({
   };
 
   /**
-   * Processa o conteúdo XML da NF-e diretamente em memória (ex: obtido via SEFAZ consChNFe).
+   * Processa o conteúdo XML da NF-e diretamente em memória, por exemplo após selecionar um arquivo.
    */
-  const handleXmlString = async (xmlText: string) => {
+  const handleXmlString = async (xmlText: string, source: 'file' | 'sefaz' = 'file') => {
     if (importInFlight.current) return;
     importInFlight.current = true;
     try {
       setIsLoading(true);
       await xmlForm.validateAndRun({ xml: xmlText }, async ({ xml }) => {
         setStatusMessage('Interpretando dados oficiais da SEFAZ...');
-        await persistAndFinish(parseInboundNfeXml(xml));
+        await persistAndFinish(parseInboundNfeXml(xml), source);
       }, showValidationError);
     } catch (error: unknown) {
       console.error('[useInboundDocumentImport] Erro ao processar XML direto:', error);

@@ -33,7 +33,6 @@ export const syncProductToSupabase = async (
     const dbData = mapToDB(product);
     // Remover propriedades que não são colunas diretas da tabela products
     delete dbData.variations;
-    delete dbData.brand;
     delete dbData.category;
     delete dbData.ecommerce_description;
     delete dbData.whatsapp_description;

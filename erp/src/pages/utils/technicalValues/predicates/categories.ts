@@ -2,9 +2,24 @@
  * Predicados de domínio específicos por categoria (Colchões, Pias, etc.).
  */
 
-import { MATTRESS_CATEGORY_ID, SINK_CATEGORY_ID } from '../constants';
+import { MATTRESS_CATEGORY_ID } from '../constants';
 import { normalizeCharacteristicName } from './normalization';
 import type { TechnicalFieldDefinition } from '../types';
+import {
+  isConcretadaCharacteristic,
+  isHasInoxBowlCharacteristic,
+  isSinkCategory,
+  isSinkMaterialCharacteristic,
+  isStructureMaterialCharacteristic,
+} from '../../../../../../shared-utils/productSinkCategoryRules';
+
+export {
+  isConcretadaCharacteristic,
+  isHasInoxBowlCharacteristic,
+  isSinkCategory,
+  isSinkMaterialCharacteristic,
+  isStructureMaterialCharacteristic,
+} from '../../../../../../shared-utils/productSinkCategoryRules';
 
 // --- Colchões ---
 
@@ -26,33 +41,6 @@ export const isMattressCategory = (
 
 // --- Pias ---
 
-export const isSinkCategory = (
-  categoryIds: readonly string[] = [],
-  allFields?: readonly TechnicalFieldDefinition[]
-): boolean => {
-  if (categoryIds.includes(SINK_CATEGORY_ID)) return true;
-  if (allFields) {
-    const sinkField = allFields.find(
-      (f) => isSinkMaterialCharacteristic(f.name) || isConcretadaCharacteristic(f.name)
-    );
-    if (sinkField?.categoryIds?.some((cid) => categoryIds.includes(cid))) {
-      return true;
-    }
-  }
-  return false;
-};
-
-export const isStructureMaterialCharacteristic = (name: string): boolean =>
-  normalizeCharacteristicName(name) === 'material da estrutura';
-
-export const isSinkMaterialCharacteristic = (name: string): boolean =>
-  normalizeCharacteristicName(name) === 'material da pia';
-
-export const isConcretadaCharacteristic = (name: string): boolean => {
-  const norm = normalizeCharacteristicName(name).replace(/\?/g, '').trim();
-  return norm === 'concretada';
-};
-
 export const isValveCharacteristic = (name: string): boolean => {
   const norm = normalizeCharacteristicName(name).replace(/\?/g, '').trim();
   return (
@@ -62,16 +50,6 @@ export const isValveCharacteristic = (name: string): boolean => {
     norm === 'inclui valvula' ||
     norm === 'acompanha válvula' ||
     norm === 'acompanha valvula'
-  );
-};
-
-export const isHasInoxBowlCharacteristic = (name: string): boolean => {
-  const norm = normalizeCharacteristicName(name).replace(/\?/g, '').trim();
-  return (
-    norm === 'possui cuba de inox' ||
-    norm === 'possui cuba inox' ||
-    norm === 'cuba de inox' ||
-    norm === 'cuba inox'
   );
 };
 

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   fetchConversationActivityPage,
   fetchConversationAttachmentPage,
+  fetchConversationMessageSearchPage,
   fetchPreviousConversationMessages,
   fetchConversationReplyTarget,
 } from '@/pages/utils/customerSupport/customerSupportService';
@@ -116,5 +117,40 @@ describe('Paginação do histórico da Central', () => {
     expect(queries[0].filters).toContainEqual(['eq', 'conversation_id', 'conversation-1']);
     expect(queries[0].filters).toContainEqual(['eq', 'api_message_id', 'wamid.source']);
     expect(queries[0].maybeSingle).toHaveBeenCalledTimes(1);
+  });
+
+  it('pesquisa todo o histórico com termo literal antes do cursor e limite, incluindo legendas', async () => {
+    const resultsByColumn = {
+      text_content: [messageRow('text-result', '2026-10-23T15:00:00Z', 'text')],
+      media_filename: [messageRow('file-result', '2026-10-23T14:00:00Z', 'document')],
+      media_caption: [messageRow('text-result', '2026-10-23T15:00:00Z', 'text'), messageRow('caption-result', '2026-10-23T13:00:00Z', 'image')],
+    };
+    const { client, queries } = mockSupabase((column) => resultsByColumn[column as keyof typeof resultsByColumn] || []);
+    const cursor = { timestamp: '2026-10-23T16:00:00.123+00:00', id: 'source-id' };
+    const page = await fetchConversationMessageSearchPage(client as any, 'conversation-1', cursor, ' a%_*\\b ', 2);
+    expect(page.messages.map((message) => message.id)).toEqual(['text-result', 'file-result']);
+    expect(page.hasMore).toBe(true);
+    expect(page.nextCursor).toEqual({ timestamp: '2026-10-23T14:00:00Z', id: 'file-result' });
+    expect(queries).toHaveLength(3);
+    queries.forEach((query, index) => {
+      expect(query.filters[0]).toEqual(['eq', 'conversation_id', 'conversation-1']);
+      expect(query.filters[1]).toEqual(['ilike', ['text_content', 'media_filename', 'media_caption'][index], '%a\\%\\_\\*\\\\b%']);
+      expect(query.or).toHaveBeenCalledWith('timestamp.lt."2026-10-23T16:00:00.123+00:00",and(timestamp.eq."2026-10-23T16:00:00.123+00:00",id.lt.source-id)');
+      expect(query.limit).toHaveBeenCalledWith(3);
+      expect(query.in).not.toHaveBeenCalled();
+      expect(query.not).not.toHaveBeenCalled();
+    });
+  });
+
+  it('impõe teto por consulta e não consulta histórico com busca vazia ou inválida', async () => {
+    const { client, queries } = mockSupabase([]);
+    expect(await fetchConversationMessageSearchPage(client as any, 'conversation-1', null, '  '))
+      .toEqual({ messages: [], hasMore: false, nextCursor: null });
+    expect(client.from).not.toHaveBeenCalled();
+    await expect(fetchConversationMessageSearchPage(client as any, 'conversation-1', null, 'a'.repeat(101)))
+      .rejects.toThrow('A busca deve ter no máximo 100 caracteres.');
+    expect(client.from).not.toHaveBeenCalled();
+    await fetchConversationMessageSearchPage(client as any, 'conversation-1', null, 'consulta', 5000);
+    queries.forEach((query) => expect(query.limit).toHaveBeenCalledWith(51));
   });
 });

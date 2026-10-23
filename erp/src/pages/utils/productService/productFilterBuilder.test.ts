@@ -7,6 +7,8 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
 }));
 
 import { applyProductFiltersAndSort } from './productFilterBuilder';
+import { PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER } from '../../../../../shared-utils/productListTypeFilters';
+import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
 
 describe('productFilterBuilder', () => {
   it('aplica filtro de fornecedor quando supplierId é fornecido', async () => {
@@ -36,6 +38,63 @@ describe('productFilterBuilder', () => {
     await applyProductFiltersAndSort(mockQuery, {});
 
     expect(mockQuery.or).not.toHaveBeenCalledWith(expect.stringContaining('supplier_id.eq.'));
+  });
+
+  it('filtra Somente Produtos incluindo produtos, composições e registros legados', async () => {
+    const mockQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [], error: null })),
+    };
+
+    await applyProductFiltersAndSort(mockQuery, { category: 'Produtos' });
+
+    expect(mockQuery.or).toHaveBeenCalledWith(PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER);
+  });
+
+  it('filtra rascunhos por is_draft ou pelo status legado', async () => {
+    const mockQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [], error: null })),
+    };
+
+    await applyProductFiltersAndSort(mockQuery, { isDraft: true });
+
+    expect(mockQuery.or).toHaveBeenCalledWith(PRODUCT_LIST_DRAFT_FILTER);
+    expect(mockQuery.eq).not.toHaveBeenCalledWith('is_draft', true);
+  });
+
+  it('filtra categoria por UUID primário, relação normalizada e nome legado', async () => {
+    const categoryQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { name: 'Sala' }, error: null }),
+    };
+    const categoryLinksQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) =>
+        resolve({ data: [{ product_id: 'product-1' }, { product_id: 'product-2' }], error: null })
+      ),
+    };
+    mocks.from.mockImplementation((table: string) =>
+      table === 'categories' ? categoryQuery : categoryLinksQuery
+    );
+    const mockQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [], error: null })),
+    };
+
+    await applyProductFiltersAndSort(mockQuery, { category: 'category-1' });
+
+    expect(categoryQuery.eq).toHaveBeenCalledWith('id', 'category-1');
+    expect(categoryLinksQuery.eq).toHaveBeenCalledWith('category_id', 'category-1');
+    expect(mockQuery.or).toHaveBeenCalledWith(
+      'category_id.eq.category-1,category.eq."Sala",id.in.(product-1,product-2)'
+    );
+    expect(mockQuery.eq).not.toHaveBeenCalledWith('category', 'category-1');
   });
 
   it('busca na lixeira itens desativados ou excluídos e omite rascunhos', async () => {

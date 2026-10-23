@@ -1,4 +1,4 @@
-import { Package } from 'lucide-react-native';
+import { Blocks, ChevronRight, FolderTree, Package } from 'lucide-react-native';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -27,6 +27,7 @@ import { NativeCategoriesScreen } from '../categories';
 import { MobileProductCard } from '../components/MobileProductCard';
 import { MobileProductPagination } from '../components/MobileProductPagination';
 import { ProductsHeader } from '../components/ProductsHeader';
+import type { ProductListMode } from '../components/header/ProductsHeaderModeSelector';
 import { useMobileProducts } from '../hooks/useMobileProducts';
 import { MobileMergeVariationModal } from '../modals/MobileMergeVariationModal';
 import { MobileMoveVariationModal } from '../modals/MobileMoveVariationModal';
@@ -43,16 +44,17 @@ import { getNextSequentialProductCode } from '../services/mobileProductCodeServi
 interface Props {
   isDarkMode: boolean;
   userProfile?: any;
-  mode?: 'standard' | 'composition' | 'categories';
+  mode?: ProductListMode;
   onLaunchStock?: (product: any) => void;
 }
 
 export const NativeProductsScreen: React.FC<Props> = ({
   isDarkMode,
-  mode = 'standard',
+  mode,
   onLaunchStock,
 }) => {
-  const [screenMode, setScreenMode] = useState<'standard' | 'composition' | 'categories'>(mode);
+  const [screenMode, setScreenMode] = useState<ProductListMode>(mode ?? 'standard');
+  const [selectedMode, setSelectedMode] = useState<ProductListMode | null>(mode ?? null);
   const { canUseProductPermission, canUsePermission, userProfile } = useAuth();
   const isStockistOnly = isStockistOnlyProductProfile(userProfile);
   const canViewCatalog = canUseProductPermission('viewProducts');
@@ -72,7 +74,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const canViewDetails =
     !canEditProducts && !isLabelOnlyProfile && (canViewCatalog || canViewCompositions);
   const availableModes = useMemo(() => {
-    const modes: Array<'standard' | 'composition' | 'categories'> = [];
+    const modes: ProductListMode[] = [];
     if (canViewCatalog) modes.push('standard');
     if (canViewCompositions) modes.push('composition');
     if (canViewCategories) modes.push('categories');
@@ -81,11 +83,37 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const activeMode = availableModes.includes(screenMode)
     ? screenMode
     : (availableModes[0] ?? screenMode);
+  const productModules = [
+    {
+      key: 'standard' as const,
+      title: 'Produtos',
+      description: 'Consulte e gerencie os produtos do catálogo.',
+      Icon: Package,
+    },
+    {
+      key: 'composition' as const,
+      title: 'Composições',
+      description: 'Acesse as composições cadastradas.',
+      Icon: Blocks,
+    },
+    {
+      key: 'categories' as const,
+      title: 'Ambientes e Categorias',
+      description: 'Organize os ambientes e as categorias de produtos.',
+      Icon: FolderTree,
+    },
+  ];
+  const selectMode = (nextMode: ProductListMode) => {
+    setScreenMode(nextMode);
+    setSelectedMode(nextMode);
+  };
+  const returnToMenu = () => setSelectedMode(null);
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
   const productsHook = useMobileProducts(
     activeMode === 'composition' ? 'composition' : 'standard',
-    activeMode !== 'categories' && availableModes.includes(activeMode)
+    selectedMode !== null && activeMode !== 'categories' && availableModes.includes(activeMode),
+    canViewCompositions
   );
 
   const [categories, setCategories] = useState<any[]>([]);
@@ -127,6 +155,12 @@ export const NativeProductsScreen: React.FC<Props> = ({
   useEffect(() => {
     if (activeMode !== screenMode) setScreenMode(activeMode);
   }, [activeMode, screenMode]);
+
+  useEffect(() => {
+    if (selectedMode !== null && !availableModes.includes(selectedMode)) {
+      setSelectedMode(null);
+    }
+  }, [availableModes, selectedMode]);
 
   useEffect(() => {
     if (!canDeleteProducts && productsHook.showTrash) productsHook.setShowTrash(false);
@@ -264,42 +298,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.dark, { paddingTop: topInset }]}>
-      {activeMode === 'categories' ? (
-        <View style={{ flex: 1, paddingHorizontal: 16 }}>
-          <ProductsHeader
-            mode={activeMode}
-            availableModes={availableModes}
-            onModeChange={setScreenMode}
-            dark={isDarkMode}
-            search=""
-            totalCount={0}
-            onSearch={() => {}}
-            onNewProduct={handleOpenNew}
-            canCreateProduct={canEditProducts}
-            canCreateComposition={canEditProducts && !isStockistOnly}
-            onOpenConfigs={() => {
-              if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
-            }}
-            canOpenConfigs={canViewCategories || canViewCharacteristics}
-            onOpenReconciliation={handleOpenReconciliation}
-            canViewReconciliation={canViewReconciliation}
-            canViewMetaCatalog={canViewMetaCatalog}
-            canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
-            onOpenMetaCatalog={handleOpenMetaCatalog}
-            onOpenWhatsAppMarketplace={handleOpenWhatsAppMarketplace}
-            categories={categories}
-            statusFilter="all"
-            categoryFilter="all"
-            catalogStatusFilter="all"
-            onStatusFilterChange={() => {}}
-            onCategoryFilterChange={() => {}}
-            onCatalogStatusFilterChange={() => {}}
-            showDeactivated={false}
-            onToggleDeactivated={() => {}}
-          />
-          <NativeCategoriesScreen dark={isDarkMode} onCategoriesUpdated={loadCategories} />
-        </View>
-      ) : availableModes.length === 0 ? (
+      {availableModes.length === 0 ? (
         <View style={styles.empty}>
           <Package size={40} color="#2563eb" />
           <Text style={[styles.emptyText, isDarkMode && styles.loading]}>
@@ -342,6 +341,77 @@ export const NativeProductsScreen: React.FC<Props> = ({
             </TouchableOpacity>
           )}
         </View>
+      ) : selectedMode === null ? (
+        <ScrollView contentContainerStyle={styles.moduleMenuContent}>
+          <Text style={[styles.moduleMenuTitle, isDarkMode && styles.lightText]}>Produtos</Text>
+          <Text style={[styles.moduleMenuSubtitle, isDarkMode && styles.mutedTextDark]}>
+            Escolha a área que deseja consultar.
+          </Text>
+          {productModules
+            .filter(({ key }) => availableModes.includes(key))
+            .map(({ key, title, description, Icon }) => (
+              <TouchableOpacity
+                key={key}
+                testID={`products-module-${key}`}
+                onPress={() => selectMode(key)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir ${title}`}
+                style={[styles.moduleMenuCard, isDarkMode && styles.moduleMenuCardDark]}
+              >
+                <View style={[styles.moduleIconBox, isDarkMode && styles.moduleIconBoxDark]}>
+                  <Icon size={21} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
+                </View>
+                <View style={styles.moduleMenuCardText}>
+                  <Text style={[styles.moduleMenuCardTitle, isDarkMode && styles.lightText]}>
+                    {title}
+                  </Text>
+                  <Text
+                    style={[styles.moduleMenuCardDescription, isDarkMode && styles.mutedTextDark]}
+                  >
+                    {description}
+                  </Text>
+                </View>
+                <ChevronRight size={19} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+              </TouchableOpacity>
+            ))}
+        </ScrollView>
+      ) : activeMode === 'categories' ? (
+        <View style={{ flex: 1, paddingHorizontal: 16 }}>
+          <ProductsHeader
+            mode={activeMode}
+            availableModes={availableModes}
+            onModeChange={selectMode}
+            onBack={returnToMenu}
+            dark={isDarkMode}
+            search=""
+            totalCount={0}
+            onSearch={() => {}}
+            onNewProduct={handleOpenNew}
+            canCreateProduct={canEditProducts}
+            canCreateComposition={canEditProducts && !isStockistOnly}
+            onOpenConfigs={() => {
+              if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
+            }}
+            canOpenConfigs={canViewCategories || canViewCharacteristics}
+            onOpenReconciliation={handleOpenReconciliation}
+            canViewReconciliation={canViewReconciliation}
+            canViewMetaCatalog={canViewMetaCatalog}
+            canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
+            onOpenMetaCatalog={handleOpenMetaCatalog}
+            onOpenWhatsAppMarketplace={handleOpenWhatsAppMarketplace}
+            categories={categories}
+            statusFilter="all"
+            categoryFilter="all"
+            catalogStatusFilter="all"
+            onStatusFilterChange={() => {}}
+            onCategoryFilterChange={() => {}}
+            onCatalogStatusFilterChange={() => {}}
+            showDeactivated={false}
+            onToggleDeactivated={() => {}}
+          />
+          <NativeCategoriesScreen dark={isDarkMode} onCategoriesUpdated={loadCategories} />
+        </View>
       ) : productsHook.loading && !productsHook.refreshing ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#2563eb" />
@@ -361,7 +431,8 @@ export const NativeProductsScreen: React.FC<Props> = ({
           <ProductsHeader
             mode={activeMode}
             availableModes={availableModes}
-            onModeChange={setScreenMode}
+            onModeChange={selectMode}
+            onBack={returnToMenu}
             dark={isDarkMode}
             search={productsHook.searchTerm}
             totalCount={productsHook.totalItems}
@@ -508,7 +579,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
         onCategoriesUpdated={loadCategories}
         onNavigateToCategories={() => {
           setShowConfigModal(false);
-          setScreenMode('categories');
+          selectMode('categories');
         }}
         canManageCategories={canViewCategories}
         canManageCharacteristics={canViewCharacteristics}
@@ -555,6 +626,40 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   dark: { backgroundColor: '#0f172a' },
   content: { paddingHorizontal: 16, paddingBottom: 36, gap: 10 },
+  moduleMenuContent: { padding: 16, paddingBottom: 32, gap: 12 },
+  moduleMenuTitle: { fontSize: 21, fontWeight: '900', color: '#0f172a' },
+  moduleMenuSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    marginTop: -6,
+    marginBottom: 4,
+  },
+  moduleMenuCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  moduleMenuCardDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  moduleIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eff6ff',
+  },
+  moduleIconBoxDark: { backgroundColor: 'rgba(30, 58, 138, 0.35)' },
+  moduleMenuCardText: { flex: 1, gap: 3 },
+  moduleMenuCardTitle: { fontSize: 14, fontWeight: '900', color: '#0f172a' },
+  moduleMenuCardDescription: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  lightText: { color: '#f8fafc' },
+  mutedTextDark: { color: '#94a3b8' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loading: { fontSize: 12, fontWeight: '700', color: '#64748b', marginTop: 10 },
   editLoadingOverlay: {

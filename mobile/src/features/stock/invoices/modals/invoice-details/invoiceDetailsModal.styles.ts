@@ -96,16 +96,6 @@ export const styles = StyleSheet.create({
   totalItem: { color: '#059669', fontSize: 11, fontWeight: '900', marginTop: 3 },
   emptyText: { textAlign: 'center', color: '#94a3b8', fontSize: 11, padding: 18 },
   emptyItemsBox: { padding: 20, alignItems: 'center', gap: 12 },
-  fetchXmlDetailBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  fetchXmlDetailBtnText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
   totalBox: {
     flexDirection: 'row',
     flexWrap: 'wrap',

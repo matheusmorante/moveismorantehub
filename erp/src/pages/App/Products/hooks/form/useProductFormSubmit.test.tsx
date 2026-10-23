@@ -15,7 +15,7 @@ afterEach(cleanup);
 
 const complete: Product = {
   id: 'parent', name: 'Armário', description: '', unitPrice: 150, unit: 'UN', itemType: 'product',
-  isDraft: true, status: 'draft', active: false, productKind: 'normal', hasVariations: true,
+  isDraft: true, status: 'draft', active: false, productKind: 'normal', hasVariations: false,
   opportunityId: 'opportunity-1',
   categoryIds: ['categoria'], mainSupplierId: 'fornecedor', width: 80, height: 180, depth: 50,
   technicalValues: {
@@ -206,7 +206,7 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
       observations: `Fixture ${HML_FISCAL_TEST_ORDER_MARKER}`,
       title: 'Produto Teste Fiscal',
       ecommerceDescription: 'Item sintético para homologação',
-      hasVariations: true,
+      hasVariations: false,
       images: ['https://example.com/teste.jpg'],
       variations: [{ ...complete.variations![0], status: 'published' }],
     };

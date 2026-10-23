@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SINK_CATEGORY_ID } from '../../../../../shared-utils/productSinkCategoryRules';
 import {
   getApplicableProductTechnicalFields,
   getEffectiveProductTechnicalValues,
@@ -169,6 +170,56 @@ describe('productCharacteristics', () => {
         'Campo legado inativo': 'valor antigo',
       }).map(({ name }) => name)
     ).toEqual(['Cor', 'Da categoria', 'Legado preenchido', 'Campo legado inativo']);
+  });
+
+  it('aplica as regras de campos da categoria Pias iguais às do ERP', () => {
+    const fields = [
+      { name: 'Material da estrutura', categoryIds: [SINK_CATEGORY_ID] },
+      { name: 'Material da pia', categoryIds: [SINK_CATEGORY_ID] },
+      { name: 'Concretada?', categoryIds: [SINK_CATEGORY_ID] },
+      { name: 'Possui cuba de inox?', categoryIds: [SINK_CATEGORY_ID] },
+    ];
+
+    expect(
+      getApplicableProductTechnicalFields(fields, [SINK_CATEGORY_ID]).map(({ name }) => name)
+    ).toEqual(['Material da pia', 'Concretada?', 'Possui cuba de inox?']);
+  });
+
+  it('detecta Pias pelo vínculo do atributo e não mostra os campos exclusivos em outras categorias', () => {
+    const fields = [
+      { name: 'Material da pia', categoryIds: ['categoria-pia-legada'] },
+      { name: 'Concretada?', categoryIds: ['categoria-pia-legada'] },
+      { name: 'Possui cuba de inox?', categoryIds: ['categoria-pia-legada'] },
+    ];
+
+    expect(
+      getApplicableProductTechnicalFields(fields, ['categoria-pia-legada']).map(({ name }) => name)
+    ).toEqual(['Material da pia', 'Concretada?', 'Possui cuba de inox?']);
+
+    const legacyFields = [
+      { name: 'Material da pia' },
+      { name: 'Concretada?' },
+      { name: 'Possui cuba de inox?' },
+      { name: 'Material da estrutura', categoryIds: ['categoria-movel'] },
+    ];
+    const legacyValues = {
+      'Material da pia': 'Granito',
+      'Concretada?': 'Sim',
+      'Possui cuba de inox?': 'Sim',
+    };
+    expect(
+      getApplicableProductTechnicalFields(legacyFields, ['categoria-movel'], legacyValues).map(
+        ({ name }) => name
+      )
+    ).toEqual(['Material da estrutura']);
+    expect(
+      getApplicableProductTechnicalFields(
+        legacyFields,
+        ['categoria-movel'],
+        legacyValues,
+        ['Material da pia']
+      ).map(({ name }) => name)
+    ).toEqual(['Material da pia', 'Material da estrutura']);
   });
 
   it('mantém Reclinável, Linha e Modelo (isolado) fora dos campos técnicos aplicáveis, preservando Modelo/Linha', () => {

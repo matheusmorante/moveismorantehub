@@ -76,6 +76,10 @@ describe('saveMobileProduct', () => {
       name: 'Produto de teste',
       itemType: 'product',
       productKind: 'normal',
+      category: 'Categoria legada',
+      categoryId: 'category-stale',
+      categoryIds: ['category-selected-1', 'category-selected-2'],
+      brand: 'Morante',
       colors: 'AZUL / VERDE',
       noColors: false,
       unitPrice: '1.234,50',
@@ -87,7 +91,7 @@ describe('saveMobileProduct', () => {
       minStock: '2,5',
       attributes: [{ name: 'Cor', value: 'Azul' }],
       technical_specs: { technicalValues: { Altura: '180' } },
-      technicalValues: { Cor: 'Verde' },
+      technicalValues: { Cor: 'Verde', Marca: 'Morante' },
       variations: [
         {
           id: 'new_PROD-01',
@@ -99,12 +103,13 @@ describe('saveMobileProduct', () => {
           ],
           syncUnitPrice: true,
           syncPromoPrice: true,
+          discountPercent: '150',
+          discountFixed: '150',
           comboItems: [],
           stock: 999,
         },
       ],
       images: [],
-      categoryIds: [],
     });
 
     expect(savedId).toBe('saved-product-id');
@@ -121,6 +126,7 @@ describe('saveMobileProduct', () => {
         unit_price: 1234.5,
         price: 1234.5,
         marketplace_title: 'Produto de teste',
+        brand: 'Morante',
         colors: 'AZUL / VERDE',
         no_colors: false,
         promo_price: 1199.9,
@@ -130,12 +136,17 @@ describe('saveMobileProduct', () => {
         final_purchase_price: 1078,
         min_stock: 2.5,
         technical_specs: {
-          technicalValues: { Altura: '180', Cor: 'Verde' },
+          technicalValues: { Altura: '180', Cor: 'Verde', Marca: 'Morante' },
         },
       },
     });
     expect(parameters.p_product).not.toHaveProperty('weight');
+    expect(parameters.p_product).not.toHaveProperty('category');
+    expect(parameters.p_product.category_id).toBe('category-selected-1');
+    expect(parameters.p_category_ids).toEqual(['category-selected-1', 'category-selected-2']);
     expect(parameters.p_variations[0]).not.toHaveProperty('stock');
+    expect(parameters.p_variations[0]).not.toHaveProperty('discountPercent');
+    expect(parameters.p_variations[0]).not.toHaveProperty('discountFixed');
     expect(parameters.p_variations[0].combo_items).toEqual([]);
     expect(parameters.p_variations[0].name).toBe('Produto de teste M');
     expect(parameters.p_product.technical_specs.variationDetails).toEqual([
@@ -145,6 +156,8 @@ describe('saveMobileProduct', () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     );
     expect(parameters.p_product.technical_specs.variationDetails[0]).not.toHaveProperty('initialStock');
+    expect(parameters.p_product.technical_specs.variationDetails[0]).not.toHaveProperty('discountPercent');
+    expect(parameters.p_product.technical_specs.variationDetails[0]).not.toHaveProperty('discountFixed');
   });
 
   it('preserva metadados de catálogo e descrições por canal ao editar um produto', async () => {
@@ -179,6 +192,26 @@ describe('saveMobileProduct', () => {
       ecommerce_template: 'Modelo e-commerce salvo',
       whatsapp_template: 'Modelo WhatsApp salvo',
     });
+  });
+
+  it('usa categoryId como vínculo singular quando a lista não foi preenchida', async () => {
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174050',
+      operationId: '123e4567-e89b-42d3-a456-426614174051',
+      code: 'PROD-SINGULAR',
+      name: 'Produto com categoria singular',
+      itemType: 'product',
+      productKind: 'normal',
+      categoryId: 'category-single',
+      categoryIds: [],
+      variations: [{ sku: 'PROD-SINGULAR-01' }],
+      images: [],
+    });
+
+    const [, parameters] = mocks.rpc.mock.calls[0];
+    expect(parameters.p_product.category_id).toBe('category-single');
+    expect(parameters.p_category_ids).toEqual(['category-single']);
+    expect(parameters.p_product).not.toHaveProperty('category');
   });
 
   it('preserva quantidades fracionárias localizadas dos componentes no produto e na variação composta', async () => {

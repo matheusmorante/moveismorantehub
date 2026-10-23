@@ -9,6 +9,9 @@ import {
   isProductVariationSearchTooBroadError,
   PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
 } from '../../../../../shared-utils/productListSearch';
+import { PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER } from '../../../../../shared-utils/productListTypeFilters';
+import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
+import { fetchProductListCategoryFilter } from '../../../../../shared-utils/productListCategoryFilters';
 import { getMobileProductVariationRecords } from '../domain/mobileProductVariationVisibility';
 import { resolveMobileProductHasVariations } from '../domain/mobileProductVariationMode';
 
@@ -25,10 +28,9 @@ export interface MobileProductFilterOptions {
   supplierId?: string;
   itemType?: 'standard' | 'composition';
   generalType?: 'all' | 'product' | 'service';
+  canViewCompositions?: boolean;
   throwOnError?: boolean;
 }
-
-const escapePostgrestValue = (value: string) => value.replace(/[%(),]/g, ' ').trim();
 
 const MOBILE_PRODUCT_LIST_COLUMNS =
   '*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)';
@@ -219,15 +221,22 @@ export const fetchMobileProductsPage = async (
       query = query.eq('deleted', false);
     }
 
+    const includeCompositionsInStandardMode =
+      options?.itemType === 'standard' &&
+      options.canViewCompositions === true &&
+      (options.generalType === 'all' || options.generalType === 'product');
+
     if (options?.itemType === 'composition') {
       query = query.eq('item_type', 'composition');
-    } else if (options?.itemType === 'standard') {
+    } else if (options?.itemType === 'standard' && !includeCompositionsInStandardMode) {
       // Preserva produtos legados com item_type nulo, como o filtro do ERP.
       query = query.filter('item_type', 'isdistinct', 'composition');
     }
 
     if (options?.generalType === 'product') {
-      query = query.eq('item_type', 'product');
+      query = includeCompositionsInStandardMode
+        ? query.or(PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER)
+        : query.eq('item_type', 'product');
     } else if (options?.generalType === 'service') {
       query = query.eq('item_type', 'service');
     }
@@ -243,7 +252,7 @@ export const fetchMobileProductsPage = async (
 
     const status = options?.statusFilter || 'all';
     if (!options?.showTrash && status === 'draft') {
-      query = query.or('is_draft.eq.true,status.eq.draft');
+      query = query.or(PRODUCT_LIST_DRAFT_FILTER);
     } else if (!options?.showTrash && status === 'active') {
       query = query
         .not('is_draft', 'is', true)
@@ -265,25 +274,9 @@ export const fetchMobileProductsPage = async (
     }
 
     if (options?.category) {
-      // O ERP ainda encontra registros antigos pelo campo products.category,
-      // mas também considera a relação normalizada product_categories.
-      const { data: categoryRow } = await supabase
-        .from('categories')
-        .select('name')
-        .eq('id', options.category)
-        .maybeSingle();
-      const { data: categoryLinks } = await supabase
-        .from('product_categories')
-        .select('product_id')
-        .eq('category_id', options.category);
-      const linkedProductIds = (categoryLinks || [])
-        .map((row: any) => row.product_id)
-        .filter(Boolean);
-      const conditions = [`category_id.eq.${options.category}`];
-      if (categoryRow?.name)
-        conditions.push(`category.eq."${escapePostgrestValue(categoryRow.name)}"`);
-      if (linkedProductIds.length > 0) conditions.push(`id.in.(${linkedProductIds.join(',')})`);
-      query = query.or(conditions.join(','));
+      // Mantém registros antigos pelo campo products.category e também consulta
+      // a coluna direta e a relação normalizada product_categories.
+      query = query.or(await fetchProductListCategoryFilter(supabase, options.category));
     }
 
     const searchTerms = buildProductSearchTerms(options?.search || '');

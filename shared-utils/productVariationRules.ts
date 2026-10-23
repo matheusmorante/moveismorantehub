@@ -32,8 +32,9 @@ export function resolveVariationDimensions(parent: Partial<Product>, variation: 
 
 export function getVariationRegistrationIssue(
   parent: Partial<Product>,
-  variation: Variation
+  variation: Variation | null | undefined
 ): { message: string; tab: VariationTabId } | null {
+  if (!variation || typeof variation !== 'object' || Array.isArray(variation)) return null;
   if (hasDuplicateVariationAttributeCombination(variation, parent.variations || [])) {
     return {
       message: 'Já existe outra variação com a mesma combinação de atributos e valores.',

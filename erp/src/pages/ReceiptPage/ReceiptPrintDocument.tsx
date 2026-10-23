@@ -6,6 +6,10 @@ import PaymentsTable from './PaymentsTable';
 import ShippingData from './ShippingData';
 import DigitalSignatureBadge from './DigitalSignatureBadge';
 import Order from '@/pages/types/order.type';
+import {
+  getEffectiveOrderDeliveryAddress,
+  getEffectiveOrderDeliveryMapUrl,
+} from '@/pages/utils/orderDeliveryAddress';
 
 interface ReceiptPrintDocumentProps {
   order: Order;
@@ -13,19 +17,28 @@ interface ReceiptPrintDocumentProps {
 }
 
 export const ReceiptPrintDocument: React.FC<ReceiptPrintDocumentProps> = ({ order, settings }) => {
+  const printableCustomerData = {
+    ...order.customerData,
+    fullAddress: getEffectiveOrderDeliveryAddress(order) || {},
+  };
+
   return (
     <div className="flex flex-col gap-1 text-slate-900 bg-white p-4 min-h-screen">
       <Header seller={order.seller} />
       <CustomerData
-        customerData={order.customerData}
+        customerData={printableCustomerData}
         isPickup={order.shipping?.deliveryMethod === 'pickup'}
+        noAddress={order.shipping?.noAddress}
       />
 
       <ItemsTable items={order.items} summary={order.itemsSummary} />
 
       <div className="flex flex-row w-full justify-between gap-8 mt-2">
         <div className="flex flex-col gap-2 w-1/2">
-          <ShippingData shipping={order.shipping} />
+          <ShippingData
+            shipping={order.shipping}
+            routeUrl={getEffectiveOrderDeliveryMapUrl(order)}
+          />
 
           <div className="mt-4 pt-2">
             <DigitalSignatureBadge

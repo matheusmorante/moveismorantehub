@@ -14,6 +14,16 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     throw new Error('Inicie o ERP Vite na porta 5173 com strictPort antes do navegador de teste.');
   }
 
+  if (process.env.SUPPORT_READONLY_SECURE_API_IMPORT === '1') {
+    const response = await fetch('http://localhost:3000/api/meta-graph', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(10_000),
+    });
+    expect([401, 503], 'A rota ESM deve carregar e rejeitar a chamada sem sessão ou token de integração.').toContain(response.status);
+  }
+
   const verifySlowRefresh = process.env.SUPPORT_READONLY_SLOW_REFRESH === '1';
   const verifyReadReceipt = process.env.SUPPORT_READONLY_READ_RECEIPT === '1';
   if (verifyReadReceipt) test.setTimeout(90_000);
@@ -21,12 +31,14 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   const verifyOrdersPanel = process.env.SUPPORT_READONLY_ORDERS_PANEL === '1';
   const verifySnippets = process.env.SUPPORT_READONLY_SNIPPETS === '1';
   const verifyHistoryPanels = process.env.SUPPORT_READONLY_HISTORY_PANELS === '1';
+  const verifyMessageSearch = process.env.SUPPORT_READONLY_MESSAGE_SEARCH === '1';
   const verifyMobileLayout = process.env.SUPPORT_READONLY_MOBILE_LAYOUT === '1';
   const verifyMissedReadRecovery = process.env.SUPPORT_READONLY_MISSED_READ === '1';
   if (verifyPhoneCopy && !verifyReadReceipt) throw new Error('A prova de cópia exige a conversa própria retida e suas guardas de leitura.');
   if (verifyOrdersPanel && !verifyReadReceipt) throw new Error('A prova de pedidos exige a conversa própria retida e suas guardas de leitura.');
   if (verifySnippets && !verifyReadReceipt) throw new Error('A prova dos modelos exige a conversa própria retida e suas guardas de leitura.');
   if (verifyHistoryPanels && !verifyReadReceipt) throw new Error('Timeline e galeria exigem a conversa própria retida e suas guardas de leitura.');
+  if (verifyMessageSearch && !verifyReadReceipt) throw new Error('A busca exige a conversa própria retida e suas guardas de leitura.');
   if (verifyMobileLayout && !verifyReadReceipt) throw new Error('A prova em tela pequena exige o histórico próprio retido e suas guardas de leitura.');
   if (verifyMissedReadRecovery && !verifyReadReceipt) throw new Error('A recuperação de leitura exige o histórico próprio e suas guardas de leitura.');
   const retainedManifest = verifyReadReceipt
@@ -157,6 +169,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     });
     expect(operatorGateStatus, 'A identidade deve passar pelo gate real do operador.').toBe(204);
     console.info('[support-readonly] Identidade e gate do operador confirmados.');
+
     failFolderReads = true;
     failAgentReads = true;
     await page.goto('http://localhost:5173/atendimento');
@@ -296,6 +309,56 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       await expect(page.getByTitle('O envio de mensagens para o cliente está bloqueado pela política da empresa', { exact: true })).toBeDisabled();
       await expect(page.getByText('Envio bloqueado pela política da empresa', { exact: true })).toBeVisible();
       expect(rejectedReadWrites).toBeGreaterThan(0);
+      if (verifyMessageSearch) {
+        const searchProof = await page.evaluate(async (conversationId) => {
+          const { supabase } = await import('/src/pages/utils/supabaseConfig.ts');
+          const result = await supabase.from('whatsapp_messages')
+            .select('id,text_content,media_filename,media_caption').eq('conversation_id', conversationId).limit(69);
+          if (result.error || !result.data || result.data.length > 68) throw new Error('Histórico próprio não confirmado para a busca.');
+          const term = result.data.map(row => row.text_content?.match(/[A-Za-z]{4,24}/)?.[0]).find(Boolean);
+          if (!term) throw new Error('Fixture própria sem texto pesquisável.');
+          const expectedIds = result.data.filter(row => [row.text_content, row.media_filename, row.media_caption]
+            .some(value => value?.toLowerCase().includes(term.toLowerCase()))).map(row => row.id).sort();
+          return { term, expectedIds };
+        }, ownedReadConversationId!);
+        await page.getByRole('button', { name: 'Pesquisar na conversa', exact: true }).click();
+        const searchInput = page.getByRole('searchbox', { name: 'Pesquisar nesta conversa', exact: true });
+        const searchForm = searchInput.locator('..');
+        await searchInput.fill('x'.repeat(101));
+        await searchForm.getByRole('button', { name: 'Buscar', exact: true }).click();
+        await expect(searchForm.locator('..').getByRole('alert')).toHaveText('A busca deve ter no máximo 100 caracteres.');
+        await searchInput.fill(searchProof.term);
+        const [searchResponse] = await Promise.all([
+          page.waitForResponse(response => {
+            const url = new URL(response.url());
+            return url.pathname === '/rest/v1/whatsapp_messages' && url.searchParams.has('text_content');
+          }),
+          searchForm.getByRole('button', { name: 'Buscar', exact: true }).click(),
+        ]);
+        expect(searchResponse.status()).toBe(200);
+        await expect(history.getByRole('status')).toHaveCount(0);
+        const moreResults = history.getByRole('button', { name: 'Carregar mais resultados', exact: true });
+        for (let pageIndex = 0; pageIndex < 3 && await moreResults.isVisible(); pageIndex++) {
+          await moreResults.click();
+          await expect(history.getByRole('button', { name: 'Pesquisando mensagens…', exact: true })).toHaveCount(0);
+        }
+        await expect.poll(async () => (await history.locator('[data-message-id]').evaluateAll(elements =>
+          elements.map(element => (element as HTMLElement).dataset.messageId).sort()))).toEqual(searchProof.expectedIds);
+        const [repeatedSearch] = await Promise.all([
+          page.waitForResponse(response => {
+            const url = new URL(response.url());
+            return url.pathname === '/rest/v1/whatsapp_messages' && url.searchParams.has('text_content');
+          }),
+          searchForm.getByRole('button', { name: 'Buscar', exact: true }).click(),
+        ]);
+        expect(repeatedSearch.status()).toBe(200);
+        await expect.poll(async () => (await history.locator('[data-message-id]').evaluateAll(elements =>
+          elements.map(element => (element as HTMLElement).dataset.messageId).sort()))).toEqual(searchProof.expectedIds);
+        await searchForm.getByRole('button', { name: 'Fechar', exact: true }).click();
+        await expect(searchInput).toHaveCount(0);
+        test.info().annotations.push({ type: 'message-search-readonly', description: 'Resolver e busca paginada pela UI comparados aos IDs de mensagens da fixture própria sob RLS, com todas as escritas bloqueadas. Não prova uma correspondência além de 80 mensagens.' });
+        console.info('[support-readonly] Busca da conversa própria e validação do formulário confirmadas sem escritas.');
+      }
       if (verifyHistoryPanels) {
         const persistedCounts = await page.evaluate(async (conversationId) => {
           const { supabase } = await import('/src/pages/utils/supabaseConfig.ts');

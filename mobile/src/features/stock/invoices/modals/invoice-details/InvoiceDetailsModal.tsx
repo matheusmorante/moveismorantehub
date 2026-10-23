@@ -23,7 +23,6 @@ interface Props {
   invoice: InvoiceDetail | null;
   loading: boolean;
   onClose: () => void;
-  onFetchXml?: (invoice: InvoiceDetail) => void;
 }
 
 export const InvoiceDetailsModal: React.FC<Props> = ({
@@ -32,7 +31,6 @@ export const InvoiceDetailsModal: React.FC<Props> = ({
   invoice,
   loading,
   onClose,
-  onFetchXml,
 }) => {
   const { width } = useWindowDimensions();
   const compactLayout = width < 600;
@@ -66,8 +64,6 @@ export const InvoiceDetailsModal: React.FC<Props> = ({
                   <InvoiceDetailsItemsSection
                     invoice={invoice}
                     isDarkMode={isDarkMode}
-                    onFetchXml={onFetchXml}
-                    onClose={onClose}
                   />
 
                   <View style={styles.totalBox}>

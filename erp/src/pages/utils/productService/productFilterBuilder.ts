@@ -4,6 +4,9 @@ import {
   createProductVariationSearchTooBroadError,
   PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
 } from '../../../../../shared-utils/productListSearch';
+import { PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER } from '../../../../../shared-utils/productListTypeFilters';
+import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
+import { fetchProductListCategoryFilter } from '../../../../../shared-utils/productListCategoryFilters';
 const NON_TEST_PRODUCT_ARTIFACT_FILTER = [
   'and(',
   'or(technical_specs->>is_test.is.null,technical_specs->>is_test.neq.true),',
@@ -65,7 +68,7 @@ export const applyProductFiltersAndSort = async (
 
   // Filtro de rascunhos do ERP
   if (options?.isDraft === true) {
-    q = q.eq('is_draft', true);
+    q = q.or(PRODUCT_LIST_DRAFT_FILTER);
   } else if (options?.isDraft === false) {
     q = q
       .not('is_draft', 'is', true)
@@ -132,11 +135,11 @@ export const applyProductFiltersAndSort = async (
 
   // Filtro de categoria
   if (options?.category && options.category !== 'Serviços' && options.category !== 'Produtos') {
-    q = q.eq('category', options.category);
+    q = q.or(await fetchProductListCategoryFilter(supabase, options.category));
   } else if (options?.category === 'Serviços') {
     q = q.eq('item_type', 'service');
   } else if (options?.category === 'Produtos') {
-    q = q.or('item_type.eq.product,item_type.eq.composition,item_type.is.null');
+    q = q.or(PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER);
   }
 
   // Filtro por status do catálogo digital (ex: 'published', 'hidden')

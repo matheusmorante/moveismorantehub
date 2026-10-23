@@ -9,6 +9,7 @@ vi.mock('../../../services/supabaseClient', () => ({
 import {
   extractMobileProductCharacteristicsFromText,
   extractMobileProductCharacteristicsWithAI,
+  generateMobileProductDescriptionFromText,
   getMobileProductCharacteristicsQuota,
   improveMobileProductDescription,
   sanitizeMobileProductDescription,
@@ -32,6 +33,7 @@ describe('mobileProductAiService', () => {
     expect(mocks.invoke).toHaveBeenCalledWith('mobile-gemini-proxy', expect.objectContaining({
       body: expect.objectContaining({
         tools: [],
+        descriptionMode: 'characteristics',
         contents: [expect.objectContaining({ parts: [expect.objectContaining({ text: expect.not.stringContaining('"Cor":"Azul"') })] })],
       }),
     }));
@@ -43,6 +45,41 @@ describe('mobileProductAiService', () => {
 
   it('não chama o proxy com dados inválidos', async () => {
     await expect(improveMobileProductDescription({ title: '', currentDescription: '' })).rejects.toThrow();
+    expect(mocks.invoke).not.toHaveBeenCalled();
+  });
+
+  it('gera descrição comercial a partir do texto informativo usando o proxy autenticado', async () => {
+    mocks.invoke.mockResolvedValue({
+      data: { candidates: [{ content: { parts: [{ text: 'Mesa Oslo em madeira com 120 cm de largura.' }] } }] },
+      error: null,
+    });
+
+    await expect(generateMobileProductDescriptionFromText({
+      informativeText: 'Mesa Oslo em madeira, 120 cm de largura.',
+      productName: 'Mesa Oslo',
+      brand: 'Morante',
+      model: 'Oslo',
+      categoryName: 'Sala de jantar',
+    })).resolves.toBe('Mesa Oslo em madeira com 120 cm de largura.');
+
+    const body = mocks.invoke.mock.calls[0][1].body;
+    const submittedValues = JSON.parse(body.contents[0].parts[0].text);
+    expect(body.operation).toBe('mobile_product_description');
+    expect(body.descriptionMode).toBe('informative_text');
+    expect(submittedValues).toMatchObject({
+      title: 'Mesa Oslo',
+      currentDescription: 'Mesa Oslo em madeira, 120 cm de largura.',
+      brand: 'Morante',
+      model: 'Oslo',
+      categoryName: 'Sala de jantar',
+    });
+  });
+
+  it('valida o texto informativo antes de acessar o proxy', async () => {
+    await expect(generateMobileProductDescriptionFromText({
+      informativeText: 'abc',
+      productName: '',
+    })).rejects.toThrow('mínimo 5 caracteres');
     expect(mocks.invoke).not.toHaveBeenCalled();
   });
 

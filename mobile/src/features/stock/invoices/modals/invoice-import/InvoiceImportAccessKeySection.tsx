@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { ScanBarcode, CloudDownload, ExternalLink } from 'lucide-react-native';
+import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { ScanBarcode, ExternalLink } from 'lucide-react-native';
 import { styles } from './invoiceImportModal.styles';
 
 interface InvoiceImportAccessKeySectionProps {
@@ -8,10 +8,8 @@ interface InvoiceImportAccessKeySectionProps {
   setAccessKey: (key: string) => void;
   isAccessKeyValid: boolean;
   isLoading: boolean;
-  isDirectSyncing: boolean;
   isDarkMode: boolean;
   onOpenScanner: () => void;
-  onDirectSefazQuery: () => void;
   onConsultPortal: () => void;
 }
 
@@ -20,10 +18,8 @@ export const InvoiceImportAccessKeySection: React.FC<InvoiceImportAccessKeySecti
   setAccessKey,
   isAccessKeyValid,
   isLoading,
-  isDirectSyncing,
   isDarkMode,
   onOpenScanner,
-  onDirectSefazQuery,
   onConsultPortal,
 }) => {
   return (
@@ -66,60 +62,18 @@ export const InvoiceImportAccessKeySection: React.FC<InvoiceImportAccessKeySecti
       <View style={styles.actionButtonsRow}>
         <TouchableOpacity
           style={[
-            styles.directSyncBtn,
-            isAccessKeyValid && !isDirectSyncing && !isLoading
-              ? styles.directSyncBtnActive
-              : styles.directSyncBtnDisabled,
-            isDarkMode &&
-              (!isAccessKeyValid || isDirectSyncing || isLoading) &&
-              styles.directSyncBtnDisabledDark,
-          ]}
-          disabled={!isAccessKeyValid || isDirectSyncing || isLoading}
-          onPress={onDirectSefazQuery}
-        >
-          {isDirectSyncing ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <CloudDownload
-              size={17}
-              color={isAccessKeyValid ? '#ffffff' : isDarkMode ? '#64748b' : '#94a3b8'}
-            />
-          )}
-          <Text
-            style={[
-              styles.directSyncBtnText,
-              isAccessKeyValid && !isDirectSyncing
-                ? styles.directSyncBtnTextActive
-                : styles.directSyncBtnTextDisabled,
-              isDarkMode &&
-                (!isAccessKeyValid || isDirectSyncing) &&
-                styles.directSyncBtnTextDisabledDark,
-            ]}
-          >
-            {isDirectSyncing ? 'Buscando...' : 'Buscar SEFAZ Direto'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
             styles.portalBtn,
             isDarkMode && styles.portalBtnDark,
             !isAccessKeyValid && styles.portalBtnDisabled,
           ]}
           disabled={!isAccessKeyValid || isLoading}
           onPress={onConsultPortal}
+          accessibilityRole="button"
+          accessibilityLabel="Consultar NF-e no Portal Nacional"
         >
           <ExternalLink
             size={15}
-            color={
-              isAccessKeyValid
-                ? isDarkMode
-                  ? '#cbd5e1'
-                  : '#475569'
-                : isDarkMode
-                  ? '#64748b'
-                  : '#94a3b8'
-            }
+            color={isAccessKeyValid ? (isDarkMode ? '#cbd5e1' : '#475569') : (isDarkMode ? '#64748b' : '#94a3b8')}
           />
           <Text
             style={[

@@ -35,9 +35,10 @@ O RPC criou 1 conversa sintética sem cliente, pedido ou mídia. Uma âncora e u
 | Advisory de performance | Avisos existentes sobre índice ausente em `assigned_to` e índice de telefone sem uso; sem relação com esta migration |
 | Candidato | 25 arquivos selecionados, 0 divergências de SHA-256, base `2ac99bb1715258680b476c616e3fd6b21171c879` |
 | Testes/build do candidato | 269 testes da Central passaram, 6 checks remotos foram ignorados; build Vite completo aprovado; Playwright somente leitura 1/1 na porta 5173 em validação anterior |
+| Deployment Vercel | `dpl_7nPegi5o1D8f9xtNCDh2ga6YnEJW`, Production `READY`; aliases `morantehub.vercel.app` e `morantehub.com`; `/` e `/atendimento` HTTP 200 |
 
 O Playwright visível de leitura passou 1/1 na porta 5173, incluindo timeline e galeria comparadas com contagens RLS e cópia de snippet sem nova nota. Vitest da Central: 269 aprovados e 6 ignorados conforme a política remota; build completo aprovado. A prova PostgreSQL/Vitest acima confirmou a persistência após a migration.
 
-## Próximo gate
+## Gate de publicação concluído
 
-O proprietário autorizou a publicação condicional do candidato. A prova passou e a condição foi satisfeita; o registro do deployment será acrescentado após a publicação. Não será aplicada outra migration nem criada outra fixture.
+O proprietário autorizou a publicação condicional do candidato. A prova passou e a condição foi satisfeita; o deployment acima está `READY` e os aliases de produção foram conferidos. Nenhuma outra migration ou fixture foi criada nesta etapa. O webhook legítimo da Meta permanece sem prova; uma chamada observada retornou 401, sem detalhe de causa na telemetria agregada.

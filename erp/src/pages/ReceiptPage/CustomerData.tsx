@@ -4,12 +4,13 @@ import { toTitleCase } from '../utils/formatters';
 interface Props {
   customerData: CustomerData;
   isPickup?: boolean;
+  noAddress?: boolean;
 }
 
-const CustomerDataInputs = ({ customerData, isPickup }: Props) => {
+const CustomerDataInputs = ({ customerData, isPickup, noAddress }: Props) => {
   const addr = customerData.fullAddress || {};
   const hasAnyAddress = !!(addr.street || addr.neighborhood || addr.city);
-  const showAddress = !isPickup && hasAnyAddress;
+  const showAddress = !isPickup && !noAddress && hasAnyAddress;
 
   return (
     <section className="my-4">

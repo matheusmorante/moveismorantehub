@@ -14,6 +14,27 @@ export function extractAllXmlTags(xml: string, tag: string): string[] {
   return blocks;
 }
 
+export interface DocZipEntry {
+  nsu: string;
+  compressedBase64: string;
+}
+
+/** Retorna o NSU informado no próprio docZip para não atribuir ultNSU a todos os documentos. */
+export function extractDocZipEntries(xml: string): DocZipEntry[] {
+  const regex = /<(?:[a-zA-Z0-9_]+:)?docZip\b([^>]*)>([\s\S]*?)<\/(?:[a-zA-Z0-9_]+:)?docZip\s*>/gi;
+  const entries: DocZipEntry[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(xml)) !== null) {
+    const nsuMatch = match[1].match(/\bNSU\s*=\s*(["'])(\d{1,15})\1/i);
+    const compressedBase64 = match[2].trim();
+    if (!nsuMatch || !compressedBase64) continue;
+    entries.push({ nsu: nsuMatch[2].replace(/^0+(?=\d)/, ""), compressedBase64 });
+  }
+
+  return entries;
+}
+
 export function parseNfeXml(xmlString: string, nsu: string, environment: number) {
   // Caso seja XML completo de NF-e
   if (xmlString.includes("<infNFe") || xmlString.includes("<nfeProc")) {

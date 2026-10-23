@@ -8,6 +8,11 @@ import {
 } from '@/pages/utils/productVariationDefaults';
 import { generateVariationSku, parseVariationImages } from '@/pages/utils/productService';
 import { toTitleCase } from '@/pages/utils/textUtils';
+import {
+  calculateProductFinalPurchasePrice,
+  type ProductFreightType,
+  type ProductIpiType,
+} from '../../../../../../../shared-utils/productPurchasePricing';
 
 export function computeDefaultVariationName(
   parentProduct: Product,
@@ -145,13 +150,8 @@ export function calculateEffectivePurchaseCost(
   cost: number,
   ipi: number,
   freight: number,
-  freightType: 'fixed' | 'percentage' | string
+  freightType: ProductFreightType,
+  ipiType: ProductIpiType = 'percentage'
 ): number {
-  let finalCost = cost + cost * (ipi / 100);
-  if (freightType === 'fixed') {
-    finalCost += freight;
-  } else {
-    finalCost += cost * (freight / 100);
-  }
-  return Number(finalCost.toFixed(2));
+  return calculateProductFinalPurchasePrice(cost, ipi, freight, freightType, ipiType);
 }

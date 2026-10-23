@@ -43,6 +43,8 @@ export function useCustomerSupportMessages({
   const latestRequestRef = useRef(0);
   const pendingLatestRef = useRef<number | null>(null);
   const initializedHistoryRef = useRef<number | null>(null);
+  // A quoted message can sit outside the contiguous history already fetched.
+  const historyCursorRef = useRef<{ timestamp: string; id: string } | null>(null);
   const readRequestRef = useRef(0);
   const readNeedsRetryRef = useRef(false);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -96,6 +98,9 @@ export function useCustomerSupportMessages({
       if (generation !== generationRef.current || request !== latestRequestRef.current) return;
       if (initializedHistoryRef.current !== generation) {
         initializedHistoryRef.current = generation;
+        historyCursorRef.current = latest[0]
+          ? { timestamp: latest[0].timestamp, id: latest[0].id }
+          : null;
         setHasOlderMessages(latest.length === INITIAL_MESSAGE_PAGE_SIZE);
       }
       setMessagesError('');
@@ -123,7 +128,7 @@ export function useCustomerSupportMessages({
     const convId = activeConvIdRef.current;
     const generation = generationRef.current;
     if (!convId || loadingOlderRef.current === generation || !hasOlderMessages) return 0;
-    const oldest = messages[0];
+    const oldest = historyCursorRef.current;
     if (!oldest) return 0;
     loadingOlderRef.current = generation;
     setIsLoadingOlderMessages(true);
@@ -138,9 +143,12 @@ export function useCustomerSupportMessages({
       setHasOlderMessages(older.length === OLDER_MESSAGE_PAGE_SIZE);
       setMessagesError('');
       if (older.length) {
+        historyCursorRef.current = { timestamp: older[0].timestamp, id: older[0].id };
         setMessages((current) => {
           const existing = new Set(current.map((message) => message.id));
-          return [...older.filter((message) => !existing.has(message.id)), ...current];
+          return [...older.filter((message) => !existing.has(message.id)), ...current].sort((a, b) =>
+            a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id)
+          );
         });
       }
       return older.length;
@@ -155,7 +163,7 @@ export function useCustomerSupportMessages({
         setIsLoadingOlderMessages(false);
       }
     }
-  }, [messages, hasOlderMessages]);
+  }, [hasOlderMessages]);
 
   const lastLoadedConvIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -171,6 +179,7 @@ export function useCustomerSupportMessages({
       setReadError('');
       setJumpToMessageId(null);
       messagesRef.current = [];
+      historyCursorRef.current = null;
       readNeedsRetryRef.current = false;
       if (convId) {
         setMessages([]);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type Product from '@/pages/types/product.type';
 import { createProductFormSchema, validateProductFormSubmission } from './productFormValidation';
+import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productSupplierRequirement';
 
 describe('validateProductFormSubmission - validação de conformidade de fotos por variação', () => {
   const baseProduct: Partial<Product> = {
@@ -168,6 +169,42 @@ describe('createProductFormSchema - modos de variação', () => {
   it('aceita a foto herdada do produto pai no modo simples', () => {
     const result = schema.safeParse({ ...base, variations: [variation('1', 'Poltrona', [])] });
     expect(result.success).toBe(true);
+  });
+
+  it('exige fornecedor na finalização de terceiros e mantém fabricação própria dispensada', () => {
+    const missingThirdPartySupplier = schema.safeParse({
+      ...base,
+      mainSupplierId: undefined,
+      supplierId: undefined,
+      merchandiseOrigin: 'third_party',
+      variations: [variation('1', 'Poltrona')],
+    });
+    expect(missingThirdPartySupplier.success).toBe(false);
+    if (!missingThirdPartySupplier.success) {
+      expect(missingThirdPartySupplier.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['mainSupplierId'],
+          message: PRODUCT_SUPPLIER_REQUIRED_MESSAGE,
+        })
+      );
+    }
+
+    const ownProductionWithoutSupplier = schema.safeParse({
+      ...base,
+      mainSupplierId: undefined,
+      supplierId: undefined,
+      merchandiseOrigin: 'own_production',
+      variations: [variation('1', 'Poltrona')],
+    });
+    expect(ownProductionWithoutSupplier.success).toBe(true);
+  });
+
+  it('permite rascunho incompleto sem fornecedor principal', () => {
+    const draft = createProductFormSchema({ isStockistOnly: false, saveAsDraft: true }).safeParse({
+      name: 'Rascunho sem fornecedor',
+      merchandiseOrigin: 'third_party',
+    });
+    expect(draft.success).toBe(true);
   });
 
   it('exige duas variações e nomes completos distintos no modo múltiplo', () => {

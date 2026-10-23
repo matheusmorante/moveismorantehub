@@ -9,7 +9,6 @@ interface InboundInvoicesTableProps {
   readonly onDownloadXml: (invoice: InboundInvoice) => void;
   readonly onManageMappings: (invoice: InboundInvoice) => void;
   readonly onDelete: (invoice: InboundInvoice) => void;
-  readonly onFetchXml?: (invoice: InboundInvoice) => void;
 }
 
 export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
@@ -18,7 +17,6 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
   onDownloadXml,
   onManageMappings,
   onDelete,
-  onFetchXml,
 }) => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -157,20 +155,6 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-black uppercase text-amber-700 border border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/40">
                             XML PENDENTE
                           </span>
-                          {onFetchXml && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onFetchXml(inv);
-                              }}
-                              title="Consultar a nota e, com confirmação, enviar Ciência da Emissão para tentar liberar o XML completo"
-                              className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-blue-700 transition-colors shadow-xs cursor-pointer"
-                            >
-                              <i className="bi bi-cloud-arrow-down-fill text-[10px]" />
-                              Ciência + XML
-                            </button>
-                          )}
                         </>
                       ) : (
                         <>
@@ -343,20 +327,6 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                   {isSummaryOnly ? '— itens' : `${inv.itemsCount || inv.items.length} itens`}
                 </span>
                 <div className="flex items-center gap-2">
-                  {isSummaryOnly && onFetchXml && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onFetchXml(inv);
-                      }}
-                      title="Consultar a nota e, com confirmação, enviar Ciência da Emissão para tentar liberar o XML completo"
-                      className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-blue-700 transition-colors cursor-pointer"
-                    >
-                      <i className="bi bi-cloud-arrow-down-fill text-[10px]" />
-                      Ciência + XML
-                    </button>
-                  )}
                   <span className="font-black text-emerald-600 dark:text-emerald-400">
                     {formatCurrency(inv.totalInvoice)}
                   </span>

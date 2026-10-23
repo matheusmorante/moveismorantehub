@@ -16,6 +16,7 @@ async function main() {
     absWorkingDir: root,
     entryPoints: {
       ...Object.fromEntries(routes.map((name) => [`nfe/${name}`, `api/nfe/${name}.ts`])),
+      'nfe/dist-dfe-bridge': 'api/nfe/distDfeBridge.ts',
       'testing/test-artifact-operator': 'erp/api/testing/test-artifact-operator.ts',
     },
     outdir: resolve(root, 'erp/server'),
@@ -35,6 +36,10 @@ async function main() {
       'declare const handler: (req: VercelRequest, res: VercelResponse) => Promise<unknown>;\n' +
       'export default handler;\n');
   }
+  await writeFile(resolve(outdir, 'dist-dfe-bridge.d.cts'),
+    "import type { VercelRequest, VercelResponse } from '@vercel/node';\n" +
+    'declare const handler: (req: VercelRequest, res: VercelResponse) => Promise<unknown>;\n' +
+    'export default handler;\n');
   console.log(`Fiscal backend bundled: ${routes.join(', ')}.`);
 }
 

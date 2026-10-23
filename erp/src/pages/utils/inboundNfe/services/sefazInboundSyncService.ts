@@ -26,10 +26,6 @@ export interface SefazSyncResult {
   code?: string;
   retryAfter?: string;
   nextAllowedSyncAt?: string;
-  document?: {
-    kind: 'full' | 'summary';
-    xml: string;
-  } | null;
 }
 
 export interface InboundManifestationResult {
@@ -144,35 +140,16 @@ export async function syncInboundInvoicesFromSefaz(options?: {
   return data as SefazSyncResult;
 }
 
-/**
- * Consulta pontual por chave de acesso de 44 dígitos no Ambiente Nacional (consChNFe).
- */
-export async function consultInvoiceByAccessKey(
-  accessKey: string,
-  options?: { environment?: 'production' | 'homologation' }
-): Promise<SefazSyncResult> {
-  const cleanKey = accessKey.replace(/\D/g, '');
-  if (cleanKey.length !== 44) {
-    return {
-      success: false,
-      code: 'ACCESS_KEY_INVALID',
-      message: 'A chave de acesso deve conter exatamente 44 dígitos numéricos.',
-    };
-  }
-
-  const status = options?.environment ? null : await fetchSefazSyncStatus();
-  const environment = options?.environment || status?.environment || 'production';
+/** Processa no máximo um NSU faltante já descoberto pela distribuição, sob a trava global de cinco minutos. */
+export async function recoverNextMissingNsuFromSefaz(): Promise<SefazSyncResult> {
   const { data, error } = await supabase.functions.invoke('sefaz-inbound-sync', {
-    body: {
-      accessKey: cleanKey,
-      environment,
-    },
+    body: { action: 'recover-missing-nsu' },
   });
 
   if (error) {
     return {
       success: false,
-      message: error.message || 'Erro ao consultar chave na SEFAZ.',
+      message: error.message || 'Erro ao recuperar NSU faltante da SEFAZ.',
     };
   }
 

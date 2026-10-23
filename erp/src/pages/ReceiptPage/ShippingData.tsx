@@ -6,9 +6,10 @@ const NumericFormat = NumericFormatBase as any;
 
 interface Props {
   shipping?: Shipping | null;
+  routeUrl?: string;
 }
 
-const ShippingData = ({ shipping }: Props) => {
+const ShippingData = ({ shipping, routeUrl }: Props) => {
   const shippingDate = shipping?.scheduling?.date || (shipping as any)?.date || '';
   const shippingValue = Number(shipping?.value ?? 0);
   const scheduling = shipping?.scheduling;
@@ -64,6 +65,15 @@ const ShippingData = ({ shipping }: Props) => {
           )}
         </div>
       </div>
+
+      {routeUrl?.trim() && (
+        <div className="break-all rounded-xl border border-blue-100 bg-blue-50/60 p-2 text-[10px] font-semibold text-blue-700 print-exact-bg">
+          <span className="font-black uppercase tracking-wider">Rota no Google Maps: </span>
+          <a href={routeUrl} target="_blank" rel="noreferrer" className="underline">
+            {routeUrl}
+          </a>
+        </div>
+      )}
     </section>
   );
 };

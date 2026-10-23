@@ -11,6 +11,14 @@
  * - Sincronização e consistência conceitual com o ERP (`technicalValuesService.ts`).
  */
 
+import {
+  isConcretadaCharacteristic,
+  isHasInoxBowlCharacteristic,
+  isSinkCategory,
+  isSinkMaterialCharacteristic,
+  isStructureMaterialCharacteristic,
+} from '../../../../../shared-utils/productSinkCategoryRules';
+
 // ============================================================================
 // 1. TYPES & INTERFACES
 // ============================================================================
@@ -599,9 +607,19 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
   const activeCategories = new Set(categoryIds.map(String));
   const manualNames = new Set(manuallyAddedFieldNames.map(normalizeName));
   const isMattress = isMattressCategory(categoryIds, safeFields);
+  const isSink = isSinkCategory(categoryIds, safeFields);
 
   let applicable = safeFields.filter((field) => {
     if (isExcludedProductTechnicalField(field.name)) return false;
+    if (isSink && isStructureMaterialCharacteristic(field.name)) return false;
+    if (
+      !isSink &&
+      (isSinkMaterialCharacteristic(field.name) ||
+        isConcretadaCharacteristic(field.name) ||
+        isHasInoxBowlCharacteristic(field.name))
+    ) {
+      return manualNames.has(normalizeName(field.name));
+    }
 
     const hasExistingValue = hasTechnicalValue(values, field.name);
     const norm = normalizeName(field.name);

@@ -29,6 +29,12 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { parseLocalizedNumber as parseLocalizedPrice } from '../../domain/productNumbers';
+import {
+  calculateProductDiscountFromFixed,
+  calculateProductDiscountFromPercent,
+  calculateProductDiscountFromPromoPrice,
+  deriveProductDiscountFields,
+} from '../../../../../../shared-utils/productDiscountFields';
 import { generateVariationSku } from '../../domain/productSku';
 import { isMobileProductErpLegible } from '../../domain/productRegistrationRules';
 import { checkMobileProductVariationHasMoves } from '../../services/mobileProductMutationService';
@@ -39,6 +45,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MergedBadge } from '../../components/MergedBadge';
 import { inheritMobileSimpleVariationFromParent } from '../../domain/productVariationParentSync';
 import { replaceMobileProductImageGlobally } from '../../domain/mobileProductImageOrdering';
+import type { MobileProductFormErrorNavigation } from '../../domain/mobileProductFormErrorNavigation';
 import {
   generateMobileProductVariations,
   getInitialMobileVariationStatus,
@@ -54,6 +61,8 @@ interface Props {
   isStockistOnly?: boolean;
   isExistingProduct?: boolean;
   selectedVariationId?: string;
+  validationTarget?: MobileProductFormErrorNavigation | null;
+  onValidationTargetHandled?: () => void;
 }
 
 export const ProductFormVariationsTab: React.FC<Props> = ({
@@ -63,6 +72,8 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
   isStockistOnly = false,
   isExistingProduct = false,
   selectedVariationId,
+  validationTarget,
+  onValidationTargetHandled,
 }) => {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [activeVariationTab, setActiveVariationTab] = useState<VariationTabId>('identificacao');
@@ -70,6 +81,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
   const insets = useSafeAreaInsets();
 
   const variations: any[] = Array.isArray(formData.variations) ? formData.variations : [];
+  const variationCount = variations.length;
   const variationIds = variations.map((variation) => String(variation.id || '')).join('|');
 
   useEffect(() => {
@@ -81,6 +93,25 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
     setExpanded(selectedIndex);
     setActiveVariationTab('identificacao');
   }, [selectedVariationId, variationIds]);
+
+  useEffect(() => {
+    const target = validationTarget;
+    if (!target) return;
+
+    const variationIndex = target.variationIndex;
+    if (variationIndex === undefined) return;
+
+    if (variationIndex < 0 || variationIndex >= variationCount) {
+      onValidationTargetHandled?.();
+      return;
+    }
+
+    setExpanded(variationIndex);
+    if (target.variationPanel) {
+      setActiveVariationTab(target.variationPanel);
+    }
+    onValidationTargetHandled?.();
+  }, [validationTarget, variationCount, variationIds, onValidationTargetHandled]);
 
   const handleAdd = () => {
     const parentCode = (formData.code || '000000').trim();
@@ -241,6 +272,96 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
     });
   };
 
+  const updateVariationPricing = (
+    idx: number,
+    field: 'price' | 'discountPercent' | 'discountFixed' | 'promoPrice',
+    value: string
+  ) => {
+    setFormData((prev) => {
+      const vars = [...(prev.variations || [])];
+      const current = vars[idx];
+      const parentPrice = parseLocalizedPrice(prev.unitPrice);
+      const regularPrice = parseLocalizedPrice(
+        current.syncUnitPrice !== false ? parentPrice : current.price
+      );
+      const currentPromoPrice = parseLocalizedPrice(
+        current.syncUnitPrice !== false ? prev.promoPrice : current.promoPrice
+      );
+      const inheritedDiscount = deriveProductDiscountFields(regularPrice, currentPromoPrice);
+      let next = current;
+
+      if (field === 'discountPercent') {
+        const percent = Number(value.replace(',', '.'));
+        const discount = calculateProductDiscountFromPercent(regularPrice, percent);
+        next = {
+          ...current,
+          discountPercent: value,
+          discountFixed: discount.discountFixed,
+          promoPrice: discount.promoPrice,
+        };
+      } else if (field === 'discountFixed') {
+        const fixed = parseLocalizedPrice(value);
+        const discount = calculateProductDiscountFromFixed(regularPrice, fixed);
+        next = {
+          ...current,
+          discountFixed: value,
+          discountPercent: discount.discountPercent,
+          promoPrice: discount.promoPrice,
+        };
+      } else if (field === 'promoPrice') {
+        const discount = calculateProductDiscountFromPromoPrice(
+          regularPrice,
+          parseLocalizedPrice(value)
+        );
+        next = {
+          ...current,
+          promoPrice: discount.promoPrice,
+          discountPercent: discount.discountPercent,
+          discountFixed: discount.discountFixed,
+        };
+      } else {
+        const price = parseLocalizedPrice(value);
+        const percent = String(current.discountPercent ?? inheritedDiscount.discountPercent);
+        const fixedRaw = String(current.discountFixed ?? '');
+        if (price <= 0) {
+          next = {
+            ...current,
+            price: value,
+            discountPercent: '',
+            discountFixed: '',
+            promoPrice: undefined,
+          };
+        } else if (percent) {
+          const discount = calculateProductDiscountFromPercent(
+            price,
+            Number(percent.replace(',', '.'))
+          );
+          next = {
+            ...current,
+            price: value,
+            discountPercent: percent,
+            discountFixed: discount.discountFixed,
+            promoPrice: discount.promoPrice,
+          };
+        } else if (fixedRaw.trim()) {
+          next = { ...current, price: value };
+        } else {
+          const discount = calculateProductDiscountFromPromoPrice(price, currentPromoPrice);
+          next = {
+            ...current,
+            price: value,
+            discountPercent: discount.discountPercent,
+            discountFixed: discount.discountFixed,
+            promoPrice: discount.promoPrice,
+          };
+        }
+      }
+
+      vars[idx] = { ...next, syncUnitPrice: false, syncPromoPrice: false };
+      return { ...prev, variations: vars };
+    });
+  };
+
   const toggleVariationDescription = (idx: number) => {
     setFormData((prev) => {
       const vars = [...(prev.variations || [])];
@@ -397,34 +518,15 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
             };
             const erpReady = isMobileProductErpLegible(formData);
             const catalogPublished = formData.status === 'published';
+            const derivedDiscount = deriveProductDiscountFields(regularPrice, promoPrice);
             const discountPercent =
-              regularPrice > 0 && promoPrice > 0 && promoPrice < regularPrice
-                ? (((regularPrice - promoPrice) / regularPrice) * 100).toFixed(1)
-                : '';
+              v.syncUnitPrice !== false
+                ? derivedDiscount.discountPercent
+                : String(v.discountPercent ?? derivedDiscount.discountPercent);
             const discountFixed =
-              regularPrice > 0 && promoPrice > 0 && promoPrice < regularPrice
-                ? (regularPrice - promoPrice).toFixed(2)
-                : '';
-            const setDiscountPercent = (value: string) => {
-              const percentage = Number(value.replace(',', '.'));
-              if (!value || !Number.isFinite(percentage) || percentage < 0 || regularPrice <= 0) {
-                updateVar(idx, 'promoPrice', undefined);
-                return;
-              }
-              updateVar(
-                idx,
-                'promoPrice',
-                Number(Math.max(0, regularPrice - (regularPrice * percentage) / 100).toFixed(2))
-              );
-            };
-            const setDiscountFixed = (value: string) => {
-              const fixed = parseLocalizedPrice(value);
-              if (!value || fixed < 0 || regularPrice <= 0) {
-                updateVar(idx, 'promoPrice', undefined);
-                return;
-              }
-              updateVar(idx, 'promoPrice', Number(Math.max(0, regularPrice - fixed).toFixed(2)));
-            };
+              v.syncUnitPrice !== false
+                ? derivedDiscount.discountFixed
+                : String(v.discountFixed ?? derivedDiscount.discountFixed);
             return (
               <View
                 key={v.id || v.sku || `${v.name || 'variacao'}-${idx}`}
@@ -932,7 +1034,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                       ? formData.unitPrice || 0
                                       : (v.price ?? '')
                                   )}
-                                  onChangeText={(val) => updateVar(idx, 'price', val)}
+                                  onChangeText={(val) => updateVariationPricing(idx, 'price', val)}
                                   editable={v.syncUnitPrice === false}
                                   keyboardType="numeric"
                                   placeholder="Herdado do pai"
@@ -950,7 +1052,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 </Text>
                                 <TextInput
                                   value={String(discountPercent)}
-                                  onChangeText={setDiscountPercent}
+                                  onChangeText={(val) => updateVariationPricing(idx, 'discountPercent', val)}
                                   editable={v.syncUnitPrice === false}
                                   keyboardType="numeric"
                                   placeholder="0"
@@ -968,7 +1070,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 </Text>
                                 <TextInput
                                   value={String(discountFixed)}
-                                  onChangeText={setDiscountFixed}
+                                  onChangeText={(val) => updateVariationPricing(idx, 'discountFixed', val)}
                                   editable={v.syncUnitPrice === false}
                                   keyboardType="numeric"
                                   placeholder="0,00"
@@ -990,7 +1092,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                       ? formData.promoPrice || 0
                                       : (v.promoPrice ?? '')
                                   )}
-                                  onChangeText={(val) => updateVar(idx, 'promoPrice', val)}
+                                  onChangeText={(val) => updateVariationPricing(idx, 'promoPrice', val)}
                                   editable={v.syncUnitPrice === false}
                                   keyboardType="numeric"
                                   placeholder="Sem desconto"

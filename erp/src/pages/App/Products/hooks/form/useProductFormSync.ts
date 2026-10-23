@@ -5,6 +5,8 @@ import {
   getVariationNameAttributes,
   getVariationAttributeValuesInNameOrder,
 } from '@/pages/utils/productVariationDefaults';
+import { calculateProductFinalPurchasePrice } from '../../../../../../../shared-utils/productPurchasePricing';
+import { getSimpleProductVariationTechnicalValues } from '../../../../../../../shared-utils/simpleProductVariationTechnicalValues';
 
 interface UseProductFormSyncParams {
   readonly formData: Partial<Product>;
@@ -21,21 +23,13 @@ interface UseProductFormSyncParams {
 export function useProductFormSync({ formData, setFormData, isExistingProduct = false }: UseProductFormSyncParams): void {
   // 1. Cálculo do preço final de compra
   useEffect(() => {
-    let final = formData.costPrice || 0;
-    if (formData.ipiPercent) {
-      if (formData.ipiType === 'fixed') {
-        final += formData.ipiPercent;
-      } else {
-        final += (formData.costPrice || 0) * (formData.ipiPercent / 100);
-      }
-    }
-    if (formData.freightCost) {
-      if (formData.freightType === 'percentage') {
-        final += (formData.costPrice || 0) * (formData.freightCost / 100);
-      } else {
-        final += formData.freightCost;
-      }
-    }
+    const final = calculateProductFinalPurchasePrice(
+      formData.costPrice || 0,
+      formData.ipiPercent || 0,
+      formData.freightCost || 0,
+      formData.freightType || 'fixed',
+      formData.ipiType || 'percentage'
+    );
     if (Math.abs(final - (formData.finalPurchasePrice || 0)) > 0.01) {
       setFormData((prev) => ({ ...prev, finalPurchasePrice: final }));
     }
@@ -198,7 +192,13 @@ export function useProductFormSync({ formData, setFormData, isExistingProduct = 
       leadTime: Number(formData.leadTime || 0),
       avgMonthlySales: Number(formData.avgMonthlySales || 0),
       classification: formData.classification,
-      technicalValues: formData.technicalValues ? { ...formData.technicalValues } : undefined,
+      technicalValues: getSimpleProductVariationTechnicalValues({
+        isExistingProduct,
+        hasVariations: Boolean(formData.hasVariations),
+        variationCount: formData.variations?.length || 0,
+        parentTechnicalValues: formData.technicalValues,
+        currentVariationTechnicalValues: variation.technicalValues,
+      }),
       attributes: [],
       images: [],
     };

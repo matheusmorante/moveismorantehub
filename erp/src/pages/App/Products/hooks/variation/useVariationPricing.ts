@@ -1,5 +1,10 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import type { Product, Variation } from '@/pages/types/product.type';
+import {
+  calculateProductDiscountFromFixed,
+  calculateProductDiscountFromPercent,
+  calculateProductDiscountFromPromoPrice,
+} from '../../../../../../../shared-utils/productDiscountFields';
 
 interface UseVariationPricingOptions {
   readonly formData: Variation | null;
@@ -49,12 +54,9 @@ export function useVariationPricing({
     if (varDiscountPercent) {
       const pct = parseFloat(varDiscountPercent);
       if (!isNaN(pct)) {
-        const fixed = orig * (pct / 100);
-        setVarDiscountFixed(fixed.toFixed(2));
-        const promo = orig - fixed;
-        setFormData((prev) =>
-          prev ? { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0 } : null
-        );
+        const discount = calculateProductDiscountFromPercent(orig, pct);
+        setVarDiscountFixed(discount.discountFixed);
+        setFormData((prev) => (prev ? { ...prev, promoPrice: discount.promoPrice } : null));
       }
     }
   };
@@ -76,13 +78,10 @@ export function useVariationPricing({
       return;
     }
 
-    const fixed = orig * (pct / 100);
-    setVarDiscountFixed(fixed.toFixed(2));
-    const promo = orig - fixed;
+    const discount = calculateProductDiscountFromPercent(orig, pct);
+    setVarDiscountFixed(discount.discountFixed);
     setFormData((prev) =>
-      prev
-        ? { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0, syncUnitPrice: false }
-        : null
+      prev ? { ...prev, promoPrice: discount.promoPrice, syncUnitPrice: false } : null
     );
   };
 
@@ -103,34 +102,23 @@ export function useVariationPricing({
       return;
     }
 
-    const pct = (fixed / orig) * 100;
-    setVarDiscountPercent(pct.toFixed(1));
-    const promo = orig - fixed;
+    const discount = calculateProductDiscountFromFixed(orig, fixed);
+    setVarDiscountPercent(discount.discountPercent);
     setFormData((prev) =>
-      prev
-        ? { ...prev, promoPrice: promo > 0 ? Number(promo.toFixed(2)) : 0, syncUnitPrice: false }
-        : null
+      prev ? { ...prev, promoPrice: discount.promoPrice, syncUnitPrice: false } : null
     );
   };
 
   const handlePromoPriceFieldChange = (valStr: string) => {
     if (!formData) return;
-    const promo = parseFloat(valStr) || 0;
-    setFormData((prev) =>
-      prev ? { ...prev, promoPrice: promo > 0 ? promo : undefined, syncUnitPrice: false } : null
-    );
-
     const orig = Number(formData.syncUnitPrice ? parentProduct.unitPrice : formData.unitPrice || 0);
-    if (orig <= 0 || valStr === '' || promo >= orig) {
-      setVarDiscountPercent('');
-      setVarDiscountFixed('');
-      return;
-    }
-
-    const fixed = orig - promo;
-    const pct = (fixed / orig) * 100;
-    setVarDiscountFixed(fixed.toFixed(2));
-    setVarDiscountPercent(pct.toFixed(1));
+    const promo = parseFloat(valStr) || 0;
+    const discount = calculateProductDiscountFromPromoPrice(orig, promo);
+    setFormData((prev) =>
+      prev ? { ...prev, promoPrice: discount.promoPrice, syncUnitPrice: false } : null
+    );
+    setVarDiscountFixed(discount.discountFixed);
+    setVarDiscountPercent(discount.discountPercent);
   };
 
   return {

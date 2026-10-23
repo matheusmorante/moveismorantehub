@@ -15,6 +15,7 @@ describe('variationFormDefaults', () => {
     unitPrice: 500,
     promoPrice: 400,
     costPrice: 250,
+    unit: 'UN',
     code: 'CAD100',
     itemType: 'product',
     active: true,
@@ -45,6 +46,10 @@ describe('variationFormDefaults', () => {
     // 250 + 10% (25) + 5% (12.5) = 287.5
     const cost = calculateEffectivePurchaseCost(250, 10, 5, 'percentage');
     expect(cost).toBe(287.5);
+  });
+
+  it('não adiciona frete quando o tipo selecionado é sem frete', () => {
+    expect(calculateEffectivePurchaseCost(250, 10, 30, 'none')).toBe(275);
   });
 
   it('constrói dados iniciais para nova variação herdando preço do pai', () => {

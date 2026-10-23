@@ -25,6 +25,7 @@ mobile/*
 desktop-print-agent/
 automation/
 docs/
+**/AUDIT_CREDENTIALS.md
 scripts/
 supabase/
 !digital-catalog/src/lib/supabase

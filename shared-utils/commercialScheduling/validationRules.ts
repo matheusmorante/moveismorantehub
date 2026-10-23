@@ -7,26 +7,23 @@ import {
 } from './formattingUtils';
 import type { ValidationErrors } from './types';
 
-export const validateShippingScheduling = (
-  scheduling?: Shipping['scheduling'] | null,
-  deliveryMethod: Shipping['deliveryMethod'] = 'delivery',
-  isBudget: boolean = false
+const hasScheduleOptionInput = (
+  option?: Partial<Shipping['scheduling']> | null
+): boolean => {
+  if (!option) return false;
+  const { startTime, endTime } = extractScheduleTimes(option);
+  return Boolean(
+    String(option.date || '').trim() ||
+      String(option.endDate || '').trim() ||
+      startTime ||
+      endTime
+  );
+};
+
+const validateScheduleOption = (
+  scheduling: Partial<Shipping['scheduling']>
 ): ValidationErrors => {
   const errors: ValidationErrors = {};
-  if (isBudget) return errors;
-  if (!scheduling) {
-    errors['shipping_scheduling'] = 'Agendamento é obrigatório.';
-    return errors;
-  }
-
-  const isDelivery = deliveryMethod === 'delivery';
-  const isOptionalPickup = !isDelivery && (scheduling.notInformed || scheduling.immediatePickup);
-  const isPending = Boolean(scheduling.pendingScheduling);
-
-  if (isOptionalPickup || isPending) {
-    return errors;
-  }
-
   const isDateRange = scheduling.dateType === 'range';
   const rawStartDate = String(scheduling.date || '').trim();
   const rawEndDate = String(scheduling.endDate || '').trim();
@@ -64,30 +61,67 @@ export const validateShippingScheduling = (
     errors['shipping_time'] = 'Informe um horário válido.';
   }
 
-  if (scheduling.scheduleMode === 'alternatives') {
-    const seen = new Set<string>([
-      JSON.stringify([scheduling.dateType, scheduling.date, scheduling.endDate, scheduling.type, rawStartTime, rawEndTime]),
-    ]);
+  return errors;
+};
+
+const getScheduleOptionSignature = (option: Partial<Shipping['scheduling']>): string => {
+  const { startTime, endTime } = extractScheduleTimes(option);
+  return JSON.stringify([
+    option.dateType,
+    option.date,
+    option.endDate,
+    option.type,
+    startTime,
+    endTime,
+  ]);
+};
+
+export const validateShippingScheduling = (
+  scheduling?: Shipping['scheduling'] | null,
+  deliveryMethod: Shipping['deliveryMethod'] = 'delivery',
+  isBudget: boolean = false
+): ValidationErrors => {
+  const errors: ValidationErrors = {};
+  if (isBudget) return errors;
+  if (!scheduling) {
+    errors['shipping_scheduling'] = 'Agendamento é obrigatório.';
+    return errors;
+  }
+
+  const isDelivery = deliveryMethod === 'delivery';
+  const isOptionalPickup = !isDelivery && (scheduling.notInformed || scheduling.immediatePickup);
+  const isPending = Boolean(scheduling.pendingScheduling);
+
+  if (isOptionalPickup || isPending) {
+    return errors;
+  }
+
+  const isAlternativesMode = scheduling.scheduleMode === 'alternatives';
+  const hasPrimaryInput = hasScheduleOptionInput(scheduling);
+
+  // The primary schedule remains required in alternatives mode too.
+  Object.assign(errors, validateScheduleOption(scheduling));
+
+  if (isAlternativesMode) {
+    const seen = new Set<string>();
+    if (hasPrimaryInput) seen.add(getScheduleOptionSignature(scheduling));
+
     scheduling.alternatives?.forEach((alternative) => {
-      const key = JSON.stringify([
-        alternative.dateType,
-        alternative.date,
-        alternative.endDate,
-        alternative.type,
-        alternative.startTime || alternative.time,
-        alternative.endTime,
-      ]);
-      const altErrors = validateShippingScheduling(
-        { ...alternative, pendingScheduling: false, notInformed: false, immediatePickup: false },
-        deliveryMethod,
-        false
-      );
-      if (altErrors['shipping_date']) errors[`shipping_alternative_${alternative.id}_date`] = altErrors['shipping_date'];
-      if (altErrors['shipping_time']) errors[`shipping_alternative_${alternative.id}_time`] = altErrors['shipping_time'];
-      if (seen.has(key)) {
-        errors[`shipping_alternative_${alternative.id}_duplicate`] = 'Esta programação duplica outra opção.';
+      const hasAlternativeInput = hasScheduleOptionInput(alternative);
+      const key = getScheduleOptionSignature(alternative);
+      const altErrors = validateScheduleOption(alternative);
+
+      if (altErrors['shipping_date']) {
+        errors[`shipping_alternative_${alternative.id}_date`] = altErrors['shipping_date'];
       }
-      seen.add(key);
+      if (altErrors['shipping_time']) {
+        errors[`shipping_alternative_${alternative.id}_time`] = altErrors['shipping_time'];
+      }
+      if (hasAlternativeInput && seen.has(key)) {
+        errors[`shipping_alternative_${alternative.id}_duplicate`] =
+          'Esta programação duplica outra opção.';
+      }
+      if (hasAlternativeInput) seen.add(key);
     });
   }
 

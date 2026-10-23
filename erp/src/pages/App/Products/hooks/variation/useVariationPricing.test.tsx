@@ -50,6 +50,26 @@ describe('useVariationPricing', () => {
     expect(result.current.formData?.syncUnitPrice).toBe(false);
   });
 
+  it('retains an over-limit percentage for validation without creating a promotion', () => {
+    const { result } = renderPricingHook();
+
+    act(() => result.current.handleDiscountPercentChange('150'));
+
+    expect(result.current.varDiscountPercent).toBe('150');
+    expect(result.current.varDiscountFixed).toBe('150.00');
+    expect(result.current.formData?.promoPrice).toBeUndefined();
+  });
+
+  it('normalizes a zero percentage to no promotion in both pricing fields', () => {
+    const { result } = renderPricingHook();
+
+    act(() => result.current.handleDiscountPercentChange('0'));
+
+    expect(result.current.varDiscountPercent).toBe('0');
+    expect(result.current.varDiscountFixed).toBe('');
+    expect(result.current.formData?.promoPrice).toBeUndefined();
+  });
+
   it('updates promotional price and percentage from a fixed discount', () => {
     const { result } = renderPricingHook(createVariation({ unitPrice: 80 }));
 

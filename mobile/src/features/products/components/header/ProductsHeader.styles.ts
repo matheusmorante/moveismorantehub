@@ -25,15 +25,27 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   titleArea: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   title: {
+    flexShrink: 1,
     fontSize: 20,
     fontWeight: '900',
     color: '#0f172a',
   },
+  backButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+  },
+  darkBackButton: { backgroundColor: '#1e293b' },
   light: {
     color: '#f8fafc',
   },

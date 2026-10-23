@@ -44,6 +44,7 @@ describe('useProductFormSync simple creation inheritance', () => {
         freightCost: 12,
         freightType: 'fixed',
         minStock: 2,
+        technicalValues: { Material: 'MDF', Acabamento: 'Fosco' },
         images: ['https://img.test/mesa.jpg'],
         hasVariations: false,
         variations: [makeVariation()],
@@ -74,6 +75,7 @@ describe('useProductFormSync simple creation inheritance', () => {
         freightCost: 12,
         minStock: 2,
         attributes: [],
+        technicalValues: { Material: 'MDF', Acabamento: 'Fosco' },
         images: [],
       });
     });

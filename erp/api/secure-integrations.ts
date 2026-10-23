@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateErpRequest, hasErpPermission } from './_lib/authenticatedErpRequest';
-import { planMetaGraphRequest, type MetaGraphSettings } from '../src/pages/utils/metaService/metaGraphProxyPolicy';
+import { authenticateErpRequest, hasErpPermission } from './_lib/authenticatedErpRequest.js';
+import { planMetaGraphRequest, type MetaGraphSettings } from '../src/pages/utils/metaService/metaGraphProxyPolicy.js';
 
 const MAX_META_REQUEST_BYTES = 1_000_000;
 const MAX_GEMINI_REQUEST_BYTES = 1_000_000;

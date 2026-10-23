@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createMobileProductFormSchema } from '../../../../../shared-utils/mobileProductFormSchema';
+import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../shared-utils/productSupplierRequirement';
 
 describe('mobileProductFormSchema - single variation error routing', () => {
   const baseValidProduct = {
@@ -40,6 +41,68 @@ describe('mobileProductFormSchema - single variation error routing', () => {
     });
     const parsed = schema.safeParse(baseValidProduct);
     expect(parsed.success).toBe(true);
+  });
+
+  it('exige fornecedor ao finalizar terceiros com a mensagem ERP e preserva o destino da aba', () => {
+    const schema = createMobileProductFormSchema({
+      draft: false,
+      isStockistOnly: false,
+      published: false,
+    });
+    const parsed = schema.safeParse({
+      ...baseValidProduct,
+      mainSupplierId: undefined,
+      supplierId: undefined,
+      merchandiseOrigin: 'third_party',
+    });
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['estoque'],
+          message: PRODUCT_SUPPLIER_REQUIRED_MESSAGE,
+        })
+      );
+    }
+  });
+
+  it('permite finalizar fabricação própria sem fornecedor', () => {
+    const schema = createMobileProductFormSchema({
+      draft: false,
+      isStockistOnly: false,
+      published: false,
+    });
+    const parsed = schema.safeParse({
+      ...baseValidProduct,
+      mainSupplierId: undefined,
+      supplierId: undefined,
+      merchandiseOrigin: 'own_production',
+      isOwnProduction: true,
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('retorna erro de forma para uma variação nula sem lançar exceção', () => {
+    const schema = createMobileProductFormSchema({
+      draft: false,
+      isStockistOnly: false,
+      published: false,
+    });
+
+    expect(() =>
+      schema.safeParse({
+        ...baseValidProduct,
+        variations: [null],
+      })
+    ).not.toThrow();
+    expect(
+      schema.safeParse({
+        ...baseValidProduct,
+        variations: [null],
+      }).success
+    ).toBe(false);
   });
 
   it('preserva o ambiente derivado das categorias no payload validado', () => {
@@ -133,7 +196,12 @@ describe('mobileProductFormSchema - single variation error routing', () => {
 
     expect(multiWithoutChildPhoto.success).toBe(false);
     if (!multiWithoutChildPhoto.success) {
-      expect(multiWithoutChildPhoto.error.issues.some((issue) => issue.message.includes('Preto') && issue.message.includes('foto'))).toBe(true);
+      expect(multiWithoutChildPhoto.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['variacoes', 1, 'images'],
+          message: 'A variação "Preto" deve ter pelo menos 1 foto vinculada para concluir o cadastro.',
+        })
+      );
     }
 
     const simpleWithParentPhoto = schema.safeParse({
@@ -149,8 +217,28 @@ describe('mobileProductFormSchema - single variation error routing', () => {
     });
     expect(simpleWithoutAnyPhoto.success).toBe(false);
     if (!simpleWithoutAnyPhoto.success) {
-      expect(simpleWithoutAnyPhoto.error.issues.some((issue) => issue.message.includes('foto'))).toBe(true);
+      expect(simpleWithoutAnyPhoto.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['variacoes', 0, 'images'],
+          message: 'A variação "Branco" deve ter pelo menos 1 foto vinculada para concluir o cadastro.',
+        })
+      );
     }
+  });
+
+  it('permite salvar rascunho sem fotos vinculadas', () => {
+    const draftSchema = createMobileProductFormSchema({
+      draft: true,
+      isStockistOnly: false,
+      published: false,
+    });
+    const incompleteDraft = {
+      ...baseValidProduct,
+      images: [],
+      variations: [{ ...baseValidProduct.variations[0], images: [] }],
+    };
+
+    expect(draftSchema.safeParse(incompleteDraft).success).toBe(true);
   });
 
   it('preserva galerias simples legadas acima de 75 fotos e impede novas inclusões', () => {
@@ -310,7 +398,7 @@ describe('mobileProductFormSchema - single variation error routing', () => {
     expect(finalSchema.safeParse(composition).success).toBe(false);
   });
 
-  it('redireciona erro para aba variacoes quando há múltiplas variações e uma delas está inválida', () => {
+  it('preserva o índice e o campo de preço próprio inválido da variação na submissão', () => {
     const schema = createMobileProductFormSchema({
       draft: false,
       isStockistOnly: false,
@@ -319,7 +407,7 @@ describe('mobileProductFormSchema - single variation error routing', () => {
     const multiVariationProduct = {
       ...baseValidProduct,
       variations: [
-        baseValidProduct.variations[0],
+        { ...baseValidProduct.variations[0], images: ['variation-1.jpg'] },
         {
           id: 'var-2',
           sku: '000312-02',
@@ -329,6 +417,7 @@ describe('mobileProductFormSchema - single variation error routing', () => {
           syncWidth: true,
           syncHeight: true,
           syncDepth: true,
+          images: ['variation-2.jpg'],
           attributes: [{ name: 'Cor', value: 'Preto' }],
         },
       ],
@@ -336,8 +425,137 @@ describe('mobileProductFormSchema - single variation error routing', () => {
     const parsed = schema.safeParse(multiVariationProduct);
     expect(parsed.success).toBe(false);
     if (!parsed.success) {
-      const paths = parsed.error.issues.map((i) => i.path[0]);
-      expect(paths).toContain('variacoes');
+      expect(parsed.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['variacoes', 1, 'price'],
+          message: 'Preço de Venda deve ser maior que zero.',
+        })
+      );
+    }
+  });
+
+  it('direciona preço herdado zerado para a primeira variação que o herda', () => {
+    const schema = createMobileProductFormSchema({
+      draft: false,
+      isStockistOnly: false,
+      published: false,
+    });
+    const multiVariationProduct = {
+      ...baseValidProduct,
+      unitPrice: '0',
+      hasVariations: true,
+      variations: [
+        { ...baseValidProduct.variations[0], images: ['variation-1.jpg'] },
+        {
+          ...baseValidProduct.variations[0],
+          id: 'var-2',
+          sku: '000312-02',
+          name: 'Preto',
+          images: ['variation-2.jpg'],
+          attributes: [{ name: 'Cor', value: 'Preto' }],
+        },
+      ],
+    };
+
+    const parsed = schema.safeParse(multiVariationProduct);
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['variacoes', 0, 'price'],
+          message: 'Preço de Venda deve ser maior que zero.',
+        })
+      );
+      expect(parsed.error.issues).not.toContainEqual(
+        expect.objectContaining({
+          path: ['estoque'],
+          message: 'Informe o preço de venda do produto.',
+        })
+      );
+    }
+  });
+
+  it.each([
+    ['discountPercent', '101', 'Informe um desconto percentual entre zero e 100.'],
+    ['discountFixed', '151', 'O desconto em reais deve ficar entre zero e o preço de venda.'],
+  ] as const)('bloqueia %s inválido na submissão da família de variações', (field, value, message) => {
+    const schema = createMobileProductFormSchema({
+      draft: false,
+      isStockistOnly: false,
+      published: false,
+    });
+    const multiVariationProduct = {
+      ...baseValidProduct,
+      hasVariations: true,
+      variations: [
+        {
+          ...baseValidProduct.variations[0],
+          syncUnitPrice: false,
+          price: '150',
+          images: ['variation-1.jpg'],
+          [field]: value,
+        },
+        {
+          ...baseValidProduct.variations[0],
+          id: 'var-2',
+          sku: '000312-02',
+          name: 'Preto',
+          syncUnitPrice: false,
+          price: '150',
+          images: ['variation-2.jpg'],
+          attributes: [{ name: 'Cor', value: 'Preto' }],
+        },
+      ],
+    };
+
+    const parsed = schema.safeParse(multiVariationProduct);
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['variacoes', 0, field],
+          message,
+        })
+      );
+    }
+  });
+
+  it('mantém a validação dos limites de desconto ativa ao salvar rascunho', () => {
+    const schema = createMobileProductFormSchema({
+      draft: true,
+      isStockistOnly: false,
+      published: false,
+    });
+    const draftWithInvalidVariationDiscount = {
+      ...baseValidProduct,
+      variations: [
+        {
+          ...baseValidProduct.variations[0],
+          syncUnitPrice: false,
+          price: '150',
+          discountPercent: '-1',
+        },
+        {
+          ...baseValidProduct.variations[0],
+          id: 'var-2',
+          sku: '000312-02',
+          name: 'Preto',
+          syncUnitPrice: false,
+          price: '150',
+          attributes: [{ name: 'Cor', value: 'Preto' }],
+        },
+      ],
+    };
+
+    const parsed = schema.safeParse(draftWithInvalidVariationDiscount);
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['variacoes', 0, 'discountPercent'],
+          message: 'Informe um desconto percentual entre zero e 100.',
+        })
+      );
     }
   });
 

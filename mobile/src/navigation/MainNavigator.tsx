@@ -81,7 +81,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
             {
               agente: 'Assistente',
               financeiro: 'Financeiro',
-              pedidos: 'Pedidos',
+              pedidos: 'Vendas',
               produtos: 'Produtos',
               configuracoes: 'Configurações',
               estoque: 'Estoque',

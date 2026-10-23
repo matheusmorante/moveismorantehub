@@ -13,7 +13,7 @@ import {
 } from './customerMatchingService';
 import { SupportOrderSummary } from './supportOrdersService';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
-import { supportInternalCommentSchema, supportNotesSchema, supportTagSchema } from '../../../../../shared-utils/customerSupportFormSchemas';
+import { supportInternalCommentSchema, supportMessageSearchSchema, supportNotesSchema, supportTagSchema } from '../../../../../shared-utils/customerSupportFormSchemas';
 
 export const CONVERSATION_SELECT_COLUMNS =
   'id, business_phone_number_id, contact_phone, contact_wa_id, contact_name, customer_id, customer_link_status, last_message_text, last_message_at, last_customer_message_at, unread_count, is_archived, internal_notes, tags, assigned_to, created_at, updated_at';
@@ -342,6 +342,10 @@ function applyHistoryCursor(query: any, cursor: CustomerSupportHistoryCursor | n
   return cursor ? applyTimestampCursor(query, cursor) : query;
 }
 
+function literalSupportSearchPattern(search: string): string {
+  return `%${search.replace(/[\\%_*]/g, (character) => `\\${character}`)}%`;
+}
+
 async function fetchConversationHistoryPage(
   query: any,
   fallbackMessage: string,
@@ -384,9 +388,7 @@ export async function fetchConversationAttachmentPage(
   if (!conversationId) return { messages: [], hasMore: false, nextCursor: null };
   const trimmedSearch = search.trim();
   const searchColumns = trimmedSearch ? ['text_content', 'media_filename', 'media_caption'] : [null];
-  const pattern = trimmedSearch
-    ? `%${trimmedSearch.replace(/[\\%_*]/g, (character) => `\\${character}`)}%`
-    : null;
+  const pattern = trimmedSearch ? literalSupportSearchPattern(trimmedSearch) : null;
   const requests = searchColumns.map((column) => {
     let query = supabase.from('whatsapp_messages')
       .select(MESSAGE_SELECT_COLUMNS)
@@ -409,6 +411,41 @@ export async function fetchConversationAttachmentPage(
     String(b.timestamp).localeCompare(String(a.timestamp)) || String(b.id).localeCompare(String(a.id))
   );
   return toHistoryPage(rows, pageSize);
+}
+
+/** Search all persisted messages under the caller's RLS, with a bounded cursor page. */
+export async function fetchConversationMessageSearchPage(
+  supabase: SupabaseClient,
+  conversationId: string,
+  cursor: CustomerSupportHistoryCursor | null = null,
+  search = '',
+  pageSize = CUSTOMER_SUPPORT_HISTORY_PAGE_SIZE
+): Promise<CustomerSupportHistoryPage> {
+  const parsed = supportMessageSearchSchema.safeParse({ search });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'Busca inválida.');
+  if (!conversationId || !parsed.data.search) return { messages: [], hasMore: false, nextCursor: null };
+  const pattern = literalSupportSearchPattern(parsed.data.search);
+  const limit = Math.max(1, Math.min(50, Math.trunc(pageSize) || CUSTOMER_SUPPORT_HISTORY_PAGE_SIZE));
+  const responses = await Promise.all(['text_content', 'media_filename', 'media_caption'].map((column) => {
+    let query = supabase.from('whatsapp_messages')
+      .select(MESSAGE_SELECT_COLUMNS)
+      .eq('conversation_id', conversationId)
+      .ilike(column, pattern);
+    query = applyHistoryCursor(query, cursor)
+      .order('timestamp', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(limit + 1);
+    return withTimeout<any>(query, 15_000, null, 'central:busca-mensagens');
+  }));
+  if (responses.some((response) => !response || response.error || !Array.isArray(response.data))) {
+    throw new Error('Não foi possível pesquisar as mensagens. Tente novamente.');
+  }
+  const rows = Array.from(new Map(
+    responses.flatMap((response) => response.data as any[]).map((row) => [row.id, row])
+  ).values()).sort((a: any, b: any) =>
+    String(b.timestamp).localeCompare(String(a.timestamp)) || String(b.id).localeCompare(String(a.id))
+  );
+  return toHistoryPage(rows, limit);
 }
 
 /** Resolve a quoted source only inside the same conversation and under the caller's RLS. */

@@ -1,5 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import type Product from '@/pages/types/product.type';
+import {
+  calculateProductDiscountFromFixed,
+  calculateProductDiscountFromPercent,
+  calculateProductDiscountFromPromoPrice,
+  deriveProductDiscountFields,
+} from '../../../../../../../shared-utils/productDiscountFields';
 import { syncVariationsWithParent } from '../../domain/variationParentSync';
 
 /**
@@ -33,18 +39,15 @@ export function useProductFormPricing(
           setDiscountFixed('');
           next.promoPrice = undefined;
         } else if (discountPercent) {
-          const pct = parseFloat(discountPercent);
-          if (!Number.isNaN(pct)) {
-            const fixed = orig * (pct / 100);
-            setDiscountFixed(fixed.toFixed(2));
-            const promo = orig - fixed;
-            next.promoPrice = promo > 0 ? Number(promo.toFixed(2)) : 0;
-          }
-        } else if (prev.promoPrice && prev.promoPrice < orig) {
-          const fixed = orig - prev.promoPrice;
-          const pct = (fixed / orig) * 100;
-          setDiscountFixed(fixed.toFixed(2));
-          setDiscountPercent(pct.toFixed(1));
+          const pct = Number(discountPercent.replace(',', '.'));
+          const discount = calculateProductDiscountFromPercent(orig, pct);
+          setDiscountFixed(discount.discountFixed);
+          next.promoPrice = discount.promoPrice;
+        } else {
+          const discount = calculateProductDiscountFromPromoPrice(orig, parsePrice(prev.promoPrice));
+          setDiscountFixed(discount.discountFixed);
+          setDiscountPercent(discount.discountPercent);
+          next.promoPrice = discount.promoPrice;
         }
 
         // Propagar para variações herdando preço do pai
@@ -66,32 +69,14 @@ export function useProductFormPricing(
       setDiscountPercent(valStr);
       setFormData((prev) => {
         const orig = prev.unitPrice || 0;
-        if (orig <= 0 || valStr === '') {
-          setDiscountFixed('');
-          const next: Partial<Product> = { ...prev, promoPrice: undefined };
-          if (next.variations?.length) {
-            next.variations = syncVariationsWithParent(next.variations, { promoPrice: undefined });
-          }
-          return next;
-        }
-
-        const pct = parseFloat(valStr);
-        if (Number.isNaN(pct) || pct < 0) {
-          setDiscountFixed('');
-          const next: Partial<Product> = { ...prev, promoPrice: undefined };
-          if (next.variations?.length) {
-            next.variations = syncVariationsWithParent(next.variations, { promoPrice: undefined });
-          }
-          return next;
-        }
-
-        const fixed = orig * (pct / 100);
-        setDiscountFixed(fixed.toFixed(2));
-        const promo = orig - fixed;
-        const promoPrice = promo > 0 ? Number(promo.toFixed(2)) : 0;
-        const next: Partial<Product> = { ...prev, promoPrice };
+        const pct = valStr.trim() ? Number(valStr.replace(',', '.')) : 0;
+        const discount = calculateProductDiscountFromPercent(orig, pct);
+        setDiscountFixed(discount.discountFixed);
+        const next: Partial<Product> = { ...prev, promoPrice: discount.promoPrice };
         if (next.variations?.length) {
-          next.variations = syncVariationsWithParent(next.variations, { promoPrice });
+          next.variations = syncVariationsWithParent(next.variations, {
+            promoPrice: discount.promoPrice,
+          });
         }
         return next;
       });
@@ -105,22 +90,13 @@ export function useProductFormPricing(
       setDiscountFixed(String(valStr));
       setFormData((prev) => {
         const orig = prev.unitPrice || 0;
-        if (orig <= 0 || !valStr || fixed <= 0) {
-          setDiscountPercent('');
-          const next: Partial<Product> = { ...prev, promoPrice: undefined };
-          if (next.variations?.length) {
-            next.variations = syncVariationsWithParent(next.variations, { promoPrice: undefined });
-          }
-          return next;
-        }
-
-        const pct = orig > 0 ? (fixed / orig) * 100 : 0;
-        setDiscountPercent(pct.toFixed(1));
-        const promo = orig - fixed;
-        const promoPrice = promo > 0 ? Number(promo.toFixed(2)) : 0;
-        const next: Partial<Product> = { ...prev, promoPrice };
+        const discount = calculateProductDiscountFromFixed(orig, fixed);
+        setDiscountPercent(discount.discountPercent);
+        const next: Partial<Product> = { ...prev, promoPrice: discount.promoPrice };
         if (next.variations?.length) {
-          next.variations = syncVariationsWithParent(next.variations, { promoPrice });
+          next.variations = syncVariationsWithParent(next.variations, {
+            promoPrice: discount.promoPrice,
+          });
         }
         return next;
       });
@@ -133,19 +109,14 @@ export function useProductFormPricing(
       const promo = parsePrice(valStr);
       setFormData((prev) => {
         const orig = prev.unitPrice || 0;
-        if (orig > 0 && promo > 0 && promo < orig) {
-          const fixed = orig - promo;
-          const pct = (fixed / orig) * 100;
-          setDiscountFixed(fixed.toFixed(2));
-          setDiscountPercent(pct.toFixed(1));
-        } else if (promo <= 0) {
-          setDiscountFixed('');
-          setDiscountPercent('');
-        }
-        const promoPrice = promo > 0 ? promo : undefined;
-        const next: Partial<Product> = { ...prev, promoPrice };
+        const discount = calculateProductDiscountFromPromoPrice(orig, promo);
+        setDiscountFixed(discount.discountFixed);
+        setDiscountPercent(discount.discountPercent);
+        const next: Partial<Product> = { ...prev, promoPrice: discount.promoPrice };
         if (next.variations?.length) {
-          next.variations = syncVariationsWithParent(next.variations, { promoPrice });
+          next.variations = syncVariationsWithParent(next.variations, {
+            promoPrice: discount.promoPrice,
+          });
         }
         return next;
       });
@@ -154,16 +125,9 @@ export function useProductFormPricing(
   );
 
   const initializeDiscounts = useCallback((unitPrice?: number, promoPrice?: number) => {
-    const orig = unitPrice || 0;
-    const promo = promoPrice || 0;
-    if (orig > 0 && promo > 0 && promo < orig) {
-      const diff = orig - promo;
-      setDiscountFixed(diff.toFixed(2));
-      setDiscountPercent(((diff / orig) * 100).toFixed(1));
-    } else {
-      setDiscountFixed('');
-      setDiscountPercent('');
-    }
+    const fields = deriveProductDiscountFields(unitPrice, promoPrice);
+    setDiscountFixed(fields.discountFixed);
+    setDiscountPercent(fields.discountPercent);
   }, []);
 
   return {

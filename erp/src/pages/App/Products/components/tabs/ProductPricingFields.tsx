@@ -7,10 +7,10 @@ interface ProductPricingFieldsProps {
   readonly formData: Partial<Product>;
   readonly discountPercent: string;
   readonly discountFixed: string;
-  readonly onPriceChange?: (value: string) => void;
+  readonly onPriceChange?: (value: string | number) => void;
   readonly onDiscountPercentChange?: (value: string) => void;
-  readonly onDiscountFixedChange?: (value: string) => void;
-  readonly onPromoPriceChange?: (value: string) => void;
+  readonly onDiscountFixedChange?: (value: string | number) => void;
+  readonly onPromoPriceChange?: (value: string | number) => void;
   readonly validationErrors: Record<string, boolean>;
   readonly setValidationErrors?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
@@ -61,7 +61,7 @@ export function ProductPricingFields({
             aria-label="Preço de venda do produto"
             aria-invalid={!!validationErrors.unitPrice}
             value={formData.unitPrice}
-            onChange={(value) => onPriceChange(String(value))}
+            onChange={onPriceChange}
             onBlur={handleBlurPrice}
             className={`w-full text-left px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 outline-none text-xs font-bold transition-all ${validationErrors.unitPrice ? 'border-red-500 text-red-600 focus:border-red-600' : 'border-slate-200 dark:border-slate-800 text-blue-600 focus:border-blue-600 dark:focus:border-blue-400'}`}
           />
@@ -104,7 +104,7 @@ export function ProductPricingFields({
             id="product-discount-fixed-input"
             aria-label="Valor fixo de desconto em reais"
             value={discountFixed}
-            onChange={(value) => onDiscountFixedChange(String(value))}
+            onChange={onDiscountFixedChange}
             className="w-full text-left px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-emerald-600 focus:border-emerald-600"
           />
         </div>
@@ -120,7 +120,7 @@ export function ProductPricingFields({
             placeholder="Sem desconto"
             aria-label="Preço promocional com desconto aplicado"
             value={formData.promoPrice}
-            onChange={(value) => onPromoPriceChange(String(value))}
+            onChange={onPromoPriceChange}
             className="w-full text-left px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-amber-200 dark:border-amber-800 outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:border-amber-600"
           />
         </div>

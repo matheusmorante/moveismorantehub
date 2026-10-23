@@ -7,6 +7,7 @@ import {
   resolveVariableTechnicalFieldNames,
 } from '../erp/src/pages/utils/technicalValuesService';
 import { getVariationRegistrationIssue } from './productVariationRules';
+import { getProductDiscountValidationIssues } from './productDiscountFields';
 
 const nonnegative = z.number().nonnegative('Informe um valor finito maior ou igual a zero.');
 
@@ -116,12 +117,12 @@ export const createProductVariationSubmissionSchema = (parent: Partial<Product>,
   discountPercent: z.string(), discountFixed: z.string(),
 }).superRefine((values, context) => {
   if (isSingleVariation || values.variation.syncUnitPrice) return;
-  for (const [field, maximum, message] of [
-    ['discountPercent', 100, 'Informe um desconto percentual entre zero e 100.'],
-    ['discountFixed', values.variation.unitPrice, 'O desconto em reais deve ficar entre zero e o preço de venda.'],
-  ] as const) {
-    const raw = values[field].trim();
-    if (raw && (!Number.isFinite(Number(raw)) || Number(raw) < 0 || Number(raw) > maximum)) context.addIssue({ code: 'custom', path: [field], message });
-  }
+  getProductDiscountValidationIssues(
+    values.discountPercent,
+    values.discountFixed,
+    values.variation.unitPrice
+  ).forEach(({ field, message }) =>
+    context.addIssue({ code: 'custom', path: [field], message })
+  );
 });
 

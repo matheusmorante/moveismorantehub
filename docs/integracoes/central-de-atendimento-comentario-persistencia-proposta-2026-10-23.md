@@ -1,6 +1,6 @@
 # Registro da prova mínima de persistência de comentário — Central
 
-**Status:** prova remota autorizada e concluída com sucesso em 23/10/2026; publicação condicional autorizada e em andamento.
+**Status:** prova remota autorizada e concluída; publicação condicional executada com sucesso em 23/10/2026.
 
 ## Execução
 
@@ -18,8 +18,8 @@ O Vitest remoto passou **1/1** no projeto operacional `hkoxhourxwlddgsfdgws` (sc
 
 Não foram criados clientes, pedidos, produtos, pastas ou mídia; não houve efeitos fiscais, financeiros ou de estoque, chamadas à Meta, envio externo, exclusão do histórico ou alteração de registros operacionais. Credenciais permaneceram em memória.
 
-## Publicação condicional
+## Publicação concluída
 
-Com a prova aprovada, publicar o worktree revisado `C:\Users\mathe\morantehub-central-history-release-20261023` no projeto Vercel `morantehub`, preservando o bloqueio de envio. O worktree corresponde a 25 caminhos selecionados, base `2ac99bb1715258680b476c616e3fd6b21171c879`, e coincide com o manifesto de hashes. O build completo e 269 testes Vitest já passaram; a publicação não inclui migration adicional nem dados de teste.
+Após a prova, o worktree revisado `C:\Users\mathe\morantehub-central-history-release-20261023` foi publicado no projeto Vercel `morantehub`, preservando o bloqueio de envio. O worktree correspondeu a 25 caminhos selecionados, base `2ac99bb1715258680b476c616e3fd6b21171c879`, e coincidiu com o manifesto de hashes. Deployment `dpl_7nPegi5o1D8f9xtNCDh2ga6YnEJW`: `READY` em Production, aliases `morantehub.vercel.app` e `morantehub.com`. As rotas `/` e `/atendimento` responderam HTTP 200. Não houve migration adicional nem dados de teste na publicação.
 
-O proprietário autorizou a prova e a publicação condicional em 23/10/2026. A publicação prossegue agora que a persistência, o isolamento e a limpeza foram comprovados.
+O proprietário autorizou a prova e a publicação condicional em 23/10/2026. Persistência, isolamento e limpeza foram comprovados antes da publicação. A checagem pós-publicação encontrou uma chamada ao webhook com HTTP 401; não foi enviado webhook válido pela Meta e a correspondência do valor de `WHATSAPP_APP_SECRET` ao aplicativo Meta permanece sem prova. A empresa mantém o envio bloqueado.

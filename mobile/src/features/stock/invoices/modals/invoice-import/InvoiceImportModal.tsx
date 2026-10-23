@@ -15,7 +15,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { InventoryScannerScreen } from '../../../inventory/screens/InventoryScannerScreen';
 import { extractNfeAccessKey } from '../../utils/accessKey';
-import * as stockService from '../../../../../services/stockService';
 import { flattenFormErrors, useZodForm } from '../../../../../hooks/useZodForm';
 import {
   inboundAccessKeyFormSchema,
@@ -30,7 +29,6 @@ interface Props {
   isDarkMode: boolean;
   onClose: () => void;
   onConsultSefaz?: (accessKey: string) => void;
-  onDirectSyncSuccess?: () => void;
   onUploadXml?: (file: DocumentPickerAsset) => void | Promise<void>;
 }
 
@@ -39,13 +37,11 @@ export const InvoiceImportModal: React.FC<Props> = ({
   isDarkMode,
   onClose,
   onConsultSefaz,
-  onDirectSyncSuccess,
   onUploadXml,
 }) => {
   const [accessKey, setAccessKey] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isDirectSyncing, setIsDirectSyncing] = useState(false);
   const keyForm = useZodForm(inboundAccessKeyFormSchema, { accessKey });
   const fileForm = useZodForm(inboundXmlFileFormSchema, { uri: '', name: '' });
 
@@ -74,50 +70,6 @@ export const InvoiceImportModal: React.FC<Props> = ({
   };
 
   const isAccessKeyValid = inboundAccessKeyFormSchema.safeParse({ accessKey }).success;
-
-  const handleDirectSefazQuery = async () => {
-    if (!isAccessKeyValid || isDirectSyncing || isLoading) return;
-    return keyForm.validateAndRun(
-      { accessKey },
-      async (values) => {
-        setIsDirectSyncing(true);
-        try {
-          const res = await stockService.consultSefazByAccessKey(values.accessKey);
-          const data = res?.data;
-          if (data?.success) {
-            Alert.alert(
-              'NF de entrada localizada!',
-              data.message || 'Nota fiscal sincronizada com sucesso a partir do Ambiente Nacional.',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    onClose();
-                    if (onDirectSyncSuccess) onDirectSyncSuccess();
-                  },
-                },
-              ]
-            );
-          } else {
-            const msg =
-              data?.message ||
-              res?.error?.message ||
-              'A SEFAZ não retornou o documento para a chave informada.';
-            Alert.alert('Consulta SEFAZ', msg);
-          }
-        } catch (err: any) {
-          console.error('Falha na consulta SEFAZ direta:', err);
-          Alert.alert(
-            'Erro na Consulta',
-            err?.message || 'Falha ao comunicar com o Web Service da SEFAZ.'
-          );
-        } finally {
-          setIsDirectSyncing(false);
-        }
-      },
-      (errors) => Alert.alert('Chave inválida', Object.values(flattenFormErrors(errors))[0])
-    );
-  };
 
   const handleScan = (value: string) => {
     const key = extractNfeAccessKey(value);
@@ -193,10 +145,8 @@ export const InvoiceImportModal: React.FC<Props> = ({
               setAccessKey={setAccessKey}
               isAccessKeyValid={isAccessKeyValid}
               isLoading={isLoading}
-              isDirectSyncing={isDirectSyncing}
               isDarkMode={isDarkMode}
               onOpenScanner={() => setShowScanner(true)}
-              onDirectSefazQuery={handleDirectSefazQuery}
               onConsultPortal={handleConsultPortal}
             />
 

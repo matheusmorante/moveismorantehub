@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Product } from '@/pages/types/product.type';
 import type { Person } from '../../../../types/person.type';
+import { resolveProductSupplierPricingDefaults } from '../../../../../../../shared-utils/productSupplierPricingDefaults';
+import {
+  getProductSupplierDisplayName,
+  matchesProductSupplierSearch,
+} from '../../../../../../../shared-utils/productSupplierDisplayName';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import PersonFormModal from '../../../Registrations/shared/modals/PersonFormModal';
 
@@ -73,14 +78,7 @@ export function ProductSupplierField({
       const sid = String(supplier.id || '');
       if (selectedIds.includes(sid)) return false;
       if (!supplierProvidesOrigin(supplier, requiredStockOrigin)) return false;
-      const name = (
-        supplier.fullName ||
-        supplier.socialName ||
-        supplier.nickname ||
-        supplier.tradeName ||
-        ''
-      ).toLowerCase();
-      return name.includes(query);
+      return matchesProductSupplierSearch(supplier, query);
     });
   }, [allSuppliers, selectedIds, requiredStockOrigin, search]);
 
@@ -100,9 +98,7 @@ export function ProductSupplierField({
       supplierIds,
       mainSupplierId: supplierIds[0],
       supplierId: supplierIds[0],
-      ipiPercent: supplier.defaultIpiPercent ?? formData.ipiPercent,
-      freightCost: supplier.defaultFreightCost ?? formData.freightCost,
-      freightType: supplier.defaultFreightType || formData.freightType,
+      ...resolveProductSupplierPricingDefaults(formData, supplier),
     });
 
     setSearch('');
@@ -184,12 +180,7 @@ export function ProductSupplierField({
           className="mt-2 max-h-60 overflow-y-auto rounded-xl border border-slate-100 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900"
         >
           {visibleSuppliers.map((supplier) => {
-            const name =
-              supplier.fullName ||
-              supplier.socialName ||
-              supplier.nickname ||
-              supplier.tradeName ||
-              'Fornecedor sem nome';
+            const name = getProductSupplierDisplayName(supplier) || 'Fornecedor sem nome';
             return (
               <button
                 key={supplier.id}
@@ -210,12 +201,7 @@ export function ProductSupplierField({
         <div className="flex flex-wrap gap-2 pt-1" aria-label="Fornecedores vinculados">
           {selectedIds.map((id) => {
             const supplier = allSuppliers.find((item) => String(item.id) === String(id));
-            const name =
-              supplier?.fullName ||
-              supplier?.socialName ||
-              supplier?.nickname ||
-              supplier?.tradeName ||
-              'Fornecedor';
+            const name = getProductSupplierDisplayName(supplier) || 'Fornecedor';
             return (
               <span
                 key={id}

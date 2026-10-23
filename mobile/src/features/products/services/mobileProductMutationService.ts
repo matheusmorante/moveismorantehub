@@ -474,15 +474,18 @@ export const saveMobileProduct = async (productData: any) => {
     variationRows.length > 0
       ? variationRows.some((variation: any) => variation.active !== false)
       : productData.active !== false;
+  const selectedCategoryIds: string[] =
+    Array.isArray(productData.categoryIds) && productData.categoryIds.length > 0
+      ? productData.categoryIds
+      : productData.categoryId
+        ? [productData.categoryId]
+        : [];
 
   const payload: any = {
     name: productData.name?.trim(),
     description: productData.description || null,
     code: productCode || null,
-    category: productData.category || null,
-    category_id:
-      productData.categoryId ||
-      (Array.isArray(productData.categoryIds) ? productData.categoryIds[0] : null),
+    category_id: selectedCategoryIds[0] || null,
     product_kind: isSalvado ? 'salvado' : isUsado ? 'usado' : 'normal',
     condition: isSalvado ? 'salvado' : isUsado ? 'usado' : productData.condition || 'novo',
     opportunity_id: productData.opportunityId || null,
@@ -532,6 +535,8 @@ export const saveMobileProduct = async (productData: any) => {
           initialStock: _initialStock,
           initialCost: _initialCost,
           initialStockEntries: _initialStockEntries,
+          discountPercent: _discountPercent,
+          discountFixed: _discountFixed,
           ...details
         } = variation;
         return details;
@@ -670,7 +675,7 @@ export const saveMobileProduct = async (productData: any) => {
     p_product_id: savedProductId,
     p_product: payload,
     p_images: payload.images,
-    p_category_ids: Array.isArray(productData.categoryIds) ? productData.categoryIds : [],
+    p_category_ids: selectedCategoryIds,
     p_variations: variationPayloads,
   });
   if (error) throw error;

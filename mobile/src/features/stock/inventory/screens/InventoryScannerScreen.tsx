@@ -308,6 +308,8 @@ export const InventoryScannerScreen: React.FC<Props> = ({
               style={styles.captureButton}
               onPress={handleReadText}
               disabled={isReadingText}
+              accessibilityRole="button"
+              accessibilityLabel="Ler chave de acesso impressa"
             >
               <Text style={styles.captureButtonText}>
                 {isReadingText ? 'Lendo chave…' : 'Ler chave impressa'}

@@ -24,6 +24,7 @@ const mobileProductCharacteristicsQuotaSchema = z.object({
 });
 
 export type MobileProductDescriptionInput = z.input<typeof productDescriptionAiFormSchema>;
+export type MobileProductDescriptionMode = 'characteristics' | 'informative_text';
 export type MobileProductCharacteristicsMode = 'web_search' | 'descriptive_text';
 export type MobileProductCharacteristicsQuota = {
   usedMinute: number;
@@ -81,7 +82,8 @@ const getCandidateText = (data: any) =>
     .join('\n');
 
 export const improveMobileProductDescription = async (
-  input: MobileProductDescriptionInput
+  input: MobileProductDescriptionInput,
+  descriptionMode: MobileProductDescriptionMode = 'characteristics'
 ): Promise<string> => {
   const values = productDescriptionAiFormSchema.parse(input);
   const technicalValues = Object.fromEntries(
@@ -92,6 +94,7 @@ export const improveMobileProductDescription = async (
   );
   const data = await invokeMobileProductAi({
     operation: DESCRIPTION_OPERATION,
+    descriptionMode,
     contents: [{ role: 'user', parts: [{ text: JSON.stringify({ ...values, technicalValues }) }] }],
     tools: [],
     temperature: 0.1,
@@ -100,6 +103,26 @@ export const improveMobileProductDescription = async (
   const parsed = productAiGeneratedTextSchema.safeParse(description);
   if (!parsed.success) throw new Error('A IA retornou uma descrição vazia ou inválida. Tente novamente.');
   return parsed.data;
+};
+
+export const generateMobileProductDescriptionFromText = async (input: {
+  informativeText: string;
+  productName: string;
+  brand?: string;
+  model?: string;
+  categoryName?: string;
+}): Promise<string> => {
+  const { descriptiveText } = productAiDescriptiveTextFormSchema.parse({
+    descriptiveText: input.informativeText,
+  });
+
+  return improveMobileProductDescription({
+    title: input.productName.trim() || 'Produto',
+    currentDescription: descriptiveText,
+    brand: input.brand,
+    model: input.model,
+    categoryName: input.categoryName,
+  }, 'informative_text');
 };
 
 const normalizeAttributeValues = (

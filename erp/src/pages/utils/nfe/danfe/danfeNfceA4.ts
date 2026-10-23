@@ -229,13 +229,26 @@ const DANFE_NFCE_A4_PAGINATION_SCRIPT = `
     root.replaceChildren(...pages);
 
     pages.slice(0, productGroups.length).forEach((page) => {
-      const fillerCells = page.querySelectorAll('.table-fill-row td');
-      if (!fillerCells.length) return;
-      fillerCells.forEach((cell) => { cell.style.height = '0px'; });
+      const fillerRow = page.querySelector('.table-fill-row');
+      if (!fillerRow) return;
+      fillerRow.querySelectorAll('td').forEach((cell) => { cell.style.height = '0px'; });
       const pageTop = page.getBoundingClientRect().top;
       const contentBottom = Math.max(...Array.from(page.children).map((element) => element.getBoundingClientRect().bottom));
       const remaining = Math.max(0, pageHeight - (contentBottom - pageTop) - safety);
-      fillerCells.forEach((cell) => { cell.style.height = remaining + 'px'; });
+      if (remaining <= safety) {
+        fillerRow.remove();
+        return;
+      }
+
+      const targetLineHeight = 4 * 96 / 25.4;
+      const lineCount = Math.max(1, Math.ceil(remaining / targetLineHeight));
+      const lineHeight = remaining / lineCount;
+      const fillerRows = Array.from({ length: lineCount }, () => {
+        const row = fillerRow.cloneNode(true);
+        row.querySelectorAll('td').forEach((cell) => { cell.style.height = lineHeight + 'px'; });
+        return row;
+      });
+      fillerRow.replaceWith(...fillerRows);
     });
   } catch (error) {
     console.error('[DANFE NFC-e A4] Falha ao paginar as folhas.', error);

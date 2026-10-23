@@ -1,11 +1,11 @@
 # Central de Atendimento WhatsApp — MoranteHub ERP
 
-> Estado atualizado em 22/10/2026: candidato combinado publicado em produção; ver [publicação e validações](central-de-atendimento-publicacao-combinada-2026-10-22.md). O build e `test:unit` executam `build:support`, que gera a fronteira CJS do processador compartilhado; o adaptador local usa o mesmo produtor. Ver [diagnóstico de runtime](central-de-atendimento-runtime-esm-2026-10-21.md).
+> Estado atualizado em 23/10/2026: Inbox, histórico e correção da rota Meta publicados em produção; implantação `dpl_H92Mmz8tUHcxc8Lby95XP1hXQ91x` (`READY`) nos aliases `morantehub.vercel.app` e `morantehub.com`. A rota `/api/secure-integrations` voltou a carregar sob Node 24 após corrigir imports ESM; respostas verificadas: GET 405 (método inválido) e POST sem sessão 401. A Vercel agregou um aviso `DEP0169` de `url.parse` na rota, já observado desde agosto; não retornou stack detalhada e a busca no código da Central não encontrou uso direto de `url.parse`. O webhook legítimo da Meta e a leitura autorizada de mídia real ainda não foram comprovados. O envio permanece bloqueado por política. O build e `test:unit` executam `build:support`, que gera a fronteira CJS do processador compartilhado; o adaptador local usa o mesmo produtor. Ver [diagnóstico de runtime](central-de-atendimento-runtime-esm-2026-10-21.md).
 
 > **Módulo:** Central de Atendimento (`/atendimento`)  
 > **Integração:** WhatsApp Cloud API Oficial da Meta (Graph API)  
 > **Status:** Inbox publicada em produção; webhook legítimo da Meta ainda não comprovado; envio bloqueado por política da empresa
-> **Data:** 22/10/2026
+> **Data:** 23/10/2026
 
 ---
 
@@ -125,16 +125,14 @@ A Central de Atendimento escuta eventos através de canais dedicados:
 * **Proxy de Mídias:** `/api/whatsapp-media?id={media_id}` e a operação consolidada usam `whatsappMediaProxy.ts`. Exigem Bearer validado por `auth.getUser`, permissão `customer_support_can_view()` e mensagem visível sob RLS com aquele `media_id`, antes de consultar a Meta. Respostas usam `Cache-Control: private, no-store`. Tokens não são colocados na URL.
 
 * O frontend busca o binário autenticado e fornece URLs locais `blob:` para imagem, figurinha, áudio, vídeo, documento e galeria. Cancela consultas antigas e revoga URLs ao trocar contexto ou sair. Há progresso, erro e repetição. URLs arbitrárias persistidas não são abertas diretamente; a consulta agregada encontrou 54 registros com ID e nenhum dependente somente de URL.
-* Na ausência de token Meta no ambiente, o backend consulta somente a configuração WhatsApp existente em `settings/app`, após validar JWT, permissão e mensagem pela RLS. O canal da conversa deve corresponder ao número configurado; leitura privilegiada e token permanecem no servidor. Treze testes isolados conferem esse complemento. Metadata remota confirmou presença/vínculo do token, sem validar seu acesso externo nem baixar arquivos reais.
+* O proxy de mídia usa `WHATSAPP_ACCESS_TOKEN` exclusivamente do ambiente server-side e falha fechado se estiver ausente; não há fallback para `settings/app`. O handler verifica JWT, permissão, mensagem visível pela RLS e correspondência do canal antes de consultar a Meta. A presença da variável foi conferida sem ler seu valor; não comprova acesso válido à Meta nem download de binário real.
 * O fallback HTTP de desenvolvimento agora reconhece as três rotas WhatsApp, preservando os bytes do webhook para HMAC. A API continua na porta 3000, atrás do frontend na porta 5173.
 
 **Limite:** o deploy de produção está concluído, mas binários privados de clientes reais não foram usados como fixture e os sucessos de transporte/MIME com permissão são provas isoladas, sem comprovar RLS autenticada de uma fixture real. O webhook legítimo ainda não foi exercitado com uma assinatura da Meta; as verificações públicas cobrem somente recusas sem assinatura ou com assinatura forjada.
 
 ### Achado de segurança em configurações compartilhadas
 
-Em 22/10/2026, uma consulta somente de metadados e presença confirmou que a política `Authenticated can read settings` permite `SELECT` em `public.settings` para qualquer sessão autenticada (`USING (true)`). A linha `id='app'` contém campos de credenciais não vazios de WhatsApp, Gemini e Bling, além de uma chave de mapas cuja classificação e restrições precisam ser verificadas. Nenhum valor foi selecionado ou registrado. A leitura do proxy de mídia sob JWT e RLS não impede a consulta direta à tabela por uma sessão autenticada. A evidência e o plano de correção entre módulos estão em [segurança das configurações](central-de-atendimento-seguranca-configuracao-2026-10-22.md).
-
-O escopo atravessa consumidores fora da Central e exige um candidato próprio, inventário de consumidores, proteção server-side e autorização específica para migration remota. Nenhuma alteração de banco, rotação ou implantação foi feita para esse achado. Não há conclusão de acesso `anon` a partir desta verificação.
+O achado de 22/10 foi corrigido pelo pacote transversal: a migration remota `20261023103833_remove_bling_and_settings_credentials` (versão `20261023130851`) removeu os campos secretos de `public.settings`, e os consumidores ativos passaram a usar variáveis de ambiente no servidor. A conferência atual encontrou zero campos de credencial não vazios, nenhum `whatsappConfig.accessToken` e nenhuma configuração Bling. `anon` não pode ler a tabela; `authenticated` ainda pode ler o JSON não secreto pela política `Authenticated can read settings` (`USING (true)`). Portanto, a migração retirou os segredos, mas não alterou a política de leitura do documento de configurações. Detalhes e limites estão em [segurança das configurações](central-de-atendimento-seguranca-configuracao-2026-10-22.md).
 
 ---
 
@@ -152,7 +150,7 @@ A [operação limitada autorizada](central-de-atendimento-fixtures-proposta-2026
 
 A migration `20261021041610_customer_support_internal_commands.sql` foi aplicada. O frontend usa RPCs para atribuição, status, comentário, notas e tags; autor/horário e estado atual são derivados no servidor. As funções mantêm alteração/evento na mesma transação e não criam evento ao repetir atribuição/status já persistidos. Notas têm comparação do texto-base; tags não sobrescrevem notas nem snapshots de status. Rascunhos em edição são preservados.
 
-**Transição ainda aberta:** o frontend publicado anterior usa comandos diretos. Seus privilégios autenticados foram conservados na expansão. A revogação final está preparada em `docs/integracoes/sql/customer-support-internal-commands-contract.sql`, fora das migrations automáticas, para executar somente após deploy e prova com fixtures autenticadas. Até lá, não declarar impossível forjar autoria pelo contrato legado. [Objetos, efeitos, retenção e próximos gates](central-de-atendimento-comandos-2026-10-21.md).
+**Transição de compatibilidade concluída:** o deployment com as cinco RPCs precedeu a migration `20261021162004_customer_support_internal_commands_contract`, confirmada no histórico do Supabase operacional. A consulta de catálogo em 23/10 confirmou que `authenticated` não pode inserir/atualizar mensagens nem alterar campos de comando em conversas; a única atualização direta de conversa mantida é `unread_count` para confirmação de leitura. A policy `whatsapp_messages_insert` também rejeita `authenticated`, e `anon` não possui as permissões verificadas. Atribuição, status, comentário, notas e tags continuam pelas RPCs que derivam usuário/estado do servidor. [Objetos, efeitos, retenção e próximos gates](central-de-atendimento-comandos-2026-10-21.md).
 
 ---
 
@@ -211,7 +209,7 @@ Isso comprova autorização/negação e o contrato do transporte simulado, **nã
 
 Rechecagem remota somente de metadados em 23/10: há 56 conversas marcadas como fixtures `test-artifact`, todas arquivadas; nenhuma tem `media_id` e nenhuma mensagem de fixture contém mídia. Assim, não existe fixture própria ativa para provar o download autorizado sem criar uma nova entrada de mídia no canal.
 
-As escolhas ainda abertas sobre prévia de mensagem citada, cobertura integral de timeline/galeria e separação entre comentário e resumo interno estão comparadas em [decisões pendentes de histórico e comentários](central-de-atendimento-decisoes-historico-2026-10-23.md). Nenhuma foi implementada por inferência.
+As decisões sobre prévia de mensagem citada, paginação integral de timeline/galeria e separação entre comentário e resumo interno foram implementadas e aprovadas pelo proprietário; a prova remota do comentário e a publicação condicionada foram concluídas. O registro e os limites restantes estão em [decisões de histórico e comentários](central-de-atendimento-decisoes-historico-2026-10-23.md).
 
 ## Revalidação do segredo do webhook — 23/10/2026
 
@@ -219,10 +217,32 @@ O código das duas entradas (`api/whatsapp-webhook.ts` e `erp/api/whatsapp-webho
 
 Vitest continua cobrindo assinatura HMAC válida com segredo de teste, assinatura inválida e segredo ausente; a produção já respondeu `401` sem assinatura nas verificações públicas anteriores. A presença da variável elimina a hipótese de ausência de configuração, mas não comprova que o valor corresponde ao App Secret da Meta nem que um webhook legítimo será aceito. Nenhum POST válido foi enviado, e o envio de mensagens continua bloqueado.
 
+## Verificação após a publicação de histórico — 23/10/2026
+
+O candidato de histórico foi publicado como `dpl_7nPegi5o1D8f9xtNCDh2ga6YnEJW` (`READY`, Production). A implantação atual verificada é `dpl_9wN2dRxXZ3GjQX1QW4yRmy8jw7nh` (`READY`, commit `e45141b736592f6f92d6b928ffb8a479fb8c999b`), com aliases `morantehub.vercel.app` e `morantehub.com`; `/` e `/atendimento` responderam HTTP 200. A lista de variáveis da Vercel confirma `WHATSAPP_APP_SECRET` em Production, consultada sem descriptografar o valor.
+
+A telemetria da implantação registrou um POST em `/api/whatsapp-webhook` com HTTP 401. O log agregado não trouxe detalhe suficiente para atribuir a causa a assinatura ausente, inválida ou configuração divergente; portanto, isso não prova que o App Secret corresponda ao aplicativo Meta nem que um webhook legítimo será processado. Nenhum POST válido foi enviado. O envio de mensagens segue bloqueado.
+
+O operador informou o Meta App ID `1364259738556530`, confirmado em `WHATSAPP_APP_ID` nos ambientes Production, Preview e Development da Vercel. O nome do aplicativo e a confirmação de que esse ID está inscrito no WABA do canal ainda não foram verificados. A ferramenta Vercel foi consultada com `decrypt=true`, mas retornou `decrypted:false` e sem valores para `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_APP_SECRET` e `WHATSAPP_VERIFY_TOKEN`. A leitura autenticada da Meta pelo navegador também não pôde ser feita: a sessão informa que o uso do navegador local está desativado. Nenhuma inscrição do webhook foi alterada. [Documentação da Vercel sobre variáveis Secret](https://vercel.com/docs/environment-variables/sensitive-environment-variables).
+
+Na revalidação da rota segura em 23/10, um POST de conexão autenticado retornou HTTP 500. O log da Vercel associou a falha à importação ESM de `authenticatedErpRequest` sem extensão pelo runtime Node 24. `erp/api/secure-integrations.ts` agora importa as dependências locais com extensão `.js`, compatível com a resolução ESM de produção e com o build TypeScript. O candidato foi publicado como `dpl_H92Mmz8tUHcxc8Lby95XP1hXQ91x`; GET sem método aceito respondeu 405 e POST sem sessão respondeu 401. A agregação de runtime retornou um grupo `DEP0169` (`url.parse`, uma ocorrência, primeira observação em 26/08 e última em 23/10); os logs detalhados não retornaram a stack, e a busca no código da Central não encontrou uso direto. A tentativa de `connection_test` com a identidade de operador autenticada chegou à aplicação e recebeu 403 (`Perfil sem acesso ao serviço`); nenhuma permissão foi ampliada para contornar o gate. Assim, o HTTP 500 foi corrigido, mas o acesso à Graph API e a assinatura do webhook Meta continuam sem prova.
+
 Reexecução local pelo adaptador HTTP em 23/10: **6/6 Vitest passaram**. As rotas standalone e consolidada de despacho retornaram `403`; assinatura inválida retornou `401`, segredo ausente em produção simulada retornou `503`, e o caso positivo usou somente segredo/body sintéticos. Nenhuma chamada externa foi feita por essa suíte.
+
+## Correção de runtime publicada — 23/10/2026
+
+O candidato autorizado foi promovido em produção como `dpl_9MVeLZy52dyjVMsZm56zoTEiDKz5` (`READY`). O build otimizado remoto passou. A causa do HTTP 500 — import local sem `.js` carregado pelo Node 24 ESM — não se reproduziu após a publicação: `/api/meta-graph` sem JWT de atendente respondeu 401, como esperado. A rota `/` e a Inbox responderam 200; webhook sem assinatura respondeu 401; despacho continuou bloqueado com 403. As chamadas não continham sessão de atendente, token Meta ou mensagem e não gravaram dados.
+
+Correção a registros anteriores: a lista de variáveis da Vercel confirma `WHATSAPP_APP_SECRET` como variável sensível em Production, Preview e Development. Somente os metadados (nome, ambiente e tipo) foram consultados; o conteúdo não foi aberto. Portanto a variável estar presente não demonstra que o valor corresponde ao Meta App ID `1364259738556530`. A chamada positiva à Graph, o webhook assinado legítimo e o download autorizado de mídia continuam sem validação. Não houve alteração de inscrição Meta, migration, fixture ou envio.
 
 ## Revalidação da Inbox — 23/10/2026
 
 Nesta continuidade passaram **87/87 Vitest/RTL em cinco arquivos**: `customerSupport.test.ts`, `customerSupportInbox.test.tsx` e `customerSupportLinkForms.test.tsx` (64); `customerSupportLocalApi.test.ts` (6); `customerSupportPaging.test.tsx` (17). Cada execução também concluiu `build:support`. A paginação foi exercitada com mocks isolados.
 
 A reexecução real da UI passou **1/1** por `npm run test:support:readonly` em `localhost:5173`: login com Development da Vercel, gate de operador, Inbox, tentativas de recuperação do diretório de pastas e atendentes, validação de pasta e consulta restrita por atendente. O guard de rede bloqueou gravações de negócio. O teste agora espera `DOMContentLoaded` na rota de login e usa os seletores existentes para aguardar a interface; a execução anterior excedia 15 s esperando o evento `load`, apesar do servidor responder em `5173`. Nenhuma fixture foi criada, mensagem enviada ou chamada à Meta feita nessa validação.
+
+### Revalidação contínua — 23/10/2026
+
+**Atualização posterior:** a produção passou a `dpl_2tZb4TRyA8K2iZfnx5kMRvLqe611` e reintroduziu os imports ESM sem extensão. A recusa de acesso do operador também teve causa comprovada no conflito entre `role` legado e `roles` atuais. Correções locais de autorização, continuidade após citação e busca no histórico completo estão registradas em [papéis, busca e histórico](central-de-atendimento-papeis-busca-historico-2026-10-23.md), com estado de validação e publicação próprios.
+
+A suíte focada `npm run test:unit --prefix erp -- src/pages/App/CustomerSupport src/pages/utils/customerSupport src/pages/utils/metaService` passou em **31 arquivos: 301 testes aprovados e seis verificações remotas opt-in ignoradas**; `build:support` também passou. Incluiu teste da API em Node nativo, validação HMAC e recusas 401/403/503, paginação, pastas, formulários, mídia, contexto comercial e recebimento. O Playwright `npm run test:support:readonly` passou **1/1 em 17,8s** na porta `5173` (`strictPort`), com API `3000`: login autônomo, gate do operador, falha/recuperação de pastas e atendentes e consulta por atendente. A repetição com `SUPPORT_READONLY_SECURE_API_IMPORT=1` passou **1/1 em 15,6s**, validando também o carregamento da rota Meta local antes do login. Nenhuma fixture ou gravação de negócio foi criada; o envio permaneceu bloqueado.

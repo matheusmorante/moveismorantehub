@@ -5,6 +5,7 @@ import {
   normalizeTechnicalName,
   parseNumericDimension,
 } from '../technicalTabUtils';
+import { getProductTechnicalRootPatch } from '../../../../../../../../../shared-utils/productTechnicalRootPatch';
 
 /**
  * Atualiza os valores técnicos de um produto, aplicando regras de sincronização
@@ -30,9 +31,7 @@ export const applyTechnicalValueChangeToProduct = (
     technicalValues: cleanedTech,
   };
 
-  if (/^marca$/i.test(fieldName.trim())) {
-    next.brand = typeof value === 'string' ? value : String(value ?? '');
-  }
+  Object.assign(next, getProductTechnicalRootPatch(fieldName, value));
 
   const norm = normalizeTechnicalName(fieldName);
   let dimensionChanged = false;

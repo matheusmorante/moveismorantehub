@@ -1,4 +1,5 @@
 import {
+  ArrowLeft,
   MoreVertical,
   Search,
   X,
@@ -11,10 +12,7 @@ import {
   View,
 } from 'react-native';
 import { styles } from './header/ProductsHeader.styles';
-import {
-  ProductsHeaderModeSelector,
-  ProductListMode,
-} from './header/ProductsHeaderModeSelector';
+import type { ProductListMode } from './header/ProductsHeaderModeSelector';
 import { ProductsHeaderMenuDropdown } from './header/ProductsHeaderMenuDropdown';
 import { ProductsHeaderFiltersSheet } from './header/ProductsHeaderFiltersSheet';
 
@@ -22,6 +20,7 @@ interface Props {
   mode?: ProductListMode;
   availableModes?: ProductListMode[];
   onModeChange?: (mode: ProductListMode) => void;
+  onBack?: () => void;
   dark: boolean;
   search: string;
   totalCount: number;
@@ -65,6 +64,7 @@ export function ProductsHeader({
   mode = 'standard',
   availableModes = ['standard', 'composition', 'categories'],
   onModeChange,
+  onBack,
   dark,
   search,
   totalCount,
@@ -116,7 +116,18 @@ export function ProductsHeader({
       {/* Topo com Título, Contador e Menu de 3 Pontinhos */}
       <View style={styles.topRow}>
         <View style={styles.titleArea}>
-          <Text style={[styles.title, dark && styles.light]}>
+          {onBack && (
+            <TouchableOpacity
+              onPress={onBack}
+              accessibilityRole="button"
+              accessibilityLabel="Voltar para o menu de Produtos"
+              style={[styles.backButton, dark && styles.darkBackButton]}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <ArrowLeft size={18} color={dark ? '#f8fafc' : '#334155'} />
+            </TouchableOpacity>
+          )}
+          <Text numberOfLines={1} style={[styles.title, dark && styles.light]}>
             {showTrash
               ? 'Lixeira'
               : mode === 'composition'
@@ -141,15 +152,6 @@ export function ProductsHeader({
           <MoreVertical size={18} color="#2563eb" />
         </TouchableOpacity>
       </View>
-
-      {/* Seletor de Modo (Produtos, Composições, Ambientes/Categorias) */}
-      {!showTrash && onModeChange && (
-        <ProductsHeaderModeSelector
-          mode={mode}
-          availableModes={availableModes}
-          onModeChange={onModeChange}
-        />
-      )}
 
       {/* Barra de Pesquisa */}
       {mode !== 'categories' && (

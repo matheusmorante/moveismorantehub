@@ -118,12 +118,12 @@ export function InboundAccessKeyModal({
                   ? 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50 cursor-pointer'
                   : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed dark:bg-slate-800 dark:border-slate-700'
               }`}
-              onClick={(e) => {
-                if (accessKey.length !== 44) e.preventDefault();
+              onClick={(event) => {
+                if (accessKey.length !== 44) event.preventDefault();
               }}
-              title="Consultar nota no portal da SEFAZ"
+              title="Consultar a NF-e no Portal Nacional"
             >
-              <i className="bi bi-box-arrow-up-right"></i> Sefaz
+              <i className="bi bi-box-arrow-up-right" aria-hidden="true" /> Sefaz
             </a>
           </div>
         </label>

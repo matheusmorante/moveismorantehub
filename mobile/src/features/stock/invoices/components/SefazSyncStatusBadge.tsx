@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { AlertTriangle, RefreshCw } from 'lucide-react-native';
 import * as stockService from '../../../../services/stockService';
@@ -11,6 +11,11 @@ interface Props {
 export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSuccess }) => {
   const [status, setStatus] = useState<any>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const onSyncSuccessRef = useRef(onSyncSuccess);
+
+  useEffect(() => {
+    onSyncSuccessRef.current = onSyncSuccess;
+  }, [onSyncSuccess]);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -21,13 +26,31 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
     }
   }, []);
 
+  const recoverMissingNsu = useCallback(async () => {
+    try {
+      const result = await stockService.recoverNextMissingNsuFromSefaz();
+      if (result?.data?.success && (result.data.newDocsCount || 0) > 0) {
+        onSyncSuccessRef.current?.();
+      }
+    } catch (e) {
+      console.warn('Erro ao recuperar NSU pendente no mobile:', e);
+    }
+  }, []);
+
   useEffect(() => {
     void loadStatus();
+    void recoverMissingNsu();
     const interval = setInterval(() => {
       void loadStatus();
     }, 45000); // Polling leve a cada 45 segundos
-    return () => clearInterval(interval);
-  }, [loadStatus]);
+    const recoveryInterval = setInterval(() => {
+      void recoverMissingNsu();
+    }, 5 * 60 * 1000);
+    return () => {
+      clearInterval(interval);
+      clearInterval(recoveryInterval);
+    };
+  }, [loadStatus, recoverMissingNsu]);
 
   const handleRetry = async () => {
     if (isRetrying) return;
