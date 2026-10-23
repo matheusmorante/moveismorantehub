@@ -26,8 +26,29 @@ export function getContainedImageRect(
   return { x: (displayWidth - width) / 2, y: (displayHeight - height) / 2, width, height };
 }
 
+export function getPaddedImageRect(
+  displayWidth: number,
+  displayHeight: number,
+  sourceWidth: number,
+  sourceHeight: number,
+  paddingPercent: number
+): MobileCropRect {
+  if ([displayWidth, displayHeight, sourceWidth, sourceHeight].some((value) => value <= 0) || paddingPercent < 0 || paddingPercent >= 50) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+  const insetX = displayWidth * paddingPercent / 100;
+  const insetY = displayHeight * paddingPercent / 100;
+  const contained = getContainedImageRect(
+    displayWidth - insetX * 2,
+    displayHeight - insetY * 2,
+    sourceWidth,
+    sourceHeight
+  );
+  return { ...contained, x: contained.x + insetX, y: contained.y + insetY };
+}
+
 export function createCenteredMobileSquareSelection(rect: MobileCropRect): MobileSquareSelection {
-  const size = Math.min(rect.width, rect.height) * 0.8;
+  const size = Math.min(rect.width, rect.height);
   return { x: rect.x + (rect.width - size) / 2, y: rect.y + (rect.height - size) / 2, size };
 }
 
@@ -60,23 +81,23 @@ export function resizeMobileSquareSelection(
   };
 }
 
-export function mapMobileSquareSelectionToSourceCrop(
+export function mapMobileSquareSelectionToRasterCrop(
   selection: MobileSquareSelection,
-  imageRect: MobileCropRect,
-  sourceWidth: number,
-  sourceHeight: number
+  displayRect: MobileCropRect,
+  rasterWidth: number,
+  rasterHeight: number
 ): MobileCropRect {
-  const scaleX = sourceWidth / imageRect.width;
-  const scaleY = sourceHeight / imageRect.height;
+  const scaleX = rasterWidth / displayRect.width;
+  const scaleY = rasterHeight / displayRect.height;
   const crop = {
-    x: Math.round((selection.x - imageRect.x) * scaleX),
-    y: Math.round((selection.y - imageRect.y) * scaleY),
+    x: Math.round((selection.x - displayRect.x) * scaleX),
+    y: Math.round((selection.y - displayRect.y) * scaleY),
     width: Math.round(selection.size * scaleX),
     height: Math.round(selection.size * scaleY),
   };
-  crop.x = Math.max(0, Math.min(sourceWidth - crop.width, crop.x));
-  crop.y = Math.max(0, Math.min(sourceHeight - crop.height, crop.y));
-  crop.width = Math.max(1, Math.min(sourceWidth - crop.x, crop.width));
-  crop.height = Math.max(1, Math.min(sourceHeight - crop.y, crop.height));
+  crop.x = Math.max(0, Math.min(rasterWidth - crop.width, crop.x));
+  crop.y = Math.max(0, Math.min(rasterHeight - crop.height, crop.y));
+  crop.width = Math.max(1, Math.min(rasterWidth - crop.x, crop.width));
+  crop.height = Math.max(1, Math.min(rasterHeight - crop.y, crop.height));
   return crop;
 }

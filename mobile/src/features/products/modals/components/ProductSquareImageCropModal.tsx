@@ -14,11 +14,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Svg, { Image as SvgImage, Rect } from 'react-native-svg';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import {
   createCenteredMobileSquareSelection,
-  getContainedImageRect,
-  mapMobileSquareSelectionToSourceCrop,
+  getPaddedImageRect,
+  mapMobileSquareSelectionToRasterCrop,
   moveMobileSquareSelection,
   resizeMobileSquareSelection,
   type MobileCropRect,
@@ -105,16 +106,19 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
   const [sourceDimensions, setSourceDimensions] = useState({ width: 0, height: 0 });
   const [frame, setFrame] = useState({ width: 0, height: 0 });
   const [selection, setSelection] = useState<MobileSquareSelection | null>(null);
+  const [paddingPercent, setPaddingPercent] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [rendererReady, setRendererReady] = useState(false);
   const [applying, setApplying] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const rendererRef = useRef<Svg>(null);
   const selectionRef = useRef<MobileSquareSelection | null>(null);
   const dragOriginRef = useRef<MobileSquareSelection | null>(null);
   const sourceCleanupRef = useRef<PreparedImage['cleanup']>(undefined);
 
   const cropForm = useZodForm(squareImageCropFormSchema, {
     image: imageUrl,
-    paddingPercent: 0,
+    paddingPercent,
     displayWidth: 0,
     displayHeight: 0,
     sourceWidth: 0,
@@ -124,9 +128,13 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
   const uploadForm = useZodForm(mobileProductPhotoUploadFormSchema, { photos: [] });
   const replacementForm = useZodForm(productImageReplacementFormSchema, { oldUrl: '', newUrl: '' });
 
+  const stageRect = useMemo<MobileCropRect>(
+    () => ({ x: 0, y: 0, width: frame.width, height: frame.height }),
+    [frame.width, frame.height]
+  );
   const imageRect = useMemo<MobileCropRect>(
-    () => getContainedImageRect(frame.width, frame.height, sourceDimensions.width, sourceDimensions.height),
-    [frame.width, frame.height, sourceDimensions.width, sourceDimensions.height]
+    () => getPaddedImageRect(frame.width, frame.height, sourceDimensions.width, sourceDimensions.height, paddingPercent),
+    [frame.width, frame.height, sourceDimensions.width, sourceDimensions.height, paddingPercent]
   );
 
   useEffect(() => {
@@ -137,6 +145,8 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
     setSourceUri('');
     setSourceDimensions({ width: 0, height: 0 });
     setSelection(null);
+    setPaddingPercent(0);
+    setRendererReady(false);
     selectionRef.current = null;
     setFrame({ width: 0, height: 0 });
 
@@ -176,11 +186,19 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
   }, [imageUrl, visible]);
 
   useEffect(() => {
-    if (!imageRect.width || !imageRect.height) return;
-    const centered = createCenteredMobileSquareSelection(imageRect);
+    if (!stageRect.width || !stageRect.height) return;
+    const centered = createCenteredMobileSquareSelection(stageRect);
     selectionRef.current = centered;
     setSelection(centered);
-  }, [imageRect.x, imageRect.y, imageRect.width, imageRect.height]);
+  }, [stageRect.width, stageRect.height, paddingPercent]);
+
+  useEffect(() => {
+    if (!visible || loading || !sourceUri || !sourceDimensions.width || rendererReady || loadError) return;
+    const timeout = setTimeout(() => {
+      setLoadError('Não foi possível renderizar a foto para o recorte. Tente abrir a imagem novamente.');
+    }, 12_000);
+    return () => clearTimeout(timeout);
+  }, [visible, loading, sourceUri, sourceDimensions.width, rendererReady, loadError]);
 
   const panResponder = useMemo(
     () =>
@@ -194,7 +212,7 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
         onPanResponderMove: (_, gesture) => {
           const origin = dragOriginRef.current;
           if (!origin || applying) return;
-          const next = moveMobileSquareSelection(origin, gesture.dx, gesture.dy, imageRect);
+          const next = moveMobileSquareSelection(origin, gesture.dx, gesture.dy, stageRect);
           selectionRef.current = next;
           setSelection(next);
         },
@@ -205,15 +223,26 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
           dragOriginRef.current = null;
         },
       }),
-    [applying, imageRect.x, imageRect.y, imageRect.width, imageRect.height]
+    [applying, stageRect.x, stageRect.y, stageRect.width, stageRect.height]
   );
 
   const changeSelectionSize = (delta: number) => {
     const current = selectionRef.current;
     if (!current || applying) return;
-    const next = resizeMobileSquareSelection(current, delta, imageRect);
+    const next = resizeMobileSquareSelection(current, delta, stageRect);
     selectionRef.current = next;
     setSelection(next);
+  };
+
+  const changePaddingPercent = (delta: number) => {
+    setPaddingPercent((current) => Math.max(0, Math.min(35, current + delta)));
+  };
+
+  const resetSelection = () => {
+    if (!stageRect.width || !stageRect.height || applying) return;
+    const centered = createCenteredMobileSquareSelection(stageRect);
+    selectionRef.current = centered;
+    setSelection(centered);
   };
 
   const close = () => {
@@ -227,13 +256,13 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
   };
 
   const applyCrop = async () => {
-    if (!sourceUri || !selection || applying || loadError) return;
+    if (!sourceUri || !selection || !rendererReady || applying || loadError) return;
     setApplying(true);
     try {
       const cropResult = await cropForm.validateAndRun(
         {
           image: sourceUri,
-          paddingPercent: 0,
+          paddingPercent,
           displayWidth: frame.width,
           displayHeight: frame.height,
           sourceWidth: sourceDimensions.width,
@@ -241,21 +270,51 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
           selection,
         },
         async (values) => {
-          const crop = mapMobileSquareSelectionToSourceCrop(
+          const renderer = rendererRef.current;
+          if (!renderer) throw new Error('A prévia do recorte ainda não está pronta.');
+          const capturedImage = await withTimeout(
+            new Promise<string>((resolve, reject) => {
+              renderer.toDataURL((base64) => {
+                if (!base64) {
+                  reject(new Error('Não foi possível gerar o palco do recorte.'));
+                  return;
+                }
+                resolve(`data:image/png;base64,${base64.replace(/\s/g, '')}`);
+              });
+            }),
+            15_000,
+            null,
+            'Gerar palco do recorte'
+          );
+          if (!capturedImage) throw new Error('A geração do palco do recorte demorou demais. Tente novamente.');
+          const capturedDimensions = await withTimeout(
+            readImageDimensions(capturedImage),
+            12_000,
+            null,
+            'Ler dimensões do palco'
+          );
+          if (!capturedDimensions?.width || !capturedDimensions.height) {
+            throw new Error('Não foi possível ler a imagem preparada para o recorte.');
+          }
+          const crop = mapMobileSquareSelectionToRasterCrop(
             values.selection,
-            imageRect,
-            values.sourceWidth,
-            values.sourceHeight
+            { x: 0, y: 0, width: values.displayWidth, height: values.displayHeight },
+            capturedDimensions.width,
+            capturedDimensions.height
           );
           const rendered = await withTimeout(
-            ImageManipulator.manipulate(values.image)
+            ImageManipulator.manipulate(capturedImage)
               .crop({ originX: crop.x, originY: crop.y, width: crop.width, height: crop.height })
+              .resize({ width: 1080, height: 1080 })
               .renderAsync(),
             20_000,
             null,
-            'Aplicar recorte'
+            'Preparar imagem quadrada'
           );
-          if (!rendered) throw new Error('O processamento do recorte demorou demais. Tente novamente.');
+          if (!rendered) throw new Error('A preparação da imagem demorou demais. Tente novamente.');
+          if (rendered.width !== 1080 || rendered.height !== 1080) {
+            throw new Error('A imagem preparada não ficou no formato quadrado esperado.');
+          }
           const result = await withTimeout(
             rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.9 }),
             15_000,
@@ -342,7 +401,26 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
                 }
                 style={styles.preview}
               >
-                {sourceUri ? <Image source={{ uri: sourceUri }} style={styles.sourceImage} resizeMode="contain" /> : null}
+                {sourceUri && imageRect.width > 0 && imageRect.height > 0 ? (
+                  <Svg
+                    ref={rendererRef}
+                    width={frame.width}
+                    height={frame.height}
+                    viewBox={`0 0 ${frame.width} ${frame.height}`}
+                    style={styles.stage}
+                  >
+                    <Rect x={0} y={0} width={frame.width} height={frame.height} fill="#ffffff" />
+                    <SvgImage
+                      href={sourceUri}
+                      x={imageRect.x}
+                      y={imageRect.y}
+                      width={imageRect.width}
+                      height={imageRect.height}
+                      preserveAspectRatio="xMidYMid meet"
+                      onLoad={() => setRendererReady(true)}
+                    />
+                  </Svg>
+                ) : null}
                 {selection ? (
                   <View
                     {...panResponder.panHandlers}
@@ -359,6 +437,12 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
                     <View style={styles.ruleVertical} pointerEvents="none" />
                     <View style={styles.ruleHorizontal} pointerEvents="none" />
                     <Text style={styles.selectionHint} pointerEvents="none">MOVER</Text>
+                  </View>
+                ) : null}
+                {!rendererReady ? (
+                  <View pointerEvents="none" style={styles.rendererLoading}>
+                    <ActivityIndicator color="#2563eb" />
+                    <Text style={styles.helper}>Preparando prévia…</Text>
                   </View>
                 ) : null}
               </View>
@@ -383,6 +467,47 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
                   <Plus size={17} color={dark ? '#e2e8f0' : '#334155'} />
                 </TouchableOpacity>
               </View>
+              <View style={styles.paddingControls}>
+                <TouchableOpacity
+                  onPress={() => changePaddingPercent(-5)}
+                  disabled={paddingPercent === 0 || applying}
+                  accessibilityRole="button"
+                  accessibilityLabel="Diminuir moldura branca"
+                  style={[styles.resizeButton, dark && styles.darkResizeButton]}
+                >
+                  <Minus size={17} color={dark ? '#e2e8f0' : '#334155'} />
+                </TouchableOpacity>
+                <Text style={[styles.helper, dark && styles.dimText]}>Moldura branca: {paddingPercent}%</Text>
+                <TouchableOpacity
+                  onPress={() => changePaddingPercent(5)}
+                  disabled={paddingPercent === 35 || applying}
+                  accessibilityRole="button"
+                  accessibilityLabel="Aumentar moldura branca"
+                  style={[styles.resizeButton, dark && styles.darkResizeButton]}
+                >
+                  <Plus size={17} color={dark ? '#e2e8f0' : '#334155'} />
+                </TouchableOpacity>
+                {paddingPercent > 0 ? (
+                  <TouchableOpacity
+                    onPress={() => changePaddingPercent(-paddingPercent)}
+                    disabled={applying}
+                    accessibilityRole="button"
+                    accessibilityLabel="Zerar moldura branca"
+                    style={styles.resetPaddingButton}
+                  >
+                    <Text style={styles.resetPaddingText}>Zerar</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <TouchableOpacity
+                onPress={resetSelection}
+                disabled={applying}
+                accessibilityRole="button"
+                accessibilityLabel="Centralizar recorte quadrado"
+                style={styles.centerSelectionButton}
+              >
+                <Text style={[styles.helper, dark && styles.dimText]}>Centralizar 1:1</Text>
+              </TouchableOpacity>
             </>
           )}
 
@@ -396,10 +521,10 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => void applyCrop()}
-              disabled={loading || Boolean(loadError) || !selection || applying}
+              disabled={loading || !rendererReady || Boolean(loadError) || !selection || applying}
               accessibilityRole="button"
               accessibilityLabel="Aplicar recorte da foto"
-              style={[styles.footerButton, styles.applyButton, (loading || Boolean(loadError) || !selection || applying) && styles.disabledButton]}
+              style={[styles.footerButton, styles.applyButton, (loading || !rendererReady || Boolean(loadError) || !selection || applying) && styles.disabledButton]}
             >
               {applying ? <ActivityIndicator size="small" color="#ffffff" /> : null}
               <Text style={styles.applyText}>{applying ? 'Salvando…' : 'Aplicar recorte'}</Text>
@@ -425,13 +550,18 @@ const styles = StyleSheet.create({
   loadingBox: { minHeight: 280, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 20 },
   errorText: { color: '#b91c1c', fontSize: 12, lineHeight: 18, textAlign: 'center' },
   errorTextDark: { color: '#fca5a5' },
-  preview: { width: '100%', maxWidth: 360, aspectRatio: 1, alignSelf: 'center', overflow: 'hidden', backgroundColor: '#111827' },
-  sourceImage: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
+  preview: { width: '100%', maxWidth: 360, aspectRatio: 1, alignSelf: 'center', overflow: 'hidden', backgroundColor: '#ffffff' },
+  stage: { position: 'absolute', left: 0, top: 0 },
+  rendererLoading: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.72)' },
   selection: { position: 'absolute', borderWidth: 2, borderColor: '#ffffff', backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
   ruleVertical: { position: 'absolute', top: 0, bottom: 0, width: 1, backgroundColor: 'rgba(255,255,255,0.55)' },
   ruleHorizontal: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.55)' },
   selectionHint: { position: 'absolute', bottom: 5, right: 5, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, overflow: 'hidden', color: '#ffffff', backgroundColor: 'rgba(15,23,42,0.75)', fontSize: 8, fontWeight: '900' },
   resizeControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14 },
+  paddingControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8 },
+  resetPaddingButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 8 },
+  resetPaddingText: { color: '#64748b', fontSize: 10, fontWeight: '800', textDecorationLine: 'underline' },
+  centerSelectionButton: { minHeight: 36, alignItems: 'center', justifyContent: 'center' },
   resizeButton: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eff6ff' },
   darkResizeButton: { backgroundColor: '#1e293b' },
   footer: { flexDirection: 'row', gap: 8 },
