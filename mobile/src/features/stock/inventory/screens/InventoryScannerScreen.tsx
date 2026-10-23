@@ -77,7 +77,11 @@ export const InventoryScannerScreen: React.FC<Props> = ({
   const cameraRef = useRef<CameraView>(null);
   const frameBorderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scannerFrame = scannerAreaLayout ? getScannerFrameRect(scannerAreaLayout) : null;
-  const frameSize = restrictToScannerFrame ? scannerFrame?.width : defaultFrameSize;
+  const frameSize = accessKeyMode
+    ? undefined
+    : restrictToScannerFrame
+      ? scannerFrame?.width
+      : defaultFrameSize;
 
   useEffect(() => {
     const getCameraPermissions = async () => {
@@ -166,7 +170,10 @@ export const InventoryScannerScreen: React.FC<Props> = ({
     try {
       const key = await recognizeAccessKeyFromCamera(cameraRef.current);
       if (!key) {
-        Alert.alert('Chave não reconhecida', 'Enquadre os 44 dígitos impressos e tente novamente.');
+        Alert.alert(
+          'Chave não reconhecida',
+          'Enquadre os 44 caracteres impressos da chave e tente novamente.'
+        );
         return;
       }
       setScanned(true);
@@ -211,7 +218,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
           continuous ? handleBarCodeScanned : scanned ? undefined : handleBarCodeScanned
         }
         barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
+          barcodeTypes: accessKeyMode ? ['code128'] : ['qr'],
         }}
         style={StyleSheet.absoluteFill}
       />
@@ -263,6 +270,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
             style={[
               styles.scannerFrame,
               frameSize !== undefined && { width: frameSize, height: frameSize },
+              accessKeyMode && styles.scannerFrameAccessKey,
               restrictToScannerFrame && styles.scannerFrameSquare,
               frameBorderState === 'success' && styles.scannerFrameSuccess,
               frameBorderState === 'error' && styles.scannerFrameError,
@@ -302,7 +310,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
               disabled={isReadingText}
             >
               <Text style={styles.captureButtonText}>
-                {isReadingText ? 'Lendo texto…' : 'Capturar chave impressa'}
+                {isReadingText ? 'Lendo chave…' : 'Ler chave impressa'}
               </Text>
             </TouchableOpacity>
           )}

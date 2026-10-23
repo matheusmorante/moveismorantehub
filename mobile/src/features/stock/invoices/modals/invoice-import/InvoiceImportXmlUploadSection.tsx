@@ -18,7 +18,7 @@ export const InvoiceImportXmlUploadSection: React.FC<InvoiceImportXmlUploadSecti
     <>
       <View style={styles.sectionHeaderSpacing}>
         <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
-          Arquivo XML da NF-e
+          Arquivo XML da NF de entrada
         </Text>
       </View>
       <TouchableOpacity
@@ -34,7 +34,7 @@ export const InvoiceImportXmlUploadSection: React.FC<InvoiceImportXmlUploadSecti
           Toque para escolher o arquivo
         </Text>
         <Text style={[styles.uploadSubtitle, isDarkMode && styles.textMutedDark]}>
-          Formato aceito: XML oficial da NF-e
+          Formato aceito: XML oficial da nota fiscal eletrônica, modelo 55
         </Text>
       </TouchableOpacity>
     </>

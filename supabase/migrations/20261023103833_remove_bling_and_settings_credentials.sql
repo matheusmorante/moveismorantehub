@@ -1,5 +1,5 @@
 -- Remove credenciais de integrações do JSON público de configurações e elimina
--- o último estado persistido da integração Bling, sem tocar nos demais dados do pedido.
+-- o último estado ativo da integração Bling. Preserva snapshots históricos de pedidos.
 DO $migration$
 DECLARE
   v_definition text;
@@ -53,10 +53,10 @@ BEGIN
 END;
 $migration$;
 
-UPDATE public.orders
-SET order_data = order_data - 'isRegisteredInBling' - 'is_registered_in_bling'
-WHERE order_data ? 'isRegisteredInBling'
-   OR order_data ? 'is_registered_in_bling';
+-- Preserve historical order_data snapshots. The application no longer reads
+-- the marker, and save_order_transaction removes it from subsequent writes.
+-- Updating old rows would invoke test-artifact, commercial-return, and fiscal
+-- order triggers, so legacy marker keys remain inert for audit/history.
 
 -- A projeção mobile inclui a coluna removida. Recrie-a mantendo segurança e grants.
 DO $view_guard$

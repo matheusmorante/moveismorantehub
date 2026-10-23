@@ -2,6 +2,36 @@
 
 Este registro complementa o índice de vigência. Não altera as regras fiscais, snapshots de documentos, XMLs, transmissão SEFAZ ou histórico de documentos emitidos.
 
+## Scanner da chave da NF de entrada com código de barras e leitura de texto
+
+### Problema e sintomas
+
+O scanner de chave da NF de entrada descrevia QR Code como opção, mas o DANFE modelo 55 apresenta a chave em código de barras linear. O quadro quadrado do scanner dificultava enquadrar esse código. Quando o código não era reconhecido, o app também encerrava o scanner antes de permitir usar a leitura do texto impresso. A interface usava “NF-e” como se significasse nota de entrada.
+
+### Causa raiz
+
+O modal de importação reutiliza `InventoryScannerScreen` com `accessKeyMode`, mas o componente configurava somente `qr` para todos os modos e aplicava uma moldura quadrada. O OCR da chave já existia, porém a interface não o apresentava claramente como alternativa ao código de barras; o manipulador também fechava o scanner quando a leitura não continha uma chave válida.
+
+### Arquivos e linhas
+
+- `mobile/src/features/stock/inventory/screens/InventoryScannerScreen.tsx:80,170,221,273,313` — usa o formato CODE-128 e moldura horizontal somente em `accessKeyMode`, mantém o QR no scanner de inventário e identifica a leitura OCR como alternativa para os 44 caracteres impressos.
+- `mobile/src/features/stock/inventory/screens/inventory-scanner/inventoryScanner.styles.ts:94` — adiciona a moldura horizontal para a chave.
+- `mobile/src/features/stock/invoices/modals/invoice-import/InvoiceImportModal.tsx:89,122-132,164,229-230` — renomeia o fluxo para NF de entrada, informa código de barras e OCR e mantém o scanner aberto caso o código lido não resulte em uma chave válida.
+- `mobile/src/features/stock/invoices/modals/invoice-import/InvoiceImportAccessKeySection.tsx:32,36,58` — atualiza o título, validação visível e acessibilidade para NF de entrada.
+- `mobile/src/features/stock/invoices/modals/invoice-import/InvoiceImportXmlUploadSection.tsx:21,37` — identifica a entrada e informa o formato eletrônico aceito, modelo 55.
+- `mobile/src/features/stock/invoices/screens/invoices-screen/InvoicesPageHeader.tsx:57,117` — atualiza o botão de importação e a busca.
+- `mobile/src/features/stock/invoices/utils/inboundXmlParser.ts:41,50` — corrige as mensagens de erro do parser de XML da entrada.
+- `shared-utils/lookupFormSchemas.ts:15,19` — atualiza mensagens dos schemas de XML e chave da entrada.
+- `docs/fiscal/README.md:9` — adiciona esta correção às referências atuais.
+
+### Solução e limites
+
+O modo de chave agora lê CODE-128, padrão do código de barras da chave no DANFE, e usa uma moldura horizontal. Se a leitura falhar, o operador pode acionar “Ler chave impressa” para reconhecer a chave de 44 caracteres; uma leitura inválida mantém o scanner aberto. O scanner de inventário conserva sua configuração anterior. Os rótulos desta operação passam a dizer “NF de entrada”; “nota fiscal eletrônica” é escrito por extenso ao descrever o documento eletrônico.
+
+### Validação
+
+A seção 2 do [MOC 7.0, Anexo II — Manual de Especificações Técnicas do DANFE e Código de Barras](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-ii-manual-especificacoes-tecnicas-danfe-codigo-barras.pdf) especifica CODE-128C para o código de barras da NF-e. Os tipos instalados do `expo-camera` incluem `code128`; a configuração alterada se aplica somente a `accessKeyMode`. Não foram executados testes automatizados nem leitura em dispositivo físico. Nenhum XML, registro fiscal, banco de dados ou comunicação com a SEFAZ foi alterado.
+
 ## DANFE NFC-e A4 preenche a tabela de itens em todas as folhas
 
 ### Problema e sintomas
@@ -37,7 +67,7 @@ O marcador era um campo residual da integração de importação e exportação 
 
 ### Arquivos e linhas
 
-- `supabase/migrations/20261023103833_remove_bling_and_settings_credentials.sql:1` — remove referências da RPC, elimina os dois nomes legados de `order_data`, recria `order_list_items` sem a coluna Bling preservando `security_invoker`, proprietário e grants, e prepara o descarte da coluna; também limpa segredos antigos das configurações compartilhadas, preservando `cscId`.
+- `supabase/migrations/20261023103833_remove_bling_and_settings_credentials.sql:1` — remove a coluna Bling da RPC e da view `order_list_items`, preserva `security_invoker`, proprietário e grants, e elimina a coluna física; limpa credenciais antigas de `public.settings` sem remover o identificador público `cscId`.
 - `erp/src/pages/types/order.type.ts:99` — remove o campo do tipo `Order`.
 - `erp/src/pages/utils/orderMapper/mapOrderFromDatabase.ts:16-21,124` — copia o JSON antes de sanitizar os dois nomes legados e grava o snapshot sem o estado Bling, sem modificar a linha de origem.
 - `erp/src/pages/utils/orderMapper/orderMapperTypes.ts:30` — remove o campo do contrato do banco.
@@ -50,14 +80,16 @@ O marcador era um campo residual da integração de importação e exportação 
 
 ### Solução e limites
 
-A migration falha antes de remover a coluna se a definição remota da RPC ou da view divergir dos trechos esperados. `order_list_items` é recriada sem o campo e mantém a configuração `security_invoker`, o proprietário e os grants atuais. O restante do objeto `order_data` é preservado, exceto pelas duas chaves do marcador. Nenhum campo de snapshot fiscal, documento, evento, XML ou autorização é alterado.
+A migration falha antes de remover a coluna se a definição remota da RPC ou da view divergir dos trechos esperados. `order_list_items` é recriada sem o campo e mantém a configuração `security_invoker`, o proprietário e os grants atuais. A RPC deixa de ler/escrever a coluna e elimina os dois nomes legados quando pedidos forem salvos no futuro. Nenhuma linha antiga de `orders.order_data` é atualizada: a tentativa de limpeza ampla acionou as guardas de artefatos de teste e de devolução comercial (`RETURN_SOURCE_LINE_INVALID`), além de triggers fiscais/comerciais. Os marcadores antigos permanecem inertes para auditoria; nenhum snapshot fiscal, documento, evento, XML ou autorização é alterado.
 
-Na última leitura de metadados do projeto operacional, havia 720 pedidos com o marcador booleano verdadeiro e 400 com o valor falso; 319 pedidos tinham cópia do marcador em `order_data`. A aplicação da migration removerá esses dados legados. A migration ainda não foi aplicada; o rollback dos valores removidos depende de backup.
+Na leitura imediatamente anterior à aplicação, 316 pedidos tinham uma das chaves legadas em `order_data`. A pós-verificação confirmou que essas 316 cópias históricas foram preservadas. A auditoria recursiva das configurações não encontrou valores não vazios com nomes de token, segredo, senha, certificado ou chave de API após a limpeza.
 
 O identificador público `cscId` permanece em `public.settings` e no formulário fiscal porque não é o segredo CSC; somente o token CSC e os dados do certificado são retirados do JSON compartilhado.
 
+A publicação de produção foi concluída antes da migration. A chamada Supabase aplicou a migration registrada no histórico remoto como versão `20261023130851`, nome `20261023103833_remove_bling_and_settings_credentials`; a versão de histórico é gerada no momento da aplicação pelo conector. A implantação de produção mais recente é `dpl_8BqN79XPkSLtVfuPkF6WeWWdzkAk`, `READY`, com os aliases `morantehub.vercel.app` e `morantehub.com`.
+
 ### Validação
 
-- `npm run build` executado em `erp`: compilação concluída, 12/12 funções Vercel dentro do limite e handlers fiscais nativos carregados; Vite compilou 5.904 módulos.
-- 130 testes ERP passaram em dez arquivos; mais 9 testes do serviço de pedidos mobile passaram. O Playwright de leitura da Inbox passou na porta `5173`, com a guarda de gravação comercial ativa.
-- A verificação do banco após a migration permanece pendente porque a publicação ainda não foi aprovada.
+- Build ERP aprovado e implantação Vercel de produção em `READY`; os erros de tipagem do candidato foram corrigidos antes da implantação atual.
+- 293 testes ERP passaram em 23 arquivos; os testes focados do candidato passaram 92/92 em sete arquivos. O Playwright de leitura da Inbox passou 1/1 na porta `5173`, com gravações comerciais bloqueadas.
+- Pós-verificação remota: coluna `orders.is_registered_in_bling` ausente; RPC sem referência à coluna; `order_list_items` sem a coluna, com `security_invoker=true`, proprietário `postgres` e grants de leitura para `anon`, `authenticated` e `service_role`; credenciais antigas e configuração Bling ausentes; `cscId` preservado; 316 snapshots históricos inalterados.

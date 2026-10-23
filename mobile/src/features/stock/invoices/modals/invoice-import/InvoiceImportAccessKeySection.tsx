@@ -29,11 +29,11 @@ export const InvoiceImportAccessKeySection: React.FC<InvoiceImportAccessKeySecti
   return (
     <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
       <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
-        Consultar Chave de Acesso
+        Chave de acesso da NF de entrada
       </Text>
       {accessKey && !isAccessKeyValid ? (
         <Text style={{ color: '#dc2626', marginTop: 8 }}>
-          Informe uma chave NF-e válida de 44 caracteres, incluindo o dígito verificador.
+          Informe uma chave válida da NF de entrada com 44 caracteres, incluindo o dígito verificador.
         </Text>
       ) : null}
 
@@ -55,7 +55,7 @@ export const InvoiceImportAccessKeySection: React.FC<InvoiceImportAccessKeySecti
             onPress={onOpenScanner}
             disabled={isLoading}
             accessibilityRole="button"
-            accessibilityLabel="Escanear chave da NF-e"
+            accessibilityLabel="Escanear chave da NF de entrada"
             hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
           >
             <ScanBarcode size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />

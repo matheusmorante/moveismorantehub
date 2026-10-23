@@ -91,6 +91,12 @@ export const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  scannerFrameAccessKey: {
+    width: '94%',
+    maxWidth: 480,
+    height: 120,
+    borderRadius: 8,
+  },
   scannerFrameSquare: { borderRadius: 0 },
   scannerFrameSuccess: {
     borderColor: '#22c55e',

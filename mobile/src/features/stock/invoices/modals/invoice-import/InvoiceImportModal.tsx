@@ -86,7 +86,7 @@ export const InvoiceImportModal: React.FC<Props> = ({
           const data = res?.data;
           if (data?.success) {
             Alert.alert(
-              'NF-e Localizada!',
+              'NF de entrada localizada!',
               data.message || 'Nota fiscal sincronizada com sucesso a partir do Ambiente Nacional.',
               [
                 {
@@ -121,15 +121,15 @@ export const InvoiceImportModal: React.FC<Props> = ({
 
   const handleScan = (value: string) => {
     const key = extractNfeAccessKey(value);
-    setShowScanner(false);
     if (!key) {
       Alert.alert(
         'Código não reconhecido',
-        'A leitura precisa conter os 44 caracteres da chave de acesso da NF-e.'
+        'Não foi possível ler a chave no código de barras. Tente “Ler chave impressa” ou digite os 44 caracteres.'
       );
       return;
     }
     setAccessKey(key);
+    setShowScanner(false);
   };
 
   const handleConsultPortal = () => {
@@ -161,7 +161,7 @@ export const InvoiceImportModal: React.FC<Props> = ({
               </View>
               <View style={styles.headerCopy}>
                 <Text style={[styles.title, isDarkMode && styles.textDark]}>
-                  Importar XML da NF-e
+                  Importar XML da NF de entrada
                 </Text>
                 <Text style={[styles.subtitle, isDarkMode && styles.textMutedDark]}>
                   Importe o arquivo XML da nota fiscal para conferência e entrada no estoque.
@@ -226,8 +226,8 @@ export const InvoiceImportModal: React.FC<Props> = ({
       >
         <InventoryScannerScreen
           isDarkMode={isDarkMode}
-          title="Escanear chave da NF-e"
-          description="Leia o QR/barcode ou enquadre os 44 dígitos impressos da chave no DANFE."
+          title="Escanear chave da NF de entrada"
+          description="Leia o código de barras da chave no DANFE. Se ele não estiver legível, use “Ler chave impressa” para reconhecer o texto de 44 caracteres."
           accessKeyMode
           onScan={handleScan}
           onClose={() => setShowScanner(false)}

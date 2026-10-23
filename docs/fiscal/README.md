@@ -6,9 +6,10 @@
 
 ## Referências atuais
 
+- [Scanner da chave da NF de entrada com código de barras e leitura de texto — 23/10](historico-correcoes-2026-10-23.md#scanner-da-chave-da-nf-de-entrada-com-código-de-barras-e-leitura-de-texto): lê o código CODE-128 do DANFE, oferece reconhecimento dos 44 caracteres impressos como alternativa e identifica a operação como NF de entrada.
 - [DANFE NFC-e A4 preenche a tabela de itens em todas as folhas — 23/10](historico-correcoes-2026-10-23.md#danfe-nfc-e-a4-preenche-a-tabela-de-itens-em-todas-as-folhas): ativa o paginador já existente para dividir e preencher a área útil da tabela em todas as folhas com itens; dados e valores autorizados permanecem intactos.
 
-- [Remoção do marcador legado do Bling dos pedidos — 23/10](historico-correcoes-2026-10-23.md#remoção-do-marcador-legado-do-bling-dos-pedidos): o candidato remove o campo técnico e as cópias JSON antigas sem alterar dados fiscais; a migration remota aguarda publicação aprovada.
+- [Remoção do marcador legado do Bling dos pedidos — 23/10](historico-correcoes-2026-10-23.md#remoção-do-marcador-legado-do-bling-dos-pedidos): coluna e referências ativas removidas, configurações secretas limpas e view mobile recriada com os mesmos controles; 316 cópias JSON históricas foram preservadas, sem alterar snapshots fiscais.
 
 - [Forma de pagamento “Verificar” como 99 — Outros — 22/10](historico-correcoes-2026-10-22.md#tpag-99-para-a-forma-de-pagamento-verificar): pagamentos confirmados com essa forma passam a usar `tPag=99`; os pendentes preservam a descrição fiscal de entrega/retirada. Documentos já emitidos não foram alterados.
 

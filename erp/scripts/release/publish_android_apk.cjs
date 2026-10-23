@@ -157,7 +157,7 @@ function uploadResumable(file, projectRef, serviceKey, fileSize) {
       endpoint: `https://${projectRef}.storage.supabase.co/storage/v1/upload/resumable`,
       retryDelays: [0, 3000, 5000, 10000, 20000],
       headers: {
-        authorization: `Bearer ${serviceKey}`,
+        ...(serviceKey.startsWith('sb_secret_') ? {} : { authorization: `Bearer ${serviceKey}` }),
         apikey: serviceKey,
         'x-upsert': 'true',
       },
@@ -235,8 +235,8 @@ async function verifyRemoteObject(admin, localSize, localHash, release) {
 }
 
 async function main() {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey) fail('Set SUPABASE_SERVICE_ROLE_KEY in the process environment; never put it in the app or source files.');
+  const serviceKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) fail('Set SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY in the process environment; never put it in the app or source files.');
 
   const supabaseUrl = process.env.SUPABASE_URL || `https://${PROJECT_REF}.supabase.co`;
   const parsedUrl = new URL(supabaseUrl);
@@ -262,8 +262,16 @@ async function main() {
   let testUrl;
   try {
     fs.writeSync(lockHandle, `${process.pid}\n${new Date().toISOString()}`);
+    const adminFetch = serviceKey.startsWith('sb_secret_')
+      ? (input, init) => {
+          const headers = new Headers(init?.headers);
+          headers.delete('Authorization');
+          return fetch(input, { ...init, headers });
+        }
+      : fetch;
     const admin = createClient(supabaseUrl, serviceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
+      global: { fetch: adminFetch },
     });
 
     const { data: bucket, error: bucketError } = await admin.storage.getBucket(BUCKET);

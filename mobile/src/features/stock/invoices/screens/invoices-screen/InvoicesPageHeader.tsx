@@ -54,7 +54,7 @@ export const InvoicesPageHeader: React.FC<InvoicesPageHeaderProps> = ({
           accessibilityRole="button"
         >
           <FilePlus2 size={17} color="#ffffff" />
-          <Text style={styles.importBtnText}>Importar XML da NF-e</Text>
+          <Text style={styles.importBtnText}>Importar XML da NF de entrada</Text>
         </TouchableOpacity>
       </View>
 
@@ -114,7 +114,7 @@ export const InvoicesPageHeader: React.FC<InvoicesPageHeaderProps> = ({
           <Search size={18} color={isDarkMode ? '#64748b' : '#94a3b8'} />
           <TextInput
             style={[styles.searchInput, isDarkMode && styles.textDark]}
-            placeholder="Pesquisar por fornecedor, número da NF-e ou chave de acesso de 44 dígitos..."
+            placeholder="Pesquisar por fornecedor, número da NF de entrada ou chave de acesso de 44 caracteres..."
             placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
             value={searchTerm}
             onChangeText={onChangeSearchTerm}

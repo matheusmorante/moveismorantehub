@@ -38,7 +38,7 @@ export const parseInboundNfeXml = (xmlString: string): Record<string, any> => {
 
   if (nfeKey.length !== 44) {
     throw new Error(
-      `Chave de acesso da NF-e inválida (encontrado ${nfeKey.length} dígitos, esperado 44 dígitos).`
+      `Chave de acesso da NF de entrada inválida (encontrados ${nfeKey.length} caracteres, esperados 44).`
     );
   }
 
@@ -47,7 +47,7 @@ export const parseInboundNfeXml = (xmlString: string): Record<string, any> => {
   const model = extractTag(ideBlock, 'mod');
   if (model === '65') {
     throw new Error(
-      'NFC-e (modelo 65) não pode ser importada como NF de Entrada. Envie uma NF-e de fornecedor, modelo 55.'
+      'NFC-e (modelo 65) não pode ser importada como NF de entrada. Envie o XML da nota fiscal eletrônica de um fornecedor, modelo 55.'
     );
   }
   const series = extractTag(ideBlock, 'serie') || '1';

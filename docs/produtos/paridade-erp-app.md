@@ -83,10 +83,28 @@
 - TypeScript mobile: verificação completa não zero por erros preexistentes fora dos arquivos alterados; não houve diagnóstico nos arquivos alterados deste ciclo.
 - O teste de UI e a comparação visual seguem pendentes até a tela autenticada estar acessível. Expo Web, quando disponível, não comprova comportamento nativo.
 
+## Ciclo 5 — carregamento, erro e lista vazia
+
+**Recorte:** estados da lista de Produtos após consulta, falha, ausência de itens e busca sem resultados.
+
+### Resultado da comparação e correção
+
+- [x] O ERP exibe carregamento com “Sincronizando catálogo...”; o app mostra `ActivityIndicator` e “Carregando produtos...”. Ambos substituem a lista enquanto a carga inicial está em andamento.
+- [x] O ERP executa `fetchProductsPage(..., { throwOnError: true })` e, em caso de falha sem dados atuais, mostra estado de erro e ação “Tentar novamente”. O mobile já tinha `loadError`, botão de nova tentativa e tratamento da exceção no hook, mas a consulta da lista não ativava `throwOnError`. Como `fetchMobileProductsPage` converte erros de consulta em `{ data: [], total: 0 }` por padrão, falhas da lista podiam aparecer como ausência de produtos.
+- [x] A chamada de listagem em `useMobileProducts` agora define `throwOnError: true`. A exceção alcança o `catch` existente, que mostra o estado de erro e preserva a ação de nova tentativa. Outros chamadores do serviço mantêm o comportamento tolerante padrão.
+- [x] A ausência de itens possui mensagem específica no app para composições e lixeira e mensagem geral para produtos; a lista ERP usa mensagem geral. Para busca sem resultados, ambos apresentam estado vazio sem erro. Não foi identificada diferença funcional que exija outra alteração neste recorte.
+- [ ] A comparação visual permanece pendente: Playwright abriu `http://localhost:5173/login` e mostrou a tela de autenticação; não foi possível acessar Produtos no ERP ou no Expo Web. Não houve tentativa de contornar a guarda. A cópia consultada da skill continua somente em cache de build, sem fonte canônica localizada.
+
+### Validação executada
+
+- Mobile: Vitest focado em `mobileProductFetchService.test.ts`: **1 arquivo, 9 testes aprovados**, incluindo propagação de erro com `throwOnError` habilitado.
+- TypeScript mobile: a verificação completa ainda retorna diagnósticos preexistentes em outros módulos; não houve diagnóstico em `useMobileProducts.ts` nem no teste alterado.
+- `git diff --check`: aprovado. A tela autenticada e o comportamento nativo não foram validados visualmente neste ciclo.
+
 ### Pendências para próximos ciclos
 
 - [ ] Com conta de teste disponível, comparar com Playwright o seletor Simples/Com variações, a lista expandida e o editor de componentes da variação composta entre ERP e Expo Web, uma aba/estado por execução.
-- [x] Auditar a busca textual da lista no Ciclo 3; ficam pendentes os filtros e os estados visuais da lista.
+- [x] Auditar a busca textual da lista no Ciclo 3 e os estados de carregamento, erro, vazio e busca sem resultados no Ciclo 5; permanece pendente a comparação visual autenticada.
 - [x] Auditar o estado de filtros e adicionar a limpeza no mobile no Ciclo 4; a correção do contrato de categoria do ERP está pendente.
 - [ ] Retomar a ordenação após definir o contrato do ERP, pois os controles atuais não alteram a consulta.
 - [ ] Auditar abas restantes do formulário: informações básicas, fotos, características, descrição, preço/estoque e fiscal, conferindo as particularidades documentadas e o inventário RHF/Zod.

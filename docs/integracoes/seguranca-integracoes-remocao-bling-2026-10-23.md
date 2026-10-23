@@ -11,7 +11,7 @@ Configurações privadas de Meta/WhatsApp, Gemini, mapas e certificado fiscal er
 - O webhook e o proxy de mídia usam somente variáveis de ambiente, sem fallback para `public.settings`.
 - A auditoria recursiva de `public.settings` encontrou somente `geminiApiKey`, `googleMapsApiKey`, `openRouteServiceApiKey` e `whatsappConfig.accessToken` com nomes de segredo. Em 23/10, os valores atuais de Gemini, Maps server-side e WhatsApp foram copiados em memória para as variáveis Vercel `sensitive/secret`, sem expor valores em saída ou arquivos. `GEMINI_API_KEY` e `GOOGLE_MAPS_API_KEY` cobrem Development, Preview e Production; `WHATSAPP_ACCESS_TOKEN` permanece apenas em Production. `openRouteServiceApiKey` está vazio e não tem consumidor ativo, então será removido sem criar variável sem uso.
 - As telas, serviços, rotas, funções, importadores e scripts operacionais do Bling foram removidos. As únicas referências restantes no runtime limpam configurações e marcadores antigos para impedir que reapareçam; o registro histórico de migrações e backups permanece para auditoria e recuperação. O projeto Supabase não lista Edge Functions Bling ativas e o projeto Vercel não tem variáveis Bling.
-- A migration também elimina a permissão `viewBlingStock`, mapeamentos de importação Bling e o campo `orders.is_registered_in_bling` com suas cópias em `order_data`. A view mobile `order_list_items` é recriada sem esse campo, mantendo `security_invoker` e os grants vigentes. A última leitura remota encontrou 720 marcadores verdadeiros, 400 falsos e 319 cópias JSON; somente esses metadados legados serão apagados. `cscId` e os demais dados da empresa permanecem.
+- A migration também elimina a permissão `viewBlingStock`, mapeamentos de importação Bling e o campo físico `orders.is_registered_in_bling`. A view mobile `order_list_items` é recriada sem essa coluna, mantendo `security_invoker`, proprietário e grants. As 316 chaves Bling encontradas em snapshots `order_data` antes da aplicação foram preservadas: atualizar esses pedidos acionaria guardas de artefato de teste e de devolução/fiscal. O mapeador remove as chaves ao apresentar pedidos, e a RPC não as aceita em gravações futuras. `cscId` e os demais dados da empresa permanecem.
 
 ## Configuração de ambiente
 
@@ -23,13 +23,14 @@ O `VITE_GEMINI_API_KEY` antigo foi removido. As credenciais do operador fiscal f
 
 ## Migration e publicação
 
-O código e a migration estão preparados, mas ainda não foram publicados nem aplicados ao Supabase. A ordem segura é publicar a versão compatível primeiro e, em seguida, aplicar `supabase/migrations/20261023103833_remove_bling_and_settings_credentials.sql`. A alteração remove os campos antigos de segredo e dados residuais do Bling; a restauração desses valores exige backup. Não foram criados pedidos, clientes ou outras fixtures nesta etapa.
+A versão compatível foi publicada antes da migration. A implantação inicial do candidato foi `dpl_24pSb1FNTAsETZXoNRZWTMKEt265`; a implantação de produção mais recente é `dpl_8BqN79XPkSLtVfuPkF6WeWWdzkAk`, estado `READY`, commit `7ba140f4a5058ecd95dec77e3b43639f82a448c4`, com os aliases `morantehub.vercel.app` e `morantehub.com`. O pacote selecionado está incluído no commit de produção. A migration foi aplicada ao projeto Supabase operacional e aparece no histórico como versão `20261023130851`, nome `20261023103833_remove_bling_and_settings_credentials`. Os valores removidos de `public.settings` só podem ser recuperados por backup. Não foram criados pedidos, clientes ou outras fixtures nesta etapa.
 
 ## Validação executada
 
-- Build do ERP passou após as alterações finais: 11/12 slots de API Vercel, verificações de inicialização fiscal e XSD, 5.903 módulos Vite. Permaneceram avisos de empacotamento já existentes, sem falha de build.
+- Build do ERP e publicação de produção passaram; a tipagem do handler Meta foi corrigida antes da implantação atual. O build confirmou inicialização fiscal e XSD; os avisos restantes de empacotamento não bloquearam a publicação.
 - A suíte completa Vitest passou: 293 testes em 23 arquivos.
 - No candidato final, 92 testes Vitest focados passaram em sete arquivos: proxy de mídia, migração das configurações, fronteira de segredos Meta, consultas Meta e remoção de marcadores Bling.
 - O Playwright de leitura da Inbox passou na porta `5173`; a suíte impediu gravações comerciais.
 - Metadados Vercel rechecados sem descriptografar valores; credenciais privadas listadas como `sensitive/secret`, `VITE_GEMINI_API_KEY` removida, a chave pública Maps mantida com uso restrito e nenhum segredo Bling encontrado.
 - Edge Functions do projeto remoto consultadas somente por metadados; nenhuma função Bling ativa.
+- Pós-verificação remota confirmou a coluna ausente, RPC e view sem dependência física do campo, `order_list_items` com `security_invoker=true`, proprietário `postgres` e grants de leitura preservados; nenhuma configuração sensível não vazia permaneceu em `public.settings`, nenhuma configuração/permissão/mapping Bling restou, e `cscId` continua presente. As 316 chaves históricas de `order_data` permaneceram intactas.

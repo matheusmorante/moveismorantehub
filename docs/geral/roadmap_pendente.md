@@ -77,8 +77,9 @@
 
 ### 5. 📦 Paridade incremental do módulo de Produtos ERP → App Mobile
 - [ ] Auditar e replicar, uma aba/estado por ciclo, as mudanças comprovadas do ERP no aplicativo, respeitando as particularidades documentadas do mobile. Execução recorrente a cada duas horas; inventário e evidências em [paridade-erp-app.md](../produtos/paridade-erp-app.md). Comparação visual pendente até haver conta de teste do app nas variáveis de desenvolvimento da Vercel. Não declarar conclusão global enquanto houver estados sem conferência.
-- [ ] Ciclo 3 concluiu a auditoria de busca textual da lista; seguem pendentes filtros e comparação visual. A ordenação do ERP tem handler sem efeito, então definir o contrato (e corrigir no ERP, se aplicável) antes de replicá-la no app.
+- [ ] Ciclo 3 concluiu a auditoria de busca textual; o Ciclo 4 cobriu filtros e limpeza e o Ciclo 5 os estados de carregamento, erro e vazio, com correção da propagação de erros no mobile. Comparação visual autenticada segue pendente. A ordenação do ERP tem handler sem efeito, então definir o contrato (e corrigir no ERP, se aplicável) antes de replicá-la no app.
 - [ ] Ciclo 4 adicionou a ação de limpar filtros no app. Permanecem divergências de contrato no tipo geral (ERP inclui composições em “Produtos”; app as separa), no filtro de categoria ERP (UUID da UI comparado ao campo textual legado) e no critério de rascunho. Ver [inventário](../produtos/paridade-erp-app.md) antes de mudar esses comportamentos.
+- [ ] Ciclo 5 corrigiu a consulta da lista mobile para propagar erros e exibir o estado existente de erro/repetição, equivalente ao contrato ERP. Vitest focado aprovado; comparação visual continua bloqueada na tela de login. Ver [inventário](../produtos/paridade-erp-app.md).
 
 ---
 
