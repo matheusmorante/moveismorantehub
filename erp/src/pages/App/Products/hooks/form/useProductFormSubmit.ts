@@ -12,6 +12,8 @@ import { createProductFormSchema } from './productFormValidation';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import type { useProductFormDraft } from './useProductFormDraft';
 import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productSupplierRequirement';
+import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 
 interface SubmitProps {
   formData: Partial<Product>;
@@ -147,7 +149,25 @@ export const useProductFormSubmit = ({
         if (!reportValidation()) return false;
 
         return await (actualSaveAsDraft ? validateDraftProduct : validateFinalProduct)(submissionData, async (validatedData) => {
-          const ecomVal = checkEcomLegibility(validatedData as Partial<Product>);
+          let ecomVal = checkEcomLegibility(validatedData as any);
+          if (formData.status === 'published') {
+            try {
+              const categoryRequirements = await withTimeout(
+                fetchTechnicalFieldDefinitions('product-form', {
+                  forceRefresh: true,
+                  requireCategoryLinks: true,
+                }),
+                15000,
+                null,
+                'produto:verificar-requisitos-do-catalogo'
+              );
+              if (!categoryRequirements) throw new Error('Requisitos de categoria indisponíveis.');
+              ecomVal = checkEcomLegibility(validatedData as any, categoryRequirements);
+            } catch {
+              toast.error('Não foi possível verificar as características obrigatórias da categoria. O produto publicado não foi alterado.');
+              return false;
+            }
+          }
           if (formData.status === 'published' && !ecomVal.isLegible) {
             toast.error('Despublique o Catálogo antes de remover ou alterar um campo obrigatório.');
             return false;

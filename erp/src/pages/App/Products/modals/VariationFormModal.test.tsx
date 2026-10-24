@@ -207,13 +207,11 @@ describe('composição real do formulário de variações', () => {
     const result = createProductVariationFormSchema(parentWithNames).safeParse({ ...variation, id: '55555555-5555-4555-8555-555555555555', name: 'Armário Azul' });
     expect(result.error?.issues.some((issue) => issue.path.includes('name') && issue.message.includes('nome completo'))).toBe(true);
   });
-  it('valida somente as características variáveis marcadas como obrigatórias', () => {
+  it('permite concluir a variação sem características exigidas apenas pelo catálogo', () => {
     const parentWithVariableFields = { ...parent, variableTechnicalFields: ['Cor', 'Material da estrutura'] };
-    const candidate = { ...variation, id: '55555555-5555-4555-8555-555555555555', name: 'Armário Carvalho', technicalValues: { Cor: 'Carvalho', 'Material da estrutura': '' }, attributes: [{ name: 'Cor', value: 'Carvalho' }], requiredTechnicalFields: ['Cor'] };
+    const candidate = { ...variation, id: '55555555-5555-4555-8555-555555555555', sku: '001-03', name: 'Armário Carvalho', technicalValues: { Cor: 'Carvalho', 'Material da estrutura': '' }, attributes: [{ name: 'Cor', value: 'Carvalho' }] };
     const parsed = createProductVariationFormSchema(parentWithVariableFields).safeParse(candidate);
-    expect(parsed.error?.issues.some((issue) => issue.path[0] === 'tecnico' && issue.message.includes('Material da estrutura'))).toBe(false);
-    const required = createProductVariationFormSchema(parentWithVariableFields).safeParse({ ...candidate, requiredTechnicalFields: ['Cor', 'Material da estrutura'] });
-    expect(required.error?.issues.some((issue) => issue.path[0] === 'tecnico' && issue.message.includes('Material da estrutura'))).toBe(true);
+    expect(parsed.success).toBe(true);
   });
 });
 

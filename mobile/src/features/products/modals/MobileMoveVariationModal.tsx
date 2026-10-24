@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import {
+  canAddVariationFamilyAttribute,
   variationFamilyCommandSchema,
   variationFamilyAckSchema,
   variationFamilyConflictSchema,
@@ -585,21 +586,28 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
             <View>
               <View style={styles.attributeHeader}>
                 <Text style={[styles.label, dark && styles.textDark]}>Atributos da variação</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    setAttributes((current) => [
-                      ...current,
-                      { name: '', value: '', rowId: `attribute-${attributeRowId.current++}` },
-                    ]);
-                    setCountdown(5);
-                  }}
-                  disabled={attributes.length >= 8 || saving || mutationBlocked}
-                  style={styles.addAttributeButton}
-                  accessibilityRole="button"
-                  accessibilityLabel="Adicionar atributo"
-                >
-                  <Text style={styles.addAttributeText}>＋ Atributo</Text>
-                </TouchableOpacity>
+                {canAddVariationFamilyAttribute(attributes) ? (
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (saving || mutationBlocked) return;
+                      setAttributes((current) =>
+                        canAddVariationFamilyAttribute(current)
+                          ? [
+                              ...current,
+                              { name: '', value: '', rowId: `attribute-${attributeRowId.current++}` },
+                            ]
+                          : current
+                      );
+                      setCountdown(5);
+                    }}
+                    disabled={saving || mutationBlocked}
+                    style={styles.addAttributeButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Adicionar atributo"
+                  >
+                    <Text style={styles.addAttributeText}>＋ Adicionar atributo</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
               {attributes.length === 0 ? (
                 <Text style={[styles.hint, dark && styles.subtitleDark]}>

@@ -296,7 +296,7 @@ badge('SEM NOTA FISCAL', right_x + 2, branch_top, fill=AMBER, color=colors.HexCo
 cards_top = branch_top - 30
 card_h, card_gap = 70, 5
 invoice_steps = [
-    ('Use a nota ou importe o arquivo', 'Se a nota não aparecer na lista, importe o XML. Se disser XML incompleto, obtenha o arquivo completo pelo Portal SEFAZ.'),
+    ('Use a nota ou importe o arquivo', 'Se o XML continuar incompleto após a sincronização automática, use o Portal SEFAZ para baixar o arquivo completo.'),
     ('Associe fornecedor e produtos', 'Escolha o fornecedor correto e associe cada item da nota ao produto correspondente.'),
     ('Gere o recebimento', 'Com fornecedor e produtos associados, clique em Gerar recebimento.'),
     ('Confira quantidades e custos', 'Revise o que chegou, o custo, o frete e as outras despesas, sem duplicar valores.'),
@@ -319,8 +319,8 @@ for index, (invoice, manual) in enumerate(zip(invoice_steps, manual_steps)):
         arrow(left_x + col_w / 2, top - card_h - 1, left_x + col_w / 2, top - card_h - card_gap + 1)
         arrow(right_x + col_w / 2, top - card_h - 1, right_x + col_w / 2, top - card_h - card_gap + 1)
 note_top = cards_top - len(invoice_steps) * (card_h + card_gap) + card_gap - 9
-y = note('A entrada só acontece ao confirmar o recebimento',
-         'A nota fiscal e o pedido ajudam na conferência, mas não colocam os produtos no estoque. Resolva faltas, sobras ou avarias antes de confirmar.',
+y = note('Toda NF destinada à empresa deve ser cadastrada',
+         'Confira se a nota aparece em NF de entrada; se não, importe o XML. Mesmo se estiver como XML incompleto, ela deve ficar registrada. Cadastrar não aumenta o estoque: só confirme o recebimento depois de conferir a carga e resolver diferenças.',
          note_top, fill=MINT)
 
 # 03 - Chegada
@@ -331,7 +331,7 @@ for n, title, body in [
     (2, 'Compare os produtos', 'Confira nome, modelo, medidas, cor e acabamento. Isso ajuda a escolher a versão correta do produto no sistema.'),
     (3, 'Conte unidades completas e confira as caixas', 'Um móvel com três volumes continua sendo uma unidade. Confira todos os volumes de cada unidade e procure faltas ou avarias.'),
     (4, 'Compare quantidades e valores', 'Não registre o que ainda não chegou. Anote faltas, sobras e trocas; avaria só vira indisponibilidade quando a unidade é separada e sai do estoque disponível.'),
-    (5, 'Só então siga para o registro', 'Com nota fiscal, localize ou importe a nota, complete o arquivo se necessário e associe os produtos. Sem nota, escolha o caminho do recebimento conforme o pedido.'),
+    (5, 'Cadastre a nota destinada à empresa', 'Garanta que toda nota em que sua empresa é destinatária apareça em NF de entrada. Se não estiver na lista, importe o XML. Mesmo com diferença na carga, cadastre a nota; avise o responsável e não confirme o recebimento até resolver. Sem nota, use o pedido de compra.'),
 ]:
     y = step(n, title, body, y)
 y = note('Se algo não estiver conforme', 'Avise a equipe responsável e não confirme quantidades incorretas. Só registre indisponibilidade quando separar a unidade e tirá-la do estoque disponível; veja as páginas 24 e 25.', y, fill=AMBER)
@@ -345,7 +345,7 @@ y = table(['O que aparece', 'O que fazer'], [
     ['<b>Disponível</b>', 'Confira os itens e os vínculos antes de gerar o recebimento. Esse status, sozinho, não significa entrada no saldo.'],
 ], y, widths=[145, TW - 145], size=10)
 y = para('Se a nota não aparecer, confira a busca e amplie o período de emissão. A consulta automática pode trazer apenas um resumo e não substitui a conferência dos documentos da carga.', y, size=10.8)
-y = note('Documento correto, empresa correta', 'O sistema aceita apenas notas de entrada destinadas à sua empresa. Notas já registradas não podem ser excluídas. Para completar uma nota, importe o XML da mesma nota.', y, fill=MINT)
+y = note('Confira o destinatário e evite duplicidade', 'Toda nota recebida em que sua empresa aparece como destinatária deve estar nesta lista. Se já estiver, não importe novamente. Se aparecer como XML incompleto, siga o rótulo para completar. Notas cadastradas não podem ser excluídas.', y, fill=MINT)
 
 # 05 - Importar
 y = base('02 / NF de entrada', 'Importe o arquivo XML da nota', 'O XML é o arquivo digital da nota com os dados dos produtos. O DANFE é a versão impressa; foto ou PDF dele não substitui o XML para importar os itens.')
@@ -356,12 +356,12 @@ y = step(3, 'Confira a mensagem do sistema', 'Nota nova: ela será adicionada. N
 y = note('Importar não é receber', 'Depois de importar, abra <b>Gerenciar vínculos</b>. A nota pode estar completa e ainda precisar de fornecedor e produtos vinculados.', y, fill=MINT)
 
 # 06 - XML incompleto
-y = base('02 / NF de entrada', 'Apareceu “XML incompleto”?', 'A nota aparece na lista, mas ainda não tem todos os produtos para fazer o recebimento.')
+y = base('02 / NF de entrada', 'O XML não chegou após a Ciência?', 'A Ciência não traz o XML junto com o evento. Se vier só o resumo, o sistema tenta de novo automaticamente.')
 y = shot('03-xml-incompleto', y, max_height=330, caption='1 Consultar no Portal  •  2 Importar o XML completo da mesma nota.')
-y = step(1, 'Clique no rótulo XML incompleto', 'A janela explica o problema e mostra o botão Consultar no Portal. A consulta usa a chave da nota.', y)
-y = step(2, 'Baixe o XML completo pelo Portal SEFAZ', 'Se o portal liberar o download, salve o arquivo. Se não liberar, peça o XML ao fornecedor ou à pessoa responsável pela documentação.', y)
-y = step(3, 'Importe o arquivo nessa janela', 'Arraste o XML ou escolha o arquivo. O sistema completa a nota que já existe. Confira se os produtos apareceram e depois associe fornecedor e produtos.', y)
-y = note('Se o Portal SEFAZ não liberar o XML', 'Siga a mensagem do portal e peça ajuda à pessoa responsável. Não repita a consulta para tentar forçar o download.', y, fill=AMBER)
+y = step(1, 'Aguarde a nova tentativa automática', 'Se a Ciência foi aceita e ainda veio só o resumo, o sistema tenta de novo em 15 minutos. Mantenha NF de entrada aberta.', y)
+y = step(2, 'Se continuar incompleta, consulte no Portal', 'Clique em XML incompleto e depois em Consultar no Portal. Se não conseguir baixar, peça o XML ao fornecedor.', y)
+y = step(3, 'Importe o arquivo nessa janela', 'Escolha o XML. Ele completa a nota existente. Confira os itens e depois associe fornecedor e produtos.', y)
+y = note('Ciência não confirma a compra', 'Não use Confirmação da Operação só para baixar o XML. Confirme apenas quando a operação realmente aconteceu.', y, fill=AMBER)
 
 # 07 - Vínculos
 y = base('03 / Vínculos', 'Associe a nota aos cadastros corretos', 'No sistema, esta etapa se chama Gerenciar vínculos. Abra Vinculações Pendentes ou os três pontinhos da nota.')

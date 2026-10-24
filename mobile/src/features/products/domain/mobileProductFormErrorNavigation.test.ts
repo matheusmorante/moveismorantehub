@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { flattenFormErrors } from '../../../hooks/useZodForm';
 import {
+  isMobileProductCategoryError,
   isMobileProductNameError,
   isMobileProductCostPriceError,
   isMobileProductSupplierError,
@@ -9,6 +10,7 @@ import {
   resolveMobileProductFormErrorNavigation,
 } from './mobileProductFormErrorNavigation';
 import { PRODUCT_NAME_REQUIRED_MESSAGE } from '../../../../../shared-utils/productNameRequirement';
+import { PRODUCT_CATEGORY_REQUIRED_MESSAGE } from '../../../../../shared-utils/productCategoryRequirement';
 
 describe('mobileProductFormErrorNavigation', () => {
   it.each(['discountPercent', 'discountFixed'])(
@@ -74,6 +76,21 @@ describe('mobileProductFormErrorNavigation', () => {
     expect(resolveMobileProductFormErrorNavigation(fieldPath)).toEqual({ tab: 'geral' });
     expect(isMobileProductNameError(fieldPath, errors)).toBe(true);
     expect(isMobileProductNameError('estoque', errors)).toBe(false);
+  });
+
+  it('leva categoria ausente à aba Geral e reconhece o erro para realçar o campo', () => {
+    const errors = flattenFormErrors({
+      categoryIds: { type: 'custom', message: PRODUCT_CATEGORY_REQUIRED_MESSAGE },
+    } as never);
+    const fieldPath = Object.keys(errors)[0];
+
+    expect(fieldPath).toBe('categoryIds');
+    expect(resolveMobileProductFormErrorNavigation(fieldPath)).toEqual({ tab: 'geral' });
+    expect(isMobileProductCategoryError(fieldPath, errors)).toBe(true);
+    expect(isMobileProductCategoryError('geral', errors)).toBe(false);
+    expect(resolveMobileProductFormErrorMessage(fieldPath, errors)).toBe(
+      'Preencha todos os campos obrigatórios.'
+    );
   });
 
   it.each([

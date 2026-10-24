@@ -301,11 +301,6 @@ export function useVariationForm({
       isDraft,
       allParentImages
     );
-    const validationVariation = {
-      ...finalVariation,
-      ...(formData.requiredTechnicalFields ? { requiredTechnicalFields: formData.requiredTechnicalFields } : {}),
-    };
-
     session.lock = true;
     setLoading(true);
     setError('');
@@ -314,19 +309,18 @@ export function useVariationForm({
 
     try {
       await validateAndRun(
-        { variation: validationVariation, discountPercent: varDiscountPercent, discountFixed: varDiscountFixed },
+        { variation: finalVariation, discountPercent: varDiscountPercent, discountFixed: varDiscountFixed },
         async (values) => {
           if (!stillCurrent()) return;
           guard.pending = session.token;
-          const { requiredTechnicalFields: _requiredTechnicalFields, ...variationToSave } = values.variation;
           const result = await withTimeout(
             Promise.resolve().then(async () => {
               if (!stillCurrent()) return { cancelled: true, value: false };
               const value = onSave
-                ? await onSave(variationToSave)
+                ? await onSave(values.variation)
                 : await saveVariation(
                     parentProduct.parentId || parentId || parentProduct.id || '',
-                    variationToSave
+                    values.variation
                   );
               return { cancelled: false, value };
             }),
@@ -347,7 +341,7 @@ export function useVariationForm({
 
           session.completed = true;
           guard.pending = null;
-          setFormData(variationToSave);
+          setFormData(values.variation);
           toast.success('Variação salva com sucesso!');
           try {
             onSuccess?.();

@@ -62,10 +62,10 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
 
         <div className="w-7 h-px bg-slate-200 dark:bg-slate-800/80 my-0.5" />
 
-        {/* Inbox (Caixa de Entrada com badge e destaque) */}
+        {/* Caixa de entrada com badge e destaque */}
         <NavigationRailItem
           icon="bi-inbox-fill"
-          title="Inbox (Caixa de Entrada e Filas)"
+          title="Caixa de entrada e filas de atendimento"
           isActive={true}
           badgeCount={unreadCountTotal}
           ariaLabel="Caixa de entrada"

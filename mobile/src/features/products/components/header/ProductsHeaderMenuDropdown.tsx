@@ -4,7 +4,6 @@ import {
   PlusCircle,
   Tag,
   Settings,
-  ArrowLeftRight,
   Eye,
   EyeOff,
   GitMerge,
@@ -25,7 +24,6 @@ interface ProductsHeaderMenuDropdownProps {
   canCreateProduct: boolean;
   canCreateComposition: boolean;
   canOpenConfigs: boolean;
-  canViewReconciliation: boolean;
   canViewMetaCatalog: boolean;
   canViewWhatsAppMarketplace: boolean;
   showDeactivated: boolean;
@@ -36,7 +34,6 @@ interface ProductsHeaderMenuDropdownProps {
   onNewComposition?: () => void;
   onModeChange?: (mode: ProductListMode) => void;
   onOpenConfigs: () => void;
-  onOpenReconciliation?: () => void;
   onOpenMetaCatalog?: () => void;
   onOpenWhatsAppMarketplace?: () => void;
   onToggleDeactivated: () => void;
@@ -58,7 +55,6 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
   canCreateProduct,
   canCreateComposition,
   canOpenConfigs,
-  canViewReconciliation,
   canViewMetaCatalog,
   canViewWhatsAppMarketplace,
   showDeactivated,
@@ -69,7 +65,6 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
   onNewComposition,
   onModeChange,
   onOpenConfigs,
-  onOpenReconciliation,
   onOpenMetaCatalog,
   onOpenWhatsAppMarketplace,
   onToggleDeactivated,
@@ -155,21 +150,6 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
                 <Settings size={18} color="#475569" />
                 <Text style={[styles.menuItemText, dark && styles.light]}>
                   Configurações de Produto
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {!showTrash && canViewReconciliation && onOpenReconciliation && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  onClose();
-                  onOpenReconciliation();
-                }}
-              >
-                <ArrowLeftRight size={18} color="#2563eb" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>
-                  Conciliação de Fornecedores
                 </Text>
               </TouchableOpacity>
             )}

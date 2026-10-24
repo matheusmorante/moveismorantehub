@@ -1,6 +1,8 @@
 # Auditoria de paridade do módulo Produtos: ERP → App Mobile
 
-**Status:** em andamento. Este inventário acompanha as execuções cíclicas da auditoria. O ponto de decisão sobre a ação de etiqueta de preço sem `viewStockLabels`, aberto no Ciclo 67, foi resolvido no Ciclo 103: manter a visibilidade igual nos dois clientes e preservar no redirecionamento os dados do produto selecionado. No Ciclo 104, a definição remota da RPC de salvamento confirmou que o payload móvel omitindo saldo não zera o saldo existente. Os Ciclos 106/110 identificaram e começaram a endereçar a autorização da finalização de inventário, mas a migration da permissão dedicada `finalizeStockInventory` ainda não foi aplicada e ownership/snapshot e projeção saldo/CMPM continuam sem prova remota. Os Ciclos 107–109 confirmaram equivalência de falha/retry/estado vazio/filtros da Conciliação, ressalvada a contagem compartilhada que pode tornar o estado vazio prematuro. No Ciclo 114, o cliente mobile de mover variação passou a revalidar o pai, validar o ACK e ler a gravação de volta, bloquear repetição quando o resultado é incerto e confirmar a sincronização de fotos; o contrato SQL/backend da RPC segue sem fonte versionada local. Permanecem pendentes UI autenticada e nativa, a decisão de atributos adicionais no modal, além das decisões compartilhadas dos Ciclos 105 (contagem/paginação da Conciliação) e 111 (busca de SKU de variação).
+**Status:** em andamento. Este inventário acompanha as execuções cíclicas da auditoria. A exceção vigente do Ciclo 127, reafirmada no Ciclo 131, determina que a Conciliação de Produtos seja exclusiva do ERP; a tela e os adaptadores mobile foram removidos e não são uma diferença de paridade pendente. Continuam em aberto, entre outros pontos, a decisão de contrato de atributos técnicos do Ciclo 130, a aplicação autorizada da migration mobile de ACK de rascunho e as provas de ownership/snapshot e projeção saldo/CMPM para finalização de inventário. Os demais ciclos e suas limitações seguem registrados abaixo; não declarar conclusão global enquanto houver estados sem conferência.
+
+> **Exceção vigente — decisão do usuário no Ciclo 127, reafirmada no Ciclo 131:** a Conciliação de Produtos permanece somente no ERP. A tela, o acesso pelo menu/estado de produtos, o adaptador de serviços e os helpers de ciclo de vida específicos do mobile foram removidos. Não tratar sua ausência no aplicativo como diferença de paridade, não propor nova implementação e não a reintroduzir sem pedido explícito posterior. Permanecem no ERP a rota, a permissão e os serviços compartilhados que ele consome; a regra permanente está em `AGENTS.md`, `rules/products/product-reconciliation-erp-only.yml` e na automação recorrente.
 
 > **Recuperação do inventário — 23/10/2026:** o arquivo do workspace foi encontrado com 0 bytes após falta de espaço no volume C:. A versão rastreada no Git foi restaurada; ela continha os ciclos 1–5. Os ciclos 8–12 abaixo foram recompostos apenas a partir dos registros atuais em `docs/geral/roadmap_pendente.md` e `docs/forms/inventario-mobile-catalogo-2026-10-15.md`. Não há evidência localizada para reconstituir os ciclos 6–7, então eles permanecem sem status de conclusão.
 
@@ -11,7 +13,7 @@
 - `docs/negocio/produtos/estrutura-produto-variacao.md` e `docs/negocio/produtos/operacoes-troca-pai-merge.md`.
 - `docs/negocio/estoque/inventario-e-ajustes.md`, `docs/negocio/estoque/movimentacoes-e-custo.md` e `docs/negocio/estoque/contrato-indice-inventario-offline.md`.
 - `docs/arquitetura/offline-e-sincronizacao.md` e `docs/mobile/arquitetura_offline_first.md`.
-- Regras em `rules/`; nenhuma regra específica de Produtos foi localizada. A regra `rules/stock/no-inventory-move-write-in-ui.yml` foi consultada no Ciclo 93 e delimita a pendência: qualquer futura ação mobile de entrada precisa gravar por serviço/RPC de estoque autorizado, nunca diretamente pela UI.
+- Regras em `rules/`; `rules/products/product-reconciliation-erp-only.yml` protege a exceção ERP-only registrada nos Ciclos 127/131. A regra `rules/stock/no-inventory-move-write-in-ui.yml` foi consultada no Ciclo 93 e delimita a pendência: qualquer futura ação mobile de entrada precisa gravar por serviço/RPC de estoque autorizado, nunca diretamente pela UI.
 - A skill atual não foi localizada fora do cache de build `erp/.vercel/builders-backup-72ebb3b0/node_modules/morante-hub-root/.agents/skills/erp-web-to-mobile-replication/SKILL.md`; suas instruções foram usadas como orientação, sem tratá-la como fonte canônica.
 
 ## Ciclo 1 — modos simples/variações e composição
@@ -65,7 +67,7 @@
 
 ### Achado separado: ordenação
 
-- [ ] O ERP exibe controles de ordenação, mas `handleSort` em `erp/src/pages/App/Products/Index.tsx` não executa a ordenação; a consulta mobile mantém `created_at desc` e não oferece controles. Como não há contrato ERP funcional para replicar, a ordenação não foi alterada neste ciclo. **Decisão pendente:** implementar primeiro uma ordenação funcional no ERP ou definir os critérios esperados antes de expor ordenação no app.
+- [x] A ordenação foi auditada no Ciclo 80: embora a tabela ERP XL mostre ícones, o callback da página é inerte e a ação não altera filtros nem consulta; essa tabela fica oculta no layout de cards. A lista efetivamente disponível em ERP e mobile inicia em `created_at DESC`, portanto não se adicionou seletor mobile sem equivalente funcional.
 
 ## Ciclo 4 — filtros da lista e limpeza
 
@@ -123,7 +125,7 @@
 
 - [x] A remoção de imagem do produto pai usa `removeProductImageGlobally`, compartilhada entre ERP e mobile. O limite de seleção passou a ser aplicado a arquivos/assets antes de leitura e upload, por `limitProductImageSelection`. A substituição é centralizada em `replaceProductImageGlobally` em `shared-utils/productImageOperations.ts`, com propagação compatível para produto pai, variação única e referências legadas.
 - [x] O checkpoint de formulários registra 12 testes mobile e 24 ERP aprovados para o conjunto de operações de fotos dos Ciclos 10–12. Isso prova os casos cobertos pelos testes, não upload remoto real nem comportamento nativo.
-- [ ] Diferença de recorte ainda sem decisão: o ERP compõe o resultado em um palco branco de 1080×1080; o recorte nativo do mobile conserva somente os pixels da origem. A documentação do projeto não justifica a diferença e `expo-image-manipulator` não oferece `extent` nativo no setup conferido. Definir a estratégia nativa para reproduzir o fundo branco antes de encerrar esta parte.
+- [x] Diferença de recorte resolvida no Ciclo 15: o ERP compõe o resultado no palco branco 1080×1080; o mobile agora rasteriza o mesmo palco com `react-native-svg`, converte a seleção de layout para pixels e recorta essa imagem pelo Expo ImageManipulator. A geometria e a margem continuam cobertas pelo schema compartilhado; a confirmação visual em Android/iOS permanece pendente.
 
 ### Ciclo 13 — fotos: ordenação da galeria do produto pai
 
@@ -664,7 +666,7 @@
 - [ ] Não houve inspeção autenticada do estado visual neste ciclo. A evidência anterior de Playwright segue em `/login`; nenhuma autenticação foi contornada. Expo Web e runtime nativo continuam sem validação.
 - [ ] A cobertura confirma a seleção dos campos, não a persistência remota nem o ciclo de valores RHF do produto simples versus cada variação. A validação do formulário e os caminhos de salvamento não foram alterados; esse contrato permanece para auditoria específica.
 - [x] Retificação no Ciclo 47: a rota ERP está ativa e a tela reúne pendências de fornecedores, categorias, NCM, atributos e preços. A decisão de ativar a rota no ERP não é mais pendente.
-- [ ] O mobile verifica a mesma permissão, mas `NativeProductsScreen` usa `Linking.openURL` para abrir a URL ERP em navegador externo; não há tela nativa da conciliação. Nenhuma particularidade documentada justifica essa diferença. Replicar a interface nativamente continua pendente.
+- [x] Retificação no Ciclo 115: esta evidência do Ciclo 47 ficou obsoleta depois do Ciclo 48. `NativeProductsScreen` abre `NativeProductReconciliationScreen` sob `viewProductReconciliation`; edição individual e operações em lote foram completadas nos Ciclos 49–50. A validação visual autenticada e no runtime Android/iOS continua pendente e não é inferida do Expo Web.
 - [ ] A skill `erp-web-to-mobile-replication` continua disponível somente no cache de build; nenhuma versão canônica foi encontrada nos diretórios do projeto.
 
 #### Próximo recorte identificado
@@ -688,13 +690,13 @@
 - [x] Vitest ERP `useProductFormSync.test.tsx`: **2 testes aprovados**, incluindo a herança existente usada como referência.
 - [x] TypeScript completo nos projetos mobile e ERP terminou com código 2 por diagnósticos globais preexistentes em outros módulos; a saída filtrada não apontou os arquivos deste ciclo. `git diff --check` focal não encontrou erros, apenas avisos CRLF.
 - [ ] Nenhum teste gravou no banco remoto. A cobertura valida o estado de formulário e a regra ERP; runtime nativo, Playwright autenticado e leitura de persistência remota continuam pendentes.
-- [ ] A documentação de domínio (`estrutura-produto-variacao.md`, linhas 60–64) determina que valores obrigatórios por categoria tenham seu valor efetivo em `product_variations.attributes`. O caminho de gravação ERP/mobile não faz essa projeção para valores globais: usa `technical_specs.technicalValues`/`variationDetails`, enquanto `product_variations.attributes` recebe apenas `variation.attributes`. **Decisão pendente:** corrigir o writer do ERP e do mobile para cumprir o contrato documentado, ou manter o contrato de código atual e ajustar documentação/conciliação. Nenhuma mudança de payload foi feita sem essa decisão.
+- [ ] A documentação de domínio (`estrutura-produto-variacao.md`, linhas 60–64) determina que valores obrigatórios por categoria tenham seu valor efetivo em `product_variations.attributes`. O caminho de gravação ERP/mobile não faz essa projeção para valores globais: usa `technical_specs.technicalValues`/`variationDetails`, enquanto `product_variations.attributes` recebe apenas `variation.attributes`. **Decisão pendente do Ciclo 130:** corrigir o writer do ERP e do mobile para cumprir o contrato documentado ou manter o contrato de código atual e ajustar documentação/consumidores ERP. Esta pendência não reabre a Conciliação mobile, que é exclusiva do ERP desde o Ciclo 127. Nenhuma mudança de payload foi feita sem essa decisão.
 - [x] Retificação no Ciclo 47: `ProductReconciliation.tsx` é alcançável pelas duas rotas ERP e a ação mobile abre a mesma página ERP no navegador externo. A implementação de uma interface React Native permanece pendente; não é necessário ativar a rota web.
 - [ ] A skill `erp-web-to-mobile-replication` só foi encontrada na cópia de cache de build; a versão canônica continua sem localização.
 
 #### Próximo recorte identificado
 
-- [ ] Auditar leitura e edição de valores próprios nas variações de famílias com duas ou mais variações, sem repetir o bloqueio da variação simples concluído no Ciclo 40. A divergência do formato de persistência de atributos por categoria e a tela de conciliação seguem pendentes.
+- [ ] Auditar leitura e edição de valores próprios nas variações de famílias com duas ou mais variações, sem repetir o bloqueio da variação simples concluído no Ciclo 40. A divergência do formato de persistência de atributos por categoria segue pendente; a Conciliação mobile foi retirada por decisão do usuário no Ciclo 127 e reafirmada no 131.
 
 ### Ciclo 40 — bloqueio de características na variação única
 
@@ -745,7 +747,7 @@
 #### Próximo recorte identificado
 
 - [x] Divergência do default de `showName` ao criar override de Cor corrigida no Ciclo 42. O helper comum agora mantém `Cor` oculta no nome por padrão em ambos os formulários e preserva preferências existentes; veja o ciclo abaixo.
-- [ ] Continuam pendentes a decisão sobre a persistência de atributos globais em `product_variations.attributes` versus `technical_specs` e a paridade nativa de `ProductReconciliation`; a rota web ativa foi confirmada no Ciclo 47.
+- [ ] Continua pendente a decisão sobre a persistência de atributos globais em `product_variations.attributes` versus `technical_specs` (Ciclo 130). A tela nativa de Conciliação que aparecia como pendência histórica foi removida no Ciclo 127 por decisão ERP-only, reafirmada no Ciclo 131.
 
 ### Ciclo 42 — visibilidade padrão de Cor no override da variação
 
@@ -767,7 +769,7 @@
 #### Próximo recorte identificado
 
 - [x] O fallback visual do pai em característica variável sem override foi corrigido no Ciclo 43. O campo mobile agora começa vazio e editável, como no ERP; veja o ciclo abaixo.
-- [ ] Continuam pendentes a decisão sobre a persistência de atributos globais em `product_variations.attributes` versus `technical_specs` e a paridade nativa de `ProductReconciliation`; a rota web ativa foi confirmada no Ciclo 47.
+- [ ] Continua pendente a decisão sobre a persistência de atributos globais em `product_variations.attributes` versus `technical_specs` (Ciclo 130). A Conciliação permanece exclusiva do ERP pelos Ciclos 127/131 e não deve ser recriada no app.
 
 ### Ciclo 43 — campo variável sem override próprio
 
@@ -790,7 +792,7 @@
 #### Próximo recorte identificado
 
 - [x] Os controles mobile `Personalizar <campo>`/`Herdar <campo> do produto pai` foram auditados e removidos no Ciclo 44; veja o ciclo abaixo.
-- [ ] Permanecem pendentes a leitura/edição dos valores próprios em famílias multi-variação, a decisão sobre `product_variations.attributes` versus `technical_specs` e a paridade nativa de `ProductReconciliation`; a rota web está ativa.
+- [ ] Permanecem pendentes a leitura/edição dos valores próprios em famílias multi-variação e a decisão sobre `product_variations.attributes` versus `technical_specs`. A paridade nativa de Conciliação foi cancelada pela decisão ERP-only dos Ciclos 127/131.
 
 ### Ciclo 44 — controles de herança/personalização na variação
 
@@ -813,7 +815,7 @@
 #### Próximo recorte identificado
 
 - [x] Auditar a limpeza de valor próprio variável no Ciclo 45; a representação e a reabertura já eram equivalentes, e a falta de acesso mobile para limpar opções simples foi corrigida neste ciclo.
-- [ ] Permanecem pendentes a leitura/edição dos valores próprios em famílias multi-variação, o contrato `product_variations.attributes` versus `technical_specs` e a paridade nativa de `ProductReconciliation`; a rota web está ativa.
+- [ ] Permanecem pendentes a leitura/edição dos valores próprios em famílias multi-variação e o contrato `product_variations.attributes` versus `technical_specs`. A Conciliação permanece ERP-only por decisão dos Ciclos 127/131.
 
 ### Ciclo 45 — limpar valor próprio em característica variável
 
@@ -840,7 +842,7 @@
 #### Próximo recorte identificado
 
 - [x] Comparar leitura, edição e salvamento de valores próprios distintos entre várias variações no Ciclo 46; os dois lados relacionam os detalhes por UUID e mantêm a alteração na variação selecionada.
-- [ ] Manter pendente a decisão do contrato `product_variations.attributes` versus `technical_specs` e a paridade nativa da conciliação; a rota web foi auditada no Ciclo 47.
+- [ ] Manter pendente a decisão do contrato `product_variations.attributes` versus `technical_specs` (Ciclo 130). A antiga pendência de paridade mobile da Conciliação foi superada pela decisão ERP-only dos Ciclos 127/131.
 
 ### Ciclo 46 — valores técnicos próprios em várias variações existentes
 
@@ -865,7 +867,7 @@
 #### Próximo recorte identificado
 
 - [x] Auditar a rota web de `ProductReconciliation` no Ciclo 47; veja o resultado abaixo.
-- [ ] Retomar a pendência de contrato de atributos técnicos e replicar a conciliação em React Native; seguir depois para descrição, preço, estoque, imagens, permissões e confirmações.
+- [x] A intenção antiga de replicar a Conciliação em React Native foi superada pela decisão do usuário no Ciclo 127, reafirmada no Ciclo 131. Prosseguir somente com outros estados de Produtos e manter o contrato de atributos técnicos como pendência independente do Ciclo 130.
 
 ### Ciclo 47 — rota ativa da conciliação e acesso mobile
 
@@ -888,7 +890,7 @@
 
 #### Próximo recorte identificado
 
-- [x] A primeira etapa da tela nativa (consulta, estados, resumo e filtros com a permissão existente) foi implementada no Ciclo 48. Edição individual, seleção/lotes e confirmações continuam como próximos recortes.
+- [x] Consulta, estados, resumo e filtros foram implementados no Ciclo 48; edição individual no Ciclo 49; seleção/lotes e confirmações no Ciclo 50. A validação visual autenticada e no runtime Android/iOS continua pendente.
 
 ### Ciclo 48 — consulta, filtros e lista nativa da conciliação
 
@@ -900,7 +902,7 @@
 - [x] A consulta, o mapeamento de produtos/variações, os filtros SQL e em memória, a leitura de fornecedor, a paginação e o resumo agora têm uma fonte comum em `shared-utils/productReconciliationQueries.ts`. O adaptador ERP preserva seu cliente Supabase e o predicado de peso já usado pela tela; o serviço mobile injeta o cliente Supabase nativo e o predicado já existente no domínio mobile. Erros de leitura e atributos JSON inválidos continuam propagados como no ERP.
 - [x] `NativeProductsScreen` conserva a guarda `viewProductReconciliation`, mas deixa de abrir a rota web via `Linking`; a ação abre `NativeProductReconciliationScreen`. A tela inicial traz resumo, chips dos tipos, categoria por UUID, busca com debounce de 400 ms, filtro de críticos, limpeza de filtros, atualização por gesto, paginação e lista de pendências do produto/variação.
 - [x] A consulta dos filtros passa por `useZodForm` e `reconciliationQueryFormSchema` compartilhado antes de chamar o serviço. A tela aplica timeout de 15 s e controla revisões para ignorar respostas antigas/desmontadas. Estados de carregamento, erro com nova tentativa e lista vazia/sucesso estão representados.
-- [ ] O carregamento de categorias reutiliza `fetchMobileCategories`; esse serviço atual captura erros e devolve lista vazia. Assim, uma falha dessa consulta não ganha mensagem própria nesta tela. Revisar esse contrato quando a aba de filtros for validada visualmente.
+- [x] O estado de falha das categorias foi comparado estaticamente no Ciclo 124: ERP e mobile capturam a falha, deixam a lista sem opções e não apresentam mensagem específica; não foi identificada divergência que justificasse alterar esse feedback. A diferença de atualização ao retornar ao foco/primeiro plano e o loading mobile foram tratados no Ciclo 124. A comparação visual autenticada permanece pendente.
 - [ ] A lista ainda é somente de consulta: edição inline de pai/variações, seleção, aplicação em lote, confirmações e feedback de gravação serão comparados e implementados nos próximos ciclos.
 
 #### Validação e limites
@@ -914,7 +916,7 @@
 
 #### Próximo recorte identificado
 
-- [x] A edição individual do pai e das variações foi comparada e implementada no Ciclo 49; seleção, operações em lote e confirmações seguem como próximos recortes.
+- [x] A edição individual do pai e das variações foi implementada no Ciclo 49; seleção, operações em lote e confirmações foram comparadas no Ciclo 50.
 
 ### Ciclo 49 — edição individual no card nativo de conciliação
 
@@ -976,7 +978,7 @@
 - [x] Ciclo 26 corrigiu o crash de `variations: [null]` durante a validação contextual do ERP e confirmou que o schema mobile também retorna erro sem exceção.
 - [ ] Continuar os demais estados de validação/erro da aba Estoque e Precificação; fazer comparação visual autenticada/validação em aparelho.
 - [x] Filtro por UUID da categoria alinhado no Ciclo 32; persistência por UUID no Ciclo 36; passagem de categorias pelo fluxo ativo de duplicação conferida no Ciclo 37; seleção de campos de Pias alinhada no Ciclo 38; herança de `technicalValues` para a variação simples alinhada ao ERP no Ciclo 39; bloqueio na variação única no Ciclo 40; dependências técnicas na variação no Ciclo 41; default de `showName` de Cor no Ciclo 42; campo variável sem override sem fallback visual do pai no Ciclo 43; remoção dos controles de herança/personalização sem equivalência ERP no Ciclo 44; persistência de override vazio ao limpar e reabrir no Ciclo 45; e valores técnicos próprios identificados por UUID em múltiplas variações conferidos no Ciclo 46. O filtro de rascunhos foi alinhado no Ciclo 31 e os tipos gerais **Somente Produtos** e **Todos** nos Ciclos 29–30.
-- [ ] Permanecem pendentes a resolução da divergência entre o contrato documentado de `product_variations.attributes` e a persistência atual em `technical_specs`, a comparação visual/nativa da conciliação (consulta/lista no Ciclo 48, edição individual no Ciclo 49 e lotes no Ciclo 50) e a auditoria do helper legado sem call sites.
+- [ ] Permanecem pendentes a resolução da divergência entre o contrato documentado de `product_variations.attributes` e a persistência atual em `technical_specs`, além da auditoria do helper legado sem call sites. A comparação visual/nativa da Conciliação é somente histórica: o módulo não deve ser reintroduzido no app conforme Ciclos 127/131.
 - [ ] Comparar com Playwright os estados autenticados entre ERP e Expo Web assim que houver conta de teste disponível; validar o runtime nativo separadamente, sem inferi-lo do Expo Web.
 - [ ] Confirmar origem canônica da skill `erp-web-to-mobile-replication`; a cópia consultada está apenas em cache de build.
 
@@ -1479,7 +1481,7 @@
 
 #### Próximo recorte identificado
 
-- [ ] Auditar reabertura e edição repetida do preço promocional próprio, inclusive valor vazio/zero e promoção maior que o preço de venda; depois retomar estados de estoque/preço ainda não cobertos.
+- [x] Auditar reabertura e edição repetida do preço promocional próprio, inclusive valor vazio/zero e promoção maior que o preço de venda: concluído no Ciclo 84. Os estados de edição/reabertura de preço e estoque foram cobertos nos Ciclos 85–95; a exceção de `finalPurchasePrice` após entrada de compra permanece sem regra de domínio explícita (Ciclo 93).
 
 ### Ciclo 84 — reabertura e edição repetida do preço promocional próprio
 
@@ -1494,7 +1496,7 @@
 
 #### Próximo recorte identificado
 
-- [ ] Prosseguir para os estados de edição/reabertura de preço e estoque ainda não cobertos, mantendo uma aba/estado por ciclo.
+- [x] Prosseguir para os estados de edição/reabertura de preço e estoque: recortes executados nos Ciclos 85–95. Permanecem separadas as pendências de validação autenticada/nativa e a exceção documental de `finalPurchasePrice` após entrada de compra (Ciclo 93).
 
 ### Ciclo 85 — campos de custo na aba Estoque e Precificação
 
@@ -1910,9 +1912,11 @@
 - [x] A escolha entre paginação numerada com contagem real/enumeração e navegação incremental `hasMore` continua aberta no Ciclo 105. A semântica final da mensagem vazia depende dessa escolha; não alterar apenas um cliente nem prometer conformidade global sem uma consulta que a comprove.
 - [x] Regras consultadas: root `AGENTS.md`, `docs/geral/USER_RULES.md`, documentos vigentes de estrutura/variações e mover/merge, notas de `docs/produtos/` e arquivos disponíveis em `rules/`. Nenhuma particularidade mobile justifica diferença de cópia; a skill canônica não foi localizada, apenas a cópia em cache `.vercel` permanece acessível.
 - [x] Nenhum código, teste, UI Playwright, banco, guia ou PDF foi alterado/consultado neste ciclo; foram feitas apenas leitura estática dos dois componentes e da query compartilhada. `git diff --check` foi conferido após o registro.
-- [ ] UI autenticada e renderer/aparelho nativo seguem sem validação; Expo Web não comprova comportamento nativo. A decisão do Ciclo 105 ainda é necessária para corrigir com segurança a semântica global/paginada.
+- [x] Naquele ciclo, UI autenticada e renderer/aparelho nativo não foram validados. A necessidade de decidir um contrato mobile foi encerrada pela decisão do Ciclo 127: a Conciliação saiu do app; o defeito de contagem/paginação permanece questão técnica somente do ERP, sem correção neste trabalho.
 
-**Conclusão do recorte:** a mensagem vazia é equivalente, mas pode ser semanticamente prematura por causa do defeito compartilhado de paginação. A escolha do Ciclo 105 deve definir a correção conjunta da contagem e do estado vazio.
+**Conclusão do recorte:** a mensagem vazia é equivalente, mas pode ser semanticamente prematura por causa do defeito compartilhado de paginação. A recomendação de escolher um contrato para os dois clientes foi superada no Ciclo 127: a Conciliação não terá tela mobile, e a inconsistência permanece restrita ao ERP.
+
+**Retificação no Ciclo 127:** o usuário decidiu manter a Conciliação somente no ERP e removê-la do app. Portanto não há mais contrato mobile de paginação/estado vazio a escolher; a inconsistência comum de paginação descrita neste ciclo fica restrita ao ERP e não deve motivar a recriação de uma interface mobile.
 
 ### Ciclo 109 — alteração de filtros da Conciliação de Produtos — 24/10/2026
 
@@ -1957,11 +1961,11 @@
 - [x] ERP (`ReconciliationFiltersBar.tsx`): mantém rascunho local, aplica após 400 ms e usa referência ao estado mais recente dos filtros para não perder uma categoria alterada durante o debounce. Limpar filtros zera busca e filtros; a tela reinicia a página e invalida “selecionar todos filtrados”. O teste `ProductReconciliation.test.tsx` cobre resposta antiga, composição de busca com categoria e o debounce.
 - [x] Mobile (`NativeProductReconciliationScreen.tsx`): mantém `searchDraft`, espera os mesmos 400 ms e atualiza o estado com callback funcional para preservar os outros filtros; a atualização retorna à página 1. O efeito de filtro invalida a seleção filtrada em andamento. O botão de limpeza limpa busca e filtros.
 - [x] Ambos validam `{page,pageSize,filters}` com `reconciliationQueryFormSchema` via RHF/Zod e consomem o mesmo serviço de query compartilhado. Revisão incremental descarta respostas atrasadas. Não foi encontrada divergência funcional da busca entre ERP e app neste estado.
-- [ ] O rótulo comum “Nome, SKU ou código...” promete busca por SKU, mas `applyProductReconciliationSqlFilters` filtra apenas `products.name` e `products.code`; `product_variations.sku` é selecionado para os cards, porém não participa do predicado textual. Assim, o SKU próprio de uma variação não é comprovadamente pesquisável em nenhum cliente. O comportamento anunciado e a implementação estão desalinhados; não ampliar a query nem alterar apenas o app sem decidir se o contrato compartilhado deve buscar SKUs de variação ou se ambos os rótulos devem refletir a busca atual.
+- [x] Pendência do contrato resolvida no Ciclo 126: a query compartilhada agora pesquisa `product_variations.sku`, acrescenta os produtos pais encontrados à busca por nome/código e reaplica o mesmo predicado à seleção “todos filtrados”. O limite de 100 correspondências de variação reaproveita o erro de busca ampla já usado pelo catálogo, sem entregar seleção parcial.
 - [x] A skill de replicação foi consultada na cópia em cache `.vercel` somente como orientação. Nenhuma fonte canônica foi localizada em `.agents/skills` do projeto, ERP/mobile ou diretório de skills disponível. As regras do repositório/root `AGENTS.md`, `docs/geral/USER_RULES.md`, documentos de produto, notas atuais de `docs/produtos/` e regras disponíveis foram conferidos; não existe regra específica que defina a busca por SKU na Conciliação.
 - [x] Auditoria estática dos componentes, schema, wrappers e query compartilhada. Nenhum código de produto foi alterado; nenhum teste, Playwright, banco, RPC ou dado de negócio foi executado/acessado neste ciclo. A validação visual autenticada e a prova em runtime nativo continuam pendentes; Expo Web não comprova comportamento nativo. A implementação de busca é comum aos clientes, portanto o achado não caracteriza ausência exclusiva do app.
 
-**Conclusão do recorte:** busca, debounce, atualização de filtros, limpeza, paginação e invalidação de respostas têm equivalência de código ERP/mobile por compartilhamento. A promessa de busca de SKU de variação não é cumprida pela query de nenhum cliente e requer decisão de produto antes de corrigir o contrato comum.
+**Conclusão do recorte:** busca, debounce, atualização de filtros, limpeza, paginação e invalidação de respostas têm equivalência de código ERP/mobile por compartilhamento. A query comum agora inclui SKU de variação sob o contrato já anunciado pelas interfaces.
 
 ### Ciclo 112 — navegação e limite de página na Conciliação — 24/10/2026
 
@@ -1997,9 +2001,9 @@
 #### Pendências da operação avançada
 
 - [x] Pendente naquele ciclo; resolvido no Ciclo 114: o mobile agora revalida o `product_id` antes da RPC, valida acknowledgement, lê a variação de volta, verifica pai/SKU/nome/atributos/fotos e confirma o vínculo de `product_images`. Resultado incerto bloqueia repetição durante a sessão.
-- [ ] Diferença de UI sem exceção documentada: mobile permite adicionar atributos adicionais até oito; no ERP “Adicionar atributo” fica disponível somente quando a lista está vazia, embora os atributos existentes possam ser editados. O estado pode ser uma particularidade útil do app ou um desvio que deve ser alinhado; foi perguntado ao usuário se deve igualar o ERP ou manter e documentar a capacidade mobile. Nenhuma das opções foi presumida.
+- [x] Diferença de UI sem exceção documentada resolvida no Ciclo 120: mobile permitia adicionar atributos adicionais até oito, enquanto no ERP “Adicionar atributo” fica disponível somente quando a lista está vazia. Como não foi localizada particularidade mobile documentada e a regra geral do usuário é alinhar diferenças sem justificativa ao ERP, ambos agora usam o predicado compartilhado que permite somente adicionar a primeira linha; atributos já existentes continuam editáveis.
 
-**Conclusão do recorte:** as etapas de consulta e revisão do movimento agora falham de forma visível e recuperável, enumeram todas as páginas e não prosseguem sem confirmar a contagem da origem e a colisão no destino. A paridade de leitura/preparação foi corrigida naquele ciclo; o Ciclo 114 também concluiu a proteção do cliente na mutação. Estados visuais autenticados/nativos, confirmação do contrato backend e decisão de atributos seguem pendentes.
+**Conclusão do recorte:** as etapas de consulta e revisão do movimento agora falham de forma visível e recuperável, enumeram todas as páginas e não prosseguem sem confirmar a contagem da origem e a colisão no destino. A paridade de leitura/preparação foi corrigida naquele ciclo; o Ciclo 114 também concluiu a proteção do cliente na mutação. A divergência de adição de atributos foi resolvida no Ciclo 120. Estados visuais autenticados/nativos e confirmação do contrato backend seguem pendentes.
 
 ### Ciclo 114 — confirmação, timeout e sincronização da movimentação de variação — 24/10/2026
 
@@ -2021,7 +2025,304 @@
 
 - [ ] A função SQL `move_variation_to_parent` não está versionada nas migrations locais consultadas. Não foram inspecionados metadados ou dados remotos nem executadas RPCs; assim, continuam sem prova o contrato real de `newSku/sourceParentRemoved`, a validação/ownership no backend, o atomic commit e qualquer idempotência servidor. O guard por UUID é memória da sessão, como no ERP, e não é uma garantia durável. A revalidação do pai reduz repetição de operação já refletida no cadastro, mas não fecha uma corrida entre leitura e RPC sem uma garantia server-side; se a modal/componente for desmontada ou o app reiniciado, o guard em memória também se perde.
 - [ ] Não foi possível validar visualmente a modal autenticada nem o componente React Native em aparelho/emulador. A sessão ERP disponível redireciona `/products` para `/login`; não foi contornada autenticação. Expo Web não comprova o comportamento nativo.
-- [ ] Continua aguardando resposta do usuário a diferença de UI identificada no Ciclo 113: o app permite adicionar até oito atributos, enquanto o ERP oferece “Adicionar atributo” somente quando a lista está vazia. Nenhuma alteração foi feita nesse comportamento.
-- [ ] Permanecem também as decisões transversais dos Ciclos 105 (contagem exata versus navegação `hasMore` na Conciliação) e 111 (SKU de variação prometido no placeholder da busca, mas ausente no predicado compartilhado). Não são bloqueios deste recorte de movimentação.
+- [x] A diferença de UI de adição de atributos registrada no Ciclo 113 foi resolvida no Ciclo 120: o app agora segue o limite ERP; as linhas de atributo existentes continuam editáveis.
+- [x] Retificação dos Ciclos 105/111: a escolha do contrato de paginação deixou de ser necessária para o app quando a Conciliação foi definida como ERP-only no Ciclo 127 (reafirmada no 131); a busca por SKU de variação foi corrigida no Ciclo 126. A paginação continua uma questão técnica restrita ao ERP, sem ser bloqueio deste recorte.
 
 **Conclusão do recorte:** o cliente mobile agora protege a confirmação com verificação de origem, acknowledgement explícito, leitura de volta, sincronização comprovada das fotos e bloqueio da repetição quando o resultado não é certo. O contrato/autorização/idempotência do servidor e a validação visual autenticada/nativa permanecem limitações; não afirmar segurança transacional integral sem a fonte SQL e prova backend.
+
+### Ciclo 115 — erro de categoria obrigatória no formulário de Produto — 24/10/2026
+
+**Recorte:** submissão de produto sem categoria e feedback do campo correspondente na aba Geral. Preservar a compatibilidade legada `categoryId`, rascunhos, serviços e payloads.
+
+#### Evidências da comparação e correção
+
+- [x] ERP (`productDomainValidation.ts`, `useProductFormSubmit.ts` e `ProductGeneralTab.tsx`) emite erro no caminho `categoryIds`, volta à aba Geral, realça rótulo e campo de categoria e apresenta o fallback “Preencha todos os campos obrigatórios.”. A seleção da primeira categoria remove o erro.
+- [x] Mobile antes do ciclo exigia categoria para produto não serviço, mas emitia erro no caminho amplo `geral`, usava mensagem diferente e não encaminhava estado de validação ao rótulo/lista da categoria. A tela mostrava somente o alerta geral, sem realce do campo que precisava de correção.
+- [x] `shared-utils/productCategoryRequirement.ts` concentra a mensagem e a regra comum; os schemas ERP e mobile a reutilizam. O schema móvel agora identifica o erro como `categoryIds`, com caminho/mensagem ERP, preservando o fallback `categoryId` legado. A submissão continua executando o `zodResolver` real; erro bloqueia qualquer chamada de salvamento. Serviço e payload não foram alterados.
+- [x] Um teste revelou que `getMobileVariationRegistrationIssue` preferia um `categoryIds: []` explícito ao `categoryId` singular, apesar do formulário e do serviço aceitarem o fallback. O predicado compartilhado agora decide também esse bloqueio, e a regressão cobre a lista vazia com categoria legada; não mudou a precedência quando a lista contém IDs.
+- [x] `ProductFormScreen` reconhece o erro de categoria mesmo quando outra validação é apresentada primeiro, retorna à aba Geral e passa o estado ao formulário proprietário. O rótulo da categoria e a borda da lista ficam em vermelho; a busca da lista anuncia a instrução acessível. Escolher ao menos uma categoria limpa o estado; remover a última não limpa o erro.
+- [x] A retificação do registro do Ciclo 47 e dos recortes seguintes foi feita no mesmo inventário: a alegação de que a Conciliação abria navegador externo era anterior ao Ciclo 48; a tela nativa sob `viewProductReconciliation` existe, e os ciclos 49–50 completaram edição individual e operações em lote. A comparação visual autenticada e no runtime nativo continua pendente.
+- [x] Regras consultadas antes da mudança: `AGENTS.md`, `docs/geral/USER_RULES.md`, estrutura de produto/variação e operação mover/merge, inventário vigente e regras disponíveis. A skill `erp-web-to-mobile-replication` foi encontrada somente no cache `.vercel` documentado no início deste inventário; foi usada como orientação, sem tratar a cópia como canônica. Não há `AGENTS.md` adicional em `mobile/`, `erp/` ou `shared-utils/`.
+
+#### Validação e limitações
+
+- [x] Vitest mobile `mobileProductFormSchema.test.ts`, `mobileProductFormErrorNavigation.test.ts` e `productRegistrationRules.test.ts`: **68/68 testes aprovados**, incluindo categoria legada com `categoryIds` vazio, rascunho sem categoria, schema/caminho/mensagem e roteamento do erro.
+- [x] Vitest ERP `productFormValidation.test.ts`: **9/9 testes aprovados**; confirma que a extração da regra de domínio preserva a validação de referência.
+- [x] `git diff --check` sem erros de whitespace; Git emitiu apenas avisos de normalização CRLF/LF nos arquivos do workspace.
+- [ ] TypeScript mobile terminou com código 1 por **11 diagnósticos globais preexistentes** em `DistanceInput`, `MeasurementInput`, `useAgendaData`, hooks de inventário, modal de edição de movimentação, assistente financeiro, configuração Vitest e utilitários de agenda/IA. Nenhum diagnóstico aponta para os arquivos deste ciclo.
+- [ ] O formulário React Native não foi renderizado em aparelho/Expo neste ciclo; não foi feita comparação visual autenticada via Playwright. O registro de acesso anterior ao ERP continuava em `/login`; nenhuma guarda foi contornada. Nenhuma consulta/gravação remota foi executada, e o guia de Estoque não foi alterado porque o fluxo operacional do estoquista não mudou.
+
+**Conclusão do recorte:** o caminho de validação e o feedback de categoria ausente agora correspondem à regra ERP na aba Geral, mantendo a compatibilidade móvel de categoria singular legada. Permanecem pendentes a inspeção visual autenticada e a conferência do renderer/runtime nativo; Expo Web não comprova comportamento nativo.
+
+### Ciclo 116 — rascunho de Produto ao sair do formulário — 24/10/2026
+
+**Recorte:** fechar o formulário com alterações pendentes em produto novo e em rascunho existente. Auditoria estática; nenhuma gravação executada.
+
+#### Evidência da diferença e limite da correção
+
+- [x] ERP (`useProductFormModal.ts`, `useProductFormDraft.ts`, `useProductDraftCapture.ts`): em rascunhos, agenda salvamento após 500 ms nos campos ao perder foco, seleção de lista e opção de busca. O snapshot é validado com o schema de domínio via `useZodForm`/`zodResolver`; ao fechar, descarrega uma gravação pendente/em erro e só fecha após confirmação. Produto novo essencialmente vazio fecha sem confirmação. Para produto não rascunho com alterações, usa confirmação explícita.
+- [x] Mobile (`ProductFormScreen.tsx`): o formulário usa schemas draft/final via RHF/Zod e oferece “Salvar rascunho”, mas não agenda salvamento de rascunho; sair após qualquer alteração chama `Alert` para continuar editando ou descartar. Não existe atualização automática do rascunho após os campos perderem foco.
+- [x] `docs/mobile/arquitetura_offline_first.md` classifica criação/edição de produtos como online-first estrito, então o modo offline não explica por si só a ausência de autosave. Não foi encontrada uma particularidade documentada para o salvamento manual.
+- [x] O callback da lista `useMobileProducts.handleSave` chama `saveMobileProduct` e recarrega toda a lista em cada salvamento. O serviço retorna somente o ID da RPC; edições passam `expected_updated_at` do registro no formulário. O RPC não possui definição versionada nas migrations locais consultadas. Reutilizar o callback em todo blur sem fila, resposta de versão e caminho que não recarregue a lista pode gerar chamadas redundantes e versionamento obsoleto.
+- [x] Decisão registrada em 24/10/2026: o usuário escolheu implementar autosave seguro para rascunhos, com gravações serializadas e confirmação de versão; correção executada no Ciclo 117. O botão de salvar manual permanece compatível com a RPC atual.
+- [x] A diferença está registrada antes de qualquer mudança de UX. Consulta em ERP/shared/mobile foi estática; sem teste, Playwright, Expo, RPC, leitura ou gravação remota. Nenhuma operação do estoquista mudou, portanto o guia de Estoque não foi alterado. A skill de replicação continua acessível somente no cache `.vercel`, conforme a limitação registrada no início.
+
+**Conclusão do recorte na auditoria:** o fechamento de alterações em produto ativo já confirma nos dois clientes; a falta de autosave automático para rascunhos foi encaminhada à decisão do usuário, que escolheu implementação segura e teve a correção registrada no Ciclo 117.
+
+### Ciclo 117 — autosave seguro de rascunhos de Produto — 24/10/2026
+
+**Recorte:** autosalvar produto novo nomeado e rascunho existente após pausa de 500 ms, serializar snapshots, confirmar a versão persistida e descarregar ao fechar. Produto ativo continua usando confirmação de descarte; o cadastro rápido de Produto na NF de entrada mantém o autosave desabilitado.
+
+#### Evidência da comparação e correção
+
+- [x] A decisão do Ciclo 116 foi respondida pelo usuário: implementar autosave seguro. ERP (`useProductFormDraft.ts`/`useProductDraftCapture.ts`) já usa debounce de 500 ms, valida o snapshot pelo formulário draft RHF/Zod, serializa atualizações e descarrega o último rascunho ao fechar. O mobile agora aplica debounce de 500 ms apenas a produto novo nomeado ou produto em rascunho; a chamada passa por `draftForm.enqueueAndRun`/`zodResolver` real antes do serviço. Erros de validação ou persistência são apresentados e não avançam a revisão confirmada. Produto novo ainda sem nome fecha sem confirmação, como `isBasicallyEmpty` no ERP.
+- [x] `mobileProductDraftSaveQueue.ts` ordena as gravações, substitui snapshots ainda pendentes pelo mais recente, ignora revisões duplicadas/atrasadas e descarta a fila posterior quando a gravação corrente falha ou rejeita. Se a resposta RPC for incerta, a tela conserva o payload e o `operation_id` exatos e os repete antes de enviar revisões novas; o botão manual não tenta uma segunda operação enquanto esse ACK estiver pendente. Somente o erro explícito de função versionada ausente é tratado como falha definitiva sem gravação e pode cair no salvamento manual legado. No fechamento, a tela espera a revisão mais recente; em falha fica aberta e oferece continuar, tentar novamente ou descartar. Estados de salvamento/sucesso/erro são acessíveis; botões não permitem submissão concorrente.
+- [x] O serviço mantém a gravação manual na RPC legada `save_mobile_product_transaction`, incluindo recarga da lista. O autosave usa isoladamente `save_mobile_product_transaction_with_version`, não recarrega a lista a cada pausa; o pai atualiza a lista uma vez após o fechamento de um formulário autosalvo. A tela guarda o UUID e `updated_at` somente após ACK válido e envia a versão confirmada como `expected_updated_at` na próxima edição serializada.
+- [x] A migration `20261024113000_mobile_product_save_version_ack.sql` adiciona `result_updated_at` à tabela idempotente existente e cria a RPC versionada, que chama a gravação atual dentro da mesma transação, registra a versão retornada pelo produto junto ao `operation_id` e repete o mesmo ACK para retry idempotente. Uma operação legada sem versão confirmável falha explicitamente; a RPC legada não foi substituída. `mobileProductSaveAcknowledgement.ts` exige uma única linha com UUID e timestamp válidos antes de confirmar sucesso e diferencia o erro definitivo de função ainda não migrada.
+- [x] `InboundQuickProductModal.tsx` define `enableDraftAutoSave={false}`, preservando a particularidade documentada do cadastro rápido vinculado à NF de entrada. Produto concluído não passa a autosalvar como rascunho.
+- [x] Arquivos alterados neste recorte: `ProductFormScreen.tsx`, `NativeProductsScreen.tsx`, `useMobileProducts.ts`, `mobileProductMutationService.ts` e teste do serviço; novos `mobileProductDraftSaveQueue.ts`/teste, `mobileProductSaveAcknowledgement.ts`/teste e migration de ACK versionado. Alterações de categoria existentes de ciclos anteriores foram preservadas.
+- [x] Regras consultadas antes da correção: `AGENTS.md`, `docs/geral/USER_RULES.md`, regras dos diretórios alvo, `docs/negocio/produtos/estrutura-produto-variacao.md`, `docs/negocio/produtos/operacoes-troca-pai-merge.md`, `docs/mobile/arquitetura_offline_first.md`, inventário, roadmap e regra de formulários RHF/Zod. A skill `erp-web-to-mobile-replication` foi localizada apenas na cópia gerada em cache `.vercel`; foi usada como orientação, não como fonte canônica. Não houve mudança na operação do estoquista, portanto o guia prático de Estoque não precisou ser atualizado.
+
+#### Validação e limitações
+
+- [x] Vitest mobile focado em fila, parser de ACK e serviço de mutação: **3 arquivos, 33/33 testes aprovados**, incluindo serialização, coalescência de snapshots, deduplicação da revisão em andamento, proteção contra snapshot atrasado, descarte de fila em erro/rejeição, formato inválido de ACK, detecção de RPC não migrada, caminho RPC versionado e preservação do caminho legado.
+- [x] `git diff --check` sem erros; Git emitiu somente avisos de normalização CRLF/LF.
+- [ ] TypeScript mobile completo termina com código 1 por **11 diagnósticos globais** em componentes/serviços de Medidas, agenda, auditoria/fila de inventário, edição de movimentação, assistente financeiro, configuração Vitest e utilitários de agenda/IA. Nenhum diagnóstico aponta para os arquivos do ciclo.
+- [ ] A migration está apenas versionada localmente e **não foi aplicada ao Supabase remoto**; sem ela, o autosave recebe erro de RPC ausente, mantém mensagem/controle de retry e o botão manual continua usando o contrato antigo. A execução da migration não foi autorizada neste trabalho. O corpo da RPC legada não está versionado junto do projeto, então atomicidade e idempotência ponta a ponta precisam de confirmação quando houver processo autorizado de aplicação/validação backend.
+- [ ] O formulário React Native não foi aberto em dispositivo/runtime nativo; Expo Web não comprovaria seu comportamento nativo. A comparação visual autenticada no ERP continua limitada pelo redirecionamento da rota Produtos para `/login`; nenhuma guarda foi contornada. Nenhuma RPC, consulta comercial ou gravação remota foi executada.
+
+**Conclusão do recorte:** a paridade de autosave foi implementada no cliente e a RPC versionada foi preparada em migration, com fila serial e ACK necessário para avançar a versão. A ativação operacional depende de aplicação autorizada da migration e confirmação backend; validação visual autenticada e runtime nativo permanecem pendentes.
+
+### Ciclo 118 — identidade do produto no ACK versionado de autosave — 24/10/2026
+
+**Recorte:** conferir que o UUID retornado pelo ACK do autosave corresponde ao `p_product_id` enviado antes de atualizar a identidade e a versão mantidas pelo formulário.
+
+#### Evidência da comparação e correção
+
+- [x] ERP: o fluxo de persistência de rascunho (`productDraftPersistence.ts`) atualiza e devolve a versão da mesma identidade `product.id`; o update filtra pelo UUID-alvo e retorna `id, updated_at`.
+- [x] Shared/mobile: `parseMobileProductSaveAcknowledgement` já exigia uma única linha com `product_id` UUID e timestamp legível, mas não conhecia o ID solicitado. `saveMobileProduct` envia `savedProductId` em `p_product_id`; antes deste ciclo, qualquer UUID válido da resposta passava e `ProductFormScreen` usava esse ID para preparar a próxima gravação.
+- [x] O serviço agora compara `acknowledgement.productId` com `savedProductId` e rejeita o ACK divergente com erro explícito. O catch do autosave trata a resposta como não confirmada, conserva a operação/payload para repetir e não avança o UUID nem `updated_at` locais.
+- [x] Teste de regressão no serviço usa ACK com timestamp/UUID válidos, mas UUID diferente do pedido, e espera rejeição; o cenário de ACK correspondente continua coberto.
+- [x] Regras consultadas: `AGENTS.md` raiz (sem AGENTS adicionais nos diretórios Mobile/Shared/Database envolvidos), `docs/geral/USER_RULES.md`, estrutura produto/variação, operação mover/merge, `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`, inventário, roadmap e regra de formulário RHF/Zod. Não foi localizada regra específica em `rules/`. Skill canônica `erp-web-to-mobile-replication` não foi encontrada em `.agents/skills` ou no diretório do projeto; a cópia em cache `.vercel` foi usada somente como orientação.
+
+#### Validação e limitações
+
+- [x] Vitest focado: `mobileProductMutationService.test.ts` e `mobileProductSaveAcknowledgement.test.ts` — **29/29 testes aprovados**. O runner disponível em `erp/node_modules` foi invocado com a configuração mobile; não houve instalação ou alteração de dependências.
+- [x] `git diff --check` sem erros; somente avisos Git de normalização CRLF/LF.
+- [ ] `npx vitest` executado diretamente em `mobile/` não iniciou, pois `mobile/node_modules/vitest` está ausente e o config não resolveu `vitest/config`; a suíte foi repetida com o Vitest existente do ERP e passou. TypeScript integral não foi executado neste ciclo.
+- [ ] A migration versionada segue sem aplicação remota; não houve consulta de negócio, chamada RPC ou escrita. Playwright autenticado continua indisponível pela guarda `/login`; renderer/aparelho React Native não foi validado, e Expo Web não comprovaria comportamento nativo.
+
+**Conclusão do recorte:** o mobile agora só aceita a versão de autosave quando identidade e timestamp pertencem à resposta estruturalmente válida e ao UUID de destino enviado. A prova da instalação/contrato real da RPC continua pendente até o processo remoto autorizado; nenhuma gravação externa foi feita.
+
+### Ciclo 119 — confirmação e herança na conversão de duas variações para produto simples — 24/10/2026
+
+**Recorte:** reduzir uma família salva de duas variações para uma, preservar a identidade e o saldo da variação sobrevivente e confirmar a conversão com as orientações sobre fotos. O resultado final precisa refletir a herança pai→variação única descrita no contrato de domínio.
+
+#### Evidência da comparação e correção
+
+- [x] O modal ERP `VariationToSimpleWarningModal.tsx` abre quando a família tem duas variações, explica a conversão e como retornar ao modo “Com variações”, informa que fotos da variação removida não são excluídas automaticamente da Galeria e executa `variationToSimpleConfirmationSchema` por `useZodForm` antes de `onConfirm`.
+- [x] Antes do ciclo, remover uma das duas variações em produto salvo preservava os campos próprios da sobrevivente no ERP e no app (o app preservava apenas suas fotos específicas no handler). Isso divergia de `docs/negocio/produtos/estrutura-produto-variacao.md`, que define nome, preços, dimensões, descrição e fotos da variação única como herdados do pai e afirma que a herança/sincronização é reativada ao voltar de duas variações para uma.
+- [x] Em 24/10/2026, o usuário escolheu alinhar ERP e app à documentação. O helper puro compartilhado `shared-utils/simpleProductVariationInheritance.ts` agora aplica os campos herdados e reativa as flags de sincronização; ERP (`useProductFormVariations.ts` e `useProductFormModal.ts`) e app (`productVariationParentSync.ts` e `ProductFormVariationsTab.tsx`) chamam essa mesma regra tanto na remoção do rascunho quanto na exclusão física bem-sucedida de uma variação salva.
+- [x] UUID e SKU da variação sobrevivente, seus atributos e seu saldo permanecem intactos. A lista de campos herdados segue a documentação; atributos continuam armazenados em `product_variations.attributes`, e estoque não é uma propriedade que a documentação define como herdada. Não é criada movimentação nem ajuste de saldo nesta transição. As fotos do pai voltam a refletir a galeria da variação única; fotos da variação removida não são apagadas da Galeria automaticamente e o alerta orienta a revisá-la.
+- [x] A confirmação mobile mantém o `Alert.alert` nativo, valida o identificador da variação e a confirmação com o `variationToSimpleConfirmationSchema` compartilhado via `useZodForm` antes de atualizar `formData`; UUID, SKU ou ID temporário de rascunho identificam a variação. A remoção comum quando restam duas ou mais não foi alterada.
+- [x] Regras consultadas: `AGENTS.md`, `docs/geral/USER_RULES.md`, `docs/negocio/produtos/estrutura-produto-variacao.md`, `docs/negocio/produtos/operacoes-troca-pai-merge.md`, `docs/produtos/auditoria-arquitetura-organizacao-produtos.md`, regras pertinentes em `rules/`, inventário e roadmap. Não existem `AGENTS.md` canônicos em `mobile/` ou nos diretórios ERP envolvidos; arquivos em `.vercel` são cópias de build. A skill canônica `erp-web-to-mobile-replication` continua não localizada fora do cache `.vercel`, usado apenas como orientação.
+
+#### Validação e limitações
+
+- [x] Vitest ERP `useProductFormVariations.test.tsx` e `VariationToSimpleWarningModal.test.tsx`: **12/12 testes aprovados**. Vitest mobile `productVariationParentSync.test.ts`: **8/8 testes aprovados**; a cobertura confirma a herança compartilhada, preservação de UUID/SKU/atributos/saldo, sincronização de fotos e validação da confirmação.
+- [x] Após a confirmação mais recente do usuário de alinhar ERP e app à documentação, os mesmos testes focados foram reexecutados no estado atual: ERP **12/12** e mobile **8/8** aprovados. A resposta reafirma a decisão já implementada; não exigiu nova alteração de código.
+- [x] `git diff --check` passou; Git emitiu somente avisos de normalização CRLF/LF.
+- [ ] TypeScript integral do ERP termina com código 2 por diagnósticos de projeto fora dos arquivos deste recorte; a saída filtrada pelos caminhos alterados não encontrou diagnóstico. TypeScript integral mobile também termina não zero por diagnósticos globais em outros arquivos, sem apontamentos nos arquivos alterados deste ciclo.
+- [ ] A tela ERP autenticada continua inacessível pela rota disponível (`/login`), e o alerta não foi validado em aparelho/runtime nativo. Expo Web não comprova comportamento nativo. Nenhuma RPC, consulta ou gravação remota foi executada.
+
+**Conclusão do recorte:** a redução de duas variações para uma agora reativa no ERP e no app a herança dos campos definidos pela documentação, preservando os dados próprios da sobrevivente que não são herdados. A decisão do usuário foi aplicada e coberta por testes focados; a validação visual autenticada e nativa permanece pendente.
+
+### Ciclo 120 — disponibilidade para adicionar atributos ao mover variação — 24/10/2026
+
+**Recorte:** estado dos atributos no modal “Mover variação para outro produto pai”. Verificar quando é possível criar uma linha e preservar a edição das linhas já carregadas.
+
+#### Evidência da comparação e correção
+
+- [x] ERP (`AttributeConflictResolver.tsx`) só mostra “Adicionar atributo” quando a lista está vazia; quando há uma ou mais linhas, conserva os campos para editar nome/valor, sem botão para criar outra linha. A operação e a validação continuam passando por `variationFamilyConflictSchema`/`variationFamilyCommandSchema` via RHF/Zod.
+- [x] Mobile (`MobileMoveVariationModal.tsx`) mostrava “＋ Atributo” sempre e permitia até oito linhas, embora a tela ERP ofereça adicionar somente a primeira. A busca no inventário/notas de particularidades não encontrou justificativa mobile para essa diferença. A instrução persistente do usuário determina manter no app o comportamento ERP quando não há exceção documentada.
+- [x] `canAddVariationFamilyAttribute` em `shared-utils/variationFamilyFormSchemas.ts` concentra a regra; ERP usa o predicado na renderização e também protege `addAttribute` no hook. Mobile usa-o para exibir a ação e em uma atualização funcional de estado, impedindo que um toque atrasado crie segunda linha. Linhas legadas já carregadas continuam editáveis em ambos; o rótulo visível mobile foi alinhado a “Adicionar atributo”. Schema, valores, revisão de conflito, operação e payload não mudaram.
+- [x] `MoveVariationFamily.test.tsx` cobre helper e UI ERP: com linha existente, o botão não aparece e os campos permanecem; sem linha, a ação aparece. `mobileProductVariationActionsService.test.ts` cobre a mesma função compartilhada no conjunto mobile. A mudança não altera passos do estoquista nem o procedimento de Estoque; os PDFs do guia não precisam de atualização.
+- [x] Regras consultadas antes da alteração: `AGENTS.md`, `docs/geral/USER_RULES.md`, `docs/negocio/produtos/estrutura-produto-variacao.md`, `docs/negocio/produtos/operacoes-troca-pai-merge.md`, inventário, roadmap, `rules/` e a skill ERP→Mobile disponível somente no cache `.vercel` (usada como orientação, não fonte canônica). Não há `AGENTS.md` canônico nos diretórios ERP, mobile ou shared-utils e não foi localizada particularidade mobile documentada para esta ação.
+
+#### Validação e limitações
+
+- [x] Vitest ERP `MoveVariationFamily.test.tsx`: **36/36 testes aprovados**. Vitest mobile `mobileProductVariationActionsService.test.ts`: **17/17 aprovados**. `git diff --check` passou, com avisos de normalização CRLF/LF.
+- [ ] TypeScript integral ERP e mobile terminam não zero por diagnósticos globais em arquivos fora dos caminhos alterados; os filtros não encontraram diagnóstico em `AttributeConflictResolver.tsx`, `useMoveVariationFamily.ts`, `MobileMoveVariationModal.tsx` ou nos testes do ciclo.
+- [ ] Playwright autenticado não pode confirmar o modal ERP na rota protegida disponível, que redireciona para `/login`; o componente React Native não foi renderizado em aparelho. Expo Web não comprova comportamento nativo. Nenhuma RPC, consulta ou gravação de negócio foi feita.
+
+**Conclusão do recorte:** o app agora corresponde ao ERP: novos atributos só podem ser iniciados quando a variação não tem linhas, e os atributos existentes permanecem editáveis. A operação de mover e seus dados não mudaram.
+
+### Ciclo 121 — reafirmação da conversão de duas variações para simples — 24/10/2026
+
+**Recorte:** resposta do usuário reafirmando que ERP e app devem seguir a documentação ao reduzir família salva para uma variação; verificação do estado atual da correção já entregue no Ciclo 119.
+
+- [x] Reconsultados o contrato de herança em `docs/negocio/produtos/estrutura-produto-variacao.md`, a confirmação ERP e o uso do helper compartilhado por ERP/mobile. O código mantém os campos definidos como herdados e conserva UUID/SKU, atributos e saldo da variação sobrevivente. A resposta confirma a decisão que já havia orientado o Ciclo 119; nenhuma alteração de código adicional foi necessária.
+- [x] Reexecutado Vitest ERP `useProductFormVariations.test.tsx` + `VariationToSimpleWarningModal.test.tsx`: **12/12**; Vitest mobile `productVariationParentSync.test.ts`: **8/8**.
+- [x] A execução ERP também rodou o `build:support` que o script `test:unit` aciona; a leitura de `erp/scripts/build-customer-support.cjs` confirma que ele grava artefatos de API em `erp/server/`. Entre os snapshots de status antes e depois apareceu uma alteração em `erp/src/pages/App/CustomerSupport/components/chat/ChatMessageTimeline.tsx`; o diff troca `useEffect` por `useLayoutEffect`, o script não produz esse TSX, e o arquivo foi preservado sem atribuí-lo a este ciclo. Nenhum servidor, RPC, consulta ou escrita remota foi usado.
+- [ ] Playwright autenticado continua redirecionando a rota protegida a `/login`; a confirmação nativa ainda precisa de validação em aparelho. Expo Web não prova comportamento nativo.
+
+**Conclusão do recorte:** a decisão confirmada está refletida no comportamento e os testes focados continuam aprovados. A auditoria global de Produtos permanece em andamento pelas pendências dos Ciclos 105/111, pela validação autenticada/nativa e pelas limitações de backend registradas nos ciclos pertinentes.
+
+### Ciclo 122 — indicador de atributo obrigatório na aba técnica da variação — 24/10/2026
+
+**Recorte:** aba “Características específicas” de uma variação filha. Alinhar o indicador visual de obrigatoriedade ao ERP sem alterar o cadastro de atributos, o valor persistido nem os estados de aplicabilidade.
+
+#### Evidências da comparação e correção
+
+- [x] A versão atual do ERP (`VariationTechnicalFieldItem.tsx`/`VariationTechnicalTab.tsx`) não mostra asterisco de obrigatório para características da variação e não inclui uma lista transitória `requiredTechnicalFields` no payload final. `docs/negocio/produtos/estrutura-produto-variacao.md` mantém `category_attributes` como fonte da obrigatoriedade de catálogo, diz que o valor pertence a `product_variations.attributes` e encaminha valores ausentes à Central de Conciliação; associar categoria ou criar requisito não inventa/preenche um valor. Não foi localizada justificativa para o app comunicar um requisito de preenchimento mais forte nesta aba.
+- [x] No app, a aba técnica compartilhada mostrava o `*` vermelho também para campos de variação filha (`parentData`). `ProductFormTechnicalTab.tsx` agora só exibe esse indicador no formulário do produto pai (`!parentData`). A mudança limita-se ao rótulo; não altera aplicabilidade, dependências, edição, valores efetivos, validação RHF/Zod nem persistência.
+- [x] A execução dos testes revelou um defeito já presente no estado ERP em edição: após a mudança que removeu `variationToSave`, o sucesso ainda executava `setFormData(variationToSave)`, gerando `ReferenceError` depois do callback de gravação e mantendo o modal aberto. A atualização agora usa `values.variation`, o objeto parseado pelo `zodResolver` que foi enviado ao callback/serviço. Os cinco testes de sucesso/retomada do modal que falhavam passaram.
+- [x] Um teste novo de variação com campo de catálogo ausente falhava por outra razão: criava um UUID novo e mantinha o SKU `001-01`, já usado por uma irmã. O fixture agora usa o SKU único `001-03`, para isolar a regra que pretende cobrir; a validação correta de SKUs duplicados continua intacta.
+- [x] Regras e docs consultados antes das mudanças: `AGENTS.md`, `docs/geral/USER_RULES.md`, inventário/roadmap, estrutura produto/variação, operação mover/merge e regra de formulário RHF/Zod. A regra disponível em `rules/` é de escrita de movimentos de estoque e não se aplica a este recorte. Não há `AGENTS.md` adicional em `erp/`, `mobile/` ou `shared-utils/`. A skill `erp-web-to-mobile-replication` segue encontrada apenas no cache `.vercel`; usada como orientação, sem declarar essa cópia como fonte canônica.
+
+#### Validação e limitações
+
+- [x] Vitest ERP (`VariationTechnicalTab.test.tsx` e `VariationFormModal.test.tsx`): **43/43 aprovados**. Cobrem a aba técnica, validação/salvamento pelo resolver real e proteção de callback/modal.
+- [x] Vitest mobile, pela configuração `erp/vitest.mobile.config.ts` (`productCharacteristics.test.ts`, `mobileProductFormSchema.test.ts`, `technicalFieldInputRules.test.ts`): **61/61 aprovados**. Uma primeira tentativa do script móvel na raiz do repositório não encontrou o script; a execução foi repetida pela configuração móvel aprovada do pacote ERP, sem alterar dependências.
+- [x] `git diff --check` passou; Git emitiu apenas avisos de normalização CRLF/LF em arquivos já modificados no workspace.
+- [ ] O rótulo mobile foi verificado estaticamente, sem teste de renderer para o `*`; nenhum navegador Playwright autenticado ou runtime/aparelho nativo foi usado neste recorte. A última verificação protegida documentada redireciona `/products` para `/login`; não contornei a guarda. Expo Web não prova comportamento nativo.
+- [ ] Não foram executados TypeScript integral, consulta/RPC/gravação remota, Supabase/PostgreSQL/Docker local ou operação de estoque. Nenhum procedimento operacional do estoquista mudou; PDFs do Guia Prático de Estoque não requerem atualização.
+
+**Conclusão do recorte:** o app deixa de marcar os atributos da variação como obrigatórios de preenchimento na aba técnica, como o ERP e o contrato de catálogo/conciliação. O valor continua editável e o schema ainda rejeita linha de atributo incompleta ou combinação/SKU inválidos. O salvamento confirmado do modal ERP também voltou a completar seu fluxo. A auditoria global de Produtos continua aberta pelas pendências registradas em outros ciclos e pelas validações autenticada/nativa/backend.
+
+### Ciclo 123 — reconciliação dos próximos recortes de preço/estoque — 24/10/2026
+
+- [x] Conferidos os apontamentos históricos ainda abertos nos Ciclos 83–84 contra os ciclos posteriores: a reabertura/edição de preço promocional foi auditada no Ciclo 84; os estados de estoque e precificação foram percorridos nos Ciclos 85–95. Os próximos passos antigos foram atualizados com essas referências, sem alterar comportamento ou reclassificar como resolvidas as pendências de validação autenticada/nativa.
+- [x] A exceção de preservação de promoção própria com preço de venda herdado continua registrada no Ciclo 83; a regra sem documentação para atualizar `finalPurchasePrice` após compra continua pendente no Ciclo 93. Nenhuma decisão ou regra de negócio foi inferida neste recorte.
+- [x] O usuário reafirmou que a transição de família salva de duas variações para produto simples deve seguir a documentação; essa escolha já está implementada e verificada nos Ciclos 119 e 121 (ERP 12/12, mobile 8/8), sem nova alteração necessária.
+- [x] Consultados os metadados das variáveis Vercel do projeto sem descriptografar valores: não há conta geral de teste identificada; as únicas variáveis com nome de credencial de operador são as do operador fiscal de homologação. Não usei credenciais fiscais para autenticar o ERP nem contornei `/login`.
+- [x] A sessão local existente em `5173` foi aberta com Playwright visível e navegação a `/products`; a rota redirecionou para `/login`. Preservei os processos ativos nas portas `5173`/`3000`, não reiniciei a pilha, não submeti o formulário e não acessei dados de Produtos. `erp/vite.config.ts` confirma `port: 5173` e `strictPort: true`.
+- [ ] Validação Playwright autenticada e em renderer/aparelho nativo segue pendente; Expo Web não comprova comportamento nativo.
+
+### Ciclo 124 — atualização das categorias ao retomar a Conciliação nativa — 24/10/2026
+
+**Recorte e achado pré-registrado antes da alteração:** atualizar a lista de categorias do filtro da tela nativa quando o app retorna ao primeiro plano, preservando a lista atual durante a consulta e indicando carregamento.
+
+- [x] ERP (`CategoryAutocomplete.tsx`) refaz a consulta ao receber `window.focus` e mostra indicador durante a atualização. Mobile (`NativeProductReconciliationScreen.tsx`) consultava `fetchMobileCategories` somente ao montar; a lista podia ficar desatualizada após retorno do app em segundo plano e não havia indicador no seletor.
+- [x] Estado de falha equivalente: os dois serviços capturam falhas de consulta de categorias e a UI não exibe erro próprio. O mobile usa fallback `[]` por timeout e erro absorvido em `fetchMobileCategories`; o ERP recebe dados ausentes, mantém a busca sem categorias e encerra o loading sem mensagem. Não há diferença comprovada que justifique alterar o feedback de erro neste ciclo.
+- [x] Não foi encontrada particularidade documentada para manter categorias de filtro desatualizadas após retorno ao app. `docs/mobile/arquitetura_offline_first.md` não define esse estado como exceção; o caminho da Conciliação está sob estado nativo montado somente enquanto a tela está aberta.
+- [x] `NativeProductReconciliationScreen` agora atualiza categorias quando `AppState` retorna de `inactive`/`background` para `active`, equivalente ao foco ERP; mantém as opções atuais durante a nova chamada, indica carregamento e ignora respostas antigas/desmontadas por revisão. O feedback de falha continua equivalente ao ERP.
+
+#### Validação e limitações
+
+- [x] Vitest mobile `mobileAppLifecycle.test.ts`: **4/4**; testa retomada de `inactive`/`background` e rejeita transições que não representam retorno ao primeiro plano.
+- [x] `git diff --check` passou nos arquivos deste recorte; Git só emitiu avisos de normalização CRLF/LF.
+- [ ] TypeScript integral mobile terminou não zero por erros globais em `DistanceInput`, `MeasurementInput`, `useAgendaData`, fila/hooks de inventário, edição de movimentação, assistente financeiro, configuração Vitest e utilitários compartilhados de agenda/IA. Nenhum erro aponta para `NativeProductReconciliationScreen.tsx` ou `mobileAppLifecycle.ts`.
+- [ ] Playwright visível continua em `/login`; não foi possível comparar visualmente a Conciliação autenticada, e nenhum renderer/aparelho nativo foi usado. Expo Web não prova comportamento nativo. Nenhuma consulta ou escrita de produto foi executada.
+- [x] Regras consultadas: `AGENTS.md`, `docs/geral/USER_RULES.md`, documentação de estrutura de produto/variação, operação mover/merge, particularidades mobile e inventário/roadmap. O único arquivo de regra disponível em `rules/` regula escrita de movimento de estoque e não se aplica. Não há `AGENTS.md` em `mobile/`. A skill canônica `erp-web-to-mobile-replication` não está nos diretórios atuais de skills; a cópia de cache previamente localizada foi usada somente como orientação.
+
+**Conclusão do recorte:** categorias do filtro nativo são atualizadas quando a tela retorna ao primeiro plano, com indicador de carga e proteção contra respostas obsoletas. O tratamento de falha continua equivalente ao ERP. A prova visual autenticada e a validação nativa permanecem pendentes.
+
+### Ciclo 125 — agendamento recorrente da auditoria — 24/10/2026
+
+- [x] O usuário havia solicitado execução automática a cada duas horas. A automação heartbeat existente estava a cada dez minutos; foi atualizada para duas horas, preservando ID, thread, nome, prompt e status ativo. O metadado local confirma `RRULE:FREQ=HOURLY;INTERVAL=2`; as notificações ficam restritas a falhas. A auditoria de paridade continua aberta e o inventário segue como ponto de retomada.
+
+### Ciclo 126 — pesquisa de SKU de variação na Conciliação — 24/10/2026
+
+**Recorte:** busca textual na Conciliação de Produtos. ERP e app usam os mesmos filtros/copy e a query compartilhada; corrigir a promessa “Nome, SKU ou código” sem alterar os demais critérios de pendência.
+
+- [x] Inspecionados os campos do formulário e ambos os clientes: ERP (`ReconciliationFiltersBar.tsx`) e app (`NativeProductReconciliationScreen.tsx`) apresentam o mesmo placeholder e delegam para `fetchProductsForReconciliationWithClient`. Antes, o predicado compartilhado cobria apenas nome/código do pai, apesar de carregar `product_variations.sku` para os cards.
+- [x] A query comum agora resolve os IDs de produto pai por `product_variations.sku ilike`, limitado a `PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1` do helper de busca de produtos. Exceder o limite falha com a mensagem compartilhada de termo amplo; uma lista parcial não é apresentada como resultado completo. Os IDs encontrados entram no OR de nome/código e o mesmo caminho é usado em “selecionar todos filtrados”. Filtros de fornecedor, categoria e pendência permanecem combinados com a busca, e o payload de cada card conserva todas as variações do produto.
+- [x] O contrato já é consumido por ERP e mobile por wrappers finos; nenhuma regra específica foi duplicada em tela. Foram adicionadas regressões para SKU encontrado no resultado paginado e na seleção completa e para bloqueio de consulta acima do limite.
+- [x] Regras e documentação consultadas antes da alteração: `AGENTS.md`, `docs/geral/USER_RULES.md`, documentação vigente de produto/variação e mover/merge, inventário, roadmap e `rules/` (a regra de escrita de movimento de estoque não se aplica à busca). Não há `AGENTS.md` adicional em `shared-utils/`, `erp/` ou `mobile/`. A skill canônica `erp-web-to-mobile-replication` continua não localizada em `.agents/skills`/`skills`; a cópia `.vercel` registrada no inventário foi usada somente como orientação.
+- [x] Vitest ERP `reconciliationQueries.test.ts`: **9/9**. A suíte usa client mockado; nenhuma consulta, RPC, fixture, dado ou gravação remota ocorreu. `git diff --check` foi executado nos arquivos do recorte. Não mudou o procedimento operacional do estoquista, então os PDFs do guia não precisam de atualização.
+- [ ] Playwright autenticado ainda é bloqueado pelo redirecionamento `/products` → `/login`; o app não foi validado em renderer/aparelho nativo. A mudança não altera a UI, e Expo Web não comprova comportamento nativo. Nenhum contorno de guarda foi feito.
+
+**Conclusão do recorte:** a busca por SKU próprio de variação agora retorna o produto pai na Conciliação e seleciona o conjunto completo compatível com o filtro em ambos os clientes. A contagem/paginação compartilhada do Ciclo 105 continua pendente da escolha de contrato.
+
+### Ciclo 127 — Conciliação de Produtos exclusiva do ERP — 24/10/2026
+
+**Decisão de escopo:** o usuário definiu que a Conciliação deve permanecer no ERP e sair do aplicativo, com uma regra permanente para evitar nova replicação.
+
+- [x] Antes da mudança, foram conferidos a tela nativa e todos os consumidores mobile. A funcionalidade tinha uma tela, card de edição individual, barra/modal de operações em lote, adaptador de serviço, entrada no menu do cabeçalho e CTA para perfis sem outros modos de Produto. `viewProductReconciliation` também podia, sozinha, expor o módulo Produtos no app.
+- [x] Removidos do mobile a tela e seus componentes, o adaptador específico, os utilitários de foreground usados somente pela tela, os testes exclusivos do serviço/seleção/lote e os pontos de entrada no `NativeProductsScreen` e `ProductsHeaderMenuDropdown`. A agregação de módulos mobile deixou de usar a permissão de Conciliação como porta de entrada.
+- [x] Arquivos removidos: `NativeProductReconciliationScreen.tsx`, `NativeProductReconciliationCard.tsx`, `NativeProductReconciliationBatchBar.tsx`, `NativeProductReconciliationBatchModal.tsx`, `mobileProductReconciliationService.ts` e seu teste, `productReconciliationSelection.test.ts`, `productReconciliationBatchSchema.test.ts` e `mobileAppLifecycle.ts`/teste. Arquivos de exposição alterados: `NativeProductsScreen.tsx`, `ProductsHeader.tsx`, `ProductsHeaderMenuDropdown.tsx`, `authProfilePermissions.ts` e seu teste.
+- [x] Mantidos sem alteração a rota/telas ERP, a definição compartilhada da permissão, as queries, mutações, schemas e seleção comuns consumidos pelo ERP. Em particular, a busca de SKU do Ciclo 126 continua valendo para a Conciliação ERP. Nenhum endpoint, contrato de dados, estoque, operação remota ou autorização do ERP foi alterado.
+- [x] Criada a regra de código `rules/products/product-reconciliation-erp-only.yml`: nomes de telas/componentes/adaptadores e pontos de entrada de Conciliação no diretório de Produtos mobile geram erro. A automação recorrente também recebeu uma instrução explícita para preservar esta exceção e nunca tratá-la como pendência de paridade.
+- [x] A decisão substitui a necessidade de escolher um contrato de paginação para o app no Ciclo 105. O defeito compartilhado de contagem/janelas sobrepostas permanece apenas como questão técnica da Conciliação ERP; este ciclo não o corrigiu nem altera o ERP.
+- [x] Regras consultadas: instruções fornecidas do `AGENTS.md` raiz, `docs/geral/USER_RULES.md`, `rules/stock/no-inventory-move-write-in-ui.yml`, regra da skill `safe-refactor`, documentação de estrutura de produto/variação e mover/merge, inventário, roadmap e notas disponíveis em `docs/produtos/`/`docs/mobile/`. Não existe `AGENTS.md` adicional em `mobile/` ou `rules/products/`. A skill de replicação continua acessível somente na cópia em cache `.vercel`, não tratada como canônica.
+- [x] Vitest da agregação de permissões mobile: `authProfilePermissions.test.ts`, **4/4**. O novo teste confirma que a permissão `viewProductReconciliation` continua reconhecida para o guard ERP, mas sozinha não expõe o módulo Produtos no app.
+- [x] A regra ast-grep foi executada diretamente em 110 arquivos de Produtos/auth mobile sem ocorrências. Fixtures temporários de nome de componente e rota de conciliação foram detectados como erros pela regra e removidos em seguida; nenhum arquivo de fixture permaneceu no workspace.
+- [x] Vitest ERP para a conciliação preservada: **45/45** em 5 arquivos (tela, card, consultas, mutações e operações em lote). Nenhuma chamada ou gravação remota ocorreu.
+- [ ] TypeScript completo mobile terminou com código 2 e 22 diagnósticos globais em outros módulos/configuração compartilhada; nenhum aponta para os arquivos de entrada mobile alterados (`NativeProductsScreen`, cabeçalho ou `authProfilePermissions`).
+- [ ] Não foi feita validação visual autenticada nem de runtime nativo. Não há mais entrada de Conciliação no código mobile; a prova de navegação visual segue limitada pelo estado de autenticação do ambiente. Expo Web não provaria comportamento nativo.
+- [x] A remoção não altera os procedimentos de movimentação, contagem ou ajustes do estoque. O guia prático do estoquista não precisou de atualização.
+
+**Conclusão do recorte:** o aplicativo já não oferece Conciliação de Produtos e a regra persistente bloqueia a volta de telas/serviços/entradas mobile. A Conciliação do ERP e o código compartilhado que ela usa foram preservados. A auditoria geral de Produtos continua em andamento nas demais abas e estados.
+
+### Ciclo 128 — atributos obrigatórios e opcionais na configuração de categoria — 24/10/2026
+
+**Achado pré-registrado antes da alteração:** a configuração ERP persiste `category_attributes.is_required` e oferece um controle por atributo selecionado para alternar obrigatório/opcional; nomes globais obrigatórios são fixos e Peso fica sempre opcional. O app não representa `isRequired` no estado nem no formulário e salvava toda seleção como obrigatória, exceto Peso. Na edição, a consulta mobile também omitia `is_required`; adicionalmente, absorvia erros como lista vazia, permitindo salvar e apagar vínculos existentes quando a leitura falhava.
+
+- [x] Extraído para `shared-utils/categoryAttributeSelection.ts` o schema Zod explícito e as regras compartilhadas de nomes fixos, estado inicial, bloqueio do controle e persistência. ERP e app agora usam a mesma política: Cor, Modelo, Marca, dimensões, Comprimento e nomes Modelo/Linha predefinidos são obrigatórios; Peso permanece opcional; atributos comuns mantêm o estado escolhido.
+- [x] No ERP, modal e serviço passaram a consumir o contrato/helper compartilhado sem mudar a experiência já existente. A validação de formulário continua em `useZodForm`/`zodResolver` antes do serviço.
+- [x] No mobile, `CategoryAttributesPicker` agora oferece `Switch` acessível para alternar atributos comuns e mostra as seleções/configurações em uma seção independente da lista do catálogo; seleções permanecem visíveis se a consulta do catálogo falhar. Campos fixos não permitem estado incompatível e Peso permanece opcional.
+- [x] `fetchMobileCategoryAttributes` lê também `category_attributes.is_required` e retorna vínculos obrigatórios e opcionais com a política compartilhada. Erros agora chegam ao hook; falha ao carregar a configuração marca o estado de erro e o resolver impede salvar a categoria. `saveMobileCategory` recebe seleções tipadas completas, deduplica por ID como o ERP e persiste `is_required` sem transformar atributos opcionais em obrigatórios.
+- [x] Alinhada a lista de novas opções: `isCategoryAttributeSelectable` é compartilhada entre `AttributeAutocomplete` ERP e `CategoryAttributesPicker` mobile e exclui Reclinável/Linha/Modelo. A lista de selecionados continua separada e exibe vínculos existentes desses nomes para remoção/consulta, sem removê-los silenciosamente. Modelo/Linha permanece selecionável conforme o ERP.
+- [x] O schema RHF/Zod do cadastro/edição mobile usa o contrato Zod compartilhado e continua bloqueando nome/vínculos inválidos antes da chamada de serviço. O fluxo de ambiente permanece igual.
+- [x] Vitest mobile: `categoryEnvironmentServices.test.ts`, `categoryEnvironmentRules.test.ts` e `categoryAttributeSelection.test.ts`, **47/47**. Vitest ERP: `useCategoriesAndEnvironments.test.tsx`, **8/8**. Os testes cobrem ida e volta do `is_required`, Peso forçado opcional, nomes globalmente obrigatórios, atributos excluídos de novas opções, persistência opcional e erro de consulta não absorvido.
+- [x] `git diff --check` aprovado (avisos apenas de normalização CRLF já presentes nos arquivos). TypeScript integral mobile e ERP terminam com código 2 por diagnósticos globais fora dos arquivos deste recorte; a filtragem encontrou zero diagnóstico nas áreas de helper/schema compartilhado, autocomplete ERP, serviço/formulário mobile e tela/modal/hook de categorias.
+- [ ] A suíte mobile não permite um teste RTL do hook neste ambiente: `@testing-library/react` não está resolvível a partir da raiz de testes do app. Não foi adicionada dependência nem contornada a configuração; os contratos de serviço/schema passaram em Vitest. Playwright autenticado não foi executado neste ciclo e a navegação visual permanece limitada ao estado de login já registrado; Expo Web não prova runtime nativo.
+- [x] Nenhuma consulta, RPC ou gravação remota ocorreu. A mudança é de cadastro de Produtos/Categorias, sem alteração do procedimento operacional de estoque; o guia PDF do estoquista não requer atualização.
+- [x] Evidência consultada: `docs/negocio/produtos/estrutura-produto-variacao.md` define `category_attributes` como fonte da obrigatoriedade, sem alterar os valores já presentes nas variações. Código ERP em `CategoryEnvironmentModal.tsx` e `categoryService.ts`; código mobile em `CategoryAttributesPicker.tsx`, `useCategoryFormModal.ts` e `mobileCategoryService.ts`.
+- [x] Antes da edição, foram lidos `AGENTS.md` raiz, `docs/geral/USER_RULES.md`, a documentação vigente de estrutura/variações e operações de troca de pai/merge, `docs/mobile/arquitetura_offline_first.md`, o inventário e roadmap. Não há `AGENTS.md` dentro de `erp/`, `mobile/` ou `shared-utils/`. Nenhuma regra aplicável adicional em `rules/` altera a configuração de categoria. A skill de replicação continua disponível apenas na cópia em cache `.vercel`, não tratada como canônica; não foi encontrada em `.agents/skills` ou nos diretórios de skills pesquisados.
+- [x] Achado adicional pré-registrado antes da segunda edição do recorte: o `AttributeAutocomplete` ERP exclui `Reclinável`, `Linha` e `Modelo` das opções de novos vínculos, enquanto a lista mobile os mostrava. A correção filtrará somente novas opções e preservará/mostrará vínculos existentes na seção separada de selecionados.
+
+**Conclusão do recorte:** configuração e seleção de atributos da categoria agora têm o mesmo contrato, regras fixas e opções elegíveis no ERP e app; falhas de leitura não apagam a configuração existente e vínculos legados ocultos da lista de adição continuam visíveis/preservados. Continua aberta a auditoria global de Produtos e a validação autenticada/nativa.
+
+### Ciclo 129 — indicador de obrigatoriedade na aba técnica do produto pai — 24/10/2026
+
+**Achado pré-registrado antes da mudança:** a aba técnica mobile mostra `*` nos campos marcados como obrigatórios do produto pai. A aba ERP (`ProductTechnicalTab` → `TechnicalFieldRow`) não mostra esse indicador nos rótulos. A condição mobile não exige valor por schema nesta aba; este ciclo limitar-se-á à apresentação do rótulo e manterá inalteradas seleção/ordem de campos, aplicabilidade, bloqueios, valores, validação RHF/Zod e payload.
+
+- [x] Confirmada a diferença lendo a linha ERP: ela renderiza nome/unidade e o controle contextual, mas não acrescenta asterisco; erros reais continuam comunicados por estado de validação próprio. O mobile acrescentava o asterisco ao rótulo do produto pai. Não há particularidade mobile documentada que justifique o indicador extra; o contrato de atributos por categoria continua dizendo que valores ausentes ficam como pendências, sem geração automática.
+- [x] Removido somente o asterisco do rótulo na aba técnica mobile. Mantidos predicados de obrigatoriedade usados para agrupar campos, controlar aplicabilidade e restringir escopos; sem alteração do formulário, validação RHF/Zod, valores ou chamadas/payload.
+- [x] Consultadas as regras e referências antes da mudança: `AGENTS.md` raiz, `docs/geral/USER_RULES.md`, este inventário/roadmap, documentação vigente de produto/variação e operações de mover/merge, nota `docs/mobile/arquitetura_offline_first.md` e regras em `rules/`. Não há `AGENTS.md` aplicável dentro de `erp/`, `mobile/` ou `shared-utils/`; a varredura apontou apenas cópias de build em `.vercel`. A skill de replicação continua disponível somente na cópia de cache registrada acima; foi usada como orientação, não como fonte canônica.
+- [x] `git diff --check` nos arquivos deste recorte passou; Git mostrou apenas avisos de normalização CRLF/LF. Não foi executado teste automatizado neste ciclo; validação de UI autenticada segue pendente porque a rota protegida redireciona para `/login`, e não foi usado renderer/aparelho nativo. Expo Web não comprova comportamento nativo.
+- [x] Nenhuma consulta ou gravação remota foi feita; a tela continua na política de formulário existente e não alterou procedimento do estoquista, então os PDFs do Guia Prático de Estoque não requerem atualização.
+
+**Conclusão do recorte:** o rótulo técnico do produto pai mobile não anuncia mais obrigatoriedade visual que a aba ERP não apresenta. Regras de seleção e dados permanecem inalterados. A auditoria global segue em andamento pelas pendências dos demais ciclos e validações autenticada/nativa/backend.
+
+### Ciclo 130 — contrato de persistência dos atributos exigidos pela categoria — 24/10/2026
+
+**Recorte:** leitura e gravação dos valores técnicos do produto simples e das variações de uma família, limitado à divergência entre a documentação de domínio e os writers atuais.
+
+- [x] Confirmado no documento vigente que `category_attributes` define a obrigatoriedade e que o valor efetivo deve ficar em `product_variations.attributes`, inclusive na variação única. Valores ausentes não são preenchidos; devem continuar detectáveis como pendências.
+- [x] ERP e mobile atualmente persistem `product.technicalValues` e cópias de `variation.technicalValues`/`variationDetails` em `products.technical_specs`. Os dois writers serializam `product_variations.attributes` a partir de `variation.attributes`; os mappers leem o JSON de `technical_specs` para hidratar valores técnicos e não os projetam nos atributos da variação. Portanto, a divergência do Ciclo 39 permanece no ERP e no app, não é apenas falta de paridade entre clientes.
+- [x] A divergência afeta mais que o local de armazenamento: `product_variations.attributes` também alimenta nome automático (`showName`), detecção de combinações duplicadas e as consultas/ações da Conciliação ERP. Uma projeção indiscriminada dos campos técnicos pode mudar nomes, unicidade e resultados da conciliação; remover um vínculo de categoria não pode apagar um valor já gravado no atributo.
+- [x] Revisitados os pontos de entrada de leitura/gravação em `productMapper.ts`, `productVariationMapper.ts`, `productPersistenceService.ts`, `ProductTechnicalTab`/formulário, `mobileProductFetchService.ts` e `mobileProductMutationService.ts`, além dos consumidores de atributos em `shared-utils/productVariationNameValidation.ts`, `mobile/src/features/products/domain/productRegistrationRules.ts` e serviços compartilhados de Conciliação. O app não tem tela própria de Conciliação desde o Ciclo 127; essa exceção ERP-only permanece vigente.
+- [x] Regras/documentos consultados antes do registro: `AGENTS.md`, `docs/geral/USER_RULES.md`, inventário e roadmap, `docs/negocio/produtos/estrutura-produto-variacao.md`, operações mover/merge, `docs/mobile/arquitetura_offline_first.md`, regra persistente ERP-only e skill de replicação disponível apenas no cache `.vercel` (usada como orientação, não como fonte canônica). Nenhum `AGENTS.md` específico existe nos diretórios `erp/`, `mobile/` ou `shared-utils/`.
+- [ ] **Decisão objetiva necessária antes da mudança de contrato:** autorizar projeção dos valores preenchidos que são obrigatórios para as categorias selecionadas em `product_variations.attributes` nos dois clientes, mantendo `technical_specs` para compatibilidade legada; para valores novos projetados, preservar `showName` quando já houver atributo de identidade e usar `showName:false` nos demais, evitando mudança implícita de nome; manter atributos já persistidos quando a obrigatoriedade da categoria for removida. Alternativa: manter `technical_specs` como fonte e retificar documentação e detecção/edição da Conciliação ERP para esse contrato. Nenhuma alteração de payload foi feita sem essa definição.
+- [ ] Não houve teste, consulta ou gravação remota neste recorte de auditoria estática. Sem validação visual autenticada ou em runtime nativo; Expo Web não provaria comportamento nativo.
+
+**Conclusão do recorte:** existe uma divergência real entre o contrato documentado e ambos os writers. O formato de `attributes` possui efeitos colaterais em nome, unicidade e Conciliação; a correção de payload permanece pendente da decisão registrada, e não foi introduzida uma projeção potencialmente incompatível.
+
+### Ciclo 131 — reafirmação da Conciliação ERP-only — 24/10/2026
+
+- [x] Em resposta à pergunta sobre paginação da Conciliação, o usuário determinou manter o recurso somente no ERP, removê-lo do app e impedir sua reintrodução. Isso reafirma a decisão já aplicada no Ciclo 127; a ausência da tela mobile não é pendência de paridade.
+- [x] Conferidos `rules/products/product-reconciliation-erp-only.yml` e a automação recorrente ativa de duas em duas horas: ambos já proíbem a reintrodução e preservam explicitamente a superfície ERP. Para tornar a regra disponível a qualquer agente do repositório, ela também foi registrada na seção 12 do `AGENTS.md` raiz.
+- [x] Retificadas referências antigas do roadmap/inventário que ainda listavam a implementação React Native ou a validação visual da Conciliação como trabalho mobile pendente. A decisão não altera o defeito de contagem/paginação, que continua uma questão técnica exclusiva do ERP.
+- [x] A pergunta do Ciclo 130 sobre armazenar valores técnicos globais em `product_variations.attributes` versus `technical_specs` permanece separada e sem resposta; esta escolha sobre a Conciliação não a resolve.
+- [x] Nenhum código funcional foi alterado neste ciclo. A remoção mobile já estava aplicada no Ciclo 127; não houve execução de teste, Playwright, consulta/gravação remota ou validação nativa. Foi feita apenas verificação estática do estado das regras e da automação, seguida de `git diff --check`.
+
+**Conclusão do recorte:** a decisão está persistida no `AGENTS.md`, na regra de código, no prompt recorrente e neste inventário. A Conciliação deve continuar existindo no ERP, mas não deve voltar ao aplicativo sem um novo pedido explícito.
+
+### Ciclo 132 — resumo do Catálogo Meta no mobile — 24/10/2026
+
+**Achado pré-registrado antes da alteração:** a rota ERP `/products/meta-catalog`, protegida por `viewMetaCatalog`, mostra contagens de produtos simples publicados, variações publicadas e itens não publicados. O app oferece o mesmo acesso por `viewMetaCatalog`, mas o handler abre essa rota em navegador externo; não há tela nativa nem nota documentada justificando essa diferença.
+
+- [x] ERP: o resumo vem de `fetchMetaCatalogStats`, que lê status de `products` e `product_variations` e aplica `calculateMetaCatalogStats`. A tela mostra reticências durante a leitura e valores depois da resposta; em falha, registra console e deixa os zeros iniciais, sem estado de erro explícito.
+- [x] Mobile: `NativeProductsScreen` e o menu de Produtos expõem `handleOpenMetaCatalog`, mas ele somente chama `Linking.openURL`. O serviço `mobileProductMetaCatalogSyncService` já reutiliza payloads compartilhados e executa sincronização automática por produto; esse serviço não implementa o estado de resumo da página.
+- [x] Contratos compartilháveis: o cálculo de contagens é puro, mas até aqui vive dentro do diretório ERP. `shared-utils/metaCatalogPayload.ts`, `productMetaCatalogSyncItems.ts` e `metaCatalogBatchPayload.ts` são compartilhados. A permissão de leitura do app já é `viewMetaCatalog` com perfil mínimo `manager`, equivalente ao guard da rota ERP.
+- [x] Nenhuma particularidade em `docs/mobile/` ou `docs/produtos/` define a tela de resumo como ERP-only. `AGENTS.md` diz que o feed CSV antigo não é fonte vigente de sincronização/remoção; este recorte fica limitado ao resumo de leitura e preserva um link explícito para abrir o painel ERP completo. Nenhum pedido para remover produto da Meta será executado.
+- [x] Extraído o cálculo puro sem alterar seus critérios para `shared-utils/metaCatalogStats.ts`; o módulo ERP continua importando pelo caminho anterior, agora reexportado para manter seus consumidores. O serviço mobile `mobileMetaCatalogStatsService.ts` lê as mesmas colunas de produtos/variações com timeout de 15 s e sem chamadas de escrita.
+- [x] `NativeMetaCatalogScreen.tsx` mostra os três totais, loading, atualização por botão/gesto, erro com repetição e mantém o acesso externo ao painel ERP completo. A tela segue o mesmo gate `viewMetaCatalog` do menu e da rota ERP. Nenhuma sincronização Graph, download CSV, consulta de status Meta ou remoção de produto foi executada.
+- [x] `git diff --check` passou após o ajuste final. TypeScript mobile foi executado (`tsc -p tsconfig.json --noEmit --pretty false`) e terminou não zero por diagnósticos globais existentes em `DistanceInput`, financeiro, assistente de características, geração de variações, estoque, agenda/configuração Vitest e tipos compartilhados. Nenhum diagnóstico apontou para os arquivos deste ciclo.
+- [ ] Não foram adicionados nem executados testes, conforme a restrição desta execução. Não houve Playwright autenticado nem validação no renderer/aparelho nativo; Expo Web não comprovaria o comportamento nativo. A consulta ao Supabase não foi executada em runtime e nenhum dado foi gravado.
+- [ ] Próximo estado: auditar a ação manual ERP `Sincronizar via Graph API (BETA)`, seu gate `isAdmin`, permissões do proxy, contrato de lotes/progresso e estados de erro. A ação permite exclusões de itens; não a executar durante validação. Revisar em separado feed CSV/instruções antigas: `AGENTS.md` determina que o CSV legado não é fonte de sincronização/remoção e não pode ser apresentado como confirmação de remoção da Meta.
+
+**Conclusão do recorte:** o estado de resumo antes acessível no app somente por navegador agora tem tela nativa de consulta, com o mesmo cálculo ERP compartilhado e estados de espera, atualização e erro recuperável. A paridade completa do Catálogo Meta continua aberta para os estados de sincronização manual e instruções compatíveis com a regra vigente de catálogo.

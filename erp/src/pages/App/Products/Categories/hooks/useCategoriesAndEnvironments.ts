@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { z } from 'zod';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { catalogNameFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
+import { categoryAttributeSelectionsSchema } from '../../../../../../../shared-utils/categoryAttributeSelection';
 import {
   fetchEnvironments,
   fetchCategories,
@@ -50,7 +51,7 @@ export function useCategoriesAndEnvironments() {
   const categorySchema = catalogNameFormSchema.extend({
     name: catalogNameFormSchema.shape.name.transform((value) => value.trim().toUpperCase()),
     linkedIds: z.array(z.string().min(1)),
-    attributes: z.array(z.object({ id: z.string().min(1), name: z.string(), isRequired: z.boolean() }).passthrough()),
+    attributes: categoryAttributeSelectionsSchema,
   });
   const { validateAndRun: validateCategory } = useZodForm(categorySchema, { name: nameInput, linkedIds: selectedLinks, attributes: selectedAttributes.map((attribute) => ({ ...attribute })) });
 

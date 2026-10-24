@@ -1,5 +1,6 @@
 import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../shared-utils/productSupplierRequirement';
 import { PRODUCT_NAME_REQUIRED_MESSAGE } from '../../../../../shared-utils/productNameRequirement';
+import { PRODUCT_CATEGORY_REQUIRED_MESSAGE } from '../../../../../shared-utils/productCategoryRequirement';
 
 export type MobileProductFormTabId =
   | 'geral'
@@ -72,6 +73,10 @@ export const resolveMobileProductFormErrorNavigation = (
     return { tab: 'geral' };
   }
 
+  if (fieldPath === 'categoryIds') {
+    return { tab: 'geral' };
+  }
+
   if (PRODUCT_FORM_TABS.has(fieldPath as MobileProductFormTabId)) {
     return { tab: fieldPath as MobileProductFormTabId };
   }
@@ -112,6 +117,12 @@ export const isMobileProductNameError = (
 ): boolean =>
   fieldPath === 'name' && messages.name === PRODUCT_NAME_REQUIRED_MESSAGE;
 
+export const isMobileProductCategoryError = (
+  fieldPath: string,
+  messages: Record<string, string>
+): boolean =>
+  fieldPath === 'categoryIds' && messages.categoryIds === PRODUCT_CATEGORY_REQUIRED_MESSAGE;
+
 export const resolveMobileProductFormErrorMessage = (
   fieldPath: string,
   messages: Record<string, string>,
@@ -123,6 +134,9 @@ export const resolveMobileProductFormErrorMessage = (
   }
   if (isMobileProductNameError(fieldPath, messages)) {
     return isDraft ? PRODUCT_NAME_REQUIRED_MESSAGE : PRODUCT_FORM_REQUIRED_FIELDS_ERROR_MESSAGE;
+  }
+  if (isMobileProductCategoryError(fieldPath, messages)) {
+    return PRODUCT_FORM_REQUIRED_FIELDS_ERROR_MESSAGE;
   }
   if (fieldPath === 'minStock' && message === PRODUCT_MIN_STOCK_MOBILE_ERROR_MESSAGE) {
     return isDraft

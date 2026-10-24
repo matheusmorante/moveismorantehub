@@ -1,0 +1,35 @@
+id: product-reconciliation-erp-only
+language: TypeScript
+severity: error
+message: "A Conciliação de Produtos é exclusiva do ERP. Não crie telas, rotas, serviços ou pontos de entrada equivalentes no aplicativo móvel."
+note: "Decisão explícita do usuário: manter a Conciliação somente no ERP e não reintroduzir sua interface ou adaptadores no mobile. O catálogo de permissões e os serviços compartilhados podem permanecer porque são usados pelo ERP."
+rule:
+  any:
+    - pattern: NativeProductReconciliationScreen
+    - pattern: NativeProductReconciliationCard
+    - pattern: NativeProductReconciliationBatchBar
+    - pattern: NativeProductReconciliationBatchModal
+    - pattern: mobileProductReconciliationService
+    - pattern: ProductReconciliation
+    - pattern: onOpenReconciliation
+    - pattern: canViewReconciliation
+    - pattern: "'viewProductReconciliation'"
+    - pattern: "'/products/reconciliation'"
+    - pattern: "'/products/reconciliation/suppliers'"
+    - pattern: "'Conciliação de Produtos'"
+    - pattern: "'Conciliação de Fornecedores'"
+    - pattern: '"Conciliação de Produtos"'
+    - pattern: '"Conciliação de Fornecedores"'
+files:
+  - mobile/src/features/products/**/*.ts
+  - mobile/src/features/products/**/*.tsx
+  - mobile/src/contexts/auth/authProfilePermissions.ts
+ignores:
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/coverage/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"

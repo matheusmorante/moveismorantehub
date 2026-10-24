@@ -99,7 +99,7 @@ export const InboxSidebar: React.FC<InboxSidebarProps> = ({
   return (
     <aside aria-label="Pastas e filas de atendimento" className="w-full min-w-0 shrink-0 border-r border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/90 flex flex-col h-full select-none z-10 overflow-y-auto">
       <div className="h-14 px-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shrink-0">
-        <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Inbox</h3>
+        <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Caixa de entrada</h3>
         <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
           <button type="button" onClick={() => setIsSearchOpen((open) => !open)} title="Pesquisar filas e atendentes" aria-label="Pesquisar filas e atendentes" className={`w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-200/60 dark:hover:bg-slate-800 ${isSearchOpen ? 'text-blue-600' : ''}`}><i className="bi bi-search text-xs" /></button>
           <button type="button" onClick={onToggleCollapse} title="Recolher painel de filas" aria-label="Recolher painel de filas" className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-200/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"><i className="bi bi-layout-sidebar-inset text-sm" /></button>

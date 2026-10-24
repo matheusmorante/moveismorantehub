@@ -28,8 +28,6 @@ export type Variation = {
   condition?: 'novo' | 'usado' | 'salvado' | '';
   attributes: { name: string; value: string; showName?: boolean }[];
   technicalValues?: Record<string, any>;
-  /** Requisitos transitórios do formulário; são removidos antes de persistir a variação. */
-  requiredTechnicalFields?: string[];
   syncWithParent?: boolean; // Legacy/Global
   syncUnitPrice?: boolean;
   syncPromoPrice?: boolean;

@@ -1,4 +1,4 @@
-import { Variation } from '@/pages/types/product.type';
+import type { Variation } from '../../../pages/types/product.type';
 
 export interface IncompleteAttributeInfo {
   index: number;

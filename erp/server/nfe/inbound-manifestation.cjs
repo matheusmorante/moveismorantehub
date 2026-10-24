@@ -853,16 +853,49 @@ function parseInboundManifestationBatchResponse(xml) {
 }
 
 // api/nfe/inboundXmlConsultQueue.ts
-function selectPendingInboundXmlConsults(summaries, manifestationEvents, consultedKeys) {
-  const registeredEvents = new Set(
-    manifestationEvents.filter((event) => event.status === "registered").map((event) => `${event.access_key}:${Number(event.environment)}`)
+var INBOUND_XML_CONSULT_RETRY_INTERVAL_MS = 15 * 60 * 1e3;
+function queryKey(accessKey, environment) {
+  return `${accessKey}:${Number(environment)}`;
+}
+function registeredManifestationKeys(events) {
+  return new Set(
+    events.filter((event) => event.status === "registered").map((event) => queryKey(event.access_key, event.environment))
   );
-  const consulted = new Set(
-    consultedKeys.map((attempt) => `${attempt.access_key}:${Number(attempt.environment)}`)
+}
+function attemptTime(attempt, now) {
+  const consultedAt = Date.parse(attempt.consulted_at);
+  return Number.isFinite(consultedAt) ? consultedAt : now;
+}
+function getNextInboundXmlConsultRetryAt(summaries, manifestationEvents, consultedKeys, now = Date.now()) {
+  const registered = registeredManifestationKeys(manifestationEvents);
+  const attempts = new Map(
+    consultedKeys.map((attempt) => [
+      queryKey(attempt.access_key, attempt.environment),
+      attempt
+    ])
+  );
+  const retryAt = summaries.filter((invoice) => registered.has(queryKey(invoice.chave_acesso, invoice.ambiente))).map((invoice) => attempts.get(queryKey(invoice.chave_acesso, invoice.ambiente))).filter((attempt) => Boolean(attempt)).map((attempt) => attemptTime(attempt, now) + INBOUND_XML_CONSULT_RETRY_INTERVAL_MS).sort((a, b) => a - b)[0];
+  return retryAt === void 0 ? null : new Date(Math.max(now, retryAt)).toISOString();
+}
+function selectPendingInboundXmlConsults(summaries, manifestationEvents, consultedKeys, now = Date.now()) {
+  const registered = registeredManifestationKeys(manifestationEvents);
+  const attempts = new Map(
+    consultedKeys.map((attempt) => [
+      queryKey(attempt.access_key, attempt.environment),
+      attempt
+    ])
   );
   return summaries.filter((invoice) => {
-    const key = `${invoice.chave_acesso}:${Number(invoice.ambiente)}`;
-    return registeredEvents.has(key) && !consulted.has(key);
+    const key = queryKey(invoice.chave_acesso, invoice.ambiente);
+    if (!registered.has(key)) return false;
+    const attempt = attempts.get(key);
+    return !attempt || now >= attemptTime(attempt, now) + INBOUND_XML_CONSULT_RETRY_INTERVAL_MS;
+  }).sort((a, b) => {
+    const aAttempt = attempts.get(queryKey(a.chave_acesso, a.ambiente));
+    const bAttempt = attempts.get(queryKey(b.chave_acesso, b.ambiente));
+    if (!aAttempt) return bAttempt ? -1 : 0;
+    if (!bAttempt) return 1;
+    return attemptTime(aAttempt, now) - attemptTime(bAttempt, now);
   });
 }
 
@@ -925,10 +958,18 @@ async function consultNextRegisteredSummary(db, configuredCnpj, invoice, remaini
     };
   }
   const documentKind = data.document?.kind;
+  let persistedFullXml = false;
+  let persistedItemsCount = 0;
+  if (documentKind === "full") {
+    const { data: savedInvoice, error: savedInvoiceError } = await db.from("inbound_invoices").select("xml_conteudo,itens").eq("id", invoice.id).maybeSingle();
+    persistedFullXml = !savedInvoiceError && /<(?:[\w.-]+:)?(?:nfeProc|infNFe)\b/i.test(String(savedInvoice?.xml_conteudo || ""));
+    persistedItemsCount = Array.isArray(savedInvoice?.itens) ? savedInvoice.itens.length : 0;
+  }
+  const retryNeeded = documentKind !== "full" || !persistedFullXml;
   const { error: attemptError } = await db.from("sefaz_inbound_xml_consult_attempts").upsert({
     access_key: accessKey,
     environment,
-    result: documentKind === "full" ? "full_received" : documentKind === "summary" ? "summary" : "no_document",
+    result: documentKind === "full" && persistedFullXml ? "full_received" : documentKind === "summary" || documentKind === "full" ? "summary" : "no_document",
     consulted_at: (/* @__PURE__ */ new Date()).toISOString()
   }, { onConflict: "access_key,environment" });
   if (attemptError) {
@@ -940,29 +981,22 @@ async function consultNextRegisteredSummary(db, configuredCnpj, invoice, remaini
         hasMore: true,
         retryAfter: await getNextDirectConsultAt(db, configuredCnpj),
         xmlLookupPending: true,
-        error: "A consulta terminou, mas n\xE3o foi poss\xEDvel registrar seu resultado para evitar repeti\xE7\xE3o da mesma chave."
+        error: "A consulta terminou, mas n\xE3o foi poss\xEDvel salvar o hor\xE1rio da pr\xF3xima tentativa."
       }
     };
   }
-  let persistedFullXml = false;
-  let persistedItemsCount = 0;
-  if (documentKind === "full") {
-    const { data: savedInvoice, error: savedInvoiceError } = await db.from("inbound_invoices").select("xml_conteudo,itens").eq("id", invoice.id).maybeSingle();
-    persistedFullXml = !savedInvoiceError && /<(?:[\w.-]+:)?(?:nfeProc|infNFe)\b/i.test(String(savedInvoice?.xml_conteudo || ""));
-    persistedItemsCount = Array.isArray(savedInvoice?.itens) ? savedInvoice.itens.length : 0;
-  }
-  const retryAfter = remainingCount > 0 ? await getNextDirectConsultAt(db, configuredCnpj) : null;
+  const retryAfter = remainingCount > 0 ? await getNextDirectConsultAt(db, configuredCnpj) : retryNeeded ? new Date(Date.now() + INBOUND_XML_CONSULT_RETRY_INTERVAL_MS).toISOString() : null;
   return {
     status: 200,
     body: {
       success: true,
       xmlRetrieved: documentKind === "full" && persistedFullXml,
       xmlItemsCount: persistedItemsCount,
-      xmlLookupPending: documentKind !== "full" || !persistedFullXml,
+      xmlLookupPending: retryNeeded,
       cStat: typeof data.cStat === "string" ? data.cStat : null,
-      hasMore: remainingCount > 0,
+      hasMore: remainingCount > 0 || retryNeeded,
       retryAfter,
-      message: documentKind === "full" && persistedFullXml && persistedItemsCount > 0 ? `XML completo salvo na NF de entrada; ${persistedItemsCount} item(ns) foram atualizados.` : documentKind === "full" && persistedFullXml ? "XML completo salvo na NF de entrada, mas nenhum item foi extra\xEDdo para a lista." : documentKind === "full" ? "A SEFAZ devolveu o XML completo, mas n\xE3o foi poss\xEDvel confirmar a grava\xE7\xE3o na NF de entrada." : documentKind === "summary" ? "A consulta autom\xE1tica ainda retornou somente o resumo. O sistema aguardar\xE1 a pr\xF3xima distribui\xE7\xE3o da SEFAZ." : "A consulta autom\xE1tica n\xE3o localizou o XML completo. O sistema aguardar\xE1 a pr\xF3xima distribui\xE7\xE3o da SEFAZ."
+      message: documentKind === "full" && persistedFullXml && persistedItemsCount > 0 ? `XML completo salvo na NF de entrada; ${persistedItemsCount} item(ns) foram atualizados.` : documentKind === "full" && persistedFullXml ? "XML completo salvo na NF de entrada, mas nenhum item foi extra\xEDdo para a lista." : documentKind === "full" ? "A SEFAZ devolveu o XML completo, mas n\xE3o foi poss\xEDvel confirmar a grava\xE7\xE3o na NF de entrada." : documentKind === "summary" ? "A SEFAZ ainda retornou somente o resumo. O sistema tentar\xE1 consultar novamente em 15 minutos." : "A SEFAZ ainda n\xE3o disponibilizou o XML completo. O sistema tentar\xE1 consultar novamente em 15 minutos."
     }
   };
 }
@@ -1188,16 +1222,16 @@ async function handler(req, res) {
     return res.status(400).json({ success: false, error: "Identificador da solicita\xE7\xE3o inv\xE1lido." });
   const { data: settingsRow, error: settingsError } = await db.from("settings").select("data").eq("id", "app").maybeSingle();
   const configuredCnpj = normalizeFiscalIdentifier(settingsRow?.data?.companyCnpj);
+  const autoScienceEnabled = settingsRow?.data?.autoInboundScienceEnabled === true;
   if (settingsError || !CNPJ_PATTERN.test(configuredCnpj))
     return res.status(409).json({ success: false, error: "O CNPJ da empresa n\xE3o est\xE1 configurado corretamente." });
   if (automatic) {
-    if (settingsRow?.data?.autoInboundScienceEnabled !== true)
-      return res.status(200).json({ success: true, skipped: true, message: "A Ci\xEAncia autom\xE1tica est\xE1 desativada." });
     const candidates = [];
     const xmlCandidates = [];
     let foundEligible = false;
     let batchEnvironment = null;
     let xmlConsultTrackingAvailable = true;
+    let nextXmlConsultRetryAt = null;
     for (let offset = 0; candidates.length < 20 && xmlCandidates.length < 20; offset += 100) {
       const { data: summaries, error: summariesError } = await db.from("inbound_invoices").select("id,chave_acesso,modelo,ambiente,destinatario_cnpj,status_sefaz,xml_conteudo,data_emissao").eq("status_sefaz", "autorizada").ilike("xml_conteudo", "%resNFe%").order("data_emissao", { ascending: false }).order("id", { ascending: true }).range(offset, offset + 99);
       if (summariesError)
@@ -1221,7 +1255,7 @@ async function handler(req, res) {
         const attemptedKeys = new Set((previousEvents || []).map((event) => `${event.access_key}:${event.environment}`));
         let previousConsults = [];
         if (xmlConsultTrackingAvailable) {
-          const consultResult = await db.from("sefaz_inbound_xml_consult_attempts").select("access_key,environment").in("access_key", candidateKeys);
+          const consultResult = await db.from("sefaz_inbound_xml_consult_attempts").select("access_key,environment,consulted_at").in("access_key", candidateKeys);
           if (consultResult.error) {
             const consultError = consultResult.error;
             const consultTableMissing = ["42P01", "PGRST205"].includes(consultError.code || "") || /sefaz_inbound_xml_consult_attempts/i.test(consultError.message || "") && /(does not exist|could not find|not found)/i.test(consultError.message || "");
@@ -1232,11 +1266,14 @@ async function handler(req, res) {
             previousConsults = consultResult.data || [];
           }
         }
-        const pending = eligible.filter(
+        const pending = autoScienceEnabled ? eligible.filter(
           (invoice2) => !attemptedKeys.has(`${normalizeFiscalIdentifier(invoice2.chave_acesso)}:${Number(invoice2.ambiente)}`)
-        );
+        ) : [];
         const pendingXml = xmlConsultTrackingAvailable ? selectPendingInboundXmlConsults(eligible, previousEvents || [], previousConsults) : [];
         xmlCandidates.push(...pendingXml.slice(0, 20 - xmlCandidates.length));
+        const nextRetryAt = xmlConsultTrackingAvailable ? getNextInboundXmlConsultRetryAt(eligible, previousEvents || [], previousConsults) : null;
+        if (nextRetryAt && (!nextXmlConsultRetryAt || Date.parse(nextRetryAt) < Date.parse(nextXmlConsultRetryAt)))
+          nextXmlConsultRetryAt = nextRetryAt;
         if (batchEnvironment === null && pending.length)
           batchEnvironment = Number(pending[0].ambiente);
         candidates.push(...pending.filter((invoice2) => Number(invoice2.ambiente) === batchEnvironment).slice(0, 20 - candidates.length));
@@ -1252,6 +1289,16 @@ async function handler(req, res) {
       );
       return res.status(consultation.status).json(consultation.body);
     }
+    if (!candidates.length && nextXmlConsultRetryAt) {
+      return res.status(200).json({
+        success: true,
+        skipped: true,
+        hasMore: true,
+        retryAfter: nextXmlConsultRetryAt,
+        xmlLookupPending: true,
+        message: "A consulta do XML est\xE1 aguardando o intervalo autom\xE1tico de 15 minutos."
+      });
+    }
     if (!candidates.length && foundEligible && !xmlConsultTrackingAvailable)
       return res.status(409).json({
         success: false,
@@ -1263,7 +1310,7 @@ async function handler(req, res) {
       return res.status(200).json({
         success: true,
         skipped: true,
-        message: foundEligible ? "As notas resumo eleg\xEDveis j\xE1 possuem tentativa de Ci\xEAncia ou consulta autom\xE1tica de XML registrada." : "Nenhuma nota resumo eleg\xEDvel para Ci\xEAncia autom\xE1tica."
+        message: !autoScienceEnabled ? "A Ci\xEAncia autom\xE1tica est\xE1 desativada; a busca do XML continua para notas que j\xE1 t\xEAm Ci\xEAncia registrada." : foundEligible ? "As notas resumo eleg\xEDveis j\xE1 possuem tentativa de Ci\xEAncia ou consulta autom\xE1tica de XML registrada." : "Nenhuma nota resumo eleg\xEDvel para Ci\xEAncia autom\xE1tica."
       });
     const pfxBase642 = process.env.NFE_CERTIFICATE_BASE64;
     if (!pfxBase642)

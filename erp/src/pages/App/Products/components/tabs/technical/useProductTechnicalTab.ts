@@ -103,6 +103,14 @@ export const useProductTechnicalTab = ({
       scope?: 'not_inform' | 'global' | 'variation'
     ) => {
       setFormData((prev) => {
+        const fieldDefinition = allTechnicalFields.find(
+          (field) => field.name.trim().toLocaleLowerCase('pt-BR') === fieldName.trim().toLocaleLowerCase('pt-BR')
+        );
+        const isRequiredForCatalog = fieldDefinition?.requiredCategoryIds?.some((categoryId) =>
+          (prev.categoryIds || []).map(String).includes(String(categoryId))
+        );
+        if (scope === 'not_inform' && isRequiredForCatalog) return prev;
+
         const variableFields = resolveVariableTechnicalFieldNames(
           prev.variableTechnicalFields,
           prev.variations || []
@@ -134,7 +142,7 @@ export const useProductTechnicalTab = ({
         return next;
       });
     },
-    [setFormData]
+    [allTechnicalFields, setFormData]
   );
 
   const openAttributeModal = () => setIsAttributeModalOpen(true);

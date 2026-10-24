@@ -15,6 +15,7 @@ import {
   getTechnicalValue,
   isExcludedProductTechnicalField,
   isProductTechnicalFieldRequired,
+  isProductTechnicalFieldRequiredForCatalog,
   isRequiredCharacteristicName,
   isWeightCharacteristicName,
   upsertProductCharacteristicAttribute,
@@ -86,6 +87,23 @@ describe('productCharacteristics', () => {
         decimal_places: field.decimal_places,
       }))
     ).toEqual([{ name: 'Peso', isRequired: false, decimal_places: 1 }]);
+  });
+
+  it('marca uma característica da categoria só como requisito do catálogo, sem torná-la obrigatória para salvar', () => {
+    const field = {
+      name: 'Acabamento',
+      isRequired: false,
+      requiredCategoryIds: ['cat-chair'],
+      categoryIds: ['cat-chair'],
+    };
+
+    expect(isProductTechnicalFieldRequired(field, ['cat-chair'])).toBe(false);
+    expect(isProductTechnicalFieldRequiredForCatalog(field, ['cat-chair'])).toBe(true);
+    expect(getApplicableProductTechnicalFields([field], ['cat-chair'])[0]).toMatchObject({
+      isRequired: false,
+      isRequiredForProduct: false,
+      isRequiredForCatalog: true,
+    });
   });
 
   it('considera variação própria e herança do produto pai com precedência da variação', () => {

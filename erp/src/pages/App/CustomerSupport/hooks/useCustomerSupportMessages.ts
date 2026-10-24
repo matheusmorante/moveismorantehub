@@ -45,6 +45,7 @@ export function useCustomerSupportMessages({
   const initializedHistoryRef = useRef<number | null>(null);
   // A quoted message can sit outside the contiguous history already fetched.
   const historyCursorRef = useRef<{ timestamp: string; id: string } | null>(null);
+  const historyConversationIdRef = useRef<string | null>(null);
   const readRequestRef = useRef(0);
   const readNeedsRetryRef = useRef(false);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
@@ -96,6 +97,7 @@ export function useCustomerSupportMessages({
     try {
       const latest = await fetchConversationMessages(supabase, convId, INITIAL_MESSAGE_PAGE_SIZE);
       if (generation !== generationRef.current || request !== latestRequestRef.current) return;
+      historyConversationIdRef.current = convId;
       if (initializedHistoryRef.current !== generation) {
         initializedHistoryRef.current = generation;
         historyCursorRef.current = latest[0]
@@ -127,7 +129,8 @@ export function useCustomerSupportMessages({
   const loadOlderMessages = useCallback(async () => {
     const convId = activeConvIdRef.current;
     const generation = generationRef.current;
-    if (!convId || loadingOlderRef.current === generation || !hasOlderMessages) return 0;
+    if (!convId || historyConversationIdRef.current !== convId
+      || loadingOlderRef.current === generation || !hasOlderMessages) return 0;
     const oldest = historyCursorRef.current;
     if (!oldest) return 0;
     loadingOlderRef.current = generation;
@@ -287,7 +290,8 @@ export function useCustomerSupportMessages({
     clearJumpToMessage,
     isLoadingMessages,
     isLoadingOlderMessages,
-    hasOlderMessages,
+    hasOlderMessages: Boolean(selectedConversation?.id)
+      && historyConversationIdRef.current === selectedConversation.id && hasOlderMessages,
     loadOlderMessages,
     isRefreshingMessages,
     refreshMessages,

@@ -33,6 +33,8 @@ export interface ProductTechnicalField {
   name: string;
   active?: boolean | null;
   isRequired?: boolean;
+  isRequiredForProduct?: boolean;
+  isRequiredForCatalog?: boolean;
   is_globally_required?: boolean;
   requiredForCategory?: boolean;
   requiredCategoryIds?: readonly string[];
@@ -256,11 +258,18 @@ export const isProductTechnicalFieldRequired = (
   if (isMattress && normalizeName(field.name) === 'espessura do colchão') return true;
 
   return (
-    field.isRequired === true ||
-    isRequiredCharacteristicName(field.name) ||
-    Boolean(field.requiredCategoryIds?.some((id) => categoryIds.map(String).includes(String(id))))
+    (field.isRequiredForProduct ?? field.isRequired) === true ||
+    isRequiredCharacteristicName(field.name)
   );
 };
+
+export const isProductTechnicalFieldRequiredForCatalog = (
+  field: ProductTechnicalField,
+  categoryIds: readonly string[] = []
+): boolean =>
+  !isWeightCharacteristicName(field.name) &&
+  (field.requiredForCategory === true ||
+    Boolean(field.requiredCategoryIds?.some((id) => categoryIds.map(String).includes(String(id)))));
 
 export const getDimensionSortRank = (name: string): number => {
   const norm = normalizeName(name);
@@ -628,6 +637,7 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
     if (isMattress && isHeightCharacteristic(field.name)) {
       return hasExistingValue || manualNames.has(norm);
     }
+    if (isProductTechnicalFieldRequiredForCatalog(field, categoryIds)) return true;
     if (field.active === false) {
       return hasExistingValue || manualNames.has(norm);
     }
@@ -659,6 +669,8 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
   return applicable.map((field) => ({
     ...field,
     isRequired: isProductTechnicalFieldRequired(field, categoryIds),
+    isRequiredForProduct: isProductTechnicalFieldRequired(field, categoryIds),
+    isRequiredForCatalog: isProductTechnicalFieldRequiredForCatalog(field, categoryIds),
     decimal_places:
       isWeightCharacteristicName(field.name) || field.data_type === 'weight'
         ? 1

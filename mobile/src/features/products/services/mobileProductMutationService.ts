@@ -13,6 +13,10 @@ import { generateVariationSku } from '../domain/productSku';
 import { getNextSequentialProductCode } from './mobileProductCodeService';
 import { triggerMobileProductMetaCatalogSync } from './mobileProductMetaCatalogSyncService';
 import { getMobileProductVariationRecords } from '../domain/mobileProductVariationVisibility';
+import {
+  parseMobileProductSaveAcknowledgement,
+  type MobileProductSaveAcknowledgement,
+} from '../../../../../shared-utils/mobileProductSaveAcknowledgement';
 
 const normalizeVariationSku = (sku?: string) =>
   String(sku || '')
@@ -432,7 +436,15 @@ export const restoreMobileProductFromTrash = async (productId: string) => {
   return result;
 };
 
-export const saveMobileProduct = async (productData: any) => {
+export function saveMobileProduct(productData: any): Promise<string>;
+export function saveMobileProduct(
+  productData: any,
+  options: { returnVersionAcknowledgement: true }
+): Promise<MobileProductSaveAcknowledgement>;
+export async function saveMobileProduct(
+  productData: any,
+  options?: { returnVersionAcknowledgement?: boolean }
+): Promise<string | MobileProductSaveAcknowledgement> {
   const isEditing = Boolean(productData.id);
   const operationId = isUuid(productData.operationId)
     ? productData.operationId
@@ -563,7 +575,11 @@ export const saveMobileProduct = async (productData: any) => {
     has_variations:
       productData.itemType !== 'service' &&
       (Boolean(productData.hasVariations) || variationRows.length > 1),
-    updated_at: new Date().toISOString(),
+    updated_at:
+      typeof productData.saveUpdatedAt === 'string' &&
+      Number.isFinite(Date.parse(productData.saveUpdatedAt))
+        ? productData.saveUpdatedAt
+        : new Date().toISOString(),
   };
 
   // A gravação do produto, das categorias, das imagens e das variações é uma RPC
@@ -666,7 +682,7 @@ export const saveMobileProduct = async (productData: any) => {
     }
   }
 
-  const { data, error } = await supabase.rpc('save_mobile_product_transaction', {
+  const rpcParameters = {
     p_operation_id: operationId,
     p_expected_updated_at: isEditing
       ? productData.updated_at || productData.updatedAt || null
@@ -677,11 +693,25 @@ export const saveMobileProduct = async (productData: any) => {
     p_images: payload.images,
     p_category_ids: selectedCategoryIds,
     p_variations: variationPayloads,
-  });
+  };
+  const response = options?.returnVersionAcknowledgement
+    ? await withMobileMutationTimeout(
+        supabase.rpc('save_mobile_product_transaction_with_version', rpcParameters),
+        'mobile:produto:saving-version-ack'
+      )
+    : await supabase.rpc('save_mobile_product_transaction', rpcParameters);
+  const { data, error } = response;
   if (error) throw error;
+  if (options?.returnVersionAcknowledgement) {
+    const acknowledgement = parseMobileProductSaveAcknowledgement(data);
+    if (acknowledgement.productId !== savedProductId) {
+      throw new Error('O banco confirmou um produto diferente do solicitado.');
+    }
+    return acknowledgement;
+  }
   if (typeof data !== 'string') throw new Error('O banco não retornou o produto salvo.');
   return data;
-};
+}
 
 export const duplicateMobileProduct = async (product: any) => {
   const copy = {

@@ -17,7 +17,6 @@ export const SalesNavMenu: React.FC<Required<NavMenuProps>> = ({
     permissions.canViewAssistanceOrders ||
     permissions.canViewReturns;
   const hasFiscal = permissions.canViewFiscalOutbound;
-  const hasReports = permissions.canViewSalesReports;
 
   return (
     <NavDropdown
@@ -74,26 +73,11 @@ export const SalesNavMenu: React.FC<Required<NavMenuProps>> = ({
       {hasFiscal && (
         <>
           {hasOperations && <DropdownSeparator />}
-          <DropdownGroup title="Fiscal" />
           <DropdownItem
             to="/fiscal-documents"
             icon="bi-receipt"
             title="NF de saída"
             description="Notas emitidas e pendências fiscais"
-            onClick={close}
-          />
-        </>
-      )}
-
-      {hasReports && (
-        <>
-          {(hasOperations || hasFiscal) && <DropdownSeparator />}
-          <DropdownGroup title="Relatórios" />
-          <DropdownItem
-            to="/sales-order/reports"
-            icon="bi-bar-chart-fill"
-            title="Relatório de vendas"
-            description="Exportação CSV"
             onClick={close}
           />
         </>

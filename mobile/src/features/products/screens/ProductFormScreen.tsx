@@ -1,5 +1,12 @@
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { createMobileProductFormSchema } from '../../../../../shared-utils/mobileProductFormSchema';
+import {
+  hasRequiredProductName,
+} from '../../../../../shared-utils/productNameRequirement';
+import {
+  isVersionedProductSaveRpcUnavailable,
+  type MobileProductSaveAcknowledgement,
+} from '../../../../../shared-utils/mobileProductSaveAcknowledgement';
 import { deriveProductDiscountFields } from '../../../../../shared-utils/productDiscountFields';
 import { withOwnInboundVariationCost } from '../../../../../shared-utils/inboundQuickRegisterRules';
 import {
@@ -42,6 +49,7 @@ import {
 } from '../domain/mobileProductVariationMode';
 import {
   isMobileProductNameError,
+  isMobileProductCategoryError,
   isMobileProductCostPriceError,
   isMobileProductSupplierError,
   isMobileProductUnitPriceError,
@@ -68,6 +76,10 @@ import {
   type MobileVariationRegistrationIssue,
 } from '../domain/productRegistrationRules';
 import { prepareMobileProductSaveState } from '../domain/productSaveState';
+import {
+  createMobileProductDraftSaveQueue,
+  type MobileProductDraftSaveEntry,
+} from '../domain/mobileProductDraftSaveQueue';
 import { syncMobileVariationsWithParent } from '../domain/productVariationParentSync';
 import { resolveMobileProductFinalPurchasePrice } from '../domain/productPurchasePrice';
 import { ProductFormBasicTab } from '../modals/tabs/ProductFormBasicTab';
@@ -184,6 +196,19 @@ const createUuid = () =>
     return (character === 'x' ? random : (random & 0x3) | 0x8).toString(16);
   });
 
+const isVersionedSaveAcknowledgement = (
+  value: unknown
+): value is MobileProductSaveAcknowledgement =>
+  Boolean(
+    value &&
+      typeof value === 'object' &&
+      'productId' in value &&
+      typeof value.productId === 'string' &&
+      'updatedAt' in value &&
+      typeof value.updatedAt === 'string' &&
+      Number.isFinite(Date.parse(value.updatedAt))
+  );
+
 // ─── Props ───────────────────────────────────────────────────────────────────
 interface Props {
   visible: boolean;
@@ -191,9 +216,11 @@ interface Props {
   initialData?: Record<string, any>;
   showInboundCostPrice?: boolean;
   inboundVariationCostPrice?: number;
+  enableDraftAutoSave?: boolean;
   dark: boolean;
   onClose: () => void;
   onSave: (data: any) => Promise<string | void>;
+  onAutoSave?: (data: any) => Promise<MobileProductSaveAcknowledgement>;
 }
 
 // ─── Componente ──────────────────────────────────────────────────────────────
@@ -203,9 +230,11 @@ export const ProductFormScreen: React.FC<Props> = ({
   initialData,
   showInboundCostPrice = false,
   inboundVariationCostPrice,
+  enableDraftAutoSave = true,
   dark,
   onClose,
   onSave,
+  onAutoSave,
 }) => {
   const {
     isStockistOnly,
@@ -215,6 +244,7 @@ export const ProductFormScreen: React.FC<Props> = ({
   } = useProductFormPermissions();
   const [activeTab, setActiveTab] = useState<TabId>('geral');
   const [nameError, setNameError] = useState(false);
+  const [categoryError, setCategoryError] = useState(false);
   const [costPriceError, setCostPriceError] = useState(false);
   const [unitPriceError, setUnitPriceError] = useState(false);
   const [supplierError, setSupplierError] = useState(false);
@@ -222,16 +252,36 @@ export const ProductFormScreen: React.FC<Props> = ({
     useState<MobileProductFormErrorNavigation | null>(null);
   const [formData, setFormDataRaw] = useState<any>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [autoSaveError, setAutoSaveError] = useState('');
   const [ncmError, setNcmError] = useState(false);
   const tabScrollRef = useRef<ScrollView>(null);
   const dirtyRef = useRef(false);
   const saveOperationIdRef = useRef<string | null>(null);
+  const saveRequestedAtRef = useRef<string | null>(null);
   const clientProductIdRef = useRef<string | null>(null);
   const clientProductCodeRef = useRef<string | null>(null);
+  const serverProductIdRef = useRef<string | null>(null);
+  const serverProductVersionRef = useRef<string | null>(null);
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
+  const formRevisionRef = useRef(0);
+  const persistedRevisionRef = useRef(0);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSavePausedRef = useRef(false);
+  const autoSaveRunnerRef = useRef<
+    (entry: MobileProductDraftSaveEntry<any>) => Promise<boolean>
+  >(async () => false);
+  const autoSaveQueueRef = useRef<ReturnType<typeof createMobileProductDraftSaveQueue<any>> | null>(null);
+  const unconfirmedAutoSaveRef = useRef<{
+    entry: MobileProductDraftSaveEntry<any>;
+    payload: any;
+  } | null>(null);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
     setNameError(false);
+    setCategoryError(false);
     setCostPriceError(false);
     setUnitPriceError(false);
     setSupplierError(false);
@@ -291,6 +341,10 @@ export const ProductFormScreen: React.FC<Props> = ({
   const setFormData = useCallback((fn: any) => {
     dirtyRef.current = true;
     saveOperationIdRef.current = null;
+    saveRequestedAtRef.current = null;
+    formRevisionRef.current += 1;
+    setAutoSaveStatus('idle');
+    setAutoSaveError('');
     setFormDataRaw((prev: any) => {
       const next = typeof fn === 'function' ? fn(prev) : { ...prev, ...fn };
       const variations = syncMobileVariationsWithParent(next.variations, next, prev);
@@ -300,22 +354,23 @@ export const ProductFormScreen: React.FC<Props> = ({
 
   const jev = useMobileProductJevClassification(formData, setFormData, visible);
 
-  const handleRequestClose = useCallback(() => {
-    if (!dirtyRef.current) {
-      onClose();
-      return;
-    }
-    Alert.alert('Descartar alterações?', 'Existem alterações não salvas neste produto.', [
-      { text: 'Continuar editando', style: 'cancel' },
-      { text: 'Descartar', style: 'destructive', onPress: onClose },
-    ]);
-  }, [onClose]);
-
   // Preenche o formulário ao abrir (edição) ou limpa (criação)
   useEffect(() => {
     if (!visible) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = null;
+    autoSaveQueueRef.current?.clearQueued();
+    unconfirmedAutoSaveRef.current = null;
+    formRevisionRef.current = 0;
+    persistedRevisionRef.current = 0;
+    autoSavePausedRef.current = false;
+    setAutoSaveStatus('idle');
+    setAutoSaveError('');
     saveOperationIdRef.current = null;
+    saveRequestedAtRef.current = null;
     clientProductIdRef.current = product?.id ? null : createUuid();
+    serverProductIdRef.current = product?.id ? String(product.id) : null;
+    serverProductVersionRef.current = product?.updated_at || product?.updatedAt || null;
     clientProductCodeRef.current = null;
     dirtyRef.current = false;
     if (product) {
@@ -580,102 +635,412 @@ export const ProductFormScreen: React.FC<Props> = ({
     requireInboundCostPrice: showInboundCostPrice,
   }), formData);
 
-  const handleSubmit = useCallback(
-    async (isDraft: boolean) => {
-      const existingVariationCount = Array.isArray(product?.allVariations)
-        ? product.allVariations.length
-        : Array.isArray(product?.product_variations)
-          ? product.product_variations.length
-          : Array.isArray(product?.variations)
-            ? product.variations.length
-            : 0;
-      const formDataToValidate =
-        inboundVariationCostPrice !== undefined &&
-        Array.isArray(formData.variations) &&
-        formData.variations.length > existingVariationCount
-          ? {
-              ...formData,
-              variations: formData.variations.map((variation: any, index: number) =>
-                index === formData.variations.length - 1
-                  ? withOwnInboundVariationCost(variation, inboundVariationCostPrice)
-                  : variation
-              ),
-            }
-          : formData;
-      await (isDraft ? draftForm : finalForm).validateAndRun(
-        formDataToValidate,
-        async (validated) => {
-          const saveAsDraft = isDraft;
-          setSaving(true);
-          setNameError(false);
-          setCostPriceError(false);
-          setUnitPriceError(false);
-          setSupplierError(false);
-          try {
-            const productCode =
-              String(validated.code || clientProductCodeRef.current || '').trim() ||
-              (product?.id ? '' : await getNextSequentialProductCode());
-            clientProductCodeRef.current = productCode;
-            if (productCode && !validated.code) {
-              setFormDataRaw((prev: any) => ({ ...prev, code: productCode }));
-            }
-            const isSalvado = validated.productKind === 'salvado' || validated.condition === 'salvado';
-            const isUsado = validated.productKind === 'usado' || validated.condition === 'usado';
-            const saveState = prepareMobileProductSaveState(product, validated, saveAsDraft);
-            const operationId = saveOperationIdRef.current || createUuid();
-            saveOperationIdRef.current = operationId;
-
-            await onSave({
-              ...validated,
-              code: productCode,
-              operationId,
-              clientProductId: product?.id || clientProductIdRef.current,
-              productKind: isSalvado ? 'salvado' : isUsado ? 'usado' : 'normal',
-              condition: isSalvado ? 'salvado' : isUsado ? 'usado' : 'novo',
-              isDraft: saveState.isDraft,
-              active: saveState.active,
-              status: saveState.status,
-              hasVariations:
-                validated.itemType !== 'service' &&
-                (Boolean(validated.hasVariations) ||
-                  (Array.isArray(validated.variations) && validated.variations.length > 1)),
-              variations: saveState.variations,
-            });
-            dirtyRef.current = false;
-            onClose();
-          } catch (err: any) {
-            Alert.alert(
-              'Erro ao Salvar',
-              err?.message || 'Falha ao salvar o produto. Tente novamente.'
-            );
-          } finally {
-            setSaving(false);
-          }
-        },
-        (errors) => {
-          const messages = flattenFormErrors(errors);
-          const firstErrorPath = Object.keys(messages)[0] || '';
-          const fieldPath = isMobileProductNameError('name', messages)
-            ? 'name'
-            : firstErrorPath;
-          setNameError(fieldPath === 'name');
-          setCostPriceError(isMobileProductCostPriceError(firstErrorPath, messages));
-          setUnitPriceError(isMobileProductUnitPriceError(firstErrorPath, messages));
-          setSupplierError(isMobileProductSupplierError(firstErrorPath, messages));
-          const navigation = resolveMobileProductFormErrorNavigation(fieldPath);
-          if (navigation) setActiveTab(navigation.tab);
-          setVariationValidationTarget(
-            navigation?.variationIndex !== undefined ? navigation : null
-          );
-          setNcmError(navigation?.tab === 'fiscal');
-          Alert.alert(
-            'Confira os campos',
-            resolveMobileProductFormErrorMessage(fieldPath, messages, isDraft)
-          );
-        }
+  const canAutoSaveDraft = useCallback(
+    (snapshot: any) => {
+      const isNewProduct = !product?.id;
+      const isExistingDraft = Boolean(
+        snapshot.isDraft ||
+          product?.is_draft ||
+          product?.isDraft ||
+          product?.status === 'draft'
+      );
+      const enteredName = snapshot.name || snapshot.title || snapshot.marketplaceTitle;
+      return (
+        Boolean(onAutoSave) &&
+        enableDraftAutoSave &&
+        (isNewProduct || isExistingDraft) &&
+        hasRequiredProductName(enteredName)
       );
     },
-    [formData, draftForm, finalForm, onSave, onClose, product, inboundVariationCostPrice]
+    [enableDraftAutoSave, onAutoSave, product]
+  );
+
+  const getSaveOperation = useCallback(() => {
+    if (!saveOperationIdRef.current) {
+      saveOperationIdRef.current = createUuid();
+      saveRequestedAtRef.current = new Date().toISOString();
+    }
+    return {
+      operationId: saveOperationIdRef.current,
+      saveUpdatedAt: saveRequestedAtRef.current || new Date().toISOString(),
+    };
+  }, []);
+
+  const prepareSavePayload = useCallback(
+    async (validated: any, saveAsDraft: boolean) => {
+      const operation = getSaveOperation();
+      const productCode =
+        String(validated.code || clientProductCodeRef.current || '').trim() ||
+        (product?.id ? '' : await getNextSequentialProductCode());
+      clientProductCodeRef.current = productCode;
+      if (productCode && !validated.code) {
+        setFormDataRaw((previous: any) => ({ ...previous, code: productCode }));
+      }
+      const isSalvado = validated.productKind === 'salvado' || validated.condition === 'salvado';
+      const isUsado = validated.productKind === 'usado' || validated.condition === 'usado';
+      const saveState = prepareMobileProductSaveState(product, validated, saveAsDraft);
+      const savedProductId = serverProductIdRef.current;
+      const savedProductVersion = serverProductVersionRef.current;
+
+      return {
+        ...validated,
+        ...(savedProductId
+          ? {
+              id: savedProductId,
+              updated_at: savedProductVersion,
+              updatedAt: savedProductVersion,
+            }
+          : {}),
+        code: productCode,
+        ...operation,
+        clientProductId: savedProductId || product?.id || clientProductIdRef.current,
+        productKind: isSalvado ? 'salvado' : isUsado ? 'usado' : 'normal',
+        condition: isSalvado ? 'salvado' : isUsado ? 'usado' : 'novo',
+        isDraft: saveState.isDraft,
+        active: saveState.active,
+        status: saveState.status,
+        hasVariations:
+          validated.itemType !== 'service' &&
+          (Boolean(validated.hasVariations) ||
+            (Array.isArray(validated.variations) && validated.variations.length > 1)),
+        variations: saveState.variations,
+      };
+    },
+    [getSaveOperation, product]
+  );
+
+  const presentValidationErrors = useCallback((
+    errors: Parameters<typeof flattenFormErrors>[0],
+    isDraft: boolean,
+    showAlert: boolean
+  ) => {
+    const messages = flattenFormErrors(errors);
+    const firstErrorPath = Object.keys(messages)[0] || '';
+    const fieldPath = isMobileProductNameError('name', messages) ? 'name' : firstErrorPath;
+    setNameError(fieldPath === 'name');
+    setCategoryError(isMobileProductCategoryError('categoryIds', messages));
+    setCostPriceError(isMobileProductCostPriceError(firstErrorPath, messages));
+    setUnitPriceError(isMobileProductUnitPriceError(firstErrorPath, messages));
+    setSupplierError(isMobileProductSupplierError(firstErrorPath, messages));
+    const navigation = resolveMobileProductFormErrorNavigation(fieldPath);
+    if (navigation) setActiveTab(navigation.tab);
+    setVariationValidationTarget(
+      navigation?.variationIndex !== undefined ? navigation : null
+    );
+    setNcmError(navigation?.tab === 'fiscal');
+    const message = resolveMobileProductFormErrorMessage(fieldPath, messages, isDraft);
+    if (showAlert) Alert.alert('Confira os campos', message);
+    else setAutoSaveError(message);
+  }, []);
+
+  const runDraftAutoSave = useCallback(
+    async (entry: MobileProductDraftSaveEntry<any>): Promise<boolean> => {
+      setAutoSaveStatus('saving');
+      setAutoSaveError('');
+      const persistEntry = async (
+        saveEntry: MobileProductDraftSaveEntry<any>,
+        retryPayload?: any
+      ) => {
+        let attemptedPayload = retryPayload;
+        const result = await draftForm.enqueueAndRun(
+          {
+            ...saveEntry.snapshot,
+            isDraft: true,
+            active: false,
+            status: 'draft',
+          },
+          async (validated) => {
+            const savePayload = retryPayload || await prepareSavePayload(validated, true);
+            attemptedPayload = savePayload;
+            let response: MobileProductSaveAcknowledgement;
+            try {
+              response = await onAutoSave!(savePayload);
+              if (!isVersionedSaveAcknowledgement(response)) {
+                throw new Error('O salvamento não retornou uma versão confirmada do rascunho.');
+              }
+            } catch (error: any) {
+              if (
+                attemptedPayload &&
+                !isVersionedProductSaveRpcUnavailable(error) &&
+                !unconfirmedAutoSaveRef.current
+              ) {
+                unconfirmedAutoSaveRef.current = { entry: saveEntry, payload: attemptedPayload };
+              }
+              throw error;
+            }
+
+            clientProductIdRef.current = response.productId;
+            serverProductIdRef.current = response.productId;
+            serverProductVersionRef.current = response.updatedAt;
+            persistedRevisionRef.current = Math.max(
+              persistedRevisionRef.current,
+              saveEntry.revision
+            );
+            if (saveOperationIdRef.current === savePayload.operationId) {
+              saveOperationIdRef.current = null;
+              saveRequestedAtRef.current = null;
+            }
+            if (unconfirmedAutoSaveRef.current?.payload.operationId === savePayload.operationId) {
+              unconfirmedAutoSaveRef.current = null;
+            }
+            if (formRevisionRef.current <= saveEntry.revision) dirtyRef.current = false;
+            setFormDataRaw((previous: any) => ({
+              ...previous,
+              id: response.productId,
+              updated_at: response.updatedAt,
+              updatedAt: response.updatedAt,
+              isDraft: true,
+              active: false,
+              status: 'draft',
+            }));
+            return true;
+          },
+          (errors) => presentValidationErrors(errors, true, false)
+        );
+
+        return result !== false;
+      };
+
+      try {
+        const unresolved = unconfirmedAutoSaveRef.current;
+        if (unresolved) {
+          const recovered = await persistEntry(unresolved.entry, unresolved.payload);
+          if (!recovered) {
+            setAutoSaveStatus('error');
+            return false;
+          }
+          if (entry.revision <= unresolved.entry.revision) {
+            setAutoSaveStatus('saved');
+            return true;
+          }
+        }
+
+        if (!(await persistEntry(entry))) {
+          setAutoSaveStatus('error');
+          return false;
+        }
+        setAutoSaveStatus('saved');
+        return true;
+      } catch (error: any) {
+        setAutoSaveStatus('error');
+        setAutoSaveError(
+          error?.message || 'Não foi possível confirmar o salvamento automático do rascunho.'
+        );
+        return false;
+      }
+    },
+    [draftForm, onAutoSave, prepareSavePayload, presentValidationErrors]
+  );
+  autoSaveRunnerRef.current = runDraftAutoSave;
+  if (!autoSaveQueueRef.current) {
+    autoSaveQueueRef.current = createMobileProductDraftSaveQueue((entry) =>
+      autoSaveRunnerRef.current(entry)
+    );
+  }
+
+  useEffect(() => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = null;
+    if (
+      !visible ||
+      saving ||
+      autoSavePausedRef.current ||
+      formRevisionRef.current <= persistedRevisionRef.current ||
+      !canAutoSaveDraft(formData)
+    ) {
+      return;
+    }
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      autoSaveTimerRef.current = null;
+      const snapshot = formDataRef.current;
+      const revision = formRevisionRef.current;
+      if (
+        revision > persistedRevisionRef.current &&
+        canAutoSaveDraft(snapshot)
+      ) {
+        void autoSaveQueueRef.current
+          ?.enqueue({ snapshot, revision })
+          .catch((error: any) => {
+            setAutoSaveStatus('error');
+            setAutoSaveError(
+              error?.message || 'Não foi possível salvar o rascunho automaticamente.'
+            );
+          });
+      }
+    }, 500);
+
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    };
+  }, [formData, visible, saving, canAutoSaveDraft]);
+
+  const flushDraftAutoSave = useCallback(async () => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = null;
+
+    while (formRevisionRef.current > persistedRevisionRef.current) {
+      const snapshot = formDataRef.current;
+      const revision = formRevisionRef.current;
+      if (!canAutoSaveDraft(snapshot) || !autoSaveQueueRef.current) return false;
+      const saved = await autoSaveQueueRef.current.enqueue({ snapshot, revision });
+      if (!saved) return false;
+    }
+
+    return true;
+  }, [canAutoSaveDraft]);
+
+  const closeAfterDraftAutoSave = useCallback(async () => {
+    const saved = await flushDraftAutoSave();
+    if (saved && formRevisionRef.current <= persistedRevisionRef.current) {
+      dirtyRef.current = false;
+      onClose();
+      return;
+    }
+
+    Alert.alert(
+      'Rascunho não confirmado',
+      autoSaveError || 'Não foi possível confirmar o salvamento. Tente novamente ou descarte as alterações.',
+      [
+        { text: 'Continuar editando', style: 'cancel' },
+        { text: 'Tentar novamente', onPress: () => void closeAfterDraftAutoSave() },
+        { text: 'Descartar', style: 'destructive', onPress: onClose },
+      ]
+    );
+  }, [autoSaveError, flushDraftAutoSave, onClose]);
+
+  const handleRequestClose = useCallback(() => {
+    if (saving) return;
+    if (!dirtyRef.current) {
+      onClose();
+      return;
+    }
+    const snapshot = formDataRef.current;
+    if (
+      !product?.id &&
+      !serverProductIdRef.current &&
+      !unconfirmedAutoSaveRef.current &&
+      !hasRequiredProductName(snapshot.name || snapshot.title || snapshot.marketplaceTitle)
+    ) {
+      dirtyRef.current = false;
+      onClose();
+      return;
+    }
+    if (canAutoSaveDraft(snapshot)) {
+      void closeAfterDraftAutoSave();
+      return;
+    }
+    Alert.alert('Descartar alterações?', 'Existem alterações não salvas neste produto.', [
+      { text: 'Continuar editando', style: 'cancel' },
+      { text: 'Descartar', style: 'destructive', onPress: onClose },
+    ]);
+  }, [saving, product, canAutoSaveDraft, closeAfterDraftAutoSave, onClose]);
+
+  const handleSubmit = useCallback(
+    async (isDraft: boolean) => {
+      if (saving) return;
+      autoSavePausedRef.current = true;
+      setSaving(true);
+      try {
+        const currentFormData = formDataRef.current;
+        if (
+          canAutoSaveDraft(currentFormData) &&
+          formRevisionRef.current > persistedRevisionRef.current
+        ) {
+          const flushed = await flushDraftAutoSave();
+          if (!flushed) {
+            if (unconfirmedAutoSaveRef.current) {
+              Alert.alert(
+                'Rascunho ainda não confirmado',
+                'A resposta do servidor foi incerta. Tente confirmar o mesmo rascunho antes de enviar outra gravação, ou descarte as alterações.'
+              );
+              return;
+            }
+            // A RPC versionada ausente é uma falha definitiva sem gravação; nesse
+            // caso o botão manual ainda pode usar o contrato legado.
+            saveOperationIdRef.current = null;
+            saveRequestedAtRef.current = null;
+          }
+        }
+
+        if (
+          isDraft &&
+          canAutoSaveDraft(formDataRef.current) &&
+          serverProductIdRef.current &&
+          formRevisionRef.current <= persistedRevisionRef.current
+        ) {
+          dirtyRef.current = false;
+          onClose();
+          return;
+        }
+
+        const existingVariationCount = Array.isArray(product?.allVariations)
+          ? product.allVariations.length
+          : Array.isArray(product?.product_variations)
+            ? product.product_variations.length
+            : Array.isArray(product?.variations)
+              ? product.variations.length
+              : 0;
+        const currentData = formDataRef.current;
+        const formDataToValidate =
+          inboundVariationCostPrice !== undefined &&
+          Array.isArray(currentData.variations) &&
+          currentData.variations.length > existingVariationCount
+            ? {
+                ...currentData,
+                variations: currentData.variations.map((variation: any, index: number) =>
+                  index === currentData.variations.length - 1
+                    ? withOwnInboundVariationCost(variation, inboundVariationCostPrice)
+                    : variation
+                ),
+              }
+            : currentData;
+
+        setNameError(false);
+        setCategoryError(false);
+        setCostPriceError(false);
+        setUnitPriceError(false);
+        setSupplierError(false);
+        await (isDraft ? draftForm : finalForm).validateAndRun(
+          formDataToValidate,
+          async (validated) => {
+            const payload = await prepareSavePayload(validated, isDraft);
+            await onSave(payload);
+            saveOperationIdRef.current = null;
+            saveRequestedAtRef.current = null;
+            dirtyRef.current = false;
+            persistedRevisionRef.current = formRevisionRef.current;
+            setAutoSaveStatus(isDraft ? 'saved' : 'idle');
+            setAutoSaveError('');
+            onClose();
+          },
+          (errors) => presentValidationErrors(errors, isDraft, true)
+        );
+      } catch (error: any) {
+        Alert.alert(
+          'Erro ao Salvar',
+          error?.message || 'Falha ao salvar o produto. Tente novamente.'
+        );
+      } finally {
+        setSaving(false);
+        autoSavePausedRef.current = false;
+      }
+    },
+    [
+      saving,
+      canAutoSaveDraft,
+      flushDraftAutoSave,
+      autoSaveError,
+      onClose,
+      product,
+      inboundVariationCostPrice,
+      draftForm,
+      finalForm,
+      prepareSavePayload,
+      presentValidationErrors,
+      onSave,
+    ]
   );
 
   const touchStartX = useRef<number>(0);
@@ -748,6 +1113,8 @@ export const ProductFormScreen: React.FC<Props> = ({
             canManageCategories={canManageCategories}
             nameError={nameError}
             onNameValidationCleared={() => setNameError(false)}
+            categoryError={categoryError}
+            onCategoryValidationCleared={() => setCategoryError(false)}
             onFieldFocus={jev.onFieldFocus}
             onFieldBlur={jev.onFieldBlur}
           />
@@ -984,12 +1351,29 @@ export const ProductFormScreen: React.FC<Props> = ({
             {renderTab()}
           </ScrollView>
 
+          {autoSaveStatus !== 'idle' && (
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[
+                styles.autoSaveStatus,
+                autoSaveStatus === 'error' && styles.autoSaveStatusError,
+                dark && autoSaveStatus !== 'error' && styles.autoSaveStatusDark,
+              ]}
+            >
+              {autoSaveStatus === 'saving'
+                ? 'Salvando rascunho…'
+                : autoSaveStatus === 'saved'
+                  ? 'Rascunho salvo'
+                  : autoSaveError || 'Não foi possível salvar o rascunho.'}
+            </Text>
+          )}
+
           {/* ── Footer de Ações ── */}
           <View style={[styles.footer, dark && styles.darkFooter]}>
             {isDraftProduct && (
               <TouchableOpacity
                 onPress={() => handleSubmit(true)}
-                disabled={saving}
+                disabled={saving || autoSaveStatus === 'saving'}
                 style={[styles.draftBtn, dark && styles.darkBtn]}
               >
                 <Save size={15} color={dark ? '#94a3b8' : '#64748b'} />
@@ -999,7 +1383,7 @@ export const ProductFormScreen: React.FC<Props> = ({
 
             <TouchableOpacity
               onPress={handleRequestClose}
-              disabled={saving}
+              disabled={saving || autoSaveStatus === 'saving'}
               style={[styles.discardBtn, dark && styles.darkBtn]}
               accessibilityRole="button"
             >
@@ -1010,7 +1394,7 @@ export const ProductFormScreen: React.FC<Props> = ({
 
             <TouchableOpacity
               onPress={isLastStep ? () => handleSubmit(false) : handleNextStep}
-              disabled={saving}
+              disabled={saving || autoSaveStatus === 'saving'}
               style={[styles.saveBtn, isLastStep && styles.finalSaveBtn]}
               accessibilityRole="button"
             >
@@ -1145,6 +1529,16 @@ const styles = StyleSheet.create({
   bodyContent: { padding: 16, paddingBottom: 24 },
 
   // Footer
+  autoSaveStatus: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: '#f8fafc',
+    color: '#475569',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  autoSaveStatusDark: { backgroundColor: '#0f172a', color: '#94a3b8' },
+  autoSaveStatusError: { backgroundColor: '#fef2f2', color: '#b91c1c' },
   footer: {
     flexDirection: 'row',
     flexWrap: 'wrap',

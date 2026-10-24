@@ -13,6 +13,10 @@ import {
 import { getProductDiscountValidationIssues } from './productDiscountFields';
 import { productNameInputSchema } from './productNameRequirement';
 import {
+  hasRequiredProductCategory,
+  PRODUCT_CATEGORY_REQUIRED_MESSAGE,
+} from './productCategoryRequirement';
+import {
   hasRequiredProductSupplier,
   PRODUCT_SUPPLIER_REQUIRED_MESSAGE,
 } from './productSupplierRequirement';
@@ -210,7 +214,9 @@ export const createMobileProductFormSchema = (options: {
       if (missing.length) issue('variacoes', `Informe em cada variação: ${missing.join(', ')}.`);
     });
   }
-  if (data.itemType !== 'service' && !data.categoryIds?.length && !data.categoryId) issue('geral', 'Selecione a categoria do produto.');
+  if (data.itemType !== 'service' && !hasRequiredProductCategory(data.categoryIds, data.categoryId)) {
+    issue('categoryIds', PRODUCT_CATEGORY_REQUIRED_MESSAGE);
+  }
   const fiscal = data.fiscal as Record<string, unknown> | undefined;
   const isSalvaged = data.itemType !== 'service' && data.productKind === 'salvado';
   if (!options.isStockistOnly && isSalvaged && !data.opportunityId) {

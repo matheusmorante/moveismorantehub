@@ -1,5 +1,13 @@
-import React from 'react';
-import { type GestureResponderEvent, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  type GestureResponderEvent,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { MapPin, Clock, Play } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
@@ -19,6 +27,7 @@ interface Props {
   onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
   onOpenDeliveryFlow?: (item: DeliveryRouteItem) => void;
+  isPreparing?: boolean;
   handlingOptions?: AssemblyHandlingOption[];
   isDarkMode?: boolean;
 }
@@ -28,6 +37,7 @@ export const ScheduleCard: React.FC<Props> = ({
   onStartDelivery,
   onViewOrder,
   onOpenDeliveryFlow,
+  isPreparing = false,
   handlingOptions = [],
   isDarkMode = false,
 }) => {
@@ -78,19 +88,6 @@ export const ScheduleCard: React.FC<Props> = ({
   const isDeliveryActivity = item.activityType === 'delivery';
   const isCompleted = item.status === 'completed';
 
-  const statusBadgeConfig =
-    item.status === 'in_progress'
-      ? { label: 'EM ROTA', bg: '#fef3c7', color: '#b45309' }
-      : item.status === 'arrived'
-        ? { label: 'NO LOCAL', bg: '#cffafe', color: '#0e7490' }
-        : item.status === 'in_service'
-          ? { label: 'EM ATENDIMENTO', bg: '#dbeafe', color: '#1d4ed8' }
-          : item.status === 'completed'
-            ? { label: 'CONCLUÍDA', bg: '#dcfce7', color: '#15803d' }
-            : item.status === 'unattended'
-              ? { label: 'NÃO ENTREGUE', bg: '#fee2e2', color: '#b91c1c' }
-              : null;
-
   const handlePrimaryPress = (event: GestureResponderEvent) => {
     event.stopPropagation();
     if (isDeliveryActivity) {
@@ -102,16 +99,22 @@ export const ScheduleCard: React.FC<Props> = ({
   };
 
   const primaryActionConfig = isDeliveryActivity
-    ? {
-        label: 'ABRIR FLUXO DE ENTREGA',
-        accessibilityLabel: 'Abrir fluxo de entrega',
-        icon: <DeliveryFlowIcon size={17} color="#ffffff" />,
-      }
-    : {
-        label: 'ABRIR ATIVIDADE',
-        accessibilityLabel: 'Abrir atividade',
-        icon: <Play size={14} color="#ffffff" fill="#ffffff" />,
-      };
+    ? item.status === 'in_service'
+      ? { label: 'Em atendimento', backgroundColor: '#7e22ce', animated: true }
+      : item.status === 'in_progress'
+        ? { label: 'Em rota', backgroundColor: '#1e3a8a', animated: true }
+        : item.status === 'arrived'
+          ? null
+          : item.status === 'unattended'
+            ? { label: 'Não entregue', backgroundColor: '#b91c1c', animated: false }
+            : isPreparing
+              ? { label: 'Em preparação', backgroundColor: '#2563eb', animated: true }
+              : {
+                  label: 'Iniciar fluxo de entrega - preparação',
+                  backgroundColor: '#2563eb',
+                  animated: false,
+                }
+    : { label: 'Abrir atividade', backgroundColor: '#2563eb', animated: false };
 
   const scheduleRes = resolveEffectiveSchedule(item.order);
   const effectiveOption = scheduleRes.effective;
@@ -134,7 +137,7 @@ export const ScheduleCard: React.FC<Props> = ({
           activityLabel={item.activityLabel}
           activityColor={item.activityColor}
           activityBackgroundColor={item.activityBackgroundColor}
-          statusBadgeConfig={statusBadgeConfig}
+          statusBadgeConfig={null}
           hasDepotAssembly={hasDepotAssembly}
           hasOutsideAssembly={hasOutsideAssembly}
           hasWallInstallation={serviceSummary.hasWallInstallation}
@@ -193,22 +196,103 @@ export const ScheduleCard: React.FC<Props> = ({
         </Text>
       </View>
 
-      {!isCompleted && (
+      {!isCompleted && primaryActionConfig && (
         <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.startBtn}
+          <ProcessActionButton
+            label={primaryActionConfig.label}
+            backgroundColor={primaryActionConfig.backgroundColor}
+            animated={primaryActionConfig.animated}
+            isDarkMode={isDarkMode}
             onPress={handlePrimaryPress}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel={primaryActionConfig.accessibilityLabel}
-          >
-            {primaryActionConfig.icon}
-            <Text style={styles.actionBtnText} numberOfLines={1}>
-              {primaryActionConfig.label}
-            </Text>
-          </TouchableOpacity>
+            icon={
+              isDeliveryActivity ? (
+                <DeliveryFlowIcon size={17} color="#ffffff" />
+              ) : (
+                <Play size={14} color="#ffffff" fill="#ffffff" />
+              )
+            }
+          />
         </View>
       )}
+    </TouchableOpacity>
+  );
+};
+
+interface ProcessActionButtonProps {
+  label: string;
+  backgroundColor: string;
+  animated: boolean;
+  isDarkMode: boolean;
+  onPress: (event: GestureResponderEvent) => void;
+  icon: React.ReactNode;
+}
+
+const ProcessActionButton: React.FC<ProcessActionButtonProps> = ({
+  label,
+  backgroundColor,
+  animated,
+  isDarkMode,
+  onPress,
+  icon,
+}) => {
+  const progress = useRef(new Animated.Value(0)).current;
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    if (!animated || !width) {
+      progress.stopAnimation();
+      progress.setValue(0);
+      return;
+    }
+
+    const stripeLoop = Animated.loop(
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: 1400,
+        useNativeDriver: true,
+        isInteraction: false,
+      })
+    );
+    stripeLoop.start();
+    return () => stripeLoop.stop();
+  }, [animated, progress, width]);
+
+  const onLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);
+  const translateX = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-72, width + 72],
+  });
+
+  return (
+    <TouchableOpacity
+      style={[styles.startBtn, { backgroundColor }]}
+      onPress={onPress}
+      activeOpacity={0.88}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <View style={styles.actionButtonContent} onLayout={onLayout}>
+        {animated && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.actionStripe,
+              { transform: [{ translateX }, { rotate: '18deg' }] },
+            ]}
+          />
+        )}
+        <View style={styles.actionButtonForeground}>
+          {icon}
+          <Text
+            style={[styles.actionBtnText, isDarkMode && styles.actionBtnTextDark]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}
+          >
+            {label}
+          </Text>
+        </View>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -317,22 +401,45 @@ const styles = StyleSheet.create({
   },
   startBtn: {
     width: '100%',
+    minHeight: 44,
+    borderRadius: 12,
+    elevation: 1,
+    overflow: 'hidden',
+  },
+  actionButtonContent: {
+    minHeight: 44,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    overflow: 'hidden',
+  },
+  actionButtonForeground: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minHeight: 40,
-    borderRadius: 12,
-    elevation: 1,
+    gap: 7,
+    zIndex: 1,
+  },
+  actionStripe: {
+    position: 'absolute',
+    top: -12,
+    bottom: -12,
+    width: 38,
+    backgroundColor: '#ffffff',
+    opacity: 0.24,
   },
   actionBtnText: {
     fontSize: 11,
     fontWeight: '900',
     color: '#ffffff',
     letterSpacing: 0.3,
+  },
+  actionBtnTextDark: {
+    textShadowColor: 'rgba(15, 23, 42, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   textLight: {
     color: '#f8fafc',

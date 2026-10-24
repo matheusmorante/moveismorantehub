@@ -32,6 +32,7 @@ import { useProductFormSubmit } from './useProductFormSubmit';
 import { useProductFormSync } from './useProductFormSync';
 import { useProductFormVariations } from './useProductFormVariations';
 import { replaceProductImageGlobally } from '../../components/tabs/images/productImageOrdering';
+import { inheritSimpleProductVariationFromParent } from '../../../../../../../shared-utils/simpleProductVariationInheritance';
 
 export interface UseProductFormModalProps {
   readonly isOpen: boolean;
@@ -533,7 +534,12 @@ export function useProductFormModal({
             (variation) => variation.id !== variationId
           );
           const variations = remainingVariations.length === 1
-            ? [{ ...remainingVariations[0], images: [...(previous.images || [])] }]
+            ? [
+                inheritSimpleProductVariationFromParent(previous, remainingVariations[0], {
+                  preserveVariationStock: true,
+                  preserveVariationAttributes: true,
+                }),
+              ]
             : remainingVariations;
 
           return {

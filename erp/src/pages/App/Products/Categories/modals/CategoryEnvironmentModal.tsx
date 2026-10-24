@@ -11,9 +11,13 @@ import { SecureDeleteButton } from '../components/SecureDeleteButton';
 import AttributeAutocomplete from '@/components/AttributeAutocomplete';
 import type { CategoryAttributeSelection } from '@/pages/utils/categoryService';
 import {
-  isRequiredCharacteristicName,
-  isWeightCharacteristicName,
-} from '@/pages/utils/technicalValuesService';
+  getDefaultCategoryAttributeIsRequired,
+  isCategoryAttributeAlwaysOptional,
+  isCategoryAttributeAlwaysRequired,
+  isCategoryAttributeRequirementLocked,
+  resolveCategoryAttributeIsRequired,
+  setCategoryAttributeRequirement,
+} from '../../../../../../../shared-utils/categoryAttributeSelection';
 
 interface CategoryEnvironmentModalProps {
   readonly showModal: ModalType | null;
@@ -61,9 +65,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
   if (!showModal) return null;
 
   const isEnv = showModal === 'ambiente';
-  const isAttributeRequired = (attribute: CategoryAttributeSelection) =>
-    !isWeightCharacteristicName(attribute.name) &&
-    (attribute.isRequired || isRequiredCharacteristicName(attribute.name));
+  const isAttributeRequired = resolveCategoryAttributeIsRequired;
   const title = editingNode
     ? `Editar ${isEnv ? 'Ambiente' : 'Categoria'}`
     : `Novo ${isEnv ? 'Ambiente' : 'Categoria'}`;
@@ -186,7 +188,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                     }
                     return [
                       ...prev,
-                      { ...attr, isRequired: isRequiredCharacteristicName(attr.name) },
+                      { ...attr, isRequired: getDefaultCategoryAttributeIsRequired(attr.name) },
                     ];
                   });
                 }}
@@ -207,9 +209,9 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                         aria-checked={isAttributeRequired(attr)}
                         aria-label={`Característica ${attr.name} obrigatória`}
                         title={
-                          isWeightCharacteristicName(attr.name)
+                          isCategoryAttributeAlwaysOptional(attr.name)
                             ? 'Peso é sempre opcional'
-                            : isRequiredCharacteristicName(attr.name)
+                            : isCategoryAttributeAlwaysRequired(attr.name)
                               ? `${attr.name} é obrigatória em todas as categorias`
                               : attr.isRequired
                                 ? 'Obrigatória — clique para tornar opcional'
@@ -217,22 +219,12 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                         }
                         onClick={() =>
                           setSelectedAttributes((prev) =>
-                            prev.map((item) =>
-                              item.id === attr.id
-                                ? {
-                                    ...item,
-                                    isRequired: isWeightCharacteristicName(item.name)
-                                      ? false
-                                      : !item.isRequired,
-                                  }
-                                : item
-                            )
+                            setCategoryAttributeRequirement(prev, attr.id, !attr.isRequired)
                           )
                         }
                         disabled={
                           isSubmitting ||
-                          isRequiredCharacteristicName(attr.name) ||
-                          isWeightCharacteristicName(attr.name)
+                          isCategoryAttributeRequirementLocked(attr.name)
                         }
                         className={`relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors ${
                           isAttributeRequired(attr)

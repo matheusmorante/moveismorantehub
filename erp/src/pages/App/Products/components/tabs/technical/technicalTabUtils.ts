@@ -68,7 +68,6 @@ export interface TechnicalFieldItemState {
   isNotApplicable: boolean;
   isAlwaysApplicable: boolean;
   isApplicable: boolean;
-  isRequiredField: boolean;
   isFieldInvalid: boolean;
   isColorField: boolean;
   isDepthOrLengthField: boolean;
@@ -164,10 +163,9 @@ export const computeTechnicalFieldItemState = (
     isInvalidQty = qty === null || qty <= 0;
   }
 
-  const isRequiredField = Boolean(field.isRequired || isDoorQtyReq || isDrawerQtyReq || isFeetQtyReq);
   const isFieldInvalid = Boolean(
     !isFieldDisabled &&
-      ((isRequiredField && !hasSelectedValue) || isInvalidQty) &&
+      isInvalidQty &&
       validationErrors?.technicalValues
   );
   const isColorField = norm === 'cor';
@@ -181,7 +179,6 @@ export const computeTechnicalFieldItemState = (
     isNotApplicable,
     isAlwaysApplicable,
     isApplicable,
-    isRequiredField,
     isFieldInvalid,
     isColorField,
     isDepthOrLengthField,

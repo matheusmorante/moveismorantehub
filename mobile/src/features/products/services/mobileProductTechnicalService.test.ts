@@ -68,7 +68,7 @@ describe('mobileProductTechnicalService', () => {
     const categoryLinksQuery = {
       select: vi.fn().mockReturnValue({
         limit: vi.fn().mockResolvedValue({
-          data: [{ attribute_id: 'attr-1', category_id: 'cat-sofas' }],
+          data: [{ attribute_id: 'attr-1', category_id: 'cat-sofas', is_required: true }],
           error: null,
         }),
       }),
@@ -85,6 +85,11 @@ describe('mobileProductTechnicalService', () => {
 
     // Reclinável deve ser completamente removido
     expect(fields.map((f) => f.name)).toEqual(['Nível de firmeza do estofamento']);
+    expect(fields[0]).toMatchObject({
+      isRequired: false,
+      isRequiredForProduct: false,
+      requiredCategoryIds: ['cat-sofas'],
+    });
 
     // Nível de firmeza deve ser ordenado por macio, médio, firme
     expect(fields[0].options.map((o) => o.value)).toEqual(['Macio', 'Médio', 'Firme']);
@@ -138,5 +143,32 @@ describe('mobileProductTechnicalService', () => {
     const fields = await fetchMobileProductTechnicalFields();
 
     expect(fields[0].options.map((o) => o.value)).toEqual(['Preto', 'Azul', 'Branco']);
+  });
+
+  it('falha ao verificar requisitos do catálogo quando a consulta de vínculos de categoria falha', async () => {
+    const attributesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    const valuesQuery = {
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }),
+    };
+    const categoryLinksQuery = {
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: null, error: { message: 'offline' } }),
+      }),
+    };
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return attributesQuery;
+      if (table === 'attribute_values') return valuesQuery;
+      if (table === 'category_attributes') return categoryLinksQuery;
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    await expect(fetchMobileProductTechnicalFields({ requireCategoryLinks: true })).rejects.toMatchObject({
+      message: 'offline',
+    });
   });
 });

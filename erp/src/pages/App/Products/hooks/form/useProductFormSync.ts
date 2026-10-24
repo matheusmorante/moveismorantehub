@@ -161,8 +161,8 @@ export function useProductFormSync({ formData, setFormData, isExistingProduct = 
     }
   }, [formData.variations, formData.hasVariations, formData.stock, setFormData]);
 
-  // A variação simples criada no formulário herda os campos do pai. Produtos já salvos
-  // preservam os valores atuais da variação para evitar alterações implícitas no estoque.
+  // Uma variação simples nova herda os campos do pai. Em produtos existentes, a remoção
+  // de uma variação aplica a mesma herança explicitamente e preserva saldo/atributos.
   useEffect(() => {
     const variation = formData.variations?.[0];
     if (isExistingProduct || formData.hasVariations || formData.variations?.length !== 1 || !variation) return;

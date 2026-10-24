@@ -8,8 +8,16 @@ import {
   ReconciliationBatchSelectionItem,
 } from './productReconciliationTypes';
 import { detectProductPendencies, calculateReconciliationSummary } from './productReconciliation';
+import {
+  createProductVariationSearchTooBroadError,
+  PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
+} from './productListSearch';
 
-const applyProductReconciliationSqlFilters = (query: any, filters: ReconciliationFilterState) => {
+const applyProductReconciliationSqlFilters = (
+  query: any,
+  filters: ReconciliationFilterState,
+  variationSkuParentIds: readonly string[] = []
+) => {
   query = query.eq('item_type', 'product').eq('is_variation', false).eq('deleted', false);
   if (filters.supplierId) {
     query = query.or(
@@ -21,12 +29,35 @@ const applyProductReconciliationSqlFilters = (query: any, filters: Reconciliatio
     const safe = filters.search.replace(/"/g, '').trim();
     if (safe) {
       const search = `%${safe}%`;
-      query = query.or(`name.ilike."${search}",code.ilike."${search}"`);
+      const searchConditions = [`name.ilike."${search}"`, `code.ilike."${search}"`];
+      if (variationSkuParentIds.length > 0) {
+        searchConditions.push(`id.in.(${variationSkuParentIds.join(',')})`);
+      }
+      query = query.or(searchConditions.join(','));
     }
   }
   if (filters.pendencyType === 'supplier') query = query.is('main_supplier_id', null).is('supplier_id', null);
   else if (filters.pendencyType === 'category') query = query.is('category_id', null);
   return query.order('name', { ascending: true });
+};
+
+const fetchVariationSkuParentIds = async (client: any, search?: string): Promise<string[]> => {
+  const safeSearch = search?.replace(/"/g, '').trim();
+  if (!safeSearch) return [];
+
+  const { data, error } = await client
+    .from('product_variations')
+    .select('product_id')
+    .ilike('sku', `%${safeSearch}%`)
+    .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1);
+
+  if (error) throw error;
+  if (!Array.isArray(data)) return [];
+  if (data.length > PRODUCT_VARIATION_SEARCH_MATCH_LIMIT) {
+    throw createProductVariationSearchTooBroadError();
+  }
+
+  return Array.from(new Set(data.map((variation: any) => variation?.product_id).filter(Boolean)));
 };
 
 const matchesProductReconciliationFilters = (
@@ -101,6 +132,7 @@ export async function fetchProductsForReconciliationWithClient(
   const values = reconciliationQueryFormSchema.parse({ page, pageSize, filters });
   page = values.page; pageSize = values.pageSize; filters = values.filters;
   const requiredCategoryAttrs = await fetchRequiredCategoryAttributesWithClient(client, isWeightCharacteristicName);
+  const variationSkuParentIds = await fetchVariationSkuParentIds(client, filters.search);
 
   let query = client.from('products').select(
     `
@@ -133,7 +165,7 @@ export async function fetchProductsForReconciliationWithClient(
     { count: 'exact' }
   );
 
-  query = applyProductReconciliationSqlFilters(query, filters);
+  query = applyProductReconciliationSqlFilters(query, filters, variationSkuParentIds);
 
   // Se houver filtro específico de fornecedor/categoria que o banco já filtra 100%,
   // podemos usar a paginação direta no banco.
@@ -254,6 +286,7 @@ export async function fetchProductReconciliationSelectionWithClient(
   const values = reconciliationQueryFormSchema.parse({ page: 1, pageSize: 15, filters });
   const selectedFilters = values.filters;
   const requiredCategoryAttrs = await fetchRequiredCategoryAttributesWithClient(client, isWeightCharacteristicName);
+  const variationSkuParentIds = await fetchVariationSkuParentIds(client, selectedFilters.search);
   const chunkSize = 500;
   const selectedProducts: ReconciliationBatchSelectionItem[] = [];
   const select = `
@@ -272,7 +305,8 @@ export async function fetchProductReconciliationSelectionWithClient(
   for (let offset = 0; ; offset += chunkSize) {
     const query = applyProductReconciliationSqlFilters(
       client.from('products').select(select, { count: 'exact' }),
-      selectedFilters
+      selectedFilters,
+      variationSkuParentIds
     );
     const { data, error } = await query
       .order('id', { ascending: true })

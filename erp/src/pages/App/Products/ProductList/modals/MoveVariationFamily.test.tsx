@@ -7,7 +7,11 @@ import { moveVariationToFamily } from '@/pages/utils/productService/productVaria
 import { fetchVariationFamilies, fetchVariationFamilyConflict } from '@/pages/utils/productService/productVariationFamilyQueries';
 import { ensureAttributeValue } from '@/pages/utils/variationService';
 import { toast } from 'react-toastify';
-import { toFamilyAttributes, sameFamilyAttributes } from '../../../../../../../shared-utils/variationFamilyFormSchemas';
+import {
+  canAddVariationFamilyAttribute,
+  toFamilyAttributes,
+  sameFamilyAttributes,
+} from '../../../../../../../shared-utils/variationFamilyFormSchemas';
 import { variationFamilyFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import { useMoveVariationFamily } from './MoveVariationFamily/useMoveVariationFamily';
 
@@ -115,6 +119,18 @@ describe('mudança de família com modal, filhos, RHF e serviços reais', () => 
     expect(screen.getByRole('alert').textContent).toContain('valor do atributo'); expect(transport.rpc).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Valor do atributo 1'), { target: { value: 'Azul' } }); await advance(150); await advance(5000);
     finalRow.attributes = [{ name: 'Cor', value: 'Azul' }]; confirm(); await advance(); expect(transport.rpc).toHaveBeenCalledOnce();
+  });
+  it('só permite acrescentar um atributo quando a variação ainda não possui nenhum', async () => {
+    expect(canAddVariationFamilyAttribute([])).toBe(true);
+    expect(canAddVariationFamilyAttribute([{ name: 'Cor', value: 'Azul' }])).toBe(false);
+
+    await open();
+    expect(screen.queryByRole('button', { name: 'Adicionar atributo' })).toBeNull();
+    expect(screen.getByLabelText('Nome do atributo 1')).toBeTruthy();
+
+    cleanup();
+    await open({ ...source, attributes: [] });
+    expect(screen.getByRole('button', { name: 'Adicionar atributo' })).toBeTruthy();
   });
   it('bloqueia cliques duplicados, cabeçalho, Cancelar e Escape enquanto aguarda a RPC', async () => {
     const s = await ready(), request = deferred<Response>(); transport.rpc.mockReturnValue(request.promise);

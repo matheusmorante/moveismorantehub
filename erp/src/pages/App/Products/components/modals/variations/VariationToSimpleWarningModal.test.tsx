@@ -43,12 +43,14 @@ describe("VariationToSimpleWarningModal", () => {
 
 		// Aviso de produto simples e reversão em Informações Básicas
 		expect(screen.getByText(/Conversão para Produto Simples:/)).not.toBeNull();
+		expect(screen.getByText(/herdar nome, preços, descrição e dimensões/)).not.toBeNull();
+		expect(screen.getByText(/UUID\/SKU, atributos e saldo/)).not.toBeNull();
 		expect(screen.getByText(/Informações Básicas/)).not.toBeNull();
 		expect(screen.getByText(/"Com variações"/)).not.toBeNull();
 
 		// Aviso de fotos do produto pai e persistência na Galeria
 		expect(screen.getByText(/Fotos e Galeria do Produto:/)).not.toBeNull();
-		expect(screen.getByText(/produto pai/)).not.toBeNull();
+		expect(screen.getAllByText(/produto pai/)).toHaveLength(2);
 		expect(
 			screen.getByText(/não serão excluídas da aba Galeria/),
 		).not.toBeNull();

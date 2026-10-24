@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
+import { inheritSimpleProductVariationFromParent } from '../../../../../../../shared-utils/simpleProductVariationInheritance';
 import { toast } from 'react-toastify';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 import { resolveVariableTechnicalFieldNames } from '@/pages/utils/technicalValuesService';
@@ -27,45 +28,8 @@ export function useProductFormVariations(
   const pendingNewVariationIdRef = useRef<string | null>(null);
 
   const inheritSimpleVariation = useCallback(
-    (product: Partial<Product>, variation: Variation): Variation => ({
-      ...variation,
-      name: product.name || product.title || product.description || '',
-      title: product.title || product.name || '',
-      marketplaceTitle: product.marketplaceTitle || product.title || product.name || '',
-      stock: Number(product.stock || 0),
-      unitPrice: Number(product.unitPrice || 0),
-      promoPrice: Number(product.promoPrice || 0),
-      costPrice: Number(product.costPrice || 0),
-      condition: product.condition || 'novo',
-      description: product.description || '',
-      fiscal: product.fiscal ? { ...product.fiscal } : undefined,
-      width: Number(product.width || 0),
-      height: Number(product.height || 0),
-      depth: Number(product.depth || 0),
-      weight: Number(product.weight || 0),
-      ipiPercent: Number(product.ipiPercent || 0),
-      ipiType: product.ipiType || 'percentage',
-      freightCost: Number(product.freightCost || 0),
-      freightType: product.freightType || 'fixed',
-      finalPurchasePrice: Number(product.finalPurchasePrice || 0),
-      minStock: Number(product.minStock || 0),
-      attributes: [],
-      images: [...(product.images || [])],
-      syncUnitPrice: true,
-      syncPromoPrice: true,
-      syncCostPrice: true,
-      syncCondition: true,
-      syncDescription: true,
-      syncFiscal: true,
-      syncWithParent: true,
-      syncDimensions: true,
-      syncWidth: true,
-      syncHeight: true,
-      syncDepth: true,
-      syncWeight: true,
-      syncIpi: true,
-      syncFreight: true,
-    }),
+    (product: Partial<Product>, variation: Variation): Variation =>
+      inheritSimpleProductVariationFromParent(product, variation),
     []
   );
 
@@ -126,12 +90,20 @@ export function useProductFormVariations(
       setFormData((prev: Partial<Product>) => {
         const filtered = prev.variations?.filter((v) => v.id !== id);
         const remainsSimple = (filtered?.length || 0) === 1;
+        const remainingVariation = filtered?.[0];
+        const variations = remainsSimple && remainingVariation
+          ? [
+              isExistingProduct
+                ? inheritSimpleProductVariationFromParent(prev, remainingVariation, {
+                    preserveVariationStock: true,
+                    preserveVariationAttributes: true,
+                  })
+                : inheritSimpleVariation(prev, remainingVariation),
+            ]
+          : filtered;
         return {
           ...prev,
-          variations:
-            remainsSimple && !isExistingProduct && filtered?.[0]
-              ? [inheritSimpleVariation(prev, filtered[0])]
-              : filtered,
+          variations,
           hasVariations: (filtered?.length || 0) > 1,
         };
       });

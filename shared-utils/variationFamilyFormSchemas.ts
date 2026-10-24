@@ -10,6 +10,8 @@ export const variationFamilyCommandSchema = variationFamilyConflictSchema.safeEx
 export const variationFamilyAckSchema = z.object({ newSku: z.string().trim().min(1), sourceParentRemoved: z.boolean() });
 export const variationFamilyAttributeSchema = z.object({ name: z.string().trim().min(1), value: z.string().trim().min(1) });
 export interface FamilyAttribute { name: string; value: string; showName?: boolean; [key: string]: unknown }
+export const canAddVariationFamilyAttribute = (attributes: readonly FamilyAttribute[]): boolean =>
+  attributes.length === 0;
 export const normalizeFamilyValue = (value: unknown): string => String(value ?? '').trim().toLocaleLowerCase('pt-BR');
 export const toFamilyAttributes = (value: unknown): FamilyAttribute[] => {
   if (Array.isArray(value)) return value.filter((entry) => entry && typeof entry === 'object').map((entry) => ({

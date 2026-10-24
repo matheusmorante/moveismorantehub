@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import { WhatsAppMessage } from '../../types';
 import { MessageBubble } from '../MessageBubble';
 import { useCustomerSupportMessageSearch } from '../../hooks/useCustomerSupportMessageSearch';
@@ -91,7 +91,7 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   const isLoadingTimeline = isSearching ? search.isLoading && search.messages.length === 0 : isLoadingMessages;
 
   // Mantém a posição ao anexar mensagens antigas; novas mensagens seguem para o final.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const conversationChanged = previousConversationIdRef.current !== conversationId;
     const latestId = timelineMessages[timelineMessages.length - 1]?.id || null;
     const latestChanged = previousLastMessageIdRef.current !== latestId;

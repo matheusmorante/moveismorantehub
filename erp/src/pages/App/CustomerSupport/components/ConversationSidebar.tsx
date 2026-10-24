@@ -90,7 +90,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
 
   return (
     <div className="w-full min-w-0 border-r border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex flex-col h-full shrink-0 select-none transition-colors">
-      {/* 1. Header Row 1: Escopo Dropdown "(Q) All ▾" + Ações (SLA/Configurações + Busca) */}
+      {/* 1. Header Row 1: escopo, política, busca e atualização */}
       <div className="h-14 px-3.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900">
         <ConversationScopeMenu
           filter={filter}
@@ -135,7 +135,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         </div>
       </div>
 
-      {/* 2. Header Row 2: Sort "Newest ▾" e Botão "+ Add Filter" */}
+      {/* 2. Header Row 2: ordenação e filtros avançados */}
       <div className="px-3.5 py-2 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white/70 dark:bg-slate-900/70">
         <ConversationSortMenu
           sortOrder={sortOrder}

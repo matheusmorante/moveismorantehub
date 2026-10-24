@@ -12,6 +12,10 @@ import {
   hasRequiredProductName,
   PRODUCT_NAME_REQUIRED_MESSAGE,
 } from './productNameRequirement';
+import {
+  hasRequiredProductCategory,
+  PRODUCT_CATEGORY_REQUIRED_MESSAGE,
+} from './productCategoryRequirement';
 
 const productNumericFields = productVariationDraftSchema.pick({
   unitPrice: true, promoPrice: true, costPrice: true, freightCost: true, ipiPercent: true,
@@ -153,10 +157,10 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
         });
       }
 
-      if (!data.categoryIds || data.categoryIds.length === 0) {
+      if (!hasRequiredProductCategory(data.categoryIds)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Selecione pelo menos uma categoria.',
+          message: PRODUCT_CATEGORY_REQUIRED_MESSAGE,
           path: ['categoryIds'],
         });
       }

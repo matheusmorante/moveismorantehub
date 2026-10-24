@@ -1,5 +1,51 @@
 # Histórico de correções fiscais — 24/10/2026
 
+## Retentativa automática do XML completo após Ciência aceita
+
+### Problema e sintomas
+
+Depois que a Ciência 210210 era registrada, o sistema consultava a chave uma vez. Quando a SEFAZ devolvia somente `resNFe` ou nenhum documento, a nota permanecia sem itens e aquela chave deixava de ser consultada automaticamente. Além disso, a configuração que desativa o envio automático de novas Ciências também encerrava a fila de XML para notas que já tinham uma Ciência registrada.
+
+### Causa raiz comprovada
+
+`selectPendingInboundXmlConsults` excluía para sempre qualquer chave com uma linha em `sefaz_inbound_xml_consult_attempts`, sem distinguir uma tentativa que retornou resumo de um XML completo salvo. Além disso, a API respondia `hasMore: false` e sem `retryAfter` após a tentativa incompleta; o temporizador da interface encerrava a fila. O handler também retornava antes de consultar a fila de XML quando `autoInboundScienceEnabled` estava desligado, embora essa configuração devesse controlar somente novos eventos 210210.
+
+### Solução e arquivos alterados
+
+- `api/nfe/inboundXmlConsultQueue.ts:12–85` — mantém elegíveis apenas notas ainda em `resNFe` com Ciência registrada; tenta chaves novas primeiro e torna a última tentativa elegível novamente após 15 minutos; calcula o próximo horário mesmo quando a tentativa ainda não venceu.
+- `api/nfe/inbound-manifestation.ts:39–169` — depois de `consChNFe`, confirma se o XML completo foi realmente salvo antes de registrar `full_received`; respostas ainda incompletas ficam pendentes e programam nova tentativa em 15 minutos. Quando nenhuma consulta está vencida, devolve o próximo `retryAfter` para a interface manter o temporizador ativo após reabrir a tela.
+- `api/nfe/inbound-manifestation.ts:452–455,457–584` — deixa a busca do XML de notas já manifestadas funcionar mesmo com o envio automático de novas Ciências desligado; carrega o horário da última tentativa, prioriza consultas vencidas e informa o próximo vencimento da fila.
+- `docs/fiscal/README.md:9,35` e este registro — atualizam a referência vigente e identificam o comportamento da primeira versão como histórico.
+- `docs/estoque/guia-pratico/gerar_guia.py:358–364`, `docs/estoque/guia-pratico/README.md:40` e os dois PDFs do guia — mantêm as instruções para o operador alinhadas ao funcionamento do ERP.
+
+As consultas continuam limitadas pela reserva já existente de uma consulta direta por CNPJ a cada cinco minutos. O sistema não envia Confirmação da Operação automaticamente para tentar obter o XML. A fila depende da tela de NF de entrada aberta no ERP ou no app.
+
+### Validação e limites
+
+Revisão estática do fluxo, `git diff --check` nos arquivos desta correção e build fiscal local para validar o bundle do backend. Não foram executados testes automatizados, não houve chamada de consulta à SEFAZ nem transmissão de evento fiscal e nenhum dado/migration do Supabase operacional foi alterado. A correção está no checkout local; não foi publicada em produção.
+
+## NF de saída integrada ao menu Vendas e remoção do atalho de relatório CSV
+
+### Problema e sintomas
+
+O menu Vendas ainda separava a NF de saída sob o cabeçalho “Fiscal”, e o relatório CSV permanecia disponível nos menus desktop e mobile.
+
+### Causa raiz
+
+`SalesNavMenu` mantinha um grupo “Fiscal” para a NF de saída e uma seção de relatórios; o `MobileNav` repetia o cabeçalho “FISCAL” e oferecia “Relatório CSV” como link.
+
+### Solução e arquivos alterados
+
+- `erp/src/components/layout/DesktopNav.tsx:71` — atualiza a descrição interna do menu Vendas.
+- `erp/src/components/layout/nav/menus/SalesNavMenu.tsx:14–86` — remove o cabeçalho Fiscal e o atalho “Relatório de vendas / Exportação CSV”; mantém a NF de saída no menu Vendas e preserva a permissão fiscal existente.
+- `erp/src/components/layout/MobileNav.tsx:181–202,336–343,398–404,546–557` — remove o cabeçalho FISCAL e o link “Relatório CSV”; mantém “NF de saída” em Vendas e preserva o controle de acesso por rota. A categoria Vendas deixa de aparecer para perfis com apenas a permissão do relatório removido.
+- `erp/src/components/layout/hooks/useDesktopNavPermissions.ts:39–48,112–121` — deixa de contar a permissão do relatório removido como acesso ao menu Vendas.
+- `docs/fiscal/README.md:9` — adiciona esta correção às referências atuais; este registro está em `docs/fiscal/historico-correcoes-2026-10-24.md:3–23`.
+
+### Validação e limites
+
+Inspeção estática confirmou que a NF de saída continua vinculada à rota `/fiscal-documents`, protegida por `viewFiscal`, e que os menus desktop/mobile não oferecem mais o atalho do relatório CSV. `git diff --check` passou. Nenhum teste automatizado foi executado nesta alteração. A rota e a funcionalidade do relatório continuam existentes para acesso direto; somente os atalhos nos menus foram removidos. Nenhum dado fiscal, XML, banco ou comunicação com a SEFAZ foi alterado.
+
 ## Cadastro rápido de produtos na NF-e de entrada
 
 ### Problema e sintomas

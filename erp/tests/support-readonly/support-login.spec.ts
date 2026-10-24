@@ -68,7 +68,6 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   let failAgentReads = false;
   let rejectedAgentReads = 0;
   let agentDirectoryReads = 0;
-  let directoryReadsAfterRetry = 0;
   let ownedReadConversationId: string | null = null;
   let simulateMessagePaging = false;
   let syntheticOlderMessageRequests = 0;
@@ -397,7 +396,6 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     expect(directoryRetry.status()).toBe(200);
     await expect(page.getByText('Não foi possível carregar os atendentes. Tente novamente.', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Carregando atendentes...', { exact: true })).toHaveCount(0);
-    directoryReadsAfterRetry = agentDirectoryReads;
     console.info('[support-readonly] Falha do diretório simulada e recuperação remota dos atendentes confirmadas.');
     await expect(page.getByText('Conversas', { exact: true }).first()).toBeVisible();
     await expect(page.getByRole('textbox', { name: '••••••••' })).toHaveCount(0);
@@ -773,13 +771,16 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       await page.getByPlaceholder('Pesquisar por cliente, telefone ou pedido...').fill(ownFixture!.contact_name);
       await page.getByRole('button', { name: /^[^A-Za-z]*All[^A-Za-z]*$/ }).click();
       await page.getByRole('button', { name: /Closed \(Fechadas\)/ }).click();
+      const agentDirectoryReadsBeforeChat = agentDirectoryReads;
       await page.getByRole('region', { name: 'Lista de conversas', exact: true }).getByText(ownFixture!.contact_name, { exact: true }).click();
       await expect(page.getByText('Não foi possível confirmar a leitura. Atualize a conversa para tentar novamente.', { exact: true })).toBeVisible();
       const history = page.getByRole('region', { name: 'Histórico da conversa', exact: true });
       await expect(history.locator('[data-message-id]').first()).toBeVisible();
       if (verifyMessagePaging) {
         await expect(history.getByText('Mensagem sintética 80', { exact: true })).toBeVisible();
+        await expect(history.getByText('Carregando mensagens anteriores…', { exact: true })).toHaveCount(0);
         await expect(history.locator('[data-message-id]')).toHaveCount(80);
+        expect(syntheticOlderMessageRequests, 'Abrir o chat não deve carregar uma página antiga antes do scroll.').toBe(0);
         const [olderPage] = await Promise.all([
           page.waitForResponse(response => {
             const url = new URL(response.url());
@@ -795,10 +796,10 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
         await expect(history.locator('[data-message-id]')).toHaveCount(81);
         simulateMessagePaging = false;
         test.info().annotations.push({ type: 'message-history-pagination-ui',
-          description: 'Scroll no topo carregou a página anterior de mensagens no navegador; 80+1 registros sintéticos interceptados no cliente, sem leitura adicional nem escrita no banco.' });
-        console.info('[support-readonly] Paginação de mensagens pela rolagem real confirmou 80 → 81 itens sintéticos, sem gravações.');
+          description: 'A conversa iniciou com 80 mensagens; scroll manual até o topo carregou uma mensagem anterior pela UI. Apenas respostas sintéticas foram interceptadas no cliente, sem escrita no banco.' });
+        console.info('[support-readonly] Scroll manual no topo carregou uma mensagem anterior; 80 → 81 itens, sem gravações.');
       }
-      expect(agentDirectoryReads, 'Abrir o chat deve reutilizar o diretório já carregado pela Inbox.').toBe(directoryReadsAfterRetry);
+      expect(agentDirectoryReads, 'Abrir o chat deve reutilizar o diretório já carregado pela Inbox.').toBe(agentDirectoryReadsBeforeChat);
       for (const title of [
         'Emojis',
         'Gravar áudio',

@@ -84,7 +84,6 @@ export const deriveAuthRoleFlags = (
     'viewProductCharacteristics',
     'viewProductCategories',
     'viewProductCompositions',
-    'viewProductReconciliation',
   ].some(canUseProductPermission) ||
     canUsePermission('viewMetaCatalog', ['manager']) ||
     canUsePermission('viewWhatsAppMarketplace', ['manager']);

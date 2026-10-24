@@ -143,6 +143,7 @@ export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> =
         inboundVariationCostPrice={
           registrationParent && registrationItem ? landedUnitCost(registrationItem) : undefined
         }
+        enableDraftAutoSave={false}
         dark={isDarkMode}
         onClose={onCloseForm}
         onSave={onSaveProduct}

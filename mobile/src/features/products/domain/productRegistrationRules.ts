@@ -8,6 +8,7 @@ import {
 } from './productCharacteristics';
 import { parseLocalizedNumber } from './productNumbers';
 import { checkProductErpLegibility } from '../../../../../shared-utils/productErpLegibility';
+import { hasRequiredProductCategory } from '../../../../../shared-utils/productCategoryRequirement';
 
 export type MobileVariationRegistrationIssue = {
   message: string;
@@ -129,12 +130,12 @@ export const getMobileVariationRegistrationIssue = (
   if (variationName.length < 2) {
     return { message: 'Nome do produto deve ter pelo menos 2 caracteres.', tab: 'identificacao' };
   }
-  const categoryIds = Array.isArray(parent?.categoryIds)
-    ? parent.categoryIds
-    : parent?.categoryId || parent?.category_id
-      ? [parent.categoryId || parent.category_id]
-      : [];
-  if (!categoryIds.length) {
+  if (
+    !hasRequiredProductCategory(
+      parent?.categoryIds,
+      parent?.categoryId || parent?.category_id
+    )
+  ) {
     return { message: 'Pelo menos uma categoria deve ser selecionada.', tab: 'identificacao' };
   }
 

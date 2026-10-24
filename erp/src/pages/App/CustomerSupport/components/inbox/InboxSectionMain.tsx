@@ -34,7 +34,7 @@ export const InboxSectionMain: React.FC<InboxSectionMainProps> = ({
 
   return (
     <div className="p-3 space-y-1">
-      {/* Todas (All) */}
+      {/* Todas */}
       <button
         type="button"
         onClick={() => handleSelect('all')}
@@ -50,7 +50,7 @@ export const InboxSectionMain: React.FC<InboxSectionMainProps> = ({
               isDefaultSelected('all') ? 'text-white' : 'text-slate-500 dark:text-slate-400'
             }`}
           ></i>
-          <span>Todas (All)</span>
+          <span>Todas</span>
         </div>
         <span
           className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -63,7 +63,7 @@ export const InboxSectionMain: React.FC<InboxSectionMainProps> = ({
         </span>
       </button>
 
-      {/* Minhas (Mine) */}
+      {/* Minhas */}
       <button
         type="button"
         onClick={() => handleSelect('mine')}
@@ -79,7 +79,7 @@ export const InboxSectionMain: React.FC<InboxSectionMainProps> = ({
               isDefaultSelected('mine') ? 'text-white' : 'text-slate-500 dark:text-slate-400'
             }`}
           ></i>
-          <span>Minhas (Mine)</span>
+          <span>Minhas</span>
         </div>
         <span
           className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -92,7 +92,7 @@ export const InboxSectionMain: React.FC<InboxSectionMainProps> = ({
         </span>
       </button>
 
-      {/* Não atribuídas (Unassigned) */}
+      {/* Não atribuídas */}
       <button
         type="button"
         onClick={() => handleSelect('unassigned')}
@@ -121,7 +121,7 @@ export const InboxSectionMain: React.FC<InboxSectionMainProps> = ({
         </span>
       </button>
 
-      {/* Não lidas (Unread) */}
+      {/* Não lidas */}
       {totalUnread > 0 && (
         <button
           type="button"

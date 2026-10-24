@@ -5,11 +5,18 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { ProductSaveResultModal } from './ProductSaveResultModal';
 import type Product from '@/pages/types/product.type';
 import * as productService from '@/pages/utils/productService';
+import * as technicalFieldService from '@/pages/App/Products/services/technicalFieldService';
 
 vi.mock('@/pages/utils/productService', () => ({
   saveProduct: vi.fn().mockResolvedValue('prod-123'),
 }));
-beforeEach(() => { vi.mocked(productService.saveProduct).mockReset().mockImplementation(async (product) => product.id!); });
+vi.mock('@/pages/App/Products/services/technicalFieldService', () => ({
+  fetchTechnicalFieldDefinitions: vi.fn().mockResolvedValue([]),
+}));
+beforeEach(() => {
+  vi.mocked(productService.saveProduct).mockReset().mockImplementation(async (product) => product.id!);
+  vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockReset().mockResolvedValue([]);
+});
 
 afterEach(() => {
   cleanup();
@@ -180,13 +187,84 @@ describe('ProductSaveResultModal - Regra de Origem de Estoque Salvados e Usados'
     let saved!: (id: string) => void;
     vi.mocked(productService.saveProduct).mockReturnValueOnce(new Promise<string>((resolve) => { saved = resolve; }));
     const close = vi.fn(), finish = vi.fn(), setFormData = vi.fn();
-    const product = { id: 'product-1', name: 'Mesa', active: true, status: 'hidden', unitPrice: 0, variations: [] } as unknown as Product;
+    const product = channel === 'catalog'
+      ? {
+          id: 'product-1', name: 'Mesa', description: 'Mesa de madeira', active: true,
+          status: 'hidden', unitPrice: 500, categoryIds: ['cat-1'],
+          images: ['https://example.test/mesa.jpg'], width: 80, height: 90, depth: 50,
+          variations: [],
+        } as unknown as Product
+      : { id: 'product-1', name: 'Mesa', active: true, status: 'hidden', unitPrice: 0, variations: [] } as unknown as Product;
     render(<ProductSaveResultModal saveResult={{ ...defaultChecks, product }} onSuccess={finish} onCloseModal={close} onCloseForm={close} setFormData={setFormData} />);
-    fireEvent.click(screen.getByRole('button', { name: channel === 'erp' ? 'Desativar no ERP' : 'Publicar no Catálogo' }));
+    const channelButton = await screen.findByRole('button', { name: channel === 'erp' ? 'Desativar no ERP' : 'Publicar no Catálogo' });
+    await waitFor(() => expect((channelButton as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(channelButton);
     await waitFor(() => expect(productService.saveProduct).toHaveBeenCalledOnce()); expect(setFormData).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Concluir')); fireEvent.keyDown(window, { key: 'Escape' }); expect(finish).not.toHaveBeenCalled(); expect(close).not.toHaveBeenCalled();
-    expect(productService.saveProduct).toHaveBeenCalledWith(expect.objectContaining(channel === 'erp' ? { active: false, unitPrice: 0 } : { status: 'published', unitPrice: 0 }));
+    expect(productService.saveProduct).toHaveBeenCalledWith(expect.objectContaining(channel === 'erp' ? { active: false, unitPrice: 0 } : { status: 'published', unitPrice: 500 }));
     await act(async () => { saved('product-1'); }); await waitFor(() => expect(setFormData).toHaveBeenCalledOnce());
+  });
+
+  it('bloqueia publicação sem característica obrigatória da categoria, mas permite concluir o cadastro', async () => {
+    vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockResolvedValueOnce([
+      {
+        id: 'finish', name: 'Acabamento', dataType: 'text', options: [],
+        isRequired: false, requiredCategoryIds: ['cat-1'],
+      },
+    ]);
+    const product = {
+      id: 'category-product', name: 'Mesa', description: 'Mesa de madeira', active: true,
+      status: 'hidden', unitPrice: 500, categoryIds: ['cat-1'],
+      images: ['https://example.test/mesa.jpg'], width: 80, height: 90, depth: 50,
+      technicalValues: {}, variations: [],
+    } as unknown as Product;
+    const onSuccess = vi.fn().mockResolvedValue(true);
+    const onClose = vi.fn();
+
+    render(
+      <ProductSaveResultModal
+        saveResult={{ ...defaultChecks, product }}
+        onSuccess={onSuccess}
+        onCloseModal={vi.fn()}
+        onCloseForm={onClose}
+        setFormData={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText('Características obrigatórias: Acabamento')).toBeDefined();
+    const publishButton = screen.getByRole('button', { name: 'Publicar no Catálogo' }) as HTMLButtonElement;
+    expect(publishButton.disabled).toBe(true);
+    fireEvent.click(publishButton);
+    expect(productService.saveProduct).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('bloqueia somente a publicação quando não consegue consultar os requisitos da categoria', async () => {
+    vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockRejectedValueOnce(
+      new Error('offline')
+    );
+    const product = {
+      id: 'category-offline-product', name: 'Mesa', description: 'Mesa de madeira', active: true,
+      status: 'hidden', unitPrice: 500, categoryIds: ['cat-1'],
+      images: ['https://example.test/mesa.jpg'], width: 80, height: 90, depth: 50,
+      variations: [],
+    } as unknown as Product;
+
+    render(
+      <ProductSaveResultModal
+        saveResult={{ ...defaultChecks, product }}
+        onCloseModal={vi.fn()}
+        onCloseForm={vi.fn()}
+        setFormData={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText('Características da categoria não verificadas')).toBeDefined();
+    expect((screen.getByRole('button', { name: 'Publicar no Catálogo' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Desativar no ERP' }) as HTMLButtonElement).disabled).toBe(false);
   });
   it.each(['invalidId', 'invalidNumber', 'timeout', 'wrongAck'] as const)('canal com %s não publica alteração não confirmada', async (kind) => {
     if (kind === 'timeout') { vi.useFakeTimers(); vi.mocked(productService.saveProduct).mockReturnValueOnce(new Promise(() => {})); }

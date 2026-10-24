@@ -128,8 +128,16 @@ export const useTechnicalFieldApplicability = ({
     : applicableFields;
 
   const requiredFields = visibleFields.filter((field) => field.isRequired);
-  const requiredFieldGroups = groupTechnicalFields(requiredFields);
-  const optionalFields = visibleFields.filter((field) => !field.isRequired);
+  const catalogRequiredFields = visibleFields.filter(
+    (field) => field.isRequiredForCatalog && !field.isRequired
+  );
+  const requiredFieldGroups = groupTechnicalFields([
+    ...requiredFields,
+    ...catalogRequiredFields,
+  ]);
+  const optionalFields = visibleFields.filter(
+    (field) => !field.isRequired && !field.isRequiredForCatalog
+  );
 
   const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
   const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
@@ -148,7 +156,7 @@ export const useTechnicalFieldApplicability = ({
 
   const matchingOptionalFields = getMatchingOptionalFields(
     sofaTechnicalFields,
-    requiredFields,
+    [...requiredFields, ...catalogRequiredFields],
     displayedOptionalFields,
     requiredFieldsOnly,
     normalizedSearchTerm,

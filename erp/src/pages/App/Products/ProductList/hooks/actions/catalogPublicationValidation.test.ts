@@ -79,6 +79,87 @@ describe('Validação de Publicação no Catálogo Digital', () => {
     expect(result.errorMessage).toBeUndefined();
   });
 
+  it('aplica a obrigatoriedade de categoria somente à publicação no Catálogo Digital', () => {
+    const product: Partial<Product> = {
+      id: 'prod-category-required',
+      name: 'Mesa de Jantar',
+      description: 'Mesa de jantar de madeira',
+      status: 'hidden',
+      unitPrice: 1200,
+      images: ['https://example.com/mesa.jpg'],
+      categoryIds: ['cat-mesas'],
+      width: 160,
+      height: 80,
+      depth: 90,
+      technicalValues: {},
+    };
+    const requirements = [
+      { name: 'Acabamento', requiredCategoryIds: ['cat-mesas'] },
+    ];
+
+    const result = validateCatalogPublication(product as Product, undefined, false, requirements);
+    expect(result.isValid).toBe(false);
+    expect(result.errorMessage).toContain('Acabamento');
+
+    const completedResult = validateCatalogPublication(
+      { ...product, technicalValues: { Acabamento: 'Laca' } } as Product,
+      undefined,
+      false,
+      requirements
+    );
+    expect(completedResult.isValid).toBe(true);
+  });
+
+  it('valida a característica variável da categoria em cada variação publicada', () => {
+    const product: Partial<Product> = {
+      id: 'prod-variation-required',
+      name: 'Mesa de Jantar',
+      description: 'Mesa de jantar de madeira',
+      status: 'hidden',
+      hasVariations: true,
+      unitPrice: 1200,
+      images: ['https://example.com/mesa.jpg'],
+      categoryIds: ['cat-mesas'],
+      width: 160,
+      height: 80,
+      depth: 90,
+      variableTechnicalFields: ['Modelo/Linha'],
+      technicalValues: { 'Modelo/Linha': 'Matriz' },
+      variations: [
+        { id: 'var-1', active: true, technicalValues: { 'Modelo/Linha': 'Linha A' } },
+        { id: 'var-2', active: true, technicalValues: { 'Modelo/Linha': '' } },
+      ] as any,
+    };
+    const requirements = [
+      { name: 'Modelo', requiredCategoryIds: ['cat-mesas'] },
+    ];
+
+    const productResult = validateCatalogPublication(product as Product, undefined, false, requirements);
+    expect(productResult.isValid).toBe(false);
+    expect(productResult.errorMessage).toContain('Modelo');
+
+    const variationResult = validateCatalogPublication(
+      product as Product,
+      product.variations?.[1],
+      true,
+      requirements
+    );
+    expect(variationResult.isValid).toBe(false);
+
+    const completedProductResult = validateCatalogPublication(
+      {
+        ...product,
+        variations: product.variations?.map((variation, index) =>
+          index === 1 ? { ...variation, technicalValues: { 'Modelo/Linha': 'Linha B' } } : variation
+        ),
+      } as Product,
+      undefined,
+      false,
+      requirements
+    );
+    expect(completedProductResult.isValid).toBe(true);
+  });
+
   it('bloqueia publicação de produto fiscal de teste mesmo quando atende aos requisitos do catálogo', () => {
     const testProduct: Partial<Product> = {
       id: 'prod-test',

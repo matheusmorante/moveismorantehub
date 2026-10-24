@@ -1,6 +1,5 @@
-import Product, { Variation } from '@/pages/types/product.type';
-import { toTitleCase } from '@/pages/utils/textUtils';
-import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
+import type Product from '../../../pages/types/product.type';
+import { toTitleCase } from '../../../pages/utils/textUtils';
 import { hasVariationAttribute } from './variationAttributes';
 
 /**

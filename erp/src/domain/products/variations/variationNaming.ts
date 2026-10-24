@@ -1,5 +1,6 @@
-import Product, { Variation } from '@/pages/types/product.type';
-import { toTitleCase } from '@/pages/utils/textUtils';
+import type Product from '../../../pages/types/product.type';
+import type { Variation } from '../../../pages/types/product.type';
+import { toTitleCase } from '../../../pages/utils/textUtils';
 import {
   getVariationAttributePairs,
   normalizeAttributePart,

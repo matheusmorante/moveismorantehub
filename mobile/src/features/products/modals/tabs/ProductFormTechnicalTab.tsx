@@ -21,6 +21,7 @@ import {
   isExcludedProductTechnicalField,
   isMobileVariableTechnicalField,
   isProductTechnicalFieldRequired,
+  isProductTechnicalFieldRequiredForCatalog,
   isRequiredCharacteristicName,
   upsertProductCharacteristicAttribute,
   resolveMobileVariableTechnicalFieldNames,
@@ -232,20 +233,25 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   );
 
   const requiredFieldGroups = useMemo(
-    () =>
-      groupProductTechnicalFields(
-        visibleTechnicalFields.filter((field) =>
-          isFieldRequired(field)
-        )
-      ),
-    [visibleTechnicalFields, parentData, variableTechnicalFieldNames, isFieldRequired]
+    () => {
+      const productRequired = visibleTechnicalFields.filter((field) => isFieldRequired(field));
+      const catalogRequired = visibleTechnicalFields.filter(
+        (field) =>
+          !isFieldRequired(field) &&
+          isProductTechnicalFieldRequiredForCatalog(field, categoryIds)
+      );
+      return groupProductTechnicalFields([...productRequired, ...catalogRequired]);
+    },
+    [visibleTechnicalFields, categoryIds, isFieldRequired]
   );
   const optionalTechnicalFields = useMemo(
     () =>
       visibleTechnicalFields.filter(
-        (field) => !isFieldRequired(field)
+        (field) =>
+          !isFieldRequired(field) &&
+          !isProductTechnicalFieldRequiredForCatalog(field, categoryIds)
       ),
-    [visibleTechnicalFields, parentData, variableTechnicalFieldNames, isFieldRequired]
+    [visibleTechnicalFields, categoryIds, isFieldRequired]
   );
   const selectedOptionalFields = useMemo(() => {
     if (parentData) return optionalTechnicalFields;
@@ -267,6 +273,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       (field) =>
         field.active !== false &&
         !isProductTechnicalFieldRequired(field, categoryIds) &&
+        !isProductTechnicalFieldRequiredForCatalog(field, categoryIds) &&
         !isExcludedProductTechnicalField(field.name) &&
         !selectedNames.has(normalizeName(field.name))
     );
@@ -330,6 +337,15 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     fieldName: string,
     scope: 'not_inform' | 'global' | 'variation'
   ) => {
+    const requiredCatalogField = technicalFields.find(
+      (field) => normalizeSearchTerm(field.name) === normalizeSearchTerm(fieldName)
+    );
+    if (
+      scope === 'not_inform' &&
+      requiredCatalogField &&
+      isProductTechnicalFieldRequiredForCatalog(requiredCatalogField, categoryIds)
+    ) return;
+
     setFormData((previous: any) => {
       const configuredNames = resolveMobileVariableTechnicalFieldNames(previous);
       const isVariable = isMobileVariableTechnicalField(fieldName, configuredNames);
@@ -513,11 +529,13 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                     ? storedValue.join(', ')
                     : String(storedValue ?? '');
                   const currentFieldIsRequired = isFieldRequired(field);
-                  const alwaysApplicable = currentFieldIsRequired;
+                  const requiredForCatalog = isProductTechnicalFieldRequiredForCatalog(field, categoryIds);
+                  const alwaysApplicable = currentFieldIsRequired || requiredForCatalog;
                   const currentScope = isCurrentVariableField
                     ? 'variation'
                     : hasTechnicalValue(ownTechnicalValues, field.name) ||
-                        (normalizeName(field.name) === 'marca' && Boolean(formData.brand))
+                        (normalizeName(field.name) === 'marca' && Boolean(formData.brand)) ||
+                        requiredForCatalog
                       ? 'global'
                       : 'not_inform';
                   const isPhysicalDimension = getDimensionField(field.name) !== null;
@@ -585,9 +603,6 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                           >
                             {field.name}
                             {field.unit ? ` (${field.unit})` : ''}
-                            {currentFieldIsRequired && applicable && !isDependencyDisabled && (
-                              <Text style={{ color: '#ef4444' }}> *</Text>
-                            )}
                           </Text>
                         </View>
                         <View style={styles.attributeActions}>
@@ -718,7 +733,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                             {dependencyState.disabledReason}
                           </Text>
                         )}
-                      {!parentData && isSimpleProduct && (
+                      {!parentData && isSimpleProduct && !requiredForCatalog && (
                         <Switch
                           value={currentScope === 'global'}
                           onValueChange={(enabled) =>
@@ -736,7 +751,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                             ['not_inform', 'Não informar'],
                             ['global', 'Global'],
                             ['variation', 'Por variação'],
-                          ] as const).map(([scope, label]) => {
+                          ] as const)
+                            .filter(([scope]) => !requiredForCatalog || scope !== 'not_inform')
+                            .map(([scope, label]) => {
                             const selected = currentScope === scope;
                             return (
                               <TouchableOpacity

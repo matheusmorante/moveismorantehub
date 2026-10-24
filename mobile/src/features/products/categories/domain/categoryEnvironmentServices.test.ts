@@ -6,7 +6,7 @@ import {
   saveMobileCategory,
   deleteMobileCategory,
   fetchMobileCategoryProductCounts,
-  fetchMobileCategoryRequiredAttributes,
+  fetchMobileCategoryAttributes,
 } from '../../services/mobileCategoryService';
 import { supabase } from '../../../../services/supabaseClient';
 
@@ -144,7 +144,7 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
   });
 
   describe('2. Persistência de Categorias e Características (saveMobileCategory, delete)', () => {
-    it('AC-08 / AC-12: Cria categoria vinculada a múltiplos ambientes e com características associadas', async () => {
+    it('AC-08 / AC-12: Preserva obrigatoriedade configurada e as regras de Cor, Linha e Peso ao criar', async () => {
       const mockInsertCat = vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
           single: vi
@@ -174,9 +174,12 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       const result = await saveMobileCategory(
         'SOFÁ RETRÁTIL',
         ['env-1', 'env-2'], // Vínculo com 2 ambientes
-        ['attr-cor', 'attr-tecido', 'attr-peso'], // Peso deve ser opcional em qualquer categoria
-        undefined,
-        ['attr-peso']
+        [
+          { id: 'attr-cor', name: 'Cor', isRequired: false },
+          { id: 'attr-tecido', name: 'Tecido', isRequired: false },
+          { id: 'attr-peso', name: 'Peso', isRequired: true },
+          { id: 'attr-linha', name: 'Linha', isRequired: false },
+        ]
       );
 
       expect(result).toEqual({ id: 'cat-new-1', name: 'SOFÁ RETRÁTIL' });
@@ -186,8 +189,9 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       ]);
       expect(mockInsertAttr).toHaveBeenCalledWith([
         { category_id: 'cat-new-1', attribute_id: 'attr-cor', is_required: true },
-        { category_id: 'cat-new-1', attribute_id: 'attr-tecido', is_required: true },
+        { category_id: 'cat-new-1', attribute_id: 'attr-tecido', is_required: false },
         { category_id: 'cat-new-1', attribute_id: 'attr-peso', is_required: false },
+        { category_id: 'cat-new-1', attribute_id: 'attr-linha', is_required: true },
       ]);
     });
 
@@ -322,15 +326,18 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       expect(counts['c2']).toBe(1); // p3
     });
 
-    it('AT-11: Consulta características vinculadas à categoria no formato normalizado', async () => {
+    it('AT-11: Consulta características vinculadas com estado opcional/obrigatório preservado', async () => {
       (supabase.from as any).mockImplementation((table: string) => {
         if (table === 'category_attributes') {
           return {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockResolvedValue({
                 data: [
-                  { attribute_id: 'a1', attributes: { id: 'a1', name: 'Cor' } },
-                  { attribute_id: 'a2', attributes: [{ id: 'a2', name: 'Tamanho' }] },
+                  { attribute_id: 'a1', is_required: false, attributes: { id: 'a1', name: 'Cor' } },
+                  { attribute_id: 'a2', is_required: false, attributes: [{ id: 'a2', name: 'Tamanho' }] },
+                  { attribute_id: 'a3', is_required: true, attributes: { id: 'a3', name: 'Material' } },
+                  { attribute_id: 'a4', is_required: true, attributes: { id: 'a4', name: 'Peso' } },
+                  { attribute_id: 'a5', is_required: false, attributes: { id: 'a5', name: 'Linha' } },
                 ],
                 error: null,
               }),
@@ -340,11 +347,30 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
         return {};
       });
 
-      const attrs = await fetchMobileCategoryRequiredAttributes('c1');
+      const attrs = await fetchMobileCategoryAttributes('c1');
       expect(attrs).toEqual([
-        { id: 'a1', name: 'Cor' },
-        { id: 'a2', name: 'Tamanho' },
+        { id: 'a1', name: 'Cor', isRequired: true },
+        { id: 'a2', name: 'Tamanho', isRequired: false },
+        { id: 'a3', name: 'Material', isRequired: true },
+        { id: 'a4', name: 'Peso', isRequired: false },
+        { id: 'a5', name: 'Linha', isRequired: true },
       ]);
+    });
+
+    it('bloqueia a edição quando não consegue consultar a configuração da categoria', async () => {
+      const queryError = new Error('Falha ao consultar category_attributes');
+      (supabase.from as any).mockImplementation((table: string) => {
+        if (table === 'category_attributes') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: null, error: queryError }),
+            }),
+          };
+        }
+        return {};
+      });
+
+      await expect(fetchMobileCategoryAttributes('c1')).rejects.toBe(queryError);
     });
   });
 

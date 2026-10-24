@@ -6,6 +6,11 @@ import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { savedProductFormSchema } from '../../../../../../../../shared-utils/productDomainValidation';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import {
+  checkEcomLegibility,
+  type EcomLegibilityResult,
+} from '../../../../../../../../shared-utils/catalogPublicationValidation';
+import { fetchTechnicalFieldDefinitions } from '../../../services/technicalFieldService';
 
 export interface ProductErpChecks {
   readonly origin?: boolean;
@@ -21,6 +26,7 @@ export interface ProductEcomChecks {
   readonly dimensions?: boolean;
   readonly categories?: boolean;
   readonly images?: boolean;
+  readonly categoryCharacteristics?: boolean;
 }
 
 export interface ProductSaveResult {
@@ -51,6 +57,11 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
   setFormData,
   canPublishToCatalog = true,
 }) => {
+  const [catalogReadiness, setCatalogReadiness] = useState<{
+    productId: string;
+    status: 'checking' | 'ready' | 'error';
+    result?: EcomLegibilityResult;
+  }>({ productId: '', status: 'checking' });
   const [currentProduct, setCurrentProduct] = useState<Product | null>(saveResult?.product ?? null);
   const [updatingErp, setUpdatingErp] = useState(false);
   const [updatingEcom, setUpdatingEcom] = useState(false);
@@ -71,6 +82,33 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
   }, [saveResult]);
 
   useEffect(() => {
+    const product = saveResult?.product;
+    if (!product || !canPublishToCatalog) return;
+    let cancelled = false;
+    const productId = product.id || '';
+    setCatalogReadiness({ productId, status: 'checking' });
+    void (async () => {
+      try {
+        const requirements = await withTimeout(
+          fetchTechnicalFieldDefinitions('product-form', {
+            forceRefresh: true,
+            requireCategoryLinks: true,
+          }),
+          15000,
+          null,
+          'produto:verificar-requisitos-do-catalogo'
+        );
+        if (!requirements) throw new Error('Requisitos de categoria indisponíveis.');
+        const result = checkEcomLegibility(product as any, requirements);
+        if (!cancelled) setCatalogReadiness({ productId, status: 'ready', result });
+      } catch {
+        if (!cancelled) setCatalogReadiness({ productId, status: 'error' });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [saveResult?.product, canPublishToCatalog]);
+
+  useEffect(() => {
     if (!saveResult) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -88,6 +126,14 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
   const isNonConventional = isNonConventionalProduct(currentProduct);
   const isERPActive = !isNonConventional && currentProduct.active !== false;
   const isCatalogPublished = currentProduct.status === 'published';
+  const currentCatalogReadiness =
+    catalogReadiness.productId === (currentProduct.id || '')
+      ? catalogReadiness
+      : { productId: currentProduct.id || '', status: 'checking' as const };
+  const catalogCheck = currentCatalogReadiness.status === 'ready'
+    ? currentCatalogReadiness.result
+    : undefined;
+  const canPublishNow = Boolean(catalogCheck?.isLegible);
 
   const handleToggleErp = async () => {
     if (finishInFlight.current || channelUncertain || isNonConventional) return;
@@ -124,8 +170,14 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
     if (finishInFlight.current || channelUncertain || !canPublishToCatalog) return;
     const newStatus: 'hidden' | 'published' = isCatalogPublished ? 'hidden' : 'published';
 
-    if (newStatus === 'published' && !saveResult.ecomLegible) {
-      toast.warning('Complete todos os requisitos pendentes antes de publicar no Catálogo.');
+    if (newStatus === 'published' && !canPublishNow) {
+      toast.warning(
+        currentCatalogReadiness.status === 'error'
+          ? 'Não foi possível verificar as características obrigatórias da categoria.'
+          : currentCatalogReadiness.status === 'checking'
+            ? 'Aguarde a verificação dos requisitos do Catálogo Digital.'
+            : 'Complete todos os requisitos pendentes antes de publicar no Catálogo.'
+      );
       return;
     }
 
@@ -394,12 +446,18 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                 </span>
                 <span
                   className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                    saveResult.ecomLegible
+                    canPublishNow
                       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-                      : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
+                      : currentCatalogReadiness.status === 'error'
+                        ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
                   }`}
                 >
-                  {saveResult.ecomLegible ? 'Pronto' : 'Pendências'}
+                  {currentCatalogReadiness.status === 'checking'
+                    ? 'Verificando'
+                    : currentCatalogReadiness.status === 'error'
+                      ? 'Não verificado'
+                      : canPublishNow ? 'Pronto' : 'Pendências'}
                 </span>
               </div>
 
@@ -407,7 +465,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                 <li className="flex items-center gap-2">
                   <i
                     className={`bi ${
-                      saveResult.checksEcom?.marketplaceTitle
+                      catalogCheck?.checks.marketplaceTitle
                         ? 'bi-check-circle-fill text-emerald-500'
                         : 'bi-exclamation-circle-fill text-amber-500'
                     }`}
@@ -418,7 +476,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                 <li className="flex items-center gap-2">
                   <i
                     className={`bi ${
-                      saveResult.checksEcom?.description
+                      catalogCheck?.checks.description
                         ? 'bi-check-circle-fill text-emerald-500'
                         : 'bi-exclamation-circle-fill text-amber-500'
                     }`}
@@ -429,7 +487,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                 <li className="flex items-center gap-2">
                   <i
                     className={`bi ${
-                      saveResult.checksEcom?.dimensions
+                      catalogCheck?.checks.dimensions
                         ? 'bi-check-circle-fill text-emerald-500'
                         : 'bi-exclamation-circle-fill text-amber-500'
                     }`}
@@ -440,7 +498,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                 <li className="flex items-center gap-2">
                   <i
                     className={`bi ${
-                      saveResult.checksEcom?.categories
+                      catalogCheck?.checks.categories
                         ? 'bi-check-circle-fill text-emerald-500'
                         : 'bi-exclamation-circle-fill text-amber-500'
                     }`}
@@ -451,7 +509,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                 <li className="flex items-center gap-2">
                   <i
                     className={`bi ${
-                      saveResult.checksEcom?.images
+                      catalogCheck?.checks.images
                         ? 'bi-check-circle-fill text-emerald-500'
                         : 'bi-exclamation-circle-fill text-amber-500'
                     }`}
@@ -459,18 +517,45 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
                   />
                   <span className="text-[11px]">Fotos do Produto</span>
                 </li>
+                <li className="flex items-center gap-2">
+                  <i
+                    className={`bi ${
+                      currentCatalogReadiness.status === 'ready' &&
+                      catalogCheck?.checks.categoryCharacteristics
+                        ? 'bi-check-circle-fill text-emerald-500'
+                        : currentCatalogReadiness.status === 'error'
+                          ? 'bi-x-circle-fill text-rose-500'
+                          : 'bi-exclamation-circle-fill text-amber-500'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="text-[11px]">
+                    {currentCatalogReadiness.status === 'checking'
+                      ? 'Verificando características da categoria…'
+                      : currentCatalogReadiness.status === 'error'
+                        ? 'Características da categoria não verificadas'
+                        : catalogCheck?.missingCategoryCharacteristics.length
+                          ? `Características obrigatórias: ${catalogCheck.missingCategoryCharacteristics.join(', ')}`
+                          : 'Características obrigatórias da categoria'}
+                  </span>
+                </li>
               </ul>
+              {currentCatalogReadiness.status === 'error' && (
+                <p role="status" className="mt-2 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                  A publicação ficará bloqueada até ser possível consultar os requisitos das categorias.
+                </p>
+              )}
             </div>
 
             <div>
-              {!saveResult.ecomLegible && !isCatalogPublished && (
+              {!canPublishNow && !isCatalogPublished && currentCatalogReadiness.status === 'ready' && (
                 <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mb-1 text-center">
                   💡 Complete os requisitos acima para publicar.
                 </p>
               )}
               <button
                 type="button"
-                disabled={finishing || updatingEcom || updatingErp || channelUncertain || (!saveResult.ecomLegible && !isCatalogPublished)}
+                disabled={finishing || updatingEcom || updatingErp || channelUncertain || (!canPublishNow && !isCatalogPublished)}
                 onClick={handleToggleCatalog}
                 className={`w-full py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed ${
                   isCatalogPublished

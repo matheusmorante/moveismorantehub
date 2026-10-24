@@ -29,7 +29,6 @@ import { MobileProductCard } from '../components/MobileProductCard';
 import { MobileProductPagination } from '../components/MobileProductPagination';
 import { ProductsHeader } from '../components/ProductsHeader';
 import type { ProductListMode } from '../components/header/ProductsHeaderModeSelector';
-import { NativeProductReconciliationScreen } from './NativeProductReconciliationScreen';
 import { useMobileProducts } from '../hooks/useMobileProducts';
 import { MobileMergeVariationModal } from '../modals/MobileMergeVariationModal';
 import { MobileMoveVariationModal } from '../modals/MobileMoveVariationModal';
@@ -37,6 +36,7 @@ import { MobileProductDetailsModal } from '../modals/MobileProductDetailsModal';
 import { ProductConfigModal } from '../modals/ProductConfigModal';
 import { ProductFormModal } from '../modals/ProductFormModal';
 import { ProductLinkedOrdersModal } from '../modals/ProductLinkedOrdersModal';
+import { NativeMetaCatalogScreen } from './NativeMetaCatalogScreen';
 import { fetchMobileCategories } from '../services/mobileCategoryService';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import { copyMobileProductImages } from '../services/mobileProductPhotoService';
@@ -55,6 +55,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
 }) => {
   const [screenMode, setScreenMode] = useState<ProductListMode>(mode ?? 'standard');
   const [selectedMode, setSelectedMode] = useState<ProductListMode | null>(mode ?? null);
+  const [showMetaCatalog, setShowMetaCatalog] = useState(false);
   const { canUseProductPermission, canUsePermission, userProfile } = useAuth();
   const isStockistOnly = isStockistOnlyProductProfile(userProfile);
   const canViewCatalog = canUseProductPermission('viewProducts');
@@ -63,8 +64,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const canViewCompositions = !isStockistOnly && canUseProductPermission('viewProductCompositions');
   const canViewCategories = !isStockistOnly && canUseProductPermission('viewProductCategories');
   const canViewCharacteristics = canUseProductPermission('viewProductCharacteristics');
-  const canViewReconciliation =
-    !isStockistOnly && canUseProductPermission('viewProductReconciliation');
   const canViewMetaCatalog = canUsePermission('viewMetaCatalog', ['manager']);
   const canViewWhatsAppMarketplace = canUsePermission('viewWhatsAppMarketplace', ['manager']);
   const canPrintLabels = canUseProductPermission('printProductIdentificationLabels');
@@ -115,7 +114,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
     selectedMode !== null && activeMode !== 'categories' && availableModes.includes(activeMode),
     canViewCompositions
   );
-
   const [categories, setCategories] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [newProductInitialData, setNewProductInitialData] = useState<
@@ -123,7 +121,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
   >(undefined);
   const [showFormModal, setShowFormModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [showReconciliation, setShowReconciliation] = useState(false);
   const [ordersProduct, setOrdersProduct] = useState<any | null>(null);
   const [detailsProduct, setDetailsProduct] = useState<any | null>(null);
   const [loadingProductForEdit, setLoadingProductForEdit] = useState(false);
@@ -135,6 +132,33 @@ export const NativeProductsScreen: React.FC<Props> = ({
     variation: any;
     parentProduct: any;
   } | null>(null);
+  const autoSavedProductFormRef = useRef(false);
+
+  const handleProductFormSave = useCallback(
+    (productData: any) => {
+      autoSavedProductFormRef.current = false;
+      return productsHook.handleSave(productData);
+    },
+    [productsHook.handleSave]
+  );
+
+  const handleProductFormAutoSave = useCallback(
+    (productData: any) => {
+      autoSavedProductFormRef.current = true;
+      return productsHook.handleAutoSave(productData);
+    },
+    [productsHook.handleAutoSave]
+  );
+
+  const handleProductFormClose = useCallback(() => {
+    if (autoSavedProductFormRef.current) {
+      autoSavedProductFormRef.current = false;
+      void productsHook.refresh();
+    }
+    setShowFormModal(false);
+    setEditingProduct(null);
+    setNewProductInitialData(undefined);
+  }, [productsHook.refresh]);
 
   const topInset =
     Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + 8;
@@ -173,6 +197,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
 
   const handleOpenNew = () => {
     if (!canEditProducts) return;
+    autoSavedProductFormRef.current = false;
     setEditingProduct(null);
     setNewProductInitialData(undefined);
     setShowFormModal(true);
@@ -180,6 +205,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
 
   const handleOpenEdit = async (prod: any) => {
     if (!canEditProducts) return;
+    autoSavedProductFormRef.current = false;
     setLoadingProductForEdit(true);
     try {
       const result = await withTimeout(
@@ -287,11 +313,12 @@ export const NativeProductsScreen: React.FC<Props> = ({
     }
   };
 
-  const handleOpenReconciliation = () => {
-    if (canViewReconciliation) setShowReconciliation(true);
+  const handleOpenMetaCatalog = () => {
+    if (!canViewMetaCatalog) return;
+    setShowMetaCatalog(true);
   };
 
-  const handleOpenMetaCatalog = () => {
+  const handleOpenMetaCatalogInErp = () => {
     Linking.openURL(`${WEB_URL}/products/meta-catalog`).catch(() => {
       Alert.alert('Não foi possível abrir o Catálogo Meta', 'Tente novamente mais tarde.');
     });
@@ -303,11 +330,15 @@ export const NativeProductsScreen: React.FC<Props> = ({
     });
   };
 
-  return showReconciliation && canViewReconciliation ? (
-    <NativeProductReconciliationScreen dark={isDarkMode} onClose={() => setShowReconciliation(false)} />
-  ) : (
+  return (
     <View style={[styles.container, isDarkMode && styles.dark, { paddingTop: topInset }]}>
-      {availableModes.length === 0 ? (
+      {showMetaCatalog && canViewMetaCatalog ? (
+        <NativeMetaCatalogScreen
+          dark={isDarkMode}
+          onBack={() => setShowMetaCatalog(false)}
+          onOpenErpPanel={handleOpenMetaCatalogInErp}
+        />
+      ) : availableModes.length === 0 ? (
         <View style={styles.empty}>
           <Package size={40} color="#2563eb" />
           <Text style={[styles.emptyText, isDarkMode && styles.loading]}>
@@ -320,15 +351,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
               accessibilityRole="button"
             >
               <Text style={styles.retryButtonText}>Abrir características e atributos</Text>
-            </TouchableOpacity>
-          )}
-          {canViewReconciliation && (
-            <TouchableOpacity
-              onPress={handleOpenReconciliation}
-              style={styles.retryButton}
-              accessibilityRole="button"
-            >
-              <Text style={styles.retryButtonText}>Abrir conciliação de fornecedores</Text>
             </TouchableOpacity>
           )}
           {canViewMetaCatalog && (
@@ -403,8 +425,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
               if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
             }}
             canOpenConfigs={canViewCategories || canViewCharacteristics}
-            onOpenReconciliation={handleOpenReconciliation}
-            canViewReconciliation={canViewReconciliation}
             canViewMetaCatalog={canViewMetaCatalog}
             canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
             onOpenMetaCatalog={handleOpenMetaCatalog}
@@ -459,8 +479,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
               if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
             }}
             canOpenConfigs={canViewCategories || canViewCharacteristics}
-            onOpenReconciliation={handleOpenReconciliation}
-            canViewReconciliation={canViewReconciliation}
             canViewMetaCatalog={canViewMetaCatalog}
             canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
             onOpenMetaCatalog={handleOpenMetaCatalog}
@@ -569,12 +587,9 @@ export const NativeProductsScreen: React.FC<Props> = ({
         product={editingProduct}
         initialData={newProductInitialData}
         dark={isDarkMode}
-        onClose={() => {
-          setShowFormModal(false);
-          setEditingProduct(null);
-          setNewProductInitialData(undefined);
-        }}
-        onSave={productsHook.handleSave}
+        onClose={handleProductFormClose}
+        onSave={handleProductFormSave}
+        onAutoSave={handleProductFormAutoSave}
       />
       {loadingProductForEdit && (
         <View style={[styles.editLoadingOverlay, isDarkMode && styles.dark]}>

@@ -23,6 +23,7 @@ export interface TechnicalFieldDefinition {
   decimalPlaces?: 1 | 2 | 3;
   active?: boolean;
   isRequired?: boolean;
+  isRequiredForCatalog?: boolean;
   isCustom?: boolean;
   displayOrder?: number;
   includeInName?: boolean;

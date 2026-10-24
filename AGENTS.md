@@ -126,3 +126,8 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 * Ao editar o PDF, usar a skill de PDF disponível, renderizar o documento final e revisar visualmente as páginas alteradas. Conferir que as cópias estejam sincronizadas e que o acesso pelo submenu permaneça funcionando.
 * Aplicar a skill `morantehub-stock-guide`, quando disponível. A obrigação também vale para agentes que não tenham essa skill instalada.
 * Mudanças exclusivamente internas, sem impacto na operação do estoquista, não exigem reescrever o PDF; o agente deve avaliar esse impacto antes de concluir.
+
+## 12. Conciliação de Produtos: exclusiva do ERP
+
+* A Conciliação de Produtos permanece somente no ERP por decisão explícita do usuário. Não crie nem reintroduza no aplicativo tela, rota, serviço/adaptador, botão, entrada de menu, fluxo ou link que abra a Conciliação como módulo mobile. Não registre sua ausência no app como diferença de paridade.
+* Preserve as telas, rotas, permissões, queries, mutações e helpers compartilhados que o ERP usa. A regra de código que protege a superfície mobile está em `rules/products/product-reconciliation-erp-only.yml`; só reverta esta exceção mediante pedido explícito posterior do usuário.

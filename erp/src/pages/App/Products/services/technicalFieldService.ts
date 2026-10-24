@@ -36,8 +36,8 @@ interface TechnicalAttributeRow {
 }
 
 let cachedDefinitions: {
-  'product-form'?: { data: TechnicalFieldDefinition[]; timestamp: number };
-  'variation-form'?: { data: TechnicalFieldDefinition[]; timestamp: number };
+  'product-form'?: { data: TechnicalFieldDefinition[]; timestamp: number; categoryLinksVerified: boolean };
+  'variation-form'?: { data: TechnicalFieldDefinition[]; timestamp: number; categoryLinksVerified: boolean };
 } = {};
 
 let inFlightDefinitions: {
@@ -55,44 +55,52 @@ export const invalidateTechnicalFieldDefinitionsCache = () => {
 /** Loads and maps the technical fields shared by product and variation forms. */
 export const fetchTechnicalFieldDefinitions = async (
   unitPolicy: TechnicalFieldUnitPolicy,
-  options?: { forceRefresh?: boolean }
+  options?: { forceRefresh?: boolean; requireCategoryLinks?: boolean }
 ): Promise<TechnicalFieldDefinition[]> => {
   const now = Date.now();
   if (!options?.forceRefresh) {
     const cached = cachedDefinitions[unitPolicy];
-    if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    if (
+      cached &&
+      now - cached.timestamp < CACHE_TTL_MS &&
+      (!options?.requireCategoryLinks || cached.categoryLinksVerified)
+    ) {
       return cached.data;
     }
     if (inFlightDefinitions[unitPolicy]) {
-      return inFlightDefinitions[unitPolicy]!;
+      const inFlight = await inFlightDefinitions[unitPolicy]!;
+      if (!options?.requireCategoryLinks || cachedDefinitions[unitPolicy]?.categoryLinksVerified) {
+        return inFlight;
+      }
+      return fetchTechnicalFieldDefinitions(unitPolicy, { ...options, forceRefresh: true });
     }
   }
 
   const fetchPromise = (async () => {
     try {
-      let attributeQuery = await supabase
+      const initialAttributeQuery = await supabase
         .from('attributes')
         .select('id, name, active, data_type, unit, is_custom, decimal_places')
         .order('name');
-      let attributes: TechnicalAttributeRow[] | null = attributeQuery.data;
-      let error = attributeQuery.error;
+      let attributes: TechnicalAttributeRow[] | null = initialAttributeQuery.data;
+      let error = initialAttributeQuery.error;
 
       if (error && (error.message?.includes('decimal_places') || error.code === '42703')) {
-        attributeQuery = await supabase
+        const fallbackQuery = await supabase
           .from('attributes')
           .select('id, name, active, data_type, unit, is_custom')
           .order('name');
-        attributes = attributeQuery.data;
-        error = attributeQuery.error;
+        attributes = fallbackQuery.data;
+        error = fallbackQuery.error;
       }
 
       if (error && (error.message?.includes('is_custom') || error.code === '42703')) {
-        attributeQuery = await supabase
+        const fallbackQuery = await supabase
           .from('attributes')
           .select('id, name, active, data_type, unit')
           .order('name');
-        attributes = attributeQuery.data;
-        error = attributeQuery.error;
+        attributes = fallbackQuery.data;
+        error = fallbackQuery.error;
       }
 
       if (error) throw error;
@@ -117,6 +125,7 @@ export const fetchTechnicalFieldDefinitions = async (
 
       if (categoryLinksError) {
         console.warn('Aviso ao buscar category_attributes:', categoryLinksError);
+        if (options?.requireCategoryLinks) throw categoryLinksError;
       }
 
       const result = (attributes ?? [])
@@ -183,7 +192,7 @@ export const fetchTechnicalFieldDefinitions = async (
               : attribute.decimal_places === 1 ||
                   attribute.decimal_places === 2 ||
                   attribute.decimal_places === 3
-                ? attribute.decimal_places
+                ? (attribute.decimal_places as 1 | 2 | 3)
                 : undefined,
             isRequired: isRequiredCharacteristicName(attribute.name),
             isCustom: Boolean(attribute.is_custom),
@@ -193,7 +202,11 @@ export const fetchTechnicalFieldDefinitions = async (
           };
         });
 
-      cachedDefinitions[unitPolicy] = { data: result, timestamp: Date.now() };
+      cachedDefinitions[unitPolicy] = {
+        data: result,
+        timestamp: Date.now(),
+        categoryLinksVerified: !categoryLinksError,
+      };
       return result;
     } finally {
       inFlightDefinitions[unitPolicy] = null;

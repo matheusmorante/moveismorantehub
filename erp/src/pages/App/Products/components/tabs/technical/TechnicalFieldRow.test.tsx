@@ -88,7 +88,7 @@ describe('TechnicalFieldRow', () => {
     expect(screen.queryByText('*')).toBeNull();
   });
 
-  it('mostra a característica fixa por padrão e permite torná-la variável', () => {
+  it('usa seletor sem borda com ícone e dropdown para escolher o escopo', () => {
     const field: TechnicalFieldDefinition = {
       id: 'f-variable',
       name: 'Material da estrutura',
@@ -111,20 +111,16 @@ describe('TechnicalFieldRow', () => {
       />
     );
 
-    const scopeGroup = screen.getByRole('group', { name: 'Escopo da característica Material da estrutura' });
-    const globalButton = screen.getByRole('button', { name: 'Global — Material da estrutura' });
-    const variableButton = screen.getByRole('button', { name: 'Por variação — Material da estrutura' });
-    expect(scopeGroup.contains(globalButton)).toBe(true);
-    expect(scopeGroup.contains(variableButton)).toBe(true);
-    expect(scopeGroup.getAttribute('class')).toContain('bg-slate-200/70');
-    expect(globalButton.getAttribute('aria-pressed')).toBe('true');
-    expect(globalButton.getAttribute('class')).toContain('bg-white');
-    expect(globalButton.getAttribute('class')).toContain('text-blue-600');
-    expect(globalButton.textContent).toContain('Global');
-    expect(globalButton.querySelector('svg')?.getAttribute('class')).toContain('lucide-globe');
+    const scopeButton = screen.getByRole('button', {
+      name: 'Escopo da característica Material da estrutura: Global',
+    });
+    expect(scopeButton.getAttribute('class')).not.toContain('border');
+    expect(scopeButton.querySelectorAll('svg')).toHaveLength(2);
     expect(container.querySelector('input, select, textarea')).not.toBeNull();
-    fireEvent.click(variableButton);
-    expect(onToggleVariable).toHaveBeenCalledWith('Material da estrutura');
+    fireEvent.click(scopeButton);
+    expect(screen.getByRole('menuitemradio', { name: 'Global' })).toBeDefined();
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Por variação' }));
+    expect(onToggleVariable).toHaveBeenCalledWith('Material da estrutura', 'variation');
 
     rerender(
       <TechnicalFieldRow
@@ -139,12 +135,10 @@ describe('TechnicalFieldRow', () => {
         onToggleVariable={onToggleVariable}
       />
     );
-    const selectedVariableButton = screen.getByRole('button', { name: 'Por variação — Material da estrutura' });
-    expect(selectedVariableButton.getAttribute('aria-pressed')).toBe('true');
-    expect(selectedVariableButton.getAttribute('class')).toContain('bg-white');
-    expect(selectedVariableButton.getAttribute('class')).toContain('text-emerald-600');
-    expect(selectedVariableButton.textContent).toContain('Por variação');
-    expect(selectedVariableButton.querySelector('svg')?.getAttribute('class')).toContain('lucide-layers-2');
+    const selectedVariableButton = screen.getByRole('button', {
+      name: 'Escopo da característica Material da estrutura: Por variação',
+    });
+    expect(selectedVariableButton.querySelectorAll('svg')).toHaveLength(2);
     expect(container.querySelector('input, select, textarea')).toBeNull();
   });
 
@@ -187,6 +181,55 @@ describe('TechnicalFieldRow', () => {
     );
 
     expect(screen.queryByRole('combobox')).toBeNull();
+  });
+
+  it('mantém características obrigatórias da categoria ativas no produto simples e remove Não informar das variações', () => {
+    const field: TechnicalFieldDefinition = {
+      id: 'category-required',
+      name: 'Acabamento',
+      dataType: 'text',
+      options: [],
+      isRequired: false,
+      isRequiredForCatalog: true,
+    };
+    const onToggleVariable = vi.fn();
+
+    const { rerender } = render(
+      <TechnicalFieldRow
+        field={field}
+        formData={{}}
+        manualFieldNames={[]}
+        isSimpleProduct
+        onToggleVariable={onToggleVariable}
+        onValueChange={vi.fn()}
+        onOpenAttributeModal={vi.fn()}
+        onToggleDepthLength={vi.fn()}
+        onRemoveManualField={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.getByRole('textbox')).toBeDefined();
+
+    rerender(
+      <TechnicalFieldRow
+        field={field}
+        formData={{}}
+        manualFieldNames={[]}
+        isVariable
+        onToggleVariable={onToggleVariable}
+        onValueChange={vi.fn()}
+        onOpenAttributeModal={vi.fn()}
+        onToggleDepthLength={vi.fn()}
+        onRemoveManualField={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /escopo da característica acabamento/i }));
+    expect(screen.queryByRole('menuitemradio', { name: 'Não informar' })).toBeNull();
+    expect(screen.getByRole('menuitemradio', { name: 'Global' })).toBeDefined();
+    expect(screen.getByRole('menuitemradio', { name: 'Por variação' })).toBeDefined();
+    expect(onToggleVariable).not.toHaveBeenCalled();
   });
 
   it('exibe botão de exclusão para campos manuais e aciona remoção', () => {
@@ -255,7 +298,7 @@ describe('TechnicalFieldRow', () => {
     const { rerender } = render(
       <TechnicalFieldRow
         field={field}
-        formData={{ technicalValues: { 'Quantidade de portas': 0 } }}
+        formData={{ technicalValues: { 'Quantidade de portas': 0, 'Tipo de portas': 'De correr' } }}
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
@@ -334,7 +377,7 @@ describe('TechnicalFieldRow', () => {
     render(
       <TechnicalFieldRow
         field={field}
-        formData={{ technicalValues: { 'Quantidade de gavetas': 0 } }}
+        formData={{ technicalValues: { 'Quantidade de gavetas': 0, 'Materiais das corrediças': 'Telescópica' } }}
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}

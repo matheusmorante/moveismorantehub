@@ -1,5 +1,5 @@
 import React from 'react';
-import { Attribute } from './utils';
+import { canAddVariationFamilyAttribute, type Attribute } from './utils';
 
 interface AttributeConflictResolverProps {
   readonly hasConflict: boolean;
@@ -14,6 +14,8 @@ export const AttributeConflictResolver: React.FC<AttributeConflictResolverProps>
   onAddAttribute,
   onUpdateAttribute,
 }) => {
+  const canAddAttribute = canAddVariationFamilyAttribute(attributes);
+
   return (
     <div className={`rounded-2xl border p-4 ${hasConflict ? 'border-red-200 bg-red-50 dark:border-red-900/60 dark:bg-red-950/30' : 'border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950'}`}>
       <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -23,7 +25,7 @@ export const AttributeConflictResolver: React.FC<AttributeConflictResolverProps>
         {hasConflict ? 'Escolha um novo atributo ou valor antes de continuar.' : 'Informe ao menos um atributo completo para identificar a variação no novo produto pai.'}
       </p>
       <div className="mt-3 space-y-2">
-        {attributes.length === 0 ? (
+        {canAddAttribute ? (
           <button
             type="button"
             onClick={onAddAttribute}

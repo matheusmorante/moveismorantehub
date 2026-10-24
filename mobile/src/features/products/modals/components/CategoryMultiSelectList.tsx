@@ -9,6 +9,7 @@ interface CategoryMultiSelectListProps {
   selectedCategoryIds: string[];
   onToggleCategory: (category: MobileCategory) => void;
   dark: boolean;
+  hasValidationError?: boolean;
 }
 
 const normalizeSearchTerm = (value: string) =>
@@ -24,6 +25,7 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
   selectedCategoryIds,
   onToggleCategory,
   dark,
+  hasValidationError = false,
 }) => {
   const [search, setSearch] = useState('');
   const selectedCategories = useMemo(
@@ -42,7 +44,13 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
   }, [categories, filteredCategories, normalizedSearch]);
 
   return (
-    <View style={[styles.categoriesContainer, dark && styles.darkCategoriesContainer]}>
+    <View
+      style={[
+        styles.categoriesContainer,
+        dark && styles.darkCategoriesContainer,
+        hasValidationError && selectedCategoryIds.length === 0 && styles.errorCategoriesContainer,
+      ]}
+    >
       <View style={styles.searchBox}>
         <Search size={16} color={dark ? '#94a3b8' : '#64748b'} />
         <TextInput
@@ -51,6 +59,7 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
           placeholder="Pesquisar categorias..."
           placeholderTextColor="#94a3b8"
           accessibilityLabel="Pesquisar categorias"
+          accessibilityHint={hasValidationError ? 'Selecione pelo menos uma categoria.' : undefined}
           style={[styles.searchInput, dark && styles.lightText]}
         />
         {search.length > 0 && (
@@ -169,6 +178,9 @@ const styles = StyleSheet.create({
   darkCategoriesContainer: {
     backgroundColor: '#0f172a',
     borderColor: '#334155',
+  },
+  errorCategoriesContainer: {
+    borderColor: '#ef4444',
   },
   categoriesScroll: {
     padding: 6,

@@ -35,6 +35,8 @@ interface Props {
   canManageCategories?: boolean;
   nameError?: boolean;
   onNameValidationCleared?: () => void;
+  categoryError?: boolean;
+  onCategoryValidationCleared?: () => void;
   onFieldFocus?: (fieldName: string) => void;
   onFieldBlur?: (fieldName: string) => void;
 }
@@ -63,6 +65,8 @@ export const ProductFormBasicTab: React.FC<Props> = ({
   canManageCategories = false,
   nameError = false,
   onNameValidationCleared,
+  categoryError = false,
+  onCategoryValidationCleared,
   onFieldFocus,
   onFieldBlur,
 }) => {
@@ -167,6 +171,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
           }
         : {}),
     }));
+    if (nextIds.length > 0) onCategoryValidationCleared?.();
   };
 
   const selectedOpportunity = opportunities.find((o) => o.id === formData.opportunityId);
@@ -513,7 +518,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
         <View style={styles.field}>
           <View style={styles.labelRow}>
             <View style={styles.labelBadgeRow}>
-              <Text style={[styles.label, dark && styles.lightLabel]}>
+              <Text style={[styles.label, dark && styles.lightLabel, categoryError && styles.errorLabel]}>
                 CATEGORIA(S) <Text style={styles.required}>*</Text>
               </Text>
               <View style={styles.catalogBadge}>
@@ -544,6 +549,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
             selectedCategoryIds={selectedCategoryIds}
             onToggleCategory={handleToggleCategory}
             dark={dark}
+            hasValidationError={categoryError}
           />
         </View>
       )}

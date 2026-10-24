@@ -86,11 +86,13 @@ export const getApplicableTechnicalFields = (
     if (isMattress && normalizedName === 'espessura do colchão') {
       return true;
     }
-    return Boolean(
-      field.isRequired ||
-        field.requiredCategoryIds?.some((categoryId) => activeCategorySet.has(categoryId))
-    );
+    return Boolean(field.isRequired);
   };
+
+  const isRequiredForCatalog = (field: TechnicalFieldDefinition): boolean =>
+    Boolean(
+      field.requiredCategoryIds?.some((categoryId) => activeCategorySet.has(String(categoryId)))
+    );
 
   let applicable = safeFields.filter((field) => {
     if (isExcludedCharacteristic(field.name)) return false;
@@ -120,6 +122,9 @@ export const getApplicableTechnicalFields = (
           productTechnicalValues['Linha'] !== undefined ||
           productTechnicalValues['linha'] !== undefined
         ));
+
+    // A característica precisa continuar disponível quando a categoria a exige para publicação.
+    if (isRequiredForCatalog(field)) return true;
 
     // Se for colchão, "Altura / Altura total" não deve ser oferecida automaticamente (apenas Espessura do colchão)
     if (isMattress && isHeightCharacteristic(field.name)) {
@@ -179,6 +184,7 @@ export const getApplicableTechnicalFields = (
     return {
       ...field,
       isRequired: isRequiredForProduct(field),
+      isRequiredForCatalog: isRequiredForCatalog(field),
       decimalPlaces: isWeight ? 1 : field.decimalPlaces,
     };
   });

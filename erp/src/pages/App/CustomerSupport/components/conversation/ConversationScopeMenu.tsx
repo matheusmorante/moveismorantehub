@@ -1,13 +1,13 @@
 import React from 'react';
 import { ConversationFilter } from '../../types';
 
-export const SCOPE_OPTIONS: { id: ConversationFilter; label: string }[] = [
-  { id: 'all', label: 'All (Todas)' },
-  { id: 'mine', label: 'Mine (Minhas)' },
-  { id: 'unassigned', label: 'Unassigned (Não atribuídas)' },
-  { id: 'unread', label: 'Unread (Não lidas)' },
-  { id: 'closed', label: 'Closed (Fechadas)' },
-  { id: 'snoozed', label: 'Snoozed (Adiada)' },
+export const SCOPE_OPTIONS: { id: ConversationFilter; label: string; activeLabel: string }[] = [
+  { id: 'all', label: 'Todas', activeLabel: 'Todas' },
+  { id: 'mine', label: 'Minhas', activeLabel: 'Minhas' },
+  { id: 'unassigned', label: 'Não atribuídas', activeLabel: 'Sem atribuição' },
+  { id: 'unread', label: 'Não lidas', activeLabel: 'Não lidas' },
+  { id: 'closed', label: 'Fechadas', activeLabel: 'Fechadas' },
+  { id: 'snoozed', label: 'Adiadas', activeLabel: 'Adiadas' },
 ];
 
 interface ConversationScopeMenuProps {
@@ -25,14 +25,14 @@ export const ConversationScopeMenu: React.FC<ConversationScopeMenuProps> = ({
   onToggle,
   onClose,
 }) => {
-  const activeScopeLabel =
-    SCOPE_OPTIONS.find((s) => s.id === filter)?.label.split(' ')[0] || 'All';
+  const activeScopeLabel = SCOPE_OPTIONS.find((scope) => scope.id === filter)?.activeLabel || 'Todas';
 
   return (
     <div className="relative">
       <button
         type="button"
         onClick={onToggle}
+        aria-expanded={isOpen}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-xs font-bold text-slate-800 dark:text-slate-100 transition-colors cursor-pointer border border-slate-200/60 dark:border-slate-700"
       >
         <i className="bi bi-chat-left-text text-slate-500 text-xs"></i>

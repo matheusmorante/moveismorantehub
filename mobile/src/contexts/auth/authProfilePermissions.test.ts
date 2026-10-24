@@ -15,7 +15,6 @@ describe('mobile module permission flags', () => {
         viewProductCharacteristics: [],
         viewProductCategories: [],
         viewProductCompositions: [],
-        viewProductReconciliation: [],
       },
       true
     );
@@ -23,6 +22,25 @@ describe('mobile module permission flags', () => {
     expect(flags.canUsePermission('viewMetaCatalog', ['manager'])).toBe(true);
     expect(flags.canUsePermission('finalizeStockInventory', ['manager', 'stockist'])).toBe(true);
     expect(flags.canSeeProducts).toBe(true);
+  });
+
+  it('does not expose the Products area from reconciliation permission alone', () => {
+    const flags = deriveAuthRoleFlags(
+      { role: 'manager' },
+      {
+        viewProducts: [],
+        viewProductCharacteristics: [],
+        viewProductCategories: [],
+        viewProductCompositions: [],
+        viewProductReconciliation: ['manager'],
+        viewMetaCatalog: [],
+        viewWhatsAppMarketplace: [],
+      },
+      true
+    );
+
+    expect(flags.canUseProductPermission('viewProductReconciliation')).toBe(true);
+    expect(flags.canSeeProducts).toBe(false);
   });
 
   it('keeps channel access closed while role permissions are loading', () => {

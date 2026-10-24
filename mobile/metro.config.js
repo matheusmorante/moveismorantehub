@@ -6,6 +6,7 @@ config.watchFolders = [
   ...(config.watchFolders || []),
   path.resolve(__dirname, '../shared-utils'),
   path.resolve(__dirname, '../erp/src/pages/utils'),
+  path.resolve(__dirname, '../erp/src/domain/products/variations'),
 ];
 // Shared schemas outside the app resolve dependencies from the mobile installation.
 config.resolver.nodeModulesPaths = [...new Set([

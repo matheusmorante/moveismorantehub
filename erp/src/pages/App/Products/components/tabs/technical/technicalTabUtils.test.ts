@@ -108,7 +108,7 @@ describe('technicalTabUtils', () => {
       expect(state.isFieldInvalid).toBe(false);
     });
 
-    it('aponta invalidez quando o campo é obrigatório/aplicável, mas sem valor selecionado com erro de validação', () => {
+    it('não aponta como erro ERP uma característica exigida apenas pelo catálogo', () => {
       const state = computeTechnicalFieldItemState(
         fieldAltura,
         { height: undefined, technicalValues: { Altura: '' } },
@@ -117,7 +117,7 @@ describe('technicalTabUtils', () => {
       );
       expect(state.hasSelectedValue).toBe(false);
       expect(state.isApplicable).toBe(true);
-      expect(state.isFieldInvalid).toBe(true);
+      expect(state.isFieldInvalid).toBe(false);
     });
 
     it('identifica corretamente Marca vinda de formData.brand', () => {

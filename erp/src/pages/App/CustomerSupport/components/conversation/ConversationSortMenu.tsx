@@ -3,9 +3,9 @@ import React from 'react';
 export type SortOrder = 'newest' | 'oldest' | 'unread';
 
 export const sortLabelMap: Record<SortOrder, string> = {
-  newest: 'Newest',
-  oldest: 'Oldest',
-  unread: 'Unread first',
+  newest: 'Mais recentes',
+  oldest: 'Mais antigas',
+  unread: 'Não lidas primeiro',
 };
 
 interface ConversationSortMenuProps {

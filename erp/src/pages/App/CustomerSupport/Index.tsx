@@ -479,7 +479,7 @@ export default function CustomerSupport() {
       {selectedConversation ? (
         <div className="flex-1 flex h-full min-w-0 md:min-w-[240px] relative">
           <ChatArea
-            key={selectedConversation.id}
+            key={`chat-${selectedConversation.id}`}
             conversation={selectedConversation}
             teamMembers={agents}
             isLoadingAgents={isLoadingAgents}
@@ -516,7 +516,7 @@ export default function CustomerSupport() {
 
           {/* Coluna 5: Painel Contextual do ERP (Dados do Cliente e Pedidos) */}
           <CustomerInfoPanel
-            key={selectedConversation.id}
+            key={`customer-info-${selectedConversation.id}`}
             conversation={selectedConversation}
             isOpen={isInfoPanelOpen}
             onClose={() => setIsInfoPanelOpen(false)}

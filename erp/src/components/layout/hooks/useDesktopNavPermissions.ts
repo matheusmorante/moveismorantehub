@@ -41,7 +41,6 @@ export interface DesktopNavPermissions {
   canViewBudgets: boolean;
   canViewAssistanceOrders: boolean;
   canViewReturns: boolean;
-  canViewSalesReports: boolean;
   canViewOrders: boolean;
 
   // Fiscal
@@ -114,13 +113,11 @@ export function useDesktopNavPermissions(profile: UserProfile | null): DesktopNa
     const canViewBudgets = canPerform('viewBudgets', roles);
     const canViewAssistanceOrders = canPerform('viewAssistanceOrders', roles);
     const canViewReturns = canPerform('viewReturns', roles);
-    const canViewSalesReports = canPerform('viewSalesReports', roles);
     const canViewOrders =
       canViewOrdersList ||
       canViewBudgets ||
       canViewAssistanceOrders ||
-      canViewReturns ||
-      canViewSalesReports;
+      canViewReturns;
 
     // Fiscal
     const canViewFiscalOutbound = canPerform('viewFiscal', roles);
@@ -179,7 +176,6 @@ export function useDesktopNavPermissions(profile: UserProfile | null): DesktopNa
       canViewBudgets,
       canViewAssistanceOrders,
       canViewReturns,
-      canViewSalesReports,
       canViewOrders,
       canViewFiscalOutbound,
       canViewInboundFiscal,

@@ -173,15 +173,6 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     [visibleFields]
   );
 
-  useEffect(() => {
-    if (!setFormData || isSingleVariation) return;
-    const requiredNames = requiredFields.map((field) => field.name);
-    setFormData((previous) => {
-      if (!previous || JSON.stringify(previous.requiredTechnicalFields || []) === JSON.stringify(requiredNames)) return previous;
-      return { ...previous, requiredTechnicalFields: requiredNames };
-    });
-  }, [requiredFields, setFormData, isSingleVariation]);
-
   const requiredFieldGroups = useMemo(
     () => groupTechnicalFields(requiredFields),
     [requiredFields]

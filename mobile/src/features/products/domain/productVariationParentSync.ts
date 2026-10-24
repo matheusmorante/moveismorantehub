@@ -1,4 +1,8 @@
 import { getSimpleProductVariationTechnicalValues } from '../../../../../shared-utils/simpleProductVariationTechnicalValues';
+import {
+  inheritSimpleProductVariationFromParent,
+  type SimpleProductVariationInheritanceOptions,
+} from '../../../../../shared-utils/simpleProductVariationInheritance';
 
 type ParentVariationFields = {
   id?: unknown;
@@ -28,47 +32,9 @@ type ParentVariationFields = {
 /** Mirrors ERP's conversion of an unsaved single-variation product back to simple mode. */
 export const inheritMobileSimpleVariationFromParent = <T extends Record<string, any>>(
   parent: ParentVariationFields & Record<string, any>,
-  variation: T
-): T => ({
-  ...variation,
-  name: parent.name || parent.title || parent.description || '',
-  title: parent.title || parent.name || '',
-  marketplaceTitle: parent.marketplaceTitle || parent.title || parent.name || '',
-  stock: Number(parent.stock || 0),
-  price: Number(parent.unitPrice || parent.unit_price || parent.price || 0),
-  unitPrice: Number(parent.unitPrice || parent.unit_price || parent.price || 0),
-  promoPrice: Number(parent.promoPrice || parent.promo_price || 0),
-  costPrice: Number(parent.costPrice || parent.cost_price || 0),
-  condition: parent.condition || 'novo',
-  description: parent.description || '',
-  fiscal: parent.fiscal ? { ...parent.fiscal } : undefined,
-  width: Number(parent.width || 0),
-  height: Number(parent.height || 0),
-  depth: Number(parent.depth || 0),
-  weight: Number(parent.weight || 0),
-  ipiPercent: Number(parent.ipiPercent || 0),
-  ipiType: parent.ipiType || 'percentage',
-  freightCost: Number(parent.freightCost || 0),
-  freightType: parent.freightType || 'fixed',
-  finalPurchasePrice: Number(parent.finalPurchasePrice || 0),
-  minStock: Number(parent.minStock || 0),
-  attributes: [],
-  images: Array.isArray(parent.images) ? [...parent.images] : [],
-  syncUnitPrice: true,
-  syncPromoPrice: true,
-  syncCostPrice: true,
-  syncCondition: true,
-  syncDescription: true,
-  syncFiscal: true,
-  syncWithParent: true,
-  syncDimensions: true,
-  syncWidth: true,
-  syncHeight: true,
-  syncDepth: true,
-  syncWeight: true,
-  syncIpi: true,
-  syncFreight: true,
-});
+  variation: T,
+  options?: SimpleProductVariationInheritanceOptions
+): T => inheritSimpleProductVariationFromParent(parent, variation, options);
 
 const sameValue = (left: unknown, right: unknown) => {
   if (Object.is(left, right)) return true;

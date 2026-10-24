@@ -15,6 +15,7 @@ interface Props {
   onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
   onOpenDeliveryFlow?: (item: DeliveryRouteItem) => void;
+  preparingOrderIds?: ReadonlySet<string>;
   handlingOptions?: AssemblyHandlingOption[];
   dateScope?: DeliveryRouteDateScope;
   onChangeDateScope?: (scope: DeliveryRouteDateScope) => void;
@@ -45,6 +46,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
   onStartDelivery,
   onViewOrder,
   onOpenDeliveryFlow,
+  preparingOrderIds,
   handlingOptions: sharedHandlingOptions,
   dateScope = 'today',
   isDarkMode = false,
@@ -204,6 +206,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
                     onStartDelivery={onStartDelivery}
                     onViewOrder={onViewOrder}
                     onOpenDeliveryFlow={onOpenDeliveryFlow}
+                    isPreparing={preparingOrderIds?.has(item.id)}
                     handlingOptions={handlingOptions}
                     isDarkMode={isDarkMode}
                   />

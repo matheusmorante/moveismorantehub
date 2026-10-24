@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { variationFamilyCommandSchema, variationFamilyQuerySchema, variationFamilyConflictSchema, variationFamilyAckSchema,
-  VariationFamilyUnconfirmedError, type VariationFamilyOperationGuard } from '../../../../../../../../shared-utils/variationFamilyFormSchemas';
+  canAddVariationFamilyAttribute, VariationFamilyUnconfirmedError, type VariationFamilyOperationGuard } from '../../../../../../../../shared-utils/variationFamilyFormSchemas';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import { ensureAttributeValue } from '@/pages/utils/variationService';
 import { moveVariationToFamily } from '@/pages/utils/productService';
@@ -151,7 +151,13 @@ export const useMoveVariationFamily = (
   };
   return { families, targetFamilyId, setTargetFamilyId: (id: string) => { if (editable()) { invalidateReview(); selectFamily(id); } }, attributes,
     updateAttribute: (index: number, field: 'name' | 'value', value: string) => { if (editable()) { invalidateReview(); setAttributes((current) => current.map((attribute, i) => i === index ? { ...attribute, [field]: value } : attribute)); } },
-    addAttribute: () => { if (editable()) { invalidateReview(); setAttributes((current) => [...current, { name: '', value: '' }]); } },
+    addAttribute: () => {
+      if (!editable() || !canAddVariationFamilyAttribute(attributes)) return;
+      invalidateReview();
+      setAttributes((current) =>
+        canAddVariationFamilyAttribute(current) ? [...current, { name: '', value: '' }] : current
+      );
+    },
     hasConflict, countdown, isOnlyVariation: Boolean(context?.isOnlyVariation), saving, handleConfirm, handleCancel,
     loading, queryError, conflictLoading, conflictError, error, canConfirm, blocked: Boolean(guard.error) || completed.current,
     retryQueries: () => { if (editable()) { invalidateReview(); setQueryRevision((revision) => revision + 1); } },

@@ -31,10 +31,8 @@ interface Props {
   canCreateComposition?: boolean;
   onOpenConfigs: () => void;
   canOpenConfigs?: boolean;
-  onOpenReconciliation?: () => void;
   onOpenMetaCatalog?: () => void;
   onOpenWhatsAppMarketplace?: () => void;
-  canViewReconciliation?: boolean;
   canViewMetaCatalog?: boolean;
   canViewWhatsAppMarketplace?: boolean;
   showDeactivated: boolean;
@@ -75,8 +73,6 @@ export function ProductsHeader({
   canCreateComposition = false,
   onOpenConfigs,
   canOpenConfigs = false,
-  onOpenReconciliation,
-  canViewReconciliation = false,
   onOpenMetaCatalog,
   onOpenWhatsAppMarketplace,
   canViewMetaCatalog = false,
@@ -190,7 +186,6 @@ export function ProductsHeader({
         canCreateProduct={canCreateProduct}
         canCreateComposition={canCreateComposition}
         canOpenConfigs={canOpenConfigs}
-        canViewReconciliation={canViewReconciliation}
         canViewMetaCatalog={canViewMetaCatalog}
         canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
         showDeactivated={showDeactivated}
@@ -202,7 +197,6 @@ export function ProductsHeader({
         onNewComposition={onNewComposition}
         onModeChange={onModeChange}
         onOpenConfigs={onOpenConfigs}
-        onOpenReconciliation={onOpenReconciliation}
         onOpenMetaCatalog={onOpenMetaCatalog}
         onOpenWhatsAppMarketplace={onOpenWhatsAppMarketplace}
         onToggleDeactivated={onToggleDeactivated}

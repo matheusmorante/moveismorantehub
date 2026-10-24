@@ -1,5 +1,10 @@
 export type { FamilyAttribute as Attribute } from '../../../../../../../../shared-utils/variationFamilyFormSchemas';
-export { normalizeFamilyValue as normalize, toFamilyAttributes as toAttributes, sameFamilyAttributes as hasSameAttributes } from '../../../../../../../../shared-utils/variationFamilyFormSchemas';
+export {
+  canAddVariationFamilyAttribute,
+  normalizeFamilyValue as normalize,
+  toFamilyAttributes as toAttributes,
+  sameFamilyAttributes as hasSameAttributes,
+} from '../../../../../../../../shared-utils/variationFamilyFormSchemas';
 
 export interface Family {
   readonly id: string;

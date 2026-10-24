@@ -135,10 +135,10 @@ export function toggleNodeLink(selectedLinks: string[], targetId: string): strin
  * Alterna uma característica/atributo selecionado para a categoria.
  * Garante unicidade pelo ID do atributo.
  */
-export function toggleCategoryAttribute(
-  currentAttributes: AttributeRef[],
-  targetAttribute: AttributeRef
-): AttributeRef[] {
+export function toggleCategoryAttribute<TAttribute extends AttributeRef>(
+  currentAttributes: TAttribute[],
+  targetAttribute: TAttribute
+): TAttribute[] {
   const exists = currentAttributes.some((a) => a.id === targetAttribute.id);
   if (exists) {
     return currentAttributes.filter((a) => a.id !== targetAttribute.id);

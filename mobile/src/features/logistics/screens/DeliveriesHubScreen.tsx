@@ -55,6 +55,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   const [selectedMapDate, setSelectedMapDate] = useState('');
   const [scheduleDateScope, setScheduleDateScope] = useState<DeliveryRouteDateScope>('today');
   const [handlingOptions, setHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
+  const [preparingOrderIds, setPreparingOrderIds] = useState<Set<string>>(() => new Set());
   const tabsScrollRef = useRef<ScrollView>(null);
   const tabsScrollMetrics = useRef({ viewport: 0, content: 0, offset: 0 });
   const tabLayouts = useRef<Partial<Record<DeliveriesSubTab, { x: number; width: number }>>>({});
@@ -242,6 +243,9 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 
   const handleOpenDeliveryFlow = useCallback(
     (item: DeliveryRouteItem) => {
+      if (item.activityType === 'delivery' && item.status === 'pending') {
+        setPreparingOrderIds((current) => new Set(current).add(item.id));
+      }
       onSelectOrder({ ...item.order, _openDeliveryPreparation: true });
     },
     [onSelectOrder]
@@ -465,6 +469,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             onStartDelivery={handleStartDelivery}
             onViewOrder={handleViewOrder}
             onOpenDeliveryFlow={handleOpenDeliveryFlow}
+            preparingOrderIds={preparingOrderIds}
             handlingOptions={handlingOptions}
             dateScope={scheduleDateScope}
             isDarkMode={isDarkMode}

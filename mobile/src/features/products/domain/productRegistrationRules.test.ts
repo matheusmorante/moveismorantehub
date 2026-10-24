@@ -53,6 +53,16 @@ describe('productRegistrationRules', () => {
     expect(getMobileVariationRegistrationIssue(parent, variation, [variation])).toBeNull();
   });
 
+  it('aceita o categoryId legado quando categoryIds está vazio', () => {
+    expect(
+      getMobileVariationRegistrationIssue(
+        { ...parent, categoryIds: [], categoryId: 'categoria-legada' },
+        variation,
+        [variation]
+      )
+    ).toBeNull();
+  });
+
   it('mantém Material da estrutura opcional, como no ERP', () => {
     expect(
       getMobileVariationRegistrationIssue(

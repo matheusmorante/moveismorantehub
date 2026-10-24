@@ -68,7 +68,7 @@ export const DesktopNav: React.FC<DesktopNavProps> = ({ activeMenu, setActiveMen
         />
       )}
 
-      {/* 6. Vendas (Pedidos, Orçamentos, Assistências, Devoluções, NF de saída e Relatórios) */}
+      {/* 6. Vendas (Pedidos, Orçamentos, Assistências, Devoluções e NF de saída) */}
       {(permissions.canViewOrders || permissions.canViewFiscalOutbound) && (
         <SalesNavMenu
           activeMenu={activeMenu}

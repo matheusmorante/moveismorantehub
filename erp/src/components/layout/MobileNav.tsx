@@ -193,19 +193,12 @@ const menuItems: any[] = [
         iconColor: 'text-orange-500',
         label: 'Devoluções',
       },
-      { type: 'header', label: 'FISCAL' },
       {
         type: 'link',
         to: '/fiscal-documents',
         icon: 'bi-receipt',
         iconColor: 'text-emerald-500',
         label: 'NF de saída',
-      },
-      {
-        to: '/sales-order/reports',
-        icon: 'bi-file-earmark-spreadsheet-fill',
-        iconColor: 'text-green-500',
-        label: 'Relatório CSV',
       },
     ],
   },
@@ -345,10 +338,8 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
     'viewBudgets',
     'viewAssistanceOrders',
     'viewReturns',
-    'viewSalesReports',
     'viewFiscal',
   ].some((action) => canPerform(action, roles));
-  const canViewFiscalOutbound = canPerform('viewFiscal', roles);
   const canUseFinance = canUseFinanceModule(roles);
   const canSeeFinanceBeta = canSeeFinanceModuleBeta(roles);
   const canViewMarketing = [
@@ -407,7 +398,6 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
       '/budgets': 'viewBudgets',
       '/assistance-orders': 'viewAssistanceOrders',
       '/returns': 'viewReturns',
-      '/sales-order/reports': 'viewSalesReports',
       '/fiscal-documents': 'viewFiscal',
       '/estoque/notas-fiscais-entrada': 'viewInboundFiscal',
       '/estoque/ncm': 'viewNcmCatalog',
@@ -555,14 +545,11 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-1 pt-2 pb-4 px-2">
                     {item.links.map((link: any, idx: number) =>
                       link.type === 'header' ? (
-                        ((item.key === 'stock' &&
+                        (item.key === 'stock' &&
                           ((link.label === 'OPERAÇÃO' && !canViewStockOperations) ||
                             (link.label === 'FISCAL' && !canViewInboundFiscal) ||
                             (link.label === 'COMPRAS' && !canViewStockPurchases && !canViewSuppliers) ||
-                            (link.label === 'IMPRESSÃO DE ETIQUETAS' && !canViewStockLabels))) ||
-                          (item.key === 'salesOrder' &&
-                            link.label === 'FISCAL' &&
-                            !canViewFiscalOutbound)) ? null : (
+                            (link.label === 'IMPRESSÃO DE ETIQUETAS' && !canViewStockLabels))) ? null : (
                           <div
                             key={`header-${idx}`}
                             className="md:col-span-2 px-4 pt-4 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500"

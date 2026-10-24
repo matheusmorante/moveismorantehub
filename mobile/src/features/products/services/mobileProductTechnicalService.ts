@@ -17,6 +17,7 @@ export interface MobileProductTechnicalField {
   readonly categoryIds: string[];
   readonly requiredCategoryIds?: string[];
   readonly isRequired: boolean;
+  readonly isRequiredForProduct?: boolean;
   readonly isCustom: boolean;
   readonly options: MobileTechnicalFieldOption[];
 }
@@ -31,9 +32,9 @@ interface TechnicalAttributeRow {
   readonly decimal_places?: number | null;
 }
 
-export const fetchMobileProductTechnicalFields = async (): Promise<
-  MobileProductTechnicalField[]
-> => {
+export const fetchMobileProductTechnicalFields = async (
+  fetchOptions: { requireCategoryLinks?: boolean } = {}
+): Promise<MobileProductTechnicalField[]> => {
   let attributeQuery: any = await supabase
     .from('attributes')
     .select('id, name, active, data_type, unit, is_custom, decimal_places')
@@ -59,13 +60,14 @@ export const fetchMobileProductTechnicalFields = async (): Promise<
   }
   if (error) throw error;
 
-  const [optionsResult, { data: categoryLinks }] = await Promise.all([
+  const [optionsResult, { data: categoryLinks, error: categoryLinksError }] = await Promise.all([
     supabase.from('attribute_values').select('id, attribute_id, value, sort_order').limit(10000),
     supabase
       .from('category_attributes')
       .select('attribute_id, category_id, is_required')
       .limit(10000),
   ]);
+  if (categoryLinksError && fetchOptions.requireCategoryLinks) throw categoryLinksError;
   const optionResult =
     optionsResult.error &&
     (optionsResult.error.code === '42703' || optionsResult.error.message?.includes('sort_order'))
@@ -122,6 +124,7 @@ export const fetchMobileProductTechnicalFields = async (): Promise<
               ? attribute.decimal_places
               : null,
         isRequired: isRequiredCharacteristicName(attribute.name),
+        isRequiredForProduct: isRequiredCharacteristicName(attribute.name),
         isCustom: Boolean(attribute.is_custom),
         options: orderedValues,
       };

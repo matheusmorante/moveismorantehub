@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { productListFormSchema } from '../../../../../shared-utils/listingFormSchemas';
 import { validateCatalogPublication } from '../../../../../shared-utils/catalogPublicationValidation';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import {
   isProductVariationSearchTooBroadError,
   PRODUCT_LIST_SEARCH_DEBOUNCE_MS,
@@ -18,6 +19,10 @@ import {
   resolveMobileProductListRequestPage,
 } from '../domain/mobileProductListRequest';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
+import {
+  fetchMobileProductTechnicalFields,
+  type MobileProductTechnicalField,
+} from '../services/mobileProductTechnicalService';
 import {
   deleteMobileProduct,
   moveMobileProductToTrash,
@@ -214,7 +219,29 @@ export function useMobileProducts(
       : null;
 
     if (currentStatus !== 'published' && targetProd) {
-      const validation = validateCatalogPublication(targetProd, variation, isVar);
+      let categoryRequirements: MobileProductTechnicalField[] | null;
+      try {
+        categoryRequirements = await withTimeout(
+          fetchMobileProductTechnicalFields({ requireCategoryLinks: true }),
+          15000,
+          null,
+          'produto:verificar-requisitos-do-catalogo'
+        );
+        if (!categoryRequirements) throw new Error('Requisitos de categoria indisponíveis.');
+      } catch {
+        Alert.alert(
+          'Verificação indisponível',
+          'Não foi possível verificar as características obrigatórias da categoria. O produto não foi publicado.'
+        );
+        return;
+      }
+
+      const validation = validateCatalogPublication(
+        targetProd,
+        variation,
+        isVar,
+        categoryRequirements
+      );
       if (!validation.isValid) {
         Alert.alert(
           validation.errorMessage?.includes('rascunho')
@@ -403,10 +430,22 @@ export function useMobileProducts(
     }
   };
 
-  const handleSave = async (productData: any) => {
-    await saveMobileProduct(productData);
+  const handleSave = useCallback(async (productData: any) => {
+    const productId = await saveMobileProduct(productData);
     await loadProducts(false, currentPage);
-  };
+    return productId;
+  }, [currentPage, loadProducts]);
+
+  const handleAutoSave = useCallback(
+    (productData: any) =>
+      saveMobileProduct(productData, { returnVersionAcknowledgement: true }),
+    []
+  );
+
+  const refresh = useCallback(
+    () => loadProducts(true, currentPage),
+    [currentPage, loadProducts]
+  );
 
   const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
   return {
@@ -437,12 +476,13 @@ export function useMobileProducts(
     setShowMergedProducts,
     onToggleMergedProducts: () => setShowMergedProducts((prev) => !prev),
     setCurrentPage,
-    refresh: () => loadProducts(true, currentPage),
+    refresh,
     handleToggleCatalog,
     handleToggleActive,
     handleDelete,
     handleMoveToTrash,
     handleRestoreFromTrash,
     handleSave,
+    handleAutoSave,
   };
 }

@@ -6,6 +6,7 @@ export const TEST_PRODUCT_CATALOG_PUBLICATION_ERROR =
 export interface EcomLegibilityResult {
   isLegible: boolean;
   errors: string[];
+  missingCategoryCharacteristics: string[];
   checks: {
     marketplaceTitle: boolean;
     description: boolean;
@@ -13,8 +14,170 @@ export interface EcomLegibilityResult {
     categories: boolean;
     images: boolean;
     dimensions: boolean;
+    categoryCharacteristics: boolean;
   };
 }
+
+export interface CatalogCharacteristicRequirement {
+  readonly name: string;
+  readonly requiredForCategory?: boolean;
+  readonly requiredCategoryIds?: readonly (string | number)[];
+}
+
+export interface CatalogCharacteristicCheckOptions {
+  readonly categoryRequirementsVerified?: boolean;
+}
+
+const normalizeCharacteristicName = (value: unknown) =>
+  String(value ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR');
+
+const normalizeCharacteristicKey = (value: unknown) =>
+  normalizeCharacteristicName(value).replace(/[\s/]+/g, '');
+
+const getCharacteristicNameAliases = (name: string) => {
+  const normalized = normalizeCharacteristicKey(name);
+  if (['modelo', 'linha', 'modelolinha', 'linhamodelo'].includes(normalized)) {
+    return ['modelo', 'linha', 'modelolinha', 'linhamodelo'];
+  }
+  return [normalized];
+};
+
+const readCharacteristicValue = (record: Record<string, any>, name: string): unknown => {
+  const aliases = new Set(getCharacteristicNameAliases(name));
+  const valueMaps = [
+    record.technicalValues,
+    record.technical_values,
+    record.technicalSpecs?.technicalValues,
+    record.technical_specs?.technicalValues,
+  ];
+
+  for (const values of valueMaps) {
+    if (!values || typeof values !== 'object' || Array.isArray(values)) continue;
+    const entry = Object.entries(values).find(([key]) => aliases.has(normalizeCharacteristicKey(key)));
+    if (entry && entry[1] !== undefined && entry[1] !== null) return entry[1];
+  }
+
+  if (Array.isArray(record.attributes)) {
+    const attribute = record.attributes.find(
+      (item: any) => item?.name && aliases.has(normalizeCharacteristicKey(item.name))
+    );
+    if (attribute && attribute.value !== undefined && attribute.value !== null) {
+      return attribute.value;
+    }
+  } else if (record.attributes && typeof record.attributes === 'object') {
+    const entry = Object.entries(record.attributes).find(([key]) =>
+      aliases.has(normalizeCharacteristicKey(key))
+    );
+    if (entry && entry[1] !== undefined && entry[1] !== null) return entry[1];
+  }
+
+  const normalized = normalizeCharacteristicName(name);
+  const directFieldByName: Record<string, string[]> = {
+    marca: ['brand'],
+    altura: ['height'],
+    'altura total': ['height'],
+    largura: ['width'],
+    'largura total': ['width'],
+    profundidade: ['depth'],
+    'profundidade total': ['depth'],
+    comprimento: ['depth'],
+    'comprimento total': ['depth'],
+    peso: ['weight'],
+    modelo: ['model'],
+    linha: ['line'],
+  };
+  const normalizedKey = normalizeCharacteristicKey(name);
+  const directFields =
+    normalizedKey === 'modelolinha' || normalizedKey === 'linhamodelo'
+      ? ['model', 'line']
+      : directFieldByName[normalized] || [];
+  for (const key of directFields) {
+    if (record[key] !== undefined && record[key] !== null) return record[key];
+  }
+
+  return undefined;
+};
+
+const hasCatalogValue = (value: unknown): boolean => {
+  if (value === undefined || value === null) return false;
+  if (Array.isArray(value)) return value.some(hasCatalogValue);
+  if (typeof value === 'object') {
+    const structured = value as { value?: unknown; val?: unknown };
+    if (structured.value !== undefined || structured.val !== undefined) {
+      return hasCatalogValue(structured.value ?? structured.val);
+    }
+    return false;
+  }
+  if (typeof value === 'string') {
+    const normalized = normalizeCharacteristicName(value);
+    return Boolean(normalized && normalized !== 'nao se aplica' && normalized !== 'n/a' && normalized !== 'nao informar');
+  }
+  return true;
+};
+
+const getProductCategoryIds = (data: Readonly<Record<string, any>>): string[] => {
+  const ids = Array.isArray(data.categoryIds)
+    ? data.categoryIds
+    : data.categoryId || data.category_id
+      ? [data.categoryId || data.category_id]
+      : [];
+  return ids.map((id: unknown) => String(id));
+};
+
+/** Returns category-required characteristics that have no usable value on the product or its variants. */
+export const getMissingCategoryRequiredCharacteristics = (
+  data: Readonly<Record<string, any>>,
+  requirements: readonly CatalogCharacteristicRequirement[]
+): string[] => {
+  const activeCategories = new Set(getProductCategoryIds(data));
+  const requiredNames = requirements
+    .filter(
+      (requirement) =>
+        requirement.requiredForCategory === true ||
+        requirement.requiredCategoryIds?.some((id) => activeCategories.has(String(id)))
+    )
+    .map((requirement) => requirement.name.trim())
+    .filter(Boolean);
+
+  const variations = [data.variations, data.product_variations, data.allVariations]
+    .find((items) => Array.isArray(items) && items.length > 0) || [];
+  const activeVariations = variations.filter(
+    (variation: any) => variation && variation.active !== false && variation.isDeleted !== true
+  );
+  const configuredVariableNames =
+    data.variableTechnicalFields ??
+    data.variable_technical_fields ??
+    data.technicalSpecs?.variableTechnicalFields ??
+    data.technical_specs?.variableTechnicalFields;
+  const declaredVariableNames = Array.isArray(configuredVariableNames)
+    ? configuredVariableNames.map((name: unknown) => normalizeCharacteristicKey(name))
+    : null;
+
+  return [...new Set(requiredNames)].filter((name) => {
+    const aliases = getCharacteristicNameAliases(name);
+    const isDeclaredVariable = Boolean(declaredVariableNames?.some((fieldName) => aliases.includes(fieldName)));
+    if (activeVariations.length === 0) {
+      if (isDeclaredVariable) return true;
+      return !hasCatalogValue(readCharacteristicValue(data, name));
+    }
+
+    const isLegacyVariable =
+      declaredVariableNames === null &&
+      activeVariations.some((variation: any) => hasCatalogValue(readCharacteristicValue(variation, name)));
+    const isPerVariation = isDeclaredVariable || isLegacyVariable;
+
+    if (!isPerVariation && hasCatalogValue(readCharacteristicValue(data, name))) return false;
+
+    return activeVariations.some((variation: any) => {
+      const variationValue = readCharacteristicValue(variation, name);
+      return !hasCatalogValue(variationValue);
+    });
+  });
+};
 
 export function isPositiveNumber(value: unknown): boolean {
   const num = Number(value);
@@ -24,14 +187,31 @@ export function isPositiveNumber(value: unknown): boolean {
 /**
  * Avalia se os dados do produto atendem aos requisitos obrigatórios para exibição no Catálogo Digital.
  */
-export function checkEcomLegibility(data: Readonly<Record<string, any>>): EcomLegibilityResult {
+export function checkEcomLegibility(
+  data: Readonly<Record<string, any>>,
+  categoryRequirements: readonly CatalogCharacteristicRequirement[] = [],
+  options: CatalogCharacteristicCheckOptions = {}
+): EcomLegibilityResult {
   const errors: string[] = [];
+  const categoryRequirementsVerified = options.categoryRequirementsVerified !== false;
+  const missingCategoryCharacteristics = getMissingCategoryRequiredCharacteristics(
+    data,
+    categoryRequirements
+  );
+  const variations = [data.variations, data.product_variations, data.allVariations]
+    .find((items) => Array.isArray(items) && items.length > 0) || [];
+
+  if (!categoryRequirementsVerified) {
+    errors.push('Não foi possível verificar as características obrigatórias da categoria.');
+  } else if (missingCategoryCharacteristics.length > 0) {
+    errors.push(
+      `Preencha as características obrigatórias da categoria para publicar: ${missingCategoryCharacteristics.join(', ')}.`
+    );
+  }
   const hasVars = Boolean(
     data.hasVariations ||
       data.has_variations ||
-      (Array.isArray(data.variations) && data.variations.length > 0) ||
-      (Array.isArray(data.product_variations) && data.product_variations.length > 0) ||
-      (Array.isArray(data.allVariations) && data.allVariations.length > 0)
+      variations.length > 0
   );
   const catalogTitle = String(
     data.name ||
@@ -59,9 +239,7 @@ export function checkEcomLegibility(data: Readonly<Record<string, any>>): EcomLe
       errors.push('Preço de Venda deve ser maior que zero.');
     }
   } else {
-    const vars =
-      data.variations || data.product_variations || data.allVariations || [];
-    hasValidPrice = Boolean(Array.isArray(vars) && vars.length > 0);
+    hasValidPrice = variations.length > 0;
   }
 
   const categoryIds = Array.isArray(data.categoryIds)
@@ -153,6 +331,7 @@ export function checkEcomLegibility(data: Readonly<Record<string, any>>): EcomLe
   return {
     isLegible: errors.length === 0,
     errors,
+    missingCategoryCharacteristics,
     checks: {
       marketplaceTitle: hasValidTitle,
       description: hasValidDesc,
@@ -160,6 +339,8 @@ export function checkEcomLegibility(data: Readonly<Record<string, any>>): EcomLe
       categories: hasValidCategories,
       images: hasValidImages,
       dimensions: hasValidDimensions,
+      categoryCharacteristics:
+        categoryRequirementsVerified && missingCategoryCharacteristics.length === 0,
     },
   };
 }
@@ -171,7 +352,9 @@ export function checkEcomLegibility(data: Readonly<Record<string, any>>): EcomLe
 export const validateCatalogPublication = (
   parentProduct?: any,
   variation?: any,
-  isVariation?: boolean
+  isVariation?: boolean,
+  categoryRequirements: readonly CatalogCharacteristicRequirement[] = [],
+  options: CatalogCharacteristicCheckOptions = {}
 ): { isValid: boolean; errorMessage?: string } => {
   const catalogProduct = {
     ...parentProduct,
@@ -195,6 +378,17 @@ export const validateCatalogPublication = (
 
   const effectiveProduct: Record<string, any> = {
     ...parentProduct,
+    ...(
+      isVariation && variation
+        ? { variations: [variation] }
+        : parentProduct?.variations?.length
+          ? {}
+          : parentProduct?.product_variations?.length
+            ? { variations: parentProduct.product_variations }
+            : parentProduct?.allVariations?.length
+              ? { variations: parentProduct.allVariations }
+              : {}
+    ),
     name:
       parentProduct?.name ||
       parentProduct?.title ||
@@ -249,7 +443,7 @@ export const validateCatalogPublication = (
       : {}),
   };
 
-  const ecomResult = checkEcomLegibility(effectiveProduct);
+  const ecomResult = checkEcomLegibility(effectiveProduct, categoryRequirements, options);
   if (!ecomResult.isLegible) {
     const errorList = ecomResult.errors;
     let message = '';

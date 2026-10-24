@@ -2,15 +2,11 @@ import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import { toTitleCase } from './textUtils';
 import { normalizeSlug, resolveUniqueSlug } from './uniqueSlug';
 import {
-  isRequiredCharacteristicName,
-  isWeightCharacteristicName,
-} from './technicalValuesService';
+  resolveCategoryAttributeIsRequired,
+  type CategoryAttributeSelection,
+} from '../../../../shared-utils/categoryAttributeSelection';
 
-export interface CategoryAttributeSelection {
-  id: string;
-  name: string;
-  isRequired: boolean;
-}
+export type { CategoryAttributeSelection } from '../../../../shared-utils/categoryAttributeSelection';
 
 export type Category = {
   id: string;
@@ -177,9 +173,7 @@ export const createCategory = async (
     const attrLinks = uniqueAttributes.map((attribute) => ({
       category_id: newCatId,
       attribute_id: attribute.id,
-      is_required:
-        !isWeightCharacteristicName(attribute.name) &&
-        (attribute.isRequired || isRequiredCharacteristicName(attribute.name)),
+      is_required: resolveCategoryAttributeIsRequired(attribute),
     }));
     const { error: attrError } = await supabase.from('category_attributes').insert(attrLinks);
     if (attrError) throw attrError;
@@ -241,9 +235,7 @@ export const updateCategory = async (
       const attrLinks = uniqueAttributes.map((attribute) => ({
         category_id: id,
         attribute_id: attribute.id,
-        is_required:
-          !isWeightCharacteristicName(attribute.name) &&
-          (attribute.isRequired || isRequiredCharacteristicName(attribute.name)),
+        is_required: resolveCategoryAttributeIsRequired(attribute),
       }));
       const { error: insAttrError } = await supabase.from('category_attributes').insert(attrLinks);
       if (insAttrError) throw insAttrError;
@@ -284,9 +276,10 @@ export const fetchCategoryAttributes = async (
       ? [{
           id: attribute.id,
           name: attribute.name,
-          isRequired:
-            !isWeightCharacteristicName(attribute.name) &&
-            (Boolean(row.is_required) || isRequiredCharacteristicName(attribute.name)),
+          isRequired: resolveCategoryAttributeIsRequired({
+            name: attribute.name,
+            isRequired: Boolean(row.is_required),
+          }),
         }]
       : [];
   });

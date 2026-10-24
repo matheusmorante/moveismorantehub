@@ -25,6 +25,7 @@ import {
   canSaveCategoryAttributes,
 } from '../domain/categoryEnvironmentRules';
 import { CategoryAttributesPicker, CategoryLinksPicker } from '../components';
+import type { CategoryAttributeSelection } from '../../../../../../shared-utils/categoryAttributeSelection';
 
 interface Props {
   visible: boolean;
@@ -35,8 +36,8 @@ interface Props {
   onChangeNameInput: (value: string) => void;
   selectedLinks: string[];
   onToggleLink: (id: string) => void;
-  selectedAttributes: { id: string; name: string }[];
-  setSelectedAttributes: React.Dispatch<React.SetStateAction<{ id: string; name: string }[]>>;
+  selectedAttributes: CategoryAttributeSelection[];
+  setSelectedAttributes: React.Dispatch<React.SetStateAction<CategoryAttributeSelection[]>>;
   isLoadingAttributes: boolean;
   attributeLoadFailed: boolean;
   categories: CategoryNode[];
@@ -180,6 +181,7 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
                   selectedAttributes={selectedAttributes}
                   setSelectedAttributes={setSelectedAttributes}
                   isLoadingAttributes={isLoadingAttributes}
+                  isSubmitting={isSubmitting}
                 />
               </>
             )}

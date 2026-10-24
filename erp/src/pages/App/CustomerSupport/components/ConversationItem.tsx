@@ -144,16 +144,16 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
         {/* Linha 3: Identificadores de Status e Atendente Responsável */}
         <div className="flex items-center justify-between gap-1 mt-2">
           <div className="flex items-center gap-1.5 overflow-hidden flex-wrap">
-            {/* Status da Conversa (Closed / Snoozed como no print) */}
+            {/* Status da conversa */}
             {currentStatus === 'closed' ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold border border-emerald-300 dark:border-emerald-800">
                 <i className="bi bi-check-circle-fill text-[9px] text-emerald-600"></i>
-                Closed
+                Fechada
               </span>
             ) : currentStatus === 'snoozed' ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 text-[10px] font-bold border border-amber-300 dark:border-amber-800">
                 <i className="bi bi-alarm-fill text-[9px] text-amber-600"></i>
-                Snoozed
+                Adiada
               </span>
             ) : null}
 

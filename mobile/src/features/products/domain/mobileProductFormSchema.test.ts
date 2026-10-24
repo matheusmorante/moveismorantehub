@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createMobileProductFormSchema } from '../../../../../shared-utils/mobileProductFormSchema';
 import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../shared-utils/productSupplierRequirement';
 import { PRODUCT_NAME_REQUIRED_MESSAGE } from '../../../../../shared-utils/productNameRequirement';
+import { PRODUCT_CATEGORY_REQUIRED_MESSAGE } from '../../../../../shared-utils/productCategoryRequirement';
 
 describe('mobileProductFormSchema - single variation error routing', () => {
   const baseValidProduct = {
@@ -42,6 +43,61 @@ describe('mobileProductFormSchema - single variation error routing', () => {
     });
     const parsed = schema.safeParse(baseValidProduct);
     expect(parsed.success).toBe(true);
+  });
+
+  it('exige categoria com o caminho e a mensagem de domínio do ERP', () => {
+    const schema = createMobileProductFormSchema({
+      draft: false,
+      isStockistOnly: false,
+      published: false,
+    });
+    const parsed = schema.safeParse({
+      ...baseValidProduct,
+      categoryIds: [],
+      categoryId: '',
+    });
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['categoryIds'],
+          message: PRODUCT_CATEGORY_REQUIRED_MESSAGE,
+        })
+      );
+    }
+  });
+
+  it('preserva a categoria singular legada do mobile', () => {
+    const schema = createMobileProductFormSchema({
+      draft: false,
+      isStockistOnly: false,
+      published: false,
+    });
+
+    expect(
+      schema.safeParse({
+        ...baseValidProduct,
+        categoryIds: [],
+        categoryId: 'legacy-category',
+      }).success
+    ).toBe(true);
+  });
+
+  it('continua permitindo rascunho sem categoria', () => {
+    const schema = createMobileProductFormSchema({
+      draft: true,
+      isStockistOnly: false,
+      published: false,
+    });
+
+    expect(
+      schema.safeParse({
+        ...baseValidProduct,
+        categoryIds: [],
+        categoryId: '',
+      }).success
+    ).toBe(true);
   });
 
   it('exige custo da NF-e para concluir cadastro rápido e aceita custo zero', () => {

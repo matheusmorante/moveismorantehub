@@ -1,5 +1,6 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import {
   Alert,
   Modal,
@@ -51,6 +52,7 @@ import {
   getInitialMobileVariationStatus,
 } from '../../domain/mobileProductVariationGeneration';
 import { ProductVariationGenerationModal } from '../ProductVariationGenerationModal';
+import { variationToSimpleConfirmationSchema } from '../../../../../../shared-utils/productVariationOperationFormSchemas';
 
 type VariationTabId = 'identificacao' | 'tecnico' | 'descricao' | 'fotos' | 'compostos' | 'estoque';
 
@@ -79,6 +81,10 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
   const [activeVariationTab, setActiveVariationTab] = useState<VariationTabId>('identificacao');
   const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
   const insets = useSafeAreaInsets();
+  const simpleConversionForm = useZodForm(variationToSimpleConfirmationSchema, {
+    variationId: '',
+    acknowledged: true,
+  });
 
   const variations: any[] = Array.isArray(formData.variations) ? formData.variations : [];
   const variationCount = variations.length;
@@ -234,10 +240,10 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
         const variations = becomesSimple
           ? [
               isExistingProduct
-                ? {
-                    ...remainingVariation,
-                    images: Array.isArray(previous.images) ? [...previous.images] : [],
-                  }
+                ? inheritMobileSimpleVariationFromParent(previous, remainingVariation, {
+                    preserveVariationStock: true,
+                    preserveVariationAttributes: true,
+                  })
                 : inheritMobileSimpleVariationFromParent(previous, remainingVariation),
             ]
           : nextVariations;
@@ -253,14 +259,34 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
     Alert.alert(
       remainsSimple ? 'O produto se tornará simples' : 'Remover variação?',
       remainsSimple
-        ? 'Restará uma variação, que herdará a galeria completa de fotos do produto. Você poderá voltar a “Com variações” nas informações básicas.'
+        ? 'Restará uma variação simples, que herdará nome, preços, descrição, dimensões e fotos do produto pai. UUID/SKU, atributos e saldo da variação restante serão mantidos. As fotos da variação removida não serão excluídas automaticamente da aba Galeria; revise ou remova-as por lá se necessário. Você poderá voltar a “Com variações” nas informações básicas.'
         : `A variação “${variation?.name || variation?.sku || 'Variação'}” será removida ao salvar o produto.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
           text: remainsSimple ? 'Confirmar e tornar simples' : 'Remover',
           style: 'destructive',
-          onPress: confirmRemoval,
+          onPress: () => {
+            if (!remainsSimple) {
+              confirmRemoval();
+              return;
+            }
+
+            const variationId = String(
+              variation?.id || variation?.sku || `draft-${index}`
+            );
+            void simpleConversionForm.validateAndRun(
+              { variationId, acknowledged: true },
+              () => confirmRemoval(),
+              (errors) => {
+                Alert.alert(
+                  'Não foi possível confirmar',
+                  Object.values(flattenFormErrors(errors))[0] ||
+                    'Revise a confirmação e tente novamente.'
+                );
+              }
+            );
+          },
         },
       ]
     );

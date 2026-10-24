@@ -160,6 +160,73 @@ describe('saveMobileProduct', () => {
     expect(parameters.p_product.technical_specs.variationDetails[0]).not.toHaveProperty('discountFixed');
   });
 
+  it('usa a RPC versionada quando o formulário precisa continuar editando o rascunho', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174050';
+    const operationId = '123e4567-e89b-42d3-a456-426614174051';
+    const saveUpdatedAt = '2026-10-24T12:30:00.000Z';
+    mocks.rpc.mockResolvedValueOnce({
+      data: [{ product_id: productId, updated_at: '2026-10-24T12:30:01+00:00' }],
+      error: null,
+    });
+
+    await expect(
+      saveMobileProduct(
+        {
+          id: productId,
+          updated_at: '2026-10-24T12:20:00+00:00',
+          operationId,
+          saveUpdatedAt,
+          name: 'Rascunho editado',
+          itemType: 'product',
+          isDraft: true,
+          variations: [{ id: 'new_TESTE-01', sku: 'TESTE-01', name: 'Rascunho editado' }],
+          images: [],
+          categoryIds: [],
+        },
+        { returnVersionAcknowledgement: true }
+      )
+    ).resolves.toEqual({ productId, updatedAt: '2026-10-24T12:30:01+00:00' });
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'save_mobile_product_transaction_with_version',
+      expect.objectContaining({
+        p_operation_id: operationId,
+        p_expected_updated_at: '2026-10-24T12:20:00+00:00',
+        p_product: expect.objectContaining({ updated_at: saveUpdatedAt }),
+      })
+    );
+  });
+
+  it('rejeita ACK versionado de outro produto sem avançar a versão local', async () => {
+    const requestedProductId = '123e4567-e89b-42d3-a456-426614174050';
+    mocks.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          product_id: '123e4567-e89b-42d3-a456-426614174099',
+          updated_at: '2026-10-24T12:30:01+00:00',
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      saveMobileProduct(
+        {
+          id: requestedProductId,
+          updated_at: '2026-10-24T12:20:00+00:00',
+          operationId: '123e4567-e89b-42d3-a456-426614174051',
+          name: 'Rascunho editado',
+          itemType: 'product',
+          isDraft: true,
+          variations: [{ id: 'new_TESTE-01', sku: 'TESTE-01', name: 'Rascunho editado' }],
+          images: [],
+          categoryIds: [],
+        },
+        { returnVersionAcknowledgement: true }
+      )
+    ).rejects.toThrow(/produto diferente do solicitado/i);
+  });
+
   it('persiste promoção própria quando o preço de venda continua herdado do pai', async () => {
     await saveMobileProduct({
       clientProductId: '123e4567-e89b-42d3-a456-426614174000',

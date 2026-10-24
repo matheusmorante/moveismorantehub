@@ -8,15 +8,15 @@ import {
 
 describe('technicalValues - Seleção e Aplicabilidade de Campos', () => {
   const sampleFields: TechnicalFieldDefinition[] = [
-    { id: '1', name: 'Altura', isRequired: true, active: true },
-    { id: '2', name: 'Largura', isRequired: true, active: true },
-    { id: '3', name: 'Profundidade', isRequired: true, active: true },
-    { id: '4', name: 'Comprimento', isRequired: true, active: true },
-    { id: '5', name: 'Acabamento', categoryIds: ['cat-a'], active: true },
-    { id: '6', name: 'Material da estrutura', categoryIds: ['cat-b'], active: true },
-    { id: '7', name: 'Campo Excluído Reclinável', active: true },
-    { id: '8', name: 'Inativo Com Valor', active: false },
-    { id: '9', name: 'Inativo Sem Valor', active: false },
+    { id: '1', name: 'Altura', dataType: 'text', options: [], isRequired: true, active: true },
+    { id: '2', name: 'Largura', dataType: 'text', options: [], isRequired: true, active: true },
+    { id: '3', name: 'Profundidade', dataType: 'text', options: [], isRequired: true, active: true },
+    { id: '4', name: 'Comprimento', dataType: 'text', options: [], isRequired: true, active: true },
+    { id: '5', name: 'Acabamento', dataType: 'text', options: [], categoryIds: ['cat-a'], active: true },
+    { id: '6', name: 'Material da estrutura', dataType: 'text', options: [], categoryIds: ['cat-b'], active: true },
+    { id: '7', name: 'Campo Excluído Reclinável', dataType: 'text', options: [], active: true },
+    { id: '8', name: 'Inativo Com Valor', dataType: 'text', options: [], active: false },
+    { id: '9', name: 'Inativo Sem Valor', dataType: 'text', options: [], active: false },
   ];
 
   it('inclui campos vinculados à categoria ativa do produto', () => {
@@ -24,6 +24,18 @@ describe('technicalValues - Seleção e Aplicabilidade de Campos', () => {
     const names = applicable.map((f) => f.name);
     expect(names).toContain('Acabamento');
     expect(names).not.toContain('Material da estrutura');
+  });
+
+  it('mantém a exigência da categoria separada da obrigatoriedade para salvar o produto', () => {
+    const [field] = getApplicableTechnicalFields(
+      [{
+        id: 'category-only', name: 'Acabamento', dataType: 'text', options: [],
+        requiredCategoryIds: ['cat-a'], active: true,
+      }],
+      ['cat-a']
+    );
+
+    expect(field).toMatchObject({ isRequired: false, isRequiredForCatalog: true });
   });
 
   it('preserva campos que já possuem valor cadastrado no produto mesmo inativos', () => {

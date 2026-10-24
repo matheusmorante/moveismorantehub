@@ -16,6 +16,10 @@ import { InboxSectionCustom } from '../components/inbox/InboxSectionCustom';
 import { InboxSectionMain } from '../components/inbox/InboxSectionMain';
 import { InboxSectionTeam } from '../components/inbox/InboxSectionTeam';
 import { InboxSidebar } from '../components/InboxSidebar';
+import { ConversationScopeMenu } from '../components/conversation/ConversationScopeMenu';
+import { ConversationSortMenu } from '../components/conversation/ConversationSortMenu';
+import { ConversationAdvancedFilterModal } from '../components/conversation/ConversationAdvancedFilterModal';
+import { ConversationItem } from '../components/ConversationItem';
 import { ChatComposer } from '../components/chat/ChatComposer';
 import { CustomerNotesTab } from '../components/infoPanel/CustomerNotesTab';
 import { QuickSnippetsModal } from '../components/QuickSnippetsModal';
@@ -46,6 +50,10 @@ describe('Inbox da Central de Atendimento', () => {
       activeTeam="agent-1"
       onResetCustomAndTeam={() => changes.push('reset')}
     />);
+
+    expect(screen.getByText('Todas')).toBeTruthy();
+    expect(screen.getByText('Minhas')).toBeTruthy();
+    expect(screen.queryByText(/All|Mine|Unassigned|Unread/)).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /Não atribuídas/ }));
 
@@ -149,6 +157,7 @@ describe('Inbox da Central de Atendimento', () => {
       onSaveFolder: vi.fn().mockResolvedValue(null), onDeleteFolder: vi.fn(), canViewCommercialInfo: false,
     };
     render(<InboxSidebar {...props} />);
+    expect(screen.getByRole('heading', { name: 'Caixa de entrada' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Pesquisar filas e atendentes' }));
     const search = screen.getByRole('searchbox', { name: 'Pesquisar pastas e atendentes' });
 
@@ -161,6 +170,81 @@ describe('Inbox da Central de Atendimento', () => {
     expect(screen.getByText('Retornos de entrega')).toBeTruthy();
     expect(screen.queryByText('Financeiro')).toBeNull();
     expect(screen.queryByText('Ana Silva')).toBeNull();
+  });
+
+  it('mostra escopos em português, identifica o estado expandido e filtra o escopo selecionado', () => {
+    const onFilterChange = vi.fn();
+    const onToggle = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <ConversationScopeMenu
+        filter="unassigned"
+        onFilterChange={onFilterChange}
+        isOpen
+        onToggle={onToggle}
+        onClose={onClose}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: /Sem atribuição/ }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByText('Não atribuídas')).toBeTruthy();
+    expect(screen.getByText('Adiadas')).toBeTruthy();
+    expect(screen.queryByText(/Unassigned|Snoozed/)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fechadas' }));
+    expect(onFilterChange).toHaveBeenCalledWith('closed');
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('mostra ordenação em português e aplica a seleção', () => {
+    const onSortChange = vi.fn();
+    const onToggle = vi.fn();
+    const onClose = vi.fn();
+    const props = { sortOrder: 'newest' as const, onSortChange, onToggle, onClose };
+    const { rerender } = render(<ConversationSortMenu {...props} isOpen={false} />);
+
+    expect(screen.getByRole('button', { name: /Mais recentes/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Mais recentes/ }));
+    expect(onToggle).toHaveBeenCalledOnce();
+
+    rerender(<ConversationSortMenu {...props} isOpen />);
+    fireEvent.click(screen.getByRole('button', { name: 'Não lidas primeiro' }));
+    expect(onSortChange).toHaveBeenCalledWith('unread');
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('mantém filtros avançados em português e oculta pedidos sem permissão comercial', () => {
+    const onFilterChange = vi.fn();
+    const props = { isOpen: true, onToggle: vi.fn(), onClose: vi.fn(), onFilterChange, canViewCommercialInfo: false };
+    render(<ConversationAdvancedFilterModal {...props} />);
+
+    expect(screen.getByRole('button', { name: 'Mais filtros' })).toBeTruthy();
+    expect(screen.getByText('Adiadas')).toBeTruthy();
+    expect(screen.queryByText(/Add Filter|Snoozed/)).toBeNull();
+    expect(screen.queryByText('Com pedidos de venda')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Clientes cadastrados' }));
+    expect(onFilterChange).toHaveBeenCalledWith('linked');
+  });
+
+  it.each([
+    ['closed', 'Fechada'],
+    ['snoozed', 'Adiada'],
+  ] as const)('exibe o status %s da conversa em português', (status, label) => {
+    const conversation = {
+      id: `conversation-${status}`,
+      contactName: 'Contato de teste',
+      contactPhone: '+5511999999999',
+      lastMessageText: 'Mensagem de teste',
+      lastMessageAt: '2026-10-20T10:00:00Z',
+      unreadCount: 0,
+      status,
+      orders: [],
+    } as any;
+
+    render(<ConversationItem conversation={conversation} isSelected={false} onSelect={vi.fn()} />);
+
+    expect(screen.getByText(label)).toBeTruthy();
+    expect(screen.queryByText(/Closed|Snoozed/)).toBeNull();
   });
 
   it.each([
@@ -290,7 +374,7 @@ describe('Inbox da Central de Atendimento', () => {
   it('valida comentários e tags antes de chamar os serviços', async () => {
     const addComment = vi.fn().mockResolvedValue(false);
     render(<ChatComposer onAddInternalNote={addComment} onOpenSnippets={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Add Comment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar comentário' }));
     fireEvent.click(screen.getByRole('button', { name: 'Salvar Comentário' }));
     await waitFor(() => expect(screen.getByText('Escreva um comentário antes de salvar.')).toBeTruthy());
     expect(addComment).not.toHaveBeenCalled();
@@ -336,7 +420,7 @@ describe('Inbox da Central de Atendimento', () => {
     }
 
     expect(screen.getByTitle('Modelos Rápidos / Snippets')).toBeTruthy();
-    expect(screen.getByText('Whatsapp')).toBeTruthy();
+    expect(screen.getByText('WhatsApp')).toBeTruthy();
     expect(screen.getByText('Envio bloqueado pela política da empresa')).toBeTruthy();
     expect(
       screen

@@ -1,12 +1,5 @@
 import { z } from 'zod';
 import type { Product, Variation } from '../erp/src/pages/types/product.type';
-import {
-  getCharacteristicDependencyState,
-  getEffectiveTechnicalValue,
-  getEffectiveVariationTechnicalValues,
-  resolveVariableTechnicalFieldNames,
-  isRequiredCharacteristicName,
-} from '../erp/src/pages/utils/technicalValuesService';
 import { getVariationRegistrationIssue } from './productVariationRules';
 import { getProductDiscountValidationIssues } from './productDiscountFields';
 import { getCompleteVariationName, normalizeCompleteVariationName } from './productVariationNameValidation';
@@ -84,47 +77,6 @@ export const createProductVariationFormSchema = (parent: Partial<Product>, isSin
     }
     const issue = getVariationRegistrationIssue(parent, values as Variation);
     if (issue) context.addIssue({ code: 'custom', path: [issue.tab], message: issue.message });
-
-    const variableFieldNames = resolveVariableTechnicalFieldNames(
-      parent.variableTechnicalFields,
-      [...(parent.variations || []), variation]
-    );
-    if (variableFieldNames.length > 0) {
-      const variationOverrides = getEffectiveVariationTechnicalValues(
-        {},
-        variation,
-        variableFieldNames
-      );
-      const dependencyValues = {
-        ...(parent.technicalValues || {}),
-        ...Object.fromEntries(
-          (variation.attributes || []).map(({ name, value }) => [name, value])
-        ),
-        ...(variation.technicalValues || {}),
-      };
-      const requiredFieldNames = Array.isArray(variation.requiredTechnicalFields)
-        ? variation.requiredTechnicalFields
-        : variableFieldNames.filter(isRequiredCharacteristicName);
-      const missingFieldNames = requiredFieldNames.filter((fieldName) => {
-        if (getCharacteristicDependencyState(fieldName, dependencyValues).isDisabled) {
-          return false;
-        }
-        const value = getEffectiveTechnicalValue({}, variationOverrides, fieldName);
-        if (value === undefined || value === null) return true;
-        if (Array.isArray(value)) return value.length === 0;
-        if (typeof value !== 'string') return false;
-        return ['nao se aplica', 'não se aplica', 'n/a', ''].includes(
-          value.trim().toLocaleLowerCase('pt-BR')
-        );
-      });
-      if (missingFieldNames.length > 0) {
-        context.addIssue({
-          code: 'custom',
-          path: ['tecnico'],
-          message: `Informe nas características específicas: ${missingFieldNames.join(', ')}.`,
-        });
-      }
-    }
   });
 
 /** The displayed discount is part of the submit intent, even if preview math clamps it. */

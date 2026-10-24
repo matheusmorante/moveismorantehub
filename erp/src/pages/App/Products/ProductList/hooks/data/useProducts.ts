@@ -16,6 +16,8 @@ import { isTestProduct } from '@/pages/utils/hmlTestData';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
+import { fetchTechnicalFieldDefinitions } from '@/pages/App/Products/services/technicalFieldService';
+import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import {
   resolveCatalogEntities,
   validateCatalogPublication,
@@ -358,7 +360,29 @@ export const useProducts = (filters?: ProductListFilters) => {
       const newStatus = currentStatus === 'published' ? 'hidden' : 'published';
 
       if (newStatus === 'published') {
-        const validation = validateCatalogPublication(parentProduct, variation, isVariation);
+        let categoryRequirements: Awaited<ReturnType<typeof fetchTechnicalFieldDefinitions>> | null;
+        try {
+          categoryRequirements = await withTimeout(
+            fetchTechnicalFieldDefinitions('product-form', {
+              forceRefresh: true,
+              requireCategoryLinks: true,
+            }),
+            15000,
+            null,
+            'produto:verificar-requisitos-do-catalogo'
+          );
+          if (!categoryRequirements) throw new Error('Requisitos de categoria indisponíveis.');
+        } catch {
+          toast.error('Não foi possível verificar as características obrigatórias da categoria. O produto não foi publicado.');
+          return;
+        }
+
+        const validation = validateCatalogPublication(
+          parentProduct,
+          variation,
+          isVariation,
+          categoryRequirements
+        );
         if (!validation.isValid) {
           const toastOptions = {
             style: { whiteSpace: 'pre-line' as const },

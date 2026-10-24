@@ -4,7 +4,7 @@ import { withTimeout } from '../../../../../shared-utils/withTimeout';
 export interface SupportOrderSummary {
   id: string;
   orderNumber: string;
-  status: string; // 'completed', 'active', 'canceled', etc.
+  status: string; // 'completed', 'active', 'canceled'/'cancelled', etc.
   totalAmount: number;
   paymentMethod?: string | null;
   deliveryStatus?: string | null;
@@ -33,8 +33,10 @@ export function mapOrderToSupportSummary(row: any): SupportOrderSummary {
 
   const isCanceled =
     statusLower === 'canceled' ||
+    statusLower === 'cancelled' ||
     statusLower === 'cancelado' ||
-    deliveryStatusLower === 'canceled';
+    deliveryStatusLower === 'canceled' ||
+    deliveryStatusLower === 'cancelled';
   const isCompleted =
     statusLower === 'completed' ||
     statusLower === 'concluído' ||

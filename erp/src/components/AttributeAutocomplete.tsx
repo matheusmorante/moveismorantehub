@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../pages/utils/supabaseConfig';
 import { normalizeSearchTerm } from '../pages/utils/textUtils';
 import DropdownPortal from './shared/DropdownPortal';
+import { isCategoryAttributeSelectable } from '../../../shared-utils/categoryAttributeSelection';
 
 export interface AttributeNode {
   id: string;
@@ -46,7 +47,7 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
         if (data) {
           setAllNodes(
             (data as AttributeRow[])
-              .filter((d) => !/^(reclin[aá]vel|linha|modelo)$/i.test(String(d.name).trim()))
+              .filter((d) => isCategoryAttributeSelectable(String(d.name)))
               .map((d) => ({ id: d.id, name: d.name }))
           );
         }

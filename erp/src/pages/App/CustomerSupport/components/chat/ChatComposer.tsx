@@ -117,12 +117,12 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             <div className="flex items-center justify-between">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-200/60 dark:border-emerald-800/60">
                 <i className="bi bi-whatsapp text-sm text-emerald-500"></i>
-                <span>Whatsapp</span>
+                <span>WhatsApp</span>
               </div>
 
               <div className="flex items-center gap-1 text-slate-400 text-xs">
                 <span className="font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px]">/</span>
-                <span className="text-[11px]">for Snippets</span>
+                <span className="text-[11px]">para ver modelos</span>
               </div>
             </div>
 
@@ -165,7 +165,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             </div>
           </div>
 
-          {/* Botão abaixo do card: "Add Comment" */}
+          {/* Botão abaixo do cartão para adicionar comentário interno */}
           <div className="flex items-center justify-between px-1">
             <button
               type="button"
@@ -173,7 +173,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors cursor-pointer py-0.5"
             >
               <i className="bi bi-chat-left-dots"></i>
-              <span>Add Comment</span>
+              <span>Adicionar comentário</span>
             </button>
 
             <span className="text-[11px] text-slate-400 flex items-center gap-1">

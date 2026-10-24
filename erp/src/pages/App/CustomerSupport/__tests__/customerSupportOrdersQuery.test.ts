@@ -1,10 +1,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getCustomerOrders } from '@/pages/utils/customerSupport/supportOrdersService';
+import { getCustomerOrders, mapOrderToSupportSummary } from '@/pages/utils/customerSupport/supportOrdersService';
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 const client = (response: unknown) => ({ rpc: vi.fn().mockReturnValue(response) }) as any;
 
 describe('Consulta de pedidos — falha não é lista vazia', () => {
+  it.each(['canceled', 'cancelled', 'cancelado'])('marca o status %s como cancelado no painel', (status) => {
+    const order = mapOrderToSupportSummary({ id: 'test-order', order_number: 'T-TEST', status, items: [], total_amount: 0 });
+    expect(order.isCanceled).toBe(true);
+    expect(order.isActive).toBe(false);
+  });
+
+  it.each(['canceled', 'cancelled'])('marca entrega %s como cancelada', (deliveryStatus) => {
+    const order = mapOrderToSupportSummary({ id: 'test-order', order_number: 'T-TEST', status: 'pending',
+      delivery_status: deliveryStatus, items: [], total_amount: 0 });
+    expect(order.isCanceled).toBe(true);
+    expect(order.isActive).toBe(false);
+  });
+
   it('mantém o vazio legítimo e o contrato da consulta restrita', async () => {
     const supabase = client(Promise.resolve({ data: [], error: null }));
     expect(await getCustomerOrders(supabase, 'legacy-person-id')).toEqual([]);

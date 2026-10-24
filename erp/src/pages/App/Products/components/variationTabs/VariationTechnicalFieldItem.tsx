@@ -156,9 +156,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
           title={field.name}
         >
           {field.name}
-          {field.isRequired && !isDependencyDisabled && (
-            <span className="ml-1 text-red-500" aria-hidden="true">*</span>
-          )}
           {isDependencyDisabled && (
             <DisabledFieldInfoButton
               disabledReason={dep.disabledReason}

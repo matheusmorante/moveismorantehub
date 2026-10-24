@@ -38,6 +38,45 @@ describe('inheritMobileSimpleVariationFromParent', () => {
       syncUnitPrice: true,
     });
   });
+
+  it('reativa campos herdados em produto salvo preservando saldo e atributos da variação', () => {
+    const inherited = inheritMobileSimpleVariationFromParent(
+      {
+        name: 'Mesa de Jantar',
+        unitPrice: 950,
+        promoPrice: 900,
+        stock: 13,
+        description: 'Descrição do pai',
+        images: ['parent.jpg'],
+      },
+      {
+        id: 'variation-uuid',
+        sku: 'MESA-CEDRO',
+        name: 'Mesa de Jantar Cedro',
+        stock: 5,
+        unitPrice: 1100,
+        attributes: [{ name: 'Madeira', value: 'Cedro' }],
+        images: ['variation.jpg'],
+        syncUnitPrice: false,
+      },
+      { preserveVariationStock: true, preserveVariationAttributes: true }
+    );
+
+    expect(inherited).toMatchObject({
+      id: 'variation-uuid',
+      sku: 'MESA-CEDRO',
+      name: 'Mesa de Jantar',
+      stock: 5,
+      unitPrice: 950,
+      price: 950,
+      promoPrice: 900,
+      description: 'Descrição do pai',
+      attributes: [{ name: 'Madeira', value: 'Cedro' }],
+      images: ['parent.jpg'],
+      syncUnitPrice: true,
+      syncPromoPrice: true,
+    });
+  });
 });
 
 describe('syncMobileVariationsWithParent', () => {

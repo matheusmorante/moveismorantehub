@@ -1,4 +1,10 @@
 import { supabase } from '../../../services/supabaseClient';
+import {
+  resolveCategoryAttributeIsRequired,
+  type CategoryAttributeSelection,
+} from '../../../../../shared-utils/categoryAttributeSelection';
+
+export type { CategoryAttributeSelection } from '../../../../../shared-utils/categoryAttributeSelection';
 
 export interface MobileCategory {
   id: string;
@@ -150,31 +156,36 @@ export const fetchMobileCategoryProductCounts = async (): Promise<Record<string,
   }
 };
 
-export const fetchMobileCategoryRequiredAttributes = async (
+export const fetchMobileCategoryAttributes = async (
   categoryId: string
-): Promise<{ id: string; name: string }[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('category_attributes')
-      .select(`
-        attribute_id,
-        attributes (
-          id,
-          name
-        )
-      `)
-      .eq('category_id', categoryId);
+): Promise<CategoryAttributeSelection[]> => {
+  const { data, error } = await supabase
+    .from('category_attributes')
+    .select(`
+      attribute_id,
+      is_required,
+      attributes (
+        id,
+        name
+      )
+    `)
+    .eq('category_id', categoryId);
 
-    if (error) throw error;
+  if (error) throw error;
 
-    return (data || []).flatMap((row: any) => {
-      const attr = Array.isArray(row.attributes) ? row.attributes[0] : row.attributes;
-      return attr ? [{ id: String(attr.id), name: attr.name }] : [];
-    });
-  } catch (err) {
-    console.warn('[MobileCategoryService] Erro ao buscar atributos da categoria:', err);
-    return [];
-  }
+  return (data || []).flatMap((row: any) => {
+    const attr = Array.isArray(row.attributes) ? row.attributes[0] : row.attributes;
+    return attr
+      ? [{
+          id: String(attr.id),
+          name: attr.name,
+          isRequired: resolveCategoryAttributeIsRequired({
+            name: attr.name,
+            isRequired: Boolean(row.is_required),
+          }),
+        }]
+      : [];
+  });
 };
 
 export const unlinkMobileCategoryFromEnvironment = async (
@@ -192,9 +203,8 @@ export const unlinkMobileCategoryFromEnvironment = async (
 export const saveMobileCategory = async (
   name: string,
   environmentIdsOrId?: string[] | string,
-  attributeIds?: string[],
-  id?: string,
-  optionalAttributeIds: readonly string[] = []
+  attributes?: CategoryAttributeSelection[],
+  id?: string
 ): Promise<MobileCategory | null> => {
   const trimmed = name.trim();
   if (!trimmed) return null;
@@ -247,20 +257,21 @@ export const saveMobileCategory = async (
   }
 
   // Sincronizar atributos se fornecido
-  if (attributeIds !== undefined && actualId) {
+  if (attributes !== undefined && actualId) {
     const { error: attrDelErr } = await supabase
       .from('category_attributes')
       .delete()
       .eq('category_id', actualId);
     if (attrDelErr) throw attrDelErr;
 
-    const uniqueAttrIds = [...new Set(attributeIds)];
-    const optionalAttributeIdSet = new Set(optionalAttributeIds);
-    if (uniqueAttrIds.length > 0) {
-      const attrLinks = uniqueAttrIds.map((attrId) => ({
+    const uniqueAttributes = [
+      ...new Map(attributes.map((attribute) => [attribute.id, attribute] as const)).values(),
+    ];
+    if (uniqueAttributes.length > 0) {
+      const attrLinks = uniqueAttributes.map((attribute) => ({
         category_id: actualId,
-        attribute_id: attrId,
-        is_required: !optionalAttributeIdSet.has(attrId),
+        attribute_id: attribute.id,
+        is_required: resolveCategoryAttributeIsRequired(attribute),
       }));
       const { error: attrInsErr } = await supabase.from('category_attributes').insert(attrLinks);
       if (attrInsErr) throw attrInsErr;

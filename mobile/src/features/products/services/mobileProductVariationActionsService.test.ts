@@ -26,6 +26,7 @@ import {
   moveMobileVariationToFamily,
   toMobileVariationAttributes,
 } from './mobileProductVariationActionsService';
+import { canAddVariationFamilyAttribute } from '../../../../../shared-utils/variationFamilyFormSchemas';
 
 const sourceVariationId = '123e4567-e89b-42d3-a456-426614174000';
 const targetVariationId = '123e4567-e89b-42d3-a456-426614174001';
@@ -67,6 +68,11 @@ describe('mobileProductVariationActionsService', () => {
       currentTable = table;
       return query;
     });
+  });
+
+  it('compartilha a regra do ERP: somente uma variação sem atributos pode receber a primeira linha', () => {
+    expect(canAddVariationFamilyAttribute([])).toBe(true);
+    expect(canAddVariationFamilyAttribute([{ name: 'Cor', value: 'Azul' }])).toBe(false);
   });
 
   it('normaliza atributos guardados como objeto ou JSON sem perder showName', () => {

@@ -220,6 +220,27 @@ describe('Paginação do histórico', () => {
     expect(result.current.hasOlderMessages).toBe(false);
   });
 
+  it('não usa o cursor anterior enquanto a nova conversa ainda carrega o histórico inicial', async () => {
+    const nextHistory = deferred<WhatsAppMessage[]>();
+    const { result, rerender } = renderHook(({ id }) => useCustomerSupportMessages({
+      selectedConversation: conversation(id), onClearUnread: vi.fn(),
+    }), { initialProps: { id: 'a' } });
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    expect(result.current.hasOlderMessages).toBe(true);
+
+    mocks.fetchConversationMessages.mockReturnValueOnce(nextHistory.promise);
+    rerender({ id: 'b' });
+    expect(result.current.hasOlderMessages).toBe(false);
+    await act(async () => { expect(await result.current.loadOlderMessages()).toBe(0); });
+    expect(mocks.fetchPreviousConversationMessages).not.toHaveBeenCalled();
+
+    await act(async () => {
+      nextHistory.resolve(messages(80).map((message) => ({ ...message, conversationId: 'b' })));
+    });
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    expect(result.current.hasOlderMessages).toBe(true);
+  });
+
   it('confirma novas não lidas da conversa aberta mesmo quando o INSERT em tempo real não chega', async () => {
     const read = deferred<boolean>();
     const clear = vi.fn();
