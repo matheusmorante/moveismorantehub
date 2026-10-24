@@ -327,6 +327,11 @@
 - [x] Confirmado que a projeção ERP compartilhada atualiza `stock`, CMPM/`costPrice` e variações, não `finalPurchasePrice`; as regras vigentes de recebimento/movimentação não prescrevem outra ação. Na reabertura do formulário, ERP e app recalculam a apresentação pela mesma função compartilhada. Aplicada a regra permanente do usuário de manter o comportamento ERP onde falta contrato: sem mudança de código ou operação do estoquista; PDFs não precisam de revisão. Ver [Ciclo 154](../produtos/paridade-erp-app.md#ciclo-154--custo-final-após-entrada-de-estoque--24102026).
 - [ ] Nenhum teste, Playwright, consulta/gravação remota ou validação Android/iOS foi executado. UI autenticada e runtime nativo seguem pendentes; Expo Web não comprova comportamento nativo.
 
+### Ciclo 155 — seletor de características da categoria
+- [x] O mobile agora filtra características só após duas letras usando a mesma normalização acento-insensível compartilhada pelo ERP; a seleção permanece controlada pelo formulário pai. As consultas do catálogo e dos vínculos passaram a ter limite de 15 s nos pontos ERP/mobile deste estado, encerrando loading e mantendo bloqueado o save se a configuração existente falhar. O inventário de formulários agora registra `CategoryAttributesPicker` como campo-filho validado pelo hook proprietário RHF/Zod. Ver [Ciclo 155](../produtos/paridade-erp-app.md#ciclo-155--seleção-de-características-da-categoria--24102026).
+- [x] `git diff --check` passou (exit code 0; avisos apenas sobre normalização CRLF/LF preexistente).
+- [ ] Sem testes/Vitest, Playwright autenticado, Expo Web, runtime Android/iOS ou consulta/escrita remota neste ciclo. A UI autenticada e a validação nativa continuam pendentes; Expo Web não comprovaria comportamento nativo.
+
 ## 📝 Arquitetura do Ecossistema
 - **ERP:** React + Vite + TypeScript + Tailwind CSS (`erp/`)
 - **Catálogo Digital:** Next.js + Tailwind CSS + Cloudflare R2 (`digital-catalog/`)
