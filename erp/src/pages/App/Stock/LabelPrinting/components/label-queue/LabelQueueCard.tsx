@@ -1,7 +1,7 @@
 import React from 'react';
 import labelMdf from '../../../../../../assets/label_mdf.png';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
-import type Product, { Variation } from '@/pages/types/product.type';
+import type { Product, Variation } from '@/pages/types/product.type';
 import ProductSearchInput from '../ProductSearchInput';
 
 interface LabelQueueCardProps {

@@ -338,3 +338,11 @@
 - **Mobile:** React Native + Expo (Offline-First pragmático) (`mobile/`)
 - **API & Fiscal:** Node.js Serverless + SEFAZ-PR direta (`api/`)
 - **Banco de Dados:** PostgreSQL 15+ no Supabase (`supabase/`)
+
+### Ciclo 156 — aviso CSV no Catálogo Meta mobile
+- [x] O aviso nativo agora corresponde à orientação ERP: o feed CSV legado não deve ser cadastrado, a sincronização disponível usa Graph API e publicação/remoção deve ser conferida no Catálogo Meta pelo `retailer_id`/SKU. Não houve alteração do endpoint nem chamadas externas. Ver [inventário](../produtos/paridade-erp-app.md#ciclo-156--orientação-do-feed-csv-no-catálogo-meta-mobile--24102026).
+- [ ] Sem Playwright autenticado, Expo Web ou runtime Android/iOS; nenhuma chamada Graph/CSV ou consulta ao Commerce Manager foi feita. A validação nativa permanece pendente e Expo Web não provaria comportamento nativo.
+
+### Ciclo 157 — reconciliação do inventário de paridade
+- [x] Marcadores históricos de próximos recortes foram reconciliados com os Ciclos 46, 71, 76–80, 83–103, 135–139, 144 e 150–154. Permanecem separadas as pendências de validação autenticada/nativa, persistência remota, RPC de saldo/CMPM e confirmação externa da Meta. Ver [inventário de paridade](../produtos/paridade-erp-app.md#ciclo-157--reconciliação-de-próximos-recortes-históricos--24102026).
+- [x] Sem testes, Playwright, consulta/gravação remota ou validação nativa neste ciclo de documentação. `git diff --check` passou (exit code 0; apenas avisos de normalização CRLF/LF).

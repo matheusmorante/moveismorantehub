@@ -270,6 +270,17 @@ export function NativeMetaCatalogScreen({
           />
         </View>
 
+        <View style={[styles.legacyFeedNotice, dark && styles.legacyFeedNoticeDark]}>
+          <Text style={[styles.legacyFeedTitle, dark && styles.legacyFeedTitleDark]}>
+            Feed CSV legado
+          </Text>
+          <Text style={[styles.legacyFeedText, dark && styles.legacyFeedTextDark]}>
+            Não cadastre o feed CSV como fonte de sincronização. Use a Graph API acima. Para
+            confirmar publicação ou remoção, confira o item diretamente no Catálogo Meta pelo
+            retailer_id ou SKU; o status do ERP e o CSV não comprovam o resultado externo.
+          </Text>
+        </View>
+
         <TouchableOpacity
           onPress={onOpenErpPanel}
           accessibilityRole="button"
@@ -424,6 +435,19 @@ const styles = StyleSheet.create({
   statValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 7 },
   statValue: { color: '#0f172a', fontSize: 20, fontWeight: '900' },
   statDescription: { fontSize: 10, fontWeight: '800' },
+  legacyFeedNotice: {
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    backgroundColor: '#fffbeb',
+    borderRadius: 14,
+    padding: 14,
+    gap: 6,
+  },
+  legacyFeedNoticeDark: { borderColor: '#78350f', backgroundColor: '#451a03' },
+  legacyFeedTitle: { color: '#92400e', fontSize: 12, fontWeight: '900' },
+  legacyFeedTitleDark: { color: '#fde68a' },
+  legacyFeedText: { color: '#78350f', fontSize: 12, lineHeight: 18 },
+  legacyFeedTextDark: { color: '#fcd34d' },
   erpButton: {
     minHeight: 46,
     borderRadius: 13,

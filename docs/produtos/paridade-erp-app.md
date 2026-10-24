@@ -6,6 +6,10 @@
 
 **Atualização do Ciclo 155:** o seletor de características de categoria no app agora segue o mínimo de duas letras e a normalização compartilhada do ERP. Leituras do catálogo/vínculos têm limite de 15 s nos dois clientes; o formulário continua falhando fechado quando não consegue carregar a configuração atual. O campo-filho foi vinculado ao proprietário RHF/Zod no inventário de formulários.
 
+**Atualização do Ciclo 156:** a tela nativa do Catálogo Meta agora alerta que o feed CSV é legado, orienta usar a Graph API e manda confirmar publicação/remoção pelo `retailer_id` ou SKU no catálogo externo. Não houve chamada de rede ou alteração do endpoint CSV.
+
+**Atualização do Ciclo 157:** foram reconciliados marcadores antigos de “próximo recorte” já cobertos por ciclos posteriores (variações, projeção de atributos, composição, lista, preço/estoque, responsável do inventário e Meta). As limitações de UI autenticada/nativa, persistência externa e RPC de saldo/CMPM continuam pendentes; nenhuma foi fechada por evidência estática.
+
 > **Exceção vigente — decisão do usuário no Ciclo 127, reafirmada no Ciclo 131:** a Conciliação de Produtos permanece somente no ERP. A tela, o acesso pelo menu/estado de produtos, o adaptador de serviços e os helpers de ciclo de vida específicos do mobile foram removidos. Não tratar sua ausência no aplicativo como diferença de paridade, não propor nova implementação e não a reintroduzir sem pedido explícito posterior. Permanecem no ERP a rota, a permissão e os serviços compartilhados que ele consome; a regra permanente está em `AGENTS.md`, `rules/products/product-reconciliation-erp-only.yml` e na automação recorrente.
 
 > **Recuperação do inventário — 23/10/2026:** o arquivo do workspace foi encontrado com 0 bytes após falta de espaço no volume C:. A versão rastreada no Git foi restaurada; ela continha os ciclos 1–5. Os ciclos 8–12 abaixo foram recompostos apenas a partir dos registros atuais em `docs/geral/roadmap_pendente.md` e `docs/forms/inventario-mobile-catalogo-2026-10-15.md`. Não há evidência localizada para reconstituir os ciclos 6–7, então eles permanecem sem status de conclusão.
@@ -694,13 +698,13 @@
 - [x] Vitest ERP `useProductFormSync.test.tsx`: **2 testes aprovados**, incluindo a herança existente usada como referência.
 - [x] TypeScript completo nos projetos mobile e ERP terminou com código 2 por diagnósticos globais preexistentes em outros módulos; a saída filtrada não apontou os arquivos deste ciclo. `git diff --check` focal não encontrou erros, apenas avisos CRLF.
 - [ ] Nenhum teste gravou no banco remoto. A cobertura valida o estado de formulário e a regra ERP; runtime nativo, Playwright autenticado e leitura de persistência remota continuam pendentes.
-- [ ] A documentação de domínio (`estrutura-produto-variacao.md`, linhas 60–64) determina que valores obrigatórios por categoria tenham seu valor efetivo em `product_variations.attributes`. O caminho de gravação ERP/mobile não faz essa projeção para valores globais: usa `technical_specs.technicalValues`/`variationDetails`, enquanto `product_variations.attributes` recebe apenas `variation.attributes`. **Decisão pendente do Ciclo 130:** corrigir o writer do ERP e do mobile para cumprir o contrato documentado ou manter o contrato de código atual e ajustar documentação/consumidores ERP. Esta pendência não reabre a Conciliação mobile, que é exclusiva do ERP desde o Ciclo 127. Nenhuma mudança de payload foi feita sem essa decisão.
+- [x] A divergência de projeção apontada aqui foi decidida pelo usuário no Ciclo 130 e implementada no Ciclo 139: atributos obrigatórios preenchidos são projetados em `product_variations.attributes`, enquanto `technical_specs` é preservado por compatibilidade. A Conciliação mobile segue ERP-only (Ciclos 127/131).
 - [x] Retificação no Ciclo 47: `ProductReconciliation.tsx` é alcançável pelas duas rotas ERP e a ação mobile abre a mesma página ERP no navegador externo. A implementação de uma interface React Native permanece pendente; não é necessário ativar a rota web.
 - [ ] A skill `erp-web-to-mobile-replication` só foi encontrada na cópia de cache de build; a versão canônica continua sem localização.
 
 #### Próximo recorte identificado
 
-- [ ] Auditar leitura e edição de valores próprios nas variações de famílias com duas ou mais variações, sem repetir o bloqueio da variação simples concluído no Ciclo 40. A divergência do formato de persistência de atributos por categoria segue pendente; a Conciliação mobile foi retirada por decisão do usuário no Ciclo 127 e reafirmada no 131.
+- [x] Concluído nos Ciclos 46 e 144: leitura/edição por UUID e recuperação de overrides técnicos fora de `variableTechnicalFields`. A projeção de atributos por categoria foi decidida no Ciclo 130 e implementada no 139; a Conciliação mobile segue ERP-only por decisão dos Ciclos 127/131.
 
 ### Ciclo 40 — bloqueio de características na variação única
 
@@ -751,7 +755,7 @@
 #### Próximo recorte identificado
 
 - [x] Divergência do default de `showName` ao criar override de Cor corrigida no Ciclo 42. O helper comum agora mantém `Cor` oculta no nome por padrão em ambos os formulários e preserva preferências existentes; veja o ciclo abaixo.
-- [ ] Continua pendente a decisão sobre a persistência de atributos globais em `product_variations.attributes` versus `technical_specs` (Ciclo 130). A tela nativa de Conciliação que aparecia como pendência histórica foi removida no Ciclo 127 por decisão ERP-only, reafirmada no Ciclo 131.
+- [x] A decisão de persistência foi aplicada no Ciclo 139, preservando `technical_specs` e projetando valores obrigatórios preenchidos em `product_variations.attributes`. A antiga pendência de Conciliação mobile foi retirada pelos Ciclos 127/131.
 
 ### Ciclo 42 — visibilidade padrão de Cor no override da variação
 
@@ -773,7 +777,7 @@
 #### Próximo recorte identificado
 
 - [x] O fallback visual do pai em característica variável sem override foi corrigido no Ciclo 43. O campo mobile agora começa vazio e editável, como no ERP; veja o ciclo abaixo.
-- [ ] Continua pendente a decisão sobre a persistência de atributos globais em `product_variations.attributes` versus `technical_specs` (Ciclo 130). A Conciliação permanece exclusiva do ERP pelos Ciclos 127/131 e não deve ser recriada no app.
+- [x] A decisão de persistência foi aplicada no Ciclo 139; a Conciliação permanece exclusiva do ERP pelos Ciclos 127/131 e não deve ser recriada no app.
 
 ### Ciclo 43 — campo variável sem override próprio
 
@@ -833,7 +837,7 @@
 - [x] Os dois mapeadores mantêm o override vazio em `technical_specs.variationDetails`, associado ao UUID da variação. Os atributos vazios não são serializados na linha de `product_variations`; na leitura ERP e mobile, o detalhe com `technicalValues: { Cor: '' }` é restaurado e continua prevalecendo sobre o valor do pai.
 - [x] `ProductTechnicalFieldInput` agora oferece a ação acessível `Limpar <campo>` para campos Sim/Não e escolhas simples que correspondem ao `ChoiceDropdown` ERP. A ação envia `''` pelo callback existente, que já atualiza `technicalValues` e remove `attributes`; não alterou schemas, serviços ou payloads. A escolha pesquisável mantém o contrato ERP sem uma ação adicional.
 - [x] O estado de payload e reabertura já era equivalente entre ERP e mobile; foram adicionadas regressões para o estado vazio explícito, remoção do atributo, gravação e leitura, além da diferença de interface recém corrigida.
-- [ ] A divergência entre o contrato de negócio que aponta valores em `product_variations.attributes` e a gravação atual em `technical_specs.variationDetails` continua sem decisão. O ciclo confirmou a representação atual equivalente entre ERP e app; não migrou nem alterou o contrato de persistência.
+- [x] A decisão do Ciclo 130 foi aplicada no Ciclo 139: valores preenchidos e exigidos pela categoria são projetados em `product_variations.attributes`, enquanto `technical_specs.variationDetails` permanece por compatibilidade. Não houve migração remota nem backfill de dados legados.
 
 #### Validação executada e limites
 
@@ -846,7 +850,7 @@
 #### Próximo recorte identificado
 
 - [x] Comparar leitura, edição e salvamento de valores próprios distintos entre várias variações no Ciclo 46; os dois lados relacionam os detalhes por UUID e mantêm a alteração na variação selecionada.
-- [ ] Manter pendente a decisão do contrato `product_variations.attributes` versus `technical_specs` (Ciclo 130). A antiga pendência de paridade mobile da Conciliação foi superada pela decisão ERP-only dos Ciclos 127/131.
+- [x] O contrato foi decidido no Ciclo 130 e implementado no 139; a Conciliação segue ERP-only pelos Ciclos 127/131.
 
 ### Ciclo 46 — valores técnicos próprios em várias variações existentes
 
@@ -858,7 +862,7 @@
 - [x] No mobile, `fetchMobileProductsPage` indexa `technical_specs.variationDetails` por UUID antes de hidratar cada registro. `ProductFormVariationsTab` aplica o updater à posição da variação aberta e substitui somente essa posição; `saveMobileProduct` grava cada objeto de detalhe junto com seu UUID.
 - [x] A ordem do array de detalhes não determina a associação no carregamento ERP ou mobile. Valores distintos continuam pertencendo aos seus UUIDs mesmo quando os detalhes chegam em ordem diferente.
 - [x] Nenhuma divergência funcional foi encontrada neste recorte; não foi necessária mudança no código de produção. Foram acrescentados testes de regressão para a leitura por UUID no ERP e no mobile, e para o payload de duas variações com valores próprios distintos.
-- [ ] Permanece sem decisão a divergência documental: `docs/negocio/produtos/estrutura-produto-variacao.md` define `product_variations.attributes` como fonte do valor efetivo, enquanto os dois clientes também persistem `technicalValues` em `technical_specs.variationDetails`. Como o comportamento atual é equivalente entre ERP e app, este ciclo preservou o contrato existente e não alterou gravação ou migração.
+- [x] A divergência de projeção foi resolvida pela decisão do usuário no Ciclo 130 e pela implementação no Ciclo 139; a compatibilidade de `technical_specs.variationDetails` foi preservada. A Conciliação permanece somente ERP, sem reintrodução de tela mobile.
 
 #### Validação e limites
 
@@ -969,7 +973,7 @@
 
 #### Próximo recorte identificado
 
-- [ ] Continuar a comparação de outras abas e estados de Produtos: descrição, preço, estoque, fiscal, imagens/variações, ações de lista, permissões, estados de erro e persistência de atributos por categoria. A divergência entre `product_variations.attributes` e `technical_specs` e a validação visual/nativa continuam pendentes.
+- [ ] Continuar a comparação de outras abas e estados de Produtos: descrição, preço, estoque, fiscal, imagens/variações, ações de lista, permissões e estados de erro. A projeção documentada dos atributos por categoria foi implementada no Ciclo 139; validação visual autenticada e comportamento nativo continuam pendentes.
 
 ### Pendências para próximos ciclos
 
@@ -1201,7 +1205,7 @@
 
 #### Próximo recorte identificado
 
-- [ ] Auditar um Gestor que possui `printProductIdentificationLabels`, mas não `viewStockLabels`: verificar se a ação de identificação continua disponível enquanto etiqueta de preço é exposta e depois redirecionada pelo guard para `cat=identificacao`.
+- [x] Auditado no Ciclo 103: o gate de identificação permanece disponível com `printProductIdentificationLabels` mesmo sem `viewStockLabels`; o gate da etiqueta de preço segue o ERP e o deep link mobile preserva a rota de identificação.
 
 ### Ciclo 67 — identificação permitida e etiqueta de preço sem acesso ao estoque
 
@@ -1263,7 +1267,7 @@
 - [ ] Comparação visual autenticada ainda não foi feita: sessões anteriores redirecionaram para `/login`. `@testing-library/react-native` não está instalado; o Vitest cobriu a regra pura, não o render nativo. Expo Web não comprova comportamento nativo. Sem leitura ou escrita remota; nenhuma guarda foi contornada.
 - [ ] A skill `erp-web-to-mobile-replication` segue encontrada apenas no cache/backup `.vercel`; buscas nas pastas canônicas do projeto e do usuário não encontraram fonte atual.
 - [x] A decisão compartilhada do Ciclo 67 sobre mostrar ou ocultar etiqueta de preço quando `viewStockLabels` está negada foi resolvida no Ciclo 103, independentemente deste ajuste de identificação.
-- [ ] Auditar disponibilidade de estoque de composição simples e multi-variação no ERP/app: composição do saldo por componentes do pai versus componentes por variação, seleção por UUID do componente e estados sem estoque/composição incompleta.
+- [x] Auditado no Ciclo 71: componentes do pai/variação, seleção física por UUID, agregação e estados de disponibilidade seguem a regra compartilhada. A validação de saldo/CMPM por movimentos reais continua pendente separadamente, sem consulta remota.
 
 ### Ciclo 71 — disponibilidade de estoque em composição
 
@@ -1347,7 +1351,7 @@
 
 #### Próximo recorte identificado
 
-- [ ] Auditar filtros por categoria, tipo padrão/serviço/composição e mesclados, incluindo estados vazios/sem resultados em produto simples, família e composição.
+- [x] Auditoria funcional concluída nos Ciclos 76–80: visibilidade de mesclados, tipo e categoria, registros legados, vazios, busca sem resultados, reset da página e ordenação inicial.
 
 ### Ciclo 76 — visibilidade de variações mescladas na lista
 
@@ -1361,7 +1365,7 @@
 
 #### Próximo recorte identificado
 
-- [ ] Auditar o filtro de tipo padrão/serviço/composição junto com categorias, inclusive composição simples, família com variações, lista vazia e busca sem resultados.
+- [x] Concluído nos Ciclos 77–80: combinação de tipo/categoria, composição, família, lista vazia, busca sem resultados, paginação e ordenação. A combinação de tipo e categoria é uma extensão mobile documentada.
 
 ### Ciclo 77 — “Somente Produtos” sem permissão de composições
 
@@ -1469,7 +1473,7 @@
 
 #### Próximo recorte identificado
 
-- [ ] Auditar leitura, reabertura, edição e persistência dos campos de custo e preço da própria variação (custo próprio/herdado, venda e promoção) no formulário filho, sem validar escrita remota enquanto ownership/autenticação não estiverem comprovados.
+- [x] Auditado nos Ciclos 83–95: preço e promoção próprios/herdados, reabertura, custo de aquisição em entradas, fornecedor, estoque mínimo e quantidade inicial. A atualização de estoque/CMPM por inventário físico continua pendente no Ciclo 95 por depender da RPC/backend.
 
 ### Ciclo 83 — variação filha: preço herdado/próprio e preço promocional
 
@@ -1579,7 +1583,7 @@
 
 #### Próximo recorte identificado
 
-- [ ] Auditar o fluxo de custo recebido por compras/saldo inicial, uma parte por ciclo.
+- [x] Auditado nos Ciclos 91–94: custo da NF-e em produto simples e variação existente, custo vinculado à compra, saldo inicial e quantidade inicial do formulário. O efeito final de movimentos/inventário sobre saldo/CMPM permanece pendente no Ciclo 95.
 - [ ] Validar os estados do formulário em tela autenticada e renderer nativo quando o ambiente/gates estiverem disponíveis.
 - [ ] Validar esta seleção de origem na interface autenticada e em dispositivo/renderer nativo quando os gates e ambiente estiverem disponíveis.
 
@@ -1675,7 +1679,7 @@
 
 - [x] Corrigida a espera sem limite na finalização e no sincronismo da outbox mobile; o contrato de payload/UUID e o fluxo offline existentes foram preservados. Não houve gravação em `inventory_moves` pela UI nem novo efeito de estoque.
 - [ ] UI autenticada e runtime nativo não foram validados. O diálogo afetado é `Alert` do React Native; Playwright/Expo Web não comprova sua apresentação nativa. Nenhuma operação remota foi executada.
-- [ ] Próximo estado a comparar: responsável do inventário. O ERP permite selecionar um colaborador no escopo e guarda seu nome; a tela mobile define `responsibleId` como o perfil atual e não tem seleção equivalente. Confirmar o contrato de responsável antes de alterar essa aba.
+- [x] Responsável do inventário comparado e alinhado nos Ciclos 96–97: ERP e app selecionam um colaborador elegível e preservam nome/ID no rascunho; a identidade autenticada que reivindica o `audit_id` continua separada da pessoa que contou, conforme decisão reafirmada no Ciclo 150.
 - [x] Ciclo 101 retirou o caminho mobile manual “Lançar Estoque” do menu Produto/variação; permanece pendente apenas a prova do efeito da RPC em saldo/CMPM descrita no Ciclo 95.
 - [ ] Validar o efeito de saldo/CMPM quando a fonte da RPC local/remota estiver disponível sob os gates; a cópia da skill `erp-web-to-mobile-replication` continua localizada apenas no cache de build e foi usada como orientação, não como fonte canônica.
 
@@ -2361,7 +2365,7 @@
 - [x] Fontes conferidas: `digital-catalog/src/app/api/facebook-catalog.csv/route.ts`, alias `/api/facebook-catalog`, rewrite em `next.config.ts` e `facebook-catalog-feed/feed-service.ts` continuam implementados. Não foram removidos nem chamados. A UI de Configurações em `WhatsAppConfigSection.tsx` ainda expõe o link CSV e fica como estado distinto a revisar no próximo ciclo.
 - [x] `git diff --check` passou. O TypeScript completo ERP terminou não zero com extensa saída de diagnósticos da base; o filtro por `MetaCatalog` encontrou somente erro no teste não alterado `services/metaCatalogBatchSync.test.ts` (`mock.calls` sem o segundo argumento), sem diagnóstico em `MetaCatalog/index.tsx`. A verificação não executou testes.
 - [ ] Nenhum download do CSV, request remoto, Playwright autenticado, chamada Graph API ou consulta ao Commerce Manager foi feito. Não é possível confirmar se ainda existe feed programado no catálogo Meta externo; o endpoint público continua no código por compatibilidade, sem afirmar que está desconectado externamente.
-- [ ] Próximo estado: revisar em Configurações a seção `Catálogo Meta (Feed CSV)`, incluindo copiar/baixar e sua mensagem de uso. Também verificar outras instruções do feed no app/ERP e manter a rota em código até haver decisão sobre seu descomissionamento e eventual configuração externa.
+- [x] Revisado no Ciclo 135: a seção de Configurações removeu cópia/baixar e instruções de Data Feed, orientando Graph API e conferência direta na Meta. A rota CSV permanece em código; sua conexão externa não foi inferida nem consultada.
 
 **Conclusão do recorte:** o painel principal não recomenda mais o feed CSV como sincronização e não atribui ao CSV a confirmação de remoção na Meta. Naquele ciclo, a seção de Configurações ainda aguardava auditoria separada; a configuração externa do Commerce Manager não foi consultada.
 
@@ -2375,7 +2379,7 @@
 - [x] Regras e referências lidas antes da edição: `AGENTS.md` (feed antigo; Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, inventário/roadmap, documentação de variações e mover/merge, `docs/mobile/arquitetura_offline_first.md`, código do painel ERP e código Graph API ERP/mobile. A skill `erp-web-to-mobile-replication` foi lida na cópia encontrada sob `erp/.vercel/.../node_modules`; não foi localizada cópia canônica em `.agents/skills` do repositório nem em `C:\Users\mathe\.agents\skills`/`C:\Users\mathe\.codex\skills`.
 - [ ] `git diff --check` e validação estática ainda pendentes. Não foram executados testes, Playwright autenticado, downloads/requisições do CSV, sincronização Graph API, consulta ao Commerce Manager ou gravação externa.
 - [ ] Não se verificou se existe Data Feed agendado na conta Meta externa. A permanência da rota no código não indica que ela esteja conectada/desconectada no Commerce Manager.
-- [ ] Achado separado para auditoria: a descrição `channelBaseDescriptions.whatsapp` continua dizendo que será inserida antes da descrição dos itens; no código inspecionado, o builder Graph usa `META_CATALOG_GLOBAL_PREFIX` e a descrição do próprio produto. O campo configurável não apareceu como consumidor no ERP/mobile/shared-utils pesquisados; preservado neste ciclo para evitar alterar outra configuração sem auditar seu contrato.
+- [x] Achado resolvido nos Ciclos 136–137: `channelBaseDescriptions.whatsapp` agora compõe a descrição nos payloads Graph ERP/mobile; o Catálogo Digital não consome essa configuração. Nenhuma chamada externa foi feita.
 
 **Conclusão do recorte:** nenhuma superfície de Produtos ERP/mobile inspecionada recomenda usar CSV como fonte ativa. A seção de Configurações agora aponta à Graph API e à verificação direta na Meta. Rota e configuração externa não foram alteradas; auditoria global de Produtos continua aberta.
 
@@ -2708,3 +2712,19 @@
 - [x] `git diff --check` passou (exit code 0); Git avisou somente sobre normalização CRLF/LF preexistente nos documentos.
 
 **Conclusão do recorte:** o fluxo de seleção mobile agora aplica o limiar e a busca normalizada do ERP; as leituras de catálogo/configuração em ambas as plataformas têm prazo finito, preservam o fail-closed e não deixam os indicadores de carregamento presos indefinidamente. O componente-filho foi vinculado ao formulário proprietário com RHF/Zod. A auditoria global permanece aberta.
+
+### Ciclo 156 — orientação do feed CSV no Catálogo Meta mobile — 24/10/2026
+
+**Achado registrado antes da alteração:** a página ERP do Catálogo Meta exibe o aviso “Feed CSV legado”: a rota ainda existe por compatibilidade, mas não deve ser cadastrada como fonte de sincronização nem usada para confirmar publicação/remoção; a tela orienta a sincronização por Graph API e a conferência direta no catálogo pelo `retailer_id`/SKU. `NativeMetaCatalogScreen` oferece resumo, sincronização manual Graph e acesso ao painel ERP, mas não apresenta essa orientação. A seção 8 do `AGENTS.md` não trata o feed CSV como fonte de sincronização ou prova de remoção, e não foi encontrada exceção mobile documentada.
+
+- [x] Fontes comparadas antes da mudança: ERP `erp/src/pages/App/Products/MetaCatalog/index.tsx`, mobile `mobile/src/features/products/screens/NativeMetaCatalogScreen.tsx`, `AGENTS.md` seção 8, `docs/geral/USER_RULES.md`, documentação de estrutura de produtos e operações de variação, e ciclos 132–135 desta trilha. A regra de sincronização Graph e os builders/payloads permanecem compartilhados; o recorte é orientação de interface.
+- [x] `NativeMetaCatalogScreen` agora mostra “Feed CSV legado” depois dos totais, com aviso para não cadastrar o feed, usar Graph API e confirmar publicação/remoção diretamente no Catálogo Meta pelo `retailer_id`/SKU. O bloco segue o tema claro/escuro e não possui ação nem faz chamada; a rota de compatibilidade, o transporte Graph, o gate de administrador e o formulário de Configurações não mudaram.
+- [x] `git diff --check` passou; nenhum teste foi adicionado ou executado conforme a restrição da execução. Não houve Playwright autenticado, Expo Web, validação Android/iOS, chamada Graph/CSV, consulta ao Commerce Manager ou escrita externa. A limitação da comparação visual autenticada permanece; Expo Web não comprova comportamento nativo.
+
+**Conclusão do recorte:** a orientação da tela mobile agora corresponde ao aviso ERP e à regra vigente sobre o feed CSV legado. O conteúdo foi validado estaticamente; configuração externa do Commerce Manager e processamento real na Meta continuam sem confirmação.
+
+### Ciclo 157 — reconciliação de próximos recortes históricos — 24/10/2026
+
+- [x] O inventário mantinha tarefas antigas como abertas mesmo depois de evidência posterior. As leituras/edições de valores próprios de múltiplas variações e a projeção de atributos foram reconciliadas com os Ciclos 46, 139 e 144; composição e filtros da lista com os Ciclos 71 e 76–80; ações de etiquetas com o Ciclo 103; estados de preço/custo/estoque inicial com os Ciclos 83–95 e 154; responsável do inventário com os Ciclos 96–97 e a decisão de ownership do Ciclo 150; configuração CSV e payload de descrição WhatsApp com os Ciclos 135–137.
+- [x] Cada marcador foi encerrado somente quanto à auditoria/correção funcional indicada. As pendências independentes de validação visual autenticada, runtime Android/iOS, gravação externa, catálogo real da Meta, provenance/aplicação de RPCs e cálculo saldo/CMPM continuam marcadas em seus respectivos ciclos.
+- [x] Atualizado o roadmap com esta reconciliação; nenhum código de produção foi alterado neste ciclo. `git diff --check` passou (exit code 0; apenas avisos de normalização CRLF/LF).
