@@ -12,13 +12,18 @@ import {
   getProductSupplierDisplayName,
   matchesProductSupplierSearch,
 } from '../../../../../../shared-utils/productSupplierDisplayName';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  getProductSupplierStockOrigin,
+  supplierProvidesStockOrigin,
+} from '../../../../../../shared-utils/productSupplierStockOrigin';
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Truck, DollarSign, Search, X, Plus } from 'lucide-react-native';
 import { saveSupplier as persistSupplier } from '../../../../services/stockService';
 import { SupplierFormModal } from '../../../stock/suppliers/SupplierFormModal';
 import { parseLocalizedNumber as parsePrice } from '../../domain/productNumbers';
+import { resolveMobileProductFinalPurchasePrice } from '../../domain/productPurchasePrice';
 import {
-  fetchActiveMobileProductSuppliers,
+  fetchMobileProductSuppliersWithStatus,
   type MobileProductSupplier,
 } from '../../services/mobileSupplierService';
 
@@ -26,6 +31,13 @@ interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
   dark: boolean;
+  unitPriceError?: boolean;
+  onUnitPriceValidationCleared?: () => void;
+  showInboundCostPrice?: boolean;
+  costPriceError?: boolean;
+  onCostPriceValidationCleared?: () => void;
+  supplierError?: boolean;
+  onSupplierValidationCleared?: () => void;
 }
 
 const syncInheritedVariationPrices = (
@@ -41,22 +53,54 @@ const syncInheritedVariationPrices = (
   })),
 });
 
-export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
+export const ProductFormPricesTab: React.FC<Props> = ({
+  formData,
+  setFormData,
+  dark,
+  unitPriceError = false,
+  onUnitPriceValidationCleared,
+  showInboundCostPrice = false,
+  costPriceError = false,
+  onCostPriceValidationCleared,
+  supplierError = false,
+  onSupplierValidationCleared,
+}) => {
   const [suppliers, setSuppliers] = useState<MobileProductSupplier[]>([]);
   const [supplierSearch, setSupplierSearch] = useState<string>('');
   const [showSupplierForm, setShowSupplierForm] = useState(false);
+  const [supplierLoadState, setSupplierLoadState] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const [supplierLoadAttempt, setSupplierLoadAttempt] = useState(0);
+  const [supplierLoadErrorMessage, setSupplierLoadErrorMessage] = useState('');
 
-  // Carrega fornecedores ativos do banco
+  // Carrega fornecedores ativos sem confundir espera/falha com lista realmente vazia.
   useEffect(() => {
-    void fetchActiveMobileProductSuppliers().then(setSuppliers);
-  }, []);
+    let isCurrent = true;
+    setSupplierLoadState('loading');
+    setSupplierLoadErrorMessage('');
+    void fetchMobileProductSuppliersWithStatus()
+      .then((result) => {
+        if (!isCurrent) return;
+        setSuppliers(result.suppliers);
+        if ('errorMessage' in result) {
+          setSupplierLoadState('error');
+          setSupplierLoadErrorMessage(result.errorMessage);
+        } else {
+          setSupplierLoadState('loaded');
+          setSupplierLoadErrorMessage('');
+        }
+      })
+      .catch(() => {
+        if (!isCurrent) return;
+        setSuppliers([]);
+        setSupplierLoadState('error');
+        setSupplierLoadErrorMessage('Não foi possível carregar os fornecedores. Tente novamente.');
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [supplierLoadAttempt]);
 
-  const selectedStockOrigin =
-    formData.productKind === 'salvado' || formData.condition === 'salvado'
-      ? 'salvados'
-      : formData.productKind === 'usado' || formData.condition === 'usado'
-        ? 'usados'
-        : 'normal';
+  const selectedStockOrigin = getProductSupplierStockOrigin(formData.productKind);
   const isOwnProduction =
     formData.merchandiseOrigin === 'own_production' ||
     formData.isOwnProduction === true ||
@@ -78,9 +122,9 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
     if (q.length < 2) return [];
     return suppliers.filter((sup) => {
       if (selectedIds.includes(sup.id)) return false;
-      const stockOrigins = Array.isArray(sup.stock_origins) ? sup.stock_origins : ['normal'];
       return (
-        stockOrigins.includes(selectedStockOrigin) && matchesProductSupplierSearch(sup, q)
+        supplierProvidesStockOrigin(sup.stock_origins, selectedStockOrigin) &&
+        matchesProductSupplierSearch(sup, q)
       );
     });
   }, [
@@ -142,6 +186,22 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
     [setFormData]
   );
 
+  const handleUnitPriceBlur = useCallback(() => {
+    if (parsePrice(formData.unitPrice) > 0) onUnitPriceValidationCleared?.();
+  }, [formData.unitPrice, onUnitPriceValidationCleared]);
+
+  const handleInboundCostPriceChange = useCallback(
+    (value: string) => {
+      setFormData((prev) => ({
+        ...prev,
+        costPrice: value,
+        finalPurchasePrice: resolveMobileProductFinalPurchasePrice({ costPrice: value }),
+      }));
+      onCostPriceValidationCleared?.();
+    },
+    [onCostPriceValidationCleared, setFormData]
+  );
+
   const handleDiscountPercentChange = useCallback(
     (pctStr: string) => {
       setFormData((prev) => {
@@ -186,29 +246,6 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
     [setFormData]
   );
 
-  const handleCostFieldChange = useCallback(
-    (field: string, value: string) => {
-      setFormData((prev) => {
-        const next: any = { ...prev, [field]: value };
-        const costPrice = parsePrice(field === 'costPrice' ? value : next.costPrice);
-        const ipiPercent = parsePrice(field === 'ipiPercent' ? value : next.ipiPercent);
-        const freightCost = parsePrice(field === 'freightCost' ? value : next.freightCost);
-        const freightType = field === 'freightType' ? value : next.freightType || 'fixed';
-        next.finalPurchasePrice = calculateProductFinalPurchasePrice(
-          costPrice,
-          ipiPercent,
-          freightCost,
-          freightType
-        );
-        next.variations = (next.variations || []).map((variation: any) =>
-          variation.syncCostPrice !== false ? { ...variation, costPrice: costPrice } : variation
-        );
-        return next;
-      });
-    },
-    [setFormData]
-  );
-
   const f = (v: any) => (v !== null && v !== undefined && v !== '' ? String(v) : '');
   const selectedSupplierIds: string[] = formData.supplierIds?.length
     ? formData.supplierIds
@@ -220,11 +257,9 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
       selectedSupplierIds.length >= 3
     )
       return;
-    const stockOrigins = Array.isArray(supplier.stock_origins)
-      ? supplier.stock_origins
-      : ['normal'];
-    if (!stockOrigins.includes(selectedStockOrigin)) return;
+    if (!supplierProvidesStockOrigin(supplier.stock_origins, selectedStockOrigin)) return;
     const nextIds = [...selectedSupplierIds, supplier.id];
+    onSupplierValidationCleared?.();
     setFormData((prev) => {
       const next = {
         ...prev,
@@ -257,6 +292,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
   };
   const handleToggleOrigin = (ownProduction: boolean) => {
     const newOrigin = ownProduction ? 'own_production' : 'third_party';
+    if (ownProduction) onSupplierValidationCleared?.();
     setFormData((previous) => ({
       ...previous,
       merchandiseOrigin: newOrigin,
@@ -340,7 +376,8 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
           <View style={styles.cardHeader}>
             <Truck size={16} color="#2563eb" />
             <Text style={[styles.cardTitle, dark && styles.lightText]}>
-              Fornecedores <Text style={{ color: '#ef4444' }}>*</Text>
+              <Text style={supplierError && styles.invalidLabel}>Fornecedores</Text>{' '}
+              <Text style={{ color: '#ef4444' }}>*</Text>
             </Text>
           </View>
           <TouchableOpacity
@@ -359,10 +396,20 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         <Text style={[styles.label, dark && styles.dimText]}>
           Buscar fornecedor · {selectedSupplierIds.length}/3
         </Text>
-        <View style={[styles.searchInputWrapper, dark && styles.darkSearchInputWrapper]}>
-          <Search size={14} color={dark ? '#94a3b8' : '#64748b'} />
+        <View
+          style={[
+            styles.searchInputWrapper,
+            dark && styles.darkSearchInputWrapper,
+            supplierError && styles.invalidSearchInput,
+          ]}
+        >
+          <Search size={14} color={supplierError ? '#ef4444' : dark ? '#94a3b8' : '#64748b'} />
           <TextInput
             style={[styles.searchInput, dark && styles.darkSearchInput, dark && styles.lightText]}
+            accessibilityLabel="Buscar fornecedor por nome ou razão social"
+            accessibilityHint={
+              supplierError ? 'Adicione ao menos um fornecedor.' : 'Digite 2 ou mais letras para buscar.'
+            }
             placeholder="Digite 2 ou mais letras para buscar..."
             placeholderTextColor={dark ? '#64748b' : '#94a3b8'}
             value={supplierSearch}
@@ -379,6 +426,12 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
           )}
         </View>
 
+        {supplierError && (
+          <Text style={styles.supplierErrorText} accessibilityRole="alert">
+            Adicione ao menos um fornecedor.
+          </Text>
+        )}
+
         {supplierSearch.trim().length > 0 && supplierSearch.trim().length < 2 && (
           <Text style={[styles.helperText, dark && styles.dimText]}>
             Digite pelo menos 2 caracteres para exibir as sugestões.
@@ -386,7 +439,27 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         )}
 
         <View style={styles.supplierGrid}>
-          {suppliers.length === 0 ? (
+          {supplierLoadState === 'loading' ? (
+            <View style={styles.supplierStateRow}>
+              <ActivityIndicator size="small" color="#2563eb" />
+              <Text style={[styles.emptySupplierText, dark && styles.dimText]}>
+                Carregando fornecedores...
+              </Text>
+            </View>
+          ) : supplierLoadState === 'error' ? (
+            <View style={styles.supplierLoadError}>
+              <Text style={styles.supplierLoadErrorText} accessibilityRole="alert">
+                {supplierLoadErrorMessage || 'Não foi possível carregar os fornecedores.'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setSupplierLoadAttempt((attempt) => attempt + 1)}
+                accessibilityRole="button"
+                style={styles.supplierRetryButton}
+              >
+                <Text style={styles.supplierRetryText}>Tentar novamente</Text>
+              </TouchableOpacity>
+            </View>
+          ) : suppliers.length === 0 ? (
             <Text style={[styles.emptySupplierText, dark && styles.dimText]}>
               Nenhum fornecedor cadastrado
             </Text>
@@ -446,6 +519,36 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         )}
       </View>}
 
+      {showInboundCostPrice && (
+        <View style={[styles.card, dark && styles.darkCard]}>
+          <View style={styles.cardHeader}>
+            <Truck size={16} color="#f59e0b" />
+            <Text style={[styles.cardTitle, dark && styles.lightText]}>Custo de aquisição da NF-e</Text>
+          </View>
+          <Text style={[styles.inboundCostHelper, dark && styles.darkInboundCostHelper]}>
+            O valor inicial vem do custo calculado para o item da nota. Confira e ajuste antes de salvar o produto.
+          </Text>
+          <Text style={[styles.label, dark && styles.dimText, costPriceError && styles.invalidLabel]}>
+            Custo de aquisição (R$) <Text style={{ color: '#ef4444' }}>*</Text>
+          </Text>
+          <TextInput
+            value={f(formData.costPrice)}
+            onChangeText={handleInboundCostPriceChange}
+            keyboardType="decimal-pad"
+            accessibilityLabel="Custo de aquisição do produto"
+            accessibilityHint={costPriceError ? 'Informe um custo de aquisição válido, maior ou igual a zero.' : 'Valor calculado a partir dos custos do item da NF-e.'}
+            placeholder="0,00"
+            placeholderTextColor="#94a3b8"
+            style={[styles.input, dark && styles.darkInput, dark && styles.lightText, costPriceError && styles.invalidInput]}
+          />
+          {costPriceError && (
+            <Text style={styles.costPriceErrorText} accessibilityRole="alert">
+              Informe um custo de aquisição válido.
+            </Text>
+          )}
+        </View>
+      )}
+
       {/* ─── Seção 2: Preços de Venda & Descontos ─── */}
       <View style={[styles.card, dark && styles.darkCard]}>
         <View style={styles.cardHeader}>
@@ -457,7 +560,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
 
         <View style={styles.row}>
           <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText]}>
+            <Text style={[styles.label, dark && styles.dimText, unitPriceError && styles.invalidLabel]}>
               Preço de Venda (R$) {!formData.hasVariations && (
                 <Text style={{ color: '#ef4444' }}>*</Text>
               )}
@@ -465,10 +568,13 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
             <TextInput
               value={f(formData.unitPrice)}
               onChangeText={handleUnitPriceChange}
+              onBlur={handleUnitPriceBlur}
               keyboardType="numeric"
+              accessibilityLabel="Preço de venda do produto"
+              accessibilityHint={unitPriceError ? 'Informe o Preço de Venda do produto na aba Estoque e Precificação.' : undefined}
               placeholder="0,00"
               placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
+              style={[styles.input, dark && styles.darkInput, dark && styles.lightText, unitPriceError && styles.invalidInput]}
             />
           </View>
         </View>
@@ -512,90 +618,6 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         </View>
       </View>
 
-      {/* ─── Custo de Compra ─── */}
-      <View style={[styles.card, dark && styles.darkCard]}>
-        <View style={styles.cardHeader}>
-          <Truck size={16} color="#f59e0b" />
-          <Text style={[styles.cardTitle, dark && styles.lightText]}>Custo de Compra</Text>
-        </View>
-        <View style={styles.row}>
-          <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText]}>Preço de Custo</Text>
-            <TextInput
-              value={f(formData.costPrice)}
-              onChangeText={(value) => handleCostFieldChange('costPrice', value)}
-              keyboardType="numeric"
-              placeholder="0,00"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-            />
-          </View>
-          <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText]}>IPI (%)</Text>
-            <TextInput
-              value={f(formData.ipiPercent)}
-              onChangeText={(value) => handleCostFieldChange('ipiPercent', value)}
-              keyboardType="numeric"
-              placeholder="0,0"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-            />
-          </View>
-        </View>
-        <Text style={[styles.label, dark && styles.dimText]}>Tipo de Frete</Text>
-        <View style={styles.segRow}>
-          {(
-            [
-              ['fixed', 'Fixo'],
-              ['percentage', 'Percentual'],
-              ['none', 'Sem frete'],
-            ] as const
-          ).map(([value, label]) => (
-            <TouchableOpacity
-              key={value}
-              onPress={() => handleCostFieldChange('freightType', value)}
-              style={[
-                styles.seg,
-                dark && styles.darkSegment,
-                formData.freightType === value && styles.segActive,
-              ]}
-            >
-              <Text
-                style={[styles.segText, formData.freightType === value && styles.segTextActive]}
-              >
-                {label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        {formData.freightType !== 'none' && (
-          <View>
-            <Text style={[styles.label, dark && styles.dimText]}>
-              {formData.freightType === 'percentage' ? 'Frete (%)' : 'Frete (R$)'}
-            </Text>
-            <TextInput
-              value={f(formData.freightCost)}
-              onChangeText={(value) => handleCostFieldChange('freightCost', value)}
-              keyboardType="numeric"
-              placeholder="0,00"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-            />
-          </View>
-        )}
-        <View style={[styles.finalPriceBox, dark && styles.darkFinalPrice]}>
-          <Text style={[styles.finalPriceLabel, dark && styles.dimText]}>
-            Custo final de compra
-          </Text>
-          <Text style={styles.finalPriceValue}>
-            R${' '}
-            {Number(formData.finalPurchasePrice || 0)
-              .toFixed(2)
-              .replace('.', ',')}
-          </Text>
-        </View>
-      </View>
-
       {!formData.hasVariations && (
         <View style={[styles.card, dark && styles.darkCard]}>
           <Text style={[styles.label, dark && styles.dimText]}>Estoque Mínimo</Text>
@@ -613,12 +635,15 @@ export const ProductFormPricesTab: React.FC<Props> = ({ formData, setFormData, d
         visible={showSupplierForm}
         onClose={() => setShowSupplierForm(false)}
         isDarkMode={dark}
+        showStockOriginOptions
         onSave={async (data) => {
           const supplier = await persistSupplier(data);
           setSuppliers((previous) => [
             ...previous.filter((item) => item.id !== supplier.id),
             supplier,
           ]);
+          setSupplierLoadState('loaded');
+          setSupplierLoadErrorMessage('');
           addSupplier(supplier);
         }}
       />
@@ -701,6 +726,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 4,
   },
+  invalidLabel: { color: '#ef4444' },
   input: {
     height: 44,
     backgroundColor: '#ffffff',
@@ -712,40 +738,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0f172a',
   },
+  invalidInput: { borderColor: '#ef4444', color: '#dc2626' },
+  invalidSearchInput: { borderColor: '#ef4444' },
+  supplierErrorText: { fontSize: 9, fontWeight: '700', color: '#ef4444', marginTop: -4 },
+  costPriceErrorText: { fontSize: 11, fontWeight: '700', color: '#dc2626' },
   darkInput: { backgroundColor: '#0f172a', borderColor: '#334155' },
-  darkSegment: { backgroundColor: '#0f172a' },
   promoInput: { color: '#16a34a', fontWeight: '900' },
   separator: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 2 },
   subLabel: { fontSize: 10, fontWeight: '800', color: '#64748b', textTransform: 'uppercase' },
-  segRow: { flexDirection: 'row', gap: 4, marginTop: 4 },
-  seg: {
-    flex: 1,
-    minHeight: 44,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segActive: { backgroundColor: '#2563eb' },
-  segText: { fontSize: 11, fontWeight: '800', color: '#64748b' },
-  segTextActive: { color: '#ffffff' },
-  finalPriceBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#eff6ff',
-    borderRadius: 12,
-    padding: 12,
-  },
-  darkFinalPrice: { backgroundColor: '#1e3a8a20' },
-  finalPriceLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#475569',
-    textTransform: 'uppercase',
-  },
-  finalPriceValue: { fontSize: 16, fontWeight: '900', color: '#2563eb' },
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -761,7 +761,14 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 13, fontWeight: '700', color: '#0f172a', padding: 0 },
   darkSearchInput: { color: '#f1f5f9' },
   helperText: { fontSize: 10, fontWeight: '700', color: '#f59e0b', marginTop: -4 },
+  inboundCostHelper: { fontSize: 11, fontWeight: '600', color: '#64748b', lineHeight: 16 },
+  darkInboundCostHelper: { color: '#94a3b8' },
   supplierGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  supplierStateRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 8 },
+  supplierLoadError: { width: '100%', gap: 8 },
+  supplierLoadErrorText: { fontSize: 11, fontWeight: '600', color: '#dc2626' },
+  supplierRetryButton: { alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#eff6ff' },
+  supplierRetryText: { fontSize: 11, fontWeight: '800', color: '#2563eb' },
   selectedSuppliers: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   selectedSupplierChip: {
     maxWidth: '100%',

@@ -7,6 +7,8 @@ interface NavigationRailItemProps {
   badgeCount?: number;
   onClick?: () => void;
   ariaLabel?: string;
+  ariaExpanded?: boolean;
+  ariaControls?: string;
 }
 
 export const NavigationRailItem: React.FC<NavigationRailItemProps> = ({
@@ -16,6 +18,8 @@ export const NavigationRailItem: React.FC<NavigationRailItemProps> = ({
   badgeCount = 0,
   onClick,
   ariaLabel,
+  ariaExpanded,
+  ariaControls,
 }) => {
   return (
     <button
@@ -23,6 +27,8 @@ export const NavigationRailItem: React.FC<NavigationRailItemProps> = ({
       onClick={onClick}
       title={title}
       aria-label={ariaLabel || title}
+      aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
       className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
         isActive
           ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'

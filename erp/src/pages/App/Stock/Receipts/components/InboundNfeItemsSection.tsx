@@ -1,19 +1,10 @@
-import { useState } from 'react';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import type { PurchaseItem } from '@/pages/types/purchase.type';
 import {
   QuickRegisterVariationModal,
   type QuickRegisterItem,
-  type QuickRegisterSelection,
 } from '../../InboundInvoices/modals/QuickRegisterVariationModal';
-import ProductFormModal from '@/pages/App/Products/modals/ProductFormModal';
-import { getFullProduct } from '@/pages/utils/productService';
-import { toast } from 'react-toastify';
-import {
-  prepareNewParentWithVariation,
-  prepareExistingParentNewVariation,
-} from '../../InboundInvoices/services/inboundProductPreparationService';
-import type Product from '@/pages/types/product.type';
+import { useInboundInvoiceQuickRegister } from '../../InboundInvoices/hooks/useInboundInvoiceQuickRegister';
 import { InboundReceiptItemRow } from './InboundReceiptItemRow';
 import type { InboundReceiptItemComposition } from './InboundCompositionManager';
 
@@ -51,55 +42,12 @@ export function InboundNfeItemsSection({
   onChange,
   formatCurrency,
 }: InboundNfeItemsSectionProps) {
-  const [quickRegisterTarget, setQuickRegisterTarget] = useState<{
-    itemNumber: number;
-    item: QuickRegisterItem;
-  } | null>(null);
-  const [editingParentProduct, setEditingParentProduct] = useState<Product | null>(null);
-  const [initialProductData, setInitialProductData] = useState<Partial<Product> | null>(null);
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [creatingItemNumber, setCreatingItemNumber] = useState<number | null>(null);
-
-  const handleQuickRegisterConfirm = async (selection: QuickRegisterSelection) => {
-    if (!quickRegisterTarget) return;
-    const { itemNumber, item } = quickRegisterTarget;
-    setQuickRegisterTarget(null);
-
-    if (selection.mode === 'EXISTING_PARENT') {
-      try {
-        const parentProduct = await getFullProduct(selection.parentProductId);
-        if (!parentProduct) {
-          toast.error('Produto pai não encontrado.');
-          return;
-        }
-        const updatedParentProduct = await prepareExistingParentNewVariation(parentProduct, item);
-        setCreatingItemNumber(itemNumber);
-        setEditingParentProduct(updatedParentProduct);
-        setIsProductModalOpen(true);
-      } catch (err: unknown) {
-        toast.error(err instanceof Error ? err.message : 'Erro ao carregar produto pai.');
-      }
-    } else {
-      try {
-        const preparedData = await prepareNewParentWithVariation(item, supplierId);
-        setCreatingItemNumber(itemNumber);
-        setEditingParentProduct(null);
-        setInitialProductData(preparedData);
-        setIsProductModalOpen(true);
-      } catch (err: unknown) {
-        toast.error(
-          err instanceof Error ? err.message : 'Erro ao preparar formulário de cadastro.'
-        );
-      }
-    }
-  };
-
-  const handleProductModalClose = () => {
-    setIsProductModalOpen(false);
-    setCreatingItemNumber(null);
-    setEditingParentProduct(null);
-    setInitialProductData(null);
-  };
+  const { quickRegisterTarget, setQuickRegisterTarget, handleQuickRegisterConfirm } = useInboundInvoiceQuickRegister(
+    supplierId, items, (itemNumber, update) => onChange(itemNumber, {
+      linkedProductId: update.matchedProductId, linkedVariationId: update.matchedVariationId,
+      linkedProductName: update.productErpName, linkedProductCode: update.linkedProductCode, linkStatus: 'pending',
+    }),
+  );
 
   const linkedCount = items.filter((item) => Boolean(item.linkedProductId)).length;
   const allLinked = items.length > 0 && linkedCount === items.length;
@@ -147,27 +95,6 @@ export function InboundNfeItemsSection({
           />
         ))}
       </div>
-
-      <ProductFormModal
-        isOpen={isProductModalOpen}
-        isQuickRegister={true}
-        onClose={handleProductModalClose}
-        product={editingParentProduct}
-        initialData={initialProductData}
-        initialTab={editingParentProduct ? 'variacoes' : 'geral'}
-        openAddVariationOnOpen={Boolean(editingParentProduct)}
-        onSuccess={(createdProduct) => {
-          setIsProductModalOpen(false);
-          if (creatingItemNumber) {
-            onChange(creatingItemNumber, {
-              linkedProductId: createdProduct.id,
-              linkedVariationId: createdProduct.variations?.[0]?.id,
-              linkedProductName: createdProduct.name || createdProduct.title,
-              linkStatus: 'pending',
-            });
-          }
-        }}
-      />
 
       <QuickRegisterVariationModal
         isOpen={Boolean(quickRegisterTarget)}

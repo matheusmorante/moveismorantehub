@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cancelledOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(2, 6, 23, 0.45)',
     zIndex: 10,
     borderRadius: 20,

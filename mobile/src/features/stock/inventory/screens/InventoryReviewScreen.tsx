@@ -21,6 +21,7 @@ interface Props {
   items: AuditItem[];
   startDate: string;
   hasStages?: boolean;
+  canFinalize: boolean;
   onCancel: () => void;
   onConfirm: (
     itemsWithAdjustment: Array<AuditItem & { reconciledExpected: number; difference: number }>
@@ -31,6 +32,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
   isDarkMode,
   items,
   startDate,
+  canFinalize,
   onCancel,
   onConfirm,
 }) => {
@@ -53,7 +55,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
   const itemsWithDifferences = reconciledItems.filter(
     (i) => i.physicalCount !== null && i.difference !== 0
   );
-  const isBlocked = countedItems.length === 0 || loading;
+  const isBlocked = countedItems.length === 0 || loading || !canFinalize;
 
   const handleConfirm = () => {
     if (isBlocked) return;
@@ -123,9 +125,11 @@ export const InventoryReviewScreen: React.FC<Props> = ({
           <Text
             style={{ color: '#ef4444', textAlign: 'center', marginBottom: 12, fontWeight: '600' }}
           >
-            {countedItems.length === 0
-              ? 'Você precisa contar pelo menos 1 item para finalizar o inventário.'
-              : 'A revisão ainda está carregando.'}
+            {!canFinalize
+              ? 'Seu perfil precisa da permissão “Finalizar inventários” para concluir.'
+              : countedItems.length === 0
+                ? 'Você precisa contar pelo menos 1 item para finalizar o inventário.'
+                : 'A revisão ainda está carregando.'}
           </Text>
         )}
         <TouchableOpacity

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { imageFilesFormSchema } from './fileFormSchemas';
+import { normalizeCompleteVariationName } from './productVariationNameValidation';
 
 export * from './deliveryRouteFormSchemas';
 
@@ -90,8 +91,31 @@ export const inventoryScopeFormSchema = z
 
 export const quickRegisterSelectionFormSchema = z
   .object({
-    mode: z.enum(['EXISTING_PARENT', 'NEW_PARENT']),
+    mode: z.enum(['EXISTING_PARENT', 'SIMPLE', 'COMPOSITION']),
     parentProductId: z.string().trim().nullable().optional(),
+    name: z.string().trim().optional(),
+    nameSuffix: z.string().trim().optional(),
+    parentName: z.string().trim().optional(),
+    variationFullName: z.string().trim().optional(),
+    existingVariationNames: z.array(z.string()).optional(),
+    ncmMismatch: z.boolean().optional(),
+    categoryId: z.string().trim().optional(),
+    categoryConfirmed: z.boolean().optional(),
+    ncm: z.string().trim().optional(),
+    costPrice: z.number().nonnegative('O custo de aquisição deve ser maior ou igual a zero.').optional(),
+    ncmResolution: z.enum(['variation', 'update-parent', 'keep-parent']).optional(),
+    requiredVariableFields: z.array(z.string()).optional(),
+    technicalValues: z.record(z.string(), z.unknown()).optional(),
+    components: z.array(z.object({
+      productId: z.string().trim().min(1, 'Selecione o produto de cada componente.'),
+      variationId: z.string().trim().optional(),
+      description: z.string().trim().min(1, 'O componente não possui descrição.'),
+      unitPrice: z.number().nonnegative(),
+      stock: z.number().nonnegative(),
+      quantity: z.number().positive('A quantidade de cada componente deve ser maior que zero.'),
+    })).optional(),
+    duplicateNameConfirmed: z.boolean().optional(),
+    nameMatchCount: z.number().int().nonnegative().optional(),
   })
   .superRefine((value, ctx) => {
     if (value.mode === 'EXISTING_PARENT' && !value.parentProductId?.trim()) {
@@ -100,6 +124,43 @@ export const quickRegisterSelectionFormSchema = z
         path: ['parentProductId'],
         message: 'Selecione o produto pai.',
       });
+    }
+    if (value.mode === 'SIMPLE' || value.mode === 'COMPOSITION') {
+      if (!value.name?.trim()) ctx.addIssue({ code: 'custom', path: ['name'], message: 'Informe o nome do produto.' });
+      if (!value.categoryId?.trim()) ctx.addIssue({ code: 'custom', path: ['categoryId'], message: 'Selecione uma categoria.' });
+      if (!value.categoryConfirmed) ctx.addIssue({ code: 'custom', path: ['categoryConfirmed'], message: 'Confirme a categoria antes de salvar.' });
+      if (value.costPrice === undefined || !Number.isFinite(value.costPrice)) ctx.addIssue({ code: 'custom', path: ['costPrice'], message: 'Informe um custo de aquisição válido.' });
+    }
+    if (value.mode === 'EXISTING_PARENT') {
+      if (!value.nameSuffix?.trim()) ctx.addIssue({ code: 'custom', path: ['nameSuffix'], message: 'Informe o complemento do nome da variação.' });
+      if (value.ncmMismatch && value.ncmResolution === undefined) {
+        ctx.addIssue({ code: 'custom', path: ['ncmResolution'], message: 'Resolva a divergência de NCM antes de salvar.' });
+      }
+      const normalizedFullName = normalizeCompleteVariationName(value.variationFullName || '');
+      if (normalizedFullName && (value.existingVariationNames || []).some((name) =>
+        normalizeCompleteVariationName(name) === normalizedFullName
+      )) {
+        ctx.addIssue({ code: 'custom', path: ['nameSuffix'], message: 'O nome completo da variação já está cadastrado neste produto.' });
+      }
+      const fields = value.requiredVariableFields || [];
+      for (const name of fields) {
+        const raw = value.technicalValues?.[name];
+        const hasValue = Array.isArray(raw) ? raw.length > 0 : String(raw ?? '').trim().length > 0;
+        if (!hasValue) ctx.addIssue({ code: 'custom', path: ['technicalValues', name], message: `Preencha a característica obrigatória: ${name}.` });
+      }
+    }
+    if (value.mode === 'COMPOSITION') {
+      const components = value.components || [];
+      if (components.length < 2) {
+        ctx.addIssue({ code: 'custom', path: ['components'], message: 'Adicione pelo menos dois componentes distintos ao produto composto.' });
+      }
+      const selectedComponents = new Set(components.map(({ productId, variationId }) => `${productId}:${variationId || ''}`));
+      if (selectedComponents.size !== components.length) {
+        ctx.addIssue({ code: 'custom', path: ['components'], message: 'Cada produto ou variação só pode aparecer uma vez na composição.' });
+      }
+    }
+    if ((value.nameMatchCount || 0) > 0 && !value.duplicateNameConfirmed) {
+      ctx.addIssue({ code: 'custom', path: ['duplicateNameConfirmed'], message: 'Revise os cadastros semelhantes antes de criar outro produto.' });
     }
   });
 

@@ -5,34 +5,8 @@ import { getLocalInvoices, saveLocalInvoices } from './inboundCacheService';
 import { isSampleInvoice } from './inboundNormalizationService';
 import { parseInboundNfeXml } from '../utils/inboundXmlParser';
 
-export const deleteInboundInvoice = async (invoiceIdOrKey: string): Promise<void> => {
-  // A remoção é deliberadamente limitada ao cabeçalho da NF e aos seus itens
-  // dependentes. Produtos, códigos de fornecedor e recebimentos são entidades
-  // independentes e não recebem nenhuma atualização ou exclusão neste fluxo.
-  try {
-    let error: { message?: string } | null = null;
-
-    if (isValidUuid(invoiceIdOrKey)) {
-      ({ error } = await supabase.from('inbound_invoices').delete().eq('id', invoiceIdOrKey));
-    } else {
-      const cleanKey = String(invoiceIdOrKey)
-        .replace(/^inbound_/, '')
-        .replace(/\D/g, '');
-      if (cleanKey.length === 44) {
-        ({ error } = await supabase.from('inbound_invoices').delete().eq('chave_acesso', cleanKey));
-      }
-    }
-
-    if (error) throw new Error(error.message || 'Não foi possível remover a NF de entrada.');
-
-    const local = getLocalInvoices().filter(
-      (inv) => inv.id !== invoiceIdOrKey && inv.nfeKey !== invoiceIdOrKey && !isSampleInvoice(inv)
-    );
-    saveLocalInvoices(local);
-  } catch (err) {
-    console.warn('Erro ao deletar NF no Supabase:', err);
-    throw err;
-  }
+export const deleteInboundInvoice = async (_invoiceIdOrKey: string): Promise<void> => {
+  throw new Error('Notas fiscais de entrada não podem ser excluídas.');
 };
 
 export const saveInboundInvoice = async (invoice: InboundInvoice): Promise<InboundInvoice> => {

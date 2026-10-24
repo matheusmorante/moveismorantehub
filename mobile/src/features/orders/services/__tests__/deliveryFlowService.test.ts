@@ -134,6 +134,34 @@ describe('deliveryFlowService — Persistência e Sincronização do Fluxo de En
     );
   });
 
+  it('mantém a foto local somente na fila offline e não persiste a URI no pedido remoto', async () => {
+    const proof = {
+      uri: 'file:///documents/delivery-proofs/prova.png',
+      fileName: 'prova.png',
+      contentType: 'image/png',
+    };
+
+    await deliveryFlowService.recordUnattended({
+      orderId: 'ord-offline-proof',
+      currentData: { deliveryStatus: 'arrived' },
+      reason: 'Ninguém Atendeu no Local',
+      notes: 'Interfone sem resposta.',
+      proofUrls: [proof.uri],
+      proofMetadata: [proof],
+    });
+
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockRecordEvent).toHaveBeenCalledWith(
+      'DELIVERY_UNATTENDED',
+      'order',
+      'ord-offline-proof',
+      expect.objectContaining({
+        unattendedProofUrls: [proof.uri],
+        unattendedProofMetadata: [proof],
+      })
+    );
+  });
+
   it('stepBackToPreparation remove deliveryStatus e deliveryStartedAt e limpa no banco e evento offline', async () => {
     const result = await deliveryFlowService.stepBackToPreparation('ord-100', {
       deliveryStatus: 'in_progress',

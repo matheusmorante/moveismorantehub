@@ -28,7 +28,7 @@ const variation: Variation = { id: '11111111-1111-4111-8111-111111111111', sku: 
   syncUnitPrice: false, syncDescription: false, syncWidth: false, syncHeight: false, syncDepth: false,
   width: 80, height: 180, depth: 50, technicalValues: { Cor: 'Azul', Marca: 'Morante', Modelo: 'Padrão', 'Material da estrutura': 'Madeira' }, description: 'Descrição própria', images: ['https://img.test/azul.jpg'] };
 const parent: Product = { id: '22222222-2222-4222-8222-222222222222', name: 'Armário', description: 'Descrição do pai', unitPrice: 150, unit: 'UN', itemType: 'product', active: true, status: 'hidden', categoryIds: ['categoria'],
-  images: ['https://img.test/azul.jpg', 'https://img.test/verde.jpg'], variations: [variation, { ...variation, id: '33333333-3333-4333-8333-333333333333', sku: '001-02', attributes: [{ name: 'Cor', value: 'Verde' }] }] };
+  images: ['https://img.test/azul.jpg', 'https://img.test/verde.jpg'], variations: [variation, { ...variation, id: '33333333-3333-4333-8333-333333333333', sku: '001-02', name: 'Armário Verde', attributes: [{ name: 'Cor', value: 'Verde' }] }] };
 const fields = ['Cor', 'Marca', 'Modelo', 'Material da estrutura'].map((name, index) => ({ id: `attribute-${index}`, name, active: true, data_type: 'text', unit: null }));
 const mount = (value = variation, product = parent, extras: Record<string, unknown> = {}) => {
   const onSave = vi.fn().mockResolvedValue(true), onClose = vi.fn(), onSuccess = vi.fn();
@@ -201,6 +201,19 @@ describe('composição real do formulário de variações', () => {
     { comboItems: [{ productId: 'banco', description: 'Banco', quantity: 0, unitPrice: 0, stock: 0 }] },
   ])('conclusão recusa atributos duplicados/componentes com quantidade zero: %j', (change) => {
     const result = createProductVariationFormSchema(parent).safeParse({ ...variation, ...change }); expect(result.success).toBe(false);
+  });
+  it('rejeita nome completo repetido entre as variações no formulário padrão', () => {
+    const parentWithNames = { ...parent, variations: [variation, { ...variation, id: '44444444-4444-4444-8444-444444444444', name: 'Armário Verde' }] };
+    const result = createProductVariationFormSchema(parentWithNames).safeParse({ ...variation, id: '55555555-5555-4555-8555-555555555555', name: 'Armário Azul' });
+    expect(result.error?.issues.some((issue) => issue.path.includes('name') && issue.message.includes('nome completo'))).toBe(true);
+  });
+  it('valida somente as características variáveis marcadas como obrigatórias', () => {
+    const parentWithVariableFields = { ...parent, variableTechnicalFields: ['Cor', 'Material da estrutura'] };
+    const candidate = { ...variation, id: '55555555-5555-4555-8555-555555555555', name: 'Armário Carvalho', technicalValues: { Cor: 'Carvalho', 'Material da estrutura': '' }, attributes: [{ name: 'Cor', value: 'Carvalho' }], requiredTechnicalFields: ['Cor'] };
+    const parsed = createProductVariationFormSchema(parentWithVariableFields).safeParse(candidate);
+    expect(parsed.error?.issues.some((issue) => issue.path[0] === 'tecnico' && issue.message.includes('Material da estrutura'))).toBe(false);
+    const required = createProductVariationFormSchema(parentWithVariableFields).safeParse({ ...candidate, requiredTechnicalFields: ['Cor', 'Material da estrutura'] });
+    expect(required.error?.issues.some((issue) => issue.path[0] === 'tecnico' && issue.message.includes('Material da estrutura'))).toBe(true);
   });
 });
 

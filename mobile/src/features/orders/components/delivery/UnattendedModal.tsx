@@ -15,6 +15,12 @@ import {
 import { X, AlertTriangle, Camera, Check } from 'lucide-react-native';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import {
+  DeliveryProofUploadUnavailableError,
+  persistDeliveryProofForOffline,
+  uploadDeliveryProof,
+} from '../../services/deliveryProofUploadService';
+import type { LocalDeliveryProofMetadata } from '../../services/deliveryProofRules';
+import {
   unattendedDeliveryFormSchema,
   unattendedPreparationFormSchema,
   UNATTENDED_DELIVERY_REASONS,
@@ -23,14 +29,15 @@ import {
 
 const UNATTENDED_REASONS = UNATTENDED_DELIVERY_REASONS;
 
-const CATALOG_API_URL = (
-  process.env.EXPO_PUBLIC_CATALOG_API_URL || 'https://www.moveismorante.com.br'
-).replace(/\/$/, '');
-
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onConfirm: (reason: string, notes: string, proofUrls: string[]) => Promise<void>;
+  onConfirm: (
+    reason: string,
+    notes: string,
+    proofUrls: string[],
+    proofMetadata?: LocalDeliveryProofMetadata[]
+  ) => Promise<void>;
   isDarkMode: boolean;
   customerName: string;
   /**
@@ -58,6 +65,7 @@ export const UnattendedModal: React.FC<Props> = ({
   const showNotesField = !isPreparation || selectedReason === 'Outro motivo';
   const [notes, setNotes] = useState('');
   const [proofUrls, setProofUrls] = useState<string[]>([]);
+  const [proofMetadata, setProofMetadata] = useState<LocalDeliveryProofMetadata[]>([]);
   const [uploadingProofs, setUploadingProofs] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const form = useZodForm(
@@ -73,7 +81,12 @@ export const UnattendedModal: React.FC<Props> = ({
     return form.validateAndRun({ reason: selectedReason as any, notes: effectiveNotes, proofUrls }, async (values) => {
       setSubmitting(true);
       try {
-        await onConfirm(values.reason, values.notes, values.proofUrls);
+        await onConfirm(
+          values.reason,
+          values.notes,
+          values.proofUrls,
+          proofMetadata.filter((proof) => values.proofUrls.includes(proof.uri))
+        );
       } finally {
         setSubmitting(false);
       }
@@ -97,38 +110,22 @@ export const UnattendedModal: React.FC<Props> = ({
           throw new Error('Selecione somente arquivos de imagem.');
         }
         const fileName = (asset.name || 'comprovante.jpg').replace(/[^a-zA-Z0-9._-]/g, '-');
-        let credentialResponse: Response | null = null;
         try {
-          credentialResponse = await fetch(`${CATALOG_API_URL}/api/upload`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fileName: `delivery-proofs/${Date.now()}-${index}-${fileName}`,
-              contentType,
-            }),
-          });
-        } catch {
-          // Fallback offline: quando sem internet para alcançar o endpoint de upload, mantém a URI local/data da foto
-          if (asset.uri) {
-            setProofUrls((current) => [...current, asset.uri].slice(0, 5));
-            continue;
-          }
-          throw new Error('Não foi possível preparar o envio da imagem.');
+          const fileUrl = await uploadDeliveryProof(
+            asset.uri,
+            `${Date.now()}-${index}-${fileName}`,
+            contentType
+          );
+          setProofUrls((current) => [...current, fileUrl].slice(0, 5));
+        } catch (error) {
+          if (!(error instanceof DeliveryProofUploadUnavailableError) || !asset.uri) throw error;
+          const localUri = await persistDeliveryProofForOffline(asset.uri, fileName);
+          setProofUrls((current) => [...current, localUri].slice(0, 5));
+          setProofMetadata((current) => [
+            ...current,
+            { uri: localUri, fileName, contentType },
+          ]);
         }
-
-        if (!credentialResponse.ok) {
-          const details = await credentialResponse.json().catch(() => ({}));
-          throw new Error(details.error || 'Não foi possível preparar o envio da imagem.');
-        }
-        const { uploadUrl, fileUrl } = await credentialResponse.json();
-        const imageResponse = await fetch(asset.uri);
-        const uploadResponse = await fetch(uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': contentType },
-          body: await imageResponse.blob(),
-        });
-        if (!uploadResponse.ok) throw new Error('Falha ao enviar a imagem de comprovação.');
-        setProofUrls((current) => [...current, fileUrl].slice(0, 5));
       }
     } catch (error: any) {
       Alert.alert('Erro ao anexar imagem', error?.message || 'Não foi possível enviar a imagem.');
@@ -139,6 +136,7 @@ export const UnattendedModal: React.FC<Props> = ({
 
   const removeProofImage = (url: string) => {
     setProofUrls((current) => current.filter((proofUrl) => proofUrl !== url));
+    setProofMetadata((current) => current.filter((proof) => proof.uri !== url));
   };
 
   return (

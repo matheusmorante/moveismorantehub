@@ -49,6 +49,24 @@ describe('Rotas da Central no adaptador HTTP de desenvolvimento', () => {
     expect(outbound).not.toHaveBeenCalled();
   });
 
+  it('não verifica credenciais Meta sem autenticação nem contata a Graph', async () => {
+    vi.stubEnv('WHATSAPP_ACCESS_TOKEN', 'unit-access-token');
+    vi.stubEnv('WHATSAPP_APP_ID', '1364259738556530');
+    vi.stubEnv('WHATSAPP_APP_SECRET', 'unit-app-secret');
+    const outbound = vi.fn().mockRejectedValue(new Error('External requests forbidden in this proof.'));
+    vi.stubGlobal('fetch', outbound);
+
+    const response = await fetchHTTP(`${baseURL}/api/meta-graph`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operation: 'verify_app_credentials' }),
+    });
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ error: 'Sessão inválida. Entre novamente.' });
+    expect(outbound).not.toHaveBeenCalled();
+  });
+
   it('rejeita assinatura inválida e segredo ausente em produção', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('WHATSAPP_APP_SECRET', 'unit-secret');

@@ -5,7 +5,10 @@ const { supabaseMock } = vi.hoisted(() => ({ supabaseMock: { from: vi.fn() } }))
 vi.mock('../../../services/supabaseClient', () => ({ supabase: supabaseMock }));
 
 import { fetchMobileProductsPage } from './mobileProductFetchService';
-import { PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER } from '../../../../../shared-utils/productListTypeFilters';
+import {
+  PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER,
+  PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER,
+} from '../../../../../shared-utils/productListTypeFilters';
 import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
 
 describe('fetchMobileProductsPage', () => {
@@ -122,7 +125,7 @@ describe('fetchMobileProductsPage', () => {
     expect(query.eq).not.toHaveBeenCalledWith('item_type', 'product');
   });
 
-  it('mantém composições fora de Somente Produtos sem a permissão', async () => {
+  it('mantém composições fora de Somente Produtos e inclui tipos legados nulos sem permissão', async () => {
     const query: any = {};
     for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
       query[method] = vi.fn(() => query);
@@ -137,7 +140,8 @@ describe('fetchMobileProductsPage', () => {
     });
 
     expect(query.filter).toHaveBeenCalledWith('item_type', 'isdistinct', 'composition');
-    expect(query.eq).toHaveBeenCalledWith('item_type', 'product');
+    expect(query.or).toHaveBeenCalledWith(PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER);
+    expect(query.eq).not.toHaveBeenCalledWith('item_type', 'product');
     expect(query.or).not.toHaveBeenCalledWith(PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER);
   });
 
@@ -303,7 +307,7 @@ describe('fetchMobileProductsPage', () => {
     expect(result.data[0].allVariations[0].isMerged).toBe(true);
   });
 
-  it('restaura detalhes próprios da variação guardados em technical_specs pelo ERP', async () => {
+  it('restaura detalhes próprios e descarta descontos auxiliares obsoletos do snapshot', async () => {
     const query: any = {};
     query.select = vi.fn(() => query);
     query.eq = vi.fn(() => query);
@@ -317,6 +321,7 @@ describe('fetchMobileProductsPage', () => {
           name: 'Guarda Roupa Paris',
           code: '000312',
           unit_price: 1500,
+          promo_price: 1350,
           cost_price: 800,
           ipi_percent: 5,
           freight_cost: 25,
@@ -345,6 +350,20 @@ describe('fetchMobileProductsPage', () => {
               use_parent_description: true,
               attributes: [{ name: 'Cor', value: 'Branco' }],
             },
+            {
+              id: 'var-2',
+              product_id: 'product-1',
+              name: 'Guarda Roupa Paris Azul',
+              sku: '000312-02',
+              price: 1425,
+              promo_price: 1200,
+              cost_price: 700,
+              use_parent_price: false,
+              use_parent_promo_price: false,
+              use_parent_dimensions: true,
+              use_parent_description: true,
+              attributes: [{ name: 'Cor', value: 'Azul' }],
+            },
           ],
           technical_specs: {
             technicalValues: { Marca: 'Morante' },
@@ -370,6 +389,13 @@ describe('fetchMobileProductsPage', () => {
                 technicalValues: { 'Material da estrutura': 'MDF' },
                 fiscal: { ncm: '94035000' },
               },
+              {
+                id: 'var-2',
+                syncCostPrice: false,
+                costPrice: 700,
+                discountPercent: '150',
+                discountFixed: '2000',
+              },
             ],
           },
         },
@@ -380,9 +406,9 @@ describe('fetchMobileProductsPage', () => {
     supabaseMock.from.mockReturnValue(query);
 
     const result = await fetchMobileProductsPage(1, 10);
-    const variation = result.data[0].allVariations[0];
+    const [inheritedVariation, ownPriceVariation] = result.data[0].allVariations;
 
-    expect(variation).toMatchObject({
+    expect(inheritedVariation).toMatchObject({
       syncCostPrice: false,
       syncWidth: false,
       syncWeight: false,
@@ -397,7 +423,117 @@ describe('fetchMobileProductsPage', () => {
       freightCost: 40,
       technicalValues: { 'Material da estrutura': 'MDF' },
       fiscal: { ncm: '94035000' },
+      unitPrice: 1500,
+      promoPrice: 1350,
     });
+    expect(ownPriceVariation).toMatchObject({
+      syncUnitPrice: false,
+      syncPromoPrice: false,
+      syncCostPrice: false,
+      unitPrice: 1425,
+      promoPrice: 1200,
+      costPrice: 700,
+    });
+    expect(ownPriceVariation).not.toHaveProperty('discountPercent');
+    expect(ownPriceVariation).not.toHaveProperty('discountFixed');
+  });
+
+  it('restaura override técnico próprio explicitamente vazio sem convertê-lo em herança', async () => {
+    const query: any = {};
+    for (const method of ['select', 'eq', 'or', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'product-1',
+          name: 'Produto de teste',
+          code: 'PROD',
+          unit_price: 100,
+          active: true,
+          status: 'hidden',
+          item_type: 'product',
+          product_categories: [],
+          product_variations: [
+            {
+              id: 'variation-1',
+              product_id: 'product-1',
+              name: 'Produto de teste',
+              sku: 'PROD-01',
+              attributes: [],
+            },
+          ],
+          technical_specs: {
+            technicalValues: { Cor: 'Azul' },
+            variableTechnicalFields: ['Cor'],
+            variationDetails: [{ id: 'variation-1', technicalValues: { Cor: '' } }],
+          },
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(1, 10);
+    const variation = result.data[0].allVariations[0];
+
+    expect(variation.technicalValues).toEqual({ Cor: '' });
+    expect(variation.attributes).toEqual([]);
+  });
+
+  it('rehidrata valores técnicos próprios de cada variação pelo UUID, sem depender da ordem dos detalhes', async () => {
+    const query: any = {};
+    for (const method of ['select', 'eq', 'or', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'product-1',
+          name: 'Armario',
+          code: '003962',
+          active: true,
+          status: 'hidden',
+          item_type: 'product',
+          product_categories: [],
+          product_variations: [
+            {
+              id: 'variation-blue',
+              product_id: 'product-1',
+              name: 'Armario Azul',
+              sku: '003962-01',
+              attributes: [],
+            },
+            {
+              id: 'variation-green',
+              product_id: 'product-1',
+              name: 'Armario Verde',
+              sku: '003962-02',
+              attributes: [],
+            },
+          ],
+          technical_specs: {
+            technicalValues: { Cor: 'Azul' },
+            variableTechnicalFields: ['Cor'],
+            variationDetails: [
+              { id: 'variation-green', technicalValues: { Cor: 'Verde' } },
+              { id: 'variation-blue', technicalValues: { Cor: 'Azul' } },
+            ],
+          },
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(1, 10);
+    const valuesById = Object.fromEntries(
+      result.data[0].allVariations.map((variation: any) => [variation.id, variation.technicalValues?.Cor])
+    );
+
+    expect(valuesById).toEqual({ 'variation-blue': 'Azul', 'variation-green': 'Verde' });
   });
 
   it('preserva has_variations de composição com uma única variação, como o ERP', async () => {
@@ -437,6 +573,66 @@ describe('fetchMobileProductsPage', () => {
     const result = await fetchMobileProductsPage(1, 10);
 
     expect(result.data[0]).toMatchObject({ itemType: 'composition', hasVariations: true });
+  });
+
+  it('rehidrata componentes do pai e da variação sem misturar as duas listas', async () => {
+    const rootItems = [
+      { productId: 'component-root', variationId: null, quantity: 2, description: 'Base' },
+    ];
+    const variationItems = [
+      {
+        productId: 'component-variation',
+        variationId: 'component-variation-row',
+        quantity: 1.5,
+        description: 'Acabamento azul',
+      },
+    ];
+    const productQuery: any = {};
+    for (const method of ['select', 'eq', 'or', 'not', 'filter', 'order']) {
+      productQuery[method] = vi.fn(() => productQuery);
+    }
+    productQuery.range = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'composition-1',
+          name: 'Kit modular',
+          item_type: 'composition',
+          is_draft: false,
+          status: 'published',
+          has_variations: true,
+          combo_items: rootItems,
+          product_categories: [],
+          product_variations: [
+            {
+              id: 'composition-row',
+              product_id: 'composition-1',
+              name: 'Kit modular azul',
+              sku: 'KIT-01',
+              active: true,
+              attributes: [],
+              combo_items: variationItems,
+            },
+          ],
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+    const stockQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      then: (resolve: (value: unknown) => unknown) =>
+        Promise.resolve({ data: [], error: null }).then(resolve),
+    };
+    supabaseMock.from
+      .mockReturnValueOnce(productQuery)
+      .mockReturnValueOnce(stockQuery);
+
+    const result = await fetchMobileProductsPage(1, 10);
+
+    expect(result.data[0].comboItems).toEqual(rootItems);
+    expect(result.data[0].variations[0].comboItems).toEqual(variationItems);
+    expect(result.data[0].allVariations[0].comboItems).toEqual(variationItems);
   });
 
   it('não infla o estoque de uma composição quando um componente tem quantidade inválida', async () => {

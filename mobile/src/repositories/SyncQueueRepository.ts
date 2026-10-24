@@ -94,6 +94,22 @@ export const SyncQueueRepository = {
     );
   },
 
+  async updatePayload(id: string, payload: Record<string, unknown>): Promise<void> {
+    const db = await getSQLiteDatabase();
+    await db.runAsync(
+      'UPDATE sync_queue SET payload = ?, updated_at = ? WHERE id = ?',
+      [JSON.stringify(payload), new Date().toISOString(), id]
+    );
+  },
+
+  async updateExpectedVersion(id: string, expectedVersion: number): Promise<void> {
+    const db = await getSQLiteDatabase();
+    await db.runAsync(
+      'UPDATE sync_queue SET expected_version = ?, updated_at = ? WHERE id = ?',
+      [expectedVersion, new Date().toISOString(), id]
+    );
+  },
+
   async updateStatus(
     id: string,
     status: SyncQueueStatus,

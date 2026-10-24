@@ -6,7 +6,8 @@ const identifier = z.string().trim().min(1, 'Selecione um cadastro válido.');
 export const inboundQuickRegisterItemSchema = z.object({
   productDescription: z.string().trim().min(1, 'Informe a descrição do item da nota.'),
   productCode: z.string().trim().optional(), unit: z.string().trim().optional(),
-  ncm: z.string().trim().optional(), quantity: z.number().positive('A quantidade do item é inválida.'),
+  ncm: z.string().trim().optional(), ean: z.string().trim().optional(), eanTrib: z.string().trim().optional(),
+  quantity: z.number().positive('A quantidade do item é inválida.'),
   unitCost: z.number().nonnegative('O custo do item é inválido.'),
   finalCost: z.number().nonnegative('O custo final do item é inválido.').optional(),
 });
@@ -14,8 +15,21 @@ export function createInboundQuickRegisterSchema(itemNumbers: readonly number[])
   return z.object({
     itemNumber: z.number().int().positive().refine((value) => itemNumbers.includes(value), 'O item não pertence à nota de entrada atual.'),
     supplierId: identifier,
-    item: inboundQuickRegisterItemSchema,
+    item: inboundQuickRegisterItemSchema.extend({
+      productCode: z.string().trim().min(1, 'O item não possui código do fornecedor para vincular.'),
+      productDescription: z.string().trim().min(2, 'A descrição deve ter pelo menos 2 caracteres.'),
+    }),
     selection: quickRegisterSelectionFormSchema,
+  });
+}
+export function createInboundQuickRegisterReuseSchema(itemNumbers: readonly number[]) {
+  return z.object({
+    itemNumber: z.number().int().positive().refine((value) => itemNumbers.includes(value), 'O item não pertence à nota de entrada atual.'),
+    supplierId: identifier,
+    item: inboundQuickRegisterItemSchema.extend({
+      productCode: z.string().trim().min(1, 'O item não possui código do fornecedor para vincular.'),
+      productDescription: z.string().trim().min(2, 'A descrição deve ter pelo menos 2 caracteres.'),
+    }),
   });
 }
 const markup = z.string().transform((value) => value.trim() ? Number(value.replace(',', '.')) : undefined)

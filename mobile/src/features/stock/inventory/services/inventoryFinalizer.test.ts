@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { rpc, removeDraft, markPending, alert, connected } = vi.hoisted(() => ({
+const { rpc, removeDraft, markPending, alert, connected, withTimeout } = vi.hoisted(() => ({
   rpc: vi.fn(),
   removeDraft: vi.fn(),
   markPending: vi.fn(),
   alert: vi.fn(),
   connected: { connected: true },
+  withTimeout: vi.fn(),
 }));
 
 vi.mock('react-native', () => ({ Alert: { alert }, Platform: { OS: 'android' } }));
@@ -17,8 +18,10 @@ vi.mock('../../../../services/sqlite/inventoryDrafts', () => ({
 vi.mock('../../../../services/offline/connectivityService', () => ({
   connectivityService: connected,
 }));
+vi.mock('../../../../../../shared-utils/withTimeout', () => ({ withTimeout }));
 
 import { executeInventoryFinalization } from './inventoryFinalizer';
+import { syncPendingInventorySubmissions } from './inventoryOutboxSync';
 import {
   deleteInventorySubmission,
   getInventorySubmission,
@@ -66,6 +69,7 @@ const makeParams = () => ({
 describe('conclusão do inventário mobile', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    withTimeout.mockImplementation((promise) => Promise.resolve(promise));
     delete process.env.EXPO_PUBLIC_INVENTORY_RPC_V2;
     await deleteInventorySubmission('audit-1');
     connected.connected = true;
@@ -83,6 +87,20 @@ describe('conclusão do inventário mobile', () => {
     ]);
     expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(removeDraft.mock.invocationCallOrder[0]);
     expect(removeDraft).toHaveBeenCalledWith('audit-1');
+  });
+
+  it('envia o colaborador escolhido no escopo sem trocar o ator autenticado', async () => {
+    rpc.mockResolvedValue({ data: { auditId: 'audit-1', status: 'processed' }, error: null });
+    const params = makeParams();
+    params.scopeConfig = {
+      ...params.scopeConfig,
+      responsibleId: 'people-employee-42',
+      responsibleName: 'Colaboradora selecionada',
+    };
+
+    expect(await executeInventoryFinalization(params)).toBe(true);
+    expect(rpc.mock.calls[0][1].p_responsible_name).toBe('Colaboradora selecionada');
+    expect(rpc.mock.calls[0][1].p_observation.responsibleId).toBe('people-employee-42');
   });
 
   it('preserva o rascunho numa falha e reenvia com o mesmo ID na tentativa seguinte', async () => {
@@ -107,6 +125,37 @@ describe('conclusão do inventário mobile', () => {
     expect(rpc).not.toHaveBeenCalled();
     expect(removeDraft).not.toHaveBeenCalled();
     expect(markPending).toHaveBeenCalledWith('audit-1');
+  });
+
+  it('limita o commit e o retry da outbox sem descartar a submissão não confirmada', async () => {
+    rpc.mockImplementation(() => new Promise(() => {}));
+    withTimeout.mockImplementationOnce((_promise, _timeoutMs, fallback) => Promise.resolve(fallback));
+
+    expect(await executeInventoryFinalization(makeParams())).toBe(false);
+    expect(alert).toHaveBeenCalledWith(
+      'Confirmação pendente',
+      expect.stringContaining('mesmo inventário')
+    );
+    expect(markPending).toHaveBeenCalledWith('audit-1');
+    expect(removeDraft).not.toHaveBeenCalled();
+
+    withTimeout.mockImplementationOnce((_promise, _timeoutMs, fallback) => Promise.resolve(fallback));
+    expect(await syncPendingInventorySubmissions()).toBe(0);
+    expect(withTimeout).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      30_000,
+      null,
+      'inventario:finalizacao-rpc'
+    );
+    expect(withTimeout).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      30_000,
+      null,
+      'inventario:outbox-sync-rpc'
+    );
+    expect(removeDraft).not.toHaveBeenCalled();
   });
 
   it('não conclui quando há etapa sem contagem', async () => {

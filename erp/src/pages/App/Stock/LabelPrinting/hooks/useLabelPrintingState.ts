@@ -21,6 +21,7 @@ import { useLabelPreview } from './useLabelPreview';
 export const useLabelPrintingState = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const fillSheetParam = searchParams.get('fillSheet') === '1';
 
   const isProductContext = !!location.state?.product || !!searchParams.get('productId');
 
@@ -39,6 +40,7 @@ export const useLabelPrintingState = () => {
   const productsHook = useLabelProducts({
     locationState: location.state,
     productIdParam: searchParams.get('productId'),
+    variationIdParam: searchParams.get('variationId'),
     autoAddProductParam: searchParams.get('autoAddProduct') === 'true',
   });
 
@@ -90,7 +92,13 @@ export const useLabelPrintingState = () => {
       });
     } else if (productsHook.initialProduct) {
       initialProcessedRef.current = true;
-      queue.handleProductSelect(productsHook.initialProduct, 1);
+      const modelCols = layouts.currentModel?.columns || layouts.config.columns || 2;
+      const modelRows = layouts.currentModel?.rows || layouts.config.rows || 5;
+      const sheetCapacity = modelCols * modelRows;
+      queue.handleProductSelect(
+        productsHook.initialProduct,
+        fillSheetParam ? Math.max(sheetCapacity, 10) : 1
+      );
     }
   }, [
     location.state,
@@ -98,6 +106,7 @@ export const useLabelPrintingState = () => {
     layouts.config.columns,
     layouts.config.rows,
     productsHook.initialProduct,
+    fillSheetParam,
   ]);
 
   // Refs e Modais Auxiliares

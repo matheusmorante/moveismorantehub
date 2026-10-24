@@ -93,7 +93,6 @@ export const fetchInboundInvoiceDetails = async (invoiceId: string) => {
   return mapInboundInvoiceDetailRow(data);
 };
 
-export const deleteInboundInvoice = async (invoiceId: string) => {
-  const { error } = await supabase.from('inbound_invoices').delete().eq('id', invoiceId);
-  if (error) throw error;
+export const deleteInboundInvoice = async (_invoiceId: string) => {
+  throw new Error('Notas fiscais de entrada não podem ser excluídas.');
 };

@@ -1,3 +1,5 @@
+import { copyProductImageUrls } from '../../../../shared-utils/productImageCopy';
+
 export const getCatalogApiUrl = () => {
   if (import.meta.env.VITE_CATALOG_API_URL) {
     return import.meta.env.VITE_CATALOG_API_URL.replace(/\/$/, '');
@@ -7,6 +9,9 @@ export const getCatalogApiUrl = () => {
   // Em produção (Vercel), a função serverless /api/upload é servida na mesma origem.
   return '';
 };
+
+export const copyProductImages = (images: readonly string[]): Promise<string[]> =>
+  copyProductImageUrls(images, getCatalogApiUrl(), 'https://www.moveismorante.com.br');
 
 /**
  * Envia uma imagem ao Cloudflare R2 por uma URL temporária gerada pelo catálogo.

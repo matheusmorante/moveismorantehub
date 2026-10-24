@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isNonConventionalProduct } from '../../../../../shared-utils/productActivationValidation';
 import {
+  canToggleProductActivationFromCardMenu,
   getMobileProductCardActionAvailability,
   isMobileProductStockLow,
   isSalvadoProduct,
@@ -37,6 +38,33 @@ describe('getMobileProductCardActionAvailability', () => {
       canDuplicate: true,
       canShowLinkedOrders: false,
     });
+  });
+});
+
+describe('canToggleProductActivationFromCardMenu', () => {
+  const allowed = {
+    isFamilyParent: false,
+    canDelete: true,
+    isLabelOnlyProfile: false,
+    isNonConventional: false,
+  };
+
+  it('allows a simple product action when the profile and stock type permit it', () => {
+    expect(canToggleProductActivationFromCardMenu(allowed)).toBe(true);
+  });
+
+  it('keeps a multi-variation family parent status derived and non-interactive', () => {
+    expect(canToggleProductActivationFromCardMenu({ ...allowed, isFamilyParent: true })).toBe(
+      false
+    );
+  });
+
+  it.each([
+    { canDelete: false },
+    { isLabelOnlyProfile: true },
+    { isNonConventional: true },
+  ])('preserves existing permission/profile/stock restrictions (%o)', (override) => {
+    expect(canToggleProductActivationFromCardMenu({ ...allowed, ...override })).toBe(false);
   });
 });
 

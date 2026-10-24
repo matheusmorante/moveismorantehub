@@ -44,6 +44,20 @@ describe('VariationTechnicalFieldItem', () => {
       expect(state.canEditApplicability).toBe(false);
     });
 
+    it('não herda valor do pai em campo variável sem override', () => {
+      const state = resolveVariationFieldState(
+        baseField,
+        { 'Material da estrutura': 'Madeira Maciça' },
+        {},
+        {},
+        true
+      );
+
+      expect(state.isOverridden).toBe(false);
+      expect(state.effectiveVal).toBeUndefined();
+      expect(state.isInheritedFromParent).toBe(false);
+    });
+
     it('prioriza override da variação sobre o pai', () => {
       const state = resolveVariationFieldState(
         baseField,
@@ -71,7 +85,7 @@ describe('VariationTechnicalFieldItem', () => {
   });
 
   describe('Component rendering & user interactions', () => {
-    it('renderiza o campo editável sem botão individual de fixar', () => {
+    it('renderiza campo variável sem herdar o pai, mas editável e sem botão individual de fixar', () => {
       const onSetOverride = vi.fn();
       const onRemoveManualField = vi.fn();
       const onToggleDepthLength = vi.fn();
@@ -84,6 +98,7 @@ describe('VariationTechnicalFieldItem', () => {
           variationAttributeValues={{}}
           formDataTechnicalValues={{}}
           isManual={false}
+          isVariable
           onSetOverride={onSetOverride}
           onRemoveManualField={onRemoveManualField}
           onToggleDepthLength={onToggleDepthLength}
@@ -93,7 +108,7 @@ describe('VariationTechnicalFieldItem', () => {
 
       expect(screen.getByText('Material da estrutura')).toBeInTheDocument();
       const input = screen.getByTestId('input-Material da estrutura') as HTMLInputElement;
-      expect(input.value).toBe('Aço');
+      expect(input.value).toBe('');
       expect(input).not.toBeDisabled();
       expect(screen.queryByTitle(/Sincronizado com o pai|Manual — clique para sincronizar/)).toBeNull();
       fireEvent.change(input, { target: { value: 'MDF' } });

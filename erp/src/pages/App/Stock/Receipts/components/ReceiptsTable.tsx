@@ -13,6 +13,7 @@ export interface ReceiptsTableProps {
   readonly onReverseRequest: (e: React.MouseEvent, receipt: GoodsReceipt) => void;
   readonly onUnreverseRequest?: (e: React.MouseEvent, receipt: GoodsReceipt) => void;
   readonly onDelete: (e: React.MouseEvent, id: string) => void;
+  readonly onPrintIdentificationLabels?: (receipt: GoodsReceipt) => void;
 }
 
 /**
@@ -30,6 +31,7 @@ export const ReceiptsTable: React.FC<ReceiptsTableProps> = ({
   onReverseRequest,
   onUnreverseRequest,
   onDelete,
+  onPrintIdentificationLabels,
 }) => {
   return (
     <div className="hidden xl:block overflow-hidden rounded-[2rem] border border-slate-100 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
@@ -94,6 +96,7 @@ export const ReceiptsTable: React.FC<ReceiptsTableProps> = ({
               onReverseRequest={onReverseRequest}
               onUnreverseRequest={onUnreverseRequest}
               onDelete={onDelete}
+              onPrintIdentificationLabels={onPrintIdentificationLabels}
             />
           ))}
         </tbody>

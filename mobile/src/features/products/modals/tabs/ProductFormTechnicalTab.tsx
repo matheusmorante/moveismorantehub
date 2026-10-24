@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Check, Link, PlusCircle, Search, Trash2, Unlink } from 'lucide-react-native';
+import { ArrowLeftRight, Check, Info, PlusCircle, Search, Trash2 } from 'lucide-react-native';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -32,6 +32,11 @@ import {
 } from '../../domain/productVariationName';
 import { getProductTechnicalRootPatch } from '../../../../../../shared-utils/productTechnicalRootPatch';
 import {
+  getCharacteristicDependencyState,
+  type CharacteristicDependencyState,
+} from '../../../../../../shared-utils/productCharacteristicDependencies';
+import { getDefaultShowNameForVariationOverride } from '../../../../../../shared-utils/productVariationAttributeDefaults';
+import {
   fetchMobileProductTechnicalFields,
   type MobileProductTechnicalField,
 } from '../../services/mobileProductTechnicalService';
@@ -44,6 +49,7 @@ interface Props {
   dark: boolean;
   parentData?: any;
   requiredFieldsOnly?: boolean;
+  isSingleVariation?: boolean;
 }
 
 const normalizeName = (name: string) => name.trim().toLocaleLowerCase('pt-BR');
@@ -78,10 +84,12 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   dark,
   parentData,
   requiredFieldsOnly = false,
+  isSingleVariation = false,
 }) => {
   const [technicalFields, setTechnicalFields] = useState<MobileProductTechnicalField[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
+  const [visibleDependencyReason, setVisibleDependencyReason] = useState<string | null>(null);
   const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
   const [debouncedCharacteristicSearchTerm, setDebouncedCharacteristicSearchTerm] = useState('');
   const parentTechnicalValues = useMemo(
@@ -144,6 +152,10 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         : formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []),
     [parentData?.categoryIds, parentData?.categoryId, formData.categoryIds, formData.categoryId]
   );
+  const isSimpleProduct =
+    !parentData &&
+    !formData.hasVariations &&
+    (!Array.isArray(formData.variations) || formData.variations.length <= 1);
 
   useEffect(() => {
     let mounted = true;
@@ -299,7 +311,12 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         },
       };
       if (parentData) {
-        next.attributes = upsertProductCharacteristicAttribute(prev.attributes, name, value);
+        next.attributes = upsertProductCharacteristicAttribute(
+          prev.attributes,
+          name,
+          value,
+          getDefaultShowNameForVariationOverride(name)
+        );
       }
       const dimensionField = getDimensionField(name);
       if (dimensionField) {
@@ -394,26 +411,6 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     });
   };
 
-  const resetVariationOverride = (name: string) =>
-    setFormData((prev: any) => {
-      const technicalValues = { ...(prev.technicalValues || {}) };
-      Object.keys(technicalValues)
-        .filter((fieldName) => normalizeName(fieldName) === normalizeName(name))
-        .forEach((fieldName) => {
-          delete technicalValues[fieldName];
-        });
-      const attributes = getProductCharacteristicAttributes(prev.attributes).filter(
-        (attribute) => normalizeName(attribute.name) !== normalizeName(name)
-      );
-      const next: any = { ...prev, technicalValues, attributes };
-      const dimensionField = getDimensionField(name);
-      if (dimensionField && parentData) {
-        next[dimensionField] = parentData[dimensionField];
-        next[getDimensionSyncField(dimensionField)] = true;
-      }
-      return next;
-    });
-
   const characteristicSearchControl =
     !requiredFieldsOnly && !parentData ? (
       <View style={styles.searchControl}>
@@ -504,16 +501,19 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                   const hasOwnValue = hasTechnicalValue(ownTechnicalValues, field.name);
                   const ownValue = getTechnicalValue(ownTechnicalValues, field.name);
                   const parentValue = getTechnicalValue(parentTechnicalValues, field.name);
-                  const storedValue = hasOwnValue ? ownValue : (parentValue ?? '');
+                  const isCurrentVariableField =
+                    !isSimpleProduct &&
+                    isMobileVariableTechnicalField(field.name, variableTechnicalFieldNames);
+                  const storedValue = hasOwnValue
+                    ? ownValue
+                    : parentData && isCurrentVariableField
+                      ? ''
+                      : (parentValue ?? '');
                   const currentValue = Array.isArray(storedValue)
                     ? storedValue.join(', ')
                     : String(storedValue ?? '');
                   const currentFieldIsRequired = isFieldRequired(field);
                   const alwaysApplicable = currentFieldIsRequired;
-                  const isCurrentVariableField = isMobileVariableTechnicalField(
-                    field.name,
-                    variableTechnicalFieldNames
-                  );
                   const currentScope = isCurrentVariableField
                     ? 'variation'
                     : hasTechnicalValue(ownTechnicalValues, field.name) ||
@@ -530,6 +530,13 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                         currentValue.trim().toLocaleLowerCase('pt-BR') !== 'não se aplica'
                       : currentValue.trim().toLocaleLowerCase('pt-BR') !== 'não se aplica');
                   const isManual = manualFieldNames.includes(field.name);
+                  const dependencyState: CharacteristicDependencyState = parentData
+                    ? getCharacteristicDependencyState(field.name, {
+                        ...parentTechnicalValues,
+                        ...ownTechnicalValues,
+                      })
+                    : { isDependent: false, isDisabled: false };
+                  const isDependencyDisabled = dependencyState.isDisabled;
                   const parentText = String(parentValue ?? '').trim();
                   const parentIsZero =
                     ['integer', 'number', 'decimal', 'measure'].includes(field.data_type) &&
@@ -569,20 +576,46 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                     <View key={field.id} style={styles.attributeField}>
                       <View style={styles.attributeHeading}>
                         <View style={styles.attributeLabelWrap}>
-                          <Text style={[styles.label, dark && styles.dimText]}>
+                          <Text
+                            style={[
+                              styles.label,
+                              dark && styles.dimText,
+                              isDependencyDisabled && styles.dependentFieldLabel,
+                            ]}
+                          >
                             {field.name}
                             {field.unit ? ` (${field.unit})` : ''}
-                            {currentFieldIsRequired && applicable && (
+                            {currentFieldIsRequired && applicable && !isDependencyDisabled && (
                               <Text style={{ color: '#ef4444' }}> *</Text>
                             )}
                           </Text>
                         </View>
                         <View style={styles.attributeActions}>
+                          {isDependencyDisabled && dependencyState.disabledReason && (
+                            <TouchableOpacity
+                              onPress={() =>
+                                setVisibleDependencyReason((current) =>
+                                  current === field.name ? null : field.name
+                                )
+                              }
+                              style={styles.inheritanceButton}
+                              accessibilityRole="button"
+                              accessibilityLabel={dependencyState.disabledReason}
+                              accessibilityHint="Mostrar ou ocultar o motivo do bloqueio."
+                              accessibilityState={{
+                                expanded: visibleDependencyReason === field.name,
+                              }}
+                            >
+                              <Info size={15} color="#d97706" />
+                            </TouchableOpacity>
+                          )}
                           {['profundidade', 'comprimento'].includes(normalizeName(field.name)) && (
                             <TouchableOpacity
+                              disabled={isSingleVariation}
                               onPress={() => toggleDepthLength(field)}
                               style={styles.inheritanceButton}
                               accessibilityRole="button"
+                              accessibilityState={{ disabled: isSingleVariation }}
                               accessibilityLabel={`Alternar para ${normalizeName(field.name) === 'profundidade' ? 'Comprimento' : 'Profundidade'}`}
                             >
                               <ArrowLeftRight size={15} color="#64748b" />
@@ -591,7 +624,11 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                           {!alwaysApplicable && !isManual && (
                             <Switch
                               value={applicable}
-                              disabled={Boolean(parentData && !hasOwnValue)}
+                              disabled={
+                                isSingleVariation ||
+                                isDependencyDisabled ||
+                                Boolean(parentData && !hasOwnValue)
+                              }
                               onValueChange={(value) =>
                                 setTechnicalValue(
                                   field.name,
@@ -601,30 +638,6 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                               accessibilityLabel={`Se aplica: ${field.name}`}
                               trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
                             />
-                          )}
-                          {parentData && (
-                            <TouchableOpacity
-                              onPress={() => {
-                                if (hasOwnValue) resetVariationOverride(field.name);
-                                else
-                                  setTechnicalValue(
-                                    field.name,
-                                    getTechnicalValue(parentTechnicalValues, field.name) ?? ''
-                                  );
-                              }}
-                              style={styles.inheritanceButton}
-                              accessibilityLabel={
-                                hasOwnValue
-                                  ? `Herdar ${field.name} do produto pai`
-                                  : `Personalizar ${field.name}`
-                              }
-                            >
-                              {hasOwnValue ? (
-                                <Unlink size={15} color="#64748b" />
-                              ) : (
-                                <Link size={15} color="#10b981" />
-                              )}
-                            </TouchableOpacity>
                           )}
                           {isManual && (
                             <TouchableOpacity
@@ -692,7 +705,32 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                           )}
                         </View>
                       </View>
-                      {!parentData && (
+                      {isDependencyDisabled &&
+                        visibleDependencyReason === field.name &&
+                        dependencyState.disabledReason && (
+                          <Text
+                            style={[
+                              styles.dependencyReason,
+                              dark && styles.darkDependencyReason,
+                            ]}
+                            accessibilityRole="text"
+                          >
+                            {dependencyState.disabledReason}
+                          </Text>
+                        )}
+                      {!parentData && isSimpleProduct && (
+                        <Switch
+                          value={currentScope === 'global'}
+                          onValueChange={(enabled) =>
+                            setFieldScope(field.name, enabled ? 'global' : 'not_inform')
+                          }
+                          accessibilityRole="switch"
+                          accessibilityLabel={`Exibir característica ${field.name}`}
+                          trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
+                          thumbColor={currentScope === 'global' ? '#fff' : '#f8fafc'}
+                        />
+                      )}
+                      {!parentData && !isSimpleProduct && (
                         <View style={styles.scopeRow}>
                           {([
                             ['not_inform', 'Não informar'],
@@ -730,7 +768,12 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                         <ProductTechnicalFieldInput
                           field={field}
                           value={currentValue === 'Não se aplica' ? '' : storedValue}
-                          disabled={!applicable || isInheritedFromParent}
+                          disabled={
+                            isSingleVariation ||
+                            isDependencyDisabled ||
+                            !applicable ||
+                            isInheritedFromParent
+                          }
                           dark={dark}
                           onChange={(value) => setTechnicalValue(field.name, value)}
                         />
@@ -868,6 +911,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
   },
   disabledNameAction: { opacity: 0.45 },
+  dependentFieldLabel: { opacity: 0.65 },
+  dependencyReason: {
+    color: '#92400e',
+    fontSize: 11,
+    lineHeight: 15,
+    paddingHorizontal: 4,
+  },
+  darkDependencyReason: { color: '#fbbf24' },
   nameActionSelected: { borderColor: '#86efac', backgroundColor: '#f0fdf4' },
   nameActionText: { color: '#475569', fontSize: 9, fontWeight: '800' },
   nameActionTextSelected: { color: '#15803d' },

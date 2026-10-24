@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import { useAuth } from '@/context/AuthContext';
 import {
+  canShowProductVariationActionsMenu,
   canPrintProductIdentificationLabels,
   isProductIdentificationLabelOnlyProfile,
 } from '@/pages/utils/accessRoles';
@@ -32,7 +33,14 @@ export const ChildVariationActions: React.FC<ChildVariationActionsProps> = ({
   const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(profile);
   const canPrintIdentificationLabel = canPrintProductIdentificationLabels(profile);
 
-  if (isLabelOnlyProfile && !canPrintIdentificationLabel) return null;
+  if (
+    !canShowProductVariationActionsMenu({
+      isIdentificationLabelOnlyProfile: isLabelOnlyProfile,
+      canPrintIdentificationLabel,
+    })
+  ) {
+    return null;
+  }
 
   const handlePrintIdentificationLabel = () => {
     const parentTitle = (product as any).name || (product as any).title || '';

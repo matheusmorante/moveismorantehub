@@ -13,7 +13,7 @@ const formatted = key.toLowerCase().replace(/(.{4})/g, '$1 ');
 const invoice = (): InboundInvoice => ({
   id: 'fda3c419-65a1-44ce-9627-c9442b7c6850', nfeKey: formatted, nfeNumber: '106', series: '1',
   issuedAt: '2026-10-15T12:00:00Z', emitterCnpj: '12ABC34501DE35', emitterName: 'Fornecedor',
-  recipientCnpj: '12345678000195', recipientName: 'Loja', totalProducts: 20, totalFreight: 0, totalIpi: 0,
+  recipientCnpj: '44.512.248/0001-07', recipientName: 'MOVEIS MORANTE LTDA', totalProducts: 20, totalFreight: 0, totalIpi: 0,
   model: '55', environment: 2, status: 'pending', items: [], itemsCount: 0, totalInvoice: 20,
 });
 beforeEach(() => {
@@ -44,12 +44,11 @@ describe('chave alfanumérica nos serviços ativos de entrada', () => {
     expect(await checkInboundInvoiceKeyExists(formatted)).toBeNull();
     expect(mocks.eq).toHaveBeenCalledWith('chave_acesso', key);
   });
-  it('remove somente a nota correspondente à chave e mantém as demais no cache', async () => {
+  it('recusa excluir NF de entrada e preserva todas as notas no cache', async () => {
     mocks.local = [{ ...invoice(), nfeKey: key }, { ...invoice(), id: 'other', nfeKey: '41260944512248000107550010000099991000099999' }];
-    await deleteInboundInvoice(`inbound_${formatted}`);
-    expect(mocks.eq).toHaveBeenCalledWith('chave_acesso', key);
-    expect(mocks.local).toHaveLength(1); expect(mocks.local[0].id).toBe('other');
-    expect(mocks.from).toHaveBeenCalledTimes(1); expect(mocks.from).toHaveBeenCalledWith('inbound_invoices');
+    await expect(deleteInboundInvoice(`inbound_${formatted}`)).rejects.toThrow('Notas fiscais de entrada não podem ser excluídas.');
+    expect(mocks.local).toHaveLength(2);
+    expect(mocks.from).not.toHaveBeenCalled();
   });
   it('localiza a nota pela chave formatada ao marcar recebimento', async () => {
     mocks.local = [{ ...invoice(), nfeKey: key }];

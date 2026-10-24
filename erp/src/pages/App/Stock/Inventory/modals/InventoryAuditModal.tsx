@@ -13,6 +13,8 @@ import InventoryOperationScreen from '../components/InventoryOperationScreen';
 import InventoryReviewModal from '../modals/InventoryReviewModal';
 import { useInventoryAuditWorkflow } from '../hooks/useInventoryAuditWorkflow';
 import { getVariationDisplayName } from '@/components/productAutocompleteUtils';
+import { useAuth } from '@/context/AuthContext';
+import { canPerform } from '@/pages/utils/permissionService';
 
 interface InventoryAuditModalProps {
   readonly isOpen: boolean;
@@ -30,6 +32,8 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
   copiedItems,
   editingSession,
 }) => {
+  const { profile } = useAuth();
+  const canFinalize = canPerform('finalizeStockInventory', profile?.roles || profile?.role);
   const {
     allProducts,
     suppliers,
@@ -189,6 +193,7 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
             items={items}
             hasStages={scopeConfig.hasStages}
             startDate={draftRef.current.date!}
+            canFinalize={canFinalize}
             onCancel={() => { if (!isSaving) setView('operation'); }}
             onConfirm={handleFinalize}
           />

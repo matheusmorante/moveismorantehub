@@ -1,6 +1,6 @@
 import { ChevronDown, FileText } from 'lucide-react-native';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   ActivityIndicator,
@@ -15,6 +15,10 @@ import {
   fetchMobileNcmCatalogEntry,
   searchMobileNcms,
 } from '../../services/mobileProductFiscalService';
+import {
+  fillMissingProductFiscalNcmDescription,
+  updateProductFiscalNcmCode,
+} from '../../../../../../shared-utils/productFiscalNcm';
 
 interface Props {
   formData: any;
@@ -112,6 +116,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
   const [ncmResults, setNcmResults] = useState<any[]>([]);
   const [ncmLoading, setNcmLoading] = useState(false);
   const [ncmCatalog, setNcmCatalog] = useState<any>(null);
+  const pendingManualNcmDescriptionCode = useRef<string | null>(null);
 
   useEffect(() => {
     if (!canConfigureProductTaxes) {
@@ -165,16 +170,29 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
     const code = String(formData.fiscal?.ncm || '').replace(/\D/g, '');
     if (formData.itemType === 'service' || code.length !== 8) {
       setNcmCatalog(null);
+      if (formData.itemType === 'service') pendingManualNcmDescriptionCode.current = null;
       return;
     }
     let cancelled = false;
     fetchMobileNcmCatalogEntry(code).then((entry) => {
-      if (!cancelled) setNcmCatalog(entry);
+      if (cancelled) return;
+      setNcmCatalog(entry);
+      if (pendingManualNcmDescriptionCode.current !== code) return;
+      pendingManualNcmDescriptionCode.current = null;
+      if (!entry?.official_description) return;
+      setFormData((prev) => ({
+        ...prev,
+        fiscal: fillMissingProductFiscalNcmDescription(
+          prev.fiscal || {},
+          code,
+          entry.official_description
+        ),
+      }));
     });
     return () => {
       cancelled = true;
     };
-  }, [formData.fiscal?.ncm, formData.itemType]);
+  }, [formData.fiscal?.ncm, formData.itemType, setFormData]);
 
   const fiscal = formData.fiscal || {};
 
@@ -186,6 +204,20 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
         [field]: val,
       },
     }));
+  };
+
+  const setManuallyEnteredNcmCode = (code: string) => {
+    const cachedEntry = ncmCatalog?.code === code ? ncmCatalog : null;
+    pendingManualNcmDescriptionCode.current = cachedEntry?.official_description ? null : code;
+    setFormData((prev) => {
+      const fiscal = updateProductFiscalNcmCode(prev.fiscal || {}, code);
+      return {
+        ...prev,
+        fiscal: cachedEntry?.official_description
+          ? fillMissingProductFiscalNcmDescription(fiscal, code, cachedEntry.official_description)
+          : fiscal,
+      };
+    });
   };
 
   const updateFiscalCst = (value: string) => {
@@ -248,8 +280,22 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                 value={ncmSearch}
                 onChangeText={(v) => {
                   setNcmSearch(v);
-                  if (/^\d{8}$/.test(v.trim())) setFiscalField('ncm', v.trim());
-                  else if (!v.trim()) setFiscalField('ncm', '');
+                  const code = v.trim();
+                  if (/^\d{8}$/.test(code)) {
+                    setManuallyEnteredNcmCode(code);
+                  } else if (!code) {
+                    pendingManualNcmDescriptionCode.current = null;
+                    setFormData((prev) => ({
+                      ...prev,
+                      fiscal: updateProductFiscalNcmCode(prev.fiscal || {}, ''),
+                    }));
+                  } else {
+                    pendingManualNcmDescriptionCode.current = null;
+                    setFormData((prev) => ({
+                      ...prev,
+                      fiscal: updateProductFiscalNcmCode(prev.fiscal || {}, v),
+                    }));
+                  }
                 }}
                 placeholder="Digite o código ou descrição do NCM"
                 placeholderTextColor="#94a3b8"
@@ -310,8 +356,14 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                       <TouchableOpacity
                         key={result.code}
                         onPress={() => {
-                          setFiscalField('ncm', result.code);
-                          setFiscalField('ncmDescription', result.official_description);
+                          pendingManualNcmDescriptionCode.current = null;
+                          setFormData((prev) => ({
+                            ...prev,
+                            fiscal: {
+                              ...updateProductFiscalNcmCode(prev.fiscal || {}, result.code),
+                              ncmDescription: result.official_description,
+                            },
+                          }));
                           setNcmSearch(result.code);
                           setNcmResults([]);
                         }}

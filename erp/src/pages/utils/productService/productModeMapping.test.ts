@@ -87,4 +87,29 @@ describe('product variation mode mapping', () => {
       variableTechnicalFields: ['Cor'],
     });
   });
+
+  it('round-trips an explicitly empty variable override through technical_specs', () => {
+    const variationId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const product = mapToDB({
+      isDraft: false,
+      variableTechnicalFields: ['Cor'],
+      variations: [{ id: variationId, attributes: [], technicalValues: { Cor: '' } }],
+    });
+
+    expect(product.technical_specs.variationDetails).toEqual([
+      expect.objectContaining({ id: variationId, technicalValues: { Cor: '' } }),
+    ]);
+
+    const hydrated = mapFromDB({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      name: 'Poltrona',
+      item_type: 'product',
+      is_draft: false,
+      product_variations: [makeDbVariation(variationId, 'Poltrona')],
+      technical_specs: product.technical_specs,
+    });
+
+    expect(hydrated.variations?.[0].technicalValues).toEqual({ Cor: '' });
+    expect(hydrated.variations?.[0].attributes).toEqual([]);
+  });
 });

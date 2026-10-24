@@ -6,6 +6,7 @@ import { DeliveryRouteDateScope } from '../../hooks/useDeliveryRoute';
 import { ScheduleCard } from './ScheduleCard';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
 import { supabase } from '../../../../services/supabaseClient';
+import type { AssemblyHandlingOption } from '../../../../utils/aiSummaryHelper';
 
 interface Props {
   items: DeliveryRouteItem[];
@@ -14,6 +15,7 @@ interface Props {
   onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
   onOpenDeliveryFlow?: (item: DeliveryRouteItem) => void;
+  handlingOptions?: AssemblyHandlingOption[];
   dateScope?: DeliveryRouteDateScope;
   onChangeDateScope?: (scope: DeliveryRouteDateScope) => void;
   isDarkMode?: boolean;
@@ -43,11 +45,12 @@ export const DeliveryTimelineView: React.FC<Props> = ({
   onStartDelivery,
   onViewOrder,
   onOpenDeliveryFlow,
+  handlingOptions: sharedHandlingOptions,
   dateScope = 'today',
   isDarkMode = false,
 }) => {
   const [periodFilter, setPeriodFilter] = useState<'all' | 'morning' | 'afternoon'>('all');
-  const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
+  const [loadedHandlingOptions, setLoadedHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
 
   const shiftCounts = useMemo(
     () => ({
@@ -59,6 +62,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
 
   // Usa as mesmas modalidades configuradas no ERP para identificar os selos.
   useEffect(() => {
+    if (sharedHandlingOptions !== undefined) return;
     let active = true;
 
     supabase
@@ -68,7 +72,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
       .then(({ data }) => {
         if (!active) return;
         const settings = data?.[0]?.data || data?.[0] || {};
-        setHandlingOptions([
+        setLoadedHandlingOptions([
           ...(settings.deliveryHandlingOptions || []),
           ...(settings.pickupHandlingOptions || []),
         ]);
@@ -77,7 +81,9 @@ export const DeliveryTimelineView: React.FC<Props> = ({
     return () => {
       active = false;
     };
-  }, []);
+  }, [sharedHandlingOptions]);
+
+  const handlingOptions = sharedHandlingOptions ?? loadedHandlingOptions;
 
   // Filtro por Período (Todas, Manhã, Tarde)
   const filteredItems = useMemo(() => {
@@ -95,7 +101,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2563eb']} />
         }
       >
-        {/* Filtro local do Cronograma: rola junto com os cards da timeline. */}
+        {/* Filtro de turno: permanece junto aos cards da timeline. */}
         <View style={[styles.periodFilterRow, isDarkMode && styles.periodFilterRowDark]}>
           <TouchableOpacity
             style={[
@@ -289,7 +295,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingTop: 0,
     paddingBottom: 16,
   },
@@ -297,7 +303,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   timelineSidebar: {
-    width: 32,
+    width: 28,
     alignItems: 'center',
   },
   timelineNode: {
@@ -320,7 +326,7 @@ const styles = StyleSheet.create({
   },
   timelineContent: {
     flex: 1,
-    paddingLeft: 12,
+    paddingLeft: 8,
   },
   transitConnector: {
     paddingVertical: 12,

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { getRecipientTaxIdValidationMessage } from './recipientTaxId';
+import { PERSON_STOCK_ORIGIN_VALUES } from './personStockOrigins';
 
 export type PersonRequiredFields = {
   customer?: Partial<Record<'phone' | 'cpfCnpj' | 'email' | 'rgIe' | 'position', boolean>>;
@@ -29,6 +30,9 @@ export const createPersonFormSchema = (
     position: z.string().optional().nullable(),
     marketingOrigin: z.string().optional().nullable(),
     noAddress: z.boolean().optional(),
+    ...(isSupplier
+      ? { stockOrigins: z.array(z.enum(PERSON_STOCK_ORIGIN_VALUES)).optional().nullable() }
+      : {}),
     leadTime: z.preprocess((value) => value === '' || value === null ? 0 : typeof value === 'string' ? Number(value) : value,
       z.number().nonnegative('Informe um prazo numérico maior ou igual a zero.')).optional(),
     fullAddress: z

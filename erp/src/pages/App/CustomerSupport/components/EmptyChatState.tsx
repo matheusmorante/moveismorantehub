@@ -2,11 +2,11 @@ import React from 'react';
 
 export const EmptyChatState: React.FC = () => {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#f0f2f5]/80 dark:bg-[#111b21] text-center select-none relative overflow-hidden transition-colors">
+    <div className="flex-1 flex flex-col min-w-0 items-center justify-center p-8 bg-[#f0f2f5]/80 dark:bg-[#111b21] text-center select-none relative overflow-hidden transition-colors">
       {/* Padrão decorativo de fundo sutil estilo WhatsApp Web */}
       <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.02] pointer-events-none bg-[radial-gradient(#25d366_1px,transparent_1px)] [background-size:16px_16px]" />
 
-      <div className="max-w-lg flex flex-col items-center relative z-10">
+      <div className="w-full min-w-0 max-w-lg flex flex-col items-center relative z-10">
         {/* Ilustração Vetorial SVG Própria — Central de Mensagens WhatsApp Web */}
         <div className="mb-6 relative">
           <div className="w-24 h-24 rounded-3xl bg-gradient-to-tr from-emerald-500/10 via-emerald-500/20 to-emerald-500/5 dark:from-emerald-500/20 dark:to-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shadow-inner">

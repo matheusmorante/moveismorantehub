@@ -58,6 +58,7 @@ import OrderEditModal from './pages/App/SalesOrder/modals/OrderEditModal';
 import FiscalDocumentsPage from './pages/App/FiscalDocuments';
 import { canPerform } from './pages/utils/permissionService';
 import { getProfileRoles } from './pages/utils/accessRoles';
+import { buildIdentificationOnlyLabelSearch } from './pages/App/Stock/LabelPrinting/utils/identificationLabelRoute';
 
 const LoadingFallback = () => (
   <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
@@ -150,7 +151,10 @@ const ProductIdentificationLabelRoute = () => {
   if (category !== 'identificacao') {
     return (
       <Navigate
-        to={{ pathname: location.pathname, search: '?cat=identificacao' }}
+        to={{
+          pathname: location.pathname,
+          search: buildIdentificationOnlyLabelSearch(location.search),
+        }}
         replace
         state={location.state}
       />

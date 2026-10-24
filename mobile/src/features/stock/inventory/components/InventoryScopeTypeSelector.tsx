@@ -12,6 +12,7 @@ interface Props {
   selectedSupplierId?: string | null;
   onSelectSupplier?: (supplierId: string | null) => void;
   customProducts: SearchableProduct[];
+  lockedCustomSelection?: boolean;
   onOpenSearch: () => void;
   onRemoveCustomProduct: (product: SearchableProduct) => void;
   onConfirmType: (type: InventoryScopeType, supplierId?: string) => void;
@@ -22,6 +23,7 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
   expandedType,
   onToggleExpand,
   customProducts,
+  lockedCustomSelection = false,
   onOpenSearch,
   onRemoveCustomProduct,
   onConfirmType,
@@ -34,25 +36,27 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
   return (
     <View style={styles.optionsContainer}>
       {/* 1. Estoque Completo: Etapas por Fornecedor */}
-      <TouchableOpacity
-        testID="scope-full-stock-btn"
-        style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]}
-        onPress={() => onConfirmType('full')}
-      >
-        <View style={styles.cardHeaderRow}>
-          <View style={[styles.typeIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-            <Package size={24} color="#10b981" />
+      {!lockedCustomSelection && (
+        <TouchableOpacity
+          testID="scope-full-stock-btn"
+          style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]}
+          onPress={() => onConfirmType('full')}
+        >
+          <View style={styles.cardHeaderRow}>
+            <View style={[styles.typeIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+              <Package size={24} color="#10b981" />
+            </View>
+            <View style={styles.flex1}>
+              <Text style={[styles.typeTitle, { color: textPrimary }]}>
+                Estoque Completo: Etapas por Fornecedor
+              </Text>
+              <Text style={[styles.typeDesc, { color: muted }]}>
+                Todas as variações ativas cadastradas no sistema divididas por fornecedor.
+              </Text>
+            </View>
           </View>
-          <View style={styles.flex1}>
-            <Text style={[styles.typeTitle, { color: textPrimary }]}>
-              Estoque Completo: Etapas por Fornecedor
-            </Text>
-            <Text style={[styles.typeDesc, { color: muted }]}>
-              Todas as variações ativas cadastradas no sistema divididas por fornecedor.
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
 
       {/* 2. Seleção Personalizada */}
       <View style={{ marginBottom: expandedType === 'custom' ? 12 : 0 }}>
@@ -62,7 +66,8 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
             { backgroundColor: surface, borderColor: border },
             expandedType === 'custom' ? styles.expandedOptionBorder : {},
           ]}
-          onPress={() => onToggleExpand('custom')}
+          onPress={() => { if (!lockedCustomSelection) onToggleExpand('custom'); }}
+          disabled={lockedCustomSelection}
         >
           <View style={styles.cardHeaderRow}>
             <View style={[styles.typeIcon, { backgroundColor: 'rgba(168, 85, 247, 0.15)' }]}>
@@ -80,11 +85,15 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
         {expandedType === 'custom' && (
           <View style={[styles.expandableBox, { backgroundColor: surface, borderColor: border }]}>
             <Text style={{ color: muted, fontSize: 13, marginBottom: 12 }}>
-              Selecione produtos ou variações antes de iniciar a contagem.
+              {lockedCustomSelection
+                ? 'Revise os itens copiados antes de iniciar a contagem.'
+                : 'Selecione produtos ou variações antes de iniciar a contagem.'}
             </Text>
-            <TouchableOpacity style={styles.customAddButton} onPress={onOpenSearch}>
-              <Text style={styles.actionButtonText}>+ Adicionar produto ou variação</Text>
-            </TouchableOpacity>
+            {!lockedCustomSelection && (
+              <TouchableOpacity style={styles.customAddButton} onPress={onOpenSearch}>
+                <Text style={styles.actionButtonText}>+ Adicionar produto ou variação</Text>
+              </TouchableOpacity>
+            )}
             {customProducts.map((product) => (
               <View
                 key={`${product.id}-${product.variation_id || 'main'}`}
@@ -93,12 +102,14 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
                 <Text numberOfLines={2} style={[{ color: textPrimary }, styles.flex1]}>
                   {product.name}
                 </Text>
-                <TouchableOpacity
-                  onPress={() => onRemoveCustomProduct(product)}
-                  accessibilityLabel={`Remover ${product.name}`}
-                >
-                  <X size={18} color={muted} />
-                </TouchableOpacity>
+                {!lockedCustomSelection && (
+                  <TouchableOpacity
+                    onPress={() => onRemoveCustomProduct(product)}
+                    accessibilityLabel={`Remover ${product.name}`}
+                  >
+                    <X size={18} color={muted} />
+                  </TouchableOpacity>
+                )}
               </View>
             ))}
             <TouchableOpacity

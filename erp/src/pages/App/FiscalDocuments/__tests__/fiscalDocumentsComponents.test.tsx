@@ -30,7 +30,7 @@ describe('FiscalDocuments - Components', () => {
   it('renderiza o cabeçalho fiscal compacto sem subtítulo ou botão Atualizar', () => {
     render(<FiscalDocumentsHeader />);
 
-    expect(screen.getByText('Notas Fiscais de Saída')).toBeDefined();
+    expect(screen.getByText('NF de saída')).toBeDefined();
     expect(screen.queryByText(/Consulta e acompanhamento dos documentos/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /Atualizar/i })).toBeNull();
   });

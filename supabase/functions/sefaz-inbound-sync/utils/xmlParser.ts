@@ -35,7 +35,7 @@ export function extractDocZipEntries(xml: string): DocZipEntry[] {
   return entries;
 }
 
-export function parseNfeXml(xmlString: string, nsu: string, environment: number) {
+export function parseNfeXml(xmlString: string, nsu: string, environment: number, recipientCnpj: string) {
   // Caso seja XML completo de NF-e
   if (xmlString.includes("<infNFe") || xmlString.includes("<nfeProc")) {
     const infNfeIdMatch = xmlString.match(/<infNFe[^>]*Id=["']([^"']+)["']/i);
@@ -61,8 +61,8 @@ export function parseNfeXml(xmlString: string, nsu: string, environment: number)
     const emitUf = extractXmlTag(emitBlock, "UF") || "PR";
 
     const destBlock = extractXmlTag(xmlString, "dest");
-    const destCnpj = extractXmlTag(destBlock, "CNPJ") || extractXmlTag(destBlock, "CPF") || "44.512.248/0001-07";
-    const destNome = extractXmlTag(destBlock, "xNome") || "MOVEIS MORANTE";
+    const destCnpj = extractXmlTag(destBlock, "CNPJ") || extractXmlTag(destBlock, "CPF");
+    const destNome = extractXmlTag(destBlock, "xNome");
 
     const totalBlock = extractXmlTag(xmlString, "total");
     const icmsTot = extractXmlTag(totalBlock, "ICMSTot") || totalBlock;
@@ -153,8 +153,8 @@ export function parseNfeXml(xmlString: string, nsu: string, environment: number)
       emitente_nome: emitNome,
       emitente_fantasia: null,
       emitente_uf: "PR",
-      destinatario_cnpj: "44.512.248/0001-07",
-      destinatario_nome: "MOVEIS MORANTE",
+      destinatario_cnpj: recipientCnpj,
+      destinatario_nome: "",
       valor_produtos: valorTotal,
       valor_total: valorTotal,
       valor_frete: 0,

@@ -5,9 +5,11 @@ import {
   getEffectiveTechnicalValue,
   getEffectiveVariationTechnicalValues,
   resolveVariableTechnicalFieldNames,
+  isRequiredCharacteristicName,
 } from '../erp/src/pages/utils/technicalValuesService';
 import { getVariationRegistrationIssue } from './productVariationRules';
 import { getProductDiscountValidationIssues } from './productDiscountFields';
+import { getCompleteVariationName, normalizeCompleteVariationName } from './productVariationNameValidation';
 
 const nonnegative = z.number().nonnegative('Informe um valor finito maior ou igual a zero.');
 
@@ -63,6 +65,18 @@ export const createProductVariationFormSchema = (parent: Partial<Product>, isSin
       if (!item.productId.trim() || !item.description.trim() || (item.variationId !== undefined && !item.variationId.trim())) context.addIssue({ code: 'custom', path: ['comboItems', index], message: 'Selecione o produto de cada componente ou remova a linha.' });
       if (item.quantity < 1) context.addIssue({ code: 'custom', path: ['comboItems', index, 'quantity'], message: 'Informe quantidade maior ou igual a um para o componente.' });
     });
+    const variation = values as Variation;
+    const parentName = String(parent.name || parent.description || '').trim();
+    const normalizedName = normalizeCompleteVariationName(getCompleteVariationName(variation, parentName));
+    const duplicateName = (parent.variations || []).some((sibling) =>
+      sibling.id !== variation.id &&
+      normalizeCompleteVariationName(getCompleteVariationName(sibling as Variation, parentName)) === normalizedName
+    );
+    if (!normalizedName || duplicateName) {
+      context.addIssue({ code: 'custom', path: ['name'], message: duplicateName
+        ? 'O nome completo da variação já está cadastrado neste produto.'
+        : 'Informe o nome completo da variação.' });
+    }
     if (isSingleVariation) {
       // Quando é variação única, campos herdados do pai (preço, dimensões, características)
       // são validados no formulário do produto pai, e não na variação onde esses campos estão desativados.
@@ -71,7 +85,6 @@ export const createProductVariationFormSchema = (parent: Partial<Product>, isSin
     const issue = getVariationRegistrationIssue(parent, values as Variation);
     if (issue) context.addIssue({ code: 'custom', path: [issue.tab], message: issue.message });
 
-    const variation = values as Variation;
     const variableFieldNames = resolveVariableTechnicalFieldNames(
       parent.variableTechnicalFields,
       [...(parent.variations || []), variation]
@@ -89,7 +102,10 @@ export const createProductVariationFormSchema = (parent: Partial<Product>, isSin
         ),
         ...(variation.technicalValues || {}),
       };
-      const missingFieldNames = variableFieldNames.filter((fieldName) => {
+      const requiredFieldNames = Array.isArray(variation.requiredTechnicalFields)
+        ? variation.requiredTechnicalFields
+        : variableFieldNames.filter(isRequiredCharacteristicName);
+      const missingFieldNames = requiredFieldNames.filter((fieldName) => {
         if (getCharacteristicDependencyState(fieldName, dependencyValues).isDisabled) {
           return false;
         }

@@ -17,6 +17,7 @@ export function prepareFinalVariation(
   isDraft: boolean,
   allParentImages: string[]
 ): Variation {
+  const { requiredTechnicalFields: _requiredTechnicalFields, ...persistableFormData } = formData;
   const cleanAttributes = (Array.isArray(formData.attributes) ? formData.attributes : []).map(
     (attr) => ({
       ...attr,
@@ -51,7 +52,7 @@ export function prepareFinalVariation(
     : (formData.images || []).slice(0, MAX_VARIATION_IMAGES);
 
   const finalVariation: Variation = {
-    ...formData,
+    ...persistableFormData,
     images: resolvedVariationImages,
     ...(isSingleVariation
       ? {
@@ -61,6 +62,7 @@ export function prepareFinalVariation(
           syncCostPrice: true,
           syncCondition: true,
           syncFiscal: true,
+          syncNcm: true,
           syncWithParent: true,
           syncDimensions: true,
           syncWidth: true,

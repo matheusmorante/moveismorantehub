@@ -16,6 +16,7 @@ const makeDraft = (id: string, physicalCount: number | null) => ({
   code: `LOCAL-${id}`,
   name: 'Inventário local',
   responsibleId: 'operator-1',
+  responsibleName: 'Colaborador escolhido',
   hasStages: true,
   scopeType: 'supplier',
   supplierId: 'supplier-1',
@@ -47,6 +48,7 @@ describe('rascunho de inventário no SQLite', () => {
     expect((await getLocalInventoryDraft('audit-a'))?.items[0].physicalCount).toBe(30);
     expect((await getLocalInventoryDraft('audit-b'))?.items[0].physicalCount).toBe(2);
     expect((await getLocalInventoryDraft('audit-a'))?.supplierId).toBe('supplier-1');
+    expect((await getLocalInventoryDraft('audit-a'))?.responsibleName).toBe('Colaborador escolhido');
     expect((await getLocalInventoryDraft('audit-a'))?.items[0].countedAt).toBe(
       '2026-09-25T10:00:00Z'
     );

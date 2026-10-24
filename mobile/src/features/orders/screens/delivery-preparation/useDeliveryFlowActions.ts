@@ -12,6 +12,7 @@ import {
   deliveryFinishFormSchema,
 } from '../../../../../../shared-utils/operationsFormSchemas';
 import { deliveryFlowService } from '../../services/deliveryFlowService';
+import type { LocalDeliveryProofMetadata } from '../../services/deliveryProofRules';
 import {
   DeliveryResponsibleItem,
   UseDeliveryFlowActionsOptions,
@@ -105,7 +106,7 @@ export function useDeliveryFlowActions({
       );
       return;
     }
-    return routeForm.validateAndRun(
+    await routeForm.validateAndRun(
       {
         orderId: String(order.id || ''),
         checklist: checklist.map((item) => ({ ...item, checked: Boolean(checked[item.id]) })),
@@ -205,7 +206,7 @@ export function useDeliveryFlowActions({
       );
       return;
     }
-    return finishForm.validateAndRun(
+    await finishForm.validateAndRun(
       { orderId: String(order.id || ''), payments },
       async (values) => {
         setSaving(true);
@@ -249,7 +250,12 @@ export function useDeliveryFlowActions({
 
   // 9. Insucesso / Não Atendido
   const handleConfirmUnattended = useCallback(
-    async (reason: string, notes: string, proofUrls: string[]) => {
+    async (
+      reason: string,
+      notes: string,
+      proofUrls: string[],
+      proofMetadata?: LocalDeliveryProofMetadata[]
+    ) => {
       try {
         const { updatedData } = await deliveryFlowService.recordUnattended({
           orderId: order.id,
@@ -257,6 +263,7 @@ export function useDeliveryFlowActions({
           reason,
           notes,
           proofUrls,
+          proofMetadata,
         });
 
         syncOrderSnapshot(updatedData);

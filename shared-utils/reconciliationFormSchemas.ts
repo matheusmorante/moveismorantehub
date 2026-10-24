@@ -51,6 +51,31 @@ export const createReconciliationAttributeChoiceSchema = (attributes: readonly R
     if (!Number.isFinite(value) || (attribute.dataType === 'integer' && !Number.isInteger(value))) ctx.addIssue({ code: 'custom', path: ['value'], message: attribute.dataType === 'integer' ? 'Informe um número inteiro.' : 'Informe um número válido.' });
   }
 });
+
+export const createReconciliationBatchFormSchema = (options: {
+  attributes?: readonly ReconciliationAvailableAttribute[];
+  supplierIds?: readonly string[];
+  categoryIds?: readonly string[];
+}) => reconciliationBatchFormSchema.superRefine((data, ctx) => {
+  if (data.operation === 'supplier' && options.supplierIds && !options.supplierIds.includes(data.supplierId)) {
+    ctx.addIssue({ code: 'custom', path: ['supplierId'], message: 'Selecione um fornecedor da busca atual.' });
+  }
+  if (data.operation === 'category' && options.categoryIds && !options.categoryIds.includes(data.categoryId)) {
+    ctx.addIssue({ code: 'custom', path: ['categoryId'], message: 'Selecione uma categoria disponível.' });
+  }
+  if (data.operation === 'attribute') {
+    const result = createReconciliationAttributeChoiceSchema(options.attributes || []).safeParse({
+      name: data.name,
+      value: data.value,
+    });
+    if (!result.success) {
+      result.error.issues.forEach((issue) => {
+        ctx.addIssue({ code: 'custom', path: issue.path, message: issue.message });
+      });
+    }
+  }
+});
+
 /** Inline reconciliation may remain incomplete; provided typed values must be valid. */
 export const createReconciliationProductFormSchema = (attributes: readonly ReconciliationAvailableAttribute[]) => reconciliationProductFormSchema.superRefine((data, ctx) => {
   data.variationUpdates.forEach((variation, variationIndex) => variation.attributes?.forEach((attribute, attributeIndex) => {

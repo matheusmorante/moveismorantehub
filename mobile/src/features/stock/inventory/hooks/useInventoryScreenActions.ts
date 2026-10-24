@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import type { InventorySession } from '../../types/stock.types';
+import type { InventoryScopeCopySource } from '../services/inventoryScopeCopy';
 import {
   reverseInventorySession,
   unreverseInventorySession,
@@ -11,7 +12,7 @@ import {
 export function useInventoryScreenActions(onReload: () => void | Promise<void>) {
   const [showCount, setShowCount] = useState(false);
   const [editingSession, setEditingSession] = useState<InventorySession | null>(null);
-  const [copiedItems, setCopiedItems] = useState<any[] | null>(null);
+  const [copiedItems, setCopiedItems] = useState<InventoryScopeCopySource[] | null>(null);
   const [selectedSession, setSelectedSession] = useState<InventorySession | null>(null);
   const [viewDetailsSession, setViewDetailsSession] = useState<InventorySession | null>(null);
 
@@ -43,7 +44,7 @@ export function useInventoryScreenActions(onReload: () => void | Promise<void>) 
     setSelectedSession(null);
     try {
       const details = await fetchInventorySessionDetails(session.id);
-      const items = details?.items || [];
+      const items = (details?.items || []) as InventoryScopeCopySource[];
       if (!items.length) {
         Alert.alert('Aviso', 'Este inventário não possui itens para duplicar.');
         return;

@@ -22,7 +22,11 @@ type StockMoveListItem =
   | { type: 'ERROR'; id: string; message: string }
   | { type: 'ITEM'; id: string; data: StockMove };
 
-export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHeader }) => {
+export const StockMovesScreen: React.FC<Props> = ({
+  isDarkMode,
+  onBack,
+  renderHeader,
+}) => {
   const {
     moves,
     loading,
@@ -59,7 +63,6 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
 
   // Estado do Produto Selecionado
   const [selectedProductName, setSelectedProductName] = useState('');
-
   const handleSelectProduct = (product: StockProductSelection) => {
     setProductId(product.id);
     setVariationId(product.variation_id);
@@ -215,6 +218,7 @@ export const StockMovesScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHe
         onClose={() => !savingEdit && setEditingMove(null)}
         onSave={saveEdit}
       />
+
     </View>
   );
 };

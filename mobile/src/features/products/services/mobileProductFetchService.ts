@@ -9,7 +9,10 @@ import {
   isProductVariationSearchTooBroadError,
   PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
 } from '../../../../../shared-utils/productListSearch';
-import { PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER } from '../../../../../shared-utils/productListTypeFilters';
+import {
+  PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER,
+  PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER,
+} from '../../../../../shared-utils/productListTypeFilters';
 import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
 import { fetchProductListCategoryFilter } from '../../../../../shared-utils/productListCategoryFilters';
 import { getMobileProductVariationRecords } from '../domain/mobileProductVariationVisibility';
@@ -236,7 +239,7 @@ export const fetchMobileProductsPage = async (
     if (options?.generalType === 'product') {
       query = includeCompositionsInStandardMode
         ? query.or(PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER)
-        : query.eq('item_type', 'product');
+        : query.or(PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER);
     } else if (options?.generalType === 'service') {
       query = query.eq('item_type', 'service');
     }
@@ -481,7 +484,11 @@ export const fetchMobileProductsPage = async (
         productVariationRecords.every((v: any) => Boolean(v.merged_to_variation_id || v.mergedToVariationId));
 
       let allVars: any[] = visibleStoredVariations.map((v: any, vIdx: number) => {
-          const details = variationDetailsById.get(String(v.id)) || {};
+          const {
+            discountPercent: _legacyDiscountPercent,
+            discountFixed: _legacyDiscountFixed,
+            ...details
+          } = variationDetailsById.get(String(v.id)) || {};
           const varImages =
             Array.isArray(v.images) && v.images.length > 0
               ? v.images

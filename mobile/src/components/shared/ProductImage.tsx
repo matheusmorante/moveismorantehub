@@ -4,11 +4,11 @@ import { getDerivedImageUrl, ImageSize } from '../../utils/imageUrlUtils';
 
 export type { ImageSize };
 
-export interface ProductImageProps extends Omit<ImageProps, 'source'> {
+export type ProductImageProps = Omit<ImageProps, 'source' | 'src'> & {
   src?: string | null;
   size?: ImageSize;
   fallbackSrc?: ImageSourcePropType; // No mobile, fallback pode ser require()
-}
+};
 
 // Fallback genérico para o app mobile
 const defaultFallback = require('../../../assets/icon.png'); // Ou qualquer ícone padrão

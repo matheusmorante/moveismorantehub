@@ -12,6 +12,7 @@ describe('INITIAL_PRODUCT_FORM_DATA', () => {
       hasVariations: false,
       variations: [],
       launchInitialStock: false,
+      minStock: 0,
     });
   });
 

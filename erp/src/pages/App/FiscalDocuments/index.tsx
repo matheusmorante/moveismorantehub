@@ -47,6 +47,7 @@ export default function FiscalDocumentsPage() {
   const { profile } = useAuth();
   const roles = profile ? getProfileRoles(profile) : [];
   const canViewFiscal = canPerform('viewFiscal', roles);
+  const canViewNcmCatalog = canPerform('viewNcmCatalog', roles);
   const canOperateFiscal = hasFiscalOperationRole(profile);
   const accountantView = roles.includes('accountant') && !canOperateFiscal;
 
@@ -183,6 +184,7 @@ export default function FiscalDocumentsPage() {
         onTabChange={setActiveMainTab}
         openPendenciesCount={pendenciesHook.metrics.openCount}
         canExport={accountantView || canOperateFiscal}
+        canViewNcmCatalog={canViewNcmCatalog}
         onExport={() => setShowFiscalExportModal(true)}
       />
 

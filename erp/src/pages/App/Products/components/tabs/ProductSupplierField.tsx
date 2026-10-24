@@ -6,6 +6,10 @@ import {
   getProductSupplierDisplayName,
   matchesProductSupplierSearch,
 } from '../../../../../../../shared-utils/productSupplierDisplayName';
+import {
+  getProductSupplierStockOrigin,
+  supplierProvidesStockOrigin,
+} from '../../../../../../../shared-utils/productSupplierStockOrigin';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import PersonFormModal from '../../../Registrations/shared/modals/PersonFormModal';
 
@@ -17,16 +21,6 @@ interface ProductSupplierFieldProps {
 }
 
 const MAX_SUPPLIERS = 3;
-type SupplierStockOrigin = NonNullable<Person['stockOrigins']>[number];
-
-const getSupplierStockOrigin = (productKind: Product['productKind']): SupplierStockOrigin => {
-  if (productKind === 'salvado') return 'salvados';
-  if (productKind === 'usado') return 'usados';
-  return 'normal';
-};
-
-const supplierProvidesOrigin = (supplier: Person, origin: SupplierStockOrigin) =>
-  (supplier.stockOrigins ?? ['normal']).includes(origin);
 
 export function ProductSupplierField({
   formData,
@@ -39,7 +33,7 @@ export function ProductSupplierField({
   const [isPersonFormOpen, setIsPersonFormOpen] = useState(false);
   const [extraSuppliers, setExtraSuppliers] = useState<Person[]>([]);
   const anchorRef = useRef<HTMLDivElement>(null);
-  const requiredStockOrigin = getSupplierStockOrigin(formData.productKind);
+  const requiredStockOrigin = getProductSupplierStockOrigin(formData.productKind);
 
   // Fechar dropdown ao pressionar Escape
   useEffect(() => {
@@ -77,14 +71,14 @@ export function ProductSupplierField({
     return allSuppliers.filter((supplier) => {
       const sid = String(supplier.id || '');
       if (selectedIds.includes(sid)) return false;
-      if (!supplierProvidesOrigin(supplier, requiredStockOrigin)) return false;
+      if (!supplierProvidesStockOrigin(supplier.stockOrigins, requiredStockOrigin)) return false;
       return matchesProductSupplierSearch(supplier, query);
     });
   }, [allSuppliers, selectedIds, requiredStockOrigin, search]);
 
   const addSupplier = (supplier: Person) => {
     if (!supplier || !supplier.id) return;
-    if (!supplierProvidesOrigin(supplier, requiredStockOrigin)) return;
+    if (!supplierProvidesStockOrigin(supplier.stockOrigins, requiredStockOrigin)) return;
     const sid = String(supplier.id);
     if (selectedIds.includes(sid) || selectedIds.length >= MAX_SUPPLIERS) return;
 

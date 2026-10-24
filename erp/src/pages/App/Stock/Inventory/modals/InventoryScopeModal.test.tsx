@@ -8,6 +8,8 @@ import type Person from '@/pages/types/person.type';
 import type { ScopeConfiguration } from '../types/inventoryScope.types';
 
 vi.mock('@/pages/utils/productService', () => ({ fetchProductsPage: vi.fn(() => { throw new Error('Unexpected catalog request'); }) }));
+const { authState } = vi.hoisted(() => ({ authState: { profile: null as { id: string } | null } }));
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ profile: authState.profile }) }));
 
 const product: Product = { id: 'product-1', description: 'Produto', stock: 0, active: false, unit: 'UN', unitPrice: 0, itemType: 'product', variations: [] };
 const employee = { id: 'employee-1', type: 'employees', fullName: 'Operador Teste', role: 'manager' } as Person;
@@ -15,12 +17,12 @@ const products = [product];
 const employees = [employee];
 const suppliers: Person[] = [];
 
-beforeEach(() => { vi.clearAllMocks(); });
+beforeEach(() => { vi.clearAllMocks(); authState.profile = null; });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
-function setup(allProducts = products, onConfirm = vi.fn<(config: ScopeConfiguration) => void | boolean | Promise<void | boolean>>().mockResolvedValue(true), copiedItems?: React.ComponentProps<typeof InventoryScopeModal>['copiedItems']) {
+function setup(allProducts = products, onConfirm = vi.fn<(config: ScopeConfiguration) => void | boolean | Promise<void | boolean>>().mockResolvedValue(true), copiedItems?: React.ComponentProps<typeof InventoryScopeModal>['copiedItems'], employeeList = employees) {
   const onCancel = vi.fn();
-  const props = { allProducts, suppliers, employees, onCancel, onConfirm, copiedItems };
+  const props = { allProducts, suppliers, employees: employeeList, onCancel, onConfirm, copiedItems };
   const view = render(<InventoryScopeModal {...props} />);
   const selectType = (type: 'full' | 'custom' = 'full') => fireEvent.click(screen.getByRole('button', {
     name: type === 'full' ? /Estoque Completo/ : /Seleção Personalizada/,
@@ -34,6 +36,21 @@ function setup(allProducts = products, onConfirm = vi.fn<(config: ScopeConfigura
 }
 
 describe('inventory scope owner with real builder, children and RHF/resolver', () => {
+  it('starts with the logged-in employee selected and allows changing the responsible person', async () => {
+    authState.profile = { id: 'employee-1' };
+    const otherEmployee = { ...employee, id: 'employee-2', fullName: 'Outra Responsável' } as Person;
+    const view = setup(products, undefined, undefined, [employee, otherEmployee]);
+    view.selectType();
+
+    const responsibleInput = screen.getByPlaceholderText('Buscar responsável (digite 2+ letras)') as HTMLInputElement;
+    await waitFor(() => expect(responsibleInput.value).toBe('Operador Teste'));
+    fireEvent.change(responsibleInput, { target: { value: 'Outra' } });
+    fireEvent.click(screen.getByRole('button', { name: /Outra Responsável/ }));
+    view.submit();
+
+    await waitFor(() => expect(view.onConfirm).toHaveBeenCalledWith(expect.objectContaining({ responsibleId: 'employee-2' })));
+  });
+
   it('shows the resolver error and prevents confirmation without a responsible employee', async () => {
     const view = setup(); view.selectType(); view.submit();
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Selecione o responsável'));

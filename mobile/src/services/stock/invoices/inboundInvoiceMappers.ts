@@ -150,6 +150,7 @@ export const buildInboundInvoicePayload = (
   data_saida_entrada: invoice.entryExitAt || null,
   natureza_operacao: invoice.operationNature || null,
   modelo: invoice.model || null,
+  ambiente: invoice.environment || null,
   protocolo: invoice.protocol || null,
   informacoes_adicionais: invoice.additionalInfo || null,
   valor_total: invoice.totalInvoice || 0,

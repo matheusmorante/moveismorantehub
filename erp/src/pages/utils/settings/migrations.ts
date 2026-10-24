@@ -263,6 +263,18 @@ export const migrateSettings = (settings: any): AppSettings => {
     settings.rolePermissionsMigrationVersion = 9;
   }
 
+  if ((settings.rolePermissionsMigrationVersion ?? 0) < 10) {
+    const rolePermissions = settings.rolePermissions || {};
+    const defaults = PERMISSION_ACTIONS.find((permission) => permission.id === 'finalizeStockInventory')?.defaultRoles || [];
+    settings.rolePermissions = {
+      ...rolePermissions,
+      finalizeStockInventory: Array.isArray(rolePermissions.finalizeStockInventory)
+        ? rolePermissions.finalizeStockInventory
+        : [...defaults],
+    };
+    settings.rolePermissionsMigrationVersion = 10;
+  }
+
   // Migração de manuseio: string[] -> HandlingOption[]
   if (
     settings.deliveryHandlingOptions &&

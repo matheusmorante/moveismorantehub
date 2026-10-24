@@ -43,6 +43,19 @@ describe('mobileProductAiService', () => {
     expect(sanitizeMobileProductDescription('```text\nProduto.\n- Cor: Verde\n```')).toBe('Produto.');
   });
 
+  it('rejeita resposta que fica vazia depois de remover a única linha de Cor', async () => {
+    mocks.invoke.mockResolvedValue({
+      data: { candidates: [{ content: { parts: [{ text: 'Cor: Azul' }] } }] },
+      error: null,
+    });
+
+    await expect(improveMobileProductDescription({
+      title: 'Mesa Azul',
+      currentDescription: 'Descrição anterior',
+    })).rejects.toThrow('A IA retornou uma descrição vazia ou inválida. Tente novamente.');
+    expect(mocks.invoke).toHaveBeenCalledTimes(1);
+  });
+
   it('não chama o proxy com dados inválidos', async () => {
     await expect(improveMobileProductDescription({ title: '', currentDescription: '' })).rejects.toThrow();
     expect(mocks.invoke).not.toHaveBeenCalled();

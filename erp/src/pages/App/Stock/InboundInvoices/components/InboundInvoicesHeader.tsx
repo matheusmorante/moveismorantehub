@@ -55,10 +55,10 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
           </div>
           <div>
             <h1 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">
-              Notas Fiscais de Entrada
+              NF de entrada
             </h1>
             <p className="text-xs font-medium text-slate-400">
-              Gestão e importação de notas fiscais de entrada dos fornecedores
+              Gestão e importação de NF de entrada dos fornecedores
             </p>
           </div>
         </div>
@@ -77,7 +77,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex w-full sm:w-auto flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5 text-xs font-bold text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+          <div className="flex w-full sm:w-auto flex-wrap items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
             <div className="flex items-center gap-1.5 px-2 py-1">
               <i className="bi bi-calendar-event text-blue-600 dark:text-blue-400 text-sm" />
               <span className="text-slate-500 font-semibold">Período:</span>
@@ -86,7 +86,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
             <select
               value={dateFilter.mode}
               onChange={(e) => handleModeChange(e.target.value as DateFilterMode)}
-              className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-800 outline-none cursor-pointer border border-transparent focus:border-blue-500 dark:bg-slate-800 dark:text-slate-100"
+              className="rounded-none border-0 border-b-2 border-slate-300 bg-transparent px-3 py-1.5 text-xs font-bold text-slate-800 outline-none cursor-pointer transition-colors focus:border-blue-600 focus:ring-0 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:focus:border-blue-500"
             >
               <option value="current_month">Mês Atual</option>
               <option value="previous_month">Mês Anterior</option>
@@ -110,7 +110,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                       });
                     }
                   }}
-                  className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 outline-none cursor-pointer border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  className="rounded-none border-0 border-b-2 border-slate-300 bg-transparent px-2.5 py-1 text-xs font-bold text-slate-800 outline-none cursor-pointer transition-colors focus:border-blue-600 dark:border-slate-700 dark:text-slate-100 dark:focus:border-blue-500"
                 />
               </div>
             )}
@@ -131,7 +131,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                         });
                       }
                     }}
-                    className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 outline-none cursor-pointer border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    className="rounded-none border-0 border-b-2 border-slate-300 bg-transparent px-2.5 py-1 text-xs font-bold text-slate-800 outline-none cursor-pointer transition-colors focus:border-blue-600 dark:border-slate-700 dark:text-slate-100 dark:focus:border-blue-500"
                   />
                 </div>
                 <div className="flex items-center gap-1">
@@ -148,7 +148,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
                         });
                       }
                     }}
-                    className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-800 outline-none cursor-pointer border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    className="rounded-none border-0 border-b-2 border-slate-300 bg-transparent px-2.5 py-1 text-xs font-bold text-slate-800 outline-none cursor-pointer transition-colors focus:border-blue-600 dark:border-slate-700 dark:text-slate-100 dark:focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -168,7 +168,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Fornecedor, NF-e ou chave de acesso"
-          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-xs font-medium text-slate-700 placeholder-slate-400 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          className="w-full rounded-none border-0 border-b-2 border-slate-200 bg-transparent py-2.5 pl-10 pr-4 text-xs font-medium text-slate-700 placeholder-slate-400 outline-none transition-colors focus:border-blue-600 focus:ring-0 dark:border-slate-700 dark:bg-transparent dark:text-slate-200 dark:focus:border-blue-500"
           aria-label="Pesquisar notas fiscais de entrada"
         />
       </div>

@@ -5,6 +5,8 @@ import { inboundInvoiceFormSchema } from '../../../../../../../shared-utils/inbo
 import { inboundXmlUploadFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 import { inboundXmlFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
 import { normalizeFiscalIdentifier } from '../../../../../../../shared-utils/fiscalIdentifiers';
+import { assertInboundInvoiceRecipientMatchesCompany } from '../../../../../../../shared-utils/inboundInvoiceRecipient';
+import { getSettings } from '@/pages/utils/settingsService';
 import type { z } from 'zod';
 import {
   saveInboundInvoice,
@@ -12,6 +14,7 @@ import {
 } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
+import { mergeInboundInvoiceXml } from '../../../../../../../shared-utils/inboundInvoiceXmlMerge';
 import { fetchPersons } from '@/pages/utils/personService';
 import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import { resolveLinkedProductDetails } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
@@ -50,6 +53,7 @@ export interface UseInboundDocumentImportProps {
   readonly onClose: () => void;
   readonly onImportSuccess: (invoice: InboundInvoice) => void;
   readonly initialFile?: File | null;
+  readonly expectedAccessKey?: string;
 }
 
 export function useInboundDocumentImport({
@@ -57,6 +61,7 @@ export function useInboundDocumentImport({
   onClose,
   onImportSuccess,
   initialFile,
+  expectedAccessKey,
 }: UseInboundDocumentImportProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -82,52 +87,50 @@ export function useInboundDocumentImport({
     parsedInvoice: InboundInvoice,
     source: 'file' | 'sefaz' = 'file'
   ) => {
+    const expectedKey = normalizeFiscalIdentifier(expectedAccessKey);
+    const parsedKey = normalizeFiscalIdentifier(parsedInvoice.nfeKey);
+    if (expectedAccessKey !== undefined && (expectedKey.length !== 44 || parsedKey !== expectedKey)) {
+      toast.error('O XML selecionado não corresponde à chave desta nota fiscal incompleta.');
+      return;
+    }
+
     await validateAndRun({ ...parsedInvoice, items: parsedInvoice.items.map((item) => ({ ...item })) }, async (data) => {
       let validated = data as InboundInvoice;
       const cleanKey = validated.nfeKey;
+      assertInboundInvoiceRecipientMatchesCompany(validated.recipientCnpj, getSettings().companyCnpj);
 
       // Verifica duplicidade no banco
       setStatusMessage('Verificando notas existentes...');
       const existing = await checkInboundInvoiceKeyExists(cleanKey);
-      if (existing && source !== 'sefaz') {
-        setDuplicateKey(cleanKey);
-        setDuplicateExistingInvoice(existing);
-        setDuplicateAlertOpen(true);
-        return;
-      }
-
-      if (existing && source === 'sefaz') {
-        if (existing.items?.length) {
-          toast.success('XML completo da SEFAZ sincronizado com os itens desta NF-e.');
+      let isUpdatingExisting = false;
+      let hasPreservedConflictingData = false;
+      if (existing) {
+        setStatusMessage('NF-e já cadastrada. Conferindo se o XML traz dados novos...');
+        const merge = mergeInboundInvoiceXml(existing, validated);
+        if (merge.outcome === 'conflict') {
+          setDuplicateKey(cleanKey);
+          setDuplicateExistingInvoice(existing);
+          setDuplicateAlertOpen(true);
+          return;
+        }
+        if (merge.outcome === 'unchanged') {
+          toast.info('Esta NF-e já está cadastrada e não há dados novos no XML. Nenhuma alteração foi feita.');
           onImportSuccess(existing);
           onClose();
           return;
         }
-
-        validated = {
-          ...existing,
-          ...validated,
-          id: existing.id,
-          status: existing.status,
-          supplierId: existing.supplierId || validated.supplierId,
-          receiptId: existing.receiptId || validated.receiptId,
-          receivedAt: existing.receivedAt || validated.receivedAt,
-          additionalCosts: existing.additionalCosts || validated.additionalCosts,
-          additionalCostsTotal: existing.additionalCostsTotal ?? validated.additionalCostsTotal,
-          additionalCostAllocations: existing.additionalCostAllocations ?? validated.additionalCostAllocations,
-          originalDocumentPath: existing.originalDocumentPath || validated.originalDocumentPath,
-          originalDocumentMime: existing.originalDocumentMime || validated.originalDocumentMime,
-          createdAt: existing.createdAt || validated.createdAt,
-        };
+        validated = merge.invoice;
+        isUpdatingExisting = true;
+        hasPreservedConflictingData = merge.hasConflicts;
+        setStatusMessage('NF-e já cadastrada e desatualizada. Atualizando com os dados novos do XML...');
       }
 
-      // Localiza um fornecedor já cadastrado.
-      setStatusMessage('Identificando fornecedor...');
-      const supplier = await ensureSupplier(
-        validated.emitterName,
-        validated.emitterCnpj
-      );
-      const supplierId = supplier?.id;
+      let supplierId = validated.supplierId;
+      if (!supplierId) {
+        setStatusMessage('Identificando fornecedor...');
+        const supplier = await ensureSupplier(validated.emitterName, validated.emitterCnpj);
+        supplierId = supplier?.id;
+      }
 
       // Auto-match com vínculos anteriores do fornecedor
       let itemsWithMatches = validated.items;
@@ -141,6 +144,7 @@ export function useInboundDocumentImport({
           if (mappings.size > 0) {
             itemsWithMatches = await Promise.all(
               itemsWithMatches.map(async (item) => {
+                if (item.matchedProductId || item.matchedVariationId) return item;
                 const map = mappings.get((item.productCode || '').trim().toLocaleUpperCase('pt-BR'));
                 if (!map) return item;
                 const details = await resolveLinkedProductDetails(
@@ -169,12 +173,20 @@ export function useInboundDocumentImport({
         items: itemsWithMatches,
       };
 
-      setStatusMessage('Salvando nota fiscal no sistema...');
-      const saved = await saveInboundInvoice(invoiceToSave);
+      setStatusMessage(
+        isUpdatingExisting ? 'Salvando os dados novos da nota fiscal...' : 'Salvando nota fiscal no sistema...'
+      );
+      const saved = isUpdatingExisting
+        ? await saveInboundInvoice(invoiceToSave, { requireConfirmation: true })
+        : await saveInboundInvoice(invoiceToSave);
       toast.success(
-        source === 'sefaz'
-          ? `NF-e #${saved.nfeNumber || ''} sincronizada com os itens da SEFAZ.`
-          : `NF-e #${saved.nfeNumber || ''} adicionada com sucesso!`
+        isUpdatingExisting
+          ? hasPreservedConflictingData
+            ? `NF-e #${saved.nfeNumber || ''} atualizada. Campos com valores divergentes foram preservados.`
+            : `NF-e #${saved.nfeNumber || ''} atualizada com os dados novos do XML.`
+          : source === 'sefaz'
+            ? `NF-e #${saved.nfeNumber || ''} sincronizada com os itens da SEFAZ.`
+            : `NF-e #${saved.nfeNumber || ''} adicionada com sucesso!`
       );
       onImportSuccess(saved);
       onClose();

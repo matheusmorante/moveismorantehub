@@ -94,7 +94,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const currentUserName = profile?.full_name || user?.email || 'Atendente';
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#efeae2]/80 dark:bg-[#0b141a] relative overflow-hidden select-none transition-colors">
+    <div className="@container/chat flex-1 flex flex-col min-w-0 h-full bg-[#efeae2]/80 dark:bg-[#0b141a] relative overflow-hidden select-none transition-colors">
       {/* Textura sutil de fundo estilo WhatsApp Web */}
       <div className="absolute inset-0 opacity-[0.04] dark:opacity-[0.03] pointer-events-none bg-[radial-gradient(#128c7e_1px,transparent_1px)] [background-size:20px_20px]" />
 

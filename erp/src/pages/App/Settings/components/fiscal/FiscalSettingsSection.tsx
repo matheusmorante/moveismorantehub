@@ -147,6 +147,34 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
   return (
     <div className="space-y-6">
       <CompanyFiscalDataSection settings={settings} onChange={onChange} />
+      <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-6 dark:border-amber-900/60 dark:bg-amber-950/20">
+        <div className="flex items-start gap-4">
+          <input
+            id="auto-inbound-science"
+            type="checkbox"
+            checked={settings.autoInboundScienceEnabled === true}
+            onChange={(event) => onChange('autoInboundScienceEnabled', event.target.checked)}
+            className="mt-1 h-5 w-5 shrink-0 accent-amber-600"
+          />
+          <div>
+            <label htmlFor="auto-inbound-science" className="cursor-pointer text-sm font-black text-amber-900 dark:text-amber-200">
+              Enviar Ciência da Emissão automaticamente para notas resumo
+            </label>
+            <p className="mt-2 text-xs leading-relaxed text-amber-900/80 dark:text-amber-100/80">
+              Ao ativar, você autoriza o MoranteHub a enviar o evento 210210 em Produção para NF-e modelo 55
+              destinadas ao CNPJ configurado. O sistema agrupa até 20 eventos por lote e aguarda cinco segundos
+              após cada resposta da SEFAZ antes de enviar o próximo lote, enquanto a tela de NF de entrada estiver aberta.
+              Depois que a Ciência for aceita, o sistema tenta obter o XML completo por chave, respeitando uma consulta
+              pontual a cada cinco minutos por CNPJ. Se a SEFAZ devolver somente o resumo, ele aguarda a próxima distribuição.
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-amber-900/80 dark:text-amber-100/80">
+              Ciência não confirma a compra. A manifestação final deverá ser feita depois que a operação for
+              verificada; o sistema nunca confirma recebimento automaticamente. O XML completo depende da
+              próxima distribuição da SEFAZ.
+            </p>
+          </div>
+        </div>
+      </section>
       <div className="p-8 border-b border-slate-50 dark:border-slate-800 bg-blue-50/30 dark:bg-blue-950/10">
         <h3 className="text-sm font-black uppercase tracking-widest text-blue-600 flex items-center gap-2 mb-2">
           <i className="bi bi-shield-fill-check"></i> Regime Tributário: Simples Nacional

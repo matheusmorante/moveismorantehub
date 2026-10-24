@@ -2,24 +2,36 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { InboundInvoiceActionsMenu } from './InboundInvoiceActionsMenu';
+import { SummaryXmlStatusBadge } from './SummaryXmlStatusBadge';
+import {
+  getInboundReceiptBlockedReason,
+  hasCompleteInboundInvoiceMappings,
+} from '../inboundReceiptEligibility';
 
 interface InboundInvoicesTableProps {
   readonly invoices: readonly InboundInvoice[];
   readonly onViewDetails: (invoice: InboundInvoice) => void;
   readonly onDownloadXml: (invoice: InboundInvoice) => void;
+  readonly onImportSummaryXml: (invoice: InboundInvoice) => void;
   readonly onManageMappings: (invoice: InboundInvoice) => void;
-  readonly onDelete: (invoice: InboundInvoice) => void;
+  readonly canAccessReceipts?: boolean;
+  readonly onGenerateReceipt?: (invoice: InboundInvoice) => void;
+  readonly canPrintIdentificationLabels?: boolean;
+  readonly onPrintIdentificationLabels?: (invoice: InboundInvoice) => void;
 }
 
 export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
   invoices,
   onViewDetails,
   onDownloadXml,
+  onImportSummaryXml,
   onManageMappings,
-  onDelete,
+  canAccessReceipts = false,
+  onGenerateReceipt,
+  canPrintIdentificationLabels = false,
+  onPrintIdentificationLabels,
 }) => {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const desktopMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -44,21 +56,27 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
     };
   }, []);
 
-  const getActionsMenuProps = (invoice: InboundInvoice, canManageMappings: boolean) => ({
-    invoice,
-    isConfirmingDelete: confirmingDeleteId === invoice.id,
-    canManageMappings,
-    onClose: () => setOpenMenuId(null),
-    onManageMappings: () => onManageMappings(invoice),
-    onDownloadXml: () => onDownloadXml(invoice),
-    onStartDelete: () => setConfirmingDeleteId(invoice.id),
-    onCancelDelete: () => setConfirmingDeleteId(null),
-    onConfirmDelete: () => {
-      setOpenMenuId(null);
-      setConfirmingDeleteId(null);
-      onDelete(invoice);
-    },
-  });
+  const getActionsMenuProps = (invoice: InboundInvoice, canManageMappings: boolean) => {
+    const canGenerateReceipt = Boolean(
+      onGenerateReceipt && !getInboundReceiptBlockedReason(invoice, canAccessReceipts)
+    );
+
+    return {
+      invoice,
+      canManageMappings,
+      canGenerateReceipt,
+      canPrintIdentificationLabels: Boolean(
+        canPrintIdentificationLabels &&
+          onPrintIdentificationLabels &&
+          hasCompleteInboundInvoiceMappings(invoice)
+      ),
+      onClose: () => setOpenMenuId(null),
+      onManageMappings: () => onManageMappings(invoice),
+      onGenerateReceipt: () => onGenerateReceipt?.(invoice),
+      onPrintIdentificationLabels: () => onPrintIdentificationLabels?.(invoice),
+      onDownloadXml: () => onDownloadXml(invoice),
+    };
+  };
 
   if (invoices.length === 0) {
     return (
@@ -148,14 +166,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                   <td className="px-3 py-4">
                     <div className="flex flex-wrap items-center gap-1.5">
                       {isSummaryOnly ? (
-                        <>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-black uppercase text-blue-700 border border-blue-200/60 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/40">
-                            NOVA • SEFAZ
-                          </span>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-black uppercase text-amber-700 border border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/40">
-                            XML PENDENTE
-                          </span>
-                        </>
+                        <SummaryXmlStatusBadge onClick={() => onImportSummaryXml(inv)} />
                       ) : (
                         <>
                           {inv.status === 'received' ? (
@@ -172,18 +183,25 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                               Disponível
                             </span>
                           )}
-                          {inv.items &&
-                          inv.items.length > 0 &&
-                          inv.items.every((item) => Boolean(item.matchedProductId)) ? (
+                          {hasCompleteInboundInvoiceMappings(inv) ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                               <i className="bi bi-check2-all text-xs" aria-hidden="true" />{' '}
                               Vinculação Completa
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onManageMappings(inv);
+                              }}
+                              title="Clique para gerenciar os vínculos dos produtos desta NF-e"
+                              aria-label={`Gerenciar vínculos pendentes da NF-e ${inv.nfeNumber}`}
+                              className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase text-amber-800 transition-colors hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/70"
+                            >
                               <i className="bi bi-exclamation-circle text-xs" aria-hidden="true" />{' '}
                               Vinculações Pendentes
-                            </span>
+                            </button>
                           )}
                         </>
                       )}
@@ -252,14 +270,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                   onClick={(e) => e.stopPropagation()}
                 >
                   {isSummaryOnly ? (
-                    <>
-                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[9px] font-black uppercase text-blue-700 border border-blue-200/60 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/40">
-                        NOVA • SEFAZ
-                      </span>
-                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-black uppercase text-amber-700 border border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/40">
-                        XML PENDENTE
-                      </span>
-                    </>
+                    <SummaryXmlStatusBadge onClick={() => onImportSummaryXml(inv)} />
                   ) : (
                     <>
                       {inv.status === 'received' ? (
@@ -272,16 +283,23 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                         </span>
                       )}
 
-                      {inv.items &&
-                      inv.items.length > 0 &&
-                      inv.items.every((item) => Boolean(item.matchedProductId)) ? (
+                      {hasCompleteInboundInvoiceMappings(inv) ? (
                         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                           Vinculação Completa
                         </span>
                       ) : (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onManageMappings(inv);
+                          }}
+                          title="Clique para gerenciar os vínculos dos produtos desta NF-e"
+                          aria-label={`Gerenciar vínculos pendentes da NF-e ${inv.nfeNumber}`}
+                          className="cursor-pointer rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase text-amber-800 transition-colors hover:bg-amber-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:bg-amber-950/60 dark:text-amber-300 dark:hover:bg-amber-900/70"
+                        >
                           Vinculações Pendentes
-                        </span>
+                        </button>
                       )}
                     </>
                   )}

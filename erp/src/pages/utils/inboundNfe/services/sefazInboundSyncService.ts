@@ -15,6 +15,8 @@ export interface SefazSyncStatus {
 
 export interface SefazSyncResult {
   success: boolean;
+  queryType?: string;
+  recoveryAttempted?: boolean;
   environment?: 'production' | 'homologation';
   cStat?: string;
   xMotivo?: string;
@@ -32,11 +34,25 @@ export interface InboundManifestationResult {
   success: boolean;
   pending?: boolean;
   alreadyProcessed?: boolean;
+  processed?: boolean;
+  processedCount?: number;
+  rejectedCount?: number;
+  pendingCount?: number;
+  hasMore?: boolean;
+  retryable?: boolean;
+  retryAfter?: string | null;
+  nextAllowedAt?: string | null;
+  xmlRetrieved?: boolean;
+  xmlItemsCount?: number;
+  xmlLookupPending?: boolean;
+  sefazBlocked?: boolean;
+  skipped?: boolean;
   cStat?: string | null;
   xMotivo?: string | null;
   protocolNumber?: string | null;
   protocolDate?: string | null;
   error?: string;
+  message?: string;
 }
 
 /**
@@ -67,10 +83,14 @@ export async function fetchSefazSyncStatus(): Promise<SefazSyncStatus> {
     }
 
     const now = Date.now();
-    const nextAllowed = data.next_allowed_sync_at
+    const lastSyncMs = data.last_sync_at ? new Date(data.last_sync_at).getTime() : 0;
+    const storedNextAllowed = data.next_allowed_sync_at
       ? new Date(data.next_allowed_sync_at).getTime()
       : 0;
-    const lastSyncMs = data.last_sync_at ? new Date(data.last_sync_at).getTime() : 0;
+    const nextAllowed = Math.max(
+      storedNextAllowed,
+      lastSyncMs ? lastSyncMs + 60 * 60 * 1000 : 0,
+    );
     const isSyncing = data.status === 'syncing' && now - lastSyncMs < 180000;
     const isRateLimited =
       (data.status === 'rate_limited' || data.last_cstat === '656') && now < nextAllowed;
@@ -79,7 +99,7 @@ export async function fetchSefazSyncStatus(): Promise<SefazSyncStatus> {
     return {
       status: isSyncing ? 'syncing' : isRateLimited ? 'rate_limited' : data.status || 'idle',
       lastSyncAt: data.last_sync_at,
-      nextAllowedSyncAt: data.next_allowed_sync_at,
+      nextAllowedSyncAt: nextAllowed ? new Date(nextAllowed).toISOString() : null,
       lastNsu: data.last_nsu || '0',
       maxNsu: data.max_nsu || '0',
       lastCstat: data.last_cstat || null,
@@ -201,5 +221,62 @@ export async function sendInboundScienceOfEmission(
       pending: true,
       error: 'Não foi possível confirmar a resposta. Confira o histórico fiscal antes de tentar novamente.',
     };
+  }
+}
+
+/** Envia um lote de até vinte Ciências habilitadas pelo operador nas configurações fiscais. */
+export async function processNextAutomaticInboundScience(): Promise<InboundManifestationResult> {
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (sessionError || !token)
+    return { success: false, error: 'Faça login novamente para processar a Ciência automática.' };
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const response = await fetch('/api/nfe/inbound-manifestation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ action: 'process-auto' }),
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    const result = await response.json().catch(() => ({}));
+    return {
+      success: response.ok && result.success === true,
+      pending: result.pending === true,
+      alreadyProcessed: result.alreadyProcessed === true,
+      processed: result.processed === true,
+      processedCount: Number.isFinite(result.processedCount) ? result.processedCount : undefined,
+      rejectedCount: Number.isFinite(result.rejectedCount) ? result.rejectedCount : undefined,
+      pendingCount: Number.isFinite(result.pendingCount) ? result.pendingCount : undefined,
+      hasMore: result.hasMore === true,
+      retryable: result.retryable === true || response.status >= 500,
+      retryAfter: typeof result.retryAfter === 'string' ? result.retryAfter : null,
+      nextAllowedAt: typeof result.nextAllowedAt === 'string' ? result.nextAllowedAt : null,
+      xmlRetrieved: result.xmlRetrieved === true,
+      xmlItemsCount: Number.isFinite(result.xmlItemsCount) ? result.xmlItemsCount : undefined,
+      xmlLookupPending: result.xmlLookupPending === true,
+      sefazBlocked: result.sefazBlocked === true,
+      skipped: result.skipped === true,
+      cStat: typeof result.cStat === 'string' ? result.cStat : null,
+      xMotivo: typeof result.xMotivo === 'string' ? result.xMotivo : null,
+      protocolNumber: typeof result.protocolNumber === 'string' ? result.protocolNumber : null,
+      protocolDate: typeof result.protocolDate === 'string' ? result.protocolDate : null,
+      error: typeof result.error === 'string' ? result.error : undefined,
+      message: typeof result.message === 'string' ? result.message : undefined,
+    };
+  } catch {
+    return {
+      success: false,
+      pending: true,
+      retryable: true,
+      error: 'Não foi possível confirmar a Ciência automática. Confira o histórico fiscal antes de tentar novamente.',
+    };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

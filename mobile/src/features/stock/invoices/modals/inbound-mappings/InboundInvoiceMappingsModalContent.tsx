@@ -11,13 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Check, X } from 'lucide-react-native';
 import { SupplierFormModal } from '../../../suppliers/SupplierFormModal';
 import type { Invoice } from '../../../types/stock.types';
-import {
-  styles,
-  InboundSupplierSection,
-  InboundQuickProductModal,
-  InboundMappingItemCard,
-  useInboundInvoiceMappings,
-} from '.';
+import { styles } from './inboundMappings.styles';
+import { InboundSupplierSection } from './InboundSupplierSection';
+import { InboundQuickProductModal } from './InboundQuickProductModal';
+import { InboundMappingItemCard } from './InboundMappingItemCard';
+import { useInboundInvoiceMappings } from './hooks/useInboundInvoiceMappings';
 
 interface Props {
   invoice: Invoice | null;

@@ -200,6 +200,29 @@ export const isProductIdentificationLabelOnlyProfile = (roles: readonly unknown[
   return normalizedRoles.length > 0 && normalizedRoles.every((role) => labelOnlyRoles.has(role));
 };
 
+export const canShowProductVariationActionsMenu = ({
+  isIdentificationLabelOnlyProfile,
+  canPrintIdentificationLabel,
+}: {
+  isIdentificationLabelOnlyProfile: boolean;
+  canPrintIdentificationLabel: boolean;
+}): boolean => !isIdentificationLabelOnlyProfile || canPrintIdentificationLabel;
+
+export const getProductIdentificationLabelActionAvailability = ({
+  canPrint,
+  hasSingleVariation,
+  isDraft,
+  isMerged,
+}: {
+  canPrint: boolean;
+  hasSingleVariation: boolean;
+  isDraft: boolean;
+  isMerged: boolean;
+}) => {
+  const canOpenMenu = canPrint && hasSingleVariation && !isDraft;
+  return { canOpenMenu, canPrintLabel: canOpenMenu && !isMerged };
+};
+
 export const hasRolePermission = (
   actionId: string,
   roles: readonly unknown[],

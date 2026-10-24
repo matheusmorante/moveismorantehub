@@ -11,26 +11,35 @@ interface Props {
 export function useRoutesApi({ origin, destination, enabled = true }: Props) {
   const [route, setRoute] = useState<RouteComputationResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const lastCallRef = useRef<string>('');
+  const coordinatesRef = useRef({ origin, destination });
+  const routeKey = enabled && origin && destination
+    ? `${origin.latitude.toFixed(3)},${origin.longitude.toFixed(3)}->${destination.latitude.toFixed(3)},${destination.longitude.toFixed(3)}`
+    : null;
 
   useEffect(() => {
-    if (!enabled || !origin || !destination) {
+    coordinatesRef.current = { origin, destination };
+  }, [origin, destination]);
+
+  useEffect(() => {
+    if (!routeKey) {
       setRoute(null);
+      setLoading(false);
       return;
     }
-
-    const key = `${origin.latitude.toFixed(3)},${origin.longitude.toFixed(3)}->${destination.latitude.toFixed(3)},${destination.longitude.toFixed(3)}`;
-    if (lastCallRef.current === key) return;
 
     let active = true;
 
     const run = async () => {
+      const { origin, destination } = coordinatesRef.current;
+      if (!origin || !destination) return;
       setLoading(true);
-      lastCallRef.current = key;
-      const res = await computeRoute(origin, destination);
-      if (active) {
-        setRoute(res);
-        setLoading(false);
+      try {
+        const res = await computeRoute(origin, destination);
+        if (active) setRoute(res);
+      } catch {
+        if (active) setRoute(null);
+      } finally {
+        if (active) setLoading(false);
       }
     };
 
@@ -40,7 +49,7 @@ export function useRoutesApi({ origin, destination, enabled = true }: Props) {
       active = false;
       clearTimeout(timer);
     };
-  }, [origin?.latitude, origin?.longitude, destination?.latitude, destination?.longitude, enabled]);
+  }, [routeKey]);
 
   return {
     route,

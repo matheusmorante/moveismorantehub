@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { createReconciliationProductFormSchema, createReconciliationAttributeChoiceSchema, type ReconciliationResult, type ReconciliationProductValues } from '../../../../../../../shared-utils/reconciliationFormSchemas';
+import { createReconciliationProductFormSchema, type ReconciliationResult, type ReconciliationProductValues } from '../../../../../../../shared-utils/reconciliationFormSchemas';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { bulkNcmFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import {
   ReconciliationProductItem,
   ReconciliationVariationItem,
@@ -11,6 +10,11 @@ import { useReconciliationSupplierSearch } from './useReconciliationSupplierSear
 import CategoryAutocomplete from '../../../../../components/CategoryAutocomplete';
 import { VariationAttributeValueInput } from '../../components/variationTabs/VariationAttributeValueInput';
 import { toast } from 'react-toastify';
+import {
+  applyReconciliationAttributeToVariations,
+  getActiveReconciliationPendencies,
+  updateReconciliationVariationAttribute,
+} from '../../../../../../../shared-utils/productReconciliation';
 
 interface Props {
   product: ReconciliationProductItem;
@@ -68,34 +72,18 @@ export const ReconciliationProductCard: React.FC<Props> = ({
   const [hasChanges, setHasChanges] = useState(false);
 
   // Calcular pendências ativas locais em tempo real
-  const activeParentPendencies = useMemo(() => {
-    return product.pendencies.filter((p) => {
-      if (p.level !== 'parent') return false;
-      if (p.type === 'supplier' && supplierId.trim()) return false;
-      if (p.type === 'category' && (categoryId.trim() || categoryName.trim())) return false;
-      if (p.type === 'ncm' && bulkNcmFormSchema.safeParse({ ncm }).success) return false;
-      if (p.type === 'price' && Number(price) > 0) return false;
-      return true;
-    });
-  }, [product.pendencies, supplierId, categoryId, categoryName, ncm, price]);
-
-  const activeVariationPendencies = useMemo(() => {
-    return product.pendencies.filter((p) => {
-      if (p.level !== 'variation') return false;
-      const currentVar = variations.find((v) => v.id === p.variationId);
-      if (!currentVar) return true;
-
-      if (p.type === 'variation_price' && Number(currentVar.price) > 0) return false;
-
-      if (p.type === 'category_attribute' || p.type === 'incomplete_attribute') {
-        const attr = (currentVar.attributes || []).find(
-          (a) => a.name.toLowerCase().trim() === (p.attributeName || '').toLowerCase().trim()
-        );
-        if (attr && createReconciliationAttributeChoiceSchema([{ name: attr.name, dataType: p.attributeDataType }]).safeParse({ name: attr.name, value: attr.value }).success) return false;
-      }
-      return true;
-    });
-  }, [product.pendencies, variations]);
+  const { parent: activeParentPendencies, variations: activeVariationPendencies } = useMemo(
+    () =>
+      getActiveReconciliationPendencies(product.pendencies, {
+        supplierId,
+        categoryId,
+        categoryName,
+        ncm,
+        price,
+        variations,
+      }),
+    [product.pendencies, supplierId, categoryId, categoryName, ncm, price, variations]
+  );
 
   const editableParentPendencies = product.pendencies.filter((pendency) => pendency.level === 'parent');
   const totalActivePendencies = activeParentPendencies.length + activeVariationPendencies.length;
@@ -106,20 +94,8 @@ export const ReconciliationProductCard: React.FC<Props> = ({
     attrName: string,
     newValue: string
   ) => {
-    setVariations((prev) =>
-      prev.map((v) => {
-        if (v.id !== variationId) return v;
-        const attrs = [...(v.attributes || [])];
-        const existingIdx = attrs.findIndex(
-          (a) => a.name.toLowerCase().trim() === attrName.toLowerCase().trim()
-        );
-        if (existingIdx >= 0) {
-          attrs[existingIdx] = { ...attrs[existingIdx], value: newValue };
-        } else {
-          attrs.push({ name: attrName, value: newValue, showName: true });
-        }
-        return { ...v, attributes: attrs };
-      })
+    setVariations((previous) =>
+      updateReconciliationVariationAttribute(previous, variationId, attrName, newValue)
     );
     setHasChanges(true);
   };
@@ -127,20 +103,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
   // Aplicar atributo a todas as variações (Resolução de herança)
   const handleApplySharedAttribute = (attrName: string, value: string) => {
     if (!value.trim()) return;
-    setVariations((prev) =>
-      prev.map((v) => {
-        const attrs = [...(v.attributes || [])];
-        const existingIdx = attrs.findIndex(
-          (a) => a.name.toLowerCase().trim() === attrName.toLowerCase().trim()
-        );
-        if (existingIdx >= 0) {
-          attrs[existingIdx] = { ...attrs[existingIdx], value };
-        } else {
-          attrs.push({ name: attrName, value, showName: true });
-        }
-        return { ...v, attributes: attrs };
-      })
-    );
+    setVariations((previous) => applyReconciliationAttributeToVariations(previous, attrName, value));
     setHasChanges(true);
     toast.info(`Atributo "${attrName}" aplicado a todas as ${variations.length} variações.`);
   };

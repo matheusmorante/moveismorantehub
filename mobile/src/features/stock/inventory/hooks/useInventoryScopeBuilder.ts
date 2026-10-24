@@ -21,6 +21,16 @@ export interface ScopeSupplier {
   full_name: string;
 }
 
+export interface ScopeEmployee {
+  id: string;
+  type?: string;
+  full_name: string;
+  social_name?: string;
+  nickname?: string;
+  role?: string;
+  position?: string;
+}
+
 export type InventoryScopeType = 'full' | 'supplier' | 'custom';
 
 export interface ScopeConfiguration {
@@ -29,6 +39,7 @@ export interface ScopeConfiguration {
   hasStages?: boolean;
   supplierId?: string;
   responsibleId: string;
+  responsibleName: string;
   itemsSnapshot: Array<{
     productId: string;
     variationId?: string;

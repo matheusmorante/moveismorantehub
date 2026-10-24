@@ -12,6 +12,7 @@ const state = vi.hoisted(() => ({
         id: 'product-new',
         item_type: 'product',
         name: 'Mesa',
+        stock: 7,
         active: true,
         main_supplier_id: 'supplier-new',
         updated_at: '2026-09-25T12:00:00Z',
@@ -35,6 +36,26 @@ const state = vi.hoisted(() => ({
         full_name: 'Fábrica Nova',
         updated_at: '2026-09-25T12:00:00Z',
       },
+      {
+        id: 'employee-new',
+        person_type: 'employees',
+        full_name: 'Ana Souza',
+        position: 'Estoquista',
+        role: 'stockist',
+        roles: ['stockist'],
+        deleted: false,
+        updated_at: '2026-09-25T12:00:00Z',
+      },
+      {
+        id: 'employee-ineligible',
+        person_type: 'employees',
+        full_name: 'Sem acesso',
+        position: 'Sem Acesso',
+        role: 'pending',
+        roles: ['pending'],
+        deleted: false,
+        updated_at: '2026-09-25T12:00:00Z',
+      },
     ],
     inventory_catalog_deletions: [],
   } as Record<string, any[]>,
@@ -44,9 +65,14 @@ vi.mock('../../../../services/supabaseClient', () => ({
   supabase: {
     from: (table: string) => {
       const filters: Array<{ column: string; value: unknown; operator: string }> = [];
+      const orFilters: string[] = [];
       const query: any = {};
       query.select = () => query;
       query.order = () => query;
+      query.or = (filter: string) => {
+        orFilters.push(filter);
+        return query;
+      };
       for (const operator of ['gte', 'gt', 'eq'])
         query[operator] = (column: string, value: unknown) => {
           filters.push({ column, value, operator });
@@ -64,6 +90,17 @@ vi.mock('../../../../services/supabaseClient', () => ({
                   if (filter.operator === 'gt') return Number(current) > Number(filter.value);
                   if (filter.operator === 'gte') return String(current) >= String(filter.value);
                   return String(current) === String(filter.value);
+                })
+              ).filter((row) =>
+                orFilters.every((filter) => {
+                  if (filter.startsWith('deleted.eq.false'))
+                    return row.deleted === false || row.deleted == null;
+                  if (filter.includes('person_type.ilike.employees'))
+                    return (
+                      String(row.person_type || '').toLowerCase() === 'employees' ||
+                      Boolean(String(row.position || '').trim())
+                    );
+                  return true;
                 })
               ),
               error: null,
@@ -93,6 +130,7 @@ import {
   syncOfflineInventoryCatalog,
 } from './offlineInventoryCatalog';
 import {
+  fetchInventoryScopeEmployees,
   fetchInventoryScopeProducts,
   fetchInventoryScopeSuppliers,
 } from '../../../../services/stock/stockInventoryService';
@@ -109,6 +147,7 @@ beforeEach(() => {
         id: 'product-new',
         item_type: 'product',
         name: 'Mesa',
+        stock: 7,
         active: true,
         main_supplier_id: 'supplier-new',
         updated_at: '2026-09-25T12:00:00Z',
@@ -132,6 +171,26 @@ beforeEach(() => {
         full_name: 'Fábrica Nova',
         updated_at: '2026-09-25T12:00:00Z',
       },
+      {
+        id: 'employee-new',
+        person_type: 'employees',
+        full_name: 'Ana Souza',
+        position: 'Estoquista',
+        role: 'stockist',
+        roles: ['stockist'],
+        deleted: false,
+        updated_at: '2026-09-25T12:00:00Z',
+      },
+      {
+        id: 'employee-ineligible',
+        person_type: 'employees',
+        full_name: 'Sem acesso',
+        position: 'Sem Acesso',
+        role: 'pending',
+        roles: ['pending'],
+        deleted: false,
+        updated_at: '2026-09-25T12:00:00Z',
+      },
     ],
     inventory_catalog_deletions: [],
   };
@@ -146,9 +205,20 @@ describe('sincronização do catálogo local de inventário', () => {
     expect((await syncOfflineInventoryCatalog()).success).toBe(true);
     expect(Object.keys((await getOfflineInventoryCatalog()).products)).toEqual(['product-new']);
     expect(state.snapshot.suppliers['customer-1']).toBeUndefined();
+    expect(state.snapshot.employees['employee-new']).toMatchObject({
+      full_name: 'Ana Souza',
+      position: 'Estoquista',
+      role: 'stockist',
+    });
+    expect(state.snapshot.employees['employee-ineligible']).toBeDefined();
+    expect(state.snapshot.employees['supplier-new']).toBeUndefined();
+    expect(state.snapshot.employees['customer-1']).toBeUndefined();
     expect(await fetchInventoryScopeSuppliers()).toEqual([
       { id: 'supplier-new', full_name: 'Fábrica Nova' },
     ]);
+    expect(await fetchInventoryScopeEmployees()).toMatchObject({
+      employees: [{ id: 'employee-new', full_name: 'Ana Souza', position: 'Estoquista' }],
+    });
     expect(await fetchInventoryScopeProducts('full')).toMatchObject([
       { id: 'product-new', variation_id: 'variation-new', stock: 3 },
     ]);
@@ -184,6 +254,7 @@ describe('sincronização do catálogo local de inventário', () => {
       id: 'product-later',
       item_type: 'product',
       name: 'Armário',
+      stock: 4,
       updated_at: '2026-09-26T12:00:00Z',
     });
     state.rows.product_variations.push({
@@ -213,5 +284,19 @@ describe('sincronização do catálogo local de inventário', () => {
     expect(
       state.filters.some((filter) => filter.table === 'products' && filter.operator === 'eq')
     ).toBe(false);
+  });
+
+  it('permite repetir a sincronização do responsável após limpar o intervalo de tentativa', async () => {
+    state.deletionDenied = false;
+    expect((await syncOfflineInventoryCatalog()).success).toBe(true);
+    const requestCount = state.requests.length;
+
+    clearOfflineInventoryCatalogCache();
+    const result = await fetchInventoryScopeEmployees();
+
+    expect(result.employees).toMatchObject([
+      { id: 'employee-new', full_name: 'Ana Souza', position: 'Estoquista' },
+    ]);
+    expect(state.requests.length).toBeGreaterThan(requestCount);
   });
 });

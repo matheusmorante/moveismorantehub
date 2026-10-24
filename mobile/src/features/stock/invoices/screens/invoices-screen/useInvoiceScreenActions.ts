@@ -4,6 +4,8 @@ import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system/legacy';
 import type { Invoice, InvoiceDetail } from '../../../types/stock.types';
 import * as stockService from '../../../../../services/stockService';
+import { normalizeFiscalIdentifier } from '../../../../../../../shared-utils/fiscalIdentifiers';
+import { extractNfeAccessKey } from '../../utils/accessKey';
 
 export const useInvoiceScreenActions = (reload: () => void) => {
   const [activeInvoice, setActiveInvoice] = useState<Invoice | null>(null);
@@ -76,7 +78,7 @@ export const useInvoiceScreenActions = (reload: () => void) => {
   };
 
   const consultSefaz = async (key: string) => {
-    const accessKey = key.replace(/\D/g, '');
+    const accessKey = normalizeFiscalIdentifier(key);
     if (accessKey.length !== 44) return;
     const url = `https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&nfe=${accessKey}`;
     try {
@@ -87,11 +89,25 @@ export const useInvoiceScreenActions = (reload: () => void) => {
     }
   };
 
-  const importXml = async (file: { uri: string; name?: string }) => {
+  const importXml = async (
+    file: { uri: string; name?: string },
+    onStatusChange: (message: string) => void,
+    expectedAccessKey?: string
+  ) => {
     try {
+      onStatusChange('Lendo o arquivo XML...');
       const response = await fetch(file.uri);
       if (!response.ok) throw new Error('Não foi possível ler o arquivo XML selecionado.');
-      const result = await stockService.importInboundInvoiceXml(await response.text());
+      const xmlText = await response.text();
+
+      if (expectedAccessKey !== undefined) {
+        const expectedKey = normalizeFiscalIdentifier(expectedAccessKey);
+        if (expectedKey.length !== 44 || extractNfeAccessKey(xmlText) !== expectedKey) {
+          throw new Error('O XML selecionado não corresponde à chave desta nota fiscal incompleta.');
+        }
+      }
+
+      const result = await stockService.importInboundInvoiceXml(xmlText, onStatusChange);
       const importedInvoice: Invoice = {
         id: result.id,
         number: result.number,
@@ -102,18 +118,27 @@ export const useInvoiceScreenActions = (reload: () => void) => {
         issueDate: result.issueDate,
         totalValue: result.totalValue,
         itemsCount: result.itemsCount,
-        status: 'pending',
+        status: result.status,
         hasPendingBindings: result.itemsCount > 0,
         sefazStatus: 'pending',
       };
       setShowImportModal(false);
       reload();
+      if (result.outcome === 'unchanged') {
+        Alert.alert(
+          'NF-e já cadastrada',
+          'Esta nota fiscal já está cadastrada com os mesmos dados. Nenhuma alteração foi feita.'
+        );
+        return;
+      }
       Alert.alert(
-        'Nota Fiscal Adicionada!',
-        `NF-e #${result.number} · Série ${result.series}\nFornecedor: ${result.supplierName}\nTotal: R$ ${result.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nItens: ${result.itemsCount}\n\nDeseja gerenciar os vínculos dos produtos desta nota agora?`,
+        result.outcome === 'updated' ? 'Nota fiscal atualizada' : 'Nota Fiscal Adicionada!',
+        `${result.outcome === 'updated' ? `A NF-e já estava cadastrada; o XML trouxe dados novos e ela foi atualizada.${result.hasConflicts ? ' Campos com valores divergentes foram preservados.' : ''}\n\n` : ''}NF-e #${result.number} · Série ${result.series}\nFornecedor: ${result.supplierName}\nTotal: R$ ${result.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nItens: ${result.itemsCount}${result.itemsCount ? '\n\nDeseja gerenciar os vínculos dos produtos desta nota agora?' : ''}`,
         [
-          { text: 'Gerenciar vínculos', onPress: () => setMappingInvoice(importedInvoice) },
-          { text: 'Só fechar', style: 'cancel' },
+          ...(result.itemsCount
+            ? [{ text: 'Gerenciar vínculos', onPress: () => setMappingInvoice(importedInvoice) }]
+            : []),
+          { text: 'Fechar', style: 'cancel' as const },
         ]
       );
     } catch (importError) {
@@ -128,30 +153,6 @@ export const useInvoiceScreenActions = (reload: () => void) => {
         isDuplicate ? message.slice('Nota Fiscal Já Cadastrada:'.length).trim() : message
       );
     }
-  };
-
-  const confirmInvoiceDeletion = (invoice: Invoice) => {
-    Alert.alert(
-      'Remover nota fiscal?',
-      'Recebimentos e vínculos não são afetados.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Remover',
-          style: 'destructive',
-          onPress: () => {
-            void stockService
-              .deleteInboundInvoice(invoice.id)
-              .then(reload)
-              .catch((deleteError: unknown) => {
-                console.error('Failed to delete invoice:', deleteError);
-                Alert.alert('Não foi possível remover a nota', 'Tente novamente em instantes.');
-              });
-          },
-        },
-      ],
-      { cancelable: true }
-    );
   };
 
   return {
@@ -171,6 +172,5 @@ export const useInvoiceScreenActions = (reload: () => void) => {
     downloadInvoiceXml,
     consultSefaz,
     importXml,
-    confirmInvoiceDeletion,
   };
 };

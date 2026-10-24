@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useLabelPrintingState } from './useLabelPrintingState';
 import { createInitialLabelConfig } from '../services/labelModelMapper';
 
-const mocks = vi.hoisted(() => ({ error: vi.fn(), setImage: vi.fn(), setName: vi.fn(), openLogo: vi.fn(), category: 'precos', confirmLogo: vi.fn(), print: vi.fn(), initialProduct: null as any }));
-vi.mock('react-router-dom', () => ({ useLocation: () => ({ pathname: '/labels', state: null }), useSearchParams: () => [new URLSearchParams()] }));
+const mocks = vi.hoisted(() => ({ error: vi.fn(), setImage: vi.fn(), setName: vi.fn(), openLogo: vi.fn(), category: 'precos', confirmLogo: vi.fn(), print: vi.fn(), initialProduct: null as any, searchParams: new URLSearchParams() }));
+vi.mock('react-router-dom', () => ({ useLocation: () => ({ pathname: '/labels', state: null }), useSearchParams: () => [mocks.searchParams] }));
 vi.mock('./useLabelCategory', () => ({ useLabelCategory: () => ({ selectedCategory: mocks.category, printingMode: 'simple' }) }));
 vi.mock('./useLabelLayouts', () => ({ useLabelLayouts: () => ({ config: createInitialLabelConfig() }) }));
 vi.mock('./useLabelProducts', () => ({ useLabelProducts: () => ({ products: [], initialProduct: mocks.initialProduct }) }));
@@ -15,7 +15,7 @@ vi.mock('./useLabelPrintMode', () => ({ useLabelPrintMode: () => mocks.print }))
 vi.mock('../services/inventoryLabelService', () => ({ generateInventoryLabelsBatch: vi.fn() }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn() } }));
 afterEach(() => { cleanup(); vi.useRealTimers(); });
-beforeEach(() => { vi.clearAllMocks(); mocks.category = 'precos'; mocks.initialProduct = null; });
+beforeEach(() => { vi.clearAllMocks(); mocks.category = 'precos'; mocks.initialProduct = null; mocks.searchParams = new URLSearchParams(); });
 const image = () => new File(['photo'], 'Logo.png', { type: 'image/png' });
 const event = (file: File) => ({ target: { files: [file], value: 'chosen' } }) as never;
 
@@ -38,6 +38,28 @@ describe('label image read owner', () => {
     });
     rerender();
     expect(result.current.labelItems).toHaveLength(1);
+  });
+
+  it('fills an identification sheet with the linked variation', async () => {
+    mocks.category = 'identificacao';
+    mocks.searchParams = new URLSearchParams({ fillSheet: '1' });
+    mocks.initialProduct = {
+      id: 'variation-id',
+      parentId: 'product-id',
+      isVariation: true,
+      description: 'Camiseta Azul',
+      unitPrice: 49.9,
+      images: [],
+    };
+    const { result } = renderHook(useLabelPrintingState);
+
+    await waitFor(() => expect(result.current.labelItems).toHaveLength(1));
+    const config = createInitialLabelConfig();
+    expect(result.current.labelItems[0]).toMatchObject({
+      quantity: Math.max(config.columns * config.rows, 10),
+      productId: 'product-id',
+      variationId: 'variation-id',
+    });
   });
 
   it('blocks invalid input before FileReader and reports a read failure without changing the queue', async () => {

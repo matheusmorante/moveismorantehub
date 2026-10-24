@@ -1,3 +1,6 @@
+import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../shared-utils/productSupplierRequirement';
+import { PRODUCT_NAME_REQUIRED_MESSAGE } from '../../../../../shared-utils/productNameRequirement';
+
 export type MobileProductFormTabId =
   | 'geral'
   | 'fotos'
@@ -12,6 +15,14 @@ export interface MobileProductFormErrorNavigation {
   variationIndex?: number;
   variationPanel?: 'estoque' | 'fotos';
 }
+
+const PRODUCT_UNIT_PRICE_ERROR_MESSAGE =
+  'Por favor, informe o Preço de Venda do produto na aba Estoque e Precificação.';
+const PRODUCT_MIN_STOCK_MOBILE_ERROR_MESSAGE =
+  'Informe um número finito maior ou igual a zero.';
+const PRODUCT_MIN_STOCK_SCHEMA_ERROR_MESSAGE =
+  'Informe um valor finito maior ou igual a zero.';
+const PRODUCT_FORM_REQUIRED_FIELDS_ERROR_MESSAGE = 'Preencha todos os campos obrigatórios.';
 
 const PRODUCT_FORM_TABS = new Set<MobileProductFormTabId>([
   'geral',
@@ -53,9 +64,70 @@ export const resolveMobileProductFormErrorNavigation = (
     };
   }
 
+  if (fieldPath === 'unitPrice' || fieldPath === 'costPrice') {
+    return { tab: 'estoque' };
+  }
+
+  if (fieldPath === 'name') {
+    return { tab: 'geral' };
+  }
+
   if (PRODUCT_FORM_TABS.has(fieldPath as MobileProductFormTabId)) {
     return { tab: fieldPath as MobileProductFormTabId };
   }
 
   return undefined;
+};
+
+export const isMobileProductUnitPriceError = (
+  fieldPath: string,
+  messages: Record<string, string>
+): boolean => {
+  const message = messages[fieldPath] || Object.values(messages)[0];
+  return (
+    fieldPath === 'unitPrice' ||
+    (fieldPath === 'estoque' && message === 'Informe o preço de venda do produto.')
+  );
+};
+
+export const isMobileProductCostPriceError = (
+  fieldPath: string,
+  messages: Record<string, string>
+): boolean => fieldPath === 'costPrice' && Boolean(messages.costPrice);
+
+export const isMobileProductSupplierError = (
+  fieldPath: string,
+  messages: Record<string, string>
+): boolean => {
+  const message = messages[fieldPath] || Object.values(messages)[0];
+  return (
+    (fieldPath === 'mainSupplierId' || fieldPath === 'estoque') &&
+    message === PRODUCT_SUPPLIER_REQUIRED_MESSAGE
+  );
+};
+
+export const isMobileProductNameError = (
+  fieldPath: string,
+  messages: Record<string, string>
+): boolean =>
+  fieldPath === 'name' && messages.name === PRODUCT_NAME_REQUIRED_MESSAGE;
+
+export const resolveMobileProductFormErrorMessage = (
+  fieldPath: string,
+  messages: Record<string, string>,
+  isDraft = false
+): string => {
+  const message = messages[fieldPath] || Object.values(messages)[0];
+  if (isMobileProductUnitPriceError(fieldPath, messages)) {
+    return PRODUCT_UNIT_PRICE_ERROR_MESSAGE;
+  }
+  if (isMobileProductNameError(fieldPath, messages)) {
+    return isDraft ? PRODUCT_NAME_REQUIRED_MESSAGE : PRODUCT_FORM_REQUIRED_FIELDS_ERROR_MESSAGE;
+  }
+  if (fieldPath === 'minStock' && message === PRODUCT_MIN_STOCK_MOBILE_ERROR_MESSAGE) {
+    return isDraft
+      ? PRODUCT_MIN_STOCK_SCHEMA_ERROR_MESSAGE
+      : PRODUCT_FORM_REQUIRED_FIELDS_ERROR_MESSAGE;
+  }
+  return message || 'Revise os campos informados.';
 };

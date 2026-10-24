@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 import React from 'react';
 import { cleanup, fireEvent, render, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -28,7 +28,7 @@ it.each([0, 1])('executa Gerenciar vínculos após mousedown no layout %s', (lay
       onManageMappings={onManageMappings}
       onViewDetails={onViewDetails}
       onDownloadXml={vi.fn()}
-      onDelete={vi.fn()}
+      onImportSummaryXml={vi.fn()}
     />
   );
   // Ambos os layouts ficam montados; o CSS alterna qual está visível.
@@ -50,7 +50,7 @@ it('fecha os menus ao clicar fora ou pressionar Escape', () => {
       onManageMappings={vi.fn()}
       onViewDetails={vi.fn()}
       onDownloadXml={vi.fn()}
-      onDelete={vi.fn()}
+      onImportSummaryXml={vi.fn()}
     />
   );
   const trigger = view.getAllByRole('button', { name: 'Mais opções' })[0];

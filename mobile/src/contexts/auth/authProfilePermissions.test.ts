@@ -21,6 +21,7 @@ describe('mobile module permission flags', () => {
     );
 
     expect(flags.canUsePermission('viewMetaCatalog', ['manager'])).toBe(true);
+    expect(flags.canUsePermission('finalizeStockInventory', ['manager', 'stockist'])).toBe(true);
     expect(flags.canSeeProducts).toBe(true);
   });
 
@@ -28,6 +29,17 @@ describe('mobile module permission flags', () => {
     const flags = deriveAuthRoleFlags({ role: 'manager' }, {}, false);
 
     expect(flags.canUsePermission('viewMetaCatalog', ['manager'])).toBe(false);
+    expect(flags.canUsePermission('finalizeStockInventory', ['manager', 'stockist'])).toBe(false);
     expect(flags.canSeeProducts).toBe(false);
+  });
+
+  it('respects an explicit empty finalization permission list', () => {
+    const flags = deriveAuthRoleFlags(
+      { role: 'manager' },
+      { finalizeStockInventory: [] },
+      true
+    );
+
+    expect(flags.canUsePermission('finalizeStockInventory', ['manager', 'stockist'])).toBe(false);
   });
 });

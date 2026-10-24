@@ -51,7 +51,7 @@
     "react-native": "0.86.3",
     "react-native-audio-api": "^0.13.5",
     "react-native-get-random-values": "~1.11.0",
-    "react-native-maps": "1.29.11",
+    "react-native-maps": "1.27.2",
     "react-native-pager-view": "8.0.2",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "15.15.4",

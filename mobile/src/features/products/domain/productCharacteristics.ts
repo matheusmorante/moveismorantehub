@@ -358,7 +358,8 @@ export const getMobileVariationColorSummary = (variations: readonly unknown[] = 
 export const upsertProductCharacteristicAttribute = (
   rawAttributes: unknown,
   name: string,
-  value: unknown
+  value: unknown,
+  defaultShowName = true
 ): ProductCharacteristicAttribute[] => {
   const next = getProductCharacteristicAttributes(rawAttributes);
   const normalizedName = normalizeName(name);
@@ -374,7 +375,7 @@ export const upsertProductCharacteristicAttribute = (
     ...existing,
     name,
     value: String(value),
-    showName: existing?.showName ?? true,
+    showName: existing?.showName ?? defaultShowName,
   };
   if (index >= 0) next[index] = updated;
   else next.push(updated);

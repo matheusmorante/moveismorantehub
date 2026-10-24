@@ -24,6 +24,12 @@ import { DeliveryBottomSheet } from '../components/deliveryMap/DeliveryBottomShe
 import { TodaySummaryCard } from '../components/TodaySummaryCard';
 import { DeliveryTimelineView } from '../components/schedule/DeliveryTimelineView';
 import { NativeAssembliesScreen } from '../../assemblies/screens/NativeAssembliesScreen';
+import { getAssemblyTasks } from '../../assemblies/assemblyTasks';
+import type { AssemblyHandlingOption } from '../../../utils/aiSummaryHelper';
+import { getLocalDateString } from '../../../utils/orderUtils';
+import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
+import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { supabase } from '../../../services/supabaseClient';
 
 export type DeliveriesSubTab = 'today' | 'schedule' | 'assemblies' | 'map';
 
@@ -46,13 +52,44 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<DeliveriesSubTab>(initialTab);
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
+  const [selectedMapDate, setSelectedMapDate] = useState('');
   const [scheduleDateScope, setScheduleDateScope] = useState<DeliveryRouteDateScope>('today');
-  const dateScopeDisabled = activeTab === 'assemblies';
+  const [handlingOptions, setHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
   const tabsScrollRef = useRef<ScrollView>(null);
   const tabsScrollMetrics = useRef({ viewport: 0, content: 0, offset: 0 });
   const tabLayouts = useRef<Partial<Record<DeliveriesSubTab, { x: number; width: number }>>>({});
   const [tabsScrollEdges, setTabsScrollEdges] = useState({ left: false, right: false });
   const [tabWidth, setTabWidth] = useState(78);
+
+  useEffect(() => {
+    let active = true;
+    const loadHandlingOptions = async () => {
+      const cached = await offlineStorageService
+        .getWorkingSet<AssemblyHandlingOption[]>('order_handling_options_v1')
+        .catch(() => null);
+      if (active && Array.isArray(cached?.data)) setHandlingOptions(cached.data);
+
+      try {
+        const { data, error } = await supabase.from('settings').select('*').limit(1);
+        if (active && !error && data?.length) {
+          const settings = data[0]?.data || data[0];
+          const options = [
+            ...(settings.deliveryHandlingOptions || []),
+            ...(settings.pickupHandlingOptions || []),
+          ];
+          setHandlingOptions(options);
+          void offlineStorageService
+            .cacheWorkingSet('order_handling_options_v1', options)
+            .catch(() => {});
+        }
+      } catch {}
+    };
+
+    void loadHandlingOptions();
+    return () => {
+      active = false;
+    };
+  }, []);
   const updateTabsScrollMetrics = (update: Partial<typeof tabsScrollMetrics.current>) => {
     const metrics = { ...tabsScrollMetrics.current, ...update };
     tabsScrollMetrics.current = metrics;
@@ -113,7 +150,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     return () => clearTimeout(timer);
   }, [activeTab, scrollTabIntoView]);
 
-  // Hooks de Dados e Localização (unificado para as 3 abas: Resumo, Cronograma e Mapa)
+  // Hooks de dados e localização compartilhados entre Resumo, Entregas e Mapa.
   const {
     orders,
     routeItems,
@@ -124,6 +161,45 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     refreshing,
     onRefresh,
   } = useDeliveryRoute(scheduleDateScope);
+  const todayDate = getLocalDateString(new Date());
+  const assemblyTasks = useMemo(
+    () => getAssemblyTasks(orders, handlingOptions),
+    [orders, handlingOptions]
+  );
+  const visibleAssemblyTasks = useMemo(
+    () =>
+      assemblyTasks
+        .filter((task) =>
+          scheduleDateScope === 'today' ? task.dateKey === todayDate : task.dateKey > todayDate
+        )
+        .sort(
+          (a, b) =>
+            a.dateKey.localeCompare(b.dateKey) ||
+            (a.scheduledTime || '').localeCompare(b.scheduledTime || '')
+        ),
+    [assemblyTasks, scheduleDateScope, todayDate]
+  );
+  const assemblyCount = visibleAssemblyTasks.length;
+  const mapDates = useMemo(
+    () =>
+      Array.from(
+        new Set(routeItems.map((item) => getOperationalScheduleDate(item.order)).filter(Boolean))
+      ).sort(),
+    [routeItems]
+  );
+  useEffect(() => {
+    setSelectedMapDate((current) => (mapDates.includes(current) ? current : mapDates[0] || ''));
+  }, [mapDates]);
+  useEffect(() => setSelectedMarkerItem(null), [scheduleDateScope]);
+  const mapItems = useMemo(
+    () =>
+      scheduleDateScope === 'next_days'
+        ? routeItems.filter(
+            (item) => getOperationalScheduleDate(item.order) === selectedMapDate
+          )
+        : routeItems,
+    [routeItems, scheduleDateScope, selectedMapDate]
+  );
   const { coords: driverCoords } = useDriverLocation();
   const isDelivering = Boolean(currentDelivery);
   const activeOrder = currentDelivery
@@ -185,36 +261,25 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {/* Barra de Tabs Superior: [ Resumo ] [ Cronograma ] [ Montagens ] [ Mapa ] */}
+      {/* Barra de abas de Operações */}
       <View style={[styles.headerContainer, isDarkMode && styles.headerContainerDark]}>
         <View style={styles.titleRow}>
-          {/* O período não se aplica às montagens, mas os controles permanecem visíveis. */}
           <View style={[styles.dateScopeContainer, isDarkMode && styles.dateScopeContainerDark]}>
             <TouchableOpacity
               style={[
                 styles.dateScopeBtn,
-                dateScopeDisabled && styles.dateScopeBtnDisabled,
-                dateScopeDisabled && isDarkMode && styles.dateScopeBtnDisabledDark,
-                !dateScopeDisabled && scheduleDateScope === 'today' && styles.dateScopeBtnActive,
+                scheduleDateScope === 'today' && styles.dateScopeBtnActive,
               ]}
               onPress={() => setScheduleDateScope('today')}
-              disabled={dateScopeDisabled}
               accessibilityRole="button"
-              accessibilityState={{ disabled: dateScopeDisabled }}
-              accessibilityHint={
-                dateScopeDisabled ? 'O filtro de período não se aplica às montagens.' : undefined
-              }
+              accessibilityState={{ selected: scheduleDateScope === 'today' }}
               activeOpacity={0.8}
             >
               <Text
                 style={[
                   styles.dateScopeBtnText,
                   isDarkMode && styles.dateScopeBtnTextDark,
-                  !dateScopeDisabled &&
-                    scheduleDateScope === 'today' &&
-                    styles.dateScopeBtnTextActive,
-                  dateScopeDisabled && styles.dateScopeBtnTextDisabled,
-                  dateScopeDisabled && isDarkMode && styles.dateScopeBtnTextDisabledDark,
+                  scheduleDateScope === 'today' && styles.dateScopeBtnTextActive,
                 ]}
               >
                 Hoje
@@ -224,30 +289,18 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             <TouchableOpacity
               style={[
                 styles.dateScopeBtn,
-                dateScopeDisabled && styles.dateScopeBtnDisabled,
-                dateScopeDisabled && isDarkMode && styles.dateScopeBtnDisabledDark,
-                !dateScopeDisabled &&
-                  scheduleDateScope === 'next_days' &&
-                  styles.dateScopeBtnActive,
+                scheduleDateScope === 'next_days' && styles.dateScopeBtnActive,
               ]}
               onPress={() => setScheduleDateScope('next_days')}
-              disabled={dateScopeDisabled}
               accessibilityRole="button"
-              accessibilityState={{ disabled: dateScopeDisabled }}
-              accessibilityHint={
-                dateScopeDisabled ? 'O filtro de período não se aplica às montagens.' : undefined
-              }
+              accessibilityState={{ selected: scheduleDateScope === 'next_days' }}
               activeOpacity={0.8}
             >
               <Text
                 style={[
                   styles.dateScopeBtnText,
                   isDarkMode && styles.dateScopeBtnTextDark,
-                  !dateScopeDisabled &&
-                    scheduleDateScope === 'next_days' &&
-                    styles.dateScopeBtnTextActive,
-                  dateScopeDisabled && styles.dateScopeBtnTextDisabled,
-                  dateScopeDisabled && isDarkMode && styles.dateScopeBtnTextDisabledDark,
+                  scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive,
                 ]}
               >
                 Dias Seguintes
@@ -256,7 +309,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
           </View>
         </View>
 
-        {/* Tabs no Topo em Pílulas: [ Resumo ] [ Cronograma ] [ Montagens ] [ Mapa ] */}
+        {/* Abas Resumo, Entregas, Montagens e Mapa */}
         <View style={styles.tabsViewport}>
           <View style={styles.tabArrowSlot}>
             {tabsScrollEdges.left && (
@@ -279,7 +332,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             contentContainerStyle={styles.tabsPillContainer}
             onLayout={({ nativeEvent }) => {
               const width = nativeEvent.layout.width;
-              setTabWidth(width / 3);
+              setTabWidth(Math.max(60, (width - 4) / 4));
               updateTabsScrollMetrics({ viewport: width });
             }}
             onContentSizeChange={(content) => updateTabsScrollMetrics({ content })}
@@ -316,7 +369,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
               <Text
                 style={[styles.tabBtnText, activeTab === 'schedule' && styles.tabBtnTextActive]}
               >
-                Cronograma
+                Entregas
               </Text>
             </TouchableOpacity>
 
@@ -385,18 +438,23 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         >
           <TodaySummaryCard
             orders={orders && orders.length > 0 ? orders : routeItems.map((item) => item.order)}
+            activities={routeItems}
+            nextAssembly={visibleAssemblyTasks[0]}
+            assemblyCount={assemblyCount}
             onSelectOrder={onSelectOrder}
+            onViewAll={() => setActiveTab('schedule')}
+            onViewAssemblies={() => setActiveTab('assemblies')}
             periodFilter={scheduleDateScope}
             isDarkMode={isDarkMode}
           />
         </ScrollView>
       ) : activeTab === 'schedule' ? (
-        /* Aba CRONOGRAMA: Timeline vertical enxuta e focada */
+        /* Aba ENTREGAS: Timeline vertical enxuta e focada */
         loading ? (
           <View style={styles.loadingCenter}>
             <ActivityIndicator size="large" color="#2563eb" />
             <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>
-              Carregando cronograma de operação...
+              Carregando entregas...
             </Text>
           </View>
         ) : (
@@ -407,6 +465,8 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             onStartDelivery={handleStartDelivery}
             onViewOrder={handleViewOrder}
             onOpenDeliveryFlow={handleOpenDeliveryFlow}
+            handlingOptions={handlingOptions}
+            dateScope={scheduleDateScope}
             isDarkMode={isDarkMode}
           />
         )
@@ -414,11 +474,57 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         <NativeAssembliesScreen
           isDarkMode={isDarkMode}
           initialSubTab={initialAssemblySubTab}
+          dateScope={scheduleDateScope}
+          handlingOptions={handlingOptions}
           onSelectOrder={onSelectOrder}
         />
       ) : (
         /* Aba MAPA: Visão geográfica limpa no mapa */
         <View style={styles.mapArea}>
+          {scheduleDateScope === 'next_days' && mapDates.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.mapDateList}
+              accessibilityLabel="Selecionar data da rota"
+            >
+              {mapDates.map((dateKey) => {
+                const [year, month, day] = dateKey.split('-').map(Number);
+                const label = new Date(year, month - 1, day, 12).toLocaleDateString('pt-BR', {
+                  weekday: 'short',
+                  day: '2-digit',
+                  month: '2-digit',
+                });
+                return (
+                  <TouchableOpacity
+                    key={dateKey}
+                    style={[
+                      styles.mapDateChip,
+                      selectedMapDate === dateKey && styles.mapDateChipActive,
+                      isDarkMode && styles.mapDateChipDark,
+                      isDarkMode && selectedMapDate === dateKey && styles.mapDateChipActiveDark,
+                    ]}
+                    onPress={() => {
+                      setSelectedMapDate(dateKey);
+                      setSelectedMarkerItem(null);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedMapDate === dateKey }}
+                  >
+                    <Text
+                      style={[
+                        styles.mapDateText,
+                        isDarkMode && styles.mapDateTextDark,
+                        selectedMapDate === dateKey && styles.mapDateTextActive,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
           {loading ? (
             <View style={styles.loadingCenter}>
               <ActivityIndicator size="large" color="#2563eb" />
@@ -430,7 +536,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             <View style={{ flex: 1, position: 'relative' }}>
               <MapErrorBoundary isDarkMode={isDarkMode}>
                 <DeliveryMapView
-                  items={routeItems}
+                  items={mapItems}
                   driverCoords={driverCoords}
                   storeCoords={storeCoords}
                   polylineCoords={polylineCoords}
@@ -471,7 +577,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: '#ffffff',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 10,
     paddingBottom: 0,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
@@ -509,15 +615,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dateScopeBtnDisabled: {
-    backgroundColor: '#e2e8f0',
-    opacity: 0.55,
-    elevation: 0,
-    shadowOpacity: 0,
-  },
-  dateScopeBtnDisabledDark: {
-    backgroundColor: '#475569',
-  },
   dateScopeBtnActive: {
     backgroundColor: '#0055ff',
     shadowColor: '#0055ff',
@@ -538,12 +635,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
   },
-  dateScopeBtnTextDisabled: {
-    color: '#64748b',
-  },
-  dateScopeBtnTextDisabledDark: {
-    color: '#cbd5e1',
-  },
   textLight: {
     color: '#f8fafc',
   },
@@ -561,10 +652,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     minHeight: 36,
-    marginVertical: 16,
+    marginVertical: 8,
   },
   tabsScrollView: { flex: 1, alignSelf: 'stretch' },
-  tabArrowSlot: { width: 40, alignItems: 'center', justifyContent: 'center' },
+  tabArrowSlot: { width: 28, alignItems: 'center', justifyContent: 'center' },
   tabArrow: {
     width: 24,
     height: 24,
@@ -617,6 +708,19 @@ const styles = StyleSheet.create({
   mapArea: {
     flex: 1,
   },
+  mapDateList: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  mapDateChip: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  mapDateChipActive: { backgroundColor: '#2563eb' },
+  mapDateChipDark: { backgroundColor: '#334155' },
+  mapDateChipActiveDark: { backgroundColor: '#1d4ed8' },
+  mapDateText: { color: '#475569', fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
+  mapDateTextDark: { color: '#e2e8f0' },
+  mapDateTextActive: { color: '#ffffff' },
   loadingCenter: {
     flex: 1,
     alignItems: 'center',

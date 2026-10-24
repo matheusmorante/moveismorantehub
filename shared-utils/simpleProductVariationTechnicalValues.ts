@@ -1,5 +1,4 @@
 export interface SimpleProductVariationTechnicalValuesInput {
-  readonly isExistingProduct: boolean;
   readonly hasVariations: boolean;
   readonly variationCount: number;
   readonly parentTechnicalValues?: Record<string, unknown> | null;
@@ -7,19 +6,19 @@ export interface SimpleProductVariationTechnicalValuesInput {
 }
 
 /**
- * A variação única de um produto novo herda os valores técnicos do pai.
- * Produtos salvos e famílias mantêm os valores próprios da variação.
+ * A variação única de um produto simples herda os valores técnicos do pai.
  */
 export const getSimpleProductVariationTechnicalValues = ({
-  isExistingProduct,
   hasVariations,
   variationCount,
   parentTechnicalValues,
   currentVariationTechnicalValues,
 }: SimpleProductVariationTechnicalValuesInput): Record<string, unknown> | undefined => {
-  if (isExistingProduct || hasVariations || variationCount !== 1) {
+  if (hasVariations || variationCount !== 1) {
     return currentVariationTechnicalValues;
   }
 
-  return parentTechnicalValues == null ? undefined : { ...parentTechnicalValues };
+  return parentTechnicalValues == null
+    ? currentVariationTechnicalValues
+    : { ...parentTechnicalValues };
 };

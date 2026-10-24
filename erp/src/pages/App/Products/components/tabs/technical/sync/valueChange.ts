@@ -31,6 +31,16 @@ export const applyTechnicalValueChangeToProduct = (
     technicalValues: cleanedTech,
   };
 
+  if (!next.hasVariations && next.variations?.length === 1) {
+    const variation = next.variations[0];
+    next.variations = [
+      {
+        ...variation,
+        technicalValues: { ...cleanedTech },
+      },
+    ];
+  }
+
   Object.assign(next, getProductTechnicalRootPatch(fieldName, value));
 
   const norm = normalizeTechnicalName(fieldName);

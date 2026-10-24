@@ -1,6 +1,7 @@
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { createMobileProductFormSchema } from '../../../../../shared-utils/mobileProductFormSchema';
 import { deriveProductDiscountFields } from '../../../../../shared-utils/productDiscountFields';
+import { withOwnInboundVariationCost } from '../../../../../shared-utils/inboundQuickRegisterRules';
 import {
   Check,
   ChevronLeft,
@@ -40,7 +41,12 @@ import {
   shouldShowMobileProductVariationsTab,
 } from '../domain/mobileProductVariationMode';
 import {
+  isMobileProductNameError,
+  isMobileProductCostPriceError,
+  isMobileProductSupplierError,
+  isMobileProductUnitPriceError,
   resolveMobileProductFormErrorNavigation,
+  resolveMobileProductFormErrorMessage,
   type MobileProductFormErrorNavigation,
   type MobileProductFormTabId,
 } from '../domain/mobileProductFormErrorNavigation';
@@ -63,6 +69,7 @@ import {
 } from '../domain/productRegistrationRules';
 import { prepareMobileProductSaveState } from '../domain/productSaveState';
 import { syncMobileVariationsWithParent } from '../domain/productVariationParentSync';
+import { resolveMobileProductFinalPurchasePrice } from '../domain/productPurchasePrice';
 import { ProductFormBasicTab } from '../modals/tabs/ProductFormBasicTab';
 import { ProductFormDescriptionTab } from '../modals/tabs/ProductFormDescriptionTab';
 import { ProductFormFiscalTab } from '../modals/tabs/ProductFormFiscalTab';
@@ -139,7 +146,7 @@ const INITIAL_FORM = {
   includeBrand: true,
   titleOrder: ['type', 'environment', 'line', 'brand', 'complement'],
   featured: false,
-  productKind: 'normal',
+  productKind: undefined,
   condition: 'novo',
   category: '',
   categoryId: '',
@@ -158,7 +165,7 @@ const INITIAL_FORM = {
   freightCost: '',
   finalPurchasePrice: 0,
   stock: '',
-  minStock: '',
+  minStock: 0,
   width: '',
   height: '',
   depth: '',
@@ -182,6 +189,8 @@ interface Props {
   visible: boolean;
   product?: any | null;
   initialData?: Record<string, any>;
+  showInboundCostPrice?: boolean;
+  inboundVariationCostPrice?: number;
   dark: boolean;
   onClose: () => void;
   onSave: (data: any) => Promise<string | void>;
@@ -192,6 +201,8 @@ export const ProductFormScreen: React.FC<Props> = ({
   visible,
   product,
   initialData,
+  showInboundCostPrice = false,
+  inboundVariationCostPrice,
   dark,
   onClose,
   onSave,
@@ -203,6 +214,10 @@ export const ProductFormScreen: React.FC<Props> = ({
     hideCatalogPublicationStatus,
   } = useProductFormPermissions();
   const [activeTab, setActiveTab] = useState<TabId>('geral');
+  const [nameError, setNameError] = useState(false);
+  const [costPriceError, setCostPriceError] = useState(false);
+  const [unitPriceError, setUnitPriceError] = useState(false);
+  const [supplierError, setSupplierError] = useState(false);
   const [variationValidationTarget, setVariationValidationTarget] =
     useState<MobileProductFormErrorNavigation | null>(null);
   const [formData, setFormDataRaw] = useState<any>(INITIAL_FORM);
@@ -214,6 +229,13 @@ export const ProductFormScreen: React.FC<Props> = ({
   const clientProductIdRef = useRef<string | null>(null);
   const clientProductCodeRef = useRef<string | null>(null);
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    setNameError(false);
+    setCostPriceError(false);
+    setUnitPriceError(false);
+    setSupplierError(false);
+  }, [visible, product?.id]);
 
   const clearVariationValidationTarget = useCallback(
     () => setVariationValidationTarget(null),
@@ -326,6 +348,7 @@ export const ProductFormScreen: React.FC<Props> = ({
       const comboItems = getMobileProductRootCompositionItems(product);
       const unitPrice = product.unitPrice ?? product.unit_price ?? '';
       const promoPrice = product.promoPrice ?? product.promo_price ?? '';
+      const finalPurchasePrice = resolveMobileProductFinalPurchasePrice(product);
       const discountFields = deriveProductDiscountFields(
         parseLocalizedPrice(unitPrice),
         parseLocalizedPrice(promoPrice)
@@ -378,7 +401,7 @@ export const ProductFormScreen: React.FC<Props> = ({
         ipiPercent: product.ipi_percent ?? product.ipiPercent ?? '',
         freightType: product.freight_type || product.freightType || 'fixed',
         freightCost: product.freight_cost ?? product.freightCost ?? '',
-        finalPurchasePrice: product.final_purchase_price ?? product.finalPurchasePrice ?? 0,
+        finalPurchasePrice,
         stock: product.stock ?? '',
         minStock: product.min_stock ?? product.minStock ?? '',
         width: product.width ?? '',
@@ -455,6 +478,7 @@ export const ProductFormScreen: React.FC<Props> = ({
         ...(product && !product.id ? product : {}),
         ...(initialData || {}),
       };
+      initialFormData.finalPurchasePrice = resolveMobileProductFinalPurchasePrice(initialFormData);
       initialFormData.variations = syncMobileVariationsWithParent(
         initialFormData.variations,
         initialFormData
@@ -546,21 +570,47 @@ export const ProductFormScreen: React.FC<Props> = ({
     isStockistOnly,
     published: false,
     existingProductImageCount,
+    requireInboundCostPrice: showInboundCostPrice,
   }), formData);
   const finalForm = useZodForm(createMobileProductFormSchema({
     draft: false,
     isStockistOnly,
     published: (product?.status || formData.status) === 'published',
     existingProductImageCount,
+    requireInboundCostPrice: showInboundCostPrice,
   }), formData);
 
   const handleSubmit = useCallback(
     async (isDraft: boolean) => {
+      const existingVariationCount = Array.isArray(product?.allVariations)
+        ? product.allVariations.length
+        : Array.isArray(product?.product_variations)
+          ? product.product_variations.length
+          : Array.isArray(product?.variations)
+            ? product.variations.length
+            : 0;
+      const formDataToValidate =
+        inboundVariationCostPrice !== undefined &&
+        Array.isArray(formData.variations) &&
+        formData.variations.length > existingVariationCount
+          ? {
+              ...formData,
+              variations: formData.variations.map((variation: any, index: number) =>
+                index === formData.variations.length - 1
+                  ? withOwnInboundVariationCost(variation, inboundVariationCostPrice)
+                  : variation
+              ),
+            }
+          : formData;
       await (isDraft ? draftForm : finalForm).validateAndRun(
-        formData,
+        formDataToValidate,
         async (validated) => {
           const saveAsDraft = isDraft;
           setSaving(true);
+          setNameError(false);
+          setCostPriceError(false);
+          setUnitPriceError(false);
+          setSupplierError(false);
           try {
             const productCode =
               String(validated.code || clientProductCodeRef.current || '').trim() ||
@@ -605,7 +655,14 @@ export const ProductFormScreen: React.FC<Props> = ({
         (errors) => {
           const messages = flattenFormErrors(errors);
           const firstErrorPath = Object.keys(messages)[0] || '';
-          const navigation = resolveMobileProductFormErrorNavigation(firstErrorPath);
+          const fieldPath = isMobileProductNameError('name', messages)
+            ? 'name'
+            : firstErrorPath;
+          setNameError(fieldPath === 'name');
+          setCostPriceError(isMobileProductCostPriceError(firstErrorPath, messages));
+          setUnitPriceError(isMobileProductUnitPriceError(firstErrorPath, messages));
+          setSupplierError(isMobileProductSupplierError(firstErrorPath, messages));
+          const navigation = resolveMobileProductFormErrorNavigation(fieldPath);
           if (navigation) setActiveTab(navigation.tab);
           setVariationValidationTarget(
             navigation?.variationIndex !== undefined ? navigation : null
@@ -613,12 +670,12 @@ export const ProductFormScreen: React.FC<Props> = ({
           setNcmError(navigation?.tab === 'fiscal');
           Alert.alert(
             'Confira os campos',
-            messages[firstErrorPath] || Object.values(messages)[0] || 'Revise os campos informados.'
+            resolveMobileProductFormErrorMessage(fieldPath, messages, isDraft)
           );
         }
       );
     },
-    [formData, draftForm, finalForm, onSave, onClose, product]
+    [formData, draftForm, finalForm, onSave, onClose, product, inboundVariationCostPrice]
   );
 
   const touchStartX = useRef<number>(0);
@@ -689,6 +746,8 @@ export const ProductFormScreen: React.FC<Props> = ({
             isExistingProduct={Boolean(product?.id)}
             isStockistOnly={isStockistOnly}
             canManageCategories={canManageCategories}
+            nameError={nameError}
+            onNameValidationCleared={() => setNameError(false)}
             onFieldFocus={jev.onFieldFocus}
             onFieldBlur={jev.onFieldBlur}
           />
@@ -717,7 +776,20 @@ export const ProductFormScreen: React.FC<Props> = ({
           />
         );
       case 'estoque':
-        return <ProductFormPricesTab formData={formData} setFormData={setFormData} dark={dark} />;
+        return (
+          <ProductFormPricesTab
+            formData={formData}
+            setFormData={setFormData}
+            dark={dark}
+            showInboundCostPrice={showInboundCostPrice}
+            costPriceError={costPriceError}
+            onCostPriceValidationCleared={() => setCostPriceError(false)}
+            unitPriceError={unitPriceError}
+            onUnitPriceValidationCleared={() => setUnitPriceError(false)}
+            supplierError={supplierError}
+            onSupplierValidationCleared={() => setSupplierError(false)}
+          />
+        );
       case 'variacoes':
         return (
           <ProductFormVariationsTab

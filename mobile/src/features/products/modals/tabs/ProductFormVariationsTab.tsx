@@ -230,12 +230,20 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
           (_: any, currentIndex: number) => currentIndex !== index
         );
         const becomesSimple = nextVariations.length === 1;
+        const remainingVariation = nextVariations[0];
+        const variations = becomesSimple
+          ? [
+              isExistingProduct
+                ? {
+                    ...remainingVariation,
+                    images: Array.isArray(previous.images) ? [...previous.images] : [],
+                  }
+                : inheritMobileSimpleVariationFromParent(previous, remainingVariation),
+            ]
+          : nextVariations;
         return {
           ...previous,
-          variations:
-            becomesSimple && !isExistingProduct
-              ? [inheritMobileSimpleVariationFromParent(previous, nextVariations[0])]
-              : nextVariations,
+          variations,
           hasVariations: !becomesSimple,
         };
       });
@@ -882,6 +890,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                               parentData={formData}
                               dark={dark}
                               requiredFieldsOnly={isStockistOnly}
+                              isSingleVariation={isSingleVariation}
                             />
                           </View>
                         )}

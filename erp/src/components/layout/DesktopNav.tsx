@@ -9,7 +9,6 @@ import {
   StockNavMenu,
   PeopleNavMenu,
   SalesNavMenu,
-  FiscalNavMenu,
   LogisticsNavMenu,
   MarketingNavMenu,
   FinanceNavMenu,
@@ -52,7 +51,7 @@ export const DesktopNav: React.FC<DesktopNavProps> = ({ activeMenu, setActiveMen
       )}
 
       {/* 4. Gestão de Estoque e Suprimentos */}
-      {(permissions.canViewStock || permissions.canViewSuppliers) && (
+      {(permissions.canViewStock || permissions.canViewSuppliers || permissions.canViewInboundFiscal) && (
         <StockNavMenu
           activeMenu={activeMenu}
           setActiveMenu={setActiveMenu}
@@ -69,8 +68,8 @@ export const DesktopNav: React.FC<DesktopNavProps> = ({ activeMenu, setActiveMen
         />
       )}
 
-      {/* 6. Vendas (Pedidos, Orçamentos, Assistências, Devoluções, Relatórios) */}
-      {permissions.canViewOrders && (
+      {/* 6. Vendas (Pedidos, Orçamentos, Assistências, Devoluções, NF de saída e Relatórios) */}
+      {(permissions.canViewOrders || permissions.canViewFiscalOutbound) && (
         <SalesNavMenu
           activeMenu={activeMenu}
           setActiveMenu={setActiveMenu}
@@ -78,16 +77,7 @@ export const DesktopNav: React.FC<DesktopNavProps> = ({ activeMenu, setActiveMen
         />
       )}
 
-      {/* 7. Módulo Fiscal (Notas de Saída, Notas de Entrada, NCM) */}
-      {permissions.canViewFiscal && (
-        <FiscalNavMenu
-          activeMenu={activeMenu}
-          setActiveMenu={setActiveMenu}
-          permissions={permissions}
-        />
-      )}
-
-      {/* 8. Logística e Agendamentos */}
+      {/* 7. Logística e Agendamentos */}
       {permissions.canViewLogistics && (
         <LogisticsNavMenu
           activeMenu={activeMenu}
@@ -96,7 +86,7 @@ export const DesktopNav: React.FC<DesktopNavProps> = ({ activeMenu, setActiveMen
         />
       )}
 
-      {/* 9. Marketing e Redes */}
+      {/* 8. Marketing e Redes */}
       {(permissions.canViewMarketing || permissions.canViewStockLabels) && (
         <MarketingNavMenu
           activeMenu={activeMenu}
@@ -105,7 +95,7 @@ export const DesktopNav: React.FC<DesktopNavProps> = ({ activeMenu, setActiveMen
         />
       )}
 
-      {/* 10. Módulo Financeiro */}
+      {/* 9. Módulo Financeiro */}
       {(permissions.canUseFinance || permissions.canSeeFinanceBeta) && (
         <FinanceNavMenu
           activeMenu={activeMenu}

@@ -1,4 +1,6 @@
 import { chromium, expect, test } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
+import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -32,13 +34,20 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   const verifySnippets = process.env.SUPPORT_READONLY_SNIPPETS === '1';
   const verifyHistoryPanels = process.env.SUPPORT_READONLY_HISTORY_PANELS === '1';
   const verifyMessageSearch = process.env.SUPPORT_READONLY_MESSAGE_SEARCH === '1';
+  const verifyMessagePaging = process.env.SUPPORT_READONLY_MESSAGE_PAGING === '1';
   const verifyMobileLayout = process.env.SUPPORT_READONLY_MOBILE_LAYOUT === '1';
   const verifyMissedReadRecovery = process.env.SUPPORT_READONLY_MISSED_READ === '1';
+  const verifyProductionMetaConnection = process.env.SUPPORT_READONLY_META_PRODUCTION_CONNECTION === '1';
+  const verifyProductionMetaCredentialsOnly = process.env.SUPPORT_READONLY_META_CREDENTIALS_ONLY === '1';
+  const verifyProductionSignedWebhook = process.env.SUPPORT_READONLY_META_PRODUCTION_SIGNED_WEBHOOK === '1';
+  const verifyProductionWabaSubscription = process.env.SUPPORT_READONLY_META_WABA_SUBSCRIPTION === '1';
+  if (verifyProductionSignedWebhook || verifyProductionWabaSubscription) test.setTimeout(90_000);
   if (verifyPhoneCopy && !verifyReadReceipt) throw new Error('A prova de cópia exige a conversa própria retida e suas guardas de leitura.');
   if (verifyOrdersPanel && !verifyReadReceipt) throw new Error('A prova de pedidos exige a conversa própria retida e suas guardas de leitura.');
   if (verifySnippets && !verifyReadReceipt) throw new Error('A prova dos modelos exige a conversa própria retida e suas guardas de leitura.');
   if (verifyHistoryPanels && !verifyReadReceipt) throw new Error('Timeline e galeria exigem a conversa própria retida e suas guardas de leitura.');
   if (verifyMessageSearch && !verifyReadReceipt) throw new Error('A busca exige a conversa própria retida e suas guardas de leitura.');
+  if (verifyMessagePaging && !verifyReadReceipt) throw new Error('A paginação de mensagens exige a conversa própria retida e suas guardas de leitura.');
   if (verifyMobileLayout && !verifyReadReceipt) throw new Error('A prova em tela pequena exige o histórico próprio retido e suas guardas de leitura.');
   if (verifyMissedReadRecovery && !verifyReadReceipt) throw new Error('A recuperação de leitura exige o histórico próprio e suas guardas de leitura.');
   const retainedManifest = verifyReadReceipt
@@ -61,15 +70,21 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   let agentDirectoryReads = 0;
   let directoryReadsAfterRetry = 0;
   let ownedReadConversationId: string | null = null;
+  let simulateMessagePaging = false;
+  let syntheticOlderMessageRequests = 0;
   let simulateReadAcknowledgement = false;
   let simulatedReadAcknowledgements = 0;
 
-  const browser = await chromium.connectOverCDP('http://127.0.0.1:9225');
-  const context = browser.contexts()[0];
+  const launchBrowser = process.env.SUPPORT_READONLY_LAUNCH_BROWSER === '1';
+  const browser = launchBrowser
+    ? await chromium.launch({ channel: 'chrome', headless: false })
+    : await chromium.connectOverCDP('http://127.0.0.1:9225');
+  const context = launchBrowser ? await browser.newContext() : browser.contexts()[0];
   if (!context) throw new Error('Navegador visível de desenvolvimento não encontrado.');
   const page = context.pages()[0] || await context.newPage();
   page.setDefaultTimeout(10_000);
   page.setDefaultNavigationTimeout(30_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
   const readOnlyRPCs = new Set([
     'customer_support_list_conversations', 'customer_support_conversation_counts', 'customer_support_list_agents',
     'customer_support_list_customer_summaries', 'customer_support_count_customer_orders',
@@ -80,6 +95,31 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     const request = route.request();
     const url = new URL(request.url());
     const method = request.method();
+    // shortcut: intercept pages instead of inserting rows; use a separately approved fixture for database paging.
+    if (verifyMessagePaging && simulateMessagePaging && ownedReadConversationId
+      && method === 'GET' && url.pathname === '/rest/v1/whatsapp_messages'
+      && url.searchParams.get('conversation_id') === `eq.${ownedReadConversationId}`) {
+      const message = (sequence: number) => {
+        const timestamp = new Date(Date.UTC(2026, 9, 23, 12, sequence, 0)).toISOString();
+        return { id: `support-readonly-paging-${sequence.toString().padStart(3, '0')}`,
+          conversation_id: ownedReadConversationId, api_message_id: null, direction: 'inbound', message_type: 'text',
+          text_content: `Mensagem sintética ${sequence}`, media_id: null, media_mime_type: null, media_url: null,
+          media_filename: null, media_caption: null, reply_to_message_id: null, reply_to_wamid: null, status: 'received',
+          error_code: null, failure_reason: null, raw_payload: {}, timestamp, created_at: timestamp };
+      };
+      if (url.searchParams.get('limit') === '80' && !url.searchParams.has('or')) {
+        const latest = Array.from({ length: 80 }, (_, index) => message(80 - index));
+        await route.fulfill({ status: 200, contentType: 'application/json',
+          headers: { 'content-range': '0-79/81' }, body: JSON.stringify(latest) });
+        return;
+      }
+      if (url.searchParams.get('limit') === '50' && url.searchParams.has('or')) {
+        syntheticOlderMessageRequests++;
+        await route.fulfill({ status: 200, contentType: 'application/json',
+          headers: { 'content-range': '0-0/81' }, body: JSON.stringify([message(0)]) });
+        return;
+      }
+    }
     if (method === 'POST' && url.pathname === '/rest/v1/rpc/customer_support_list_agents') {
       agentDirectoryReads++;
       if (failAgentReads) {
@@ -151,7 +191,15 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
         await page.getByRole('button', { name: /Entrar no Sistema/ }).click();
         await page.waitForURL((url) => url.pathname !== '/login', { timeout: 30_000 });
       }
-    } catch {
+    } catch (error) {
+      const feedback = await page.locator('[role="alert"], [data-sonner-toast], .Toastify__toast-body')
+        .allTextContents().catch(() => []);
+      const safeFeedback = feedback.map((message) => message.replace(email, '[operador]').trim().slice(0, 140));
+      console.info('[support-readonly] Login diagnostic:', JSON.stringify({
+        errorType: error instanceof Error ? error.name : 'unknown',
+        path: new URL(page.url()).pathname,
+        feedback: safeFeedback,
+      }));
       await page.locator('input[type="email"], input[type="password"]').evaluateAll((inputs) => {
         for (const input of inputs) if (input instanceof HTMLInputElement) input.value = '';
       }).catch(() => undefined);
@@ -170,9 +218,159 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     expect(operatorGateStatus, 'A identidade deve passar pelo gate real do operador.').toBe(204);
     console.info('[support-readonly] Identidade e gate do operador confirmados.');
 
+    if (verifyProductionMetaConnection || verifyProductionMetaCredentialsOnly || verifyProductionSignedWebhook
+      || verifyProductionWabaSubscription) {
+      const deploymentId = process.env.SUPPORT_READONLY_META_PRODUCTION_DEPLOYMENT?.trim() || '';
+      if (!/^dpl_[A-Za-z0-9]+$/.test(deploymentId)) {
+        throw new Error('Informe um ID de deployment de produção válido para a consulta Meta somente leitura.');
+      }
+      const accessToken = await page.evaluate(async () => {
+        const { supabase } = await import('/src/pages/utils/supabaseConfig.ts');
+        const session = await supabase.auth.getSession();
+        return session.data.session?.access_token || null;
+      });
+      if (!accessToken) throw new Error('A sessão autenticada não está disponível para a consulta Meta.');
+
+      const projectRoot = resolve(process.cwd(), '..');
+      const requestProductionMetaOperation = (
+        operation: 'verify_app_credentials' | 'connection_test' | 'verify_waba_subscription'
+      ) => {
+        const curlConfig = [
+          'request = "POST"',
+          `header = "Authorization: Bearer ${accessToken}"`,
+          'header = "Content-Type: application/json"',
+          `data = "{\\"operation\\":\\"${operation}\\"}"`,
+          'write-out = "\\n__HTTP_STATUS__:%{http_code}"',
+        ].join('\n');
+        let output = '';
+        try {
+          output = execFileSync('cmd.exe', [
+            '/d', '/s', '/c',
+            `vercel.cmd curl /api/meta-graph --deployment ${deploymentId} -- --config -`,
+          ], {
+            cwd: projectRoot,
+            input: curlConfig,
+            encoding: 'utf8',
+            timeout: 45_000,
+            windowsHide: true,
+            maxBuffer: 256 * 1024,
+          });
+        } catch {
+          throw new Error('A consulta somente leitura à rota Meta de produção falhou no Vercel CLI.');
+        }
+
+        const statusMatch = output.match(/__HTTP_STATUS__:(\d{3})\s*$/);
+        if (!statusMatch) throw new Error('A resposta da consulta Meta não incluiu o status HTTP.');
+        const status = Number(statusMatch[1]);
+        const responseText = output.slice(0, statusMatch.index).split(/\r?\n/).filter(line => line.trim()).at(-1) || '{}';
+        try {
+          return { status, body: JSON.parse(responseText) as Record<string, unknown> };
+        } catch {
+          throw new Error(`A consulta Meta respondeu HTTP ${status} com formato inesperado.`);
+        }
+      };
+
+      const appCredentials = requestProductionMetaOperation('verify_app_credentials');
+      if (appCredentials.status !== 200 || appCredentials.body.valid !== true) {
+        const reason = typeof appCredentials.body.reason === 'string' ? appCredentials.body.reason : 'unknown';
+        const graphStatus = typeof appCredentials.body.graphStatus === 'number'
+          ? appCredentials.body.graphStatus : 'n/a';
+        const graphCode = typeof appCredentials.body.graphCode === 'string'
+          || typeof appCredentials.body.graphCode === 'number' ? appCredentials.body.graphCode : 'n/a';
+        const graphSubcode = typeof appCredentials.body.graphSubcode === 'number'
+          ? appCredentials.body.graphSubcode : 'n/a';
+        const graphErrorKind = typeof appCredentials.body.graphErrorKind === 'string'
+          ? appCredentials.body.graphErrorKind : 'unknown';
+        throw new Error(`Verificação Meta falhou: HTTP ${appCredentials.status}, motivo=${reason}, Graph HTTP=${graphStatus}, código=${graphCode}, subcódigo=${graphSubcode}, classe=${graphErrorKind}.`);
+      }
+      console.info('[support-readonly] App ID, App Secret e token Meta de produção confirmados sem expor credenciais.');
+
+      if (verifyProductionWabaSubscription) {
+        const subscription = requestProductionMetaOperation('verify_waba_subscription');
+        expect(subscription.status, 'Production deve concluir a consulta Graph da inscrição do WABA.').toBe(200);
+        expect(subscription.body.valid, 'A resposta da consulta Graph deve ser válida.').toBe(true);
+        expect(subscription.body.subscribed, 'O app configurado precisa estar inscrito no WABA.').toBe(true);
+        console.info('[support-readonly] App ID atual confirmado como inscrito no WABA configurado; nenhum identificador ou payload de outros apps foi registrado.');
+      }
+
+      if (verifyProductionMetaConnection) {
+        const connection = requestProductionMetaOperation('connection_test');
+        const { status, body: responseBody } = connection;
+        if (status !== 200 || responseBody.error || typeof responseBody.id !== 'string') {
+          const error = responseBody.error && typeof responseBody.error === 'object'
+            ? responseBody.error as Record<string, unknown> : {};
+          const code = typeof error.code === 'number' || typeof error.code === 'string' ? error.code : 'n/a';
+          const type = typeof error.type === 'string' ? error.type : 'n/a';
+          throw new Error(`Meta connection_test falhou: HTTP ${status}, code=${code}, type=${type}.`);
+        }
+        console.info('[support-readonly] Conexão Graph de produção confirmada; metadados da linha telefônica omitidos.');
+      }
+
+      if (verifyProductionSignedWebhook) {
+        const appSecret = process.env.WHATSAPP_APP_SECRET?.trim();
+        if (!appSecret) throw new Error('App Secret de Vercel Development ausente para a prova HMAC.');
+        const rawBody = JSON.stringify({ object: 'whatsapp_business_account', entry: [] });
+        const requestProductionWebhook = (signature?: string) => {
+          const curlConfig = [
+            'request = "POST"',
+            'header = "Content-Type: application/json"',
+            ...(signature ? [`header = "X-Hub-Signature-256: ${signature}"`] : []),
+            `data = ${JSON.stringify(rawBody)}`,
+            'write-out = "\\n__HTTP_STATUS__:%{http_code}"',
+          ].join('\n');
+          let output = '';
+          try {
+            output = execFileSync('cmd.exe', [
+              '/d', '/s', '/c',
+              `vercel.cmd curl /api/whatsapp-webhook --deployment ${deploymentId} -- --config -`,
+            ], {
+              cwd: projectRoot,
+              input: curlConfig,
+              encoding: 'utf8',
+              timeout: 45_000,
+              windowsHide: true,
+              maxBuffer: 256 * 1024,
+            });
+          } catch {
+            throw new Error('A prova de assinatura do webhook em Production falhou no Vercel CLI.');
+          }
+          const statusMatch = output.match(/__HTTP_STATUS__:(\d{3})\s*$/);
+          if (!statusMatch) throw new Error('A prova do webhook não incluiu o status HTTP.');
+          const status = Number(statusMatch[1]);
+          const responseText = output.slice(0, statusMatch.index).split(/\r?\n/).filter(line => line.trim()).at(-1) || '{}';
+          try {
+            return { status, body: JSON.parse(responseText) as Record<string, unknown> };
+          } catch {
+            throw new Error(`A prova do webhook respondeu HTTP ${status} com formato inesperado.`);
+          }
+        };
+
+        expect(requestProductionWebhook().status, 'Production deve recusar a ausência da assinatura.').toBe(401);
+        expect(requestProductionWebhook(`sha256=${'0'.repeat(64)}`).status,
+          'Production deve recusar uma assinatura HMAC inválida.').toBe(401);
+        const signature = `sha256=${createHmac('sha256', appSecret).update(rawBody).digest('hex')}`;
+        const accepted = requestProductionWebhook(signature);
+        expect(accepted.status, 'O webhook de Production deve aceitar HMAC válida no payload sem eventos.').toBe(200);
+        expect(accepted.body.status).toBe('EVENT_RECEIVED');
+        console.info('[support-readonly] Webhook Production recusou assinatura ausente/inválida e aceitou HMAC válida no payload vazio; nenhum evento ou dado comercial foi processado.');
+      }
+    }
+
     failFolderReads = true;
     failAgentReads = true;
     await page.goto('http://localhost:5173/atendimento');
+    const resetLayoutButton = page.getByRole('button', { name: 'Restaurar layout padrão', exact: true });
+    await expect(page.getByTestId('customer-support-layout')).toBeVisible({ timeout: 20_000 });
+    const layoutEntryState = await page.evaluate(() => ({
+      path: window.location.pathname,
+      width: window.innerWidth,
+      hasLayout: Boolean(document.querySelector('[data-testid="customer-support-layout"]')),
+      hasInboxPanel: Boolean(document.querySelector('[data-testid="customer-support-inbox-panel"]')),
+      hasLogin: Boolean(document.querySelector('input[type="password"]')),
+    }));
+    console.info(`[support-readonly] Estado de entrada da Inbox: ${JSON.stringify(layoutEntryState)}.`);
+    await expect(resetLayoutButton).toBeVisible({ timeout: 10_000 });
+    await resetLayoutButton.click();
     await expect(page.getByText('Pastas compartilhadas', { exact: true })).toBeVisible();
     await expect(page.getByText('Não foi possível carregar as pastas. Tente atualizar.', { exact: true })).toBeVisible();
     await expect(page.getByText('Nenhuma pasta nesta aba.', { exact: true })).toHaveCount(0);
@@ -262,10 +460,296 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       }, { timeout: 15_000 }), conversationList.evaluate((element) => { element.scrollTop = element.scrollHeight; })]);
       expect(secondPage.status()).toBe(200);
       await expect(count).toHaveText(`${Math.min(100, Number(initialCount[2]))} de ${initialCount[2]} conversas`);
+      console.info(`[support-readonly] Paginação real: ${initialCount[1]} iniciais → ${Math.min(100, Number(initialCount[2]))} de ${initialCount[2]}, segunda página HTTP ${secondPage.status()}.`);
       test.info().annotations.push({ type: 'pagination', description: 'Segunda página consultada pela rolagem real, sem selecionar conversa.' });
     } else {
+      console.info(`[support-readonly] Paginação não exercitada nesta conta: total de ${initialCount?.[2] ?? 'indisponível'} conversas (limite da página: 50).`);
       test.info().annotations.push({ type: 'limitation', description: 'Lista real com até 50 conversas; paginação exige fixture controlada.' });
     }
+
+    await test.step('Redimensionar os painéis, recolher e manter a seleção em desktop e mobile', async () => {
+      const inboxPanel = page.getByTestId('customer-support-inbox-panel');
+      const conversationsPanel = page.getByTestId('customer-support-conversations-panel');
+      const inboxToggle = page.getByRole('button', { name: 'Caixa de entrada', exact: true });
+      const conversationsToggle = page.getByRole('button', { name: 'Mostrar ou recolher lista de conversas', exact: true });
+      const inboxHandle = page.getByRole('separator', { name: 'Redimensionar painel: Pastas e filas', exact: true });
+      const conversationsHandle = page.getByRole('separator', { name: 'Redimensionar painel: Lista de conversas', exact: true });
+
+      await expect(inboxHandle).toBeVisible();
+      await expect(conversationsHandle).toBeVisible();
+      if (await inboxToggle.getAttribute('aria-expanded') !== 'true') await inboxToggle.click();
+      if (await conversationsToggle.getAttribute('aria-expanded') !== 'true') await conversationsToggle.click();
+
+      await inboxHandle.focus();
+      await inboxHandle.press('End');
+      await expect(inboxHandle).toHaveAttribute('aria-valuenow', '360');
+      await inboxHandle.press('Home');
+      await expect(inboxHandle).toHaveAttribute('aria-valuenow', '180');
+      await inboxHandle.press('ArrowRight');
+      await expect(inboxHandle).toHaveAttribute('aria-valuenow', '196');
+      await expect.poll(async () => Math.round((await inboxPanel.boundingBox())?.width || 0)).toBe(196);
+
+      const inboxBounds = await inboxHandle.boundingBox();
+      expect(inboxBounds).toBeTruthy();
+      await page.mouse.move(inboxBounds!.x + 4, inboxBounds!.y + Math.min(120, inboxBounds!.height / 2));
+      await page.mouse.down();
+      await page.mouse.move(inboxBounds!.x - 64, inboxBounds!.y + Math.min(120, inboxBounds!.height / 2), { steps: 4 });
+      await page.mouse.up();
+      await expect(inboxHandle).toHaveAttribute('aria-valuenow', '0');
+      await expect(inboxPanel).toHaveAttribute('aria-hidden', 'true');
+       await expect.poll(async () => Math.round((await conversationsPanel.boundingBox())?.width || 0)).toBe(340);
+      await inboxToggle.click();
+      await expect(inboxPanel).toHaveAttribute('aria-hidden', 'false');
+      await inboxHandle.dblclick();
+      await expect(inboxHandle).toHaveAttribute('aria-valuenow', '220');
+       await expect.poll(async () => Math.round((await conversationsPanel.boundingBox())?.width || 0)).toBe(340);
+
+      await conversationsHandle.focus();
+      await conversationsHandle.press('End');
+      await expect(conversationsHandle).toHaveAttribute('aria-valuenow', '600');
+      await conversationsHandle.press('Home');
+      await expect(conversationsHandle).toHaveAttribute('aria-valuenow', '260');
+      await expect.poll(async () => Math.round((await conversationsPanel.boundingBox())?.width || 0)).toBe(260);
+      const conversationsBounds = await conversationsHandle.boundingBox();
+      expect(conversationsBounds).toBeTruthy();
+      await page.mouse.move(conversationsBounds!.x + 4, conversationsBounds!.y + Math.min(120, conversationsBounds!.height / 2));
+      await page.mouse.down();
+      await page.mouse.move(conversationsBounds!.x - 48, conversationsBounds!.y + Math.min(120, conversationsBounds!.height / 2), { steps: 4 });
+      await page.mouse.up();
+      await expect(conversationsHandle).toHaveAttribute('aria-valuenow', '0');
+      await expect(conversationsPanel).toHaveAttribute('aria-hidden', 'true');
+       await expect.poll(async () => Math.round((await inboxPanel.boundingBox())?.width || 0)).toBe(220);
+      await conversationsToggle.click();
+      await conversationsHandle.dblclick();
+      await expect(conversationsHandle).toHaveAttribute('aria-valuenow', '340');
+       await expect.poll(async () => Math.round((await inboxPanel.boundingBox())?.width || 0)).toBe(220);
+
+       await inboxHandle.focus();
+       await inboxHandle.press('End');
+       await expect(inboxHandle).toHaveAttribute('aria-valuenow', '360');
+       const panelBudgetMetrics = await page.getByTestId('customer-support-layout').evaluate((layout) => {
+         const children = Array.from(layout.children) as HTMLElement[];
+         return {
+           layoutWidth: layout.clientWidth,
+           navigationWidth: children[0]?.getBoundingClientRect().width || 0,
+           handleWidths: Array.from(layout.querySelectorAll('[role="separator"]')).map((handle) =>
+             handle.getBoundingClientRect().width
+           ),
+           inboxWidth: children[1]?.getBoundingClientRect().width || 0,
+           conversationsWidth: children[3]?.getBoundingClientRect().width || 0,
+           chatWidth: children[5]?.getBoundingClientRect().width || 0,
+         };
+       });
+       console.info(`[support-readonly] Medidas dos painéis após expandir a Inbox: ${JSON.stringify(panelBudgetMetrics)}; max conversa=${await conversationsHandle.getAttribute('aria-valuemax')}.`);
+       await conversationsHandle.focus();
+       const availableConversationWidth = Number(await conversationsHandle.getAttribute('aria-valuemax'));
+       await conversationsHandle.press('End');
+       await expect(conversationsHandle).toHaveAttribute('aria-valuenow', String(availableConversationWidth));
+       await expect.poll(async () => Math.round((await conversationsPanel.boundingBox())?.width || 0))
+         .toBe(availableConversationWidth);
+       const desktopMaximumMetrics = await page.getByTestId('customer-support-layout').evaluate((layout) => {
+         const children = Array.from(layout.children) as HTMLElement[];
+         return {
+           clientWidth: layout.clientWidth,
+           scrollWidth: layout.scrollWidth,
+           inboxWidth: children[1]?.getBoundingClientRect().width || 0,
+           conversationsWidth: children[3]?.getBoundingClientRect().width || 0,
+           chatWidth: children[5]?.getBoundingClientRect().width || 0,
+         };
+       });
+       expect(desktopMaximumMetrics.inboxWidth).toBe(360);
+       expect(availableConversationWidth).toBe(600);
+       expect(desktopMaximumMetrics.conversationsWidth).toBeLessThanOrEqual(availableConversationWidth);
+       expect(desktopMaximumMetrics.conversationsWidth).toBeGreaterThanOrEqual(260);
+       expect(desktopMaximumMetrics.conversationsWidth).toBe(600);
+       expect(desktopMaximumMetrics.chatWidth).toBeGreaterThanOrEqual(240);
+       expect(desktopMaximumMetrics.scrollWidth).toBeLessThanOrEqual(desktopMaximumMetrics.clientWidth + 1);
+       await resetLayoutButton.click();
+
+      const cardHeadings = conversationList.locator('[role="button"] h4');
+      const safeConversationIndex = await cardHeadings.evaluateAll((headings) =>
+        headings.findIndex((heading) => !heading.closest('[role="button"]')?.querySelector('span.bg-blue-600'))
+      );
+      let selectedName: string | null = null;
+      if (safeConversationIndex >= 0) {
+        const selectedCardHeading = cardHeadings.nth(safeConversationIndex);
+        await expect(selectedCardHeading).toBeVisible();
+        await expect.poll(() => selectedCardHeading.evaluate((heading) =>
+          !heading.closest('[role="button"]')?.querySelector('span.bg-blue-600')
+        )).toBe(true);
+        selectedName = (await selectedCardHeading.textContent())?.trim() || null;
+        await selectedCardHeading.click();
+        const chatHeading = page.getByRole('heading', { name: selectedName, exact: true }).last();
+        await expect(chatHeading).toBeVisible();
+        const listScrollBeforeCollapse = await conversationList.evaluate((element) => element.scrollTop);
+        await conversationsToggle.click();
+        await expect(conversationsPanel).toHaveAttribute('aria-hidden', 'true');
+        await expect(chatHeading).toBeVisible();
+        await conversationsToggle.click();
+        await expect(chatHeading).toBeVisible();
+        await expect.poll(() => conversationList.evaluate((element) => element.scrollTop)).toBe(listScrollBeforeCollapse);
+      } else {
+        test.info().annotations.push({ type: 'selection-limitation', description: 'Nenhuma conversa carregada sem badge de não lidas; a prova evitou abrir uma conversa que pudesse disparar confirmação de leitura.' });
+      }
+
+      const layoutSearch = page.getByPlaceholder('Pesquisar por cliente, telefone ou pedido...', { exact: true });
+      await expect.poll(async () => Math.round((await conversationsPanel.boundingBox())?.width || 0)).toBe(340);
+      if (!await layoutSearch.isVisible()) {
+        const searchToggle = page.getByTitle('Alternar campo de busca', { exact: true });
+        await expect(searchToggle).toBeVisible();
+        await searchToggle.scrollIntoViewIfNeeded();
+        await searchToggle.click();
+      }
+      await expect(layoutSearch).toBeVisible();
+      await layoutSearch.fill('__central_panel_search_retention__');
+      await expect(page.getByRole('heading', { name: 'Nenhuma conversa encontrada', exact: true })).toBeVisible();
+      await conversationsToggle.click();
+      await expect(conversationsPanel).toHaveAttribute('aria-hidden', 'true');
+      await conversationsToggle.click();
+      await expect(layoutSearch).toHaveValue('__central_panel_search_retention__');
+      await layoutSearch.fill('');
+
+      const unassignedFilter = inboxPanel.getByRole('button', { name: /Não atribuídas/ }).first();
+      const [unassignedResponse] = await Promise.all([
+        page.waitForResponse((response) => response.url().endsWith('/rest/v1/rpc/customer_support_list_conversations')
+          && response.request().postDataJSON()?.p_filter === 'unassigned', { timeout: 15_000 }),
+        unassignedFilter.click(),
+      ]);
+      expect(unassignedResponse.status()).toBe(200);
+      await expect(unassignedFilter).toHaveClass(/bg-blue-600/);
+      await inboxToggle.click();
+      await expect(inboxPanel).toHaveAttribute('aria-hidden', 'true');
+      await inboxToggle.click();
+      await expect(inboxPanel).toHaveAttribute('aria-hidden', 'false');
+      await expect(unassignedFilter).toHaveClass(/bg-blue-600/);
+      if (selectedName) await expect(page.getByRole('heading', { name: selectedName, exact: true }).last()).toBeVisible();
+
+      await expect.poll(async () => page.evaluate(() => {
+        const key = Object.keys(localStorage).find((candidate) => candidate.startsWith('morantehub_customer_support_layout_'));
+        const value = key ? localStorage.getItem(key) : null;
+        return value ? JSON.parse(value) : null;
+      })).not.toBeNull();
+      const savedPreferences = await page.evaluate(() => {
+        const key = Object.keys(localStorage).find((candidate) => candidate.startsWith('morantehub_customer_support_layout_'));
+        const value = key ? localStorage.getItem(key) : null;
+        return value ? JSON.parse(value) : null;
+      });
+      expect(savedPreferences).toMatchObject({ inboxWidth: 220, conversationsWidth: 340, isInboxOpen: true, isConversationsOpen: true });
+
+      const previousViewport = page.viewportSize() ?? await page.evaluate(() => ({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }));
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(inboxHandle).toBeHidden();
+      await expect(conversationsHandle).toBeHidden();
+      if (selectedName) await expect(page.getByRole('heading', { name: selectedName, exact: true }).last()).toBeVisible();
+      await inboxToggle.click();
+      const inboxAside = page.getByLabel('Pastas e filas de atendimento', { exact: true });
+      await expect(inboxAside).toBeVisible();
+      const mobileBounds = await inboxAside.boundingBox();
+      expect(mobileBounds).toBeTruthy();
+      expect(mobileBounds!.x).toBeGreaterThanOrEqual(55);
+      expect(mobileBounds!.x + mobileBounds!.width).toBeLessThanOrEqual(391);
+      const inboxBackdrop = page.getByRole('button', { name: 'Fechar pastas e filas', exact: true });
+      const backdropBounds = await inboxBackdrop.boundingBox();
+      expect(backdropBounds).toBeTruthy();
+      await page.mouse.click(backdropBounds!.x + backdropBounds!.width - 10, backdropBounds!.y + backdropBounds!.height / 2);
+      await expect(inboxPanel).toHaveAttribute('aria-hidden', 'true');
+      if (selectedName) {
+        await conversationsToggle.click();
+        await expect(conversationList).toBeVisible();
+      }
+      const afterMobilePreferences = await page.evaluate(() => {
+        const key = Object.keys(localStorage).find((candidate) => candidate.startsWith('morantehub_customer_support_layout_'));
+        const value = key ? localStorage.getItem(key) : null;
+        return value ? JSON.parse(value) : null;
+      });
+      expect(afterMobilePreferences).toEqual(savedPreferences);
+      if (previousViewport) await page.setViewportSize(previousViewport);
+      await expect(inboxHandle).toHaveAttribute('aria-valuenow', '220');
+      await expect(conversationsHandle).toHaveAttribute('aria-valuenow', '340');
+
+      const chatContent = page.getByRole('heading', { name: 'Central de Atendimento MoranteHub', exact: true });
+      await inboxToggle.click();
+      await conversationsToggle.click();
+      await expect(inboxPanel).toHaveAttribute('aria-hidden', 'true');
+      await expect(conversationsPanel).toHaveAttribute('aria-hidden', 'true');
+      await expect(inboxToggle).toBeVisible();
+      await expect(conversationsToggle).toBeVisible();
+      await expect(chatContent).toBeVisible();
+      await expect(inboxHandle).toHaveAttribute('aria-valuenow', '0');
+      await expect(conversationsHandle).toHaveAttribute('aria-valuenow', '0');
+
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await expect(inboxPanel).toHaveAttribute('aria-hidden', 'true');
+      await expect(conversationsPanel).toHaveAttribute('aria-hidden', 'true');
+      await inboxToggle.click();
+      await conversationsToggle.click();
+      await expect(inboxHandle).toHaveAttribute('aria-valuenow', '220');
+      await expect(conversationsHandle).toHaveAttribute('aria-valuenow', '340');
+
+      await page.setViewportSize({ width: 768, height: 844 });
+      const tabletMetrics = await page.getByTestId('customer-support-layout').evaluate((layout) => {
+        const children = Array.from(layout.children) as HTMLElement[];
+        return {
+          clientWidth: layout.clientWidth,
+          scrollWidth: layout.scrollWidth,
+          inboxWidth: children[1]?.getBoundingClientRect().width || 0,
+          conversationsWidth: children[3]?.getBoundingClientRect().width || 0,
+          chatWidth: children[5]?.getBoundingClientRect().width || 0,
+        };
+      });
+      expect(tabletMetrics.scrollWidth).toBeLessThanOrEqual(tabletMetrics.clientWidth + 1);
+      expect(tabletMetrics.inboxWidth).toBeGreaterThanOrEqual(180);
+      expect(tabletMetrics.conversationsWidth).toBeGreaterThanOrEqual(260);
+      expect(tabletMetrics.chatWidth).toBeGreaterThanOrEqual(240);
+      await expect(inboxHandle).toBeVisible();
+      await expect(conversationsHandle).toBeVisible();
+
+      await inboxHandle.focus();
+      await inboxHandle.press('End');
+       const availableTabletInboxWidth = Number(await inboxHandle.getAttribute('aria-valuemax'));
+       await expect(inboxHandle).toHaveAttribute('aria-valuenow', String(availableTabletInboxWidth));
+       await expect.poll(async () => Number(await conversationsHandle.getAttribute('aria-valuemax')))
+         .toBeGreaterThanOrEqual(260);
+      await conversationsHandle.focus();
+       const availableTabletConversationWidth = Number(await conversationsHandle.getAttribute('aria-valuemax'));
+      await conversationsHandle.press('End');
+       await expect(conversationsHandle).toHaveAttribute('aria-valuenow', String(availableTabletConversationWidth));
+       const tabletMaximumMetrics = await page.getByTestId('customer-support-layout').evaluate((layout) => {
+         const children = Array.from(layout.children) as HTMLElement[];
+         return {
+           clientWidth: layout.clientWidth,
+           scrollWidth: layout.scrollWidth,
+           inboxWidth: children[1]?.getBoundingClientRect().width || 0,
+           conversationsWidth: children[3]?.getBoundingClientRect().width || 0,
+           chatWidth: children[5]?.getBoundingClientRect().width || 0,
+         };
+       });
+       expect(tabletMaximumMetrics.inboxWidth).toBeGreaterThanOrEqual(180);
+       expect(tabletMaximumMetrics.conversationsWidth).toBe(availableTabletConversationWidth);
+       expect(tabletMaximumMetrics.chatWidth).toBeGreaterThanOrEqual(240);
+       expect(tabletMaximumMetrics.scrollWidth).toBeLessThanOrEqual(tabletMaximumMetrics.clientWidth + 1);
+      await page.getByRole('button', { name: 'Restaurar layout padrão', exact: true }).click();
+      await expect.poll(async () => Number(await inboxHandle.getAttribute('aria-valuenow')))
+        .toBe(Math.round((await inboxPanel.boundingBox())?.width || 0));
+      await expect.poll(async () => Number(await conversationsHandle.getAttribute('aria-valuenow')))
+        .toBe(Math.round((await conversationsPanel.boundingBox())?.width || 0));
+      await expect(inboxPanel).toHaveAttribute('aria-hidden', 'false');
+      await expect(conversationsPanel).toHaveAttribute('aria-hidden', 'false');
+      const tabletSavedPreferences = await page.evaluate(() => {
+        const key = Object.keys(localStorage).find((candidate) => candidate.startsWith('morantehub_customer_support_layout_'));
+        const value = key ? localStorage.getItem(key) : null;
+        return value ? JSON.parse(value) : null;
+      });
+      expect(tabletSavedPreferences).toMatchObject({ inboxWidth: 220, conversationsWidth: 340 });
+      await page.setViewportSize({ width: 1280, height: 844 });
+      await expect(inboxHandle).toHaveAttribute('aria-valuenow', '220');
+      await expect(conversationsHandle).toHaveAttribute('aria-valuenow', '340');
+      console.info('[support-readonly] Larguras, filtros/busca/rolagem e seleção preservados ao recolher no desktop, fechamento simultâneo, persistência após reload, reset global e breakpoints mobile/tablet confirmados; nenhuma gravação comercial foi feita.');
+      test.info().annotations.push({ type: 'customer-support-layout', description: 'Inbox 180–360px e conversas 260–600px: teclado e arraste conferidos, recolhimento independente/simultâneo, reabertura, reset individual/global e persistência após reload. Filtro, busca e scroll preservados; a seleção é preservada ao recolher no desktop. Em 390px mobile, a navegação lista/chat usa overlay sem sobrescrever preferências; em 768px tablet, o chat permanece utilizável sem rolagem horizontal.' });
+    });
 
     if (verifyReadReceipt) {
       console.info('[support-readonly] Conferindo ownership do histórico próprio retido.');
@@ -283,6 +767,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       }, retainedManifest);
       expect(ownFixture, 'A prova usa somente conversa própria arquivada e com não lidas; não cria massa.').toBeTruthy();
       ownedReadConversationId = ownFixture!.id;
+      simulateMessagePaging = verifyMessagePaging;
       const searchToggle = page.getByTitle('Alternar campo de busca', { exact: true });
       if (!await page.getByPlaceholder('Pesquisar por cliente, telefone ou pedido...').isVisible()) await searchToggle.click();
       await page.getByPlaceholder('Pesquisar por cliente, telefone ou pedido...').fill(ownFixture!.contact_name);
@@ -292,6 +777,27 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       await expect(page.getByText('Não foi possível confirmar a leitura. Atualize a conversa para tentar novamente.', { exact: true })).toBeVisible();
       const history = page.getByRole('region', { name: 'Histórico da conversa', exact: true });
       await expect(history.locator('[data-message-id]').first()).toBeVisible();
+      if (verifyMessagePaging) {
+        await expect(history.getByText('Mensagem sintética 80', { exact: true })).toBeVisible();
+        await expect(history.locator('[data-message-id]')).toHaveCount(80);
+        const [olderPage] = await Promise.all([
+          page.waitForResponse(response => {
+            const url = new URL(response.url());
+            return url.pathname === '/rest/v1/whatsapp_messages' && response.request().method() === 'GET'
+              && url.searchParams.get('conversation_id') === `eq.${ownedReadConversationId}`
+              && url.searchParams.get('limit') === '50' && url.searchParams.has('or');
+          }),
+          history.evaluate(element => { element.scrollTop = 0; element.dispatchEvent(new Event('scroll')); }),
+        ]);
+        expect(olderPage.status()).toBe(200);
+        expect(syntheticOlderMessageRequests).toBe(1);
+        await expect(history.getByText('Mensagem sintética 0', { exact: true })).toBeVisible();
+        await expect(history.locator('[data-message-id]')).toHaveCount(81);
+        simulateMessagePaging = false;
+        test.info().annotations.push({ type: 'message-history-pagination-ui',
+          description: 'Scroll no topo carregou a página anterior de mensagens no navegador; 80+1 registros sintéticos interceptados no cliente, sem leitura adicional nem escrita no banco.' });
+        console.info('[support-readonly] Paginação de mensagens pela rolagem real confirmou 80 → 81 itens sintéticos, sem gravações.');
+      }
       expect(agentDirectoryReads, 'Abrir o chat deve reutilizar o diretório já carregado pela Inbox.').toBe(directoryReadsAfterRetry);
       for (const title of [
         'Emojis',
@@ -508,7 +1014,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       await context.clearPermissions();
     }
     // Stop the app before releasing the write guard; the visible browser stays open.
-    await page.goto('about:blank');
+    await page.goto('about:blank').catch(() => undefined);
     await context.unroute('**/*', guard);
     // Disconnect this runner; the CLI retains its visible browser and session.
     await browser.close();

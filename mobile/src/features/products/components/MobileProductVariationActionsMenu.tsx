@@ -1,9 +1,7 @@
 import {
   ArrowLeftRight,
-  Clock3,
   Edit3,
   GitMerge,
-  PackagePlus,
   QrCode,
   Receipt,
   Tag,
@@ -31,8 +29,6 @@ interface Props {
   onPrintLabel?: () => void;
   onMoveToAnotherFamily?: () => void;
   onMergeWithAnotherVariation?: () => void;
-  onLaunchStock?: () => void;
-  onShowHistory?: () => void;
   onShowOrders?: () => void;
   onPrintPriceLabel?: () => void;
   onMoveProductToTrash?: () => void;
@@ -52,8 +48,6 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
   onPrintLabel,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
-  onLaunchStock,
-  onShowHistory,
   onShowOrders,
   onPrintPriceLabel,
   onMoveProductToTrash,
@@ -155,34 +149,6 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
               >
                 <GitMerge size={16} color="#7c3aed" />
                 <Text style={[styles.itemText, styles.mergeText]}>Mesclar Variação</Text>
-              </TouchableOpacity>
-            ) : null}
-            {onLaunchStock && !isMerged ? (
-              <TouchableOpacity
-                style={styles.item}
-                onPress={() => {
-                  onClose();
-                  onLaunchStock();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Lançar Estoque"
-              >
-                <PackagePlus size={16} color="#d97706" />
-                <Text style={[styles.itemText, dark && styles.textDark]}>Lançar Estoque</Text>
-              </TouchableOpacity>
-            ) : null}
-            {onShowHistory && !isMerged ? (
-              <TouchableOpacity
-                style={styles.item}
-                onPress={() => {
-                  onClose();
-                  onShowHistory();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Histórico de Preços"
-              >
-                <Clock3 size={16} color="#059669" />
-                <Text style={[styles.itemText, dark && styles.textDark]}>Histórico de Preços</Text>
               </TouchableOpacity>
             ) : null}
             {onShowOrders && !isMerged ? (

@@ -193,14 +193,13 @@ export function useProductFormSync({ formData, setFormData, isExistingProduct = 
       avgMonthlySales: Number(formData.avgMonthlySales || 0),
       classification: formData.classification,
       technicalValues: getSimpleProductVariationTechnicalValues({
-        isExistingProduct,
         hasVariations: Boolean(formData.hasVariations),
         variationCount: formData.variations?.length || 0,
         parentTechnicalValues: formData.technicalValues,
         currentVariationTechnicalValues: variation.technicalValues,
       }),
       attributes: [],
-      images: [],
+      images: [...(formData.images || [])],
     };
     const hasChanged = Object.entries(inheritedFields).some(
       ([field, value]) => JSON.stringify(variation[field as keyof typeof variation]) !== JSON.stringify(value)
@@ -239,6 +238,39 @@ export function useProductFormSync({ formData, setFormData, isExistingProduct = 
     formData.leadTime,
     formData.avgMonthlySales,
     formData.classification,
+    formData.technicalValues,
+    formData.images,
+    formData.variations,
+    isExistingProduct,
+    setFormData,
+  ]);
+
+  // Em um produto simples salvo, a variação única também acompanha as características do pai.
+  useEffect(() => {
+    const variation = formData.variations?.[0];
+    if (
+      !isExistingProduct ||
+      formData.hasVariations ||
+      formData.variations?.length !== 1 ||
+      !variation
+    ) {
+      return;
+    }
+
+    const technicalValues =
+      formData.technicalValues == null
+        ? variation.technicalValues
+        : { ...formData.technicalValues };
+    if (JSON.stringify(variation.technicalValues) === JSON.stringify(technicalValues)) return;
+
+    setFormData((previous) => ({
+      ...previous,
+      variations: previous.variations?.map((item) =>
+        item.id === variation.id ? { ...item, technicalValues } : item
+      ),
+    }));
+  }, [
+    formData.hasVariations,
     formData.technicalValues,
     formData.variations,
     isExistingProduct,

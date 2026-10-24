@@ -27,7 +27,7 @@ export interface DeliveryPreparationContentProps {
   onToggleChecklist: (id: string) => void;
   responsibles: DeliveryResponsibleItem[];
   onAddResponsible: (responsible: DeliveryResponsibleItem) => void;
-  onRemoveResponsible: (id: string) => void;
+  onRemoveResponsible: (index: number) => void;
   availableStaff: any[];
   userProfile?: any;
 }

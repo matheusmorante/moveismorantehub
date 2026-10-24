@@ -9,7 +9,7 @@ import { canPerform } from '@/pages/utils/permissionService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
 import { fetchTeamProfiles } from '@/pages/utils/customerSupport/customerSupportService';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { AssignedProfileSummary, CustomerSupportFolder } from './types';
+import { AssignedProfileSummary, CustomerSupportFolder, WhatsAppConversation } from './types';
 import {
   useCustomerSupportConversations,
   useCustomerSupportMessages,
@@ -26,6 +26,12 @@ import {
   EmptyChatState,
   UsageConsumptionModal,
 } from './components';
+import { CustomerSupportResizeHandle } from './components/CustomerSupportResizeHandle';
+import {
+  CUSTOMER_SUPPORT_LAYOUT_DEFAULTS,
+  loadCustomerSupportLayoutPreferences,
+  saveCustomerSupportLayoutPreferences,
+} from './customerSupportLayoutPreferences';
 
 export default function CustomerSupport() {
   const { user, profile, isAdmin } = useAuth();
@@ -35,6 +41,14 @@ export default function CustomerSupport() {
   const folderDeleteForm = useForm<SupportFolderDeleteInput>({ resolver: zodResolver(supportFolderDeleteSchema) });
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
   const [isInboxSidebarOpen, setIsInboxSidebarOpen] = useState(true);
+  const [inboxSidebarWidth, setInboxSidebarWidth] = useState(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.inboxWidth);
+  const [isConversationSidebarOpen, setIsConversationSidebarOpen] = useState(true);
+  const [conversationSidebarWidth, setConversationSidebarWidth] = useState(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.conversationsWidth);
+  const [isMobileInboxOpen, setIsMobileInboxOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  );
+  const [isDraggingSupportPanel, setIsDraggingSupportPanel] = useState(false);
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [agents, setAgents] = useState<AssignedProfileSummary[]>([]);
@@ -42,6 +56,11 @@ export default function CustomerSupport() {
   const [agentsError, setAgentsError] = useState<string | null>(null);
   const [agentReloadKey, setAgentReloadKey] = useState(0);
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
+  const supportLayoutRef = useRef<HTMLDivElement>(null);
+  const inboxPanelRef = useRef<HTMLDivElement>(null);
+  const conversationPanelRef = useRef<HTMLDivElement>(null);
+  const preferencesLoadedForUser = useRef<string | null>(null);
+  const skipLayoutPreferenceSave = useRef(false);
   const roles = profile ? getProfileRoles(profile) : [];
   const canViewCommercialInfo = canPerform('viewCustomerCommercialInfo', roles);
   const {
@@ -54,6 +73,50 @@ export default function CustomerSupport() {
     foldersError,
     loadFolders,
   } = useCustomerSupportFolders(user?.id);
+
+  useEffect(() => {
+    const preferences = loadCustomerSupportLayoutPreferences(user?.id);
+    preferencesLoadedForUser.current = user?.id || null;
+    skipLayoutPreferenceSave.current = true;
+    setInboxSidebarWidth(preferences.inboxWidth);
+    setConversationSidebarWidth(preferences.conversationsWidth);
+    setIsInboxSidebarOpen(preferences.isInboxOpen);
+    setIsConversationSidebarOpen(preferences.isConversationsOpen);
+  }, [user?.id]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const updateViewport = () => setIsMobileViewport(media.matches);
+    updateViewport();
+    media.addEventListener('change', updateViewport);
+    return () => media.removeEventListener('change', updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (isMobileViewport) setIsMobileInboxOpen(false);
+  }, [isMobileViewport]);
+
+  useEffect(() => {
+    if (skipLayoutPreferenceSave.current) {
+      skipLayoutPreferenceSave.current = false;
+      return;
+    }
+    if (!user?.id || preferencesLoadedForUser.current !== user.id || isMobileViewport || isDraggingSupportPanel) return;
+    saveCustomerSupportLayoutPreferences(user.id, {
+      inboxWidth: inboxSidebarWidth,
+      conversationsWidth: conversationSidebarWidth,
+      isInboxOpen: isInboxSidebarOpen,
+      isConversationsOpen: isConversationSidebarOpen,
+    });
+  }, [
+    user?.id,
+    isMobileViewport,
+    isDraggingSupportPanel,
+    inboxSidebarWidth,
+    conversationSidebarWidth,
+    isInboxSidebarOpen,
+    isConversationSidebarOpen,
+  ]);
 
   // 1. Gerenciamento de conversas, filtros, busca e sincronização Realtime
   const {
@@ -175,6 +238,82 @@ export default function CustomerSupport() {
     setSelectedFolder(folder);
   };
 
+  const handleToggleInboxPanel = () => {
+    if (isMobileViewport) setIsMobileInboxOpen((open) => !open);
+    else setIsInboxSidebarOpen((open) => !open);
+  };
+
+  const handleCloseInboxPanel = () => {
+    if (isMobileViewport) setIsMobileInboxOpen(false);
+    else setIsInboxSidebarOpen(false);
+  };
+
+  const handleToggleConversationPanel = () => {
+    if (isMobileViewport) {
+      setIsMobileInboxOpen(false);
+      setSelectedConversation(null);
+    } else setIsConversationSidebarOpen((open) => !open);
+  };
+
+  const handleResetLayout = () => {
+    setInboxSidebarWidth(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.inboxWidth);
+    setConversationSidebarWidth(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.conversationsWidth);
+    setIsInboxSidebarOpen(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.isInboxOpen);
+    setIsConversationSidebarOpen(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.isConversationsOpen);
+  };
+
+  const handleSelectConversation = (conversation: WhatsAppConversation) => {
+    setSelectedConversation(conversation);
+    if (isMobileViewport) setIsMobileInboxOpen(false);
+  };
+
+  const inboxPanelVisible = isMobileViewport ? isMobileInboxOpen : isInboxSidebarOpen;
+  const inboxPanelStyle = isMobileViewport
+    ? {
+        position: 'absolute' as const,
+        left: '56px',
+        top: 0,
+        bottom: 0,
+        width: isMobileInboxOpen ? 'min(280px, calc(100vw - 56px))' : '0px',
+        flex: '0 0 0px',
+        zIndex: 40,
+        boxShadow: isMobileInboxOpen ? '0 12px 32px rgba(15, 23, 42, 0.24)' : 'none',
+        visibility: isMobileInboxOpen ? 'visible' as const : 'hidden' as const,
+        pointerEvents: isMobileInboxOpen ? 'auto' as const : 'none' as const,
+        transition: isDraggingSupportPanel ? 'none' : 'width 180ms ease',
+      }
+    : {
+        position: 'relative' as const,
+        width: isInboxSidebarOpen ? `${inboxSidebarWidth}px` : '0px',
+        flex: isInboxSidebarOpen ? `0 1 ${inboxSidebarWidth}px` : '0 0 0px',
+        minWidth: isInboxSidebarOpen ? '180px' : '0px',
+        maxWidth: '360px',
+        zIndex: 10,
+        visibility: isInboxSidebarOpen ? 'visible' as const : 'hidden' as const,
+        pointerEvents: isInboxSidebarOpen ? 'auto' as const : 'none' as const,
+        transition: isDraggingSupportPanel ? 'none' : 'width 180ms ease, flex-basis 180ms ease',
+      };
+
+  const conversationPanelStyle = isMobileViewport
+    ? {
+        position: 'relative' as const,
+        width: 'auto',
+        flex: '1 1 0%',
+        minWidth: 0,
+        maxWidth: 'none',
+        transition: 'none',
+      }
+    : {
+        position: 'relative' as const,
+        width: isConversationSidebarOpen ? `${conversationSidebarWidth}px` : '0px',
+        flex: isConversationSidebarOpen ? `0 1 ${conversationSidebarWidth}px` : '0 0 0px',
+        minWidth: isConversationSidebarOpen ? '260px' : '0px',
+        maxWidth: '600px',
+        visibility: isConversationSidebarOpen ? 'visible' as const : 'hidden' as const,
+        pointerEvents: isConversationSidebarOpen ? 'auto' as const : 'none' as const,
+        transition: isDraggingSupportPanel ? 'none' : 'width 180ms ease, flex-basis 180ms ease',
+      };
+
   const handleDeleteFolder = async (folder: CustomerSupportFolder) => {
     if (folderDeleteLock.current) return;
     folderDeleteLock.current = true;
@@ -199,9 +338,9 @@ export default function CustomerSupport() {
     .join('|');
 
   return (
-    <div className="flex flex-1 min-h-0 h-full w-full overflow-hidden bg-white dark:bg-slate-900 select-none">
+    <div ref={supportLayoutRef} data-testid="customer-support-layout" className="relative flex flex-1 min-h-0 h-full w-full overflow-hidden bg-white dark:bg-slate-900 select-none">
       {/* Coluna 1: Barra Vertical de Navegação (~56-60px) */}
-      <div className={`${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+      <div className="flex h-full shrink-0 relative z-20">
         <NavigationRail
           activeFilter={filter}
           onFilterChange={handleFilterChange}
@@ -212,22 +351,31 @@ export default function CustomerSupport() {
           isLoading={isLoadingConversations}
           onRefresh={loadConversations}
           isRealtimeConnected={isRealtimeConnected}
-          isInboxSidebarOpen={isInboxSidebarOpen}
-          onToggleInboxSidebar={() => setIsInboxSidebarOpen((prev) => !prev)}
+          isInboxSidebarOpen={inboxPanelVisible}
+          onToggleInboxSidebar={handleToggleInboxPanel}
+          isConversationSidebarOpen={isMobileViewport ? !selectedConversation : isConversationSidebarOpen}
+          onToggleConversationSidebar={handleToggleConversationPanel}
+          isMobileViewport={isMobileViewport}
+          onResetLayout={handleResetLayout}
         />
       </div>
 
-      {/* Coluna 2: Barra de Pastas e Filas "Inbox" (~230px) — Recolhível */}
+      {isMobileViewport && isMobileInboxOpen && (
+        <button
+          type="button"
+          aria-label="Fechar pastas e filas"
+          onClick={() => setIsMobileInboxOpen(false)}
+          className="absolute inset-y-0 left-[56px] right-0 z-30 bg-slate-950/30 md:hidden"
+        />
+      )}
+
       <div
-        className={`${
-          selectedConversation
-            ? isInboxSidebarOpen
-              ? 'hidden xl:flex'
-              : 'hidden'
-            : isInboxSidebarOpen
-              ? 'hidden sm:flex'
-              : 'hidden'
-        }`}
+        ref={inboxPanelRef}
+        id="customer-support-inbox-panel"
+        data-testid="customer-support-inbox-panel"
+        aria-hidden={!inboxPanelVisible}
+        className="h-full shrink-0 overflow-hidden"
+        style={inboxPanelStyle}
       >
         <InboxSidebar
           activeFilter={filter}
@@ -236,8 +384,7 @@ export default function CustomerSupport() {
           totalMine={mineCountTotal}
           totalUnassigned={unassignedCountTotal}
           totalUnread={unreadCountTotal}
-          isOpen={isInboxSidebarOpen}
-          onToggleCollapse={() => setIsInboxSidebarOpen(false)}
+          onToggleCollapse={handleCloseInboxPanel}
           agents={agents}
           isLoadingAgents={isLoadingAgents}
           agentsError={agentsError}
@@ -265,17 +412,35 @@ export default function CustomerSupport() {
           testIdentity={folderTestIdentity}
         />
       </div>
+      <CustomerSupportResizeHandle
+        panelId="customer-support-inbox-panel"
+        panelRef={inboxPanelRef}
+        layoutRef={supportLayoutRef}
+        siblingPanelRef={conversationPanelRef}
+        label="Pastas e filas"
+        isOpen={isInboxSidebarOpen}
+        width={inboxSidebarWidth}
+        minWidth={180}
+        maxWidth={360}
+        defaultWidth={CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.inboxWidth}
+        onResize={setInboxSidebarWidth}
+        onToggle={setIsInboxSidebarOpen}
+        onDragChange={setIsDraggingSupportPanel}
+      />
 
-      {/* Coluna 3: Lista de Conversas (~350px) — No mobile, esconde se houver conversa aberta */}
+      {/* A lista continua montada quando recolhida ou quando o chat ocupa a tela móvel. */}
       <div
-        className={`h-full ${
-          selectedConversation ? 'hidden md:flex' : 'flex w-full md:w-auto'
-        }`}
+        ref={conversationPanelRef}
+        id="customer-support-conversations-panel"
+        data-testid="customer-support-conversations-panel"
+        aria-hidden={isMobileViewport ? Boolean(selectedConversation) : !isConversationSidebarOpen}
+        className={`relative h-full shrink-0 overflow-hidden ${isMobileViewport && selectedConversation ? 'hidden' : 'flex'}`}
+        style={conversationPanelStyle}
       >
         <ConversationSidebar
           conversations={conversations}
           selectedConversation={selectedConversation}
-          onSelectConversation={setSelectedConversation}
+          onSelectConversation={handleSelectConversation}
           filter={filter}
           onFilterChange={handleFilterChange}
           search={search}
@@ -294,10 +459,25 @@ export default function CustomerSupport() {
           canViewCommercialInfo={canViewCommercialInfo}
         />
       </div>
+      <CustomerSupportResizeHandle
+        panelId="customer-support-conversations-panel"
+        panelRef={conversationPanelRef}
+        layoutRef={supportLayoutRef}
+        siblingPanelRef={inboxPanelRef}
+        label="Lista de conversas"
+        isOpen={isConversationSidebarOpen}
+        width={conversationSidebarWidth}
+        minWidth={260}
+        maxWidth={600}
+        defaultWidth={CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.conversationsWidth}
+        onResize={setConversationSidebarWidth}
+        onToggle={setIsConversationSidebarOpen}
+        onDragChange={setIsDraggingSupportPanel}
+      />
 
       {/* Coluna 4: Área Principal do Chat (Flex-1) */}
       {selectedConversation ? (
-        <div className="flex-1 flex h-full min-w-0 relative">
+        <div className="flex-1 flex h-full min-w-0 md:min-w-[240px] relative">
           <ChatArea
             key={selectedConversation.id}
             conversation={selectedConversation}
@@ -356,7 +536,7 @@ export default function CustomerSupport() {
           />
         </div>
       ) : (
-        <div className="hidden md:flex flex-1 h-full">
+        <div className="hidden md:flex flex-1 h-full min-w-0 md:min-w-[240px]">
           <EmptyChatState />
         </div>
       )}

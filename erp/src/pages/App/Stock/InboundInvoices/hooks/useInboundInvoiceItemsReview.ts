@@ -126,6 +126,9 @@ export function useInboundInvoiceItemsReview({
     quickRegisterTarget,
     setQuickRegisterTarget,
     handleQuickRegisterConfirm,
+    handleReuseDuplicate,
+    duplicateCandidate,
+    nameMatches,
     isPreparingProduct,
     setIsPreparingProduct,
     creatingItemNumber,
@@ -142,7 +145,7 @@ export function useInboundInvoiceItemsReview({
     setSuggestedCategory,
     editProduct,
     closeProductModal,
-  } = useInboundInvoiceQuickRegister(supplierId, items);
+  } = useInboundInvoiceQuickRegister(supplierId, items, onChange, contextKey);
 
   const {
     isClassifying,
@@ -360,6 +363,9 @@ export function useInboundInvoiceItemsReview({
     quickRegisterTarget,
     setQuickRegisterTarget,
     handleQuickRegisterConfirm,
+    handleReuseDuplicate,
+    duplicateCandidate,
+    nameMatches,
     // Modal completo de produto
     isProductModalOpen,
     editingParentProduct,

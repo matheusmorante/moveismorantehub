@@ -101,6 +101,9 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
               r.updated_at = params[6];
               r.synced_at = params[7];
               r.is_pending_local = params[8];
+            } else if (tableName === 'sync_queue' && params.length === 3) {
+              r.expected_version = Number(params[0]);
+              r.updated_at = params[1];
             } else if (tableName === 'sync_queue' && params.length >= 6) {
               r.status = params[0];
               r.retry_count = Number(r.retry_count || 0) + Number(params[1] || 0);

@@ -1,6 +1,8 @@
 import { UserRole } from '@/context/AuthContext';
 import { canPerform } from './permissionService';
 import {
+  canShowProductVariationActionsMenu,
+  getProductIdentificationLabelActionAvailability,
   getProductProfileRoles,
   isProductIdentificationLabelOnlyProfile as isLabelOnlyProductProfile,
   isStockistOnlyProductProfile,
@@ -53,6 +55,9 @@ export const canPrintProductIdentificationLabels = (
   const roles = profile ? getProfileRoles(profile) : [];
   return canPerform('printProductIdentificationLabels', roles);
 };
+
+export { getProductIdentificationLabelActionAvailability };
+export { canShowProductVariationActionsMenu };
 
 export const getPrimaryRole = (roles: UserRole[]): UserRole =>
   priority.find((role) => roles.includes(role)) || 'pending';

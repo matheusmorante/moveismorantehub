@@ -54,6 +54,78 @@ describe('useLabelProducts price-label deep link', () => {
     });
   });
 
+  it('preselects the requested operational variation for identification labels', async () => {
+    mocks.query.maybeSingle.mockResolvedValue({
+      data: {
+        ...mocks.row,
+        has_variations: false,
+        variations: [
+          {
+            id: 'variation-id',
+            name: 'Azul',
+            sku: 'CAM-1-AZ',
+            price: 59.9,
+            stock: 3,
+            image_url: 'https://example.com/camiseta-azul.jpg',
+            active: true,
+          },
+        ],
+      },
+      error: null,
+    });
+    const { result } = renderHook(() =>
+      useLabelProducts({
+        productIdParam: 'product-id',
+        variationIdParam: 'variation-id',
+        autoAddProductParam: true,
+      })
+    );
+
+    await waitFor(() => expect(result.current.initialProduct?.id).toBe('variation-id'));
+    expect(mocks.query.select).toHaveBeenCalledWith(
+      expect.stringContaining('variations:product_variations')
+    );
+    expect(result.current.initialProduct).toMatchObject({
+      id: 'variation-id',
+      variationId: 'variation-id',
+      parentId: 'product-id',
+      isVariation: true,
+      sku: 'CAM-1-AZ',
+      unitPrice: 59.9,
+      images: ['https://example.com/camiseta-azul.jpg'],
+    });
+  });
+
+  it('selects only the requested UUID when a family has multiple variations', async () => {
+    mocks.query.maybeSingle.mockResolvedValue({
+      data: {
+        ...mocks.row,
+        has_variations: true,
+        variations: [
+          { id: 'variation-red', name: 'Vermelho', sku: 'CAM-1-VM', price: 49.9, active: true },
+          { id: 'variation-blue', name: 'Azul', sku: 'CAM-1-AZ', price: 59.9, active: true },
+        ],
+      },
+      error: null,
+    });
+    const { result } = renderHook(() =>
+      useLabelProducts({
+        productIdParam: 'product-id',
+        variationIdParam: 'variation-blue',
+        autoAddProductParam: true,
+      })
+    );
+
+    await waitFor(() => expect(result.current.initialProduct?.id).toBe('variation-blue'));
+    expect(result.current.initialProduct).toMatchObject({
+      id: 'variation-blue',
+      variationId: 'variation-blue',
+      parentId: 'product-id',
+      sku: 'CAM-1-AZ',
+      unitPrice: 59.9,
+    });
+  });
+
   it('does not query a product from unrelated identification-label links', async () => {
     await act(async () => {
       renderHook(() => useLabelProducts({ productIdParam: 'product-id' }));

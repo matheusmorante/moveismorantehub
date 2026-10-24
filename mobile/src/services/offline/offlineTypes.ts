@@ -5,9 +5,11 @@ export type SyncOperationType = 'create' | 'update' | 'delete';
 // Eventos de campo continuam sendo a linguagem das telas. Eles são convertidos
 // em intenções versionadas antes de entrar na fila persistente.
 export type SyncEventState = 'PENDING' | 'SYNCING' | 'CONFIRMED' | 'REJECTED';
+export type MediaUploadState = 'PENDING_UPLOAD' | 'UPLOADING' | 'UPLOADED' | 'FAILED';
 export type SyncEventType =
   | 'DELIVERY_START_ROUTE'
   | 'DELIVERY_ARRIVE_DESTINATION'
+  | 'DELIVERY_START_SERVICE'
   | 'DELIVERY_FINISH'
   | 'DELIVERY_UNATTENDED'
   | 'DELIVERY_STEP_BACK'
@@ -33,18 +35,17 @@ export interface SyncEvent<T = unknown> {
 }
 
 export interface MediaUploadItem {
-  id: string;
+  mediaId: string;
   eventId?: string;
-  entityType: 'order_proof' | 'assembly_photo' | 'signature' | 'damage_photo';
   entityId: string;
   localUri: string;
-  storageBucket: string;
-  storagePath: string;
+  mimeType: string;
+  targetField: string;
   remoteUrl?: string;
-  state: SyncEventState;
-  createdAt: string;
+  state: MediaUploadState;
+  createdAt?: string;
   retryCount: number;
-  error?: string;
+  errorReason?: string;
 }
 
 export type ConflictReasonCode =

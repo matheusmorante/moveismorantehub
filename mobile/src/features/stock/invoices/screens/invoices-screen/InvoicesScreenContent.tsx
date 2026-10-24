@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -45,6 +45,7 @@ interface Props {
 export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeader }) => {
   const { width: viewportWidth } = useWindowDimensions();
   const isCompactViewport = viewportWidth < 540;
+  const [summaryInvoiceForXmlImport, setSummaryInvoiceForXmlImport] = useState<Invoice | null>(null);
   const {
     invoices,
     loading,
@@ -77,7 +78,6 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
     downloadInvoiceXml,
     consultSefaz,
     importXml,
-    confirmInvoiceDeletion,
   } = useInvoiceScreenActions(reload);
 
   const periodLabel = useMemo(
@@ -117,7 +117,10 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
                 periodLabel={periodLabel}
                 dateFilter={dateFilter}
                 searchTerm={searchTerm}
-                onOpenImport={() => setShowImportModal(true)}
+                onOpenImport={() => {
+                  setSummaryInvoiceForXmlImport(null);
+                  setShowImportModal(true);
+                }}
                 onOpenPeriodModal={() => setShowPeriodModal(true)}
                 onSyncSuccess={reload}
                 onChangeDateFilter={setDateFilter}
@@ -139,6 +142,11 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
                 onPress={(invoice) => {
                   void loadInvoiceDetails(invoice);
                 }}
+                onOpenXmlImport={(invoice) => {
+                  setSummaryInvoiceForXmlImport(invoice);
+                  setShowImportModal(true);
+                }}
+                onManageMappings={setMappingInvoice}
               />
             </View>
           );
@@ -181,7 +189,6 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
           void downloadInvoiceXml(invoice);
         }}
         onManageMappings={setMappingInvoice}
-        onDelete={confirmInvoiceDeletion}
       />
       <InvoiceDetailsModal
         visible={detailsLoading || !!detailsInvoice}
@@ -203,7 +210,11 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
       <InvoiceImportModal
         visible={showImportModal}
         isDarkMode={isDarkMode}
-        onClose={() => setShowImportModal(false)}
+        summaryInvoice={summaryInvoiceForXmlImport}
+        onClose={() => {
+          setShowImportModal(false);
+          setSummaryInvoiceForXmlImport(null);
+        }}
         onConsultSefaz={(key) => {
           void consultSefaz(key);
         }}

@@ -115,8 +115,12 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
         isOpen={Boolean(review.quickRegisterTarget)}
         item={review.quickRegisterTarget?.item || null}
         supplierId={supplierId}
+        supplierName={props.suppliers.find((supplier) => supplier.id === supplierId)?.fullName}
+        duplicateCandidate={review.duplicateCandidate}
+        nameMatches={review.nameMatches}
         onClose={() => review.setQuickRegisterTarget(null)}
         onConfirmSelection={review.handleQuickRegisterConfirm}
+        onReuseDuplicate={review.handleReuseDuplicate}
       />
     </>
   );

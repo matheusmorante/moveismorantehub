@@ -53,7 +53,7 @@ export const inheritMobileSimpleVariationFromParent = <T extends Record<string, 
   finalPurchasePrice: Number(parent.finalPurchasePrice || 0),
   minStock: Number(parent.minStock || 0),
   attributes: [],
-  images: [],
+  images: Array.isArray(parent.images) ? [...parent.images] : [],
   syncUnitPrice: true,
   syncPromoPrice: true,
   syncCostPrice: true,
@@ -117,7 +117,6 @@ export const syncMobileVariationsWithParent = <T extends Record<string, any>>(
     }
 
     const technicalValues = getSimpleProductVariationTechnicalValues({
-      isExistingProduct: Boolean(parent.id),
       hasVariations: Boolean(parent.hasVariations),
       variationCount: variations.length,
       parentTechnicalValues: parent.technicalValues,

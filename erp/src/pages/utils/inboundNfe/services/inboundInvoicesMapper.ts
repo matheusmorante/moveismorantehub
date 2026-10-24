@@ -36,7 +36,9 @@ export const normalizeInvoiceItem = (r: any, idx: number): InboundInvoiceItem =>
   const snap =
     r && typeof r === 'object' && r.item_snapshot && typeof r.item_snapshot === 'object'
       ? r.item_snapshot
-      : {};
+      : r && typeof r === 'object' && r.raw_item && typeof r.raw_item === 'object'
+        ? r.raw_item
+        : {};
 
   const descFromSnap =
     snap.productDescription ||
@@ -47,6 +49,7 @@ export const normalizeInvoiceItem = (r: any, idx: number): InboundInvoiceItem =>
     '';
   const descFromR =
     r.productDescription ||
+    r.product_description ||
     r.descricao ||
     r.descricao_produto ||
     r.xProd ||
@@ -63,12 +66,19 @@ export const normalizeInvoiceItem = (r: any, idx: number): InboundInvoiceItem =>
     snap.cProd ||
     snap.codigo_produto ||
     r.productCode ||
+    r.product_code ||
     r.codigo_produto ||
     r.codigo ||
     r.cProd ||
     '';
   const num =
-    snap.itemNumber ?? snap.numeroItem ?? r.itemNumber ?? r.item_index ?? r.numeroItem ?? idx + 1;
+    snap.itemNumber ??
+    snap.numeroItem ??
+    r.itemNumber ??
+    r.item_number ??
+    r.item_index ??
+    r.numeroItem ??
+    idx + 1;
   const unit = snap.unit || snap.unidade || r.unit || r.unidade || 'UN';
 
   const qtySnap = snap.quantity ?? snap.quantidade;
@@ -78,7 +88,7 @@ export const normalizeInvoiceItem = (r: any, idx: number): InboundInvoiceItem =>
   );
 
   const uCostSnap = snap.unitCost ?? snap.valorUnitario ?? snap.valor_unitario;
-  const uCostR = r.unitCost ?? r.valor_unitario ?? r.valorUnitario;
+  const uCostR = r.unitCost ?? r.unit_cost ?? r.valor_unitario ?? r.valorUnitario;
   const uCost = Number(
     uCostSnap !== undefined && uCostSnap !== null && Number(uCostSnap) > 0
       ? uCostSnap
@@ -86,7 +96,7 @@ export const normalizeInvoiceItem = (r: any, idx: number): InboundInvoiceItem =>
   );
 
   const tCostSnap = snap.totalCost ?? snap.valorTotal ?? snap.valor_total;
-  const tCostR = r.totalCost ?? r.valor_total ?? r.valorTotal;
+  const tCostR = r.totalCost ?? r.total_cost ?? r.valor_total ?? r.valorTotal;
   const calcTotal = qty * uCost;
   const tCost = Number(
     tCostSnap !== undefined && tCostSnap !== null && Number(tCostSnap) > 0
@@ -110,30 +120,58 @@ export const normalizeInvoiceItem = (r: any, idx: number): InboundInvoiceItem =>
     ncm,
     cfop,
     discountValue: Number(
-      snap.discountValue ?? snap.valorDesconto ?? r.valor_desconto ?? r.discountValue ?? 0
+      snap.discountValue ??
+        snap.valorDesconto ??
+        r.valor_desconto ??
+        r.discount_value ??
+        r.discountValue ??
+        0
     ),
     freightValue: Number(
-      snap.freightValue ?? snap.valorFrete ?? r.valor_frete ?? r.freightValue ?? 0
+      snap.freightValue ??
+        snap.valorFrete ??
+        r.valor_frete ??
+        r.freight_value ??
+        r.freightValue ??
+        0
     ),
     insuranceValue: Number(
-      snap.insuranceValue ?? snap.valorSeguro ?? r.valor_seguro ?? r.insuranceValue ?? 0
+      snap.insuranceValue ??
+        snap.valorSeguro ??
+        r.valor_seguro ??
+        r.insurance_value ??
+        r.insuranceValue ??
+        0
     ),
     otherExpensesValue: Number(
       snap.otherExpensesValue ??
         snap.outrasDespesas ??
         r.outras_despesas ??
+        r.other_expenses_value ??
         r.otherExpensesValue ??
         0
+    ),
+    ipiValue: Number(snap.ipiValue ?? r.ipi_value ?? r.ipiValue ?? 0),
+    ipiPercent: Number(snap.ipiPercent ?? r.ipi_percent ?? r.ipiPercent ?? 0),
+    icmsValue: Number(snap.icmsValue ?? r.icms_value ?? r.icmsValue ?? 0),
+    icmsPercent: Number(snap.icmsPercent ?? r.icms_percent ?? r.icmsPercent ?? 0),
+    icmsBaseValue: Number(snap.icmsBaseValue ?? r.icms_base_value ?? r.icmsBaseValue ?? 0),
+    icmsStValue: Number(snap.icmsStValue ?? r.icms_st_value ?? r.icmsStValue ?? 0),
+    icmsStPercent: Number(snap.icmsStPercent ?? r.icms_st_percent ?? r.icmsStPercent ?? 0),
+    icmsStBaseValue: Number(
+      snap.icmsStBaseValue ?? r.icms_st_base_value ?? r.icmsStBaseValue ?? 0
     ),
     matchedProductId:
       snap.matchedProductId ||
       snap.matched_product_id ||
+      r.product_id ||
       r.matched_product_id ||
       r.matchedProductId ||
       undefined,
     matchedVariationId:
       snap.matchedVariationId ||
       snap.matched_variation_id ||
+      r.variation_id ||
       r.matched_variation_id ||
       r.matchedVariationId ||
       undefined,

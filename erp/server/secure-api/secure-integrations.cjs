@@ -30,9 +30,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// erp/node_modules/@supabase/supabase-js/dist/index.cjs
+// node_modules/@supabase/supabase-js/dist/index.cjs
 var require_dist = __commonJS({
-  "erp/node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
+  "node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
     var __supabase_functions_js = require("@supabase/functions-js");
     var __supabase_postgrest_js = require("@supabase/postgrest-js");
     var __supabase_realtime_js = require("@supabase/realtime-js");
@@ -599,14 +599,14 @@ var require_dist = __commonJS({
   }
 });
 
-// erp/api/secure-integrations.ts
+// api/secure-integrations.ts
 var secure_integrations_exports = {};
 __export(secure_integrations_exports, {
   default: () => handler
 });
 module.exports = __toCommonJS(secure_integrations_exports);
 
-// erp/api/_lib/authenticatedErpRequest.ts
+// api/_lib/authenticatedErpRequest.ts
 var import_supabase_js = __toESM(require_dist(), 1);
 var DEFAULT_PERMISSION_ROLES = {
   createEditOrders: ["manager"],
@@ -673,7 +673,159 @@ function hasErpPermission(context, permission) {
   return context.roles.some((role) => allowedRoles.includes(role));
 }
 
-// erp/src/pages/utils/metaService/metaGraphProxyPolicy.ts
+// server/secure-api/verifyMetaAppCredentials.ts
+var import_node_crypto = require("node:crypto");
+function getGraphErrorDetails(body) {
+  const graphError = body && typeof body === "object" && !Array.isArray(body) ? body.error : void 0;
+  const graphCode = graphError && typeof graphError === "object" && !Array.isArray(graphError) ? graphError.code : void 0;
+  const graphSubcode = graphError && typeof graphError === "object" && !Array.isArray(graphError) ? graphError.error_subcode : void 0;
+  const graphMessage = graphError && typeof graphError === "object" && !Array.isArray(graphError) && typeof graphError.message === "string" ? graphError.message.toLowerCase() : "";
+  const safeGraphCode = typeof graphCode === "number" || typeof graphCode === "string" ? graphCode : void 0;
+  const safeGraphSubcode = typeof graphSubcode === "number" ? graphSubcode : void 0;
+  const safeGraphErrorKind = /appsecret[ _-]?proof/.test(graphMessage) ? /invalid|incorrect/.test(graphMessage) ? "invalid_appsecret_proof" : /required|missing/.test(graphMessage) ? "appsecret_proof_required" : "unknown" : /invalid oauth|cannot parse access token|invalid access token/.test(graphMessage) || safeGraphCode === 190 ? "invalid_access_token" : /invalid parameter/.test(graphMessage) || safeGraphCode === 100 ? "invalid_parameter" : "unknown";
+  return {
+    ...safeGraphCode !== void 0 ? { graphCode: safeGraphCode } : {},
+    ...safeGraphSubcode !== void 0 ? { graphSubcode: safeGraphSubcode } : {},
+    graphErrorKind: safeGraphErrorKind
+  };
+}
+async function verifyMetaAppCredentials({
+  appId,
+  appSecret,
+  accessToken,
+  graphVersion,
+  signal
+}) {
+  const normalizedAppId = appId.trim();
+  const normalizedSecret = appSecret.trim();
+  const normalizedAccessToken = accessToken.trim();
+  if (!/^\d{1,32}$/.test(normalizedAppId) || !normalizedSecret || !normalizedAccessToken) {
+    return { valid: false, reason: "invalid_input" };
+  }
+  const appAccessToken = `${normalizedAppId}|${normalizedSecret}`;
+  const appSecretProof = (0, import_node_crypto.createHmac)("sha256", normalizedSecret).update(appAccessToken).digest("hex");
+  const appUrl = new URL(`https://graph.facebook.com/${encodeURIComponent(graphVersion)}/${encodeURIComponent(normalizedAppId)}`);
+  appUrl.searchParams.set("fields", "id");
+  appUrl.searchParams.set("appsecret_proof", appSecretProof);
+  const appResponse = await fetch(appUrl, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${appAccessToken}` },
+    signal
+  });
+  const appBody = await appResponse.json().catch(() => null);
+  if (!appResponse.ok) {
+    return {
+      valid: false,
+      reason: "app_credentials_rejected",
+      graphStatus: appResponse.status,
+      ...getGraphErrorDetails(appBody)
+    };
+  }
+  if (!appBody || typeof appBody !== "object" || Array.isArray(appBody)) {
+    return { valid: false, reason: "invalid_response", graphStatus: appResponse.status };
+  }
+  const verifiedAppId = appBody.id;
+  if (String(verifiedAppId ?? "") !== normalizedAppId) {
+    return { valid: false, reason: "app_id_mismatch", graphStatus: appResponse.status };
+  }
+  const url = new URL(`https://graph.facebook.com/${encodeURIComponent(graphVersion)}/debug_token`);
+  url.searchParams.set("input_token", normalizedAccessToken);
+  url.searchParams.set("appsecret_proof", appSecretProof);
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${appAccessToken}` },
+    signal
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    return { valid: false, reason: "graph_http_error", graphStatus: response.status, ...getGraphErrorDetails(body) };
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { valid: false, reason: "invalid_response", graphStatus: response.status };
+  }
+  const data = body.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return { valid: false, reason: "invalid_response", graphStatus: response.status, ...getGraphErrorDetails(body) };
+  }
+  const token = data;
+  if (token.is_valid !== true) return { valid: false, reason: "token_invalid", graphStatus: response.status };
+  if (String(token.app_id ?? "") !== normalizedAppId) {
+    return { valid: false, reason: "app_id_mismatch", graphStatus: response.status };
+  }
+  return { valid: true };
+}
+
+// server/secure-api/verifyWhatsAppWebhookSubscription.ts
+var import_node_crypto2 = require("node:crypto");
+function isRecord(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+function getAppId(subscription) {
+  if (!isRecord(subscription)) return "";
+  if (typeof subscription.id === "string") return subscription.id;
+  if (typeof subscription.app_id === "string") return subscription.app_id;
+  const apiData = subscription.whatsapp_business_api_data;
+  return isRecord(apiData) && typeof apiData.id === "string" ? apiData.id : "";
+}
+async function verifyWhatsAppWebhookSubscription({
+  appId,
+  appSecret,
+  accessToken,
+  wabaId,
+  graphVersion,
+  signal
+}) {
+  const normalizedAppId = appId.trim();
+  const normalizedSecret = appSecret.trim();
+  const normalizedToken = accessToken.trim();
+  const normalizedWabaId = wabaId.trim();
+  if (!/^\d{1,32}$/.test(normalizedAppId) || !/^\d{1,32}$/.test(normalizedWabaId) || !normalizedSecret || !normalizedToken || !/^v\d+\.\d+$/.test(graphVersion)) {
+    return { valid: false, reason: "invalid_input" };
+  }
+  const appSecretProof = (0, import_node_crypto2.createHmac)("sha256", normalizedSecret).update(normalizedToken).digest("hex");
+  let after;
+  for (let page = 0; page < 10; page++) {
+    const url = new URL(`https://graph.facebook.com/${graphVersion}/${encodeURIComponent(normalizedWabaId)}/subscribed_apps`);
+    url.searchParams.set("limit", "100");
+    url.searchParams.set("appsecret_proof", appSecretProof);
+    if (after) url.searchParams.set("after", after);
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${normalizedToken}` },
+      signal
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      const graphError = isRecord(body) && isRecord(body.error) ? body.error : {};
+      return {
+        valid: false,
+        reason: "graph_http_error",
+        graphStatus: response.status,
+        ...typeof graphError.code === "number" || typeof graphError.code === "string" ? { graphCode: graphError.code } : {},
+        ...typeof graphError.error_subcode === "number" ? { graphSubcode: graphError.error_subcode } : {}
+      };
+    }
+    if (!isRecord(body) || !Array.isArray(body.data)) {
+      return { valid: false, reason: "invalid_response", graphStatus: response.status };
+    }
+    if (body.data.some((subscription) => getAppId(subscription) === normalizedAppId)) {
+      return { valid: true, subscribed: true };
+    }
+    const paging = isRecord(body.paging) ? body.paging : {};
+    if (typeof paging.next !== "string" || !paging.next) {
+      return { valid: true, subscribed: false };
+    }
+    const cursors = isRecord(paging.cursors) ? paging.cursors : {};
+    const nextAfter = typeof cursors.after === "string" ? cursors.after : "";
+    if (!nextAfter || nextAfter.length > 2048 || nextAfter === after) {
+      return { valid: false, reason: "invalid_response", graphStatus: response.status };
+    }
+    after = nextAfter;
+  }
+  return { valid: false, reason: "pagination_limit_exceeded" };
+}
+
+// src/pages/utils/metaService/metaGraphProxyPolicy.ts
 var numericId = (value) => {
   const normalized = typeof value === "string" ? value.trim() : "";
   if (!/^\d{1,32}$/.test(normalized)) throw new Error("Identificador Meta inv\xE1lido.");
@@ -827,7 +979,7 @@ function planMetaGraphRequest(input, settings) {
   }
 }
 
-// erp/api/secure-integrations.ts
+// api/secure-integrations.ts
 var MAX_META_REQUEST_BYTES = 1e6;
 var MAX_GEMINI_REQUEST_BYTES = 1e6;
 var MAX_ROUTE_REQUEST_BYTES = 16e3;
@@ -868,6 +1020,69 @@ async function handleMetaGraph(req, res) {
   const body = req.body;
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return res.status(400).json({ error: "Solicita\xE7\xE3o inv\xE1lida." });
+  }
+  if (body.operation === "verify_app_credentials") {
+    if (!hasErpPermission(context, "manageSettings")) {
+      return res.status(403).json({ error: "Sem permiss\xE3o para verificar a configura\xE7\xE3o Meta." });
+    }
+    const appId = process.env.WHATSAPP_APP_ID?.trim() || "";
+    const appSecret = process.env.WHATSAPP_APP_SECRET?.trim() || "";
+    if (!appId || !appSecret) {
+      return res.status(503).json({ error: "Verifica\xE7\xE3o de credenciais Meta indispon\xEDvel no servidor." });
+    }
+    const controller2 = new AbortController();
+    const timeout2 = setTimeout(() => controller2.abort(), 2e4);
+    try {
+      const result = await verifyMetaAppCredentials({
+        appId,
+        appSecret,
+        accessToken: metaToken,
+        graphVersion: GRAPH_VERSION,
+        signal: controller2.signal
+      });
+      return res.status(200).json(result);
+    } catch {
+      return res.status(controller2.signal.aborted ? 504 : 502).json({
+        error: controller2.signal.aborted ? "A verifica\xE7\xE3o Meta demorou demais." : "N\xE3o foi poss\xEDvel verificar a configura\xE7\xE3o Meta."
+      });
+    } finally {
+      clearTimeout(timeout2);
+    }
+  }
+  if (body.operation === "verify_waba_subscription") {
+    if (!hasErpPermission(context, "manageSettings")) {
+      return res.status(403).json({ error: "Sem permiss\xE3o para verificar a inscri\xE7\xE3o do webhook." });
+    }
+    const appId = process.env.WHATSAPP_APP_ID?.trim() || "";
+    const appSecret = process.env.WHATSAPP_APP_SECRET?.trim() || "";
+    if (!appId || !appSecret) {
+      return res.status(503).json({ error: "Verifica\xE7\xE3o da inscri\xE7\xE3o do webhook indispon\xEDvel no servidor." });
+    }
+    const { data: settings2, error: settingsError2 } = await context.userDb.from("settings").select("whatsappConfig:data->whatsappConfig").eq("id", "app").maybeSingle();
+    if (settingsError2) return res.status(503).json({ error: "N\xE3o foi poss\xEDvel carregar a configura\xE7\xE3o Meta." });
+    const configuredWabaId = getMetaGraphSettings(settings2?.whatsappConfig).wabaId;
+    if (typeof configuredWabaId !== "string" || !configuredWabaId.trim()) {
+      return res.status(503).json({ error: "WABA n\xE3o configurado no sistema." });
+    }
+    const controller2 = new AbortController();
+    const timeout2 = setTimeout(() => controller2.abort(), 2e4);
+    try {
+      const result = await verifyWhatsAppWebhookSubscription({
+        appId,
+        appSecret,
+        accessToken: metaToken,
+        wabaId: configuredWabaId,
+        graphVersion: GRAPH_VERSION,
+        signal: controller2.signal
+      });
+      return res.status(200).json(result);
+    } catch {
+      return res.status(controller2.signal.aborted ? 504 : 502).json({
+        error: controller2.signal.aborted ? "A verifica\xE7\xE3o do webhook demorou demais." : "N\xE3o foi poss\xEDvel verificar a inscri\xE7\xE3o do webhook."
+      });
+    } finally {
+      clearTimeout(timeout2);
+    }
   }
   const { data: settings, error: settingsError } = await context.userDb.from("settings").select("whatsappConfig:data->whatsappConfig").eq("id", "app").maybeSingle();
   if (settingsError) return res.status(503).json({ error: "N\xE3o foi poss\xEDvel carregar a configura\xE7\xE3o Meta." });

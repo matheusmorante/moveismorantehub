@@ -1,25 +1,15 @@
 import type Person from '../../../types/person.type';
 import { mapFromDB } from '../personMapper';
+import { isTestPerson } from '../../../../../../shared-utils/personTestVisibility';
 import {
-  isIdentifiedTestArtifact,
   readTestArtifactIdentity,
   type TestArtifactIdentity,
 } from '../../../../../../shared-utils/testArtifactPolicy';
 import {
-  isTestOperator,
   isTestOperatorVisibleToUser,
 } from '../../../../../../shared-utils/testOperatorVisibility';
 
-export const isTestPerson = (person: any): boolean => {
-  if (!person) return false;
-  if (isTestOperator(person)) return false;
-  if (isIdentifiedTestArtifact(person)) return true;
-  const name = person.fullName || person.tradeName || person.name || '';
-  if (/\[?\s*HML\s*NF\s*TEST\b/i.test(name)) return true;
-  if (/^\s*(?:TEST_AUT_|playwright\.test)/i.test(name)) return true;
-  if (/^\s*TEST_AUT_/i.test(String(person.id || ''))) return true;
-  return false;
-};
+export { isTestPerson };
 
 export const matchesPersonQueryContext = (
   person: Person,

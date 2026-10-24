@@ -53,6 +53,17 @@ describe('contratos e confirmação das mutações de reconciliação', () => {
     expect((await saveSingleProductReconciliation({ id: 'p1' }, [{ id: 'v1', price: 10 }])).success).toBe(true);
     expect(writes()[0].calls).toContainEqual(['eq', 'product_id', 'p1']);
   });
+  it('preserva os demais campos fiscais ao salvar o NCM pelo card', async () => {
+    mocks.responses.push(
+      { data: { fiscal: { csosn: '102', cest: '123' } }, error: null },
+      { data: [{ id: 'p1' }], error: null },
+    );
+    expect((await saveSingleProductReconciliation({ id: 'p1', ncm: '9403.50.00' })).success).toBe(true);
+    expect(mocks.queries[0].calls).toContainEqual(['select', 'fiscal']);
+    expect(writes()[0].calls).toContainEqual(['update', {
+      fiscal: { csosn: '102', cest: '123', ncm: '94035000' },
+    }]);
+  });
   it('não confirma produto inexistente ou sem permissão', async () => {
     mocks.responses.push({ data: [], error: null }); expect((await saveSingleProductReconciliation({ id: 'p1', price: 10 })).success).toBe(false);
   });

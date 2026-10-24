@@ -9,7 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { X } from 'lucide-react-native';
+import { Check, X } from 'lucide-react-native';
+import {
+  PERSON_STOCK_ORIGIN_OPTIONS,
+  togglePersonStockOrigin,
+} from '../../../../../../../shared-utils/personStockOrigins';
 import {
   FieldOptions,
   SupplierAddress,
@@ -21,6 +25,7 @@ import { styles } from './SupplierFormModal.styles';
 
 export interface SupplierFormContentProps {
   readonly supplier?: SupplierFormItem | null;
+  readonly showStockOriginOptions?: boolean;
   readonly theme: {
     bg: string;
     surface: string;
@@ -40,6 +45,7 @@ export interface SupplierFormContentProps {
 
 export const SupplierFormContent: React.FC<SupplierFormContentProps> = ({
   supplier,
+  showStockOriginOptions = false,
   theme,
   form,
   setForm,
@@ -157,6 +163,52 @@ export const SupplierFormContent: React.FC<SupplierFormContentProps> = ({
           placeholder: 'Tempo de entrega estimado',
           keyboardType: 'number-pad',
         })}
+        {showStockOriginOptions ? (
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: theme.muted }]}>Tipos de produtos fornecidos</Text>
+            <View style={styles.stockOriginOptions}>
+              {PERSON_STOCK_ORIGIN_OPTIONS.map((option) => {
+                const selected = form.stockOrigins?.includes(option.id) ?? false;
+                return (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={styles.stockOriginOption}
+                    onPress={() =>
+                      setForm((current) => {
+                        const currentlySelected = current.stockOrigins?.includes(option.id) ?? false;
+                        return {
+                          ...current,
+                          stockOrigins: togglePersonStockOrigin(
+                            current.stockOrigins,
+                            option.id,
+                            !currentlySelected
+                          ),
+                        };
+                      })
+                    }
+                    disabled={isSaving}
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={option.label}
+                    accessibilityState={{ checked: selected, disabled: isSaving }}
+                  >
+                    <View
+                      style={[
+                        styles.stockOriginCheckbox,
+                        { borderColor: theme.border },
+                        selected && styles.stockOriginCheckboxSelected,
+                      ]}
+                    >
+                      {selected ? <Check size={13} color="#fff" /> : null}
+                    </View>
+                    <Text style={[styles.stockOriginOptionText, { color: theme.text }]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Contato</Text>
         {field('Telefone', 'phone', {
           placeholder: '(00) 00000-0000',

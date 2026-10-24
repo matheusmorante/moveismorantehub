@@ -109,7 +109,7 @@ export const DeliveryMarker: React.FC<Props> = ({
 
     return (
       <Marker
-        coordinate={teamMember.coords}
+        coordinate={teamMember.coords!}
         title={teamMember.userName}
         description={statusDesc}
         anchor={{ x: 0.5, y: 0.72 }}
@@ -204,7 +204,7 @@ export const DeliveryMarker: React.FC<Props> = ({
 
   return (
     <Marker
-      coordinate={item.coords}
+      coordinate={item.coords!}
       anchor={{ x: 0.5, y: 1 }}
       onPress={onPress}
       tracksViewChanges={tracksViewChanges}

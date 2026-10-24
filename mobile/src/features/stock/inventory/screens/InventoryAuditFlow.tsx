@@ -9,12 +9,14 @@ import type { SearchableProduct } from '../components/InventoryProductSearchModa
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
 
 import type { InventorySession } from '../../types/stock.types';
+import type { InventoryScopeCopySource } from '../services/inventoryScopeCopy';
+import { useAuth } from '../../../../contexts/AuthContext';
 
 interface Props {
   isDarkMode: boolean;
   userProfile: { id: string; full_name?: string } | null;
   initialSession?: InventorySession | null;
-  copiedItems?: any[] | null;
+  copiedItems?: InventoryScopeCopySource[] | null;
   onClose: () => void;
 }
 
@@ -25,6 +27,8 @@ export const InventoryAuditFlow: React.FC<Props> = ({
   copiedItems,
   onClose,
 }) => {
+  const { canUsePermission } = useAuth();
+  const canFinalize = canUsePermission('finalizeStockInventory', ['manager', 'stockist']);
   const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const [searchTargetItemId, setSearchTargetItemId] = useState<string | null>(null);
 
@@ -41,7 +45,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({
     incrementScannedItem,
     flushLocalWrites,
     handleFinalize,
-  } = useInventoryAuditWorkflow(userProfile, onClose, initialSession, copiedItems);
+  } = useInventoryAuditWorkflow(userProfile, onClose, initialSession, copiedItems != null);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
 
@@ -141,6 +145,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({
             else void closeAfterLocalSave();
           }}
           onConfirm={handleConfirmScope}
+          copiedItems={copiedItems}
         />
       )}
 
@@ -208,6 +213,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({
           items={items}
           hasStages={scopeConfig?.hasStages}
           startDate={draftRef.current.date!}
+          canFinalize={canFinalize}
           onCancel={() => setView('operation')}
           onConfirm={handleFinalize}
         />

@@ -10,6 +10,7 @@ export interface LocalInventoryDraft {
   supplierId?: string;
   name: string;
   responsibleId?: string;
+  responsibleName?: string;
   hasStages: boolean;
   status: 'in_progress' | 'pending_sync' | 'completed';
   items: AuditItem[];
@@ -22,6 +23,7 @@ interface LocalInventoryDraftRow {
   scope_type: string | null;
   name: string;
   responsible_id: string | null;
+  responsible_name: string | null;
   has_stages: number;
   status: string;
   items_json: string;
@@ -39,6 +41,7 @@ export const saveLocalInventoryDraft = async (draft: {
   supplierId?: string;
   name: string;
   responsibleId?: string;
+  responsibleName?: string;
   hasStages?: boolean;
   status?: 'in_progress' | 'pending_sync' | 'completed';
   items: AuditItem[];
@@ -75,9 +78,10 @@ export const saveLocalInventoryDraft = async (draft: {
     ]
   );
   await db.runAsync(
-    `INSERT INTO inventory_draft_scope_local (id, supplier_id, updated_at) VALUES (?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET supplier_id = excluded.supplier_id, updated_at = excluded.updated_at;`,
-    [draft.id, draft.supplierId || null, updatedAt]
+    `INSERT INTO inventory_draft_scope_local (id, supplier_id, responsible_name, updated_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET supplier_id = excluded.supplier_id,
+       responsible_name = excluded.responsible_name, updated_at = excluded.updated_at;`,
+    [draft.id, draft.supplierId || null, draft.responsibleName || null, updatedAt]
   );
 };
 
@@ -101,8 +105,11 @@ export const getLocalInventoryDraft = async (id?: string): Promise<LocalInventor
   }
 
   if (!row) return null;
-  const scope = await db.getFirstAsync<{ supplier_id: string | null }>(
-    'SELECT supplier_id FROM inventory_draft_scope_local WHERE id = ? LIMIT 1;',
+  const scope = await db.getFirstAsync<{
+    supplier_id: string | null;
+    responsible_name: string | null;
+  }>(
+    'SELECT supplier_id, responsible_name FROM inventory_draft_scope_local WHERE id = ? LIMIT 1;',
     [row.id]
   );
 
@@ -115,6 +122,7 @@ export const getLocalInventoryDraft = async (id?: string): Promise<LocalInventor
       supplierId: scope?.supplier_id || undefined,
       name: row.name,
       responsibleId: row.responsible_id || undefined,
+      responsibleName: scope?.responsible_name || undefined,
       hasStages: Boolean(row.has_stages),
       status: (row.status as any) || 'in_progress',
       items,
@@ -136,11 +144,16 @@ export const listLocalInventoryDrafts = async (): Promise<LocalInventoryDraft[]>
     `SELECT * FROM inventory_drafts_local WHERE status != 'completed' ORDER BY updated_at DESC;`
   );
 
-  const scopes = await db.getAllAsync<{ id: string; supplier_id: string | null }>(
-    'SELECT id, supplier_id FROM inventory_draft_scope_local;'
+  const scopes = await db.getAllAsync<{
+    id: string;
+    supplier_id: string | null;
+    responsible_name: string | null;
+  }>(
+    'SELECT id, supplier_id, responsible_name FROM inventory_draft_scope_local;'
   );
-  const supplierById = new Map(scopes.map((scope) => [scope.id, scope.supplier_id]));
+  const scopeById = new Map(scopes.map((scope) => [scope.id, scope]));
   return rows.map((row) => {
+    const scope = scopeById.get(row.id);
     let items: AuditItem[] = [];
     try {
       items = JSON.parse(row.items_json || '[]');
@@ -150,9 +163,10 @@ export const listLocalInventoryDrafts = async (): Promise<LocalInventoryDraft[]>
       id: row.id,
       code: row.code,
       scopeType: row.scope_type,
-      supplierId: supplierById.get(row.id) || undefined,
+      supplierId: scope?.supplier_id || undefined,
       name: row.name,
       responsibleId: row.responsible_id || undefined,
+      responsibleName: scope?.responsible_name || undefined,
       hasStages: Boolean(row.has_stages),
       status: (row.status as any) || 'in_progress',
       items,

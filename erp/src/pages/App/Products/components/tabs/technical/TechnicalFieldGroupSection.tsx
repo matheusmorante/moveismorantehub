@@ -21,6 +21,7 @@ export interface TechnicalFieldGroupSectionProps {
   readonly manualFieldNames: string[];
   readonly validationErrors?: Record<string, boolean>;
   readonly variableTechnicalFieldNames?: readonly string[];
+  readonly isSimpleProduct?: boolean;
   readonly onToggleVariableField?: (
     fieldName: string,
     scope?: 'not_inform' | 'global' | 'variation'
@@ -75,6 +76,7 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
   manualFieldNames,
   validationErrors,
   variableTechnicalFieldNames = [],
+  isSimpleProduct = false,
   onToggleVariableField,
   onValueChange,
   onOpenAttributeModal,
@@ -127,6 +129,7 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
           manualFieldNames={manualFieldNames}
           validationErrors={validationErrors}
           isVariable={isTechnicalFieldVariable(field.name, variableTechnicalFieldNames)}
+          isSimpleProduct={isSimpleProduct}
           onToggleVariable={onToggleVariableField}
           onValueChange={onValueChange}
           onOpenAttributeModal={onOpenAttributeModal}

@@ -2,7 +2,6 @@ export type MenuKey =
   | 'products'
   | 'stock'
   | 'salesOrder'
-  | 'fiscal'
   | 'logistics'
   | 'registrations'
   | 'finance'

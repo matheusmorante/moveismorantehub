@@ -293,6 +293,11 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
                 <Text style={styles.coverBadgeText}>CAPA</Text>
               </View>
             )}
+            {idx === 1 && (
+              <View style={styles.secondaryBadge}>
+                <Text style={styles.coverBadgeText}>SECUNDÁRIA</Text>
+              </View>
+            )}
 
             <Image source={{ uri: url }} style={styles.photoImg} resizeMode="cover" />
           </TouchableOpacity>
@@ -560,6 +565,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  secondaryBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    zIndex: 2,
+    backgroundColor: '#059669',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 3,

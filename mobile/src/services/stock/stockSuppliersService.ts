@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import { toPersonStockOriginsRow } from '../../../../shared-utils/personStockOrigins';
 import { ITEMS_PER_PAGE } from './stockPagination';
 
 const postgrestValue = (value: string) => `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
@@ -102,6 +103,7 @@ export const saveSupplier = async (supplier: any) => {
     address: supplier.fullAddress ?? supplier.address ?? {},
     observation: supplier.observation ?? supplier.observations ?? '',
     active: supplier.active !== undefined ? supplier.active : true,
+    ...toPersonStockOriginsRow(supplier),
     deleted: supplier.deleted ?? false,
     is_draft: false,
     updated_at: new Date().toISOString(),

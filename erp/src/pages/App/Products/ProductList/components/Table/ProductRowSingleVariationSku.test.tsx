@@ -25,6 +25,10 @@ vi.mock('@/context/AuthContext', () => ({
 vi.mock('@/pages/utils/accessRoles', () => ({
   isProductIdentificationLabelOnlyProfile: () => false,
   canPrintProductIdentificationLabels: () => true,
+  getProductIdentificationLabelActionAvailability: () => ({
+    canOpenMenu: true,
+    canPrintLabel: true,
+  }),
 }));
 
 afterEach(cleanup);
@@ -35,10 +39,13 @@ describe('Exibição do SKU quando o produto possui variação única', () => {
     code: '000100',
     sku: '000100',
     name: 'Mesa de Centro',
+    description: 'Mesa de Centro',
     unitPrice: 150,
+    unit: 'UN',
     stock: 10,
     active: true,
     status: 'published',
+    itemType: 'product',
   };
 
   const singleVariation: ProductListRow = {

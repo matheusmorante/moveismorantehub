@@ -7,6 +7,11 @@ export interface LabelPrintProduct {
   readonly sku?: string;
   readonly unitPrice?: number;
   readonly images?: readonly string[];
+  readonly labelQty?: number;
+  readonly isVariation?: boolean;
+  readonly parentId?: string;
+  readonly variationId?: string;
+  readonly variationName?: string;
 }
 
 export interface SelectedLabelPrintProduct {

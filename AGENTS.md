@@ -114,3 +114,15 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 * Expressões como “iniciar o servidor do ERP”, “servidor do app” ou referências a um módulo também significam iniciar a pilha completa. Usar o comando padrão da raiz, com os mecanismos de ambiente existentes.
 * Ao reiniciar, encerrar a execução anterior da mesma pilha antes de iniciar a nova, evitando processos duplicados e conflitos de portas.
 * Confirmar que o ERP está disponível na porta `5173` com `strictPort` e que a API da porta `3000` responde antes de informar que o ambiente está pronto.
+
+---
+
+## 11. Guia Prático do Estoque: Atualização Obrigatória
+
+* Sempre que uma mudança de lógica, regra ou interface do módulo de Estoque alterar como o estoquista deve operar o ERP ou o app, **atualizar o guia prático no mesmo trabalho**. Não encerrar a alteração operacional como concluída com o guia pendente ou desatualizado.
+* A regra inclui mudanças em passos, pré-requisitos, permissões, botões, status e orientações de recebimentos, NF de entrada, vínculos de fornecedor/produtos, compras, inventários, movimentações e etiquetas.
+* Atualizar `erp/public/guias/guia-pratico-estoque.pdf`, usado pelo submenu Estoque, e manter `output/pdf/guia-pratico-do-estoque.pdf` com o mesmo conteúdo. Atualizar apenas histórico técnico ou arquivos temporários não substitui essa entrega.
+* O guia deve explicar a operação em linguagem de usuário, com os nomes reais das ações e condições vigentes. Conferir as instruções existentes, corrigir os trechos afetados e remover orientações substituídas.
+* Ao editar o PDF, usar a skill de PDF disponível, renderizar o documento final e revisar visualmente as páginas alteradas. Conferir que as cópias estejam sincronizadas e que o acesso pelo submenu permaneça funcionando.
+* Aplicar a skill `morantehub-stock-guide`, quando disponível. A obrigação também vale para agentes que não tenham essa skill instalada.
+* Mudanças exclusivamente internas, sem impacto na operação do estoquista, não exigem reescrever o PDF; o agente deve avaliar esse impacto antes de concluir.

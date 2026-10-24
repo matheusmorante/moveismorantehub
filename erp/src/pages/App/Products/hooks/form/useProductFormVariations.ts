@@ -50,7 +50,7 @@ export function useProductFormVariations(
       finalPurchasePrice: Number(product.finalPurchasePrice || 0),
       minStock: Number(product.minStock || 0),
       attributes: [],
-      images: [],
+      images: [...(product.images || [])],
       syncUnitPrice: true,
       syncPromoPrice: true,
       syncCostPrice: true,

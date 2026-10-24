@@ -5,6 +5,7 @@ import {
   resolveCanonicalOpportunityBadge,
 } from '../domain/mobileProductCardRules';
 import { isNonConventionalProduct } from '../../../../../shared-utils/productActivationValidation';
+import { getProductIdentificationLabelActionAvailability } from '../../../../../shared-utils/productPermissions';
 import { useMobileProductMetadata } from './useMobileProductMetadata';
 import { getSingleVariationDisplayName } from '../domain/mobileProductCardDisplay';
 import { normalizeVariationSku } from '../domain/productSku';
@@ -46,6 +47,12 @@ export function useMobileProductCardState({
 
   const isDraft = Boolean(product.isDraft || product.is_draft || product.status === 'draft');
   const cardActionAvailability = getMobileProductCardActionAvailability(product);
+  const identificationLabelAvailability = getProductIdentificationLabelActionAvailability({
+    canPrint: canPrintLabels,
+    hasSingleVariation: isSingleVariationCard,
+    isDraft,
+    isMerged: isSingleVariationMerged,
+  });
   const cardStatus = singleVariation?.status || product.status || 'hidden';
   const isPublished = !isDraft && cardStatus === 'published';
   const isActive =
@@ -90,7 +97,9 @@ export function useMobileProductCardState({
   );
   const isLowStock = isMobileProductStockLow(cardStock, cardMinStock);
   const cardUnit = singleVariation?.unit || product.unit || 'UN';
-  const canShowVariationMenu = isLabelOnlyProfile ? canPrintLabels : canEdit;
+  const canShowVariationMenu = isLabelOnlyProfile
+    ? identificationLabelAvailability.canOpenMenu
+    : canEdit;
 
   const { oppName, supplierNames } = useMobileProductMetadata(product);
   const isSalvado = isSalvadoProduct(product) || isSalvadoProduct(singleVariation);
@@ -137,6 +146,7 @@ export function useMobileProductCardState({
     isLowStock,
     cardUnit,
     canShowVariationMenu,
+    canPrintIdentificationLabel: identificationLabelAvailability.canPrintLabel,
     oppName,
     supplierNames,
     isSalvado,

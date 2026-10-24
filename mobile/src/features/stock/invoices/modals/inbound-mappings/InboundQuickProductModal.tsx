@@ -11,6 +11,7 @@ import {
 import { Plus, Search, X } from 'lucide-react-native';
 import { ProductFormScreen } from '../../../../products/screens/ProductFormScreen';
 import type { MappingItem } from './types';
+import { landedUnitCost } from './inboundCostUtils';
 import { styles } from './inboundMappings.styles';
 
 interface InboundQuickProductModalProps {
@@ -138,6 +139,10 @@ export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> =
         visible={registrationFormVisible}
         product={registrationParent}
         initialData={registrationDefaults}
+        showInboundCostPrice={!registrationParent}
+        inboundVariationCostPrice={
+          registrationParent && registrationItem ? landedUnitCost(registrationItem) : undefined
+        }
         dark={isDarkMode}
         onClose={onCloseForm}
         onSave={onSaveProduct}

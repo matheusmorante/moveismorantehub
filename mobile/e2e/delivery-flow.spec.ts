@@ -337,6 +337,8 @@ test.describe('Fluxo de Entrega Completo (Online e Offline) — E2E Browser UI',
     const orderId = 'e2e-delivery-offline-002';
 
     let isNetworkOffline = false;
+    let proofCredentialRequests = 0;
+    let proofFileUploads = 0;
     let serverOrderState: Record<string, any> = {
       id: orderId,
       order_number: '900202',
@@ -475,7 +477,25 @@ test.describe('Fluxo de Entrega Completo (Online e Offline) — E2E Browser UI',
         await route.abort('internetdisconnected');
         return;
       }
-      await route.continue();
+      proofCredentialRequests += 1;
+      const uploadRequest = route.request().postDataJSON() || {};
+      expect(uploadRequest.fileName).toContain('delivery-proofs/');
+      expect(uploadRequest.contentType).toBe('image/png');
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          uploadUrl: 'https://storage.test/delivery-proof-upload',
+          fileUrl: 'https://storage.test/delivery-proof.png',
+        }),
+      });
+    });
+
+    await page.route('https://storage.test/**', async (route) => {
+      expect(route.request().method()).toBe('PUT');
+      expect(route.request().postDataBuffer()?.length || 0).toBeGreaterThan(0);
+      proofFileUploads += 1;
+      await route.fulfill({ status: 200, body: 'ok' });
     });
 
     await page.goto(START_URL);
@@ -559,14 +579,7 @@ test.describe('Fluxo de Entrega Completo (Online e Offline) — E2E Browser UI',
     const fileChooserPromise = page.waitForEvent('filechooser');
     await page.getByText('Adicionar imagem (0/5)').click();
     const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles({
-      name: 'comprovante-portao.png',
-      mimeType: 'image/png',
-      buffer: Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-        'base64'
-      ),
-    });
+    await fileChooser.setFiles('assets/favicon.png');
     await expect(page.getByText('Adicionar imagem (1/5)')).toBeVisible({ timeout: 5000 });
 
     await page.getByText('CONFIRMAR NÃO FOI POSSÍVEL ENTREGAR').click();
@@ -591,6 +604,12 @@ test.describe('Fluxo de Entrega Completo (Online e Offline) — E2E Browser UI',
     expect(serverOrderState.order_data?.unattendedNotes).toBe(
       'Tocamos o interfone 3 vezes sem retorno.'
     );
+    expect(proofCredentialRequests).toBe(1);
+    expect(proofFileUploads).toBe(1);
+    expect(serverOrderState.order_data?.unattendedProofUrls).toEqual([
+      'https://storage.test/delivery-proof.png',
+    ]);
+    expect(serverOrderState.order_data?.unattendedProofMetadata).toBeUndefined();
   });
 
   test('3. Valida Cancelamento da Entrega (CancelDeliveryConfirmModal) e abertura pelo Mapa / BottomSheet', async ({

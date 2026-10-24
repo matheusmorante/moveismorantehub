@@ -6,6 +6,8 @@ export interface OfflineInventoryCatalog {
   variations: Record<string, CatalogRow>;
   labels: Record<string, CatalogRow>;
   suppliers: Record<string, CatalogRow>;
+  employees?: Record<string, CatalogRow>;
+  employeesSyncedAt?: string | null;
   cursors: Record<string, string>;
   syncedAt: string | null;
   deletionCursor?: number;
@@ -32,6 +34,8 @@ export const emptyCatalog = (): OfflineInventoryCatalog => ({
   variations: {},
   labels: {},
   suppliers: {},
+  employees: {},
+  employeesSyncedAt: null,
   cursors: {},
   syncedAt: null,
   deletionCursor: 0,
@@ -102,6 +106,19 @@ export const compactCatalogSnapshot = (next: OfflineInventoryCatalog): OfflineIn
     'full_name',
     'social_name',
     'nickname',
+    'active',
+    'deleted',
+    'updated_at',
+  ]),
+  employees: compactRows(next.employees || {}, [
+    'id',
+    'person_type',
+    'full_name',
+    'social_name',
+    'nickname',
+    'position',
+    'role',
+    'roles',
     'active',
     'deleted',
     'updated_at',

@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({ from: vi.fn(), local: [] as InboundInvoice[], 
 vi.mock('../../supabaseConfig', () => ({ supabase: { from: mocks.from } }));
 vi.mock('../services/inboundInvoicesCache', () => ({ getLocalInvoices: () => mocks.local, saveLocalInvoices: mocks.cache, isSampleInvoice: () => false }));
 const invoice = {
-  id: '92b3b7f6-a00a-41e2-97ac-9e92b66598dd', nfeKey: '', nfeNumber: '1', supplierId: 'supplier-1', totalInvoice: 0,
+  id: '92b3b7f6-a00a-41e2-97ac-9e92b66598dd', nfeKey: '', nfeNumber: '1', supplierId: 'supplier-1', recipientCnpj: '44.512.248/0001-07', totalInvoice: 0,
   items: [{ itemNumber: 1, productCode: 'F-1', productDescription: 'Mesa', quantity: 2, unitCost: 0, totalCost: 0, unit: 'UN', ncm: '', cfop: '', matchedProductId: 'product-1' }],
 } as InboundInvoice;
 beforeEach(() => {

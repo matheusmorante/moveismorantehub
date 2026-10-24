@@ -38,6 +38,10 @@ export const inventoryAuditScopeSchema = inventoryScopeFormSchema.safeExtend({
   itemsSnapshot: z.array(snapshotItem),
 }).passthrough();
 
+export const mobileInventoryAuditScopeSchema = inventoryAuditScopeSchema.extend({
+  responsibleName: z.string().trim().min(1, 'Selecione um responsável pelo inventário.'),
+});
+
 /** Empty scopes and uncounted rows remain valid local drafts. */
 export const inventoryAuditDraftSchema = z.object({
   id: z.string().min(1), code: z.string().min(1), date: z.string(), name: z.string(),

@@ -15,6 +15,7 @@ import { MAX_VARIATION_IMAGES } from '../../domain/productImageLimits';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { createVariationImageSelectionFormSchema } from '../../../../../../shared-utils/productImageFormSchemas';
 import { toggleAllParentProductImages } from '../../../../../../shared-utils/productImageSelection';
+import { ProductImage } from '../../../../components/shared/ProductImage';
 import { ProductSquareImageCropModal } from './ProductSquareImageCropModal';
 
 interface Props {
@@ -108,8 +109,9 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
         <View style={styles.selectedList}>
           {images.map((url, index) => (
             <View key={url} style={[styles.selectedPhoto, dark && styles.darkPhoto]}>
-              <Image
-                source={{ uri: url }}
+              <ProductImage
+                src={url}
+                size="thumbnail"
                 style={styles.thumbnail}
                 accessibilityLabel={`Foto da variação ${index + 1}`}
               />

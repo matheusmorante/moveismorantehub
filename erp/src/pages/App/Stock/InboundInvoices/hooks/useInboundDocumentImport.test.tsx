@@ -10,13 +10,13 @@ vi.mock('@/pages/utils/inboundNfe/inboundXmlParser', () => ({ parseInboundNfeXml
 vi.mock('@/pages/utils/personService', () => ({ fetchPersons: mocks.persons }));
 vi.mock('@/pages/utils/productSupplierCodesService', () => ({ findProductSupplierCodes: mocks.mappings }));
 vi.mock('@/pages/utils/inboundNfe/inboundItemProductResolver', () => ({ resolveLinkedProductDetails: mocks.details }));
-vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn() } }));
+vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn(), info: vi.fn() } }));
 
 const key = '41261012ABC34501DE35550010000001061705367136';
 const invoice = (): InboundInvoice => ({
   id: 'inbound', nfeKey: key.toLowerCase().replace(/(.{4})/g, '$1 '), nfeNumber: '106', series: '1',
   issuedAt: '2026-10-15T12:00:00Z', emitterCnpj: '12.abc.345/01de-35', emitterName: 'Fornecedor',
-  recipientCnpj: '12345678000195', recipientName: 'Loja', totalProducts: 20, totalFreight: 0,
+  recipientCnpj: '44.512.248/0001-07', recipientName: 'MOVEIS MORANTE LTDA', totalProducts: 20, totalFreight: 0,
   totalIpi: 0, totalInvoice: 20, model: '55', environment: 2, status: 'pending', itemsCount: 1,
   items: [{ itemNumber: 1, productCode: 'sku', productDescription: 'Mesa', ncm: '94036000', cfop: '5102', unit: 'UN', quantity: 1, unitCost: 20, totalCost: 20 }],
 });
@@ -85,12 +85,14 @@ describe('proprietário da importação de notas de entrada', () => {
     await act(async () => { finishSave(invoice()); await first; });
     expect(onImportSuccess).toHaveBeenCalledTimes(1); expect(result.current.isLoading).toBe(false);
   });
-  it('mostra duplicidade sem gravar e libera uma nova tentativa', async () => {
+  it('informa que a nota já está cadastrada sem alterações e libera nova tentativa', async () => {
     mocks.exists.mockResolvedValueOnce(invoice());
-    const { result } = mount();
+    const { result, onImportSuccess, onClose } = mount();
     await act(async () => { await result.current.handleXmlString('<nfe/>'); });
-    expect(result.current.duplicateAlertOpen).toBe(true); expect(result.current.duplicateKey).toBe(key);
+    expect(result.current.duplicateAlertOpen).toBe(false);
     expect(mocks.save).not.toHaveBeenCalled();
+    expect(onImportSuccess).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
     await act(async () => { await result.current.handleXmlString('<next/>'); });
     expect(mocks.save).toHaveBeenCalledTimes(1);
   });

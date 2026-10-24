@@ -4,6 +4,7 @@ import { DeliveryStartConfirmModal } from '../../components/delivery/DeliverySta
 import { UnattendedModal } from '../../components/delivery/UnattendedModal';
 import { CancelDeliveryConfirmModal } from '../../components/delivery/CancelDeliveryConfirmModal';
 import { DeliveryResponsibleItem } from './deliveryPreparation.types';
+import type { LocalDeliveryProofMetadata } from '../../services/deliveryProofRules';
 
 export interface DeliveryPreparationModalsProps {
   order: any;
@@ -19,7 +20,12 @@ export interface DeliveryPreparationModalsProps {
   showUnattendedModal: boolean;
   unattendedVariant?: 'preparation' | 'arrival';
   onCloseUnattendedModal: () => void;
-  onConfirmUnattended: (reason: string, notes: string, proofUrls: string[]) => void;
+  onConfirmUnattended: (
+    reason: string,
+    notes: string,
+    proofUrls: string[],
+    proofMetadata?: LocalDeliveryProofMetadata[]
+  ) => Promise<void>;
   showCancelModal: boolean;
   onCloseCancelModal: () => void;
   onConfirmCancelDelivery: () => void;

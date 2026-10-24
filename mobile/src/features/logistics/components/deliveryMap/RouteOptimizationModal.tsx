@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
   },
   card: {

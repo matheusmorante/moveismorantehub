@@ -7,6 +7,8 @@ import {
   getFullProduct,
   getNextSequentialProductCode,
 } from '@/pages/utils/productService';
+import { copyProductImages } from '@/pages/utils/storageService';
+import { MAX_VARIATION_IMAGES } from '@/pages/utils/productImageLimits';
 
 export interface StockLaunchTarget {
   product?: Product | null;
@@ -55,6 +57,11 @@ export function useProductsModals() {
       const source = product.id ? await getFullProduct(product.id) : product;
       if (!source) throw new Error('Não foi possível carregar os dados completos do produto.');
       const code = await getNextSequentialProductCode();
+      const images = await copyProductImages(Array.isArray(source.images) ? source.images : []);
+      const variationImages =
+        (source.variations || []).length === 1
+          ? images
+          : images.slice(0, MAX_VARIATION_IMAGES);
       const duplicate: Product = {
         ...source,
         id: undefined,
@@ -68,15 +75,22 @@ export function useProductsModals() {
         isDraft: true,
         active: false,
         status: 'draft',
-        variations: (source.variations || []).map((variation, index) => ({
-          ...variation,
-          id: crypto.randomUUID(),
-          isVirtual: false,
-          mergedToVariationId: undefined,
-          sku: generateVariationSku(code, index),
-          active: false,
-          status: 'draft',
-        })),
+        images,
+        variations: (source.variations || []).map((variation, index) => {
+          const copy = {
+            ...variation,
+            id: crypto.randomUUID(),
+            isVirtual: false,
+            mergedToVariationId: undefined,
+            sku: generateVariationSku(code, index),
+            images: [...variationImages],
+            active: false,
+            status: 'draft' as const,
+          };
+          delete (copy as any).image_url;
+          delete (copy as any).imageUrl;
+          return copy;
+        }),
       };
       setEditingProduct(duplicate);
       setInitialFormData(null);

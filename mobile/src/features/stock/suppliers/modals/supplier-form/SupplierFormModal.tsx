@@ -15,6 +15,7 @@ interface Props {
   readonly onClose: () => void;
   readonly isDarkMode: boolean;
   readonly supplier?: SupplierFormItem | null;
+  readonly showStockOriginOptions?: boolean;
   readonly onSave: (data: Record<string, unknown>) => Promise<void>;
 }
 
@@ -23,11 +24,13 @@ export const SupplierFormModal: React.FC<Props> = ({
   onClose,
   isDarkMode,
   supplier,
+  showStockOriginOptions = false,
   onSave,
 }) => {
   const { form, setForm, isSaving, updateAddress, updateField, handleSave } = useSupplierForm({
     visible,
     supplier,
+    showStockOriginOptions,
     onSave,
     onClose,
   });
@@ -59,6 +62,7 @@ export const SupplierFormModal: React.FC<Props> = ({
     >
       <SupplierFormContent
         supplier={supplier}
+        showStockOriginOptions={showStockOriginOptions}
         theme={theme}
         form={form}
         setForm={setForm}

@@ -37,6 +37,7 @@ export const InvoiceImportXmlUploadSection: React.FC<InvoiceImportXmlUploadSecti
           Formato aceito: XML oficial da nota fiscal eletrônica, modelo 55
         </Text>
       </TouchableOpacity>
+
     </>
   );
 };

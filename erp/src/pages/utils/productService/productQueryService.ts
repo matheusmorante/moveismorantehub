@@ -296,6 +296,57 @@ export const getProductsByIds = async (ids: string[]): Promise<Product[]> => {
   return products.filter((p) => idStrings.includes(String(p.id)));
 };
 
+/** Busca GTIN na coluna de detalhes das variações, sem criar coluna ou migration. */
+export const findProductByVariationBarcode = async (
+  barcode: string,
+): Promise<{ product: Product; variation: Variation } | null> => {
+  const normalizedBarcode = String(barcode || '').replace(/\D/g, '');
+  if (!normalizedBarcode) return null;
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .select(LIGHT_COLUMNS_WITH_CATS)
+    .contains('technical_specs', { variationDetails: [{ barcode: normalizedBarcode }] })
+    .or('deleted.eq.false,deleted.is.null')
+    .limit(20);
+  if (error) throw error;
+
+  for (const row of data || []) {
+    const product = mapFromDB(row);
+    const variation = product.variations?.find(
+      (candidate) => String(candidate.barcode || '').replace(/\D/g, '') === normalizedBarcode,
+    );
+    if (variation && product.id) return { product, variation };
+  }
+
+  const cachedMatch = getLocalProducts().find((product) =>
+    product.variations?.some((variation) => String(variation.barcode || '').replace(/\D/g, '') === normalizedBarcode),
+  );
+  const variation = cachedMatch?.variations?.find(
+    (candidate) => String(candidate.barcode || '').replace(/\D/g, '') === normalizedBarcode,
+  );
+  return cachedMatch && variation ? { product: cachedMatch, variation } : null;
+};
+
+/** Finds catalog names for operator review before an inbound quick registration. */
+export const findInboundProductNameMatches = async (name: string): Promise<string[]> => {
+  const query = String(name || '').trim();
+  if (query.length < 3) return [];
+  const result = await fetchProductsPage(
+    1,
+    12,
+    { search: query, includeDeactivated: true, excludeTestProducts: true },
+    { throwOnError: true },
+  );
+  const names = new Set<string>();
+  for (const product of result.data) {
+    if (product.name?.trim()) names.add(product.name.trim());
+    for (const variation of product.variations || []) {
+      if (variation.name?.trim()) names.add(variation.name.trim());
+    }
+  }
+  return [...names].slice(0, 12);
+};
+
 export const getProductByCode = async (
   code: string
 ): Promise<{ product: Product; variation?: Variation } | null> => {

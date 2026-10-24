@@ -3,6 +3,10 @@ import Product from '../../../../../types/product.type';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 import { formatNcmSubtitle } from '@/services/fiscal/ncmDisplay';
 import type { PendingNcmSuggestion } from '../../../hooks/fiscal/useProductJevClassification';
+import {
+  fillMissingProductFiscalNcmDescription,
+  updateProductFiscalNcmCode,
+} from '../../../../../../../../shared-utils/productFiscalNcm';
 
 function parseNcmCode(val: string): string {
   if (!val) return '';
@@ -58,13 +62,14 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
         setSelectedInternalDescription(currentCatalogEntry.internal_description || '');
         setSelectedInternalDescriptionCode(currentCatalogEntry.code);
         if (!formData.fiscal?.ncmDescription) {
-          setFormData((prev) => ({
-            ...prev,
-            fiscal: {
-              ...prev.fiscal!,
-              ncmDescription: currentCatalogEntry.official_description,
-            },
-          }));
+          setFormData((prev) => {
+            const fiscal = fillMissingProductFiscalNcmDescription(
+              prev.fiscal,
+              currentCatalogEntry.code,
+              currentCatalogEntry.official_description
+            );
+            return fiscal === prev.fiscal ? prev : { ...prev, fiscal };
+          });
         }
       }
     }
@@ -180,11 +185,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
             }
             setFormData((prev) => ({
               ...prev,
-              fiscal: {
-                ...prev.fiscal!,
-                ncm: code,
-                ...(code !== (prev.fiscal?.ncm || '').replace(/\D/g, '') ? { ncmDescription: '' } : {}),
-              },
+              fiscal: updateProductFiscalNcmCode(prev.fiscal, code),
             }));
             setIsDropdownOpen(true);
           }}
@@ -207,8 +208,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                     setFormData((prev) => ({
                       ...prev,
                       fiscal: {
-                        ...prev.fiscal!,
-                        ncm: code,
+                        ...updateProductFiscalNcmCode(prev.fiscal, code),
                         ncmDescription: entry.official_description,
                       },
                     }));
@@ -314,8 +314,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                   setFormData((prev) => ({
                     ...prev,
                     fiscal: {
-                      ...prev.fiscal!,
-                      ncm: item.code,
+                      ...updateProductFiscalNcmCode(prev.fiscal, item.code),
                       ncmDescription: item.official_description,
                     },
                   }));

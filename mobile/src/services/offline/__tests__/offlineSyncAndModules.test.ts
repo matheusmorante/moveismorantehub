@@ -5,6 +5,14 @@ vi.mock('react-native', () => ({
   Platform: { OS: 'web' },
 }));
 
+const uploadDeliveryProofMock = vi.hoisted(() =>
+  vi.fn(async () => 'https://storage.test/delivery-proofs/proof.png')
+);
+
+vi.mock('../../../features/orders/services/deliveryProofUploadService', () => ({
+  uploadDeliveryProof: uploadDeliveryProofMock,
+}));
+
 const state = vi.hoisted(() => ({
   connected: false,
   activeSessionUserId: 'user-driver-1' as string | null,
@@ -16,6 +24,7 @@ const state = vi.hoisted(() => ({
   calendarRemoteRows: [] as any[],
   deletedRemoteInventoryIds: [] as string[],
   failNextOrderUpdate: false,
+  failAfterOrderCommit: false,
 }));
 
 vi.mock('../connectivityService', () => ({
@@ -56,11 +65,28 @@ vi.mock('../../supabaseClient', () => ({
           version: 1,
           order_data: { id: orderId, status: 'scheduled' },
         };
+        const currentVersion = Number(current.version ?? current.order_data?.syncVersion ?? 1);
+        if (Number(args.p_expected_version) !== currentVersion) {
+          return {
+            data: {
+              success: false,
+              reason: 'VERSION_CONFLICT',
+              server_version: currentVersion,
+              server_state: current,
+            },
+            error: null,
+          };
+        }
         const patch = args.p_payload?.order_data_patch || args.p_payload || {};
-        const mergedData = { ...current.order_data, ...patch };
+        const mergedData = { ...current.order_data, ...patch, syncVersion: currentVersion + 1 };
+        for (const [key, value] of Object.entries(patch)) {
+          if (value === null) delete mergedData[key];
+        }
         const updated = {
           ...current,
-          version: (current.version || 1) + 1,
+          version: currentVersion + 1,
+          status: typeof patch.status === 'string' ? patch.status : current.status,
+          delivery_status: mergedData.deliveryStatus ?? null,
           order_data: mergedData,
         };
         state.ordersById[orderId] = updated;
@@ -93,20 +119,32 @@ vi.mock('../../supabaseClient', () => ({
             if (col === 'id') targetId = val;
             return query;
           }),
-          maybeSingle: vi.fn(async () => ({
-            data: state.ordersById[targetId] || null,
-            error: null,
-          })),
+          maybeSingle: vi.fn(async () => {
+            const order = state.ordersById[targetId];
+            return {
+              data: order
+                ? { id: order.id, status: order.status, order_data: order.order_data }
+                : null,
+              error: null,
+            };
+          }),
           update: vi.fn((patch: any) => ({
             eq: vi.fn(async (_col: string, val: string) => {
               if (state.failNextOrderUpdate) {
                 state.failNextOrderUpdate = false;
                 return { error: new Error('Network connection lost mid-flight') };
               }
+              if (!state.connected) {
+                return { error: new Error('Offline') };
+              }
               state.ordersById[val] = {
                 ...(state.ordersById[val] || { id: val }),
                 ...patch,
               };
+              if (state.failAfterOrderCommit) {
+                state.failAfterOrderCommit = false;
+                return { error: new Error('Connection lost after server commit') };
+              }
               return { error: null };
             }),
           })),
@@ -225,6 +263,7 @@ vi.mock('../../supabaseClient', () => ({
 
 import { offlineSyncManager } from '../offlineSyncManager';
 import { offlineStorageService } from '../offlineStorageService';
+import { getSQLiteDatabase } from '../../sqlite/database';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import { SyncQueueRepository } from '../../../repositories/SyncQueueRepository';
 import {
@@ -278,7 +317,11 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
     state.calendarRemoteRows = [];
     state.deletedRemoteInventoryIds = [];
     state.failNextOrderUpdate = false;
+    state.failAfterOrderCommit = false;
     await OrderRepository.init();
+    const db = await getSQLiteDatabase();
+    await db.runAsync('DELETE FROM sync_queue');
+    await db.runAsync('DELETE FROM orders_local');
     await clearAllLocalInventoryDrafts();
     await offlineStorageService.cacheWorkingSet('schedule_calendar_events_pending_v1', []);
     await offlineStorageService.cacheWorkingSet('schedule_calendar_events_v1', []);
@@ -370,30 +413,41 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
       isPendingLocal: true,
     });
 
-    await offlineSyncManager.recordEvent(
-      'DELIVERY_STEP_BACK',
+    const arrivalEvent = await offlineSyncManager.recordEvent(
+      'DELIVERY_ARRIVE_DESTINATION',
       'order',
       orderId,
-      { targetStep: 'preparation' }
+      { deliveryStatus: 'arrived', deliveryArrivedAt: '2026-10-20T08:30:00.000Z' }
+    );
+    const serviceEvent = await offlineSyncManager.recordEvent(
+      'DELIVERY_START_SERVICE',
+      'order',
+      orderId,
+      { deliveryStatus: 'in_service', deliveryServiceStartedAt: '2026-10-20T08:35:00.000Z' }
     );
 
     state.rpcError = { code: 'PGRST202', message: 'Missing RPC' };
-    state.failNextOrderUpdate = true; // Simula queda de rede no meio do UPDATE
+    state.failAfterOrderCommit = true; // A gravação chega ao servidor, mas a resposta se perde.
     state.connected = true;
 
     await offlineSyncManager.processQueue();
 
-    // Deve continuar na fila ativa com status 'failed' e retryCount = 1
+    // A primeira etapa foi aplicada remotamente, mas a fila ainda precisa recuperá-la por idempotência.
     const activeAfterFailure = await SyncQueueRepository.listActive();
     const failedItem = activeAfterFailure.find((i) => i.entityId === orderId);
     expect(failedItem?.status).toBe('failed');
     expect(failedItem?.retryCount).toBe(1);
+    expect(activeAfterFailure.find((i) => i.id !== failedItem?.id)?.expectedVersion).toBe(1);
+    expect(state.ordersById[orderId].order_data.syncVersion).toBe(2);
+    expect(state.ordersById[orderId].order_data.lastSyncEventId).toBe(arrivalEvent.eventId);
 
-    // Na reconexão seguinte, envia e confirma sem duplicar
+    // A repetição reconhece o primeiro commit, avança a versão do segundo evento e conclui a cadeia.
     await offlineSyncManager.processQueue();
     const activeAfterRecovery = await SyncQueueRepository.listActive();
     expect(activeAfterRecovery.find((i) => i.entityId === orderId)).toBeUndefined();
-    expect(state.ordersById[orderId].order_data.deliveryStatus).toBeUndefined();
+    expect(state.ordersById[orderId].order_data.deliveryStatus).toBe('in_service');
+    expect(state.ordersById[orderId].order_data.syncVersion).toBe(3);
+    expect(state.ordersById[orderId].order_data.lastSyncEventId).toBe(serviceEvent.eventId);
   });
 
   it('4. Agenda: preserva eventos criados offline com UUID idempotente e precedência sobre leitura remota', async () => {
@@ -686,6 +740,106 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
     expect(offlineProfile.roles).toContain('driver');
   });
 
+  it('envia a prova local ao reconectar antes de sincronizar a ocorrência da entrega', async () => {
+    const orderId = 'order-offline-proof-1';
+    const localProof = {
+      uri: 'file:///documents/delivery-proofs/proof.png',
+      fileName: 'proof.png',
+      contentType: 'image/png',
+    };
+    const remoteProofUrl = 'https://storage.test/delivery-proofs/proof.png';
+    const initialOrder = {
+      id: orderId,
+      status: 'scheduled',
+      version: 1,
+      order_data: { id: orderId, status: 'scheduled', deliveryStatus: 'arrived' },
+    };
+    state.ordersById[orderId] = initialOrder;
+    await offlineStorageService.cacheWorkingSet('logistics_orders', [initialOrder]);
+    state.connected = false;
+
+    await deliveryFlowService.recordUnattended({
+      orderId,
+      currentData: initialOrder.order_data,
+      reason: 'Ninguém Atendeu no Local',
+      notes: 'Interfone sem resposta.',
+      proofUrls: [localProof.uri],
+      proofMetadata: [localProof],
+    });
+
+    const queuedBeforeReconnect = await SyncQueueRepository.listActive();
+    expect(queuedBeforeReconnect).toHaveLength(1);
+    expect(queuedBeforeReconnect[0].payload.order_data_patch.unattendedProofUrls).toEqual([
+      localProof.uri,
+    ]);
+
+    uploadDeliveryProofMock
+      .mockRejectedValueOnce(new Error('Upload temporariamente indisponível'))
+      .mockResolvedValueOnce(remoteProofUrl);
+    state.connected = true;
+    await offlineSyncManager.processQueue();
+
+    const queuedAfterUploadFailure = await SyncQueueRepository.listActive();
+    expect(queuedAfterUploadFailure).toHaveLength(1);
+    expect(queuedAfterUploadFailure[0].status).toBe('failed');
+    expect(queuedAfterUploadFailure[0].retryCount).toBe(1);
+    expect(queuedAfterUploadFailure[0].payload.order_data_patch.unattendedProofUrls).toEqual([
+      localProof.uri,
+    ]);
+
+    await offlineSyncManager.processQueue();
+
+    expect(uploadDeliveryProofMock).toHaveBeenNthCalledWith(
+      2,
+      localProof.uri,
+      expect.stringContaining('proof.png'),
+      localProof.contentType
+    );
+    expect(state.ordersById[orderId].order_data.unattendedProofUrls).toEqual([remoteProofUrl]);
+    expect(state.ordersById[orderId].order_data.unattendedProofUrl).toBe(remoteProofUrl);
+    expect(JSON.stringify(state.ordersById[orderId].order_data)).not.toContain('file://');
+  });
+
+  it('rebaseia etapas offline sequenciais quando o RPC exige a versão esperada', async () => {
+    const orderId = 'order-offline-rpc-sequence-1';
+    const initialOrder = {
+      id: orderId,
+      status: 'scheduled',
+      version: 1,
+      order_data: { id: orderId, status: 'scheduled', deliveryStatus: 'in_progress' },
+    };
+    state.ordersById[orderId] = initialOrder;
+    await OrderRepository.saveLocal({
+      id: orderId,
+      status: 'scheduled',
+      orderData: initialOrder.order_data,
+      version: 1,
+      updatedAt: '2026-10-20T08:00:00.000Z',
+      isPendingLocal: true,
+    });
+    state.connected = false;
+
+    await offlineSyncManager.recordEvent('DELIVERY_ARRIVE_DESTINATION', 'order', orderId, {
+      deliveryStatus: 'arrived',
+      deliveryArrivedAt: '2026-10-20T08:30:00.000Z',
+    });
+    await offlineSyncManager.recordEvent('DELIVERY_START_SERVICE', 'order', orderId, {
+      deliveryStatus: 'in_service',
+      deliveryServiceStartedAt: '2026-10-20T08:35:00.000Z',
+    });
+
+    expect((await SyncQueueRepository.listActive()).map((item) => item.expectedVersion)).toEqual([
+      1, 1,
+    ]);
+    state.connected = true;
+    await offlineSyncManager.processQueue();
+
+    expect((await offlineSyncManager.getSummary()).conflictCount).toBe(0);
+    expect(state.ordersById[orderId].version).toBe(3);
+    expect(state.ordersById[orderId].order_data.deliveryStatus).toBe('in_service');
+    expect((await SyncQueueRepository.listActive())).toHaveLength(0);
+  });
+
   it('8. Fluxo Completo de Entrega (4 Etapas + Retrocesso + Cancelamento) Online e Offline com reconciliação no Roteiro', async () => {
     const todayStr = '2026-10-20';
     const orderId = 'order-e2e-flow-1';
@@ -760,9 +914,20 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
     expect(resolveDeliveryStep(backTo3.updatedData).currentStep).toBe(3);
     expect(backTo3.updatedData.deliveryServiceStartedAt).toBeUndefined();
 
+    expect(state.ordersById[orderId].order_data.deliveryStatus).toBeUndefined();
+    const queuedOfflineEvents = await SyncQueueRepository.listActive();
+    expect(queuedOfflineEvents.map((item) => item.payload.event_type)).toEqual([
+      'DELIVERY_START_ROUTE',
+      'DELIVERY_ARRIVE_DESTINATION',
+      'DELIVERY_START_SERVICE',
+      'DELIVERY_STEP_BACK',
+    ]);
+    expect(queuedOfflineEvents.map((item) => item.expectedVersion)).toEqual([1, 1, 1, 1]);
+
     // Conectar e sincronizar fila até aqui: o servidor deve limpar deliveryServiceStartedAt e ficar na Etapa 3
     state.connected = true;
     await offlineSyncManager.processQueue();
+    expect((await offlineSyncManager.getSummary()).conflictCount).toBe(0);
     expect(state.ordersById[orderId].order_data.deliveryStatus).toBe('arrived');
     expect(state.ordersById[orderId].order_data.deliveryServiceStartedAt).toBeUndefined();
     expect(resolveDeliveryStep(state.ordersById[orderId].order_data).currentStep).toBe(3);

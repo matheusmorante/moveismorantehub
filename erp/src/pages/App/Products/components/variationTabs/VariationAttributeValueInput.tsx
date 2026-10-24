@@ -4,6 +4,7 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { bulkAttributeFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import { saveAttributeValue } from '@/pages/utils/variationService';
 import { isWeightCharacteristicName } from '@/pages/utils/technicalValuesService';
+import { formatAttributeDecimalValue, limitAttributeIntegerInput, maskAttributeDecimalInput } from '../../../../../../../shared-utils/attributeInputFormatting';
 import type { DbAttributeValueItem } from './VariationIdentificationTab';
 
 interface VariationAttributeValueInputProps {
@@ -127,16 +128,12 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
                   ? 'Insira a quantidade de portas'
                   : 'Insira um número inteiro'
             }
-            value={isDecimal ? formatDecimalValue(value, decimalPlaces) : value}
+            value={isDecimal ? formatAttributeDecimalValue(value, decimalPlaces) : value}
             onChange={(e) => {
               if (isDecimal) {
-                onChange(maskDecimalValue(e.target.value, decimalPlaces));
+                onChange(maskAttributeDecimalInput(e.target.value, decimalPlaces));
               } else {
-                let val = e.target.value;
-                if (/quantidade de (portas?|gavetas?)/i.test(attributeName || '') && Number(val) > 50) {
-                  val = '50';
-                }
-                onChange(val);
+                onChange(limitAttributeIntegerInput(attributeName || '', e.target.value));
               }
             }}
             className={`box-border h-[34px] w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-0 ${unit ? 'pr-8' : ''} text-xs font-bold transition-all border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-500`}
@@ -258,16 +255,3 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
     </div>
   );
 };
-
-function maskDecimalValue(input: string, decimalPlaces: number = 2): string {
-  const digits = input.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
-  if (!digits) return '';
-  const divisor = Math.pow(10, decimalPlaces);
-  return (Number(digits) / divisor).toFixed(decimalPlaces);
-}
-
-function formatDecimalValue(value: string, decimalPlaces: number = 2): string {
-  if (!value) return '';
-  const numeric = Number(value.replace(',', '.'));
-  return Number.isFinite(numeric) ? numeric.toFixed(decimalPlaces).replace('.', ',') : '';
-}

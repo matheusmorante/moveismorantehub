@@ -31,15 +31,14 @@ export {
   isHandlingOutside,
 } from './domain/orderAssemblyRules';
 export {
-  getOrderStatusPresentation,
   getOrderStatusLabel,
-  getOrderStatusBadgeVariant,
 } from './domain/orderStatusPresentation';
 
 // Tipos
 export type {
   FiscalBadgeStatus,
   FiscalOperationBadgeStatus,
+  MobileOrderData,
   MobileOrderListItem,
   MobileFiscalBadgeStatuses,
   FiscalDocumentStatusRow,
@@ -51,5 +50,4 @@ export type {
 // Serviços
 export {
   fetchMobileOrdersPage,
-  loadMobileOrdersSnapshot,
 } from './services/mobileOrderListService';

@@ -114,10 +114,6 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
     setCurrentTab('entregas');
   }, []);
 
-  const handleLaunchStock = useCallback(() => {
-    setCurrentTab('estoque');
-  }, []);
-
   const handleBackFromSettings = useCallback(() => {
     setCurrentTab('entregas');
   }, []);
@@ -148,7 +144,6 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
             <NativeProductsScreen
               isDarkMode={isDarkMode}
               userProfile={userProfile}
-              onLaunchStock={handleLaunchStock}
             />
           );
         }
@@ -198,7 +193,12 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
         );
 
       case 'estoque':
-        return <NativeStockScreen isDarkMode={isDarkMode} userProfile={userProfile} />;
+        return (
+          <NativeStockScreen
+            isDarkMode={isDarkMode}
+            userProfile={userProfile}
+          />
+        );
 
       default:
         break;

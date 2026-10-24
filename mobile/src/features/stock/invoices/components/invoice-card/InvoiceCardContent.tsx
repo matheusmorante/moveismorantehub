@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { MoreVertical } from 'lucide-react-native';
+import { AlertTriangle, CheckCircle2, Clock, FileText, MoreVertical } from 'lucide-react-native';
 import { Invoice } from '../../../types/stock.types';
 
 interface Props {
@@ -8,6 +8,8 @@ interface Props {
   isDarkMode: boolean;
   onMenuPress: (item: Invoice) => void;
   onPress: (item: Invoice) => void;
+  onOpenXmlImport: (item: Invoice) => void;
+  onManageMappings: (item: Invoice) => void;
 }
 
 export const InvoiceCardContent: React.FC<Props> = ({
@@ -15,6 +17,8 @@ export const InvoiceCardContent: React.FC<Props> = ({
   isDarkMode,
   onMenuPress,
   onPress,
+  onOpenXmlImport,
+  onManageMappings,
 }) => {
   const isSummaryOnly = Boolean(item.isSummaryOnly ?? item.itemsCount === 0);
   const isReceived = item.status === 'received';
@@ -55,37 +59,55 @@ export const InvoiceCardContent: React.FC<Props> = ({
           </Text>
 
           {isSummaryOnly ? (
-            <>
-              <View style={[styles.badge, { backgroundColor: isDarkMode ? '#1e3a8a' : '#dbeafe' }]}>
-                <Text style={[styles.badgeText, { color: isDarkMode ? '#93c5fd' : '#1d4ed8' }]}>
-                  NOVA • SEFAZ
-                </Text>
-              </View>
-              <View style={[styles.badge, { backgroundColor: isDarkMode ? '#451a03' : '#fef3c7' }]}>
+            <View style={styles.summaryStatusGroup}>
+              <TouchableOpacity
+                style={[styles.summaryXmlButton, isDarkMode && styles.summaryXmlButtonDark]}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  onOpenXmlImport(item);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="XML incompleto. Abrir instruções para obter o XML completo."
+                accessibilityState={{ expanded: false }}
+              >
+                <FileText size={12} color={isDarkMode ? '#fcd34d' : '#b45309'} />
                 <Text style={[styles.badgeText, { color: isDarkMode ? '#fcd34d' : '#b45309' }]}>
-                  XML PENDENTE
+                  XML INCOMPLETO
                 </Text>
-              </View>
-            </>
+              </TouchableOpacity>
+            </View>
           ) : (
             <>
               <View style={[styles.badge, { backgroundColor: statusColor }]}>
+                {isReceived ? (
+                  <CheckCircle2 size={12} color={statusTextColor} />
+                ) : (
+                  <Clock size={12} color={statusTextColor} />
+                )}
                 <Text style={[styles.badgeText, { color: statusTextColor }]}>{statusLabel}</Text>
               </View>
 
               {!hasCompleteBindings && (
-                <View
+                <TouchableOpacity
                   style={[styles.badge, { backgroundColor: isDarkMode ? '#451a03' : '#fef3c7' }]}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    onManageMappings(item);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Gerenciar vínculos pendentes da NF-e ${item.number}`}
                 >
+                  <AlertTriangle size={12} color={isDarkMode ? '#fcd34d' : '#b45309'} />
                   <Text style={[styles.badgeText, { color: isDarkMode ? '#fcd34d' : '#b45309' }]}>
                     VINCULAÇÕES PENDENTES
                   </Text>
-                </View>
+                </TouchableOpacity>
               )}
               {hasCompleteBindings && (
                 <View
                   style={[styles.badge, { backgroundColor: isDarkMode ? '#064e3b' : '#d1fae5' }]}
                 >
+                  <CheckCircle2 size={12} color={isDarkMode ? '#6ee7b7' : '#047857'} />
                   <Text style={[styles.badgeText, { color: isDarkMode ? '#6ee7b7' : '#047857' }]}>
                     VINCULAÇÃO COMPLETA
                   </Text>
@@ -179,6 +201,9 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -186,6 +211,23 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: '800',
+  },
+  summaryStatusGroup: {
+    flexBasis: '100%',
+  },
+  summaryXmlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    backgroundColor: '#fef3c7',
+  },
+  summaryXmlButtonDark: {
+    borderColor: '#78350f',
+    backgroundColor: '#451a03',
   },
   menuBtn: {
     padding: 4,

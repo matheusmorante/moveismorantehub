@@ -21,6 +21,8 @@ import {
 } from '../../../../../../shared-utils/productCategoryResolution';
 import { toTitleCase } from '../../../../../../shared-utils/productText';
 import { productTitleFieldsFromName } from '../../../../../../shared-utils/productTitle';
+import { PRODUCT_NAME_REQUIRED_MESSAGE } from '../../../../../../shared-utils/productNameRequirement';
+import { getSelectedProductStockKind } from '../../../../../../shared-utils/productSupplierStockOrigin';
 import { inheritMobileSimpleVariationFromParent } from '../../domain/productVariationParentSync';
 import { getMobileVariationColorSummary } from '../../domain/productCharacteristics';
 
@@ -31,6 +33,8 @@ interface Props {
   isStockistOnly?: boolean;
   isExistingProduct?: boolean;
   canManageCategories?: boolean;
+  nameError?: boolean;
+  onNameValidationCleared?: () => void;
   onFieldFocus?: (fieldName: string) => void;
   onFieldBlur?: (fieldName: string) => void;
 }
@@ -57,6 +61,8 @@ export const ProductFormBasicTab: React.FC<Props> = ({
   isStockistOnly = false,
   isExistingProduct = false,
   canManageCategories = false,
+  nameError = false,
+  onNameValidationCleared,
   onFieldFocus,
   onFieldBlur,
 }) => {
@@ -248,12 +254,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
     });
   };
 
-  const currentOrigin =
-    formData.productKind === 'salvado' || formData.condition === 'salvado'
-      ? 'salvado'
-      : formData.productKind === 'usado' || formData.condition === 'usado'
-        ? 'usado'
-        : 'normal';
+  const currentOrigin = getSelectedProductStockKind(formData.productKind);
 
   const isNormal = currentOrigin === 'normal';
   const isSalvado = currentOrigin === 'salvado';
@@ -301,11 +302,21 @@ export const ProductFormBasicTab: React.FC<Props> = ({
         !hasVariations &&
         Boolean(previous.hasVariations) &&
         currentVariations.length === 1;
+      const shouldLinkSimpleGallery = !hasVariations && currentVariations.length === 1;
       return {
         ...previous,
         hasVariations,
-        ...(shouldInheritSimpleFields
-          ? { variations: [inheritMobileSimpleVariationFromParent(previous, currentVariations[0])] }
+        ...(shouldLinkSimpleGallery
+          ? {
+              variations: [
+                shouldInheritSimpleFields
+                  ? inheritMobileSimpleVariationFromParent(previous, currentVariations[0])
+                  : {
+                      ...currentVariations[0],
+                      images: Array.isArray(previous.images) ? [...previous.images] : [],
+                    },
+              ],
+            }
           : {}),
       };
     });
@@ -316,7 +327,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
       {/* ORIGEM DO ESTOQUE */}
       {formData.itemType !== 'service' && (
         <View style={styles.field}>
-          <Text style={[styles.label, dark && styles.lightLabel]}>
+          <Text style={[styles.label, dark && styles.lightLabel, nameError && styles.errorLabel]}>
             ORIGEM DO ESTOQUE <Text style={styles.required}>*</Text>
           </Text>
           <View style={styles.originRow}>
@@ -456,6 +467,8 @@ export const ProductFormBasicTab: React.FC<Props> = ({
 
         <TextInput
           value={formData.name || ''}
+          accessibilityLabel="Nome do produto"
+          accessibilityHint={nameError ? PRODUCT_NAME_REQUIRED_MESSAGE : undefined}
           onFocus={() => onFieldFocus?.('name')}
           onChangeText={(val) => {
             setFormData((prev) => ({
@@ -466,6 +479,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
           }}
           onBlur={() => {
             onFieldBlur?.('name');
+            if (String(formData.name || '').trim()) onNameValidationCleared?.();
             if (!formData.name) return;
             const formatted = toTitleCase(formData.name);
             if (formatted !== formData.name) {
@@ -485,7 +499,12 @@ export const ProductFormBasicTab: React.FC<Props> = ({
           }}
           placeholder="Digite o nome interno do produto (ex: SOFA 3 LUG)..."
           placeholderTextColor="#94a3b8"
-          style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
+          style={[
+            styles.input,
+            dark && styles.darkInput,
+            dark && styles.lightText,
+            nameError && styles.errorInput,
+          ]}
         />
       </View>
 
@@ -686,6 +705,9 @@ const styles = StyleSheet.create({
   lightLabel: {
     color: '#94a3b8',
   },
+  errorLabel: {
+    color: '#ef4444',
+  },
   required: {
     color: '#ef4444',
   },
@@ -746,6 +768,10 @@ const styles = StyleSheet.create({
   },
   lightText: {
     color: '#f8fafc',
+  },
+  errorInput: {
+    borderColor: '#ef4444',
+    color: '#ef4444',
   },
   slugBox: {
     flexDirection: 'row',

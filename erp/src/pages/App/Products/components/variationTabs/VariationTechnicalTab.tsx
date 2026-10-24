@@ -21,6 +21,7 @@ import { VariationTechnicalFieldItem } from './VariationTechnicalFieldItem';
 import { VariationTechnicalSearchControl } from './VariationTechnicalSearchControl';
 import { VariationTechnicalDescriptionSection } from './VariationTechnicalDescriptionSection';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { getDefaultShowNameForVariationOverride } from '../../../../../../../shared-utils/productVariationAttributeDefaults';
 
 export interface VariationTechnicalTabProps {
   readonly formData: Variation & { readonly material?: string | null };
@@ -43,6 +44,7 @@ const normalizeSearchTerm = (value: string): string =>
 
 export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   formData,
+  setFormData,
   parentProduct,
   handleChange,
   showDescription = false,
@@ -161,7 +163,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
         const key = normalizeSearchTerm(field.name);
         if (!fieldsByName.has(key)) fieldsByName.set(key, field);
       });
-      return [...fieldsByName.values()].map((field) => ({ ...field, isRequired: true }));
+      return [...fieldsByName.values()];
     },
     [allTechnicalFields, applicableFields, variableFieldNames]
   );
@@ -170,6 +172,15 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     () => visibleFields.filter((field) => field.isRequired),
     [visibleFields]
   );
+
+  useEffect(() => {
+    if (!setFormData || isSingleVariation) return;
+    const requiredNames = requiredFields.map((field) => field.name);
+    setFormData((previous) => {
+      if (!previous || JSON.stringify(previous.requiredTechnicalFields || []) === JSON.stringify(requiredNames)) return previous;
+      return { ...previous, requiredTechnicalFields: requiredNames };
+    });
+  }, [requiredFields, setFormData, isSingleVariation]);
 
   const requiredFieldGroups = useMemo(
     () => groupTechnicalFields(requiredFields),
@@ -263,7 +274,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
         currentAttrs.push({
           name: fieldName,
           value: String(value),
-          showName: !/^cor$/i.test(fieldName.trim()),
+          showName: getDefaultShowNameForVariationOverride(fieldName),
         });
       }
       handleChange('attributes', currentAttrs);

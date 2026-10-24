@@ -168,7 +168,7 @@ export const InboundXmlImportModal: React.FC<InboundXmlImportModalProps> = ({
               value={xmlText}
               onChange={(e) => setXmlText(e.target.value)}
               placeholder="<nfeProc versao='4.00'>...</nfeProc>"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 font-mono text-[11px] text-slate-700 outline-none focus:border-emerald-500 focus:bg-white dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 transition-colors"
+              className="w-full resize-y rounded-none border-0 border-b-2 border-slate-200 bg-transparent px-1 py-3 font-mono text-[11px] text-slate-700 outline-none transition-colors focus:border-emerald-500 focus:ring-0 dark:border-slate-800 dark:bg-transparent dark:text-slate-200"
             />
           </div>
         </div>

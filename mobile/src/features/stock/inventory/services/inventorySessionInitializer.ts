@@ -1,7 +1,4 @@
-import {
-  getNextInventoryCode,
-  fetchInventorySessionDetails,
-} from '../../../../services/stockService';
+import { fetchInventorySessionDetails } from '../../../../services/stockService';
 import { getLocalInventoryDraft } from '../../../../services/sqlite/inventoryDrafts';
 import type { AuditItem, AuditDraftState } from '../types/inventoryWorkflow.types';
 import type { InventorySession } from '../../types/stock.types';
@@ -13,6 +10,7 @@ export interface InitializedInventoryData {
     name: string;
     hasStages: boolean;
     responsibleId: string;
+    responsibleName?: string;
     scopeType?: string;
     supplierId?: string;
   };
@@ -32,7 +30,6 @@ export const generateInventoryUUID = (): string => {
     return v.toString(16);
   });
 };
-
 export const createInventoryItemId = () =>
   Math.random().toString(36).slice(2) + Date.now().toString(36);
 
@@ -60,6 +57,7 @@ export const restoreInventorySession = async (
         name: localDraft.name,
         hasStages: localDraft.hasStages,
         responsibleId: localDraft.responsibleId || userProfileId || '',
+        responsibleName: localDraft.responsibleName,
         scopeType: localDraft.scopeType || 'custom',
         supplierId: localDraft.supplierId,
       },
@@ -99,55 +97,9 @@ export const restoreInventorySession = async (
       name: details?.name || `Inventário #${code}`,
       hasStages: Boolean(details?.hasStages),
       responsibleId: details?.responsibleId || userProfileId || '',
+      responsibleName: details?.responsibleName,
       scopeType: details?.scopeType || 'custom',
       supplierId: details?.supplierId,
-    },
-  };
-};
-
-/**
- * Inicializa um novo inventário duplicando itens de outro inventário.
- */
-export const duplicateInventorySession = async (
-  copiedItems: any[],
-  userProfileId?: string
-): Promise<InitializedInventoryData> => {
-  const id = generateInventoryUUID();
-  let code: string;
-  try {
-    code = await getNextInventoryCode();
-  } catch {
-    code = `LOCAL-${id.slice(0, 8)}`;
-  }
-  if (!code) code = `LOCAL-${id.slice(0, 8)}`;
-  const duplicatedItems: AuditItem[] = copiedItems.map((it: any) => ({
-    id: createInventoryItemId(),
-    key: `${it.productId}-${it.variationId || 'main'}`,
-    productId: it.productId,
-    variationId: it.variationId,
-    name: it.name,
-    supplierNames: it.assignedSupplier || it.supplierNames || 'Fábrica não informada',
-    assignedSupplier: it.assignedSupplier || 'Sem fornecedor',
-    systemStock: it.systemStock || 0,
-    physicalCount: null, // Zerado para nova contagem
-    unit: it.unit || 'UN',
-    sku: it.sku || it.code || '',
-    code: it.code || '',
-    barcode: it.barcode || '',
-  }));
-
-  return {
-    draft: {
-      id,
-      code,
-      date: new Date().toISOString(),
-    },
-    items: duplicatedItems,
-    scopeConfig: {
-      name: `Inventário #${code} (Cópia)`,
-      hasStages: false,
-      responsibleId: userProfileId || '',
-      scopeType: 'custom',
     },
   };
 };

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Animated, View, Text, StyleSheet } from 'react-native';
+import { Animated, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Truck, FileText, ChevronRight } from 'lucide-react-native';
 import {
   generateDeliveryAISummary,
   subscribeSummaryQuota,
 } from '../../../../services/aiSummaryService';
-import { getLocalDateString } from '../../../../utils/orderUtils';
+import { formatItemDisplayName, getLocalDateString } from '../../../../utils/orderUtils';
 import {
   calculateDeliverySummaryMetrics,
   type DeliveryPeriodFilter,
@@ -18,6 +18,8 @@ import {
 } from '../../../../services/deliverySummaryService';
 import { offlineStorageService } from '../../../../services/offline/offlineStorageService';
 import { DeliveryShiftMetricsGrid } from './DeliveryShiftMetricsGrid';
+import type { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
+import type { AssemblyTask } from '../../../assemblies/assemblyTasks';
 
 interface OrderItem {
   id: string;
@@ -38,15 +40,30 @@ interface TodaySummaryCardProps {
   onSelectOrder?: (order: any) => void;
   isDarkMode?: boolean;
   periodFilter?: DeliveryPeriodFilter;
+  activities?: DeliveryRouteItem[];
+  nextAssembly?: AssemblyTask;
+  assemblyCount?: number;
+  onViewAll?: () => void;
+  onViewAssemblies?: () => void;
 }
 
 const SHOW_AI_SUMMARY = false;
+
+const formatActivityDate = (value: string) => {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}` : value;
+};
 
 export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   orders,
   onSelectOrder,
   isDarkMode = false,
   periodFilter = 'today',
+  activities = [],
+  nextAssembly,
+  assemblyCount = 0,
+  onViewAll,
+  onViewAssemblies,
 }) => {
   const [isGeminiQuotaExceeded, setIsGeminiQuotaExceeded] = useState<boolean>(false);
 
@@ -128,12 +145,36 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
       .join('|');
   }, [effectiveOrders]);
 
-  const { totalCount, morningCount, afternoonCount, defaultSummaryText } = useMemo(
+  const { filteredOrders, totalCount, morningCount, afternoonCount, defaultSummaryText } = useMemo(
     () => calculateDeliverySummaryMetrics(effectiveOrders, periodFilter),
     [effectiveOrders, periodFilter]
   );
 
+  const upcomingActivities = useMemo(
+    () =>
+      [...activities]
+        .sort((a, b) => {
+          const rank = (item: DeliveryRouteItem) =>
+            item.isCurrent
+              ? 0
+              : item.status === 'unattended'
+                ? 1
+                : item.isNext
+                  ? 2
+                  : item.status === 'completed'
+                    ? 4
+                    : 3;
+          const dateOrder = getOperationalScheduleDate(a.order).localeCompare(
+            getOperationalScheduleDate(b.order)
+          );
+          return rank(a) - rank(b) || dateOrder || a.sequence - b.sequence;
+        })
+        .slice(0, 3),
+    [activities]
+  );
+
   const activeSummaryText = aiSummaryText || defaultSummaryText;
+  const assemblySummaryText = `${assemblyCount} ${assemblyCount === 1 ? 'montagem agendada' : 'montagens agendadas'}`;
 
   useEffect(() => {
     if (!SHOW_AI_SUMMARY) return;
@@ -168,7 +209,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
     };
 
     void getLatestSavedSummaryRecord(scope).then(applySummaryRecord);
-    let summaryDebounceTimer: NodeJS.Timeout | null = null;
+    let summaryDebounceTimer: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel(`delivery-summary-${periodFilter}-${Date.now()}`)
       .on(
@@ -195,22 +236,21 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
 
   return (
     <Animated.View style={[styles.cardContainer, { opacity: fadeAnim }]}>
-      {SHOW_AI_SUMMARY && (
-        <View style={styles.headerRow}>
-          <View style={styles.iconBadge}>
-            <Truck size={24} color="#0055ff" />
-          </View>
-
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.headerTitle}>
-              {periodFilter === 'today' ? 'Operação de Hoje' : 'Operação dos Próximos Dias'}
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              {totalCount} {totalCount === 1 ? 'atividade programada' : 'atividades programadas'}
-            </Text>
-          </View>
+      <View style={styles.headerRow}>
+        <View style={styles.iconBadge}>
+          <Truck size={22} color="#0055ff" />
         </View>
-      )}
+
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <Text style={styles.headerTitle}>
+            {periodFilter === 'today' ? 'Visão geral de hoje' : 'Visão geral dos próximos dias'}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {totalCount} {totalCount === 1 ? 'atividade' : 'atividades'} · {morningCount} manhã ·{' '}
+            {afternoonCount} tarde
+          </Text>
+        </View>
+      </View>
 
       <DeliveryShiftMetricsGrid
         morningCount={morningCount}
@@ -267,6 +307,171 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
         </View>
       )}
 
+      <View style={[styles.activitiesBox, isDarkMode && styles.activitiesBoxDark]}>
+        <View style={styles.activitiesHeader}>
+          <Text style={[styles.activitiesTitle, isDarkMode && styles.textLight]}>
+            Próximas atividades
+          </Text>
+          <TouchableOpacity
+            onPress={onViewAll}
+            accessibilityRole="button"
+            accessibilityLabel="Ver todas as atividades"
+            hitSlop={8}
+          >
+            <Text style={[styles.linkText, isDarkMode && styles.linkTextDark]}>Ver todas</Text>
+          </TouchableOpacity>
+        </View>
+        {upcomingActivities.length ? (
+          upcomingActivities.map((activity) => {
+            const orderData = activity.order?.order_data || {};
+            const shipping = orderData.shipping || {};
+            const address = shipping.deliveryAddress || {};
+            const location = [address.neighborhood, address.city].filter(Boolean).join(' · ');
+            const activityDate = getOperationalScheduleDate(activity.order);
+            const statusLabel =
+              activity.status === 'completed'
+                ? 'Concluída'
+                : activity.status === 'in_progress'
+                  ? 'Em rota'
+                  : activity.status === 'arrived'
+                    ? 'No local'
+                    : activity.status === 'in_service'
+                      ? 'Em atendimento'
+                      : activity.status === 'unattended'
+                        ? 'Não concluída'
+                        : 'Pendente';
+            return (
+              <TouchableOpacity
+                key={activity.id}
+                style={[styles.activityRow, isDarkMode && styles.activityRowDark]}
+                onPress={() => onSelectOrder?.(activity.order)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.activityTextContent}>
+                  <View style={styles.activityTopLine}>
+                    <Text style={[styles.activityType, isDarkMode && styles.activityTypeDark]}>
+                      {activity.activityLabel}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.activityStatus,
+                        isDarkMode && styles.activityStatusDark,
+                        activity.status === 'completed' && styles.activityStatusCompleted,
+                        activity.status === 'completed' &&
+                          isDarkMode &&
+                          styles.activityStatusCompletedDark,
+                        activity.status === 'unattended' && styles.activityStatusWarning,
+                        activity.status === 'unattended' &&
+                          isDarkMode &&
+                          styles.activityStatusWarningDark,
+                      ]}
+                    >
+                      {statusLabel}
+                    </Text>
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.activityCustomer, isDarkMode && styles.textLight]}
+                  >
+                    {activity.customerName}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.activityMeta, isDarkMode && styles.textMuted]}
+                  >
+                    {[
+                      periodFilter === 'next_days' ? formatActivityDate(activityDate) : '',
+                      activity.periodLabel,
+                      location,
+                      `${activity.itemsCount} ${activity.itemsCount === 1 ? 'item' : 'itens'}`,
+                      `Pedido #${activity.orderIndex || activity.id.slice(0, 6)}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+              </TouchableOpacity>
+            );
+          })
+        ) : null}
+        {nextAssembly ? (
+          <TouchableOpacity
+            style={[styles.activityRow, isDarkMode && styles.activityRowDark]}
+            onPress={() => onSelectOrder?.(nextAssembly.order)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.activityTextContent}>
+              <View style={styles.activityTopLine}>
+                <Text
+                  style={[
+                    styles.assemblyActivityType,
+                    isDarkMode && styles.assemblyActivityTypeDark,
+                  ]}
+                >
+                  {nextAssembly.isOutside ? 'MONTAGEM FORA' : 'MONTAGEM NO DEPÓSITO'}
+                </Text>
+                {nextAssembly.scheduledTime ? (
+                  <Text style={[styles.activityStatus, isDarkMode && styles.textMuted]}>
+                    {nextAssembly.scheduledTime}
+                  </Text>
+                ) : null}
+              </View>
+              <Text
+                numberOfLines={1}
+                style={[styles.activityCustomer, isDarkMode && styles.textLight]}
+              >
+                {formatItemDisplayName(nextAssembly.item)}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={[styles.activityMeta, isDarkMode && styles.textMuted]}
+              >
+                {[
+                  nextAssembly.dateKey === getLocalDateString(new Date())
+                    ? ''
+                    : formatActivityDate(nextAssembly.dateKey),
+                  nextAssembly.responsibleName,
+                  nextAssembly.order?.customer_name ||
+                    nextAssembly.order?.order_data?.customerData?.fullName ||
+                    nextAssembly.order?.order_data?.customerData?.name ||
+                    'Montagem agendada',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+            </View>
+            <ChevronRight size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+          </TouchableOpacity>
+        ) : null}
+        {!upcomingActivities.length && !nextAssembly ? (
+          <Text style={[styles.emptyActivitiesText, isDarkMode && styles.textMuted]}>
+            {filteredOrders.length
+              ? 'Atividades do período sem detalhes de rota.'
+              : 'Nenhuma atividade programada para este período.'}
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={[styles.assemblySummaryRow, isDarkMode && styles.assemblySummaryRowDark]}>
+        <View>
+          <Text style={[styles.assemblySummaryTitle, isDarkMode && styles.textLight]}>
+            Montagens
+          </Text>
+          <Text style={[styles.assemblySummaryCount, isDarkMode && styles.textMuted]}>
+            {assemblySummaryText}
+          </Text>
+        </View>
+        <TouchableOpacity
+          onPress={onViewAssemblies}
+          accessibilityRole="button"
+          accessibilityLabel="Ver montagens"
+          hitSlop={8}
+        >
+          <Text style={[styles.linkText, isDarkMode && styles.linkTextDark]}>Ver montagens</Text>
+        </TouchableOpacity>
+      </View>
+
     </Animated.View>
   );
 };
@@ -274,21 +479,21 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
 const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: '#0066ff',
-    borderRadius: 24,
-    padding: 16,
+    borderRadius: 20,
+    padding: 14,
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 16,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   iconBadge: {
     width: 44,
@@ -300,12 +505,12 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
   },
   headerSubtitle: {
     color: '#dbeafe',
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
   resumoBox: {
@@ -337,4 +542,58 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     minHeight: 32,
   },
+  activitiesBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 8,
+  },
+  activitiesBoxDark: { backgroundColor: '#1e293b' },
+  activitiesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 7,
+  },
+  activitiesTitle: { color: '#0f172a', fontSize: 13, fontWeight: '800' },
+  linkText: { color: '#2563eb', fontSize: 11, fontWeight: '800' },
+  linkTextDark: { color: '#60a5fa' },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    paddingVertical: 8,
+    gap: 8,
+  },
+  activityRowDark: { borderTopColor: '#334155' },
+  activityTextContent: { flex: 1, minWidth: 0 },
+  activityTopLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  activityType: { color: '#2563eb', fontSize: 9, fontWeight: '900' },
+  activityTypeDark: { color: '#60a5fa' },
+  assemblyActivityType: { color: '#475569', fontSize: 9, fontWeight: '900' },
+  assemblyActivityTypeDark: { color: '#cbd5e1' },
+  activityStatus: { color: '#64748b', fontSize: 9, fontWeight: '800' },
+  activityStatusDark: { color: '#94a3b8' },
+  activityStatusCompleted: { color: '#15803d' },
+  activityStatusCompletedDark: { color: '#4ade80' },
+  activityStatusWarning: { color: '#b91c1c' },
+  activityStatusWarningDark: { color: '#fca5a5' },
+  activityCustomer: { color: '#0f172a', fontSize: 12, fontWeight: '700', marginTop: 2 },
+  activityMeta: { color: '#64748b', fontSize: 10, marginTop: 2 },
+  emptyActivitiesText: { color: '#64748b', fontSize: 11, paddingVertical: 8 },
+  assemblySummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  assemblySummaryRowDark: { backgroundColor: '#1e293b' },
+  assemblySummaryTitle: { color: '#0f172a', fontSize: 12, fontWeight: '800' },
+  assemblySummaryCount: { color: '#64748b', fontSize: 10, marginTop: 2 },
+  textLight: { color: '#f8fafc' },
+  textMuted: { color: '#94a3b8' },
 });

@@ -1,4 +1,5 @@
 import React from 'react';
+import type { LocalDeliveryProofMetadata } from '../../services/deliveryProofRules';
 
 export interface DeliveryResponsibleItem {
   id?: string;
@@ -66,7 +67,12 @@ export interface UseDeliveryFlowActionsReturn {
   handleArriveAtDestination: () => Promise<void>;
   handleStartService: () => Promise<void>;
   handleFinishDelivery: () => Promise<void>;
-  handleConfirmUnattended: (reason: string, notes: string, proofUrls: string[]) => Promise<void>;
+  handleConfirmUnattended: (
+    reason: string,
+    notes: string,
+    proofUrls: string[],
+    proofMetadata?: LocalDeliveryProofMetadata[]
+  ) => Promise<void>;
   handleStepBackToPreparation: () => Promise<void>;
   handleStepBackToRoute: () => Promise<void>;
   handleStepBackToArrival: () => Promise<void>;

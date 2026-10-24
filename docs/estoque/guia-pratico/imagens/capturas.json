@@ -1,0 +1,626 @@
+[
+  {
+    "name": "01-nf-entrada",
+    "file": "01-nf-entrada.png",
+    "width": 1380,
+    "height": 770,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Importar XML",
+        "x": 1148.390625,
+        "y": 16,
+        "w": 220.609375,
+        "h": 36
+      },
+      {
+        "n": 2,
+        "label": "Vinculações pendentes",
+        "x": 1015.53125,
+        "y": 271.25,
+        "w": 186,
+        "h": 24
+      },
+      {
+        "n": 3,
+        "label": "XML incompleto",
+        "x": 904.53125,
+        "y": 416.25,
+        "w": 123,
+        "h": 26
+      }
+    ]
+  },
+  {
+    "name": "02-importar-xml",
+    "file": "02-importar-xml.png",
+    "width": 576,
+    "height": 558,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Arquivo XML",
+        "x": 125,
+        "y": 392,
+        "w": 327,
+        "h": 20
+      },
+      {
+        "n": 2,
+        "label": "Consultar no Portal",
+        "x": 382.5,
+        "y": 197,
+        "w": 152,
+        "h": 34
+      }
+    ]
+  },
+  {
+    "name": "03-xml-incompleto",
+    "file": "03-xml-incompleto.png",
+    "width": 576,
+    "height": 570,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Consultar no Portal",
+        "x": 381.5,
+        "y": 177,
+        "w": 153,
+        "h": 34
+      },
+      {
+        "n": 2,
+        "label": "Importar XML completo",
+        "x": 125,
+        "y": 404,
+        "w": 327,
+        "h": 20
+      }
+    ]
+  },
+  {
+    "name": "00-menu-estoque",
+    "file": "00-menu-estoque.png",
+    "width": 280,
+    "height": 727,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "NF de entrada",
+        "x": 9.84375,
+        "y": 280.5,
+        "w": 262,
+        "h": 46.375
+      },
+      {
+        "n": 2,
+        "label": "Recebimentos",
+        "x": 9.84375,
+        "y": 187.625,
+        "w": 262,
+        "h": 46.375
+      },
+      {
+        "n": 3,
+        "label": "Guia prático",
+        "x": 9.84375,
+        "y": 655.875,
+        "w": 262,
+        "h": 62
+      }
+    ]
+  },
+  {
+    "name": "06-opcoes-recebimento",
+    "file": "06-opcoes-recebimento.png",
+    "width": 304,
+    "height": 182,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Sem nota fiscal",
+        "x": 9,
+        "y": 9,
+        "w": 286,
+        "h": 52
+      },
+      {
+        "n": 2,
+        "label": "Com nota fiscal",
+        "x": 9,
+        "y": 65,
+        "w": 286,
+        "h": 52
+      },
+      {
+        "n": 3,
+        "label": "Com pedido de compra",
+        "x": 9,
+        "y": 121,
+        "w": 286,
+        "h": 52
+      }
+    ]
+  },
+  {
+    "name": "07-formulario-recebimento",
+    "file": "07-formulario-recebimento.png",
+    "width": 1280,
+    "height": 945,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Fornecedor",
+        "x": 32,
+        "y": 125.5,
+        "w": 795.328125,
+        "h": 38
+      },
+      {
+        "n": 2,
+        "label": "Custos e descontos",
+        "x": 71,
+        "y": 209.5,
+        "w": 302,
+        "h": 16
+      },
+      {
+        "n": 3,
+        "label": "Adicionar Item",
+        "x": 1101,
+        "y": 729.5,
+        "w": 132,
+        "h": 32
+      },
+      {
+        "n": 4,
+        "label": "Confirmar recebimento",
+        "x": 1035,
+        "y": 885.5,
+        "w": 213,
+        "h": 40
+      }
+    ]
+  },
+  {
+    "name": "08-custos-recebimento",
+    "file": "08-custos-recebimento.png",
+    "width": 815,
+    "height": 150,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Desconto do recebimento",
+        "x": 38,
+        "y": 67.25,
+        "w": 53.609375,
+        "h": 13.5
+      },
+      {
+        "n": 2,
+        "label": "Frete do recebimento",
+        "x": 431,
+        "y": 67.25,
+        "w": 29.25,
+        "h": 13.5
+      }
+    ]
+  },
+  {
+    "name": "09-pedido-compra",
+    "file": "09-pedido-compra.png",
+    "width": 1280,
+    "height": 895,
+    "boxes": [
+      {
+        "n": 2,
+        "label": "Adicionar item",
+        "x": 76.5,
+        "y": 421.25,
+        "w": 120.8125,
+        "h": 16
+      },
+      {
+        "n": 3,
+        "label": "Confirmar Pedido",
+        "x": 1022.5,
+        "y": 805.75,
+        "w": 225,
+        "h": 56
+      }
+    ]
+  },
+  {
+    "name": "11-inventario-responsavel",
+    "file": "11-inventario-responsavel.png",
+    "width": 674,
+    "height": 155,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Responsável pelo Inventário",
+        "x": 25.5,
+        "y": 26.5,
+        "w": 622,
+        "h": 20
+      }
+    ]
+  },
+  {
+    "name": "10-inventario-escopo",
+    "file": "10-inventario-escopo.png",
+    "width": 672,
+    "height": 216,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Estoque completo",
+        "x": 26.5,
+        "y": 87.19869995117188,
+        "w": 276,
+        "h": 56
+      },
+      {
+        "n": 2,
+        "label": "Seleção personalizada",
+        "x": 370.5,
+        "y": 86.31820678710938,
+        "w": 197,
+        "h": 28
+      }
+    ]
+  },
+  {
+    "name": "12-indisponibilidade",
+    "file": "12-indisponibilidade.png",
+    "width": 672,
+    "height": 603,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Produto e variação",
+        "x": 24.5,
+        "y": 85,
+        "w": 624,
+        "h": 20
+      },
+      {
+        "n": 2,
+        "label": "Quantidade",
+        "x": 24.5,
+        "y": 167,
+        "w": 304,
+        "h": 20
+      },
+      {
+        "n": 3,
+        "label": "Motivo e tratativa",
+        "x": 24.5,
+        "y": 229,
+        "w": 624,
+        "h": 20
+      },
+      {
+        "n": 4,
+        "label": "Registrar",
+        "x": 538.5,
+        "y": 539,
+        "w": 110,
+        "h": 40
+      }
+    ]
+  },
+  {
+    "name": "13-movimentacoes",
+    "file": "13-movimentacoes.png",
+    "width": 1610,
+    "height": 640,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Buscar produto",
+        "x": 19,
+        "y": 64,
+        "w": 576,
+        "h": 38
+      },
+      {
+        "n": 2,
+        "label": "Período",
+        "x": 1405,
+        "y": 66,
+        "w": 185,
+        "h": 34
+      }
+    ]
+  },
+  {
+    "name": "14-contagem-manual",
+    "file": "14-contagem-manual.png",
+    "width": 768,
+    "height": 480,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Filtros de contagem",
+        "x": 85,
+        "y": 61,
+        "w": 125,
+        "h": 36
+      },
+      {
+        "n": 2,
+        "label": "Quantidade contada",
+        "x": 432,
+        "y": 159.25,
+        "w": 267,
+        "h": 28
+      },
+      {
+        "n": 3,
+        "label": "Zero é contagem",
+        "x": 432,
+        "y": 281.25,
+        "w": 267,
+        "h": 28
+      },
+      {
+        "n": 4,
+        "label": "Vazio não é zero",
+        "x": 432,
+        "y": 403.25,
+        "w": 267,
+        "h": 28
+      }
+    ]
+  },
+  {
+    "name": "04-gerenciar-vinculos",
+    "file": "04-gerenciar-vinculos.png",
+    "width": 1024,
+    "height": 873,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Fornecedor",
+        "x": 37.5,
+        "y": 194,
+        "w": 795,
+        "h": 38
+      },
+      {
+        "n": 2,
+        "label": "Produto vinculado",
+        "x": 539.5,
+        "y": 404.25,
+        "w": 132,
+        "h": 15
+      },
+      {
+        "n": 3,
+        "label": "Gerar recebimento",
+        "x": 796.6875,
+        "y": 821,
+        "w": 211.8125,
+        "h": 36
+      }
+    ]
+  },
+  {
+    "name": "04c-gerar-recebimento",
+    "file": "04c-gerar-recebimento.png",
+    "width": 340,
+    "height": 210,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Motivo do bloqueio",
+        "x": 24.5,
+        "y": 85,
+        "w": 288,
+        "h": 57
+      },
+      {
+        "n": 2,
+        "label": "Gerar recebimento",
+        "x": 100.6875,
+        "y": 150,
+        "w": 211.8125,
+        "h": 36
+      }
+    ]
+  },
+  {
+    "name": "16-menus-de-acoes",
+    "file": "16-menus-de-acoes.png",
+    "width": 560,
+    "height": 290,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Gerar recebimento pela NF",
+        "x": 25,
+        "y": 99,
+        "w": 222,
+        "h": 36
+      },
+      {
+        "n": 2,
+        "label": "Etiquetas pela NF",
+        "x": 25,
+        "y": 51,
+        "w": 222,
+        "h": 48
+      },
+      {
+        "n": 3,
+        "label": "Etiquetas pelo recebimento",
+        "x": 303,
+        "y": 55,
+        "w": 210,
+        "h": 48
+      }
+    ]
+  },
+  {
+    "name": "15-selecionar-etiquetas",
+    "file": "15-selecionar-etiquetas.png",
+    "width": 672,
+    "height": 398,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Quantidades",
+        "x": 549,
+        "y": 211.75,
+        "w": 48,
+        "h": 26
+      },
+      {
+        "n": 2,
+        "label": "Preparar impressão",
+        "x": 401.1875,
+        "y": 336.75,
+        "w": 237.8125,
+        "h": 40
+      }
+    ]
+  },
+  {
+    "name": "04b-fornecedor",
+    "file": "04b-fornecedor.png",
+    "width": 815,
+    "height": 52,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Pesquisar fornecedor",
+        "x": 8.5,
+        "y": 6,
+        "w": 795,
+        "h": 38
+      }
+    ]
+  },
+  {
+    "name": "17-recebimento-campos",
+    "file": "17-recebimento-campos.png",
+    "width": 600,
+    "height": 245,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Fornecedor",
+        "x": 15,
+        "y": 111,
+        "w": 565,
+        "h": 38
+      },
+      {
+        "n": 2,
+        "label": "Data do recebimento",
+        "x": 15,
+        "y": 188,
+        "w": 565,
+        "h": 40
+      }
+    ]
+  },
+  {
+    "name": "18-custos-recebimento",
+    "file": "18-custos-recebimento.png",
+    "width": 565,
+    "height": 383,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Desconto",
+        "x": 30,
+        "y": 111,
+        "w": 505,
+        "h": 34
+      },
+      {
+        "n": 2,
+        "label": "Frete",
+        "x": 30,
+        "y": 222,
+        "w": 505,
+        "h": 34
+      },
+      {
+        "n": 3,
+        "label": "Outras despesas",
+        "x": 30,
+        "y": 333,
+        "w": 505,
+        "h": 34
+      }
+    ]
+  },
+  {
+    "name": "05-cadastro-rapido",
+    "file": "05-cadastro-rapido.png",
+    "width": 726,
+    "height": 128,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Novo produto simples",
+        "x": 13,
+        "y": 38,
+        "w": 333,
+        "h": 16
+      },
+      {
+        "n": 2,
+        "label": "Nova variação",
+        "x": 380,
+        "y": 38,
+        "w": 333,
+        "h": 16
+      }
+    ]
+  },
+  {
+    "name": "05c-confirmar-categoria",
+    "file": "05c-confirmar-categoria.png",
+    "width": 708,
+    "height": 145,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Categoria",
+        "x": 8,
+        "y": 25.5,
+        "w": 692,
+        "h": 39
+      },
+      {
+        "n": 2,
+        "label": "Confirmação da categoria",
+        "x": 8,
+        "y": 99,
+        "w": 13,
+        "h": 13
+      }
+    ]
+  },
+  {
+    "name": "05b-variacao-existente",
+    "file": "05b-variacao-existente.png",
+    "width": 726,
+    "height": 94,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Selecionar produto pai",
+        "x": 17,
+        "y": 39.25,
+        "w": 692,
+        "h": 38
+      }
+    ]
+  }
+]

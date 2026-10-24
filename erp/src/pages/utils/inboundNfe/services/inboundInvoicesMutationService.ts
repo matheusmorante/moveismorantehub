@@ -4,34 +4,15 @@ import { InboundInvoice } from '../types/inboundNfeTypes';
 import { getLocalInvoices, saveLocalInvoices, isSampleInvoice } from './inboundInvoicesCache';
 import { parseInboundNfeXml } from '../utils/inboundXmlParser';
 import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
+import { normalizeInvoiceItem } from './inboundInvoicesMapper';
+import {
+  assertInboundInvoiceRecipientMatchesCompany,
+  getInboundInvoiceRecipientGuardError,
+} from '../../../../../../shared-utils/inboundInvoiceRecipient';
+import { getSettings } from '../../settingsService';
 
-export const deleteInboundInvoice = async (invoiceIdOrKey: string): Promise<void> => {
-  // A remoção é deliberadamente limitada ao cabeçalho da NF e aos seus itens
-  // dependentes. Produtos, códigos de fornecedor e recebimentos são entidades
-  // independentes e não recebem nenhuma atualização ou exclusão neste fluxo.
-  try {
-    let error: { message?: string } | null = null;
-
-    if (isValidUuid(invoiceIdOrKey)) {
-      ({ error } = await supabase.from('inbound_invoices').delete().eq('id', invoiceIdOrKey));
-    } else {
-      const cleanKey = normalizeFiscalIdentifier(String(invoiceIdOrKey).replace(/^inbound_/, ''));
-      if (cleanKey.length === 44) {
-        ({ error } = await supabase.from('inbound_invoices').delete().eq('chave_acesso', cleanKey));
-      }
-    }
-
-    if (error) throw new Error(error.message || 'Não foi possível remover a NF de entrada.');
-
-    const cleanKey = normalizeFiscalIdentifier(String(invoiceIdOrKey).replace(/^inbound_/, ''));
-    const local = getLocalInvoices().filter(
-      (inv) => inv.id !== invoiceIdOrKey && normalizeFiscalIdentifier(inv.nfeKey) !== cleanKey && !isSampleInvoice(inv)
-    );
-    saveLocalInvoices(local);
-  } catch (err) {
-    console.warn('Erro ao deletar NF no Supabase:', err);
-    throw err;
-  }
+export const deleteInboundInvoice = async (_invoiceIdOrKey: string): Promise<void> => {
+  throw new Error('Notas fiscais de entrada não podem ser excluídas.');
 };
 
 export const saveInboundInvoice = async (invoice: InboundInvoice, options: { requireConfirmation?: boolean; assertCurrent?: () => void } = {}): Promise<InboundInvoice> => {
@@ -39,6 +20,7 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
     if (options.requireConfirmation) throw new Error('Não é possível gravar alterações na nota demonstrativa.');
     return invoice;
   }
+  assertInboundInvoiceRecipientMatchesCompany(invoice.recipientCnpj, getSettings().companyCnpj);
   options.assertCurrent?.();
   const accessKey = normalizeFiscalIdentifier(invoice.nfeKey);
   const validId = isValidUuid(invoice.id) ? invoice.id : crypto.randomUUID();
@@ -52,8 +34,6 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
   } else {
     local.unshift(invoiceToSave);
   }
-  if (!options.requireConfirmation) saveLocalInvoices(local);
-
   try {
     const payload: Record<string, any> = {
       id: validId,
@@ -110,6 +90,10 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
     const header = options.requireConfirmation ? await headerWrite.select('id,supplier_id,itens').single() : await headerWrite;
     options.assertCurrent?.();
     const { error } = header;
+    if (error) {
+      const recipientError = getInboundInvoiceRecipientGuardError(error.message);
+      if (recipientError) throw new Error(recipientError);
+    }
     if (options.requireConfirmation) {
         if (error) throw error;
         const row = header.data;
@@ -125,53 +109,45 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
       // Sincronizar itens na tabela normalizada inbound_invoice_items
       try {
         const itemRows = invoice.items.map((item, idx) => {
-          const desc =
-            item.productDescription ||
-            (item as any).descricao ||
-            (item as any).xProd ||
-            'Item sem descrição';
-          const code = item.productCode || (item as any).codigo || (item as any).cProd || '';
-          const qty = Number(item.quantity ?? (item as any).quantidade ?? 0);
-          const uCost = Number(
-            item.unitCost ?? (item as any).valorUnitario ?? (item as any).valor_unitario ?? 0
-          );
-          const tCost = Number(
-            item.totalCost ?? (item as any).valorTotal ?? (item as any).valor_total ?? qty * uCost
-          );
-
+          const normalized = normalizeInvoiceItem(item, idx);
           return {
-            inbound_invoice_id: validId,
-            item_index: Number(item.itemNumber ?? (item as any).numeroItem ?? idx + 1),
-            codigo_produto: String(code),
-            descricao: String(desc),
-            ncm: item.ncm || null,
-            cfop: item.cfop || null,
-            unidade: item.unit || (item as any).unidade || 'UN',
-            quantidade: qty,
-            valor_unitario: uCost,
-            valor_total: tCost,
-            valor_desconto: Number(item.discountValue ?? (item as any).valorDesconto ?? 0),
-            valor_frete: Number(item.freightValue ?? (item as any).valorFrete ?? 0),
-            valor_seguro: Number(item.insuranceValue ?? (item as any).valorSeguro ?? 0),
-            outras_despesas: Number(item.otherExpensesValue ?? (item as any).outrasDespesas ?? 0),
-            item_snapshot: {
-              ...item,
-              productDescription: desc,
-              productCode: code,
-              quantity: qty,
-              unitCost: uCost,
-              totalCost: tCost,
-            },
+            invoice_id: validId,
+            item_number: Number(normalized.itemNumber) || idx + 1,
+            product_code: String(normalized.productCode || ''),
+            product_description: String(normalized.productDescription || 'Item sem descrição'),
+            ean: normalized.ean || null,
+            ncm: normalized.ncm || null,
+            cest: normalized.cest || null,
+            cfop: normalized.cfop || null,
+            unit: normalized.unit || 'UN',
+            quantity: Number(normalized.quantity) || 0,
+            unit_cost: Number(normalized.unitCost) || 0,
+            total_cost: Number(normalized.totalCost) || 0,
+            ipi_percent: Number(normalized.ipiPercent) || 0,
+            ipi_value: Number(normalized.ipiValue) || 0,
+            icms_percent: Number(normalized.icmsPercent) || 0,
+            icms_value: Number(normalized.icmsValue) || 0,
+            icms_base_value: Number(normalized.icmsBaseValue) || 0,
+            icms_st_percent: Number(normalized.icmsStPercent) || 0,
+            icms_st_value: Number(normalized.icmsStValue) || 0,
+            icms_st_base_value: Number(normalized.icmsStBaseValue) || 0,
+            freight_value: Number(normalized.freightValue) || 0,
+            insurance_value: Number(normalized.insuranceValue) || 0,
+            discount_value: Number(normalized.discountValue) || 0,
+            other_expenses_value: Number(normalized.otherExpensesValue) || 0,
+            product_id: normalized.matchedProductId || null,
+            variation_id: normalized.matchedVariationId || null,
+            raw_item: { ...item, ...normalized },
           };
         });
         options.assertCurrent?.();
         const itemWrite = supabase
           .from('inbound_invoice_items')
-          .upsert(itemRows, { onConflict: 'inbound_invoice_id,item_index' });
-        const itemResult = options.requireConfirmation ? await itemWrite.select('inbound_invoice_id,item_index') : await itemWrite;
+          .upsert(itemRows, { onConflict: 'invoice_id,item_number' });
+        const itemResult = options.requireConfirmation ? await itemWrite.select('invoice_id,item_number') : await itemWrite;
         options.assertCurrent?.();
         if (options.requireConfirmation && (itemResult.error || !Array.isArray(itemResult.data) || itemResult.data.length !== itemRows.length ||
-          itemRows.some((expected) => !itemResult.data?.some((row) => row.inbound_invoice_id === validId && row.item_index === expected.item_index)))) {
+          itemRows.some((expected) => !itemResult.data?.some((row) => row.invoice_id === validId && row.item_number === expected.item_number)))) {
           throw itemResult.error || new Error('A gravação dos itens da nota não foi confirmada pelo servidor.');
         }
       } catch (itemErr) {
@@ -180,9 +156,15 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
       }
     }
   } catch (err) {
+    const recipientError = getInboundInvoiceRecipientGuardError(
+      err instanceof Error ? err.message : (err as { message?: unknown })?.message
+    );
+    if (recipientError) throw new Error(recipientError);
     if (options.requireConfirmation) throw err;
     console.warn('Erro ao salvar no Supabase, mantido em cache local:', err);
   }
+
+  if (!options.requireConfirmation) saveLocalInvoices(local);
 
   if (options.requireConfirmation) {
     options.assertCurrent?.();

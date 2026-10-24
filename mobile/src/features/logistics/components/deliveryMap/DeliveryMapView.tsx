@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
   },
   controlsContainer: {
     position: 'absolute',

@@ -16,9 +16,11 @@ import { supabase } from '../../../services/supabaseClient';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
-import { isAssemblyOutsideType, isAssemblyInternalType } from '../../../utils/aiSummaryHelper';
-import { getLocalDateString, isCancelledOrder, parseOrderDateStr } from '../../../utils/orderUtils';
+import type { AssemblyHandlingOption } from '../../../utils/aiSummaryHelper';
+import { getLocalDateString } from '../../../utils/orderUtils';
+import type { AssemblyTask } from '../assemblyTasks';
 import { AssemblyOrderCard } from '../components/AssemblyOrderCard';
+import { getAssemblyTasks } from '../assemblyTasks';
 
 const ASSEMBLIES_CACHE_KEY = 'assemblies_orders';
 const HANDLING_OPTIONS_CACHE_KEY = 'order_handling_options_v1';
@@ -27,112 +29,32 @@ interface Props {
   isDarkMode: boolean;
   initialSubTab?: 'internal' | 'outside';
   onSelectOrder?: (order: any) => void;
+  dateScope?: 'today' | 'next_days';
+  handlingOptions?: AssemblyHandlingOption[];
 }
-
-type AssemblyTask = {
-  id: string;
-  order: any;
-  item: any;
-  dateKey: string;
-  isOutside: boolean;
-};
-
-const normalizeLabel = (value: unknown) =>
-  String(value || '')
-    .trim()
-    .toLocaleLowerCase('pt-BR');
-
-const getScheduleDate = (order: any): string => {
-  const data = order.order_data || {};
-  const shipping = data.shipping || {};
-  const schedule = shipping.scheduling || data.schedule || data.scheduling || order.schedule || {};
-  return parseOrderDateStr(
-    schedule.date || schedule.startDate || order.scheduled_date || order.date
-  );
-};
-
-const getSchedule = (order: any) => {
-  const data = order.order_data || {};
-  const shipping = data.shipping || {};
-  return shipping.scheduling || data.schedule || data.scheduling || order.schedule || {};
-};
-
-const getAssemblyTasks = (orders: any[], handlingOptions: any[]): AssemblyTask[] => {
-  const today = getLocalDateString(new Date());
-
-  return orders.flatMap((order) => {
-    const data = order.order_data || {};
-    const shipping = data.shipping || {};
-    const schedule = getSchedule(order);
-    const dateKey = getScheduleDate(order);
-    const status = String(order.status || data.status || '').toLowerCase();
-    const hasPendingSchedule =
-      schedule.pendingScheduling ||
-      schedule.notInformed ||
-      data.pendingScheduling ||
-      order.pending_scheduling;
-
-    if (
-      data.deleted ||
-      order.deleted ||
-      isCancelledOrder(order) ||
-      status === 'draft' ||
-      status === 'rascunho'
-    )
-      return [];
-    if (hasPendingSchedule || !dateKey || dateKey < today) return [];
-
-    const items = Array.isArray(data.items)
-      ? data.items
-      : Array.isArray(order.items)
-        ? order.items
-        : [];
-    const orderHandling = String(
-      data.handlingType ||
-        data.handling ||
-        data.deliveryType ||
-        shipping.handlingType ||
-        shipping.handling ||
-        order.handling ||
-        order.handlingType ||
-        ''
-    );
-
-    return items.flatMap((item: any, index: number) => {
-      const handling = String(item.handlingType || item.handling || orderHandling);
-      const isOutside = isAssemblyOutsideType(handling, handlingOptions);
-      const isInternal = isAssemblyInternalType(handling, handlingOptions);
-      if (!isOutside && !isInternal) return [];
-
-      return [
-        {
-          id: `${order.id || order.orderIndex || 'order'}-${index}-${normalizeLabel(handling)}`,
-          order,
-          item,
-          dateKey,
-          isOutside,
-        },
-      ];
-    });
-  });
-};
 
 const formatUpcomingDate = (dateKey: string) => {
   const [year, month, day] = dateKey.split('-').map(Number);
   const date = new Date(year, month - 1, day, 12);
   const weekday = date.toLocaleDateString('pt-BR', { weekday: 'long' }).toLocaleUpperCase('pt-BR');
-  return `AGENDADO PARA ${weekday}, ${day}/${String(month).padStart(2, '0')}`;
+  return `${weekday} · ${day}/${String(month).padStart(2, '0')}`;
 };
 
 const webStickyHeaderStyle =
   Platform.OS === 'web' ? ({ position: 'sticky', top: 0, zIndex: 10 } as any) : undefined;
 
-export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder }) => {
+export const NativeAssembliesScreen: React.FC<Props> = ({
+  isDarkMode,
+  onSelectOrder,
+  dateScope,
+  handlingOptions: sharedHandlingOptions,
+}) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
+  const [loadedHandlingOptions, setLoadedHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const hasExternalHandlingOptions = sharedHandlingOptions !== undefined;
 
   const fetchSettings = async () => {
     try {
@@ -143,7 +65,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
           ...(settings.deliveryHandlingOptions || []),
           ...(settings.pickupHandlingOptions || []),
         ];
-        setHandlingOptions(opts);
+        setLoadedHandlingOptions(opts);
         await offlineStorageService
           .cacheWorkingSet(HANDLING_OPTIONS_CACHE_KEY, opts)
           .catch(() => {});
@@ -155,7 +77,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
       const cached =
         await offlineStorageService.getWorkingSet<any[]>(HANDLING_OPTIONS_CACHE_KEY);
       if (Array.isArray(cached?.data)) {
-        setHandlingOptions(cached.data);
+        setLoadedHandlingOptions(cached.data);
       }
     } catch {}
   };
@@ -214,7 +136,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
       )
         .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(300);
 
       if (!error && data) {
         setOrders(data);
@@ -233,21 +155,34 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
 
   useEffect(() => {
     fetchAssemblies();
-    fetchSettings();
+    if (!hasExternalHandlingOptions) fetchSettings();
     return subscribeToLogisticsChanges(() => {
       fetchAssemblies();
-      fetchSettings();
+      if (!hasExternalHandlingOptions) fetchSettings();
     });
-  }, []);
+  }, [hasExternalHandlingOptions]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchAssemblies();
-    fetchSettings();
+    if (!hasExternalHandlingOptions) fetchSettings();
   };
 
-  const tasks = useMemo(() => getAssemblyTasks(orders, handlingOptions), [orders, handlingOptions]);
+  const handlingOptions = sharedHandlingOptions ?? loadedHandlingOptions;
+  const allTasks = useMemo(
+    () => getAssemblyTasks(orders, handlingOptions),
+    [orders, handlingOptions]
+  );
   const todayKey = getLocalDateString(new Date());
+  const tasks = useMemo(
+    () =>
+      dateScope === 'today'
+        ? allTasks.filter((task) => task.dateKey === todayKey)
+        : dateScope === 'next_days'
+          ? allTasks.filter((task) => task.dateKey > todayKey)
+          : allTasks,
+    [allTasks, dateScope, todayKey]
+  );
   const todayTasks = tasks.filter((task) => task.dateKey === todayKey);
   const upcomingTasks = tasks
     .filter((task) => task.dateKey > todayKey)
@@ -261,20 +196,21 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
     }, new Map<string, AssemblyTask[]>()),
     ([dateKey, data]) => ({ key: dateKey, title: formatUpcomingDate(dateKey), data })
   );
+  const defaultExpandedSectionKey = dateScope === 'next_days' ? upcomingSections[0]?.key : 'today';
   const sections = [
     ...(todayTasks.length
-      ? [{ key: 'today', title: `PARA HOJE · ${todayTasks.length}`, data: todayTasks }]
+      ? [{ key: 'today', title: 'HOJE', data: todayTasks }]
       : []),
     ...upcomingSections,
   ].map((section) => {
-    const isCollapsed = collapsedSections[section.key] ?? section.key !== 'today';
+    const isCollapsed = collapsedSections[section.key] ?? section.key !== defaultExpandedSectionKey;
     return { ...section, count: section.data.length, data: isCollapsed ? [] : section.data };
   });
 
   const toggleSection = (key: string) => {
     setCollapsedSections((previous) => ({
       ...previous,
-      [key]: !(previous[key] ?? key !== 'today'),
+      [key]: !(previous[key] ?? key !== defaultExpandedSectionKey),
     }));
   };
 
@@ -290,7 +226,11 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
       ) : tasks.length === 0 ? (
         <View style={styles.center}>
           <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>
-            Nenhuma montagem para hoje ou próximos dias.
+            {dateScope === 'today'
+              ? 'Nenhuma montagem agendada para hoje.'
+              : dateScope === 'next_days'
+                ? 'Nenhuma montagem agendada para os próximos dias.'
+                : 'Nenhuma montagem para hoje ou próximos dias.'}
           </Text>
         </View>
       ) : (
@@ -300,13 +240,17 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
           stickySectionHeadersEnabled
           ListHeaderComponent={
             <View style={styles.legend}>
-              <View style={[styles.legendBadge, styles.legendInternal]}>
+              <View style={[styles.legendBadge, isDarkMode && styles.legendBadgeDark]}>
                 <MobileDrill size={13} />
-                <Text style={styles.legendText}>MONTAGEM NO DEPÓSITO</Text>
+                <Text style={[styles.legendText, isDarkMode && styles.legendTextDark]}>
+                  MONTAGEM NO DEPÓSITO
+                </Text>
               </View>
-              <View style={[styles.legendBadge, styles.legendOutside]}>
+              <View style={[styles.legendBadge, isDarkMode && styles.legendBadgeDark]}>
                 <MobileDrill size={13} />
-                <Text style={styles.legendText}>MONTAGEM FORA</Text>
+                <Text style={[styles.legendText, isDarkMode && styles.legendTextDark]}>
+                  MONTAGEM FORA
+                </Text>
               </View>
             </View>
           }
@@ -315,7 +259,8 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} />
           }
           renderSectionHeader={({ section }) => {
-            const isCollapsed = collapsedSections[section.key] ?? section.key !== 'today';
+            const isCollapsed =
+              collapsedSections[section.key] ?? section.key !== defaultExpandedSectionKey;
             return (
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -353,6 +298,8 @@ export const NativeAssembliesScreen: React.FC<Props> = ({ isDarkMode, onSelectOr
               item={item.item}
               isOutside={item.isOutside}
               isDarkMode={isDarkMode}
+              scheduledTime={item.scheduledTime}
+              responsibleName={item.responsibleName}
               onPress={() => onSelectOrder?.(item.order)}
             />
           )}
@@ -374,10 +321,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
+    backgroundColor: '#f1f5f9',
   },
-  legendInternal: { backgroundColor: '#f59e0b' },
-  legendOutside: { backgroundColor: '#ef4444' },
-  legendText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  legendBadgeDark: { backgroundColor: '#334155' },
+  legendText: { color: '#475569', fontSize: 10, fontWeight: '800' },
+  legendTextDark: { color: '#e2e8f0' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   sectionHeader: {
     flexDirection: 'row',

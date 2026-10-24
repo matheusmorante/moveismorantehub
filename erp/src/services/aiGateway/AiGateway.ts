@@ -75,8 +75,29 @@ export class AiGateway {
     const concurrencyOperationKey = isCharacteristicsOp ? operation : undefined;
     const startTime = Date.now();
 
-    // 1. Deduplicação por Hash de Payload
-    const hash = AiDeduplicator.generateHash(category, operation, payload);
+    const effectiveModel =
+      options.model ||
+      (isCharacteristicsOp
+        ? CHARACTERISTICS_AI_LIMITS.model
+        : options.tier === 'reasoning'
+          ? AI_MODELS.REASONING
+          : options.tier === 'embedding'
+            ? AI_MODELS.EMBEDDING
+            : options.tier === 'lite'
+              ? AI_MODELS.LITE
+              : categoryConfig.model);
+
+    // 1. Deduplicação com identidade das opções e do contexto da chamada.
+    const hash = AiDeduplicator.generateHash(category, operation, {
+      payload,
+      model: effectiveModel,
+      tier: options.tier,
+      thinkingBudget: options.thinkingBudget,
+      jsonMode: options.jsonMode,
+      tools: options.tools,
+      userOrSource: options.userOrSource,
+      moduleSource: options.moduleSource,
+    });
     if (!bypassDeduplication) {
       const inFlight = AiDeduplicator.getInFlightRequest<AiResponse<T>>(hash);
       if (inFlight) {
@@ -137,19 +158,6 @@ export class AiGateway {
             modelUsed: isCharacteristicsOp ? CHARACTERISTICS_AI_LIMITS.model : categoryConfig.model,
           };
         }
-
-        // 5. Determinar modelo efetivo
-        const effectiveModel =
-          options.model ||
-          (isCharacteristicsOp
-            ? CHARACTERISTICS_AI_LIMITS.model
-            : options.tier === 'reasoning'
-              ? AI_MODELS.REASONING
-              : options.tier === 'embedding'
-                ? AI_MODELS.EMBEDDING
-                : options.tier === 'lite'
-                  ? AI_MODELS.LITE
-                  : categoryConfig.model);
 
         // 6. Chamada de Produção Proxied ao Gemini HTTP Backend
         const rawResult = await this.callGeminiApiProxied<T>(

@@ -15,6 +15,10 @@ export interface NavigationRailProps {
   isRealtimeConnected: boolean;
   isInboxSidebarOpen?: boolean;
   onToggleInboxSidebar?: () => void;
+  isConversationSidebarOpen?: boolean;
+  onToggleConversationSidebar?: () => void;
+  isMobileViewport?: boolean;
+  onResetLayout?: () => void;
 }
 
 export const NavigationRail: React.FC<NavigationRailProps> = ({
@@ -27,6 +31,10 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
   isRealtimeConnected,
   isInboxSidebarOpen = true,
   onToggleInboxSidebar,
+  isConversationSidebarOpen = true,
+  onToggleConversationSidebar,
+  isMobileViewport = false,
+  onResetLayout,
 }) => {
   const { profile } = useAuth();
 
@@ -61,13 +69,28 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
           isActive={true}
           badgeCount={unreadCountTotal}
           ariaLabel="Caixa de entrada"
-          onClick={() => {
-            onFilterChange('all');
-            if (!isInboxSidebarOpen && onToggleInboxSidebar) {
-              onToggleInboxSidebar();
-            }
-          }}
+          ariaExpanded={isInboxSidebarOpen}
+          ariaControls="customer-support-inbox-panel"
+          onClick={onToggleInboxSidebar}
         />
+
+        <NavigationRailItem
+          icon="bi-chat-left-text-fill"
+          title="Lista de conversas"
+          ariaLabel="Mostrar ou recolher lista de conversas"
+          ariaExpanded={isConversationSidebarOpen}
+          ariaControls="customer-support-conversations-panel"
+          onClick={onToggleConversationSidebar}
+        />
+
+        {!isMobileViewport && onResetLayout && (
+          <NavigationRailItem
+            icon="bi-arrow-clockwise"
+            title="Restaurar layout padrão"
+            ariaLabel="Restaurar layout padrão"
+            onClick={onResetLayout}
+          />
+        )}
 
         {/* Contatos / Clientes */}
         <NavigationRailItem

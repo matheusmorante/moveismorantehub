@@ -4,6 +4,7 @@ import NavDropdown from '../NavDropdown';
 import DropdownGroup from '../DropdownGroup';
 import DropdownSeparator from '../DropdownSeparator';
 import DropdownItem from '../DropdownItem';
+import stockGuide from '../../../../../../shared-utils/stockGuide.json';
 
 export const StockNavMenu: React.FC<Required<NavMenuProps>> = ({
   activeMenu,
@@ -17,6 +18,8 @@ export const StockNavMenu: React.FC<Required<NavMenuProps>> = ({
     permissions.canViewStockInventory ||
     permissions.canViewStockUnavailabilities ||
     permissions.canViewStockReceipts;
+  const hasFiscal = permissions.canViewInboundFiscal;
+  const hasPurchases = permissions.canViewStockPurchases || permissions.canViewSuppliers;
 
   return (
     <NavDropdown
@@ -68,9 +71,23 @@ export const StockNavMenu: React.FC<Required<NavMenuProps>> = ({
         </>
       )}
 
-      {(permissions.canViewStockPurchases || permissions.canViewSuppliers) && (
+      {hasFiscal && (
         <>
-          {permissions.canViewStock && <DropdownSeparator />}
+          {hasOperations && <DropdownSeparator />}
+          <DropdownGroup title="Fiscal" />
+          <DropdownItem
+            to="/estoque/notas-fiscais-entrada"
+            icon="bi-receipt-cutoff"
+            title="NF de entrada"
+            description="Notas recebidas e importadas"
+            onClick={close}
+          />
+        </>
+      )}
+
+      {hasPurchases && (
+        <>
+          {(hasOperations || hasFiscal) && <DropdownSeparator />}
           <DropdownGroup title="Compras" />
           {permissions.canViewStockPurchases && (
             <DropdownItem
@@ -95,7 +112,7 @@ export const StockNavMenu: React.FC<Required<NavMenuProps>> = ({
 
       {permissions.canViewStockLabels && (
         <>
-          {(permissions.canViewStock || permissions.canViewSuppliers) && <DropdownSeparator />}
+          {(hasOperations || hasFiscal || hasPurchases) && <DropdownSeparator />}
           <DropdownGroup title="Etiquetas" />
           <DropdownItem
             to="/estoque/etiquetas?category=identificacao"
@@ -113,6 +130,28 @@ export const StockNavMenu: React.FC<Required<NavMenuProps>> = ({
           />
         </>
       )}
+
+      {(hasOperations || hasFiscal || hasPurchases || permissions.canViewStockLabels) && (
+        <DropdownSeparator />
+      )}
+      <DropdownGroup title="Ajuda" />
+      <a
+        href={stockGuide.path}
+        target="_blank"
+        rel="noreferrer"
+        role="menuitem"
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+          <i className="bi bi-journal-bookmark-fill" aria-hidden="true" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-xs font-bold text-slate-700 dark:text-slate-100">
+            {stockGuide.title}
+          </span>
+          <span className="block text-[10px] text-slate-400">Recebimentos, inventário e movimentações</span>
+        </span>
+      </a>
     </NavDropdown>
   );
 };

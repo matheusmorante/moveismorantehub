@@ -7,6 +7,7 @@ import type { LabelPrintType } from '@/pages/App/Products/components/modals/prod
 import type Product from '@/pages/types/product.type';
 import {
   canPrintProductIdentificationLabels,
+  getProductIdentificationLabelActionAvailability,
   isProductIdentificationLabelOnlyProfile,
 } from '@/pages/utils/accessRoles';
 import {
@@ -60,6 +61,12 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
   const { profile } = useAuth();
   const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(profile);
   const canPrintIdentificationLabel = canPrintProductIdentificationLabels(profile);
+  const identificationLabelAvailability = getProductIdentificationLabelActionAvailability({
+    canPrint: canPrintIdentificationLabel,
+    hasSingleVariation: Boolean(singleVariation),
+    isDraft,
+    isMerged: Boolean(singleVariation?.mergedToVariationId),
+  });
 
   if (showTrash && !isLabelOnlyProfile) {
     return (
@@ -204,7 +211,7 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
                   >
                     <i className="bi bi-copy text-blue-500" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                      Duplicar Produto
+                      Copiar produto
                     </span>
                   </button>
                 )}
@@ -229,7 +236,7 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
 
                 {singleVariation && !isDraft && !singleVariation.mergedToVariationId && (
                   <>
-                    {canPrintIdentificationLabel && (
+                    {identificationLabelAvailability.canPrintLabel && (
                       <button
                         type="button"
                         role="menuitem"

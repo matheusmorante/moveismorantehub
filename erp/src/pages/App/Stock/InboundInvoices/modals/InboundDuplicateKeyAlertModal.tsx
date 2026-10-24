@@ -55,10 +55,10 @@ export function InboundDuplicateKeyAlertModal({
               id="duplicate-key-modal-title"
               className="text-lg font-black text-slate-800 dark:text-slate-100"
             >
-              Nota Fiscal Já Cadastrada
+              Não foi possível atualizar esta NF-e
             </h3>
             <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Esta nota fiscal com a chave de acesso abaixo já está salva no sistema.
+              A nota já está cadastrada, mas há valores fiscais divergentes que não podem ser mesclados com segurança. Nenhuma informação foi alterada.
             </p>
           </div>
           <button
@@ -109,7 +109,7 @@ export function InboundDuplicateKeyAlertModal({
             onClick={onClose}
             className="w-full sm:w-auto rounded-xl bg-amber-600 px-6 py-2.5 text-xs font-black uppercase tracking-wider text-white shadow-sm hover:bg-amber-700 transition-all cursor-pointer"
           >
-            Entendi e Fechar
+            Fechar sem alterar
           </button>
         </footer>
       </section>

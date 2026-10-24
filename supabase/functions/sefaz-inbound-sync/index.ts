@@ -10,6 +10,7 @@ const corsHeaders = {
 };
 
 const NSU_POINT_QUERY_INTERVAL_MS = 5 * 60 * 1000;
+const DIST_NSU_INTERVAL_MS = 60 * 60 * 1000;
 
 type MissingNsuRange = { startNsu: string; endNsu: string };
 type RecoveryClaim = {
@@ -236,7 +237,7 @@ async function processNextNsuRecovery(
     if (!entry) throw new Error("A SEFAZ informou cStat 138, mas não retornou docZip para o NSU solicitado.");
 
     const unzippedXml = await decompressGzipBase64(entry.compressedBase64);
-    const parsed = parseNfeXml(unzippedXml, entry.nsu, environment === "production" ? 1 : 2);
+    const parsed = parseNfeXml(unzippedXml, entry.nsu, environment === "production" ? 1 : 2, cleanCnpj);
     if (!parsed && /<(?:[a-zA-Z0-9_]+:)?(?:infNFe|resNFe)\b/i.test(unzippedXml)) {
       throw new Error("A SEFAZ devolveu um XML de NF-e que não pôde ser interpretado; o NSU será tentado novamente.");
     }
@@ -272,6 +273,7 @@ serve(async (req) => {
   console.log(`[sefaz-inbound-sync] Iniciando ciclo de sincronização DF-e...`);
   let isAccessKeyQuery = false;
   let isRecoveryQuery = false;
+  let distNsuNextAllowedSyncAt: string | null = null;
 
   try {
     const supabaseClient = createClient(
@@ -290,8 +292,12 @@ serve(async (req) => {
         .maybeSingle();
 
       const now = Date.now();
-      const nextAllowed = nsuRecord?.next_allowed_sync_at ? new Date(nsuRecord.next_allowed_sync_at).getTime() : 0;
       const lastSyncMs = nsuRecord?.last_sync_at ? new Date(nsuRecord.last_sync_at).getTime() : 0;
+      const storedNextAllowed = nsuRecord?.next_allowed_sync_at ? new Date(nsuRecord.next_allowed_sync_at).getTime() : 0;
+      const nextAllowed = Math.max(
+        storedNextAllowed,
+        lastSyncMs ? lastSyncMs + DIST_NSU_INTERVAL_MS : 0,
+      );
       const isSyncing = nsuRecord?.status === "syncing" && (now - lastSyncMs < 180000);
       const isRateLimited = nsuRecord?.status === "rate_limited" && (now < nextAllowed);
       const canSyncNow = !isSyncing && (now >= nextAllowed);
@@ -302,7 +308,7 @@ serve(async (req) => {
           data: {
             status: isSyncing ? "syncing" : isRateLimited ? "rate_limited" : (nsuRecord?.status || "idle"),
             lastSyncAt: nsuRecord?.last_sync_at || null,
-            nextAllowedSyncAt: nsuRecord?.next_allowed_sync_at || null,
+            nextAllowedSyncAt: nextAllowed ? new Date(nextAllowed).toISOString() : null,
             lastNsu: nsuRecord?.last_nsu || "0",
             maxNsu: nsuRecord?.max_nsu || "0",
             lastCstat: nsuRecord?.last_cstat || null,
@@ -372,15 +378,23 @@ serve(async (req) => {
       }
     }
 
-    // Verificação de Cooldown (Prevenção cStat 137 / 656) para distNSU
-    if (!isAccessKeyQuery && !isRecoveryQuery && nsuRecord?.next_allowed_sync_at) {
-      const nextAllowedMs = new Date(nsuRecord.next_allowed_sync_at).getTime();
-      if (Date.now() < nextAllowedMs) {
-        const diffMinutes = Math.max(1, Math.ceil((nextAllowedMs - Date.now()) / 60000));
+    // Uma consulta distNSU por hora, inclusive quando há documentos, para manter a descoberta previsível.
+    if (!isAccessKeyQuery && !isRecoveryQuery) {
+      const now = Date.now();
+      const lastSyncMs = nsuRecord?.last_sync_at ? new Date(nsuRecord.last_sync_at).getTime() : 0;
+      const storedNextAllowed = nsuRecord?.next_allowed_sync_at
+        ? new Date(nsuRecord.next_allowed_sync_at).getTime()
+        : 0;
+      const nextAllowedMs = Math.max(
+        storedNextAllowed,
+        lastSyncMs ? lastSyncMs + DIST_NSU_INTERVAL_MS : 0,
+      );
+      if (now < nextAllowedMs) {
+        const diffMinutes = Math.max(1, Math.ceil((nextAllowedMs - now) / 60000));
         return new Response(JSON.stringify({
           success: false,
           code: "SEFAZ_COOLDOWN",
-          nextAllowedSyncAt: nsuRecord.next_allowed_sync_at,
+          nextAllowedSyncAt: new Date(nextAllowedMs).toISOString(),
           message: `SEFAZ consultada recentemente. Nova consulta automática permitida em aproximadamente ${diffMinutes} min.`,
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
       }
@@ -399,16 +413,35 @@ serve(async (req) => {
     let currentUltNsu = nsuRecord?.last_nsu || "0";
     let currentMaxNsu = nsuRecord?.max_nsu || "0";
 
-    // Marcar status como syncing
+    // Reservar atomicamente o intervalo antes do I/O externo; a transação do update termina antes do SOAP.
     if (!isAccessKeyQuery && !isRecoveryQuery) {
-      await supabaseClient
+      const startedAt = new Date();
+      const startedAtIso = startedAt.toISOString();
+      const staleSyncCutoff = new Date(startedAt.getTime() - 180000).toISOString();
+      distNsuNextAllowedSyncAt = new Date(startedAt.getTime() + DIST_NSU_INTERVAL_MS).toISOString();
+      const { data: reservationRows, error: reservationError } = await supabaseClient
         .from("sefaz_nsu_control")
-        .upsert({
-          id: "default",
+        .update({
           cnpj: cleanCnpj,
           status: "syncing",
-          last_sync_at: new Date().toISOString(),
-        });
+          last_sync_at: startedAtIso,
+          next_allowed_sync_at: distNsuNextAllowedSyncAt,
+          environment,
+        })
+        .eq("id", "default")
+        .or(`status.neq.syncing,last_sync_at.is.null,last_sync_at.lt.${staleSyncCutoff}`)
+        .or(`next_allowed_sync_at.is.null,next_allowed_sync_at.lte.${startedAtIso}`)
+        .select("id")
+        .maybeSingle();
+      if (reservationError) throw new Error(`Falha ao reservar o intervalo distNSU: ${reservationError.message}`);
+      if (!reservationRows) {
+        return new Response(JSON.stringify({
+          success: false,
+          code: "SEFAZ_COOLDOWN",
+          nextAllowedSyncAt: nsuRecord?.next_allowed_sync_at || distNsuNextAllowedSyncAt,
+          message: "Outra sincronização reservou o intervalo da SEFAZ; nenhuma nova consulta foi enviada.",
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      }
     }
 
     // 3. Parâmetros da consulta e URL da ponte Node.js mTLS
@@ -580,6 +613,7 @@ serve(async (req) => {
             unzippedXml,
             docEntry.nsu,
             environment === "production" ? 1 : 2,
+            cleanCnpj,
           );
 
           if (!parsed && /<(?:[a-zA-Z0-9_]+:)?(?:infNFe|resNFe)\b/i.test(unzippedXml)) {
@@ -623,8 +657,11 @@ serve(async (req) => {
       }
 
       // Se cStat for 137 (nenhum documento novo), o Ambiente Nacional exige cooldown de 1 hora
-      const cooldownUntil = !isAccessKeyQuery && cStat === "137"
-        ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
+      const cooldownUntil = !isAccessKeyQuery && !isRecoveryQuery
+        ? new Date(Math.max(
+          Date.now() + (cStat === "137" ? DIST_NSU_INTERVAL_MS : 0),
+          distNsuNextAllowedSyncAt ? new Date(distNsuNextAllowedSyncAt).getTime() : 0,
+        )).toISOString()
         : null;
 
       if (!isAccessKeyQuery && !isRecoveryQuery) {
@@ -722,6 +759,7 @@ serve(async (req) => {
           .update({
             status: "error",
             last_error: err.message || "Erro desconhecido",
+            ...(distNsuNextAllowedSyncAt ? { next_allowed_sync_at: distNsuNextAllowedSyncAt } : {}),
           })
           .eq("id", "default");
       }

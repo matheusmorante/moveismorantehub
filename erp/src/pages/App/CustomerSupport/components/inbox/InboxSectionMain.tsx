@@ -28,8 +28,8 @@ export const InboxSectionMain: React.FC<InboxSectionMainProps> = ({
     activeFilter === targetFilter && !activeCustomInbox && !activeTeam;
 
   const handleSelect = (filter: ConversationFilter) => {
-    onFilterChange(filter);
     onResetCustomAndTeam();
+    onFilterChange(filter);
   };
 
   return (

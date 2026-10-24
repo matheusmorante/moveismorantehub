@@ -43,7 +43,7 @@ export const useInventory = () => {
           adjustmentsCount: 0,
           reversedCount: 0,
           inventoryCode: d.code,
-          responsibleName: 'Armazenado no aparelho',
+          responsibleName: d.responsibleName || 'Armazenado no aparelho',
         }));
         setSessions(localDraftSessions);
         setLoading(false);

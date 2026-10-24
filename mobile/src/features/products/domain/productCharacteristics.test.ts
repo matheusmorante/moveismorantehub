@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SINK_CATEGORY_ID } from '../../../../../shared-utils/productSinkCategoryRules';
+import { getDefaultShowNameForVariationOverride } from '../../../../../shared-utils/productVariationAttributeDefaults';
 import {
   getApplicableProductTechnicalFields,
   getEffectiveProductTechnicalValues,
@@ -26,6 +27,12 @@ import {
 } from './productCharacteristics';
 
 describe('productCharacteristics', () => {
+  it('define o mesmo default showName de overrides de variação do ERP', () => {
+    expect(getDefaultShowNameForVariationOverride('Cor')).toBe(false);
+    expect(getDefaultShowNameForVariationOverride(' cor ')).toBe(false);
+    expect(getDefaultShowNameForVariationOverride('Material da estrutura')).toBe(true);
+  });
+
   it('atualiza o resumo de cores do produto pai a partir das variações, como no ERP', () => {
     expect(
       getMobileVariationColorSummary([
@@ -95,6 +102,17 @@ describe('productCharacteristics', () => {
     expect(getMissingRequiredCharacteristics(effectiveValues)).toEqual([]);
   });
 
+  it('mantém uma característica variável explicitamente vazia em vez de herdar o pai', () => {
+    const effectiveValues = getEffectiveVariationTechnicalValues(
+      { Cor: 'Azul' },
+      { technicalValues: { Cor: '' } },
+      ['Cor']
+    );
+
+    expect(effectiveValues).toEqual({ cor: '' });
+    expect(hasTechnicalValue(effectiveValues, 'Cor')).toBe(true);
+  });
+
   it('aproveita dados antigos em formato de atributos e rejeita valores não aplicáveis', () => {
     const effectiveValues = getEffectiveVariationTechnicalValues(
       {},
@@ -151,6 +169,26 @@ describe('productCharacteristics', () => {
         showName,
       }))
     ).toEqual([{ name: 'Cor', showName: false }]);
+  });
+
+  it('aplica o default de override sem substituir uma preferência showName existente', () => {
+    expect(upsertProductCharacteristicAttribute([], 'Cor', 'Verde', false)).toEqual([
+      { name: 'Cor', value: 'Verde', showName: false },
+    ]);
+    expect(upsertProductCharacteristicAttribute([], 'Material da estrutura', 'Madeira')).toEqual([
+      { name: 'Material da estrutura', value: 'Madeira', showName: true },
+    ]);
+    expect(
+      upsertProductCharacteristicAttribute([{ name: 'Cor', value: 'Azul' }], 'Cor', 'Verde', false)
+    ).toEqual([{ name: 'Cor', value: 'Verde', showName: true }]);
+    expect(
+      upsertProductCharacteristicAttribute(
+        [{ name: 'Cor', value: 'Azul', showName: true }],
+        'Cor',
+        'Verde',
+        false
+      )
+    ).toEqual([{ name: 'Cor', value: 'Verde', showName: true }]);
   });
 
   it('exibe características obrigatórias, já preenchidas e ligadas à categoria atual', () => {

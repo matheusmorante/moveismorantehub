@@ -3,7 +3,7 @@ import { getNextInventoryCode } from '../../../../services/stockService';
 import { Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import {
-  inventoryAuditScopeSchema,
+  mobileInventoryAuditScopeSchema,
   inventoryAuditCompletionSchema,
 } from '../../../../../../shared-utils/inventoryAuditFormSchemas';
 import type { ScopeConfiguration } from './useInventoryScopeBuilder';
@@ -16,7 +16,6 @@ import type {
 } from '../types/inventoryWorkflow.types';
 import {
   restoreInventorySession,
-  duplicateInventorySession,
   generateInventoryUUID,
   createInventoryItemId,
 } from '../services/inventorySessionInitializer';
@@ -31,7 +30,7 @@ export const useInventoryAuditWorkflow = (
   userProfile: { id: string; full_name?: string; fullName?: string } | null,
   onClose: () => void,
   initialSession?: InventorySession | null,
-  copiedItems?: any[] | null
+  isDuplicate = false
 ) => {
   const [view, setView] = useState<AuditWorkflowView>('scope');
   const [items, setItemsState] = useState<AuditItem[]>([]);
@@ -40,6 +39,7 @@ export const useInventoryAuditWorkflow = (
     name: string;
     hasStages: boolean;
     responsibleId: string;
+    responsibleName?: string;
     scopeType?: string;
     supplierId?: string;
   } | null>(null);
@@ -47,11 +47,12 @@ export const useInventoryAuditWorkflow = (
   const draftRef = useRef<AuditDraftState>({});
   const latestItemsRef = useRef<AuditItem[]>(items);
   const frozenSubmissionRef = useRef(false);
-  const scopeForm = useZodForm(inventoryAuditScopeSchema, {
+  const scopeForm = useZodForm(mobileInventoryAuditScopeSchema, {
     type: 'full',
     name: '',
     supplierId: '',
     responsibleId: '',
+    responsibleName: '',
     itemsSnapshot: [],
   });
   const completionForm = useZodForm(inventoryAuditCompletionSchema, {
@@ -117,24 +118,6 @@ export const useInventoryAuditWorkflow = (
         } finally {
           if (isMounted) setIsSaving(false);
         }
-      } else if (copiedItems && copiedItems.length > 0) {
-        setIsSaving(true);
-        try {
-          const data = await duplicateInventorySession(copiedItems, userProfile?.id);
-          if (isMounted) {
-            frozenSubmissionRef.current = false;
-            draftRef.current = data.draft;
-            latestItemsRef.current = data.items;
-            setItemsState(data.items);
-            setScopeConfig(data.scopeConfig);
-            await persistToSQLite(data.items, data.scopeConfig);
-            setView('operation');
-          }
-        } catch (error) {
-          console.error('[Workflow] Erro ao duplicar inventário:', error);
-        } finally {
-          if (isMounted) setIsSaving(false);
-        }
       }
     };
 
@@ -142,7 +125,7 @@ export const useInventoryAuditWorkflow = (
     return () => {
       isMounted = false;
     };
-  }, [initialSession, copiedItems, userProfile?.id]);
+  }, [initialSession, userProfile?.id]);
 
   const handleConfirmScope = async (input: ScopeConfiguration) =>
     scopeForm.validateAndRun(
@@ -170,16 +153,6 @@ export const useInventoryAuditWorkflow = (
           isActive: snapshot.isActive,
         }));
 
-        const nextScope = {
-          name: config.name,
-          hasStages: config.hasStages ?? false,
-          responsibleId: config.responsibleId,
-          scopeType: config.type,
-          supplierId: config.supplierId,
-        };
-
-        setScopeConfig(nextScope);
-
         const auditId = draftRef.current.id || generateInventoryUUID();
         draftRef.current.id = auditId;
         try {
@@ -188,6 +161,15 @@ export const useInventoryAuditWorkflow = (
           draftRef.current.code = `LOCAL-${auditId.slice(0, 8)}`;
         }
         if (!draftRef.current.code) draftRef.current.code = `LOCAL-${auditId.slice(0, 8)}`;
+        const nextScope = {
+          name: isDuplicate ? `Inventário #${draftRef.current.code} (Cópia)` : config.name,
+          hasStages: config.hasStages ?? false,
+          responsibleId: config.responsibleId,
+          responsibleName: config.responsibleName,
+          scopeType: config.type,
+          supplierId: config.supplierId,
+        };
+        setScopeConfig(nextScope);
         draftRef.current.date = new Date().toISOString();
         latestItemsRef.current = initialItems;
         setItemsState(initialItems);

@@ -17,6 +17,7 @@ export interface TechnicalFieldRowProps {
   readonly manualFieldNames: string[];
   readonly validationErrors?: Record<string, boolean>;
   readonly isVariable?: boolean;
+  readonly isSimpleProduct?: boolean;
   readonly onToggleVariable?: (
     fieldName: string,
     scope?: 'not_inform' | 'global' | 'variation'
@@ -33,6 +34,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   manualFieldNames,
   validationErrors,
   isVariable = false,
+  isSimpleProduct = false,
   onToggleVariable,
   onValueChange,
   onOpenAttributeModal,
@@ -57,7 +59,8 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   const displayName = /^retr[aá]til\??$/i.test(field.name.trim()) ? 'É Retrátil?' : field.name;
   const isOpenClosedSofaDepth =
     normName === 'profundidade aberto' || normName === 'profundidade fechado';
-  const scope = isVariable
+  const effectiveIsVariable = isVariable && !isSimpleProduct;
+  const scope = effectiveIsVariable
     ? 'variation'
     : hasConfiguredValue
       ? 'global'
@@ -90,7 +93,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
           <span>
             {displayName}
             {field.unit ? ` (${field.unit})` : ''}
-            {isRequiredField && !isFieldDisabled && !isVariable && (
+            {isRequiredField && !isFieldDisabled && !effectiveIsVariable && (
               <span className="ml-1 text-red-500" aria-hidden="true">
                 *
               </span>
@@ -104,7 +107,27 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
           )}
         </label>
         <div className="flex w-full items-center gap-1.5">
-          {onToggleVariable && (
+          {onToggleVariable && isSimpleProduct && (
+            <button
+              type="button"
+              role="switch"
+              aria-label={`Exibir característica ${field.name}`}
+              aria-checked={scope === 'global'}
+              onClick={() =>
+                onToggleVariable(field.name, scope === 'global' ? 'not_inform' : 'global')
+              }
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
+                scope === 'global' ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  scope === 'global' ? 'translate-x-4' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          )}
+          {onToggleVariable && !isSimpleProduct && (
             <select
               aria-label={`Escopo da característica ${field.name}`}
               title="Escolha onde esta característica será informada"

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { productListFormSchema } from '../../../../../shared-utils/listingFormSchemas';
@@ -13,6 +13,10 @@ import {
   resolveAppliedMobileProductSearch,
   resolveMobileProductStatusFilter,
 } from '../domain/mobileProductListFilters';
+import {
+  createMobileProductListRequestGuard,
+  resolveMobileProductListRequestPage,
+} from '../domain/mobileProductListRequest';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
   deleteMobileProduct,
@@ -55,6 +59,25 @@ export function useMobileProducts(
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const loadRequestGuardRef = useRef(createMobileProductListRequestGuard());
+  const requestFiltersKey = JSON.stringify({
+    search: appliedSearchTerm,
+    statusFilter,
+    category: categoryFilter,
+    catalogStatus: catalogStatusFilter,
+    generalType: generalTypeFilter,
+    includeDeactivated: showDeactivated,
+    includeMerged: showMergedProducts,
+    itemType: mode,
+    canViewCompositions,
+    showTrash,
+  });
+  const previousRequestFiltersKeyRef = useRef(requestFiltersKey);
+  const requestPage = resolveMobileProductListRequestPage(
+    currentPage,
+    requestFiltersKey,
+    previousRequestFiltersKeyRef.current,
+  );
   const { validateValues: validateList } = useZodForm(productListFormSchema, { page: currentPage, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated, showTrash });
   useEffect(() => {
     const trimmedSearch = searchTerm.trim();
@@ -73,7 +96,8 @@ export function useMobileProducts(
   }, [searchTerm, appliedSearchTerm]);
 
   const loadProducts = useCallback(
-    async (pull = false, page = currentPage) => {
+    async (pull = false, page = 1) => {
+      const requestId = loadRequestGuardRef.current.begin();
       if (!enabled) {
         setProducts([]);
         setTotalItems(0);
@@ -86,7 +110,12 @@ export function useMobileProducts(
       setLoadError(null);
       try {
         const values = await validateList({ page, search: appliedSearchTerm, statusFilter, category: categoryFilter, catalogStatus: catalogStatusFilter, itemType: mode, generalType: generalTypeFilter, includeDeactivated: showDeactivated, showTrash },
-          (errors) => setLoadError(Object.values(flattenFormErrors(errors))[0]));
+          (errors) => {
+            if (loadRequestGuardRef.current.isCurrent(requestId)) {
+              setLoadError(Object.values(flattenFormErrors(errors))[0]);
+            }
+          });
+        if (!loadRequestGuardRef.current.isCurrent(requestId)) return;
         if (!values) return;
         const { data, total } = await fetchMobileProductsPage(values.page, ITEMS_PER_PAGE, {
           search: values.search,
@@ -107,22 +136,25 @@ export function useMobileProducts(
           // como no ERP, que chama fetchProductsPage com throwOnError habilitado.
           throwOnError: true,
         });
+        if (!loadRequestGuardRef.current.isCurrent(requestId)) return;
         setProducts(data);
         setTotalItems(total);
       } catch (err) {
+        if (!loadRequestGuardRef.current.isCurrent(requestId)) return;
         console.warn('[useMobileProducts] Erro ao carregar:', err);
         setLoadError(
           isProductVariationSearchTooBroadError(err)
             ? err.message
-            : 'Não foi possível carregar as informações. Tente novamente.'
+            : 'Não foi possível carregar os produtos.'
         );
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (loadRequestGuardRef.current.isCurrent(requestId)) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
     [
-      currentPage,
       appliedSearchTerm,
       statusFilter,
       categoryFilter,
@@ -139,28 +171,25 @@ export function useMobileProducts(
   );
 
   useEffect(() => {
+    const filtersChanged = previousRequestFiltersKeyRef.current !== requestFiltersKey;
+    if (filtersChanged) {
+      previousRequestFiltersKeyRef.current = requestFiltersKey;
+      setCurrentPage(1);
+    }
+
     if (enabled) {
-      loadProducts(false, currentPage);
+      loadProducts(false, requestPage);
     } else {
+      loadRequestGuardRef.current.invalidate();
       setProducts([]);
       setTotalItems(0);
       setLoadError(null);
       setLoading(false);
     }
-  }, [currentPage, enabled, loadProducts]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    appliedSearchTerm,
-    statusFilter,
-    categoryFilter,
-    catalogStatusFilter,
-    generalTypeFilter,
-    showDeactivated,
-    showMergedProducts,
-    mode,
-  ]);
+    return () => {
+      loadRequestGuardRef.current.invalidate();
+    };
+  }, [enabled, loadProducts, requestFiltersKey, requestPage]);
 
   const resetFilters = useCallback(() => {
     setSearchTerm(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.searchTerm);
@@ -408,7 +437,7 @@ export function useMobileProducts(
     setShowMergedProducts,
     onToggleMergedProducts: () => setShowMergedProducts((prev) => !prev),
     setCurrentPage,
-    refresh: () => loadProducts(true),
+    refresh: () => loadProducts(true, currentPage),
     handleToggleCatalog,
     handleToggleActive,
     handleDelete,

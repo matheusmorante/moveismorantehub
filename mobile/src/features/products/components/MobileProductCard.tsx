@@ -20,7 +20,11 @@ import { MobileProductVariationList } from './MobileProductVariationList';
 import { StockOriginBadge } from './StockOriginBadge';
 import { MergedBadge } from './MergedBadge';
 import { styles } from './MobileProductCard.styles';
-import { buildProductPriceLabelUrl } from '../domain/productLabelLinks';
+import {
+  buildProductIdentificationLabelUrl,
+  buildProductPriceLabelUrl,
+} from '../domain/productLabelLinks';
+import { canToggleProductActivationFromCardMenu } from '../domain/mobileProductCardRules';
 
 interface Props {
   product: any;
@@ -46,8 +50,6 @@ interface Props {
   onDelete: (productId: string, isDraft?: boolean) => void;
   onMoveToTrash?: (productId: string) => void;
   onDuplicate?: (product: any) => void;
-  onLaunchStock?: (product: any) => void;
-  onShowHistory?: (product: any) => void;
   onShowOrders?: (product: any) => void;
   onMoveVariation?: (variation: any, parentProduct: any) => void;
   onMergeVariation?: (variation: any, parentProduct: any) => void;
@@ -77,8 +79,6 @@ export const MobileProductCard: React.FC<Props> = ({
   onDelete,
   onMoveToTrash,
   onDuplicate,
-  onLaunchStock,
-  onShowHistory,
   onShowOrders,
   onMoveVariation,
   onMergeVariation,
@@ -110,6 +110,7 @@ export const MobileProductCard: React.FC<Props> = ({
     isLowStock,
     cardUnit,
     canShowVariationMenu,
+    canPrintIdentificationLabel,
     oppName,
     supplierNames,
     isSalvado,
@@ -125,11 +126,9 @@ export const MobileProductCard: React.FC<Props> = ({
 
   const handlePrintLabel = () => {
     const parentId = product.id || singleVariation?.productId || singleVariation?.id;
-    const variationQuery =
-      singleVariation && !singleVariation.isVirtual && singleVariation.id
-        ? `&variationId=${encodeURIComponent(singleVariation.id)}`
-        : '';
-    const url = `${WEB_URL}/estoque/etiquetas?cat=identificacao&productId=${encodeURIComponent(parentId)}${variationQuery}&fillSheet=1`;
+    const variationId =
+      singleVariation && !singleVariation.isVirtual ? singleVariation.id : undefined;
+    const url = buildProductIdentificationLabelUrl(WEB_URL, parentId, variationId);
     Linking.openURL(url).catch((error) => {
       console.warn('Falha ao abrir tela de etiquetas:', error);
       Alert.alert('Erro', 'Não foi possível abrir a tela de etiquetas.');
@@ -148,19 +147,6 @@ export const MobileProductCard: React.FC<Props> = ({
       Alert.alert('Erro', 'Não foi possível abrir a tela de etiquetas de preço.');
     });
   };
-
-  const singleVariationTarget =
-    singleVariation && !singleVariation.isVirtual
-      ? {
-          ...product,
-          ...singleVariation,
-          id: singleVariation.id,
-          parentId: product.id,
-          variationId: singleVariation.id,
-          isVariation: true,
-          name: displayTitle,
-        }
-      : product;
 
   return (
     <TouchableOpacity
@@ -279,7 +265,7 @@ export const MobileProductCard: React.FC<Props> = ({
             ) : null
           ) : (
             !isLabelOnlyProfile &&
-            (canEdit || canDelete || onLaunchStock || onShowHistory || onShowOrders) && (
+            (canEdit || canDelete || onShowOrders) && (
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={(e) => {
@@ -451,13 +437,12 @@ export const MobileProductCard: React.FC<Props> = ({
           onEdit={canEdit && !isLabelOnlyProfile ? onEdit : undefined}
           onMoveVariation={canEdit && !isLabelOnlyProfile ? onMoveVariation : undefined}
           onMergeVariation={canEdit && !isLabelOnlyProfile ? onMergeVariation : undefined}
-          onShowHistory={onShowHistory}
           onShowOrders={onShowOrders}
-          onLaunchStock={onLaunchStock}
           canShowLinkedOrders={cardActionAvailability.canShowLinkedOrders}
           canChangeCatalog={canChangeCatalog}
           showCatalogStatus={showCatalogStatus}
           canPrintLabel={canPrintLabels}
+          isLabelOnlyProfile={isLabelOnlyProfile}
         />
       )}
 
@@ -470,7 +455,12 @@ export const MobileProductCard: React.FC<Props> = ({
         isActive={isActive}
         canEdit={canEdit && !isLabelOnlyProfile}
         canDelete={canDelete && !isLabelOnlyProfile}
-        canToggleActive={canDelete && !isLabelOnlyProfile && !isNonConventional}
+        canToggleActive={canToggleProductActivationFromCardMenu({
+          isFamilyParent: hasExpandableVars,
+          canDelete,
+          isLabelOnlyProfile,
+          isNonConventional,
+        })}
         onClose={() => setMenuVisible(false)}
         onEdit={onEdit}
         onToggleActive={onToggleActive}
@@ -481,8 +471,6 @@ export const MobileProductCard: React.FC<Props> = ({
             ? onDuplicate
             : undefined
         }
-        onLaunchStock={onLaunchStock}
-        onShowHistory={onShowHistory}
         onShowOrders={cardActionAvailability.canShowLinkedOrders ? onShowOrders : undefined}
         onPrintPriceLabel={!isLabelOnlyProfile && !showTrash ? handlePrintPriceLabel : undefined}
       />
@@ -495,9 +483,7 @@ export const MobileProductCard: React.FC<Props> = ({
           variationName={displayTitle}
           isMerged={isSingleVariationMerged}
           onClose={() => setVariationMenuVisible(false)}
-          onPrintLabel={
-            canPrintLabels && !isSingleVariationMerged ? handlePrintLabel : undefined
-          }
+          onPrintLabel={canPrintIdentificationLabel ? handlePrintLabel : undefined}
           onPrintPriceLabel={
             !isLabelOnlyProfile && !showTrash && !isSingleVariationMerged
               ? () => handlePrintPriceLabel(product)
@@ -514,16 +500,6 @@ export const MobileProductCard: React.FC<Props> = ({
             !isSingleVariationMerged &&
             singleVariation.id
               ? () => onShowOrders(product)
-              : undefined
-          }
-          onLaunchStock={
-            onLaunchStock && !isSingleVariationMerged
-              ? () => onLaunchStock(singleVariationTarget)
-              : undefined
-          }
-          onShowHistory={
-            onShowHistory && !isSingleVariationMerged
-              ? () => onShowHistory(singleVariationTarget)
               : undefined
           }
           onMoveToAnotherFamily={

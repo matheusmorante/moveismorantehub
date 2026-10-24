@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import Product from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { parseVariationImages } from '@/pages/utils/productService/productImageHelpers';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { processProductData } from '../utils/processLabelProductData';
 
@@ -10,6 +11,7 @@ export const ITEMS_PER_PAGE = 15;
 interface UseLabelProductsProps {
   locationState?: any;
   productIdParam?: string | null;
+  variationIdParam?: string | null;
   autoAddProductParam?: boolean;
 }
 
@@ -19,10 +21,18 @@ export const useLabelProducts = (props?: UseLabelProductsProps) => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedProductToAdd, setSelectedProductToAdd] = useState<Product | null>(null);
   const [productAddQty, setProductAddQty] = useState<number>(1);
-  const [linkedProduct, setLinkedProduct] = useState<{ id: string; product: Product } | null>(null);
+  const [linkedProduct, setLinkedProduct] = useState<{
+    id: string;
+    variationId: string | null;
+    product: Product;
+  } | null>(null);
 
   const productIdParam = props?.autoAddProductParam ? props.productIdParam?.trim() || null : null;
-  const initialProduct = linkedProduct?.id === productIdParam ? linkedProduct.product : null;
+  const variationIdParam = props?.autoAddProductParam ? props.variationIdParam?.trim() || null : null;
+  const initialProduct =
+    linkedProduct?.id === productIdParam && linkedProduct.variationId === variationIdParam
+      ? linkedProduct.product
+      : null;
 
   useEffect(() => {
     let current = true;
@@ -40,7 +50,9 @@ export const useLabelProducts = (props?: UseLabelProductsProps) => {
           supabase
             .from('products')
             .select(
-              'id, name, description, code, sku, unit_price, cost_price, promo_price, stock, active, deleted_at, has_variations, category, unit, images'
+              variationIdParam
+                ? 'id, name, description, code, sku, unit_price, cost_price, promo_price, stock, active, deleted_at, has_variations, category, unit, images, variations:product_variations(*)'
+                : 'id, name, description, code, sku, unit_price, cost_price, promo_price, stock, active, deleted_at, has_variations, category, unit, images'
             )
             .eq('id', productIdParam)
             .is('deleted_at', null)
@@ -54,10 +66,28 @@ export const useLabelProducts = (props?: UseLabelProductsProps) => {
         if (!response) throw new Error('A consulta do produto para etiqueta excedeu o prazo.');
         if (response.error) throw response.error;
         if (!response.data) throw new Error('Produto não encontrado para a etiqueta de preço.');
+        const productData = response.data as Record<string, any>;
 
-        const product = processProductData([response.data])[0] as Product | undefined;
+        let product: Product | undefined;
+        if (variationIdParam) {
+          const variation = Array.isArray(productData.variations)
+            ? productData.variations.find((item: any) => item?.id === variationIdParam)
+            : null;
+          if (!variation) throw new Error('Variação não encontrada para a etiqueta.');
+          const variationImages = parseVariationImages(variation.image_url, variation.images);
+          product = processProductData([
+            {
+              ...productData,
+              has_variations: true,
+              hasVariations: true,
+              variations: [{ ...variation, images: variationImages }],
+            },
+          ]).find((item: any) => item?.variationId === variationIdParam) as Product | undefined;
+        } else {
+          product = processProductData([productData])[0] as Product | undefined;
+        }
         if (!product) throw new Error('Não foi possível preparar o produto para a etiqueta.');
-        setLinkedProduct({ id: productIdParam, product });
+        setLinkedProduct({ id: productIdParam, variationId: variationIdParam, product });
       } catch (cause) {
         if (!current) return;
         toast.error(cause instanceof Error ? cause.message : 'Falha ao carregar produto para etiqueta.');
@@ -67,7 +97,7 @@ export const useLabelProducts = (props?: UseLabelProductsProps) => {
     return () => {
       current = false;
     };
-  }, [productIdParam]);
+  }, [productIdParam, variationIdParam]);
 
   const fetchAllProducts = async (isLoadMore = false) => {
     // 1. Tentar Cache se não for "Carregar Mais"

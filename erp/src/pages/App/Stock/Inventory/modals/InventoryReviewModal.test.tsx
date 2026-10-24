@@ -33,7 +33,7 @@ const submit = () => fireEvent.click(screen.getByRole('button', { name: /Conclui
 async function ready() { await waitFor(() => expect(screen.queryByText(/Reconciliando movimentações/)).toBeNull()); }
 function setup(items = [item], onConfirm = vi.fn()) {
   const onCancel = vi.fn();
-  const view = render(<InventoryReviewModal items={items} startDate={startDate} onConfirm={onConfirm} onCancel={onCancel} />);
+  const view = render(<InventoryReviewModal items={items} startDate={startDate} canFinalize onConfirm={onConfirm} onCancel={onCancel} />);
   return { ...view, onConfirm, onCancel };
 }
 
@@ -44,6 +44,7 @@ describe('revisão de inventário offline', () => {
     render(
       <InventoryReviewModal
         startDate="2026-09-25T10:00:00Z"
+        canFinalize
         onCancel={vi.fn()}
         onConfirm={onConfirm}
         items={[
@@ -75,6 +76,17 @@ describe('revisão de inventário offline', () => {
       }),
     ]);
   });
+
+  it('blocks confirmation when the profile lacks the dedicated finalization permission', async () => {
+    const onConfirm = vi.fn();
+    render(<InventoryReviewModal items={[item]} startDate={startDate} canFinalize={false} onConfirm={onConfirm} onCancel={vi.fn()} />);
+    await ready();
+    expect(screen.getByRole('status').textContent).toContain('Finalizar inventários');
+    const confirm = screen.getByRole('button', { name: /Concluir Inventário/i }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });
 
 describe('inventory review with real RHF/resolver', () => {
@@ -101,7 +113,7 @@ describe('inventory review with real RHF/resolver', () => {
 
   it('blocks an invalid start date and never fabricates an item identity', async () => {
     const onConfirm = vi.fn();
-    render(<InventoryReviewModal items={[{ ...item, id: '' }]} startDate="not-a-date" onCancel={vi.fn()} onConfirm={onConfirm} />);
+    render(<InventoryReviewModal items={[{ ...item, id: '' }]} startDate="not-a-date" canFinalize onCancel={vi.fn()} onConfirm={onConfirm} />);
     await ready(); expect(screen.getByRole('alert')).toBeTruthy(); submit();
     expect(mocks.from).not.toHaveBeenCalled(); expect(onConfirm).not.toHaveBeenCalled();
   });
@@ -135,7 +147,7 @@ describe('inventory review with real RHF/resolver', () => {
     mocks.range.mockReturnValueOnce(new Promise((resolve) => { resolveOld = resolve; }));
     const view = setup(); await waitFor(() => expect(mocks.range).toHaveBeenCalledOnce());
     const next = { ...item, id: 'item-new', productId: 'p2', key: 'p2-v1', physicalCount: 4 };
-    view.rerender(<InventoryReviewModal items={[next]} startDate={startDate} onConfirm={view.onConfirm} onCancel={view.onCancel} />);
+    view.rerender(<InventoryReviewModal items={[next]} startDate={startDate} canFinalize onConfirm={view.onConfirm} onCancel={view.onCancel} />);
     await ready();
     await act(async () => { resolveOld({ data: Array.from({ length: 200 }, () => move('entry', 1)), error: null }); });
     submit(); await waitFor(() => expect(view.onConfirm).toHaveBeenCalledOnce());
@@ -166,9 +178,9 @@ describe('inventory review with real RHF/resolver', () => {
     let finish!: (value: unknown) => void;
     mocks.range.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
     const onConfirm = vi.fn(), onCancel = vi.fn();
-    const view = render(<React.StrictMode><InventoryReviewModal items={[item]} startDate={startDate} onConfirm={onConfirm} onCancel={onCancel} /></React.StrictMode>);
+    const view = render(<React.StrictMode><InventoryReviewModal items={[item]} startDate={startDate} canFinalize onConfirm={onConfirm} onCancel={onCancel} /></React.StrictMode>);
     await waitFor(() => expect(mocks.range).toHaveBeenCalledOnce());
-    view.rerender(<React.StrictMode><InventoryReviewModal items={[{ ...item }]} startDate={startDate} onConfirm={onConfirm} onCancel={onCancel} /></React.StrictMode>);
+    view.rerender(<React.StrictMode><InventoryReviewModal items={[{ ...item }]} startDate={startDate} canFinalize onConfirm={onConfirm} onCancel={onCancel} /></React.StrictMode>);
     await act(async () => { finish({ data: [move('entry', 1)], error: null }); }); await ready(); submit();
     await waitFor(() => expect(onConfirm).toHaveBeenCalledWith([{ ...item, reconciledExpected: 5, difference: 0 }]));
     expect(mocks.range).toHaveBeenCalledOnce();
@@ -201,7 +213,7 @@ describe('inventory review with real RHF/resolver', () => {
     const onConfirm = vi.fn().mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
     const view = setup([item], onConfirm); await ready(); submit(); await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce());
     const next = { ...item, id: 'next-item', key: 'next-item' };
-    view.rerender(<InventoryReviewModal items={[next]} startDate={startDate} onConfirm={onConfirm} onCancel={view.onCancel} />);
+    view.rerender(<InventoryReviewModal items={[next]} startDate={startDate} canFinalize onConfirm={onConfirm} onCancel={view.onCancel} />);
     await ready(); await act(async () => { finish(false); });
     expect(screen.queryByRole('alert')).toBeNull(); expect(screen.queryByRole('status')).toBeNull();
     expect((screen.getByRole('button', { name: /Concluir Inventário/ }) as HTMLButtonElement).disabled).toBe(false);

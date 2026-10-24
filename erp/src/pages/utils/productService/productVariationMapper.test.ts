@@ -55,6 +55,69 @@ describe('mapDbVariations', () => {
     ]);
   });
 
+  it('rehidrata valores técnicos próprios de cada variação pelo UUID, mesmo com detalhes em outra ordem', () => {
+    const variations = mapDbVariations(
+      [
+        {
+          id: 'variation-blue',
+          product_id: 'product-1',
+          sku: '003962-01',
+          name: 'Armario Azul',
+          attributes: [],
+        },
+        {
+          id: 'variation-green',
+          product_id: 'product-1',
+          sku: '003962-02',
+          name: 'Armario Verde',
+          attributes: [],
+        },
+      ],
+      {
+        id: 'product-1',
+        name: 'Armario',
+        technical_specs: {
+          variationDetails: [
+            { id: 'variation-green', technicalValues: { Cor: 'Verde' } },
+            { id: 'variation-blue', technicalValues: { Cor: 'Azul' } },
+          ],
+        },
+      },
+      '003962'
+    );
+
+    expect(variations.map(({ id, technicalValues }) => [id, technicalValues?.Cor])).toEqual([
+      ['variation-blue', 'Azul'],
+      ['variation-green', 'Verde'],
+    ]);
+  });
+
+  it('herda os demais dados fiscais do pai e aplica somente o NCM próprio quando syncNcm está desligado', () => {
+    const [variation] = mapDbVariations(
+      [{ id: 'variation-ncm', product_id: 'product-1', sku: '003962-01', name: 'Mesa especial', attributes: [] }],
+      {
+        id: 'product-1',
+        name: 'Mesa',
+        fiscal: { ncm: '94036000', cest: '2806100', cfop: '5102' },
+        technical_specs: { variationDetails: [{ id: 'variation-ncm', syncFiscal: true, syncNcm: false, fiscal: { ncm: '94035000' } }] },
+      },
+      '003962',
+    );
+
+    expect(variation.syncNcm).toBe(false);
+    expect(variation.fiscal).toEqual({ ncm: '94035000', cest: '2806100', cfop: '5102' });
+  });
+
+  it('herda o NCM do pai por padrão nas variações antigas sem syncNcm', () => {
+    const [variation] = mapDbVariations(
+      [{ id: 'variation-legacy', product_id: 'product-1', sku: '003962-01', name: 'Mesa', attributes: [] }],
+      { id: 'product-1', name: 'Mesa', fiscal: { ncm: '94036000', cfop: '5102' }, technical_specs: { variationDetails: [{ id: 'variation-legacy', syncFiscal: true }] } },
+      '003962',
+    );
+    expect(variation.syncNcm).toBe(true);
+    expect(variation.fiscal).toEqual({ ncm: '94036000', cfop: '5102' });
+  });
+
   it('carrega os componentes persistidos por variação', () => {
     const comboItems = [
       { productId: 'component-1', variationId: 'component-variation-1', quantity: 2 },

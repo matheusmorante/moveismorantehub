@@ -182,6 +182,7 @@ const applyMigrations = async (driver: DatabaseDriver): Promise<void> => {
     CREATE TABLE IF NOT EXISTS inventory_draft_scope_local (
       id TEXT PRIMARY KEY,
       supplier_id TEXT,
+      responsible_name TEXT,
       updated_at TEXT NOT NULL
     );
   `);
@@ -194,5 +195,19 @@ const applyMigrations = async (driver: DatabaseDriver): Promise<void> => {
     `INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)
      ON CONFLICT(version) DO NOTHING;`,
     [3, 'inventory_draft_scope_local', new Date().toISOString()]
+  );
+
+  const inventoryScopeColumns = await driver.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(inventory_draft_scope_local);'
+  );
+  if (!inventoryScopeColumns.some((column) => column.name === 'responsible_name')) {
+    await driver.execAsync(
+      'ALTER TABLE inventory_draft_scope_local ADD COLUMN responsible_name TEXT;'
+    );
+  }
+  await driver.runAsync(
+    `INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)
+     ON CONFLICT(version) DO NOTHING;`,
+    [4, 'inventory_draft_responsible_name', new Date().toISOString()]
   );
 };

@@ -1,5 +1,6 @@
 import { supabase } from '../../../services/supabaseClient';
 import { MobileApiUsageTracker } from '../../../services/apiUsageTracker';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export interface RouteComputationResult {
   distanceMeters: number;
@@ -11,7 +12,10 @@ export interface RouteComputationResult {
 
 // Cache em memória para evitar chamadas duplicadas da Routes API
 const routesCache = new Map<string, { result: RouteComputationResult; timestamp: number }>();
+const inFlightRoutes = new Map<string, Promise<RouteComputationResult | null>>();
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
+// O proxy limita o Google a 20 s; inclui margem para sessão e transporte do cliente.
+const REQUEST_TIMEOUT_MS = 30_000;
 
 /**
  * Decodifica uma encoded polyline do Google Maps em uma lista de coordenadas { latitude, longitude }
@@ -78,10 +82,35 @@ export async function computeRoute(
     return cached.result;
   }
 
+  const pending = inFlightRoutes.get(cacheKey);
+  if (pending) return pending;
+
+  const controller = new AbortController();
+  const request = withTimeout(
+    requestRoute(origin, destination, cacheKey, controller.signal),
+    REQUEST_TIMEOUT_MS,
+    null,
+    'rotas:calculo'
+  );
+  inFlightRoutes.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    controller.abort();
+    if (inFlightRoutes.get(cacheKey) === request) inFlightRoutes.delete(cacheKey);
+  }
+}
+
+async function requestRoute(
+  origin: { latitude: number; longitude: number },
+  destination: { latitude: number; longitude: number },
+  cacheKey: string,
+  signal: AbortSignal
+): Promise<RouteComputationResult | null> {
   const startTime = Date.now();
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
-  if (sessionError || !accessToken) return null;
+  if (signal.aborted || sessionError || !accessToken) return null;
   const apiBase = (process.env.EXPO_PUBLIC_ERP_API_URL || 'https://morantehub.com').replace(/\/$/, '');
 
   try {
@@ -92,6 +121,7 @@ export async function computeRoute(
         Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ origin, destination }),
+      signal,
     });
 
     const elapsed = Date.now() - startTime;

@@ -21,6 +21,7 @@ export interface LabelPrintSelectionModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly initialProduct: ProductItem;
+  readonly initialProducts?: readonly ProductItem[];
   readonly labelType: LabelPrintType;
 }
 
@@ -40,6 +41,7 @@ export const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> =
   isOpen,
   onClose,
   initialProduct,
+  initialProducts,
   labelType,
 }) => {
   const navigate = useNavigate();
@@ -53,11 +55,18 @@ export const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> =
   // Carrega todos os produtos ativos elegíveis ao abrir
   useEffect(() => {
     if (!isOpen) return;
-    setLoading(true);
+    setLoading(!initialProducts?.length);
     setSearch('');
 
-    // Pré-seleciona produto inicial com quantidade 1
-    setSelected(createInitialLabelPrintSelection(initialProduct));
+    const initialSelection = initialProducts?.length
+      ? new Map<string, SelectedLabelPrintProduct>(
+          initialProducts.map((product) => [
+            product.id,
+            { product, qty: Math.max(1, Math.floor(product.labelQty || 1)) },
+          ] as [string, SelectedLabelPrintProduct])
+        )
+      : createInitialLabelPrintSelection(initialProduct);
+    setSelected(initialSelection);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -67,31 +76,35 @@ export const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> =
 
     window.addEventListener('keydown', handleKeyDown);
 
-    Promise.resolve(supabase
-      .from('products')
-      .select('id, description, code, sku, unit_price, images')
-      .eq('active', true)
-      .is('parent_id', null)
-      .order('description', { ascending: true }))
-      .then(({ data, error }) => {
-        if (!error && data) {
-          const rows = data as unknown as readonly RawProductDbRow[];
-          setAllProducts(
-            rows.map((p) => ({
-              id: p.id,
-              description: p.description || '',
-              code: p.code || '',
-              sku: p.sku || '',
-              unitPrice: Number(p.unit_price) || 0,
-              images: Array.isArray(p.images) ? [...p.images] : [],
-            }))
-          );
-        }
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
+    if (initialProducts?.length) {
+      setAllProducts([...initialProducts]);
+    } else {
+      Promise.resolve(supabase
+        .from('products')
+        .select('id, description, code, sku, unit_price, images')
+        .eq('active', true)
+        .is('parent_id', null)
+        .order('description', { ascending: true }))
+        .then(({ data, error }) => {
+          if (!error && data) {
+            const rows = data as unknown as readonly RawProductDbRow[];
+            setAllProducts(
+              rows.map((p) => ({
+                id: p.id,
+                description: p.description || '',
+                code: p.code || '',
+                sku: p.sku || '',
+                unitPrice: Number(p.unit_price) || 0,
+                images: Array.isArray(p.images) ? [...p.images] : [],
+              }))
+            );
+          }
+          setLoading(false);
+        })
+        .catch(() => {
+          setLoading(false);
+        });
+    }
 
     const timer = setTimeout(() => searchInputRef.current?.focus(), 200);
 
@@ -99,7 +112,7 @@ export const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> =
       window.removeEventListener('keydown', handleKeyDown);
       clearTimeout(timer);
     };
-  }, [isOpen, initialProduct, onClose]);
+  }, [isOpen, initialProduct, initialProducts, onClose]);
 
   const toggleProduct = useCallback((product: ProductItem) => {
     setSelected((prev) => toggleLabelPrintProduct(prev, product));
@@ -119,13 +132,16 @@ export const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> =
       labelQty: s.qty,
     }));
     return form.validateAndRun({ labelType, products }, (values) => {
-    navigate('/estoque/etiquetas', {
-      state: {
-        batchProducts: values.products,
-        labelType: values.labelType,
-      },
-    });
-    onClose();
+      const destination = initialProducts?.length
+        ? `/estoque/etiquetas?cat=${values.labelType === 'identification' ? 'identificacao' : 'precos'}`
+        : '/estoque/etiquetas';
+      navigate(destination, {
+        state: {
+          batchProducts: values.products,
+          labelType: values.labelType,
+        },
+      });
+      onClose();
     }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
 

@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { authenticateErpRequest, hasErpPermission } from './_lib/authenticatedErpRequest.js';
+import { verifyMetaAppCredentials } from '../server/secure-api/verifyMetaAppCredentials.js';
+import { verifyWhatsAppWebhookSubscription } from '../server/secure-api/verifyWhatsAppWebhookSubscription.js';
 import { planMetaGraphRequest, type MetaGraphSettings } from '../src/pages/utils/metaService/metaGraphProxyPolicy.js';
 
 const MAX_META_REQUEST_BYTES = 1_000_000;
@@ -56,6 +58,79 @@ async function handleMetaGraph(req: VercelRequest, res: VercelResponse) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return res.status(400).json({ error: 'Solicitação inválida.' });
   }
+
+  if (body.operation === 'verify_app_credentials') {
+    if (!hasErpPermission(context, 'manageSettings')) {
+      return res.status(403).json({ error: 'Sem permissão para verificar a configuração Meta.' });
+    }
+    const appId = process.env.WHATSAPP_APP_ID?.trim() || '';
+    const appSecret = process.env.WHATSAPP_APP_SECRET?.trim() || '';
+    if (!appId || !appSecret) {
+      return res.status(503).json({ error: 'Verificação de credenciais Meta indisponível no servidor.' });
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20_000);
+    try {
+      const result = await verifyMetaAppCredentials({
+        appId,
+        appSecret,
+        accessToken: metaToken,
+        graphVersion: GRAPH_VERSION,
+        signal: controller.signal,
+      });
+      return res.status(200).json(result);
+    } catch {
+      return res.status(controller.signal.aborted ? 504 : 502).json({
+        error: controller.signal.aborted ? 'A verificação Meta demorou demais.' : 'Não foi possível verificar a configuração Meta.',
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  if (body.operation === 'verify_waba_subscription') {
+    if (!hasErpPermission(context, 'manageSettings')) {
+      return res.status(403).json({ error: 'Sem permissão para verificar a inscrição do webhook.' });
+    }
+    const appId = process.env.WHATSAPP_APP_ID?.trim() || '';
+    const appSecret = process.env.WHATSAPP_APP_SECRET?.trim() || '';
+    if (!appId || !appSecret) {
+      return res.status(503).json({ error: 'Verificação da inscrição do webhook indisponível no servidor.' });
+    }
+
+    const { data: settings, error: settingsError } = await context.userDb
+      .from('settings')
+      .select('whatsappConfig:data->whatsappConfig')
+      .eq('id', 'app')
+      .maybeSingle();
+    if (settingsError) return res.status(503).json({ error: 'Não foi possível carregar a configuração Meta.' });
+    const configuredWabaId = getMetaGraphSettings(settings?.whatsappConfig).wabaId;
+    if (typeof configuredWabaId !== 'string' || !configuredWabaId.trim()) {
+      return res.status(503).json({ error: 'WABA não configurado no sistema.' });
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20_000);
+    try {
+      const result = await verifyWhatsAppWebhookSubscription({
+        appId,
+        appSecret,
+        accessToken: metaToken,
+        wabaId: configuredWabaId,
+        graphVersion: GRAPH_VERSION,
+        signal: controller.signal,
+      });
+      return res.status(200).json(result);
+    } catch {
+      return res.status(controller.signal.aborted ? 504 : 502).json({
+        error: controller.signal.aborted ? 'A verificação do webhook demorou demais.' : 'Não foi possível verificar a inscrição do webhook.',
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   const { data: settings, error: settingsError } = await context.userDb
     .from('settings')
     .select('whatsappConfig:data->whatsappConfig')

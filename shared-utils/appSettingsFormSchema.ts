@@ -95,6 +95,7 @@ export const AppSettingsFormSchema = z.object({
   "nfeHomologationNextNumber": z.number().optional(),
   "nfceHomologationNextNumber": z.number().optional(),
   "cscId": z.string().optional(),
+  "autoInboundScienceEnabled": z.boolean(),
   "fiscalDefaults": z.object({
   "ncm": z.string().optional(),
   "cest": z.string().optional(),

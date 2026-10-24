@@ -377,7 +377,6 @@ export const checkInboundInvoiceKeyExists = async (
   const localMatch = local.find(
     (inv) => normalizeFiscalIdentifier(inv.nfeKey) === cleanKey && (!currentInvoiceId || inv.id !== currentInvoiceId)
   );
-  if (localMatch) return localMatch;
 
   try {
     let query = supabase
@@ -390,7 +389,8 @@ export const checkInboundInvoiceKeyExists = async (
     }
 
     const { data, error } = await query.maybeSingle();
-    if (!error && data) {
+    if (error) throw new Error(`Não foi possível conferir a chave da NF-e: ${error.message}`);
+    if (data) {
       const result: InboundInvoice = {
         id: data.id,
         nfeKey: data.chave_acesso || '',
@@ -445,24 +445,27 @@ export const checkInboundInvoiceKeyExists = async (
         const { data: itemRows, error: itemError } = await supabase
           .from('inbound_invoice_items')
           .select('*')
-          .eq('inbound_invoice_id', data.id)
-          .order('item_index', { ascending: true });
+          .eq('invoice_id', data.id)
+          .order('item_number', { ascending: true });
 
-        if (!itemError && itemRows && itemRows.length > 0) {
+        if (itemError) throw new Error(`Não foi possível conferir os itens já salvos: ${itemError.message}`);
+        if (itemRows && itemRows.length > 0) {
           result.items = itemRows.map((r, idx) => normalizeInvoiceItem(r, idx));
           result.itemsCount = itemRows.length;
         } else if (Array.isArray(result.items)) {
           result.items = result.items.map((r, idx) => normalizeInvoiceItem(r, idx));
         }
       } catch (err) {
-        console.warn('Fallback ativado para itens de inbound_invoice:', err);
+        console.warn('Erro ao conferir os itens já salvos da NF de entrada:', err);
+        throw err;
       }
 
       return result;
     }
   } catch (err) {
     console.warn('Erro ao consultar duplicidade de chave de acesso:', err);
+    throw err;
   }
 
-  return null;
+  return localMatch || null;
 };

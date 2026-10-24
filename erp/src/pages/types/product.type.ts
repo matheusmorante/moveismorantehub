@@ -28,6 +28,8 @@ export type Variation = {
   condition?: 'novo' | 'usado' | 'salvado' | '';
   attributes: { name: string; value: string; showName?: boolean }[];
   technicalValues?: Record<string, any>;
+  /** Requisitos transitórios do formulário; são removidos antes de persistir a variação. */
+  requiredTechnicalFields?: string[];
   syncWithParent?: boolean; // Legacy/Global
   syncUnitPrice?: boolean;
   syncPromoPrice?: boolean;
@@ -43,6 +45,8 @@ export type Variation = {
   syncIpi?: boolean;
   syncFreight?: boolean;
   fiscal?: FiscalInfo;
+  /** Mantém somente o NCM próprio da variação enquanto os demais dados fiscais herdam do pai. */
+  syncNcm?: boolean;
   hideAttributeNames?: boolean;
   images?: string[];
 

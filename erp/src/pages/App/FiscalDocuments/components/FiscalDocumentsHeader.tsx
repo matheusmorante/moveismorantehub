@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 export type FiscalDocumentsMainTab = 'documents' | 'pendencies';
 
@@ -7,6 +8,7 @@ interface FiscalDocumentsHeaderProps {
   readonly onTabChange?: (tab: FiscalDocumentsMainTab) => void;
   readonly openPendenciesCount?: number;
   readonly canExport?: boolean;
+  readonly canViewNcmCatalog?: boolean;
   readonly onExport?: () => void;
 }
 
@@ -15,6 +17,7 @@ export const FiscalDocumentsHeader: React.FC<FiscalDocumentsHeaderProps> = ({
   onTabChange,
   openPendenciesCount = 0,
   canExport = false,
+  canViewNcmCatalog = false,
   onExport,
 }) => {
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -40,7 +43,7 @@ export const FiscalDocumentsHeader: React.FC<FiscalDocumentsHeaderProps> = ({
     <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-0.5">
       <div>
         <h1 className="text-base font-semibold leading-tight tracking-tight text-slate-800 dark:text-slate-100">
-          Notas Fiscais de Saída
+          NF de saída
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Gestão fiscal de emissões, regularizações e pendências SEFAZ.
@@ -91,11 +94,11 @@ export const FiscalDocumentsHeader: React.FC<FiscalDocumentsHeaderProps> = ({
           </div>
         )}
 
-        {canExport && onExport && (
+        {(canViewNcmCatalog || (canExport && onExport)) && (
           <div className="relative" ref={menuRef}>
             <button
               type="button"
-              aria-label="Mais opções fiscais"
+              aria-label="Mais opções da NF de saída"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
@@ -106,21 +109,34 @@ export const FiscalDocumentsHeader: React.FC<FiscalDocumentsHeaderProps> = ({
             {menuOpen && (
               <div
                 role="menu"
-                aria-label="Opções fiscais"
+                aria-label="Ações da NF de saída"
                 className="absolute right-0 z-30 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900"
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onExport();
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                >
-                  <i aria-hidden="true" className="bi bi-file-earmark-zip text-blue-600 dark:text-blue-400" />
-                  <span>Exportar documentos fiscais</span>
-                </button>
+                {canViewNcmCatalog && (
+                  <Link
+                    to="/estoque/ncm"
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    <i aria-hidden="true" className="bi bi-journal-text text-teal-600 dark:text-teal-400" />
+                    <span>NCMs</span>
+                  </Link>
+                )}
+                {canExport && onExport && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onExport();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    <i aria-hidden="true" className="bi bi-file-earmark-zip text-blue-600 dark:text-blue-400" />
+                    <span>Exportar documentos fiscais</span>
+                  </button>
+                )}
               </div>
             )}
           </div>

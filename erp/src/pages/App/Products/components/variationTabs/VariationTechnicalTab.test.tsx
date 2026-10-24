@@ -122,7 +122,7 @@ describe('VariationTechnicalTab', () => {
     cleanup();
   });
 
-  it('renderiza características variáveis e permite editar o valor herdado sem botão de fixar', async () => {
+  it('renderiza característica variável sem valor próprio e permite editá-la', async () => {
     render(<TestHarness />);
 
     // Espera os campos carregarem
@@ -131,11 +131,77 @@ describe('VariationTechnicalTab', () => {
       expect(screen.getByText('Profundidade total')).toBeInTheDocument();
     });
 
-    // A característica variável parte do valor do pai e pode ser alterada nesta variação.
+    // Esta aba edita apenas o valor próprio; valor variável ausente começa vazio.
     const corInput = screen.getByTestId('input-Cor') as HTMLInputElement;
-    expect(corInput.value).toBe('Branco');
+    expect(corInput.value).toBe('');
     expect(corInput).not.toBeDisabled();
     expect(screen.queryByTitle(/Sincronizado com o pai|Manual — clique para sincronizar/)).toBeNull();
+  });
+
+  it('cria override de Cor sem incluir o valor no nome automático', async () => {
+    const handleChange = vi.fn();
+    render(
+      <VariationTechnicalTab
+        formData={mockVariation}
+        parentProduct={mockParentProduct}
+        handleChange={handleChange}
+        initialTechnicalFields={mockFields}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByTestId('input-Cor')).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId('input-Cor'), { target: { value: 'Azul' } });
+
+    expect(handleChange).toHaveBeenCalledWith('attributes', [
+      { name: 'Cor', value: 'Azul', showName: false },
+    ]);
+  });
+
+  it('preserva showName existente ao editar o override de Cor', async () => {
+    const handleChange = vi.fn();
+    const variation: Variation = {
+      ...mockVariation,
+      technicalValues: { Cor: 'Branco' },
+      attributes: [{ name: 'Cor', value: 'Branco', showName: true }],
+    };
+    render(
+      <VariationTechnicalTab
+        formData={variation}
+        parentProduct={mockParentProduct}
+        handleChange={handleChange}
+        initialTechnicalFields={mockFields}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByTestId('input-Cor')).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId('input-Cor'), { target: { value: 'Azul' } });
+
+    expect(handleChange).toHaveBeenCalledWith('attributes', [
+      { name: 'Cor', value: 'Azul', showName: true },
+    ]);
+  });
+
+  it('ao limpar um valor próprio, mantém override vazio e remove o atributo compatível', async () => {
+    const handleChange = vi.fn();
+    const variation: Variation = {
+      ...mockVariation,
+      technicalValues: { Cor: 'Branco' },
+      attributes: [{ name: 'Cor', value: 'Branco', showName: true }],
+    };
+    render(
+      <VariationTechnicalTab
+        formData={variation}
+        parentProduct={mockParentProduct}
+        handleChange={handleChange}
+        initialTechnicalFields={mockFields}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByTestId('input-Cor')).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId('input-Cor'), { target: { value: '' } });
+
+    expect(handleChange).toHaveBeenNthCalledWith(1, 'technicalValues', { Cor: '' });
+    expect(handleChange).toHaveBeenNthCalledWith(2, 'attributes', []);
   });
 
   it('oculta características fixas na aba da variação mesmo que haja um valor legado', async () => {

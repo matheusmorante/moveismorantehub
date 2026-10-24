@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import {
   ArrowLeftRight,
   BarChart3,
+  BookOpen,
   ClipboardList,
   FileText,
   PackageCheck,
@@ -9,6 +10,7 @@ import {
   ShoppingBag,
   Users,
 } from 'lucide-react-native';
+import stockGuide from '../../../../../../shared-utils/stockGuide.json';
 
 export interface StockModuleItem {
   key: string;
@@ -65,5 +67,11 @@ export const STOCK_MODULES: StockModuleItem[] = [
     title: 'Indisponíveis',
     description: 'Produtos temporariamente indisponíveis',
     Icon: PackageX,
+  },
+  {
+    key: 'guide',
+    title: stockGuide.title,
+    description: 'Passo a passo para operar o estoque (PDF)',
+    Icon: BookOpen,
   },
 ];

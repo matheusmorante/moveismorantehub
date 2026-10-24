@@ -12,6 +12,7 @@ export type PermissionAction =
   | 'viewSuppliers'
   | 'productConfig'
   | 'manualStockMovement'
+  | 'finalizeStockInventory'
   | 'deleteProducts'
   | 'viewFinancials'
   | 'exportReports'

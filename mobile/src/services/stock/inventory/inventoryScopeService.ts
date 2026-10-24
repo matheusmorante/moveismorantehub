@@ -5,6 +5,7 @@ import {
   ensureOfflineInventoryCatalogSynced,
   getOfflineInventoryCatalog,
   getOfflineInventoryScopeProducts,
+  getOfflineInventoryResponsibleOptions,
 } from '../../../features/stock/inventory/services/offlineInventoryCatalog';
 
 export const fetchInventoryScopeSuppliers = async () => {
@@ -22,6 +23,15 @@ export const fetchInventoryScopeSuppliers = async () => {
       full_name: supplier.social_name || supplier.full_name || supplier.nickname || '',
     }))
     .sort((left, right) => left.full_name.localeCompare(right.full_name));
+};
+
+export const fetchInventoryScopeEmployees = async () => {
+  await ensureOfflineInventoryCatalogSynced();
+  const catalog = await getOfflineInventoryCatalog();
+  return {
+    employees: await getOfflineInventoryResponsibleOptions(),
+    syncedAt: catalog.employeesSyncedAt || null,
+  };
 };
 
 export const fetchInventoryScopeProducts = async (

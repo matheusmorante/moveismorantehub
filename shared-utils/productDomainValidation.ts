@@ -8,6 +8,10 @@ import {
   hasRequiredProductSupplier,
   PRODUCT_SUPPLIER_REQUIRED_MESSAGE,
 } from './productSupplierRequirement';
+import {
+  hasRequiredProductName,
+  PRODUCT_NAME_REQUIRED_MESSAGE,
+} from './productNameRequirement';
 
 const productNumericFields = productVariationDraftSchema.pick({
   unitPrice: true, promoPrice: true, costPrice: true, freightCost: true, ipiPercent: true,
@@ -53,11 +57,11 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
     })
     .passthrough()
     .superRefine((data, ctx) => {
-      const enteredName = (data.name || data.title || data.marketplaceTitle || '').trim();
-      if (!enteredName) {
+      const enteredName = data.name || data.title || data.marketplaceTitle || '';
+      if (!hasRequiredProductName(enteredName)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'O nome do produto é obrigatório.',
+          message: PRODUCT_NAME_REQUIRED_MESSAGE,
           path: ['name'],
         });
       }

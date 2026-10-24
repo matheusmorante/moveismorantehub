@@ -13,7 +13,9 @@ import {
 import { verifyMetaSignature } from '@/pages/utils/customerSupport/whatsappWebhookProcessor';
 import { AddCustomInboxModal } from '../components/inbox/AddCustomInboxModal';
 import { InboxSectionCustom } from '../components/inbox/InboxSectionCustom';
+import { InboxSectionMain } from '../components/inbox/InboxSectionMain';
 import { InboxSectionTeam } from '../components/inbox/InboxSectionTeam';
+import { InboxSidebar } from '../components/InboxSidebar';
 import { ChatComposer } from '../components/chat/ChatComposer';
 import { CustomerNotesTab } from '../components/infoPanel/CustomerNotesTab';
 import { QuickSnippetsModal } from '../components/QuickSnippetsModal';
@@ -32,6 +34,24 @@ const makeFolder = (id: string, name: string, createdBy: string) => ({
 });
 
 describe('Inbox da Central de Atendimento', () => {
+  it('mantém o filtro escolhido depois de limpar a pasta e o atendente ativos', () => {
+    const changes: string[] = [];
+    render(<InboxSectionMain
+      activeFilter="all"
+      onFilterChange={(filter) => changes.push(`filter:${filter}`)}
+      totalAll={5}
+      totalMine={1}
+      totalUnassigned={2}
+      activeCustomInbox="folder-1"
+      activeTeam="agent-1"
+      onResetCustomAndTeam={() => changes.push('reset')}
+    />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Não atribuídas/ }));
+
+    expect(changes).toEqual(['reset', 'filter:unassigned']);
+  });
+
   it('passa os filtros ao servidor antes de paginar e usa o total retornado', async () => {
     const row = {
       id: 'conversation-51',
@@ -114,6 +134,33 @@ describe('Inbox da Central de Atendimento', () => {
     expect(screen.queryByText('Nenhum atendente autorizado encontrado.')).toBeNull();
     rerender(<InboxSectionTeam {...props} />);
     expect(screen.getByText('Nenhum atendente autorizado encontrado.')).toBeTruthy();
+  });
+
+  it('pesquisa filas compartilhadas e atendentes reais sem misturar os resultados', () => {
+    const agents = [
+      { id: 'agent-ana', fullName: 'Ana Silva', role: 'seller' },
+      { id: 'agent-bruno', fullName: 'Bruno Lima', role: 'seller' },
+    ];
+    const folders = [makeFolder('folder-retornos', 'Retornos de entrega', 'user-2'), makeFolder('folder-financeiro', 'Financeiro', 'user-3')];
+    const props = {
+      activeFilter: 'all' as const, onFilterChange: vi.fn(), totalAll: 10, totalMine: 2, totalUnassigned: 3,
+      onToggleCollapse: vi.fn(), agents, activeAgentId: null, onSelectAgent: vi.fn(),
+      folders, selectedFolder: null, onSelectFolder: vi.fn(), onClearFolder: vi.fn(),
+      onSaveFolder: vi.fn().mockResolvedValue(null), onDeleteFolder: vi.fn(), canViewCommercialInfo: false,
+    };
+    render(<InboxSidebar {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pesquisar filas e atendentes' }));
+    const search = screen.getByRole('searchbox', { name: 'Pesquisar pastas e atendentes' });
+
+    fireEvent.change(search, { target: { value: 'aNa' } });
+    expect(screen.getByText('Ana Silva')).toBeTruthy();
+    expect(screen.queryByText('Bruno Lima')).toBeNull();
+    expect(screen.queryByText('Retornos de entrega')).toBeNull();
+
+    fireEvent.change(search, { target: { value: 'RETORNOS' } });
+    expect(screen.getByText('Retornos de entrega')).toBeTruthy();
+    expect(screen.queryByText('Financeiro')).toBeNull();
+    expect(screen.queryByText('Ana Silva')).toBeNull();
   });
 
   it.each([

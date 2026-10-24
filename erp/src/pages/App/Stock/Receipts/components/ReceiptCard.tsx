@@ -14,6 +14,7 @@ export interface ReceiptCardProps {
   readonly onReverse?: (e: React.MouseEvent, receipt: GoodsReceipt) => void;
   readonly onUnreverse?: (e: React.MouseEvent, receipt: GoodsReceipt) => void;
   readonly onViewDetails?: (receipt: GoodsReceipt) => void;
+  readonly onPrintIdentificationLabels?: (receipt: GoodsReceipt) => void;
 }
 
 /**
@@ -28,6 +29,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
   onReverse,
   onUnreverse,
   onViewDetails,
+  onPrintIdentificationLabels,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const isDraft = receipt.isDraft || receipt.status === 'draft';
@@ -141,6 +143,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
             onReverseRequest={onReverse}
             onUnreverseRequest={onUnreverse}
             onDelete={onDelete}
+            onPrintIdentificationLabels={onPrintIdentificationLabels}
           />
         </div>
       </div>

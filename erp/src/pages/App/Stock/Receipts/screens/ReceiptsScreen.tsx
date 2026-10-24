@@ -1,5 +1,9 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useCallback } from 'react';
+import { toast } from 'react-toastify';
+import { useAuth } from '@/context/AuthContext';
+import { canPrintProductIdentificationLabels } from '@/pages/utils/accessRoles';
 import { useReceipts } from '../hooks/useReceipts';
 import { ReceiptsHeader } from '../components/ReceiptsHeader';
 import { ReceiptsTable } from '../components/ReceiptsTable';
@@ -14,8 +18,14 @@ import { PurchaseReceiptPickerModal } from '../modals/PurchaseReceiptPickerModal
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { fetchInboundInvoices } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import Purchase from '@/pages/types/purchase.type';
+import type { GoodsReceipt } from '@/pages/utils/goodsReceiptService';
+import { prepareIdentificationLabelProducts } from '@/pages/App/Stock/LabelPrinting/services/identificationLabelPrefillService';
+import { LabelPrintSelectionModal } from '@/pages/App/Products/components/modals/product/LabelPrintSelectionModal';
+import type { IdentificationLabelProduct } from '@/pages/App/Stock/LabelPrinting/services/identificationLabelPrefillService';
 
 export default function ReceiptsPage() {
+  const { profile } = useAuth();
+  const canPrintLabels = canPrintProductIdentificationLabels(profile);
   const [searchParams] = useSearchParams();
   const inboundKeyParam = searchParams.get('inboundKey');
 
@@ -23,6 +33,8 @@ export default function ReceiptsPage() {
   const [isPurchasePickerOpen, setIsPurchasePickerOpen] = useState(false);
   const [selectedInboundInvoice, setSelectedInboundInvoice] = useState<InboundInvoice | null>(null);
   const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
+  const [labelPrintProducts, setLabelPrintProducts] = useState<IdentificationLabelProduct[] | null>(null);
+  const handleCloseLabelPrintModal = useCallback(() => setLabelPrintProducts(null), []);
 
   const {
     suppliers,
@@ -96,6 +108,29 @@ export default function ReceiptsPage() {
     setSelectedPurchase(purchase);
     setSelectedReceipt(null);
     setIsFormOpen(true);
+  };
+
+  const handlePrintIdentificationLabels = async (receipt: GoodsReceipt) => {
+    if (!canPrintLabels) return toast.error('Seu usuário não tem acesso à impressão de etiquetas.');
+    if (receipt.status !== 'received' || receipt.isDraft) {
+      return toast.info('Conclua o recebimento antes de imprimir as etiquetas.');
+    }
+    try {
+      const batchProducts = await prepareIdentificationLabelProducts(
+        receipt.items.map((item) => ({
+          productId: item.productId,
+          variationId: item.variationId,
+          quantity: item.receivedQuantity ?? item.quantity,
+        }))
+      );
+      setLabelPrintProducts(batchProducts);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível preparar as etiquetas deste recebimento.'
+      );
+    }
   };
 
   const selectedSupplier = suppliers.find((p) => p.id === selectedSupplierId);
@@ -173,6 +208,7 @@ export default function ReceiptsPage() {
               onReverseRequest={handleReverseRequest}
               onUnreverseRequest={handleUnreverseRequest}
               onDelete={handleDelete}
+              onPrintIdentificationLabels={canPrintLabels ? handlePrintIdentificationLabels : undefined}
             />
 
             {/* Visualização em Cards (Telas menores que XL: < 1280px) */}
@@ -189,6 +225,7 @@ export default function ReceiptsPage() {
                     onReverse={handleReverseRequest}
                     onUnreverse={handleUnreverseRequest}
                     onViewDetails={handleOpenDetails}
+                    onPrintIdentificationLabels={canPrintLabels ? handlePrintIdentificationLabels : undefined}
                   />
                 ))}
               </div>
@@ -258,6 +295,16 @@ export default function ReceiptsPage() {
         onClose={() => setIsPurchasePickerOpen(false)}
         onSelect={handleSelectPurchase}
       />
+
+      {labelPrintProducts?.length ? (
+        <LabelPrintSelectionModal
+          isOpen
+          onClose={handleCloseLabelPrintModal}
+          initialProduct={labelPrintProducts[0]}
+          initialProducts={labelPrintProducts}
+          labelType="identification"
+        />
+      ) : null}
     </div>
   );
 }

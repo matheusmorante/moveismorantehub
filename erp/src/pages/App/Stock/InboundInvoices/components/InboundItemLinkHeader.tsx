@@ -107,7 +107,7 @@ export const InboundItemLinkHeader: React.FC<InboundItemLinkHeaderProps> = ({
       </div>
 
       {/* Botão Cadastrar — mesma linha, empurrado para direita */}
-      {supplierId?.trim() && (
+      {supplierId?.trim() && !item.matchedProductId && compositionLinks.length === 0 && (
         <button
           type="button"
           onClick={() =>
@@ -118,6 +118,10 @@ export const InboundItemLinkHeader: React.FC<InboundItemLinkHeaderProps> = ({
                 productCode: item.productCode,
                 unit: item.unit,
                 ncm: item.ncm,
+                ean: item.ean,
+                eanTrib: item.eanTrib,
+                cest: item.cest,
+                cfop: item.cfop,
                 quantity: item.quantity,
                 unitCost: item.unitCost,
                 finalCost: totalUnit,

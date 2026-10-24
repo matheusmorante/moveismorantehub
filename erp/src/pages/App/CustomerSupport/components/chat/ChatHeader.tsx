@@ -101,14 +101,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     .join('');
 
   return (
-    <div className="relative min-h-16 px-4 py-2 border-b border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex flex-col gap-2 md:h-16 md:flex-row md:items-center md:justify-between md:py-0 shrink-0 z-10 shadow-xs">
+    <div className="relative min-h-16 px-4 py-2 border-b border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex flex-col gap-2 @3xl/chat:h-16 @3xl/chat:flex-row @3xl/chat:items-center @3xl/chat:justify-between @3xl/chat:py-0 shrink-0 z-10 shadow-xs">
       <fieldset disabled={isSubmitting} className="contents" aria-busy={isSubmitting}>
       {errors.root?.command && <p role="alert" className="absolute top-full right-2 z-50 p-2 rounded-lg bg-red-50 dark:bg-red-950 text-xs text-red-700 dark:text-red-300 shadow-sm">{errors.root.command.message}</p>}
       {isSubmitting && <span role="status" className="absolute top-full right-2 z-50 p-2 rounded-lg bg-white dark:bg-slate-900 text-xs text-emerald-700 animate-pulse">Salvando alteração…</span>}
       {/* Esquerda: Avatar, Nome, Telefone e Janela 24h */}
       <div
         onClick={onToggleInfoPanel}
-        className="flex items-center gap-3 min-w-0 cursor-pointer group flex-1"
+        className="flex items-center gap-3 min-w-0 cursor-pointer group shrink-0 @3xl/chat:flex-1"
         title="Clique para abrir informações do cliente e pedidos"
       >
         {/* Botão Voltar para Telas Pequenas */}
@@ -190,7 +190,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       </div>
 
       {/* Direita: Controles de Atendimento alinhados com a referência */}
-      <div className="flex flex-wrap md:flex-nowrap items-center gap-1.5 sm:gap-2 shrink-0 relative">
+      <div className="flex flex-wrap @3xl/chat:flex-nowrap items-center gap-1.5 sm:gap-2 shrink-0 relative">
         {/* 1. Seletor de Atendente Responsável (Assignee Dropdown "Ben ▾") */}
         <div className="relative">
           <button
@@ -273,7 +273,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
         {/* Indicador Ao Vivo (Realtime / Auto-Reload) */}
         <span
-          className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 select-none"
+          className="hidden @3xl/chat:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 select-none"
           title="Sincronização em tempo real ativa: novas mensagens chegam sozinhas automaticamente via WebSocket e auto-reload"
         >
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>

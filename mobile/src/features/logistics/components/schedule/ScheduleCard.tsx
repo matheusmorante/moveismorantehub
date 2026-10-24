@@ -1,6 +1,6 @@
 import React from 'react';
 import { type GestureResponderEvent, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { MapPin, Clock, Play, Eye } from 'lucide-react-native';
+import { MapPin, Clock, Play } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
 import {
@@ -47,7 +47,7 @@ export const ScheduleCard: React.FC<Props> = ({
     (serviceSummary.hasOutsideAssembly ||
       isAssemblyOutsideType(orderHandling, handlingOptions) ||
       items.some((entry: AssemblyHandlingItem) =>
-        isAssemblyOutsideType(entry?.handlingType || entry?.handling, handlingOptions)
+        isAssemblyOutsideType(entry?.handlingType || entry?.handling || undefined, handlingOptions)
       ));
 
   const hasDepotAssembly =
@@ -55,7 +55,7 @@ export const ScheduleCard: React.FC<Props> = ({
     (serviceSummary.hasDepotAssembly ||
       isAssemblyInternalType(orderHandling, handlingOptions) ||
       items.some((entry: AssemblyHandlingItem) =>
-        isAssemblyInternalType(entry?.handlingType || entry?.handling, handlingOptions)
+        isAssemblyInternalType(entry?.handlingType || entry?.handling || undefined, handlingOptions)
       ));
 
   // Endereço e localização
@@ -76,6 +76,7 @@ export const ScheduleCard: React.FC<Props> = ({
   const addressAndTravelText = [locationText, travelText].filter(Boolean).join(' · ');
 
   const isDeliveryActivity = item.activityType === 'delivery';
+  const isCompleted = item.status === 'completed';
 
   const statusBadgeConfig =
     item.status === 'in_progress'
@@ -93,16 +94,8 @@ export const ScheduleCard: React.FC<Props> = ({
   const handlePrimaryPress = (event: GestureResponderEvent) => {
     event.stopPropagation();
     if (isDeliveryActivity) {
-      onViewOrder(item);
-    } else {
-      onStartDelivery(item);
-    }
-  };
-
-  const handleDeliveryFlowPress = (event: GestureResponderEvent) => {
-    event.stopPropagation();
-    if (onOpenDeliveryFlow) {
-      onOpenDeliveryFlow(item);
+      if (onOpenDeliveryFlow) onOpenDeliveryFlow(item);
+      else onStartDelivery(item);
     } else {
       onStartDelivery(item);
     }
@@ -110,13 +103,13 @@ export const ScheduleCard: React.FC<Props> = ({
 
   const primaryActionConfig = isDeliveryActivity
     ? {
-        label: 'VER DETALHES',
-        accessibilityLabel: 'Ver detalhes do pedido',
-        icon: <Eye size={18} color="#ffffff" />,
+        label: 'ABRIR FLUXO DE ENTREGA',
+        accessibilityLabel: 'Abrir fluxo de entrega',
+        icon: <DeliveryFlowIcon size={17} color="#ffffff" />,
       }
     : {
-        label: 'VER ATIVIDADE',
-        accessibilityLabel: 'Ver atividade',
+        label: 'ABRIR ATIVIDADE',
+        accessibilityLabel: 'Abrir atividade',
         icon: <Play size={14} color="#ffffff" fill="#ffffff" />,
       };
 
@@ -126,7 +119,12 @@ export const ScheduleCard: React.FC<Props> = ({
 
   return (
     <TouchableOpacity
-      style={[styles.card, isDarkMode && styles.cardDark]}
+      style={[
+        styles.card,
+        isDarkMode && styles.cardDark,
+        isCompleted && styles.cardCompleted,
+        isCompleted && isDarkMode && styles.cardCompletedDark,
+      ]}
       onPress={() => onViewOrder(item)}
       activeOpacity={0.88}
     >
@@ -153,7 +151,7 @@ export const ScheduleCard: React.FC<Props> = ({
       <View style={styles.timeSection}>
         {item.isFixedTime ? (
           <View style={styles.fixedTimeBadge}>
-            <Clock size={13} color="#b91c1c" />
+            <Clock size={13} color="#b45309" />
             <Text style={styles.fixedTimeText}>{displayPeriodLabel} · HORÁRIO FIXO</Text>
           </View>
         ) : (
@@ -168,11 +166,20 @@ export const ScheduleCard: React.FC<Props> = ({
       <ScheduleAlternativesInfo scheduleRes={scheduleRes} isDarkMode={isDarkMode} />
 
       {/* Cliente e Localização com Deslocamento e Quilometragem */}
-      <Text style={[styles.customerName, isDarkMode && styles.textLight]}>{item.customerName}</Text>
+      <Text
+        style={[
+          styles.customerName,
+          isDarkMode && styles.textLight,
+          isCompleted && styles.completedText,
+          isCompleted && isDarkMode && styles.completedTextDark,
+        ]}
+      >
+        {item.customerName}
+      </Text>
 
       {addressAndTravelText ? (
         <View style={styles.locationRow}>
-          <MapPin size={13} color="#ef4444" style={{ marginTop: 1 }} />
+          <MapPin size={13} color="#2563eb" style={{ marginTop: 1 }} />
           <Text style={[styles.locationText, isDarkMode && styles.textMuted]}>
             {addressAndTravelText}
           </Text>
@@ -186,37 +193,22 @@ export const ScheduleCard: React.FC<Props> = ({
         </Text>
       </View>
 
-      {/* Botões de Ação do Card */}
-      <View style={styles.actionsRow}>
-        <TouchableOpacity
-          style={styles.startBtn}
-          onPress={handlePrimaryPress}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel={primaryActionConfig.accessibilityLabel}
-        >
-          {primaryActionConfig.icon}
-          <Text style={styles.actionBtnText} numberOfLines={1}>
-            {primaryActionConfig.label}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Botão de Fluxo de Entrega — exclusivo para atividades de entrega */}
-        {isDeliveryActivity && (
+      {!isCompleted && (
+        <View style={styles.actionsRow}>
           <TouchableOpacity
-            style={[styles.deliveryFlowBtn, isDarkMode && styles.deliveryFlowBtnDark]}
-            onPress={handleDeliveryFlowPress}
+            style={styles.startBtn}
+            onPress={handlePrimaryPress}
             activeOpacity={0.85}
             accessibilityRole="button"
-            accessibilityLabel="Abrir fluxo de entrega"
+            accessibilityLabel={primaryActionConfig.accessibilityLabel}
           >
-            <DeliveryFlowIcon size={18} color="#ffffff" />
+            {primaryActionConfig.icon}
             <Text style={styles.actionBtnText} numberOfLines={1}>
-              FLUXO DE ENTREGA
+              {primaryActionConfig.label}
             </Text>
           </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };
@@ -224,25 +216,27 @@ export const ScheduleCard: React.FC<Props> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
     borderColor: '#e2e8f0',
-    elevation: 3,
+    elevation: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
   },
   cardDark: {
     backgroundColor: '#1e293b',
     borderColor: '#334155',
   },
+  cardCompleted: { backgroundColor: '#f8fafc', shadowOpacity: 0, elevation: 0 },
+  cardCompletedDark: { backgroundColor: '#172033', borderColor: '#29364a' },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   orderIndexText: {
     fontSize: 12,
@@ -254,13 +248,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   fixedTimeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#fee2e2',
+    backgroundColor: '#fef3c7',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -268,7 +262,7 @@ const styles = StyleSheet.create({
   fixedTimeText: {
     fontSize: 11,
     fontWeight: '900',
-    color: '#b91c1c',
+    color: '#92400e',
     letterSpacing: 0.3,
   },
   windowBadge: {
@@ -286,8 +280,8 @@ const styles = StyleSheet.create({
     color: '#2563eb',
   },
   customerName: {
-    fontSize: 15,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '800',
     color: '#0f172a',
     marginTop: 2,
     marginBottom: 4,
@@ -296,7 +290,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 5,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   locationText: {
     fontSize: 12,
@@ -308,7 +302,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   productsCountText: {
     fontSize: 11,
@@ -329,26 +323,10 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: '#2563eb',
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    minHeight: 44,
-    borderRadius: 14,
-    elevation: 2,
-  },
-  deliveryFlowBtn: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#10b981',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    minHeight: 44,
-    borderRadius: 14,
-    elevation: 2,
-  },
-  deliveryFlowBtnDark: {
-    backgroundColor: '#059669',
+    paddingVertical: 10,
+    minHeight: 40,
+    borderRadius: 12,
+    elevation: 1,
   },
   actionBtnText: {
     fontSize: 11,
@@ -362,4 +340,6 @@ const styles = StyleSheet.create({
   textMuted: {
     color: '#94a3b8',
   },
+  completedText: { color: '#64748b' },
+  completedTextDark: { color: '#cbd5e1' },
 });

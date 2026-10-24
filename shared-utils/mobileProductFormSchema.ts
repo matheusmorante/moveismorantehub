@@ -11,17 +11,26 @@ import {
   normalizeCompleteVariationName,
 } from './productVariationNameValidation';
 import { getProductDiscountValidationIssues } from './productDiscountFields';
+import { productNameInputSchema } from './productNameRequirement';
 import {
   hasRequiredProductSupplier,
   PRODUCT_SUPPLIER_REQUIRED_MESSAGE,
 } from './productSupplierRequirement';
 
-const numericInput = z.union([z.number(), z.string()]).refine((value) => {
+const isNonnegativeLocalizedNumber = (value: number | string) => {
   if (typeof value === 'number') return Number.isFinite(value) && value >= 0;
   if (!value.trim()) return true;
   const raw = value.trim().replace(/^R\$\s*/, '');
   return /^\d[\d.,\s]*$/.test(raw) && Number.isFinite(parseLocalizedNumber(value)) && parseLocalizedNumber(value) >= 0;
-}, 'Informe um número finito maior ou igual a zero.');
+};
+const numericInput = z.union([z.number(), z.string()]).refine(
+  isNonnegativeLocalizedNumber,
+  'Informe um número finito maior ou igual a zero.'
+);
+const inboundCostPriceInput = z.union([z.number(), z.string()]).refine(
+  isNonnegativeLocalizedNumber,
+  'O custo de aquisição deve ser maior ou igual a zero.'
+);
 const productNumbers = {
   unitPrice: numericInput.optional(), price: numericInput.optional(), promoPrice: numericInput.nullish(), costPrice: numericInput.optional(),
   stock: numericInput.optional(), minStock: numericInput.optional(), width: numericInput.optional(), height: numericInput.optional(), depth: numericInput.optional(), weight: numericInput.optional(),
@@ -49,14 +58,18 @@ export const createMobileProductFormSchema = (options: {
   isStockistOnly: boolean;
   published: boolean;
   existingProductImageCount?: number;
+  requireInboundCostPrice?: boolean;
 }) => z.object({
-  name: z.string().trim().min(2, 'Informe o nome do produto (mínimo 2 caracteres).'),
+  name: productNameInputSchema,
   title: z.string().optional().nullable(),
   marketplaceTitle: z.string().optional().nullable(),
   itemType: z.string().optional(), productKind: z.string().optional(),
   environment: z.string().optional(),
   categoryIds: z.array(z.string()).optional(), categoryId: z.string().optional(),
   ...productNumbers,
+  costPrice: options.requireInboundCostPrice
+    ? inboundCostPriceInput.optional()
+    : productNumbers.costPrice,
   images: z.array(z.string()).optional(),
   hasVariations: z.boolean().optional(),
   variableTechnicalFields: z.array(z.string()).optional(),
@@ -93,6 +106,9 @@ export const createMobileProductFormSchema = (options: {
   }
   if (options.draft) return;
   const issue = (tab: string, message: string) => ctx.addIssue({ code: 'custom', path: [tab], message });
+  if (options.requireInboundCostPrice && !String(data.costPrice ?? '').trim()) {
+    issue('costPrice', 'Informe um custo de aquisição válido.');
+  }
   if (data.itemType !== 'service' && !['normal', 'salvado', 'usado'].includes(data.productKind || '')) issue('geral', 'Selecione a origem do estoque do produto.');
   const validateComboItems = (
     items: Array<{ productId: string; variationId?: string | null; quantity?: string | number }>,

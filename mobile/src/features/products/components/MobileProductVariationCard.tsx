@@ -8,6 +8,8 @@ import { isNonConventionalProduct } from '../../../../../shared-utils/productAct
 import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
 import { MergedBadge } from './MergedBadge';
+import { buildProductIdentificationLabelUrl } from '../domain/productLabelLinks';
+import { canShowProductVariationActionsMenu } from '../../../../../shared-utils/productPermissions';
 
 interface MobileProductVariationCardProps {
   variation: any;
@@ -21,13 +23,12 @@ interface MobileProductVariationCardProps {
   onEdit?: (product: any) => void;
   onMoveVariation?: (variation: any, parentProduct: any) => void;
   onMergeVariation?: (variation: any, parentProduct: any) => void;
-  onShowHistory?: (product: any) => void;
   onShowOrders?: (product: any) => void;
-  onLaunchStock?: (product: any) => void;
   canShowLinkedOrders?: boolean;
   canChangeCatalog?: boolean;
   showCatalogStatus?: boolean;
   canPrintLabel?: boolean;
+  isLabelOnlyProfile?: boolean;
 }
 
 export const MobileProductVariationCard: React.FC<MobileProductVariationCardProps> = ({
@@ -42,13 +43,12 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   onEdit,
   onMoveVariation,
   onMergeVariation,
-  onShowHistory,
   onShowOrders,
-  onLaunchStock,
   canShowLinkedOrders = false,
   canChangeCatalog = false,
   showCatalogStatus = true,
   canPrintLabel = false,
+  isLabelOnlyProfile = false,
 }) => {
   const [menuVisible, setMenuVisible] = React.useState(false);
   let varName = '';
@@ -65,6 +65,10 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   const isPublished = v.status === 'published';
   const isActive = v.active !== false;
   const isMerged = Boolean(v.merged_to_variation_id || v.mergedToVariationId);
+  const canShowActionsMenu = canShowProductVariationActionsMenu({
+    isIdentificationLabelOnlyProfile: isLabelOnlyProfile,
+    canPrintIdentificationLabel: canPrintLabel,
+  });
   const isSalvado = isSalvadoProduct(parentProduct) || isSalvadoProduct(v);
   const isNonConventional =
     isNonConventionalProduct(parentProduct) || isNonConventionalProduct(v);
@@ -104,7 +108,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
 
   const handlePrintLabel = () => {
     const parentId = parentProduct?.id || v.productId || v.id;
-    const url = `${WEB_URL}/estoque/etiquetas?cat=identificacao&productId=${parentId}&variationId=${v.id}&fillSheet=1`;
+    const url = buildProductIdentificationLabelUrl(WEB_URL, parentId, v.id);
     Linking.openURL(url).catch((err) => {
       console.warn('Falha ao abrir tela de etiquetas:', err);
       Alert.alert('Erro', 'Não foi possível abrir a tela de etiquetas.');
@@ -157,17 +161,19 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
             </View>
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => setMenuVisible(true)}
-          accessibilityRole="button"
-          accessibilityLabel={`Ações da variação ${varName}`}
-        >
-          <MoreVertical size={17} color={dark ? '#cbd5e1' : '#64748b'} />
-        </TouchableOpacity>
+        {canShowActionsMenu && (
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => setMenuVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Ações da variação ${varName}`}
+          >
+            <MoreVertical size={17} color={dark ? '#cbd5e1' : '#64748b'} />
+          </TouchableOpacity>
+        )}
       </View>
       <MobileProductVariationActionsMenu
-        visible={menuVisible}
+        visible={menuVisible && canShowActionsMenu}
         dark={dark}
         variationName={varName}
         isMerged={isMerged}
@@ -194,16 +200,6 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
         hasValidAttributes={toMobileVariationAttributes(v.attributes).some(
           (attribute) => attribute.name.trim() && attribute.value.trim()
         )}
-        onLaunchStock={
-          onLaunchStock && !isMerged
-            ? () => onLaunchStock({ ...parentProduct, ...v, id: v.id || parentProduct?.id })
-            : undefined
-        }
-        onShowHistory={
-          onShowHistory && !isMerged
-            ? () => onShowHistory({ ...parentProduct, ...v, id: v.id || parentProduct?.id })
-            : undefined
-        }
         onShowOrders={
           canShowLinkedOrders && onShowOrders && !isMerged && !isParentDraft && !v.isVirtual && v.id
             ? () =>

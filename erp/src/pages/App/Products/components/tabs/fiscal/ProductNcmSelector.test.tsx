@@ -10,12 +10,14 @@ vi.mock('@/services/fiscal/ncmService', () => ({
   ncmService: { searchNcms: vi.fn(), getCatalogEntry: vi.fn() },
 }));
 
-function Harness() {
-  const [formData, setFormData] = useState<Partial<Product>>({ fiscal: { ncm: '' } });
+function Harness({ fiscal = { ncm: '' } }: { fiscal?: Product['fiscal'] }) {
+  const [formData, setFormData] = useState<Partial<Product>>({ fiscal });
   return (
     <>
       <ProductNcmSelector formData={formData} setFormData={setFormData} />
-      <output>{formData.fiscal?.ncm}</output>
+      <output data-testid="ncm-value">{formData.fiscal?.ncm}</output>
+      <output data-testid="ncm-description">{formData.fiscal?.ncmDescription}</output>
+      <output data-testid="ncm-cest">{formData.fiscal?.cest}</output>
     </>
   );
 }
@@ -133,4 +135,49 @@ it('exibe o código no campo e a descrição oficial como subtítulo ao carregar
   expect(screen.getByTestId('product-ncm-official-description').textContent).toBe(
     'Outros móveis de madeira'
   );
+});
+
+it('limpa a descrição anterior e preenche a oficial ao digitar outro NCM completo', async () => {
+  render(
+    <Harness
+      fiscal={{
+        ncm: '94035000',
+        ncmDescription: 'Móveis para quarto',
+        cest: '2806100',
+      }}
+    />
+  );
+  const input = screen.getByPlaceholderText('Digite ou pesquise o NCM...');
+
+  fireEvent.change(input, { target: { value: '94036000' } });
+
+  expect(screen.getByTestId('ncm-description').textContent).toBe('');
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(250);
+  });
+
+  expect(ncmService.getCatalogEntry).toHaveBeenCalledWith('94036000');
+  expect(screen.getByTestId('ncm-value').textContent).toBe('94036000');
+  expect(screen.getByTestId('ncm-description').textContent).toBe('Outros móveis de madeira');
+  expect(screen.getByTestId('ncm-cest').textContent).toBe('2806100');
+});
+
+it('grava a busca por descrição e descarta os dados do NCM anterior sem perder os demais campos fiscais', () => {
+  render(
+    <Harness
+      fiscal={{
+        ncm: '94035000',
+        ncmDescription: 'Móveis para quarto',
+        cest: '2806100',
+      }}
+    />
+  );
+
+  fireEvent.change(screen.getByPlaceholderText('Digite ou pesquise o NCM...'), {
+    target: { value: 'cama casal' },
+  });
+
+  expect(screen.getByTestId('ncm-value').textContent).toBe('cama casal');
+  expect(screen.getByTestId('ncm-description').textContent).toBe('');
+  expect(screen.getByTestId('ncm-cest').textContent).toBe('2806100');
 });

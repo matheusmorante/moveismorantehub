@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { fetchProductsPage } = vi.hoisted(() => ({ fetchProductsPage: vi.fn() }));
 
@@ -8,6 +8,7 @@ import { searchMobileProductCompositionCandidates } from './mobileProductComposi
 
 describe('searchMobileProductCompositionCandidates', () => {
   beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.useRealTimers());
 
   it('usa busca e filtros do catálogo, expõe variações operacionais e remove compostos/mesclados', async () => {
     fetchProductsPage.mockResolvedValue({
@@ -71,5 +72,37 @@ describe('searchMobileProductCompositionCandidates', () => {
     await expect(searchMobileProductCompositionCandidates('Mesa', 'supplier,or(active.eq.true)'))
       .resolves.toEqual([]);
     expect(fetchProductsPage).not.toHaveBeenCalled();
+  });
+
+  it('mantém até 15 sugestões, como o autocomplete ERP', async () => {
+    fetchProductsPage.mockResolvedValue({
+      total: 20,
+      data: Array.from({ length: 20 }, (_, index) => ({
+        id: `product-${index + 1}`,
+        name: `Produto ${index + 1}`,
+        itemType: 'product',
+        active: true,
+        variations: [],
+      })),
+    });
+
+    const candidates = await searchMobileProductCompositionCandidates('Produto');
+
+    expect(candidates).toHaveLength(15);
+    expect(candidates[0].id).toBe('product-1');
+    expect(candidates[14].id).toBe('product-15');
+  });
+
+  it('encerra a busca em 10 segundos e permite exibir o estado de erro', async () => {
+    vi.useFakeTimers();
+    fetchProductsPage.mockReturnValue(new Promise(() => {}));
+    const search = searchMobileProductCompositionCandidates('Produto');
+    const rejection = expect(search).rejects.toThrow(
+      'A busca de componentes expirou. Tente novamente.'
+    );
+
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    await rejection;
   });
 });

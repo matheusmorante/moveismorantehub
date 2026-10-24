@@ -11,11 +11,25 @@ vi.mock('react-router-dom', () => ({
 }));
 
 vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ profile: { role: 'admin' } }),
+  useAuth: () => ({ profile: { role: 'manager' } }),
 }));
 
 vi.mock('@/pages/utils/accessRoles', () => ({
-  canPrintProductIdentificationLabels: () => true,
+  canPrintProductIdentificationLabels: () => false,
+  getProductIdentificationLabelActionAvailability: ({
+    canPrint,
+    hasSingleVariation,
+    isDraft,
+    isMerged,
+  }: {
+    canPrint: boolean;
+    hasSingleVariation: boolean;
+    isDraft: boolean;
+    isMerged: boolean;
+  }) => {
+    const canOpenMenu = canPrint && hasSingleVariation && !isDraft;
+    return { canOpenMenu, canPrintLabel: canOpenMenu && !isMerged };
+  },
   isProductIdentificationLabelOnlyProfile: () => false,
 }));
 
@@ -37,11 +51,49 @@ const baseProduct: Product = {
   categoryIds: ['cat-1'],
   description: 'Mesa 6 lugares',
   active: true,
+  itemType: 'product',
   isDraft: false,
   isParent: true,
 };
 
 describe('ParentProductActions - Lixeira vs Descarte de Rascunho', () => {
+  it('preserva mover e mesclar quando o perfil pode editar, mas não imprimir etiqueta de identificação', () => {
+    const singleVariation = {
+      ...baseProduct,
+      id: 'variation-uuid-1',
+      supplierId: 'supplier-1',
+      attributes: [{ name: 'Cor', value: 'Natural' }],
+    };
+
+    render(
+      <ParentProductActions
+        product={baseProduct}
+        singleVariation={singleVariation}
+        isDraft={false}
+        canDeleteProducts={false}
+        onEdit={vi.fn()}
+        onRestore={vi.fn()}
+        onDelete={vi.fn()}
+        onOpenSalesModal={vi.fn()}
+        onOpenLabelModal={vi.fn()}
+        onMoveToAnotherFamily={vi.fn()}
+        onMergeWithAnotherVariation={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mais opções' }));
+
+    expect(
+      screen.queryByRole('menuitem', { name: /Imprimir Etiqueta de Identificação/i })
+    ).toBeNull();
+    expect(
+      screen.getByRole('menuitem', { name: /Mover para outro produto pai/i })
+    ).toBeDefined();
+    expect(
+      screen.getByRole('menuitem', { name: /Mesclar com outra variação/i })
+    ).toBeDefined();
+  });
+
   it('para rascunhos (isDraft=true), exibe "Descartar Rascunho" e NÃO exibe "Mover para lixeira"', () => {
     const draftProduct: Product = {
       ...baseProduct,

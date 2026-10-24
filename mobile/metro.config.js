@@ -2,7 +2,11 @@ const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 
 const config = getDefaultConfig(__dirname);
-config.watchFolders = [...(config.watchFolders || []), path.resolve(__dirname, '../shared-utils')];
+config.watchFolders = [
+  ...(config.watchFolders || []),
+  path.resolve(__dirname, '../shared-utils'),
+  path.resolve(__dirname, '../erp/src/pages/utils'),
+];
 // Shared schemas outside the app resolve dependencies from the mobile installation.
 config.resolver.nodeModulesPaths = [...new Set([
   path.resolve(__dirname, 'node_modules'),

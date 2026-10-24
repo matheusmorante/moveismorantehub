@@ -12,36 +12,49 @@ import { emptySupplierForm } from '../domain/supplierFormDomain';
 export interface UseSupplierFormProps {
   readonly visible: boolean;
   readonly supplier?: SupplierFormItem | null;
+  readonly showStockOriginOptions?: boolean;
   readonly onSave: (data: Record<string, unknown>) => Promise<void>;
   readonly onClose: () => void;
 }
 
-export function useSupplierForm({ visible, supplier, onSave, onClose }: UseSupplierFormProps) {
+export function useSupplierForm({
+  visible,
+  supplier,
+  showStockOriginOptions = false,
+  onSave,
+  onClose,
+}: UseSupplierFormProps) {
   const [form, setForm] = useState<SupplierFormData>(emptySupplierForm());
   const [isSaving, setIsSaving] = useState(false);
   const personForm = useZodForm(createPersonFormSchema('suppliers'), form);
 
   useEffect(() => {
     if (!visible) return;
-    setForm(
-      supplier
-        ? {
-            ...emptySupplierForm(),
-            ...supplier,
-            personType: supplier.personType || supplier.person_type_pf_pj || 'PF',
-            fullName: supplier.fullName || supplier.full_name || supplier.name || '',
-            tradeName: supplier.tradeName || supplier.trade_name || supplier.nickname || '',
-            cpfCnpj: supplier.cpfCnpj || supplier.cpf_cnpj || supplier.documentNumber || '',
-            leadTime: String(supplier.leadTime ?? supplier.lead_time ?? ''),
-            observation: supplier.observation || supplier.observations || '',
-            fullAddress: {
-              ...emptySupplierForm().fullAddress,
-              ...(supplier.fullAddress || supplier.full_address || supplier.address || {}),
-            },
-          }
-        : emptySupplierForm()
-    );
-  }, [supplier, visible]);
+    const nextForm: SupplierFormData = supplier
+      ? {
+          ...emptySupplierForm(),
+          ...supplier,
+          personType: supplier.personType || supplier.person_type_pf_pj || 'PF',
+          fullName: supplier.fullName || supplier.full_name || supplier.name || '',
+          tradeName: supplier.tradeName || supplier.trade_name || supplier.nickname || '',
+          cpfCnpj: supplier.cpfCnpj || supplier.cpf_cnpj || supplier.documentNumber || '',
+          leadTime: String(supplier.leadTime ?? supplier.lead_time ?? ''),
+          observation: supplier.observation || supplier.observations || '',
+          fullAddress: {
+            ...emptySupplierForm().fullAddress,
+            ...(supplier.fullAddress || supplier.full_address || supplier.address || {}),
+          },
+        }
+      : emptySupplierForm();
+
+    if (showStockOriginOptions) {
+      const existingStockOrigins =
+        supplier?.stockOrigins !== undefined ? supplier.stockOrigins : supplier?.stock_origins;
+      nextForm.stockOrigins = existingStockOrigins === undefined ? ['normal'] : existingStockOrigins;
+    }
+
+    setForm(nextForm);
+  }, [supplier, visible, showStockOriginOptions]);
 
   const updateAddress = (key: keyof SupplierAddress, value: string) =>
     setForm((current) => ({

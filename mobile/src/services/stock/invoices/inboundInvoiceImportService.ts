@@ -7,6 +7,12 @@ import {
   normalizeTaxId,
 } from './inboundInvoiceMappers';
 import { findInboundSupplierProductCodes } from './inboundInvoiceMappingsService';
+import { mergeInboundInvoiceXml } from '../../../../../shared-utils/inboundInvoiceXmlMerge';
+import { normalizeInvoiceStatus } from '../../../features/stock/invoices/utils/invoiceList';
+import {
+  assertInboundInvoiceRecipientMatchesCompany,
+  getInboundInvoiceRecipientGuardError,
+} from '../../../../../shared-utils/inboundInvoiceRecipient';
 
 export const findInboundInvoiceSupplier = async (taxId: string, name: string) => {
   const digits = normalizeTaxId(taxId);
@@ -48,7 +54,11 @@ export const findInboundInvoiceSupplier = async (taxId: string, name: string) =>
   );
 };
 
-export const importInboundInvoiceXml = async (xml: string) => {
+export const importInboundInvoiceXml = async (
+  xml: string,
+  onStatusChange?: (message: string) => void
+) => {
+  onStatusChange?.('Lendo e validando o XML...');
   const invoice = parseInboundNfeXml(xml);
   const accessKey = String(invoice.nfeKey || '').replace(/\D/g, '');
   if (accessKey.length !== 44) throw new Error('Chave de acesso da NF-e inválida.');
@@ -56,34 +66,132 @@ export const importInboundInvoiceXml = async (xml: string) => {
     throw new Error('NFC-e (modelo 65) não pode ser cadastrada como NF de Entrada.');
   }
 
-  const { data: existingInvoice, error: duplicateCheckError } = await supabase
+  onStatusChange?.('Conferindo o CNPJ destinatário da nota...');
+  const { data: settingsRow, error: settingsError } = await supabase
+    .from('settings')
+    .select('data')
+    .eq('id', 'app')
+    .maybeSingle();
+  if (settingsError) {
+    throw new Error('Não foi possível confirmar o CNPJ da empresa configurado no sistema.');
+  }
+  assertInboundInvoiceRecipientMatchesCompany(
+    invoice.recipientCnpj,
+    settingsRow?.data?.companyCnpj
+  );
+
+  onStatusChange?.('Conferindo se esta NF-e já está cadastrada...');
+  const { data: existingRow, error: duplicateCheckError } = await supabase
     .from('inbound_invoices')
-    .select('numero_nfe,serie,emitente_nome')
+    .select('*, inbound_invoice_items(*)')
     .eq('chave_acesso', accessKey)
     .maybeSingle();
   if (duplicateCheckError) throw duplicateCheckError;
-  if (existingInvoice) {
-    const formattedAccessKey = accessKey.match(/.{1,4}/g)?.join(' ') || accessKey;
-    throw new Error(
-      `Nota Fiscal Já Cadastrada: Chave de acesso ${formattedAccessKey}\nNF-e #${existingInvoice.numero_nfe || 'S/N'} · Série ${existingInvoice.serie || '1'} — ${existingInvoice.emitente_nome || 'Emitente não informado'}. A nota existente foi preservada.`
-    );
+
+  let existingInvoice: Record<string, any> | null = null;
+  let invoiceToSave: Record<string, any> = invoice;
+  let outcome: 'added' | 'updated' | 'unchanged' = 'added';
+  let hasConflicts = false;
+  if (existingRow) {
+    onStatusChange?.('NF-e já cadastrada. Conferindo se há dados novos no XML...');
+    const childItems = Array.isArray(existingRow.inbound_invoice_items)
+      ? existingRow.inbound_invoice_items.map((item: any, index: number) => ({
+          ...(item.raw_item || {}),
+          itemNumber: item.item_number ?? index + 1,
+          productCode: item.product_code ?? item.raw_item?.productCode ?? '',
+          productDescription:
+            item.product_description ?? item.raw_item?.productDescription ?? 'Item sem descrição',
+          matchedProductId: item.product_id || item.raw_item?.matchedProductId || undefined,
+          matchedVariationId: item.variation_id || item.raw_item?.matchedVariationId || undefined,
+        }))
+      : [];
+    const existingItems = childItems.length
+      ? childItems
+      : Array.isArray(existingRow.itens)
+        ? existingRow.itens
+        : [];
+    existingInvoice = {
+      id: existingRow.id,
+      nfeKey: existingRow.chave_acesso || '',
+      nfeNumber: String(existingRow.numero_nfe || ''),
+      series: String(existingRow.serie || '1'),
+      issuedAt: existingRow.data_emissao || '',
+      emitterCnpj: existingRow.emitente_cnpj || '',
+      emitterName: existingRow.emitente_nome || '',
+      emitterTradeName: existingRow.emitente_fantasia || undefined,
+      emitterIe: existingRow.emitente_ie || undefined,
+      emitterAddress: existingRow.emitente_endereco || {},
+      recipientCnpj: existingRow.destinatario_cnpj || '',
+      recipientName: existingRow.destinatario_nome || '',
+      totalProducts: Number(existingRow.valor_produtos || 0),
+      totalFreight: Number(existingRow.valor_frete || 0),
+      totalIpi: Number(existingRow.valor_ipi || 0),
+      totalDiscount: Number(existingRow.valor_desconto || 0),
+      totalInsurance: Number(existingRow.valor_seguro || 0),
+      totalOtherExpenses: Number(existingRow.outras_despesas || 0),
+      totalIcms: Number(existingRow.valor_icms || 0),
+      totalIcmsSt: Number(existingRow.valor_icms_st || 0),
+      entryExitAt: existingRow.data_saida_entrada || undefined,
+      operationNature: existingRow.natureza_operacao || undefined,
+      model: existingRow.modelo || undefined,
+      environment:
+        existingRow.ambiente === 1 || existingRow.ambiente === 2 ? existingRow.ambiente : undefined,
+      protocol: existingRow.protocolo || undefined,
+      additionalInfo: existingRow.informacoes_adicionais || undefined,
+      totalInvoice: Number(existingRow.valor_total || 0),
+      supplierId: existingRow.supplier_id || undefined,
+      status: existingRow.status_recebimento,
+      receiptId: existingRow.receipt_id || undefined,
+      rawXml: existingRow.xml_conteudo || undefined,
+      items: existingItems,
+      itemsCount: existingItems.length,
+    };
+
+    const merge = mergeInboundInvoiceXml(existingInvoice, invoice);
+    if (merge.outcome === 'conflict') {
+      throw new Error(
+        'Nota Fiscal Já Cadastrada: há valores fiscais divergentes que não podem ser mesclados com segurança. Nenhuma alteração foi feita.'
+      );
+    }
+    if (merge.outcome === 'unchanged') {
+      return {
+        id: existingRow.id,
+        number: String(existingRow.numero_nfe || ''),
+        series: String(existingRow.serie || '1'),
+        accessKey,
+        supplierName: existingRow.emitente_fantasia || existingRow.emitente_nome || 'Fornecedor Desconhecido',
+        supplierCnpj: existingRow.emitente_cnpj || '',
+        issueDate: existingRow.data_emissao || '',
+        totalValue: Number(existingRow.valor_total || 0),
+        itemsCount: existingItems.length,
+        status: normalizeInvoiceStatus(existingRow.status_recebimento),
+        outcome: 'unchanged' as const,
+        hasConflicts: false,
+      };
+    }
+    invoiceToSave = merge.invoice;
+    outcome = 'updated';
+    hasConflicts = merge.hasConflicts;
+    onStatusChange?.('NF-e já cadastrada e desatualizada. Atualizando com os dados novos do XML...');
   }
 
-  let supplierId = invoice.supplierId || null;
-  let items = Array.isArray(invoice.items) ? invoice.items : [];
-  try {
-    const supplier = await findInboundInvoiceSupplier(
-      invoice.emitterCnpj || '',
-      invoice.emitterName || ''
-    );
-    supplierId = supplier?.id || supplierId;
-  } catch (supplierError) {
-    console.warn(
-      '[importInboundInvoiceXml] Não foi possível localizar o fornecedor; a NF será salva sem associação.',
-      supplierError
-    );
+  let supplierId = existingRow?.supplier_id || invoice.supplierId || null;
+  if (!supplierId) {
+    try {
+      const supplier = await findInboundInvoiceSupplier(
+        invoice.emitterCnpj || '',
+        invoice.emitterName || ''
+      );
+      supplierId = supplier?.id || null;
+    } catch (supplierError) {
+      console.warn(
+        '[importInboundInvoiceXml] Não foi possível localizar o fornecedor; a NF será salva sem associação.',
+        supplierError
+      );
+    }
   }
 
+  let items = Array.isArray(invoiceToSave.items) ? invoiceToSave.items : [];
   if (supplierId && items.length) {
     try {
       const mappings = await findInboundSupplierProductCodes(
@@ -92,6 +200,7 @@ export const importInboundInvoiceXml = async (xml: string) => {
       );
       if (mappings.size) {
         items = items.map((item: any) => {
+          if (item.matchedProductId || item.matchedVariationId) return item;
           const code = String(item.productCode || '')
             .trim()
             .toLocaleUpperCase('pt-BR');
@@ -115,14 +224,30 @@ export const importInboundInvoiceXml = async (xml: string) => {
     }
   }
 
-  const payload = buildInboundInvoicePayload(invoice, accessKey, supplierId, items, xml);
+  const xmlToStore = String(invoiceToSave.rawXml || xml);
+  const payload = {
+    ...buildInboundInvoicePayload(invoiceToSave, accessKey, supplierId, items, xmlToStore),
+    ...(existingRow
+      ? {
+          status_recebimento: existingRow.status_recebimento || 'pendente',
+          receipt_id: existingRow.receipt_id || null,
+        }
+      : {}),
+  };
 
+  onStatusChange?.(
+    outcome === 'updated' ? 'Salvando os dados novos da nota...' : 'Salvando nota fiscal e itens...'
+  );
   const { data, error } = await supabase
     .from('inbound_invoices')
     .upsert(payload, { onConflict: 'chave_acesso' })
     .select('id')
     .single();
-  if (error) throw error;
+  if (error) {
+    const recipientError = getInboundInvoiceRecipientGuardError(error.message);
+    if (recipientError) throw new Error(recipientError);
+    throw error;
+  }
 
   const itemRows = buildInboundInvoiceItemRows(data.id, items);
 
@@ -135,13 +260,16 @@ export const importInboundInvoiceXml = async (xml: string) => {
 
   return {
     id: data.id,
-    number: String(invoice.nfeNumber || ''),
-    series: String(invoice.series || '1'),
+    number: String(invoiceToSave.nfeNumber || ''),
+    series: String(invoiceToSave.series || '1'),
     accessKey,
-    supplierName: invoice.emitterTradeName || invoice.emitterName || 'Fornecedor Desconhecido',
-    supplierCnpj: invoice.emitterCnpj || '',
-    issueDate: invoice.issuedAt || '',
-    totalValue: Number(invoice.totalInvoice || 0),
+    supplierName: invoiceToSave.emitterTradeName || invoiceToSave.emitterName || 'Fornecedor Desconhecido',
+    supplierCnpj: invoiceToSave.emitterCnpj || '',
+    issueDate: invoiceToSave.issuedAt || '',
+    totalValue: Number(invoiceToSave.totalInvoice || 0),
     itemsCount: itemRows.length,
+    status: existingRow ? normalizeInvoiceStatus(existingRow.status_recebimento) : 'pending',
+    outcome,
+    hasConflicts,
   };
 };

@@ -1,3 +1,5 @@
+import type { PersonStockOrigin } from '../../../../../../shared-utils/personStockOrigins';
+
 export interface SupplierAddress {
   cep: string;
   street: string;
@@ -21,6 +23,7 @@ export interface SupplierFormData {
   active: boolean;
   observation: string;
   fullAddress: SupplierAddress;
+  stockOrigins?: PersonStockOrigin[] | null;
   [key: string]: unknown;
 }
 
@@ -43,6 +46,7 @@ export interface SupplierFormItem extends Partial<SupplierFormData> {
   cpf_cnpj?: string;
   documentNumber?: string;
   lead_time?: number;
+  stock_origins?: PersonStockOrigin[] | null;
   observations?: string;
   full_address?: Partial<SupplierAddress>;
   address?: Partial<SupplierAddress>;

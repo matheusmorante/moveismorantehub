@@ -79,6 +79,7 @@ export const getDefaultSettings = (): AppSettings => ({
   nfeHomologationNextNumber: 102,
   nfceHomologationNextNumber: 600,
   cscId: '',
+  autoInboundScienceEnabled: false,
   fiscalDefaults: {
     ncm: '94036000',
     cest: '',

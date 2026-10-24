@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { useAuth } from '@/context/AuthContext';
+import { canPerform } from '@/pages/utils/permissionService';
+import { canPrintProductIdentificationLabels } from '@/pages/utils/accessRoles';
 import { InboundInvoicesHeader, DateFilterConfig } from '../components/InboundInvoicesHeader';
 import { InboundInvoicesTable } from '../components/InboundInvoicesTable';
 import { InboundInvoiceDetailsModal } from '../modals/InboundInvoiceDetailsModal';
@@ -7,11 +11,11 @@ import { InboundDocumentImportModal } from '../modals/InboundDocumentImportModal
 import { ManageInboundInvoiceMappingsModal } from '../modals/ManageInboundInvoiceMappingsModal';
 import { InboundPostImportActionModal } from '../modals/InboundPostImportActionModal';
 import { InboundInvoicesPagination } from '../components/InboundInvoicesPagination';
-import {
-  fetchInboundInvoicesPage,
-  deleteInboundInvoice,
-} from '@/pages/utils/inboundNfe/inboundInvoicesService';
+import { fetchInboundInvoicesPage } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
+import { prepareIdentificationLabelProducts } from '@/pages/App/Stock/LabelPrinting/services/identificationLabelPrefillService';
+import { LabelPrintSelectionModal } from '@/pages/App/Products/components/modals/product/LabelPrintSelectionModal';
+import type { IdentificationLabelProduct } from '@/pages/App/Stock/LabelPrinting/services/identificationLabelPrefillService';
 
 const getCurrentYearMonth = (): string => {
   const d = new Date();
@@ -29,6 +33,13 @@ const getPreviousYearMonth = (): string => {
 };
 
 export default function InboundInvoicesPage() {
+  const navigate = useNavigate();
+  const { profile } = useAuth();
+  const canAccessReceipts = canPerform(
+    'viewStockReceipts',
+    profile?.roles || profile?.role
+  );
+  const canPrintLabels = canPrintProductIdentificationLabels(profile);
   const [invoices, setInvoices] = useState<InboundInvoice[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilterConfig>(() => ({
@@ -46,7 +57,10 @@ export default function InboundInvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<InboundInvoice | null>(null);
   const [selectedMappingInvoice, setSelectedMappingInvoice] = useState<InboundInvoice | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [summaryInvoiceForXmlImport, setSummaryInvoiceForXmlImport] = useState<InboundInvoice | null>(null);
   const [postImportInvoice, setPostImportInvoice] = useState<InboundInvoice | null>(null);
+  const [labelPrintProducts, setLabelPrintProducts] = useState<IdentificationLabelProduct[] | null>(null);
+  const handleCloseLabelPrintModal = useCallback(() => setLabelPrintProducts(null), []);
 
   // Global Drag & Drop State
   const [globalDragging, setGlobalDragging] = useState(false);
@@ -109,6 +123,7 @@ export default function InboundInvoicesPage() {
 
     const file = e.dataTransfer.files?.[0];
     if (file && (file.name.toLowerCase().endsWith('.xml') || file.type.includes('xml'))) {
+      setSummaryInvoiceForXmlImport(null);
       setDroppedFile(file);
       setIsImportModalOpen(true);
     } else if (file) {
@@ -127,18 +142,42 @@ export default function InboundInvoicesPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleDeleteInvoice = useCallback(
-    async (invoice: InboundInvoice) => {
-      try {
-        await deleteInboundInvoice(invoice.id);
-        toast.success(`NF-e #${invoice.nfeNumber} removida com sucesso.`);
-        void loadInvoices(currentPage);
-      } catch (err: any) {
-        toast.error(err?.message || 'Erro ao remover nota fiscal.');
-      }
-    },
-    [currentPage, loadInvoices]
-  );
+  const handleGenerateReceipt = (invoice: InboundInvoice) => {
+    const params = new URLSearchParams({ inboundKey: invoice.nfeKey });
+    navigate(`/estoque/recebimentos?${params.toString()}`);
+  };
+
+  const handlePrintIdentificationLabels = async (invoice: InboundInvoice) => {
+    if (!canPrintLabels) return toast.error('Seu usuário não tem acesso à impressão de etiquetas.');
+    try {
+      const references = (invoice.items || []).flatMap((item) => {
+        if (item.linkMode === 'composition' && item.compositionLinks?.length) {
+          return item.compositionLinks.map((link) => ({
+            productId: link.productId,
+            variationId: link.variationId,
+            quantity: item.quantity * link.quantityMultiplier,
+          }));
+        }
+        return item.matchedProductId
+          ? [
+              {
+                productId: item.matchedProductId,
+                variationId: item.matchedVariationId,
+                quantity: item.quantity,
+              },
+            ]
+          : [];
+      });
+      const batchProducts = await prepareIdentificationLabelProducts(references);
+      setLabelPrintProducts(batchProducts);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível preparar as etiquetas desta NF-e.'
+      );
+    }
+  };
 
   return (
     <div
@@ -168,7 +207,10 @@ export default function InboundInvoicesPage() {
         onSearchChange={setSearchTerm}
         dateFilter={dateFilter}
         onDateFilterChange={setDateFilter}
-        onOpenAddInvoice={() => setIsImportModalOpen(true)}
+        onOpenAddInvoice={() => {
+          setSummaryInvoiceForXmlImport(null);
+          setIsImportModalOpen(true);
+        }}
         onSyncSuccess={() => void loadInvoices(currentPage)}
       />
 
@@ -176,8 +218,15 @@ export default function InboundInvoicesPage() {
         invoices={invoices}
         onViewDetails={setSelectedInvoice}
         onDownloadXml={handleDownloadXml}
+        onImportSummaryXml={(invoice) => {
+          setSummaryInvoiceForXmlImport(invoice);
+          setIsImportModalOpen(true);
+        }}
         onManageMappings={setSelectedMappingInvoice}
-        onDelete={handleDeleteInvoice}
+        canAccessReceipts={canAccessReceipts}
+        onGenerateReceipt={handleGenerateReceipt}
+        canPrintIdentificationLabels={canPrintLabels}
+        onPrintIdentificationLabels={handlePrintIdentificationLabels}
       />
 
       <InboundInvoicesPagination
@@ -197,18 +246,25 @@ export default function InboundInvoicesPage() {
       <ManageInboundInvoiceMappingsModal
         isOpen={Boolean(selectedMappingInvoice)}
         invoice={selectedMappingInvoice}
+        canAccessReceipts={canAccessReceipts}
         onClose={() => setSelectedMappingInvoice(null)}
         onSaveSuccess={() => {
           void loadInvoices(currentPage);
+        }}
+        onGenerateReceipt={(invoice) => {
+          setSelectedMappingInvoice(null);
+          handleGenerateReceipt(invoice);
         }}
       />
 
       <InboundDocumentImportModal
         isOpen={isImportModalOpen}
         initialFile={droppedFile}
+        summaryInvoice={summaryInvoiceForXmlImport}
         onClose={() => {
           setIsImportModalOpen(false);
           setDroppedFile(null);
+          setSummaryInvoiceForXmlImport(null);
         }}
         onImportSuccess={(savedInvoice) => {
           void loadInvoices(currentPage);
@@ -229,6 +285,16 @@ export default function InboundInvoicesPage() {
           }
         }}
       />
+
+      {labelPrintProducts?.length ? (
+        <LabelPrintSelectionModal
+          isOpen
+          onClose={handleCloseLabelPrintModal}
+          initialProduct={labelPrintProducts[0]}
+          initialProducts={labelPrintProducts}
+          labelType="identification"
+        />
+      ) : null}
     </div>
   );
 }

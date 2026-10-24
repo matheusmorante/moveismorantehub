@@ -10,7 +10,8 @@ import type {
 
 export const useInventoryScopeBuilder = (
   allProducts: readonly Product[],
-  suppliers: readonly Person[]
+  suppliers: readonly Person[],
+  defaultResponsibleId = ''
 ) => {
   const [step, setStep] = useState<1 | 2>(1);
   const [scopeType, setScopeType] = useState<InventoryScopeType | null>(null);
@@ -18,7 +19,7 @@ export const useInventoryScopeBuilder = (
   // Configs
   const [inventoryName, setInventoryName] = useState('');
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
-  const [selectedResponsibleId, setSelectedResponsibleId] = useState('');
+  const [selectedResponsibleId, setSelectedResponsibleId] = useState(defaultResponsibleId);
   const [responsibleError, setResponsibleError] = useState(false);
   const [customProducts, setCustomProducts] = useState<
     Array<{ product: Product; variation?: Variation }>

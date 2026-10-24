@@ -64,6 +64,8 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     formData.variableTechnicalFields,
     formData.variations || []
   );
+  const isSimpleProduct =
+    !formData.hasVariations && (formData.variations || []).length <= 1;
 
   const searchControl = !requiredFieldsOnly ? (
     <TechnicalCharacteristicSearch
@@ -105,6 +107,7 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                   manualFieldNames={manualFieldNames}
                   validationErrors={validationErrors}
                   variableTechnicalFieldNames={variableTechnicalFieldNames}
+                  isSimpleProduct={isSimpleProduct}
                   onToggleVariableField={handleToggleVariableField}
                   onValueChange={handleTechnicalValueChange}
                   onOpenAttributeModal={openAttributeModal}

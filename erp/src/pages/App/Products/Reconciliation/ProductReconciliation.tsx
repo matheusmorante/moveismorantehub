@@ -8,8 +8,9 @@ import {
   ReconciliationFilterState,
   ReconciliationSummary,
   PendencyType,
+  ReconciliationBatchSelectionItem,
 } from './types/reconciliation.types';
-import { fetchProductsForReconciliation } from './services/reconciliationQueries';
+import { fetchProductReconciliationSelection, fetchProductsForReconciliation } from './services/reconciliationQueries';
 import {
   applySupplierBatch,
   applyCategoryBatch,
@@ -26,6 +27,11 @@ import { ApplyCategoryModal } from './modals/ApplyCategoryModal';
 import { ApplyNcmModal } from './modals/ApplyNcmModal';
 import { ApplyAttributeModal } from './modals/ApplyAttributeModal';
 import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import {
+  areAllProductReconciliationPageItemsSelected,
+  updateProductReconciliationPageSelection,
+  updateProductReconciliationSelection,
+} from '../../../../../../shared-utils/productReconciliationSelection';
 
 export const ProductReconciliation: React.FC = () => {
   const [products, setProducts] = useState<ReconciliationProductItem[]>([]);
@@ -43,7 +49,11 @@ export const ProductReconciliation: React.FC = () => {
   });
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedProductDetails, setSelectedProductDetails] = useState<Map<string, ReconciliationBatchSelectionItem>>(new Map());
   const [isAllFilteredSelected, setIsAllFilteredSelected] = useState(false);
+  const [isSelectingFiltered, setIsSelectingFiltered] = useState(false);
+  const [selectionError, setSelectionError] = useState('');
+  const selectionRevision = useRef(0);
 
   // Modais de lote
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
@@ -75,6 +85,10 @@ export const ProductReconciliation: React.FC = () => {
 
   useEffect(() => {
     setPage(1);
+    setIsAllFilteredSelected(false);
+    setIsSelectingFiltered(false);
+    setSelectionError('');
+    selectionRevision.current += 1;
   }, [filters]);
 
   useEffect(() => {
@@ -83,33 +97,61 @@ export const ProductReconciliation: React.FC = () => {
 
   // Seleção de itens
   const handleSelectAllOnPage = (checked: boolean) => {
-    if (!checked) {
-      const newSet = new Set(selectedIds);
-      products.forEach((p) => newSet.delete(p.id));
-      setSelectedIds(newSet);
-      setIsAllFilteredSelected(false);
-      return;
-    }
-
-    const newSet = new Set(selectedIds);
-    products.forEach((p) => newSet.add(p.id));
-    setSelectedIds(newSet);
+    setSelectedIds((current) => updateProductReconciliationPageSelection(current, products, checked));
+    setSelectedProductDetails((current) => {
+      const next = new Map(current);
+      products.forEach((product) => {
+        if (checked) next.set(product.id, { id: product.id, categoryId: product.categoryId, pendencies: product.pendencies });
+        else next.delete(product.id);
+      });
+      return next;
+    });
+    if (!checked) setIsAllFilteredSelected(false);
   };
 
   const handleSelectProduct = (id: string, checked: boolean) => {
-    const newSet = new Set(selectedIds);
-    if (checked) {
-      newSet.add(id);
-    } else {
-      newSet.delete(id);
-      setIsAllFilteredSelected(false);
+    setSelectedIds((current) => updateProductReconciliationSelection(current, id, checked));
+    const product = products.find((item) => item.id === id);
+    if (product) {
+      setSelectedProductDetails((current) => {
+        const next = new Map(current);
+        if (checked) next.set(id, { id, categoryId: product.categoryId, pendencies: product.pendencies });
+        else next.delete(id);
+        return next;
+      });
     }
-    setSelectedIds(newSet);
+    if (!checked) setIsAllFilteredSelected(false);
   };
 
   const handleClearSelection = () => {
     setSelectedIds(new Set());
+    setSelectedProductDetails(new Map());
     setIsAllFilteredSelected(false);
+    setSelectionError('');
+  };
+
+  const handleSelectAllFiltered = async () => {
+    const revision = ++selectionRevision.current;
+    setIsSelectingFiltered(true);
+    setSelectionError('');
+    try {
+      const result = await withTimeout(fetchProductReconciliationSelection(filters), 30_000, null, 'reconciliacao:selecionar-filtro');
+      if (!mounted.current || revision !== selectionRevision.current) return;
+      if (!result) throw new Error('A seleção do filtro demorou demais. Tente novamente.');
+      setSelectedIds(new Set(result.map((product) => product.id)));
+      setSelectedProductDetails(new Map(result.map((product) => [product.id, product])));
+      setIsAllFilteredSelected(result.length > 0);
+      if (result.length > 0) toast.success(`Todos os ${result.length} produtos pendentes do filtro foram selecionados.`);
+      else setSelectionError('Nenhum produto pendente corresponde aos filtros atuais.');
+    } catch (cause) {
+      if (mounted.current && revision === selectionRevision.current) {
+        const message = cause instanceof Error ? cause.message : 'Não foi possível selecionar os produtos do filtro.';
+        setSelectionError(message);
+        toast.error(message);
+      }
+    } finally {
+      if (mounted.current && revision === selectionRevision.current) setIsSelectingFiltered(false);
+    }
   };
 
   const handleSaveSingleProduct = async (productId: string, productUpdates: ReconciliationProductValues['productUpdates'], variationUpdates?: ReconciliationProductValues['variationUpdates']): Promise<ReconciliationResult> => {
@@ -129,6 +171,7 @@ export const ProductReconciliation: React.FC = () => {
       if (mounted.current && result.success) {
         toast.success('Correção confirmada em ' + result.updated + ' registro(s).');
         setSelectedIds((current) => new Set([...current].filter((id) => !values.productIds.includes(id))));
+        setSelectedProductDetails((current) => new Map([...current].filter(([id]) => !values.productIds.includes(id))));
         setIsAllFilteredSelected(false); void reload.current();
       }
       return result;
@@ -141,9 +184,7 @@ export const ProductReconciliation: React.FC = () => {
   const handleApplyAttribute = (name: string, value: string) => applyBatch({ operation: 'attribute', productIds: [...selectedIds], name, value });
 
   // Compatibilidade de atributos para lote
-  const selectedProductsList = useMemo(() => {
-    return products.filter((p) => selectedIds.has(p.id));
-  }, [products, selectedIds]);
+  const selectedProductsList = useMemo(() => Array.from(selectedProductDetails.values()), [selectedProductDetails]);
 
   const isAttributeBatchCompatible = useMemo(() => {
     if (selectedProductsList.length === 0) return false;
@@ -180,7 +221,7 @@ export const ProductReconciliation: React.FC = () => {
     );
   }, [selectedProductsList]);
 
-  const allOnPageSelected = products.length > 0 && products.every((p) => selectedIds.has(p.id));
+  const allOnPageSelected = areAllProductReconciliationPageItemsSelected(selectedIds, products);
 
   return (
     <div className="p-3 sm:p-6 md:p-8 max-w-[1400px] mx-auto min-h-screen pb-32">
@@ -230,17 +271,17 @@ export const ProductReconciliation: React.FC = () => {
             {totalCount > pageSize && !isAllFilteredSelected && allOnPageSelected && (
               <button
                 type="button"
-                onClick={() => {
-                  setIsAllFilteredSelected(true);
-                  toast.success(`Todos os ${totalCount} produtos do filtro selecionados.`);
-                }}
-                className="text-purple-600 dark:text-purple-400 font-bold hover:underline ml-2"
+                disabled={isSelectingFiltered}
+                onClick={() => void handleSelectAllFiltered()}
+                className="text-purple-600 dark:text-purple-400 font-bold hover:underline ml-2 disabled:opacity-50"
               >
-                Selecionar todos os {totalCount} do filtro
+                {isSelectingFiltered ? 'Selecionando produtos do filtro...' : 'Selecionar todos os produtos do filtro'}
               </button>
             )}
           </div>
         )}
+
+        {selectionError && <p role="alert" className="mb-4 text-sm text-red-600">{selectionError}</p>}
 
         {/* Loading State */}
         {queryError && <p role="alert" className="mb-4 text-sm text-red-600">{queryError}</p>}
@@ -305,7 +346,7 @@ export const ProductReconciliation: React.FC = () => {
         onConfirm={handleApplySupplier}
         selectedCount={selectedIds.size}
         isAllFilteredSelected={isAllFilteredSelected}
-        totalFilteredCount={totalCount}
+        totalFilteredCount={selectedIds.size}
       />
 
       <ApplyCategoryModal

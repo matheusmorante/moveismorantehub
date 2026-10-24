@@ -16,6 +16,11 @@ import {
   buildScopeProductsFromCatalog,
   resolveOfflineInventoryMatch,
 } from './catalog/offlineInventoryCatalogMatcher';
+import {
+  filterInventoryResponsibleCandidates,
+  getInventoryResponsibleDisplayName,
+} from '../../../../../../shared-utils/inventoryResponsible';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 export type { OfflineInventoryCatalog, OfflineInventoryMatch };
 export { resolveOfflineInventoryMatch };
@@ -63,10 +68,37 @@ const fetchDeletions = async (cursor = 0): Promise<CatalogRow[]> => {
   return rows;
 };
 
+const fetchInventoryResponsibleRows = async (): Promise<CatalogRow[]> => {
+  const rows: CatalogRow[] = [];
+  const pageSize = 500;
+  const columns =
+    'id, person_type, full_name, social_name, nickname, position, role:address->>role, roles:address->roles, active, deleted, updated_at';
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('people')
+      .select(columns)
+      .or('deleted.eq.false,deleted.is.null')
+      .or('person_type.ilike.employees,and(position.not.is.null,position.neq.""))')
+      .order('full_name', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) return rows;
+  }
+};
+
 export const getOfflineInventoryCatalog = async (): Promise<OfflineInventoryCatalog> => {
   if (cachedCatalog) return cachedCatalog;
-  cachedCatalog =
-    (await getLocalInventoryCatalogSnapshot<OfflineInventoryCatalog>()) || emptyCatalog();
+  const stored = await getLocalInventoryCatalogSnapshot<OfflineInventoryCatalog>();
+  cachedCatalog = stored
+    ? {
+        ...emptyCatalog(),
+        ...stored,
+        employees: stored.employees || {},
+        employeesSyncedAt: stored.employeesSyncedAt || null,
+      }
+    : emptyCatalog();
   return cachedCatalog;
 };
 
@@ -88,7 +120,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
         deletions = null;
       }
       const fullRefresh = deletions === null;
-      const [products, variations, labels, suppliers] = await Promise.all([
+      const [products, variations, labels, suppliers, employeesResult] = await Promise.all([
         fetchChangedRows(
           'products',
           'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, product_kind, supplier_id, main_supplier_id, supplier_ids, updated_at',
@@ -111,12 +143,18 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
           fullRefresh ? undefined : previous.cursors.suppliers,
           ['person_type', 'suppliers']
         ),
+        withTimeout(fetchInventoryResponsibleRows(), 15_000, null, 'inventory:responsibles'),
       ]);
+      const employees = employeesResult || [];
       const next: OfflineInventoryCatalog = {
         products: fullRefresh ? {} : { ...previous.products },
         variations: fullRefresh ? {} : { ...previous.variations },
         labels: fullRefresh ? {} : { ...previous.labels },
         suppliers: fullRefresh ? {} : { ...previous.suppliers },
+        employees: employeesResult
+          ? Object.fromEntries(employees.map((employee) => [String(employee.id), employee]))
+          : { ...(previous.employees || {}) },
+        employeesSyncedAt: employeesResult ? new Date().toISOString() : previous.employeesSyncedAt || null,
         cursors: { ...previous.cursors },
         syncedAt: new Date().toISOString(),
       };
@@ -182,6 +220,38 @@ export const ensureOfflineInventoryCatalogSynced = async () => {
 
 export const getOfflineInventoryScopeProducts = async (): Promise<Array<Record<string, any>>> =>
   buildScopeProductsFromCatalog(await getOfflineInventoryCatalog());
+
+export const getOfflineInventoryResponsibleOptions = async () => {
+  const catalog = await getOfflineInventoryCatalog();
+  const employees = Object.values(catalog.employees || {}).map((employee) => ({
+    id: String(employee.id || ''),
+    type: String(employee.person_type || ''),
+    person_type: String(employee.person_type || ''),
+    full_name: String(employee.full_name || ''),
+    social_name: String(employee.social_name || ''),
+    nickname: String(employee.nickname || ''),
+    position: String(employee.position || ''),
+    role: String(employee.role || ''),
+    roles: Array.isArray(employee.roles) ? employee.roles.map(String) : [],
+    deleted: employee.deleted === true,
+  }));
+  return filterInventoryResponsibleCandidates(employees)
+    .map((employee) => ({
+      id: String(employee.id),
+      type: employee.type,
+      full_name: employee.full_name || '',
+      social_name: employee.social_name || '',
+      nickname: employee.nickname || '',
+      position: employee.position || '',
+      role: employee.role || employee.roles?.[0] || '',
+    }))
+    .sort((left, right) =>
+      getInventoryResponsibleDisplayName(left).localeCompare(
+        getInventoryResponsibleDisplayName(right),
+        'pt-BR'
+      )
+    );
+};
 
 export const findOfflineInventoryMatch = async (
   rawCode: string

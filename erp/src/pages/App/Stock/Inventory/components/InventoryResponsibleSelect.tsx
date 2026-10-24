@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type Person from '@/pages/types/person.type';
-import { getEmployeeDisplayName } from '../utils/employeeDisplayName';
+import {
+  filterInventoryResponsibleCandidates,
+  getInventoryResponsibleDisplayName,
+} from '../../../../../../../shared-utils/inventoryResponsible';
 
-export { getEmployeeDisplayName };
+export const getEmployeeDisplayName = getInventoryResponsibleDisplayName;
 
 export interface InventoryResponsibleSelectProps {
   readonly employees: readonly Person[];
@@ -25,16 +28,7 @@ export const InventoryResponsibleSelect: React.FC<InventoryResponsibleSelectProp
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const validEmployees = React.useMemo(
-    () =>
-      employees.filter((employee) => {
-        if (employee.type && employee.type !== 'employees') return false;
-        const hasValidSystemRole = !!employee.role && employee.role !== 'pending';
-        const hasValidPosition =
-          !!employee.position &&
-          employee.position.trim().length > 0 &&
-          employee.position.trim() !== 'Sem Acesso';
-        return hasValidSystemRole || hasValidPosition;
-      }),
+    () => filterInventoryResponsibleCandidates(employees),
     [employees]
   );
 

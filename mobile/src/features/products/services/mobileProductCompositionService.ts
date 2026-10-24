@@ -1,4 +1,5 @@
 import { fetchMobileProductsPage } from './mobileProductFetchService';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export interface MobileProductCompositionCandidate {
   id: string;
@@ -21,14 +22,22 @@ export const searchMobileProductCompositionCandidates = async (
   const selectedSupplierId = supplierId?.trim();
   if (selectedSupplierId && !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(selectedSupplierId)) return [];
 
-  const { data } = await fetchMobileProductsPage(1, 25, {
-    search: searchTerm,
-    statusFilter: 'active',
-    includeMerged: false,
-    itemType: 'standard',
-    supplierId: selectedSupplierId,
-    throwOnError: true,
-  });
+  const response = await withTimeout(
+    fetchMobileProductsPage(1, 25, {
+      search: searchTerm,
+      statusFilter: 'active',
+      includeMerged: false,
+      itemType: 'standard',
+      supplierId: selectedSupplierId,
+      throwOnError: true,
+    }),
+    10_000,
+    null,
+    'mobile:buscar-componentes-composicao'
+  );
+  if (!response) throw new Error('A busca de componentes expirou. Tente novamente.');
+
+  const { data } = response;
 
   return data
     .filter((product: any) =>
@@ -84,5 +93,5 @@ export const searchMobileProductCompositionCandidates = async (
         stock: Number(product.stock ?? 0),
       }];
     })
-    .slice(0, 5);
+    .slice(0, 15);
 };

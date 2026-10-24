@@ -6,15 +6,8 @@ export class AiDeduplicator {
   private static activeRequests = new Map<string, DeduplicationRecord>();
 
   public static generateHash(category: string, operation: string, payload: any): string {
-    const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload || {});
-    let hash = 0;
-    const str = `${category}:${operation}:${payloadStr}`;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash |= 0;
-    }
-    return `dedup_${category}_${hash}`;
+    // Identidade exata, mantida somente em memória enquanto a chamada está ativa.
+    return JSON.stringify([category, operation, payload]);
   }
 
   public static getInFlightRequest<T>(hash: string): Promise<T> | null {

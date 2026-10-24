@@ -24,6 +24,44 @@ describe('Contrato estático da migration da Inbox (não é prova PostgreSQL)', 
     expect(listFunction?.indexOf('count(*) OVER ()')).toBeLessThan(listFunction?.indexOf('LIMIT v_page_size') ?? 0);
   });
 
+  it('aplica filtros de pedidos e a permissão comercial antes da paginação', () => {
+    const pageLimit = listFunction?.indexOf('LIMIT v_page_size') ?? -1;
+    const orderFilters = [
+      listFunction?.indexOf("AND (v_filter <> 'with_orders' OR EXISTS"),
+      listFunction?.indexOf("AND (v_filter <> 'without_orders' OR NOT EXISTS"),
+      listFunction?.indexOf('AND (v_folder_orders IS NULL OR CASE v_folder_orders'),
+    ];
+    const commercialGate = listFunction?.indexOf('IF v_needs_orders AND NOT public.customer_support_can_view_commercial_info()') ?? -1;
+
+    expect(pageLimit).toBeGreaterThan(0);
+    expect(orderFilters.every((position) => position !== undefined && position >= 0 && position < pageLimit)).toBe(true);
+    expect(commercialGate).toBeGreaterThanOrEqual(0);
+    expect(commercialGate).toBeLessThan(listFunction?.indexOf('RETURN QUERY') ?? 0);
+  });
+
+  it('exige as permissões da Central e comercial nas RPCs de dados comerciais', () => {
+    for (const name of [
+      'customer_support_list_conversations',
+      'customer_support_list_customer_summaries',
+      'customer_support_list_customer_orders',
+      'customer_support_count_customer_orders',
+      'customer_support_search_customers',
+      'customer_support_link_customer',
+      'customer_support_unlink_customer',
+    ]) {
+      const definition = migration.split(`CREATE OR REPLACE FUNCTION public.${name}(`)[1]?.split('$function$;')[0];
+      expect(definition, `${name} deve existir na migration`).toBeTruthy();
+      expect(definition).toContain('public.customer_support_can_view()');
+      expect(definition).toContain('public.customer_support_can_view_commercial_info()');
+    }
+  });
+
+  it('restringe o diretório de atendentes a id, nome e função, atrás do gate da Central', () => {
+    const directory = migration.split('CREATE OR REPLACE FUNCTION public.customer_support_list_agents()')[1]?.split('$function$;')[0];
+    expect(directory).toMatch(/^\s*RETURNS TABLE \(id uuid, full_name text, role text\)/);
+    expect(directory).toContain('public.customer_support_can_view()');
+  });
+
   it('restringe os helpers sem revogar o schema compartilhado nem remover políticas', () => {
     expect(migration).not.toMatch(/\bDROP\b/i);
     expect(migration).not.toMatch(/REVOKE ALL ON SCHEMA private/i);

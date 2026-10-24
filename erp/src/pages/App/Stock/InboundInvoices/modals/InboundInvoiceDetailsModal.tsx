@@ -131,7 +131,7 @@ export const InboundInvoiceDetailsModal: React.FC<InboundInvoiceDetailsModalProp
               {(invoice.items ?? []).length === 0 ? (
                 <p className="p-4 text-center text-xs text-slate-400">
                   {sefazReturnedSummary
-                    ? 'A SEFAZ retornou somente o resumo desta NF-e, que não contém os itens. Eles aparecem quando o XML completo chegar pela distribuição; para lançar agora, importe o XML recebido do fornecedor.'
+                    ? 'A SEFAZ retornou somente o resumo desta nota; os itens ainda não estão disponíveis.'
                     : 'Itens não disponíveis para esta nota fiscal.'}
                 </p>
               ) : (

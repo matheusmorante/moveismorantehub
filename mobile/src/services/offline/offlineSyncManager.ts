@@ -1,6 +1,7 @@
 import { SyncQueueRepository } from '../../repositories/SyncQueueRepository';
 import { OrderRepository } from '../../repositories/OrderRepository';
 import { generateUUID } from '../../utils/uuid';
+import { isLocalDeliveryProofUri } from '../../features/orders/services/deliveryProofRules';
 import { supabase } from '../supabaseClient';
 import { connectivityService } from './connectivityService';
 import { offlineStorageService } from './offlineStorageService';
@@ -32,7 +33,7 @@ type RpcResult = {
 
 const SYNC_REQUEST_TIMEOUT_MS = 15000;
 
-const withSyncTimeout = <T>(promise: Promise<T>, ms = SYNC_REQUEST_TIMEOUT_MS): Promise<T> =>
+const withSyncTimeout = <T,>(promise: Promise<T>, ms = SYNC_REQUEST_TIMEOUT_MS): Promise<T> =>
   new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error('SYNC_NETWORK_TIMEOUT'));
@@ -62,8 +63,23 @@ const knownReasons: ConflictReasonCode[] = [
 const isReason = (value: unknown): value is ConflictReasonCode =>
   typeof value === 'string' && knownReasons.includes(value as ConflictReasonCode);
 
+const resolveServerVersion = (result: RpcResult, fallback: number): number => {
+  const serverOrderData = result.server_state?.order_data;
+  const version = Number(
+    result.server_version ??
+      result.server_state?.version ??
+      (serverOrderData && typeof serverOrderData === 'object'
+        ? (serverOrderData as Record<string, unknown>).syncVersion
+        : undefined)
+  );
+  return Number.isFinite(version) ? version : fallback;
+};
+
 const eventPatch = (event: SyncEvent): Record<string, unknown> => {
-  const base = { ...(event.payload as Record<string, unknown>), lastSyncEventId: event.eventId };
+  const base: Record<string, unknown> = {
+    ...(event.payload as Record<string, unknown>),
+    lastSyncEventId: event.eventId,
+  };
   if (event.type === 'DELIVERY_START_ROUTE')
     return {
       ...base,
@@ -284,7 +300,9 @@ class OfflineSyncManager {
     const run = (async () => {
       try {
         const activeUserId = await this.resolveActiveUserId();
-        for (const item of await SyncQueueRepository.listActive()) {
+        const queuedItems = await SyncQueueRepository.listActive();
+        for (let queueIndex = 0; queueIndex < queuedItems.length; queueIndex += 1) {
+          const item = queuedItems[queueIndex];
           if (!connectivityService.connected) break;
           // Segurança multi-usuário: impede sincronizar operação de outro usuário logado no mesmo aparelho
           if (item.userId && activeUserId && item.userId !== activeUserId) {
@@ -293,9 +311,12 @@ class OfflineSyncManager {
           await SyncQueueRepository.updateStatus(item.id, 'syncing');
           await this.emitSummary();
           try {
-            const result = await withSyncTimeout(this.send(item));
+            const preparedItem = await this.prepareDeliveryProofs(item);
+            const result = await withSyncTimeout(this.send(preparedItem));
             if (result.success) {
               await this.applyServerState(item, result);
+              const serverVersion = resolveServerVersion(result, item.expectedVersion);
+              await this.rebasePendingOrderEvents(queuedItems, queueIndex, item, serverVersion);
               await SyncQueueRepository.updateStatus(item.id, 'synced');
             } else {
               const reason = isReason(result.reason) ? result.reason : 'BUSINESS_RULE_REJECTED';
@@ -371,6 +392,95 @@ class OfflineSyncManager {
     return { success: false, reason: 'UNSUPPORTED_OPERATION' };
   }
 
+  private async rebasePendingOrderEvents(
+    queuedItems: SyncQueueItem[],
+    currentIndex: number,
+    item: SyncQueueItem,
+    serverVersion: number
+  ): Promise<void> {
+    if (item.entityType !== 'order' || !item.userId) return;
+
+    for (let index = currentIndex + 1; index < queuedItems.length; index += 1) {
+      const later = queuedItems[index];
+      if (
+        later.entityType !== 'order' ||
+        later.entityId !== item.entityId ||
+        later.userId !== item.userId ||
+        later.expectedVersion !== item.expectedVersion
+      ) {
+        continue;
+      }
+
+      await SyncQueueRepository.updateExpectedVersion(later.id, serverVersion);
+      queuedItems[index] = { ...later, expectedVersion: serverVersion };
+    }
+  }
+
+  private async prepareDeliveryProofs(item: SyncQueueItem): Promise<SyncQueueItem> {
+    if (item.entityType !== 'order' || item.payload.event_type !== 'DELIVERY_UNATTENDED') {
+      return item;
+    }
+
+    let preparedItem = item;
+    const readPatch = () =>
+      (preparedItem.payload.order_data_patch as Record<string, unknown> | undefined) || {};
+    const initialProofs = readPatch().unattendedProofUrls;
+    if (!Array.isArray(initialProofs)) return item;
+
+    for (let index = 0; index < initialProofs.length; index += 1) {
+      const patch = readPatch();
+      const proofUrls = Array.isArray(patch.unattendedProofUrls)
+        ? [...(patch.unattendedProofUrls as string[])]
+        : [];
+      const localUri = proofUrls[index];
+      if (!localUri || !isLocalDeliveryProofUri(localUri)) continue;
+
+      const metadata = Array.isArray(patch.unattendedProofMetadata)
+        ? (patch.unattendedProofMetadata as Array<{
+            uri?: string;
+            fileName?: string;
+            contentType?: string;
+          }>)
+        : [];
+      const localMetadata = metadata.find((proof) => proof.uri === localUri);
+      const fallbackName = localUri.split(/[\\/?#]/).filter(Boolean).pop() || `comprovante-${index + 1}.jpg`;
+      const fileName = localMetadata?.fileName || fallbackName;
+      const extension = fileName.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+      const contentType =
+        localMetadata?.contentType ||
+        (extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg');
+      const { uploadDeliveryProof } = await import(
+        '../../features/orders/services/deliveryProofUploadService'
+      );
+      const remoteUrl = await uploadDeliveryProof(
+        localUri,
+        `${preparedItem.idempotencyKey}-${index}-${fileName}`,
+        contentType
+      );
+
+      proofUrls[index] = remoteUrl;
+      const nextPatch: Record<string, unknown> = {
+        ...patch,
+        unattendedProofUrls: proofUrls,
+        unattendedProofUrl: proofUrls[0] || '',
+      };
+      const remainingMetadata = metadata.filter((proof) => proof.uri !== localUri);
+      if (remainingMetadata.length) {
+        nextPatch.unattendedProofMetadata = remainingMetadata;
+      } else {
+        delete nextPatch.unattendedProofMetadata;
+      }
+      const nextPayload = {
+        ...preparedItem.payload,
+        order_data_patch: nextPatch,
+      };
+      await SyncQueueRepository.updatePayload(preparedItem.id, nextPayload);
+      preparedItem = { ...preparedItem, payload: nextPayload };
+    }
+
+    return preparedItem;
+  }
+
   private async sendOrderDirectFallback(item: SyncQueueItem): Promise<RpcResult> {
     const { data: currentOrder, error: readError } = await supabase
       .from('orders')
@@ -386,18 +496,18 @@ class OfflineSyncManager {
       currentOrder.order_data && typeof currentOrder.order_data === 'object'
         ? (currentOrder.order_data as Record<string, unknown>)
         : {};
+    const serverVersion = Number(
+      (currentOrder as any).version ?? currentData.syncVersion ?? item.expectedVersion
+    );
 
     if (currentData.lastSyncEventId === item.idempotencyKey) {
       return {
         success: true,
-        server_version: item.expectedVersion,
+        server_version: serverVersion,
         server_state: currentOrder as Record<string, unknown>,
       };
     }
 
-    const serverVersion = Number(
-      (currentOrder as any).version ?? currentData.syncVersion ?? item.expectedVersion
-    );
     if (serverVersion > item.expectedVersion) {
       return {
         success: false,
@@ -491,7 +601,7 @@ class OfflineSyncManager {
       id: item.entityId,
       status,
       orderData,
-      version: result.server_version ?? item.expectedVersion,
+      version: resolveServerVersion(result, item.expectedVersion),
       updatedAt: new Date().toISOString(),
       syncedAt: new Date().toISOString(),
       isPendingLocal: false,

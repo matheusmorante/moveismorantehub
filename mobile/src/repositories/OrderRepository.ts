@@ -44,13 +44,13 @@ export const OrderRepository = {
       return {
         id: row.id,
         status: row.status,
-        orderType: row.order_type,
-        customerName: row.customer_name,
-        totalAmount: row.total_amount,
+        orderType: row.order_type ?? undefined,
+        customerName: row.customer_name ?? undefined,
+        totalAmount: row.total_amount ?? undefined,
         orderData: parseOrderData(row.order_data),
         version: row.version,
         updatedAt: row.updated_at,
-        syncedAt: row.synced_at,
+        syncedAt: row.synced_at ?? undefined,
         isPendingLocal: Boolean(row.is_pending_local),
       };
     } catch (err) {

@@ -9,6 +9,17 @@ export const getMobileProductCardActionAvailability = (product: {
   canShowLinkedOrders: !product.isParent,
 });
 
+export const canToggleProductActivationFromCardMenu = (options: {
+  isFamilyParent: boolean;
+  canDelete: boolean;
+  isLabelOnlyProfile: boolean;
+  isNonConventional: boolean;
+}): boolean =>
+  options.canDelete &&
+  !options.isFamilyParent &&
+  !options.isLabelOnlyProfile &&
+  !options.isNonConventional;
+
 export const isSalvadoProduct = (product: any): boolean =>
   Boolean(
     product &&

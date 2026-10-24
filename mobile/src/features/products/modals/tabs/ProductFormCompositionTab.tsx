@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { Plus, Minus, Trash2, Search, Info } from 'lucide-react-native';
 import {
@@ -34,6 +33,7 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
   const [results, setResults] = useState<MobileProductCompositionCandidate[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
+  const [searchAttempt, setSearchAttempt] = useState(0);
   const [quantityInputs, setQuantityInputs] = useState<Record<number, string>>({});
   const { validateValues } = useZodForm(productAutocompleteFormSchema, {
     query: searchTerm,
@@ -90,19 +90,9 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
       current = false;
       clearTimeout(to);
     };
-  }, [searchTerm, supplierId, formData.mainSupplierId, formData.supplierId, validateValues]);
+  }, [searchTerm, supplierId, formData.mainSupplierId, formData.supplierId, validateValues, searchAttempt]);
 
   const handleAddItem = (product: any) => {
-    if (
-      comboItems.find(
-        (i: any) =>
-          i.productId === product.id && (i.variationId || null) === (product.variationId || null)
-      )
-    ) {
-      Alert.alert('Aviso', 'Este produto já está na composição.');
-      return;
-    }
-
     // O ERP usa o nome da variação diretamente; ela já pode conter o nome pai.
     const description = product.variationName || product.name;
     const newItem = {
@@ -199,42 +189,62 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
               placeholder="Buscar por nome ou código..."
               placeholderTextColor="#94a3b8"
               value={searchTerm}
-              onChangeText={setSearchTerm}
+              onChangeText={(value) => {
+                setSearchTerm(value);
+                setResults([]);
+                setSearchError(false);
+              }}
             />
           </View>
         </View>
 
-        {searching && <Text style={[styles.infoText, dark && styles.dimText]}>Buscando...</Text>}
+        {searching && <Text style={[styles.infoText, dark && styles.dimText]}>Buscando produtos...</Text>}
         {!searching && searchError && (
-          <Text style={styles.errorText}>
-            Não foi possível buscar componentes. Tente novamente.
-          </Text>
+          <View style={styles.searchErrorRow}>
+            <Text style={styles.errorText}>Não foi possível buscar componentes.</Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => setSearchAttempt((attempt) => attempt + 1)}
+              style={styles.retryButton}
+            >
+              <Text style={styles.retryButtonText}>Tentar buscar novamente</Text>
+            </TouchableOpacity>
+          </View>
         )}
         {!searching && !searchError && searchTerm.trim().length >= 3 && results.length === 0 && (
-          <Text style={[styles.infoText, dark && styles.dimText]}>Nenhum produto encontrado.</Text>
+          <Text style={[styles.infoText, dark && styles.dimText]}>
+            Nenhum produto encontrado para esta busca.
+          </Text>
         )}
 
         {results.length > 0 && (
           <View style={[styles.resultsContainer, dark && styles.darkCard]}>
-            {results.map((r, i) => (
-              <TouchableOpacity
-                key={i}
-                style={[styles.resultItem, dark && styles.darkBorder]}
-                onPress={() => handleAddItem(r)}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.resultName, dark && styles.lightText]}>
-                    {r.variationName || r.name}
-                  </Text>
-                  <Text style={[styles.resultCode, dark && styles.dimText]}>
-                    {r.variationSku || r.code} · R${' '}
-                    {Number(r.variationPrice ?? r.price ?? r.unit_price ?? 0).toFixed(2)} · Estoque:{' '}
-                    {Number(r.variationStock ?? r.stock ?? 0)}
-                  </Text>
-                </View>
-                <Plus size={16} color="#2563eb" />
-              </TouchableOpacity>
-            ))}
+            <ScrollView
+              style={styles.resultsList}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+            >
+              {results.map((r, i) => (
+                <TouchableOpacity
+                  key={`${r.id}-${r.variationId || 'base'}-${i}`}
+                  accessibilityRole="button"
+                  style={[styles.resultItem, dark && styles.darkBorder]}
+                  onPress={() => handleAddItem(r)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.resultName, dark && styles.lightText]}>
+                      {r.variationName || r.name}
+                    </Text>
+                    <Text style={[styles.resultCode, dark && styles.dimText]}>
+                      {r.variationSku || r.code} · R${' '}
+                      {Number(r.variationPrice ?? r.price ?? r.unit_price ?? 0).toFixed(2)} · Estoque:{' '}
+                      {Number(r.variationStock ?? r.stock ?? 0)}
+                    </Text>
+                  </View>
+                  <Plus size={16} color="#2563eb" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         )}
       </View>
@@ -365,6 +375,9 @@ const styles = StyleSheet.create({
   dimText: { color: '#94a3b8' },
   infoText: { fontSize: 12, color: '#94a3b8', fontStyle: 'italic', paddingHorizontal: 4 },
   errorText: { fontSize: 12, color: '#dc2626', fontWeight: '700', paddingHorizontal: 4 },
+  searchErrorRow: { gap: 6, paddingHorizontal: 4 },
+  retryButton: { alignSelf: 'flex-start', paddingVertical: 4 },
+  retryButtonText: { color: '#2563eb', fontSize: 12, fontWeight: '800' },
   resultsContainer: {
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -373,6 +386,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 4,
   },
+  resultsList: { maxHeight: 288 },
   resultItem: {
     flexDirection: 'row',
     alignItems: 'center',

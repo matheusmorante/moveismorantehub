@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { flattenFormErrors } from '../../../hooks/useZodForm';
-import { resolveMobileProductFormErrorNavigation } from './mobileProductFormErrorNavigation';
+import {
+  isMobileProductNameError,
+  isMobileProductCostPriceError,
+  isMobileProductSupplierError,
+  isMobileProductUnitPriceError,
+  resolveMobileProductFormErrorMessage,
+  resolveMobileProductFormErrorNavigation,
+} from './mobileProductFormErrorNavigation';
+import { PRODUCT_NAME_REQUIRED_MESSAGE } from '../../../../../shared-utils/productNameRequirement';
 
 describe('mobileProductFormErrorNavigation', () => {
   it.each(['discountPercent', 'discountFixed'])(
@@ -32,6 +40,105 @@ describe('mobileProductFormErrorNavigation', () => {
       variationIndex: 1,
       variationPanel: 'estoque',
     });
+  });
+
+  it('leva erro de preço do produto pai à aba Estoque e Precificação', () => {
+    const errors = flattenFormErrors({
+      unitPrice: { type: 'custom', message: 'Informe o preço de venda do produto.' },
+    } as never);
+    const fieldPath = Object.keys(errors)[0];
+
+    expect(fieldPath).toBe('unitPrice');
+    expect(resolveMobileProductFormErrorNavigation(fieldPath)).toEqual({ tab: 'estoque' });
+  });
+
+  it('leva e destaca custo de aquisição inválido na aba Estoque e Precificação', () => {
+    const errors = flattenFormErrors({
+      costPrice: { type: 'custom', message: 'Informe um custo de aquisição válido.' },
+    } as never);
+    const fieldPath = Object.keys(errors)[0];
+
+    expect(fieldPath).toBe('costPrice');
+    expect(resolveMobileProductFormErrorNavigation(fieldPath)).toEqual({ tab: 'estoque' });
+    expect(isMobileProductCostPriceError(fieldPath, errors)).toBe(true);
+    expect(isMobileProductCostPriceError('estoque', errors)).toBe(false);
+  });
+
+  it('leva erro de nome do produto para Geral e reconhece somente o erro obrigatório do schema', () => {
+    const errors = flattenFormErrors({
+      name: { type: 'custom', message: PRODUCT_NAME_REQUIRED_MESSAGE },
+    } as never);
+    const fieldPath = Object.keys(errors)[0];
+
+    expect(fieldPath).toBe('name');
+    expect(resolveMobileProductFormErrorNavigation(fieldPath)).toEqual({ tab: 'geral' });
+    expect(isMobileProductNameError(fieldPath, errors)).toBe(true);
+    expect(isMobileProductNameError('estoque', errors)).toBe(false);
+  });
+
+  it.each([
+    [false, 'Preencha todos os campos obrigatórios.'],
+    [true, PRODUCT_NAME_REQUIRED_MESSAGE],
+  ])('usa o feedback ERP para nome obrigatório no rascunho=%s', (isDraft, expected) => {
+    expect(
+      resolveMobileProductFormErrorMessage(
+        'name',
+        { name: PRODUCT_NAME_REQUIRED_MESSAGE },
+        isDraft
+      )
+    ).toBe(expected);
+  });
+
+  it.each([
+    ['unitPrice', 'Informe um número finito maior ou igual a zero.'],
+    ['estoque', 'Informe o preço de venda do produto.'],
+  ])('usa a mensagem de preço do ERP para o erro raiz em %s', (fieldPath, message) => {
+    expect(resolveMobileProductFormErrorMessage(fieldPath, { [fieldPath]: message })).toBe(
+      'Por favor, informe o Preço de Venda do produto na aba Estoque e Precificação.'
+    );
+  });
+
+  it.each([
+    ['unitPrice', 'Informe um número finito maior ou igual a zero.', true],
+    ['estoque', 'Informe o preço de venda do produto.', true],
+    ['estoque', 'Selecione um fornecedor.', false],
+  ])('identifica somente erro de preço para o caminho %s', (fieldPath, message, expected) => {
+    expect(isMobileProductUnitPriceError(fieldPath, { [fieldPath]: message })).toBe(expected);
+  });
+
+  it('usa o erro genérico do ERP para Estoque Mínimo inválido na finalização', () => {
+    expect(
+      resolveMobileProductFormErrorMessage('minStock', {
+        minStock: 'Informe um número finito maior ou igual a zero.',
+      })
+    ).toBe('Preencha todos os campos obrigatórios.');
+  });
+
+  it('usa a mensagem de schema do ERP para Estoque Mínimo inválido no rascunho', () => {
+    expect(
+      resolveMobileProductFormErrorMessage(
+        'minStock',
+        { minStock: 'Informe um número finito maior ou igual a zero.' },
+        true
+      )
+    ).toBe('Informe um valor finito maior ou igual a zero.');
+  });
+
+  it.each(['estoque', 'mainSupplierId'])(
+    'identifica o erro de fornecedor obrigatório em %s',
+    (fieldPath) => {
+      expect(
+        isMobileProductSupplierError(fieldPath, { [fieldPath]: 'Selecione um fornecedor.' })
+      ).toBe(true);
+    }
+  );
+
+  it('não confunde outros erros da aba com fornecedor obrigatório', () => {
+    expect(
+      isMobileProductSupplierError('estoque', {
+        estoque: 'Informe o preço de venda do produto.',
+      })
+    ).toBe(false);
   });
 
   it('leva erro de foto da variação selecionada ao painel de fotos', () => {

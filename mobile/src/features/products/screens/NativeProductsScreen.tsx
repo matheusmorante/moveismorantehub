@@ -20,6 +20,7 @@ import {
   isStockistOnlyProductProfile,
   shouldHideProductCatalogPublicationStatus,
 } from '../../../../../shared-utils/productPermissions';
+import { MAX_VARIATION_IMAGES } from '../../../../../shared-utils/productImageLimits';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { useAuth } from '../../../contexts/AuthContext';
 import { WEB_URL } from '../../../services/supabaseClient';
@@ -28,6 +29,7 @@ import { MobileProductCard } from '../components/MobileProductCard';
 import { MobileProductPagination } from '../components/MobileProductPagination';
 import { ProductsHeader } from '../components/ProductsHeader';
 import type { ProductListMode } from '../components/header/ProductsHeaderModeSelector';
+import { NativeProductReconciliationScreen } from './NativeProductReconciliationScreen';
 import { useMobileProducts } from '../hooks/useMobileProducts';
 import { MobileMergeVariationModal } from '../modals/MobileMergeVariationModal';
 import { MobileMoveVariationModal } from '../modals/MobileMoveVariationModal';
@@ -35,9 +37,9 @@ import { MobileProductDetailsModal } from '../modals/MobileProductDetailsModal';
 import { ProductConfigModal } from '../modals/ProductConfigModal';
 import { ProductFormModal } from '../modals/ProductFormModal';
 import { ProductLinkedOrdersModal } from '../modals/ProductLinkedOrdersModal';
-import { ProductPriceHistoryModal } from '../modals/ProductPriceHistoryModal';
 import { fetchMobileCategories } from '../services/mobileCategoryService';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
+import { copyMobileProductImages } from '../services/mobileProductPhotoService';
 import { generateVariationSku } from '../domain/productSku';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 
@@ -45,13 +47,11 @@ interface Props {
   isDarkMode: boolean;
   userProfile?: any;
   mode?: ProductListMode;
-  onLaunchStock?: (product: any) => void;
 }
 
 export const NativeProductsScreen: React.FC<Props> = ({
   isDarkMode,
   mode,
-  onLaunchStock,
 }) => {
   const [screenMode, setScreenMode] = useState<ProductListMode>(mode ?? 'standard');
   const [selectedMode, setSelectedMode] = useState<ProductListMode | null>(mode ?? null);
@@ -123,7 +123,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
   >(undefined);
   const [showFormModal, setShowFormModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [historyProduct, setHistoryProduct] = useState<any | null>(null);
+  const [showReconciliation, setShowReconciliation] = useState(false);
   const [ordersProduct, setOrdersProduct] = useState<any | null>(null);
   const [detailsProduct, setDetailsProduct] = useState<any | null>(null);
   const [loadingProductForEdit, setLoadingProductForEdit] = useState(false);
@@ -240,17 +240,25 @@ export const NativeProductsScreen: React.FC<Props> = ({
       if (!source) throw new Error('O cadastro completo do produto não foi encontrado.');
 
       const code = await getNextSequentialProductCode();
-      const variations = (source.allVariations || source.variations || []).map(
-        (variation: any, index: number) => ({
+      const images = await copyMobileProductImages(Array.isArray(source.images) ? source.images : []);
+      const sourceVariations = source.allVariations || source.variations || [];
+      const variationImages =
+        sourceVariations.length === 1 ? images : images.slice(0, MAX_VARIATION_IMAGES);
+      const variations = sourceVariations.map((variation: any, index: number) => {
+        const copy = {
           ...variation,
           id: crypto.randomUUID(),
           isVirtual: false,
           mergedToVariationId: undefined,
           sku: generateVariationSku(code, index),
+          images: [...variationImages],
           status: 'draft',
           active: false,
-        })
-      );
+        };
+        delete (copy as any).image_url;
+        delete (copy as any).imageUrl;
+        return copy;
+      });
       setEditingProduct({
         ...source,
         id: undefined,
@@ -266,6 +274,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
         is_draft: true,
         active: false,
         status: 'draft',
+        images,
         allVariations: variations,
         variations,
       });
@@ -279,9 +288,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
   };
 
   const handleOpenReconciliation = () => {
-    Linking.openURL(`${WEB_URL}/products/reconciliation/suppliers`).catch(() => {
-      Alert.alert('Não foi possível abrir a conciliação', 'Tente novamente mais tarde.');
-    });
+    if (canViewReconciliation) setShowReconciliation(true);
   };
 
   const handleOpenMetaCatalog = () => {
@@ -296,7 +303,9 @@ export const NativeProductsScreen: React.FC<Props> = ({
     });
   };
 
-  return (
+  return showReconciliation && canViewReconciliation ? (
+    <NativeProductReconciliationScreen dark={isDarkMode} onClose={() => setShowReconciliation(false)} />
+  ) : (
     <View style={[styles.container, isDarkMode && styles.dark, { paddingTop: topInset }]}>
       {availableModes.length === 0 ? (
         <View style={styles.empty}>
@@ -497,6 +506,13 @@ export const NativeProductsScreen: React.FC<Props> = ({
                     ? 'A lixeira está vazia'
                     : 'Nenhum produto encontrado'}
               </Text>
+              {!productsHook.showTrash && (
+                <Text style={[styles.emptyHint, isDarkMode && styles.emptyHintDark]}>
+                  {activeMode === 'composition'
+                    ? 'Tente ajustar seus filtros ou adicione uma nova composição.'
+                    : 'Tente ajustar seus filtros ou adicione um novo produto ou serviço.'}
+                </Text>
+              )}
             </View>
           ) : (
             productsHook.products.map((product) => (
@@ -520,10 +536,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
                 isLabelOnlyProfile={isLabelOnlyProfile}
                 onDuplicate={handleDuplicate}
                 onViewDetails={setDetailsProduct}
-                onLaunchStock={canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile ? onLaunchStock : undefined}
-                onShowHistory={
-                  canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile ? setHistoryProduct : undefined
-                }
                 onShowOrders={canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile ? setOrdersProduct : undefined}
                 onMoveVariation={
                   canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile
@@ -583,12 +595,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
         }}
         canManageCategories={canViewCategories}
         canManageCharacteristics={canViewCharacteristics}
-      />
-      <ProductPriceHistoryModal
-        visible={Boolean(historyProduct) && canEditProducts && !isLabelOnlyProfile}
-        dark={isDarkMode}
-        product={historyProduct}
-        onClose={() => setHistoryProduct(null)}
       />
       <ProductLinkedOrdersModal
         visible={Boolean(ordersProduct) && canEditProducts && !isLabelOnlyProfile}
@@ -675,6 +681,8 @@ const styles = StyleSheet.create({
   },
   empty: { alignItems: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 14, fontWeight: '800', color: '#64748b', marginTop: 12 },
+  emptyHint: { fontSize: 12, color: '#64748b', textAlign: 'center', marginTop: 6, paddingHorizontal: 24 },
+  emptyHintDark: { color: '#94a3b8' },
   retryButton: {
     marginTop: 12,
     minHeight: 44,

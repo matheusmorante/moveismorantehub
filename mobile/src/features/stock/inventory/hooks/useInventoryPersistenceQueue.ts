@@ -11,6 +11,7 @@ interface ScopeConfigSnapshot {
   name: string;
   hasStages: boolean;
   responsibleId: string;
+  responsibleName?: string;
   scopeType?: string;
   supplierId?: string;
 }
@@ -44,6 +45,7 @@ export const useInventoryPersistenceQueue = (
           supplierId: savedScope?.supplierId,
           name: savedScope?.name || `Inventário #${code}`,
           responsibleId: savedScope?.responsibleId || userProfileId,
+          responsibleName: savedScope?.responsibleName,
           hasStages: savedScope?.hasStages ?? false,
           status: 'in_progress',
           items: itemsToPersist.map((item) => ({ ...item })),

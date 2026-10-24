@@ -12,12 +12,15 @@ import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import Person from '@/pages/types/person.type';
 import { InboundInvoiceItemsReview } from '../components/InboundInvoiceItemsReview';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { getInboundReceiptBlockedReason } from '../inboundReceiptEligibility';
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
   invoice: InboundInvoice | null;
   onSaveSuccess: () => void | Promise<void>;
+  canAccessReceipts?: boolean;
+  onGenerateReceipt?: (invoice: InboundInvoice) => void;
 };
 
 export function ManageInboundInvoiceMappingsModal({
@@ -25,6 +28,8 @@ export function ManageInboundInvoiceMappingsModal({
   onClose,
   invoice: initialInvoice,
   onSaveSuccess,
+  canAccessReceipts = false,
+  onGenerateReceipt,
 }: Props) {
   const [invoice, setInvoice] = useState<InboundInvoice | null>(initialInvoice);
   const [suppliers, setSuppliers] = useState<Person[]>([]);
@@ -133,6 +138,13 @@ export function ManageInboundInvoiceMappingsModal({
 
   const hasMatchedProducts = invoice.items.some((item) => Boolean(item.matchedProductId || item.compositionLinks?.length));
   const close = () => { if (!inFlight.current && !reviewBusy) onClose(); };
+  const receiptDisabledReason = saving || loading || reviewBusy
+    ? 'Aguarde a consulta ou a gravação dos vínculos terminar.'
+    : uncertain.current.has(invoice.id)
+      ? 'Há uma alteração sem confirmação. Consulte novamente os vínculos antes de gerar o recebimento.'
+      : getInboundReceiptBlockedReason(invoice, canAccessReceipts)
+        || (!onGenerateReceipt ? 'A ação de recebimento não está disponível nesta tela.' : null);
+  const canGenerateReceipt = !receiptDisabledReason;
 
   const persistInvoice = async (nextInvoice: InboundInvoice) => {
     if (inFlight.current || reviewBusy) return false;
@@ -288,6 +300,38 @@ export function ManageInboundInvoiceMappingsModal({
             />
             </fieldset>
           </main>
+          <footer className="flex shrink-0 justify-end border-t border-slate-100 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-950/30">
+            <div
+              className={`group relative ${canGenerateReceipt ? '' : 'cursor-help'}`}
+              role="group"
+              tabIndex={canGenerateReceipt ? undefined : 0}
+              aria-label={canGenerateReceipt ? undefined : 'Por que gerar recebimento está desativado?'}
+              aria-describedby={receiptDisabledReason ? 'inbound-receipt-disabled-reason' : undefined}
+            >
+              <button
+                type="button"
+                disabled={!canGenerateReceipt}
+                onClick={() => onGenerateReceipt?.(invoice)}
+                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition-colors ${
+                  canGenerateReceipt
+                    ? 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 cursor-pointer'
+                    : 'cursor-not-allowed bg-slate-200 text-slate-500 opacity-60 dark:bg-slate-800 dark:text-slate-400'
+                }`}
+              >
+                <i className="bi bi-clipboard-check" aria-hidden="true" />
+                Gerar recebimento
+              </button>
+              {receiptDisabledReason && (
+                <span
+                  id="inbound-receipt-disabled-reason"
+                  role="tooltip"
+                  className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 hidden w-72 rounded-xl border border-slate-200 bg-slate-900 px-3 py-2 text-left text-xs font-medium leading-relaxed text-white shadow-xl group-hover:block group-focus:block dark:border-slate-700"
+                >
+                  {receiptDisabledReason}
+                </span>
+              )}
+            </div>
+          </footer>
         </section>
       </div>
 

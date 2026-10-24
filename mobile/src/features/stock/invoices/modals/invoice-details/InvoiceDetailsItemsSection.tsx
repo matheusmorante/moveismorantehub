@@ -21,8 +21,7 @@ export const InvoiceDetailsItemsSection: React.FC<InvoiceDetailsItemsSectionProp
       {invoice.items.length === 0 ? (
         <View style={styles.emptyItemsBox}>
           <Text style={[styles.emptyText, isDarkMode && styles.textMutedDark]}>
-            A SEFAZ retornou somente o resumo (resNFe), que não contém os produtos. Para lançar os
-            itens, importe o XML completo recebido do fornecedor.
+            A SEFAZ retornou somente o resumo desta nota; os itens ainda não estão disponíveis.
           </Text>
         </View>
       ) : (

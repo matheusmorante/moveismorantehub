@@ -6,8 +6,13 @@ import {
   recordInventorySubmissionFailure,
 } from '../../../../services/sqlite/inventoryOutbox';
 import { connectivityService } from '../../../../services/offline/connectivityService';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import { getOfflineInventoryCatalog } from './offlineInventoryCatalog';
 import { findInventoryDraftConflicts } from './inventoryDraftConflicts';
+import {
+  INVENTORY_FINALIZATION_RPC_TIMEOUT_ERROR,
+  INVENTORY_FINALIZATION_RPC_TIMEOUT_MS,
+} from './inventoryFinalizerValidation';
 import type { AuditItem } from '../types/inventoryWorkflow.types';
 
 export const syncPendingInventorySubmissions = async (
@@ -74,18 +79,25 @@ export const syncPendingInventorySubmissions = async (
         }
       }
 
-      const { data, error } = await supabase.rpc(
-        submission.contractVersion === 2
-          ? 'finalize_inventory_transaction_v2'
-          : 'finalize_inventory_transaction',
-        {
-          p_audit_id: submission.auditId,
-          p_code: submission.code,
-          p_observation: submission.observation,
-          p_items: submission.items,
-          p_responsible_name: submission.responsibleName,
-        }
+      const response = await withTimeout(
+        supabase.rpc(
+          submission.contractVersion === 2
+            ? 'finalize_inventory_transaction_v2'
+            : 'finalize_inventory_transaction',
+          {
+            p_audit_id: submission.auditId,
+            p_code: submission.code,
+            p_observation: submission.observation,
+            p_items: submission.items,
+            p_responsible_name: submission.responsibleName,
+          }
+        ),
+        INVENTORY_FINALIZATION_RPC_TIMEOUT_MS,
+        null,
+        'inventario:outbox-sync-rpc'
       );
+      if (!response) throw new Error(INVENTORY_FINALIZATION_RPC_TIMEOUT_ERROR);
+      const { data, error } = response;
       if (error) throw error;
       if (
         data?.auditId === submission.auditId &&

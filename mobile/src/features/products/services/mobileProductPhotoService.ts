@@ -1,8 +1,12 @@
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { copyProductImageUrls } from '../../../../../shared-utils/productImageCopy';
 
 const CATALOG_API_URL = (
   process.env.EXPO_PUBLIC_CATALOG_API_URL || 'https://www.moveismorante.com.br'
 ).replace(/\/$/, '');
+
+export const copyMobileProductImages = (images: readonly string[]): Promise<string[]> =>
+  copyProductImageUrls(images, CATALOG_API_URL);
 
 export async function uploadMobileProductPhoto(
   blob: Blob,

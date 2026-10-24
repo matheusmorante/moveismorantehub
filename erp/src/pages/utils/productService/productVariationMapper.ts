@@ -85,6 +85,7 @@ export const mapDbVariations = (
     const syncDepth = details.syncDepth ?? v.use_parent_dimensions !== false;
     const syncWeight = details.syncWeight ?? v.use_parent_dimensions !== false;
     const syncFiscal = details.syncFiscal !== false;
+    const syncNcm = details.syncNcm !== false;
     const syncIpi = details.syncIpi !== false;
     const syncFreight = details.syncFreight !== false;
     const formattedName = toTitleCase(
@@ -113,7 +114,13 @@ export const mapDbVariations = (
           v.active !== undefined && v.active !== null ? Boolean(v.active) : Boolean(data.active),
         status: (v.status || data.status || 'hidden') as 'draft' | 'published' | 'hidden',
         condition: details.syncCondition === false ? details.condition || data.condition || 'novo' : data.condition || 'novo',
-        fiscal: syncFiscal ? data.fiscal : details.fiscal,
+        fiscal: syncFiscal
+          ? {
+              ...(data.fiscal || {}),
+              ...(syncNcm ? {} : { ncm: details.fiscal?.ncm }),
+            }
+          : details.fiscal,
+        syncNcm,
         attributes: attributesList,
         images: varImages,
         image_url:

@@ -16,6 +16,7 @@ interface InventoryReviewModalProps {
   readonly items: AuditItem[];
   readonly startDate: string; // The date when the inventory was created (snapshot)
   readonly hasStages?: boolean;
+  readonly canFinalize: boolean;
   readonly onCancel: () => void;
   readonly onConfirm: (
     itemsWithAdjustment: Array<AuditItem & { reconciledExpected: number; difference: number }>
@@ -29,6 +30,7 @@ export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = (props)
 const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
   items,
   startDate,
+  canFinalize,
   onCancel,
   onConfirm,
 }) => {
@@ -360,29 +362,38 @@ const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
           )}
         </main>
 
-        <footer className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={close}
-            disabled={loading || isConfirming}
-            className="px-6 py-2.5 font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
-          >
-            Voltar para contagem
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleConfirm()}
-            disabled={loading || isConfirming || sourceInvalid || blocked || reconciledItems.every((item) => item.physicalCount === null)}
-            title={
-              reconciledItems.every((item) => item.physicalCount === null)
-                ? 'Conte pelo menos um item para confirmar o inventário.'
-                : ''
-            }
-            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Concluir Inventário
-            <i className="bi bi-check2-all"></i>
-          </button>
+        <footer className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          {!canFinalize && (
+            <p role="status" className="mb-3 text-sm text-amber-700 dark:text-amber-300">
+              Seu perfil pode revisar a contagem, mas precisa da permissão “Finalizar inventários” para concluir.
+            </p>
+          )}
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={close}
+              disabled={loading || isConfirming}
+              className="px-6 py-2.5 font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
+            >
+              Voltar para contagem
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleConfirm()}
+              disabled={!canFinalize || loading || isConfirming || sourceInvalid || blocked || reconciledItems.every((item) => item.physicalCount === null)}
+              title={
+                !canFinalize
+                  ? 'Seu perfil precisa da permissão “Finalizar inventários”.'
+                  : reconciledItems.every((item) => item.physicalCount === null)
+                    ? 'Conte pelo menos um item para confirmar o inventário.'
+                    : ''
+              }
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Concluir Inventário
+              <i className="bi bi-check2-all"></i>
+            </button>
+          </div>
         </footer>
       </div>
     </div>

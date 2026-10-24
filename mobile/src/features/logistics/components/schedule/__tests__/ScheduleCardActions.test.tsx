@@ -70,7 +70,7 @@ describe('ScheduleCard - Botões de Ação no Cronograma', () => {
     activityBackgroundColor: '#fef3c7',
   };
 
-  it('exibe botões "VER DETALHES" e "FLUXO DE ENTREGA" lado a lado para atividades de entrega', () => {
+  it('exibe a ação única para abrir o fluxo em atividades de entrega', () => {
     const html = renderToStaticMarkup(
       <ScheduleCard
         item={deliveryItem}
@@ -80,11 +80,10 @@ describe('ScheduleCard - Botões de Ação no Cronograma', () => {
       />
     );
 
-    expect(html).toContain('VER DETALHES');
-    expect(html).toContain('FLUXO DE ENTREGA');
+    expect(html).toContain('ABRIR FLUXO DE ENTREGA');
   });
 
-  it('exibe apenas "VER ATIVIDADE" quando não for atividade de entrega', () => {
+  it('exibe apenas "ABRIR ATIVIDADE" quando não for atividade de entrega', () => {
     const html = renderToStaticMarkup(
       <ScheduleCard
         item={assemblyItem}
@@ -94,11 +93,11 @@ describe('ScheduleCard - Botões de Ação no Cronograma', () => {
       />
     );
 
-    expect(html).toContain('VER ATIVIDADE');
-    expect(html).not.toContain('FLUXO DE ENTREGA');
+    expect(html).toContain('ABRIR ATIVIDADE');
+    expect(html).not.toContain('ABRIR FLUXO DE ENTREGA');
   });
 
-  it('renderiza o botão "FLUXO DE ENTREGA" mesmo se onOpenDeliveryFlow for omitido (fallback seguro)', () => {
+  it('renderiza "ABRIR FLUXO DE ENTREGA" se onOpenDeliveryFlow for omitido', () => {
     const html = renderToStaticMarkup(
       <ScheduleCard
         item={deliveryItem}
@@ -107,7 +106,6 @@ describe('ScheduleCard - Botões de Ação no Cronograma', () => {
       />
     );
 
-    expect(html).toContain('VER DETALHES');
-    expect(html).toContain('FLUXO DE ENTREGA');
+    expect(html).toContain('ABRIR FLUXO DE ENTREGA');
   });
 });

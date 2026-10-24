@@ -52,6 +52,8 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
   const replaceForm = useZodForm(imageFilesFormSchema, { files: [] });
   const maxPhotos = MAX_PARENT_PRODUCT_IMAGES;
   const currentCount = (formData.images || []).length;
+  const isSimpleProduct =
+    !formData.hasVariations && (formData.variations || []).length <= 1;
 
   const handleReplacePhoto = async (
     index: number,
@@ -108,6 +110,11 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
               desta galeria para mostrar imagens específicas de cada modelo.
             </p>
             <p className="font-black">Limite da galeria: {maxPhotos} fotos.</p>
+            {isSimpleProduct && (
+              <p className="font-semibold">
+                Arraste para reordenar: a primeira foto é a Capa e a segunda é a Secundária.
+              </p>
+            )}
             <p>
               Produtos com várias variações podem vincular até {MAX_VARIATION_IMAGES} fotos por
               variação. Com uma única variação, toda a galeria é vinculada automaticamente.
@@ -133,7 +140,13 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
         <div className="transition-colors rounded-[2rem] border-2 border-dashed border-slate-150 dark:border-slate-800 p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-955/10">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 select-none min-w-0 w-full">
             {(formData.images || []).map((url, index) => {
-              const borderClass = 'border-slate-200 dark:border-slate-800';
+              const isCover = isSimpleProduct && index === 0;
+              const isSecondary = isSimpleProduct && index === 1;
+              const borderClass = isCover
+                ? 'border-blue-500 ring-2 ring-blue-500/30'
+                : isSecondary
+                  ? 'border-emerald-500 ring-2 ring-emerald-500/20'
+                  : 'border-slate-200 dark:border-slate-800';
               const isLinkedToVariation = (formData.variations || []).some((variation) =>
                 (variation.images || []).includes(url)
               );
@@ -143,15 +156,22 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                   key={url}
                   draggable
                   onClick={() => setActiveImageIndex((prev) => (prev === index ? null : index))}
-                  onDragStart={() => {
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData('text/plain', String(index));
+                    event.dataTransfer.effectAllowed = 'move';
                     setActiveImageIndex(null);
                     setDraggedIndex(index);
                   }}
                   onDragOver={(e) => {
                     e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
                     if (draggedIndex === null || draggedIndex === index) return;
                     setDraggedIndex(index);
                     setFormData((prev) => moveProductImageGlobally(prev, draggedIndex, index));
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setDraggedIndex(null);
                   }}
                   onDragEnd={() => setDraggedIndex(null)}
                   className={`group relative aspect-square w-full rounded-none overflow-hidden border-2 cursor-move transition-all shadow-sm ${borderClass}`}
@@ -162,6 +182,19 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     alt={`Foto ${index + 1}`}
                     className="object-cover w-full h-full pointer-events-none"
                   />
+
+                  {isCover && (
+                    <span className="absolute top-2 left-2 z-20 flex items-center gap-1 rounded-full border border-white/40 bg-blue-600 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-md">
+                      <i className="bi bi-star-fill text-[8px]" aria-hidden="true" />
+                      Capa
+                    </span>
+                  )}
+                  {isSecondary && (
+                    <span className="absolute top-2 left-2 z-20 flex items-center gap-1 rounded-full border border-white/40 bg-emerald-600 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-md">
+                      <i className="bi bi-images text-[8px]" aria-hidden="true" />
+                      Secundária
+                    </span>
+                  )}
 
                   {!isLinkedToVariation && (
                     <span

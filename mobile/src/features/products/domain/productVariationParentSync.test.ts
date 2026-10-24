@@ -53,7 +53,7 @@ describe('syncMobileVariationsWithParent', () => {
     expect(updated[0].technicalValues).toEqual({ Material: 'MDF', Acabamento: 'Fosco' });
   });
 
-  it('preserva valores próprios em produto salvo ou em família com várias variações', () => {
+  it('mantém a variação simples herdada do pai e preserva valores próprios da família', () => {
     const current = { Material: 'Madeira maciça' };
     const saved = syncMobileVariationsWithParent(
       [{ technicalValues: current }],
@@ -64,7 +64,7 @@ describe('syncMobileVariationsWithParent', () => {
       { hasVariations: true, technicalValues: { Material: 'MDF' } }
     );
 
-    expect(saved[0].technicalValues).toBe(current);
+    expect(saved[0].technicalValues).toEqual({ Material: 'MDF' });
     expect(family.map((variation) => variation.technicalValues)).toEqual([
       current,
       { Material: 'Aço' },

@@ -11,6 +11,7 @@ export interface ReceiptsActionsMenuProps {
   readonly onReverseRequest?: (e: React.MouseEvent, receipt: GoodsReceipt) => void;
   readonly onUnreverseRequest?: (e: React.MouseEvent, receipt: GoodsReceipt) => void;
   readonly onDelete?: (e: React.MouseEvent, id: string) => void;
+  readonly onPrintIdentificationLabels?: (receipt: GoodsReceipt) => void;
 }
 
 /**
@@ -27,18 +28,50 @@ export const ReceiptsActionsMenu: React.FC<ReceiptsActionsMenuProps> = ({
   onReverseRequest,
   onUnreverseRequest,
   onDelete,
+  onPrintIdentificationLabels,
 }) => {
   if (!isOpen) return null;
 
   const isDraft = receipt.isDraft || receipt.status === 'draft';
   const isEstornado = receipt.status === 'estornado';
+  const canPrintLabels = Boolean(
+    receipt.status === 'received' &&
+      !isDraft &&
+      !isEstornado &&
+      receipt.items?.length &&
+      receipt.items.every((item) => Boolean(item.productId))
+  );
+  const labelBlockedReason = isDraft
+    ? 'Conclua o recebimento para imprimir etiquetas.'
+    : isEstornado
+      ? 'Recebimentos estornados não podem gerar etiquetas.'
+      : !receipt.items?.length || !receipt.items.every((item) => Boolean(item.productId))
+        ? 'Este recebimento não tem produtos vinculados para etiquetar.'
+        : 'As etiquetas ficam disponíveis após concluir o recebimento.';
 
   return (
     <div
       role="menu"
-      className="absolute right-0 mt-2 z-50 w-48 rounded-2xl border border-slate-100 bg-white p-1.5 shadow-xl dark:border-slate-800 dark:bg-slate-900 animate-in fade-in"
+      className="absolute right-0 mt-2 z-50 w-56 rounded-2xl border border-slate-100 bg-white p-1.5 shadow-xl dark:border-slate-800 dark:bg-slate-900 animate-in fade-in"
       onClick={(e) => e.stopPropagation()}
     >
+      {onPrintIdentificationLabels && (
+        <button
+          type="button"
+          role="menuitem"
+          disabled={!canPrintLabels}
+          title={canPrintLabels ? 'Imprimir etiquetas dos produtos recebidos' : labelBlockedReason}
+          onClick={() => {
+            if (!canPrintLabels) return;
+            onClose();
+            onPrintIdentificationLabels(receipt);
+          }}
+          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:text-slate-400 disabled:hover:bg-transparent dark:text-blue-300 dark:hover:bg-slate-800 dark:disabled:text-slate-500"
+        >
+          <i className="bi bi-qr-code" aria-hidden="true" /> Imprimir etiquetas de identificação
+        </button>
+      )}
+
       <button
         type="button"
         role="menuitem"

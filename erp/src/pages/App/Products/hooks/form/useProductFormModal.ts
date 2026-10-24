@@ -528,12 +528,20 @@ export function useProductFormModal({
           onClose();
           return;
         }
-        setFormData((previous) => ({
-          ...previous,
-          variations: previous.variations?.filter((variation) => variation.id !== variationId),
-          hasVariations:
-            (previous.variations?.filter((variation) => variation.id !== variationId).length || 0) > 1,
-        }));
+        setFormData((previous) => {
+          const remainingVariations = (previous.variations || []).filter(
+            (variation) => variation.id !== variationId
+          );
+          const variations = remainingVariations.length === 1
+            ? [{ ...remainingVariations[0], images: [...(previous.images || [])] }]
+            : remainingVariations;
+
+          return {
+            ...previous,
+            variations,
+            hasVariations: remainingVariations.length > 1,
+          };
+        });
         toast.success(result.message || 'Variação excluída com sucesso.');
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Erro ao excluir a variação.');

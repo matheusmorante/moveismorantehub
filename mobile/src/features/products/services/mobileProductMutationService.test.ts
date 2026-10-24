@@ -160,6 +160,129 @@ describe('saveMobileProduct', () => {
     expect(parameters.p_product.technical_specs.variationDetails[0]).not.toHaveProperty('discountFixed');
   });
 
+  it('persiste promoção própria quando o preço de venda continua herdado do pai', async () => {
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'PROD',
+      name: 'Produto de teste',
+      itemType: 'product',
+      unitPrice: '100,00',
+      promoPrice: '80,00',
+      costPrice: '50,00',
+      hasVariations: true,
+      variations: [
+        {
+          id: '123e4567-e89b-42d3-a456-426614174002',
+          name: 'Produto Azul',
+          sku: 'PROD-01',
+          attributes: [{ name: 'Cor', value: 'Azul' }],
+          syncUnitPrice: true,
+          syncPromoPrice: false,
+          price: '100,00',
+          promoPrice: '65,00',
+          syncCostPrice: false,
+          costPrice: '40,00',
+          comboItems: [],
+        },
+      ],
+      images: [],
+    });
+
+    const parameters = mocks.rpc.mock.calls[0][1];
+    expect(parameters.p_variations[0]).toMatchObject({
+      price: 100,
+      promo_price: 65,
+      cost_price: 40,
+      use_parent_price: true,
+      use_parent_promo_price: false,
+    });
+    expect(parameters.p_product.technical_specs.variationDetails[0]).toMatchObject({
+      syncUnitPrice: true,
+      syncPromoPrice: false,
+      syncCostPrice: false,
+      promoPrice: '65,00',
+      costPrice: '40,00',
+    });
+  });
+
+  it('persiste override variável vazio em technical_specs e remove atributo vazio da linha', async () => {
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'PROD',
+      name: 'Produto de teste',
+      itemType: 'product',
+      productKind: 'normal',
+      variableTechnicalFields: ['Cor'],
+      variations: [
+        {
+          id: 'new_PROD-01',
+          name: 'Produto de teste',
+          sku: 'PROD-01',
+          attributes: [],
+          technicalValues: { Cor: '' },
+          comboItems: [],
+        },
+      ],
+      images: [],
+    });
+
+    const parameters = mocks.rpc.mock.calls[0][1];
+    const variationId = parameters.p_variations[0].id;
+    expect(parameters.p_variations[0].attributes).toEqual([]);
+    expect(parameters.p_product.technical_specs.variationDetails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: variationId, technicalValues: { Cor: '' } }),
+      ])
+    );
+  });
+
+  it('salva valores técnicos próprios distintos sob o UUID de cada variação', async () => {
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'PROD',
+      name: 'Armario',
+      itemType: 'product',
+      productKind: 'normal',
+      variableTechnicalFields: ['Cor'],
+      hasVariations: true,
+      variations: [
+        {
+          id: '123e4567-e89b-42d3-a456-426614174002',
+          name: 'Armario Azul',
+          sku: 'PROD-01',
+          attributes: [{ name: 'Cor', value: 'Azul', showName: false }],
+          technicalValues: { Cor: 'Azul' },
+          comboItems: [],
+        },
+        {
+          id: '123e4567-e89b-42d3-a456-426614174003',
+          name: 'Armario Verde',
+          sku: 'PROD-02',
+          attributes: [{ name: 'Cor', value: 'Verde', showName: false }],
+          technicalValues: { Cor: 'Verde' },
+          comboItems: [],
+        },
+      ],
+      images: [],
+    });
+
+    const parameters = mocks.rpc.mock.calls[0][1];
+    const valuesById = Object.fromEntries(
+      parameters.p_product.technical_specs.variationDetails.map((variation: any) => [
+        variation.id,
+        variation.technicalValues?.Cor,
+      ])
+    );
+
+    expect(valuesById).toEqual({
+      '123e4567-e89b-42d3-a456-426614174002': 'Azul',
+      '123e4567-e89b-42d3-a456-426614174003': 'Verde',
+    });
+  });
+
   it('preserva metadados de catálogo e descrições por canal ao editar um produto', async () => {
     await saveMobileProduct({
       id: '123e4567-e89b-42d3-a456-426614174000',

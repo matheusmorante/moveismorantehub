@@ -97,6 +97,8 @@ export interface AppSettings {
   nfeHomologationNextNumber?: number;
   nfceHomologationNextNumber?: number;
   cscId?: string;
+  /** Autoriza o envio automático do evento não conclusivo de Ciência da Emissão para resumos SEFAZ. */
+  autoInboundScienceEnabled: boolean;
   fiscalDefaults?: {
     ncm?: string;
     cest?: string;

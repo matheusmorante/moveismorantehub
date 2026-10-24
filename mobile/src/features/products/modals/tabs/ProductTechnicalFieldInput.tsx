@@ -86,6 +86,17 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
   const inputMode = getTechnicalFieldInputMode(type, options.length);
   const selectedValues = useMemo(() => getSelectedValues(value), [value]);
   const stringValue = Array.isArray(value) ? value.join(', ') : String(value ?? '');
+  const renderClearSelection = () => (
+    <TouchableOpacity
+      disabled={disabled}
+      onPress={() => onChange('')}
+      accessibilityRole="button"
+      accessibilityLabel={`Limpar ${field.name}`}
+      style={[styles.clearSelectionButton, disabled && styles.disabled]}
+    >
+      <Text style={[styles.clearSelectionText, dark && styles.lightText]}>Limpar seleção</Text>
+    </TouchableOpacity>
+  );
 
   useEffect(() => {
     setDecimalDraft(
@@ -202,61 +213,67 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
           ? 'no'
           : '';
     return (
-      <View style={[styles.booleanOptions, disabled && styles.disabled]}>
-        {[
-          { key: 'yes', label: yesValue, booleanValue: true },
-          { key: 'no', label: noValue, booleanValue: false },
-        ].map((option) => {
-          const selected = currentValue === option.key;
-          return (
-            <TouchableOpacity
-              key={option.key}
-              disabled={disabled}
-              onPress={() => onChange(isBoolean ? option.booleanValue : option.label)}
-              accessibilityRole="button"
-              accessibilityLabel={`${option.label} para ${field.name}`}
-              accessibilityState={{ selected, disabled }}
-              style={[styles.booleanOption, dark && styles.darkChip, selected && styles.selectedChip]}
-            >
-              <Text style={[styles.chipText, dark && styles.lightText, selected && styles.selectedText]}>
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      <View style={styles.selectionWrap}>
+        <View style={[styles.booleanOptions, disabled && styles.disabled]}>
+          {[
+            { key: 'yes', label: yesValue, booleanValue: true },
+            { key: 'no', label: noValue, booleanValue: false },
+          ].map((option) => {
+            const selected = currentValue === option.key;
+            return (
+              <TouchableOpacity
+                key={option.key}
+                disabled={disabled}
+                onPress={() => onChange(isBoolean ? option.booleanValue : option.label)}
+                accessibilityRole="button"
+                accessibilityLabel={`${option.label} para ${field.name}`}
+                accessibilityState={{ selected, disabled }}
+                style={[styles.booleanOption, dark && styles.darkChip, selected && styles.selectedChip]}
+              >
+                <Text style={[styles.chipText, dark && styles.lightText, selected && styles.selectedText]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {currentValue !== '' && renderClearSelection()}
       </View>
     );
   }
 
   if (inputMode === 'inline') {
     return (
-      <View style={styles.chips}>
-        {options.map((option) => {
-          const selected = selectedValues.some(
-            (item) => normalizeValue(item) === normalizeValue(option.value)
-          );
-          return (
-            <TouchableOpacity
-              key={option.id || option.value}
-              disabled={disabled}
-              accessibilityRole="button"
-              accessibilityState={{ selected, disabled }}
-              onPress={() => onChange(option.value)}
-              style={[
-                styles.chip,
-                dark && styles.darkChip,
-                selected && styles.selectedChip,
-                disabled && styles.disabled,
-              ]}
-            >
-              <Text
-                style={[styles.chipText, dark && styles.lightText, selected && styles.selectedText]}
+      <View style={styles.selectionWrap}>
+        <View style={styles.chips}>
+          {options.map((option) => {
+            const selected = selectedValues.some(
+              (item) => normalizeValue(item) === normalizeValue(option.value)
+            );
+            return (
+              <TouchableOpacity
+                key={option.id || option.value}
+                disabled={disabled}
+                accessibilityRole="button"
+                accessibilityState={{ selected, disabled }}
+                onPress={() => onChange(option.value)}
+                style={[
+                  styles.chip,
+                  dark && styles.darkChip,
+                  selected && styles.selectedChip,
+                  disabled && styles.disabled,
+                ]}
               >
-                {option.value}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+                <Text
+                  style={[styles.chipText, dark && styles.lightText, selected && styles.selectedText]}
+                >
+                  {option.value}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {type !== 'multi_select' && selectedValues.length > 0 && renderClearSelection()}
       </View>
     );
   }
@@ -408,6 +425,13 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   booleanOptions: { flexDirection: 'row', gap: 8 },
+  clearSelectionButton: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  clearSelectionText: { color: '#2563eb', fontSize: 12 },
   booleanOption: {
     flex: 1,
     minHeight: 44,

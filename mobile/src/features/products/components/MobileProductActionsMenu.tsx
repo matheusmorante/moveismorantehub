@@ -1,4 +1,4 @@
-import { Clock3, Copy, Eye, EyeOff, Link2, PackagePlus, Pencil, Tag, Trash2 } from 'lucide-react-native';
+import { Copy, Eye, EyeOff, Link2, Pencil, Tag, Trash2 } from 'lucide-react-native';
 import type React from 'react';
 import {
   Alert,
@@ -25,8 +25,6 @@ interface MobileProductActionsMenuProps {
   onDelete: (id: string, isDraft?: boolean) => void;
   onMoveToTrash?: (id: string) => void;
   onDuplicate?: (product: any) => void;
-  onLaunchStock?: (product: any) => void;
-  onShowHistory?: (product: any) => void;
   onShowOrders?: (product: any) => void;
   onPrintPriceLabel?: (product: any) => void;
 }
@@ -46,8 +44,6 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
   onDelete,
   onMoveToTrash,
   onDuplicate,
-  onLaunchStock,
-  onShowHistory,
   onShowOrders,
   onPrintPriceLabel,
 }) => {
@@ -106,47 +102,11 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                     onDuplicate(product);
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="Duplicar Produto"
+                  accessibilityLabel="Copiar produto"
                 >
                   <Copy size={16} color="#4f46e5" />
                   <Text style={[styles.menuItemText, dark && styles.lightText]}>
-                    Duplicar Produto
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Lançar Estoque */}
-              {onLaunchStock && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    onClose();
-                    onLaunchStock(product);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Lançar Estoque"
-                >
-                  <PackagePlus size={16} color="#d97706" />
-                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
-                    Lançar Estoque
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Histórico de Preços */}
-              {onShowHistory && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    onClose();
-                    onShowHistory(product);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Histórico de Preços"
-                >
-                  <Clock3 size={16} color="#059669" />
-                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
-                    Histórico de Preços
+                    Copiar produto
                   </Text>
                 </TouchableOpacity>
               )}

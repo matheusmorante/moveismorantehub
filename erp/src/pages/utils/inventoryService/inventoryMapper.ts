@@ -1,54 +1,9 @@
 import InventoryMove from '../../types/inventoryMove.type';
 import { isExitType, isAdjustmentType } from './inventoryTypeRules';
+import { toInventoryMoveDatabaseRow } from '../../../../../shared-utils/inventoryMoveToDb';
 
 export const mapInventoryMoveToDB = (move: InventoryMove) => {
-  // Validação estrita dos tipos aceitos pela constraint do banco: 'entry' | 'exit' | 'adjustment'
-  const dbType = isExitType(move.type)
-    ? 'exit'
-    : isAdjustmentType(move.type)
-      ? 'adjustment'
-      : 'entry';
-  const resolvedStatus =
-    move.status === 'reversed' || move.status === 'cancelled' ? 'reversed' : 'effective';
-
-  let observationPayload: string | null = null;
-  if (move.observation && (move.observation.startsWith('{') || move.observation.startsWith('['))) {
-    try {
-      const parsed = JSON.parse(move.observation);
-      observationPayload = JSON.stringify({
-        ...parsed,
-        status: resolvedStatus,
-        reversalReason: move.reversalReason || parsed.reversalReason || null,
-        reversedAt: move.reversedAt || parsed.reversedAt || null,
-      });
-    } catch {
-      observationPayload = move.observation;
-    }
-  } else if (move.observation || resolvedStatus === 'reversed' || move.reversalReason) {
-    observationPayload = JSON.stringify({
-      note: move.observation || '',
-      status: resolvedStatus,
-      reversalReason: move.reversalReason || null,
-      reversedAt: move.reversedAt || null,
-    });
-  }
-
-  return {
-    product_id: move.productId,
-    variation_id: move.variationId || null,
-    product_description: move.productDescription,
-    type: dbType,
-    quantity: move.quantity,
-    date: move.date,
-    label: move.label || null,
-    unit_cost: move.unitCost ?? null,
-    unit_price: move.unitPrice || 0,
-    observation: observationPayload,
-    order_id: move.relatedEntityId || null,
-    source_receipt_id: move.sourceReceiptId || null,
-    source_item_index: move.sourceItemIndex ?? null,
-    reason: move.reversalReason || move.label || null,
-  };
+  return toInventoryMoveDatabaseRow(move);
 };
 
 export const mapInventoryMoveFromDB = (data: any): InventoryMove => {

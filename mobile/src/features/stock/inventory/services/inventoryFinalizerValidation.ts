@@ -5,10 +5,15 @@ import type {
   FinalizeAdjustmentItem,
 } from '../types/inventoryWorkflow.types';
 
+export const INVENTORY_FINALIZATION_RPC_TIMEOUT_MS = 30_000;
+export const INVENTORY_FINALIZATION_RPC_TIMEOUT_ERROR =
+  'A confirmação da finalização do inventário excedeu o tempo limite.';
+
 export interface InventoryFinalizerScopeConfig {
   name: string;
   hasStages: boolean;
   responsibleId: string;
+  responsibleName?: string;
   scopeType?: string;
   supplierId?: string;
 }
@@ -96,7 +101,8 @@ export const buildInventorySubmissionDraft = ({
   userProfile: { id: string; full_name?: string; fullName?: string } | null;
   useV2: boolean;
 }) => {
-  const responsibleName = userProfile?.fullName || userProfile?.full_name || 'Usuário';
+  const responsibleName =
+    scopeConfig.responsibleName || userProfile?.fullName || userProfile?.full_name || 'Usuário';
   const auditObservation = {
     inventoryAudit: true,
     inventoryCode: code,

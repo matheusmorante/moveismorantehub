@@ -197,9 +197,16 @@ export function useVariationForm({
       inherit('weight', Boolean(previous.syncWeight), parentProduct.weight);
       if (
         previous.syncFiscal &&
-        JSON.stringify(previous.fiscal || {}) !== JSON.stringify(parentProduct.fiscal || {})
+        JSON.stringify(previous.fiscal || {}) !== JSON.stringify({
+          ...(parentProduct.fiscal || {}),
+          ...(previous.syncNcm === false ? { ncm: previous.fiscal?.ncm } : {}),
+        })
       ) {
-        next.fiscal = parentProduct.fiscal ? { ...parentProduct.fiscal } : undefined;
+        next.fiscal = parentProduct.fiscal
+          ? { ...parentProduct.fiscal, ...(previous.syncNcm === false ? { ncm: previous.fiscal?.ncm } : {}) }
+          : previous.syncNcm === false && previous.fiscal?.ncm
+            ? { ncm: previous.fiscal.ncm }
+            : undefined;
         changed = true;
       }
       return changed ? { ...next, ...(isDraft ? { active: false } : {}) } : previous;
@@ -294,6 +301,10 @@ export function useVariationForm({
       isDraft,
       allParentImages
     );
+    const validationVariation = {
+      ...finalVariation,
+      ...(formData.requiredTechnicalFields ? { requiredTechnicalFields: formData.requiredTechnicalFields } : {}),
+    };
 
     session.lock = true;
     setLoading(true);
@@ -303,11 +314,11 @@ export function useVariationForm({
 
     try {
       await validateAndRun(
-        { variation: finalVariation, discountPercent: varDiscountPercent, discountFixed: varDiscountFixed },
+        { variation: validationVariation, discountPercent: varDiscountPercent, discountFixed: varDiscountFixed },
         async (values) => {
           if (!stillCurrent()) return;
           guard.pending = session.token;
-          const variationToSave: Variation = values.variation;
+          const { requiredTechnicalFields: _requiredTechnicalFields, ...variationToSave } = values.variation;
           const result = await withTimeout(
             Promise.resolve().then(async () => {
               if (!stillCurrent()) return { cancelled: true, value: false };

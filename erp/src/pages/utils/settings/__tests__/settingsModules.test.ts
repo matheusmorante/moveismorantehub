@@ -116,9 +116,10 @@ describe('settings modular architecture', () => {
         rolePermissionsMigrationVersion: 0,
       };
       const migrated = migrateSettings(input);
-      expect(migrated.rolePermissionsMigrationVersion).toBe(9);
+      expect(migrated.rolePermissionsMigrationVersion).toBe(10);
       expect(migrated.rolePermissions).toBeDefined();
       expect(migrated.rolePermissions?.viewFiscal).toContain('accountant');
+      expect(migrated.rolePermissions?.finalizeStockInventory).toEqual(['manager', 'stockist']);
       expect(migrated.rolePermissions).not.toHaveProperty('viewServices');
     });
   });

@@ -42,7 +42,7 @@ export const DeliveryShiftMetricsGrid: React.FC<DeliveryShiftMetricsGridProps> =
           <Text style={styles.metricNumber}>{totalCount}</Text>
         </View>
         <Text style={styles.metricLabel}>total de</Text>
-        <Text style={styles.metricSubLabel}>entregas</Text>
+        <Text style={styles.metricSubLabel}>atividades</Text>
       </View>
     </View>
   );

@@ -16,6 +16,7 @@ export interface ReceiptsTableRowProps {
   readonly onReverseRequest: (e: React.MouseEvent, receipt: GoodsReceipt) => void;
   readonly onUnreverseRequest?: (e: React.MouseEvent, receipt: GoodsReceipt) => void;
   readonly onDelete: (e: React.MouseEvent, id: string) => void;
+  readonly onPrintIdentificationLabels?: (receipt: GoodsReceipt) => void;
 }
 
 /**
@@ -33,6 +34,7 @@ export const ReceiptsTableRow: React.FC<ReceiptsTableRowProps> = ({
   onReverseRequest,
   onUnreverseRequest,
   onDelete,
+  onPrintIdentificationLabels,
 }) => {
   const isDraft = receipt.isDraft || receipt.status === 'draft';
   const isEstornado = receipt.status === 'estornado';
@@ -119,6 +121,7 @@ export const ReceiptsTableRow: React.FC<ReceiptsTableRowProps> = ({
             onReverseRequest={onReverseRequest}
             onUnreverseRequest={onUnreverseRequest}
             onDelete={onDelete}
+            onPrintIdentificationLabels={onPrintIdentificationLabels}
           />
         </div>
       </td>

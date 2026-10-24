@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import type Product from '@/pages/types/product.type';
 import {
   canPrintProductIdentificationLabels,
+  getProductIdentificationLabelActionAvailability,
   isProductIdentificationLabelOnlyProfile,
 } from '@/pages/utils/accessRoles';
 import {
@@ -56,8 +57,14 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
   const canPrintIdentificationLabel = canPrintProductIdentificationLabels(profile);
   const isDraft =
     Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
+  const identificationLabelAvailability = getProductIdentificationLabelActionAvailability({
+    canPrint: canPrintIdentificationLabel,
+    hasSingleVariation: Boolean(singleVariation),
+    isDraft,
+    isMerged: Boolean(singleVariation?.mergedToVariationId),
+  });
   const canOpenMenu =
-    !isLabelOnlyProfile || (canPrintIdentificationLabel && Boolean(singleVariation) && !isDraft);
+    !isLabelOnlyProfile || identificationLabelAvailability.canOpenMenu;
 
   const handlePrintIdentificationLabel = useCallback(() => {
     if (!singleVariation) return;
@@ -172,25 +179,22 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
             className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
             onMouseLeave={() => setIsMenuOpen(false)}
           >
-            {singleVariation &&
-              !isDraft &&
-              canPrintIdentificationLabel &&
-              !singleVariation.mergedToVariationId && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsMenuOpen(false);
-                    handlePrintIdentificationLabel();
-                  }}
-                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
-                >
-                  <i className="bi bi-qr-code text-blue-500" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                    Imprimir Etiqueta de Identificação
-                  </span>
-                </button>
+            {singleVariation && identificationLabelAvailability.canPrintLabel && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  handlePrintIdentificationLabel();
+                }}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group cursor-pointer"
+              >
+                <i className="bi bi-qr-code text-blue-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                  Imprimir Etiqueta de Identificação
+                </span>
+              </button>
               )}
 
             {!isLabelOnlyProfile && (!product.isParent || Boolean(singleVariation)) && (
@@ -224,7 +228,7 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
               >
                 <i className="bi bi-copy text-indigo-500" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                  Duplicar Produto
+                  Copiar produto
                 </span>
               </button>
             )}

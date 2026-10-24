@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { useAuth } from '@/context/AuthContext';
 import { inventoryAuditScopeSchema } from '../../../../../../../shared-utils/inventoryAuditFormSchemas';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import type Product from '@/pages/types/product.type';
@@ -31,6 +32,7 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
   onCancel,
   onConfirm,
 }) => {
+  const { profile } = useAuth();
   const {
     step,
     scopeType,
@@ -45,7 +47,7 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
     matchingItems,
     setCustomProducts,
     handleNextStep,
-  } = useInventoryScopeBuilder(allProducts, suppliers);
+  } = useInventoryScopeBuilder(allProducts, suppliers, profile?.id || '');
 
   const copyRequested = copiedItems != null;
   const copiedSelection = useMemo(() => {

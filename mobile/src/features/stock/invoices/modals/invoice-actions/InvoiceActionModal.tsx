@@ -7,7 +7,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { Download, Link2, Trash2 } from 'lucide-react-native';
+import { Download, Link2 } from 'lucide-react-native';
 import { Invoice } from '../../../types/stock.types';
 
 interface Props {
@@ -17,7 +17,6 @@ interface Props {
   onClose: () => void;
   onDownloadXML?: (invoice: Invoice) => void;
   onManageMappings?: (invoice: Invoice) => void;
-  onDelete?: (invoice: Invoice) => void;
 }
 
 export const InvoiceActionModal: React.FC<Props> = ({
@@ -27,7 +26,6 @@ export const InvoiceActionModal: React.FC<Props> = ({
   onClose,
   onDownloadXML,
   onManageMappings,
-  onDelete,
 }) => {
   if (!activeInvoice) return null;
   const isSummaryOnly = activeInvoice.itemsCount === 0;
@@ -72,17 +70,6 @@ export const InvoiceActionModal: React.FC<Props> = ({
                   Baixar XML
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.bsActionBtn}
-                onPress={() => {
-                  onDelete?.(activeInvoice);
-                  onClose();
-                }}
-                accessibilityRole="button"
-              >
-                <Trash2 size={20} color="#dc2626" />
-                <Text style={[styles.bsActionText, styles.deleteText]}>Remover nota fiscal</Text>
-              </TouchableOpacity>
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -113,5 +100,4 @@ const styles = StyleSheet.create({
   bsActionBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, gap: 12 },
   bsActionText: { fontSize: 16, fontWeight: '600', color: '#334155' },
   textDark: { color: '#f8fafc' },
-  deleteText: { color: '#dc2626' },
 });

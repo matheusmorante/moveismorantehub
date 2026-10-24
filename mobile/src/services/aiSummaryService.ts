@@ -160,7 +160,7 @@ export const generateDeliveryAISummary = async (
           const geminiPrompt = buildDeliverySummaryPrompt(smartText);
           const resJson = await MobileAgentClient.generateContent({
             model: 'gemini-3.5-flash-lite',
-            contents: [{ parts: [{ text: geminiPrompt }] }],
+            contents: [{ role: 'user', parts: [{ text: geminiPrompt }] }],
           });
           const aiText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (aiText && aiText.trim()) {

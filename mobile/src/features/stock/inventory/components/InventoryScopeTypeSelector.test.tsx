@@ -48,6 +48,28 @@ describe('seleção de escopo no inventário', () => {
     expect(html).not.toContain('Por Fornecedor');
   });
 
+  it('mantém os itens copiados no escopo personalizado sem permitir trocar ou editar a seleção', () => {
+    const product = { id: 'product-1', variation_id: 'variation-1', name: 'Variação atual', stock: 4 };
+    const html = renderToStaticMarkup(
+      <InventoryScopeTypeSelector
+        isDarkMode={false}
+        expandedType="custom"
+        lockedCustomSelection
+        onToggleExpand={() => {}}
+        customProducts={[product]}
+        onOpenSearch={() => {}}
+        onRemoveCustomProduct={() => {}}
+        onConfirmType={() => {}}
+      />
+    );
+
+    expect(html).toContain('Variação atual');
+    expect(html).toContain('Continuar com 1 item(ns)');
+    expect(html).not.toContain('Estoque Completo');
+    expect(html).not.toContain('Adicionar produto ou variação');
+    expect(html).not.toContain('Remover Variação atual');
+  });
+
   it('pesquisa nomes de fornecedores no helper sem depender de maiúsculas ou acentos', () => {
     const suppliers = [
       { id: '1', full_name: 'Fábrica São José' },

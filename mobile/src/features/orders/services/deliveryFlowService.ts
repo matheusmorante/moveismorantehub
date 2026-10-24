@@ -4,6 +4,8 @@ import { offlineStorageService } from '../../../services/offline/offlineStorageS
 import { SyncEventType, SyncEvent } from '../../../services/offline/offlineTypes';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import { DeliveryResponsibleItem } from '../screens/delivery-preparation/deliveryPreparation.types';
+import { isLocalDeliveryProofUri } from './deliveryProofRules';
+import type { LocalDeliveryProofMetadata } from './deliveryProofRules';
 
 export interface StartRouteParams {
   orderId: string;
@@ -35,6 +37,7 @@ export interface UnattendedDeliveryParams {
   reason: string;
   notes: string;
   proofUrls: string[];
+  proofMetadata?: LocalDeliveryProofMetadata[];
 }
 
 const syncLocalOrderCaches = async (
@@ -291,6 +294,7 @@ export const deliveryFlowService = {
     reason,
     notes,
     proofUrls,
+    proofMetadata,
   }: UnattendedDeliveryParams) {
     const now = new Date().toISOString();
     const payload = {
@@ -307,21 +311,30 @@ export const deliveryFlowService = {
       ...payload,
     };
 
-    try {
-      await supabase
-        .from('orders')
-        .update({
-          delivery_status: 'unattended',
-          order_data: updatedData,
-          updated_at: now,
-        })
-        .eq('id', orderId);
-    } catch (dbErr) {
-      console.warn('[deliveryFlowService] Falha na persistência de insucesso:', dbErr);
+    const hasLocalProof = proofUrls.some(isLocalDeliveryProofUri);
+    if (!hasLocalProof) {
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            delivery_status: 'unattended',
+            order_data: updatedData,
+            updated_at: now,
+          })
+          .eq('id', orderId);
+      } catch (dbErr) {
+        console.warn('[deliveryFlowService] Falha na persistência de insucesso:', dbErr);
+      }
     }
 
     await syncLocalOrderCaches(orderId, updatedData);
-    await safeRecordOfflineEvent('DELIVERY_UNATTENDED', 'order', orderId, payload);
+    const localProofMetadata = (proofMetadata || []).filter(
+      (proof) => proofUrls.includes(proof.uri) && isLocalDeliveryProofUri(proof.uri)
+    );
+    await safeRecordOfflineEvent('DELIVERY_UNATTENDED', 'order', orderId, {
+      ...payload,
+      ...(localProofMetadata.length ? { unattendedProofMetadata: localProofMetadata } : {}),
+    });
 
     return { updatedData };
   },
@@ -369,7 +382,7 @@ export const deliveryFlowService = {
    */
   async stepBackToRoute(orderId: string, currentData: Record<string, any>) {
     const now = new Date().toISOString();
-    const updatedData = {
+    const updatedData: Record<string, any> = {
       ...currentData,
       deliveryStatus: 'in_progress',
     };
@@ -406,7 +419,7 @@ export const deliveryFlowService = {
    */
   async stepBackToArrival(orderId: string, currentData: Record<string, any>) {
     const now = new Date().toISOString();
-    const updatedData = {
+    const updatedData: Record<string, any> = {
       ...currentData,
       deliveryStatus: 'arrived',
     };

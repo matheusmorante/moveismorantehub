@@ -7,6 +7,7 @@ import { toTitleCase } from '../textUtils';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { variationFamilyCommandSchema, variationFamilyAckSchema, sameFamilyAttributes, toFamilyAttributes, VariationFamilyUnconfirmedError } from '../../../../../shared-utils/variationFamilyFormSchemas';
 import { parseVariationImages } from './productImageHelpers';
+import { mapToDB } from './productToDbMapper';
 import { variationMergeCommandSchema, variationMergeAckSchema, variationMergeIdentitySchema, VariationMergeUnconfirmedError } from '../../../../../shared-utils/variationMergeFormSchemas';
 
 export const saveVariation = async (productId: string, variation: any): Promise<void> => {
@@ -159,10 +160,15 @@ export const saveVariation = async (productId: string, variation: any): Promise<
         .upsert(varRecord);
       if (upsertErr) throw upsertErr;
 
-      await supabase
+      const { error: metadataError } = await supabase
         .from('products')
-        .update({ updated_at: new Date().toISOString() })
+        .update({
+          updated_at: new Date().toISOString(),
+          has_variations: deduplicatedVariations.length > 1,
+          technical_specs: mapToDB({ technicalSpecs: parent.technicalSpecs, variations: deduplicatedVariations }).technical_specs,
+        })
         .eq('id', productId);
+      if (metadataError) throw metadataError;
 
       invalidateProductQueries();
       void triggerProductMetaCatalogSync(productId);

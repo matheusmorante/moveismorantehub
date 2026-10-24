@@ -7,6 +7,7 @@ import { getProfileRoles } from '../../pages/utils/accessRoles';
 import { canSeeFinanceModuleBeta, canUseFinanceModule } from '../../pages/utils/permissionConfig';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import ReturnIcon from '../shared/ReturnIcon';
+import stockGuide from '../../../../shared-utils/stockGuide.json';
 
 interface MobileNavProps {
   isOpen: boolean;
@@ -91,6 +92,14 @@ const menuItems: any[] = [
         iconColor: 'text-emerald-500',
         label: 'Recebimentos de Mercadorias',
         shortLabel: 'Recebimentos',
+      },
+      { type: 'header', label: 'FISCAL' },
+      {
+        type: 'link',
+        to: '/estoque/notas-fiscais-entrada',
+        icon: 'bi-receipt-cutoff',
+        iconColor: 'text-indigo-500',
+        label: 'NF de entrada',
       },
       { type: 'header', label: 'COMPRAS' },
       {
@@ -184,34 +193,20 @@ const menuItems: any[] = [
         iconColor: 'text-orange-500',
         label: 'Devoluções',
       },
+      { type: 'header', label: 'FISCAL' },
+      {
+        type: 'link',
+        to: '/fiscal-documents',
+        icon: 'bi-receipt',
+        iconColor: 'text-emerald-500',
+        label: 'NF de saída',
+      },
       {
         to: '/sales-order/reports',
         icon: 'bi-file-earmark-spreadsheet-fill',
         iconColor: 'text-green-500',
         label: 'Relatório CSV',
       },
-    ],
-  },
-  {
-    key: 'fiscal' as MenuKey,
-    label: 'Fiscal',
-    icon: 'bi-receipt-cutoff',
-    color: 'text-emerald-500',
-    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
-    links: [
-      {
-        to: '/fiscal-documents',
-        icon: 'bi-receipt',
-        iconColor: 'text-emerald-500',
-        label: 'Notas fiscais de saída (NF-e/NFC-e)',
-      },
-      {
-        to: '/estoque/notas-fiscais-entrada',
-        icon: 'bi-receipt-cutoff',
-        iconColor: 'text-indigo-500',
-        label: 'Notas de entrada',
-      },
-      { to: '/estoque/ncm', icon: 'bi-journal-text', iconColor: 'text-teal-600', label: 'NCM' },
     ],
   },
   {
@@ -325,6 +320,15 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
     'viewStockLabels',
   ].some((action) => canPerform(action, roles));
   const canViewSuppliers = canPerform('viewSuppliers', roles);
+  const canViewInboundFiscal = canPerform('viewInboundFiscal', roles);
+  const canViewStockOperations = [
+    'viewStockMovements',
+    'viewStockInventory',
+    'viewStockUnavailabilities',
+    'viewStockReceipts',
+  ].some((action) => canPerform(action, roles));
+  const canViewStockPurchases = canPerform('viewStockPurchases', roles);
+  const canViewStockLabels = canPerform('viewStockLabels', roles);
   const canViewProductSubmodules = [
     'viewProductCharacteristics',
     'viewProductCategories',
@@ -342,10 +346,9 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
     'viewAssistanceOrders',
     'viewReturns',
     'viewSalesReports',
+    'viewFiscal',
   ].some((action) => canPerform(action, roles));
-  const canViewFiscal = ['viewFiscal', 'viewInboundFiscal', 'viewNcmCatalog'].some((action) =>
-    canPerform(action, roles)
-  );
+  const canViewFiscalOutbound = canPerform('viewFiscal', roles);
   const canUseFinance = canUseFinanceModule(roles);
   const canSeeFinanceBeta = canSeeFinanceModuleBeta(roles);
   const canViewMarketing = [
@@ -363,13 +366,11 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
       case 'products':
         return canViewProducts || canViewProductSubmodules;
       case 'stock':
-        return canViewStock || canViewSuppliers;
+        return canViewStock || canViewSuppliers || canViewInboundFiscal;
       case 'registrations':
         return canViewPeople;
       case 'salesOrder':
         return canViewOrders;
-      case 'fiscal':
-        return canViewFiscal;
       case 'finance':
         return canUseFinance || canSeeFinanceBeta;
       case 'marketing':
@@ -441,7 +442,7 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex flex-col xl:hidden"
+      className="fixed inset-0 z-[99999] flex flex-col min-[1600px]:hidden"
       style={{
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
@@ -554,9 +555,14 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-1 pt-2 pb-4 px-2">
                     {item.links.map((link: any, idx: number) =>
                       link.type === 'header' ? (
-                        item.key === 'stock' &&
-                        !canViewStock &&
-                        link.label !== 'COMPRAS' ? null : (
+                        ((item.key === 'stock' &&
+                          ((link.label === 'OPERAÇÃO' && !canViewStockOperations) ||
+                            (link.label === 'FISCAL' && !canViewInboundFiscal) ||
+                            (link.label === 'COMPRAS' && !canViewStockPurchases && !canViewSuppliers) ||
+                            (link.label === 'IMPRESSÃO DE ETIQUETAS' && !canViewStockLabels))) ||
+                          (item.key === 'salesOrder' &&
+                            link.label === 'FISCAL' &&
+                            !canViewFiscalOutbound)) ? null : (
                           <div
                             key={`header-${idx}`}
                             className="md:col-span-2 px-4 pt-4 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500"
@@ -586,6 +592,19 @@ const MobileNav = ({ isOpen, onClose, activeMenu, setActiveMenu }: MobileNavProp
                           <i className="bi bi-chevron-right ml-auto text-slate-300 dark:text-slate-600 text-[10px] opacity-50"></i>
                         </button>
                       )
+                    )}
+                    {item.key === 'stock' && (
+                      <a
+                        href={stockGuide.path}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={onClose}
+                        className="md:col-span-2 flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                      >
+                        <i className="bi bi-journal-bookmark-fill shrink-0 text-base text-emerald-600" aria-hidden="true" />
+                        <span className="min-w-0 flex-1">{stockGuide.title}</span>
+                        <i className="bi bi-box-arrow-up-right shrink-0 text-xs text-slate-400" aria-hidden="true" />
+                      </a>
                     )}
                   </div>
                 )}

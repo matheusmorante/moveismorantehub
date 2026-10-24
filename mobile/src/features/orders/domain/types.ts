@@ -4,6 +4,17 @@ export type FiscalOperationBadgeStatus = 'issued' | 'cancelled' | 'rejected' | '
 
 export type OrderFiscalCancellationState = 'failed' | 'pending' | 'verify';
 
+export interface MobileOrderData extends Record<string, unknown> {
+  orderType?: string | null;
+  order_type?: string | null;
+  orderIndex?: string | null;
+  status?: string | null;
+  customerData?: { fullName?: string | null; marketingOrigin?: string | null } | null;
+  shipping?: { deliveryMethod?: string | null; deliveryType?: string | null } | null;
+  deliveryMethod?: string | null;
+  deliveryType?: string | null;
+}
+
 export interface MobileOrderListItem {
   id: string;
   order_number: string | null;
@@ -12,7 +23,9 @@ export interface MobileOrderListItem {
   order_type: string;
   customer_name: string;
   total_value: number;
-  order_data: Record<string, unknown>;
+  order_data: MobileOrderData;
+  delivery_method?: string | null;
+  scheduled_date?: string | null;
   fiscalBadgeStatus?: FiscalBadgeStatus;
   fiscalHmlBadgeStatus?: FiscalBadgeStatus;
   fiscalEstornoBadgeStatus?: FiscalOperationBadgeStatus;
