@@ -34,6 +34,7 @@ export interface ChatAreaProps {
   onLoadOlderMessages?: () => Promise<number>;
   onRefreshMessages?: () => Promise<void> | void;
   isRefreshingMessages?: boolean;
+  onClosePanel?: () => void;
   onResolveReplyTarget?: (reference: { conversationId: string; messageId: string | null; apiMessageId: string | null }) => Promise<WhatsAppMessage | null>;
   onJumpToMessage?: (message: WhatsAppMessage) => void;
   jumpToMessageId?: string | null;
@@ -63,6 +64,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onLoadOlderMessages,
   onRefreshMessages,
   isRefreshingMessages = false,
+  onClosePanel,
   onResolveReplyTarget,
   onJumpToMessage,
   jumpToMessageId,
@@ -116,6 +118,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         isTimelineOpen={isTimelineOpen}
         onToggleTimeline={onToggleTimeline}
         onBackMobile={onBackMobile}
+        onClosePanel={onClosePanel}
         onOpenSnippets={() => setIsSnippetsModalOpen(true)}
         onToggleArchive={onToggleArchive}
         teamMembers={teamMembers}

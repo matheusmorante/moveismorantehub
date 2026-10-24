@@ -62,6 +62,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
     insets.top,
     Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0
   );
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 0);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [isReadingText, setIsReadingText] = useState(false);
@@ -282,7 +283,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
         <View
           style={
             restrictToScannerFrame
-              ? [styles.footer, { paddingBottom: insets.bottom + 12 }]
+              ? [styles.footer, { paddingBottom: bottomInset + 12 }]
               : styles.legacyFooter
           }
         >

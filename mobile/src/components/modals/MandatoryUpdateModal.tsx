@@ -1,5 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Download, Smartphone } from 'lucide-react-native';
 
 type Props = {
@@ -27,6 +28,7 @@ export function MandatoryUpdateModal({
   onDownload,
   onDismiss,
 }: Props) {
+  const insets = useSafeAreaInsets();
   if (!visible) return null;
 
   return (
@@ -38,7 +40,12 @@ export function MandatoryUpdateModal({
         if (!required) onDismiss();
       }}
     >
-      <View style={styles.backdrop}>
+      <View
+        style={[
+          styles.backdrop,
+          { paddingTop: 24 + insets.top, paddingBottom: 24 + insets.bottom },
+        ]}
+      >
         <View style={styles.card}>
           <View style={styles.icon}>
             <Smartphone size={30} color="#2563eb" />

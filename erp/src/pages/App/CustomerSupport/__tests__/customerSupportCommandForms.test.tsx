@@ -14,7 +14,7 @@ it('organiza o cabeçalho em linhas na tela pequena e mantém o retorno fora das
   const { container } = render(<ChatHeader {...props()} />);
   expect(container.firstElementChild?.classList.contains('flex-col')).toBe(true);
   expect(container.firstElementChild?.classList.contains('@3xl/chat:flex-row')).toBe(true);
-  expect(screen.getByRole('button', { name: 'Voltar para a lista', exact: true }).classList.contains('shrink-0')).toBe(true);
+  expect(screen.getByRole('button', { name: /^Voltar para a lista$/ }).classList.contains('shrink-0')).toBe(true);
   expect(screen.getByTitle('Atendente responsável pelo atendimento').parentElement?.parentElement?.classList.contains('flex-wrap')).toBe(true);
 });
 afterEach(() => {

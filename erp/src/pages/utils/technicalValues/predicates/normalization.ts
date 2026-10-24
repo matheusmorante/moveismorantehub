@@ -10,6 +10,9 @@ import {
 export const normalizeCharacteristicName = (name: string): string =>
   name.trim().toLocaleLowerCase('pt-BR');
 
+export const isQuantityCharacteristic = (name: string): boolean =>
+  /\bquantidade\s+de\b/i.test(name.trim());
+
 /**
  * Retorna se um valor é semanticamente definido (não é undefined ou null).
  * Preserva 0, false e strings vazias intencionais.

@@ -46,7 +46,15 @@ const mockFields = [
     name: 'Quantidade de portas',
     dataType: 'integer' as const,
     categoryIds: ['cat-1'],
+    requiredCategoryIds: ['cat-1'],
     options: [],
+  },
+  {
+    id: 'f-material-portas',
+    name: 'Material das portas',
+    dataType: 'list' as const,
+    categoryIds: ['cat-1'],
+    options: [{ id: 'mdf', value: 'MDF' }],
   },
 ];
 
@@ -86,6 +94,7 @@ const mockParentProduct: Product = {
     'Profundidade total',
     'Comprimento total',
     'Quantidade de portas',
+    'Material das portas',
   ],
   variations: [],
 };
@@ -100,20 +109,23 @@ const mockVariation: Variation = {
   attributes: [],
 };
 
-const TestHarness: React.FC = () => {
-  const [formData, setFormData] = useState<Variation>(mockVariation);
+const TestHarness: React.FC<{ initialVariation?: Variation }> = ({ initialVariation = mockVariation }) => {
+  const [formData, setFormData] = useState<Variation>(initialVariation);
 
   const handleChange = <K extends keyof Variation>(field: K, value: Variation[K]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
-    <VariationTechnicalTab
-      formData={formData}
-      parentProduct={mockParentProduct}
-      handleChange={handleChange}
-      initialTechnicalFields={mockFields}
-    />
+    <>
+      <VariationTechnicalTab
+        formData={formData}
+        parentProduct={mockParentProduct}
+        handleChange={handleChange}
+        initialTechnicalFields={mockFields}
+      />
+      <output data-testid="variation-data">{JSON.stringify(formData)}</output>
+    </>
   );
 };
 
@@ -136,6 +148,45 @@ describe('VariationTechnicalTab', () => {
     expect(corInput.value).toBe('');
     expect(corInput).not.toBeDisabled();
     expect(screen.queryByTitle(/Sincronizado com o pai|Manual — clique para sincronizar/)).toBeNull();
+  });
+
+  it('mantém característica obrigatória do catálogo visível e oculta dependentes sem quantidade própria', async () => {
+    render(<TestHarness />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('input-Quantidade de portas')).toBeInTheDocument();
+    });
+
+    expect((screen.getByTestId('input-Quantidade de portas') as HTMLInputElement).value).toBe('');
+    expect(screen.queryByTestId('input-Material das portas')).toBeNull();
+  });
+
+  it('preserva zero na característica e limpa dependentes ao zerar a quantidade por variação', async () => {
+    const variation: Variation = {
+      ...mockVariation,
+      technicalValues: { 'Quantidade de portas': '2', 'Material das portas': 'MDF' },
+      attributes: [
+        { name: 'Quantidade de portas', value: '2' },
+        { name: 'Material das portas', value: 'MDF' },
+      ],
+    };
+    render(<TestHarness initialVariation={variation} />);
+
+    await waitFor(() => expect(screen.getByTestId('input-Material das portas')).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId('input-Quantidade de portas'), { target: { value: '0' } });
+
+    await waitFor(() => expect(screen.queryByTestId('input-Material das portas')).toBeNull());
+    const updated = JSON.parse(screen.getByTestId('variation-data').textContent || '{}') as Variation;
+    expect(updated.technicalValues).toMatchObject({
+      'Quantidade de portas': '0',
+      'Material das portas': '',
+    });
+    expect(updated.attributes).toContainEqual(
+      expect.objectContaining({ name: 'Quantidade de portas', value: '0' })
+    );
+    expect(updated.attributes).not.toContainEqual(
+      expect.objectContaining({ name: 'Material das portas' })
+    );
   });
 
   it('cria override de Cor sem incluir o valor no nome automático', async () => {

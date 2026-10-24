@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Switch } from 'react-native';
-import { Sliders, Check, X } from 'lucide-react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Switch, TextInput } from 'react-native';
+import { Sliders, Check, X, Search } from 'lucide-react-native';
 import { fetchMobileAttributes, MobileAttribute } from '../../services/mobileAttributeService';
 import { toggleCategoryAttribute } from '../domain/categoryEnvironmentRules';
+import { normalizeSearchTerm } from '../../../../../../shared-utils/productText';
 import {
   getDefaultCategoryAttributeIsRequired,
   isCategoryAttributeSelectable,
@@ -16,6 +17,7 @@ interface Props {
   selectedAttributes: CategoryAttributeSelection[];
   setSelectedAttributes: React.Dispatch<React.SetStateAction<CategoryAttributeSelection[]>>;
   isLoadingAttributes: boolean;
+  attributeLoadFailed: boolean;
   isSubmitting: boolean;
 }
 
@@ -24,14 +26,24 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
   selectedAttributes,
   setSelectedAttributes,
   isLoadingAttributes,
+  attributeLoadFailed,
   isSubmitting,
 }) => {
   const [allAttributes, setAllAttributes] = useState<MobileAttribute[]>([]);
   const [loadingAllAttrs, setLoadingAllAttrs] = useState(false);
   const [attributeCatalogueLoadFailed, setAttributeCatalogueLoadFailed] = useState(false);
+  const [attributeQuery, setAttributeQuery] = useState('');
   const selectableAttributes = allAttributes.filter((attribute) =>
     isCategoryAttributeSelectable(attribute.name),
   );
+  const normalizedQuery = normalizeSearchTerm(attributeQuery);
+  const hasSearchTerm = normalizedQuery.length >= 2;
+  const matchingAttributes = hasSearchTerm
+    ? selectableAttributes.filter((attribute) =>
+        normalizeSearchTerm(attribute.name).includes(normalizedQuery),
+      )
+    : [];
+  const selectionDisabled = isLoadingAttributes || attributeLoadFailed || isSubmitting;
 
   useEffect(() => {
     let isMounted = true;
@@ -74,25 +86,48 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
         <Text style={styles.label}>Características da Categoria</Text>
       </View>
       <Text style={styles.helperText}>
-        Defina as características aplicáveis aos produtos cadastrados nesta categoria.
+        Defina as características dos produtos desta categoria. A obrigatoriedade marcada aqui vale apenas para publicar no Catálogo Digital.
       </Text>
 
-      {isLoadingAttributes || loadingAllAttrs ? (
+      <View style={[styles.searchBox, dark && styles.searchBoxDark]}>
+        <Search size={16} color={dark ? '#94a3b8' : '#64748b'} />
+        <TextInput
+          value={attributeQuery}
+          onChangeText={setAttributeQuery}
+          placeholder="Buscar característica (mínimo 2 letras)..."
+          placeholderTextColor={dark ? '#64748b' : '#94a3b8'}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!selectionDisabled && !attributeCatalogueLoadFailed}
+          accessibilityLabel="Buscar característica"
+          accessibilityHint="Digite pelo menos duas letras para filtrar as características disponíveis."
+          style={[styles.searchInput, dark && styles.textLight]}
+        />
+        {loadingAllAttrs && <ActivityIndicator size="small" color="#2563eb" />}
+      </View>
+
+      {isLoadingAttributes && (
         <View style={styles.loadingAttrs}>
           <ActivityIndicator size="small" color="#2563eb" />
           <Text style={styles.loadingAttrsText}>Carregando características...</Text>
         </View>
-      ) : attributeCatalogueLoadFailed ? (
+      )}
+
+      {attributeCatalogueLoadFailed ? (
         <Text style={styles.attributeCatalogueError} accessibilityRole="alert">
-          Não foi possível carregar a lista de características. As seleções atuais foram preservadas.
+          Não foi possível carregar a lista de características. Reabra o modal para tentar novamente. As seleções atuais foram preservadas.
         </Text>
-      ) : allAttributes.length === 0 ? (
+      ) : !loadingAllAttrs && allAttributes.length === 0 ? (
         <Text style={styles.emptyItemsText}>Nenhuma característica cadastrada no sistema.</Text>
-      ) : selectableAttributes.length === 0 ? (
+      ) : !loadingAllAttrs && selectableAttributes.length === 0 ? (
         <Text style={styles.emptyItemsText}>Nenhuma característica disponível para vincular.</Text>
-      ) : (
+      ) : hasSearchTerm && !loadingAllAttrs && matchingAttributes.length === 0 ? (
+        <Text style={styles.emptyItemsText}>
+          Nenhuma característica encontrada para “{attributeQuery}”.
+        </Text>
+      ) : hasSearchTerm && !loadingAllAttrs ? (
         <View style={[styles.linksBox, dark && styles.linksBoxDark]}>
-          {selectableAttributes.map((attr) => {
+          {matchingAttributes.map((attr) => {
             const isChecked = selectedAttributes.some((a) => a.id === attr.id);
             return (
               <TouchableOpacity
@@ -100,11 +135,11 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
                 onPress={() => toggleAttribute({ id: attr.id, name: attr.name })}
                 style={styles.checkRow}
                 activeOpacity={0.7}
-                disabled={isLoadingAttributes || isSubmitting}
+                disabled={selectionDisabled || attributeCatalogueLoadFailed}
                 accessibilityRole="checkbox"
                 accessibilityState={{
                   checked: isChecked,
-                  disabled: isLoadingAttributes || isSubmitting,
+                  disabled: selectionDisabled || attributeCatalogueLoadFailed,
                 }}
                 accessibilityLabel={`Característica ${attr.name}`}
               >
@@ -130,7 +165,9 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
                 <View style={styles.selectedAttributeName}>
                   <Text style={[styles.selectedAttributeText, dark && styles.textLight]}>{attribute.name}</Text>
                   <Text style={styles.requirementLabel}>
-                    {attribute.isRequired ? 'Obrigatória' : 'Opcional'}
+                    {attribute.isRequired
+                      ? 'Obrigatória para o Catálogo Digital'
+                      : 'Opcional para o Catálogo Digital'}
                   </Text>
                 </View>
                 <Switch
@@ -146,7 +183,7 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
                     checked: attribute.isRequired,
                     disabled: isSubmitting || requirementLocked,
                   }}
-                  accessibilityLabel={`Característica ${attribute.name} obrigatória`}
+                  accessibilityLabel={`Característica ${attribute.name} ${attribute.isRequired ? 'obrigatória' : 'opcional'} para o Catálogo Digital`}
                   trackColor={{ false: dark ? '#475569' : '#cbd5e1', true: '#2563eb' }}
                   thumbColor={attribute.isRequired ? '#ffffff' : dark ? '#e2e8f0' : '#f8fafc'}
                 />
@@ -188,6 +225,19 @@ const styles = StyleSheet.create({
     color: '#dc2626',
     paddingVertical: 6,
   },
+  searchBox: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+  },
+  searchBoxDark: { backgroundColor: '#0f172a', borderColor: '#334155' },
+  searchInput: { flex: 1, minHeight: 42, fontSize: 13, color: '#334155' },
   linksBox: {
     borderWidth: 1,
     borderColor: '#e2e8f0',
@@ -199,6 +249,7 @@ const styles = StyleSheet.create({
   },
   linksBoxDark: { backgroundColor: 'rgba(15, 23, 42, 0.6)', borderColor: '#334155' },
   checkRow: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,

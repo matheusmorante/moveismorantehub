@@ -463,7 +463,7 @@ y = note('Identificação e preço têm usos diferentes', 'A etiqueta de identif
 # 16 - Preparar etiquetas
 y = base('05 / Etiquetas', 'Confira a seleção antes de imprimir', 'A janela mostra os produtos associados e as quantidades. Revise antes de imprimir.')
 y = shot('15-selecionar-etiquetas', y, max_height=310, caption='1 Confira a quantidade de cada produto  •  2 Imprimir Etiquetas abre a preparação da impressão. Dados fictícios de exemplo.')
-y = step(1, 'Confira o produto e a quantidade', 'A etiqueta usa o nome e os dados do produto cadastrado no sistema, não a descrição da nota. A quantidade deve ser igual ao número de unidades que você vai identificar.', y)
+y = step(1, 'Confira o produto e a quantidade', 'A etiqueta usa o cadastro, não a descrição da nota. Se o produto estiver errado, troque-o no campo do próprio card: digite pelo menos 3 caracteres, aguarde a busca e escolha entre até cinco produtos convencionais. Confira também a quantidade de unidades que vai identificar.', y)
 y = step(2, 'Confira o modelo e a prévia', 'Use Imprimir Etiquetas para preparar o arquivo. Revise o modelo e a posição das etiquetas na folha antes de imprimir.', y)
 y = step(3, 'Imprima e confira cada etiqueta', 'Confira o produto escrito na etiqueta antes de colar. Cada móvel precisa de uma identificação, mesmo que tenha várias caixas.', y)
 y = note('Evite duas etiquetas para o mesmo móvel', 'Cada impressão cria uma nova identificação. Não imprima os mesmos itens pela nota e pelo recebimento. Para substituir uma etiqueta, peça orientação para não deixar duas etiquetas ativas no mesmo móvel.', y, fill=AMBER)
@@ -535,10 +535,10 @@ y = table(['Exemplo', 'Esperado', 'Contado', 'Ajuste'], [
 y = para('Os números são exemplos. O sistema considera as entradas e saídas feitas durante a contagem; confira a revisão atual, não só o saldo que aparecia no começo.', y, size=11)
 y = step(1, 'Reconte o que estiver diferente', 'Confira se o produto está em outro local, se houve entrada ou saída durante a contagem e se todas as caixas desse móvel foram verificadas.', y)
 y = step(2, 'Volte à contagem se precisar corrigir', 'Use Voltar para contagem quando encontrar erro. Não conclua um ajuste apenas para eliminar a pendência da tela.', y)
-y = step(3, 'Conclua depois da revisão', 'Só pessoas autorizadas podem finalizar inventários. Se o botão estiver indisponível, peça ajuda a um Gestor ou Estoquista autorizado. Aguarde a mensagem de sucesso e confira o status.', y)
+y = step(3, 'Conclua depois da revisão', 'Só pessoas autorizadas podem finalizar inventários. Se o botão estiver indisponível, peça ajuda a um Gestor ou Estoquista autorizado. A conta conectada que fizer o primeiro envio autorizado fica vinculada ao envio; pode ser diferente da pessoa escolhida para a contagem. Aguarde a mensagem de sucesso e confira o status.', y)
 y = table(['Status ou ação', 'O que significa na rotina'], [
     ['Em andamento / Continuar inventário', 'A contagem pode ser retomada. Se fechar a tela, continue o mesmo inventário no aparelho.'],
-    ['Aguardando envio / Retomar envio', 'Se aparecer “Confirmação pendente”, abra o mesmo inventário e espere a confirmação. Não comece outra contagem.'],
+    ['Aguardando envio / Retomar envio', 'Abra o mesmo inventário com a conta autorizada que fez o primeiro envio. Se aparecer conflito de conta, não comece outra contagem; peça ajuda a um Gestor.'],
     ['Concluído / Ver detalhes', 'Consulte o resultado. Se precisar desfazer algo, peça ajuda a uma pessoa autorizada.'],
 ], y, widths=[190, TW - 190], size=10)
 

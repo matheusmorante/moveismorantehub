@@ -14,7 +14,7 @@ export const reconciliationBatchFormSchema = z.discriminatedUnion('operation', [
 export type ReconciliationBatchInput = z.input<typeof reconciliationBatchFormSchema>;
 export type ReconciliationBatchValues = z.output<typeof reconciliationBatchFormSchema>;
 export const reconciliationAttributeValueSchema = z.object({
-  name: z.string().trim().min(1, 'Informe o nome do atributo.'), value: z.string(), showName: z.boolean().optional(),
+  name: z.string().trim().min(1, 'Informe o nome da característica.'), value: z.string(), showName: z.boolean().optional(),
 }).passthrough();
 export const reconciliationProductFormSchema = z.object({
   productUpdates: z.object({ id, mainSupplierId: id.optional(), categoryId: id.optional(), ncm: bulkNcmFormSchema.shape.ncm.optional(),
@@ -44,7 +44,7 @@ export const reconciliationSupplierResultsSchema = z.array(z.object({
 export type ReconciliationAvailableAttribute = { name: string; dataType?: 'list' | 'integer' | 'decimal' | 'text' | 'boolean' | 'measure' };
 export const createReconciliationAttributeChoiceSchema = (attributes: readonly ReconciliationAvailableAttribute[]) => bulkAttributeFormSchema.superRefine((data, ctx) => {
   const attribute = attributes.find((candidate) => candidate.name.trim() === data.name);
-  if (!attribute) { ctx.addIssue({ code: 'custom', path: ['name'], message: 'Selecione um atributo disponível para estes produtos.' }); return; }
+  if (!attribute) { ctx.addIssue({ code: 'custom', path: ['name'], message: 'Selecione uma característica disponível para estes produtos.' }); return; }
   if (attribute.dataType === 'boolean' && !['Sim', 'Não'].includes(data.value)) ctx.addIssue({ code: 'custom', path: ['value'], message: 'Selecione Sim ou Não.' });
   if (['integer', 'decimal', 'measure'].includes(attribute.dataType || '')) {
     const value = Number(data.value.replace(',', '.'));

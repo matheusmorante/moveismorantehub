@@ -1,5 +1,27 @@
 # Histórico de correções fiscais — 24/10/2026
 
+## Edição de pedido não invalida a versão carregada pelo autosave do rascunho
+
+### Problema e sintomas
+
+Ao alterar a data de um pedido de venda em rascunho e salvar pelo modal de edição, a gravação falhava com `O pedido mudou durante a conferência fiscal. Reabra a edição para revisar os dados atuais.`
+
+### Causa raiz comprovada
+
+O modal carregava `updatedAt` do pedido e passava esse valor como versão esperada para a atualização otimista. Ao mesmo tempo, o hook habilitava o autosave para rascunhos existentes; a alteração da data disparava esse autosave sem versão esperada e atualizava `orders.updated_at`. O botão Salvar continuava usando o `updatedAt` antigo do pedido carregado, então a RPC versionada corretamente recusava a gravação com `ORDER_VERSION_CONFLICT`.
+
+### Solução e arquivos alterados
+
+- `erp/src/pages/App/SalesOrder/hooks/useSalesOrderForm.ts:68–72,239–243,292` — adiciona a opção `autoSaveExistingDrafts` (habilitada por padrão) e permite ao chamador desativar o autosave somente para pedidos existentes.
+- `erp/src/pages/App/SalesOrder/modals/OrderEditModal.tsx:34` — desativa o autosave de rascunhos existentes no modal; mudanças, inclusive a data, são persistidas pelo salvamento explícito com a versão carregada.
+- `docs/fiscal/README.md:9` e `docs/fiscal/historico-correcoes-2026-10-24.md:3–23` — registram a correção vigente.
+
+O controle otimista de concorrência permanece ativo; a alteração remove a escrita automática concorrente do modal sem enfraquecer a proteção contra edições externas. O autosave dos demais fluxos de rascunho continua habilitado por padrão.
+
+### Validação e limites
+
+Inspeção estática rastreou a opção até a condição do hook, o salvamento explícito e a comparação versionada que gera `ORDER_VERSION_CONFLICT`. Testes automatizados não foram executados nesta sessão. Nenhuma migration, gravação no banco remoto ou operação na SEFAZ foi realizada.
+
 ## Retentativa automática do XML completo após Ciência aceita
 
 ### Problema e sintomas

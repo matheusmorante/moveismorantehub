@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Clock, LogOut } from 'lucide-react-native';
 
 interface Props {
@@ -15,8 +16,16 @@ export const PendingApprovalScreen: React.FC<Props> = ({
   fullName,
   onLogout,
 }) => {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={[styles.container, isDarkMode && styles.containerDark]}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: 24 + insets.top, paddingBottom: 24 + insets.bottom },
+        isDarkMode && styles.containerDark,
+      ]}
+    >
       <View style={[styles.card, isDarkMode && styles.cardDark]}>
         <View style={styles.iconCircle}>
           <Clock size={36} color="#d97706" style={styles.pulseIcon} />

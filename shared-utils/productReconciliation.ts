@@ -95,7 +95,7 @@ export function detectProductPendencies(
     });
   }
 
-  // Identificar atributos obrigatórios das categorias associadas
+  // Identificar características obrigatórias das categorias associadas
   const currentCategoryIds = new Set<string>();
   if (product.categoryId) currentCategoryIds.add(product.categoryId);
   if (Array.isArray(product.categoryIds)) {
@@ -129,7 +129,7 @@ export function detectProductPendencies(
     });
   }
 
-  // Verificar se atributos de categoria obrigatórios estão faltando em TODAS as variações
+  // Verificar se características obrigatórias da categoria estão faltando em TODAS as variações
   // Se estiverem faltando em todas, podemos expor uma pendência no pai com o atalho "resolver todas"
   applicableRequiredAttributes.forEach((reqAttr) => {
     const attrName = reqAttr.attribute!.name;
@@ -144,13 +144,13 @@ export function detectProductPendencies(
       }).length;
 
       if (missingInCount === variations.length && variations.length > 1) {
-        // Todas as variações estão sem esse atributo obrigatório!
+        // Todas as variações estão sem essa característica obrigatória!
         parentPendencies.push({
           id: `${product.id}-shared-attr-${attrId}`,
           type: 'category_attribute',
           level: 'parent',
           field: `shared_attribute_${attrId}`,
-          label: `Atributo: ${attrName}`,
+          label: `Característica: ${attrName}`,
           isCritical: false,
           resolvesVariationsCount: variations.length,
           attributeId: attrId,
@@ -183,7 +183,7 @@ export function detectProductPendencies(
       });
     }
 
-    // Atributos obrigatórios de categoria na variação
+    // Características obrigatórias de categoria na variação
     applicableRequiredAttributes.forEach((reqAttr) => {
       const attrName = reqAttr.attribute!.name;
       const attrId = reqAttr.attributeId;
@@ -210,7 +210,7 @@ export function detectProductPendencies(
       }
     });
 
-    // Atributos existentes na variação mas com valor vazio
+    // Características existentes na variação mas com valor vazio
     (variation.attributes || []).forEach((attr, idx) => {
       const isAlreadyReported = vPendencies.some(
         (p) => p.attributeName?.toLowerCase().trim() === attr.name.toLowerCase().trim()
@@ -223,7 +223,7 @@ export function detectProductPendencies(
           variationId: variation.id,
           variationName: variation.name,
           field: `incomplete_attribute_${idx}`,
-          label: attr.name || `Atributo #${idx + 1}`,
+          label: attr.name || `Característica #${idx + 1}`,
           isCritical: false,
           currentValue: '',
         });

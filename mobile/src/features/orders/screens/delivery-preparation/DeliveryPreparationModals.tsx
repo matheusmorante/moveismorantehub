@@ -17,6 +17,10 @@ export interface DeliveryPreparationModalsProps {
   showStartConfirmModal: boolean;
   onCloseStartConfirmModal: () => void;
   onConfirmStartRoute: () => void;
+  gpsEnabled: boolean;
+  checkingGps?: boolean;
+  enablingGps?: boolean;
+  onEnableGps: () => Promise<boolean>;
   showUnattendedModal: boolean;
   unattendedVariant?: 'preparation' | 'arrival';
   onCloseUnattendedModal: () => void;
@@ -46,6 +50,10 @@ export const DeliveryPreparationModals: React.FC<DeliveryPreparationModalsProps>
   showStartConfirmModal,
   onCloseStartConfirmModal,
   onConfirmStartRoute,
+  gpsEnabled,
+  checkingGps = false,
+  enablingGps = false,
+  onEnableGps,
   showUnattendedModal,
   unattendedVariant = 'arrival',
   onCloseUnattendedModal,
@@ -67,7 +75,11 @@ export const DeliveryPreparationModals: React.FC<DeliveryPreparationModalsProps>
         responsibles={responsibles}
         loading={isActionLoading}
         isDarkMode={isDarkMode}
+        gpsEnabled={gpsEnabled}
+        checkingGps={checkingGps}
+        enablingGps={enablingGps}
         onConfirm={onConfirmStartRoute}
+        onEnableGps={onEnableGps}
         onCancel={onCloseStartConfirmModal}
       />
 

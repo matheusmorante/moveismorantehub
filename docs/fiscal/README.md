@@ -6,6 +6,7 @@
 
 ## Referências atuais
 
+- [Edição de pedido não invalida a versão carregada pelo autosave do rascunho — 24/10](historico-correcoes-2026-10-24.md#edição-de-pedido-não-invalida-a-versão-carregada-pelo-autosave-do-rascunho): o modal de edição usa salvamento explícito para manter válida a versão otimista carregada; outros fluxos preservam o autosave de rascunhos.
 - [Retentativa automática do XML completo após Ciência aceita — 24/10](historico-correcoes-2026-10-24.md#retentativa-automática-do-xml-completo-após-ciência-aceita): se `consChNFe` ainda retornar resumo ou não localizar o XML, o backend registra a tentativa e agenda outra consulta após 15 minutos; cada consulta continua respeitando a trava global de cinco minutos por CNPJ. A fila se mantém enquanto a tela de NF de entrada estiver aberta; não envia Confirmação da Operação para forçar o download.
 - [NF de saída integrada ao menu Vendas e remoção do atalho de relatório CSV — 24/10](historico-correcoes-2026-10-24.md#nf-de-saída-integrada-ao-menu-vendas-e-remoção-do-atalho-de-relatório-csv): mantém a NF de saída diretamente no menu Vendas, sem o cabeçalho Fiscal, e remove o atalho do relatório CSV dos menus desktop e mobile.
 - [Cadastro rápido de produtos na NF-e de entrada — 24/10](historico-correcoes-2026-10-24.md#cadastro-rápido-de-produtos-na-nf-e-de-entrada): cria produto simples, variação ou composição manual, resolve divergência de NCM e apresenta colisões por código do fornecedor, GTIN e nome antes de salvar; mantém estoque zerado e o XML original.

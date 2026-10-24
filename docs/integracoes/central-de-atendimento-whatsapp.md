@@ -1,6 +1,6 @@
 # Central de Atendimento WhatsApp — MoranteHub ERP
 
-> Estado conferido em 24/10/2026 BRT: `morantehub.com` resolve para o deployment Production `dpl_BCAGQ1EV6ES448Aprnfz2xGX1gbJ` (`READY`). `verify_app_credentials` confirmou as credenciais Meta de Production, e `verify_waba_subscription` confirmou `valid=true` e `subscribed=true` no WABA configurado. A Meta também confirmou a inscrição do callback `whatsapp_business_account` em `morantehub.vercel.app`, caminho `/api/whatsapp-webhook`, campo `messages`. HMAC válida calculada em memória foi aceita pelo webhook Production para payload vazio; assinaturas ausente e inválida foram recusadas. Ainda não houve entrega originada pela Meta nem leitura autorizada de mídia real. O envio permanece bloqueado por política. O build e `test:unit` executam `build:support`, que gera a fronteira CJS do processador compartilhado; o adaptador local usa o mesmo produtor. Ver [diagnóstico de runtime](central-de-atendimento-runtime-esm-2026-10-21.md).
+> Estado conferido em 24/10/2026 BRT: os metadados Vercel apontam `dpl_5jY7ptsGrQe9SAZVQF3zQmMYmt2z` como deployment Production mais recente (`READY`), commit `e4fe2bb35c43722e86d116eaa5acc86ac362c64f`, com aliases `morantehub.com` e `morantehub.vercel.app`. No deployment atual, probes autenticados confirmaram credenciais Meta válidas, `valid=true` e `subscribed=true` para o WABA; o webhook recusou assinatura ausente/inválida e aceitou HMAC válida apenas para `entry: []`, sem processar evento. Ainda não houve entrega originada pela Meta. A leitura real de áudio foi confirmada pela UI em Development, mas não em Production. As mudanças locais atuais de chats responsivos e forma de onda não foram publicadas. O envio permanece bloqueado por política. O build e `test:unit` executam `build:support`, que gera a fronteira CJS do processador compartilhado; o adaptador local usa o mesmo produtor. Ver [diagnóstico de runtime](central-de-atendimento-runtime-esm-2026-10-21.md).
 
 ## Confirmação de Production e do WABA — 23/10/2026 BRT
 
@@ -12,7 +12,7 @@ Nenhuma migration, fixture, gravação no banco, alteração de configuração M
 
 > **Módulo:** Central de Atendimento (`/atendimento`)  
 > **Integração:** WhatsApp Cloud API Oficial da Meta (Graph API)  
-> **Status:** Inbox publicada em produção; inscrição WABA, validação HMAC e credenciais Graph confirmadas, entrega legítima da Meta ainda não comprovada; envio bloqueado por política da empresa
+> **Status:** Inbox publicada em produção; credenciais Meta, inscrição WABA e validação HMAC confirmadas no deployment atual; leitura de áudio confirmada em Development; entrega legítima de webhook e leitura de mídia em Production pendentes; envio bloqueado por política da empresa
 > **Data:** 24/10/2026 (BRT)
 
 ---
@@ -35,7 +35,7 @@ A empresa mantém o envio desativado por política operacional, independentement
 ## 2. Auditoria e Preservação de Integrações Existentes
 
 Antes da implementação, foram auditadas as estruturas vigentes do MoranteHub:
-* **Webhook Oficial:** `api/whatsapp-webhook.ts` e `erp/api/whatsapp-webhook.ts` reutilizam `whatsappWebhookProcessor.ts`, preservando confirmação de entregas (`confirm_delivery_{orderId}`) e rastreamento em `whatsapp_dispatches` e `warranty_terms`.
+* **Webhook Oficial:** `api/whatsapp-webhook.ts` e `erp/api/whatsapp-webhook.ts` reutilizam `whatsappWebhookProcessor.ts` para recebimento, idempotência e rastreamento em `whatsapp_dispatches` e `warranty_terms`. O callback legado `confirm_delivery_{orderId}` ainda é recebido, mas a rechecagem remota de 24/10/2026 encontrou ausentes em `public.orders` as colunas que o handler tenta atualizar (`delivery_confirmed_at` e `delivery_confirmed_by`); portanto, não há confirmação persistida comprovada. O ajuste desse fluxo comercial requer escopo e migração próprios.
 * **Idempotência e Segurança:** O webhook valida `X-Hub-Signature-256` por HMAC-SHA256 sobre o corpo bruto, rejeita segredo ausente em produção e mantém deduplicação por `api_message_id` (`wamid`).
 * **Limite de Funções da Vercel (Hobby 12/12):** O ERP possui verificação em `erp/scripts/check-fiscal-startup.cjs` limitando a 12 funções serverless em `erp/api/`. As operações de download de mídia (`/api/whatsapp-media`) e bloqueio de envio (`/api/whatsapp-dispatch`) foram unificadas no despachador do webhook via rewrites em `erp/vercel.json`, garantindo `12/12` funções sem quebrar a compilação do módulo fiscal.
 
@@ -322,6 +322,12 @@ Rechecagem somente de catálogo no Supabase operacional confirmou RLS e ausênci
 ## Paginação do histórico publicada e Production — 24/10/2026 BRT
 
 O ajuste que impede usar o cursor da conversa anterior enquanto o novo histórico carrega foi publicado em `dpl_DKqHpJ4nKNGSYieTVBnQxYFG5jiW` (`READY`). Playwright oficial passou **1/1 em 55,1s** pela pilha raiz `npm run dev` (`5173`, API `3000`), com login e gate do operador. A Inbox carregou **50 → 100 de 172 conversas**, com HTTP 200 na segunda página; os painéis, filtros, persistência visual e breakpoints também passaram. As credenciais Meta de Production foram confirmadas e o app consta inscrito no WABA (`valid=true`, `subscribed=true`).
+
+## Leitura de áudio real em Development — 24/10/2026 BRT
+
+Com autorização do operador para selecionar qualquer conversa existente, o Playwright abriu uma conversa com áudio recebido pela UI. `/api/whatsapp-media` respondeu HTTP 200 e o player carregou o arquivo em URL `blob:` com metadados de aproximadamente 7 segundos. O áudio não foi reproduzido nem transcrito. A conversa estava não lida e o guard bloqueou a atualização automática do contador. Nenhuma gravação, migration, fixture, alteração da Meta ou mensagem foi feita.
+
+A prova passou **1/1 em 46,4s** com ambiente Vercel Development, servidor ERP na `5173` e API na `3000`; a paginação carregou **50 → 100 de 181**. Isso comprova o caminho real do proxy e do player em Development, não a leitura em Production nem uma entrega de webhook originada pela Meta. O envio de mensagens permanece bloqueado.
 
 No mesmo deployment, o webhook respondeu **401** sem assinatura, **401** para HMAC inválida e **200 `EVENT_RECEIVED`** para HMAC válida com `entry: []`; nenhum evento foi processado. `POST /api/whatsapp-dispatch` respondeu **403** via Vercel CLI autenticado; o despacho segue bloqueado. Nenhuma fixture, migration, gravação no banco, mudança Meta ou mensagem foi feita nesta revalidação. O log de aceite registra o build remoto e os avisos de dependências.
 

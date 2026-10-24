@@ -211,6 +211,11 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
             </TouchableOpacity>
           </View>
         )}
+        {!searching && !searchError && searchTerm.trim().length > 0 && searchTerm.trim().length < 3 && (
+          <Text style={[styles.infoText, dark && styles.dimText]}>
+            Digite pelo menos três caracteres para buscar.
+          </Text>
+        )}
         {!searching && !searchError && searchTerm.trim().length >= 3 && results.length === 0 && (
           <Text style={[styles.infoText, dark && styles.dimText]}>
             Nenhum produto encontrado para esta busca.

@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { Check, FileText, Search, Sparkles, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZodForm, flattenFormErrors } from '../../../../hooks/useZodForm';
 import {
   productAiCharacteristicsModalFormSchema,
@@ -50,6 +51,9 @@ export const ProductAiCharacteristicsAssistant: React.FC<Props> = ({
   categoryName,
   dark,
 }) => {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? 24 : 0);
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 0);
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<AssistantMode>('web_search');
   const [isLoadingQuota, setIsLoadingQuota] = useState(false);
@@ -192,7 +196,7 @@ export const ProductAiCharacteristicsAssistant: React.FC<Props> = ({
 
       <Modal visible={isOpen} animationType="slide" presentationStyle="fullScreen" onRequestClose={close}>
         <KeyboardAvoidingView style={[styles.screen, dark && styles.screenDark]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.header, dark && styles.headerDark]}>
+          <View style={[styles.header, dark && styles.headerDark, { paddingTop: 12 + topInset }]}>
             <View style={styles.headerIcon}><Sparkles size={18} color="#b45309" /></View>
             <View style={styles.headerCopy}>
               <Text style={[styles.title, dark && styles.lightText]}>{phase === 'input' ? 'Preenchimento inteligente' : 'Revise as sugestões'}</Text>
@@ -319,7 +323,9 @@ export const ProductAiCharacteristicsAssistant: React.FC<Props> = ({
             )}
           </ScrollView>
 
-          <View style={[styles.footer, dark && styles.headerDark]}>
+          <View
+            style={[styles.footer, dark && styles.headerDark, { paddingBottom: 10 + bottomInset }]}
+          >
             {phase === 'review' ? (
               <>
                 <TouchableOpacity onPress={() => setPhase('input')} disabled={isGenerating} style={styles.secondaryButton} accessibilityRole="button"><Text style={styles.secondaryText}>Voltar</Text></TouchableOpacity>

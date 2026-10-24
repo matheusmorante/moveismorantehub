@@ -7,6 +7,8 @@ import { useSofaDescriptionSync } from './hooks/useSofaDescriptionSync';
 import { useTechnicalFieldApplicability } from './hooks/useTechnicalFieldApplicability';
 import { useTechnicalFieldActions } from './hooks/useTechnicalFieldActions';
 import {
+  getCharacteristicDependencyState,
+  isQuantityCharacteristic,
   isTechnicalFieldVariable,
   resolveVariableTechnicalFieldNames,
 } from '@/pages/utils/technicalValuesService';
@@ -109,7 +111,10 @@ export const useProductTechnicalTab = ({
         const isRequiredForCatalog = fieldDefinition?.requiredCategoryIds?.some((categoryId) =>
           (prev.categoryIds || []).map(String).includes(String(categoryId))
         );
-        if (scope === 'not_inform' && isRequiredForCatalog) return prev;
+        const applicableField = applicability.visibleFields.find(
+          (field) => field.name.trim().toLocaleLowerCase('pt-BR') === fieldName.trim().toLocaleLowerCase('pt-BR')
+        );
+        if (scope === 'not_inform' && (isRequiredForCatalog || applicableField?.isRequired)) return prev;
 
         const variableFields = resolveVariableTechnicalFieldNames(
           prev.variableTechnicalFields,
@@ -126,23 +131,55 @@ export const useProductTechnicalTab = ({
         const next = { ...prev, variableTechnicalFields: nextVariableFields };
 
         if (nextScope === 'not_inform') {
+          const isRequired = Boolean(isRequiredForCatalog || applicableField?.isRequired);
+          const dependency = getCharacteristicDependencyState(
+            fieldName,
+            prev.technicalValues || {}
+          );
+          if (
+            !isRequired &&
+            dependency.isDependent &&
+            !dependency.isDisabled
+          ) {
+            return {
+              ...next,
+              technicalValues: {
+                ...(prev.technicalValues || {}),
+                [fieldName]: 'Não se aplica',
+              },
+            };
+          }
           return applyTechnicalValueChangeToProduct(next, fieldName, undefined);
         }
 
         if (nextScope === 'global') {
           const storedValue = prev.technicalValues?.[fieldName];
+          const storedValueIsNotApplicable = [
+            'não se aplica',
+            'nao se aplica',
+            'n/a',
+            'não informar',
+          ].includes(String(storedValue ?? '').trim().toLocaleLowerCase('pt-BR'));
           const hasConfiguredValue =
-            (storedValue !== undefined && storedValue !== null) ||
-            hasCharacteristicValue({ id: `scope-${fieldName}`, name: fieldName }, prev);
+            (!storedValueIsNotApplicable && storedValue !== undefined && storedValue !== null) ||
+            hasCharacteristicValue(
+              { id: `scope-${fieldName}`, name: fieldName, dataType: 'text', options: [] },
+              prev
+            );
           return hasConfiguredValue
             ? next
-            : applyTechnicalValueChangeToProduct(next, fieldName, '');
+            : isQuantityCharacteristic(fieldName)
+              ? {
+                  ...next,
+                  technicalValues: { ...(next.technicalValues || {}), [fieldName]: null },
+                }
+              : applyTechnicalValueChangeToProduct(next, fieldName, '');
         }
 
         return next;
       });
     },
-    [allTechnicalFields, setFormData]
+    [allTechnicalFields, applicability.visibleFields, setFormData]
   );
 
   const openAttributeModal = () => setIsAttributeModalOpen(true);

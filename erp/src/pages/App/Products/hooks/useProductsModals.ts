@@ -57,7 +57,16 @@ export function useProductsModals() {
       const source = product.id ? await getFullProduct(product.id) : product;
       if (!source) throw new Error('Não foi possível carregar os dados completos do produto.');
       const code = await getNextSequentialProductCode();
-      const images = await copyProductImages(Array.isArray(source.images) ? source.images : []);
+      const sourceImages = Array.isArray(source.images) ? source.images : [];
+      let images = sourceImages;
+      if (sourceImages.length > 0) {
+        try {
+          images = await copyProductImages(sourceImages);
+        } catch (error) {
+          console.warn('[Products] Não foi possível criar cópias independentes das fotos:', error);
+          toast.warn('As fotos originais foram mantidas porque não foi possível copiá-las.');
+        }
+      }
       const variationImages =
         (source.variations || []).length === 1
           ? images

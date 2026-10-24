@@ -32,7 +32,7 @@ export const ReconciliationSummaryHeader: React.FC<Props> = ({
     { id: 'ncm', label: 'NCM', count: summary.chipCounts.ncm, icon: 'bi-file-earmark-text' },
     {
       id: 'attributes',
-      label: 'Atributos',
+      label: 'Características',
       count: summary.chipCounts.attributes,
       icon: 'bi-ui-radios',
     },

@@ -17,11 +17,11 @@ export const productReferenceFormSchema = z.object({
 export const catalogSelectionFormSchema = z.object({ id: z.string().trim().min(1, 'Selecione um cadastro.') });
 export const bulkNcmFormSchema = z.object({ ncm: z.string().transform((value) => value.trim().replace(/[.\s]/g, '')).pipe(z.string().regex(/^\d{8}$/, 'Informe um NCM válido com 8 dígitos.')) });
 export const bulkAttributeFormSchema = z.object({
-  name: z.string().trim().min(1, 'Selecione o atributo.'),
-  value: z.string().trim().min(1, 'Informe o valor do atributo.'),
+  name: z.string().trim().min(1, 'Selecione a característica.'),
+  value: z.string().trim().min(1, 'Informe o valor da característica.'),
 });
 export const cartesianVariationFormSchema = z.object({
-  attributes: z.array(z.object({ name: z.string().trim().min(1, 'Selecione o atributo de cada linha.'), values: z.array(z.string().trim().min(1)).min(1, 'Selecione um valor de cada atributo.'), showName: z.boolean() })).min(1, 'Selecione pelo menos um atributo e um valor.'),
+  attributes: z.array(z.object({ name: z.string().trim().min(1, 'Selecione a característica de cada linha.'), values: z.array(z.string().trim().min(1)).min(1, 'Selecione um valor de cada característica.'), showName: z.boolean() })).min(1, 'Selecione pelo menos uma característica e um valor.'),
 });
 export const variationTargetFormSchema = z.object({
   sourceId: z.string().min(1, 'Variação de origem não encontrada.'),
@@ -29,9 +29,9 @@ export const variationTargetFormSchema = z.object({
 }).refine((value) => value.sourceId !== value.targetId, { path: ['targetId'], message: 'Selecione um destino diferente da origem.' });
 export const variationFamilyFormSchema = z.object({
   sourceId: z.string().trim().min(1, 'Variação de origem não encontrada.'), familyId: z.string().trim().min(1, 'Selecione a família de destino.'),
-  attributes: z.array(z.object({ name: z.string().trim().min(1, 'Informe o atributo.'), value: z.string().trim().min(1, 'Informe o valor do atributo.'), showName: z.boolean().optional() }).passthrough()).min(1, 'Informe pelo menos um atributo da variação.'),
+  attributes: z.array(z.object({ name: z.string().trim().min(1, 'Informe a característica.'), value: z.string().trim().min(1, 'Informe o valor da característica.'), showName: z.boolean().optional() }).passthrough()).min(1, 'Informe pelo menos uma característica da variação.'),
 }).refine((values) => new Set(values.attributes.map((attribute) => attribute.name.toLocaleLowerCase('pt-BR'))).size === values.attributes.length,
-  { path: ['attributes'], message: 'Não repita o mesmo atributo.' });
+  { path: ['attributes'], message: 'Não repita a mesma característica.' });
 const storefrontFilterFields = z.object({
   envs: z.array(z.string()), cats: z.array(z.string()), search: z.string(), type: z.string(),
   minPrice: z.number().nonnegative(), maxPrice: z.number().nonnegative(), sortBy: z.enum(['newest', 'price-asc', 'price-desc']),

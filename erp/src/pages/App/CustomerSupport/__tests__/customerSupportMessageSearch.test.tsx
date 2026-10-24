@@ -157,18 +157,18 @@ describe('Formulário de busca de mensagens', () => {
       .mockResolvedValueOnce({ messages: [source], hasMore: false, nextCursor: null })
       .mockResolvedValueOnce({ messages: [incoming, source], hasMore: false, nextCursor: null })
       .mockResolvedValueOnce({ messages: [refreshed, incoming, source], hasMore: false, nextCursor: null });
-    render(<ChatArea conversation={{ id: 'conversation-1', contactPhone: '5511999990000', contactName: 'Fixture', tags: [], status: 'open' } as WhatsAppConversation}
+    render(<ChatArea conversation={{ id: 'conversation-1', contactPhone: '5511999990000', contactName: 'Fixture', tags: [], status: 'open' } as unknown as WhatsAppConversation}
       messages={latest} teamMembers={[]} isLoadingMessages={false} isInfoPanelOpen={false}
       onBackMobile={vi.fn()} onToggleInfoPanel={vi.fn()} onToggleArchive={vi.fn()}
       onRefreshMessages={refreshMessages} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Pesquisar na conversa', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: /^Pesquisar na conversa$/ }));
     fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar nesta conversa' }), { target: { value: 'agulha' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Buscar', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: /^Buscar$/ }));
     await screen.findByText(source.textContent!);
-    fireEvent.click(screen.getByRole('button', { name: 'Buscar', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: /^Buscar$/ }));
     await screen.findByText(incoming.textContent!);
     expect(mocks.fetchMessageSearch).toHaveBeenCalledTimes(2);
-    fireEvent.click(screen.getByRole('button', { name: 'Recarregar mensagens', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: /^Recarregar mensagens$/ }));
     await screen.findByText(refreshed.textContent!);
     expect(refreshMessages).toHaveBeenCalledTimes(1);
     expect(mocks.fetchMessageSearch).toHaveBeenCalledTimes(3);

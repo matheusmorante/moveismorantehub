@@ -89,6 +89,49 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
   const variations: any[] = Array.isArray(formData.variations) ? formData.variations : [];
   const variationCount = variations.length;
   const variationIds = variations.map((variation) => String(variation.id || '')).join('|');
+  const shouldCheckVariationUsage = Boolean(
+    isExistingProduct && formData.id && variationCount > 1
+  );
+  const [variationUsageById, setVariationUsageById] = useState<
+    Record<string, boolean | undefined>
+  >({});
+
+  useEffect(() => {
+    if (!shouldCheckVariationUsage) {
+      setVariationUsageById({});
+      return;
+    }
+
+    const ids = variationIds.split('|');
+    const persistedIds = ids.filter(Boolean);
+    let isCurrent = true;
+    setVariationUsageById(
+      Object.fromEntries(ids.map((id) => [id, id ? undefined : false]))
+    );
+
+    void Promise.all(
+      persistedIds.map(async (id) => [
+        id,
+        await checkMobileProductVariationHasMoves(formData.id, id),
+      ] as const)
+    )
+      .then((entries) => {
+        if (isCurrent) {
+          setVariationUsageById((current) => ({ ...current, ...Object.fromEntries(entries) }));
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setVariationUsageById(
+            Object.fromEntries(ids.map((id) => [id, id ? true : false]))
+          );
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [formData.id, shouldCheckVariationUsage, variationIds]);
 
   useEffect(() => {
     if (!selectedVariationId) return;
@@ -259,7 +302,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
     Alert.alert(
       remainsSimple ? 'O produto se tornará simples' : 'Remover variação?',
       remainsSimple
-        ? 'Restará uma variação simples, que herdará nome, preços, descrição, dimensões e fotos do produto pai. UUID/SKU, atributos e saldo da variação restante serão mantidos. As fotos da variação removida não serão excluídas automaticamente da aba Galeria; revise ou remova-as por lá se necessário. Você poderá voltar a “Com variações” nas informações básicas.'
+        ? 'Restará uma variação simples, que herdará nome, preços, descrição, dimensões e fotos do produto pai. UUID/SKU, características e saldo da variação restante serão mantidos. As fotos da variação removida não serão excluídas automaticamente da aba Galeria; revise ou remova-as por lá se necessário. Você poderá voltar a “Com variações” nas informações básicas.'
         : `A variação “${variation?.name || variation?.sku || 'Variação'}” será removida ao salvar o produto.`,
       [
         { text: 'Cancelar', style: 'cancel' },
@@ -639,7 +682,15 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                         v.merged_to_variation_id ||
                         v.mergedToVariationId
                       );
-                      const isDeleteDisabled = variations.length <= 1 || isVariationMerged;
+                      const variationId = String(v.id || '');
+                      const usageStatus = shouldCheckVariationUsage && variationId
+                        ? variationUsageById[variationId]
+                        : false;
+                      const isUsageBlocked = Boolean(
+                        shouldCheckVariationUsage && variationId && usageStatus !== false
+                      );
+                      const isDeleteDisabled =
+                        variations.length <= 1 || isVariationMerged || isUsageBlocked;
                       return (
                         <TouchableOpacity
                           onPress={() => void handleRemove(idx)}
@@ -656,6 +707,10 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                               ? 'A última variação não pode ser removida'
                               : isVariationMerged
                               ? 'Esta variação está mesclada e não pode ser removida'
+                              : isUsageBlocked && usageStatus === undefined
+                              ? `Verificando vínculos de estoque e vendas da variação ${v.name || v.sku}`
+                              : isUsageBlocked
+                              ? 'A variação possui vínculos de histórico ou não foi possível verificá-los'
                               : `Remover variação ${v.name || v.sku}`
                           }
                         >
@@ -665,6 +720,15 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                     })()}
                   </View>
                 </View>
+                {shouldCheckVariationUsage &&
+                  Boolean(v.id) &&
+                  variationUsageById[String(v.id)] !== false && (
+                    <Text style={[styles.variationDeletionStatus, dark && styles.darkVariationDeletionStatus]}>
+                      {variationUsageById[String(v.id)] === undefined
+                        ? 'Verificando vínculos de estoque e vendas…'
+                        : 'Esta variação possui vínculos de histórico ou não foi possível verificá-los.'}
+                    </Text>
+                  )}
 
                 {/* Modal de edição da variação, equivalente ao ERP */}
                 {isOpen && (
@@ -1463,6 +1527,18 @@ const styles = StyleSheet.create({
   },
   varHeader: { flexDirection: 'row', alignItems: 'center', padding: 10, gap: 8 },
   varHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  variationDeletionStatus: {
+    marginHorizontal: 10,
+    marginBottom: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#fffbeb',
+    color: '#92400e',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  darkVariationDeletionStatus: { backgroundColor: '#451a03', color: '#fcd34d' },
   variationThumbnail: {
     width: 52,
     height: 52,

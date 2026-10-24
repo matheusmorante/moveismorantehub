@@ -10,7 +10,7 @@ export interface AttributeManagementModalProps {
 }
 
 /**
- * Modal para gerenciamento completo de atributos e variações globais dentro do cadastro/edição de produtos.
+ * Modal para gerenciamento completo de características e variações globais dentro do cadastro/edição de produtos.
  */
 export const AttributeManagementModal: React.FC<AttributeManagementModalProps> = ({
   isOpen,
@@ -38,7 +38,7 @@ export const AttributeManagementModal: React.FC<AttributeManagementModalProps> =
       className="fixed inset-0 z-[1000031] flex"
       role="dialog"
       aria-modal="true"
-      aria-label="Gerenciamento de Atributos e Variações"
+      aria-label="Gerenciamento de Características e Variações"
     >
       <button
         type="button"

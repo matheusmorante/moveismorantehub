@@ -342,7 +342,8 @@ export function useMobileProducts(
         targetProd.id,
         currentActive,
         isVariation,
-        targetVariation?.id
+        targetVariation?.id,
+        Boolean(targetVariation?.isVirtual)
       );
       setProducts((prev) =>
         prev.map((p) => {

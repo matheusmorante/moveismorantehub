@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   SupplierAddress,
   SupplierFormData,
@@ -60,18 +61,20 @@ export const SupplierFormModal: React.FC<Props> = ({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SupplierFormContent
-        supplier={supplier}
-        showStockOriginOptions={showStockOriginOptions}
-        theme={theme}
-        form={form}
-        setForm={setForm}
-        isSaving={isSaving}
-        onClose={onClose}
-        updateAddress={updateAddress}
-        updateField={updateField}
-        handleSave={handleSave}
-      />
+      <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: theme.bg }}>
+        <SupplierFormContent
+          supplier={supplier}
+          showStockOriginOptions={showStockOriginOptions}
+          theme={theme}
+          form={form}
+          setForm={setForm}
+          isSaving={isSaving}
+          onClose={onClose}
+          updateAddress={updateAddress}
+          updateField={updateField}
+          handleSave={handleSave}
+        />
+      </SafeAreaView>
     </Modal>
   );
 };

@@ -56,7 +56,7 @@ export const ProductFormVariationsSection: React.FC<Props> = ({ formData, setFor
       <View style={styles.addBox}>
         <View style={styles.row}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={[styles.label, dark && styles.lightText]}>Atributo</Text>
+            <Text style={[styles.label, dark && styles.lightText]}>Característica</Text>
             <TextInput
               value={attrName}
               onChangeText={setAttrName}

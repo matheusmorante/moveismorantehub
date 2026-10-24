@@ -1,7 +1,8 @@
-import { ArrowLeft, Package, RefreshCw, Tags, EyeOff } from 'lucide-react-native';
+import { ArrowLeft, EyeOff, Package, RefreshCw, Tags, UploadCloud } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,15 +14,18 @@ import {
 } from 'react-native';
 import type { MetaCatalogStats } from '../../../../../shared-utils/metaCatalogStats';
 import { fetchMobileMetaCatalogStats } from '../services/mobileMetaCatalogStatsService';
+import { syncMobileMetaCatalog } from '../services/mobileMetaCatalogSyncService';
 
 interface NativeMetaCatalogScreenProps {
   dark: boolean;
+  isAdmin: boolean;
   onBack: () => void;
   onOpenErpPanel: () => void;
 }
 
 export function NativeMetaCatalogScreen({
   dark,
+  isAdmin,
   onBack,
   onOpenErpPanel,
 }: NativeMetaCatalogScreenProps) {
@@ -29,6 +33,9 @@ export function NativeMetaCatalogScreen({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({ processed: 0, total: 0 });
+  const [syncError, setSyncError] = useState<string | null>(null);
   const mountedRef = useRef(false);
 
   const loadStats = useCallback(async (isRefresh = false) => {
@@ -54,6 +61,46 @@ export function NativeMetaCatalogScreen({
       }
     }
   }, []);
+
+  const syncCatalog = useCallback(async () => {
+    if (!isAdmin) {
+      Alert.alert(
+        'Acesso restrito',
+        'Apenas administradores podem iniciar a sincronização via Graph API.'
+      );
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncProgress({ processed: 0, total: 0 });
+    setSyncError(null);
+
+    const result = await syncMobileMetaCatalog(isAdmin, (processed, total) => {
+      if (mountedRef.current) setSyncProgress({ processed, total });
+    });
+
+    if (!mountedRef.current) return;
+    setIsSyncing(false);
+
+    if (!result.success) {
+      const message = result.error || 'Erro ao sincronizar com a Meta Graph API.';
+      setSyncError(message);
+      Alert.alert(
+        'Falha na sincronização',
+        `${message}\n\nA resposta pode não confirmar se o último lote foi aplicado. Confira o catálogo da Meta antes de repetir.`
+      );
+      return;
+    }
+
+    setSyncError(null);
+    Alert.alert(
+      'Solicitações enviadas',
+      result.count > 0
+        ? `${result.count} itens foram enviados para processamento pela Meta. O status final pode levar algum tempo.`
+        : 'Nenhum item elegível foi encontrado para sincronização.'
+    );
+    void loadStats(true);
+  }, [isAdmin, loadStats]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -106,6 +153,71 @@ export function NativeMetaCatalogScreen({
           <Text style={[styles.subtitle, mutedStyle]}>
             Resumo de produtos e variações publicados no catálogo.
           </Text>
+        </View>
+
+        <View style={[styles.syncPanel, surfaceStyle]}>
+          <View style={styles.syncHeader}>
+            <View style={styles.syncCopy}>
+              <Text style={[styles.syncTitle, textStyle]}>Sincronização manual via Graph API</Text>
+              <Text style={[styles.muted, mutedStyle]}>
+                Envia produtos e variações elegíveis para o catálogo da Meta.
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => void syncCatalog()}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isSyncing || !isAdmin }}
+              disabled={isSyncing || !isAdmin}
+              style={[styles.syncButton, (!isAdmin || isSyncing) && styles.syncButtonDisabled]}
+            >
+              {isSyncing ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <UploadCloud size={17} color="#ffffff" />
+              )}
+              <Text style={styles.syncButtonText}>
+                {isSyncing ? 'Sincronizando...' : 'Sincronizar'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {!isAdmin && (
+            <Text style={[styles.muted, mutedStyle]}>
+              Apenas administradores podem iniciar esta ação.
+            </Text>
+          )}
+          {isSyncing && (
+            <View style={styles.progressBlock} accessibilityRole="progressbar">
+              <Text style={[styles.progressLabel, textStyle]}>
+                {syncProgress.total > 0
+                  ? `${syncProgress.processed} de ${syncProgress.total} itens enviados`
+                  : 'Consultando produtos e variações...'}
+              </Text>
+              <View style={[styles.progressTrack, dark && styles.progressTrackDark]}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${syncProgress.total > 0 ? Math.round((syncProgress.processed / syncProgress.total) * 100) : 0}%`,
+                    },
+                  ]}
+                />
+              </View>
+              {syncProgress.total > 0 && (
+                <Text style={[styles.progressPercent, mutedStyle]}>
+                  {Math.round((syncProgress.processed / syncProgress.total) * 100)}%
+                </Text>
+              )}
+            </View>
+          )}
+          {syncError && !isSyncing && (
+            <Text style={[styles.syncError, dark && styles.errorTextDark]} accessibilityRole="alert">
+              {syncError}
+              {!syncError.includes('Confira o catálogo') &&
+                ' Confira o catálogo da Meta antes de tentar novamente.'}
+              {syncProgress.total > 0 &&
+                ` Último progresso informado: ${syncProgress.processed} de ${syncProgress.total} itens enviados.`}
+            </Text>
+          )}
         </View>
 
         {loading && !stats && (
@@ -234,6 +346,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  syncPanel: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+  },
+  syncHeader: { gap: 12 },
+  syncCopy: { gap: 5 },
+  syncTitle: { fontSize: 14, fontWeight: '900' },
+  syncButton: {
+    minHeight: 46,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    backgroundColor: '#059669',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  syncButtonDisabled: { backgroundColor: '#64748b' },
+  syncButtonText: { color: '#ffffff', fontSize: 12, fontWeight: '900' },
+  progressBlock: { gap: 7 },
+  progressLabel: { fontSize: 11, fontWeight: '800' },
+  progressTrack: { height: 8, backgroundColor: '#e2e8f0', borderRadius: 20, overflow: 'hidden' },
+  progressTrackDark: { backgroundColor: '#334155' },
+  progressFill: { height: '100%', backgroundColor: '#10b981', borderRadius: 20 },
+  progressPercent: { fontSize: 10, textAlign: 'right' },
+  syncError: { color: '#b91c1c', fontSize: 11, lineHeight: 17 },
   surface: { backgroundColor: '#ffffff', borderColor: '#e2e8f0' },
   surfaceDark: { backgroundColor: '#0f172a', borderColor: '#1e293b' },
   text: { color: '#0f172a' },

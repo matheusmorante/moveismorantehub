@@ -121,6 +121,30 @@ Móveis Morante
 
 ____________________________________`;
 
+export const META_CATALOG_WHATSAPP_BASE_DESCRIPTION = `🏠 *Móveis Morante*
+📍 R. Cascavel, 306 - Guaraituba, Colombo - PR
+⌚ Seg a Sex: 9h às 18h | Sáb: 9h às 17h
+📞 (41) 99749-3547
+
+――――――――――――`;
+
+/** Monta uma descrição única mantendo prefixo, texto configurado e conteúdo do item nessa ordem. */
+export function buildMetaCatalogDescription(
+  productDescription: string | null | undefined,
+  whatsappBaseDescription?: string | null
+): string {
+  const globalPrefix = META_CATALOG_GLOBAL_PREFIX.trim();
+  const productText = String(productDescription ?? '').trim();
+  const itemDescription = productText.startsWith(globalPrefix)
+    ? productText.slice(globalPrefix.length).trim()
+    : productText;
+  const configuredBase = (
+    whatsappBaseDescription ?? META_CATALOG_WHATSAPP_BASE_DESCRIPTION
+  ).trim();
+
+  return [globalPrefix, configuredBase, itemDescription].filter(Boolean).join('\n\n');
+}
+
 /**
  * Resolve a taxonomia do produto para a Meta: "Ambiente > Categoria"
  */
@@ -179,7 +203,7 @@ export function isSlugSku(val: string | null | undefined): boolean {
 }
 
 /**
- * Extrai atributos de Cor e Tamanho da variação.
+ * Extrai características de Cor e Tamanho da variação.
  */
 export function extractVariationAttributes(attributes: unknown): { color: string; size: string } {
   let color = '';

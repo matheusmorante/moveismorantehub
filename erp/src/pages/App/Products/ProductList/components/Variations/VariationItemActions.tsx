@@ -142,7 +142,7 @@ export const VariationItemActions: React.FC<VariationItemActionsProps> = ({
 
             if (!hasValidAttribute) {
               const { toast } = await import('react-toastify');
-              toast.error('Este produto deve ter um atributo / valor definido.');
+              toast.error('Este produto deve ter uma característica e um valor definidos.');
               return;
             }
 

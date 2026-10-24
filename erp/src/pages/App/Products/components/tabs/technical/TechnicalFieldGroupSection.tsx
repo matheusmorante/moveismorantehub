@@ -8,9 +8,9 @@ import {
   isHasDoorsCharacteristic,
   isHasDrawersCharacteristic,
   isHasFeetCharacteristic,
-  isHasDoorsActive,
-  isHasDrawersActive,
-  isHasFeetActive,
+  isDoorQuantityCharacteristic,
+  isDrawerQuantityCharacteristic,
+  isCharacteristicDependentOnVariableField,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldRow } from './TechnicalFieldRow';
 import { isTechnicalFieldVariable } from '@/pages/utils/technicalValuesService';
@@ -22,6 +22,7 @@ export interface TechnicalFieldGroupSectionProps {
   readonly validationErrors?: Record<string, boolean>;
   readonly variableTechnicalFieldNames?: readonly string[];
   readonly isSimpleProduct?: boolean;
+  readonly hideHeading?: boolean;
   readonly onToggleVariableField?: (
     fieldName: string,
     scope?: 'not_inform' | 'global' | 'variation'
@@ -67,8 +68,7 @@ const DEFAULT_POSSUI_PES: TechnicalFieldDefinition = {
 
 /**
  * Renderiza uma seção temática de características técnicas em grid responsivo.
- * Quando aplicável a Portas, Gavetas ou Pés, exibe o interruptor mestre ("Possui ...")
- * e estende os campos dependentes dinamicamente ao ser ligado (Sim).
+ * Mantém os campos dependentes visíveis e os habilita quando o campo mestre é válido.
  */
 export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProps> = ({
   group,
@@ -77,6 +77,7 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
   validationErrors,
   variableTechnicalFieldNames = [],
   isSimpleProduct = false,
+  hideHeading = false,
   onToggleVariableField,
   onValueChange,
   onOpenAttributeModal,
@@ -87,34 +88,50 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
   const isGavetasGroup = group.title === 'Gavetas';
   const isPesGroup = group.title === 'Pés';
   const isDimensionsGroup = group.title === 'Dimensões e Peso';
+  const isVariableField = (fieldName: string) =>
+    isTechnicalFieldVariable(fieldName, variableTechnicalFieldNames) ||
+    isCharacteristicDependentOnVariableField(fieldName, variableTechnicalFieldNames);
 
   const effectiveFields = [...group.fields];
-  if (isPortasGroup && !effectiveFields.some((f) => isHasDoorsCharacteristic(f.name))) {
+  const hasDoorQuantityField = effectiveFields.some((field) =>
+    isDoorQuantityCharacteristic(field.name)
+  );
+  const hasDrawerQuantityField = effectiveFields.some((field) =>
+    isDrawerQuantityCharacteristic(field.name)
+  );
+
+  if (
+    isPortasGroup &&
+    !hasDoorQuantityField &&
+    !effectiveFields.some((field) => isHasDoorsCharacteristic(field.name))
+  ) {
     effectiveFields.unshift(DEFAULT_POSSUI_PORTAS);
   }
-  if (isGavetasGroup && !effectiveFields.some((f) => isHasDrawersCharacteristic(f.name))) {
+  if (
+    isGavetasGroup &&
+    !hasDrawerQuantityField &&
+    !effectiveFields.some((field) => isHasDrawersCharacteristic(field.name))
+  ) {
     effectiveFields.unshift(DEFAULT_POSSUI_GAVETAS);
   }
   if (isPesGroup && !effectiveFields.some((f) => isHasFeetCharacteristic(f.name))) {
     effectiveFields.unshift(DEFAULT_POSSUI_PES);
   }
 
-  const isDoorsActive = isHasDoorsActive(formData.technicalValues || {});
-  const isDrawersActive = isHasDrawersActive(formData.technicalValues || {});
-  const isFeetActive = isHasFeetActive(formData.technicalValues || {});
-
   const displayedFields = effectiveFields.filter((field) => {
     if (isPortasGroup) {
-      if (isHasDoorsCharacteristic(field.name)) return true;
-      return isDoorsActive;
+      if (isHasDoorsCharacteristic(field.name)) return !hasDoorQuantityField;
+      if (isDoorQuantityCharacteristic(field.name)) return true;
+      return true;
     }
     if (isGavetasGroup) {
-      if (isHasDrawersCharacteristic(field.name)) return true;
-      return isDrawersActive;
+      if (isHasDrawersCharacteristic(field.name)) return !hasDrawerQuantityField;
+      if (isDrawerQuantityCharacteristic(field.name)) return true;
+      return true;
     }
     if (isPesGroup) {
       if (isHasFeetCharacteristic(field.name)) return true;
-      return isFeetActive;
+      return true;
     }
     return true;
   });
@@ -128,7 +145,11 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
           formData={formData}
           manualFieldNames={manualFieldNames}
           validationErrors={validationErrors}
-          isVariable={isTechnicalFieldVariable(field.name, variableTechnicalFieldNames)}
+          isVariable={isVariableField(field.name)}
+          isDependencyVariable={isCharacteristicDependentOnVariableField(
+            field.name,
+            variableTechnicalFieldNames
+          )}
           isSimpleProduct={isSimpleProduct}
           onToggleVariable={onToggleVariableField}
           onValueChange={onValueChange}
@@ -153,6 +174,10 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
         {fieldGrid}
       </details>
     );
+  }
+
+  if (hideHeading) {
+    return <div className="flex flex-col gap-3">{fieldGrid}</div>;
   }
 
   return (

@@ -1,5 +1,7 @@
 import React from 'react';
 import labelMdf from '../../../../../../assets/label_mdf.png';
+import ProductAutocomplete from '@/components/ProductAutocomplete';
+import type Product, { Variation } from '@/pages/types/product.type';
 import ProductSearchInput from '../ProductSearchInput';
 
 interface LabelQueueCardProps {
@@ -13,6 +15,7 @@ interface LabelQueueCardProps {
   dragOverIdx: number | null;
   products?: any[];
   onSelectProduct?: (index: number, product: any) => void;
+  onReplaceProduct?: (index: number, product: Product, variation?: Variation) => void;
   updateItem: (idx: number, updates: any) => void;
   removeItem: (idx: number) => void;
   handleImageChange: (event: React.ChangeEvent<HTMLInputElement>, index: number, blank?: boolean) => void;
@@ -33,6 +36,7 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
   dragOverIdx,
   products = [],
   onSelectProduct,
+  onReplaceProduct,
   updateItem,
   removeItem,
   handleImageChange,
@@ -208,9 +212,19 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Nome e SKU */}
           <div className="min-w-0 flex-1">
-            {item.isBlank ? (
-              (selectedCategory === 'precos' && item.printingMode === 'advanced') ||
-              selectedCategory === 'identificacao' ? (
+            {selectedCategory === 'identificacao' ? (
+              <ProductAutocomplete
+                value={item.isBlank ? '' : item.name || ''}
+                onSelect={(product, variation) => onReplaceProduct?.(idx, product, variation)}
+                allowedProductKinds={['normal']}
+                variationsOnly
+                excludeCombos
+                maxSuggestions={5}
+                placeholder={item.isBlank ? 'Buscar produto convencional...' : 'Alterar produto da etiqueta...'}
+                inputClassName="w-full border-b-2 border-slate-200 bg-transparent px-2 py-2 text-xs font-bold text-slate-800 outline-none focus:border-blue-500 dark:border-slate-800 dark:text-slate-100"
+              />
+            ) : item.isBlank ? (
+              selectedCategory === 'precos' && item.printingMode === 'advanced' ? (
                 <ProductSearchInput
                   products={products}
                   selectedProduct={null}

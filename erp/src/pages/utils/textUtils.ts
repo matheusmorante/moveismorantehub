@@ -1,16 +1,6 @@
-import { toTitleCase } from '../../../../shared-utils/productText';
+import { normalizeSearchTerm, removeAccents, toTitleCase } from '../../../../shared-utils/productText';
 
-export { toTitleCase };
-
-export function removeAccents(str: string): string {
-  if (!str || typeof str !== 'string') return '';
-  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-export function normalizeSearchTerm(str: string): string {
-  if (!str || typeof str !== 'string') return '';
-  return removeAccents(str).toLowerCase().trim();
-}
+export { normalizeSearchTerm, removeAccents, toTitleCase };
 
 /**
  * Constrói padrão Regex para busca insensível a acentuação em banco de dados ou filtros textuais

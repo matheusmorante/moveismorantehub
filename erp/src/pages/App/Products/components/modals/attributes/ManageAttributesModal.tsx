@@ -55,7 +55,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
   const createForm = useZodForm(createCharacteristicFormSchema(variations), newAttribute);
   const updateForm = useZodForm(createCharacteristicFormSchema(), newAttribute);
   const showValidationErrors = (errors: Parameters<typeof flattenFormErrors>[0]) =>
-    toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira o atributo e seus valores.');
+    toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira a característica e seus valores.');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -105,7 +105,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
         options: values.options,
       });
 
-      toast.success('Atributo criado com sucesso!');
+      toast.success('Característica criada com sucesso!');
       setNewAttrName('');
       setNewDataType('radio');
       setNewDecimalPlaces(2);
@@ -114,7 +114,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
       setCurrentValInput('');
       refresh();
     } catch (err: unknown) {
-      const message = getVariationErrorMessage(err, 'Erro desconhecido ao salvar atributo.');
+      const message = getVariationErrorMessage(err, 'Erro desconhecido ao salvar característica.');
       toast.error(`Erro ao salvar: ${message}`);
     } finally {
       setIsSaving(false);
@@ -135,7 +135,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
 
   const handleDeleteValue = async (attr: VariationType, opt: VariationOption) => {
     if (
-      !confirm(`Tem certeza que deseja remover o valor "${opt.value}" do atributo "${attr.name}"?`)
+      !confirm(`Tem certeza que deseja remover o valor "${opt.value}" da característica "${attr.name}"?`)
     )
       return;
 
@@ -154,7 +154,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
     const valText = existingValInputs[attr.id!] || '';
 
     if (attr.options.some((o) => o.value.toLowerCase() === valText.trim().toLowerCase())) {
-      toast.error('Este valor já existe para este atributo!');
+      toast.error('Este valor já existe para esta característica!');
       return;
     }
 
@@ -201,10 +201,10 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
                 id="manage-attributes-modal-title"
                 className="text-lg sm:text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight"
               >
-                Gerenciar Atributos e Valores
+                Gerenciar Características e Valores
               </h3>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                Atributos globais do sistema para variações de produtos
+                Características globais do sistema para variações de produtos
               </p>
             </div>
           </div>
@@ -228,7 +228,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
             />
             <input
               type="text"
-              placeholder="Buscar atributos cadastrados..."
+              placeholder="Buscar características cadastradas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold dark:text-slate-300"
@@ -236,12 +236,12 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            {/* Formulário Novo Atributo (Coluna Esquerda) */}
+            {/* Formulário Nova Característica (Coluna Esquerda) */}
             <div className="lg:col-span-1 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 space-y-4">
               <div>
                 <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
                   <i className="bi bi-plus-circle-fill text-blue-600 text-xs" aria-hidden="true" />
-                  Novo Atributo
+                  Nova Característica
                 </h4>
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
                   Ex: Cor, Tamanho, Voltagem
@@ -254,7 +254,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
                     htmlFor="new-attr-name-input"
                     className="text-[10px] font-black uppercase tracking-widest text-slate-400"
                   >
-                    Nome do Atributo
+                    Nome da Característica
                   </label>
                   <input
                     id="new-attr-name-input"
@@ -370,13 +370,13 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
                   {isSaving ? (
                     <i className="bi bi-arrow-clockwise animate-spin text-sm" aria-hidden="true" />
                   ) : (
-                    <>Criar Atributo</>
+                    <>Criar Característica</>
                   )}
                 </button>
               </form>
             </div>
 
-            {/* Lista de Atributos Existentes (Coluna Direita) */}
+            {/* Lista de Características Existentes (Coluna Direita) */}
             <div className="lg:col-span-2 space-y-4">
               {loading ? (
                 <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-8 text-center flex flex-col items-center justify-center gap-2">
@@ -385,12 +385,12 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
                     aria-hidden="true"
                   />
                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">
-                    Carregando atributos...
+                    Carregando características...
                   </p>
                 </div>
               ) : filteredVariations.length === 0 ? (
                 <div className="bg-slate-50 dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-8 text-center text-slate-400 font-bold text-xs">
-                  Nenhum atributo encontrado.
+                  Nenhuma característica encontrada.
                 </div>
               ) : (
                 filteredVariations.map((attr) => (
@@ -411,8 +411,8 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
                         type="button"
                         onClick={(e) => handleDelete(attr.id!, e)}
                         className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
-                        title="Excluir Atributo"
-                        aria-label={`Excluir atributo ${attr.name}`}
+                        title="Excluir característica"
+                        aria-label={`Excluir característica ${attr.name}`}
                       >
                         <i className="bi bi-trash text-sm" aria-hidden="true" />
                       </button>
@@ -456,7 +456,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
                             await handleAddValueToExisting(attr);
                           }
                         }}
-                        aria-label={`Adicionar novo valor ao atributo ${attr.name}`}
+                        aria-label={`Adicionar novo valor à característica ${attr.name}`}
                         className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold dark:text-slate-300"
                       />
                       <button

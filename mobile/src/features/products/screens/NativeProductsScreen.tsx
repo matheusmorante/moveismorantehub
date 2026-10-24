@@ -56,7 +56,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const [screenMode, setScreenMode] = useState<ProductListMode>(mode ?? 'standard');
   const [selectedMode, setSelectedMode] = useState<ProductListMode | null>(mode ?? null);
   const [showMetaCatalog, setShowMetaCatalog] = useState(false);
-  const { canUseProductPermission, canUsePermission, userProfile } = useAuth();
+  const { canUseProductPermission, canUsePermission, isAdmin, userProfile } = useAuth();
   const isStockistOnly = isStockistOnlyProductProfile(userProfile);
   const canViewCatalog = canUseProductPermission('viewProducts');
   const canEditProducts = canUseProductPermission('productConfig');
@@ -266,7 +266,16 @@ export const NativeProductsScreen: React.FC<Props> = ({
       if (!source) throw new Error('O cadastro completo do produto não foi encontrado.');
 
       const code = await getNextSequentialProductCode();
-      const images = await copyMobileProductImages(Array.isArray(source.images) ? source.images : []);
+      const sourceImages = Array.isArray(source.images) ? source.images : [];
+      let images = sourceImages;
+      if (sourceImages.length > 0) {
+        try {
+          images = await copyMobileProductImages(sourceImages);
+        } catch (error) {
+          console.warn('[NativeProductsScreen] Não foi possível criar cópias independentes das fotos:', error);
+          Alert.alert('Fotos mantidas', 'Não foi possível copiar as fotos; as originais foram mantidas.');
+        }
+      }
       const sourceVariations = source.allVariations || source.variations || [];
       const variationImages =
         sourceVariations.length === 1 ? images : images.slice(0, MAX_VARIATION_IMAGES);
@@ -335,6 +344,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
       {showMetaCatalog && canViewMetaCatalog ? (
         <NativeMetaCatalogScreen
           dark={isDarkMode}
+          isAdmin={isAdmin}
           onBack={() => setShowMetaCatalog(false)}
           onOpenErpPanel={handleOpenMetaCatalogInErp}
         />
@@ -350,7 +360,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
               style={styles.retryButton}
               accessibilityRole="button"
             >
-              <Text style={styles.retryButtonText}>Abrir características e atributos</Text>
+              <Text style={styles.retryButtonText}>Abrir características e configurações</Text>
             </TouchableOpacity>
           )}
           {canViewMetaCatalog && (
@@ -598,7 +608,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
         </View>
       )}
 
-      {/* Modal de Configurações (Categorias, Atributos e Variações) */}
+      {/* Modal de Configurações (Categorias, Características e Variações) */}
       <ProductConfigModal
         visible={showConfigModal && (canViewCategories || canViewCharacteristics)}
         dark={isDarkMode}

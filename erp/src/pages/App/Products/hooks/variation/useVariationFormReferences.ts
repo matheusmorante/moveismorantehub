@@ -47,7 +47,7 @@ export function useVariationFormReferences({
       );
       if (!session.active) return;
       if (!result || result.some((response) => response.error || !Array.isArray(response.data))) {
-        throw new Error('Não foi possível carregar os atributos. Consulte novamente.');
+        throw new Error('Não foi possível carregar as características. Consulte novamente.');
       }
       const [attrRes, valRes] = result;
       setDbAttributes(attrRes.data as { id: string; name: string }[]);
@@ -60,7 +60,7 @@ export function useVariationFormReferences({
       if (session.active) {
         setReferenceErrors((previous) => ({
           ...previous,
-          attributes: 'Não foi possível carregar os atributos. Consulte novamente.',
+          attributes: 'Não foi possível carregar as características. Consulte novamente.',
         }));
       }
     } finally {

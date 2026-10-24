@@ -200,7 +200,7 @@ export const MobileProductCard: React.FC<Props> = ({
 
         {/* Atalhos: Editar Rápido e Menu de 3 Pontinhos */}
         <View style={styles.headerActions}>
-          {showTrash && onRestore && (
+          {showTrash && !isLabelOnlyProfile && onRestore && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={(e) => {
@@ -405,10 +405,7 @@ export const MobileProductCard: React.FC<Props> = ({
               : undefined
           }
           onToggleActive={() =>
-            onToggleActive(
-              singleVariation && !singleVariation.isVirtual ? singleVariation.id : product.id,
-              isActive
-            )
+            onToggleActive(singleVariation ? singleVariation.id : product.id, isActive)
           }
           onToggleCatalog={() =>
             singleVariation && !singleVariation.isVirtual

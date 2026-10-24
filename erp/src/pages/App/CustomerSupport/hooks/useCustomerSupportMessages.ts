@@ -290,8 +290,9 @@ export function useCustomerSupportMessages({
     clearJumpToMessage,
     isLoadingMessages,
     isLoadingOlderMessages,
-    hasOlderMessages: Boolean(selectedConversation?.id)
-      && historyConversationIdRef.current === selectedConversation.id && hasOlderMessages,
+    hasOlderMessages: selectedConversation
+      ? historyConversationIdRef.current === selectedConversation.id && hasOlderMessages
+      : false,
     loadOlderMessages,
     isRefreshingMessages,
     refreshMessages,

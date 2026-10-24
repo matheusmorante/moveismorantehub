@@ -160,7 +160,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
 
   const handleDeleteAttr = (id: string, name: string) => {
     Alert.alert(
-      'Excluir Atributo',
+      'Excluir característica',
       `Deseja excluir "${name}"? Se já estiver vinculada a produtos, ela será desativada e os valores existentes serão preservados.`,
       [
         { text: 'Cancelar', style: 'cancel' },
@@ -317,7 +317,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
           <View style={styles.header}>
             <View style={styles.titleArea}>
               <Sliders size={20} color="#7c3aed" />
-              <Text style={[styles.title, dark && styles.light]}>Atributos e Variações</Text>
+              <Text style={[styles.title, dark && styles.light]}>Características e Variações</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={[styles.closeBtn, dark && styles.darkBtn]}>
               <X size={18} color={dark ? '#cbd5e1' : '#64748b'} />
@@ -333,7 +333,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
               <TextInput
                 value={newAttrName}
                 onChangeText={setNewAttrName}
-                placeholder="Novo atributo (ex: Cor, Tamanho)..."
+                placeholder="Nova característica (ex: Cor, Tamanho)..."
                 placeholderTextColor="#94a3b8"
                 style={[styles.input, dark && styles.darkInput, dark && styles.light]}
               />
@@ -477,7 +477,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                 {attributes.filter((attr) =>
                   attr.name.toLocaleLowerCase().includes(searchTerm.trim().toLocaleLowerCase())
                 ).length === 0 ? (
-                  <Text style={styles.emptyText}>Nenhum atributo cadastrado</Text>
+                  <Text style={styles.emptyText}>Nenhuma característica cadastrada</Text>
                 ) : (
                   attributes
                     .filter((attr) =>

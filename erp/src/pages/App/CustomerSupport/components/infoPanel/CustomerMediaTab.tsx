@@ -13,6 +13,9 @@ import { MediaLoadStatus } from '../chat/bubble/MediaLoadStatus';
 import { supabase } from '@/pages/utils/supabaseConfig';
 
 type AttachmentSearch = z.infer<typeof supportAttachmentSearchSchema>;
+const ATTACHMENT_LABELS: Partial<Record<WhatsAppMessage['messageType'], string>> = {
+  image: 'Foto', document: 'Documento', audio: 'Áudio', video: 'Vídeo', sticker: 'Figurinha',
+};
 
 interface CustomerMediaTabProps {
   conversationId: string;
@@ -28,9 +31,7 @@ function CustomerMediaItem({
 }) {
   const { mediaUrl, isLoadingMedia, mediaError, retryMedia } = useCustomerSupportMedia(message.mediaId);
   const isImage = message.messageType === 'image';
-  const label = message.mediaFilename || ({
-    document: 'Documento', audio: 'Áudio', video: 'Vídeo', sticker: 'Figurinha',
-  }[message.messageType] || 'Anexo');
+  const label = message.mediaFilename || ATTACHMENT_LABELS[message.messageType] || 'Anexo';
 
   return (
     <div className="rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs p-2">

@@ -102,11 +102,11 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                     onDuplicate(product);
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel="Copiar produto"
+                  accessibilityLabel="Duplicar produto"
                 >
                   <Copy size={16} color="#4f46e5" />
                   <Text style={[styles.menuItemText, dark && styles.lightText]}>
-                    Copiar produto
+                    Duplicar
                   </Text>
                 </TouchableOpacity>
               )}

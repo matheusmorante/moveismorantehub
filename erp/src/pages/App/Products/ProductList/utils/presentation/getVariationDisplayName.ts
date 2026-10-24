@@ -13,10 +13,10 @@ export interface VariationLike {
 }
 
 /**
- * Resolve o nome de exibição de uma variação a partir dos atributos ou propriedades fallback.
+ * Resolve o nome de exibição de uma variação a partir das características ou propriedades fallback.
  *
- * @param variation Objeto da variação contendo atributos ou nome
- * @param fallbackName Nome padrão caso nenhum atributo seja encontrado
+ * @param variation Objeto da variação contendo características ou nome
+ * @param fallbackName Nome padrão caso nenhuma característica seja encontrada
  * @returns String formatada com o nome de exibição
  */
 export function getVariationDisplayName(

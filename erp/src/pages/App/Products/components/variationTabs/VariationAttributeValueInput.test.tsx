@@ -137,7 +137,7 @@ describe('VariationAttributeValueInput', () => {
   it('valida a identidade do atributo antes de gravar', async () => {
     render(<VariationAttributeValueInput attributeId="   " value="Azul" registeredValues={[]} onChange={vi.fn()} />);
     fireEvent.click(screen.getByTestId('attribute-register-button'));
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Selecione o atributo.'));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Selecione a característica.'));
     expect(variationService.saveAttributeValue).not.toHaveBeenCalled();
   });
 

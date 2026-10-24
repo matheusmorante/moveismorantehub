@@ -35,7 +35,7 @@ export const VariationModalFeedbackBanners: React.FC<VariationModalFeedbackBanne
 
       {(referenceLoading.attributes || referenceLoading.images) && (
         <p role="status" className="text-sm text-slate-600">
-          Carregando atributos e fotos do produto pai...
+          Carregando características e fotos do produto pai...
         </p>
       )}
 

@@ -4,10 +4,12 @@ import type {
   AuditItem,
   FinalizeAdjustmentItem,
 } from '../types/inventoryWorkflow.types';
+import {
+  INVENTORY_FINALIZATION_RPC_TIMEOUT_ERROR,
+  INVENTORY_FINALIZATION_RPC_TIMEOUT_MS,
+} from '../../../../../../shared-utils/inventorySubmissionProtocol';
 
-export const INVENTORY_FINALIZATION_RPC_TIMEOUT_MS = 30_000;
-export const INVENTORY_FINALIZATION_RPC_TIMEOUT_ERROR =
-  'A confirmação da finalização do inventário excedeu o tempo limite.';
+export { INVENTORY_FINALIZATION_RPC_TIMEOUT_ERROR, INVENTORY_FINALIZATION_RPC_TIMEOUT_MS };
 
 export interface InventoryFinalizerScopeConfig {
   name: string;
@@ -154,6 +156,5 @@ export const buildInventorySubmissionDraft = ({
     observation: auditObservation,
     items: payloadItems,
     responsibleName,
-    userId: userProfile?.id || scopeConfig.responsibleId || undefined,
   };
 };

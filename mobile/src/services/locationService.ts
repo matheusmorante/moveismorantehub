@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { Linking, Platform } from 'react-native';
 
 export interface DriverCoordinates {
   latitude: number;
@@ -32,6 +33,52 @@ export interface LocationResult {
   error?: string;
 }
 
+export interface LocationAccessStatus {
+  permissionGranted: boolean;
+  servicesEnabled: boolean;
+}
+
+/** Verifica a permissão do app e se os serviços de localização do aparelho estão ativos. */
+export async function getLocationAccessStatus(): Promise<LocationAccessStatus> {
+  try {
+    const permission = await Location.getForegroundPermissionsAsync();
+    const servicesEnabled = await Location.hasServicesEnabledAsync();
+    return { permissionGranted: permission.status === 'granted', servicesEnabled };
+  } catch {
+    return { permissionGranted: false, servicesEnabled: false };
+  }
+}
+
+/** Solicita permissão e, no Android, oferece o diálogo do sistema para ativar a localização. */
+export async function requestLocationAccess(): Promise<LocationAccessStatus> {
+  try {
+    let permission = await Location.getForegroundPermissionsAsync();
+    if (permission.status !== 'granted') {
+      permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') {
+        if (!permission.canAskAgain) await Linking.openSettings();
+        return getLocationAccessStatus();
+      }
+    }
+
+    if (!(await Location.hasServicesEnabledAsync())) {
+      if (Platform.OS === 'android') {
+        try {
+          await Location.enableNetworkProviderAsync();
+        } catch {
+          // O usuário pode recusar o diálogo do sistema e tentar novamente pelo fluxo.
+        }
+      } else {
+        await Linking.openSettings();
+      }
+    }
+
+    return getLocationAccessStatus();
+  } catch {
+    return getLocationAccessStatus();
+  }
+}
+
 /**
  * Solicita permissão de localização ao usuário de forma transparente.
  */
@@ -63,8 +110,8 @@ export async function hasLocationPermission(): Promise<boolean> {
  */
 export async function getCurrentDriverLocation(): Promise<LocationResult> {
   try {
-    const isGranted = await hasLocationPermission();
-    if (!isGranted) {
+    let access = await getLocationAccessStatus();
+    if (!access.permissionGranted) {
       const requested = await requestLocationPermission();
       if (!requested) {
         return {
@@ -73,6 +120,14 @@ export async function getCurrentDriverLocation(): Promise<LocationResult> {
           error: 'Permissão de localização não concedida',
         };
       }
+      access = await getLocationAccessStatus();
+    }
+    if (!access.servicesEnabled) {
+      return {
+        coords: null,
+        permissionGranted: access.permissionGranted,
+        error: 'GPS desligado',
+      };
     }
 
     // Tenta obter última posição conhecida recente (máx 10 segundos)
@@ -119,13 +174,18 @@ export async function watchDriverLocation(
   onError?: (error: string) => void
 ): Promise<(() => void) | null> {
   try {
-    const isGranted = await hasLocationPermission();
-    if (!isGranted) {
+    let access = await getLocationAccessStatus();
+    if (!access.permissionGranted) {
       const requested = await requestLocationPermission();
       if (!requested) {
         onError?.('Permissão de localização não concedida');
         return null;
       }
+      access = await getLocationAccessStatus();
+    }
+    if (!access.servicesEnabled) {
+      onError?.('GPS desligado');
+      return null;
     }
 
     const subscription = await Location.watchPositionAsync(

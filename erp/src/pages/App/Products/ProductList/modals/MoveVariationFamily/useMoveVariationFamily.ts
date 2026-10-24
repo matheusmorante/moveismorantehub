@@ -80,7 +80,7 @@ export const useMoveVariationFamily = (
       void (async () => {
         try {
           const input = await validateConflict({ sourceId, familyId: targetFamilyId, attributes }, (errors) => {
-            if (current) setConflictError(Object.values(flattenFormErrors(errors))[0] || 'Confira os atributos.');
+            if (current) setConflictError(Object.values(flattenFormErrors(errors))[0] || 'Confira as características.');
           });
           if (!current || !input) return;
           const conflict = await withTimeout(fetchVariationFamilyConflict(input, () => current && accepting), 11000, null, 'mover-variacao:validar-destino');

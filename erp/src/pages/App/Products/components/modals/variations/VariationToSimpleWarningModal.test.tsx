@@ -44,7 +44,7 @@ describe("VariationToSimpleWarningModal", () => {
 		// Aviso de produto simples e reversão em Informações Básicas
 		expect(screen.getByText(/Conversão para Produto Simples:/)).not.toBeNull();
 		expect(screen.getByText(/herdar nome, preços, descrição e dimensões/)).not.toBeNull();
-		expect(screen.getByText(/UUID\/SKU, atributos e saldo/)).not.toBeNull();
+		expect(screen.getByText(/UUID\/SKU, características e saldo/)).not.toBeNull();
 		expect(screen.getByText(/Informações Básicas/)).not.toBeNull();
 		expect(screen.getByText(/"Com variações"/)).not.toBeNull();
 

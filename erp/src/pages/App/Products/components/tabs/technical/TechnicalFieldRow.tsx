@@ -1,7 +1,12 @@
 import React from 'react';
 import { Check, ChevronDown, CircleMinus, Globe, Layers2 } from 'lucide-react';
 import type { Product } from '../../../../../types/product.type';
-import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
+import {
+  isDoorDrawerDependentCharacteristicActive,
+  isCharacteristicDependent,
+  isQuantityCharacteristic,
+  type TechnicalFieldDefinition,
+} from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
 import {
   DisabledFieldWrapper,
@@ -17,7 +22,7 @@ const TECHNICAL_FIELD_SCOPES = [
   { value: 'variation', label: 'Por variação', Icon: Layers2 },
   { value: 'not_inform', label: 'Não informar', Icon: CircleMinus },
 ] as const;
-const CATALOG_REQUIRED_SCOPE_OPTIONS = TECHNICAL_FIELD_SCOPES.filter(
+const REQUIRED_TECHNICAL_FIELD_SCOPES = TECHNICAL_FIELD_SCOPES.filter(
   (option) => option.value !== 'not_inform'
 );
 
@@ -27,6 +32,7 @@ export interface TechnicalFieldRowProps {
   readonly manualFieldNames: string[];
   readonly validationErrors?: Record<string, boolean>;
   readonly isVariable?: boolean;
+  readonly isDependencyVariable?: boolean;
   readonly isSimpleProduct?: boolean;
   readonly onToggleVariable?: (
     fieldName: string,
@@ -44,6 +50,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   manualFieldNames,
   validationErrors,
   isVariable = false,
+  isDependencyVariable = false,
   isSimpleProduct = false,
   onToggleVariable,
   onValueChange,
@@ -71,16 +78,33 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
 
   const normName = normalizeTechnicalName(field.name);
   const displayName = /^retr[aá]til\??$/i.test(field.name.trim()) ? 'É Retrátil?' : field.name;
+  const isMandatory = Boolean(field.isRequired || field.isRequiredForCatalog);
+  const isQuantityField = isQuantityCharacteristic(field.name);
+  const hasExplicitValue = Object.prototype.hasOwnProperty.call(
+    formData.technicalValues || {},
+    field.name
+  );
+  const isAutomaticallyActiveByQuantity = isDoorDrawerDependentCharacteristicActive(
+    field.name,
+    formData.technicalValues || {}
+  );
+  const isDependentCharacteristic = isCharacteristicDependent(field.name);
+  const isDependencySatisfied = isDependentCharacteristic && !isFieldDisabled;
+  const isExplicitlyNotApplicable = ['não se aplica', 'nao se aplica', 'n/a', 'não informar'].includes(
+    normalizeTechnicalName(String(rawValue ?? ''))
+  );
   const isOpenClosedSofaDepth =
     normName === 'profundidade aberto' || normName === 'profundidade fechado';
   const effectiveIsVariable = isVariable && !isSimpleProduct;
   const scope = effectiveIsVariable
     ? 'variation'
-    : hasConfiguredValue || field.isRequiredForCatalog
+    : isExplicitlyNotApplicable
+      ? 'not_inform'
+      : hasConfiguredValue || hasExplicitValue || isManual || isMandatory || isDependencySatisfied
       ? 'global'
       : 'not_inform';
-  const availableScopeOptions = field.isRequiredForCatalog
-    ? CATALOG_REQUIRED_SCOPE_OPTIONS
+  const availableScopeOptions = isMandatory
+    ? REQUIRED_TECHNICAL_FIELD_SCOPES
     : TECHNICAL_FIELD_SCOPES;
   const selectedScope = TECHNICAL_FIELD_SCOPES.find((option) => option.value === scope)!;
   const toggleDepthLengthTooltip = normName.includes('profundidade')
@@ -163,7 +187,20 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               />
             )}
           </label>
-          {onToggleVariable && isSimpleProduct && !field.isRequiredForCatalog && (
+          {isColorField && (
+            <span className="inline-flex shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
+              <button
+                type="button"
+                title="Gerenciar cores"
+                aria-label="Gerenciar cores"
+                onClick={onOpenAttributeModal}
+                className="inline-flex items-center rounded-md px-1.5 py-1 text-[9px] font-black normal-case tracking-normal text-blue-700 transition-colors hover:bg-white dark:text-blue-300 dark:hover:bg-blue-900/60"
+              >
+                Gerenciar
+              </button>
+            </span>
+          )}
+          {onToggleVariable && isSimpleProduct && !isMandatory && !isDependencyVariable && (
             <button
               type="button"
               role="switch"
@@ -183,7 +220,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               />
             </button>
           )}
-          {onToggleVariable && !isSimpleProduct && (
+          {onToggleVariable && !isSimpleProduct && !isDependencyVariable && (
             <div ref={scopeControlRef} className="relative shrink-0">
               <button
                 ref={scopeTriggerRef}
@@ -250,19 +287,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
         </div>
 
         <div className="flex w-full items-center gap-1.5">
-          {isColorField && (
-            <span className="inline-flex shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
-              <button
-                type="button"
-                title="Gerenciar cores"
-                aria-label="Gerenciar cores"
-                onClick={onOpenAttributeModal}
-                className="inline-flex items-center rounded-md px-1.5 py-1 text-[9px] font-black normal-case tracking-normal text-blue-700 transition-colors hover:bg-white dark:text-blue-300 dark:hover:bg-blue-900/60"
-              >
-                Gerenciar
-              </button>
-            </span>
-          )}
           {isDepthOrLengthField && !isOpenClosedSofaDepth && (
             <button
               type="button"
@@ -275,7 +299,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
             </button>
           )}
 
-          {isManual && (
+          {isManual && !isQuantityField && !isAutomaticallyActiveByQuantity && (
             <button
               type="button"
               onClick={() => onRemoveManualField(field.name)}
@@ -289,10 +313,14 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
         </div>
       </div>
 
-      {scope === 'global' && (
+      {(scope === 'global' || isDependentCharacteristic) && (
         <div className="w-full">
           <DisabledFieldWrapper
-            isDisabled={isFieldDisabled}
+            isDisabled={
+              isFieldDisabled ||
+              effectiveIsVariable ||
+              (isDependentCharacteristic && scope === 'not_inform')
+            }
             disabledReason={disabledReason}
             showTooltip={showTooltip}
             onToggleTooltip={() => setShowTooltip((prev) => !prev)}
@@ -310,7 +338,11 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
                   : ''
               }
               isInvalid={isFieldInvalid}
-              disabled={isFieldDisabled}
+              disabled={
+                isFieldDisabled ||
+                effectiveIsVariable ||
+                (isDependentCharacteristic && scope === 'not_inform')
+              }
               onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
             />
           </DisabledFieldWrapper>

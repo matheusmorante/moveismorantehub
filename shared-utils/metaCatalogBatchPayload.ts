@@ -1,4 +1,4 @@
-import { META_CATALOG_GLOBAL_PREFIX, resolveProductType } from './metaCatalogPayload';
+import { buildMetaCatalogDescription, resolveProductType } from './metaCatalogPayload';
 
 export const META_CATALOG_BATCH_LIMIT = 50;
 
@@ -54,6 +54,14 @@ export interface MetaCatalogBatchPayload {
   item_type: 'PRODUCT_ITEM';
   requests: MetaCatalogBatchRequest[];
 }
+
+export const isMetaCatalogBatchDeletion = (product: MetaCatalogBatchSource): boolean =>
+  product.status === 'hidden' ||
+  product.hidden === true ||
+  product.deleted === true ||
+  (product.deleted_at !== undefined && product.deleted_at !== null) ||
+  product.status === 'draft';
+
 const SUPABASE_STORAGE_PATTERN =
   /https:\/\/.*?\.supabase\.co\/storage\/v1\/object\/public\/products\/(.*)/i;
 const R2_BASE_URL = 'https://pub-389127050a434f568c29dc66bdce2567.r2.dev';
@@ -87,20 +95,17 @@ export const sanitizeMetaCatalogImageUrl = (
 
 /** Constrói o payload já validado pelo proxy seguro `/api/meta-graph`. */
 export const buildMetaCatalogBatchPayload = (
-  products: readonly MetaCatalogBatchSource[]
+  products: readonly MetaCatalogBatchSource[],
+  whatsappBaseDescription?: string | null
 ): MetaCatalogBatchPayload => {
   if (products.length < 1 || products.length > META_CATALOG_BATCH_LIMIT) {
     throw new Error(`Cada lote Meta deve conter entre 1 e ${META_CATALOG_BATCH_LIMIT} itens.`);
   }
 
   const requests = products.map((product): MetaCatalogBatchRequest => {
-    const isHidden = product.status === 'hidden' || product.hidden === true;
-    const isDeleted =
-      product.deleted === true ||
-      (product.deleted_at !== undefined && product.deleted_at !== null);
     const retailerId = String(product.code || product.sku || product.id);
 
-    if (isHidden || isDeleted || product.status === 'draft') {
+    if (isMetaCatalogBatchDeletion(product)) {
       return { method: 'DELETE', retailer_id: retailerId, data: { id: retailerId } };
     }
 
@@ -113,7 +118,7 @@ export const buildMetaCatalogBatchPayload = (
       product.whatsapp_description ||
       product.description ||
       cleanTitle;
-    const cleanDescription = `${META_CATALOG_GLOBAL_PREFIX}\n\n${baseDescription}`;
+    const cleanDescription = buildMetaCatalogDescription(baseDescription, whatsappBaseDescription);
     const rawPrice =
       product.sales_price ??
       product.salesPrice ??

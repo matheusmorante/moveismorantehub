@@ -142,7 +142,7 @@ export const CartesianVariationModal: React.FC<CartesianVariationModalProps> = (
           <div className="mb-6 p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800/50 rounded-2xl flex items-center gap-4">
             <i className="bi bi-info-circle-fill text-blue-600 text-lg" aria-hidden="true" />
             <p className="text-[10px] font-bold text-blue-700/70 dark:text-blue-400 uppercase leading-relaxed">
-              <b className="text-blue-600">Dica:</b> Ao adicionar 2 ou mais atributos, o sistema
+              <b className="text-blue-600">Dica:</b> Ao adicionar 2 ou mais características, o sistema
               criará todas as combinações possíveis entre eles (Grade Cartesiana).
             </p>
           </div>
@@ -164,7 +164,7 @@ export const CartesianVariationModal: React.FC<CartesianVariationModalProps> = (
                               <div
                                 {...dragProvided.dragHandleProps}
                                 className="flex items-center justify-center p-2 text-slate-300 hover:text-blue-500 cursor-grab active:cursor-grabbing mt-6"
-                                aria-label="Reordenar atributo"
+                                aria-label="Reordenar característica"
                               >
                                 <i className="bi bi-grip-vertical text-xl" aria-hidden="true" />
                               </div>
@@ -175,7 +175,7 @@ export const CartesianVariationModal: React.FC<CartesianVariationModalProps> = (
                                       htmlFor={`cartesian-attr-select-${idx}`}
                                       className="text-[9px] font-black uppercase tracking-widest text-slate-400"
                                     >
-                                      Atributo
+                                      Característica
                                     </label>
                                     <select
                                       id={`cartesian-attr-select-${idx}`}
@@ -220,7 +220,7 @@ export const CartesianVariationModal: React.FC<CartesianVariationModalProps> = (
                                   <div className="flex flex-wrap gap-2 min-h-[44px]">
                                     {!selectedAttr && (
                                       <p className="text-[10px] text-slate-300 italic py-2">
-                                        Escolha um atributo primeiro
+                                        Escolha uma característica primeiro
                                       </p>
                                     )}
                                     {selectedAttr?.options.map((o) => {
@@ -248,7 +248,7 @@ export const CartesianVariationModal: React.FC<CartesianVariationModalProps> = (
                                 onClick={() =>
                                   setSelectedOptions(selectedOptions.filter((_, i) => i !== idx))
                                 }
-                                aria-label="Remover atributo"
+                                aria-label="Remover característica"
                                 className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors shrink-0 mt-6 cursor-pointer"
                               >
                                 <i className="bi bi-trash" aria-hidden="true" />
@@ -271,7 +271,7 @@ export const CartesianVariationModal: React.FC<CartesianVariationModalProps> = (
             className="w-full mt-6 py-4 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-3xl text-slate-400 hover:text-blue-600 hover:border-blue-100 dark:hover:border-blue-900/30 transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest cursor-pointer"
           >
             <i className="bi bi-plus-lg" aria-hidden="true" />
-            Adicionar Atributo para Combinação
+            Adicionar Característica para Combinação
           </button>
         </div>
 

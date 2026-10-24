@@ -1,3 +1,13 @@
+export function removeAccents(str: string): string {
+  if (!str || typeof str !== 'string') return '';
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+export function normalizeSearchTerm(str: string): string {
+  if (!str || typeof str !== 'string') return '';
+  return removeAccents(str).toLowerCase().trim();
+}
+
 const lowercaseWords = new Set([
   'de',
   'da',

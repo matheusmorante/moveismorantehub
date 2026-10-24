@@ -5,10 +5,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Platform,
-  StatusBar,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
 import { useInventoryReconciliation } from '../hooks/useInventoryReconciliation';
@@ -36,13 +33,6 @@ export const InventoryReviewScreen: React.FC<Props> = ({
   onCancel,
   onConfirm,
 }) => {
-  const insets = useSafeAreaInsets();
-  const topInset = Math.max(
-    insets.top,
-    Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0
-  );
-  const bottomInset = Math.max(insets.bottom, 16);
-
   const { reconciledItems, loading, reconcileError } = useInventoryReconciliation(items, startDate);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
@@ -67,7 +57,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
       <View
         style={[
           styles.header,
-          { backgroundColor: surface, borderBottomColor: border, paddingTop: topInset + 8 },
+          { backgroundColor: surface, borderBottomColor: border },
         ]}
       >
         <TouchableOpacity testID="review-back-btn" onPress={onCancel} style={styles.backBtn}>
@@ -118,7 +108,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
       <View
         style={[
           styles.footer,
-          { backgroundColor: surface, borderTopColor: border, paddingBottom: bottomInset + 12 },
+          { backgroundColor: surface, borderTopColor: border },
         ]}
       >
         {isBlocked && (

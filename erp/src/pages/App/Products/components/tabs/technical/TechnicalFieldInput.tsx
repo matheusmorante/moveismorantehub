@@ -1,6 +1,7 @@
 import React from 'react';
 import { TechnicalCombobox } from './TechnicalCombobox';
 import {
+  isQuantityCharacteristic,
   isDimensionCharacteristicName,
   isWeightCharacteristicName,
   isYesNoCharacteristic,
@@ -102,6 +103,7 @@ export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
         value={value}
         decimalPlaces={decimalPlaces as 1 | 2 | 3}
         disabled={disabled}
+        preventClearing={isQuantityCharacteristic(field.name)}
         onChange={onChange}
       />
     );

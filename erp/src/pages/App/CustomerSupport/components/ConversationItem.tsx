@@ -72,6 +72,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
 
   return (
     <div
+      data-conversation-id={conversation.id}
       onClick={() => onSelect(conversation)}
       role="button"
       tabIndex={0}

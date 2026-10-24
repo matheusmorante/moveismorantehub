@@ -20,6 +20,7 @@ interface ChatHeaderProps {
   isTimelineOpen: boolean;
   onToggleTimeline?: () => void;
   onBackMobile: () => void;
+  onClosePanel?: () => void;
   onOpenSnippets: () => void;
   onToggleArchive: () => Promise<boolean | void> | boolean | void;
   teamMembers: AssignedProfileSummary[];
@@ -48,6 +49,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isTimelineOpen,
   onToggleTimeline,
   onBackMobile,
+  onClosePanel,
   onOpenSnippets,
   onToggleArchive,
   teamMembers,
@@ -429,6 +431,21 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         >
           <i className="bi bi-clock-history text-sm"></i>
         </button>
+
+        {onClosePanel && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClosePanel();
+            }}
+            title="Fechar este chat"
+            aria-label="Fechar chat deste painel"
+            className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-slate-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-300 transition-colors cursor-pointer"
+          >
+            <i className="bi bi-x-lg text-sm"></i>
+          </button>
+        )}
 
         {/* Dropdown do Menu 3 Pontos */}
         {isMenuOpen && (

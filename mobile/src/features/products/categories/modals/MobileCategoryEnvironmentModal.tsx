@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { X, Tag, Layers, Trash2 } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   EnvironmentNode,
   CategoryNode,
@@ -68,6 +69,7 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
   onSave,
   onDelete,
 }) => {
+  const insets = useSafeAreaInsets();
   if (!visible || !showModal) return null;
 
   const isEnv = showModal === 'ambiente';
@@ -119,7 +121,10 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        style={styles.backdrop}
+        style={[
+          styles.backdrop,
+          { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.sheet, dark && styles.sheetDark]}>
@@ -181,6 +186,7 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
                   selectedAttributes={selectedAttributes}
                   setSelectedAttributes={setSelectedAttributes}
                   isLoadingAttributes={isLoadingAttributes}
+                  attributeLoadFailed={attributeLoadFailed}
                   isSubmitting={isSubmitting}
                 />
               </>

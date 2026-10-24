@@ -12,6 +12,12 @@ import {
 } from '../../../../services/sqlite/inventoryOutbox';
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import {
+  buildInventorySubmissionClaimRpcParams,
+  buildInventorySubmissionRpcParams,
+  getInventoryFinalizationRpcName,
+  isInventorySubmissionClaimAcknowledged,
+} from '../../../../../../shared-utils/inventorySubmissionProtocol';
 import { syncPendingInventorySubmissions } from './inventoryOutboxSync';
 import {
   buildInventorySubmissionDraft,
@@ -120,18 +126,23 @@ export const executeInventoryFinalization = async ({
 
   try {
     const response = await withTimeout(
-      supabase.rpc(
-        submission.contractVersion === 2
-          ? 'finalize_inventory_transaction_v2'
-          : 'finalize_inventory_transaction',
-        {
-          p_audit_id: submission.auditId,
-          p_code: submission.code,
-          p_observation: submission.observation,
-          p_items: submission.items,
-          p_responsible_name: submission.responsibleName,
+      (async () => {
+        const claim = await supabase.rpc(
+          'claim_inventory_audit_submission',
+          buildInventorySubmissionClaimRpcParams(submission)
+        );
+        if (claim.error) throw claim.error;
+        if (!isInventorySubmissionClaimAcknowledged(claim.data, submission.auditId)) {
+          throw new Error('O servidor não confirmou a reserva desta submissão de inventário.');
         }
-      ),
+        if (claim.data.status === 'already_processed') {
+          return { data: claim.data, error: null };
+        }
+        return supabase.rpc(
+          getInventoryFinalizationRpcName(submission.contractVersion),
+          buildInventorySubmissionRpcParams(submission)
+        );
+      })(),
       INVENTORY_FINALIZATION_RPC_TIMEOUT_MS,
       null,
       'inventario:finalizacao-rpc'
@@ -150,13 +161,21 @@ export const executeInventoryFinalization = async ({
       console.warn('[SQLite] Erro ao remover rascunho local após finalização:', e);
     }
 
+    const alreadyProcessed = data?.status === 'already_processed';
     if (Platform.OS === 'web') {
-      Alert.alert('Sucesso', `Inventário #${code} finalizado!`);
+      Alert.alert(
+        'Sucesso',
+        alreadyProcessed
+          ? `Inventário #${code} já estava concluído. O envio local foi confirmado.`
+          : `Inventário #${code} finalizado!`
+      );
       onClose();
     } else {
       Alert.alert(
         'Sucesso',
-        `Inventário #${code} finalizado! ${items.length} produto(s) contados e ${data?.moves?.length ?? submission.items.length} ajuste(s) lançados no estoque. ✨`,
+        alreadyProcessed
+          ? `Inventário #${code} já estava concluído. O envio local foi confirmado.`
+          : `Inventário #${code} finalizado! ${items.length} produto(s) contados e ${data?.moves?.length ?? submission.items.length} ajuste(s) lançados no estoque. ✨`,
         [{ text: 'OK', onPress: onClose }]
       );
     }

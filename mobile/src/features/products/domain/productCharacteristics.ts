@@ -6,7 +6,7 @@
  *
  * Princípios aplicados:
  * - Single Responsibility Principle (SRP): Isolamento entre predicados de domínio,
- *   parsing/serialização de atributos legados/atuais, ordenação e regras de aplicabilidade.
+ *   parsing/serialização de características legadas/atuais, ordenação e regras de aplicabilidade.
  * - DRY (Don't Repeat Yourself): Predicados canônicos centralizados para medidas, colchões e peso.
  * - Sincronização e consistência conceitual com o ERP (`technicalValuesService.ts`).
  */
@@ -18,6 +18,10 @@ import {
   isSinkMaterialCharacteristic,
   isStructureMaterialCharacteristic,
 } from '../../../../../shared-utils/productSinkCategoryRules';
+import {
+  isCharacteristicDependent,
+  isCharacteristicDependentOnVariableField,
+} from '../../../../../shared-utils/productCharacteristicDependencies';
 
 // ============================================================================
 // 1. TYPES & INTERFACES
@@ -311,7 +315,7 @@ const normalizeValues = (values: Record<string, unknown>) =>
       .map(([name, value]) => [normalizeName(name), value])
   );
 
-/** Lê os formatos atuais e legados de atributos sem perder a preferência showName. */
+/** Lê os formatos atuais e legados de características sem perder a preferência showName. */
 export const getProductCharacteristicAttributes = (
   rawAttributes: unknown
 ): ProductCharacteristicAttribute[] => {
@@ -391,7 +395,7 @@ export const upsertProductCharacteristicAttribute = (
   return next;
 };
 
-/** Valores do produto pai: atributos legados e, depois, technicalValues como fonte prioritária. */
+/** Valores do produto pai: características legadas e, depois, technicalValues como fonte prioritária. */
 export const getEffectiveProductTechnicalValues = (product: any = {}) => {
   const legacyValues = Object.fromEntries(
     getProductCharacteristicAttributes(product?.attributes).map(({ name, value }) => [name, value])
@@ -499,7 +503,7 @@ export const getPersistableProductTechnicalValues = (
 };
 
 /**
- * Mescla pai, atributos de versões antigas e sobrescritas da variação.
+ * Mescla pai, características de versões antigas e sobrescritas da variação.
  * A variação vence, inclusive quando a sobrescrita foi definida como vazia.
  */
 export const getEffectiveVariationTechnicalValues = (
@@ -508,7 +512,9 @@ export const getEffectiveVariationTechnicalValues = (
   variableFieldNames?: readonly string[]
 ): Record<string, unknown> => {
   const isAllowed = (name: string) =>
-    variableFieldNames === undefined || isMobileVariableTechnicalField(name, variableFieldNames);
+    variableFieldNames === undefined ||
+    isMobileVariableTechnicalField(name, variableFieldNames) ||
+    isCharacteristicDependentOnVariableField(name, variableFieldNames);
   const variationAttributes = Object.fromEntries(
     getProductCharacteristicAttributes(variation?.attributes)
       .filter(({ name }) => isAllowed(name))
@@ -644,6 +650,7 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
     if (isProductTechnicalFieldRequired(field, categoryIds)) return true;
     if (hasExistingValue) return true;
     if (manualNames.has(norm)) return true;
+    if (isCharacteristicDependent(field.name)) return true;
     return Boolean(field.categoryIds?.some((id: string) => activeCategories.has(String(id))));
   });
 

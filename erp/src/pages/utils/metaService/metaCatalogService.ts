@@ -1,5 +1,8 @@
 import { getSettings } from '@/pages/utils/settingsService';
-import { resolveProductType } from '../../../../../shared-utils/metaCatalogPayload';
+import {
+  buildMetaCatalogDescription,
+  resolveProductType,
+} from '../../../../../shared-utils/metaCatalogPayload';
 import {
   buildMetaCatalogBatchPayload,
   formatMetaCatalogDecimalPrice as formatDecimalPrice,
@@ -51,7 +54,8 @@ export const metaCatalogService = {
    * Sincroniza um produto individual (ou o remove) do Catálogo da Meta
    */
   syncProductToCatalog: async (product: any, action: 'UPDATE' | 'DELETE' = 'UPDATE') => {
-    const { whatsappConfig } = getSettings();
+    const settings = getSettings();
+    const { whatsappConfig } = settings;
     if (!whatsappConfig?.catalogId) throw new Error('Catalog ID não configurado.');
 
     const rawPrice = product.unitPrice ?? product.unit_price ?? product.price ?? 0;
@@ -68,11 +72,15 @@ export const metaCatalogService = {
       product.name ||
       product.title ||
       (product.description ? String(product.description).split('\n')[0] : 'Produto Morante');
-    const cleanDescription =
+    const productDescription =
       product.whatsappDescription ||
       product.whatsapp_description ||
       product.description ||
       cleanTitle;
+    const cleanDescription = buildMetaCatalogDescription(
+      productDescription,
+      settings.channelBaseDescriptions?.whatsapp
+    );
 
     const singleImageUrls: string[] = [];
     if (Array.isArray(product.images) && product.images.length > 0) {
@@ -203,7 +211,8 @@ export const metaCatalogService = {
     productsList: any[],
     onProgress?: (processed: number, total: number) => void
   ): Promise<MetaBatchSyncResult> => {
-    const { whatsappConfig } = getSettings();
+    const settings = getSettings();
+    const { whatsappConfig } = settings;
     if (!whatsappConfig?.catalogId) throw new Error('Catalog ID não configurado.');
 
     if (!productsList || productsList.length === 0) return { success: true, count: 0 };
@@ -217,7 +226,10 @@ export const metaCatalogService = {
 
     for (let i = 0; i < productsList.length; i += BATCH_SIZE) {
       const chunk = productsList.slice(i, i + BATCH_SIZE);
-      const payload = buildMetaCatalogBatchPayload(chunk);
+      const payload = buildMetaCatalogBatchPayload(
+        chunk,
+        settings.channelBaseDescriptions?.whatsapp
+      );
       const response = await metaHttpClient.request('sync_catalog_batch', { payload });
       const data = await response.json();
       if (!response.ok || data.error) {

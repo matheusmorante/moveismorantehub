@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Modal, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Modal, Platform, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Bell, X } from 'lucide-react-native';
 
 interface Props {
@@ -17,6 +18,12 @@ export const NotificationsModal: React.FC<Props> = ({
   notifications,
   onSelectOrder,
 }) => {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0
+  );
+
   // Ordenar notificações das mais recentes para as mais antigas
   const sortedNotifications = [...notifications].sort((a, b) => {
     const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -35,7 +42,7 @@ export const NotificationsModal: React.FC<Props> = ({
         <View
           style={{
             position: 'absolute',
-            top: Platform.OS === 'ios' ? 60 : 50,
+            top: topInset + 62,
             right: 14,
             width: 320,
             maxHeight: 460,

@@ -1,4 +1,15 @@
 export {
   getCharacteristicDependencyState,
+  isCharacteristicDependent,
+  isCharacteristicDependentOnVariableField,
+  isDoorDependentCharacteristic,
+  isDoorDrawerDependentCharacteristic,
+  isDoorDrawerDependentCharacteristicActive,
+  isDoorQuantityCharacteristic,
+  isDrawerDependentCharacteristic,
+  isDrawerQuantityCharacteristic,
+  isHasDoorsCharacteristic,
+  isHasDrawersCharacteristic,
+  isQuantityCharacteristic,
   type CharacteristicDependencyState,
 } from '../erp/src/pages/utils/technicalValuesService';

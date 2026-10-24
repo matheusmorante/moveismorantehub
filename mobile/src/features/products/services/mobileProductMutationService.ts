@@ -17,6 +17,11 @@ import {
   parseMobileProductSaveAcknowledgement,
   type MobileProductSaveAcknowledgement,
 } from '../../../../../shared-utils/mobileProductSaveAcknowledgement';
+import {
+  fetchRequiredProductCategoryAttributes,
+  projectRequiredCategoryAttributesToVariations,
+  type RequiredProductCategoryAttribute,
+} from '../../../../../shared-utils/productCategoryRequiredAttributes';
 
 const normalizeVariationSku = (sku?: string) =>
   String(sku || '')
@@ -201,11 +206,12 @@ export const toggleMobileProductActive = async (
   productId: string,
   currentActive: boolean,
   isVariation = false,
-  variationId?: string
+  variationId?: string,
+  isVirtualVariation = false
 ) => {
   const nextActive = !currentActive;
   let productKind: string | undefined;
-  if (nextActive || (isVariation && variationId)) {
+  if (nextActive || (isVariation && variationId) || isVirtualVariation) {
     const productResult = await withMobileMutationTimeout(
       supabase
         .from('products')
@@ -222,6 +228,28 @@ export const toggleMobileProductActive = async (
     const row: any = productResult.data;
     productKind = row?.product_kind;
     if (nextActive && !row) throw new Error('Produto não encontrado para ativação.');
+    if (isVirtualVariation) {
+      let hasPersistedVariations = Array.isArray(row?.product_variations)
+        ? row.product_variations.length > 0
+        : false;
+      if (!nextActive) {
+        const variationsResult = await withMobileMutationTimeout(
+          supabase
+            .from('product_variations')
+            .select('id')
+            .eq('product_id', productId)
+            .limit(1),
+          'mobile:verificar-variacao-virtual'
+        );
+        if (variationsResult.error) throw variationsResult.error;
+        hasPersistedVariations = Boolean(variationsResult.data?.length);
+      }
+      if (hasPersistedVariations) {
+        throw new Error(
+          'As variações deste produto mudaram. Atualize a lista antes de alterar o status.'
+        );
+      }
+    }
     if (nextActive && row) {
       const parentCode = String(row.code || row.sku || '');
       const isDraft = Boolean(row.is_draft || row.status === 'draft');
@@ -417,6 +445,7 @@ export const moveMobileProductToTrash = async (productId: string) => {
   if (!result?.success) {
     throw new Error(result?.message || 'Não foi possível mover o produto para a lixeira.');
   }
+  triggerMobileProductMetaCatalogSync(realId);
   return result;
 };
 
@@ -433,6 +462,7 @@ export const restoreMobileProductFromTrash = async (productId: string) => {
   if (!result?.success) {
     throw new Error(result?.message || 'Não foi possível restaurar o produto da lixeira.');
   }
+  triggerMobileProductMetaCatalogSync(realId);
   return result;
 };
 
@@ -454,6 +484,26 @@ export async function saveMobileProduct(
     : isUuid(productData.clientProductId)
       ? productData.clientProductId
       : createOperationId();
+  const selectedCategoryIds: string[] =
+    Array.isArray(productData.categoryIds) && productData.categoryIds.length > 0
+      ? productData.categoryIds
+      : productData.categoryId
+        ? [productData.categoryId]
+        : [];
+  let requiredCategoryAttributes: RequiredProductCategoryAttribute[] = [];
+  if (selectedCategoryIds.length > 0 && (productData.itemType || productData.item_type) !== 'service') {
+    const fetchedAttributes = await withTimeout(
+      fetchRequiredProductCategoryAttributes(supabase, selectedCategoryIds),
+      15000,
+      null,
+      'mobile:produto:carregar-atributos-obrigatorios'
+    );
+    if (!fetchedAttributes) {
+      throw new Error('Não foi possível confirmar as características obrigatórias da categoria. O produto não foi alterado.');
+    }
+    requiredCategoryAttributes = fetchedAttributes;
+  }
+
   let productCode = productData.code?.trim() || productData.sku?.trim();
   if (!productCode && !isEditing) {
     productCode = await getNextSequentialProductCode();
@@ -486,13 +536,6 @@ export async function saveMobileProduct(
     variationRows.length > 0
       ? variationRows.some((variation: any) => variation.active !== false)
       : productData.active !== false;
-  const selectedCategoryIds: string[] =
-    Array.isArray(productData.categoryIds) && productData.categoryIds.length > 0
-      ? productData.categoryIds
-      : productData.categoryId
-        ? [productData.categoryId]
-        : [];
-
   const payload: any = {
     name: productData.name?.trim(),
     description: productData.description || null,
@@ -584,7 +627,11 @@ export async function saveMobileProduct(
 
   // A gravação do produto, das categorias, das imagens e das variações é uma RPC
   // única, para que qualquer erro reverta o conjunto inteiro.
-  const variationsToSave = [...variationRows];
+  const variationsToSave = projectRequiredCategoryAttributesToVariations(variationRows, {
+    categoryIds: selectedCategoryIds,
+    requiredAttributes: requiredCategoryAttributes,
+    parentTechnicalValues: payload.technical_specs.technicalValues,
+  });
   const variationPayloads: any[] = [];
 
   if (savedProductId && variationsToSave.length > 0) {
@@ -712,24 +759,3 @@ export async function saveMobileProduct(
   if (typeof data !== 'string') throw new Error('O banco não retornou o produto salvo.');
   return data;
 }
-
-export const duplicateMobileProduct = async (product: any) => {
-  const copy = {
-    ...product,
-    id: undefined,
-    name: `${product.name || 'Produto'} (Cópia)`,
-    code: undefined,
-    sku: undefined,
-    status: 'hidden',
-    isDraft: true,
-    active: false,
-    variations: (product.allVariations || product.variations || []).map((variation: any) => ({
-      ...variation,
-      id: undefined,
-      sku: undefined,
-      status: 'draft',
-      active: false,
-    })),
-  };
-  return saveMobileProduct(copy);
-};

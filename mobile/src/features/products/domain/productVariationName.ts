@@ -116,7 +116,7 @@ export const isProductCharacteristicIncludedInVariationNames = (
   });
 
 /**
- * Mantém atributo e nome das variações alinhados com a ação “Usar no nome” do ERP.
+ * Mantém a característica e o nome das variações alinhados com a ação “Usar no nome” do ERP.
  * Só sincroniza title/marketplaceTitle quando ainda acompanham o nome anterior.
  */
 export const applyProductCharacteristicToVariationNames = <

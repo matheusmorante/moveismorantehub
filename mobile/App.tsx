@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, SafeAreaView, StatusBar, ActivityIndicator, StyleSheet, Platform } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { View, StatusBar, ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import './src/utils/alertPolyfill';
 
@@ -94,7 +94,7 @@ export default function App() {
 
   // The AuthProvider wraps everything so we can easily query authentication state
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <AuthProvider>
         <AppContent />
       </AuthProvider>

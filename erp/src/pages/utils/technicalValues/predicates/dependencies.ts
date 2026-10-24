@@ -37,8 +37,8 @@ export const getCharacteristicDependencyState = (
     return {
       isDependent: true,
       isDisabled: !isDoorsActive,
-      disabledReason: 'Disponível apenas quando Possui portas for Sim.',
-      masterFieldLabel: 'Possui portas',
+      disabledReason: 'Disponível apenas quando a quantidade de portas for maior que zero.',
+      masterFieldLabel: 'Quantidade de portas',
       masterQuantity: parseDoorQuantityValue(technicalValues),
     };
   }
@@ -48,8 +48,8 @@ export const getCharacteristicDependencyState = (
     return {
       isDependent: true,
       isDisabled: !isDrawersActive,
-      disabledReason: 'Disponível apenas quando Possui gavetas for Sim.',
-      masterFieldLabel: 'Possui gavetas',
+      disabledReason: 'Disponível apenas quando a quantidade de gavetas for maior que zero.',
+      masterFieldLabel: 'Quantidade de gavetas',
       masterQuantity: parseDrawerQuantityValue(technicalValues),
     };
   }
@@ -90,4 +90,37 @@ export const getCharacteristicDependencyState = (
     isDependent: false,
     isDisabled: false,
   };
+};
+
+export const isDoorDrawerDependentCharacteristic = (fieldName: string): boolean =>
+  isDoorDependentCharacteristic(fieldName) || isDrawerDependentCharacteristic(fieldName);
+
+export const isCharacteristicDependent = (fieldName: string): boolean =>
+  getCharacteristicDependencyState(fieldName).isDependent;
+
+export const isCharacteristicDependentOnVariableField = (
+  fieldName: string,
+  variableFieldNames: readonly string[] = []
+): boolean => {
+  const dependency = getCharacteristicDependencyState(fieldName);
+  const masterName = dependency.masterFieldLabel?.trim().toLocaleLowerCase('pt-BR');
+  return Boolean(
+    dependency.isDependent &&
+      masterName &&
+      variableFieldNames.some((name) => name.trim().toLocaleLowerCase('pt-BR') === masterName)
+  );
+};
+
+export const isDoorDrawerDependentCharacteristicActive = (
+  fieldName: string,
+  technicalValues: Record<string, any> = {}
+): boolean => {
+  const dependency = getCharacteristicDependencyState(fieldName, technicalValues);
+  const masterFieldName = dependency.masterFieldLabel?.trim().toLocaleLowerCase('pt-BR');
+  return (
+    isDoorDrawerDependentCharacteristic(fieldName) &&
+    dependency.isDependent &&
+    !dependency.isDisabled &&
+    (masterFieldName === 'quantidade de portas' || masterFieldName === 'quantidade de gavetas')
+  );
 };

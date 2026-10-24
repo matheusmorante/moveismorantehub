@@ -120,9 +120,8 @@ export const CHARACTERISTIC_TOPIC_GROUPS: ReadonlyArray<CharacteristicTopicGroup
     id: 'portas',
     title: 'Portas',
     searchKeywords: ['porta', 'portas'],
-    masterField: 'Possui portas',
+    masterField: 'Quantidade de portas',
     fieldNames: [
-      'Possui portas',
       'Quantidade de portas',
       'Quantidade de porta',
       'Tipo de portas',
@@ -130,15 +129,14 @@ export const CHARACTERISTIC_TOPIC_GROUPS: ReadonlyArray<CharacteristicTopicGroup
       'Material das portas',
       'Material da porta',
     ],
-    description: 'Possui portas, Quantidade de portas, Tipo de portas e Material das portas',
+    description: 'Quantidade de portas, Tipo de portas e Material das portas',
   },
   {
     id: 'gavetas',
     title: 'Gavetas',
     searchKeywords: ['gaveta', 'gavetas', 'corredica', 'corredicas'],
-    masterField: 'Possui gavetas',
+    masterField: 'Quantidade de gavetas',
     fieldNames: [
-      'Possui gavetas',
       'Quantidade de gavetas',
       'Quantidade de gaveta',
       'Tipo/Material das corrediças',
@@ -147,7 +145,7 @@ export const CHARACTERISTIC_TOPIC_GROUPS: ReadonlyArray<CharacteristicTopicGroup
       'Material das gavetas',
       'Material da gaveta',
     ],
-    description: 'Possui gavetas, Quantidade de gavetas, Tipo/Material das corrediças e Material das gavetas',
+    description: 'Quantidade de gavetas, Tipo/Material das corrediças e Material das gavetas',
   },
   {
     id: 'pes',

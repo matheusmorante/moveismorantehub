@@ -177,7 +177,7 @@ export const checkMobileVariationAttributeConflict = async (
     const page = z.array(z.object({ id: variationFamilyUuidSchema, attributes: z.unknown().nullish() })).parse(result.data);
     const conflict = page.some((candidate) => {
       if (candidate.attributes != null && typeof candidate.attributes !== 'object') {
-        throw new Error('Os atributos do destino não puderam ser confirmados. Consulte novamente.');
+        throw new Error('As características do destino não puderam ser confirmadas. Consulte novamente.');
       }
       return candidate.id !== values.sourceId && sameFamilyAttributes(
         values.attributes,
@@ -207,15 +207,15 @@ export const ensureMobileAttributeValue = async (
     try {
       result = await withTimeout(query, VARIATION_FAMILY_QUERY_TIMEOUT_MS, null, 'mover-variacao:atributo');
     } catch (error) {
-      if (write) throw new VariationFamilyUnconfirmedError('O cadastro de atributo pode ter sido gravado. Consulte os atributos antes de repetir.');
+      if (write) throw new VariationFamilyUnconfirmedError('O cadastro da característica pode ter sido gravado. Consulte as características antes de repetir.');
       throw error;
     }
     if (result === null) {
-      if (write) throw new VariationFamilyUnconfirmedError('O cadastro de atributo não foi confirmado. Consulte os atributos antes de repetir.');
-      throw new Error('A consulta de atributos excedeu o prazo.');
+      if (write) throw new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.');
+      throw new Error('A consulta de características excedeu o prazo.');
     }
     if (!stillCurrent()) {
-      if (write) throw new VariationFamilyUnconfirmedError('O cadastro de atributo pode ter sido gravado. Consulte os atributos antes de repetir.');
+      if (write) throw new VariationFamilyUnconfirmedError('O cadastro da característica pode ter sido gravado. Consulte as características antes de repetir.');
       check();
     }
     return result;
@@ -223,9 +223,9 @@ export const ensureMobileAttributeValue = async (
   const handleWriteError = (error: { code?: string; message?: string; status?: number } | null | undefined) => {
     if (!error) return;
     if (!error.code || error.status === 0 || (error.status ?? 0) >= 500) {
-      throw new VariationFamilyUnconfirmedError('O cadastro de atributo pode ter sido gravado. Consulte os atributos antes de repetir.');
+      throw new VariationFamilyUnconfirmedError('O cadastro da característica pode ter sido gravado. Consulte as características antes de repetir.');
     }
-    throw new Error(error.message || 'Não foi possível cadastrar o atributo. Confira os dados e as permissões.');
+    throw new Error(error.message || 'Não foi possível cadastrar a característica. Confira os dados e as permissões.');
   };
 
   const attributeResult = await wait(supabase
@@ -234,7 +234,7 @@ export const ensureMobileAttributeValue = async (
     .filter('name', 'imatch', literal(normalizedName))
     .limit(1));
   if (attributeResult.error) throw attributeResult.error;
-  if (!Array.isArray(attributeResult.data)) throw new Error('Não foi possível confirmar a consulta do atributo.');
+  if (!Array.isArray(attributeResult.data)) throw new Error('Não foi possível confirmar a consulta da característica.');
 
   let attribute = attributeResult.data[0];
   if (!attribute) {
@@ -248,7 +248,7 @@ export const ensureMobileAttributeValue = async (
   }
   if (!attribute?.id || typeof attribute.name !== 'string'
     || attribute.name.trim().toLocaleLowerCase('pt-BR') !== normalizedName.toLocaleLowerCase('pt-BR')) {
-    throw new VariationFamilyUnconfirmedError('O cadastro do atributo não foi confirmado. Consulte os atributos antes de repetir.');
+    throw new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.');
   }
 
   const valueResult = await wait(supabase
@@ -258,7 +258,7 @@ export const ensureMobileAttributeValue = async (
     .filter('value', 'imatch', literal(normalizedValue))
     .limit(1));
   if (valueResult.error) throw valueResult.error;
-  if (!Array.isArray(valueResult.data)) throw new Error('Não foi possível confirmar a consulta do valor do atributo.');
+  if (!Array.isArray(valueResult.data)) throw new Error('Não foi possível confirmar a consulta do valor da característica.');
 
   let canonicalValue = valueResult.data[0]?.value;
   if (!valueResult.data.length) {
@@ -272,7 +272,7 @@ export const ensureMobileAttributeValue = async (
   }
   if (typeof canonicalValue !== 'string'
     || canonicalValue.trim().toLocaleLowerCase('pt-BR') !== normalizedValue.toLocaleLowerCase('pt-BR')) {
-    throw new VariationFamilyUnconfirmedError('O valor do atributo não foi confirmado. Consulte os atributos antes de repetir.');
+    throw new VariationFamilyUnconfirmedError('O valor da característica não foi confirmado. Consulte as características antes de repetir.');
   }
 
   return variationFamilyAttributeSchema.parse({ name: attribute.name, value: canonicalValue });

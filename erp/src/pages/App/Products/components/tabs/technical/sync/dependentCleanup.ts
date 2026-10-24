@@ -52,14 +52,30 @@ export const cleanupDependentCharacteristicsOnZero = (
     return updated;
   }
 
+  const isDoorQuantityChange = isDoorQuantityCharacteristic(fieldName);
+  const isDrawerQuantityChange = isDrawerQuantityCharacteristic(fieldName);
+  if (isDoorQuantityChange) {
+    Object.keys(updated).forEach((key) => {
+      if (isHasDoorsCharacteristic(key)) delete updated[key];
+    });
+  }
+  if (isDrawerQuantityChange) {
+    Object.keys(updated).forEach((key) => {
+      if (isHasDrawersCharacteristic(key)) delete updated[key];
+    });
+  }
+
   const isZeroOrNo =
+    value === undefined ||
+    value === null ||
+    value === '' ||
     value === 0 ||
     value === '0' ||
     value === false ||
     (typeof value === 'string' && /^n[aã]o$/i.test(value.trim()));
 
   if (!isZeroOrNo) {
-    return technicalValues;
+    return isDoorQuantityChange || isDrawerQuantityChange ? updated : technicalValues;
   }
 
   if (isDoorQuantityCharacteristic(fieldName) || isHasDoorsCharacteristic(fieldName)) {

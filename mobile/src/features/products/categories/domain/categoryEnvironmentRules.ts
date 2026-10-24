@@ -132,8 +132,8 @@ export function toggleNodeLink(selectedLinks: string[], targetId: string): strin
 }
 
 /**
- * Alterna uma característica/atributo selecionado para a categoria.
- * Garante unicidade pelo ID do atributo.
+ * Alterna uma característica selecionada para a categoria.
+ * Garante unicidade pelo ID da característica.
  */
 export function toggleCategoryAttribute<TAttribute extends AttributeRef>(
   currentAttributes: TAttribute[],
@@ -169,7 +169,7 @@ export function unlinkCategoryFromEnvironment(
 }
 
 /**
- * Validação de criação e edição de Atributos/Características Globais.
+ * Validação de criação e edição de características globais.
  */
 export function validateAttribute(
   name: string,
@@ -179,7 +179,7 @@ export function validateAttribute(
 ): ValidationResult {
   const trimmed = name.trim();
   if (!trimmed) {
-    return { valid: false, error: 'O nome da característica/atributo não pode estar vazio.' };
+    return { valid: false, error: 'O nome da característica não pode estar vazio.' };
   }
 
   const validTypes = [
@@ -221,7 +221,7 @@ export function validateAttribute(
 }
 
 /**
- * Validação de adição de valores de atributo/característica.
+ * Validação de adição de valores de característica.
  */
 export function validateAttributeOption(
   valText: string,

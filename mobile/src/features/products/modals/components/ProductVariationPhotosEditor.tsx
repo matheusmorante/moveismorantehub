@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Crop, ImagePlus, Link2, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type React from 'react';
 import { useState } from 'react';
 import {
@@ -35,6 +36,7 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
   dark,
   inheritsParentGallery = false,
 }) => {
+  const insets = useSafeAreaInsets();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [croppingPhotoUrl, setCroppingPhotoUrl] = useState('');
   const [draftImages, setDraftImages] = useState<string[]>([]);
@@ -202,7 +204,12 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
         animationType="slide"
         onRequestClose={() => setPickerOpen(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.modalOverlay,
+            { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+          ]}
+        >
           <View style={[styles.modalCard, dark && styles.darkCard]}>
             <View style={styles.modalHeader}>
               <View style={styles.titleGroup}>

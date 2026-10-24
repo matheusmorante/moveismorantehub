@@ -1,6 +1,5 @@
 import React from 'react';
 import { QueueSectionProps } from '../types/LabelPrintingSections.types';
-import ProductSearchInput from '../components/ProductSearchInput';
 import LabelQueue from '../components/LabelQueue';
 
 export const QueueSection: React.FC<QueueSectionProps> = (props) => {
@@ -14,6 +13,7 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
     productAddQty,
     setProductAddQty,
     handleProductSelect,
+    handleReplaceProduct,
     labelItems,
     setLabelItems,
     logoItems,
@@ -126,6 +126,7 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
                     setLabelItems((prev) => prev.filter((item) => item !== replacedItem));
                   }
                 }}
+                onReplaceProduct={handleReplaceProduct}
                 selectedCategory={selectedCategory}
               />
             )}

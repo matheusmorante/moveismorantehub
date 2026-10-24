@@ -34,7 +34,10 @@ export function useNativeBottomNav({
   const insets = useSafeAreaInsets();
   const [showMoreSheet, setShowMoreSheet] = useState(false);
 
-  const bottomInset = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12);
+  const bottomInset = Math.max(
+    insets.bottom,
+    Platform.OS === 'ios' ? 20 : Platform.OS === 'android' ? 24 : 12
+  );
   const totalNavHeight = 58 + bottomInset;
 
   // Lista base de todas as abas configuradas para o app móvel

@@ -133,7 +133,7 @@ export const fetchTechnicalFieldDefinitions = async (
         .map((attribute) => {
           const normalizedName = String(attribute.name).trim().toLocaleLowerCase('pt-BR');
           const isFirmnessField = normalizedName === 'nível de firmeza do estofamento';
-          // Dimensões são valores numéricos livres. Atributos legados sem tipo (ou como lista)
+          // Dimensões são valores numéricos livres. Características legadas sem tipo (ou como lista)
           // viram comboboxes e Ctrl+V só filtra opções, sem atualizar o valor da característica.
           const isMeasureCharacteristic = MEASURE_CHARACTERISTIC_NAMES.has(normalizedName);
           const options = (values ?? [])

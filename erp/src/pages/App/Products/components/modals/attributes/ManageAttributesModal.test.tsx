@@ -32,12 +32,12 @@ describe('ManageAttributesModal resolver', () => {
 
   it('bloqueia escolha sem opções e salva o valor pendente pelo schema', async () => {
     render(<ManageAttributesModal isOpen onClose={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText('Nome do Atributo'), { target: { value: 'Acabamento' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Criar Atributo' }));
+    fireEvent.change(screen.getByLabelText('Nome da Característica'), { target: { value: 'Acabamento' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar Característica' }));
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     expect(saveVariation).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Valores (Enter ou Vírgula)'), { target: { value: '  Fosco  ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Criar Atributo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Criar Característica' }));
     await waitFor(() => expect(saveVariation).toHaveBeenCalledWith(expect.objectContaining({ name: 'Acabamento', options: [{ id: '', value: 'Fosco' }] })));
   });
 
@@ -55,7 +55,7 @@ describe('ManageAttributesModal resolver', () => {
     let fail!: (error: Error) => void;
     vi.mocked(saveVariation).mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
     const view = render(<ManageAttributesModal isOpen onClose={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText('Nome do Atributo'), { target: { value: 'Acabamento' } });
+    fireEvent.change(screen.getByLabelText('Nome da Característica'), { target: { value: 'Acabamento' } });
     fireEvent.change(screen.getByLabelText('Valores (Enter ou Vírgula)'), { target: { value: 'Fosco' } });
     const form = document.querySelector('form')!;
     act(() => { fireEvent.submit(form); fireEvent.submit(form); });

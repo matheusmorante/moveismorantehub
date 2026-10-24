@@ -11,7 +11,7 @@ const attributeValueSchema = z.object({
 });
 
 const unconfirmed = () => Object.assign(
-  new Error('Não foi possível confirmar o cadastro do valor. Consulte o atributo antes de repetir.'),
+  new Error('Não foi possível confirmar o cadastro do valor. Consulte a característica antes de repetir.'),
   { uncertain: true }
 );
 

@@ -29,6 +29,7 @@ import { CustomerMediaTab } from './infoPanel/CustomerMediaTab';
 export interface CustomerInfoPanelProps {
   conversation: WhatsAppConversation;
   isOpen: boolean;
+  isOverlay?: boolean;
   onClose: () => void;
   onConversationUpdated: (updated: Partial<WhatsAppConversation>) => void;
   onJumpToMessage: (message: WhatsAppMessage) => void;
@@ -39,6 +40,7 @@ export type PanelTab = 'customer' | 'orders' | 'support' | 'media';
 export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
   conversation,
   isOpen,
+  isOverlay = false,
   onClose,
   onConversationUpdated,
   onJumpToMessage,
@@ -163,10 +165,10 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
       {/* Backdrop transparente para telas menores */}
       <div
         onClick={onClose}
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs z-30 xl:hidden animate-fade-in"
+        className={`absolute inset-0 bg-slate-900/40 backdrop-blur-xs z-30 ${isOverlay ? '' : 'xl:hidden'} animate-fade-in`}
       />
 
-      <aside className="absolute inset-y-0 right-0 z-40 xl:static xl:z-20 w-80 sm:w-[360px] lg:w-[380px] border-l border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full shrink-0 shadow-xl xl:shadow-none animate-slide-left select-none transition-colors">
+      <aside className={`absolute inset-y-0 right-0 z-40 ${isOverlay ? 'w-full max-w-[380px]' : 'xl:static xl:z-20 w-80 sm:w-[360px] lg:w-[380px]'} border-l border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full shrink-0 shadow-xl ${isOverlay ? '' : 'xl:shadow-none'} animate-slide-left select-none transition-colors`}>
         {customerActionError && <p role="alert" className="p-3 text-xs text-red-600">{customerActionError}</p>}
         {/* 1. Header do Painel */}
         <div className="h-16 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">

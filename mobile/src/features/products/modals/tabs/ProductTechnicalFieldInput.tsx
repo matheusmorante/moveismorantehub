@@ -16,6 +16,7 @@ import {
   getTechnicalFieldTextPlaceholder,
   resolveTechnicalFieldDataType,
 } from '../../domain/technicalFieldInputRules';
+import { isQuantityCharacteristic } from '../../../../../../shared-utils/productCharacteristicDependencies';
 
 type TechnicalOption = { id?: string; value: string };
 
@@ -71,6 +72,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
   onChange,
 }) => {
   const type = resolveTechnicalFieldDataType(field.name, field.data_type);
+  const isQuantity = isQuantityCharacteristic(field.name);
   const isWeight = type === 'weight' || field.name.trim().toLocaleLowerCase('pt-BR') === 'peso';
   const decimalPlaces = isWeight
     ? 1
@@ -112,7 +114,13 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
         maxLength={15}
         onChangeText={(text) => {
           if (text === '') {
-            onChange('');
+            if (
+              isQuantity &&
+              value !== undefined &&
+              value !== null &&
+              String(value).trim() !== ''
+            ) return;
+            onChange(isQuantity ? null : '');
             return;
           }
           if (!/^\d+$/.test(text)) return;
@@ -137,8 +145,14 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
         onChangeText={(text) => {
           const raw = text.replace('.', ',');
           if (!raw) {
+            if (
+              isQuantity &&
+              value !== undefined &&
+              value !== null &&
+              String(value).trim() !== ''
+            ) return;
             setDecimalDraft('');
-            onChange('');
+            onChange(isQuantity ? null : '');
             return;
           }
           const precisionPattern = new RegExp(`^\\d*(?:,\\d{0,${decimalPlaces}})?$`);

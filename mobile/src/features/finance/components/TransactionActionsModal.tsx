@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Pencil, Trash2, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   deleteFinancialTransaction,
   FinancialTransaction,
@@ -31,6 +32,7 @@ export const TransactionActionsModal: React.FC<Props> = ({
   onEdit,
   onDeleted,
 }) => {
+  const insets = useSafeAreaInsets();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [secondsRemaining, setSecondsRemaining] = useState(3);
   const [deleting, setDeleting] = useState(false);
@@ -68,7 +70,11 @@ export const TransactionActionsModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
+      <TouchableOpacity
+        style={[styles.overlay, { paddingBottom: Math.max(insets.bottom, 24) }]}
+        activeOpacity={1}
+        onPress={onClose}
+      >
         <View
           style={[styles.content, isDarkMode && styles.contentDark]}
           onStartShouldSetResponder={() => true}

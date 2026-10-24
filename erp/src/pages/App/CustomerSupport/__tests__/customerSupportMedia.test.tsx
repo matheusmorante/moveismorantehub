@@ -108,6 +108,46 @@ describe('Mídias da Central no navegador', () => {
     expect(container.innerHTML).not.toMatch(/private-jwt|untrusted.example|\/api\/whatsapp-media/);
   });
 
+  it('reproduz áudio com controles no estilo WhatsApp, busca e velocidade sem controles nativos', async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    const { container } = render(<MessageBubble message={message({ messageType: 'audio', mediaMimeType: 'audio/ogg' })} />);
+    const audio = await waitFor(() => {
+      const element = container.querySelector('audio');
+      expect(element).toBeTruthy();
+      return element!;
+    });
+    let currentTime = 0;
+    Object.defineProperties(audio, {
+      duration: { configurable: true, value: 12 },
+      currentTime: { configurable: true, get: () => currentTime, set: (value: number) => { currentTime = value; } },
+      playbackRate: { configurable: true, writable: true, value: 1 },
+    });
+    fireEvent.loadedMetadata(audio);
+    await screen.findByText('0:00 / 0:12');
+    expect(audio.hasAttribute('controls')).toBe(false);
+    pause.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reproduzir áudio' }));
+    await waitFor(() => expect(play).toHaveBeenCalledOnce());
+    expect(screen.getByRole('button', { name: 'Pausar áudio' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Velocidade 1x' }));
+    expect(audio.playbackRate).toBe(1.5);
+    fireEvent.click(screen.getByRole('button', { name: 'Velocidade 1.5x' }));
+    expect(audio.playbackRate).toBe(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Velocidade 2x' }));
+    expect(audio.playbackRate).toBe(1);
+
+    fireEvent.change(screen.getByRole('slider', { name: 'Posição do áudio' }), { target: { value: '6' } });
+    expect(audio.currentTime).toBe(6);
+    await screen.findByText('0:06 / 0:12');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pausar áudio' }));
+    expect(pause).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: 'Reproduzir áudio' })).toBeTruthy();
+  });
+
   it('usa a mesma leitura protegida na galeria e no download de documentos', async () => {
     const jumpToMessage = vi.fn();
     render(<CustomerMediaTab conversationId="conversation-1" onJumpToMessage={jumpToMessage} />);

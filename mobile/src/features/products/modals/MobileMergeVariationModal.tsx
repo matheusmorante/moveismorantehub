@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   type MobileCanonicalVariation,
   mergeMobileVariationIntoCanonical,
@@ -38,6 +39,7 @@ export const MobileMergeVariationModal: React.FC<Props> = ({
   onClose,
   onMerged,
 }) => {
+  const insets = useSafeAreaInsets();
   const sourceId = String(variation?.variationId || variation?.id || '');
   const supplierId = String(parentProduct?.supplierId || parentProduct?.supplier_id || '');
   const [query, setQuery] = useState('');
@@ -123,7 +125,10 @@ export const MobileMergeVariationModal: React.FC<Props> = ({
       onRequestClose={saving ? undefined : onClose}
     >
       <KeyboardAvoidingView
-        style={styles.overlay}
+        style={[
+          styles.overlay,
+          { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.sheet, dark && styles.sheetDark]}>

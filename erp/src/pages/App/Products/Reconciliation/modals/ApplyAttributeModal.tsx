@@ -43,7 +43,7 @@ export const ApplyAttributeModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Definir atributo em lote" className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div role="dialog" aria-modal="true" aria-label="Definir característica em lote" className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 animate-slide-up overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -52,7 +52,7 @@ export const ApplyAttributeModal: React.FC<Props> = ({
             </div>
             <div>
               <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
-                Definir Atributo em Lote
+                Definir Característica em Lote
               </h3>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
                 {selectedCount}{' '}
@@ -73,7 +73,7 @@ export const ApplyAttributeModal: React.FC<Props> = ({
           {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-              Nome do Atributo
+              Nome da Característica
             </label>
             {availableAttributes.length > 0 ? (
               <select
@@ -85,7 +85,7 @@ export const ApplyAttributeModal: React.FC<Props> = ({
                 }}
                 className="w-full h-11 px-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold outline-none focus:ring-2 focus:ring-purple-500/20"
               >
-                <option value="">Selecione um atributo...</option>
+                <option value="">Selecione uma característica...</option>
                 {availableAttributes.map((a) => (
                   <option key={a.id} value={a.name}>
                     {a.name}
@@ -94,7 +94,7 @@ export const ApplyAttributeModal: React.FC<Props> = ({
               </select>
             ) : (
               <p className="rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-500 dark:bg-slate-950 dark:text-slate-400">
-                Os produtos selecionados não possuem atributos obrigatórios pendentes em comum.
+                Os produtos selecionados não possuem características obrigatórias pendentes em comum.
               </p>
             )}
           </div>
@@ -159,7 +159,7 @@ export const ApplyAttributeModal: React.FC<Props> = ({
               </>
             ) : (
               <>
-                <i className="bi bi-check2"></i> Aplicar Atributo
+                <i className="bi bi-check2"></i> Aplicar Característica
               </>
             )}
           </button>

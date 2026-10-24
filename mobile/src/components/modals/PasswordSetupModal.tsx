@@ -1,6 +1,7 @@
 import { waitForAuthOperation } from '../../../../shared-utils/authOperationTimeout';
 import { Lock } from 'lucide-react-native';
 import { useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -25,6 +26,7 @@ type Props = {
 };
 
 export function PasswordSetupModal({ visible, status, email, onCreatePassword, onLogout }: Props) {
+  const insets = useSafeAreaInsets();
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,7 +69,10 @@ export function PasswordSetupModal({ visible, status, email, onCreatePassword, o
     <Modal animationType="fade" onRequestClose={() => {}} transparent visible>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.backdrop}
+        style={[
+          styles.backdrop,
+          { paddingTop: 22 + insets.top, paddingBottom: 22 + insets.bottom },
+        ]}
       >
         <View accessibilityViewIsModal style={styles.card}>
           <View style={styles.icon}>

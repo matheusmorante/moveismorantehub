@@ -99,7 +99,7 @@ export const getMobileVariationRegistrationIssue = (
     )
   ) {
     return {
-      message: 'Já existe outra variação com a mesma combinação de atributos e valores.',
+      message: 'Já existe outra variação com a mesma combinação de características e valores.',
       tab: 'identificacao',
     };
   }

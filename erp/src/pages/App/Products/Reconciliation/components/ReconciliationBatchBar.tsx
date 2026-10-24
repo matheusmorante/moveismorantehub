@@ -93,12 +93,12 @@ export const ReconciliationBatchBar: React.FC<Props> = ({
             }`}
             title={
               isAttributeBatchCompatible
-                ? 'Definir atributo em lote para produtos compatíveis'
-                : 'Atributos em lote requerem que todos os produtos selecionados pertençam à mesma categoria'
+                ? 'Definir característica em lote para produtos compatíveis'
+                : 'Características em lote requerem que todos os produtos selecionados pertençam à mesma categoria'
             }
           >
             <i className="bi bi-ui-radios text-xs"></i>
-            Atributo
+            Característica
           </button>
         )}
       </div>

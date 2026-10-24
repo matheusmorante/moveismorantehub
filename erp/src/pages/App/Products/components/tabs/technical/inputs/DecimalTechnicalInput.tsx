@@ -11,6 +11,7 @@ export interface DecimalTechnicalInputProps {
   value: any;
   decimalPlaces: 1 | 2 | 3;
   disabled?: boolean;
+  preventClearing?: boolean;
   onChange: (value: any) => void;
   className?: string;
   placeholder?: string;
@@ -21,6 +22,7 @@ export const DecimalTechnicalInput: React.FC<DecimalTechnicalInputProps> = ({
   value,
   decimalPlaces,
   disabled,
+  preventClearing = false,
   onChange,
   className,
   placeholder,
@@ -32,6 +34,7 @@ export const DecimalTechnicalInput: React.FC<DecimalTechnicalInputProps> = ({
       fractionDigits={decimalPlaces}
       typingMode="rtl"
       disabled={disabled}
+      preventClearing={preventClearing}
       showBadge={false}
       placeholder={placeholder || formatDecimal(0, decimalPlaces)}
       testID={testID}

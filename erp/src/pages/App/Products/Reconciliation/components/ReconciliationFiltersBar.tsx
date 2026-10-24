@@ -54,7 +54,7 @@ export const ReconciliationFiltersBar: React.FC<Props> = ({ filters, onChange })
             <option value="supplier">Sem fornecedores</option>
             <option value="category">Sem categoria</option>
             <option value="ncm">NCM ausente ou inválido</option>
-            <option value="attributes">Atributos obrigatórios / vazios</option>
+            <option value="attributes">Características obrigatórias / vazias</option>
             <option value="price">Sem preço de venda</option>
           </select>
         </div>

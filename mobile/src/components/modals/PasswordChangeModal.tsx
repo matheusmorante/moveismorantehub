@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../services/supabaseClient';
 import { flattenFormErrors, useZodForm } from '../../hooks/useZodForm';
 import { createPasswordChangeFormSchema } from '../../../../shared-utils/accountFormSchemas';
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, email, onClose }) => {
+  const insets = useSafeAreaInsets();
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -126,7 +128,7 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View style={[styles.backdrop, { paddingBottom: Math.max(insets.bottom, 24) }]}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={[styles.card, isDarkMode && styles.cardDark]}>
             <View style={styles.header}>

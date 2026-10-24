@@ -37,7 +37,7 @@ export function getVariationRegistrationIssue(
   if (!variation || typeof variation !== 'object' || Array.isArray(variation)) return null;
   if (hasDuplicateVariationAttributeCombination(variation, parent.variations || [])) {
     return {
-      message: 'Já existe outra variação com a mesma combinação de atributos e valores.',
+      message: 'Já existe outra variação com a mesma combinação de características e valores.',
       tab: 'identificacao',
     };
   }

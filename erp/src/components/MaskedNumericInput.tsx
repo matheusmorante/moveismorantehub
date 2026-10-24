@@ -21,6 +21,7 @@ export interface MaskedNumericInputProps {
   placeholder?: string;
   disabled?: boolean;
   readOnly?: boolean;
+  preventClearing?: boolean;
   required?: boolean;
   id?: string;
   name?: string;
@@ -59,6 +60,7 @@ export const MaskedNumericInput = ({
   placeholder = '0',
   disabled = false,
   readOnly = false,
+  preventClearing = false,
   required = false,
   id,
   name,
@@ -134,6 +136,13 @@ export const MaskedNumericInput = ({
   }, [value, prefix, suffix, fractionDigits, showBadge, displayBadge]);
 
   const triggerChange = (numericValue: number | null) => {
+    if (
+      preventClearing &&
+      numericValue === null &&
+      value !== null &&
+      value !== undefined &&
+      value !== ''
+    ) return;
     if (numericValue !== null && max !== undefined && numericValue > max) {
       numericValue = max;
     }

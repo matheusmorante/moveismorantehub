@@ -120,8 +120,8 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
                   }
                   if (!hasValidAttributes) {
                     Alert.alert(
-                      'Atributo obrigatório',
-                      'Defina ao menos um atributo e valor para mover esta variação.'
+                      'Característica obrigatória',
+                      'Defina ao menos uma característica e um valor para mover esta variação.'
                     );
                     return;
                   }

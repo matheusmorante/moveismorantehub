@@ -49,9 +49,9 @@ export const createProductVariationFormSchema = (parent: Partial<Product>, isSin
   productVariationDraftSchema.superRefine((values, context) => {
     const attributes = new Set<string>();
     values.attributes.forEach((attribute, index) => {
-      if (!attribute.name.trim() || !attribute.value.trim()) context.addIssue({ code: 'custom', path: ['attributes', index], message: 'Complete o nome e o valor de cada atributo ou remova a linha.' });
+      if (!attribute.name.trim() || !attribute.value.trim()) context.addIssue({ code: 'custom', path: ['attributes', index], message: 'Complete o nome e o valor de cada característica ou remova a linha.' });
       const key = attribute.name.trim().toLocaleLowerCase('pt-BR');
-      if (attributes.has(key)) context.addIssue({ code: 'custom', path: ['attributes', index], message: 'Não repita o mesmo atributo na variação.' });
+      if (attributes.has(key)) context.addIssue({ code: 'custom', path: ['attributes', index], message: 'Não repita a mesma característica na variação.' });
       attributes.add(key);
     });
     values.comboItems?.forEach((item, index) => {

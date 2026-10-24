@@ -88,7 +88,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
   const editableParentPendencies = product.pendencies.filter((pendency) => pendency.level === 'parent');
   const totalActivePendencies = activeParentPendencies.length + activeVariationPendencies.length;
 
-  // Manipulação de atributos da variação
+  // Manipulação de características da variação
   const handleUpdateVariationAttribute = (
     variationId: string,
     attrName: string,
@@ -100,12 +100,12 @@ export const ReconciliationProductCard: React.FC<Props> = ({
     setHasChanges(true);
   };
 
-  // Aplicar atributo a todas as variações (Resolução de herança)
+  // Aplicar característica a todas as variações (Resolução de herança)
   const handleApplySharedAttribute = (attrName: string, value: string) => {
     if (!value.trim()) return;
     setVariations((previous) => applyReconciliationAttributeToVariations(previous, attrName, value));
     setHasChanges(true);
-    toast.info(`Atributo "${attrName}" aplicado a todas as ${variations.length} variações.`);
+    toast.info(`Característica "${attrName}" aplicada a todas as ${variations.length} variações.`);
   };
 
   const handleSave = async () => {
@@ -329,7 +329,7 @@ export const ReconciliationProductCard: React.FC<Props> = ({
               )}
             </div>
 
-            {/* Bloco de Herança de Atributos Compartilhados */}
+            {/* Bloco de Herança de Características Compartilhadas */}
             {sharedAttributePendencies.length > 0 && (
               <div className="mt-2 pt-2 border-t border-amber-200/60 dark:border-amber-900/30 space-y-2">
                 {sharedAttributePendencies.map((shared) => (

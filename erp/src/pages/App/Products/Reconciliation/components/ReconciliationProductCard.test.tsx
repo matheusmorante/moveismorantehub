@@ -9,7 +9,7 @@ import type { ReconciliationProductItem } from '../types/reconciliation.types';
 vi.mock('react-toastify', () => ({ toast: { info: vi.fn(), success: vi.fn() } }));
 vi.mock('../../../../../components/SupplierAutocomplete', () => ({ default: () => null }));
 vi.mock('../../../../../components/CategoryAutocomplete', () => ({ default: () => null }));
-vi.mock('../../components/variationTabs/VariationAttributeValueInput', () => ({ VariationAttributeValueInput: ({ attributeName, value, onChange }: any) => <input aria-label={`Atributo ${attributeName}`} value={value} onChange={(event) => onChange(event.target.value)} /> }));
+vi.mock('../../components/variationTabs/VariationAttributeValueInput', () => ({ VariationAttributeValueInput: ({ attributeName, value, onChange }: any) => <input aria-label={`Característica ${attributeName}`} value={value} onChange={(event) => onChange(event.target.value)} /> }));
 beforeEach(() => {
   mocks.from.mockImplementation(() => {
     const builder: any = { then(resolve: any, reject: any) { return Promise.resolve({ data: [{ id: ' s1 ', full_name: 'Fornecedor A' }], error: null }).then(resolve, reject); } };
@@ -99,10 +99,10 @@ describe('Reconciliation product card resolver', () => {
         { id: 'quantity', type: 'category_attribute', level: 'variation', variationId: 'variation-1', field: 'attributes', label: 'Quantidade', attributeName: 'Quantidade', attributeDataType: 'integer', isCritical: true },
         { id: 'color', type: 'category_attribute', level: 'variation', variationId: 'variation-1', field: 'attributes', label: 'Cor', attributeName: 'Cor', attributeDataType: 'text', isCritical: true },
       ] });
-    fireEvent.change(screen.getByLabelText('Atributo Quantidade'), { target: { value: '1.5' } }); fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    fireEvent.change(screen.getByLabelText('Característica Quantidade'), { target: { value: '1.5' } }); fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     await screen.findByRole('alert'); expect(save).not.toHaveBeenCalled();
     expect(screen.getByText(/2\s+pendente\(s\)/)).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('Atributo Quantidade'), { target: { value: '2' } }); fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    fireEvent.change(screen.getByLabelText('Característica Quantidade'), { target: { value: '2' } }); fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     await waitFor(() => expect(save).toHaveBeenCalledWith('product-1', expect.any(Object), [expect.objectContaining({ attributes: [expect.objectContaining({ name: 'Quantidade', value: '2', legacyOrigin: 'cadastro' }), expect.objectContaining({ name: 'Cor', value: '' })] })]));
   });
 });

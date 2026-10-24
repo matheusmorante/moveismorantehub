@@ -6,21 +6,6 @@ import { fetchMetaCatalogStats, fetchMetaCatalogSyncSources } from './services/m
 
 export default function MetaCatalog() {
   const { isAdmin } = useAuth();
-  const csvUrl = 'https://moveismorante.com.br/api/facebook-catalog.csv';
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(csvUrl);
-    setCopied(true);
-    toast.success('Link público do Feed Meta CSV copiado com sucesso! 📋');
-    setTimeout(() => setCopied(false), 3000);
-  };
-
-  const handleDownload = () => {
-    window.open(csvUrl, '_blank');
-    toast.info('Download do Feed Meta CSV iniciado! ⬇️');
-  };
-
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ processed: 0, total: 0 });
 
@@ -140,7 +125,7 @@ export default function MetaCatalog() {
               </h1>
             </div>
             <p className="text-slate-400 dark:text-slate-500 text-xs font-medium mt-1">
-              Feed de dados CSV em tempo real e sincronização direta via Meta Graph API
+              Resumo de publicação e sincronização direta via Meta Graph API
             </p>
           </div>
         </div>
@@ -164,13 +149,6 @@ export default function MetaCatalog() {
             <span>Sincronizar via Graph API (BETA)</span>
           </button>
 
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-blue-500/20"
-          >
-            <i className="bi bi-download text-sm" />
-            <span>Baixar CSV</span>
-          </button>
         </div>
       </div>
 
@@ -237,152 +215,17 @@ export default function MetaCatalog() {
         </div>
       </div>
 
-      {/* Main Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Public Link Box & Controls */}
-        <div className="md:col-span-2 flex flex-col gap-6">
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold text-sm">
-                <i className="bi bi-link-45deg text-blue-500 text-lg" />
-                <span>Link Público do Feed CSV</span>
-              </div>
-            </div>
-
-            <p className="text-slate-400 dark:text-slate-500 text-xs leading-relaxed">
-              Cole este link no <b>Meta Commerce Manager</b> em{' '}
-              <i>Catálogos &gt; Fontes de Dados &gt; Feed de Dados Programado</i> para atualização
-              automática diária/horária dos produtos.
-            </p>
-
-            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-              <input
-                type="text"
-                readOnly
-                value={csvUrl}
-                className="bg-transparent px-3 py-2 text-xs font-mono text-slate-700 dark:text-slate-300 outline-none flex-1 truncate"
-              />
-              <button
-                onClick={handleCopy}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 shrink-0 ${copied ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700'}`}
-              >
-                <i className={`bi ${copied ? 'bi-check-lg' : 'bi-copy'}`} />
-                <span>{copied ? 'Copiado!' : 'Copiar'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Operational Rules */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col gap-4">
-            <h3 className="font-black text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider flex items-center gap-2">
-              <i className="bi bi-shield-check text-indigo-500" />
-              Regras de Inclusão no Catálogo Meta
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-start gap-2.5">
-                <i className="bi bi-check-circle-fill text-emerald-500 text-base shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-slate-700 dark:text-slate-200 block mb-0.5">
-                    Produtos Publicados
-                  </span>
-                  <span className="text-slate-400 dark:text-slate-500 text-[11px]">
-                    Apenas itens com status "Publicado" e ativos aparecem no CSV.
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-start gap-2.5">
-                <i className="bi bi-eye-slash-fill text-amber-500 text-base shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-slate-700 dark:text-slate-200 block mb-0.5">
-                    Remoção Automática
-                  </span>
-                  <span className="text-slate-400 dark:text-slate-500 text-[11px]">
-                    Produtos ocultados ou inativados no ERP são excluídos do CSV no ato.
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-start gap-2.5">
-                <i className="bi bi-tags-fill text-blue-500 text-base shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-slate-700 dark:text-slate-200 block mb-0.5">
-                    Variações & Atributos
-                  </span>
-                  <span className="text-slate-400 dark:text-slate-500 text-[11px]">
-                    Cada variação (cor/tamanho) vira um item individual no feed.
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-start gap-2.5">
-                <i className="bi bi-images text-purple-500 text-base shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-slate-700 dark:text-slate-200 block mb-0.5">
-                    Fotos & Preços
-                  </span>
-                  <span className="text-slate-400 dark:text-slate-500 text-[11px]">
-                    Imagens principais e promocionais são enviadas formatadas.
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div className="flex flex-col gap-4 rounded-3xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900/60 dark:bg-amber-950/20">
+        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
+          <i className="bi bi-exclamation-triangle-fill" />
+          <h2 className="text-sm font-black uppercase tracking-wider">Feed CSV legado</h2>
         </div>
-
-        {/* Right 1 Col: Quick Step-by-Step */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-950 text-white p-6 rounded-3xl border border-slate-800 shadow-lg flex flex-col justify-between gap-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-              <i className="bi bi-sliders text-blue-400 text-xl" />
-              <h3 className="font-black text-sm uppercase tracking-wider text-slate-100">
-                Como Configurar no Meta
-              </h3>
-            </div>
-
-            <ol className="flex flex-col gap-4 text-xs font-medium text-slate-300">
-              <li className="flex gap-3">
-                <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">
-                  1
-                </span>
-                <span>
-                  Acesse o <b>Meta Commerce Manager</b> e escolha seu catálogo.
-                </span>
-              </li>
-              <li className="flex gap-3">
-                <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">
-                  2
-                </span>
-                <span>
-                  Navegue até <b>Fontes de Dados &gt; Adicionar Produtos</b>.
-                </span>
-              </li>
-              <li className="flex gap-3">
-                <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">
-                  3
-                </span>
-                <span>
-                  Selecione <b>Usar um Feed de Dados (Data Feed)</b>.
-                </span>
-              </li>
-              <li className="flex gap-3">
-                <span className="w-5 h-5 rounded-full bg-blue-600 text-white font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">
-                  4
-                </span>
-                <span>Cole a URL do Feed CSV copiada ao lado.</span>
-              </li>
-            </ol>
-          </div>
-
-          <button
-            onClick={handleDownload}
-            className="w-full py-3 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all border border-white/10 flex items-center justify-center gap-2"
-          >
-            <i className="bi bi-file-earmark-arrow-down" />
-            <span>Baixar Arquivo CSV</span>
-          </button>
-        </div>
+        <p className="text-xs leading-relaxed text-amber-900 dark:text-amber-100">
+          A rota pública do CSV ainda existe no código do catálogo digital, mas o feed não deve ser
+          configurado como fonte de sincronização do Meta. Use a sincronização via Graph API acima.
+          Para confirmar publicação ou remoção, confira o item no próprio catálogo da Meta pelo
+          identificador retailer_id/SKU; o status no ERP e o CSV não comprovam o resultado externo.
+        </p>
       </div>
     </div>
   );

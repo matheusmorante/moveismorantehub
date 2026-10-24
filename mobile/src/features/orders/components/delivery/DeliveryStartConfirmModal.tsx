@@ -11,7 +11,11 @@ interface Props {
   responsibles?: Array<{ id?: string; name: string; role?: string }>;
   loading?: boolean;
   isDarkMode?: boolean;
+  gpsEnabled: boolean;
+  checkingGps?: boolean;
+  enablingGps?: boolean;
   onConfirm: () => void;
+  onEnableGps: () => Promise<boolean>;
   onCancel: () => void;
 }
 
@@ -22,7 +26,11 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
   responsibles,
   loading = false,
   isDarkMode = false,
+  gpsEnabled,
+  checkingGps = false,
+  enablingGps = false,
   onConfirm,
+  onEnableGps,
   onCancel,
 }) => {
   const insets = useSafeAreaInsets();
@@ -86,28 +94,50 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
                 Compartilhamento de Localização
               </Text>
             </View>
+            <Text
+              style={[
+                styles.gpsStatus,
+                gpsEnabled ? styles.gpsStatusActive : styles.gpsStatusOff,
+                isDarkMode && (gpsEnabled ? styles.gpsStatusActiveDark : styles.gpsStatusOffDark),
+              ]}
+            >
+              {gpsEnabled ? 'GPS ativo' : 'GPS desligado'}
+            </Text>
             <Text style={[styles.noticeText, isDarkMode && styles.noticeTextDark]}>
-              Ao iniciar a entrega, a sua posição em tempo real ficará visível no mapa para os
-              outros membros da equipe até que todas as etapas deste pedido sejam finalizadas.
+              {gpsEnabled
+                ? 'Ao iniciar a rota, sua posição ficará visível no mapa para a equipe até a finalização da entrega.'
+                : 'Ative a localização do aparelho para iniciar a rota e compartilhar sua posição com a equipe.'}
             </Text>
           </View>
 
           {/* Ações */}
           <View style={styles.actionsContainer}>
             <TouchableOpacity
-              style={[styles.confirmBtn, loading && styles.btnDisabled]}
-              onPress={onConfirm}
-              disabled={loading}
+              style={[
+                styles.confirmBtn,
+                (loading || checkingGps || enablingGps) && styles.btnDisabled,
+              ]}
+              onPress={gpsEnabled ? onConfirm : () => void onEnableGps()}
+              disabled={loading || checkingGps || enablingGps}
               activeOpacity={0.85}
             >
-              {loading ? (
+              {(loading || checkingGps || enablingGps) && (
                 <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <>
-                  <Play size={16} color="#ffffff" fill="#ffffff" />
-                  <Text style={styles.confirmBtnText}>Iniciar e Compartilhar</Text>
-                </>
               )}
+              {!loading && !checkingGps && !enablingGps && gpsEnabled && (
+                <Play size={16} color="#ffffff" fill="#ffffff" />
+              )}
+              <Text style={styles.confirmBtnText}>
+                {checkingGps
+                  ? 'Verificando GPS…'
+                  : enablingGps
+                    ? 'Ativando GPS…'
+                    : loading
+                      ? 'Iniciando rota…'
+                      : gpsEnabled
+                        ? 'Iniciar e Compartilhar'
+                        : 'Ativar GPS'}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -271,6 +301,24 @@ const styles = StyleSheet.create({
   },
   noticeTextDark: {
     color: '#cbd5e1',
+  },
+  gpsStatus: {
+    alignSelf: 'flex-start',
+    fontSize: 11,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  gpsStatusActive: {
+    color: '#15803d',
+  },
+  gpsStatusOff: {
+    color: '#b45309',
+  },
+  gpsStatusActiveDark: {
+    color: '#4ade80',
+  },
+  gpsStatusOffDark: {
+    color: '#fbbf24',
   },
   actionsContainer: {
     width: '100%',

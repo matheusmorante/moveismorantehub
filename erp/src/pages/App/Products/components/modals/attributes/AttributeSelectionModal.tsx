@@ -12,7 +12,7 @@ export interface AttributeSelectionModalProps {
 }
 
 /**
- * Modal de seleção guiada de atributos (ex: Cor, Tamanho, Voltagem) e seus respectivos valores para o produto.
+ * Modal de seleção guiada de características (ex: Cor, Tamanho, Voltagem) e seus respectivos valores para o produto.
  */
 export const AttributeSelectionModal: React.FC<AttributeSelectionModalProps> = ({
   isOpen,
@@ -77,10 +77,10 @@ export const AttributeSelectionModal: React.FC<AttributeSelectionModalProps> = (
               className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-3"
             >
               <i className="bi bi-plus-circle-fill text-blue-600" aria-hidden="true" />
-              Adicionar Atributo
+              Adicionar Característica
             </h3>
             <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest mt-1">
-              Selecione um atributo e seu valor
+              Selecione uma característica e seu valor
             </p>
           </div>
           <button
@@ -101,7 +101,7 @@ export const AttributeSelectionModal: React.FC<AttributeSelectionModalProps> = (
                 <i className="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                 <input
                   type="text"
-                  placeholder="Buscar atributo (Cor, Tamanho...)"
+                  placeholder="Buscar característica (Cor, Tamanho...)"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-[1.2rem] text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold dark:text-slate-300"
@@ -134,7 +134,7 @@ export const AttributeSelectionModal: React.FC<AttributeSelectionModalProps> = (
                   <div className="text-center py-10 opacity-40">
                     <i className="bi bi-search text-3xl mb-2 block" aria-hidden="true" />
                     <p className="text-xs font-bold uppercase tracking-widest">
-                      Nenhum atributo encontrado
+                      Nenhuma característica encontrada
                     </p>
                   </div>
                 )}
@@ -147,7 +147,7 @@ export const AttributeSelectionModal: React.FC<AttributeSelectionModalProps> = (
                 onClick={() => setSelectedAttribute(null)}
                 className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700 transition-colors mb-2"
               >
-                <i className="bi bi-arrow-left" aria-hidden="true" /> Voltar para Atributos
+                <i className="bi bi-arrow-left" aria-hidden="true" /> Voltar para Características
               </button>
 
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800 mb-6">
@@ -180,7 +180,7 @@ export const AttributeSelectionModal: React.FC<AttributeSelectionModalProps> = (
                   {selectedAttribute.options.length === 0 && (
                     <div className="col-span-2 text-center py-8 opacity-40">
                       <p className="text-xs font-bold">
-                        Sem valores cadastrados para este atributo
+                        Sem valores cadastrados para esta característica
                       </p>
                     </div>
                   )}
@@ -198,7 +198,7 @@ export const AttributeSelectionModal: React.FC<AttributeSelectionModalProps> = (
             className="w-full py-4 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             <i className="bi bi-gear-fill" aria-hidden="true" />
-            Gerenciar Atributos e Valores
+            Gerenciar Características e Valores
           </button>
           <button
             type="button"

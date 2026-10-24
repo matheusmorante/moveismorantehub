@@ -1,5 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { ArrowDown, ArrowUp, Camera, Crop, Info, Plus, RefreshCw, Star, Trash2, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type React from 'react';
 import { useState } from 'react';
 import {
@@ -39,6 +40,7 @@ interface Props {
 }
 
 export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, dark }) => {
+  const insets = useSafeAreaInsets();
   const images: string[] = Array.isArray(formData.images) ? formData.images : [];
   const maxPhotos = MAX_PARENT_PRODUCT_IMAGES;
   const [selectedPhotoIdx, setSelectedPhotoIdx] = useState<number | null>(null);
@@ -311,7 +313,12 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
         animationType="fade"
         onRequestClose={() => setSelectedPhotoIdx(null)}
       >
-        <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.modalOverlay,
+            { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+          ]}
+        >
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             activeOpacity={1}

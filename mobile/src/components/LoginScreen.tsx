@@ -27,6 +27,7 @@ import {
   verifyPasswordRecoveryCode,
 } from '../services/authPasswordRecovery';
 import { useAuth } from '../contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { styles } from './LoginScreen.styles';
 import { flattenFormErrors, useZodForm } from '../hooks/useZodForm';
 import { loginFormSchema, passwordRecoveryEmailSchema, passwordRecoveryCodeSchema, passwordSetupFormSchema } from '../../../shared-utils/authFormSchemas';
@@ -38,6 +39,7 @@ interface Props {
 
 
 export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => {
+  const insets = useSafeAreaInsets();
   const { beginPasswordRecovery, endPasswordRecovery, handleLogout } = useAuth();
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -242,7 +244,10 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
         style={[styles.container, isDarkMode && styles.containerDark]}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContainer}
+          contentContainerStyle={[
+            styles.scrollContainer,
+            { paddingTop: 40 + insets.top, paddingBottom: 40 + insets.bottom },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.cardHeader}>
@@ -430,7 +435,10 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
       style={[styles.container, isDarkMode && styles.containerDark]}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContainer}
+        contentContainerStyle={[
+          styles.scrollContainer,
+          { paddingTop: 40 + insets.top, paddingBottom: 40 + insets.bottom },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.cardHeader}>

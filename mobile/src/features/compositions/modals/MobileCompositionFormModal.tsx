@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Layers, X, Check } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Composition } from '../types/composition.type';
 import { useCompositionForm } from '../hooks/useCompositionForm';
 import { useCompositionProductSearch } from '../hooks/useCompositionProductSearch';
@@ -36,6 +37,9 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
   onSuccess,
   isDarkMode,
 }) => {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? 24 : 0);
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 0);
   const themeColors = {
     bg: isDarkMode ? '#0f172a' : '#ffffff',
     surface: isDarkMode ? '#1e293b' : '#f8fafc',
@@ -82,7 +86,7 @@ export const MobileCompositionFormModal: React.FC<MobileCompositionFormModalProp
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: themeColors.bg }}
+        style={{ flex: 1, backgroundColor: themeColors.bg, paddingTop: topInset, paddingBottom: bottomInset }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Cabeçalho do Modal */}

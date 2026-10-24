@@ -7,6 +7,12 @@ import {
 } from '../../../../services/sqlite/inventoryOutbox';
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import {
+  buildInventorySubmissionClaimRpcParams,
+  buildInventorySubmissionRpcParams,
+  getInventoryFinalizationRpcName,
+  isInventorySubmissionClaimAcknowledged,
+} from '../../../../../../shared-utils/inventorySubmissionProtocol';
 import { getOfflineInventoryCatalog } from './offlineInventoryCatalog';
 import { findInventoryDraftConflicts } from './inventoryDraftConflicts';
 import {
@@ -16,7 +22,7 @@ import {
 import type { AuditItem } from '../types/inventoryWorkflow.types';
 
 export const syncPendingInventorySubmissions = async (
-  activeUserId?: string | null
+  _activeUserId?: string | null
 ): Promise<number> => {
   const isOnline =
     connectivityService.connected &&
@@ -31,16 +37,20 @@ export const syncPendingInventorySubmissions = async (
   }
   if (submissions.length === 0) return 0;
 
-  let currentUserId = activeUserId ?? null;
-  if (!currentUserId) {
-    try {
-      const auth = (supabase as any)?.auth;
-      if (typeof auth?.getSession === 'function') {
-        const { data } = await auth.getSession();
-        currentUserId = data?.session?.user?.id || null;
-      }
-    } catch {}
-  }
+  let currentUserId: string | null = null;
+  try {
+    const auth = (supabase as any)?.auth;
+    if (typeof auth?.getSession === 'function') {
+      const sessionResult = await withTimeout(
+        auth.getSession(),
+        10_000,
+        null,
+        'inventario:outbox-auth-session'
+      );
+      currentUserId = sessionResult?.data?.session?.user?.id || null;
+    }
+  } catch {}
+  if (!currentUserId) return 0;
 
   let catalog = null;
   try {
@@ -50,16 +60,6 @@ export const syncPendingInventorySubmissions = async (
   let syncedCount = 0;
   for (const submission of submissions) {
     if (!connectivityService.connected) break;
-
-    // Isolamento multi-usuário: impede enviar submissão congelada por outro operador no mesmo aparelho
-    const ownerId =
-      submission.userId ||
-      (typeof submission.observation?.responsibleId === 'string'
-        ? submission.observation.responsibleId
-        : null);
-    if (ownerId && currentUserId && ownerId !== currentUserId) {
-      continue;
-    }
 
     try {
       // Verifica se alguma variação da submissão sofreu mesclagem/exclusão concorrente no catálogo
@@ -80,18 +80,23 @@ export const syncPendingInventorySubmissions = async (
       }
 
       const response = await withTimeout(
-        supabase.rpc(
-          submission.contractVersion === 2
-            ? 'finalize_inventory_transaction_v2'
-            : 'finalize_inventory_transaction',
-          {
-            p_audit_id: submission.auditId,
-            p_code: submission.code,
-            p_observation: submission.observation,
-            p_items: submission.items,
-            p_responsible_name: submission.responsibleName,
+        (async () => {
+          const claim = await supabase.rpc(
+            'claim_inventory_audit_submission',
+            buildInventorySubmissionClaimRpcParams(submission)
+          );
+          if (claim.error) throw claim.error;
+          if (!isInventorySubmissionClaimAcknowledged(claim.data, submission.auditId)) {
+            throw new Error('O servidor não confirmou a reserva desta submissão de inventário.');
           }
-        ),
+          if (claim.data.status === 'already_processed') {
+            return { data: claim.data, error: null };
+          }
+          return supabase.rpc(
+            getInventoryFinalizationRpcName(submission.contractVersion),
+            buildInventorySubmissionRpcParams(submission)
+          );
+        })(),
         INVENTORY_FINALIZATION_RPC_TIMEOUT_MS,
         null,
         'inventario:outbox-sync-rpc'

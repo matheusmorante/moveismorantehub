@@ -34,6 +34,13 @@ import {
 import { getProductTechnicalRootPatch } from '../../../../../../shared-utils/productTechnicalRootPatch';
 import {
   getCharacteristicDependencyState,
+  isCharacteristicDependent,
+  isCharacteristicDependentOnVariableField,
+  isDoorQuantityCharacteristic,
+  isDrawerQuantityCharacteristic,
+  isHasDoorsCharacteristic,
+  isHasDrawersCharacteristic,
+  isQuantityCharacteristic,
   type CharacteristicDependencyState,
 } from '../../../../../../shared-utils/productCharacteristicDependencies';
 import { getDefaultShowNameForVariationOverride } from '../../../../../../shared-utils/productVariationAttributeDefaults';
@@ -137,15 +144,50 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       formData.variations,
     ]
   );
-  const ownTechnicalValues = useMemo(
-    () =>
-      getEffectiveVariationTechnicalValues(
-        {},
-        formData,
-        parentData ? variableTechnicalFieldNames : undefined
-      ),
-    [formData.attributes, formData.technicalValues, parentData, variableTechnicalFieldNames]
+  const isVariableField = useCallback(
+    (fieldName: string) =>
+      isMobileVariableTechnicalField(fieldName, variableTechnicalFieldNames) ||
+      isCharacteristicDependentOnVariableField(fieldName, variableTechnicalFieldNames),
+    [variableTechnicalFieldNames]
   );
+  const ownTechnicalValues = useMemo(
+    // Preserve every saved override for display/editing, as the ERP does. The
+    // variable-field list controls inheritance and scope below, not whether a
+    // previously stored value is allowed to remain visible.
+    () => getEffectiveVariationTechnicalValues({}, formData),
+    [formData.attributes, formData.technicalValues]
+  );
+  const dependencyValues = useMemo(() => {
+    const values = { ...parentTechnicalValues, ...ownTechnicalValues };
+
+    const useVariationQuantity = (
+      isQuantity: (name: string) => boolean,
+      isLegacyToggle: (name: string) => boolean
+    ) => {
+      const quantityName = technicalFields.find(
+        (field) => isQuantity(field.name) && isMobileVariableTechnicalField(field.name, variableTechnicalFieldNames)
+      )?.name;
+      if (!quantityName) return;
+
+      const ownQuantity = Object.entries(ownTechnicalValues).find(([name]) => isQuantity(name));
+      Object.keys(values).forEach((name) => {
+        if (isQuantity(name) || isLegacyToggle(name)) delete values[name];
+      });
+      if (ownQuantity) values[quantityName] = ownQuantity[1];
+    };
+
+    if (parentData) {
+      useVariationQuantity(isDoorQuantityCharacteristic, isHasDoorsCharacteristic);
+      useVariationQuantity(isDrawerQuantityCharacteristic, isHasDrawersCharacteristic);
+    }
+    return values;
+  }, [
+    technicalFields,
+    parentData,
+    parentTechnicalValues,
+    ownTechnicalValues,
+    variableTechnicalFieldNames,
+  ]);
   const categoryIds: string[] = useMemo(
     () =>
       parentData
@@ -167,7 +209,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         if (!mounted) return;
         setTechnicalFields(fields);
       } catch (error) {
-        console.warn('[ProductFormTechnicalTab] Falha ao carregar atributos do ERP:', error);
+        console.warn('[ProductFormTechnicalTab] Falha ao carregar características do ERP:', error);
       } finally {
         if (mounted) setLoadingFields(false);
       }
@@ -205,7 +247,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       [...allVisibleFields, ...technicalFields].forEach((field) => {
         if (!isMobileVariableTechnicalField(field.name, variableTechnicalFieldNames)) return;
         const key = normalizeSearchTerm(field.name);
-        if (!fieldsByName.has(key)) fieldsByName.set(key, { ...field, isRequired: true });
+        if (!fieldsByName.has(key)) fieldsByName.set(key, field);
       });
       return [...fieldsByName.values()];
     }
@@ -223,66 +265,83 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     variableTechnicalFieldNames,
   ]);
 
-  const isVariationForm = Boolean(parentData);
   const isFieldRequired = useCallback(
     (field: MobileProductTechnicalField) =>
-      isVariationForm
-        ? isMobileVariableTechnicalField(field.name, variableTechnicalFieldNames)
-        : isProductTechnicalFieldRequired(field, categoryIds),
-    [isVariationForm, variableTechnicalFieldNames, categoryIds]
+      isProductTechnicalFieldRequired(field, categoryIds),
+    [categoryIds]
   );
 
   const requiredFieldGroups = useMemo(
     () => {
       const productRequired = visibleTechnicalFields.filter((field) => isFieldRequired(field));
-      const catalogRequired = visibleTechnicalFields.filter(
-        (field) =>
-          !isFieldRequired(field) &&
-          isProductTechnicalFieldRequiredForCatalog(field, categoryIds)
-      );
+      const catalogRequired = parentData
+        ? []
+        : visibleTechnicalFields.filter(
+            (field) =>
+              !isFieldRequired(field) &&
+              isProductTechnicalFieldRequiredForCatalog(field, categoryIds)
+          );
       return groupProductTechnicalFields([...productRequired, ...catalogRequired]);
     },
-    [visibleTechnicalFields, categoryIds, isFieldRequired]
+    [visibleTechnicalFields, categoryIds, isFieldRequired, parentData]
   );
   const optionalTechnicalFields = useMemo(
     () =>
       visibleTechnicalFields.filter(
         (field) =>
           !isFieldRequired(field) &&
-          !isProductTechnicalFieldRequiredForCatalog(field, categoryIds)
+          (Boolean(parentData) || !isProductTechnicalFieldRequiredForCatalog(field, categoryIds))
       ),
-    [visibleTechnicalFields, categoryIds, isFieldRequired]
+    [visibleTechnicalFields, categoryIds, isFieldRequired, parentData]
   );
   const selectedOptionalFields = useMemo(() => {
-    if (parentData) return optionalTechnicalFields;
     return optionalTechnicalFields.filter((field) => {
+      if (parentData) {
+        const parentValue = String(getTechnicalValue(parentTechnicalValues, field.name) ?? '')
+          .trim();
+        const ownValue = String(getTechnicalValue(ownTechnicalValues, field.name) ?? '')
+          .trim();
+        const normalizedOwnValue = normalizeSearchTerm(ownValue);
+        const hasSelectedParentValue =
+          hasTechnicalValue(parentTechnicalValues, field.name) &&
+          !['nao se aplica', 'n/a'].includes(normalizeSearchTerm(parentValue));
+        const hasSelectedOwnValue =
+          hasTechnicalValue(ownTechnicalValues, field.name) &&
+          !['nao se aplica', 'n/a', 'nao informar'].includes(normalizedOwnValue);
+        return (
+          manualFieldNames.some((name) => normalizeName(name) === normalizeName(field.name)) ||
+          hasSelectedOwnValue ||
+          hasSelectedParentValue ||
+          isCharacteristicDependent(field.name)
+        );
+      }
       const hasConfiguredValue = hasTechnicalValue(ownTechnicalValues, field.name);
       const value = String(getTechnicalValue(ownTechnicalValues, field.name) ?? '')
         .trim()
         .toLocaleLowerCase('pt-BR');
       return (
         manualFieldNames.some((name) => normalizeName(name) === normalizeName(field.name)) ||
-        (hasConfiguredValue && !['não se aplica', 'nao se aplica', 'n/a'].includes(value))
+        (hasConfiguredValue && !['não se aplica', 'nao se aplica', 'n/a'].includes(value)) ||
+        isCharacteristicDependent(field.name)
       );
     });
-  }, [parentData, optionalTechnicalFields, ownTechnicalValues, manualFieldNames]);
+  }, [parentData, optionalTechnicalFields, ownTechnicalValues, parentTechnicalValues, manualFieldNames]);
   const searchableOptionalFields = useMemo(() => {
-    if (parentData) return [];
     const selectedNames = new Set(selectedOptionalFields.map((field) => normalizeName(field.name)));
     return technicalFields.filter(
       (field) =>
         field.active !== false &&
+        (!parentData || isVariableField(field.name)) &&
         !isProductTechnicalFieldRequired(field, categoryIds) &&
-        !isProductTechnicalFieldRequiredForCatalog(field, categoryIds) &&
+        (Boolean(parentData) || !isProductTechnicalFieldRequiredForCatalog(field, categoryIds)) &&
         !isExcludedProductTechnicalField(field.name) &&
         !selectedNames.has(normalizeName(field.name))
     );
-  }, [parentData, technicalFields, selectedOptionalFields, categoryIds]);
+  }, [parentData, technicalFields, selectedOptionalFields, categoryIds, isVariableField]);
   const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
   const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
   const matchingOptionalFields =
     !requiredFieldsOnly &&
-    !parentData &&
     normalizedSearchTerm.length >= 3 &&
     normalizedSearchTerm === normalizedDebouncedSearchTerm
       ? searchableOptionalFields
@@ -305,6 +364,18 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
 
   const setTechnicalValue = (name: string, value: any) =>
     setFormData((prev: any) => {
+      const currentValue = getTechnicalValue(prev.technicalValues || {}, name);
+      const currentHasQuantity =
+        currentValue !== undefined &&
+        currentValue !== null &&
+        String(currentValue).trim() !== '' &&
+        Number.isFinite(Number(String(currentValue).replace(',', '.')));
+      if (
+        isQuantityCharacteristic(name) &&
+        (value === '' || value === null || value === undefined) &&
+        currentHasQuantity
+      ) return prev;
+
       const next: any = {
         ...prev,
         ...getProductTechnicalRootPatch(name, value),
@@ -318,12 +389,19 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         },
       };
       if (parentData) {
-        next.attributes = upsertProductCharacteristicAttribute(
-          prev.attributes,
-          name,
-          value,
-          getDefaultShowNameForVariationOverride(name)
-        );
+        const isNotApplicable =
+          typeof value === 'string' &&
+          ['nao se aplica', 'n/a', 'nao informar'].includes(normalizeSearchTerm(value));
+        next.attributes = isNotApplicable
+          ? getProductCharacteristicAttributes(prev.attributes).filter(
+              (attribute) => normalizeName(attribute.name) !== normalizeName(name)
+            )
+          : upsertProductCharacteristicAttribute(
+              prev.attributes,
+              name,
+              value,
+              getDefaultShowNameForVariationOverride(name)
+            );
       }
       const dimensionField = getDimensionField(name);
       if (dimensionField) {
@@ -343,7 +421,8 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     if (
       scope === 'not_inform' &&
       requiredCatalogField &&
-      isProductTechnicalFieldRequiredForCatalog(requiredCatalogField, categoryIds)
+      (isProductTechnicalFieldRequired(requiredCatalogField, categoryIds) ||
+        isProductTechnicalFieldRequiredForCatalog(requiredCatalogField, categoryIds))
     ) return;
 
     setFormData((previous: any) => {
@@ -359,6 +438,30 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
             );
       const next = { ...previous, variableTechnicalFields };
       if (scope === 'not_inform') {
+        const dependency = getCharacteristicDependencyState(
+          fieldName,
+          getEffectiveProductTechnicalValues(previous)
+        );
+        if (
+          dependency.isDependent &&
+          !dependency.isDisabled &&
+          !isProductTechnicalFieldRequired(
+            requiredCatalogField || { name: fieldName },
+            categoryIds
+          ) &&
+          !isProductTechnicalFieldRequiredForCatalog(
+            requiredCatalogField || { name: fieldName },
+            categoryIds
+          )
+        ) {
+          return {
+            ...next,
+            technicalValues: {
+              ...(previous.technicalValues || {}),
+              [fieldName]: 'Não se aplica',
+            },
+          };
+        }
         const technicalValues = Object.fromEntries(
           Object.entries(previous.technicalValues || {}).filter(
             ([name]) => normalizeSearchTerm(name) !== normalizeSearchTerm(fieldName)
@@ -376,10 +479,26 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
           ...(dimensionField ? { [dimensionField]: '' } : {}),
         };
       }
-      if (scope === 'global' && !hasTechnicalValue(getEffectiveProductTechnicalValues(previous), fieldName)) {
+      const currentTechnicalValue = getTechnicalValue(
+        getEffectiveProductTechnicalValues(previous),
+        fieldName
+      );
+      const isCurrentlyNotApplicable = [
+        'nao se aplica',
+        'n/a',
+        'nao informar',
+      ].includes(normalizeSearchTerm(String(currentTechnicalValue ?? '')));
+      if (
+        scope === 'global' &&
+        (isCurrentlyNotApplicable ||
+          !hasTechnicalValue(getEffectiveProductTechnicalValues(previous), fieldName))
+      ) {
         return {
           ...next,
-          technicalValues: { ...(previous.technicalValues || {}), [fieldName]: '' },
+          technicalValues: {
+            ...(previous.technicalValues || {}),
+            [fieldName]: isQuantityCharacteristic(fieldName) ? null : '',
+          },
         };
       }
       return next;
@@ -428,7 +547,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   };
 
   const characteristicSearchControl =
-    !requiredFieldsOnly && !parentData ? (
+    !requiredFieldsOnly ? (
       <View style={styles.searchControl}>
         <Text style={[styles.searchLabel, dark && styles.dimText]}>Pesquisar característica</Text>
         <View style={[styles.searchInputWrap, dark && styles.darkInput]}>
@@ -463,7 +582,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                       ? previous
                       : [...previous, field.name]
                   );
-                  setTechnicalValue(field.name, '');
+                  setTechnicalValue(field.name, isQuantityCharacteristic(field.name) ? null : '');
                   setCharacteristicSearchTerm('');
                 }}
                 accessibilityRole="button"
@@ -519,7 +638,11 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                   const parentValue = getTechnicalValue(parentTechnicalValues, field.name);
                   const isCurrentVariableField =
                     !isSimpleProduct &&
-                    isMobileVariableTechnicalField(field.name, variableTechnicalFieldNames);
+                    isVariableField(field.name);
+                  const isDependencyVariable = isCharacteristicDependentOnVariableField(
+                    field.name,
+                    variableTechnicalFieldNames
+                  );
                   const storedValue = hasOwnValue
                     ? ownValue
                     : parentData && isCurrentVariableField
@@ -528,14 +651,37 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                   const currentValue = Array.isArray(storedValue)
                     ? storedValue.join(', ')
                     : String(storedValue ?? '');
+                  const isExplicitlyNotApplicable = [
+                    'nao se aplica',
+                    'n/a',
+                    'nao informar',
+                  ].includes(normalizeSearchTerm(currentValue));
+                  const isDependentCharacteristic = isCharacteristicDependent(field.name);
                   const currentFieldIsRequired = isFieldRequired(field);
                   const requiredForCatalog = isProductTechnicalFieldRequiredForCatalog(field, categoryIds);
-                  const alwaysApplicable = currentFieldIsRequired || requiredForCatalog;
+                  const alwaysApplicable =
+                    currentFieldIsRequired ||
+                    (!parentData && requiredForCatalog) ||
+                    Boolean(
+                      parentData &&
+                        isCurrentVariableField &&
+                        (!isDependentCharacteristic || requiredForCatalog)
+                    );
+                  const dependencyState: CharacteristicDependencyState = getCharacteristicDependencyState(
+                    field.name,
+                    dependencyValues
+                  );
+                  const isDependencyDisabled = dependencyState.isDisabled;
+                  const isDependencySatisfied =
+                    dependencyState.isDependent && !isDependencyDisabled;
                   const currentScope = isCurrentVariableField
                     ? 'variation'
-                    : hasTechnicalValue(ownTechnicalValues, field.name) ||
+                    : isExplicitlyNotApplicable
+                      ? 'not_inform'
+                      : hasTechnicalValue(ownTechnicalValues, field.name) ||
                         (normalizeName(field.name) === 'marca' && Boolean(formData.brand)) ||
-                        requiredForCatalog
+                        alwaysApplicable ||
+                        isDependencySatisfied
                       ? 'global'
                       : 'not_inform';
                   const isPhysicalDimension = getDimensionField(field.name) !== null;
@@ -543,18 +689,14 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                     Boolean(parentData) && hasTechnicalValue(parentTechnicalValues, field.name);
                   const applicable =
                     alwaysApplicable ||
-                    (isPhysicalDimension
+                    (dependencyState.isDependent
+                      ? isDependencySatisfied && !isExplicitlyNotApplicable
+                      : isPhysicalDimension
                       ? (hasOwnValue || hasConfiguredParentValue) &&
                         currentValue.trim().toLocaleLowerCase('pt-BR') !== 'não se aplica'
                       : currentValue.trim().toLocaleLowerCase('pt-BR') !== 'não se aplica');
                   const isManual = manualFieldNames.includes(field.name);
-                  const dependencyState: CharacteristicDependencyState = parentData
-                    ? getCharacteristicDependencyState(field.name, {
-                        ...parentTechnicalValues,
-                        ...ownTechnicalValues,
-                      })
-                    : { isDependent: false, isDisabled: false };
-                  const isDependencyDisabled = dependencyState.isDisabled;
+                  const isQuantityField = isQuantityCharacteristic(field.name);
                   const parentText = String(parentValue ?? '').trim();
                   const parentIsZero =
                     ['integer', 'number', 'decimal', 'measure'].includes(field.data_type) &&
@@ -636,25 +778,29 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                               <ArrowLeftRight size={15} color="#64748b" />
                             </TouchableOpacity>
                           )}
-                          {!alwaysApplicable && !isManual && (
+                          {!alwaysApplicable && (!isManual || isQuantityField) && (
                             <Switch
                               value={applicable}
                               disabled={
                                 isSingleVariation ||
                                 isDependencyDisabled ||
-                                Boolean(parentData && !hasOwnValue)
+                                Boolean(parentData && !hasOwnValue && !isDependentCharacteristic)
                               }
                               onValueChange={(value) =>
                                 setTechnicalValue(
                                   field.name,
-                                  value ? (hasOwnValue ? '' : currentValue) : 'Não se aplica'
+                                  value
+                                    ? (hasOwnValue
+                                        ? (isQuantityField ? null : '')
+                                        : currentValue)
+                                    : 'Não se aplica'
                                 )
                               }
                               accessibilityLabel={`Se aplica: ${field.name}`}
                               trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
                             />
                           )}
-                          {isManual && (
+                          {isManual && !isQuantityField && (
                             <TouchableOpacity
                               onPress={() => {
                                 setManualFieldNames((previous) =>
@@ -666,7 +812,17 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                                       ([name]) => normalizeName(name) !== normalizeName(field.name)
                                     )
                                   );
-                                  return { ...previous, technicalValues };
+                                  const attributes = parentData
+                                    ? getProductCharacteristicAttributes(previous.attributes).filter(
+                                        (attribute) =>
+                                          normalizeName(attribute.name) !== normalizeName(field.name)
+                                      )
+                                    : previous.attributes;
+                                  return {
+                                    ...previous,
+                                    technicalValues,
+                                    ...(parentData ? { attributes } : {}),
+                                  };
                                 });
                               }}
                               accessibilityLabel={`Remover característica ${field.name}`}
@@ -705,7 +861,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                               accessibilityRole="button"
                               accessibilityLabel="Usar cor no nome da variação"
                               accessibilityState={{ disabled: !canUseInVariationName }}
-                              accessibilityHint="Inclui a cor no nome e nos atributos das variações que têm um valor disponível."
+                              accessibilityHint="Inclui a cor no nome e nas características das variações que têm um valor disponível."
                             >
                               {isIncludedInVariationName && <Check size={12} color="#15803d" />}
                               <Text
@@ -733,7 +889,10 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                             {dependencyState.disabledReason}
                           </Text>
                         )}
-                      {!parentData && isSimpleProduct && !requiredForCatalog && (
+                      {!parentData &&
+                        isSimpleProduct &&
+                        !alwaysApplicable &&
+                        !isDependencyVariable && (
                         <Switch
                           value={currentScope === 'global'}
                           onValueChange={(enabled) =>
@@ -745,15 +904,16 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                           thumbColor={currentScope === 'global' ? '#fff' : '#f8fafc'}
                         />
                       )}
-                      {!parentData && !isSimpleProduct && (
+                      {!parentData &&
+                        !isSimpleProduct &&
+                        !alwaysApplicable &&
+                        !isDependencyVariable && (
                         <View style={styles.scopeRow}>
                           {([
                             ['not_inform', 'Não informar'],
                             ['global', 'Global'],
                             ['variation', 'Por variação'],
-                          ] as const)
-                            .filter(([scope]) => !requiredForCatalog || scope !== 'not_inform')
-                            .map(([scope, label]) => {
+                          ] as const).map(([scope, label]) => {
                             const selected = currentScope === scope;
                             return (
                               <TouchableOpacity
@@ -781,7 +941,11 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                           })}
                         </View>
                       )}
-                      {(parentData ? isCurrentVariableField || hasOwnValue : currentScope === 'global') && (
+                      {(parentData
+                        ? isCurrentVariableField ||
+                          hasOwnValue ||
+                          (isDependentCharacteristic && isDependencyDisabled)
+                        : currentScope === 'global' || isDependentCharacteristic) && (
                         <ProductTechnicalFieldInput
                           field={field}
                           value={currentValue === 'Não se aplica' ? '' : storedValue}
@@ -789,7 +953,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                             isSingleVariation ||
                             isDependencyDisabled ||
                             !applicable ||
-                            isInheritedFromParent
+                            isInheritedFromParent ||
+                            (!parentData && isCurrentVariableField) ||
+                            (parentData && !isCurrentVariableField && !hasOwnValue)
                           }
                           dark={dark}
                           onChange={(value) => setTechnicalValue(field.name, value)}

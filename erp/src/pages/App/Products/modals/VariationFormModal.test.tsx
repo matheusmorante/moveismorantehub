@@ -172,7 +172,7 @@ describe('composição real do formulário de variações', () => {
     vi.useFakeTimers(); let finish!: (value: unknown) => void;
     mocks.response.mockImplementation((table: string) => new Promise((resolve) => { if (table === 'product_images') finish = resolve; })); mount();
     await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
-    expect(screen.queryByText('Carregando atributos e fotos do produto pai...')).toBeNull(); expect(screen.getByRole('button', { name: 'Consultar novamente' })).toHaveProperty('disabled', false);
+    expect(screen.queryByText('Carregando características e fotos do produto pai...')).toBeNull(); expect(screen.getByRole('button', { name: 'Consultar novamente' })).toHaveProperty('disabled', false);
     await act(async () => { finish({ data: [{ image_url: 'https://img.test/tardia.jpg' }], error: null }); });
     expect(screen.getByRole('alert').textContent).toContain('Não foi possível carregar as fotos');
   });

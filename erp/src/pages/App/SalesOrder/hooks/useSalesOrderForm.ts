@@ -66,8 +66,10 @@ const getRememberedItemHandling = (
 
 export const useSalesOrderForm = (
   initialDeliveryMethod?: 'delivery' | 'pickup',
-  initialOrderType: Order['orderType'] = 'sale'
+  initialOrderType: Order['orderType'] = 'sale',
+  options: { autoSaveExistingDrafts?: boolean } = {}
 ) => {
+  const autoSaveExistingDrafts = options.autoSaveExistingDrafts ?? true;
   const { items, setItems } = useItems();
   const { shipping, setShipping } = useShipping(initialDeliveryMethod);
   const { payments, setPayments } = usePaymentsData();
@@ -234,8 +236,10 @@ export const useSalesOrderForm = (
       itemHandlingByDeliveryMethodRef.current = {};
       rememberItemHandlings(normalizedShipping.deliveryMethod, normalizedItems);
 
-      // Rascunhos existentes continuam salvando alterações automaticamente.
-      setIsDraftAutoSaveEnabled(!isExistingOrder || loadedStatus === 'draft');
+      // O fluxo de edição pode exigir salvar usando a versão carregada do pedido.
+      setIsDraftAutoSaveEnabled(
+        !isExistingOrder || (autoSaveExistingDrafts && loadedStatus === 'draft')
+      );
 
       if (isExistingOrder) {
         const loadedIndex = isLoadedTestArtifact ? null : existingIndex;
@@ -285,6 +289,7 @@ export const useSalesOrderForm = (
       generateCodeForCopyOrNew,
       cancelPendingDistanceCalculation,
       rememberItemHandlings,
+      autoSaveExistingDrafts,
     ]
   );
 

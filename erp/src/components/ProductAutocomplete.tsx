@@ -35,6 +35,7 @@ interface ProductAutocompleteProps {
   disabled?: boolean;
   isLoadingSuggestions?: boolean;
   onEditClick?: (product: Product, variation?: Variation) => void;
+  maxSuggestions?: number;
 }
 
 const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
@@ -64,6 +65,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   disabled = false,
   isLoadingSuggestions = false,
   onEditClick,
+  maxSuggestions = 15,
 }) => {
   const {
     query,
@@ -106,7 +108,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             onChange={(e) => {
               handleQueryChange(e.target.value);
             }}
-            onFocus={() => setShowSuggestions(query.trim().length >= 2)}
+            onFocus={() => setShowSuggestions(query.trim().length > 0)}
             placeholder={placeholder}
             className={`${inputEndAdornment ? 'pr-10 ' : ''}${
               inputClassName ||
@@ -222,9 +224,13 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
         </div>
       )}
 
-      <DropdownPortal anchorRef={wrapperRef} isOpen={showSuggestions && query.trim().length >= 2}>
+      <DropdownPortal anchorRef={wrapperRef} isOpen={showSuggestions && query.trim().length > 0}>
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200 divide-y divide-slate-100 dark:divide-slate-800/50">
-          {isLoading ? (
+          {query.trim().length < 3 ? (
+            <div className="px-4 py-5 text-center text-xs font-bold text-slate-400">
+              Digite pelo menos três caracteres para buscar.
+            </div>
+          ) : isLoading ? (
             <div className="flex items-center justify-center gap-2 px-4 py-5 text-xs font-bold text-slate-400">
               <i className="bi bi-arrow-repeat animate-spin" />
               Buscando produtos...
@@ -234,7 +240,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               Nenhum produto encontrado para esta busca.
             </div>
           ) : (
-            suggestions.map((item, index) => {
+            suggestions.slice(0, maxSuggestions).map((item, index) => {
               const { product: p, variation: v } = item;
               const fullName = getVariationDisplayName(p, v);
               const displayName = fullName;

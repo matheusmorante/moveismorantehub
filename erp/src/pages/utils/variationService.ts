@@ -59,7 +59,7 @@ const capitalize = (str: string): string => {
   return toTitleCase(str);
 };
 
-/** Garante um valor canônico para um atributo global sem criar atributos duplicados. */
+/** Garante um valor canônico para uma característica global sem criar duplicatas. */
 export const ensureAttributeValue = async (
   attributeName: string,
   value: string,
@@ -72,7 +72,7 @@ export const ensureAttributeValue = async (
   const wait = async <T,>(promise: PromiseLike<T>, write = false): Promise<T> => {
     check();
     const result = await withTimeout(promise, 10000, null, 'mover-variacao:atributo');
-    if (!result) throw write ? new VariationFamilyUnconfirmedError('O cadastro do atributo não foi confirmado. Consulte os atributos antes de repetir.') : new Error('A consulta do atributo excedeu o prazo.');
+    if (!result) throw write ? new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.') : new Error('A consulta da característica excedeu o prazo.');
     check(); return result;
   };
   const { data: attributes, error: attributeError } = await wait(supabase
@@ -81,7 +81,7 @@ export const ensureAttributeValue = async (
     .filter('name', 'imatch', literal(normalizedName))
     .limit(1));
   if (attributeError) throw attributeError;
-  if (!Array.isArray(attributes)) throw new Error('Não foi possível confirmar a consulta do atributo.');
+  if (!Array.isArray(attributes)) throw new Error('Não foi possível confirmar a consulta da característica.');
 
   let attribute = attributes?.[0];
   if (!attribute) {
@@ -97,7 +97,7 @@ export const ensureAttributeValue = async (
     }
     attribute = response.data;
   }
-  if (!attribute?.id || typeof attribute.name !== 'string' || attribute.name.trim().toLocaleLowerCase('pt-BR') !== normalizedName.toLocaleLowerCase('pt-BR')) throw new VariationFamilyUnconfirmedError('O cadastro do atributo não foi confirmado. Consulte os atributos antes de repetir.');
+  if (!attribute?.id || typeof attribute.name !== 'string' || attribute.name.trim().toLocaleLowerCase('pt-BR') !== normalizedName.toLocaleLowerCase('pt-BR')) throw new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.');
   const { data: values, error: valueError } = await wait(supabase
     .from('attribute_values')
     .select('value')
@@ -105,7 +105,7 @@ export const ensureAttributeValue = async (
     .filter('value', 'imatch', literal(normalizedValue))
     .limit(1));
   if (valueError) throw valueError;
-  if (!Array.isArray(values)) throw new Error('Não foi possível confirmar a consulta do valor do atributo.');
+  if (!Array.isArray(values)) throw new Error('Não foi possível confirmar a consulta do valor da característica.');
   let storedValue = values[0]?.value;
   if (!values?.length) {
     let response;
@@ -119,12 +119,12 @@ export const ensureAttributeValue = async (
     }
     storedValue = response.data?.value;
   }
-  if (typeof storedValue !== 'string' || storedValue.trim().toLocaleLowerCase('pt-BR') !== normalizedValue.toLocaleLowerCase('pt-BR')) throw new VariationFamilyUnconfirmedError('O valor do atributo não foi confirmado. Consulte os atributos antes de repetir.');
+  if (typeof storedValue !== 'string' || storedValue.trim().toLocaleLowerCase('pt-BR') !== normalizedValue.toLocaleLowerCase('pt-BR')) throw new VariationFamilyUnconfirmedError('O valor da característica não foi confirmado. Consulte as características antes de repetir.');
   return variationFamilyAttributeSchema.parse({ name: attribute.name, value: storedValue });
 };
 
 /**
- * Salva um novo valor para um atributo existente, evitando duplicidades.
+ * Salva um novo valor para uma característica existente, evitando duplicidades.
  */
 export const saveAttributeValue = async (
   attributeId: string,
@@ -187,7 +187,7 @@ export const fetchVariations = async (
   options: { throwOnError?: boolean } = {}
 ): Promise<VariationType[]> => {
   try {
-    // 1. Buscar atributos globais ordenados por nome
+    // 1. Buscar características globais ordenadas por nome
     let attrData: any[] | null = null;
     const primaryQuery = await fetchAllVariationRows(
       'attributes',
@@ -231,14 +231,14 @@ export const fetchVariations = async (
     if (valErr) throw valErr;
 
     // 2.5 Enriquecer com vínculos de categoria quando a migration já estiver disponível.
-    // A ausência dessa tabela não pode ocultar os atributos globais existentes.
+    // A ausência dessa tabela não pode ocultar as características globais existentes.
     const { data: catAttrData, error: catAttrErr } = await fetchAllVariationRows(
       'category_attributes',
       'attribute_id, category_id, is_required',
       ['attribute_id', 'category_id']
     );
     if (catAttrErr) {
-      console.warn('Aviso ao buscar vínculos de categorias dos atributos:', catAttrErr);
+      console.warn('Aviso ao buscar vínculos de categorias das características:', catAttrErr);
     }
 
     // 3. Mapear para a estrutura VariationType usada no ERP

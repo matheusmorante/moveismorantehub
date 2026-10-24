@@ -20,8 +20,8 @@ const mountConversion = (data = product, onConvert = vi.fn()) => {
   return { onConvert, onClose };
 };
 const selectCartesian = () => {
-  fireEvent.click(screen.getByRole('button', { name: /Adicionar Atributo/ }));
-  fireEvent.change(screen.getAllByLabelText('Atributo')[0], { target: { value: 'Cor' } });
+  fireEvent.click(screen.getByRole('button', { name: /Adicionar Característica/ }));
+  fireEvent.change(screen.getAllByLabelText('Característica')[0], { target: { value: 'Cor' } });
   fireEvent.click(screen.getByRole('button', { name: 'Azul' }));
 };
 
@@ -34,8 +34,8 @@ describe('conversão de produto', () => {
   it.each([true, false])('transfere SKU/estoque e valores parseados; rascunho=%s', async (draft) => {
     const original = { ...product, isDraft: draft, status: draft ? 'draft' : 'hidden' } as Partial<Product>;
     const { onConvert, onClose } = mountConversion(original);
-    fireEvent.change(screen.getByLabelText('Nome do Atributo (Ex: Cor, Tamanho)'), { target: { value: '  Cor  ' } });
-    fireEvent.change(screen.getByLabelText('Valor do Atributo (Ex: Branco, G)'), { target: { value: '  Azul  ' } });
+    fireEvent.change(screen.getByLabelText('Nome da Característica (Ex: Cor, Tamanho)'), { target: { value: '  Cor  ' } });
+    fireEvent.change(screen.getByLabelText('Valor da Característica (Ex: Branco, G)'), { target: { value: '  Azul  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar Conversão' }));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(onConvert).toHaveBeenCalledWith(expect.objectContaining({ id: 'draft', code: '', stock: 0, fiscal: { ncm: '94035000' }, variations: [expect.objectContaining({ name: 'COR: AZUL', sku: 'PR-1', stock: 2, unitPrice: 100, costPrice: 60, active: !draft, attributes: [{ name: 'Cor', value: 'Azul' }] })] }));
@@ -55,7 +55,7 @@ describe('conversão de produto', () => {
 describe('componente de seleção cartesiana', () => {
   it('não descarta uma linha incompleta antes do resolver', async () => {
     const generate = vi.fn(); render(<CartesianVariationModal isOpen onClose={vi.fn()} onGenerate={generate} isGenerating={false} />);
-    selectCartesian(); fireEvent.click(screen.getByRole('button', { name: /Adicionar Atributo/ }));
+    selectCartesian(); fireEvent.click(screen.getByRole('button', { name: /Adicionar Característica/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Gerar Combinações' }));
     await waitFor(() => expect(mocks.warning).toHaveBeenCalled()); expect(generate).not.toHaveBeenCalled();
   });
@@ -72,7 +72,7 @@ describe('componente de seleção cartesiana', () => {
     act(() => { fireEvent.click(submit); fireEvent.click(submit); });
     await waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
     await act(async () => { fail(new Error('Falha simulada')); }); await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Falha simulada'));
-    expect(screen.getByLabelText('Atributo')).toHaveProperty('value', 'Cor');
+    expect(screen.getByLabelText('Característica')).toHaveProperty('value', 'Cor');
     fireEvent.click(submit); await waitFor(() => expect(generate).toHaveBeenCalledTimes(2));
   });
 });

@@ -141,6 +141,36 @@ describe('useProductTechnicalTab', () => {
     expect(currentProduct.variations?.[0]).toEqual(originalVariation);
   });
 
+  it('impede desligar características obrigatórias do produto ou da categoria', async () => {
+    vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockResolvedValueOnce([
+      ...mockFieldDefinitions,
+      {
+        id: '13', name: 'Acabamento', isRequired: false, requiredCategoryIds: ['cat-1'], active: true,
+      },
+    ] as any);
+    let currentProduct: Partial<Product> = {
+      categoryIds: ['cat-1'],
+      variableTechnicalFields: ['Altura', 'Acabamento'],
+      technicalValues: { Altura: '180', Acabamento: 'Madeira' },
+    };
+    const setFormData = vi.fn((updater) => {
+      currentProduct = typeof updater === 'function' ? updater(currentProduct) : updater;
+    });
+    const { result } = renderHook(() =>
+      useProductTechnicalTab({ formData: currentProduct, setFormData })
+    );
+
+    await act(async () => { await Promise.resolve(); });
+    act(() => {
+      result.current.handleToggleVariableField('Altura', 'not_inform');
+      result.current.handleToggleVariableField('Acabamento', 'not_inform');
+    });
+
+    expect(currentProduct.variableTechnicalFields).toEqual(['Altura', 'Acabamento']);
+    expect(currentProduct.technicalValues?.Altura).toBe('180');
+    expect(currentProduct.technicalValues?.Acabamento).toBe('Madeira');
+  });
+
   it('mantém características preenchidas ou selecionadas sempre visíveis mesmo alterando a pesquisa', async () => {
     let currentProduct: Partial<Product> = {
       technicalValues: {

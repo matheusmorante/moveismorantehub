@@ -277,7 +277,7 @@ export const CharacteristicsDiffTable: React.FC<CharacteristicsDiffTableProps> =
             <strong>Categoria ainda não selecionada no produto</strong>
             <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
               Exibindo todas as características encontradas pela pesquisa. Para aplicar as características técnicas ao formulário,
-              selecione a categoria na aba Informações Básicas para validação dos atributos permitidos.
+              selecione a categoria na aba Informações Básicas para validação das características permitidas.
               Seus dados básicos e dimensões já poderão ser aplicados normalmente!
             </p>
           </div>

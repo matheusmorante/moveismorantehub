@@ -211,7 +211,7 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
                   >
                     <i className="bi bi-copy text-blue-500" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                      Copiar produto
+                      Duplicar
                     </span>
                   </button>
                 )}
@@ -277,7 +277,7 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
 
                           if (!hasValidAttribute) {
                             const { toast } = await import('react-toastify');
-                            toast.error('Este produto deve ter um atributo / valor definido.');
+                            toast.error('Este produto deve ter uma característica e um valor definidos.');
                             return;
                           }
 

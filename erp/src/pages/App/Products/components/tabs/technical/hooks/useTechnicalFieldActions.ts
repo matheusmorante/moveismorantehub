@@ -3,6 +3,7 @@ import type Product from '@/pages/types/product.type';
 import {
   TechnicalFieldDefinition,
   CharacteristicTopicGroupDefinition,
+  isQuantityCharacteristic,
   isDoorQuantityCharacteristic,
   isDoorDependentCharacteristic,
   isDrawerQuantityCharacteristic,
@@ -45,10 +46,29 @@ export const useTechnicalFieldActions = ({
   };
 
   const handleTechnicalValueChange = (fieldName: string, value: unknown) => {
+    setFormData((current) => {
+      const currentValue = current.technicalValues?.[fieldName];
+      const hasCurrentQuantity =
+        currentValue !== undefined &&
+        currentValue !== null &&
+        String(currentValue).trim() !== '' &&
+        Number.isFinite(Number(String(currentValue).replace(',', '.')));
+      if (
+        isQuantityCharacteristic(fieldName) &&
+        (value === '' || value === undefined || value === null) &&
+        hasCurrentQuantity
+      ) return current;
+      if (isQuantityCharacteristic(fieldName) && value === null && !hasCurrentQuantity) {
+        return {
+          ...current,
+          technicalValues: { ...(current.technicalValues || {}), [fieldName]: null },
+        };
+      }
+      return applyTechnicalValueChangeToProduct(current, fieldName, value);
+    });
     if (value !== undefined && value !== null && String(value).trim() !== '') {
       setManualFieldNames((prev) => (prev.includes(fieldName) ? prev : [...prev, fieldName]));
     }
-    setFormData((prev) => applyTechnicalValueChangeToProduct(prev, fieldName, value));
   };
 
   const addTechnicalFieldNames = (names: string[]) => {
@@ -58,7 +78,7 @@ export const useTechnicalFieldActions = ({
       const currentTech = { ...(prev.technicalValues || {}) };
       names.forEach((name) => {
         if (!Object.prototype.hasOwnProperty.call(currentTech, name)) {
-          currentTech[name] = '';
+          currentTech[name] = isQuantityCharacteristic(name) ? null : '';
         }
       });
       return { ...prev, technicalValues: currentTech };

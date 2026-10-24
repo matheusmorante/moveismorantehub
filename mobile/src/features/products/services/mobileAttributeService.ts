@@ -1,4 +1,5 @@
 import { toTitleCase } from '../../../../../shared-utils/productText';
+import { withCatalogAttributesLoadTimeout } from '../../../../../shared-utils/catalogAttributesLoadTimeout';
 import { supabase } from '../../../services/supabaseClient';
 import { isWeightCharacteristicName } from '../domain/productCharacteristics';
 
@@ -94,11 +95,14 @@ const fetchAttributeValues = async () => {
 };
 
 export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
-  const [attributes, values, categoriesResult] = await Promise.all([
-    fetchAttributeRows(),
-    fetchAttributeValues(),
-    supabase.from('category_attributes').select('attribute_id, category_id, is_required'),
-  ]);
+  const [attributes, values, categoriesResult] = await withCatalogAttributesLoadTimeout(
+    Promise.all([
+      fetchAttributeRows(),
+      fetchAttributeValues(),
+      supabase.from('category_attributes').select('attribute_id, category_id, is_required'),
+    ]),
+    'mobile:product-attributes:catalog',
+  );
 
   if (categoriesResult.error) {
     console.warn(

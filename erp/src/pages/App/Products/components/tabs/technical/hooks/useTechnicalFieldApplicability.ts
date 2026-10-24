@@ -5,6 +5,7 @@ import {
   groupTechnicalFields,
   mergeCharacteristicGroups,
   isYesNoValueActive,
+  isCharacteristicDependent,
 } from '@/pages/utils/technicalValuesService';
 import {
   normalizeSearchTerm,
@@ -142,8 +143,10 @@ export const useTechnicalFieldApplicability = ({
   const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
   const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
 
-  const filledOrManualOptionalFields = optionalFields.filter((field) =>
-    isOptionalFieldSelected(field, formData, manualFieldNames)
+  const filledOrManualOptionalFields = optionalFields.filter(
+    (field) =>
+      isOptionalFieldSelected(field, formData, manualFieldNames) ||
+      isCharacteristicDependent(field.name)
   );
 
   const displayedOptionalFields = getDisplayedOptionalFields({

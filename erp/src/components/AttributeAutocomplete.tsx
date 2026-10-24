@@ -3,6 +3,7 @@ import { supabase } from '../pages/utils/supabaseConfig';
 import { normalizeSearchTerm } from '../pages/utils/textUtils';
 import DropdownPortal from './shared/DropdownPortal';
 import { isCategoryAttributeSelectable } from '../../../shared-utils/categoryAttributeSelection';
+import { withCatalogAttributesLoadTimeout } from '../../../shared-utils/catalogAttributesLoadTimeout';
 
 export interface AttributeNode {
   id: string;
@@ -35,6 +36,7 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
   const [suggestions, setSuggestions] = useState<AttributeNode[]>([]);
   const [allNodes, setAllNodes] = useState<AttributeNode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -43,7 +45,11 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
     const fetchAll = async () => {
       setIsLoading(true);
       try {
-        const { data } = await supabase.from('attributes').select('id, name').order('name');
+        const { data, error } = await withCatalogAttributesLoadTimeout(
+          supabase.from('attributes').select('id, name').order('name'),
+          'erp:category-attributes:catalog',
+        );
+        if (error) throw error;
         if (data) {
           setAllNodes(
             (data as AttributeRow[])
@@ -51,8 +57,11 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
               .map((d) => ({ id: d.id, name: d.name }))
           );
         }
+        setLoadFailed(false);
       } catch (err) {
         console.error('Erro ao buscar atributos:', err);
+        setAllNodes([]);
+        setLoadFailed(true);
       } finally {
         setIsLoading(false);
       }
@@ -128,12 +137,17 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
           placeholder={placeholder}
           className={inputClassName}
           autoComplete="off"
-          disabled={disabled}
+          disabled={disabled || loadFailed}
         />
         {isLoading && (
           <i className="bi bi-arrow-repeat absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />
         )}
       </div>
+      {loadFailed && (
+        <p role="alert" className="mt-1 text-xs font-semibold text-red-600 dark:text-red-400">
+          Não foi possível carregar a lista de características. Reabra o modal para tentar novamente.
+        </p>
+      )}
 
       <DropdownPortal
         isOpen={showSuggestions && query.trim().length >= 2}

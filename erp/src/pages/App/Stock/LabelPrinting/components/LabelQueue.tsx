@@ -14,6 +14,7 @@ interface LabelQueueProps {
   config: any;
   products?: any[];
   onSelectProduct?: (index: number, product: any) => void;
+  onReplaceProduct?: (index: number, product: any, variation?: any) => void;
   selectedCategory?: string | null;
 }
 
@@ -24,6 +25,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
   config,
   products = [],
   onSelectProduct,
+  onReplaceProduct,
   selectedCategory,
 }) => {
   const {
@@ -89,6 +91,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
           dragOverIdx={dragOverIdx}
           products={products}
           onSelectProduct={onSelectProduct}
+          onReplaceProduct={onReplaceProduct}
           updateItem={updateItem}
           removeItem={removeItem}
           handleImageChange={handleImageChange}

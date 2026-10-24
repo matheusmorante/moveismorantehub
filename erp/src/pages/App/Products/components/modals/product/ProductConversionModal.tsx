@@ -109,7 +109,7 @@ export const ProductConversionModal: React.FC<ProductConversionModalProps> = ({
               Converter para Variação
             </h3>
             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-0.5">
-              Criar grade de atributos
+              Criar grade de características
             </p>
           </div>
         </div>
@@ -126,7 +126,7 @@ export const ProductConversionModal: React.FC<ProductConversionModalProps> = ({
               htmlFor="conversion-attr-name"
               className="text-[10px] font-black uppercase tracking-widest text-slate-400"
             >
-              Nome do Atributo (Ex: Cor, Tamanho)
+              Nome da Característica (Ex: Cor, Tamanho)
             </label>
             <input
               id="conversion-attr-name"
@@ -142,7 +142,7 @@ export const ProductConversionModal: React.FC<ProductConversionModalProps> = ({
               htmlFor="conversion-attr-value"
               className="text-[10px] font-black uppercase tracking-widest text-slate-400"
             >
-              Valor do Atributo (Ex: Branco, G)
+              Valor da Característica (Ex: Branco, G)
             </label>
             <input
               id="conversion-attr-value"

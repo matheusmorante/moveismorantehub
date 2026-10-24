@@ -6,7 +6,7 @@ export const resolveTechnicalFieldDataType = (name: string, dataType?: string | 
   if (/^(linha|marca|modelo|modelo\s*\/\s*linha|linha\s*\/\s*modelo)$/i.test(name.trim())) {
     return 'text_short';
   }
-  if (/quantidade de (portas?|gavetas?)/i.test(name) || /lugar(es)?/i.test(name)) {
+  if (/quantidade\s+de\s+\S+/i.test(name) || /lugar(es)?/i.test(name)) {
     return 'integer';
   }
   if (name.trim().toLocaleLowerCase('pt-BR') === 'peso' || dataType === 'weight') {
@@ -33,7 +33,8 @@ export const getTechnicalFieldMaxLength = (dataType: string) => {
 
 export const getTechnicalFieldIntegerPlaceholder = (name: string) => {
   if (/lugar(es)?/i.test(name)) return 'Digite o número de quantidades';
-  if (/porta|gaveta/i.test(name)) return 'Insira a quantidade de portas';
+  const quantitySubject = name.match(/quantidade\s+de\s+(.+)/i)?.[1]?.trim();
+  if (quantitySubject) return `Insira a quantidade de ${quantitySubject}`;
   return 'Insira um número inteiro';
 };
 

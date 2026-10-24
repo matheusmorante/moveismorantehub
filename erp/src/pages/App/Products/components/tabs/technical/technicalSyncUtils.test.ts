@@ -23,11 +23,13 @@ describe('technicalSyncUtils', () => {
     it('limpa campos de portas quando a quantidade de portas for 0 ou "0"', () => {
       const tv = {
         'Quantidade de portas': 0,
+        'Possui portas': 'Sim',
         'Tipo de portas': 'De correr',
         'Material das portas': 'MDF',
         'Material da estrutura': 'MDP',
       };
       const result = cleanupDependentCharacteristicsOnZero(tv, 'Quantidade de portas', 0);
+      expect(result['Possui portas']).toBeUndefined();
       expect(result['Tipo de portas']).toBe('');
       expect(result['Material das portas']).toBe('');
       expect(result['Material da estrutura']).toBe('MDP');
@@ -36,10 +38,12 @@ describe('technicalSyncUtils', () => {
     it('limpa corrediças (array) e gavetas quando a quantidade de gavetas for 0', () => {
       const tv = {
         'Quantidade de gavetas': 0,
+        'Possui gavetas': 'Sim',
         'Materiais das corrediças': ['Telescópica'],
         'Material das gavetas': 'MDP',
       };
       const result = cleanupDependentCharacteristicsOnZero(tv, 'Quantidade de gavetas', 0);
+      expect(result['Possui gavetas']).toBeUndefined();
       expect(result['Materiais das corrediças']).toEqual([]);
       expect(result['Material das gavetas']).toBe('');
     });

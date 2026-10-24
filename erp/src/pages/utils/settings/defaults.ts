@@ -1,4 +1,5 @@
 import { AppSettings } from './types';
+import { META_CATALOG_WHATSAPP_BASE_DESCRIPTION } from '../../../../../shared-utils/metaCatalogPayload';
 import {
   MORANTE_DELIVERY_HANDLING_OPTIONS,
   MORANTE_PICKUP_HANDLING_OPTIONS,
@@ -252,12 +253,7 @@ RESPOSTA NO FORMATO JSON:
     templateVariableCount: 8,
   },
   channelBaseDescriptions: {
-    whatsapp: `🏠 *Móveis Morante*
-📍 R. Cascavel, 306 - Guaraituba, Colombo - PR
-⌚ Seg a Sex: 9h às 18h | Sáb: 9h às 17h
-📞 (41) 99749-3547
-
-――――――――――――`,
+    whatsapp: META_CATALOG_WHATSAPP_BASE_DESCRIPTION,
     ecommerce: `A **Móveis Morante** é referência em móveis planejados e decoração de interiores há mais de 10 anos. Trabalhamos com móveis novos, usados e salvados, sempre com qualidade e atendimento personalizado.
 
 ---`,

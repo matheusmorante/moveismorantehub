@@ -9,6 +9,8 @@ import {
   FlatList,
   ActivityIndicator,
   Modal,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { X, Search } from 'lucide-react-native';
 
@@ -32,6 +34,11 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
   onSelect,
 }) => {
   const insets = useSafeAreaInsets();
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
+  );
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState<SearchableProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,11 +132,11 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
         style={[
           styles.container,
           { backgroundColor: bg },
-          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+          { paddingTop: topInset, paddingBottom: bottomInset },
         ]}
       >
         {/* Header */}
-        <View style={[styles.header, { backgroundColor: '#7c3aed', paddingTop: 50 }]}>
+        <View style={[styles.header, { backgroundColor: '#7c3aed' }]}>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Buscar Produto</Text>
             <Text style={styles.headerSubtitle}>Selecione para adicionar à contagem</Text>

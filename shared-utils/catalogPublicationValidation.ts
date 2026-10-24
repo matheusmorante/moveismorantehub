@@ -1,4 +1,5 @@
 import { isTestProduct } from './isTestProduct';
+import { isQuantityCharacteristic } from './productCharacteristicDependencies';
 
 export const TEST_PRODUCT_CATALOG_PUBLICATION_ERROR =
   'Produtos identificados como teste não podem ser publicados no Catálogo Digital.';
@@ -119,6 +120,23 @@ const hasCatalogValue = (value: unknown): boolean => {
   return true;
 };
 
+const hasCatalogQuantityValue = (value: unknown): boolean => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'object') {
+    const structured = value as { value?: unknown; val?: unknown };
+    if (structured.value !== undefined || structured.val !== undefined) {
+      return hasCatalogQuantityValue(structured.value ?? structured.val);
+    }
+    return false;
+  }
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value >= 0;
+  const match = String(value).trim().match(/^(\d+)(?:[.,]0+)?(?:\s+.*)?$/);
+  return Boolean(match && Number.isSafeInteger(Number(match[1])));
+};
+
+const hasRequiredCatalogValue = (name: string, value: unknown): boolean =>
+  isQuantityCharacteristic(name) ? hasCatalogQuantityValue(value) : hasCatalogValue(value);
+
 const getProductCategoryIds = (data: Readonly<Record<string, any>>): string[] => {
   const ids = Array.isArray(data.categoryIds)
     ? data.categoryIds
@@ -162,19 +180,23 @@ export const getMissingCategoryRequiredCharacteristics = (
     const isDeclaredVariable = Boolean(declaredVariableNames?.some((fieldName) => aliases.includes(fieldName)));
     if (activeVariations.length === 0) {
       if (isDeclaredVariable) return true;
-      return !hasCatalogValue(readCharacteristicValue(data, name));
+      return !hasRequiredCatalogValue(name, readCharacteristicValue(data, name));
     }
 
     const isLegacyVariable =
       declaredVariableNames === null &&
-      activeVariations.some((variation: any) => hasCatalogValue(readCharacteristicValue(variation, name)));
+      activeVariations.some((variation: any) =>
+        hasRequiredCatalogValue(name, readCharacteristicValue(variation, name))
+      );
     const isPerVariation = isDeclaredVariable || isLegacyVariable;
 
-    if (!isPerVariation && hasCatalogValue(readCharacteristicValue(data, name))) return false;
+    if (!isPerVariation && hasRequiredCatalogValue(name, readCharacteristicValue(data, name))) {
+      return false;
+    }
 
     return activeVariations.some((variation: any) => {
       const variationValue = readCharacteristicValue(variation, name);
-      return !hasCatalogValue(variationValue);
+      return !hasRequiredCatalogValue(name, variationValue);
     });
   });
 };

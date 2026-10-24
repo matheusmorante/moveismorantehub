@@ -31,7 +31,7 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
   highlightTemporaryItems,
   reconciliationMode,
 }) => {
-  const form = useSalesOrderForm();
+  const form = useSalesOrderForm(undefined, 'sale', { autoSaveExistingDrafts: false });
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [view] = useState<'form' | 'timeline'>('form');
   const [isSavingOrder, setIsSavingOrder] = useState(false);

@@ -8,6 +8,7 @@ interface ActivityTimelineDrawerProps {
   conversationId: string;
   activityRefreshKey?: string;
   isOpen: boolean;
+  isOverlay?: boolean;
   onClose: () => void;
 }
 
@@ -36,6 +37,7 @@ export const ActivityTimelineDrawer: React.FC<ActivityTimelineDrawerProps> = ({
   conversationId,
   activityRefreshKey = '',
   isOpen,
+  isOverlay = false,
   onClose,
 }) => {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
@@ -111,7 +113,7 @@ export const ActivityTimelineDrawer: React.FC<ActivityTimelineDrawerProps> = ({
   return (
     <aside
       aria-label="Linha do tempo de atividades"
-      className="w-[320px] lg:w-[350px] shrink-0 border-l border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full select-none z-20 shadow-xl animate-slide-left"
+      className={`${isOverlay ? 'absolute inset-y-0 right-0 w-full max-w-[350px]' : 'w-[320px] lg:w-[350px] shrink-0'} border-l border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col h-full select-none z-20 shadow-xl animate-slide-left`}
     >
       <div className="h-16 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">

@@ -12,6 +12,12 @@ import {
 } from './inventoryOutbox';
 import { getOfflineInventoryCatalog } from './offlineInventoryCatalog';
 import { findInventoryDraftConflicts } from './inventoryDraftConflicts';
+import {
+  buildInventorySubmissionClaimRpcParams,
+  buildInventorySubmissionRpcParams,
+  getInventoryFinalizationRpcName,
+  isInventorySubmissionClaimAcknowledged,
+} from '../../../../../../../shared-utils/inventorySubmissionProtocol';
 
 interface Adjustment {
   productId: string;
@@ -69,18 +75,21 @@ export const finalizeWebInventory = async (
       responsibleName,
     }));
   try {
-    const { data, error } = await supabase.rpc(
-      submission.contractVersion === 2
-        ? 'finalize_inventory_transaction_v2'
-        : 'finalize_inventory_transaction',
-      {
-        p_audit_id: submission.auditId,
-        p_code: submission.code,
-        p_observation: submission.observation,
-        p_items: submission.items,
-        p_responsible_name: submission.responsibleName,
-      }
+    const claim = await supabase.rpc(
+      'claim_inventory_audit_submission',
+      buildInventorySubmissionClaimRpcParams(submission)
     );
+    if (claim.error) throw claim.error;
+    if (!isInventorySubmissionClaimAcknowledged(claim.data, submission.auditId)) {
+      throw new Error('O servidor não confirmou a reserva desta submissão de inventário.');
+    }
+    const { data, error } =
+      claim.data.status === 'already_processed'
+        ? { data: claim.data, error: null }
+        : await supabase.rpc(
+            getInventoryFinalizationRpcName(submission.contractVersion),
+            buildInventorySubmissionRpcParams(submission)
+          );
     if (error) throw error;
     if (data?.auditId !== auditId || !['processed', 'already_processed'].includes(data?.status)) {
       throw new Error('O servidor não confirmou a conclusão do inventário.');

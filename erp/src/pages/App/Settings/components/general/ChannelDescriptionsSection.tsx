@@ -21,7 +21,7 @@ const ChannelDescriptionsSection: React.FC<Props> = ({ settings, onChange }) => 
       ring: 'focus:ring-green-400',
       border: 'border-green-100 dark:border-green-900/30',
       bg: 'bg-green-50/40 dark:bg-green-900/5',
-      hint: 'Use emojis, *negrito* e quebras de linha. Este texto aparecerá ANTES da descrição de cada produto no catálogo.',
+      hint: 'Use emojis, *negrito* e quebras de linha. Este texto é enviado pela Graph API após o prefixo comercial e antes da descrição do item no Catálogo Meta.',
       placeholder: `🏠 *Móveis Morante*\n📍 R. Cascavel, 306 - Colombo - PR\n⌚ Seg-Sex: 9h às 18h | Sáb: 9h às 17h\n📞 (41) 99749-3547\n\n――――――――――――`,
     },
     {
@@ -50,9 +50,9 @@ const ChannelDescriptionsSection: React.FC<Props> = ({ settings, onChange }) => 
             Como funciona
           </p>
           <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1 leading-relaxed">
-            Configure aqui as informações fixas da sua loja (endereço, horário, contato). Elas
-            aparecem <strong>automaticamente antes</strong> da descrição de cada produto, em cada
-            canal.
+            A descrição base do WhatsApp é incluída nos envios do Catálogo Meta via Graph API, após
+            o prefixo comercial e antes do conteúdo do produto. O Catálogo Digital mantém sua
+            configuração separada.
           </p>
         </div>
       </div>

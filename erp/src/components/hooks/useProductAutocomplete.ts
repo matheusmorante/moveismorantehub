@@ -212,7 +212,7 @@ export function useProductAutocomplete({
 
   const handleQueryChange = (val: string) => {
     setQuery(val);
-    setShowSuggestions(val.trim().length >= 2);
+    setShowSuggestions(val.trim().length > 0);
     if (onChange) onChange(val);
   };
 

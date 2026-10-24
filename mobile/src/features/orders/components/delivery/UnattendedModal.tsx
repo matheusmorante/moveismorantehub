@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { X, AlertTriangle, Camera, Check } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import {
   DeliveryProofUploadUnavailableError,
@@ -56,6 +57,7 @@ export const UnattendedModal: React.FC<Props> = ({
   customerName,
   variant = 'arrival',
 }) => {
+  const insets = useSafeAreaInsets();
   const isPreparation = variant === 'preparation';
   const reasons: readonly string[] = isPreparation
     ? UNATTENDED_PREPARATION_REASONS
@@ -141,7 +143,12 @@ export const UnattendedModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View
+        style={[
+          styles.backdrop,
+          { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+        ]}
+      >
         {/* Backdrop irmão (não pai) do conteúdo: toques dentro do card não fecham o modal */}
         <TouchableOpacity
           style={StyleSheet.absoluteFill}

@@ -221,7 +221,7 @@ export function useDeliveryFlowActions({
           setDeliveryData(updatedData);
 
           if (userProfile?.id) {
-            void stopDeliveringBroadcast(userProfile.id);
+            await stopDeliveringBroadcast(userProfile.id);
           }
 
           Alert.alert('🎉 Entrega Finalizada!', fulfillmentSuccessMessage, [

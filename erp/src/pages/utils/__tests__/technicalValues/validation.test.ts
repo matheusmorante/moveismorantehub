@@ -53,15 +53,38 @@ describe('technicalValues - Validação de Campos Obrigatórios', () => {
     expect(hasLength).not.toContain('Profundidade total');
   });
 
-  it('avalia lista de campos obrigatórios ausentes ignorando dependentes bloqueados', () => {
-    const values: TechnicalValuesMap = {
+  it('exige quantidade preenchida mesmo sem componente, aceitando zero como Não possui', () => {
+    const noQuantity: TechnicalValuesMap = {
       'Possui portas': 'Não',
     };
     const requiredList = ['Quantidade de portas', 'Cor'];
-    const missing = getMissingRequiredTechnicalFields(requiredList, values);
+    const missing = getMissingRequiredTechnicalFields(requiredList, noQuantity);
 
-    // Quantidade de portas é dependente de Possui portas=Sim; como está Não, fica desabilitado e não falta
-    expect(missing).not.toContain('Quantidade de portas');
+    expect(missing).toContain('Quantidade de portas');
     expect(missing).toContain('Cor');
+
+    const zeroQuantity = getMissingRequiredTechnicalFields(requiredList, {
+      'Quantidade de portas': 0,
+      Cor: 'Branco',
+    });
+    expect(zeroQuantity).toEqual([]);
+  });
+
+  it('exige material dependente apenas quando a quantidade de portas for maior que zero', () => {
+    const requiredList = ['Quantidade de portas', 'Material das portas'];
+
+    expect(
+      getMissingRequiredTechnicalFields(requiredList, {
+        'Quantidade de portas': 0,
+        'Material das portas': '',
+      })
+    ).toEqual([]);
+
+    expect(
+      getMissingRequiredTechnicalFields(requiredList, {
+        'Quantidade de portas': 2,
+        'Material das portas': '',
+      })
+    ).toContain('Material das portas');
   });
 });

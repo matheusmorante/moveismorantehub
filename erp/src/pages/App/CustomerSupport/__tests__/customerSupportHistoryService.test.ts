@@ -96,7 +96,7 @@ describe('Paginação do histórico da Central', () => {
     const page = await fetchConversationAttachmentPage(client as any, 'conversation-1', null, ' promo%_* ', 2);
 
     expect(queries).toHaveLength(3);
-    expect(queries.map((query) => query.filters.find(([method]) => method === 'ilike')?.slice(1))).toEqual([
+    expect(queries.map((query) => query.filters.find((filter: unknown[]) => filter[0] === 'ilike')?.slice(1))).toEqual([
       ['text_content', '%promo\\%\\_\\*%'],
       ['media_filename', '%promo\\%\\_\\*%'],
       ['media_caption', '%promo\\%\\_\\*%'],

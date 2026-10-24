@@ -7,11 +7,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Platform,
-  StatusBar,
 } from 'react-native';
 import { X } from 'lucide-react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { mobileInventoryAuditScopeSchema } from '../../../../../../shared-utils/inventoryAuditFormSchemas';
@@ -265,12 +262,6 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
     );
   };
 
-  const insets = useSafeAreaInsets();
-  const topInset = Math.max(
-    insets.top,
-    Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 16
-  );
-
   if (loadingData) {
     return (
       <View
@@ -290,7 +281,7 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
       <View
         style={[
           styles.header,
-          { backgroundColor: surface, borderBottomColor: border, paddingTop: topInset + 8 },
+          { backgroundColor: surface, borderBottomColor: border },
         ]}
       >
         <View style={{ flex: 1 }}>

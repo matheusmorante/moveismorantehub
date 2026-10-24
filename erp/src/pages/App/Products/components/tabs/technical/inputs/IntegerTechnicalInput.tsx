@@ -1,11 +1,14 @@
 import React from 'react';
-import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
+import {
+  isQuantityCharacteristic,
+  type TechnicalFieldDefinition,
+} from '@/pages/utils/technicalValuesService';
 
 interface IntegerTechnicalInputProps {
   field: TechnicalFieldDefinition;
   value: any;
   disabled?: boolean;
-  onChange: (value: number | '') => void;
+  onChange: (value: number | '' | null) => void;
 }
 
 export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
@@ -15,6 +18,7 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
   onChange,
 }) => {
   const isLugares = /lugar(es)?/i.test(field.name);
+  const isQuantity = isQuantityCharacteristic(field.name);
   const numericDisplayValue = (() => {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (typeof value === 'string' && value.trim()) {
@@ -26,13 +30,11 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
 
   const placeholder = isLugares
     ? 'Digite o número de quantidades'
-    : /porta/i.test(field.name)
-      ? 'Insira a quantidade de portas'
-      : /gaveta/i.test(field.name)
-        ? 'Insira a quantidade de gavetas'
-        : /p[eé]s?/i.test(field.name)
-          ? 'Insira a quantidade de pés'
-          : 'Insira um número inteiro';
+    : isQuantity
+      ? `Insira a quantidade de ${field.name.replace(/^.*?quantidade\s+de\s+/i, '').trim()}`
+      : /p[eé]s?/i.test(field.name)
+        ? 'Insira a quantidade de pés'
+        : 'Insira um número inteiro';
 
   return (
     <input
@@ -44,11 +46,23 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
       disabled={disabled}
       onChange={(e) => {
         if (e.target.value === '') {
-          onChange('');
+          if (
+            isQuantity &&
+            value !== undefined &&
+            value !== null &&
+            String(value).trim() !== ''
+          ) return;
+          onChange(isQuantity ? null : '');
           return;
         }
         const parsed = parseInt(e.target.value, 10);
         if (Number.isNaN(parsed)) {
+          if (
+            isQuantity &&
+            value !== undefined &&
+            value !== null &&
+            String(value).trim() !== ''
+          ) return;
           onChange('');
           return;
         }

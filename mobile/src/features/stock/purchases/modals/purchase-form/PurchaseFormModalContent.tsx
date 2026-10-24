@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   InventoryProductSearchModal,
 } from '../../../inventory/components/InventoryProductSearchModal';
@@ -40,6 +41,9 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
   onClose,
   onSaved,
 }) => {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? 24 : 0);
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 0);
   const colors = {
     bg: isDarkMode ? '#0f172a' : '#f8fafc',
     surface: isDarkMode ? '#1e293b' : '#fff',
@@ -84,7 +88,7 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        style={[styles.flex, { backgroundColor: colors.bg }]}
+        style={[styles.flex, { backgroundColor: colors.bg, paddingTop: topInset, paddingBottom: bottomInset }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Header */}

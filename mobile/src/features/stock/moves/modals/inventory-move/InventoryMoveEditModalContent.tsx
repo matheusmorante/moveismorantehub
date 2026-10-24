@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StockMove } from '../../../types/stock.types';
 import { StockMoveTypeSelector, MoveTypeChoice } from '../../components';
 import { z } from 'zod';
@@ -49,6 +50,7 @@ export const InventoryMoveEditModalContent: React.FC<InventoryMoveEditModalProps
   onClose,
   onSave,
 }) => {
+  const insets = useSafeAreaInsets();
   const [type, setType] = useState<MoveTypeChoice>('entry');
   const [quantity, setQuantity] = useState('');
   const [date, setDate] = useState('');
@@ -103,7 +105,10 @@ export const InventoryMoveEditModalContent: React.FC<InventoryMoveEditModalProps
   return (
     <Modal visible={isOpen} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        style={styles.backdrop}
+        style={[
+          styles.backdrop,
+          { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.card, isDarkMode && styles.cardDark]}>

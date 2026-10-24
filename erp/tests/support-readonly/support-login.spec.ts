@@ -1,4 +1,5 @@
 import { chromium, expect, test } from '@playwright/test';
+import { Buffer } from 'node:buffer';
 import { execFileSync } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -36,9 +37,19 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   const verifyMessageSearch = process.env.SUPPORT_READONLY_MESSAGE_SEARCH === '1';
   const verifyMessagePaging = process.env.SUPPORT_READONLY_MESSAGE_PAGING === '1';
   const verifyMobileLayout = process.env.SUPPORT_READONLY_MOBILE_LAYOUT === '1';
+  const verifyMultiChatLayout = process.env.SUPPORT_READONLY_MULTI_CHAT_LAYOUT === '1';
+  const verifyAudioPlayer = process.env.SUPPORT_READONLY_AUDIO_PLAYER === '1';
+  const verifyRealAudioMedia = process.env.SUPPORT_READONLY_REAL_AUDIO_MEDIA === '1';
+  const realAudioConversationId = process.env.SUPPORT_READONLY_REAL_AUDIO_CONVERSATION_ID?.trim() || '';
+  const realAudioMediaId = process.env.SUPPORT_READONLY_REAL_AUDIO_MEDIA_ID?.trim() || '';
+  if (verifyRealAudioMedia && (!/^[0-9a-f-]{36}$/i.test(realAudioConversationId) || !/^\d{1,32}$/.test(realAudioMediaId))) {
+    throw new Error('Informe os identificadores da conversa e mídia de áudio selecionadas.');
+  }
+  if (verifyRealAudioMedia) test.setTimeout(90_000);
   const verifyMissedReadRecovery = process.env.SUPPORT_READONLY_MISSED_READ === '1';
   const verifyProductionMetaConnection = process.env.SUPPORT_READONLY_META_PRODUCTION_CONNECTION === '1';
   const verifyProductionMetaCredentialsOnly = process.env.SUPPORT_READONLY_META_CREDENTIALS_ONLY === '1';
+  const verifyDevelopmentMetaCredentials = process.env.SUPPORT_READONLY_META_DEVELOPMENT_CREDENTIALS === '1';
   const verifyProductionSignedWebhook = process.env.SUPPORT_READONLY_META_PRODUCTION_SIGNED_WEBHOOK === '1';
   const verifyProductionWabaSubscription = process.env.SUPPORT_READONLY_META_WABA_SUBSCRIPTION === '1';
   if (verifyProductionSignedWebhook || verifyProductionWabaSubscription) test.setTimeout(90_000);
@@ -73,6 +84,36 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   let syntheticOlderMessageRequests = 0;
   let simulateReadAcknowledgement = false;
   let simulatedReadAcknowledgements = 0;
+  let simulateAudioMessage = false;
+  let audioMediaResponsePending = false;
+  let simulatedAudioMediaRequests = 0;
+  let blockedRealAudioReadReceipts = 0;
+  const audioMediaId = 'support-readonly-audio-player';
+  const createWaveformWav = () => {
+    const sampleRate = 8_000;
+    const sampleCount = sampleRate * 10;
+    const wav = Buffer.alloc(44 + sampleCount);
+    wav.write('RIFF', 0);
+    wav.writeUInt32LE(36 + sampleCount, 4);
+    wav.write('WAVE', 8);
+    wav.write('fmt ', 12);
+    wav.writeUInt32LE(16, 16);
+    wav.writeUInt16LE(1, 20);
+    wav.writeUInt16LE(1, 22);
+    wav.writeUInt32LE(sampleRate, 24);
+    wav.writeUInt32LE(sampleRate, 28);
+    wav.writeUInt16LE(1, 32);
+    wav.writeUInt16LE(8, 34);
+    wav.write('data', 36);
+    wav.writeUInt32LE(sampleCount, 40);
+    for (let index = 0; index < sampleCount; index += 1) {
+      const seconds = index / sampleRate;
+      const amplitude = seconds < 3 ? 0 : seconds < 6 ? 0.2 : 0.8;
+      const sample = amplitude === 0 ? 128 : Math.round(128 + 127 * amplitude * Math.sin(2 * Math.PI * 220 * seconds));
+      wav[44 + index] = sample;
+    }
+    return wav;
+  };
 
   const launchBrowser = process.env.SUPPORT_READONLY_LAUNCH_BROWSER === '1';
   const browser = launchBrowser
@@ -94,6 +135,30 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     const request = route.request();
     const url = new URL(request.url());
     const method = request.method();
+    if (simulateAudioMessage && method === 'GET' && url.pathname === '/rest/v1/whatsapp_messages'
+      && url.searchParams.get('limit') === '80') {
+      const conversationId = url.searchParams.get('conversation_id')?.replace(/^eq\./, '') || '';
+      simulateAudioMessage = false;
+      audioMediaResponsePending = true;
+      const timestamp = new Date(Date.UTC(2026, 9, 24, 12, 0, 0)).toISOString();
+      await route.fulfill({ status: 200, contentType: 'application/json',
+        headers: { 'content-range': '0-0/1' }, body: JSON.stringify([{
+          id: 'support-readonly-audio-message', conversation_id: conversationId, api_message_id: null,
+          direction: 'inbound', message_type: 'audio', text_content: null, media_id: audioMediaId,
+          media_mime_type: 'audio/wav', media_filename: 'audio-sintetico.wav', media_caption: null,
+          reply_to_message_id: null, reply_to_wamid: null, status: 'received', error_code: null,
+          failure_reason: null, raw_payload: {}, timestamp, created_at: timestamp,
+        }]) });
+      return;
+    }
+    if (audioMediaResponsePending && method === 'GET' && url.pathname === '/api/whatsapp-media'
+      && url.searchParams.get('id') === audioMediaId) {
+      audioMediaResponsePending = false;
+      simulatedAudioMediaRequests++;
+      await route.fulfill({ status: 200, contentType: 'audio/wav',
+        headers: { 'Cache-Control': 'no-store' }, body: createWaveformWav() });
+      return;
+    }
     // shortcut: intercept pages instead of inserting rows; use a separately approved fixture for database paging.
     if (verifyMessagePaging && simulateMessagePaging && ownedReadConversationId
       && method === 'GET' && url.pathname === '/rest/v1/whatsapp_messages'
@@ -145,11 +210,16 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       return;
     }
     if (url.pathname === '/rest/v1/rpc/customer_support_list_customer_orders') customerOrderRequests++;
+    if (verifyRealAudioMedia && method === 'PATCH' && url.pathname === '/rest/v1/whatsapp_conversations'
+      && url.searchParams.get('id') === `eq.${realAudioConversationId}`
+      && request.postDataJSON()?.unread_count === 0) blockedRealAudioReadReceipts++;
     const read = ['GET', 'HEAD', 'OPTIONS'].includes(method);
     const auth = method === 'POST' && (url.pathname === '/auth/v1/token'
       || (url.pathname === '/auth/v1/logout' && url.searchParams.get('scope') === 'local'));
     const operator = method === 'POST' && url.origin === 'http://localhost:5173'
       && url.pathname === '/api/testing/test-artifact-operator';
+    const developmentMetaCredentialProbe = verifyDevelopmentMetaCredentials && method === 'POST'
+      && url.pathname === '/api/meta-graph' && request.postDataJSON()?.operation === 'verify_app_credentials';
     const rpc = method === 'POST' && url.pathname.startsWith('/rest/v1/rpc/')
       && readOnlyRPCs.has(url.pathname.split('/').pop() || '');
     if (exerciseSlowList && rpc && url.pathname.endsWith('/customer_support_list_conversations')
@@ -164,7 +234,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
         return;
       }
     }
-    if (read || auth || operator || rpc) await route.continue();
+    if (read || auth || operator || rpc || developmentMetaCredentialProbe) await route.continue();
     else {
       if (verifyReadReceipt && method === 'PATCH' && url.pathname === '/rest/v1/whatsapp_conversations') rejectedReadWrites++;
       await route.abort('blockedbyclient');
@@ -216,6 +286,28 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
     });
     expect(operatorGateStatus, 'A identidade deve passar pelo gate real do operador.').toBe(204);
     console.info('[support-readonly] Identidade e gate do operador confirmados.');
+
+    if (verifyDevelopmentMetaCredentials) {
+      const verification = await page.evaluate(async () => {
+        const { supabase } = await import('/src/pages/utils/supabaseConfig.ts');
+        const session = await supabase.auth.getSession();
+        if (!session.data.session) return { status: 0, valid: false };
+
+        const response = await fetch('/api/meta-graph', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.data.session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ operation: 'verify_app_credentials' }),
+        });
+        const body = await response.json().catch(() => ({}));
+        return { status: response.status, valid: body.valid === true };
+      });
+      expect(verification.status, 'A rota local deve verificar as credenciais Meta pelo servidor Development.').toBe(200);
+      expect(verification.valid, 'Development deve usar credenciais aceitas pela Graph API.').toBe(true);
+      console.info('[support-readonly] Credenciais Meta de Development confirmadas pela rota protegida; nenhum segredo exposto.');
+    }
 
     if (verifyProductionMetaConnection || verifyProductionMetaCredentialsOnly || verifyProductionSignedWebhook
       || verifyProductionWabaSubscription) {
@@ -1002,6 +1094,164 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       } finally {
         if (previousViewport) await page.setViewportSize(previousViewport);
       }
+    }
+
+    if (verifyMultiChatLayout) {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      const history = page.getByRole('region', { name: 'Histórico da conversa', exact: true });
+      if (await history.isVisible().catch(() => false)) {
+        await page.getByRole('button', { name: 'Voltar para a lista', exact: true }).click();
+      }
+      const list = page.getByRole('region', { name: 'Lista de conversas', exact: true });
+      if (!(await list.isVisible().catch(() => false))) {
+        await page.getByRole('button', { name: 'Mostrar ou recolher lista de conversas', exact: true }).click();
+      }
+      await expect(list).toBeVisible();
+      const cards = list.locator('[role="button"]');
+      expect(await cards.count(), 'São necessárias quatro conversas já existentes para validar o teto de abertura.').toBeGreaterThanOrEqual(4);
+
+      await cards.nth(0).click();
+      await page.getByRole('button', { name: 'Abrir chats lado a lado', exact: true }).click();
+      const panes = page.getByTestId('customer-support-chat-pane');
+      await expect(panes).toHaveCount(1);
+      await cards.nth(1).click();
+      await expect(panes).toHaveCount(2);
+      await expect(page.getByRole('tablist', { name: 'Chats abertos', exact: true })).toHaveCount(0);
+      await page.setViewportSize({ width: 1120, height: 900 });
+      await expect(panes).toHaveCount(2);
+      await expect(page.getByRole('tablist', { name: 'Chats abertos', exact: true })).toHaveCount(0);
+      const twoPaneBounds = await panes.evaluateAll(elements => elements.map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return { left: bounds.left, right: bounds.right, width: bounds.width };
+      }));
+      const twoPaneLayoutBounds = await page.getByTestId('customer-support-layout').boundingBox();
+      expect(twoPaneLayoutBounds).toBeTruthy();
+      expect(twoPaneBounds).toHaveLength(2);
+      for (const bounds of twoPaneBounds) {
+        expect(bounds.width).toBeGreaterThan(0);
+        expect(bounds.left).toBeGreaterThanOrEqual(twoPaneLayoutBounds!.x - 1);
+        expect(bounds.right).toBeLessThanOrEqual(twoPaneLayoutBounds!.x + twoPaneLayoutBounds!.width + 1);
+      }
+      expect(twoPaneBounds[1].left).toBeGreaterThan(twoPaneBounds[0].left);
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await cards.nth(2).click();
+      await expect(panes).toHaveCount(3);
+      await expect(page.getByRole('tablist', { name: 'Chats abertos', exact: true })).toHaveCount(0);
+
+      const threePaneBounds = await panes.evaluateAll(elements => elements.map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return { left: bounds.left, right: bounds.right, width: bounds.width };
+      }));
+      const layoutBounds = await page.getByTestId('customer-support-layout').boundingBox();
+      expect(layoutBounds).toBeTruthy();
+      expect(threePaneBounds).toHaveLength(3);
+      for (const bounds of threePaneBounds) {
+        expect(bounds.width).toBeGreaterThan(0);
+        expect(bounds.left).toBeGreaterThanOrEqual(layoutBounds!.x - 1);
+        expect(bounds.right).toBeLessThanOrEqual(layoutBounds!.x + layoutBounds!.width + 1);
+      }
+
+      await cards.nth(3).click();
+      await expect(panes).toHaveCount(3);
+      await expect(page.getByText('Você pode manter até 3 chats abertos ao mesmo tempo.', { exact: true })).toBeVisible();
+
+      await page.setViewportSize({ width: 1120, height: 900 });
+      const tabs = page.getByRole('tablist', { name: 'Chats abertos', exact: true });
+      await expect(tabs).toBeVisible();
+      await expect(tabs.getByRole('tab')).toHaveCount(3);
+      await expect(panes).toHaveCount(1);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(tabs).toBeVisible();
+      await expect(panes).toHaveCount(1);
+      await tabs.getByRole('tab').nth(1).click();
+      await expect(tabs.getByRole('tab').nth(1)).toHaveAttribute('aria-selected', 'true');
+      const layoutOverflow = await page.getByTestId('customer-support-layout').evaluate((element) =>
+        element.scrollWidth > element.clientWidth
+      );
+      expect(layoutOverflow, 'A Central não deve criar rolagem horizontal em tela pequena.').toBe(false);
+
+      await page.getByRole('button', { name: 'Mostrar ou recolher lista de conversas', exact: true }).click();
+      await expect(list).toBeVisible();
+      await cards.nth(3).click();
+      await expect(panes).toHaveCount(1);
+      await expect(tabs.getByRole('tab')).toHaveCount(3);
+      await expect(page.getByText('Você pode manter até 3 chats abertos ao mesmo tempo.', { exact: true })).toBeVisible();
+      test.info().annotations.push({ type: 'multi-chat-responsive-layout', description: 'Três chats próprios já existentes foram abertos pela UI, teto de 3 verificado e colunas conferidas no viewport desktop; em tablet/celular os três alternam por abas, sem overflow horizontal. Guard bloqueou escritas de negócio.' });
+      console.info('[support-readonly] Layout de até três chats, abas responsivas e teto de abertura confirmados sem gravações.');
+    }
+
+    if (verifyAudioPlayer) {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto('http://localhost:5173/atendimento');
+      const list = page.getByRole('region', { name: 'Lista de conversas', exact: true });
+      await expect(page.getByTestId('customer-support-layout')).toBeVisible();
+      await expect(list).toBeVisible();
+      const cards = list.locator('[role="button"]');
+      await expect(cards.first(), 'Aguardar uma conversa existente antes de abrir o player.').toBeVisible({ timeout: 15_000 });
+      simulateAudioMessage = true;
+      await cards.first().click();
+
+      const playButton = page.getByRole('button', { name: 'Reproduzir áudio', exact: true });
+      await expect(playButton).toBeVisible();
+      await expect(page.getByText('0:00 / 0:10', { exact: true })).toBeVisible();
+      const waveform = page.getByTestId('audio-waveform').locator('span');
+      await expect.poll(() => waveform.evaluateAll(elements => elements.map(element => Number.parseInt((element as HTMLElement).style.height, 10)))).toContain(26);
+      const waveformHeights = await waveform.evaluateAll(elements => elements.map(element => Number.parseInt((element as HTMLElement).style.height, 10)));
+      expect(waveformHeights).toContain(4);
+      expect(new Set(waveformHeights).size).toBeGreaterThan(1);
+      expect(simulatedAudioMediaRequests).toBe(1);
+      const audioSource = await page.locator('audio').evaluate(element => (element as HTMLAudioElement).currentSrc);
+      expect(audioSource).toMatch(/^blob:/);
+      await expect(page.locator('audio[controls]')).toHaveCount(0);
+
+      await playButton.click();
+      const pauseButton = page.getByRole('button', { name: 'Pausar áudio', exact: true });
+      await expect(pauseButton).toBeVisible();
+      await pauseButton.click();
+      await expect(page.getByRole('button', { name: 'Reproduzir áudio', exact: true })).toBeVisible();
+
+      await page.getByRole('button', { name: 'Velocidade 1x', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Velocidade 1.5x', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Velocidade 1.5x', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Velocidade 2x', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Velocidade 2x', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Velocidade 1x', exact: true })).toBeVisible();
+      test.info().annotations.push({ type: 'audio-player-browser-synthetic', description: 'Chromium recebeu pela UI uma mensagem e um WAV sintético com trechos de amplitudes distintas, interceptados no navegador; forma de onda, blob protegido, duração, play/pause e ciclo de velocidades foram exercitados. Nenhuma escrita ou chamada real à Meta; não comprova download de mídia Production.' });
+      console.info('[support-readonly] Player de áudio exercitado no Chromium com WAV sintético local; mídia real da Meta não consultada.');
+    }
+
+    if (verifyRealAudioMedia) {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto('http://localhost:5173/atendimento');
+      const list = page.getByRole('region', { name: 'Lista de conversas', exact: true });
+      await expect(page.getByTestId('customer-support-layout')).toBeVisible();
+      await expect(list).toBeVisible();
+      const conversation = page.locator(`[data-conversation-id="${realAudioConversationId}"]`);
+      await expect(conversation, 'A conversa de áudio autorizada deve estar na página atual da Inbox.').toBeVisible({ timeout: 15_000 });
+      const mediaResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return response.request().method() === 'GET' && url.pathname === '/api/whatsapp-media'
+          && url.searchParams.get('id') === realAudioMediaId;
+      }, { timeout: 30_000 });
+      await conversation.click();
+      const mediaResponse = await mediaResponsePromise;
+      expect(mediaResponse.status(), 'A API protegida deve carregar a mídia real da Meta.').toBe(200);
+      await expect(page.getByRole('button', { name: 'Reproduzir áudio', exact: true })).toBeVisible({ timeout: 15_000 });
+      const audio = page.locator('audio');
+      await expect.poll(() => audio.evaluate((element) => (element as HTMLAudioElement).duration), { timeout: 15_000 })
+        .toBeGreaterThan(0);
+      const audioState = await audio.evaluate((element) => {
+        const player = element as HTMLAudioElement;
+        return { source: player.currentSrc, paused: player.paused, currentTime: player.currentTime, duration: player.duration };
+      });
+      expect(audioState.source).toMatch(/^blob:/);
+      expect(audioState.paused).toBe(true);
+      expect(audioState.currentTime).toBe(0);
+      await expect(page.locator('audio[controls]')).toHaveCount(0);
+      await expect.poll(() => blockedRealAudioReadReceipts, { timeout: 5_000 }).toBeGreaterThan(0);
+      console.info(`[support-readonly] Mídia real carregada pela UI: HTTP ${mediaResponse.status()}, duração ${Math.round(audioState.duration)}s; reprodução não iniciada e confirmação de leitura bloqueada.`);
+      test.info().annotations.push({ type: 'audio-real-read-only', description: 'Conversa existente selecionada pela UI; mídia Meta retornou HTTP 200, player recebeu blob e metadados sem iniciar reprodução. PATCH de confirmação de leitura foi bloqueado pelo guard de rede.' });
     }
 
     const anonymousMediaStatus = await page.evaluate(async () => {

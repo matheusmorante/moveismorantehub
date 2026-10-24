@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelBlankQueueFormSchema, labelProductQueueFormSchema, labelPrintingFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
-import Product from '@/pages/types/product.type';
+import Product, { Variation } from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
+import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 import type { LabelItemConfig, LogoItemConfig } from '../types/LabelGridItem.types';
 import { LabelConfig } from '../utils/LabelConstants';
 import { useLabelPrintMode } from './useLabelPrintMode';
@@ -17,6 +18,86 @@ interface UseLabelQueueProps {
   config: LabelConfig;
   printingMode: 'simple' | 'advanced';
 }
+
+const toLabelImages = (images: unknown) =>
+  Array.isArray(images)
+    ? images.flatMap((image, index) => {
+        if (typeof image === 'string') {
+          return image.trim() ? [{ image_url: image.trim(), is_main: index === 0 }] : [];
+        }
+        return image?.image_url
+          ? [{ image_url: String(image.image_url), is_main: Boolean(image.is_main) }]
+          : [];
+      })
+    : [];
+
+const getProductLabelFields = (
+  product: Product,
+  quantity: number,
+  variation?: Variation
+): Partial<LabelItemConfig> => {
+  const selectedVariation = variation?.isVirtual ? undefined : variation;
+  const productTitle = product.title || product.name || product.description || '';
+  const legacyVariationName = (product as any).variation || (product as any).variationName;
+  const fullName = selectedVariation
+    ? getSelectedProductDisplayName(product, selectedVariation)
+    : product.isVariation && legacyVariationName
+      ? legacyVariationName
+      : productTitle;
+  const parentImageSource = product.images || (product as any).product_images;
+  const productImages = toLabelImages(
+    selectedVariation?.images?.length
+      ? selectedVariation.images
+      : product.isVariation
+        ? product.images
+        : parentImageSource
+  );
+  const parentImages = selectedVariation
+    ? toLabelImages(parentImageSource)
+    : product.isVariation
+      ? toLabelImages((product as any).parentImages)
+      : [];
+  const allImages = [...productImages, ...parentImages];
+  const initialImage = allImages.find((image: any) => image.is_main) || allImages[0];
+  const price = selectedVariation?.unitPrice ??
+    (product.unitPrice ? product.unitPrice : (product as any).price || 0);
+  const promoPrice =
+    selectedVariation?.promoPrice ??
+    ((product as any).promoPrice || (product as any).promo_price);
+  const rawOpportunity = (product as any).opportunity || (product as any).opportunities;
+  const opportunity = Array.isArray(rawOpportunity) ? rawOpportunity[0] : rawOpportunity;
+
+  return {
+    name: fullName,
+    price: formatCurrency(price),
+    promoPrice: promoPrice ? formatCurrency(promoPrice) : '',
+    showPromoPrice: Boolean(promoPrice),
+    sku:
+      selectedVariation?.sku ||
+      (product.isVariation ? product.sku : '') ||
+      product.code ||
+      product.sku ||
+      '',
+    barcode: selectedVariation?.barcode || product.barcode || (product as any).ean || '',
+    code: product.code || '',
+    quantity,
+    opportunityId:
+      (product as any).opportunityId ||
+      (product as any).opportunity_id ||
+      opportunity?.id ||
+      opportunity?.slug ||
+      ((product as any).condition === 'salvado' ? 'salvado' : 'none'),
+    productImages,
+    parentImages,
+    currentImageIndex: 0,
+    image: initialImage?.image_url || '',
+    productId: product.isVariation ? (product as any).parentId : product.id,
+    variationId:
+      selectedVariation?.id ||
+      (product.isVariation ? (product as any).variationId || product.id : undefined),
+    instances: Array.from({ length: quantity }, () => '000XXX'),
+  };
+};
 
 export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLabelQueueProps) => {
   const [isPrinting, setIsPrinting] = useState(false);
@@ -101,80 +182,48 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
   const handleProductSelect = (selectedProduct: Product, selectedQuantity: number = 1) => productQueueForm.enqueueAndRun<boolean>({ product: { ...selectedProduct, id: selectedProduct.id || '' }, quantity: selectedQuantity }, (values) => {
     const product = values.product as unknown as Product;
     const quantity = values.quantity;
-    const productTitle = (product as any).title || product.name || product.description || '';
-    const variationName = (product as any).variation || (product as any).variationName;
-    let fullName = productTitle;
-    if (product.isVariation && variationName) {
-      fullName = variationName;
-    }
-
-    if (selectedCategory === 'precos') {
-      fullName = fullName.split(' - ')[0];
-    }
-
-    const rawProductOpportunity = (product as any).opportunity || (product as any).opportunities;
-    const productOpportunity = Array.isArray(rawProductOpportunity)
-      ? rawProductOpportunity[0]
-      : rawProductOpportunity;
-    const opportunityId =
-      (product as any).opportunityId ||
-      (product as any).opportunity_id ||
-      productOpportunity?.id ||
-      productOpportunity?.slug ||
-      ((product as any).condition === 'salvado' ? 'salvado' : 'none');
-
-    const productImages = (product.images || (product as any).product_images || []) as {
-      image_url: string;
-      is_main: boolean;
-    }[];
-    const parentImages = ((product as any).parentImages || []) as {
-      image_url: string;
-      is_main: boolean;
-    }[];
-
-    let initialImage = '';
-    const allImages = [...productImages, ...parentImages];
-    if (allImages.length > 0) {
-      const mainImg = allImages.find((img) => img.is_main);
-      initialImage = mainImg ? mainImg.image_url : allImages[0].image_url;
-    }
+    const fields = getProductLabelFields(product, quantity);
+    const fullName = selectedCategory === 'precos'
+      ? String(fields.name || '').split(' - ')[0]
+      : fields.name || '';
 
     const newItem: LabelItemConfig = {
+      ...fields,
       name: fullName,
-      price: product.unitPrice
-        ? formatCurrency(product.unitPrice)
-        : (product as any).price
-          ? formatCurrency((product as any).price)
-          : 'R$ 0,00',
-      promoPrice: (product as any).promoPrice
-        ? formatCurrency((product as any).promoPrice)
-        : (product as any).promo_price
-          ? formatCurrency((product as any).promo_price)
-          : '',
-      showPromoPrice: Boolean((product as any).promoPrice || (product as any).promo_price),
-      sku: (product as any).sku || product.code || '',
-      barcode: (product as any).barcode || (product as any).ean || '',
-      code: product.code || '',
-      quantity,
       extraFields: config.extraFields ? JSON.parse(JSON.stringify(config.extraFields)) : [],
-      opportunityId,
-      productImages,
-      parentImages,
-      currentImageIndex: 0,
-      image: initialImage,
-      productId: product.isVariation ? (product as any).parentId : product.id,
-      variationId: product.isVariation ? product.id : undefined,
       printingMode: 'advanced',
-      instances:
-        selectedCategory === 'identificacao'
-          ? Array.from({ length: quantity }).map(() => '000XXX')
-          : [],
+      instances: selectedCategory === 'identificacao' ? fields.instances : [],
     };
 
     setLabelItems((prev: any) => [...prev, newItem]);
     toast.success(`${fullName} (${quantity} un) adicionado à lista.`);
     return true;
   }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
+
+  const handleReplaceProduct = (
+    index: number,
+    selectedProduct: Product,
+    selectedVariation?: Variation
+  ) => {
+    const currentItem = labelItems[index];
+    if (!currentItem) return Promise.resolve(false);
+    return productQueueForm.enqueueAndRun<boolean>(
+      {
+        product: { ...selectedProduct, id: selectedProduct.id || '' },
+        quantity: currentItem.quantity,
+      },
+      (values) => {
+        const product = values.product as unknown as Product;
+        const fields = getProductLabelFields(product, values.quantity, selectedVariation);
+        setLabelItems((items) => items.map((item, itemIndex) =>
+          itemIndex === index ? { ...item, ...fields, isBlank: false } : item
+        ));
+        toast.success(`Produto da etiqueta atualizado para ${fields.name}.`);
+        return true;
+      },
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])
+    );
+  };
 
   const handleAddBlankLabel = (qty: number = 1) => blankQueueForm.enqueueAndRun({ quantity: qty }, (values) => {
     const quantity = values.quantity;
@@ -270,6 +319,7 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
     setLogoItems,
     handlePrintLabels,
     handleProductSelect,
+    handleReplaceProduct,
     handleAddBlankLabel,
     handleReorderItems,
     isPrinting,

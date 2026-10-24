@@ -15,10 +15,10 @@ export interface GeneratedCombination {
 }
 
 /**
- * Gera combinações cartesianas para variações de produto a partir de atributos.
+ * Gera combinações cartesianas para variações de produto a partir de características.
  * Sanitiza entradas (remove espaços em branco e duplicidades) e garante idempotência.
  *
- * @param options Lista de opções de atributos e seus valores
+ * @param options Lista de opções de características e seus valores
  * @returns Lista de combinações geradas
  */
 export function generateCartesianCombinations(

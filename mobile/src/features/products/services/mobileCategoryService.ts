@@ -3,6 +3,7 @@ import {
   resolveCategoryAttributeIsRequired,
   type CategoryAttributeSelection,
 } from '../../../../../shared-utils/categoryAttributeSelection';
+import { withCatalogAttributesLoadTimeout } from '../../../../../shared-utils/catalogAttributesLoadTimeout';
 
 export type { CategoryAttributeSelection } from '../../../../../shared-utils/categoryAttributeSelection';
 
@@ -159,17 +160,20 @@ export const fetchMobileCategoryProductCounts = async (): Promise<Record<string,
 export const fetchMobileCategoryAttributes = async (
   categoryId: string
 ): Promise<CategoryAttributeSelection[]> => {
-  const { data, error } = await supabase
-    .from('category_attributes')
-    .select(`
+  const { data, error } = await withCatalogAttributesLoadTimeout(
+    supabase
+      .from('category_attributes')
+      .select(`
       attribute_id,
       is_required,
       attributes (
         id,
         name
       )
-    `)
-    .eq('category_id', categoryId);
+      `)
+      .eq('category_id', categoryId),
+    'mobile:category-attributes:selection',
+  );
 
   if (error) throw error;
 
@@ -256,7 +260,7 @@ export const saveMobileCategory = async (
     }
   }
 
-  // Sincronizar atributos se fornecido
+  // Sincronizar características se fornecidas
   if (attributes !== undefined && actualId) {
     const { error: attrDelErr } = await supabase
       .from('category_attributes')

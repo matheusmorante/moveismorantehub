@@ -41,19 +41,99 @@ describe('ProductTechnicalTab Component', () => {
     vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockResolvedValue([
       { id: '1', name: 'Altura', isRequired: true, active: true, group: 'Dimensões' },
       { id: '2', name: 'Largura', isRequired: true, active: true, group: 'Dimensões' },
+      { id: '3', name: 'Peso', isRequired: false, active: true, group: 'Dimensões' },
     ] as any);
 
     render(
       <ProductTechnicalTab
-        formData={{ technicalValues: { Altura: '100', Largura: '200' } }}
+        formData={{ technicalValues: { Altura: '100', Largura: '200', Peso: '10' } }}
         setFormData={vi.fn()}
       />
     );
 
-    expect(await screen.findByText('Dimensões e Peso')).toBeDefined();
+    expect(
+      await screen.findByRole('heading', { name: 'Características principais' })
+    ).toBeDefined();
+    const dimensionsHeading = screen.getByText('Dimensões e Peso');
+    expect(dimensionsHeading.closest('details')).not.toBeNull();
+    expect(
+      screen
+        .getByRole('heading', { name: 'Características principais' })
+        .closest('section')
+        ?.contains(dimensionsHeading)
+    ).toBe(true);
     expect(screen.getByText('Altura')).toBeDefined();
     expect(screen.getByText('Largura')).toBeDefined();
+    expect(screen.getByText('Peso')).toBeDefined();
     expect(screen.getByRole('searchbox')).toBeDefined();
+  });
+
+  it('usa quantidade zero como ausência e oculta os campos mestre e dependentes de portas', async () => {
+    vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockResolvedValue([
+      {
+        id: 'door-master',
+        name: 'Possui portas',
+        dataType: 'radio',
+        options: [{ id: 'yes', value: 'Sim' }, { id: 'no', value: 'Não' }],
+        categoryIds: ['wardrobe'],
+        isRequired: false,
+        active: true,
+      },
+      {
+        id: 'door-quantity',
+        name: 'Quantidade de portas',
+        dataType: 'integer',
+        options: [],
+        categoryIds: ['wardrobe'],
+        requiredCategoryIds: ['wardrobe'],
+        isRequired: false,
+        active: true,
+      },
+      {
+        id: 'door-type',
+        name: 'Tipo de portas',
+        dataType: 'multi_select',
+        options: [{ id: 'sliding', value: 'De correr' }],
+        categoryIds: ['wardrobe'],
+        isRequired: false,
+        active: true,
+      },
+      {
+        id: 'door-material',
+        name: 'Material das portas',
+        dataType: 'radio',
+        options: [{ id: 'mdf', value: 'MDF' }],
+        categoryIds: ['wardrobe'],
+        isRequired: false,
+        active: true,
+      },
+    ] as any);
+
+    render(
+      <ProductTechnicalTab
+        formData={{
+          categoryIds: ['wardrobe'],
+          technicalValues: {
+            'Possui portas': 'Sim',
+            'Quantidade de portas': 0,
+            'Tipo de portas': 'De correr',
+            'Material das portas': 'MDF',
+          },
+        }}
+        setFormData={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText('Quantidade de portas')).toBeDefined();
+    expect(screen.queryByText('Possui portas')).toBeNull();
+    expect(screen.queryByText('Tipo de portas')).toBeNull();
+    expect(screen.queryByText('Material das portas')).toBeNull();
+    const quantityInput = screen.getByPlaceholderText(
+      'Insira a quantidade de portas'
+    ) as HTMLInputElement;
+    expect(quantityInput.value).toBe('0');
+    expect(quantityInput.min).toBe('0');
+    expect(quantityInput.disabled).toBe(false);
   });
 
   it('exibe mensagem amigável quando requiredFieldsOnly está ativo e não há campos visíveis', async () => {

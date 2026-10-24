@@ -9,6 +9,10 @@ import { variationFamilyCommandSchema, variationFamilyAckSchema, sameFamilyAttri
 import { parseVariationImages } from './productImageHelpers';
 import { mapToDB } from './productToDbMapper';
 import { variationMergeCommandSchema, variationMergeAckSchema, variationMergeIdentitySchema, VariationMergeUnconfirmedError } from '../../../../../shared-utils/variationMergeFormSchemas';
+import {
+  fetchRequiredProductCategoryAttributes,
+  projectRequiredCategoryAttributesToVariations,
+} from '../../../../../shared-utils/productCategoryRequiredAttributes';
 
 export const saveVariation = async (productId: string, variation: any): Promise<void> => {
   try {
@@ -79,6 +83,36 @@ export const saveVariation = async (productId: string, variation: any): Promise<
     };
     delete (variationToSave as any).variationId;
 
+    const categoryIds = Array.isArray(parent.categoryIds)
+      ? parent.categoryIds.map(String).filter(Boolean)
+      : (parent as any).category_id
+        ? [String((parent as any).category_id)]
+        : [];
+    if (categoryIds.length > 0) {
+      const requiredAttributes = await withTimeout(
+        fetchRequiredProductCategoryAttributes(supabase, categoryIds),
+        15000,
+        null,
+        'variacao:carregar-atributos-obrigatorios'
+      );
+      if (!requiredAttributes) {
+        throw new Error('Não foi possível confirmar os atributos obrigatórios da categoria. A variação não foi alterada.');
+      }
+      const existingSpecs = parent.technicalSpecs || (parent as any).technical_specs || {};
+      const [projectedVariation] = projectRequiredCategoryAttributesToVariations(
+        [variationToSave],
+        {
+          categoryIds,
+          requiredAttributes,
+          parentTechnicalValues: {
+            ...(existingSpecs.technicalValues || {}),
+            ...(parent.technicalValues || {}),
+          },
+        }
+      );
+      variationToSave.attributes = projectedVariation.attributes as typeof cleanAttrs;
+    }
+
     const newVariations = [...variations];
     if (varIndex === -1) {
       newVariations.push(variationToSave);
@@ -118,7 +152,7 @@ export const saveVariation = async (productId: string, variation: any): Promise<
     if (isUuidPattern(productId) && isUuidPattern(variationToSave.id)) {
       const effectiveImages = variationToSave.images || [];
 
-      const attributesToSave = (cleanAttrs || [])
+      const attributesToSave = ((variationToSave.attributes as any[]) || [])
         .filter((attr: any) => attr.name && attr.value)
         .map((attr: any) => ({
           name: attr.name,

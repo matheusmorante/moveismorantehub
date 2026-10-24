@@ -13,7 +13,7 @@ export const isDoorQuantityCharacteristic = (name: string): boolean =>
   /quantidade\s+de\s+portas?/i.test(name.trim());
 
 export const isDoorDependentCharacteristic = (name: string): boolean =>
-  /porta/i.test(name) && !isHasDoorsCharacteristic(name);
+  /porta/i.test(name) && !isHasDoorsCharacteristic(name) && !isDoorQuantityCharacteristic(name);
 
 export const parseDoorQuantityValue = (values: Record<string, any> = {}): number | null => {
   for (const [key, val] of Object.entries(values)) {
@@ -33,14 +33,17 @@ export const parseDoorQuantityValue = (values: Record<string, any> = {}): number
 };
 
 export const isHasDoorsActive = (values: Record<string, any> = {}): boolean => {
+  if (Object.keys(values).some(isDoorQuantityCharacteristic)) {
+    const doorQty = parseDoorQuantityValue(values);
+    return doorQty !== null && doorQty > 0;
+  }
+
   for (const [key, val] of Object.entries(values)) {
     if (isHasDoorsCharacteristic(key)) {
       return isYesNoValueActive(val);
     }
   }
-  // Compatibilidade com cadastros legados que possuem quantidade informada
-  const doorQty = parseDoorQuantityValue(values);
-  return doorQty !== null && doorQty > 0;
+  return false;
 };
 
 // --- Gavetas ---
@@ -55,7 +58,8 @@ export const isSlideCharacteristic = (name: string): boolean =>
   /corredi[çc]a/i.test(name);
 
 export const isDrawerDependentCharacteristic = (name: string): boolean =>
-  isSlideCharacteristic(name) || (/gaveta/i.test(name) && !isHasDrawersCharacteristic(name));
+  !isDrawerQuantityCharacteristic(name) &&
+  (isSlideCharacteristic(name) || (/gaveta/i.test(name) && !isHasDrawersCharacteristic(name)));
 
 export const parseDrawerQuantityValue = (values: Record<string, any> = {}): number | null => {
   for (const [key, val] of Object.entries(values)) {
@@ -75,14 +79,17 @@ export const parseDrawerQuantityValue = (values: Record<string, any> = {}): numb
 };
 
 export const isHasDrawersActive = (values: Record<string, any> = {}): boolean => {
+  if (Object.keys(values).some(isDrawerQuantityCharacteristic)) {
+    const drawerQty = parseDrawerQuantityValue(values);
+    return drawerQty !== null && drawerQty > 0;
+  }
+
   for (const [key, val] of Object.entries(values)) {
     if (isHasDrawersCharacteristic(key)) {
       return isYesNoValueActive(val);
     }
   }
-  // Compatibilidade com cadastros legados
-  const drawerQty = parseDrawerQuantityValue(values);
-  return drawerQty !== null && drawerQty > 0;
+  return false;
 };
 
 // --- Pés ---

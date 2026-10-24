@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
 import {
@@ -6,6 +6,9 @@ import {
   getAvailableAdditionalFields,
   getApplicableTechnicalFields,
   getEffectiveTechnicalValue,
+  isCharacteristicDependent,
+  isCharacteristicDependentOnVariableField,
+  isQuantityCharacteristic,
   hasVariationOverride,
   isTechnicalFieldVariable,
   setVariationOverride,
@@ -22,6 +25,15 @@ import { VariationTechnicalSearchControl } from './VariationTechnicalSearchContr
 import { VariationTechnicalDescriptionSection } from './VariationTechnicalDescriptionSection';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { getDefaultShowNameForVariationOverride } from '../../../../../../../shared-utils/productVariationAttributeDefaults';
+import {
+  isDoorDependentCharacteristic,
+  isDoorQuantityCharacteristic,
+  isDrawerDependentCharacteristic,
+  isDrawerQuantityCharacteristic,
+  isHasDoorsCharacteristic,
+  isHasDrawersCharacteristic,
+} from '@/pages/utils/technicalValues/predicates/furniture';
+import { cleanupDependentCharacteristicsOnZero } from '../tabs/technical/sync/dependentCleanup';
 
 export interface VariationTechnicalTabProps {
   readonly formData: Variation & { readonly material?: string | null };
@@ -103,11 +115,11 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     };
   }, [refreshKey, initialTechnicalFields]);
 
-  // Atributos definidos na própria variação (ex: Cor, Material, Tamanho)
+  // Características definidas na própria variação (ex: Cor, Material, Tamanho)
   const variationAttributeValues = useMemo(() => {
     const map: Record<string, any> = {};
     (formData?.attributes || []).forEach((attr) => {
-      if (attr.name && attr.value) {
+      if (attr.name && attr.value !== undefined && attr.value !== null && attr.value !== '') {
         map[attr.name] = attr.value;
         map[attr.name.trim().toLowerCase()] = attr.value;
       }
@@ -118,7 +130,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   const parentNormalizedValues = useMemo(() => {
     const map: Record<string, any> = {};
     (parentProduct?.attributes || []).forEach((attr) => {
-      if (attr.name && attr.value) {
+      if (attr.name && attr.value !== undefined && attr.value !== null && attr.value !== '') {
         map[attr.name] = attr.value;
       }
     });
@@ -133,8 +145,14 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       ),
     [parentProduct.variableTechnicalFields, parentProduct.variations, formData]
   );
+  const isVariableField = useCallback(
+    (fieldName: string) =>
+      isTechnicalFieldVariable(fieldName, variableFieldNames) ||
+      isCharacteristicDependentOnVariableField(fieldName, variableFieldNames),
+    [variableFieldNames]
+  );
 
-  // Campos visíveis na variação: categorias do pai + valores do pai + overrides da variação + atributos da variação + manuais
+  // Campos visíveis na variação: categorias do pai + valores do pai + overrides da variação + características da variação + manuais
   const combinedValues = useMemo(() => {
     return {
       ...parentNormalizedValues,
@@ -142,6 +160,38 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       ...(formData?.technicalValues || {}),
     };
   }, [parentNormalizedValues, variationAttributeValues, formData?.technicalValues]);
+
+  const dependencyValues = useMemo(() => {
+    const values = { ...combinedValues };
+
+    const useVariationQuantity = (
+      isQuantity: (name: string) => boolean,
+      isLegacyToggle: (name: string) => boolean
+    ) => {
+      const quantityName = allTechnicalFields.find(
+        (field) => isQuantity(field.name) && isTechnicalFieldVariable(field.name, variableFieldNames)
+      )?.name;
+      if (!quantityName) return;
+
+      const ownQuantity =
+        Object.entries(formData?.technicalValues || {}).find(([name]) => isQuantity(name)) ||
+        Object.entries(variationAttributeValues).find(([name]) => isQuantity(name));
+      Object.keys(values).forEach((name) => {
+        if (isQuantity(name) || isLegacyToggle(name)) delete values[name];
+      });
+      if (ownQuantity) values[quantityName] = ownQuantity[1];
+    };
+
+    useVariationQuantity(isDoorQuantityCharacteristic, isHasDoorsCharacteristic);
+    useVariationQuantity(isDrawerQuantityCharacteristic, isHasDrawersCharacteristic);
+    return values;
+  }, [
+    allTechnicalFields,
+    combinedValues,
+    formData?.technicalValues,
+    variableFieldNames,
+    variationAttributeValues,
+  ]);
 
   // Todas as especificações técnicas ativas cadastradas aparecem na variação
   const applicableFields = useMemo(
@@ -159,17 +209,17 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     () => {
       const fieldsByName = new Map<string, TechnicalFieldDefinition>();
       [...applicableFields, ...allTechnicalFields].forEach((field) => {
-        if (!isTechnicalFieldVariable(field.name, variableFieldNames)) return;
+        if (!isVariableField(field.name)) return;
         const key = normalizeSearchTerm(field.name);
         if (!fieldsByName.has(key)) fieldsByName.set(key, field);
       });
       return [...fieldsByName.values()];
     },
-    [allTechnicalFields, applicableFields, variableFieldNames]
+    [allTechnicalFields, applicableFields, isVariableField]
   );
 
   const requiredFields = useMemo(
-    () => visibleFields.filter((field) => field.isRequired),
+    () => visibleFields.filter((field) => field.isRequired || field.isRequiredForCatalog),
     [visibleFields]
   );
 
@@ -179,7 +229,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   );
 
   const optionalFields = useMemo(
-    () => visibleFields.filter((field) => !field.isRequired),
+    () => visibleFields.filter((field) => !field.isRequired && !field.isRequiredForCatalog),
     [visibleFields]
   );
 
@@ -196,7 +246,8 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       manualFieldNames.includes(field.name) ||
       hasVariationOverride(formData.technicalValues, field.name) ||
       hasAttributeValue ||
-      hasSelectedParentValue
+      hasSelectedParentValue ||
+      isCharacteristicDependent(field.name)
     );
   };
 
@@ -218,9 +269,15 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       ]).filter(
         (field) =>
           !requiredFieldNames.has(normalizeSearchTerm(field.name)) &&
-          isTechnicalFieldVariable(field.name, variableFieldNames)
+          isVariableField(field.name)
       ),
-    [allTechnicalFields, requiredFields, selectedOptionalFields, requiredFieldNames, variableFieldNames]
+    [
+      allTechnicalFields,
+      requiredFields,
+      selectedOptionalFields,
+      requiredFieldNames,
+      isVariableField,
+    ]
   );
 
   const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
@@ -251,14 +308,36 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
   const handleSetOverride = (fieldName: string, value: any) => {
     const currentOverrides = formData.technicalValues || {};
-    const updated = setVariationOverride(currentOverrides, fieldName, value);
+    const updated = cleanupDependentCharacteristicsOnZero(
+      setVariationOverride(currentOverrides, fieldName, value),
+      fieldName,
+      value
+    );
     handleChange('technicalValues', updated);
 
     // Manter sincronizado com formData.attributes para retrocompatibilidade
-    const currentAttrs = [...(formData.attributes || [])];
+    let currentAttrs = [...(formData.attributes || [])];
     const lowerName = fieldName.trim().toLowerCase();
+    const isDoorQuantity = isDoorQuantityCharacteristic(fieldName);
+    const isDrawerQuantity = isDrawerQuantityCharacteristic(fieldName);
+    const isZero = value === 0 || (typeof value === 'string' && value.trim() === '0');
+    if (isDoorQuantity || isDrawerQuantity) {
+      currentAttrs = currentAttrs.filter((attribute) => {
+        if (isDoorQuantity && isHasDoorsCharacteristic(attribute.name || '')) return false;
+        if (isDrawerQuantity && isHasDrawersCharacteristic(attribute.name || '')) return false;
+        if (isZero && isDoorQuantity && isDoorDependentCharacteristic(attribute.name || '')) return false;
+        if (isZero && isDrawerQuantity && isDrawerDependentCharacteristic(attribute.name || '')) return false;
+        return true;
+      });
+    }
     const existingIdx = currentAttrs.findIndex((a) => a.name?.trim().toLowerCase() === lowerName);
-    if (value) {
+    const valueIsNotApplicable =
+      typeof value === 'string' &&
+      ['não se aplica', 'nao se aplica', 'n/a', 'não informar'].includes(
+        normalizeSearchTerm(value)
+      );
+    const hasValue = value !== '' && value !== undefined && value !== null && !valueIsNotApplicable;
+    if (hasValue) {
       if (existingIdx >= 0) {
         currentAttrs[existingIdx] = { ...currentAttrs[existingIdx], value: String(value) };
       } else {
@@ -280,7 +359,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     const updated = removeVariationOverride(currentOverrides, fieldName);
     handleChange('technicalValues', updated);
 
-    // Ao remover override e voltar a herdar, limpa também atributo correspondente se existir
+    // Ao remover override e voltar a herdar, limpa também a característica correspondente se existir
     const currentAttrs = (formData.attributes || []).filter(
       (a) => a.name?.trim().toLowerCase() !== fieldName.trim().toLowerCase()
     );
@@ -289,7 +368,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
   const handleAddManualField = (field: TechnicalFieldDefinition) => {
     setManualFieldNames((prev) => Array.from(new Set([...prev, field.name])));
-    handleSetOverride(field.name, '');
+    handleSetOverride(field.name, isQuantityCharacteristic(field.name) ? null : '');
     setCharacteristicSearchTerm('');
   };
 
@@ -407,6 +486,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         field={field}
                         parentNormalizedValues={parentNormalizedValues}
                         variationAttributeValues={variationAttributeValues}
+                        dependencyValues={dependencyValues}
                         formDataTechnicalValues={formData.technicalValues}
                         isManual={manualFieldNames.includes(field.name)}
                         isVariable

@@ -60,7 +60,7 @@ export const ProductConfigModal: React.FC<Props> = ({
           <View style={styles.header}>
             <View>
               <Text style={[styles.title, dark && styles.light]}>Configurações de Produto</Text>
-              <Text style={styles.subtitle}>Gerencie categorias, atributos e variações</Text>
+              <Text style={styles.subtitle}>Gerencie categorias, características e variações</Text>
             </View>
             <TouchableOpacity
               onPress={onClose}
@@ -120,10 +120,10 @@ export const ProductConfigModal: React.FC<Props> = ({
                 </View>
                 <View style={styles.cardTexts}>
                   <Text style={[styles.cardTitle, dark && styles.light]}>
-                    Atributos e Variações
+                    Características e Variações
                   </Text>
                   <Text style={styles.cardDesc}>
-                    Criar atributos globais (Cor, Tamanho, etc.) e opções
+                    Criar características globais (Cor, Tamanho, etc.) e opções
                   </Text>
                 </View>
                 <ChevronRight size={18} color="#94a3b8" />

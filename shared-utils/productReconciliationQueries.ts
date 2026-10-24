@@ -80,11 +80,11 @@ const mapReconciliationVariation = (variation: any): ReconciliationProductItem['
     try {
       attributes = JSON.parse(attributes);
     } catch {
-      throw new Error('Os atributos da variação ' + variation.id + ' possuem JSON inválido. Revise o cadastro antes de editar.');
+      throw new Error('As características da variação ' + variation.id + ' possuem JSON inválido. Revise o cadastro antes de editar.');
     }
   }
   if (attributes == null) attributes = [];
-  if (!Array.isArray(attributes)) throw new Error('Os atributos da variação precisam de revisão antes de editar.');
+  if (!Array.isArray(attributes)) throw new Error('As características da variação precisam de revisão antes de editar.');
   return {
     id: variation.id,
     sku: variation.sku || '',
@@ -102,7 +102,7 @@ const mapReconciliationVariation = (variation: any): ReconciliationProductItem['
 };
 
 /**
- * Busca todos os atributos que foram configurados como obrigatórios por categoria
+ * Busca todas as características que foram configuradas como obrigatórias por categoria
  */
 export async function fetchRequiredCategoryAttributesWithClient(client: any, isWeightCharacteristicName: (name: string) => boolean): Promise<RequiredCategoryAttribute[]> {
   const { data, error } = await client.from('category_attributes').select('category_id, attribute_id, is_required, attributes (id, name, data_type, unit)').eq('is_required', true);
@@ -169,7 +169,7 @@ export async function fetchProductsForReconciliationWithClient(
 
   // Se houver filtro específico de fornecedor/categoria que o banco já filtra 100%,
   // podemos usar a paginação direta no banco.
-  // Para filtros mais abrangentes (que dependem de atributos de variações/NCM JSONB),
+  // Para filtros mais abrangentes (que dependem de características de variações/NCM JSONB),
   // buscamos uma janela ampla ou processamos de forma eficiente.
   const from = (page - 1) * pageSize;
   const to = from + pageSize * 3 - 1; // Busca janela com folga para filtrar pendências

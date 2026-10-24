@@ -31,6 +31,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   checkMobileVariationAttributeConflict,
   countMobileParentVariations,
@@ -69,6 +70,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
   onClose,
   onMoved,
 }) => {
+  const insets = useSafeAreaInsets();
   const variationId = String(variation?.variationId || variation?.id || '');
   const sourceParentId = String(parentProduct?.id || variation?.parentId || '');
   const [families, setFamilies] = useState<MobileVariationFamily[]>([]);
@@ -259,7 +261,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               if (current && accepting) {
                 setConflictError(
                   Object.values(flattenFormErrors(errors))[0] ||
-                    'Confira os atributos antes de validar o destino.'
+                    'Confira as características antes de validar o destino.'
                 );
               }
             }
@@ -422,7 +424,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
     !operationGuard.error &&
     !completed.current;
   const buttonLabel = !validAttributes.length
-    ? 'Atributo obrigatório'
+    ? 'Característica obrigatória'
     : saving
       ? 'Movendo…'
       : conflictState === 'checking'
@@ -445,7 +447,10 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
       onRequestClose={saving || operationGuard.active ? undefined : onClose}
     >
       <KeyboardAvoidingView
-        style={styles.overlay}
+        style={[
+          styles.overlay,
+          { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+        ]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={[styles.sheet, dark && styles.sheetDark]}>
@@ -494,7 +499,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               ) : (
                 <View style={styles.info}>
                   <Text style={styles.infoText}>
-                    O nome passará a usar o novo produto pai e os valores dos atributos. As fotos
+                    O nome passará a usar o novo produto pai e os valores das características. As fotos
                     vinculadas à variação acompanham a mudança.
                   </Text>
                 </View>
@@ -585,7 +590,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
 
             <View>
               <View style={styles.attributeHeader}>
-                <Text style={[styles.label, dark && styles.textDark]}>Atributos da variação</Text>
+                <Text style={[styles.label, dark && styles.textDark]}>Características da variação</Text>
                 {canAddVariationFamilyAttribute(attributes) ? (
                   <TouchableOpacity
                     onPress={() => {
@@ -603,15 +608,15 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                     disabled={saving || mutationBlocked}
                     style={styles.addAttributeButton}
                     accessibilityRole="button"
-                    accessibilityLabel="Adicionar atributo"
+                    accessibilityLabel="Adicionar característica"
                   >
-                    <Text style={styles.addAttributeText}>＋ Adicionar atributo</Text>
+                    <Text style={styles.addAttributeText}>＋ Adicionar característica</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
               {attributes.length === 0 ? (
                 <Text style={[styles.hint, dark && styles.subtitleDark]}>
-                  Informe ao menos um atributo e seu valor antes de mover.
+                  Informe ao menos uma característica e seu valor antes de mover.
                 </Text>
               ) : (
                 attributes.map((attribute, index) => (
@@ -620,10 +625,10 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                       value={attribute.name}
                       onChangeText={(value) => updateAttribute(index, 'name', value)}
                       editable={!saving && !mutationBlocked}
-                      placeholder="Atributo (ex.: Cor)"
+                      placeholder="Característica (ex.: Cor)"
                       placeholderTextColor="#94a3b8"
                       style={[styles.attributeInput, dark && styles.inputDark]}
-                      accessibilityLabel={`Nome do atributo ${index + 1}`}
+                      accessibilityLabel={`Nome da característica ${index + 1}`}
                     />
                     <TextInput
                       value={attribute.value}
@@ -632,7 +637,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                       placeholder="Valor (ex.: Azul)"
                       placeholderTextColor="#94a3b8"
                       style={[styles.attributeInput, dark && styles.inputDark]}
-                      accessibilityLabel={`Valor do atributo ${index + 1}`}
+                      accessibilityLabel={`Valor da característica ${index + 1}`}
                     />
                   </View>
                 ))
@@ -643,7 +648,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               <View style={styles.conflict}>
                 <Text style={styles.conflictTitle}>Combinação já existente</Text>
                 <Text style={styles.conflictText}>
-                  Este produto pai já tem uma variação com estes mesmos atributos. Altere um valor
+                  Este produto pai já tem uma variação com estas mesmas características. Altere um valor
                   antes de continuar.
                 </Text>
               </View>

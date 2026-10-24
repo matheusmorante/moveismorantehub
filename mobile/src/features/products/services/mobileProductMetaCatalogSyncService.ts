@@ -1,8 +1,10 @@
 import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import {
   buildMetaCatalogBatchPayload,
+  isMetaCatalogBatchDeletion,
   META_CATALOG_BATCH_LIMIT,
 } from '../../../../../shared-utils/metaCatalogBatchPayload';
+import type { MetaCatalogBatchSource } from '../../../../../shared-utils/metaCatalogBatchPayload';
 import type {
   MetaCatalogOpportunitySource,
   MetaCatalogProductSource,
@@ -10,6 +12,7 @@ import type {
 } from '../../../../../shared-utils/metaCatalogPayload';
 import { buildProductMetaCatalogSyncItems } from '../../../../../shared-utils/productMetaCatalogSyncItems';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { getAppSettings } from '../../../services/appSettingsCache';
 import { supabase } from '../../../services/supabaseClient';
 
 const SYNC_DEBOUNCE_MS = 400;
@@ -33,6 +36,9 @@ const getMetaProxyUrl = (): string | null => {
 };
 
 const getErrorMessage = (value: unknown): string => {
+  if (value instanceof Error && value.name === 'AbortError') {
+    return 'A solicitação à Meta excedeu o tempo limite. Confira o catálogo antes de tentar novamente.';
+  }
   if (typeof value === 'string') return value;
   if (value && typeof value === 'object' && 'message' in value) {
     const message = (value as { message?: unknown }).message;
@@ -40,6 +46,22 @@ const getErrorMessage = (value: unknown): string => {
   }
   return 'Erro ao sincronizar o catálogo da Meta.';
 };
+
+async function getMetaProxyContext(): Promise<{ proxyUrl: string; accessToken: string }> {
+  const proxyUrl = getMetaProxyUrl();
+  if (!proxyUrl) throw new Error('EXPO_PUBLIC_ERP_API_URL não configurada neste ambiente.');
+
+  const sessionResult = await withTimeout(
+    supabase.auth.getSession(),
+    SESSION_TIMEOUT_MS,
+    { data: { session: null }, error: null },
+    'mobile:meta-catalog-session'
+  );
+  const accessToken = sessionResult.data.session?.access_token;
+  if (sessionResult.error || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
+
+  return { proxyUrl, accessToken };
+}
 
 const postCatalogBatch = async (
   proxyUrl: string,
@@ -71,6 +93,61 @@ const postCatalogBatch = async (
   }
 };
 
+async function postMetaCatalogItems(
+  proxyUrl: string,
+  accessToken: string,
+  items: readonly MetaCatalogBatchSource[],
+  onProgress?: (processed: number, total: number) => void
+): Promise<number> {
+  const total = items.length;
+  let processed = 0;
+  onProgress?.(processed, total);
+
+  const includesDescriptions = items.some((item) => !isMetaCatalogBatchDeletion(item));
+  let whatsappBaseDescription: string | undefined;
+  if (includesDescriptions) {
+    const settingsTimeout = { timedOut: true } as const;
+    const settings = await withTimeout(
+      getAppSettings({ forceRefresh: true }),
+      DATA_TIMEOUT_MS,
+      settingsTimeout,
+      'mobile:meta-catalog-settings'
+    );
+    if (settings === settingsTimeout) {
+      throw new Error('A leitura das configurações da descrição Meta excedeu o tempo limite.');
+    }
+    const configuredDescription = settings?.channelBaseDescriptions?.whatsapp;
+    whatsappBaseDescription =
+      typeof configuredDescription === 'string' ? configuredDescription : undefined;
+  }
+
+  for (let offset = 0; offset < total; offset += META_CATALOG_BATCH_LIMIT) {
+    const payload = buildMetaCatalogBatchPayload(
+      items.slice(offset, offset + META_CATALOG_BATCH_LIMIT),
+      whatsappBaseDescription
+    );
+    await postCatalogBatch(proxyUrl, accessToken, payload);
+    processed += payload.requests.length;
+    onProgress?.(processed, total);
+  }
+
+  return processed;
+}
+
+/** Envia os itens já preparados para o proxy Meta em lotes e expõe progresso por lote confirmado. */
+export async function syncMobileMetaCatalogItems(
+  items: readonly MetaCatalogBatchSource[],
+  onProgress?: (processed: number, total: number) => void
+): Promise<MobileMetaCatalogSyncResult> {
+  try {
+    const { proxyUrl, accessToken } = await getMetaProxyContext();
+    const count = await postMetaCatalogItems(proxyUrl, accessToken, items, onProgress);
+    return { success: true, count };
+  } catch (error) {
+    return { success: false, count: 0, error: getErrorMessage(error) };
+  }
+}
+
 /** Sincroniza pai e variações com as mesmas regras do ERP, pelo proxy autenticado. */
 export async function syncMobileProductToMetaCatalog(
   productId: string
@@ -78,25 +155,7 @@ export async function syncMobileProductToMetaCatalog(
   try {
     if (!productId) return { success: false, count: 0, error: 'ID do produto ausente.' };
 
-    const proxyUrl = getMetaProxyUrl();
-    if (!proxyUrl) {
-      return {
-        success: false,
-        count: 0,
-        error: 'EXPO_PUBLIC_ERP_API_URL não configurada neste ambiente.',
-      };
-    }
-
-    const sessionResult = await withTimeout(
-      supabase.auth.getSession(),
-      SESSION_TIMEOUT_MS,
-      { data: { session: null }, error: null },
-      'mobile:meta-catalog-session'
-    );
-    const accessToken = sessionResult.data.session?.access_token;
-    if (sessionResult.error || !accessToken) {
-      return { success: false, count: 0, error: 'Sessão inválida. Entre novamente.' };
-    }
+    const { proxyUrl, accessToken } = await getMetaProxyContext();
 
     const sources = await withTimeout(
       Promise.all([
@@ -148,14 +207,8 @@ export async function syncMobileProductToMetaCatalog(
       (variationResult.data || []) as MetaCatalogVariationSource[],
       opportunities
     );
-    for (let offset = 0; offset < items.length; offset += META_CATALOG_BATCH_LIMIT) {
-      const payload = buildMetaCatalogBatchPayload(
-        items.slice(offset, offset + META_CATALOG_BATCH_LIMIT)
-      );
-      await postCatalogBatch(proxyUrl, accessToken, payload);
-    }
-
-    return { success: true, count: items.length };
+    const count = await postMetaCatalogItems(proxyUrl, accessToken, items);
+    return { success: true, count };
   } catch (error) {
     return { success: false, count: 0, error: getErrorMessage(error) };
   }

@@ -15,6 +15,25 @@ describe('technicalValues - Agrupamento e Ordenação Canônica', () => {
     expect(groups[1].fields[0].name).toBe('Acabamento especial');
   });
 
+  it('mantém dimensões e peso como tópico separado para aninhamento em Características principais', () => {
+    const groups = groupCharacteristicsByTopic([
+      { name: 'Marca', isRequired: true },
+      { name: 'Altura', isRequired: false },
+      { name: 'Largura', isRequired: true },
+      { name: 'Peso', isRequired: false },
+      { name: 'Peso suportado por prateleira', isRequired: false },
+    ]);
+
+    expect(groups.map(({ title }) => title)).toEqual([
+      'Características principais',
+      'Dimensões e Peso',
+      'Prateleiras',
+    ]);
+    expect(groups[0].fields.map(({ name }) => name)).toEqual(['Marca']);
+    expect(groups[1].fields.map(({ name }) => name)).toEqual(['Altura', 'Largura', 'Peso']);
+    expect(groups[2].fields.map(({ name }) => name)).toEqual(['Peso suportado por prateleira']);
+  });
+
   it('agrupa características nos subtópicos dedicados de Portas, Gavetas, Prateleiras e Pés com ordenação canônica', () => {
     const groups = groupCharacteristicsByTopic([
       { name: 'Material das portas', isCustom: false },

@@ -6,6 +6,12 @@ import { resolveUniqueSlug } from '../uniqueSlug';
 import { MAX_VARIATION_IMAGES } from './productImageHelpers';
 import { mapToDB } from './productMapper';
 import { generateUniqueCode, TABLE_NAME } from './productSkuService';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import {
+  fetchRequiredProductCategoryAttributes,
+  projectRequiredCategoryAttributesToVariations,
+  type RequiredProductCategoryAttribute,
+} from '../../../../../shared-utils/productCategoryRequiredAttributes';
 
 export const ensureUuidFormat = (product: Partial<Product>): string => {
   if (!product.id) return crypto.randomUUID();
@@ -28,6 +34,25 @@ export const syncProductToSupabase = async (
       throw new Error(
         'Produto sem UUID válido. IDs existentes não podem ser regenerados pelo sistema; regularize-o diretamente em manutenção externa.'
       );
+    }
+
+    const categoryIds = Array.isArray(product.categoryIds)
+      ? product.categoryIds.map(String).filter(Boolean)
+      : (product as any).category_id
+        ? [String((product as any).category_id)]
+        : [];
+    let requiredCategoryAttributes: RequiredProductCategoryAttribute[] = [];
+    if ((product.variations?.length || 0) > 0 && categoryIds.length > 0) {
+      const fetchedAttributes = await withTimeout(
+        fetchRequiredProductCategoryAttributes(supabase, categoryIds),
+        15000,
+        null,
+        'produto:carregar-atributos-obrigatorios'
+      );
+      if (!fetchedAttributes) {
+        throw new Error('Não foi possível confirmar os atributos obrigatórios da categoria. O produto não foi alterado.');
+      }
+      requiredCategoryAttributes = fetchedAttributes;
     }
 
     const dbData = mapToDB(product);
@@ -136,7 +161,18 @@ export const syncProductToSupabase = async (
         product.variations &&
         product.variations.length > 0
       ) {
-        const variationsToPersist = [...product.variations];
+        const existingSpecs = product.technicalSpecs || (product as any).technical_specs || {};
+        const variationsToPersist = projectRequiredCategoryAttributesToVariations(
+          [...product.variations],
+          {
+            categoryIds,
+            requiredAttributes: requiredCategoryAttributes,
+            parentTechnicalValues: {
+              ...(existingSpecs.technicalValues || {}),
+              ...(product.technicalValues || {}),
+            },
+          }
+        );
         let generatedDefaultId: string | undefined;
         if (!isNonConventionalProduct(product)) {
           const { data: currentParentVariations, error: currentParentVariationsError } =

@@ -488,71 +488,41 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
         </div>
       </div>
 
-      {/* Seção Catálogo Meta (Feed CSV) */}
-      <div className="p-8 border-t border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-          <div className="flex-1 max-w-lg">
-            <div className="flex items-center gap-2">
-              <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">
-                Catálogo Meta (Facebook/Instagram)
-              </h4>
-              <span className="px-2 py-0.5 bg-purple-50 dark:bg-purple-900/30 text-[9px] font-black rounded text-purple-500">
-                FEED CSV
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
-              Use o link abaixo para cadastrar como <b>Feed de Dados (Data Feed)</b> no Meta
-              Commerce Manager. O Meta usará este feed para atualizar seus produtos automaticamente.
-            </p>
+      {/* Orientação vigente para sincronização do Catálogo Meta */}
+      <div className="p-8 border-t border-slate-100 dark:border-slate-800/50">
+        <div className="flex flex-col gap-2 max-w-2xl">
+          <div className="flex items-center gap-2">
+            <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider">
+              Catálogo Meta (Facebook/Instagram)
+            </h4>
+            <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-[9px] font-black rounded text-blue-500">
+              GRAPH API
+            </span>
           </div>
-          <div className="flex flex-col gap-3 w-full md:w-80">
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                readOnly
-                value="https://moveismorante.com.br/api/facebook-catalog.csv"
-                className="bg-slate-150 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl pl-4 pr-12 py-3 text-[10px] outline-none w-full font-mono text-slate-500"
-              />
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(
-                    'https://moveismorante.com.br/api/facebook-catalog.csv'
-                  );
-                  toast.success('Link do catálogo copiado! 📋');
-                }}
-                className="absolute right-2 p-2 text-blue-500 hover:text-blue-600 transition-colors"
-                title="Copiar Link"
-              >
-                <i className="bi bi-copy"></i>
-              </button>
-            </div>
-            <button
-              onClick={() => {
-                window.open('https://moveismorante.com.br/api/facebook-catalog.csv', '_blank');
-              }}
-              className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-blue-500/10"
-            >
-              <i className="bi bi-download"></i>
-              Baixar Feed CSV
-            </button>
-          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            A sincronização disponível é feita manualmente pela Graph API na página Produtos &gt;
+            Catálogo Meta. O feed CSV legado não deve ser cadastrado como fonte de dados no
+            Commerce Manager nem usado para confirmar publicação ou remoção. Confira os itens
+            diretamente no Catálogo Meta pelo retailer_id ou SKU.
+          </p>
         </div>
       </div>
 
-      {/* Seção Descrição Base — Catálogo Meta */}
+      {/* Descrição compartilhada aplicada às publicações via Graph API */}
       <div className="p-6 md:p-8 border-t border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider">
-              Descrição Base — Catálogo Meta
+              Descrição Base do WhatsApp
             </h4>
-            <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-[8px] font-black rounded text-emerald-600 dark:text-emerald-400">
-              INFORMAÇÕES FIXAS DA LOJA
+            <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-[8px] font-black rounded text-emerald-700 dark:text-emerald-300">
+              APLICADA VIA GRAPH API
             </span>
           </div>
           <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
-            Texto com informações fixas da sua empresa (endereço, horários de atendimento, contatos)
-            que será incluído automaticamente antes da descrição de cada produto no Catálogo Meta.
+            Este texto é acrescentado após o prefixo comercial compartilhado e antes da descrição do
+            produto nos envios da Graph API, incluindo sincronizações manuais e automáticas do ERP e do
+            aplicativo. O Catálogo Digital não usa esta configuração.
           </p>
 
           <textarea

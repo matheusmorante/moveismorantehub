@@ -58,6 +58,8 @@ describe('TechnicalFieldRow', () => {
     );
 
     const btn = screen.getByRole('button', { name: /gerenciar cores/i });
+    const label = screen.getByText('Cor').closest('label');
+    expect(label?.parentElement?.contains(btn)).toBe(true);
     fireEvent.click(btn);
     expect(onOpenModal).toHaveBeenCalledTimes(1);
   });
@@ -183,7 +185,7 @@ describe('TechnicalFieldRow', () => {
     expect(screen.queryByRole('combobox')).toBeNull();
   });
 
-  it('mantém características obrigatórias da categoria ativas no produto simples e remove Não informar das variações', () => {
+  it('mantém características obrigatórias da categoria ativas e exclui Não informar do escopo de variações', () => {
     const field: TechnicalFieldDefinition = {
       id: 'category-required',
       name: 'Acabamento',
@@ -225,11 +227,50 @@ describe('TechnicalFieldRow', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /escopo da característica acabamento/i }));
-    expect(screen.queryByRole('menuitemradio', { name: 'Não informar' })).toBeNull();
-    expect(screen.getByRole('menuitemradio', { name: 'Global' })).toBeDefined();
-    expect(screen.getByRole('menuitemradio', { name: 'Por variação' })).toBeDefined();
-    expect(onToggleVariable).not.toHaveBeenCalled();
+    const scopeButton = screen.getByRole('button', {
+      name: 'Escopo da característica Acabamento: Por variação',
+    });
+    fireEvent.click(scopeButton);
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(2);
+    expect(screen.queryByRole('menuitemradio', { name: /não informar/i })).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Global' }));
+    expect(onToggleVariable).toHaveBeenCalledWith('Acabamento', 'global');
+  });
+
+  it('mantém características obrigatórias do produto ligadas sem switch simples e limita variações ao escopo ativo', () => {
+    const field: TechnicalFieldDefinition = {
+      id: 'globally-required',
+      name: 'Cor',
+      dataType: 'text',
+      options: [],
+      isRequired: true,
+    };
+    const onToggleVariable = vi.fn();
+    const props = {
+      field,
+      formData: {},
+      manualFieldNames: [],
+      onToggleVariable,
+      onValueChange: vi.fn(),
+      onOpenAttributeModal: vi.fn(),
+      onToggleDepthLength: vi.fn(),
+      onRemoveManualField: vi.fn(),
+    };
+
+    const { rerender } = render(<TechnicalFieldRow {...props} isSimpleProduct />);
+    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.getByRole('textbox')).toBeDefined();
+
+    rerender(<TechnicalFieldRow {...props} isVariable />);
+    expect(screen.queryByRole('switch')).toBeNull();
+    const scopeButton = screen.getByRole('button', {
+      name: 'Escopo da característica Cor: Por variação',
+    });
+    fireEvent.click(scopeButton);
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(2);
+    expect(screen.queryByRole('menuitemradio', { name: /não informar/i })).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 
   it('exibe botão de exclusão para campos manuais e aciona remoção', () => {
@@ -312,7 +353,7 @@ describe('TechnicalFieldRow', () => {
 
     // Botão de info no rótulo e overlay no input presentes com a razão
     const disabledButtons = screen.getAllByRole('button', {
-      name: /Disponível apenas quando Possui portas for Sim/i,
+      name: /Disponível apenas quando a quantidade de portas for maior que zero/i,
     });
     expect(disabledButtons.length).toBe(2);
     const [infoBtn, overlay] = disabledButtons;
@@ -323,7 +364,7 @@ describe('TechnicalFieldRow', () => {
 
     expect(screen.getByRole('tooltip')).toBeDefined();
     expect(
-      screen.getByText('Disponível apenas quando Possui portas for Sim.')
+      screen.getByText('Disponível apenas quando a quantidade de portas for maior que zero.')
     ).toBeDefined();
 
     // Mouse leave fecha o tooltip
@@ -342,11 +383,11 @@ describe('TechnicalFieldRow', () => {
     fireEvent.click(infoBtn);
     expect(screen.getByRole('tooltip')).toBeDefined();
 
-    // Quando quantidade de portas for maior que zero (ou Possui portas = Sim), reativa o campo
+    // Quantidade maior que zero reativa o campo, mesmo com valor legado Possui portas = Não.
     rerender(
       <TechnicalFieldRow
         field={field}
-        formData={{ technicalValues: { 'Quantidade de portas': 2 } }}
+        formData={{ technicalValues: { 'Quantidade de portas': 2, 'Possui portas': 'Não' } }}
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
@@ -360,7 +401,7 @@ describe('TechnicalFieldRow', () => {
     // Info btn e overlay desaparecem
     expect(
       screen.queryByRole('button', {
-        name: /Disponível apenas quando Possui portas for Sim/i,
+        name: /Disponível apenas quando a quantidade de portas for maior que zero/i,
       })
     ).toBeNull();
   });
@@ -387,7 +428,7 @@ describe('TechnicalFieldRow', () => {
     );
 
     const disabledButtons = screen.getAllByRole('button', {
-      name: /Disponível apenas quando Possui gavetas for Sim/i,
+      name: /Disponível apenas quando a quantidade de gavetas for maior que zero/i,
     });
     expect(disabledButtons.length).toBe(2);
   });

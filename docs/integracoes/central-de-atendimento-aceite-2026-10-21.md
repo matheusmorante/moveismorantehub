@@ -2,7 +2,9 @@
 
 ## Estado atual
 
-A Vercel confirma `dpl_3o8BvF6MDv3dr8sJGQA576DEqKYM` (`READY`) como Production de `morantehub.com` e `morantehub.vercel.app`. Ele foi construído do candidato local baseado no commit `d3d325e0737a5197000d939efd5ab4837dc29de0`, que já continha os painéis laterais. Os dois aliases apontam para o novo deployment; a verificação HTTP retornou 200 em `morantehub.vercel.app/` e em `/atendimento` no URL imutável. A resolução direta de `morantehub.com` falhou por DNS neste ambiente, embora a Vercel confirme o alias associado. O patch classifica `cancelled` também como status cancelado de pedido e entrega. A consulta autenticada anterior confirmou credenciais Meta válidas e `subscribed=true` no WABA; os testes de webhook recusaram assinatura ausente/inválida e aceitaram HMAC válida para payload vazio. Ainda falta uma entrega real originada pela Meta e uma leitura de mídia real. O despacho de mensagens permanece bloqueado por política.
+A rechecagem da Vercel em 24/10/2026 às 13:09 BRT encontrou `dpl_5jY7ptsGrQe9SAZVQF3zQmMYmt2z` (`READY`) como Production, com aliases `morantehub.vercel.app` e `morantehub.com`, origem Git na branch `main` e commit `e4fe2bb35c43722e86d116eaa5acc86ac362c64f`. O `HEAD` local coincide com esse commit. As alterações ainda não commitadas na árvore local — player de áudio e chats lado a lado — não estão nesse deployment; o símbolo `MessageAudioPlayer` e os helpers multi-chat não existem no snapshot do commit. Não fiz promoção.
+
+O deployment Production anterior `dpl_3o8BvF6MDv3dr8sJGQA576DEqKYM` (descrito nos checkpoints abaixo) já foi substituído pelo deployment acima. A consulta autenticada anterior confirmou credenciais Meta válidas e `subscribed=true` no WABA; o webhook recusou assinatura ausente/inválida e aceitou HMAC válida para payload vazio. Ainda falta uma entrega real originada pela Meta e uma leitura de mídia real. O despacho de mensagens permanece bloqueado por política.
 
 No Supabase operacional `hkoxhourxwlddgsfdgws`, a migration `20261024122401_customer_support_positive_orders_fixture_guard.sql` foi aplicada e registrada no ledger. A guarda de fixtures passou a permitir um vínculo comercial exclusivamente no cenário sintético autorizado, com proprietário, execução e pedido do mesmo run conferidos. O código da migration, o teste estático e o registro detalhado foram preservados na árvore principal.
 
@@ -266,3 +268,77 @@ A consulta de mídia em `Development` respondeu HTTP 503 por não haver `WHATSAP
 Validação desta auditoria: Vitest/RTL da Central **325 testes aprovados, 7 ignorados, em 33 arquivos**; `npm run build --prefix erp` aprovado, incluindo as verificações fiscais; ESLint dos arquivos tocados sem erros e com três avisos `react-refresh/only-export-components`. O build mantém avisos de importação mista e bundle acima de 500 kB. A guarda de leitura do navegador bloqueou operações de negócio durante a inspeção e foi removida ao final. Nenhuma pasta, comentário, conversa, fixture ou migration foi gravada nesta auditoria.
 
 Ficam para prova futura a leitura de mídia real em Production e a edição/exclusão de pasta compartilhada por duas identidades; a segunda verificação depende de uma conta autorizada adicional e já foi adiada pelo proprietário. A execução atual também não altera nem publica Production.
+
+## Player de áudio recebido na Central — 24/10/2026 BRT
+
+A revisão encontrou controles nativos do navegador (`<audio controls>`), que não apresentavam os controles de reprodução usados pelo WhatsApp. A Central agora mostra Play/Pause, cursor para navegar pela forma de onda, tempo decorrido/duração e alternância de velocidade **1x → 1,5x → 2x**. O player usa a URL Blob obtida pelo fluxo autenticado existente; não expõe token nem URL externa.
+
+O botão de gravar/enviar áudio permanece ausente porque a política da empresa bloqueia todo despacho de mensagens. A mudança cobre somente a reprodução de áudios recebidos. A documentação oficial de [reprodução de mensagens de voz do WhatsApp](https://faq.whatsapp.com/1165411581043811) descreve play/pause, busca na forma de onda e velocidades 1x, 1,5x e 2x.
+
+Validação: Vitest/RTL `customerSupportMedia.test.tsx` passou **17/17**, incluindo play/pause, busca, velocidades e ausência dos controles nativos; o Playwright de leitura da Inbox passou **1/1** com login autônomo e sem gravações; ESLint dos arquivos do player/teste sem erros; `npm run build --prefix erp` aprovado em **2m48s**, com fiscal **12/12**, XSD e `build:support` aprovados. Permanecem avisos existentes de imports dinâmicos/estáticos e bundle acima de 500 kB. Nenhuma migration, fixture, gravação ou publicação foi feita.
+
+Limite de fidelidade: a forma de onda é calculada no navegador a partir das amplitudes reais do Blob recebido, quando o player se aproxima da área visível; se o navegador não decodificar o codec, mantém uma forma de onda de reserva. O player não representa o estado “ouvido” do WhatsApp porque esse dado não está no modelo atual. A leitura real de um arquivo Meta ainda não foi exercitada em `Development`, cujo token de mídia não está configurado; por isso não há prova de codec/arquivo Meta nesta validação.
+
+## Chats lado a lado e layout responsivo — 24/10/2026 BRT
+
+A Central agora permite abrir até **três chats simultâneos** pela lista de conversas. Em desktop, dois chats viram colunas a partir de 960 px e três a partir de 1280 px. A coluna das filas é recolhida durante esse modo para reservar espaço; a lista de conversas permanece disponível para adicionar ou focar chats. Cada painel mantém seu próprio histórico, comandos e painéis contextuais. Ao fechar até restar um chat, a interface volta ao modo de conversa única.
+
+Em larguras menores, os chats abertos aparecem em abas. No celular, o botão da navegação reabre a lista para incluir chats e o botão de voltar do cabeçalho também leva à lista, mantendo as abas abertas. Só a aba ativa é montada nessa apresentação; assim chats em segundo plano não confirmam leitura enquanto não estão visíveis. O quarto chat é recusado com aviso. Nenhum caminho novo de envio foi criado; o despacho continua bloqueado pela política da empresa.
+
+Arquivos principais: `erp/src/pages/App/CustomerSupport/Index.tsx`, `components/CustomerSupportChatPane.tsx`, `components/ConversationSidebar.tsx`, `components/ChatArea.tsx`, `components/chat/ChatHeader.tsx`, `components/CustomerInfoPanel.tsx`, `components/ActivityTimelineDrawer.tsx` e `customerSupportMultiChatLayout.ts`. Os breakpoints têm cobertura em `__tests__/customerSupportMultiChatLayout.test.ts`; o limite e os fluxos responsivos estão cobertos em `tests/support-readonly/support-login.spec.ts`.
+
+Validação: Vitest da Central **330 aprovados, 7 ignorados em 34 arquivos**; ESLint nos arquivos da mudança sem erros (um aviso existente `react-refresh/only-export-components` em `ChatArea.tsx`); build completo do ERP aprovado, com fiscal **12/12**, XSD oficial carregado e Vite concluído. Permanecem avisos de imports dinâmicos/estáticos e bundle acima de 500 kB. Playwright visível `npm run test:support:readonly` passou **1/1 em 48,9s** com a pilha raiz já ativa: ERP `localhost:5173` (`strictPort`) e API `localhost:3000`. O fluxo usou conversas existentes: abriu 1, 2 e 3 colunas, confirmou que a quarta não abre, reduziu a 1120 px e 390 px para conferir as abas e alternou de chat no celular sem overflow horizontal. O guard bloqueou todas as escritas de negócio durante a prova.
+
+Não houve migration, fixture, alteração de configuração, publicação ou envio de mensagens.
+
+## Revalidação do player de áudio no Chromium — 24/10/2026 BRT
+
+A prova somente de lógica foi complementada por um fluxo Playwright visível: a suíte interceptou a resposta de uma mensagem de áudio e serviu ao navegador um WAV silencioso sintético de 10 segundos. O player carregou por URL `blob:`, exibiu duração, reproduziu/pausou, percorreu `1x → 1,5x → 2x → 1x` e não expôs controles nativos. A leitura e a mídia foram interceptadas apenas no cliente; o guard continuou bloqueando gravações de negócio.
+
+`npm run test:support:readonly` passou **1/1 em 34,3s** com a pilha raiz em `5173/3000` e credenciais de Vercel Development. Esta evidência verifica decodificação e controles no Chromium, mas não substitui o download de um anexo próprio real pela Graph API; essa leitura permanece pendente. Nenhum dado, fixture, configuração Meta ou deployment foi alterado.
+
+## Auditoria do callback legado de entrega — 24/10/2026 BRT
+
+Na revisão do processador compartilhado foi encontrado o callback `confirm_delivery_{orderId}` em `erp/src/pages/utils/customerSupport/whatsappWebhookProcessor.ts:246-258`. O código atual tenta atualizar `orders.delivery_confirmed_at` e `orders.delivery_confirmed_by`, incrementa `deliveryConfirmations` sem inspecionar o erro da atualização e executa essa tentativa antes de consultar se o `api_message_id` já foi recebido.
+
+A consulta somente de leitura a `information_schema.columns` no Supabase operacional `hkoxhourxwlddgsfdgws` confirmou que `public.orders` não possui `customer_phone`, `delivery_confirmed_at` nem `delivery_confirmed_by`; possui `customer_id`, `order_data`, `order_type`, `delivery_method` e `deleted`. Logo, o callback não persiste a confirmação no schema atual, e a contagem do processador não prova sucesso. Se a coluna de confirmação vier a ser introduzida, também será necessário vincular o remetente ao contato autorizado e proteger a atualização contra duplicatas.
+
+Este callback pertence ao lembrete comercial de entrega, fora da Inbox. Nenhum código comercial ou schema foi alterado nesta revisão; não houve DML, migration ou leitura de linhas de clientes/pedidos. O fluxo fica registrado como pendência separada e não é considerado uma funcionalidade comprovada da Central.
+
+## Reexecução conjunta de áudio e chats responsivos — 24/10/2026 BRT
+
+A repetição conjunta final do Playwright visível passou **1/1 em 43,8s** com o servidor raiz ativo em `localhost:5173` (`strictPort`) e a API em `localhost:3000`. A execução autenticou pelo ambiente Vercel Development sem pedir login manual e confirmou paginação 50→100 de 178, duas colunas dentro dos limites em 1120 px, três chats em desktop, abas em tablet/celular sem overflow, limite de três e o player de áudio sintético no Chromium. As gravações comerciais permaneceram interceptadas pelo guard.
+
+A primeira execução combinada falhou porque o teste consultava os cartões imediatamente após a caixa da lista aparecer; corrigido `erp/tests/support-readonly/support-login.spec.ts:1150` para esperar o primeiro cartão ficar visível antes do clique. A repetição passou, e foi adicionada a checagem geométrica das duas colunas em 1120 px. A suíte lógica focada passou **21/21** (17 testes do player e quatro dos breakpoints), e a seleção completa anterior permanece **330 aprovados e 7 ignorados em 34 arquivos**, conforme a seção de chats acima. O WAV é sintético: a leitura de mídia real da Graph API e a entrega real do webhook pela Meta continuam sem prova. Nenhuma fixture, migration, alteração Meta, publicação ou mensagem foi feita.
+
+Rechecagem remota somente de metadados em 24/10: os três runs próprios conhecidos (`8eaed14f-364d-47ab-be41-66be54b3fb65`, `e9e22a13-f509-41c9-80c5-ecd21a0349c6`, `53293c3f-4529-4463-be2b-be3fe4fe779d`) têm zero mensagens com `media_id`, zero mensagens `audio` e zero mensagens de imagem/documento/vídeo/figurinha. A listagem Vercel com `decrypt=false` encontrou `WHATSAPP_ACCESS_TOKEN` somente no alvo `production`, sem alvo `development`; nenhum valor secreto foi lido. Portanto, não há mídia própria real para consultar nem token separado de Development para exercitar o proxy local.
+
+## Revalidação integral do worktree — 24/10/2026 às 13:17 BRT
+
+A suíte completa Central/Meta no worktree atual passou **372 testes em 40 arquivos; 7 testes opt-in foram ignorados**. O build `npm run build --prefix erp` passou em **4m09s**: 12/12 funções Vercel, carregamento dos módulos Node, WASM e XSD fiscal oficial; o Vite transformou 5.963 módulos e concluiu a geração dos bundles. Permaneceram avisos de imports mistos dinâmicos/estáticos e chunks acima de 500 kB.
+
+A prova Playwright visível da mesma versão passou **1/1 em 43,8s** na pilha raiz `npm run dev` (`5173` com `strictPort`, API `3000`), conforme a seção acima: duas colunas verificadas em 1120 px, três em desktop, abas em larguras menores, teto de três e player com WAV sintético. Todas as escritas de negócio foram bloqueadas. Esta revalidação local não altera o deployment Production, o banco, fixtures, configuração Meta ou mensagens.
+
+## Forma de onda baseada no áudio recebido — 24/10/2026 BRT
+
+O player agora calcula as alturas das barras pelas amplitudes reais do Blob local. A decodificação começa quando o player fica próximo da viewport, evitando processar os áudios de conversas abertas em segundo plano. Se `AudioContext` ou o codec não estiver disponível, a reprodução mantém os controles e usa a forma de onda de reserva. O cálculo combina canais, normaliza picos e cobre silêncio/dados vazios.
+
+Vitest cobre amplitudes em trechos, combinação de canais e silêncio. A suíte focada passou **41 arquivos, 374 testes aprovados e 7 opt-ins ignorados**; o `build:support` passou. A última execução Playwright oficial visível passou **1/1 em 58,9s** na pilha raiz `npm run dev` (`5173` com `strictPort`, API `3000`): paginação real de **50 → 100 de 180**, duas colunas em 1120 px, três em desktop, abas em telas menores e forma de onda calculada a partir de WAV sintético com amplitudes diferentes no Chromium, além de play/pause, busca e velocidades. O build completo final do ERP passou em **2m38s**, com fiscal **12/12**, carregamento Node, WASM, XSD e Vite concluídos; continuam avisos do Rollup sobre imports mistos e chunks acima de 500 kB. ESLint direcionado e typecheck isolado do player passaram. O `tsc` global do ERP continua falhando em diagnósticos distribuídos fora da Central; a filtragem da reexecução não encontrou diagnósticos restantes na Central. Não foi usado áudio de cliente, nem houve chamada à Meta, gravação, migration ou publicação. A mídia real ainda não foi baixada porque as fixtures próprias autorizadas não contêm áudio.
+
+## Baseline atual da Production — 24/10/2026 BRT
+
+Metadados da Vercel confirmam que o deployment Production mais recente é `dpl_5jY7ptsGrQe9SAZVQF3zQmMYmt2z`, `READY`, branch `main`, commit `e4fe2bb35c43722e86d116eaa5acc86ac362c64f`, com aliases `morantehub.com` e `morantehub.vercel.app`. No deployment atual, o Playwright autenticado confirmou `verify_app_credentials` e `verify_waba_subscription` (`valid=true`, `subscribed=true`). Uma segunda execução aceitou HMAC válida e recusou assinaturas ausente/inválida no webhook; o corpo válido continha `entry: []`, foi reconhecido e não processou eventos. Cada prova passou 1/1, pela pilha local raiz `npm run dev` em `5173` (`strictPort`) e API `3000`.
+
+As mudanças locais da forma de onda, junto com os chats responsivos que ainda estão no worktree, não estão incluídas no deployment ligado ao commit `e4fe2bb`. Este candidato não foi publicado. As provas não enviaram mensagem, não criaram registro e não alteraram a configuração Meta; o despacho continua bloqueado. A entrega legítima de um webhook pela Meta e a leitura real de mídia ainda dependem de eventos/dados autorizados próprios.
+
+## Credenciais Meta de Development confirmadas — 24/10/2026 BRT
+
+Após a atualização informada pelo operador, os metadados Vercel passaram a incluir `WHATSAPP_ACCESS_TOKEN` nos alvos `production`, `preview` e `development`; os valores não foram descriptografados. Reiniciei a pilha pela raiz com `npm run dev`, confirmei ERP `localhost:5173` e API `localhost:3000/health`, e o Playwright visível autenticado executou `verify_app_credentials` pela rota local protegida. A Meta aceitou as credenciais de Development. O mesmo teste somente leitura passou **1/1 em 32,5s**, com paginação **50 → 100 de 180**; o guard bloqueou gravações de negócio.
+
+O acesso autorizado ao Graph em Development está validado. A pendência de leitura real descrita acima foi resolvida em seguida com a autorização do operador para usar uma conversa existente, sem criar fixtures.
+
+## Leitura de áudio real em Development — 24/10/2026 BRT
+
+O Playwright visível abriu pela Inbox uma conversa existente autorizada pelo operador. A rota protegida `/api/whatsapp-media` retornou HTTP 200; o player recebeu uma URL `blob:` e carregou metadados de áudio com duração aproximada de 7 segundos. A reprodução não foi iniciada e nenhum conteúdo foi transcrito. Como a conversa estava não lida, o guard do teste bloqueou a tentativa automática de zerar o contador; nenhuma alteração foi persistida.
+
+A execução passou **1/1 em 46,4s** pelo runner `npm run test:support:readonly`, com ambiente Vercel Development e pilha raiz ativa (`localhost:5173` com `strictPort`; API `localhost:3000`). Também repetiu a paginação real da Inbox de **50 → 100 de 181**. A prova confirma o download e a leitura de metadados de áudio em Development pela interface; não confirma entrega real de webhook nem acesso ao áudio em Production. Nenhuma migration, fixture, gravação, alteração Meta ou mensagem foi feita. O envio continua bloqueado.

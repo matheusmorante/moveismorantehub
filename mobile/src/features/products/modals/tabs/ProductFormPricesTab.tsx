@@ -382,11 +382,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
           </View>
           <TouchableOpacity
             onPress={() => setShowSupplierForm(true)}
-            disabled={selectedSupplierIds.length >= 3}
-            style={[
-              styles.newSupplierButton,
-              selectedSupplierIds.length >= 3 && styles.disabledButton,
-            ]}
+            style={styles.newSupplierButton}
           >
             <Plus size={13} color="#2563eb" />
             <Text style={styles.newSupplierText}>Novo</Text>

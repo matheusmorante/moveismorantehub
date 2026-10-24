@@ -1,6 +1,7 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Minus, Plus, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -102,6 +103,7 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
   onCancel,
   onConfirm,
 }) => {
+  const insets = useSafeAreaInsets();
   const [sourceUri, setSourceUri] = useState('');
   const [sourceDimensions, setSourceDimensions] = useState({ width: 0, height: 0 });
   const [frame, setFrame] = useState({ width: 0, height: 0 });
@@ -369,7 +371,12 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
-      <View style={styles.overlay}>
+      <View
+        style={[
+          styles.overlay,
+          { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+        ]}
+      >
         <View style={[styles.card, dark && styles.darkCard]}>
           <View style={styles.header}>
             <View style={styles.headerCopy}>

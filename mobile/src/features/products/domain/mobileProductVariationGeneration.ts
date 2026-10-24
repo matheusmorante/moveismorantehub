@@ -14,7 +14,7 @@ type ProductVariation = Record<string, any>;
 export const getInitialMobileVariationStatus = (product: Record<string, any>): 'draft' | 'hidden' =>
   product.isDraft || product.is_draft || product.status === 'draft' ? 'draft' : 'hidden';
 
-/** Gera as mesmas combinações, nomes, atributos e dados iniciais usados pelo ERP. */
+/** Gera as mesmas combinações, nomes, características e dados iniciais usados pelo ERP. */
 export const generateMobileProductVariations = (
   options: MobileBulkVariationOption[],
   product: Record<string, any>,

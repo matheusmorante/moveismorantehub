@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Props {
   visible: boolean;
@@ -35,6 +36,7 @@ export const MobileProductDetailsModal: React.FC<Props> = ({
   product,
   onClose,
 }) => {
+  const insets = useSafeAreaInsets();
   if (!product) return null;
 
   const title = product.name || product.title || product.description?.split('\n')[0] || 'Produto';
@@ -69,7 +71,12 @@ export const MobileProductDetailsModal: React.FC<Props> = ({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={styles.overlay}>
+      <View
+        style={[
+          styles.overlay,
+          { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+        ]}
+      >
         <View style={[styles.sheet, dark && styles.sheetDark]}>
           <View style={[styles.header, dark && styles.borderDark]}>
             <View style={styles.headerCopy}>
@@ -145,7 +152,7 @@ export const MobileProductDetailsModal: React.FC<Props> = ({
                     >
                       {attribute.showName === false
                         ? attribute.value
-                        : `${attribute.name || 'Atributo'}: ${attribute.value || ''}`}
+                        : `${attribute.name || 'Característica'}: ${attribute.value || ''}`}
                     </Text>
                   ))}
                 </View>

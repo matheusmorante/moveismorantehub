@@ -5,6 +5,8 @@ import {
   Text,
   StyleSheet,
   Modal,
+  Platform,
+  StatusBar,
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
@@ -21,6 +23,11 @@ interface Props {
 
 export const InventoryDetailsModal: React.FC<Props> = ({ session, isDarkMode, onClose }) => {
   const insets = useSafeAreaInsets();
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
+  );
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState<any>(null);
 
@@ -114,7 +121,7 @@ export const InventoryDetailsModal: React.FC<Props> = ({ session, isDarkMode, on
         style={[
           styles.container,
           { backgroundColor: bg },
-          { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) },
+          { paddingTop: topInset, paddingBottom: bottomInset },
         ]}
       >
         {/* Header */}
@@ -184,7 +191,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 54,
+    paddingTop: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,
     gap: 12,

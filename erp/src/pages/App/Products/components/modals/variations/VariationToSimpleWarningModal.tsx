@@ -137,7 +137,7 @@ export const VariationToSimpleWarningModal: React.FC<
 								<span className="font-black text-blue-900 dark:text-blue-200">
 									Conversão para Produto Simples:
 								</span>{" "}
-				A variação restante passará a herdar nome, preços, descrição e dimensões do produto pai. UUID/SKU, atributos e saldo da variação restante serão mantidos. O produto deixará de ter variações. Caso queira adicionar
+				A variação restante passará a herdar nome, preços, descrição e dimensões do produto pai. UUID/SKU, características e saldo da variação restante serão mantidos. O produto deixará de ter variações. Caso queira adicionar
 								variações novamente depois, você poderá alterar o tipo de
 								produto de volta para{" "}
 								<strong className="text-blue-900 dark:text-blue-200">

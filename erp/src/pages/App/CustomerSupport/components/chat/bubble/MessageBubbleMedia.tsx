@@ -1,5 +1,6 @@
 import React from 'react';
 import { WhatsAppMessage } from '../../../types';
+import { MessageAudioPlayer } from './MessageAudioPlayer';
 
 interface MessageBubbleMediaProps {
   message: WhatsAppMessage;
@@ -73,10 +74,8 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
   // 3. Mensagem de Voz / Áudio
   if (message.messageType === 'audio') {
     return (
-      <div className="mb-2 p-1 rounded-xl bg-black/5 dark:bg-black/20">
-        {mediaUrl ? (
-          <audio controls src={mediaUrl} className="w-full h-8" />
-        ) : (
+      <div className="mb-2 rounded-xl bg-black/5 p-2 dark:bg-black/20">
+        {mediaUrl ? <MessageAudioPlayer src={mediaUrl} /> : (
           <div className="p-2 text-slate-500 dark:text-slate-400 text-xs flex items-center gap-2">
             <i className="bi bi-mic-fill text-emerald-500 text-base"></i>
             Mensagem de voz

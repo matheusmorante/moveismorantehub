@@ -183,7 +183,7 @@ export const ProductReconciliation: React.FC = () => {
   const handleApplyNcm = (ncm: string) => applyBatch({ operation: 'ncm', productIds: [...selectedIds], ncm });
   const handleApplyAttribute = (name: string, value: string) => applyBatch({ operation: 'attribute', productIds: [...selectedIds], name, value });
 
-  // Compatibilidade de atributos para lote
+  // Compatibilidade de características para lote
   const selectedProductsList = useMemo(() => Array.from(selectedProductDetails.values()), [selectedProductDetails]);
 
   const isAttributeBatchCompatible = useMemo(() => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SlideHoldToStart } from './SlideHoldToStart';
 
@@ -44,7 +44,10 @@ export const DeliveryStepActionFooter: React.FC<DeliveryStepActionFooterProps> =
 }) => {
   const insets = useSafeAreaInsets();
   // Garante padding inferior que respeita a barra de botões do celular / home indicator
-  const bottomInset = Math.max(insets.bottom, 12);
+  const bottomInset = Math.max(
+    insets.bottom,
+    Platform.OS === 'ios' ? 20 : Platform.OS === 'android' ? 24 : 12
+  );
 
   return (
     <View

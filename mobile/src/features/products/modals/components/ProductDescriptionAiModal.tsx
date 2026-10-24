@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { ClipboardList, FileText, Sparkles, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { productAiDescriptiveTextFormSchema } from '../../../../../../shared-utils/productAiFormSchemas';
 import { useZodForm } from '../../../../hooks/useZodForm';
 import { buildProductDescriptionModelSummary } from '../../domain/productDescriptionModelSummary';
@@ -49,6 +50,7 @@ export const ProductDescriptionAiModal: React.FC<Props> = ({
   onGenerateFromCharacteristics,
   onGenerateFromInformativeText,
 }) => {
+  const insets = useSafeAreaInsets();
   const [activeMode, setActiveMode] = useState<GenerationMode>('characteristics');
   const hasCharacteristicsPrerequisites = missingPrerequisites.length === 0;
   const form = useZodForm(productAiDescriptiveTextFormSchema, {
@@ -86,7 +88,13 @@ export const ProductDescriptionAiModal: React.FC<Props> = ({
       onRequestClose={isGenerating ? undefined : onClose}
       statusBarTranslucent
     >
-      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={[
+          styles.backdrop,
+          { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+        ]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={[styles.sheet, dark && styles.sheetDark]}>
           <View style={[styles.header, dark && styles.headerDark]}>
             <View style={styles.titleGroup}>

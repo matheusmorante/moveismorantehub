@@ -65,7 +65,7 @@ export const useProductAiCharacteristicsModal = ({
     prevIsOpenRef.current = isOpen;
   }, [isOpen, initialMode, refreshQuota]);
 
-  // Carregar atributos se não vierem nas props
+  // Carregar características se não vierem nas props
   useEffect(() => {
     if (isOpen && (!availableAttributesProp || availableAttributesProp.length === 0)) {
       void fetchTechnicalFieldDefinitions('product-form')

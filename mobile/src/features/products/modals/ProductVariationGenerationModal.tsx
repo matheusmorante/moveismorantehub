@@ -113,8 +113,8 @@ export const ProductVariationGenerationModal: React.FC<Props> = ({
       },
       (errors) =>
         Alert.alert(
-          'Revise os atributos',
-          Object.values(flattenFormErrors(errors))[0] || 'Selecione ao menos um valor por atributo.'
+          'Revise as características',
+          Object.values(flattenFormErrors(errors))[0] || 'Selecione ao menos um valor por característica.'
         )
     );
   };
@@ -132,7 +132,7 @@ export const ProductVariationGenerationModal: React.FC<Props> = ({
           <View style={styles.flex1}>
             <Text style={[styles.title, dark && styles.lightText]}>Gerar variações</Text>
             <Text style={[styles.subtitle, dark && styles.dimText]}>
-              Selecione atributos e valores para criar todas as combinações.
+              Selecione características e valores para criar todas as combinações.
             </Text>
           </View>
           <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Fechar">
@@ -144,7 +144,7 @@ export const ProductVariationGenerationModal: React.FC<Props> = ({
           <View style={[styles.hint, dark && styles.darkHint]}>
             <Sparkles size={18} color={dark ? '#93c5fd' : '#2563eb'} />
             <Text style={[styles.hintText, dark && styles.lightText]}>
-              As combinações recebem SKU, nome e atributos automaticamente, como no ERP.
+              As combinações recebem SKU, nome e características automaticamente, como no ERP.
             </Text>
           </View>
 
@@ -153,7 +153,7 @@ export const ProductVariationGenerationModal: React.FC<Props> = ({
           ) : loadError ? (
             <View style={[styles.empty, dark && styles.darkCard]}>
               <Text style={[styles.emptyText, dark && styles.dimText]}>
-                Não foi possível carregar os atributos. Feche e tente novamente.
+                Não foi possível carregar as características. Feche e tente novamente.
               </Text>
             </View>
           ) : attributes.length === 0 ? (
@@ -194,7 +194,7 @@ export const ProductVariationGenerationModal: React.FC<Props> = ({
                           onPress={() => toggleShowName(attribute.name)}
                           style={styles.nameToggle}
                           accessibilityRole="button"
-                          accessibilityLabel={selection.showName ? 'Ocultar nome do atributo' : 'Mostrar nome do atributo'}
+                          accessibilityLabel={selection.showName ? 'Ocultar nome da característica' : 'Mostrar nome da característica'}
                         >
                           {selection.showName ? <Eye size={14} color="#2563eb" /> : <EyeOff size={14} color="#64748b" />}
                           <Text style={[styles.nameToggleText, !selection.showName && styles.hiddenNameText]}>
@@ -232,7 +232,7 @@ export const ProductVariationGenerationModal: React.FC<Props> = ({
           <Text style={[styles.count, dark && styles.dimText]}>
             {combinationCount > 0
               ? `${combinationCount} ${combinationCount === 1 ? 'variação será adicionada' : 'variações serão adicionadas'}`
-              : 'Escolha ao menos um valor por atributo'}
+              : 'Escolha ao menos um valor por característica'}
           </Text>
           <View style={styles.footerActions}>
             <TouchableOpacity onPress={onClose} style={[styles.cancelButton, dark && styles.darkCancel]}>

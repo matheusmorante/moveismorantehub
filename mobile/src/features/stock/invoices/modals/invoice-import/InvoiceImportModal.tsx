@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { ExternalLink, X, UploadCloud } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import type { Invoice } from '../../../types/stock.types';
@@ -48,6 +49,9 @@ export const InvoiceImportModal: React.FC<Props> = ({
   onConsultSefaz,
   onUploadXml,
 }) => {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'android' ? 24 : 0);
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 0);
   const [accessKey, setAccessKey] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -131,7 +135,7 @@ export const InvoiceImportModal: React.FC<Props> = ({
           if (!isLoading) onClose();
         }}
       >
-        <View style={styles.modalBackdrop}>
+        <View style={[styles.modalBackdrop, { paddingTop: topInset, paddingBottom: bottomInset }]}>
           <KeyboardAvoidingView
             style={styles.modalCentering}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}

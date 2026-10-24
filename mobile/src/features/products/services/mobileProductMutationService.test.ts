@@ -17,6 +17,16 @@ vi.mock('./mobileProductMetaCatalogSyncService', () => ({
   triggerMobileProductMetaCatalogSync: mocks.triggerMetaCatalogSync,
 }));
 
+vi.mock('../../../../../shared-utils/productCategoryRequiredAttributes', async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import('../../../../../shared-utils/productCategoryRequiredAttributes')
+  >();
+  return {
+    ...actual,
+    fetchRequiredProductCategoryAttributes: vi.fn().mockResolvedValue([]),
+  };
+});
+
 import {
   checkMobileProductVariationHasMoves,
   saveMobileProduct,

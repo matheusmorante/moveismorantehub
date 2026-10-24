@@ -60,7 +60,7 @@ const MoveVariationFamilySession: React.FC<MoveVariationFamilyModalProps & { ope
   const hasValidAttributes = validAttributes.length > 0;
 
   const confirmButtonLabel = () => {
-    if (!hasValidAttributes) return 'Atributo obrigatório';
+    if (!hasValidAttributes) return 'Característica obrigatória';
     if (saving) return 'Movendo…';
     if (loading || conflictLoading) return 'Conferindo dados…';
     if (hasConflict) return 'Resolva o conflito';
@@ -101,7 +101,7 @@ const MoveVariationFamilySession: React.FC<MoveVariationFamilyModalProps & { ope
           {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
           {queryError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{queryError} <button type="button" onClick={retryQueries} disabled={saving || blocked}>Consultar novamente</button></p>}
           {conflictError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{conflictError} <button type="button" onClick={retryConflict} disabled={saving || blocked}>Validar destino novamente</button></p>}
-          {(loading || conflictLoading || saving) && <p role="status" className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800"><i aria-hidden="true" className="bi bi-arrow-repeat animate-spin mr-2" />{saving ? 'Movendo a variação e confirmando dados e fotos...' : 'Conferindo origem, destino e atributos...'}</p>}
+          {(loading || conflictLoading || saving) && <p role="status" className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800"><i aria-hidden="true" className="bi bi-arrow-repeat animate-spin mr-2" />{saving ? 'Movendo a variação e confirmando dados e fotos...' : 'Conferindo origem, destino e características...'}</p>}
           <fieldset disabled={loading || saving || blocked} className="contents">
           {isOnlyVariation ? (
             <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
@@ -120,7 +120,7 @@ const MoveVariationFamilySession: React.FC<MoveVariationFamilyModalProps & { ope
           ) : (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
               <i className="bi bi-info-circle-fill mr-2 text-amber-600" />O nome da variação pode
-              mudar: ele será formado pelo nome do novo produto pai mais os valores dos atributos da
+              mudar: ele será formado pelo nome do novo produto pai mais os valores das características da
               variação.
             </div>
           )}

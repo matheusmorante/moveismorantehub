@@ -113,7 +113,7 @@ export function useCategoriesAndEnvironments() {
 
       const isEnv = showModal === 'ambiente';
       if (!isEnv && (isLoadingAttributes || attributeLoadFailed)) {
-        toast.error('Aguarde o carregamento dos atributos obrigatórios antes de salvar.');
+        toast.error('Aguarde o carregamento das características obrigatórias antes de salvar.');
         return;
       }
 
@@ -230,9 +230,9 @@ export function useCategoriesAndEnvironments() {
       setSelectedAttributes(attrs);
       setInitialAttributeIds(attrs.map((attr) => attr.id));
     } catch (err) {
-      console.error('Erro ao buscar atributos:', err);
+      console.error('Erro ao buscar características:', err);
       setAttributeLoadFailed(true);
-      toast.error('Não foi possível carregar os atributos obrigatórios desta categoria.');
+      toast.error('Não foi possível carregar as características obrigatórias desta categoria.');
     } finally {
       setIsLoadingAttributes(false);
     }

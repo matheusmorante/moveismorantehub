@@ -35,7 +35,7 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
   const trimmedValue = (value || '').trim();
   const form = useZodForm(bulkAttributeFormSchema, { name: attributeId || '', value: trimmedValue });
 
-  // Verifica se o valor coincide com algum valor cadastrado para este atributo
+  // Verifica se o valor coincide com algum valor cadastrado para esta característica
   const isRegisteredValue = Boolean(
     trimmedValue &&
       registeredValues.some(
@@ -43,7 +43,7 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
       )
   );
 
-  // Valor digitado mas ainda não existente no catálogo deste atributo
+  // Valor digitado mas ainda não existente no catálogo desta característica
   const isUnregisteredValue = Boolean(trimmedValue && attributeId && !isRegisteredValue);
 
   // Fechar sugestões ao clicar fora

@@ -15,6 +15,7 @@ import {
   isSinkMaterialCharacteristic,
   isConcretadaCharacteristic,
   isHasInoxBowlCharacteristic,
+  isCharacteristicDependent,
 } from './predicates';
 import type { TechnicalFieldDefinition, TechnicalValuesMap } from './types';
 
@@ -61,7 +62,7 @@ export const resolveActiveDepthOrLengthField = (
  * 2. Qualquer campo que já tenha valor cadastrado/ativo no produto (mesmo vazio intencional ou manual)
  *    é preservado e incluído, garantindo que dados nunca se percam ao mudar categorias.
  * 3. Campos adicionados manualmente pelo usuário no produto atual são incluídos.
- * 4. Por padrão, NENHUM campo que não pertença às categorias do produto entra automaticamente.
+ * 4. Campos dependentes também aparecem desativados até que o campo mestre tenha um valor válido.
  */
 export const getApplicableTechnicalFields = (
   allFields: readonly TechnicalFieldDefinition[] = [],
@@ -147,6 +148,10 @@ export const getApplicableTechnicalFields = (
 
     // Se foi adicionado manualmente nesta sessão do formulário, inclui
     if (manualSet.has(field.name)) {
+      return true;
+    }
+
+    if (isCharacteristicDependent(field.name)) {
       return true;
     }
 

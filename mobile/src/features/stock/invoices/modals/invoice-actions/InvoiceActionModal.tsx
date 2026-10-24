@@ -8,6 +8,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Download, Link2 } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Invoice } from '../../../types/stock.types';
 
 interface Props {
@@ -27,13 +28,14 @@ export const InvoiceActionModal: React.FC<Props> = ({
   onDownloadXML,
   onManageMappings,
 }) => {
+  const insets = useSafeAreaInsets();
   if (!activeInvoice) return null;
   const isSummaryOnly = activeInvoice.itemsCount === 0;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { paddingBottom: Math.max(insets.bottom, 24) }]}>
           <TouchableWithoutFeedback>
             <View style={[styles.bottomSheet, isDarkMode && styles.bottomSheetDark]}>
               <View style={styles.bsHandle} />

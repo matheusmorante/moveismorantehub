@@ -62,11 +62,11 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   // Hooks de Dados e Localização
   const { routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } =
     useDeliveryRoute();
-  const { coords: driverCoords, refreshLocation } = useDriverLocation();
+  const { coords: driverCoords, gpsEnabled, refreshLocation } = useDriverLocation();
   const { teamMembers } = useTeamLocations({
     userProfile,
     myCoords: driverCoords,
-    isGpsActive: Boolean(driverCoords),
+    isGpsActive: gpsEnabled && Boolean(driverCoords),
   });
 
   // Coordenadas padrão do depósito Morante (Curitiba/Colombo - PR - R. Cascavel, 306, lado esquerdo)

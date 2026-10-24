@@ -35,11 +35,11 @@ export const storefrontProductFormSchema = storefrontProductDraftFormSchema.supe
   if (values.variationsEnabled && values.variations.some((item) => !item.image_url)) ctx.addIssue({ code: 'custom', path: ['variations'], message: 'Vincule uma foto para cada variação antes de prosseguir.' });
 });
 export const storefrontAttributeFormSchema = z.object({
-  name: z.string().trim().min(1, 'Preencha o nome do atributo!'),
+  name: z.string().trim().min(1, 'Preencha o nome da característica!'),
   values: z.array(z.string().trim().min(1)).min(1, 'Adicione pelo menos um valor!'),
 });
 export const storefrontAttributeValueFormSchema = z.object({
-  attributeId: z.string().min(1, 'Selecione o atributo.'), value: z.string().trim().min(1, 'Informe o valor.'),
+  attributeId: z.string().min(1, 'Selecione a característica.'), value: z.string().trim().min(1, 'Informe o valor.'),
 });
 export const storefrontImageUploadFormSchema = imageFilesFormSchema;
 export const storefrontImageUrlFormSchema = z.object({

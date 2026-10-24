@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { WhatsAppConversation, ConversationFilter } from '../types';
+import { CUSTOMER_SUPPORT_MAX_OPEN_CHATS } from '../customerSupportMultiChatLayout';
 import { ConversationItem } from './ConversationItem';
 import {
   ConversationScopeMenu,
@@ -32,6 +33,10 @@ export interface ConversationSidebarProps {
   onLoadMore?: () => Promise<void>;
   canViewCommercialInfo?: boolean;
   error?: string;
+  isMultiChatMode?: boolean;
+  openChatCount?: number;
+  onOpenMultiChat?: () => void;
+  onExitMultiChat?: () => void;
 }
 
 export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
@@ -53,6 +58,10 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   onLoadMore,
   canViewCommercialInfo = false,
   error = '',
+  isMultiChatMode = false,
+  openChatCount = 0,
+  onOpenMultiChat,
+  onExitMultiChat,
 }) => {
   const [isScopeMenuOpen, setIsScopeMenuOpen] = useState(false);
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
@@ -132,6 +141,34 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
           >
             <i className={`bi bi-arrow-clockwise text-xs ${isLoading ? 'animate-spin text-emerald-500' : ''}`}></i>
           </button>
+
+          {isMultiChatMode ? (
+            <>
+              <span aria-live="polite" className="min-w-[25px] text-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                {openChatCount}/{CUSTOMER_SUPPORT_MAX_OPEN_CHATS}
+              </span>
+              <button
+                type="button"
+                onClick={onExitMultiChat}
+                title="Voltar para um chat"
+                aria-label="Sair da visualização lado a lado"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors cursor-pointer"
+              >
+                <i className="bi bi-layout-sidebar-inset text-xs"></i>
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={onOpenMultiChat}
+              disabled={!selectedConversation}
+              title={selectedConversation ? 'Abrir até 3 chats lado a lado' : 'Abra um chat primeiro'}
+              aria-label="Abrir chats lado a lado"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/40 dark:hover:text-blue-300 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <i className="bi bi-columns-gap text-xs"></i>
+            </button>
+          )}
         </div>
       </div>
 

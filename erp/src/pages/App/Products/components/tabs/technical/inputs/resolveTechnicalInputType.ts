@@ -9,7 +9,7 @@ export function resolveTechnicalInputType(field: TechnicalFieldDefinition): stri
   if (/^(marca|modelo|modelo\s*\/\s*linha|linha\s*\/\s*modelo|linha)$/i.test(field.name.trim())) {
     type = 'text_short';
   } else if (
-    /quantidade de (portas?|gavetas?|p[eé]s?)/i.test(field.name) ||
+    /quantidade\s+de\s+\S+/i.test(field.name) ||
     /lugar(es)?/i.test(field.name)
   ) {
     type = 'integer';

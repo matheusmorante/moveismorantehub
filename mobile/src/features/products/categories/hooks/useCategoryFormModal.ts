@@ -52,7 +52,7 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
         ctx.addIssue({
           code: 'custom',
           path: ['attributes'],
-          message: 'Aguarde o carregamento dos atributos ou feche e reabra a categoria para tentar novamente.',
+          message: 'Aguarde o carregamento das características ou feche e reabra a categoria para tentar novamente.',
         });
       }
       const validation = validateNodeName(
@@ -128,7 +128,7 @@ export function useCategoryFormModal({ environments, categories, onSuccess }: Pr
       const attrs = await fetchMobileCategoryAttributes(cat.id);
       setSelectedAttributes(attrs);
     } catch (err) {
-      console.warn('Erro ao carregar atributos da categoria:', err);
+      console.warn('Erro ao carregar características da categoria:', err);
       setAttributeLoadFailed(true);
       Alert.alert(
         'Não foi possível carregar',

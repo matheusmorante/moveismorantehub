@@ -1,5 +1,5 @@
 import type { ChangeEventHandler, Dispatch, RefObject, SetStateAction } from 'react';
-import type Product from '../../../../types/product.type';
+import type Product, { Variation } from '../../../../types/product.type';
 import type { CategoryType } from '../hooks/useLabelCategory';
 import type { PriceLabelTemplateUpdate } from '../services/priceLabelTemplateSync';
 import type { CustomLabel, LabelConfig } from '../utils/LabelConstants';
@@ -28,6 +28,7 @@ export interface QueueSectionProps {
   productAddQty: number;
   setProductAddQty: (quantity: number) => void;
   handleProductSelect: (product: Product, quantity: number, skipModal?: boolean) => Promise<boolean>;
+  handleReplaceProduct: (index: number, product: Product, variation?: Variation) => Promise<boolean>;
   labelItems: LabelItemConfig[];
   setLabelItems: Dispatch<SetStateAction<LabelItemConfig[]>>;
   logoItems: LogoItemConfig[];

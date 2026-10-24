@@ -4,6 +4,7 @@ import { getProductKind } from '../productKindRules';
 import { getLocalProducts, notifySubscribers, saveLocalProducts } from './productLocalCache';
 import type { ProductMutationOptions } from './productMutationService';
 import { updateProduct } from './productMutationService';
+import { triggerProductMetaCatalogSync } from './productMetaCatalogSync';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export const checkProductLinkedToSales = async (id: string | number): Promise<string | null> => {
@@ -215,6 +216,7 @@ export const moveProductToTrash = async (
   }
 
   if (!options.deferQueryInvalidation) invalidateProductQueries();
+  triggerProductMetaCatalogSync(realId);
   return result;
 };
 
@@ -297,6 +299,7 @@ export const restoreProductFromTrash = async (
   }
 
   if (!options.deferQueryInvalidation) invalidateProductQueries();
+  triggerProductMetaCatalogSync(realId);
   return result;
 };
 

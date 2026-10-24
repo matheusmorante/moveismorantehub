@@ -5,7 +5,15 @@ let appSettingsPromise: PromiseLike<any | null> | null = null;
 let cacheGeneration = 0;
 
 /** Carrega somente o payload de configurações e reutiliza-o durante a sessão. */
-export const getAppSettings = async (): Promise<any | null> => {
+export const getAppSettings = async (
+  options: { forceRefresh?: boolean } = {}
+): Promise<any | null> => {
+  if (options.forceRefresh) {
+    cacheGeneration += 1;
+    cachedAppSettings = null;
+    appSettingsPromise = null;
+  }
+
   if (cachedAppSettings) return cachedAppSettings;
   if (appSettingsPromise) return appSettingsPromise;
 

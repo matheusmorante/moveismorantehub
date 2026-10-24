@@ -109,28 +109,28 @@ describe('mudança de família com modal, filhos, RHF e serviços reais', () => 
     await open(); await choose(); await advance(6000); expect(transport.rpc).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Conferindo dados…' }).hasAttribute('disabled')).toBe(true);
     request.resolve({ data: [], error: null }); await advance(); expect(screen.getByText('Confirmar em 5s')).toBeTruthy();
-    await advance(5000); fireEvent.change(screen.getByLabelText('Valor do atributo 1'), { target: { value: 'Azul ' } });
+    await advance(5000); fireEvent.change(screen.getByLabelText('Valor da característica 1'), { target: { value: 'Azul ' } });
     expect(screen.getByRole('button', { name: 'Conferindo dados…' }).hasAttribute('disabled')).toBe(true); expect(transport.rpc).not.toHaveBeenCalled();
     await advance(150); expect(screen.getByText('Confirmar em 5s')).toBeTruthy();
   });
-  it('permite completar atributos ausentes e não descarta linhas incompletas', async () => {
-    await open({ ...source, attributes: [] }); await choose(); fireEvent.click(screen.getByText('Adicionar atributo'));
-    fireEvent.change(screen.getByLabelText('Nome do atributo 1'), { target: { value: 'Cor' } }); await advance(6000);
-    expect(screen.getByRole('alert').textContent).toContain('valor do atributo'); expect(transport.rpc).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText('Valor do atributo 1'), { target: { value: 'Azul' } }); await advance(150); await advance(5000);
+  it('permite completar características ausentes e não descarta linhas incompletas', async () => {
+    await open({ ...source, attributes: [] }); await choose(); fireEvent.click(screen.getByText('Adicionar característica'));
+    fireEvent.change(screen.getByLabelText('Nome da característica 1'), { target: { value: 'Cor' } }); await advance(6000);
+    expect(screen.getByRole('alert').textContent).toContain('valor da característica'); expect(transport.rpc).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Valor da característica 1'), { target: { value: 'Azul' } }); await advance(150); await advance(5000);
     finalRow.attributes = [{ name: 'Cor', value: 'Azul' }]; confirm(); await advance(); expect(transport.rpc).toHaveBeenCalledOnce();
   });
-  it('só permite acrescentar um atributo quando a variação ainda não possui nenhum', async () => {
+  it('só permite acrescentar uma característica quando a variação ainda não possui nenhuma', async () => {
     expect(canAddVariationFamilyAttribute([])).toBe(true);
     expect(canAddVariationFamilyAttribute([{ name: 'Cor', value: 'Azul' }])).toBe(false);
 
     await open();
-    expect(screen.queryByRole('button', { name: 'Adicionar atributo' })).toBeNull();
-    expect(screen.getByLabelText('Nome do atributo 1')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Adicionar característica' })).toBeNull();
+    expect(screen.getByLabelText('Nome da característica 1')).toBeTruthy();
 
     cleanup();
     await open({ ...source, attributes: [] });
-    expect(screen.getByRole('button', { name: 'Adicionar atributo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Adicionar característica' })).toBeTruthy();
   });
   it('bloqueia cliques duplicados, cabeçalho, Cancelar e Escape enquanto aguarda a RPC', async () => {
     const s = await ready(), request = deferred<Response>(); transport.rpc.mockReturnValue(request.promise);
@@ -151,7 +151,7 @@ describe('mudança de família com modal, filhos, RHF e serviços reais', () => 
     await open(); expect(screen.getByRole('alert').textContent).toContain('produto de origem');
     expect(screen.queryByText('Esta é a única variação deste produto.')).toBeNull();
     transport.read.mockImplementation(read); fireEvent.click(screen.getByText('Consultar novamente')); await advance();
-    expect(screen.queryByRole('alert')).toBeNull(); expect((screen.getByLabelText('Nome do atributo 1') as HTMLInputElement).value).toBe(' Cor ');
+    expect(screen.queryByRole('alert')).toBeNull(); expect((screen.getByLabelText('Nome da característica 1') as HTMLInputElement).value).toBe(' Cor ');
   });
   it('mudança confirmada com fotos pendentes mostra resultado parcial e impede novo envio', async () => {
     const s = await ready(); destinationPhotos = []; transport.write.mockResolvedValue({ data: null, error: { code: '42501' }, status: 403 });

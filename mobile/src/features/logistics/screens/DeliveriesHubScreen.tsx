@@ -201,7 +201,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         : routeItems,
     [routeItems, scheduleDateScope, selectedMapDate]
   );
-  const { coords: driverCoords } = useDriverLocation();
+  const { coords: driverCoords, gpsEnabled } = useDriverLocation();
   const isDelivering = Boolean(currentDelivery);
   const activeOrder = currentDelivery
     ? { id: currentDelivery.id, code: currentDelivery.orderIndex }
@@ -210,7 +210,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   const { teamMembers } = useTeamLocations({
     userProfile,
     myCoords: driverCoords,
-    isGpsActive: Boolean(driverCoords),
+    isGpsActive: gpsEnabled && Boolean(driverCoords),
     isDelivering,
     activeOrder,
   });

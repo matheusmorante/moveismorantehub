@@ -7,6 +7,8 @@ import {
   Modal,
   FlatList,
   Dimensions,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -39,6 +41,11 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(initialItemIndex);
   const insets = useSafeAreaInsets();
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
+  );
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
@@ -76,7 +83,7 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
       <View
         style={[
           styles.container,
-          { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom },
+          { backgroundColor: bg, paddingTop: topInset, paddingBottom: bottomInset },
         ]}
       >
         {/* Header */}
@@ -149,7 +156,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 16,
     paddingBottom: 20,
     borderBottomWidth: 1,
   },

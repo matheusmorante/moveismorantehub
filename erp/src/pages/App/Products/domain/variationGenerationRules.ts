@@ -14,7 +14,7 @@ export interface BulkVariationOption {
 export type CombinationMap = Record<string, { value: string; showName: boolean }>;
 
 /**
- * Gera o produto cartesiano a partir dos atributos e valores fornecidos.
+ * Gera o produto cartesiano a partir das características e valores fornecidos.
  */
 export function generateCartesianCombinations(
   options: BulkVariationOption[]
@@ -66,7 +66,7 @@ export function deduplicateVariationSkus(
 }
 
 /**
- * Cria a estrutura de dados das novas variações a partir do produto cartesiano de atributos.
+ * Cria a estrutura de dados das novas variações a partir do produto cartesiano de características.
  */
 export function buildBulkVariations(
   options: BulkVariationOption[],

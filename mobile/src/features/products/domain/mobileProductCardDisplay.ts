@@ -34,7 +34,7 @@ export const getTechnicalColor = (technicalValues: any): string | undefined => {
 };
 
 /**
- * Obtém os valores de atributos de uma variação formatados para exibição.
+ * Obtém os valores de características de uma variação formatados para exibição.
  */
 export const getVariationAttributeValues = (product: any, variation: any): string[] => {
   let attributes = variation?.attributes;

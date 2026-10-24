@@ -166,7 +166,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                 Características da Categoria
               </label>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Selecione quais características devem aparecer nos produtos desta categoria.
+                Selecione as características dos produtos desta categoria. A obrigatoriedade marcada aqui vale apenas para publicar no Catálogo Digital.
               </p>
               {isLoadingAttributes && (
                 <p className="flex items-center gap-2 text-xs text-slate-500" role="status">
@@ -207,15 +207,15 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                         type="button"
                         role="switch"
                         aria-checked={isAttributeRequired(attr)}
-                        aria-label={`Característica ${attr.name} obrigatória`}
+                        aria-label={`Característica ${attr.name} ${isAttributeRequired(attr) ? 'obrigatória' : 'opcional'} para o Catálogo Digital`}
                         title={
                           isCategoryAttributeAlwaysOptional(attr.name)
-                            ? 'Peso é sempre opcional'
+                            ? 'Peso é sempre opcional para o Catálogo Digital'
                             : isCategoryAttributeAlwaysRequired(attr.name)
-                              ? `${attr.name} é obrigatória em todas as categorias`
+                              ? `${attr.name} é obrigatória para o Catálogo Digital em todas as categorias`
                               : attr.isRequired
-                                ? 'Obrigatória — clique para tornar opcional'
-                                : 'Opcional — clique para tornar obrigatória'
+                                ? 'Obrigatória para o Catálogo Digital — clique para tornar opcional'
+                                : 'Opcional para o Catálogo Digital — clique para tornar obrigatória'
                         }
                         onClick={() =>
                           setSelectedAttributes((prev) =>
@@ -240,7 +240,9 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                         />
                       </button>
                       <span className="text-[9px] font-semibold">
-                        {isAttributeRequired(attr) ? 'Obrigatória' : 'Opcional'}
+                        {isAttributeRequired(attr)
+                          ? 'Obrigatória para o Catálogo Digital'
+                          : 'Opcional para o Catálogo Digital'}
                       </span>
                       <button
                         type="button"

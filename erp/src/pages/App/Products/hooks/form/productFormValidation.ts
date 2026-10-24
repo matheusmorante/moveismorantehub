@@ -125,7 +125,7 @@ export function mapSingleVariationIssueToParent(
 /**
  * Validação do formulário de submissão do produto.
  * Utiliza o Zod schema como autoridade de campos básicos e executa a verificação
- * de regras contextuais de variações (dimensões, atributos duplicados, legibilidade).
+ * de regras contextuais de variações (dimensões, características duplicadas, legibilidade).
  */
 export const validateProductFormSubmission = (
   formData: Partial<Product>,
