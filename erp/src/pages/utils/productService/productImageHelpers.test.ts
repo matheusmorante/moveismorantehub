@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type Product from '../../types/product.type';
-import { getMaxParentProductImages, validateProductImageLimits } from './productImageHelpers';
+import { getMaxParentProductImages, parseVariationImages, validateProductImageLimits } from './productImageHelpers';
 
 const productWithImages = (
   parentImageCount: number,
@@ -42,6 +42,13 @@ describe('productImageHelpers', () => {
     expect(() => validateProductImageLimits(productWithImages(15, [16]))).toThrow(
       'Cada variação pode vincular no máximo 15 fotos.'
     );
+  });
+
+  it('reexports the shared legacy image parser used by product variations', () => {
+    expect(parseVariationImages('https://example.com/a.jpg', ['https://example.com/b.jpg'])).toEqual([
+      'https://example.com/b.jpg',
+      'https://example.com/a.jpg',
+    ]);
   });
 
   it('preserves legacy parent images above 75 while preventing additional images', () => {

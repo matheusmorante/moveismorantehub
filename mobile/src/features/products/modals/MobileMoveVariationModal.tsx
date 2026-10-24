@@ -2,11 +2,21 @@ import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
-import { variationFamilyFormSchema } from '../../../../../shared-utils/catalogFormSchemas';
+import {
+  variationFamilyCommandSchema,
+  variationFamilyAckSchema,
+  variationFamilyConflictSchema,
+  variationFamilyQuerySchema,
+  variationFamilyUuidSchema,
+  VariationFamilyUnconfirmedError,
+  type VariationFamilyOperationGuard,
+} from '../../../../../shared-utils/variationFamilyFormSchemas';
+import { parseVariationImages } from '../../../../../shared-utils/productVariationImages';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
-const moveVariationFormSchema = variationFamilyFormSchema.extend({
-  sourceParentId: z.string().min(1), ready: z.boolean().refine(Boolean, 'Aguarde a validação da combinação antes de mover a variação.'),
-}).refine((values) => values.familyId !== values.sourceParentId && values.attributes.length > 0, { path: ['familyId'], message: 'Selecione outra família e ao menos um atributo.' });
+const moveVariationFormSchema = variationFamilyCommandSchema.safeExtend({
+  ready: z.boolean().refine(Boolean, 'Aguarde a validação da combinação antes de mover a variação.'),
+});
 import {
   ActivityIndicator,
   Alert,
@@ -29,6 +39,7 @@ import {
   type MobileVariationFamily,
   moveMobileVariationToFamily,
   toMobileVariationAttributes,
+  verifyMobileVariationParent,
 } from '../services/mobileProductVariationActionsService';
 
 interface Props {
@@ -49,17 +60,6 @@ const normalize = (value: string) =>
 const familyName = (family: MobileVariationFamily) => family.name || family.description || '';
 type AttributeRow = MobileVariationAttribute & { rowId: string };
 
-const getImageUrls = (value: unknown): string[] => {
-  if (Array.isArray(value))
-    return value.filter((url): url is string => typeof url === 'string' && Boolean(url));
-  if (typeof value === 'string')
-    return value
-      .split(',')
-      .map((url) => url.trim())
-      .filter(Boolean);
-  return [];
-};
-
 export const MobileMoveVariationModal: React.FC<Props> = ({
   visible,
   dark,
@@ -72,23 +72,68 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
   const sourceParentId = String(parentProduct?.id || variation?.parentId || '');
   const [families, setFamilies] = useState<MobileVariationFamily[]>([]);
   const [familiesLoading, setFamiliesLoading] = useState(false);
+  const [queryReady, setQueryReady] = useState(false);
   const [familyQuery, setFamilyQuery] = useState('');
   const [targetFamilyId, setTargetFamilyId] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [attributes, setAttributes] = useState<AttributeRow[]>([]);
+  const [queryError, setQueryError] = useState('');
+  const [queryRevision, setQueryRevision] = useState(0);
   const [conflictState, setConflictState] = useState<
     'idle' | 'checking' | 'clear' | 'conflict' | 'error'
   >('idle');
+  const [conflictError, setConflictError] = useState('');
+  const [conflictRevision, setConflictRevision] = useState(0);
   const [countdown, setCountdown] = useState(5);
   const [isOnlyVariation, setIsOnlyVariation] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [operationError, setOperationError] = useState('');
   const attributeRowId = useRef(0);
+  const operationGuards = useRef(new Map<string, VariationFamilyOperationGuard>());
+  const sourceGuardKey = variationId.trim().toLowerCase();
+  if (!operationGuards.current.has(sourceGuardKey)) {
+    operationGuards.current.set(sourceGuardKey, { active: null, error: '' });
+  }
+  const operationGuard = operationGuards.current.get(sourceGuardKey)!;
+  const mutationBlocked = Boolean(operationError || operationGuard.error);
+  const operationToken = useRef(Symbol('move-family'));
+  const active = useRef(false);
+  const lock = useRef(false);
+  const completed = useRef(false);
 
   const validAttributes = useMemo(
     () => attributes.filter((attribute) => attribute.name.trim() && attribute.value.trim()),
     [attributes]
   );
-  const formValues = { sourceId: variationId, familyId: targetFamilyId, sourceParentId, attributes: validAttributes.map((attribute) => ({ ...attribute })), ready: conflictState === 'clear' && countdown === 0 && !familiesLoading };
+  const formAttributes = useMemo(
+    () => validAttributes.map(({ name, value, showName }) => ({ name, value, showName })),
+    [validAttributes]
+  );
+  const targetFamily = families.find((family) => family.id === targetFamilyId);
+  const images = useMemo(() => {
+    const variationImages = parseVariationImages(variation?.image_url, variation?.images);
+    return variationImages.length > 0 ? variationImages : parseVariationImages(undefined, parentProduct?.images);
+  }, [variation?.images, variation?.image_url, parentProduct?.images]);
+  const variationName = targetFamily
+    ? [familyName(targetFamily), ...validAttributes.map((attribute) => attribute.value)]
+        .filter(Boolean)
+        .join(' ')
+    : '';
+  const formValues = {
+    sourceId: variationId,
+    familyId: targetFamilyId,
+    sourceParentId,
+    attributes: formAttributes,
+    name: variationName,
+    images,
+    ready: conflictState === 'clear' && countdown === 0 && queryReady && !familiesLoading && !queryError,
+  };
+  const familyQueryForm = useZodForm(variationFamilyQuerySchema, { sourceId: variationId });
+  const conflictQueryForm = useZodForm(variationFamilyConflictSchema, {
+    sourceId: variationId,
+    familyId: targetFamilyId,
+    attributes: formAttributes,
+  });
   const form = useZodForm(moveVariationFormSchema, formValues);
   const suggestions = useMemo(() => {
     const term = normalize(familyQuery.trim());
@@ -99,10 +144,28 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
   }, [families, familyQuery, targetFamilyId]);
 
   useEffect(() => {
+    const currentToken = Symbol('move-family');
+    operationToken.current = currentToken;
+    active.current = Boolean(visible && variation);
+    lock.current = false;
+    completed.current = false;
+    setOperationError(operationGuard.error);
+    if (operationGuard.active && operationGuard.active !== currentToken) {
+      operationGuard.error ||= new VariationFamilyUnconfirmedError().message;
+      setOperationError(operationGuard.error);
+    }
+    return () => {
+      active.current = false;
+      if (!completed.current && operationGuard.active === currentToken) {
+        operationGuard.error ||= new VariationFamilyUnconfirmedError().message;
+      }
+    };
+  }, [visible, variationId, sourceParentId, operationGuard]);
+
+  useEffect(() => {
     if (!visible || !variation) return;
-    let active = true;
-    setFamiliesLoading(true);
     setFamilies([]);
+    setQueryReady(false);
     setTargetFamilyId('');
     setFamilyQuery('');
     setShowSuggestions(false);
@@ -112,58 +175,132 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
         rowId: `attribute-${attributeRowId.current++}`,
       }))
     );
+    setQueryError('');
     setConflictState('idle');
+    setConflictError('');
+    setConflictRevision(0);
     setCountdown(5);
     setIsOnlyVariation(false);
-
-    Promise.allSettled([
-      fetchMobileVariationFamilies(sourceParentId),
-      sourceParentId ? countMobileParentVariations(sourceParentId) : Promise.resolve(0),
-    ])
-      .then(([familiesResult, countResult]) => {
-        if (!active) return;
-        if (familiesResult.status === 'fulfilled') {
-          setFamilies(familiesResult.value);
-        } else {
-          Alert.alert(
-            'Não foi possível carregar os produtos pai',
-            familiesResult.reason instanceof Error
-              ? familiesResult.reason.message
-              : 'Tente novamente.'
-          );
-        }
-        if (countResult.status === 'fulfilled') setIsOnlyVariation(countResult.value === 1);
-      })
-      .finally(() => {
-        if (active) setFamiliesLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [visible, variation, sourceParentId]);
+  }, [visible, variationId, sourceParentId]);
 
   useEffect(() => {
-    if (!visible || !targetFamilyId || validAttributes.length === 0) {
+    if (!visible || !variation) return;
+    let current = true;
+    let accepting = true;
+    setFamiliesLoading(true);
+    setQueryReady(false);
+    setQueryError('');
+    void (async () => {
+      try {
+        const input = await familyQueryForm.validateValues({ sourceId: variationId }, (errors) => {
+          if (current && accepting) {
+            setQueryError(
+              Object.values(flattenFormErrors(errors))[0] ||
+                'A variação de origem não pôde ser validada.'
+            );
+          }
+        });
+        if (!current || !accepting) return;
+        if (!input) throw new Error('A variação de origem não pôde ser validada. Reabra a operação.');
+        const validatedParentId = variationFamilyUuidSchema.parse(sourceParentId);
+        const result = await withTimeout(
+          Promise.all([
+            fetchMobileVariationFamilies(validatedParentId, () => current && accepting),
+            countMobileParentVariations(validatedParentId, () => current && accepting),
+          ]),
+          32_000,
+          null,
+          'mover-variacao:consultas'
+        );
+        if (!current || !accepting) return;
+        if (!result) {
+          throw new Error('A consulta da mudança de família excedeu o prazo. Consulte novamente.');
+        }
+        setFamilies(result[0].filter((family) => family.id !== validatedParentId));
+        setIsOnlyVariation(result[1] === 1);
+        setQueryReady(true);
+      } catch (error: unknown) {
+        if (current && accepting) {
+          setQueryReady(false);
+          setQueryError(
+            error instanceof Error
+              ? error.message
+              : 'Não foi possível consultar a mudança de família. Consulte novamente.'
+          );
+        }
+      } finally {
+        accepting = false;
+        if (current) setFamiliesLoading(false);
+      }
+    })();
+    return () => {
+      current = false;
+      accepting = false;
+    };
+  }, [visible, variationId, sourceParentId, queryRevision, familyQueryForm.validateValues]);
+
+  useEffect(() => {
+    if (!visible || !queryReady || !targetFamilyId || validAttributes.length === 0) {
       setConflictState('idle');
+      setConflictError('');
       return;
     }
-    let active = true;
+    let current = true;
+    let accepting = true;
     setConflictState('checking');
+    setConflictError('');
     const timeout = setTimeout(() => {
-      checkMobileVariationAttributeConflict(targetFamilyId, validAttributes)
-        .then((hasConflict) => {
-          if (active) setConflictState(hasConflict ? 'conflict' : 'clear');
-        })
-        .catch(() => {
-          if (active) setConflictState('error');
-        });
+      void (async () => {
+        try {
+          const input = await conflictQueryForm.validateValues(
+            { sourceId: variationId, familyId: targetFamilyId, attributes: formAttributes },
+            (errors) => {
+              if (current && accepting) {
+                setConflictError(
+                  Object.values(flattenFormErrors(errors))[0] ||
+                    'Confira os atributos antes de validar o destino.'
+                );
+              }
+            }
+          );
+          if (!current || !accepting) return;
+          if (!input) throw new Error('Os dados da combinação não puderam ser validados.');
+          const result = await withTimeout(
+            checkMobileVariationAttributeConflict(
+              input.sourceId,
+              input.familyId,
+              input.attributes,
+              () => current && accepting
+            ),
+            11_000,
+            null,
+            'mover-variacao:validar-destino'
+          );
+          if (!current || !accepting) return;
+          if (result === null) {
+            throw new Error('A validação do destino excedeu o prazo. Consulte novamente.');
+          }
+          setConflictState(result ? 'conflict' : 'clear');
+        } catch (error: unknown) {
+          if (current && accepting) {
+            setConflictState('error');
+            setConflictError(
+              error instanceof Error
+                ? error.message
+                : 'Não foi possível validar o destino. Consulte novamente.'
+            );
+          }
+        } finally {
+          accepting = false;
+        }
+      })();
     }, 250);
     return () => {
-      active = false;
+      current = false;
+      accepting = false;
       clearTimeout(timeout);
     };
-  }, [visible, targetFamilyId, validAttributes]);
+  }, [visible, queryReady, variationId, targetFamilyId, validAttributes, formAttributes, conflictRevision, conflictQueryForm.validateValues]);
 
   useEffect(() => {
     if (!visible || !targetFamilyId || conflictState !== 'clear' || saving) {
@@ -176,6 +313,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
   }, [visible, targetFamilyId, conflictState, saving, countdown]);
 
   const updateAttribute = (index: number, field: 'name' | 'value', value: string) => {
+    if (mutationBlocked || saving) return;
     setAttributes((current) =>
       current.map((attribute, attributeIndex) =>
         attributeIndex === index ? { ...attribute, [field]: value } : attribute
@@ -185,49 +323,88 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
   };
 
   const handleMove = async () => {
-    const targetFamily = families.find((family) => family.id === targetFamilyId);
-    if (!targetFamily || !variationId || !sourceParentId || saving) return;
-    return form.validateAndRun(formValues, async (values) => {
+    if (!targetFamily || !variationId || !sourceParentId || saving || lock.current || operationGuard.active || operationGuard.error) return;
+    lock.current = true;
+    const token = operationToken.current;
+    let accepting = true;
+    const stillCurrent = () => active.current && operationToken.current === token && accepting
+      && !operationGuard.error && (!operationGuard.active || operationGuard.active === token);
+    setSaving(true);
     try {
-      setSaving(true);
-      const canonicalAttributes = await Promise.all(
-        values.attributes.map(async ({ name, value, showName }) => ({
-          ...(await ensureMobileAttributeValue(name, value)),
-          ...(showName === undefined ? {} : { showName }),
-        }))
-      );
-      const newName = [familyName(targetFamily), ...canonicalAttributes.map(({ value }) => value)]
-        .filter(Boolean)
-        .join(' ');
+      await form.validateAndRun(formValues, async (values) => {
+        if (!stillCurrent()) return false;
+        operationGuard.active = token;
+        try {
+          const operation = async () => {
+            await verifyMobileVariationParent(values.sourceId, values.sourceParentId, stillCurrent);
+            const canonicalAttributes: MobileVariationAttribute[] = [];
+            for (const attribute of values.attributes) {
+              if (!stillCurrent()) throw new VariationFamilyUnconfirmedError();
+              const stored = await ensureMobileAttributeValue(attribute.name, attribute.value, stillCurrent);
+              canonicalAttributes.push({ ...attribute, ...stored });
+            }
+            if (!stillCurrent()) throw new VariationFamilyUnconfirmedError();
+            const newName = [familyName(targetFamily), ...canonicalAttributes.map(({ value }) => value)]
+              .filter(Boolean)
+              .join(' ');
+            return moveMobileVariationToFamily(
+              values.sourceId,
+              values.familyId,
+              canonicalAttributes,
+              newName,
+              values.images,
+              values.sourceParentId,
+              stillCurrent
+            );
+          };
+          const result = await withTimeout(operation(), 60_000, null, 'mover-variacao:confirmar-formulario');
+          const acknowledgement = variationFamilyAckSchema.safeParse(result);
+          if (!acknowledgement.success) throw new VariationFamilyUnconfirmedError();
+          if (!stillCurrent()) throw new VariationFamilyUnconfirmedError();
 
-      let images = getImageUrls(variation.images || variation.image_url);
-      if (images.length === 0) images = getImageUrls(parentProduct?.images);
-
-      const result = await moveMobileVariationToFamily(
-        values.sourceId,
-        values.familyId,
-        canonicalAttributes,
-        newName,
-        images,
-        values.sourceParentId
-      );
-      await onMoved();
-      onClose();
-      Alert.alert(
-        'Variação movida',
-        result.sourceParentRemoved
-          ? `A variação manteve o mesmo ID e histórico. O produto pai de origem, que ficou sem variações, foi removido. Novo SKU: ${result.newSku || 'gerado'}.`
-          : `A variação manteve o mesmo ID e histórico. Novo SKU: ${result.newSku || 'gerado'}.`
-      );
+          completed.current = true;
+          operationGuard.active = null;
+          onClose();
+          let refreshed = true;
+          try {
+            await onMoved();
+          } catch {
+            refreshed = false;
+          }
+          const successText = acknowledgement.data.sourceParentRemoved
+            ? `A variação manteve o mesmo ID e histórico. O produto pai de origem, que ficou sem variações, foi removido. Novo SKU: ${acknowledgement.data.newSku}.`
+            : `A variação manteve o mesmo ID e histórico. Novo SKU: ${acknowledgement.data.newSku}.`;
+          Alert.alert(
+            'Variação movida',
+            refreshed ? successText : `${successText} A lista não foi atualizada; recarregue antes de continuar.`
+          );
+          return true;
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'Tente novamente.';
+          if ((error as { uncertain?: boolean })?.uncertain) {
+            operationGuard.error = message;
+            setOperationError(message);
+          }
+          if (active.current) {
+            Alert.alert(
+              operationGuard.error ? 'Confirme o estado antes de continuar' : 'Não foi possível mover a variação',
+              message
+            );
+          }
+          return false;
+        } finally {
+          accepting = false;
+          if (operationGuard.active === token) operationGuard.active = null;
+        }
+      }, (errors) => Alert.alert('Revise a mudança', Object.values(flattenFormErrors(errors))[0]));
     } catch (error: unknown) {
-      Alert.alert(
-        'Não foi possível mover a variação',
-        error instanceof Error ? error.message : 'Tente novamente.'
-      );
+      const message = error instanceof Error ? error.message : 'Não foi possível validar a mudança.';
+      Alert.alert('Revise a mudança', message);
     } finally {
+      accepting = false;
+      lock.current = false;
       setSaving(false);
     }
-    }, (errors) => Alert.alert('Revise a mudança', Object.values(flattenFormErrors(errors))[0]));
   };
 
   const canConfirm =
@@ -236,7 +413,13 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
     conflictState === 'clear' &&
     countdown === 0 &&
     !saving &&
-    !familiesLoading;
+    queryReady &&
+    !familiesLoading &&
+    !queryError &&
+    !mutationBlocked &&
+    !operationGuard.active &&
+    !operationGuard.error &&
+    !completed.current;
   const buttonLabel = !validAttributes.length
     ? 'Atributo obrigatório'
     : saving
@@ -258,7 +441,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={saving ? undefined : onClose}
+      onRequestClose={saving || operationGuard.active ? undefined : onClose}
     >
       <KeyboardAvoidingView
         style={styles.overlay}
@@ -276,7 +459,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
             </View>
             <TouchableOpacity
               onPress={onClose}
-              disabled={saving}
+              disabled={saving || Boolean(operationGuard.active)}
               style={styles.closeButton}
               accessibilityRole="button"
               accessibilityLabel="Fechar movimento de variação"
@@ -290,22 +473,32 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
           >
-            {isOnlyVariation ? (
-              <View style={styles.warning}>
-                <Text style={styles.warningTitle}>Esta é a única variação deste produto.</Text>
-                <Text style={styles.warningText}>
-                  Ao movê-la, o produto pai de origem ficará sem variações e será removido. A
-                  variação e seu histórico permanecerão.
+            {mutationBlocked ? (
+              <View style={styles.conflict}>
+                <Text style={styles.conflictTitle}>Confirme o cadastro antes de continuar</Text>
+                <Text style={styles.conflictText}>
+                  {operationError || operationGuard.error} Feche esta janela, atualize a lista e confira a variação antes de tentar novamente. O movimento seguirá bloqueado nesta sessão.
                 </Text>
               </View>
-            ) : (
-              <View style={styles.info}>
-                <Text style={styles.infoText}>
-                  O nome passará a usar o novo produto pai e os valores dos atributos. As fotos
-                  vinculadas à variação acompanham a mudança.
-                </Text>
-              </View>
-            )}
+            ) : null}
+            {queryReady && !queryError ? (
+              isOnlyVariation ? (
+                <View style={styles.warning}>
+                  <Text style={styles.warningTitle}>Esta é a única variação deste produto.</Text>
+                  <Text style={styles.warningText}>
+                    Ao movê-la, o produto pai de origem ficará sem variações e será removido. A
+                    variação e seu histórico permanecerão.
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.info}>
+                  <Text style={styles.infoText}>
+                    O nome passará a usar o novo produto pai e os valores dos atributos. As fotos
+                    vinculadas à variação acompanham a mudança.
+                  </Text>
+                </View>
+              )
+            ) : null}
 
             <View>
               <Text style={[styles.label, dark && styles.textDark]}>Novo produto pai</Text>
@@ -319,6 +512,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                   setCountdown(5);
                 }}
                 onFocus={() => setShowSuggestions(true)}
+                editable={!familiesLoading && !queryError && !saving && !mutationBlocked}
                 placeholder="Nome ou código (mín. 2 caracteres)"
                 placeholderTextColor={dark ? '#94a3b8' : '#94a3b8'}
                 style={[
@@ -329,7 +523,29 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                 autoCorrect={false}
                 accessibilityLabel="Pesquisar produto pai de destino"
               />
-              {familiesLoading ? <ActivityIndicator style={styles.loader} color="#4f46e5" /> : null}
+              {familiesLoading ? (
+                <View style={styles.queryStatus}>
+                  <ActivityIndicator color="#4f46e5" />
+                  <Text style={[styles.hint, dark && styles.subtitleDark]}>
+                    Carregando produtos de destino e confirmando o produto de origem…
+                  </Text>
+                </View>
+              ) : null}
+              {queryError ? (
+                <View style={styles.conflict}>
+                  <Text style={styles.conflictTitle}>Não foi possível preparar a mudança</Text>
+                  <Text style={styles.conflictText}>{queryError}</Text>
+                  <TouchableOpacity
+                    onPress={() => setQueryRevision((revision) => revision + 1)}
+                    disabled={familiesLoading || saving}
+                    style={styles.retryButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Consultar novamente os produtos de destino e a origem"
+                  >
+                    <Text style={styles.retryText}>Consultar novamente</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
               {showSuggestions && !targetFamilyId && familyQuery.trim().length >= 2 ? (
                 <View style={[styles.suggestions, dark && styles.suggestionsDark]}>
                   {suggestions.length ? (
@@ -337,6 +553,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                       <TouchableOpacity
                         key={family.id}
                         style={[styles.suggestion, dark && styles.borderDark]}
+                        disabled={mutationBlocked}
                         onPress={() => {
                           setTargetFamilyId(family.id);
                           setFamilyQuery(
@@ -376,7 +593,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                     ]);
                     setCountdown(5);
                   }}
-                  disabled={attributes.length >= 8}
+                  disabled={attributes.length >= 8 || saving || mutationBlocked}
                   style={styles.addAttributeButton}
                   accessibilityRole="button"
                   accessibilityLabel="Adicionar atributo"
@@ -394,6 +611,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                     <TextInput
                       value={attribute.name}
                       onChangeText={(value) => updateAttribute(index, 'name', value)}
+                      editable={!saving && !mutationBlocked}
                       placeholder="Atributo (ex.: Cor)"
                       placeholderTextColor="#94a3b8"
                       style={[styles.attributeInput, dark && styles.inputDark]}
@@ -402,6 +620,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                     <TextInput
                       value={attribute.value}
                       onChangeText={(value) => updateAttribute(index, 'value', value)}
+                      editable={!saving && !mutationBlocked}
                       placeholder="Valor (ex.: Azul)"
                       placeholderTextColor="#94a3b8"
                       style={[styles.attributeInput, dark && styles.inputDark]}
@@ -422,16 +641,28 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               </View>
             ) : null}
             {conflictState === 'error' ? (
-              <Text style={styles.conflictText}>
-                Não foi possível validar a combinação. Confira a conexão e tente novamente.
-              </Text>
+              <View style={styles.conflict}>
+                <Text style={styles.conflictTitle}>Não foi possível validar a combinação</Text>
+                <Text style={styles.conflictText}>
+                  {conflictError || 'Confira a conexão e tente novamente.'}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setConflictRevision((revision) => revision + 1)}
+                  disabled={saving || mutationBlocked}
+                  style={styles.retryButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Validar destino novamente"
+                >
+                  <Text style={styles.retryText}>Validar destino novamente</Text>
+                </TouchableOpacity>
+              </View>
             ) : null}
           </ScrollView>
 
           <View style={[styles.footer, dark && styles.borderDark]}>
             <TouchableOpacity
               onPress={onClose}
-              disabled={saving}
+              disabled={saving || Boolean(operationGuard.active)}
               style={[styles.footerButton, styles.cancelButton]}
               accessibilityRole="button"
             >
@@ -447,7 +678,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               ]}
               accessibilityRole="button"
             >
-              <Text style={styles.confirmText}>{buttonLabel}</Text>
+              <Text style={styles.confirmText}>{mutationBlocked ? 'Movimento sem confirmação' : buttonLabel}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -527,6 +758,7 @@ const styles = StyleSheet.create({
   inputDark: { color: '#f8fafc', borderColor: '#475569', backgroundColor: '#1e293b' },
   inputSelected: { borderColor: '#10b981' },
   loader: { marginTop: 8, alignSelf: 'flex-start' },
+  queryStatus: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 10 },
   suggestions: {
     marginTop: 6,
     overflow: 'hidden',
@@ -574,6 +806,13 @@ const styles = StyleSheet.create({
   },
   conflictTitle: { color: '#b91c1c', fontSize: 13, fontWeight: '900' },
   conflictText: { color: '#b91c1c', fontSize: 12, lineHeight: 17 },
+  retryButton: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  retryText: { color: '#4338ca', fontSize: 12, fontWeight: '900' },
   footer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

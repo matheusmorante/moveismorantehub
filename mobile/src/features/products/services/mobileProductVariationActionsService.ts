@@ -1,12 +1,22 @@
+import { z } from 'zod';
 import { toTitleCase } from '../../../../../shared-utils/productText';
+import {
+  sameFamilyAttributes,
+  toFamilyAttributes,
+  VariationFamilyUnconfirmedError,
+  variationFamilyAckSchema,
+  variationFamilyAttributeSchema,
+  variationFamilyCommandSchema,
+  variationFamilyConflictSchema,
+  variationFamilyUuidSchema,
+  type FamilyAttribute,
+} from '../../../../../shared-utils/variationFamilyFormSchemas';
+import { parseVariationImages } from '../../../../../shared-utils/productVariationImages';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { supabase } from '../../../services/supabaseClient';
 import { MAX_VARIATION_IMAGES } from '../domain/productImageLimits';
 
-export interface MobileVariationAttribute {
-  name: string;
-  value: string;
-  showName?: boolean;
-}
+export type MobileVariationAttribute = FamilyAttribute;
 
 export interface MobileVariationFamily {
   id: string;
@@ -25,7 +35,19 @@ export interface MobileCanonicalVariation {
   } | null;
 }
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const VARIATION_FAMILY_PAGE_SIZE = 1000;
+const VARIATION_FAMILY_QUERY_TIMEOUT_MS = 10_000;
+const VARIATION_FAMILY_MUTATION_TIMEOUT_MS = 20_000;
+const mobileVariationFamilySchema = z.object({
+  id: variationFamilyUuidSchema,
+  name: z.string().trim().nullish(),
+  description: z.string().trim().nullish(),
+  code: z.string().trim().min(1),
+});
+
+const ensureQueryIsCurrent = (stillCurrent: () => boolean) => {
+  if (!stillCurrent()) throw new Error('A consulta da mudança de família mudou.');
+};
 
 export const toMobileVariationAttributes = (value: unknown): MobileVariationAttribute[] => {
   let attributes = value;
@@ -62,110 +84,218 @@ export const toMobileVariationAttributes = (value: unknown): MobileVariationAttr
 export const mobileVariationAttributesConflict = (
   first: readonly MobileVariationAttribute[],
   second: readonly MobileVariationAttribute[]
-): boolean => {
-  if (first.length !== second.length) return false;
-  const normalize = (value: string) => value.trim().toLocaleLowerCase('pt-BR');
-  const secondMap = new Map(
-    second.map((attribute) => [normalize(attribute.name), normalize(attribute.value)])
-  );
-  return first.every(
-    (attribute) => secondMap.get(normalize(attribute.name)) === normalize(attribute.value)
-  );
-};
+): boolean => sameFamilyAttributes(first, second);
 
 export const fetchMobileVariationFamilies = async (
-  sourceParentId?: string
+  sourceParentId?: string,
+  stillCurrent: () => boolean = () => true
 ): Promise<MobileVariationFamily[]> => {
-  let query = supabase
-    .from('products')
-    .select('id, name, description, code')
-    .eq('deleted', false)
-    .not('code', 'is', null)
-    .neq('code', '')
-    .order('name', { ascending: true });
-  if (sourceParentId) query = query.neq('id', sourceParentId);
+  const parentId = sourceParentId ? variationFamilyUuidSchema.parse(sourceParentId) : undefined;
+  ensureQueryIsCurrent(stillCurrent);
+  const families: MobileVariationFamily[] = [];
 
-  const { data, error } = await query;
-  if (error) throw new Error('Não foi possível carregar os produtos pai.');
-  return (data || []) as MobileVariationFamily[];
+  for (let offset = 0; ; offset += VARIATION_FAMILY_PAGE_SIZE) {
+    let query = supabase
+      .from('products')
+      .select('id, name, description, code')
+      .eq('deleted', false)
+      .not('code', 'is', null)
+      .neq('code', '')
+      .order('name', { ascending: true })
+      .order('id', { ascending: true });
+    if (parentId) query = query.neq('id', parentId);
+
+    const result = await withTimeout(
+      query.range(offset, offset + VARIATION_FAMILY_PAGE_SIZE - 1),
+      VARIATION_FAMILY_QUERY_TIMEOUT_MS,
+      null,
+      'mover-variacao:familias'
+    );
+    ensureQueryIsCurrent(stillCurrent);
+    if (!result || result.error || !Array.isArray(result.data)) {
+      throw new Error('Não foi possível carregar os produtos pai. Consulte novamente.');
+    }
+
+    const page = z.array(mobileVariationFamilySchema).parse(result.data) as MobileVariationFamily[];
+    families.push(...page);
+    if (page.length < VARIATION_FAMILY_PAGE_SIZE) return families;
+  }
 };
 
-export const countMobileParentVariations = async (parentId: string): Promise<number> => {
-  const { count, error } = await supabase
-    .from('product_variations')
-    .select('id', { count: 'exact', head: true })
-    .eq('product_id', parentId);
-  if (error) throw new Error('Não foi possível confirmar as variações do produto de origem.');
-  return count || 0;
+export const countMobileParentVariations = async (
+  parentId: string,
+  stillCurrent: () => boolean = () => true
+): Promise<number> => {
+  const validatedParentId = variationFamilyUuidSchema.parse(parentId);
+  ensureQueryIsCurrent(stillCurrent);
+  const result = await withTimeout(
+    supabase
+      .from('product_variations')
+      .select('id', { count: 'exact', head: true })
+      .eq('product_id', validatedParentId),
+    VARIATION_FAMILY_QUERY_TIMEOUT_MS,
+    null,
+    'mover-variacao:contagem'
+  );
+  ensureQueryIsCurrent(stillCurrent);
+  if (!result || result.error || !Number.isInteger(result.count) || (result.count ?? 0) < 1) {
+    throw new Error('Não foi possível confirmar as variações do produto de origem. Consulte novamente.');
+  }
+  return result.count!;
 };
 
 export const checkMobileVariationAttributeConflict = async (
+  sourceVariationId: string,
   targetFamilyId: string,
-  attributes: readonly MobileVariationAttribute[]
+  attributes: readonly MobileVariationAttribute[],
+  stillCurrent: () => boolean = () => true
 ): Promise<boolean> => {
-  const validAttributes = attributes.filter(
-    (attribute) => attribute.name.trim() && attribute.value.trim()
-  );
-  const { data, error } = await supabase
-    .from('product_variations')
-    .select('id, attributes')
-    .eq('product_id', targetFamilyId);
-  if (error) throw new Error('Não foi possível validar as variações do produto pai.');
+  const values = variationFamilyConflictSchema.parse({
+    sourceId: sourceVariationId,
+    familyId: targetFamilyId,
+    attributes,
+  });
+  ensureQueryIsCurrent(stillCurrent);
 
-  return (data || []).some((candidate: any) =>
-    mobileVariationAttributesConflict(
-      validAttributes,
-      toMobileVariationAttributes(candidate.attributes).filter(
-        (attribute) => attribute.name.trim() && attribute.value.trim()
-      )
-    )
-  );
+  for (let offset = 0; ; offset += VARIATION_FAMILY_PAGE_SIZE) {
+    const result = await withTimeout(
+      supabase
+        .from('product_variations')
+        .select('id, attributes')
+        .eq('product_id', values.familyId)
+        .order('id', { ascending: true })
+        .range(offset, offset + VARIATION_FAMILY_PAGE_SIZE - 1),
+      VARIATION_FAMILY_QUERY_TIMEOUT_MS,
+      null,
+      'mover-variacao:conflitos'
+    );
+    ensureQueryIsCurrent(stillCurrent);
+    if (!result || result.error || !Array.isArray(result.data)) {
+      throw new Error('Não foi possível validar as variações do produto pai. Consulte novamente.');
+    }
+
+    const page = z.array(z.object({ id: variationFamilyUuidSchema, attributes: z.unknown().nullish() })).parse(result.data);
+    const conflict = page.some((candidate) => {
+      if (candidate.attributes != null && typeof candidate.attributes !== 'object') {
+        throw new Error('Os atributos do destino não puderam ser confirmados. Consulte novamente.');
+      }
+      return candidate.id !== values.sourceId && sameFamilyAttributes(
+        values.attributes,
+        toFamilyAttributes(candidate.attributes).filter(
+          (attribute) => attribute.name.trim() && attribute.value.trim()
+        )
+      );
+    });
+    if (conflict) return true;
+    if (page.length < VARIATION_FAMILY_PAGE_SIZE) return false;
+  }
 };
 
 export const ensureMobileAttributeValue = async (
   name: string,
-  value: string
+  value: string,
+  stillCurrent: () => boolean = () => true
 ): Promise<MobileVariationAttribute> => {
-  const normalizedName = toTitleCase(name.trim());
-  const normalizedValue = toTitleCase(value.trim());
-  const { data: attributes, error: attributeError } = await supabase
+  const input = variationFamilyAttributeSchema.parse({ name, value });
+  const normalizedName = toTitleCase(input.name);
+  const normalizedValue = toTitleCase(input.value);
+  const literal = (text: string) => `^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`;
+  const check = () => ensureQueryIsCurrent(stillCurrent);
+  const wait = async <T,>(query: PromiseLike<T>, write = false): Promise<T> => {
+    check();
+    let result: T | null;
+    try {
+      result = await withTimeout(query, VARIATION_FAMILY_QUERY_TIMEOUT_MS, null, 'mover-variacao:atributo');
+    } catch (error) {
+      if (write) throw new VariationFamilyUnconfirmedError('O cadastro de atributo pode ter sido gravado. Consulte os atributos antes de repetir.');
+      throw error;
+    }
+    if (result === null) {
+      if (write) throw new VariationFamilyUnconfirmedError('O cadastro de atributo não foi confirmado. Consulte os atributos antes de repetir.');
+      throw new Error('A consulta de atributos excedeu o prazo.');
+    }
+    if (!stillCurrent()) {
+      if (write) throw new VariationFamilyUnconfirmedError('O cadastro de atributo pode ter sido gravado. Consulte os atributos antes de repetir.');
+      check();
+    }
+    return result;
+  };
+  const handleWriteError = (error: { code?: string; message?: string; status?: number } | null | undefined) => {
+    if (!error) return;
+    if (!error.code || error.status === 0 || (error.status ?? 0) >= 500) {
+      throw new VariationFamilyUnconfirmedError('O cadastro de atributo pode ter sido gravado. Consulte os atributos antes de repetir.');
+    }
+    throw new Error(error.message || 'Não foi possível cadastrar o atributo. Confira os dados e as permissões.');
+  };
+
+  const attributeResult = await wait(supabase
     .from('attributes')
     .select('id, name')
-    .ilike('name', normalizedName)
-    .limit(1);
-  if (attributeError) throw attributeError;
+    .filter('name', 'imatch', literal(normalizedName))
+    .limit(1));
+  if (attributeResult.error) throw attributeResult.error;
+  if (!Array.isArray(attributeResult.data)) throw new Error('Não foi possível confirmar a consulta do atributo.');
 
-  let attribute = attributes?.[0];
+  let attribute = attributeResult.data[0];
   if (!attribute) {
-    const { data, error } = await supabase
+    const response = await wait(supabase
       .from('attributes')
       .insert({ name: normalizedName, active: true })
       .select('id, name')
-      .single();
-    if (error) throw error;
-    attribute = data;
+      .single(), true);
+    handleWriteError(response.error);
+    attribute = response.data;
+  }
+  if (!attribute?.id || typeof attribute.name !== 'string'
+    || attribute.name.trim().toLocaleLowerCase('pt-BR') !== normalizedName.toLocaleLowerCase('pt-BR')) {
+    throw new VariationFamilyUnconfirmedError('O cadastro do atributo não foi confirmado. Consulte os atributos antes de repetir.');
   }
 
-  const { data: values, error: valueError } = await supabase
+  const valueResult = await wait(supabase
     .from('attribute_values')
     .select('value')
     .eq('attribute_id', attribute.id)
-    .ilike('value', normalizedValue)
-    .limit(1);
-  if (valueError) throw valueError;
+    .filter('value', 'imatch', literal(normalizedValue))
+    .limit(1));
+  if (valueResult.error) throw valueResult.error;
+  if (!Array.isArray(valueResult.data)) throw new Error('Não foi possível confirmar a consulta do valor do atributo.');
 
-  let canonicalValue = values?.[0]?.value;
-  if (!canonicalValue) {
-    const { data, error } = await supabase
+  let canonicalValue = valueResult.data[0]?.value;
+  if (!valueResult.data.length) {
+    const response = await wait(supabase
       .from('attribute_values')
       .insert({ attribute_id: attribute.id, value: normalizedValue })
       .select('value')
-      .single();
-    if (error) throw error;
-    canonicalValue = data.value;
+      .single(), true);
+    handleWriteError(response.error);
+    canonicalValue = response.data?.value;
+  }
+  if (typeof canonicalValue !== 'string'
+    || canonicalValue.trim().toLocaleLowerCase('pt-BR') !== normalizedValue.toLocaleLowerCase('pt-BR')) {
+    throw new VariationFamilyUnconfirmedError('O valor do atributo não foi confirmado. Consulte os atributos antes de repetir.');
   }
 
-  return { name: attribute.name, value: canonicalValue };
+  return variationFamilyAttributeSchema.parse({ name: attribute.name, value: canonicalValue });
+};
+
+export const verifyMobileVariationParent = async (
+  variationId: string,
+  sourceParentId: string,
+  stillCurrent: () => boolean = () => true
+): Promise<void> => {
+  const sourceId = variationFamilyUuidSchema.parse(variationId);
+  const parentId = variationFamilyUuidSchema.parse(sourceParentId);
+  ensureQueryIsCurrent(stillCurrent);
+  const result = await withTimeout(
+    supabase.from('product_variations').select('id, product_id').eq('id', sourceId).maybeSingle(),
+    VARIATION_FAMILY_QUERY_TIMEOUT_MS,
+    null,
+    'mover-variacao:confirmar-origem'
+  );
+  ensureQueryIsCurrent(stillCurrent);
+  if (!result || result.error || result.data?.id !== sourceId || result.data.product_id !== parentId) {
+    throw new Error('A variação mudou de produto pai ou não pôde ser confirmada. Recarregue antes de continuar.');
+  }
 };
 
 export const moveMobileVariationToFamily = async (
@@ -174,57 +304,132 @@ export const moveMobileVariationToFamily = async (
   attributes: readonly MobileVariationAttribute[],
   name: string,
   imageUrls: readonly string[],
-  sourceParentId?: string
+  sourceParentId?: string,
+  stillCurrent: () => boolean = () => true
 ): Promise<{ newSku: string; sourceParentRemoved: boolean }> => {
-  if (!UUID_PATTERN.test(variationId)) {
-    throw new Error(
-      'A variação precisa ter um UUID válido para ser movida. Atualize o cadastro legado antes de continuar.'
-    );
+  const parsedSourceId = variationFamilyUuidSchema.safeParse(variationId);
+  if (!parsedSourceId.success) {
+    throw new Error('A variação precisa ter um UUID válido para ser movida. Atualize o cadastro legado antes de continuar.');
   }
-  const variationImages = Array.from(new Set(imageUrls.filter(Boolean)));
+  const command = variationFamilyCommandSchema.parse({
+    sourceId: parsedSourceId.data,
+    familyId: targetFamilyId,
+    sourceParentId: sourceParentId || '',
+    attributes,
+    name,
+    images: imageUrls,
+  });
+  const variationImages = Array.from(new Set(command.images));
   if (variationImages.length > MAX_VARIATION_IMAGES) {
     throw new Error(`Cada variação pode vincular no máximo ${MAX_VARIATION_IMAGES} fotos.`);
   }
 
-  const { data, error } = await supabase.rpc('move_variation_to_parent', {
-    p_variation_id: variationId,
-    p_target_parent_id: targetFamilyId,
-    p_attributes: attributes,
-    p_name: name,
-    p_images: variationImages,
-    p_source_parent_id: sourceParentId || null,
-  });
-  if (error) throw new Error(`Falha ao mover variação no banco: ${error.message}`);
+  await verifyMobileVariationParent(command.sourceId, command.sourceParentId, stillCurrent);
+  const check = () => ensureQueryIsCurrent(stillCurrent);
+  let dispatched = false;
+  let moved = false;
+  try {
+    check();
+    dispatched = true;
+    const response = await withTimeout(supabase.rpc('move_variation_to_parent', {
+      p_variation_id: command.sourceId,
+      p_target_parent_id: command.familyId,
+      p_attributes: command.attributes,
+      p_name: command.name,
+      p_images: variationImages,
+      p_source_parent_id: command.sourceParentId,
+    }), VARIATION_FAMILY_MUTATION_TIMEOUT_MS, null, 'mover-variacao:rpc');
+    if (!response) throw new VariationFamilyUnconfirmedError();
+    if (response.error) {
+      const { error, status } = response;
+      if (status === 0 || (status ?? 0) >= 500 || !error.code || error.code === '40003' || error.code.startsWith('08')) {
+        throw new VariationFamilyUnconfirmedError();
+      }
+      dispatched = false;
+      throw new Error('Não foi possível mover a variação. Confira os dados, o destino e as permissões.');
+    }
 
-  // A RPC atualiza o JSON principal em transação; a relação normalizada de fotos
-  // acompanha o contrato existente do ERP e é reparável sem reverter o movimento.
-  if (variationImages.length > 0) {
-    const { data: existingImages, error: fetchError } = await supabase
-      .from('product_images')
-      .select('image_url')
-      .eq('product_id', targetFamilyId);
-    if (fetchError) {
-      console.warn('Não foi possível reconciliar as fotos do produto pai após mover a variação.');
-    } else {
-      const existingUrls = new Set((existingImages || []).map((image: any) => image.image_url));
-      const records = variationImages
-        .filter((url) => !existingUrls.has(url))
-        .map((image_url) => ({ product_id: targetFamilyId, image_url, is_main: false }));
-      if (records.length > 0) {
-        const { error: insertError } = await supabase.from('product_images').insert(records);
-        if (insertError) {
-          console.warn(
-            'Não foi possível reconciliar as fotos do produto pai após mover a variação.'
-          );
+    const acknowledgement = variationFamilyAckSchema.parse(response.data);
+    check();
+    const confirmation = await withTimeout(
+      supabase.from('product_variations')
+        .select('id, product_id, sku, name, attributes, image_url, images')
+        .eq('id', command.sourceId)
+        .single(),
+      VARIATION_FAMILY_QUERY_TIMEOUT_MS,
+      null,
+      'mover-variacao:confirmar'
+    );
+    const row = confirmation?.data;
+    const storedAttributes = toFamilyAttributes(row?.attributes);
+    const storedImages = parseVariationImages(row?.image_url, row?.images);
+    if (!confirmation || confirmation.error || row?.id !== command.sourceId
+      || row.product_id !== command.familyId || row.sku !== acknowledgement.newSku
+      || row.name !== command.name || !sameFamilyAttributes(command.attributes, storedAttributes)
+      || command.attributes.some((attribute) => attribute.showName !== undefined
+        && !storedAttributes.some((stored) => stored.name.trim().toLocaleLowerCase('pt-BR') === attribute.name.toLocaleLowerCase('pt-BR')
+          && (stored.showName ?? true) === attribute.showName))
+      || storedImages.length !== variationImages.length
+      || variationImages.some((url) => !storedImages.includes(url))) {
+      throw new VariationFamilyUnconfirmedError();
+    }
+    moved = true;
+    check();
+
+    if (acknowledgement.sourceParentRemoved) {
+      const parent = await withTimeout(
+        supabase.from('products').select('id, deleted').eq('id', command.sourceParentId).maybeSingle(),
+        VARIATION_FAMILY_QUERY_TIMEOUT_MS,
+        null,
+        'mover-variacao:confirmar-origem'
+      );
+      if (!parent || parent.error || (parent.data
+        && (parent.data.id !== command.sourceParentId || parent.data.deleted !== true))) {
+        throw new VariationFamilyUnconfirmedError();
+      }
+    }
+    check();
+
+    if (variationImages.length > 0) {
+      const photos = await withTimeout(
+        supabase.from('product_images').select('image_url').eq('product_id', command.familyId),
+        VARIATION_FAMILY_QUERY_TIMEOUT_MS,
+        null,
+        'mover-variacao:fotos-destino'
+      );
+      if (!photos || photos.error || !Array.isArray(photos.data)) throw new VariationFamilyUnconfirmedError();
+      const existingUrls = new Set(photos.data.map((image: { image_url: string }) => image.image_url));
+      const missingUrls = variationImages.filter((url) => !existingUrls.has(url));
+      if (missingUrls.length > 0) {
+        check();
+        const inserted = await withTimeout(
+          supabase.from('product_images').insert(missingUrls.map((image_url) => ({
+            product_id: command.familyId,
+            image_url,
+            is_main: false,
+          }))).select('product_id, image_url'),
+          VARIATION_FAMILY_QUERY_TIMEOUT_MS,
+          null,
+          'mover-variacao:vincular-fotos'
+        );
+        if (!inserted || inserted.error || !Array.isArray(inserted.data)
+          || inserted.data.length !== missingUrls.length
+          || missingUrls.some((url) => !inserted.data.some((image: { product_id: string; image_url: string }) =>
+            image.product_id === command.familyId && image.image_url === url))) {
+          throw new VariationFamilyUnconfirmedError();
         }
       }
     }
+    check();
+    return acknowledgement;
+  } catch (error) {
+    if (dispatched) {
+      throw moved
+        ? new VariationFamilyUnconfirmedError('A variação foi movida, mas nem todas as etapas foram confirmadas. Confira o cadastro antes de repetir.')
+        : new VariationFamilyUnconfirmedError();
+    }
+    throw error;
   }
-
-  return {
-    newSku: String((data as any)?.newSku || ''),
-    sourceParentRemoved: Boolean((data as any)?.sourceParentRemoved),
-  };
 };
 
 export const searchMobileCanonicalVariations = async (
