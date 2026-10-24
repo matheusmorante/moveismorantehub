@@ -236,7 +236,7 @@ para('Da chegada da carga<br/>ao saldo certo.', H - 160, M, TW, size=31, leading
 para('Um tutorial para receber mercadorias, completar notas fiscais, vincular produtos, imprimir etiquetas e contar o estoque.', H - 265, M, TW - 70, size=13, leading=19, color=colors.HexColor('#DDE9F7'))
 y = H - 418
 y = para('O roteiro de uma entrada bem feita', y, size=16, bold=True)
-labels = ['Conferir a carga', 'Registrar a NF', 'Vincular os itens', 'Receber', 'Etiquetar']
+labels = ['Conferir a carga', 'Registrar a nota', 'Vincular os itens', 'Receber', 'Etiquetar']
 for i, label in enumerate(labels):
     xx = M + i * 104
     c.setFillColor(MINT)
@@ -254,12 +254,12 @@ y = para('Leia na ordem na primeira utilização. Depois, use os capítulos como
 para('Com telas reais, ampliações, setas e exemplos de contagem.<br/>Os menus disponíveis dependem das permissões do seu usuário.', y - 5, size=10.2, color=MUTED)
 
 # 02 - Navegação e mapa
-y = base('Mapa do guia', 'Onde encontrar cada operação', 'No app e no ERP, abra Estoque. O guia em PDF fica na própria lista de opções do menu.')
+y = base('Mapa do guia', 'Onde encontrar cada operação', 'No aplicativo ou no sistema do computador, abra Estoque. O guia em PDF fica nessa lista.')
 shot('00-menu-estoque', y, width=172, max_height=447, x=M, caption='1 NF de entrada  •  2 Recebimentos<br/>3 Abrir o guia em PDF')
 xx, ww = M + 195, TW - 195
 yy = y
 for title, body in [
-    ('NF de entrada', 'Localizar a nota, importar ou completar XML e gerenciar vínculos.'),
+    ('NF de entrada', 'Localizar a nota, importar ou completar o XML e associar fornecedor e produtos.'),
     ('Recebimentos', 'Conferir a mercadoria recebida e confirmar a entrada.'),
     ('Pedidos de compra', 'Registrar o combinado com o fornecedor; ainda sem entrada no saldo.'),
     ('Inventário', 'Contar o estoque físico e revisar diferenças.'),
@@ -280,10 +280,10 @@ y = table(['Procure por assunto', 'Páginas'], [
 ], y, widths=[TW - 90, 90], size=9.3)
 
 # 03 - Fluxo de recebimento
-y = base('Mapa de operação', 'Siga o caminho da carga', 'Confira o físico primeiro. Depois use o caminho correspondente ao documento da entrega.')
+y = base('Mapa de operação', 'Siga o caminho da carga', 'Confira a mercadoria primeiro. Depois siga o caminho conforme o documento que veio com ela.')
 common_top = y - 2
 flow_card('1. CONFERIR A ENTREGA',
-          'Compare produto, variação, quantidades e volumes com a NF-e. Se não houver NF-e, confira o pedido de compra.',
+          'Compare produtos, modelos, quantidades e caixas com a nota fiscal. Sem nota, use o pedido de compra.',
           M, common_top, TW, 58, fill=MINT, accent=TEAL)
 arrow(W / 2, common_top - 59, W / 2, common_top - 70)
 branch_top = common_top - 76
@@ -319,21 +319,21 @@ for index, (invoice, manual) in enumerate(zip(invoice_steps, manual_steps)):
         arrow(right_x + col_w / 2, top - card_h - 1, right_x + col_w / 2, top - card_h - card_gap + 1)
 note_top = cards_top - len(invoice_steps) * (card_h + card_gap) + card_gap - 9
 y = note('A entrada só acontece ao confirmar o recebimento',
-         'NF-e e pedido ajudam a conferir a entrega, mas não aumentam o saldo sozinhos. Se houver falta, sobra ou avaria, resolva a divergência antes de confirmar.',
+         'A nota fiscal e o pedido ajudam na conferência, mas não colocam os produtos no estoque. Resolva faltas, sobras ou avarias antes de confirmar.',
          note_top, fill=MINT)
 
 # 03 - Chegada
 y = base('01 / Conferência física', 'A carga chegou. Por onde começar?', 'Primeiro compare o que chegou com o documento. Depois registre a operação no sistema.')
-y = note('Qual documento manda na conferência?', '<b>Com NF-e:</b> confira primeiro a nota fiscal entregue.<br/><b>Sem NF-e:</b> use o pedido de compra como referência do que foi combinado.', y, fill=MINT)
+y = note('Qual documento usar para conferir?', '<b>Com nota fiscal:</b> confira primeiro a nota fiscal eletrônica que veio com a carga (NF-e).<br/><b>Sem nota fiscal:</b> confira o pedido de compra para ver o que foi combinado.', y, fill=MINT)
 for n, title, body in [
-    (1, 'Separe a documentação da entrega', 'Tenha a NF-e e seu XML, quando disponíveis, ou o pedido de compra. Confira se a entrega é realmente destinada à empresa.'),
-    (2, 'Compare produtos e variações', 'Leia descrição, modelo, medidas, cor e acabamento. Produtos parecidos podem ter cadastros e custos diferentes.'),
+    (1, 'Separe os documentos da entrega', 'Tenha a nota fiscal e seu arquivo XML, quando disponíveis, ou o pedido de compra. Confira se a entrega é para a empresa.'),
+    (2, 'Compare os produtos', 'Confira nome, modelo, medidas, cor e acabamento. Isso ajuda a escolher a versão correta do produto no sistema.'),
     (3, 'Conte unidades completas e confira as caixas', 'Um móvel com três volumes continua sendo uma unidade. Confira todos os volumes de cada unidade e procure faltas ou avarias.'),
-    (4, 'Compare quantidades e valores', 'Não lance como recebido o que ainda não chegou. Registre faltas, sobras e trocas; avaria só vira indisponibilidade se a unidade for separada e retirada do saldo disponível.'),
+    (4, 'Compare quantidades e valores', 'Não registre o que ainda não chegou. Anote faltas, sobras e trocas; avaria só vira indisponibilidade quando a unidade é separada e sai do estoque disponível.'),
     (5, 'Só então siga para o registro', 'Com NF-e, localize ou importe a nota, complete o XML se necessário e gerencie os vínculos. Sem NF-e, escolha o caminho do recebimento conforme o pedido.'),
 ]:
     y = step(n, title, body, y)
-y = note('Se algo não estiver conforme', 'Avise a equipe responsável e não confirme quantidades incorretas. Só registre indisponibilidade quando a unidade for realmente separada e ficar fora do saldo disponível; veja o fluxo das páginas 24 e 25.', y, fill=AMBER)
+y = note('Se algo não estiver conforme', 'Avise a equipe responsável e não confirme quantidades incorretas. Só registre indisponibilidade quando separar a unidade e tirá-la do estoque disponível; veja as páginas 24 e 25.', y, fill=AMBER)
 
 # 04 - Lista de NF
 y = base('02 / NF de entrada', 'Localize a nota antes de importar', 'Estoque > NF de entrada. Pesquise e confira o período para evitar duplicar trabalho.')
@@ -344,23 +344,23 @@ y = table(['O que aparece', 'O que fazer'], [
     ['<b>Disponível</b>', 'Confira os itens e os vínculos antes de gerar o recebimento. Esse status, sozinho, não significa entrada no saldo.'],
 ], y, widths=[145, TW - 145], size=10)
 y = para('Se a nota não aparecer, confira a busca e amplie o período de emissão. A consulta automática pode trazer apenas um resumo e não substitui a conferência dos documentos da carga.', y, size=10.8)
-y = note('Documento correto, empresa correta', 'O sistema aceita NF de entrada destinada ao CNPJ da empresa configurada. Notas já registradas não podem ser excluídas. Para completar uma nota, importe o XML com a mesma chave de acesso.', y, fill=MINT)
+y = note('Documento correto, empresa correta', 'O sistema aceita apenas notas de entrada destinadas à sua empresa. Notas já registradas não podem ser excluídas. Para completar uma nota, importe o XML da mesma nota.', y, fill=MINT)
 
 # 05 - Importar
-y = base('02 / NF de entrada', 'Importe o arquivo XML da NF-e', 'Use o arquivo oficial da nota. Uma foto ou um PDF do DANFE não contém os dados necessários para importar os itens.')
+y = base('02 / NF de entrada', 'Importe o arquivo XML da nota', 'O XML é o arquivo digital da nota com os dados dos produtos. O DANFE é a versão impressa; foto ou PDF dele não substitui o XML para importar os itens.')
 y = shot('02-importar-xml', y, width=TW, max_height=325, caption='1 Escolha ou arraste o arquivo  •  2 Consulta pelo portal, se você ainda precisa obter o XML.')
-y = step(1, 'Abra Importar XML da NF-e', 'Se precisar usar a chave de acesso, o campo e o botão de consulta ficam na parte superior. Escanear a chave ajuda na consulta; não importa os itens sozinho.', y)
-y = step(2, 'Escolha ou arraste o arquivo .xml', 'A importação é processada ao selecionar o arquivo. Aguarde a mensagem de resultado antes de continuar.', y)
-y = step(3, 'Leia o resultado', 'Nota nova: o sistema adiciona a nota. Mesma chave com dados que faltavam: a nota existente é completada. Mesmo conteúdo: o sistema informa que já está cadastrada sem alterações.', y)
+y = step(1, 'Abra Importar XML da NF-e', 'Para consultar no portal, use o campo Chave de Acesso na parte superior. Escanear a chave ajuda na consulta, mas não importa os itens.', y)
+y = step(2, 'Escolha ou arraste o arquivo XML', 'A importação começa ao escolher o arquivo. Aguarde a mensagem do sistema antes de continuar.', y)
+y = step(3, 'Confira a mensagem do sistema', 'Nota nova: ela será adicionada. Nota já cadastrada com dados faltando: será completada. XML igual ao já salvo: o sistema avisará que não houve mudança.', y)
 y = note('Importar não é receber', 'Depois de importar, abra <b>Gerenciar vínculos</b>. A nota pode estar completa e ainda precisar de fornecedor e produtos vinculados.', y, fill=MINT)
 
 # 06 - XML incompleto
-y = base('02 / NF de entrada', 'Apareceu “XML incompleto”?', 'O resumo identifica a nota, mas não traz a lista completa de produtos para dar entrada no estoque.')
+y = base('02 / NF de entrada', 'Apareceu “XML incompleto”?', 'A nota aparece na lista, mas ainda não tem todos os produtos para fazer o recebimento.')
 y = shot('03-xml-incompleto', y, max_height=330, caption='1 Consultar no Portal  •  2 Importar o XML completo da mesma nota.')
-y = step(1, 'Clique no rótulo XML incompleto', 'O modal explica a pendência e oferece o botão Consultar no Portal. A consulta usa a chave da nota.', y)
-y = step(2, 'Obtenha o XML completo', 'Consulte a nota no portal e baixe o XML quando o download estiver disponível. Se não estiver, solicite o arquivo ao fornecedor ou ao responsável pela documentação.', y)
-y = step(3, 'Importe o arquivo no próprio modal', 'Arraste o XML ou escolha o arquivo. O sistema completa a nota existente; depois confira se os itens apareceram e siga para os vínculos.', y)
-y = note('Quando houver uma restrição na consulta', 'Ter a chave não garante que o portal libere o download. Siga a orientação apresentada e encaminhe rejeições ou bloqueios ao responsável. Não repita a consulta para tentar forçar o retorno.', y, fill=AMBER)
+y = step(1, 'Clique no rótulo XML incompleto', 'A janela explica o problema e mostra o botão Consultar no Portal. A consulta usa a chave da nota.', y)
+y = step(2, 'Baixe o XML completo pelo Portal SEFAZ', 'Se o portal liberar o download, salve o arquivo. Se não liberar, peça o XML ao fornecedor ou à pessoa responsável pela documentação.', y)
+y = step(3, 'Importe o arquivo nessa janela', 'Arraste o XML ou escolha o arquivo. O sistema completa a nota que já existe. Confira se os produtos apareceram e depois associe fornecedor e produtos.', y)
+y = note('Se o Portal SEFAZ não liberar o XML', 'Siga a mensagem do portal e peça ajuda à pessoa responsável. Não repita a consulta para tentar forçar o download.', y, fill=AMBER)
 
 # 07 - Vínculos
 y = base('03 / Vínculos', 'Conecte a nota ao seu cadastro', 'Clique em Vinculações Pendentes ou nos três pontinhos > Gerenciar vínculos.')
