@@ -18,6 +18,14 @@ appId: com.morante.mobile
     visible: "Selecionado: .*"
     timeout: 10000
 - tapOn: "Seleção Personalizada"
+- waitForAnimationToEnd:
+    timeout: 5000
+- swipe:
+    start: 50%, 85%
+    end: 50%, 65%
+- extendedWaitUntil:
+    visible: "+ Adicionar produto ou variação"
+    timeout: 10000
 - tapOn: "+ Adicionar produto ou variação"
 - extendedWaitUntil:
     visible:

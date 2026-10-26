@@ -2697,3 +2697,41 @@ Continuar a aba Tributário/NF pelo estado Produto normal versus Serviço e comp
 - [ ] Não houve Playwright autenticado nem Maestro em aparelho Android físico; esta conclusão compara a lógica e os estados cobertos por testes, sem afirmar validação visual/nativa ou execução contra o Supabase remoto. Não houve leitura/escrita remota, Meta/R2/SEFAZ, migration, deploy ou mudança operacional de Estoque; o guia prático não requer atualização.
 
 **Conclusão do recorte:** busca curta, debounce, Enter, filtros de situação e construção da consulta permanecem equivalentes entre ERP e app, com regra pura compartilhada e validação Zod antes do fetch mobile. A prova autenticada/nativa continua pendente; a auditoria global de Produtos segue aberta.
+
+### Ciclo 392 — rechecagem do erro da lista após captura do usuário — 26/10/2026
+
+**Recorte:** estado de falha sem linhas e retry da lista, usando a captura recente como ponto de partida e conferindo se o mesmo erro aparece no ERP de desenvolvimento e no app instalado.
+
+#### Evidências e conclusão
+
+- [x] A nova captura mostra “Não foi possível carregar os produtos.” e “Tentar novamente”, sem o contador “0”. Ela não inclui status HTTP, mensagem do serviço, consulta ou identificador de sessão; não acrescenta evidência da causa em relação aos Ciclos 385 e 388.
+- [x] Playwright headed, com a conta de operador disponibilizada em Vercel Development, autenticou sem expor credenciais e abriu `http://localhost:5173/products`. O ERP mostrou o cabeçalho de Produtos sem mensagem/retry de erro. As respostas observadas somente para os caminhos `products`/`product_variations` foram **200, 206, 200 e 200**, sem request failures. A sessão autenticada visível permanece aberta em `/products`; não alterei nenhum Produto. Isso comprova que a leitura da lista do ERP de desenvolvimento respondeu nesta execução, não que o fetch mobile esteja saudável ou que a captura anterior tenha a mesma origem.
+- [x] Maestro 2.10.0 usou um serial Wi‑Fi explícito e `launchApp.stopApp: false`, sem limpar dados nem reinstalar o app. A build instalada informa `1.6.2 (versionCode 29)`, enquanto este checkout declara `1.6.2 (versionCode 27)` em `mobile/app.json`; qualquer observação do telefone seria limitada à build instalada.
+- [x] O telefone estava fora da lista de Produtos. O flow temporário tentou selecionar “Mais”, mas o DeviceServer perdeu o canal ADB durante o toque (`DeviceServerDiedException`, `UNAVAILABLE`) e não chegou à tela Produtos. A checagem posterior confirmou dispositivo conectado e processo `com.morante.mobile` ainda ativo. A consulta de marcadores Android foi sanitizada e não retornou linhas do processo naquele intervalo; isso não prova ausência de erro na tentativa que originou a captura. Não repeti o flow.
+- [x] A implementação de erro/retry já comparada no Ciclo 388 permaneceu sem alteração neste ciclo. Como não obtive o erro da requisição nativa e não reproduzi a tela no telefone, não há diferença suportada que justifique editar código. A causa continua inconclusiva; não classifico o sucesso de leitura do ERP como correção do app.
+
+#### Regras consultadas, validação e limites
+
+- [x] Para o recorte, consultei `AGENTS.md` (Playwright/Maestro, credenciais em memória, proibição de limpar/reinstalar app e execução explícita em telefone Wi‑Fi), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de estrutura Produto/Variação e mover/merge, roadmap, inventário e `mobile/maestro/README.md`. O único `AGENTS.md` aninhado encontrado fica em `digital-catalog`, fora dos diretórios envolvidos. A skill de replicação permanece ausente de `.agents/skills` e do diretório `skills` do projeto; a cópia de cache `.vercel` segue sem proveniência confirmada.
+- [x] O telefone permaneceu com a instalação e dados existentes; o flow de leitura não enviou mutações de Produto. Não houve acesso ou escrita Supabase, operação de Catálogo/Meta/R2/SEFAZ, migration, deploy ou alteração operacional de Estoque. O guia prático não requer atualização.
+- [ ] Falta capturar a resposta/erro da consulta na mesma sessão mobile e validar em uma build compatível com este checkout. A tentativa nativa foi bloqueada pelo canal Maestro, e a diferença de `versionCode` impede atribuir o comportamento do app instalado ao código atual. Playwright confirmou somente o estado ERP; não foi usado como substituto de prova nativa.
+
+**Conclusão do recorte:** o ERP de desenvolvimento carregou a lista, mas o erro nativo não pôde ser reproduzido neste ciclo. Sem evidência da resposta mobile e com build divergente, nenhuma correção foi aplicada; o diagnóstico do erro do app permanece pendente e a auditoria global continua aberta.
+
+### Ciclo 393 — segunda captura do erro da lista mobile — 26/10/2026
+
+**Recorte:** confirmação visual da lista mobile no estado de falha já auditado, usando a nova imagem enviada pelo usuário.
+
+#### Evidências e conclusão
+
+- [x] A segunda imagem mostra novamente o ícone de erro, “Não foi possível carregar os produtos.” e “Tentar novamente”; o cabeçalho não exibe uma contagem enganosa. Ela confirma que o estado visual ainda ocorre, mas não identifica versão/build, resposta HTTP, erro do serviço, consulta ou sessão.
+- [x] A renderização corresponde ao ramo de erro sem linhas em `NativeProductsScreen.tsx:597-614`; o retry chama `productsHook.retry()`. O contrato e a consulta repetida já foram comparados com o ERP nos Ciclos 388 e 392. A captura não demonstra uma divergência nova de interface ou regra que justifique alteração de código.
+- [x] Não tentei novamente o fluxo Maestro: o Ciclo 392 registrou perda do canal ADB antes de chegar à tela e uma discrepância entre `versionCode` instalado e checkout. Não usei Expo Web para inferir comportamento nativo.
+
+#### Regras consultadas, validação e limites
+
+- [x] Retomei o inventário e o item correspondente do roadmap; consultei as regras aplicáveis do `AGENTS.md` fornecido pelo usuário, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de estrutura Produto/Variação e mover/merge, e a implementação dos estados de lista ERP/mobile. O `AGENTS.md` aninhado em `digital-catalog` não se aplica. A skill canônica `erp-web-to-mobile-replication` continua ausente de `.agents/skills` e de `skills/`; a cópia em cache sob `.vercel` permanece sem proveniência confirmada.
+- [x] Sem mudança de produção e sem execução de testes neste registro de evidência visual. Não houve acesso/escrita remota, operação Meta/R2/SEFAZ, migration, deploy ou operação de Estoque; o guia prático não requer atualização.
+- [ ] A causa da falha segue sem diagnóstico: a imagem não contém a resposta da chamada da lista. É necessário capturar a falha na mesma sessão mobile e confirmar que a build executada corresponde ao checkout, sem apagar dados/reinstalar o aparelho.
+
+**Conclusão do recorte:** a captura confirma a persistência do mesmo estado visual de erro, não uma causa nova. O tratamento da tela continua alinhado ao ERP; o diagnóstico nativo permanece pendente e a auditoria de Produtos segue aberta.

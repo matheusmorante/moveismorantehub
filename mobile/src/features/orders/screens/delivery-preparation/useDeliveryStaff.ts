@@ -11,9 +11,12 @@ import {
   removeDeliveryResponsible,
 } from './deliveryStaffRules';
 import {
-  isTestOperator,
   isTestOperatorVisibleToUser,
 } from '../../../../../../shared-utils/testOperatorVisibility';
+import {
+  getGrantedNonAccountantAccessRoles,
+  hasGrantedNonAccountantAccessProfile,
+} from '../../../../../../shared-utils/operationalCollaborators';
 
 const DELIVERY_STAFF_CACHE_KEY = 'delivery_staff_profiles_v1';
 
@@ -35,9 +38,8 @@ export function useDeliveryStaff({ order, userProfile }: UseDeliveryStaffOptions
       try {
         const { data: profiles, error } = await supabase
           .from('profiles')
-          .select('id, full_name, position, role, email')
+          .select('id, full_name, position, role, roles, email')
           .not('full_name', 'is', null)
-          .neq('role', 'pending')
           .limit(50);
 
         if (!error && profiles && alive) {
@@ -45,20 +47,12 @@ export function useDeliveryStaff({ order, userProfile }: UseDeliveryStaffOptions
             .filter((profile: any) =>
               isTestOperatorVisibleToUser(profile, userProfile?.email)
             )
-            .filter((profile: any) => {
-              const ownTestOperator =
-                isTestOperator(profile) &&
-                isTestOperatorVisibleToUser(profile, userProfile?.email);
-              const hasCollaboratorCargo = Boolean(
-                profile.position?.trim() && profile.role && profile.role !== 'pending'
-              );
-              return ownTestOperator || hasCollaboratorCargo;
-            })
+            .filter((profile: any) => hasGrantedNonAccountantAccessProfile(profile))
             .filter((p: any) => Boolean(p.full_name?.trim()))
             .map((p: any) => ({
               id: p.id,
               fullName: p.full_name.trim(),
-              role: p.role,
+              role: getGrantedNonAccountantAccessRoles(p)[0],
             }));
           setAvailableStaff(list);
           await offlineStorageService
@@ -75,7 +69,9 @@ export function useDeliveryStaff({ order, userProfile }: UseDeliveryStaffOptions
           DELIVERY_STAFF_CACHE_KEY
         );
         if (alive && Array.isArray(cached?.data)) {
-          setAvailableStaff(cached.data);
+          setAvailableStaff(
+            cached.data.filter((staff) => hasGrantedNonAccountantAccessProfile(staff))
+          );
         }
       } catch {}
     };

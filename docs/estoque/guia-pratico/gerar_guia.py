@@ -93,7 +93,7 @@ def base(section, title, subtitle=''):
     c.line(M, 36, W - M, 36)
     c.setFillColor(MUTED)
     c.setFont('Segoe', 8)
-    c.drawString(M, 23, 'Operação do ERP  |  Edição ilustrada  |  25/10/2026')
+    c.drawString(M, 23, 'Operação do ERP  |  Edição ilustrada  |  26/10/2026')
     c.setFont('SegoeBold', 9)
     c.setFillColor(NAVY)
     c.drawRightString(W - M, 22, str(n).zfill(2))
@@ -581,9 +581,9 @@ y = note('Conferir Pedido também não dá entrada', 'Essa conferência compara 
 # 18 - Inventário inicial
 y = base('07 / Inventário', 'Defina o que será contado', 'Estoque > Inventário > Novo inventário. Escolha os produtos que entram na contagem antes de começar.')
 y = shot('10-inventario-escopo', y, max_height=180, caption='1 Estoque completo em etapas por fornecedor  •  2 Seleção personalizada de produtos ou variações.')
-y = shot('11-inventario-responsavel', y, max_height=120, caption='Pesquise o nome e escolha uma pessoa autorizada. A lista pode ser atualizada no app quando houver internet.')
+y = shot('11-inventario-responsavel', y, max_height=120, caption='O campo lista colaboradores com perfil de acesso concedido, exceto Contador. No app, atualize a lista com internet.')
 y = step(1, 'Escolha quais produtos contar', 'Estoque Completo lista produtos convencionais ativos por fornecedor. Produtos Salvados e Usados, e fornecedores exclusivos dessas origens, ficam fora. Seleção Personalizada também aceita apenas itens convencionais.', y)
-y = step(2, 'Escolha quem vai fazer a contagem', 'Digite pelo menos duas letras do nome, escolha uma pessoa da lista e confira. Atualize a lista com internet usando Tentar sincronizar lista. Se continuar vazia, peça à equipe responsável para conferir o acesso dessa pessoa.', y)
+y = step(2, 'Escolha quem vai fazer a contagem', 'Digite pelo menos duas letras do nome e escolha um colaborador com perfil de acesso diferente de Contador. No app, atualize a lista com internet usando Tentar sincronizar lista. Se a pessoa não aparecer, peça à equipe responsável para conferir o perfil de acesso no cadastro de colaboradores.', y)
 y = step(3, 'Conte um, vários ou todos os fornecedores', 'Abra a etapa de um fornecedor; repita para vários ou percorra todas. Etapas e itens sem contagem ficam como estão. Na Seleção Personalizada, adicione os itens convencionais.', y)
 y = note('Duplicar inventário', 'Combine com a equipe para não contar duas vezes. Confira fornecedor e local. Ao duplicar, revise os produtos, quantidades e responsável; a contagem e as etiquetas antigas não são copiadas. Atualize a lista se faltar produto.', y, fill=MINT)
 

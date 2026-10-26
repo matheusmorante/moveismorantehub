@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Order from '@/pages/types/order.type';
 import { subscribeToPeople } from '@/pages/utils/personService';
+import { isValidEmployee } from '@/pages/utils/accessRoles';
 import SmartAIFillModal from './SmartAIFillModal';
 import PickupIcon from '@/components/shared/PickupIcon';
 import DeliveryTruckIcon from '@/components/shared/DeliveryTruckIcon';
@@ -47,7 +48,10 @@ const FormHeader = ({
 
   useEffect(() => {
     const unsubscribe = subscribeToPeople('employees', (people) => {
-      const names = people.map((p) => p.fullName).filter((name) => name && name.trim() !== '');
+      const names = people
+        .filter((person) => isValidEmployee(person))
+        .map((person) => person.fullName)
+        .filter((name) => name && name.trim() !== '');
       setEmployeeNames(names);
     });
     return unsubscribe;

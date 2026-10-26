@@ -1,0 +1,24 @@
+appId: com.morante.mobile
+---
+- launchApp:
+    stopApp: false
+- assertVisible:
+    id: bottom-tab-more
+- tapOn:
+    id: bottom-tab-more
+- tapOn:
+    id: more-sheet-tab-estoque
+- extendedWaitUntil:
+    visible:
+      id: stock-module-inventory
+    timeout: 15000
+- tapOn:
+    id: stock-module-inventory
+- assertVisible:
+    id: new-inventory-btn
+- tapOn:
+    id: new-inventory-btn
+- extendedWaitUntil:
+    visible:
+      id: inventory-responsible-search
+    timeout: 30000
