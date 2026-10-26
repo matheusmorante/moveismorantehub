@@ -1,5 +1,6 @@
 import { getEnteredProductName } from './rules/productDraftRules';
 import { useCallback, useRef } from 'react';
+import Swal from 'sweetalert2';
 import Product from '@/pages/types/product.type';
 import { saveProduct } from '@/pages/utils/productService';
 import { checkERPLegibility, checkEcomLegibility } from '../../domain/productLegibilityRules';
@@ -183,8 +184,26 @@ export const useProductFormSubmit = ({
             }
           }
           if (validatePublishedCatalogEdit && !ecomVal.isLegible) {
-            toast.error('Despublique o Catálogo antes de remover ou alterar um campo obrigatório.');
-            return false;
+            if (ecomVal.missingCategoryCharacteristics.length === 0) {
+              toast.error('O produto publicado ainda precisa atender aos requisitos do Catálogo Digital.');
+              return false;
+            }
+
+            const characteristicLabel = ecomVal.missingCategoryCharacteristics.join(', ');
+            const characteristicMessage =
+              ecomVal.missingCategoryCharacteristics.length === 1
+                ? `O campo obrigatório "${characteristicLabel}" está desativado ou sem valor.`
+                : `Os campos obrigatórios (${characteristicLabel}) estão desativados ou sem valor.`;
+            const confirmation = await Swal.fire({
+              title: 'Ocultar produto do Catálogo Digital?',
+              text: `${characteristicMessage} Se confirmar, as alterações serão salvas e o produto será ocultado do Catálogo Digital.`,
+              icon: 'warning',
+              showCancelButton: true,
+              confirmButtonText: 'Salvar e ocultar',
+              cancelButtonText: 'Continuar editando',
+              reverseButtons: true,
+            });
+            if (!confirmation.isConfirmed) return false;
           }
 
           setLoading(true);

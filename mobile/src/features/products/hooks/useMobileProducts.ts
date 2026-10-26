@@ -44,6 +44,7 @@ import {
   toggleMobileProductActive,
   toggleMobileProductCatalog,
 } from '../services/mobileProductMutationService';
+import { triggerMobileProductMetaCatalogSync } from '../services/mobileProductMetaCatalogSyncService';
 
 const DEFAULT_ITEMS_PER_PAGE: ProductListPageSize = 15;
 
@@ -603,6 +604,7 @@ export function useMobileProducts(
 
   const handleSave = useCallback(async (productData: any) => {
     const productId = await saveMobileProduct(productData);
+    triggerMobileProductMetaCatalogSync(productId);
     // A confirmed write succeeds independently from the list read, as in the ERP:
     // preserve the saved result and refresh the current page in the background.
     void loadProducts(true, currentPage);

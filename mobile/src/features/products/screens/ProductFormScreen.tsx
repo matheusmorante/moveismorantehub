@@ -648,11 +648,6 @@ export const ProductFormScreen: React.FC<Props> = ({
   }, [visible, product, initialData]);
 
   const existingProductImageCount = Array.isArray(product?.images) ? product.images.length : 0;
-  const validatePublishedCatalogEdit = shouldValidatePublishedCatalogEdit(
-    product?.status || formData.status,
-    product,
-    formData,
-  );
   const draftForm = useZodForm(createMobileProductFormSchema({
     draft: true,
     isStockistOnly,
@@ -663,7 +658,7 @@ export const ProductFormScreen: React.FC<Props> = ({
   const finalForm = useZodForm(createMobileProductFormSchema({
     draft: false,
     isStockistOnly,
-    published: validatePublishedCatalogEdit,
+    published: false,
     existingProductImageCount,
     requireInboundCostPrice: showInboundCostPrice,
   }), formData);
@@ -1044,6 +1039,7 @@ export const ProductFormScreen: React.FC<Props> = ({
           formDataToValidate,
           async (validated) => {
             setDescriptionTechnicalValidationError(false);
+            let hideFromCatalog = false;
             if (
               shouldValidatePublishedCatalogEdit(
                 product?.status || validated.status,
@@ -1078,15 +1074,45 @@ export const ProductFormScreen: React.FC<Props> = ({
                 categoryRequirements
               );
               if (catalogEditLegibility && !catalogEditLegibility.isLegible) {
-                Alert.alert(
-                  'Catálogo publicado',
-                  'Despublique o Catálogo antes de remover ou alterar um campo obrigatório.'
-                );
-                return;
+                const missingCharacteristics =
+                  catalogEditLegibility.missingCategoryCharacteristics;
+                if (missingCharacteristics.length === 0) {
+                  Alert.alert(
+                    'Catálogo publicado',
+                    'O produto ainda precisa atender aos requisitos do Catálogo Digital.'
+                  );
+                  return;
+                }
+
+                const characteristicLabel = missingCharacteristics.join(', ');
+                const characteristicMessage =
+                  missingCharacteristics.length === 1
+                    ? `O campo obrigatório "${characteristicLabel}" está desativado ou sem valor.`
+                    : `Os campos obrigatórios (${characteristicLabel}) estão desativados ou sem valor.`;
+                const confirmed = await new Promise<boolean>((resolve) => {
+                  Alert.alert(
+                    'Ocultar produto do Catálogo Digital?',
+                    `${characteristicMessage} Se confirmar, as alterações serão salvas e o produto será ocultado do Catálogo Digital.`,
+                    [
+                      { text: 'Continuar editando', style: 'cancel', onPress: () => resolve(false) },
+                      { text: 'Salvar e ocultar', style: 'destructive', onPress: () => resolve(true) },
+                    ],
+                    { cancelable: true, onDismiss: () => resolve(false) }
+                  );
+                });
+                if (!confirmed) return;
+                hideFromCatalog = true;
               }
             }
 
             const payload = await prepareSavePayload(validated, isDraft);
+            if (hideFromCatalog && !isDraft) {
+              payload.status = 'hidden';
+              payload.variations = (payload.variations || []).map((variation: any) => ({
+                ...variation,
+                status: 'hidden',
+              }));
+            }
             await onSave(payload);
             saveOperationIdRef.current = null;
             saveRequestedAtRef.current = null;
