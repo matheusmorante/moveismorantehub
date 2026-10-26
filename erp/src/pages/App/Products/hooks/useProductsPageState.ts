@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { toast } from 'react-toastify';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { ProductVisibilitySettings } from '../../../types/product.type';
 import { ProductFiltersData } from '../ProductFilters';
 import { loadProductCatalogStats } from '../ProductList/services/productCatalogStatsService';
+import { productListSearchFormSchema } from '../../../../../../shared-utils/listingFormSchemas';
 import {
   PRODUCT_LIST_SEARCH_DEBOUNCE_MS,
   PRODUCT_LIST_SEARCH_MIN_LENGTH,
@@ -35,6 +38,11 @@ export function useProductsPageState({
   const [filters, setFilters] = useState<Partial<ProductFiltersData>>({});
   const [searchInput, setSearchInput] = useState('');
   const searchDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchValidationSequence = useRef(0);
+  const { validateValues: validateProductSearch } = useZodForm(
+    productListSearchFormSchema,
+    { input: '', intent: 'debounced' },
+  );
 
   const [showTestProducts, setShowTestProducts] = useState(false);
   const [showMergedProducts, setShowMergedProducts] = useState(false);
@@ -110,6 +118,31 @@ export function useProductsPageState({
     }
   }, []);
 
+  const applyValidatedProductSearch = useCallback(async (
+    input: string,
+    intent: 'debounced' | 'submitted',
+    sequence: number,
+  ) => {
+    const parsed = await validateProductSearch(
+      { input, intent },
+      (errors) => {
+        const message = Object.values(flattenFormErrors(errors))[0];
+        toast.error(message || 'Não foi possível validar a busca de produtos.');
+      },
+    );
+    if (parsed === false) return;
+    const search = parsed.search;
+    if (sequence !== searchValidationSequence.current || search === null) return;
+    setFilters((previous) => {
+      if (search === '') {
+        return previous.search ? { ...previous, search: '' } : previous;
+      }
+      return (previous.search || '').trim() === search
+        ? previous
+        : { ...previous, search };
+    });
+  }, [validateProductSearch]);
+
   useEffect(
     () => () => {
       clearSearchDebounceTimer();
@@ -121,67 +154,44 @@ export function useProductsPageState({
     (value: string) => {
       setSearchInput(value);
       clearSearchDebounceTimer();
+      const sequence = ++searchValidationSequence.current;
 
       const trimmed = value.trim();
 
       if (trimmed.length === 0) {
-        setFilters((previous) =>
-          previous.search ? { ...previous, search: '' } : previous
-        );
+        void applyValidatedProductSearch(value, 'debounced', sequence);
         return;
       }
 
-      if (trimmed.length < PRODUCT_LIST_SEARCH_MIN_LENGTH) {
-        // Se houver busca anterior ativa, limpa o filtro após debounce, mantendo o texto digitado
-        searchDebounceTimer.current = setTimeout(() => {
-          setFilters((previous) =>
-            previous.search ? { ...previous, search: '' } : previous
-          );
-          searchDebounceTimer.current = null;
-        }, PRODUCT_LIST_SEARCH_DEBOUNCE_MS);
-        return;
-      }
-
-      // A partir de 3 caracteres: busca com debounce recomendado de 350ms
+      // A decisão de aplicar/limpar o filtro passa pelo resolver real do formulário.
       searchDebounceTimer.current = setTimeout(() => {
-        setFilters((previous) =>
-          (previous.search || '').trim() === trimmed ? previous : { ...previous, search: trimmed }
-        );
         searchDebounceTimer.current = null;
+        void applyValidatedProductSearch(value, 'debounced', sequence);
       }, PRODUCT_LIST_SEARCH_DEBOUNCE_MS);
     },
-    [clearSearchDebounceTimer]
+    [applyValidatedProductSearch, clearSearchDebounceTimer]
   );
 
   const clearSearchInput = useCallback(() => {
     clearSearchDebounceTimer();
+    const sequence = ++searchValidationSequence.current;
     setSearchInput('');
-    setFilters((previous) =>
-      previous.search ? { ...previous, search: '' } : previous
-    );
-  }, [clearSearchDebounceTimer]);
+    void applyValidatedProductSearch('', 'debounced', sequence);
+  }, [applyValidatedProductSearch, clearSearchDebounceTimer]);
 
   const handleSearchKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         clearSearchDebounceTimer();
-        const trimmed = searchInput.trim();
-        if (trimmed.length >= PRODUCT_LIST_SEARCH_MIN_LENGTH) {
-          setFilters((previous) =>
-            (previous.search || '').trim() === trimmed ? previous : { ...previous, search: trimmed }
-          );
-        } else if (trimmed.length === 0) {
-          setFilters((previous) =>
-            previous.search ? { ...previous, search: '' } : previous
-          );
-        }
+        const sequence = ++searchValidationSequence.current;
+        void applyValidatedProductSearch(searchInput, 'submitted', sequence);
       } else if (e.key === 'Escape') {
         e.preventDefault();
         clearSearchInput();
       }
     },
-    [clearSearchDebounceTimer, searchInput, clearSearchInput]
+    [applyValidatedProductSearch, clearSearchDebounceTimer, searchInput, clearSearchInput]
   );
 
   useEffect(() => {

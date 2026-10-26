@@ -104,6 +104,16 @@ export const useProductTechnicalTab = ({
       fieldName: string,
       scope?: 'not_inform' | 'global' | 'variation'
     ) => {
+      if (scope === 'not_inform') {
+        setManualFieldNames((prev) =>
+          prev.filter(
+            (name) =>
+              name.trim().toLocaleLowerCase('pt-BR') !==
+              fieldName.trim().toLocaleLowerCase('pt-BR')
+          )
+        );
+      }
+
       setFormData((prev) => {
         const fieldDefinition = allTechnicalFields.find(
           (field) => field.name.trim().toLocaleLowerCase('pt-BR') === fieldName.trim().toLocaleLowerCase('pt-BR')
@@ -171,7 +181,7 @@ export const useProductTechnicalTab = ({
             : isQuantityCharacteristic(fieldName)
               ? {
                   ...next,
-                  technicalValues: { ...(next.technicalValues || {}), [fieldName]: null },
+                    technicalValues: { ...(next.technicalValues || {}), [fieldName]: '' },
                 }
               : applyTechnicalValueChangeToProduct(next, fieldName, '');
         }
@@ -179,7 +189,12 @@ export const useProductTechnicalTab = ({
         return next;
       });
     },
-    [allTechnicalFields, applicability.visibleFields, setFormData]
+    [
+      allTechnicalFields,
+      applicability.visibleFields,
+      setFormData,
+      setManualFieldNames,
+    ]
   );
 
   const openAttributeModal = () => setIsAttributeModalOpen(true);

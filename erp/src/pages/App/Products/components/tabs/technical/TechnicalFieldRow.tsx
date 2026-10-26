@@ -4,8 +4,8 @@ import type { Product } from '../../../../../types/product.type';
 import {
   isDoorDrawerDependentCharacteristicActive,
   isCharacteristicDependent,
+  isShelfWeightCapacityCharacteristic,
   isQuantityCharacteristic,
-  isWeightCharacteristicName,
   type TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
@@ -78,14 +78,13 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   } = computeTechnicalFieldItemState(field, formData, manualFieldNames, validationErrors);
 
   const normName = normalizeTechnicalName(field.name);
-  const displayName = /^retr[aá]til\??$/i.test(field.name.trim()) ? 'É Retrátil?' : field.name;
+  const displayName = isShelfWeightCapacityCharacteristic(field.name)
+    ? 'Peso suportado por prateleira'
+    : /^retr[aá]til\??$/i.test(field.name.trim())
+      ? 'É Retrátil?'
+      : field.name;
   const isMandatory = Boolean(field.isRequired || field.isRequiredForCatalog);
   const isQuantityField = isQuantityCharacteristic(field.name);
-  const isWeightField = isWeightCharacteristicName(field.name);
-  const hasExplicitValue = Object.prototype.hasOwnProperty.call(
-    formData.technicalValues || {},
-    field.name
-  );
   const isAutomaticallyActiveByQuantity = isDoorDrawerDependentCharacteristicActive(
     field.name,
     formData.technicalValues || {}
@@ -100,18 +99,19 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   const effectiveIsVariable = isVariable && !isSimpleProduct;
   const shouldDefaultToGlobal =
     hasConfiguredValue ||
-    hasExplicitValue ||
-    isManual ||
     isMandatory ||
-    isDependencySatisfied ||
-    isWeightField;
-  const scope = effectiveIsVariable
-    ? 'variation'
-    : isExplicitlyNotApplicable
-      ? 'not_inform'
-      : shouldDefaultToGlobal
-        ? 'global'
-        : 'not_inform';
+    isDependencySatisfied;
+  const scope = isDependentCharacteristic
+    ? effectiveIsVariable
+      ? 'variation'
+      : 'global'
+    : effectiveIsVariable
+      ? 'variation'
+      : isExplicitlyNotApplicable
+        ? 'not_inform'
+        : shouldDefaultToGlobal
+          ? 'global'
+          : 'not_inform';
   const availableScopeOptions = isMandatory
     ? REQUIRED_TECHNICAL_FIELD_SCOPES
     : TECHNICAL_FIELD_SCOPES;
@@ -239,7 +239,11 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               <i className="bi bi-trash3" />
             </button>
           )}
-          {onToggleVariable && isSimpleProduct && !isMandatory && !isDependencyVariable && (
+          {onToggleVariable &&
+            isSimpleProduct &&
+            !isMandatory &&
+            !isDependencyVariable &&
+            !isDependentCharacteristic && (
             <button
               type="button"
               role="switch"
@@ -261,7 +265,10 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               />
             </button>
           )}
-          {onToggleVariable && !isSimpleProduct && !isDependencyVariable && (
+          {onToggleVariable &&
+            !isSimpleProduct &&
+            !isDependencyVariable &&
+            !isDependentCharacteristic && (
             <div ref={scopeControlRef} className="relative shrink-0">
               <button
                 ref={scopeTriggerRef}
@@ -335,8 +342,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
           <DisabledFieldWrapper
             isDisabled={
               isFieldDisabled ||
-              effectiveIsVariable ||
-              (isDependentCharacteristic && scope === 'not_inform')
+              effectiveIsVariable
             }
             disabledReason={disabledReason}
             showTooltip={showTooltip}
@@ -349,16 +355,14 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               value={
                 rawValue !== undefined &&
                 rawValue !== null &&
-                rawValue !== 'Não se aplica' &&
-                rawValue !== 'N/A'
+                !isExplicitlyNotApplicable
                   ? rawValue
                   : ''
               }
               isInvalid={isFieldInvalid}
               disabled={
                 isFieldDisabled ||
-                effectiveIsVariable ||
-                (isDependentCharacteristic && scope === 'not_inform')
+                effectiveIsVariable
               }
               onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
             />

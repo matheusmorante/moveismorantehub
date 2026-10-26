@@ -2,8 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { SINK_CATEGORY_ID } from '../../../../../shared-utils/productSinkCategoryRules';
 import { getDefaultShowNameForVariationOverride } from '../../../../../shared-utils/productVariationAttributeDefaults';
 import {
+  isChairWeightCapacityCharacteristic,
+  isShelfWeightCapacityCharacteristic,
+  isWeightCapacityCharacteristic,
+} from '../../../../../shared-utils/productTechnicalFieldRules';
+import {
   MATTRESS_CATEGORY_ID,
   getApplicableProductTechnicalFields,
+  getProductTechnicalFieldDisplayName,
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
   getMissingRequiredCharacteristics,
@@ -20,6 +26,7 @@ import {
   isProductTechnicalFieldRequiredForCatalog,
   isRequiredCharacteristicName,
   isWeightCharacteristicName,
+  isProductTechnicalFieldApplicableByCategory,
   upsertProductCharacteristicAttribute,
   isDepthCharacteristic,
   isLengthCharacteristic,
@@ -83,7 +90,7 @@ describe('productCharacteristics', () => {
     expect(isWeightCharacteristicName(' peso ')).toBe(true);
     expect(isProductTechnicalFieldRequired(weightField, ['cat-chair'])).toBe(false);
     expect(
-      getApplicableProductTechnicalFields([weightField], ['cat-chair']).map((field) => ({
+      getApplicableProductTechnicalFields([weightField]).map((field) => ({
         name: field.name,
         isRequired: field.isRequired,
         decimal_places: field.decimal_places,
@@ -106,6 +113,51 @@ describe('productCharacteristics', () => {
       isRequiredForProduct: false,
       isRequiredForCatalog: true,
     });
+  });
+
+  it('mantém capacidade por prateleira visível, opcional e no grupo Prateleiras', () => {
+    const field = {
+      name: 'Peso suportado',
+      isCustom: true,
+      isRequired: true,
+      requiredCategoryIds: ['cat-shelves'],
+    };
+
+    expect(isShelfWeightCapacityCharacteristic('Peso suportado por prateleiras')).toBe(true);
+    expect(isWeightCapacityCharacteristic('Peso suportado')).toBe(true);
+    expect(isProductTechnicalFieldRequired(field, ['cat-shelves'])).toBe(false);
+    expect(isProductTechnicalFieldRequiredForCatalog(field, ['cat-shelves'])).toBe(false);
+    expect(getApplicableProductTechnicalFields([field]).map(({ name, decimal_places }) => ({
+      name,
+      decimal_places,
+    }))).toEqual([{ name: 'Peso suportado', decimal_places: 1 }]);
+    expect(getProductTechnicalFieldDisplayName(field.name)).toBe('Peso suportado por prateleira');
+    expect(groupProductTechnicalFields([field])).toEqual([
+      { title: 'Prateleiras', fields: [expect.objectContaining({ name: field.name })] },
+    ]);
+  });
+
+  it('só mostra capacidade de cadeiras na categoria Cadeiras ou por vínculo da categoria', () => {
+    const field = {
+      name: 'Peso suportado por cadeiras',
+      isCustom: true,
+      isRequired: true,
+      categoryIds: ['cat-chair'],
+      requiredCategoryIds: ['cat-chair'],
+    };
+
+    expect(isChairWeightCapacityCharacteristic('Peso suportado por cadeira')).toBe(true);
+    expect(isProductTechnicalFieldApplicableByCategory(field, [], 'Cadeiras')).toBe(true);
+    expect(isProductTechnicalFieldApplicableByCategory(field, ['cat-chair'], 'Móveis')).toBe(true);
+    expect(isProductTechnicalFieldApplicableByCategory(field, ['cat-other'], 'Móveis')).toBe(false);
+    expect(
+      getApplicableProductTechnicalFields([field], ['cat-other'], {
+        'Peso suportado por cadeiras': 120,
+      })
+    ).toEqual([]);
+    expect(groupProductTechnicalFields([field])).toEqual([
+      { title: 'Estrutura', fields: [expect.objectContaining({ name: field.name })] },
+    ]);
   });
 
   it('considera variação própria e herança do produto pai com precedência da variação', () => {

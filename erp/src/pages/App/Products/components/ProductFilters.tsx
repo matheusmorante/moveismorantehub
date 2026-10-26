@@ -6,7 +6,7 @@ export interface ProductFiltersData {
   category: string;
   activeOnly: boolean | undefined;
   isDraft?: boolean;
-  status?: string;
+  status?: 'published' | 'hidden';
   sortBy: 'description' | 'unitPrice' | 'stock' | 'code' | 'createdAt' | 'category';
   sortOrder: 'asc' | 'desc';
   showTrash?: boolean;
@@ -185,7 +185,11 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
               value={filters.status || ''}
               onChange={(e) => {
                 const val = e.target.value;
-                setFilters((prev) => ({ ...prev, status: val === '' ? undefined : val }));
+                if (val !== '' && val !== 'published' && val !== 'hidden') return;
+                setFilters((prev) => ({
+                  ...prev,
+                  status: val === '' ? undefined : val,
+                }));
               }}
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm appearance-none cursor-pointer dark:text-slate-300"
             >

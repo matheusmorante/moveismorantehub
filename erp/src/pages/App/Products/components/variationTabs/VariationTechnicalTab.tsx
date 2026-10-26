@@ -17,6 +17,7 @@ import {
   groupTechnicalFields,
   isDepthCharacteristic,
   mergeCharacteristicGroups,
+  isChairWeightCapacityCharacteristic,
 } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
 import { AttributeManagementModal } from '../modals/attributes/AttributeManagementModal';
@@ -151,8 +152,9 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   );
   const isVariableField = useCallback(
     (fieldName: string) =>
-      isTechnicalFieldVariable(fieldName, variableFieldNames) ||
-      isCharacteristicDependentOnVariableField(fieldName, variableFieldNames),
+      isCharacteristicDependent(fieldName)
+        ? isCharacteristicDependentOnVariableField(fieldName, variableFieldNames)
+        : isTechnicalFieldVariable(fieldName, variableFieldNames),
     [variableFieldNames]
   );
 
@@ -209,18 +211,33 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     [allTechnicalFields, parentProduct.categoryIds, combinedValues, manualFieldNames]
   );
 
-  const visibleFields = useMemo(
-    () => {
-      const fieldsByName = new Map<string, TechnicalFieldDefinition>();
-      [...applicableFields, ...allTechnicalFields].forEach((field) => {
-        if (!isVariableField(field.name)) return;
-        const key = normalizeSearchTerm(field.name);
-        if (!fieldsByName.has(key)) fieldsByName.set(key, field);
-      });
-      return [...fieldsByName.values()];
-    },
-    [allTechnicalFields, applicableFields, isVariableField]
+  const isChairCategorySelected = /(?:^|[^a-z0-9])cadeiras?(?=$|[^a-z0-9])/i.test(
+    normalizeSearchTerm(parentProduct.category || '')
   );
+
+  const visibleFields = useMemo(() => {
+    const fieldsByName = new Map<string, TechnicalFieldDefinition>();
+    const selectedCategoryIds = new Set(parentProduct.categoryIds || []);
+    [...applicableFields, ...allTechnicalFields].forEach((field) => {
+      if (
+        isChairWeightCapacityCharacteristic(field.name) &&
+        !isChairCategorySelected &&
+        !field.categoryIds?.some((id) => selectedCategoryIds.has(id))
+      ) {
+        return;
+      }
+      if (!isVariableField(field.name)) return;
+      const key = normalizeSearchTerm(field.name);
+      if (!fieldsByName.has(key)) fieldsByName.set(key, field);
+    });
+    return [...fieldsByName.values()];
+  }, [
+    allTechnicalFields,
+    applicableFields,
+    isChairCategorySelected,
+    isVariableField,
+    parentProduct.categoryIds,
+  ]);
 
   const requiredFields = useMemo(
     () => visibleFields.filter((field) => field.isRequired || field.isRequiredForCatalog),

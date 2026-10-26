@@ -2,6 +2,7 @@ import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import {
   isExcludedCharacteristic,
   isRequiredCharacteristicName,
+  isWeightCapacityCharacteristic,
   isWeightCharacteristicName,
   type TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
@@ -160,18 +161,25 @@ export const fetchTechnicalFieldDefinitions = async (
                   (link) =>
                     link.attribute_id === attribute.id &&
                     link.is_required &&
-                    !isWeightCharacteristicName(attribute.name)
+                    !isWeightCharacteristicName(attribute.name) &&
+                    !isWeightCapacityCharacteristic(attribute.name)
                 )
                 .map((link) => link.category_id);
           const isWeight =
-            isWeightCharacteristicName(attribute.name) || attribute.data_type === 'weight';
+            isWeightCharacteristicName(attribute.name) ||
+            isWeightCapacityCharacteristic(attribute.name) ||
+            attribute.data_type === 'weight';
           const dimensionUnit = isMeasureCharacteristic ? 'cm' : isWeight ? 'kg' : undefined;
 
           return {
             id: attribute.id,
             name: attribute.name,
             active: attribute.active ?? true,
-            dataType: isMeasureCharacteristic ? 'measure' : attribute.data_type || 'list',
+            dataType: isMeasureCharacteristic
+              ? 'measure'
+              : isWeightCapacityCharacteristic(attribute.name)
+                ? 'weight'
+                : attribute.data_type || 'list',
             unit: attribute.unit || dimensionUnit,
             decimalPlaces: isWeight
               ? 1

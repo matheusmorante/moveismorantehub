@@ -15,6 +15,8 @@ import {
 import {
   normalizeCharacteristicName,
   isPrimaryCharacteristicName,
+  isChairWeightCapacityCharacteristic,
+  isShelfWeightCapacityCharacteristic,
 } from './predicates';
 import type { CharacteristicGroup } from './types';
 
@@ -33,15 +35,22 @@ export const groupCharacteristicsByTopic = <
   const requiredCharacteristicFields: T[] = [];
   const otherFields: T[] = [];
   const isStructuralWeightCapacity = (name: string) =>
+    isChairWeightCapacityCharacteristic(name) ||
     /\bpeso\b(?!.*\b(?:prateleira|gaveta)\b).*\bsuportad[oa]\b/i.test(name);
 
   fields.forEach((field) => {
-    if (field.isCustom && !isStructuralWeightCapacity(field.name)) {
+    if (
+      field.isCustom &&
+      !isStructuralWeightCapacity(field.name) &&
+      !isShelfWeightCapacityCharacteristic(field.name)
+    ) {
       otherFields.push(field);
       return;
     }
 
-    const topic = CHARACTERISTIC_TOPICS.find((candidate) => candidate.matches.test(field.name));
+    const topic = isShelfWeightCapacityCharacteristic(field.name)
+      ? CHARACTERISTIC_TOPICS.find((candidate) => candidate.title === 'Prateleiras')
+      : CHARACTERISTIC_TOPICS.find((candidate) => candidate.matches.test(field.name));
     if (topic) {
       const groupedFields = groups.get(topic.title) || [];
       groupedFields.push(field);

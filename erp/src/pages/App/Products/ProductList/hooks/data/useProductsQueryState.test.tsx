@@ -45,6 +45,7 @@ vi.mock('../actions/useProductsDeletionActions', () => ({
 import { useProducts } from './useProducts';
 import { persistAndInvalidateProductList } from './productQueryMutations';
 import { persistCatalogStatus, resolveCatalogEntities } from '../actions/useProductsCatalogActions';
+import type { ProductListFilters } from '../../types';
 
 afterEach(() => {
   cleanup();
@@ -80,6 +81,17 @@ describe('useProducts query snapshot', () => {
     await waitFor(() => expect(result.current.error).toBeTruthy());
     expect(result.current.products).toEqual([]);
     expect(result.current.totalItems).toBe(0);
+  });
+
+  it('runs the shared list-filter resolver before querying and rejects invalid catalog status', async () => {
+    const { result } = renderHook(
+      () => useProducts({ status: 'not-a-catalog-status' } as never),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.error).toBeTruthy());
+    expect(mocks.fetchProductsPage).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it('keeps cached results visible when a refetch for the same filter fails', async () => {
@@ -216,7 +228,7 @@ describe('useProducts query snapshot', () => {
 
   it('preserva composição, exclusão de rascunhos e Catálogo ao buscar a partir de desativados', async () => {
     mocks.fetchProductsPage.mockResolvedValue({ data: [], total: 40 });
-    const filters = {
+    const filters: ProductListFilters = {
       activeOnly: false,
       isDraft: false,
       status: 'hidden',

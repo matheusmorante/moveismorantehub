@@ -32,6 +32,15 @@ export const isThicknessCharacteristic = (name: string): boolean => {
 export const isWeightCharacteristicName = (name: string): boolean =>
   normalizeCharacteristicName(name) === 'peso';
 
+export const isShelfWeightCapacityCharacteristic = (name: string): boolean =>
+  /^peso suportado(?: por prateleiras?)?$/.test(normalizeCharacteristicName(name));
+
+export const isChairWeightCapacityCharacteristic = (name: string): boolean =>
+  /^peso suportado por cadeiras?$/.test(normalizeCharacteristicName(name));
+
+export const isWeightCapacityCharacteristic = (name: string): boolean =>
+  isShelfWeightCapacityCharacteristic(name) || isChairWeightCapacityCharacteristic(name);
+
 export const isDimensionCharacteristicName = (name: string): boolean => {
   const norm = normalizeCharacteristicName(name);
   return (

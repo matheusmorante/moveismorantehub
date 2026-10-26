@@ -6,6 +6,7 @@ import {
   isDepthCharacteristic,
   isLengthCharacteristic,
   getCharacteristicDependencyState,
+  isShelfWeightCapacityCharacteristic,
   isQuantityCharacteristic,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from '../tabs/technical/TechnicalFieldInput';
@@ -131,16 +132,21 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
   const dep = getCharacteristicDependencyState(field.name, effectiveDependencyValues);
   const isDependencyDisabled = dep.isDisabled;
   const isDependencySatisfied = dep.isDependent && !dep.isDisabled;
+  const isExplicitlyNotApplicable = [
+    'não se aplica',
+    'nao se aplica',
+    'n/a',
+    'não informar',
+  ].includes(normalizedEffectiveValue);
   const isActuallyDisabled = isSingleVariation || isDependencyDisabled;
   const isQuantityField = isQuantityCharacteristic(field.name);
-  const isExplicitlyNotApplicable = ['não se aplica', 'nao se aplica', 'n/a', 'não informar'].includes(
-    normalizedEffectiveValue
-  );
-
   const isDepthOrLength =
     isDepthCharacteristic(field.name) || isLengthCharacteristic(field.name);
   const isDepth = isDepthCharacteristic(field.name);
   const isTotal = field.name.toLowerCase().includes('total');
+  const displayName = isShelfWeightCapacityCharacteristic(field.name)
+    ? 'Peso suportado por prateleira'
+    : field.name;
   const alternateLabel = isDepth
     ? isTotal
       ? 'Comprimento total'
@@ -162,9 +168,9 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
               ? 'text-slate-400 dark:text-slate-500'
               : 'text-slate-600 dark:text-slate-300'
           }`}
-          title={field.name}
+          title={displayName}
         >
-          {field.name}
+          {displayName}
           {isDependencyDisabled && (
             <DisabledFieldInfoButton
               disabledReason={dep.disabledReason}
@@ -219,28 +225,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
               <span className="inline-block h-4 w-4 translate-x-4 transform rounded-full bg-white shadow transition-transform" />
             </button>
           )}
-          {isDependencySatisfied &&
-            !field.isRequired &&
-            !field.isRequiredForCatalog && (
-              <button
-                type="button"
-                role="switch"
-                aria-checked={!isExplicitlyNotApplicable}
-                aria-label={`Exibir característica ${field.name}`}
-                onClick={() =>
-                  onSetOverride(field.name, isExplicitlyNotApplicable ? null : 'Não se aplica')
-                }
-                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
-                  isExplicitlyNotApplicable ? 'bg-slate-300 dark:bg-slate-700' : 'bg-blue-600'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    isExplicitlyNotApplicable ? 'translate-x-0.5' : 'translate-x-4'
-                  }`}
-                />
-              </button>
-            )}
         </div>
       </div>
 
@@ -257,14 +241,12 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
           value={
             effectiveVal !== undefined &&
             effectiveVal !== null &&
-            effectiveVal !== 'Não se aplica' &&
-            effectiveVal !== 'N/A'
+            !isExplicitlyNotApplicable
               ? effectiveVal
               : ''
           }
           disabled={
-            isActuallyDisabled ||
-            (isDependencySatisfied && isExplicitlyNotApplicable)
+            isActuallyDisabled
           }
           onChange={(selectedVal) => onSetOverride(field.name, selectedVal)}
         />

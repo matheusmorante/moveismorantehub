@@ -74,15 +74,6 @@ export const useTechnicalFieldActions = ({
   const addTechnicalFieldNames = (names: string[]) => {
     if (names.length === 0) return;
     setManualFieldNames((prev) => Array.from(new Set([...prev, ...names])));
-    setFormData((prev) => {
-      const currentTech = { ...(prev.technicalValues || {}) };
-      names.forEach((name) => {
-        if (!Object.prototype.hasOwnProperty.call(currentTech, name)) {
-          currentTech[name] = isQuantityCharacteristic(name) ? null : '';
-        }
-      });
-      return { ...prev, technicalValues: currentTech };
-    });
     setCharacteristicSearchTerm('');
   };
 

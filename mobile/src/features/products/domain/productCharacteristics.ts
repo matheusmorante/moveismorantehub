@@ -34,6 +34,13 @@ import {
 import {
   isProductTechnicalAttributeRequiredByCategories,
 } from '../../../../../shared-utils/productCategoryRequiredAttributes';
+import {
+  isChairWeightCapacityCharacteristic,
+  isShelfWeightCapacityCharacteristic,
+  isWeightCharacteristicName,
+  isWeightCapacityCharacteristic,
+} from '../../../../../shared-utils/productTechnicalFieldRules';
+export { isWeightCharacteristicName } from '../../../../../shared-utils/productTechnicalFieldRules';
 
 // ============================================================================
 // 1. TYPES & INTERFACES
@@ -94,9 +101,12 @@ export const CHARACTERISTIC_TOPICS: ReadonlyArray<{ title: string; matches: RegE
   {
     title: 'Medidas e peso',
     matches:
-      /\b(altura|largura|profundidade|comprimento|espessura|assento)\b|\bpeso\b(?!.*(prateleira|gaveta))/i,
+      /\b(altura|largura|profundidade|comprimento|espessura|assento)\b|\bpeso\b(?!.*\b(?:prateleira|gaveta|suportad[oa])\b)/i,
   },
-  { title: 'Estrutura', matches: /\b(estrutura|material da estrutura)\b/i },
+  {
+    title: 'Estrutura',
+    matches: /\b(estrutura|material da estrutura)\b|\bpeso\b(?!.*\b(?:prateleira|gaveta)\b).*\bsuportad[oa]\b/i,
+  },
   { title: 'Portas', matches: /\b(portas?)\b/i },
   { title: 'Gavetas', matches: /\b(gavetas?|corredi[çc]as?)\b/i },
   { title: 'Prateleiras', matches: /\b(prateleiras?)\b/i },
@@ -131,7 +141,6 @@ export const DIMENSIONS_SORT_ORDER: Readonly<Record<string, number>> = {
   'altura do assento ao chão': 8,
   'altura do chão até o assento': 8,
   peso: 9,
-  'peso suportado': 10,
 };
 
 /** Sequência canônica de exibição das portas */
@@ -171,6 +180,7 @@ export const SHELVES_SORT_ORDER: Readonly<Record<string, number>> = {
   'quantidade de prateleiras': 1,
   'material das prateleiras': 2,
   'peso suportado por prateleira': 3,
+  'peso suportado': 3,
 };
 
 /** Sequência canônica de exibição dos pés */
@@ -224,8 +234,28 @@ export const isThicknessCharacteristic = (name: string): boolean => {
   return norm === 'espessura' || norm === 'espessura do colchão';
 };
 
-export const isWeightCharacteristicName = (name: string): boolean =>
-  normalizeName(name) === 'peso';
+export const getProductTechnicalFieldDisplayName = (name: string): string =>
+  isShelfWeightCapacityCharacteristic(name) ? 'Peso suportado por prateleira' : name;
+
+const isChairCategoryName = (name: string): boolean => {
+  const normalized = String(name || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR');
+  return /(?:^|[^a-z0-9])cadeiras?(?=$|[^a-z0-9])/i.test(normalized);
+};
+
+export const isProductTechnicalFieldApplicableByCategory = (
+  field: ProductTechnicalField,
+  categoryIds: readonly string[] = [],
+  categoryName = ''
+): boolean => {
+  if (!isChairWeightCapacityCharacteristic(field.name)) return true;
+  if (isChairCategoryName(categoryName)) return true;
+  const selectedCategoryIds = new Set(categoryIds.map(String));
+  return Boolean(field.categoryIds?.some((id) => selectedCategoryIds.has(String(id))));
+};
 
 /** Mantém os campos operacionais/redundantes Reclinável, Linha e Modelo (isolado) ocultos, conforme a regra canônica do ERP. */
 export const isExcludedProductTechnicalField = (name: string): boolean =>
@@ -267,7 +297,7 @@ export const isProductTechnicalFieldRequired = (
   field: ProductTechnicalField,
   categoryIds: readonly string[] = []
 ): boolean => {
-  if (isWeightCharacteristicName(field.name)) return false;
+  if (isWeightCharacteristicName(field.name) || isWeightCapacityCharacteristic(field.name)) return false;
   const isMattress = isMattressCategory(categoryIds);
 
   if (isMattress && isHeightCharacteristic(field.name)) return false;
@@ -284,6 +314,7 @@ export const isProductTechnicalFieldRequiredForCatalog = (
   categoryIds: readonly string[] = []
 ): boolean =>
   !isWeightCharacteristicName(field.name) &&
+  !isWeightCapacityCharacteristic(field.name) &&
   (field.requiredForCategory === true ||
     isProductTechnicalAttributeRequiredByCategories(field.requiredCategoryIds, categoryIds));
 
@@ -600,7 +631,8 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
   allFields: readonly T[] = [],
   categoryIds: readonly string[] = [],
   values: Record<string, unknown> = {},
-  manuallyAddedFieldNames: readonly string[] = []
+  manuallyAddedFieldNames: readonly string[] = [],
+  categoryName = ''
 ): T[] => {
   const safeFields = Array.isArray(allFields) ? allFields : [];
   const activeCategories = new Set(categoryIds.map(String));
@@ -610,6 +642,7 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
 
   let applicable = safeFields.filter((field) => {
     if (isExcludedProductTechnicalField(field.name)) return false;
+    if (!isProductTechnicalFieldApplicableByCategory(field, categoryIds, categoryName)) return false;
     if (isSink && isStructureMaterialCharacteristic(field.name)) return false;
     if (
       !isSink &&
@@ -623,6 +656,11 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
     const hasExistingValue = hasTechnicalValue(values, field.name);
     const norm = normalizeName(field.name);
 
+    // Peso e capacidade por prateleira são campos disponíveis independentemente do vínculo da categoria.
+    if (
+      isWeightCharacteristicName(field.name) ||
+      isShelfWeightCapacityCharacteristic(field.name)
+    ) return true;
     if (isProductTechnicalFieldRequiredForCatalog(field, categoryIds)) return true;
     if (isMattress && isHeightCharacteristic(field.name)) {
       return hasExistingValue || manualNames.has(norm);
@@ -662,7 +700,9 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
     isRequiredForProduct: isProductTechnicalFieldRequired(field, categoryIds),
     isRequiredForCatalog: isProductTechnicalFieldRequiredForCatalog(field, categoryIds),
     decimal_places:
-      isWeightCharacteristicName(field.name) || field.data_type === 'weight'
+      isWeightCharacteristicName(field.name) ||
+      isWeightCapacityCharacteristic(field.name) ||
+      field.data_type === 'weight'
         ? 1
         : field.decimal_places,
   })));
@@ -678,13 +718,21 @@ export const groupProductTechnicalFields = <T extends ProductTechnicalField>(
 ): ProductTechnicalFieldGroup<T>[] => {
   const groups = new Map<string, T[]>();
   const otherFields: T[] = [];
+  const isStructuralWeightCapacity = (name: string) =>
+    isChairWeightCapacityCharacteristic(name);
 
   fields.forEach((field) => {
-    if (field.isCustom === true || field.is_custom === true) {
+    if (
+      (field.isCustom === true || field.is_custom === true) &&
+      !isStructuralWeightCapacity(field.name) &&
+      !isShelfWeightCapacityCharacteristic(field.name)
+    ) {
       otherFields.push(field);
       return;
     }
-    const topic = CHARACTERISTIC_TOPICS.find((candidate) => candidate.matches.test(field.name));
+    const topic = isShelfWeightCapacityCharacteristic(field.name)
+      ? CHARACTERISTIC_TOPICS.find((candidate) => candidate.title === 'Prateleiras')
+      : CHARACTERISTIC_TOPICS.find((candidate) => candidate.matches.test(field.name));
     if (!topic) {
       otherFields.push(field);
       return;

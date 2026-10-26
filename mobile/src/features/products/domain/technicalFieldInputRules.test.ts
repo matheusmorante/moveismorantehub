@@ -40,7 +40,7 @@ describe('technical field overrides from ERP', () => {
     );
     expect(resolveTechnicalFieldDataType('Quantidade de portas', 'list')).toBe('integer');
     expect(getTechnicalFieldIntegerPlaceholder('Quantidade de gavetas')).toBe(
-      'Insira a quantidade de portas'
+      'Insira a quantidade de gavetas'
     );
   });
 
@@ -58,5 +58,7 @@ describe('technical field overrides from ERP', () => {
     expect(resolveTechnicalFieldDataType('Peso', 'weight')).toBe('decimal');
     expect(resolveTechnicalFieldDataType('Peso', 'list')).toBe('decimal');
     expect(resolveTechnicalFieldDataType('Peso suportado', 'weight')).toBe('decimal');
+    expect(resolveTechnicalFieldDataType('Peso suportado')).toBe('decimal');
+    expect(resolveTechnicalFieldDataType('Peso suportado por cadeiras', 'list')).toBe('decimal');
   });
 });

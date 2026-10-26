@@ -1,3 +1,8 @@
+import {
+  isWeightCapacityCharacteristic,
+  isWeightCharacteristicName,
+} from '../../../../../shared-utils/productTechnicalFieldRules';
+
 export const MAX_INLINE_CHOICE_OPTIONS = 8;
 
 export type TechnicalFieldInputMode = 'inline' | 'searchable' | 'text';
@@ -9,7 +14,11 @@ export const resolveTechnicalFieldDataType = (name: string, dataType?: string | 
   if (/quantidade\s+de\s+\S+/i.test(name) || /lugar(es)?/i.test(name)) {
     return 'integer';
   }
-  if (name.trim().toLocaleLowerCase('pt-BR') === 'peso' || dataType === 'weight') {
+  if (
+    isWeightCharacteristicName(name) ||
+    isWeightCapacityCharacteristic(name) ||
+    dataType === 'weight'
+  ) {
     return 'decimal';
   }
   return dataType || 'list';

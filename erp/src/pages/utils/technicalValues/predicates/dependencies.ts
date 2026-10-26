@@ -19,6 +19,7 @@ import {
   isHasInoxBowlCharacteristic,
   isSinkMaterialWithInoxBowlEligible,
 } from './categories';
+import { isShelfWeightCapacityCharacteristic } from './dimensions';
 
 export interface CharacteristicDependencyState {
   isDependent: boolean;
@@ -32,6 +33,10 @@ export const getCharacteristicDependencyState = (
   fieldName: string,
   technicalValues: Record<string, any> = {}
 ): CharacteristicDependencyState => {
+  if (isShelfWeightCapacityCharacteristic(fieldName)) {
+    return { isDependent: false, isDisabled: false };
+  }
+
   if (isDoorDependentCharacteristic(fieldName)) {
     const isDoorsActive = isHasDoorsActive(technicalValues);
     return {

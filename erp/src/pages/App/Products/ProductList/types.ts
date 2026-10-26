@@ -3,17 +3,17 @@ import type Product from '../../../types/product.type';
 export interface ProductListFilters {
   readonly activeOnly?: boolean;
   readonly category?: string;
-  readonly excludeItemType?: string;
+  readonly excludeItemType?: 'product' | 'composition' | 'service';
   readonly includeDeactivated?: boolean;
   readonly includeMergedVariations?: boolean;
   readonly isDraft?: boolean;
-  readonly itemType?: string;
+  readonly itemType?: 'product' | 'composition' | 'service';
   readonly search?: string;
   readonly showTestProducts?: boolean;
   readonly showTrash?: boolean;
-  readonly sortBy?: string;
+  readonly sortBy?: 'description' | 'unitPrice' | 'stock' | 'code' | 'createdAt' | 'category';
   readonly sortOrder?: 'asc' | 'desc';
-  readonly status?: string;
+  readonly status?: 'published' | 'hidden';
 }
 
 export interface ProductCategoryTree {

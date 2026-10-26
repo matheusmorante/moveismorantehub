@@ -174,6 +174,7 @@ export const SHELVES_SORT_ORDER: Readonly<Record<string, number>> = {
   'quantidade de prateleiras': 1,
   'material das prateleiras': 2,
   'peso suportado por prateleira': 3,
+  'peso suportado': 3,
 };
 
 /** Sequência canônica de exibição dos pés */

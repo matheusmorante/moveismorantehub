@@ -16,6 +16,8 @@ import {
   isConcretadaCharacteristic,
   isHasInoxBowlCharacteristic,
   isCharacteristicDependent,
+  isShelfWeightCapacityCharacteristic,
+  isWeightCapacityCharacteristic,
 } from './predicates';
 import type { TechnicalFieldDefinition, TechnicalValuesMap } from './types';
 import { deduplicateProductTechnicalValueAliasFields } from '../../../../../shared-utils/productTechnicalValueAliases';
@@ -79,7 +81,12 @@ export const getApplicableTechnicalFields = (
   const isSink = isSinkCategory(productCategoryIds, safeFields);
 
   const isRequiredForProduct = (field: TechnicalFieldDefinition): boolean => {
-    if (isWeightCharacteristicName(field.name)) return false;
+    if (
+      isWeightCharacteristicName(field.name) ||
+      isWeightCapacityCharacteristic(field.name)
+    ) {
+      return false;
+    }
     const normalizedName = normalizeCharacteristicName(field.name);
 
     // Para colchões, a altura não é obrigatória nem solicitada; usa-se espessura do colchão
@@ -134,6 +141,9 @@ export const getApplicableTechnicalFields = (
     if (isMattress && isHeightCharacteristic(field.name)) {
       return hasExistingValue || manualSet.has(field.name);
     }
+
+    // O peso por prateleira pode ser informado sem depender da quantidade de prateleiras.
+    if (isShelfWeightCapacityCharacteristic(field.name)) return true;
 
     // O peso do produto é uma medida padrão, independente da categoria ou dos vínculos.
     if (isWeightCharacteristicName(field.name)) return true;
@@ -191,7 +201,10 @@ export const getApplicableTechnicalFields = (
   }
 
   return deduplicateProductTechnicalValueAliasFields(applicable.map((field) => {
-    const isWeight = isWeightCharacteristicName(field.name) || field.dataType === 'weight';
+    const isWeight =
+      isWeightCharacteristicName(field.name) ||
+      isWeightCapacityCharacteristic(field.name) ||
+      field.dataType === 'weight';
     return {
       ...field,
       isRequired: isRequiredForProduct(field),

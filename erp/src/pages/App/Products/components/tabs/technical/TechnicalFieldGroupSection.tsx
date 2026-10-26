@@ -10,6 +10,7 @@ import {
   isHasFeetCharacteristic,
   isDoorQuantityCharacteristic,
   isDrawerQuantityCharacteristic,
+  isCharacteristicDependent,
   isCharacteristicDependentOnVariableField,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldRow } from './TechnicalFieldRow';
@@ -89,8 +90,9 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
   const isPesGroup = group.title === 'Pés';
   const isDimensionsGroup = group.title === 'Dimensões e Peso';
   const isVariableField = (fieldName: string) =>
-    isTechnicalFieldVariable(fieldName, variableTechnicalFieldNames) ||
-    isCharacteristicDependentOnVariableField(fieldName, variableTechnicalFieldNames);
+    isCharacteristicDependent(fieldName)
+      ? isCharacteristicDependentOnVariableField(fieldName, variableTechnicalFieldNames)
+      : isTechnicalFieldVariable(fieldName, variableTechnicalFieldNames);
 
   const effectiveFields = [...group.fields];
   const hasDoorQuantityField = effectiveFields.some((field) =>

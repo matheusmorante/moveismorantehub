@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import {
   getApplicableProductTechnicalFields,
+  getProductTechnicalFieldDisplayName,
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
   getProductCharacteristicAttributes,
@@ -23,6 +24,7 @@ import {
   isProductTechnicalFieldRequired,
   isProductTechnicalFieldRequiredForCatalog,
   isRequiredCharacteristicName,
+  isProductTechnicalFieldApplicableByCategory,
   removeProductCharacteristicAttribute,
   upsertProductCharacteristicAttribute,
   resolveMobileVariableTechnicalFieldNames,
@@ -204,6 +206,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         : formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []),
     [parentData?.categoryIds, parentData?.categoryId, formData.categoryIds, formData.categoryId]
   );
+  const selectedCategoryName = String(
+    (parentData || formData).categoryName || (parentData || formData).category || ''
+  );
   const isSimpleProduct =
     !parentData &&
     !formData.hasVariations &&
@@ -235,12 +240,16 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       technicalFields,
       categoryIds,
       values,
-      manualFieldNames
+      manualFieldNames,
+      selectedCategoryName
     );
     const existingNames = new Set(visible.map((field) => normalizeName(field.name)));
     const preservedLegacyFields = Object.keys(values)
       .filter(
-        (name) => !isExcludedProductTechnicalField(name) && !existingNames.has(normalizeName(name))
+        (name) =>
+          !isExcludedProductTechnicalField(name) &&
+          isProductTechnicalFieldApplicableByCategory({ name }, categoryIds, selectedCategoryName) &&
+          !existingNames.has(normalizeName(name))
       )
       .map((name) => ({
         id: `legacy:${name}`,
@@ -254,6 +263,13 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     if (parentData) {
       const fieldsByName = new Map<string, any>();
       [...allVisibleFields, ...technicalFields].forEach((field) => {
+        if (
+          !isProductTechnicalFieldApplicableByCategory(
+            field,
+            categoryIds,
+            selectedCategoryName
+          )
+        ) return;
         if (!isMobileVariableTechnicalField(field.name, variableTechnicalFieldNames)) return;
         const key = normalizeSearchTerm(field.name);
         if (!fieldsByName.has(key)) fieldsByName.set(key, field);
@@ -266,6 +282,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   }, [
     technicalFields,
     categoryIds,
+    selectedCategoryName,
     ownTechnicalValues,
     parentTechnicalValues,
     manualFieldNames,
@@ -588,11 +605,11 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                   setCharacteristicSearchTerm('');
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`Adicionar característica ${field.name}`}
+                accessibilityLabel={`Adicionar característica ${getProductTechnicalFieldDisplayName(field.name)}`}
                 style={[styles.searchResultRow, dark && styles.darkOptionRow]}
               >
                 <Text style={[styles.searchResultName, dark && styles.lightText]}>
-                  {field.name}{field.unit ? ` (${field.unit})` : ''}
+                  {getProductTechnicalFieldDisplayName(field.name)}{field.unit ? ` (${field.unit})` : ''}
                 </Text>
                 <View style={styles.searchResultAction}>
                   <PlusCircle size={14} color="#2563eb" />
@@ -745,7 +762,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                               isDependencyDisabled && styles.dependentFieldLabel,
                             ]}
                           >
-                            {field.name}
+                            {getProductTechnicalFieldDisplayName(field.name)}
                             {field.unit ? ` (${field.unit})` : ''}
                           </Text>
                         </View>

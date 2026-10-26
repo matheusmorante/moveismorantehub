@@ -17,6 +17,10 @@ import {
   resolveTechnicalFieldDataType,
 } from '../../domain/technicalFieldInputRules';
 import { isQuantityCharacteristic } from '../../../../../../shared-utils/productCharacteristicDependencies';
+import {
+  isWeightCapacityCharacteristic,
+  isWeightCharacteristicName,
+} from '../../../../../../shared-utils/productTechnicalFieldRules';
 
 type TechnicalOption = { id?: string; value: string };
 
@@ -73,7 +77,11 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
 }) => {
   const type = resolveTechnicalFieldDataType(field.name, field.data_type);
   const isQuantity = isQuantityCharacteristic(field.name);
-  const isWeight = type === 'weight' || field.name.trim().toLocaleLowerCase('pt-BR') === 'peso';
+  const isWeight =
+    type === 'weight' ||
+    field.data_type === 'weight' ||
+    isWeightCharacteristicName(field.name) ||
+    isWeightCapacityCharacteristic(field.name);
   const decimalPlaces = isWeight
     ? 1
     : type === 'decimal'

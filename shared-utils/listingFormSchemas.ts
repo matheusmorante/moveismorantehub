@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PRODUCT_LIST_SEARCH_MIN_LENGTH } from './productListSearch';
 
 export const orderListFormSchema = z.object({ page: z.number().int().positive(), search: z.string(), status: z.string() });
 export const purchaseListFormSchema = z.object({ page: z.number().int().nonnegative(), search: z.string().optional(), supplierId: z.string().optional() });
@@ -15,6 +16,29 @@ export const productListPageSizeFormSchema = z.object({
 export const productListFormSchema = z.object({
   page: z.number().int().positive(), itemsPerPage: productListPageSizeSchema, search: z.string(), statusFilter: z.enum(['all', 'active', 'disabled', 'draft']),
   category: z.string(), catalogStatus: z.enum(['all', 'published', 'hidden']), itemType: z.enum(['standard', 'composition']), generalType: z.enum(['all', 'product', 'service']), includeDeactivated: z.boolean(), showTrash: z.boolean().optional(), showTestProducts: z.boolean(), showMergedProducts: z.boolean(),
+});
+export const productListQueryFiltersFormSchema = z.object({
+  showTrash: z.boolean().optional(),
+  search: z.string().optional(),
+  category: z.string().optional(),
+  activeOnly: z.boolean().optional(),
+  status: z.enum(['published', 'hidden']).optional(),
+  isDraft: z.boolean().optional(),
+  includeDeactivated: z.boolean().optional(),
+  itemType: z.enum(['product', 'composition', 'service']).optional(),
+  excludeItemType: z.enum(['product', 'composition', 'service']).optional(),
+  sortBy: z.enum(['description', 'unitPrice', 'stock', 'code', 'createdAt', 'category']).optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+  excludeTestProducts: z.boolean().optional(),
+});
+export const productListSearchFormSchema = z.object({
+  input: z.string(),
+  intent: z.enum(['debounced', 'submitted']),
+}).transform(({ input, intent }) => {
+  const search = input.trim();
+  if (search.length === 0) return { search: '' };
+  if (search.length >= PRODUCT_LIST_SEARCH_MIN_LENGTH) return { search };
+  return { search: intent === 'submitted' ? null : '' };
 });
 const month = (value: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && !value.startsWith('0000');
 export const invoiceDateFilterFormSchema = z.object({

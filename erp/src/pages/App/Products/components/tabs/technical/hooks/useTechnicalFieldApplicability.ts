@@ -5,7 +5,10 @@ import {
   groupTechnicalFields,
   mergeCharacteristicGroups,
   isYesNoValueActive,
-  isCharacteristicDependent,
+  isChairWeightCapacityCharacteristic,
+  getCharacteristicDependencyState,
+  isTechnicalFieldVariable,
+  resolveVariableTechnicalFieldNames,
 } from '@/pages/utils/technicalValuesService';
 import {
   normalizeSearchTerm,
@@ -46,10 +49,25 @@ export const useTechnicalFieldApplicability = ({
   const isSofaCategorySelected = /(?:^|[^a-z0-9])sofas?(?=$|[^a-z0-9])/i.test(
     normalizeSearchTerm(categoryName)
   );
+  const isChairCategorySelected = /(?:^|[^a-z0-9])cadeiras?(?=$|[^a-z0-9])/i.test(
+    normalizeSearchTerm(categoryName)
+  );
+  const selectedCategoryIds = new Set(formData.categoryIds || []);
 
   const categoryTechnicalFields = allTechnicalFields.filter(
-    (field) =>
-      isSofaCategorySelected || !SOFA_ONLY_DIMENSION_NAMES.has(normalizeSearchTerm(field.name))
+    (field) => {
+      if (isChairWeightCapacityCharacteristic(field.name)) {
+        const isLinkedToSelectedCategory = field.categoryIds?.some((id) =>
+          selectedCategoryIds.has(id)
+        );
+        if (!isChairCategorySelected && !isLinkedToSelectedCategory) return false;
+      }
+
+      return (
+        isSofaCategorySelected ||
+        !SOFA_ONLY_DIMENSION_NAMES.has(normalizeSearchTerm(field.name))
+      );
+    }
   );
 
   const sofaTechnicalFields = isSofaCategorySelected
@@ -143,10 +161,51 @@ export const useTechnicalFieldApplicability = ({
   const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
   const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
 
+  const variableTechnicalFieldNames = resolveVariableTechnicalFieldNames(
+    formData.variableTechnicalFields,
+    formData.variations || []
+  );
+  const technicalValues = formData.technicalValues || {};
+  const hasExplicitValue = (field: TechnicalFieldDefinition) =>
+    Object.entries(technicalValues).some(
+      ([name, value]) =>
+        normalizeSearchTerm(name) === normalizeSearchTerm(field.name) &&
+        value !== undefined &&
+        value !== null
+    );
+  const isGloballySelected = (field: TechnicalFieldDefinition) =>
+    hasExplicitValue(field) || isOptionalFieldSelected(field, formData, []);
+
+  const isOptionalFieldActive = (field: TechnicalFieldDefinition): boolean => {
+    const dependency = getCharacteristicDependencyState(field.name, technicalValues);
+    if (!dependency.isDependent) {
+      return (
+        isGloballySelected(field) ||
+        isTechnicalFieldVariable(field.name, variableTechnicalFieldNames)
+      );
+    }
+
+    if (!dependency.masterFieldLabel) return false;
+    const masterField = allTechnicalFields.find(
+      (candidate) =>
+        normalizeSearchTerm(candidate.name) ===
+        normalizeSearchTerm(dependency.masterFieldLabel!)
+    );
+    if (!masterField) return false;
+
+    const masterIsVariable = isTechnicalFieldVariable(
+      masterField.name,
+      variableTechnicalFieldNames
+    );
+    return (
+      masterIsVariable ||
+      (isGloballySelected(masterField) && !dependency.isDisabled)
+    );
+  };
+
   const filledOrManualOptionalFields = optionalFields.filter(
     (field) =>
-      isOptionalFieldSelected(field, formData, manualFieldNames) ||
-      isCharacteristicDependent(field.name)
+      manualFieldNames.includes(field.name) || isOptionalFieldActive(field)
   );
 
   const displayedOptionalFields = getDisplayedOptionalFields({

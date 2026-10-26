@@ -3614,3 +3614,110 @@ Continuar a aba Tributário/NF pelo estado Produto normal versus Serviço e comp
 - [x] Consultei novamente `AGENTS.md`, `docs/geral/USER_RULES.md`, `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`, documentação vigente de produto, mover/merge, a regra ERP-only de Conciliação, inventário, roadmap e o código do cleanup. Skill canônica `erp-web-to-mobile-replication` não encontrada em `.agents/skills`, `skills` ou nas pastas globais atuais; limitação registrada.
 
 **Conclusão do recorte:** a estimativa agregada favorece zero linhas afetadas; os contadores e logs não permitem transformar essa estimativa em uma contagem histórica por request. Nenhuma reversão é justificável. A falha de carregamento mostrada nas capturas permanece uma pendência separada; a auditoria global de paridade continua aberta.
+
+### Ciclo 438 — busca da lista ERP validada por resolver RHF — 26/10/2026
+
+**Recorte:** conferir o estado de busca da lista Produtos entre ERP e aplicativo, incluindo a regra obrigatória de formulários e buscas submetidas do `AGENTS.md`.
+
+#### Evidência e correção
+
+- [x] A entrada ERP já mantinha o mesmo comportamento visível do mobile: busca após 3 caracteres e debounce de 350 ms; Enter aplica termo válido, Enter com 1–2 caracteres mantém o filtro anterior, termo curto digitado limpa o filtro anterior após debounce, e texto vazio/Escape/limpar removem a busca.
+- [x] Havia uma divergência de validação: o hook mobile passa os valores completos da lista por `useZodForm(productListFormSchema)` antes de chamar `fetchMobileProductsPage`; o `useProductsPageState` ERP aplicava o campo de busca diretamente em `setFilters`, sem executar `react-hook-form`/`zodResolver` antes de disparar a consulta.
+- [x] Criei `productListSearchFormSchema` em `shared-utils/listingFormSchemas.ts`. O schema normaliza o texto e distingue busca em debounce de submissão explícita: termos curtos em debounce viram limpeza; termos curtos no Enter são ignorados; vazio limpa; termos com pelo menos 3 caracteres seguem parseados ao filtro.
+- [x] O ERP agora passa debounce, Enter, limpeza, Escape e remoção do filtro curto por `validateValues` de `useZodForm` antes de alterar o filtro que aciona a consulta. Um contador de sequência descarta resultados de validação obsoletos se o usuário digitar novamente enquanto o resolver está pendente; erros de validação são apresentados no toast.
+- [x] Nenhuma mudança no comportamento de produção do mobile era necessária: sua consulta já usa o resolver e o schema de lista compartilhado. A exceção ERP-only da Conciliação não foi alterada.
+
+#### Validação e limites
+
+- [x] Vitest/RTL pelo runner oficial ERP — `npm run test:unit --prefix erp -- src/pages/App/Products/__tests__/ProductSearchDebounce.test.tsx`: **1 arquivo, 7/7 testes aprovados**, incluindo debounce, mínimo de 3 caracteres, limpar abaixo do mínimo, Enter curto preservando busca anterior, limpar e Escape. O runner executou `build:support`.
+- [x] `git diff --check` passou. O ajuste não toca operações do estoquista; o Guia de Estoque não precisa de atualização.
+- [x] `tsc --noEmit --project tsconfig.json --pretty false` no ERP terminou com código 2 por diagnósticos globais já existentes; ao filtrar a saída, não houve diagnóstico em `useProductsPageState.ts`, `listingFormSchemas.ts` ou `ProductSearchDebounce.test.tsx`.
+- [ ] Não usei Playwright/servidor nem Maestro nesta validação do estado de busca: abrir o Dashboard de desenvolvimento pode disparar o cleanup automático documentado no Ciclo 411, e `adb devices -l` não lista telefone físico; Maestro CLI não está instalado. A tela nativa continua sem confirmação visual.
+- [ ] A causa do erro de carregamento da captura permanece separada e sem confirmação: os logs antigos não incluem corpo/código PostgREST nem versão da build. O recorte de busca não reproduz nem explica essa mensagem.
+- [x] Consultei `AGENTS.md` §5, `docs/geral/USER_RULES.md`, `docs/negocio/produtos/estrutura-produto-variacao.md`, `docs/negocio/produtos/operacoes-troca-pai-merge.md`, o inventário, o item do roadmap e os hooks/serviços ERP/mobile envolvidos. Não há `AGENTS.md` aninhado nos caminhos alterados. A skill canônica `erp-web-to-mobile-replication` não foi encontrada em `.agents/skills`, `skills` ou diretórios globais atuais; a limitação permanece.
+
+**Conclusão do recorte:** a busca da lista mantém o comportamento ERP/mobile e agora o ERP também executa o resolver real antes de aplicar o filtro, conforme a regra global. Os caminhos de filtro fora da busca e a validação visual nativa ainda fazem parte da auditoria; o erro mostrado na captura não foi atribuído a esta mudança. A auditoria global de Produtos continua aberta.
+
+### Ciclo 439 — filtros da lista ERP validados antes da consulta — 26/10/2026
+
+**Recorte:** filtros de situação, Catálogo, Categoria, tipo, teste e ordenação da lista, da seleção do valor à consulta paginada.
+
+#### Evidência e correção
+
+- [x] O app valida o objeto completo da lista com `useZodForm(productListFormSchema)` antes de `fetchMobileProductsPage`. Na lista ERP, só a busca executava `react-hook-form`/`zodResolver`; os demais estados controlados chegavam a `fetchProductsPage` sem passar pelo resolver.
+- [x] Acrescentei `productListQueryFiltersFormSchema` a `shared-utils/listingFormSchemas.ts`, com tipos e valores aceitos pelo contrato real da lista ERP: booleanos de situação/lixeira/teste, busca/categoria, status de catálogo, tipos de item e colunas/direção de ordenação.
+- [x] `useProducts` agora executa `validateValues` pelo resolver compartilhado para o snapshot de filtros antes de chamar o serviço paginado. Se a validação falhar, não há chamada ao Supabase e o erro segue pelo estado de erro já existente da lista.
+- [x] Estreitei os tipos ERP de status, tipo do item e ordenação aos domínios representados pelos controles e pelo serviço. O select de Catálogo ignora valores fora de `published`/`hidden`; as opções visíveis e a semântica da consulta não mudaram. A implementação mobile não precisou de alteração.
+- [x] Mantive a semântica vigente da Lixeira (`deleted=true`), Desativados, rascunhos, `Produtos`/`Serviços`, Catálogo, autorização de composições e exclusão de artefatos de teste. Nenhuma rota, serviço ou tela de Conciliação foi criada no app.
+
+#### Validação e limites
+
+- [x] Vitest/RTL pelo runner oficial ERP — `npm run test:unit --prefix erp -- src/pages/App/Products/ProductList/hooks/data/useProductsQueryState.test.tsx`: **1 arquivo, 13/13 testes aprovados**. O teste novo confirma que um status de Catálogo inválido é rejeitado e não chega ao serviço.
+- [x] `git diff --check` passou. `npx tsc --noEmit --project tsconfig.json --pretty false` no ERP terminou com código 2 por **425 diagnósticos globais**; nenhum diagnóstico corresponde aos arquivos alterados deste ciclo.
+- [ ] Não usei Playwright/servidor nem Maestro: a proteção de sessão contra o cleanup automático do Dashboard continua necessária, e não há aparelho físico/Maestro disponível. O resultado de Vitest não comprova renderização visual ou persistência remota.
+- [ ] O erro genérico da captura mobile permanece sem causa comprovada; este ciclo valida o estado de filtros da lista ERP e não identifica a build, o corpo da resposta PostgREST ou a falha observada na captura.
+- [x] Consultei `AGENTS.md` §5 e regras de lixeira, `docs/geral/USER_RULES.md`, documentação vigente Produto/Variação e mover/merge, regra ERP-only de Conciliação, inventário/roadmap e hooks, controles e serviços ERP/mobile relevantes. Não há `AGENTS.md` aninhado nos caminhos alterados. A skill canônica `erp-web-to-mobile-replication` continua ausente em `.agents/skills`, `skills` e diretórios globais examinados; a limitação permanece registrada.
+- [x] Não houve leitura ou gravação no Supabase, uso de banco local, migration, deploy, operação externa ou mudança no fluxo de Estoque; o guia prático de Estoque não precisa de atualização.
+
+**Conclusão do recorte:** filtros ERP e mobile agora executam o resolver real antes da leitura da lista; os valores aceitos e a consulta permanecem equivalentes. A causa da captura e a validação visual/nativa seguem pendentes, portanto a auditoria global de Produtos continua aberta.
+
+### Ciclo 440 — causa do 400 na captura de Produtos — 26/10/2026
+
+**Recorte:** atender à revisão somente leitura autorizada e investigar os logs no horário das duas capturas do erro de carregamento da lista, sem abrir sessão, refazer a consulta no app, ler linhas de produtos ou executar qualquer escrita.
+
+#### Evidências somente leitura
+
+- [x] Confirmei a revisão de cleanup já registrada no Ciclo 437: estimativa mais provável de **zero linhas afetadas**, mas contagem histórica exata indeterminada. Não repeti consulta de linhas, cleanup ou tentativa de reversão.
+- [x] A captura em `2026-10-26T04:31:48Z` coincide com **4** `GET /rest/v1/products` HTTP 400 na janela de 04:31 UTC; os logs PostgreSQL da mesma janela contêm **4** erros `SQLSTATE 42703` e todos os quatro comandos registrados mencionam `is_test`.
+- [x] A captura em `2026-10-26T05:05:38Z` coincide com **2** `GET /rest/v1/products` HTTP 400 entre `05:05:18.787Z` e `05:05:19.936Z`; na mesma janela ocorreram **2** erros PostgreSQL `42703` entre `05:05:18.893Z` e `05:05:19.978Z`, e ambos os comandos mencionam `is_test`. O número, minuto e proximidade dos horários coincidem; os logs não expõem identificador cruzado que prove o pareamento individual, portanto a correlação é temporal e forte, não um recibo por request.
+- [x] `42703` é o código PostgreSQL de coluna inexistente. A coluna física `products.is_test` não existe, conforme inspeção de schema documentada no Ciclo 423. O código atual do app importa `NON_TEST_PRODUCT_ARTIFACT_FILTER` e filtra a metadata JSON em `technical_specs`; as ocorrências de filtro físico `is_test.is.null` em testes são asserções que verificam que essa consulta não seja enviada. A evidência aponta para uma versão antiga do cliente que originou as capturas.
+- [x] Vitest mobile pelo runner oficial: `npm run test:unit:mobile --prefix erp -- src/features/products/services/mobileProductFetchService.test.ts` — **1 arquivo, 41/41 testes aprovados**. As regressões exercitam o predicado JSON vigente e verificam que o filtro físico antigo `is_test.is.null` não é enviado quando a visibilidade administrativa está ativa.
+- [x] Não consultei valores de busca, query completa, identidade/headers do operador ou linhas operacionais; somente método, rota, status, horários, contagens e indicador booleano de referência a `is_test`. Não executei RPC/DML/DDL/migration, cleanup, retry, restauração, Playwright, servidor ou Maestro.
+
+#### Conclusão e limite
+
+- [x] A evidência aponta fortemente para o mecanismo do 400 mostrado nas capturas: o cliente solicitou uma coluna inexistente `products.is_test`, gerando PostgreSQL `42703` e o estado de erro/retry da lista. A correspondência é temporal e de contagem, sem correlação individual por request ID.
+- [ ] A build instalada que originou as capturas continua sem identificação. `adb devices -l` não lista telefone; não é seguro inferir sua versão pelo código de outro aparelho consultado anteriormente. O checkout atual já consulta o marcador JSON e não há mudança adicional de produção justificada neste ciclo. Para confirmar build e validar visualmente o estado nativo, é necessário um dispositivo conectado e a versão instalada.
+- [x] A revisão read-only do cleanup solicitada pelo operador já havia sido concluída no Ciclo 437: estimativa provável de zero e total histórico exato irrecuperável por respostas `204` sem contagem.
+- [x] `AGENTS.md`, `docs/geral/USER_RULES.md`, política Supabase remoto, documentação Produto/Variação e mover/merge, regra ERP-only de Conciliação, inventário/roadmap e implementação atual do fetch mobile foram conferidos antes do registro. A skill canônica `erp-web-to-mobile-replication` continua indisponível nas fontes canônicas acessíveis; limitação mantida.
+
+**Conclusão do recorte:** a evidência aponta fortemente para um cliente que enviou o filtro antigo da coluna `is_test`; o checkout atual usa metadata JSON e não precisa de ajuste adicional. A identidade dessa build e a validação visual nativa permanecem pendentes; a auditoria global de Produtos continua aberta.
+
+### Ciclo 441 — metadados das capturas não identificam a build — 26/10/2026
+
+**Recorte:** verificar se os headers mínimos já registrados para os oito `GET /rest/v1/products` com 400 permitem identificar a versão do app, mantendo a revisão sem leitura de conteúdo, identidade de sessão ou linhas operacionais.
+
+#### Evidências somente leitura
+
+- [x] Consultei agregados booleanos sobre `request.headers.user_agent` e `request.headers.x_client_info`, nas janelas das capturas de 04:31 e 05:05 UTC. Para os 4, 2 e 2 erros HTTP 400 em 04:31, 04:52 e 05:05, respectivamente, nenhuma das strings contém `1.6.2`, `1.6.2/27` ou `1.6.2/29`.
+- [x] Não retornei nem registrei valores completos de headers, identificador de sessão, usuário ou token; nenhuma linha operacional foi consultada e não houve retry, escrita, restauração ou cleanup.
+- [x] `adb devices -l` foi reexecutado e retornou somente `List of devices attached`, sem aparelho físico conectado.
+
+#### Limite e próximo passo
+
+- [ ] Os logs confirmam o mecanismo do erro, mas não identificam o código/build instalado que o enviou. Os headers presentes contêm apenas metadados de cliente sem número de versão do app; confirmação depende de conectar o aparelho que originou a captura e ler sua versão sem desinstalar, reinstalar ou limpar dados.
+- [x] Revisei novamente `AGENTS.md` (preservar dados de dispositivo e usar Maestro apenas em aparelho físico), `docs/geral/USER_RULES.md`, política de teste remoto, a regra ERP-only de Conciliação, documentação vigente de Produto/Variação, o item correspondente do roadmap e a evidência dos Ciclos 437/440. A skill canônica de replicação permanece indisponível nas fontes canônicas acessíveis.
+
+**Conclusão do recorte:** os metadados não permitem identificar a build das capturas. Não há dispositivo conectado nem operação segura adicional que revele essa versão; a pendência fica explícita, enquanto a auditoria de outros estados de Produtos continua.
+
+### Ciclo 442 — capacidades de peso na aba técnica mobile — 26/10/2026
+
+**Recorte:** replicar no formulário mobile as mudanças atuais do ERP para “Peso suportado”, “Peso suportado por prateleira(s)” e “Peso suportado por cadeira(s)”, preservando os dados gravados e a visibilidade por categoria.
+
+#### Evidência e correção
+
+- [x] Preservei as mudanças ERP que já estavam no worktree. O código atual define predicados canônicos de capacidade por prateleira/cadeira, remove sua obrigatoriedade de produto e de Catálogo, torna “Peso suportado” opcional e visível sem depender da quantidade de prateleiras, agrupa capacidades de prateleira em **Prateleiras** e capacidades de cadeira em **Estrutura**. O serviço ERP normaliza capacidades como tipo `weight`, `kg` e uma casa decimal; o editor usa o rótulo singular “Peso suportado por prateleira”.
+- [x] Criei `shared-utils/productTechnicalFieldRules.ts` como fachada das regras do ERP já exportadas por `technicalValuesService`; o mobile reutiliza os mesmos predicados em vez de copiar o reconhecimento de nomes.
+- [x] O serviço mobile agora tira Peso e capacidades de peso de `requiredCategoryIds`, aplica `kg` como unidade padrão, precisão 1 e `data_type: 'weight'` às capacidades.
+- [x] O domínio mobile trata peso e capacidade como medidas opcionais e numéricas. “Peso” e capacidade por prateleira aparecem sem vínculo da categoria; capacidade de cadeira só aparece quando o nome selecionado contém Cadeira(s) ou quando a categoria selecionada coincide com o vínculo do campo. Em variações, a regra de categoria também é aplicada antes de exibir os campos variáveis.
+- [x] A seleção apenas oculta campos de capacidade de cadeira fora de contexto aplicável; não remove os valores existentes do estado/formulário. Capacidade por prateleira recebe agrupamento e ordenação **Prateleiras**, capacidade de cadeira **Estrutura**, e o alias de exibição é normalizado sem alterar o nome persistido.
+
+#### Validação e limites
+
+- [x] Vitest mobile pelo runner oficial — `npm run test:unit:mobile --prefix erp -- src/features/products/domain/productCharacteristics.test.ts src/features/products/domain/technicalFieldInputRules.test.ts src/features/products/services/mobileProductTechnicalService.test.ts`: **3 arquivos, 47/47 testes aprovados**. Cobertura inclui aplicabilidade por nome/vínculo, capacidade opcional, preservação de valor fora da lista, precisão, unidade, tipo numérico, agrupamento e alias visual.
+- [x] `git diff --check` passou; apenas avisos existentes de conversão CRLF/LF.
+- [ ] Não rodei Playwright autenticado ou Maestro; `adb devices -l` não lista dispositivo. Os testes cobrem regras e mapeamento do serviço, não o layout nativo nem persistência remota. Não rodei TypeScript global.
+- [x] Não consultei nem gravei Supabase neste ciclo. A revisão somente leitura do cleanup do Ciclo 411 já está registrada no Ciclo 437: zero linhas é a estimativa mais provável; o total histórico exato permanece indeterminado pelos `204` sem contagem. Não repeti consulta, cleanup ou restauração.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, a regra ERP-only de Conciliação, a documentação vigente de Produto/Variação e operações mover/merge, a política de Supabase remoto, este inventário e o item do roadmap. Não há `AGENTS.md` aninhado nos caminhos mobile/shared-utils tocados. A skill canônica `erp-web-to-mobile-replication` continua indisponível nas fontes acessíveis e não foi tratada como cópia canônica.
+
+**Conclusão do recorte:** as regras de capacidade técnica agora correspondem ao ERP no domínio, mapeamento, apresentação e seleção por categoria do mobile. A validação visual/nativa e a persistência remota ainda não foram provadas; a auditoria global de Produtos continua aberta.

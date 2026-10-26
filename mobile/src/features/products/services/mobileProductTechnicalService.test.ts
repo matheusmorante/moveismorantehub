@@ -66,6 +66,58 @@ describe('mobileProductTechnicalService', () => {
     expect(fields.find(({ name }) => name === 'Modelo/Linha')?.id).toBe('attr-5');
   });
 
+  it('projeta capacidades de peso como medidas opcionais com unidade kg', async () => {
+    const attributesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: ['Peso', 'Peso suportado', 'Peso suportado por prateleiras', 'Peso suportado por cadeiras'].map(
+          (name, index) => ({
+            id: `weight-${index}`,
+            name,
+            active: true,
+            data_type: 'list',
+            unit: null,
+            is_custom: true,
+            decimal_places: 3,
+          })
+        ),
+        error: null,
+      }),
+    };
+    const valuesQuery = {
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }),
+    };
+    const categoryLinksQuery = {
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({
+          data: [0, 1, 2, 3].map((index) => ({
+            attribute_id: `weight-${index}`,
+            category_id: 'cat-weight',
+            is_required: true,
+          })),
+          error: null,
+        }),
+      }),
+    };
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return attributesQuery;
+      if (table === 'attribute_values') return valuesQuery;
+      if (table === 'category_attributes') return categoryLinksQuery;
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const fields = await fetchMobileProductTechnicalFields();
+
+    expect(fields).toMatchObject([
+      { name: 'Peso', unit: 'kg', decimal_places: 1, requiredCategoryIds: [] },
+      { name: 'Peso suportado', data_type: 'weight', unit: 'kg', decimal_places: 1, requiredCategoryIds: [] },
+      { name: 'Peso suportado por prateleiras', data_type: 'weight', unit: 'kg', decimal_places: 1, requiredCategoryIds: [] },
+      { name: 'Peso suportado por cadeiras', data_type: 'weight', unit: 'kg', decimal_places: 1, requiredCategoryIds: [] },
+    ]);
+  });
+
   it('filtra características reclinável e ordena opções de firmeza por macio, médio, firme', async () => {
     const attributesQuery = {
       select: vi.fn().mockReturnThis(),

@@ -19,7 +19,11 @@ import { getProfileRoles } from '@/pages/utils/accessRoles';
 import { fetchTechnicalFieldDefinitions } from '@/pages/App/Products/services/technicalFieldService';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import { getProductCatalogMutationFailureNotice } from '../../../../../../../../shared-utils/productCatalogPermission';
-import type { ProductListPageSize } from '../../../../../../../../shared-utils/listingFormSchemas';
+import {
+  productListQueryFiltersFormSchema,
+  type ProductListPageSize,
+} from '../../../../../../../../shared-utils/listingFormSchemas';
+import { useZodForm } from '@/hooks/useZodForm';
 import {
   resolveCatalogEntities,
   validateCatalogPublication,
@@ -92,6 +96,10 @@ export const useProducts = (filters?: ProductListFilters) => {
     filters?.sortBy,
     filters?.sortOrder,
   ]);
+  const { validateValues: validateProductListQueryFilters } = useZodForm(
+    productListQueryFiltersFormSchema,
+    queryFilters,
+  );
 
   const previousQueryFilters = useRef(queryFilters);
   const queryFiltersChanged = previousQueryFilters.current !== queryFilters;
@@ -101,8 +109,13 @@ export const useProducts = (filters?: ProductListFilters) => {
 
   const { data: queryResult, isLoading: serverLoading, error: queryError } = useQuery({
     queryKey: ['products', queryFilters, queryPage, itemsPerPage],
-    queryFn: () =>
-      fetchProductsPage(queryPage, itemsPerPage, queryFilters, { throwOnError: true }),
+    queryFn: async () => {
+      const validatedFilters = await validateProductListQueryFilters(queryFilters);
+      if (validatedFilters === false) {
+        throw new Error('Os filtros da lista de produtos são inválidos.');
+      }
+      return fetchProductsPage(queryPage, itemsPerPage, validatedFilters, { throwOnError: true });
+    },
     staleTime: 60 * 1000, // 1 minuto de cache fresco
     gcTime: 5 * 60 * 1000,
   });

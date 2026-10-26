@@ -2,7 +2,9 @@ import { supabase } from '../../../services/supabaseClient';
 import {
   isExcludedProductTechnicalField,
   isRequiredCharacteristicName,
+  isWeightCharacteristicName,
 } from '../domain/productCharacteristics';
+import { isWeightCapacityCharacteristic } from '../../../../../shared-utils/productTechnicalFieldRules';
 import { deduplicateProductTechnicalValueAliasFields } from '../../../../../shared-utils/productTechnicalValueAliases';
 
 export interface MobileTechnicalFieldOption {
@@ -86,6 +88,10 @@ export const fetchMobileProductTechnicalFields = async (
     .filter((attribute) => !isExcludedProductTechnicalField(attribute.name))
     .map((attribute) => {
       const normalizedName = String(attribute.name).trim().toLocaleLowerCase('pt-BR');
+      const isWeight =
+        isWeightCharacteristicName(attribute.name) ||
+        isWeightCapacityCharacteristic(attribute.name) ||
+        attribute.data_type === 'weight';
       const isFirmnessField = normalizedName === 'nível de firmeza do estofamento';
       const links = (categoryLinks ?? []).filter((link) => link.attribute_id === attribute.id);
       const values = (options ?? [])
@@ -117,16 +123,25 @@ export const fetchMobileProductTechnicalFields = async (
         ...attribute,
         categoryIds: links.map((link) => link.category_id),
         requiredCategoryIds: links
-          .filter((link) => link.is_required && normalizedName !== 'peso')
+          .filter(
+            (link) =>
+              link.is_required &&
+              !isWeightCharacteristicName(attribute.name) &&
+              !isWeightCapacityCharacteristic(attribute.name)
+          )
           .map((link) => link.category_id),
         decimal_places:
-          normalizedName === 'peso' || attribute.data_type === 'weight'
+          isWeight
             ? 1
             : attribute.decimal_places === 1 ||
                 attribute.decimal_places === 2 ||
                 attribute.decimal_places === 3
               ? attribute.decimal_places
               : null,
+        data_type: isWeightCapacityCharacteristic(attribute.name)
+          ? 'weight'
+          : attribute.data_type,
+        unit: attribute.unit || (isWeight ? 'kg' : null),
         isRequired: isRequiredCharacteristicName(attribute.name),
         isRequiredForProduct: isRequiredCharacteristicName(attribute.name),
         isCustom: Boolean(attribute.is_custom),
