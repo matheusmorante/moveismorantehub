@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 import { supportCustomerRecordFiltersSchema, type SupportCustomerRecordFiltersInput } from '../../../../../../../shared-utils/customerSupportFormSchemas';
 import {
   formatBRL,
@@ -324,13 +325,16 @@ export const CustomerOrderRecordsView: React.FC<CustomerOrderRecordsViewProps> =
       </div>
 
       {total > 0 && (
-        <div className="flex items-center justify-between gap-2 border-t border-slate-200 pt-3 text-[10px] text-slate-500 dark:border-slate-800">
-          <span>{firstRecord}–{lastRecord} de {total}</span>
-          <div className="flex items-center gap-1">
-            <button type="button" disabled={page <= 1 || isLoading} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg px-2 py-1 font-semibold hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800">Anterior</button>
-            <span>{page}/{totalPages}</span>
-            <button type="button" disabled={page >= totalPages || isLoading} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} className="rounded-lg px-2 py-1 font-semibold hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-800">Próxima</button>
-          </div>
+        <div className="flex flex-col gap-3 border-t border-slate-200 pt-3 text-[10px] text-slate-500 dark:border-slate-800">
+          <span>Exibindo {firstRecord}–{lastRecord} de {total}</span>
+          <FixedPageSlots
+            ariaLabel="Paginação de registros do cliente"
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            loading={isLoading}
+            className="w-full"
+          />
         </div>
       )}
     </div>

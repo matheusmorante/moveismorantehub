@@ -99,6 +99,7 @@ export function useMobileProducts(
     canViewCompositions,
     showTrash,
     showTestProducts: canShowTestProducts,
+    showMergedProducts,
     itemsPerPage,
   });
   const previousRequestFiltersKeyRef = useRef(requestFiltersKey);
@@ -119,6 +120,7 @@ export function useMobileProducts(
     includeDeactivated: showDeactivated,
     showTrash,
     showTestProducts: canShowTestProducts,
+    showMergedProducts,
   });
   useEffect(() => {
     const trimmedSearch = searchTerm.trim();
@@ -182,6 +184,7 @@ export function useMobileProducts(
             includeDeactivated: showDeactivated,
             showTrash,
             showTestProducts: canShowTestProducts,
+            showMergedProducts,
           },
           (errors) => {
             if (loadRequestGuardRef.current.isCurrent(requestId)) {
@@ -216,7 +219,7 @@ export function useMobileProducts(
             includeDeactivated:
               values.includeDeactivated || values.statusFilter === 'disabled' || Boolean(values.search),
             // Itens mesclados ficam ocultos por padrão, a menos que o usuário ative showMergedProducts
-            includeMerged: showMergedProducts,
+            includeMerged: values.showMergedProducts,
             category: values.category || undefined,
             catalogStatus: values.catalogStatus,
             itemType: values.itemType,
@@ -336,6 +339,7 @@ export function useMobileProducts(
           includeDeactivated: showDeactivated,
           showTrash,
           showTestProducts: canShowTestProducts,
+          showMergedProducts,
         },
         (errors) => {
           setLoadError(
@@ -356,6 +360,7 @@ export function useMobileProducts(
       itemsPerPage,
       mode,
       showDeactivated,
+      showMergedProducts,
       showTrash,
       statusFilter,
       validateList,

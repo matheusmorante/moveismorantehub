@@ -3,6 +3,7 @@ import { ITEMS_PER_PAGE, getStockPeriod } from '../stockMovesService';
 import { offlineStorageService } from '../../offline/offlineStorageService';
 import { getLocalInventoryDraft } from '../../sqlite/inventoryDrafts';
 import { getInventorySubmission } from '../../sqlite/inventoryOutbox';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export const INVENTORY_SESSIONS_CACHE_KEY = 'inventory_sessions_cache_v1';
 export const INVENTORY_SESSION_DETAILS_CACHE_KEY = 'inventory_session_details_cache_v1';
@@ -183,12 +184,21 @@ export const fetchInventorySessions = async (
 };
 
 export const getNextInventoryCode = async (): Promise<string> => {
-  const { data, error } = await supabase
+  const query = supabase
     .from('inventory_moves')
     .select('observation')
     .ilike('label', 'Inventário #%')
     .order('created_at', { ascending: false })
     .limit(100);
+
+  const response = await withTimeout(
+    Promise.resolve(query).then((result) => ({ result })),
+    5_000,
+    null as { result: { data: any[] | null; error: any } } | null,
+    'inventory:next-code'
+  );
+  if (!response) throw new Error('A consulta do próximo código de inventário excedeu 5000ms.');
+  const { data, error } = response.result;
 
   if (error) throw error;
   const lastCode = (data || []).reduce((highest, move: any) => {

@@ -75,7 +75,7 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
       {/* 1. Selos de Montagem (Parafusadeira: Montagem no Local / Depósito ou Montagem Fora) - início / lado esquerdo */}
       {!cancelled && hasAssemblyDepot && (
         <View
-          style={[styles.iconBadge, styles.badgeAmber]}
+          style={[styles.iconBadge, styles.badgeDepot]}
           accessibilityLabel="Montagem no Local/Depósito"
         >
           <MobileDrill size={11} color="#ffffff" />
@@ -278,6 +278,10 @@ const styles = StyleSheet.create({
   badgeAmber: {
     backgroundColor: '#d97706',
     borderColor: '#b45309',
+  },
+  badgeDepot: {
+    backgroundColor: '#f59e0b',
+    borderColor: '#d97706',
   },
   badgeReturn: {
     backgroundColor: '#f97316',

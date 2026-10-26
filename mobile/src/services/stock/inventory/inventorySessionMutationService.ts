@@ -1,6 +1,6 @@
 import { supabase } from '../../supabaseClient';
 import { connectivityService } from '../../offline/connectivityService';
-import { deleteLocalInventoryDraft } from '../../sqlite/inventoryDrafts';
+import { deleteLocalInventoryDraft, getLocalInventoryDraft } from '../../sqlite/inventoryDrafts';
 import { deleteInventorySubmission } from '../../sqlite/inventoryOutbox';
 import { deleteLocalInventoryScans } from '../../sqlite/inventoryScans';
 
@@ -193,12 +193,14 @@ export const unreverseInventorySession = async (session: {
 };
 
 export const deleteInventoryDraft = async (markerMoveId: string): Promise<void> => {
+  const localDraft = await getLocalInventoryDraft(markerMoveId).catch(() => null);
+
   // 1. Remove sempre do armazenamento SQLite local (rascunho, outbox e leituras de etiquetas)
   await deleteLocalInventoryDraft(markerMoveId).catch(() => {});
   await deleteInventorySubmission(markerMoveId).catch(() => {});
   await deleteLocalInventoryScans(markerMoveId).catch(() => {});
 
-  if (!connectivityService.connected) {
+  if (!connectivityService.connected || localDraft?.code.startsWith('LOCAL-')) {
     return;
   }
 

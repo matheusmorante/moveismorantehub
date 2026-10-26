@@ -37,25 +37,25 @@ export const NextDeliveryCardBadges: React.FC<Props> = ({ classification }) => {
 
       {hasInternalAssembly && (
         <View
-          style={[
-            styles.opBadge,
-            styles.opBadgeDepot,
-            { paddingHorizontal: 6, minWidth: 22, justifyContent: 'center' },
-          ]}
+          style={[styles.opBadge, styles.opBadgeDepot]}
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel="Montagem no depósito"
         >
           <MobileDrill size={11} color="#fff" />
+          <Text style={styles.opBadgeText}>MONTAGEM NO DEPÓSITO</Text>
         </View>
       )}
 
       {hasOutsideAssembly && (
         <View
-          style={[
-            styles.opBadge,
-            styles.opBadgeOutside,
-            { paddingHorizontal: 6, minWidth: 22, justifyContent: 'center' },
-          ]}
+          style={[styles.opBadge, styles.opBadgeOutside]}
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel="Montagem fora"
         >
           <MobileDrill size={11} color="#fff" />
+          <Text style={styles.opBadgeText}>MONTAGEM FORA</Text>
         </View>
       )}
     </View>

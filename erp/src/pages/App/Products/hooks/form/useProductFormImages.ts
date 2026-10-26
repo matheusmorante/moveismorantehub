@@ -120,6 +120,7 @@ export function useProductFormImages(
   const removePhoto = (url: string) => {
     setRemovingPhoto(url);
     setFormData((prev: Partial<Product>) => removeProductImageGlobally(prev, url));
+    onImagesSaved?.();
     setRemovingPhoto(null);
   };
 

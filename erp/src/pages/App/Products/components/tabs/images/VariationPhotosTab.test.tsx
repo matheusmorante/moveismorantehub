@@ -83,7 +83,7 @@ describe('VariationPhotosTab buttons clickability and Drag and Drop', () => {
     expect(screen.getByText('Secundária')).toBeTruthy();
   });
 
-  it('permite reordenar fotos por drag and drop mesmo em variação única (isSingleVariation = true)', () => {
+  it('mostra a galeria herdada da variação única sem controles próprios de edição', () => {
     const onChangeImages = vi.fn();
     const images = [
       'https://r2.test.com/photo-1.jpg',
@@ -100,31 +100,15 @@ describe('VariationPhotosTab buttons clickability and Drag and Drop', () => {
       />
     );
 
-    const photoCards = screen.getAllByTitle('Clique para ver opções ou arraste para reordenar');
-    expect(photoCards.length).toBe(3);
-
-    // Verifica que draggable é true mesmo com isSingleVariation = true
-    expect(photoCards[0].getAttribute('draggable')).toBe('true');
-    expect(photoCards[1].getAttribute('draggable')).toBe('true');
-
-    // Inicia arrasto da foto 0
-    const dataTransfer = {
-      setData: vi.fn(),
-      effectAllowed: 'none',
-      dropEffect: 'none',
-    };
-    fireEvent.dragStart(photoCards[0], { dataTransfer });
-    expect(dataTransfer.setData).toHaveBeenCalledWith('text/plain', '0');
-
-    // Arrasta sobre a foto 2
-    fireEvent.dragOver(photoCards[2], { dataTransfer });
-
-    // Deve chamar onChangeImages com a nova ordem: [photo-2, photo-3, photo-1]
-    expect(onChangeImages).toHaveBeenCalledWith([
-      'https://r2.test.com/photo-2.jpg',
-      'https://r2.test.com/photo-3.jpg',
-      'https://r2.test.com/photo-1.jpg',
-    ]);
+    expect(screen.getByText('Esta variação única herda automaticamente todas as fotos da galeria do produto.')).toBeTruthy();
+    expect(screen.getByText('3 foto(s) vinculada(s)')).toBeTruthy();
+    expect(screen.getByText('Capa')).toBeTruthy();
+    expect(screen.queryAllByRole('img').length).toBe(3);
+    expect(screen.queryByTitle('Clique para ver opções ou arraste para reordenar')).toBeNull();
+    expect(screen.queryByLabelText('Recortar foto 1')).toBeNull();
+    expect(screen.queryByLabelText('Desvincular foto 1')).toBeNull();
+    expect(screen.queryAllByRole('button').length).toBe(0);
+    expect(onChangeImages).not.toHaveBeenCalled();
   });
 
   it('exibe botão de recorte 1:1 e executa fluxo de recorte global com onReplaceImageGlobal', async () => {

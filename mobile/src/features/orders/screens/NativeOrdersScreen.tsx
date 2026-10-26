@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ChevronRight, FileText, ShoppingBag, Wrench } from 'lucide-react-native';
+import { ChevronRight, FileText, ShoppingBag } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
 import ReturnIcon from '../../../components/shared/ReturnIcon';
 import { MobileOrderCard } from '../components/MobileOrderCard';
 import { OrdersHeader } from '../components/OrdersHeader';
@@ -44,7 +45,7 @@ const ORDER_SECTIONS: {
     type: 'assistance',
     title: 'Assistências',
     description: 'Garantias e reparos',
-    Icon: Wrench,
+    Icon: FilledWrenchIcon,
   },
   {
     type: 'return',
@@ -53,6 +54,24 @@ const ORDER_SECTIONS: {
     Icon: ReturnIcon,
   },
 ];
+
+function FilledWrenchIcon({
+  size = 21,
+  color = '#c2410c',
+}: {
+  size?: number;
+  color?: string;
+  strokeWidth?: number;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
 
 export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder }) => {
   const [selectedType, setSelectedType] = useState<MobileOrderType | null>(null);
@@ -83,14 +102,20 @@ export const NativeOrdersScreen: React.FC<Props> = ({ isDarkMode, onSelectOrder 
               <View
                 style={[
                   styles.iconBox,
-                  type === 'assistance' ? styles.assistanceIconBox : isDarkMode && styles.iconBoxDark,
+                  type === 'assistance'
+                    ? isDarkMode
+                      ? styles.assistanceIconBoxDark
+                      : styles.assistanceIconBox
+                    : isDarkMode && styles.iconBoxDark,
                 ]}
               >
                 <Icon
                   size={type === 'return' ? 24 : 21}
                   color={
                     type === 'assistance'
-                      ? '#fef08a'
+                      ? isDarkMode
+                        ? '#fdba74'
+                        : '#c2410c'
                       : type === 'return'
                         ? '#f97316'
                         : isDarkMode
@@ -156,7 +181,6 @@ function OrdersList({
         onSearch={orders.setSearchTerm}
         statusFilter={orders.statusFilter}
         onSelectStatus={orders.setStatusFilter}
-        onRefresh={() => orders.refresh()}
         totalOrders={orders.totalItems}
       />
 
@@ -203,6 +227,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 32,
     gap: 12,
   },
@@ -249,7 +274,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30, 58, 138, 0.35)',
   },
   assistanceIconBox: {
-    backgroundColor: '#ca8a04',
+    backgroundColor: '#fff7ed',
+  },
+  assistanceIconBoxDark: {
+    backgroundColor: 'rgba(194, 65, 12, 0.2)',
   },
   menuCardText: {
     flex: 1,

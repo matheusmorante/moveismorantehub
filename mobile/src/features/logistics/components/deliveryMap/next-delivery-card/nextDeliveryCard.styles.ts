@@ -178,9 +178,13 @@ export const styles = StyleSheet.create({
   },
   opBadgeDepot: {
     backgroundColor: '#f59e0b',
+    borderColor: '#d97706',
+    borderWidth: 1,
   },
   opBadgeOutside: {
     backgroundColor: '#dc2626',
+    borderColor: '#b91c1c',
+    borderWidth: 1,
   },
   opBadgeText: {
     fontSize: 9,

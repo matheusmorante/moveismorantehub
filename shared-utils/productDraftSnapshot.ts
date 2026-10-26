@@ -18,6 +18,10 @@ export function createProductDraftSnapshot<T extends UnknownRecord>(product: T):
   const snapshot = removeInitialStockFields(product) as T & Record<string, any>;
   delete snapshot.technicalSpecs;
   delete snapshot.technical_specs;
+  // Parent discounts are derived from unitPrice/promoPrice and live outside
+  // the ERP form data; keep the mobile draft snapshot on the same contract.
+  delete snapshot.discountPercent;
+  delete snapshot.discountFixed;
 
   return JSON.parse(JSON.stringify({
     ...snapshot,

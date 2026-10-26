@@ -60,6 +60,20 @@ describe('persistência completa do rascunho', () => {
     expect(snapshot.variations?.[0]).not.toHaveProperty('launchInitialStock');
   });
 
+  it('não persiste descontos auxiliares do produto pai no snapshot de rascunho', () => {
+    const snapshot = createProductDraftSnapshot({
+      ...product,
+      unitPrice: 500,
+      promoPrice: 400,
+      discountPercent: '20',
+      discountFixed: '100',
+    });
+
+    expect(snapshot).not.toHaveProperty('discountPercent');
+    expect(snapshot).not.toHaveProperty('discountFixed');
+    expect(snapshot).toMatchObject({ unitPrice: 500, promoPrice: 400 });
+  });
+
   it('saldo confirmado prevalece sobre a cópia do rascunho', () => {
     const result = restoreProductDraft({
       ...product, stock: 7, variations: [{ ...product.variations![0], stock: 7 }],

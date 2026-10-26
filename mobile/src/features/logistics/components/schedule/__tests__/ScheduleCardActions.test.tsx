@@ -45,7 +45,7 @@ vi.mock('../../../../utils/aiSummaryHelper', () => ({
 import { ScheduleCard } from '../ScheduleCard';
 import { DeliveryRouteItem } from '../../../hooks/useDeliveryRoute';
 
-describe('ScheduleCard - Botões de Ação no Cronograma', () => {
+describe('ScheduleCard - cartões compactos do cronograma', () => {
   const deliveryItem: DeliveryRouteItem = {
     id: 'del-1',
     orderId: 'ord-1',
@@ -75,42 +75,41 @@ describe('ScheduleCard - Botões de Ação no Cronograma', () => {
     activityBackgroundColor: '#fef3c7',
   };
 
-  it('exibe a ação única para abrir o fluxo em atividades de entrega', () => {
+  it('mostra o fluxo como etapa e situação, sem botão nem etiqueta ENTREGA', () => {
     const html = renderToStaticMarkup(
       <ScheduleCard
         item={deliveryItem}
-        onStartDelivery={vi.fn()}
         onViewOrder={vi.fn()}
-        onOpenDeliveryFlow={vi.fn()}
       />
     );
 
-    expect(html).toContain('Iniciar fluxo de entrega - preparação');
+    expect(html).toContain('Preparação');
+    expect(html).toContain('Agendada');
+    expect(html).not.toContain('ENTREGA');
+    expect(html).not.toContain('Iniciar fluxo de entrega');
   });
 
-  it('exibe apenas "ABRIR ATIVIDADE" quando não for atividade de entrega', () => {
+  it('mantém o tipo de assistência sem botão de ação', () => {
     const html = renderToStaticMarkup(
       <ScheduleCard
         item={assemblyItem}
-        onStartDelivery={vi.fn()}
         onViewOrder={vi.fn()}
-        onOpenDeliveryFlow={vi.fn()}
       />
     );
 
-    expect(html).toContain('Abrir atividade');
-    expect(html).not.toContain('Iniciar fluxo de entrega - preparação');
+    expect(html).toContain('ASSISTÊNCIA');
+    expect(html).not.toContain('Abrir atividade');
   });
 
-  it('renderiza "ABRIR FLUXO DE ENTREGA" se onOpenDeliveryFlow for omitido', () => {
+  it('mostra a etapa atual de uma entrega em rota sem repetir um botão', () => {
     const html = renderToStaticMarkup(
       <ScheduleCard
-        item={deliveryItem}
-        onStartDelivery={vi.fn()}
+        item={{ ...deliveryItem, status: 'in_progress' }}
         onViewOrder={vi.fn()}
       />
     );
 
-    expect(html).toContain('Iniciar fluxo de entrega - preparação');
+    expect(html).toContain('Em rota');
+    expect(html).not.toContain('Iniciar fluxo de entrega');
   });
 });

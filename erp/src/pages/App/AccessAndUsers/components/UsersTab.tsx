@@ -245,7 +245,6 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
         </div>
         {/* Paginação */}
         <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/50 sm:flex-row">
-          <span className="text-xs font-medium text-slate-500">Página {page} de {totalPages}</span>
           <FixedPageSlots
             ariaLabel="Paginação de usuários"
             currentPage={page}

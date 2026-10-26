@@ -45,6 +45,7 @@ interface Props {
   onToggleTestProducts?: () => void;
   showTrash?: boolean;
   canViewTrash?: boolean;
+  showCount?: boolean;
   onToggleTrash?: () => void;
   canFilterByCategory: boolean;
   categories: any[];
@@ -92,6 +93,7 @@ export function ProductsHeader({
   onToggleTestProducts,
   showTrash = false,
   canViewTrash = false,
+  showCount = true,
   onToggleTrash,
   canFilterByCategory,
   categories,
@@ -142,9 +144,11 @@ export function ProductsHeader({
                 ? 'Ambientes e Categorias'
                 : 'Produtos'}
           </Text>
-          <View style={[styles.counterBadge, mode === 'categories' && { display: 'none' }]}>
-            {mode !== 'categories' && <Text style={styles.counterText}>{totalCount}</Text>}
-          </View>
+          {showCount && mode !== 'categories' && (
+            <View style={styles.counterBadge}>
+              <Text style={styles.counterText}>{totalCount}</Text>
+            </View>
+          )}
         </View>
 
         <TouchableOpacity

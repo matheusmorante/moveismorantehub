@@ -237,8 +237,8 @@ const styles = StyleSheet.create({
   badgeDelivery: { backgroundColor: '#10b981' },
   badgePickup: { backgroundColor: '#a855f7' },
   badgeAssistance: { backgroundColor: '#f59e0b' },
-  badgeInternal: { backgroundColor: '#f59e0b' },
-  badgeOutside: { backgroundColor: '#ef4444' },
+  badgeInternal: { backgroundColor: '#f59e0b', borderColor: '#d97706', borderWidth: 1 },
+  badgeOutside: { backgroundColor: '#dc2626', borderColor: '#b91c1c', borderWidth: 1 },
   handlingBadgeText: {
     color: '#ffffff',
     fontSize: 9,

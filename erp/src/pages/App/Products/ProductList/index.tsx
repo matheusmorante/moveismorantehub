@@ -250,7 +250,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
                     {loading && (
                       <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
                     )}
-                    Página {currentPage} · {totalItems} itens no catálogo
+                    Total de {totalItems} itens no catálogo
                   </>
                 ) : (
                   `Exibindo ${paginatedProducts.length} de ${totalItems} itens`

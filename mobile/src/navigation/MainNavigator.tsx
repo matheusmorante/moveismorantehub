@@ -56,7 +56,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [appSelectedOrder, setAppSelectedOrder] = useState<any>(null);
 
-  const assemblySubTab: 'internal' | 'outside' = 'internal';
+  const assemblySubTab: 'all' | 'internal' | 'outside' = 'all';
   const [deliveriesSubTab, setDeliveriesSubTab] = useState<'today' | 'map'>('today');
   const activeTab = currentTab === 'agente' && !isAdmin ? 'entregas' : currentTab;
 

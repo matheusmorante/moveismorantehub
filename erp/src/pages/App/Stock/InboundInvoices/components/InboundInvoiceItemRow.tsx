@@ -13,6 +13,7 @@ import {
   isGenericOrEmptyProductName,
 } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
+import type { ProductAutocompleteExcludedLink } from '@/components/productAutocompleteUtils';
 import { InboundInvoiceItemFiscalReview } from './InboundInvoiceItemFiscalReview';
 import { InboundInvoiceItemFinancials } from './InboundInvoiceItemFinancials';
 
@@ -23,6 +24,7 @@ import { InboundItemCompositionMode } from './InboundItemCompositionMode';
 interface InboundInvoiceItemRowProps {
   item: InboundInvoiceItem;
   supplierId?: string;
+  excludedProductLinks: readonly ProductAutocompleteExcludedLink[];
   suggestion?: InboundSuggestion;
   acceptingSuggestion: number | null;
   removingLink: number | null;
@@ -38,6 +40,7 @@ interface InboundInvoiceItemRowProps {
 export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
   item,
   supplierId,
+  excludedProductLinks,
   suggestion,
   acceptingSuggestion,
   removingLink,
@@ -235,6 +238,7 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
           <InboundItemCompositionMode
             item={item}
             supplierId={supplierId}
+            excludedProductLinks={excludedProductLinks}
             compositionLinks={compositionLinks}
             handleAddComposition={handleAddComposition}
             handleRemoveCompositionLink={handleRemoveCompositionLink}
@@ -244,6 +248,7 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
           <InboundItemSingleMode
             item={item}
             supplierId={supplierId}
+            excludedProductLinks={excludedProductLinks}
             suggestion={suggestion}
             acceptingSuggestion={acceptingSuggestion}
             removingLink={removingLink}

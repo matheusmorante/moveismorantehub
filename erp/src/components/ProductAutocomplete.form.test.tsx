@@ -19,7 +19,11 @@ describe('shared product search form', () => {
   });
   it('shows service failure and retries explicitly through the resolver', async () => {
     mocks.search.mockRejectedValueOnce(new Error('Offline')); render(<ProductAutocomplete onSelect={vi.fn()} />); fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Armário' } });
-    await screen.findByRole('alert'); fireEvent.click(screen.getByRole('button', { name: 'Tentar buscar novamente' })); await screen.findByRole('button', { name: /Armário/ }); expect(mocks.search).toHaveBeenCalledTimes(2);
+    await screen.findByRole('alert'); expect(screen.queryByText('Nenhum produto encontrado para esta busca.')).toBeNull(); fireEvent.click(screen.getByRole('button', { name: 'Tentar buscar novamente' })); await screen.findByRole('button', { name: /Armário/ }); expect(mocks.search).toHaveBeenCalledTimes(2);
+  });
+  it('shows the no-results state only after a confirmed empty response', async () => {
+    mocks.search.mockResolvedValueOnce([]); render(<ProductAutocomplete onSelect={vi.fn()} />); fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Armário' } });
+    expect(await screen.findByText('Nenhum produto encontrado para esta busca.')).toBeTruthy();
   });
   it('bounds the read and prevents selecting stale results after changing the query', async () => {
     vi.useFakeTimers(); let resolve!: (value: any) => void; mocks.search.mockReturnValueOnce(new Promise((yes) => { resolve = yes; })).mockResolvedValue([]); const select = vi.fn(); render(<ProductAutocomplete onSelect={select} />);

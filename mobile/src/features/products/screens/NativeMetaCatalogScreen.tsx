@@ -1,4 +1,4 @@
-import { ArrowLeft, EyeOff, Package, RefreshCw, Tags, UploadCloud } from 'lucide-react-native';
+import { ArrowLeft, EyeOff, Package, Tags, UploadCloud } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -125,16 +125,6 @@ export function NativeMetaCatalogScreen({
         >
           <ArrowLeft size={19} color={dark ? '#e2e8f0' : '#334155'} />
           <Text style={[styles.backText, textStyle]}>Produtos</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => void loadStats(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Atualizar resumo do Catálogo Meta"
-          disabled={refreshing || loading}
-          style={[styles.refreshButton, dark && styles.refreshButtonDark]}
-        >
-          <RefreshCw size={17} color={dark ? '#bfdbfe' : '#2563eb'} />
-          <Text style={[styles.refreshText, dark && styles.refreshTextDark]}>Atualizar</Text>
         </TouchableOpacity>
       </View>
 
@@ -333,18 +323,6 @@ const styles = StyleSheet.create({
   backButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7 },
   backButtonDark: {},
   backText: { fontSize: 14, fontWeight: '700' },
-  refreshButton: {
-    minHeight: 40,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: '#eff6ff',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  refreshButtonDark: { backgroundColor: '#1e293b' },
-  refreshText: { color: '#2563eb', fontSize: 12, fontWeight: '800' },
-  refreshTextDark: { color: '#bfdbfe' },
   content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 28, gap: 16 },
   titleBlock: { gap: 5, paddingVertical: 8 },
   title: { fontSize: 23, fontWeight: '900', letterSpacing: -0.4 },

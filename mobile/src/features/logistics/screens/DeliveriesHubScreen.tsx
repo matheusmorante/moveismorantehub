@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
   RefreshControl,
-  type LayoutChangeEvent,
 } from 'react-native';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import {
   useDeliveryRoute,
   DeliveryRouteDateScope,
@@ -30,14 +28,30 @@ import { getLocalDateString } from '../../../utils/orderUtils';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { supabase } from '../../../services/supabaseClient';
+import { classifyDeliveryService } from '../domain/deliveryServiceClassification';
 
 export type DeliveriesSubTab = 'today' | 'schedule' | 'assemblies' | 'map';
+type MapActivityFilter = 'delivery' | 'assistance' | 'return';
+
+const MAP_ACTIVITY_FILTERS: { key: MapActivityFilter; label: string }[] = [
+  { key: 'delivery', label: 'Entregas' },
+  { key: 'assistance', label: 'Assistência' },
+  { key: 'return', label: 'Coleta de devolução' },
+];
+
+const getMapActivityType = (item: DeliveryRouteItem): MapActivityFilter | null => {
+  if (item.activityType === 'assistance') return 'assistance';
+  if (item.activityType === 'return') return 'return';
+  const service = classifyDeliveryService(item.order);
+  if (service.isDelivery) return 'delivery';
+  return null;
+};
 
 interface Props {
   isDarkMode?: boolean;
   isAdmin?: boolean;
   initialTab?: DeliveriesSubTab;
-  initialAssemblySubTab?: 'internal' | 'outside';
+  initialAssemblySubTab?: 'all' | 'internal' | 'outside';
   userProfile?: any;
   onSelectOrder: (order: any) => void;
 }
@@ -46,21 +60,16 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   isDarkMode = false,
   isAdmin = false,
   initialTab = 'today',
-  initialAssemblySubTab = 'internal',
+  initialAssemblySubTab = 'all',
   userProfile,
   onSelectOrder,
 }) => {
   const [activeTab, setActiveTab] = useState<DeliveriesSubTab>(initialTab);
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
   const [selectedMapDate, setSelectedMapDate] = useState('');
+  const [selectedMapFilter, setSelectedMapFilter] = useState<MapActivityFilter>('delivery');
   const [scheduleDateScope, setScheduleDateScope] = useState<DeliveryRouteDateScope>('today');
   const [handlingOptions, setHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
-  const [preparingOrderIds, setPreparingOrderIds] = useState<Set<string>>(() => new Set());
-  const tabsScrollRef = useRef<ScrollView>(null);
-  const tabsScrollMetrics = useRef({ viewport: 0, content: 0, offset: 0 });
-  const tabLayouts = useRef<Partial<Record<DeliveriesSubTab, { x: number; width: number }>>>({});
-  const [tabsScrollEdges, setTabsScrollEdges] = useState({ left: false, right: false });
-  const [tabWidth, setTabWidth] = useState(78);
 
   useEffect(() => {
     let active = true;
@@ -91,65 +100,9 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
       active = false;
     };
   }, []);
-  const updateTabsScrollMetrics = (update: Partial<typeof tabsScrollMetrics.current>) => {
-    const metrics = { ...tabsScrollMetrics.current, ...update };
-    tabsScrollMetrics.current = metrics;
-    const edges = {
-      left: metrics.offset > 1,
-      right:
-        metrics.content > metrics.viewport + 1 &&
-        metrics.offset < metrics.content - metrics.viewport - 1,
-    };
-    setTabsScrollEdges((current) =>
-      current.left === edges.left && current.right === edges.right ? current : edges
-    );
-  };
-  const scrollTabs = (direction: -1 | 1) => {
-    if (direction > 0) {
-      tabsScrollRef.current?.scrollToEnd({ animated: true });
-      return;
-    }
-    const metrics = tabsScrollMetrics.current;
-    const maxOffset = Math.max(0, metrics.content - metrics.viewport);
-    const nextOffset = Math.max(
-      0,
-      Math.min(maxOffset, metrics.offset + direction * Math.max(120, metrics.viewport * 0.75))
-    );
-    tabsScrollRef.current?.scrollTo({ x: nextOffset, animated: true });
-  };
-
-  const scrollTabIntoView = useCallback((tab: DeliveriesSubTab) => {
-    const layout = tabLayouts.current[tab];
-    const { viewport, offset } = tabsScrollMetrics.current;
-    if (!layout || !viewport) return;
-
-    if (layout.x < offset) {
-      tabsScrollRef.current?.scrollTo({ x: Math.max(0, layout.x - 8), animated: true });
-    } else if (layout.x + layout.width > offset + viewport) {
-      tabsScrollRef.current?.scrollTo({
-        x: layout.x + layout.width - viewport + 8,
-        animated: true,
-      });
-    }
-  }, []);
-
-  const recordTabLayout = useCallback(
-    (tab: DeliveriesSubTab, event: LayoutChangeEvent) => {
-      const { x, width } = event.nativeEvent.layout;
-      tabLayouts.current[tab] = { x, width };
-      if (tab === activeTab) setTimeout(() => scrollTabIntoView(tab), 0);
-    },
-    [activeTab, scrollTabIntoView]
-  );
-
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => scrollTabIntoView(activeTab), 0);
-    return () => clearTimeout(timer);
-  }, [activeTab, scrollTabIntoView]);
 
   // Hooks de dados e localização compartilhados entre Resumo, Entregas e Mapa.
   const {
@@ -180,7 +133,6 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         ),
     [assemblyTasks, scheduleDateScope, todayDate]
   );
-  const assemblyCount = visibleAssemblyTasks.length;
   const mapDates = useMemo(
     () =>
       Array.from(
@@ -192,7 +144,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     setSelectedMapDate((current) => (mapDates.includes(current) ? current : mapDates[0] || ''));
   }, [mapDates]);
   useEffect(() => setSelectedMarkerItem(null), [scheduleDateScope]);
-  const mapItems = useMemo(
+  const mapDateItems = useMemo(
     () =>
       scheduleDateScope === 'next_days'
         ? routeItems.filter(
@@ -201,6 +153,23 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         : routeItems,
     [routeItems, scheduleDateScope, selectedMapDate]
   );
+  const mapFilterCounts = useMemo(
+    () =>
+      mapDateItems.reduce(
+        (counts, item) => {
+          const type = getMapActivityType(item);
+          if (type) counts[type] += 1;
+          return counts;
+        },
+        { delivery: 0, assistance: 0, return: 0 }
+      ),
+    [mapDateItems]
+  );
+  const mapItems = useMemo(
+    () => mapDateItems.filter((item) => getMapActivityType(item) === selectedMapFilter),
+    [mapDateItems, selectedMapFilter]
+  );
+  useEffect(() => setSelectedMarkerItem(null), [selectedMapFilter]);
   const { coords: driverCoords, gpsEnabled } = useDriverLocation();
   const isDelivering = Boolean(currentDelivery);
   const activeOrder = currentDelivery
@@ -243,23 +212,9 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 
   const handleOpenDeliveryFlow = useCallback(
     (item: DeliveryRouteItem) => {
-      if (item.activityType === 'delivery' && item.status === 'pending') {
-        setPreparingOrderIds((current) => new Set(current).add(item.id));
-      }
       onSelectOrder({ ...item.order, _openDeliveryPreparation: true });
     },
     [onSelectOrder]
-  );
-
-  const handleStartDelivery = useCallback(
-    (item: DeliveryRouteItem) => {
-      if (item.activityType === 'delivery') {
-        handleOpenDeliveryFlow(item);
-      } else {
-        handleSelectDeliveryOrder(item);
-      }
-    },
-    [handleOpenDeliveryFlow, handleSelectDeliveryOrder]
   );
   const handleViewOrder = handleSelectDeliveryOrder;
 
@@ -277,6 +232,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
               onPress={() => setScheduleDateScope('today')}
               accessibilityRole="button"
               accessibilityState={{ selected: scheduleDateScope === 'today' }}
+              hitSlop={{ top: 5, bottom: 5 }}
               activeOpacity={0.8}
             >
               <Text
@@ -298,6 +254,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
               onPress={() => setScheduleDateScope('next_days')}
               accessibilityRole="button"
               accessibilityState={{ selected: scheduleDateScope === 'next_days' }}
+              hitSlop={{ top: 5, bottom: 5 }}
               activeOpacity={0.8}
             >
               <Text
@@ -315,47 +272,29 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 
         {/* Abas Resumo, Entregas, Montagens e Mapa */}
         <View style={styles.tabsViewport}>
-          <View style={styles.tabArrowSlot}>
-            {tabsScrollEdges.left && (
-              <TouchableOpacity
-                style={[styles.tabArrow, isDarkMode && styles.tabArrowDark]}
-                onPress={() => scrollTabs(-1)}
-                accessibilityRole="button"
-                accessibilityLabel="Rolar abas para a esquerda"
-                hitSlop={6}
-              >
-                <ChevronLeft size={18} color={isDarkMode ? '#e2e8f0' : '#2563eb'} />
-              </TouchableOpacity>
-            )}
-          </View>
           <ScrollView
-            ref={tabsScrollRef}
             style={styles.tabsScrollView}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.tabsPillContainer}
-            onLayout={({ nativeEvent }) => {
-              const width = nativeEvent.layout.width;
-              setTabWidth(Math.max(60, (width - 4) / 4));
-              updateTabsScrollMetrics({ viewport: width });
-            }}
-            onContentSizeChange={(content) => updateTabsScrollMetrics({ content })}
-            onScroll={({ nativeEvent }) =>
-              updateTabsScrollMetrics({ offset: nativeEvent.contentOffset.x })
-            }
-            scrollEventThrottle={32}
           >
             <TouchableOpacity
               style={[
                 styles.tabBtn,
-                { width: tabWidth },
                 activeTab === 'today' && styles.tabBtnActive,
               ]}
-              onLayout={(event) => recordTabLayout('today', event)}
               onPress={() => setActiveTab('today')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: activeTab === 'today' }}
               activeOpacity={0.8}
             >
-              <Text style={[styles.tabBtnText, activeTab === 'today' && styles.tabBtnTextActive]}>
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  activeTab === 'today' && styles.tabBtnTextActive,
+                  isDarkMode && activeTab === 'today' && styles.tabBtnTextActiveDark,
+                ]}
+              >
                 Resumo
               </Text>
             </TouchableOpacity>
@@ -363,15 +302,19 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             <TouchableOpacity
               style={[
                 styles.tabBtn,
-                { width: tabWidth },
                 activeTab === 'schedule' && styles.tabBtnActive,
               ]}
-              onLayout={(event) => recordTabLayout('schedule', event)}
               onPress={() => setActiveTab('schedule')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: activeTab === 'schedule' }}
               activeOpacity={0.8}
             >
               <Text
-                style={[styles.tabBtnText, activeTab === 'schedule' && styles.tabBtnTextActive]}
+                style={[
+                  styles.tabBtnText,
+                  activeTab === 'schedule' && styles.tabBtnTextActive,
+                  isDarkMode && activeTab === 'schedule' && styles.tabBtnTextActiveDark,
+                ]}
               >
                 Entregas
               </Text>
@@ -380,15 +323,19 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             <TouchableOpacity
               style={[
                 styles.tabBtn,
-                { width: tabWidth },
                 activeTab === 'assemblies' && styles.tabBtnActive,
               ]}
-              onLayout={(event) => recordTabLayout('assemblies', event)}
               onPress={() => setActiveTab('assemblies')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: activeTab === 'assemblies' }}
               activeOpacity={0.8}
             >
               <Text
-                style={[styles.tabBtnText, activeTab === 'assemblies' && styles.tabBtnTextActive]}
+                style={[
+                  styles.tabBtnText,
+                  activeTab === 'assemblies' && styles.tabBtnTextActive,
+                  isDarkMode && activeTab === 'assemblies' && styles.tabBtnTextActiveDark,
+                ]}
               >
                 Montagens
               </Text>
@@ -397,35 +344,24 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             <TouchableOpacity
               style={[
                 styles.tabBtn,
-                { width: tabWidth },
                 activeTab === 'map' && styles.tabBtnActive,
               ]}
-              onLayout={(event) => recordTabLayout('map', event)}
               onPress={() => setActiveTab('map')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: activeTab === 'map' }}
               activeOpacity={0.8}
             >
-              <Text style={[styles.tabBtnText, activeTab === 'map' && styles.tabBtnTextActive]}>
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  activeTab === 'map' && styles.tabBtnTextActive,
+                  isDarkMode && activeTab === 'map' && styles.tabBtnTextActiveDark,
+                ]}
+              >
                 Mapa
               </Text>
             </TouchableOpacity>
           </ScrollView>
-          <View style={styles.tabArrowSlot}>
-            {tabsScrollEdges.right && (
-              <TouchableOpacity
-                style={[
-                  styles.tabArrow,
-                  styles.tabArrowActive,
-                  isDarkMode && styles.tabArrowActiveDark,
-                ]}
-                onPress={() => scrollTabs(1)}
-                accessibilityRole="button"
-                accessibilityLabel="Rolar abas para a direita"
-                hitSlop={6}
-              >
-                <ChevronRight size={18} color={isDarkMode ? '#ffffff' : '#2563eb'} />
-              </TouchableOpacity>
-            )}
-          </View>
         </View>
       </View>
 
@@ -443,10 +379,8 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
           <TodaySummaryCard
             orders={orders && orders.length > 0 ? orders : routeItems.map((item) => item.order)}
             activities={routeItems}
-            nextAssembly={visibleAssemblyTasks[0]}
-            assemblyCount={assemblyCount}
+            assemblyTasks={visibleAssemblyTasks}
             onSelectOrder={onSelectOrder}
-            onViewAll={() => setActiveTab('schedule')}
             onViewAssemblies={() => setActiveTab('assemblies')}
             periodFilter={scheduleDateScope}
             isDarkMode={isDarkMode}
@@ -466,10 +400,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             items={routeItems}
             refreshing={refreshing}
             onRefresh={onRefresh}
-            onStartDelivery={handleStartDelivery}
             onViewOrder={handleViewOrder}
-            onOpenDeliveryFlow={handleOpenDeliveryFlow}
-            preparingOrderIds={preparingOrderIds}
             handlingOptions={handlingOptions}
             dateScope={scheduleDateScope}
             isDarkMode={isDarkMode}
@@ -530,15 +461,15 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
               })}
             </ScrollView>
           )}
-          {loading ? (
-            <View style={styles.loadingCenter}>
-              <ActivityIndicator size="large" color="#2563eb" />
-              <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>
-                Carregando mapa...
-              </Text>
-            </View>
-          ) : (
-            <View style={{ flex: 1, position: 'relative' }}>
+          <View style={styles.mapCanvas}>
+            {loading ? (
+              <View style={styles.loadingCenter}>
+                <ActivityIndicator size="large" color="#2563eb" />
+                <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>
+                  Carregando mapa...
+                </Text>
+              </View>
+            ) : (
               <MapErrorBoundary isDarkMode={isDarkMode}>
                 <DeliveryMapView
                   items={mapItems}
@@ -551,8 +482,58 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                   teamMembers={teamMembers}
                 />
               </MapErrorBoundary>
+            )}
+            <View style={styles.mapFilterOverlay} pointerEvents="box-none">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.mapFilterScroll}
+                contentContainerStyle={styles.mapFilterList}
+                accessibilityLabel="Filtrar atividades no mapa"
+              >
+                {MAP_ACTIVITY_FILTERS.map(({ key, label }) => {
+                  const selected = selectedMapFilter === key;
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={[
+                        styles.mapFilterChip,
+                        isDarkMode && styles.mapFilterChipDark,
+                        selected && styles.mapFilterChipActive,
+                        isDarkMode && selected && styles.mapFilterChipActiveDark,
+                      ]}
+                      onPress={() => {
+                        setSelectedMapFilter(key);
+                        setSelectedMarkerItem(null);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${label}: ${mapFilterCounts[key]} no mapa`}
+                      accessibilityState={{ selected }}
+                    >
+                      <Text
+                        style={[
+                          styles.mapFilterText,
+                          isDarkMode && styles.mapFilterTextDark,
+                          selected && styles.mapFilterTextActive,
+                        ]}
+                      >
+                        {label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.mapFilterCount,
+                          isDarkMode && styles.mapFilterCountDark,
+                          selected && styles.mapFilterCountActive,
+                        ]}
+                      >
+                        {mapFilterCounts[key]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
-          )}
+          </View>
         </View>
       )}
 
@@ -562,7 +543,6 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         distanceKm={distanceKm}
         durationMin={durationMin}
         onClose={() => setSelectedMarkerItem(null)}
-        onStartDelivery={handleStartDelivery}
         onViewOrder={handleViewOrder}
         onOpenDeliveryFlow={handleOpenDeliveryFlow}
         isDarkMode={isDarkMode}
@@ -603,18 +583,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 20,
-    padding: 3,
-    gap: 8,
+    borderRadius: 18,
+    padding: 0,
+    gap: 0,
   },
   dateScopeContainerDark: {
     backgroundColor: '#0f172a',
     borderColor: '#334155',
   },
   dateScopeBtn: {
-    minHeight: 32,
+    minHeight: 34,
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 0,
     borderRadius: 16,
     backgroundColor: 'transparent',
     alignItems: 'center',
@@ -622,11 +602,6 @@ const styles = StyleSheet.create({
   },
   dateScopeBtnActive: {
     backgroundColor: '#0055ff',
-    shadowColor: '#0055ff',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
   },
   dateScopeBtnText: {
     fontSize: 12,
@@ -649,55 +624,30 @@ const styles = StyleSheet.create({
   tabsPillContainer: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    paddingHorizontal: 2,
-    paddingVertical: 1,
+    width: '100%',
+    minWidth: 240,
   },
   tabsViewport: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    minHeight: 36,
-    marginVertical: 8,
+    minHeight: 44,
+    marginTop: 12,
   },
   tabsScrollView: { flex: 1, alignSelf: 'stretch' },
-  tabArrowSlot: { width: 28, alignItems: 'center', justifyContent: 'center' },
-  tabArrow: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 0,
-    backgroundColor: '#eff6ff',
-    elevation: 2,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-  },
-  tabArrowDark: { backgroundColor: '#1e293b' },
-  tabArrowActive: { backgroundColor: '#dbeafe' },
-  tabArrowActiveDark: { backgroundColor: '#1d4ed8' },
   tabBtn: {
+    flex: 1,
     flexShrink: 0,
-    width: 78,
-    minHeight: 34,
+    minWidth: 60,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 2,
-    paddingVertical: 0,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
   },
   tabBtnActive: {
-    backgroundColor: '#ffffff',
-    borderColor: '#dbeafe',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    borderBottomColor: '#2563eb',
   },
   tabBtnText: {
     fontSize: 11,
@@ -710,10 +660,53 @@ const styles = StyleSheet.create({
   tabBtnTextActive: {
     color: '#2563eb',
   },
+  tabBtnTextActiveDark: { color: '#60a5fa' },
   mapArea: {
     flex: 1,
   },
+  mapCanvas: { flex: 1, position: 'relative' },
   mapDateList: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  mapFilterOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 50,
+    zIndex: 20,
+    elevation: 10,
+  },
+  mapFilterScroll: { flex: 1 },
+  mapFilterList: {
+    height: 50,
+    flexDirection: 'row',
+    flexGrow: 0,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  mapFilterChip: {
+    height: 34,
+    alignSelf: 'center',
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
+  },
+  mapFilterChipDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  mapFilterChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  mapFilterChipActiveDark: { backgroundColor: '#1d4ed8', borderColor: '#1d4ed8' },
+  mapFilterText: { color: '#475569', fontSize: 11, fontWeight: '700' },
+  mapFilterTextDark: { color: '#cbd5e1' },
+  mapFilterTextActive: { color: '#ffffff' },
+  mapFilterCount: { color: '#64748b', fontSize: 10, fontWeight: '800' },
+  mapFilterCountDark: { color: '#94a3b8' },
+  mapFilterCountActive: { color: '#ffffff' },
   mapDateChip: {
     backgroundColor: '#f1f5f9',
     borderRadius: 10,

@@ -1,14 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  type GestureResponderEvent,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  type LayoutChangeEvent,
-} from 'react-native';
-import { MapPin, Clock, Play } from 'lucide-react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { MapPin, Clock } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
 import {
@@ -17,27 +9,21 @@ import {
   type AssemblyHandlingItem,
   type AssemblyHandlingOption,
 } from '../../../../utils/aiSummaryHelper';
-import { DeliveryFlowIcon } from '../../../../components/shared/DeliveryFlowIcon';
 import { resolveEffectiveSchedule } from '../../../../../../shared-utils/commercialOrderRules';
+import { getDeliveryTimelineMarker } from './deliveryTimelineMarker';
 import { ScheduleCardBadges } from './ScheduleCardBadges';
 import { ScheduleAlternativesInfo } from './ScheduleAlternativesInfo';
 
 interface Props {
   item: DeliveryRouteItem;
-  onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
-  onOpenDeliveryFlow?: (item: DeliveryRouteItem) => void;
-  isPreparing?: boolean;
   handlingOptions?: AssemblyHandlingOption[];
   isDarkMode?: boolean;
 }
 
 export const ScheduleCard: React.FC<Props> = ({
   item,
-  onStartDelivery,
   onViewOrder,
-  onOpenDeliveryFlow,
-  isPreparing = false,
   handlingOptions = [],
   isDarkMode = false,
 }) => {
@@ -69,228 +55,157 @@ export const ScheduleCard: React.FC<Props> = ({
       ));
 
   // Endereço e localização
-  const shipping = oData.shipping || {};
+  const shipping = oData.shipping || item.order?.shipping || {};
   const deliveryAddr = shipping.deliveryAddress || item.order?.customer?.fullAddress || {};
   const neighborhood = deliveryAddr.neighborhood || '';
   const city = deliveryAddr.city || '';
-  const locationText = [neighborhood, city].filter(Boolean).join(' · ');
-
-  // Tempo de deslocamento e quilometragem
-  const travelMin = item.durationMin || shipping.durationMinutes;
-  const travelKm = item.distanceKm || shipping.distance;
-  const travelParts = [
-    travelMin ? `${travelMin} min` : '',
-    travelKm ? `${travelKm} km` : '',
-  ].filter(Boolean);
-  const travelText = travelParts.join(' · ');
-  const addressAndTravelText = [locationText, travelText].filter(Boolean).join(' · ');
-
+  const locationText =
+    [neighborhood, city].filter(Boolean).join(' · ') || item.fullAddress || '';
+  const distance = Number(item.distanceKm ?? shipping.distance);
+  const distanceText =
+    Number.isFinite(distance) && distance > 0
+      ? `${distance.toFixed(1).replace('.', ',')} km`
+      : undefined;
   const isDeliveryActivity = item.activityType === 'delivery';
-  const isCompleted = item.status === 'completed';
-
-  const handlePrimaryPress = (event: GestureResponderEvent) => {
-    event.stopPropagation();
-    if (isDeliveryActivity) {
-      if (onOpenDeliveryFlow) onOpenDeliveryFlow(item);
-      else onStartDelivery(item);
-    } else {
-      onStartDelivery(item);
-    }
-  };
-
-  const primaryActionConfig = isDeliveryActivity
-    ? item.status === 'in_service'
-      ? { label: 'Em atendimento', backgroundColor: '#7e22ce', animated: true }
-      : item.status === 'in_progress'
-        ? { label: 'Em rota', backgroundColor: '#1e3a8a', animated: true }
-        : item.status === 'arrived'
-          ? null
-          : item.status === 'unattended'
-            ? { label: 'Não entregue', backgroundColor: '#b91c1c', animated: false }
-            : isPreparing
-              ? { label: 'Em preparação', backgroundColor: '#2563eb', animated: true }
-              : {
-                  label: 'Iniciar fluxo de entrega - preparação',
-                  backgroundColor: '#2563eb',
-                  animated: false,
-                }
-    : { label: 'Abrir atividade', backgroundColor: '#2563eb', animated: false };
+  const timelineMarker = getDeliveryTimelineMarker(item, isDarkMode);
+  const statusBadge =
+    item.status === 'pending'
+      ? {
+          label: 'Agendada',
+          backgroundColor: isDarkMode ? '#334155' : '#f1f5f9',
+          color: isDarkMode ? '#e2e8f0' : '#475569',
+        }
+      : item.status === 'completed'
+        ? {
+            label: 'Concluída',
+            backgroundColor: isDarkMode ? '#14532d' : '#F0FDF4',
+            color: isDarkMode ? '#bbf7d0' : '#16A34A',
+          }
+        : item.status === 'unattended'
+          ? {
+              label: 'Falhou',
+              backgroundColor: isDarkMode ? '#7f1d1d' : '#FEF2F2',
+              color: isDarkMode ? '#fecaca' : '#DC2626',
+            }
+          : !isDeliveryActivity
+            ? {
+                label: timelineMarker.label,
+                backgroundColor: isDarkMode ? '#172554' : '#EFF6FF',
+                color: isDarkMode ? '#93c5fd' : '#2563EB',
+              }
+            : null;
 
   const scheduleRes = resolveEffectiveSchedule(item.order);
   const effectiveOption = scheduleRes.effective;
-  const displayPeriodLabel = effectiveOption?.formattedTime || item.periodLabel;
+  const displayPeriodLabel = (effectiveOption?.formattedTime || item.periodLabel).replace(
+    /^🔒\s*/,
+    ''
+  );
 
   return (
     <TouchableOpacity
       style={[
         styles.card,
         isDarkMode && styles.cardDark,
-        isCompleted && styles.cardCompleted,
-        isCompleted && isDarkMode && styles.cardCompletedDark,
       ]}
       onPress={() => onViewOrder(item)}
       activeOpacity={0.88}
+      accessibilityRole="button"
+      accessibilityHint="Abre os detalhes do pedido"
     >
-      {/* Cabeçalho do Card com selos de serviço e código do pedido */}
+      {/* Horário e número do pedido */}
       <View style={styles.cardHeader}>
-        <ScheduleCardBadges
-          activityLabel={item.activityLabel}
-          activityColor={item.activityColor}
-          activityBackgroundColor={item.activityBackgroundColor}
-          statusBadgeConfig={null}
-          hasDepotAssembly={hasDepotAssembly}
-          hasOutsideAssembly={hasOutsideAssembly}
-          hasWallInstallation={serviceSummary.hasWallInstallation}
-          isAlternative={scheduleRes.isUsingAlternative}
-          isDarkMode={isDarkMode}
-        />
-
+        <View style={styles.timeSection}>
+          <Clock size={13} color={isDarkMode ? '#93c5fd' : '#2563EB'} />
+          <Text numberOfLines={1} style={[styles.timeText, isDarkMode && styles.timeTextDark]}>
+            {displayPeriodLabel}
+          </Text>
+        </View>
         <Text style={[styles.orderIndexText, isDarkMode && styles.textMuted]}>
           #{item.orderIndex || item.id.substring(0, 5)}
         </Text>
       </View>
 
-      {/* Horário / Janela */}
-      <View style={styles.timeSection}>
-        {item.isFixedTime ? (
-          <View style={styles.fixedTimeBadge}>
-            <Clock size={13} color="#b45309" />
-            <Text style={styles.fixedTimeText}>{displayPeriodLabel} · HORÁRIO FIXO</Text>
-          </View>
-        ) : (
-          <View style={styles.windowBadge}>
-            <Clock size={13} color="#2563eb" />
-            <Text style={styles.windowText}>{displayPeriodLabel}</Text>
-          </View>
-        )}
-      </View>
+      <ScheduleCardBadges
+        activityLabel={item.activityLabel}
+        activityColor={item.activityColor}
+        activityBackgroundColor={item.activityBackgroundColor}
+        hasDepotAssembly={hasDepotAssembly}
+        hasOutsideAssembly={hasOutsideAssembly}
+        hasWallInstallation={serviceSummary.hasWallInstallation}
+        showActivityLabel={item.activityType !== 'delivery'}
+        isDarkMode={isDarkMode}
+      />
 
       {/* Programação alternativa & Reposicionamento (Informativo no mesmo Card) */}
       <ScheduleAlternativesInfo scheduleRes={scheduleRes} isDarkMode={isDarkMode} />
 
-      {/* Cliente e Localização com Deslocamento e Quilometragem */}
+      {/* Cliente e localização */}
       <Text
         style={[
           styles.customerName,
           isDarkMode && styles.textLight,
-          isCompleted && styles.completedText,
-          isCompleted && isDarkMode && styles.completedTextDark,
         ]}
+        numberOfLines={1}
       >
         {item.customerName}
       </Text>
 
-      {addressAndTravelText ? (
+      {locationText || distanceText ? (
         <View style={styles.locationRow}>
-          <MapPin size={13} color="#2563eb" style={{ marginTop: 1 }} />
-          <Text style={[styles.locationText, isDarkMode && styles.textMuted]}>
-            {addressAndTravelText}
-          </Text>
+          <MapPin size={13} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+          {locationText ? (
+            <Text
+              numberOfLines={1}
+              style={[styles.locationText, isDarkMode && styles.textMuted]}
+            >
+              {locationText}
+            </Text>
+          ) : null}
+          {distanceText ? (
+            <>
+              {locationText ? <View style={styles.distanceDivider} /> : null}
+              <View
+                style={[styles.distanceBadge, isDarkMode && styles.distanceBadgeDark]}
+                accessible
+                accessibilityRole="text"
+                accessibilityLabel={`Distância cadastrada: ${distanceText}`}
+              >
+                <Text style={[styles.distanceText, isDarkMode && styles.distanceTextDark]}>
+                  {distanceText}
+                </Text>
+              </View>
+            </>
+          ) : null}
         </View>
       ) : null}
 
-      {/* Quantidade de itens */}
-      <View style={styles.metricsRow}>
-        <Text style={[styles.productsCountText, isDarkMode && styles.textMuted]}>
-          📦 {item.itemsCount} {item.itemsCount === 1 ? 'item' : 'itens'}
-        </Text>
-      </View>
-
-      {!isCompleted && primaryActionConfig && (
-        <View style={styles.actionsRow}>
-          <ProcessActionButton
-            label={primaryActionConfig.label}
-            backgroundColor={primaryActionConfig.backgroundColor}
-            animated={primaryActionConfig.animated}
-            isDarkMode={isDarkMode}
-            onPress={handlePrimaryPress}
-            icon={
-              isDeliveryActivity ? (
-                <DeliveryFlowIcon size={17} color="#ffffff" />
-              ) : (
-                <Play size={14} color="#ffffff" fill="#ffffff" />
-              )
-            }
-          />
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-};
-
-interface ProcessActionButtonProps {
-  label: string;
-  backgroundColor: string;
-  animated: boolean;
-  isDarkMode: boolean;
-  onPress: (event: GestureResponderEvent) => void;
-  icon: React.ReactNode;
-}
-
-const ProcessActionButton: React.FC<ProcessActionButtonProps> = ({
-  label,
-  backgroundColor,
-  animated,
-  isDarkMode,
-  onPress,
-  icon,
-}) => {
-  const progress = useRef(new Animated.Value(0)).current;
-  const [width, setWidth] = useState(0);
-
-  useEffect(() => {
-    if (!animated || !width) {
-      progress.stopAnimation();
-      progress.setValue(0);
-      return;
-    }
-
-    const stripeLoop = Animated.loop(
-      Animated.timing(progress, {
-        toValue: 1,
-        duration: 1400,
-        useNativeDriver: true,
-        isInteraction: false,
-      })
-    );
-    stripeLoop.start();
-    return () => stripeLoop.stop();
-  }, [animated, progress, width]);
-
-  const onLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);
-  const translateX = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-72, width + 72],
-  });
-
-  return (
-    <TouchableOpacity
-      style={[styles.startBtn, { backgroundColor }]}
-      onPress={onPress}
-      activeOpacity={0.88}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <View style={styles.actionButtonContent} onLayout={onLayout}>
-        {animated && (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.actionStripe,
-              { transform: [{ translateX }, { rotate: '18deg' }] },
-            ]}
-          />
-        )}
-        <View style={styles.actionButtonForeground}>
-          {icon}
-          <Text
-            style={[styles.actionBtnText, isDarkMode && styles.actionBtnTextDark]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.82}
+      <View style={styles.cardFooter}>
+        {isDeliveryActivity ? (
+          <View
+            style={styles.flowStageRow}
+            accessible
+            accessibilityLabel={`Etapa atual: ${timelineMarker.label}`}
           >
-            {label}
+            <View style={[styles.flowStageDot, { backgroundColor: timelineMarker.color }]} />
+            <Text style={[styles.flowStageText, { color: timelineMarker.color }]}>
+              {timelineMarker.label}
+            </Text>
+          </View>
+        ) : (
+          <View />
+        )}
+        <View style={styles.footerDetails}>
+          <Text style={[styles.productsCountText, isDarkMode && styles.textMuted]}>
+            {item.itemsCount} {item.itemsCount === 1 ? 'item' : 'itens'}
           </Text>
+          {statusBadge ? (
+            <View style={[styles.statusBadge, { backgroundColor: statusBadge.backgroundColor }]}>
+              <Text style={[styles.statusBadgeText, { color: statusBadge.color }]}>
+                {statusBadge.label}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </TouchableOpacity>
@@ -300,146 +215,79 @@ const ProcessActionButton: React.FC<ProcessActionButtonProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 12,
+    padding: 10,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
   },
   cardDark: {
     backgroundColor: '#1e293b',
     borderColor: '#334155',
   },
-  cardCompleted: { backgroundColor: '#f8fafc', shadowOpacity: 0, elevation: 0 },
-  cardCompletedDark: { backgroundColor: '#172033', borderColor: '#29364a' },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  orderIndexText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#64748b',
-    letterSpacing: 0.5,
-  },
-  timeSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
     marginBottom: 4,
   },
-  fixedTimeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#fef3c7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  fixedTimeText: {
-    fontSize: 11,
+  timeSection: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, minWidth: 0 },
+  timeText: { color: '#2563EB', fontSize: 12, fontWeight: '900', flexShrink: 1 },
+  timeTextDark: { color: '#93c5fd' },
+  orderIndexText: {
+    fontSize: 10,
     fontWeight: '900',
-    color: '#92400e',
+    color: '#64748b',
     letterSpacing: 0.3,
   },
-  windowBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  windowText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#2563eb',
-  },
   customerName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: '#0f172a',
     marginTop: 2,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   locationRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 5,
-    marginBottom: 6,
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+    minWidth: 0,
   },
   locationText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     color: '#475569',
     flex: 1,
+    minWidth: 0,
   },
-  metricsRow: {
+  distanceDivider: { width: 1, height: 12, backgroundColor: '#cbd5e1' },
+  distanceBadge: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  distanceBadgeDark: { backgroundColor: '#172554' },
+  distanceText: { color: '#2563EB', fontSize: 9, fontWeight: '800' },
+  distanceTextDark: { color: '#bfdbfe' },
+  cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
-    marginBottom: 8,
+    marginTop: 2,
   },
+  flowStageRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
+  flowStageDot: { width: 6, height: 6, borderRadius: 3 },
+  flowStageText: { fontSize: 10, fontWeight: '800' },
+  footerDetails: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusBadge: { borderRadius: 7, paddingHorizontal: 6, paddingVertical: 3 },
+  statusBadgeText: { fontSize: 9, fontWeight: '800' },
   productsCountText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: '#64748b',
-  },
-  actionsRow: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
-    gap: 8,
-    marginTop: 4,
-  },
-  startBtn: {
-    width: '100%',
-    minHeight: 44,
-    borderRadius: 12,
-    elevation: 1,
-    overflow: 'hidden',
-  },
-  actionButtonContent: {
-    minHeight: 44,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    overflow: 'hidden',
-  },
-  actionButtonForeground: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    zIndex: 1,
-  },
-  actionStripe: {
-    position: 'absolute',
-    top: -12,
-    bottom: -12,
-    width: 38,
-    backgroundColor: '#ffffff',
-    opacity: 0.24,
-  },
-  actionBtnText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#ffffff',
-    letterSpacing: 0.3,
-  },
-  actionBtnTextDark: {
-    textShadowColor: 'rgba(15, 23, 42, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
   },
   textLight: {
     color: '#f8fafc',
@@ -447,6 +295,4 @@ const styles = StyleSheet.create({
   textMuted: {
     color: '#94a3b8',
   },
-  completedText: { color: '#64748b' },
-  completedTextDark: { color: '#cbd5e1' },
 });

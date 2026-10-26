@@ -15,7 +15,6 @@ export const ChannelCatalogPagination: React.FC<ChannelCatalogPaginationProps> =
   onPageChange,
 }) => {
   const safeTotalPages = Math.max(1, totalPages);
-  const safeCurrentPage = Math.min(safeTotalPages, Math.max(1, currentPage));
 
   return (
     <div className="mt-6 flex flex-col items-center justify-center gap-2">
@@ -26,9 +25,6 @@ export const ChannelCatalogPagination: React.FC<ChannelCatalogPaginationProps> =
         onPageChange={onPageChange}
         loading={loading}
       />
-      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-        Página <span className="text-blue-600 font-bold">{safeCurrentPage}</span> de {safeTotalPages}
-      </span>
     </div>
   );
 };

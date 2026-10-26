@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Product } from '@/pages/types/product.type';
 import type { Person } from '../../../../types/person.type';
+import { normalizeProductSupplierIds } from '../../../../../../../shared-utils/productSupplierIds';
 import { resolveProductSupplierPricingDefaults } from '../../../../../../../shared-utils/productSupplierPricingDefaults';
 import {
   getProductSupplierDisplayName,
@@ -59,10 +60,11 @@ export function ProductSupplierField({
   }, [suppliers, extraSuppliers]);
 
   const selectedIds = useMemo(() => {
-    const raw = formData.supplierIds?.length
-      ? formData.supplierIds
-      : [formData.mainSupplierId || formData.supplierId];
-    return Array.from(new Set(raw.filter(Boolean).map(String)));
+    return normalizeProductSupplierIds(
+      formData.supplierIds,
+      formData.mainSupplierId,
+      formData.supplierId
+    );
   }, [formData.supplierIds, formData.mainSupplierId, formData.supplierId]);
 
   const visibleSuppliers = useMemo(() => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Calendar, ChevronDown } from 'lucide-react-native';
 import { useStockMoves } from '../hooks/useStockMoves';
@@ -42,6 +42,7 @@ export const StockMovesScreen: React.FC<Props> = ({
   } = useStockMoves();
 
   const { canManageStock } = useAuth();
+  const listRef = useRef<FlatList<StockMoveListItem>>(null);
 
   const {
     editingMove,
@@ -77,6 +78,11 @@ export const StockMovesScreen: React.FC<Props> = ({
     setVariationId(undefined);
     setSelectedProductName('');
     setCurrentStock(null);
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    goToPage(nextPage - 1);
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
   const PageHeader = () => (
@@ -124,6 +130,7 @@ export const StockMovesScreen: React.FC<Props> = ({
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <FlatList
+        ref={listRef}
         data={data}
         keyExtractor={(item) => item.id}
         stickyHeaderIndices={[0]}
@@ -167,14 +174,11 @@ export const StockMovesScreen: React.FC<Props> = ({
               <ActivityIndicator size="small" color="#2563eb" />
             ) : (
               <View style={styles.paginationRow}>
-                <Text style={[styles.pageText, isDarkMode && styles.textDark]}>
-                  Página {page + 1} de {Math.max(1, totalPages)}
-                </Text>
                 <FixedPageSlots
                   label="Paginação de movimentações de estoque"
                   currentPage={page + 1}
                   totalPages={Math.max(1, totalPages)}
-                  onPageChange={(nextPage) => goToPage(nextPage - 1)}
+                  onPageChange={handlePageChange}
                   dark={isDarkMode}
                 />
               </View>

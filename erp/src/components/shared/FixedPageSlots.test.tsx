@@ -9,19 +9,22 @@ afterEach(cleanup);
 
 describe('fixed pagination slots', () => {
   it.each([
-    [1, 1, [null, null, 1, null, null]],
-    [1, 2, [null, null, 1, 2, null]],
-    [2, 2, [null, 1, 2, null, null]],
-    [1, 3, [null, null, 1, 2, 3]],
-    [3, 3, [1, 2, 3, null, null]],
-    [1, 4, [null, null, 1, 2, 3]],
-    [3, 4, [1, 2, 3, 4, null]],
+    [1, 1, [1]],
+    [1, 2, [1, 2]],
+    [2, 2, [1, 2]],
+    [1, 3, [1, 2, 3]],
+    [3, 3, [1, 2, 3]],
+    [1, 4, [1, 2, 3, 4]],
+    [3, 4, [1, 2, 3, 4]],
     [3, 5, [1, 2, 3, 4, 5]],
     [8, 10, [6, 7, 8, 9, 10]],
-    [10, 10, [8, 9, 10, null, null]],
-  ])('uses five fixed positions for page %i of %i', (page, totalPages, expected) => {
-    expect(getFixedPageSlots(page, totalPages)).toEqual(expected);
-  });
+    [10, 10, [6, 7, 8, 9, 10]],
+  ])(
+    'keeps the current page centered when possible for page %i of %i',
+    (page, totalPages, expected) => {
+      expect(getFixedPageSlots(page, totalPages)).toEqual(expected);
+    }
+  );
 
   it('clamps invalid current pages after the result count shrinks', () => {
     expect(normalizePageNumber(9, 2)).toBe(2);
@@ -29,9 +32,9 @@ describe('fixed pagination slots', () => {
     expect(normalizePageNumber(Number.NaN, Number.NaN)).toBe(1);
   });
 
-  it('keeps five empty-or-number slots, marks the center current, and only navigates from side numbers', () => {
+  it('renders equal page buttons and only navigates from non-current pages', () => {
     const onPageChange = vi.fn();
-    const { container } = render(
+    render(
       <FixedPageSlots
         ariaLabel="Paginação de teste"
         currentPage={3}
@@ -40,10 +43,9 @@ describe('fixed pagination slots', () => {
       />
     );
 
-    const slots = [...container.querySelectorAll('[data-page-slot]')];
+    const buttons = screen.getAllByRole('button');
     const currentButton = screen.getByRole('button', { name: 'Página 3, atual' });
-    expect(slots).toHaveLength(5);
-    expect(slots[4].querySelector('button')).toBeNull();
+    expect(buttons).toHaveLength(4);
     expect(currentButton.getAttribute('aria-current')).toBe('page');
 
     fireEvent.click(currentButton);

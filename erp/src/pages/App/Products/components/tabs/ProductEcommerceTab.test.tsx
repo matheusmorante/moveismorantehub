@@ -80,10 +80,46 @@ describe('ProductEcommerceTab image limits', () => {
   });
 
   it('does not render cover badge or define cover button on gallery photos', () => {
-    renderTab(1, ['photo-1.jpg', 'photo-2.jpg']);
+    renderTab(2, ['photo-1.jpg', 'photo-2.jpg']);
 
     expect(screen.queryByText('Capa')).toBeNull();
     expect(screen.queryByText('Definir Capa')).toBeNull();
+  });
+
+  it('schedules draft autosave when a parent gallery photo is reordered', () => {
+    let state = {
+      hasVariations: false,
+      images: ['photo-1.jpg', 'photo-2.jpg'],
+      variations: [{ id: 'v1', images: ['photo-1.jpg', 'photo-2.jpg'] }],
+    };
+    const setFormData = vi.fn((updater) => {
+      state = typeof updater === 'function' ? updater(state) : updater;
+    });
+    const onImagesSaved = vi.fn();
+
+    render(
+      <ProductEcommerceTab
+        formData={state as any}
+        setFormData={setFormData}
+        handleFileChange={vi.fn()}
+        removePhoto={vi.fn()}
+        onImagesSaved={onImagesSaved}
+      />
+    );
+
+    const source = screen.getByAltText('Foto 1').closest('div[draggable="true"]');
+    const target = screen.getByAltText('Foto 2').closest('div[draggable="true"]');
+    expect(source).toBeTruthy();
+    expect(target).toBeTruthy();
+
+    fireEvent.dragStart(source!, {
+      dataTransfer: { setData: vi.fn(), effectAllowed: '' },
+    });
+    fireEvent.dragOver(target!, { dataTransfer: { dropEffect: '' } });
+
+    expect(state.images).toEqual(['photo-2.jpg', 'photo-1.jpg']);
+    expect(state.variations[0].images).toEqual(['photo-2.jpg', 'photo-1.jpg']);
+    expect(onImagesSaved).toHaveBeenCalledOnce();
   });
 
   it('hides photo actions with pointer-events-none by default and reveals them on click', () => {
@@ -116,6 +152,7 @@ describe('ProductEcommerceTab image limits', () => {
     const setFormData = vi.fn((updater) => {
       state = typeof updater === 'function' ? updater(state) : updater;
     });
+    const onImagesSaved = vi.fn();
 
     render(
       <ProductEcommerceTab
@@ -123,6 +160,7 @@ describe('ProductEcommerceTab image limits', () => {
         setFormData={setFormData}
         handleFileChange={vi.fn()}
         removePhoto={vi.fn()}
+        onImagesSaved={onImagesSaved}
       />
     );
 
@@ -136,6 +174,7 @@ describe('ProductEcommerceTab image limits', () => {
       expect(state.images).toEqual(['photo-1-cropped.webp', 'photo-2.jpg']);
       expect(state.variations[0].images).toEqual(['photo-1-cropped.webp', 'other.jpg']);
       expect(state.variations[1].images).toEqual(['photo-2.jpg']);
+      expect(onImagesSaved).toHaveBeenCalledOnce();
     });
   });
 });

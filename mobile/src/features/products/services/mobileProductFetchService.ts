@@ -20,6 +20,8 @@ import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productLi
 import { fetchProductListCategoryFilter } from '../../../../../shared-utils/productListCategoryFilters';
 import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../shared-utils/testArtifactQueries';
 import { parseVariationImages } from '../../../../../shared-utils/productVariationImages';
+import { toTitleCase } from '../../../../../shared-utils/productText';
+import { parseProductVariationAttributes } from '../../../../../shared-utils/productVariationAttributes';
 import { getMobileProductVariationRecords } from '../domain/mobileProductVariationVisibility';
 import { resolveMobileProductHasVariations } from '../domain/mobileProductVariationMode';
 import { parseLocalizedNumber } from '../domain/productNumbers';
@@ -50,7 +52,16 @@ export interface MobileProductFilterOptions {
 const MOBILE_PRODUCT_LIST_COLUMNS =
   '*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)';
 const MOBILE_PRODUCT_SUMMARY_COLUMNS =
-  'id, name, title, description, code, sku, category_id, category, brand, condition, unit_price, price, promo_price, cost_price, stock, unit, active, status, deleted, item_type, is_draft, is_test, observations, technical_specs, combo_items, product_categories(category_id), product_variations(*)';
+  'id, name, title, description, code, sku, category_id, category, brand, condition, unit_price, price, promo_price, cost_price, stock, unit, active, status, deleted, item_type, is_draft, observations, technical_specs, combo_items, product_categories(category_id), product_variations(*)';
+
+const mapMobileVariationAttributes = (rawAttributes: unknown) =>
+  parseProductVariationAttributes(rawAttributes, { preserveStructuredShowName: true }).map(
+    (attribute) => ({
+      ...attribute,
+      name: toTitleCase(attribute.name),
+      value: toTitleCase(attribute.value),
+    })
+  );
 
 const applyMobileTrashEligibility = async (products: any[], showTrash = false) => {
   const productIds = products
@@ -225,16 +236,14 @@ export const fetchMobileProductsPage = async (
       });
 
     if (!options?.showTestProducts) {
-      query = query
-        .or('is_test.is.null,is_test.eq.false')
-        .or(NON_TEST_PRODUCT_ARTIFACT_FILTER);
+      query = query.or(NON_TEST_PRODUCT_ARTIFACT_FILTER);
     }
 
     if (options?.productId) query = query.eq('id', options.productId);
 
     if (options?.showTrash) {
       query = query
-        .or('active.eq.false,deleted.eq.true')
+        .eq('deleted', true)
         .not('is_draft', 'is', true)
         .filter('status', 'isdistinct', 'draft');
     } else {
@@ -560,7 +569,7 @@ export const fetchMobileProductsPage = async (
             active: v.active !== false,
             images: varImages,
             comboItems: Array.isArray(v.combo_items) ? v.combo_items : [],
-            attributes: v.attributes || {},
+            attributes: mapMobileVariationAttributes(v.attributes),
             isMerged: Boolean(v.merged_to_variation_id || v.mergedToVariationId),
             mergedToVariationId: v.merged_to_variation_id || v.mergedToVariationId || null,
           };

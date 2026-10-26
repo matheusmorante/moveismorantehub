@@ -48,7 +48,7 @@ export const fetchGoodsReceiptsPage = async (
     return { items: [], totalCount: 0, page, pageSize, totalPages: 0 };
   }
 
-  const items = (data || []).map(mapGoodsReceiptRow);
+  const items = await ensureReceiptIndexes((data || []).map(mapGoodsReceiptRow));
   const totalCount = count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -68,7 +68,7 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
   const load = async () => {
     const currentLoadRevision = ++loadRevision;
     const currentLocalRevision = localRevision;
-    const localItems = ensureReceiptIndexes(getStoredReceipts());
+    const localItems = getStoredReceipts();
     try {
       const { data, error } = await supabase
         .from('goods_receipts')
@@ -104,7 +104,7 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
             return updatedAtDifference || String(a.id).localeCompare(String(b.id));
           }
         );
-        const finalizedList = ensureReceiptIndexes(mergedList);
+        const finalizedList = await ensureReceiptIndexes(mergedList);
         saveStoredReceipts(finalizedList);
         callback(finalizedList);
         return;
@@ -115,7 +115,7 @@ export const subscribeToGoodsReceipts = (callback: (items: GoodsReceipt[]) => vo
 
     if (!active || currentLoadRevision !== loadRevision) return;
     if (currentLocalRevision !== localRevision) return;
-    callback(localItems);
+    callback(await ensureReceiptIndexes(localItems));
   };
 
   load();

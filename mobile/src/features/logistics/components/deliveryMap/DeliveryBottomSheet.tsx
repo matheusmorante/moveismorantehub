@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
@@ -7,12 +7,9 @@ import {
   Modal,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
-  Alert,
 } from 'react-native';
 import {
   X,
-  Play,
   MapPin,
   Package,
   Clock,
@@ -20,16 +17,15 @@ import {
   FileText,
   Navigation,
   Timer,
+  Truck,
 } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
-import { DeliveryFlowIcon } from '../../../../components/shared/DeliveryFlowIcon';
 
 interface Props {
   item: DeliveryRouteItem | null;
   distanceKm?: number;
   durationMin?: number;
   onClose: () => void;
-  onStartDelivery: (item: DeliveryRouteItem) => Promise<void> | void;
   onViewOrder: (item: DeliveryRouteItem) => void;
   onOpenDeliveryFlow: (item: DeliveryRouteItem) => void;
   isDarkMode?: boolean;
@@ -40,44 +36,15 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
   distanceKm,
   durationMin,
   onClose,
-  onStartDelivery,
   onViewOrder,
   onOpenDeliveryFlow,
   isDarkMode = false,
 }) => {
   const insets = useSafeAreaInsets();
-  const [starting, setStarting] = useState(false);
 
   if (!item) return null;
 
-  const isPending = item.status === 'pending';
   const isInProgress = item.isCurrent;
-  const orderStatus = String(
-    item.order?.status || item.order?.order_data?.status || ''
-  ).toLowerCase();
-  const canStartDelivery =
-    item.activityType === 'delivery' &&
-    isPending &&
-    /agendad|scheduled/.test(orderStatus);
-  const canContinueDelivery = item.activityType === 'delivery' && isInProgress;
-
-  const handleOpenNav = () => {
-    onClose();
-    onViewOrder(item);
-  };
-
-  // Iniciar etapas da entrega
-  const handleStartAndNavigate = async () => {
-    setStarting(true);
-    try {
-      await onStartDelivery(item);
-      onClose();
-    } catch (err) {
-      Alert.alert('Atenção', 'Não foi possível registrar o início da entrega. Tente novamente.');
-    } finally {
-      setStarting(false);
-    }
-  };
 
   const handleViewOrderDetails = () => {
     onClose();
@@ -88,18 +55,6 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
     onClose();
     onOpenDeliveryFlow(item);
   };
-
-  const primaryDeliveryAction = canStartDelivery
-    ? {
-        label: 'INICIAR ETAPAS DA ENTREGA',
-        onPress: handleStartAndNavigate,
-      }
-    : canContinueDelivery
-      ? {
-          label: 'CONTINUAR ETAPAS DA ENTREGA',
-          onPress: handleStartAndNavigate,
-        }
-      : null;
 
   // Extrair observações separadas por linhas para criar rótulos individuais
   const obsList =
@@ -259,62 +214,39 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
 
           {/* Ações do Card */}
           <View style={styles.footerActions}>
-            {starting ? (
-              <View style={styles.loadingBox}>
-                <ActivityIndicator size="small" color="#2563eb" />
-                <Text style={styles.loadingText}>Registrando início da entrega...</Text>
-              </View>
-            ) : (
-              <>
-                {/* Botão de Ação Primária: Iniciar ou Continuar (Topo) */}
-                {primaryDeliveryAction && (
-                  <TouchableOpacity
-                    style={styles.primaryActionBtn}
-                    onPress={primaryDeliveryAction.onPress}
-                    activeOpacity={0.85}
-                    accessibilityRole="button"
-                    accessibilityLabel={primaryDeliveryAction.label}
-                  >
-                    <Play size={16} color="#ffffff" fill="#ffffff" />
-                    <Text style={styles.primaryActionText}>{primaryDeliveryAction.label}</Text>
-                  </TouchableOpacity>
-                )}
+            {/* Botão Secundário: Detalhes do Pedido */}
+            <TouchableOpacity
+              style={[styles.secondaryActionBtn, isDarkMode && styles.secondaryActionBtnDark]}
+              onPress={handleViewOrderDetails}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Ver detalhes do pedido"
+            >
+              <FileText size={16} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
+              <Text
+                style={[
+                  styles.secondaryActionText,
+                  isDarkMode && styles.secondaryActionTextDark,
+                ]}
+              >
+                Detalhes do Pedido
+              </Text>
+            </TouchableOpacity>
 
-                {/* Botão Secundário: Detalhes do Pedido (Embaixo) */}
-                <TouchableOpacity
-                  style={[styles.secondaryActionBtn, isDarkMode && styles.secondaryActionBtnDark]}
-                  onPress={handleViewOrderDetails}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Ver Detalhes do Pedido"
-                >
-                  <FileText size={16} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
-                  <Text
-                    style={[
-                      styles.secondaryActionText,
-                      isDarkMode && styles.secondaryActionTextDark,
-                    ]}
-                  >
-                    Detalhes do Pedido
-                  </Text>
-                </TouchableOpacity>
-
-                {item.activityType === 'delivery' && (
-                  <TouchableOpacity
-                    style={[
-                      styles.deliveryFlowActionBtn,
-                      isDarkMode && styles.deliveryFlowActionBtnDark,
-                    ]}
-                    onPress={handleOpenDeliveryFlow}
-                    activeOpacity={0.85}
-                    accessibilityRole="button"
-                    accessibilityLabel="Abrir fluxo de entrega"
-                  >
-                    <DeliveryFlowIcon size={20} color="#ffffff" />
-                    <Text style={styles.deliveryFlowActionText}>FLUXO DE ENTREGA</Text>
-                  </TouchableOpacity>
-                )}
-              </>
+            {item.activityType === 'delivery' && (
+              <TouchableOpacity
+                style={[
+                  styles.deliveryFlowActionBtn,
+                  isDarkMode && styles.deliveryFlowActionBtnDark,
+                ]}
+                onPress={handleOpenDeliveryFlow}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Iniciar fluxo de entrega"
+              >
+                <Truck size={20} color="#ffffff" strokeWidth={2} />
+                <Text style={styles.deliveryFlowActionText}>INICIAR FLUXO DE ENTREGA</Text>
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -537,22 +469,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 12,
   },
-  primaryActionBtn: {
-    width: '100%',
-    height: 46,
-    borderRadius: 12,
-    backgroundColor: '#2563eb',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  primaryActionText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-  },
   secondaryActionBtn: {
     width: '100%',
     height: 44,
@@ -595,19 +511,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.5,
-  },
-  loadingBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-  },
-  loadingText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#2563eb',
   },
   textLight: {
     color: '#f8fafc',

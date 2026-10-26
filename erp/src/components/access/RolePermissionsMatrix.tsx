@@ -8,6 +8,7 @@ import {
   type PermissionAreaDef,
   ROLES,
   isFinanceAdminOnlyAction,
+  isStockReceiptAccessRole,
 } from '@/pages/utils/permissionConfig';
 
 interface RolePermissionsMatrixProps {
@@ -104,6 +105,7 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
   const isGranted = (actionId: string, role: UserRole): boolean => {
     if (role === 'administrator') return true;
     if (isFinanceAdminOnlyAction(actionId)) return false;
+    if (actionId === 'viewStockReceipts') return isStockReceiptAccessRole(role);
     const savedRoles = settings.rolePermissions?.[actionId];
     if (savedRoles !== undefined) return savedRoles.includes(role);
     return findPermissionAction(actionId)?.defaultRoles.includes(role) ?? false;
@@ -116,6 +118,7 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
     permissionId: string,
     updates: Record<string, string[]>
   ): string[] => {
+    if (permissionId === 'viewStockReceipts') return ['stockist'];
     const savedRoles = updates[permissionId] ?? settings.rolePermissions?.[permissionId];
     return savedRoles ?? [...(findPermissionAction(permissionId)?.defaultRoles ?? [])];
   };
@@ -126,7 +129,8 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
     role: UserRole,
     enabled: boolean
   ) => {
-    if (isFinanceAdminOnlyAction(permission.id)) return;
+    if (isFinanceAdminOnlyAction(permission.id) ||
+      (permission.id === 'viewStockReceipts' && !isStockReceiptAccessRole(role))) return;
     const currentRoles = updates[permission.id] ?? settings.rolePermissions?.[permission.id] ?? [
       ...permission.defaultRoles,
     ];
@@ -147,7 +151,8 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
   };
 
   const updatePermission = (actionId: string, role: UserRole, enabled: boolean) => {
-    if (role === 'administrator' || isFinanceAdminOnlyAction(actionId)) return;
+    if (role === 'administrator' || isFinanceAdminOnlyAction(actionId) ||
+      (actionId === 'viewStockReceipts' && !isStockReceiptAccessRole(role))) return;
 
     const selectedAction = findPermissionAction(actionId);
     if (!selectedAction) return;
@@ -388,13 +393,17 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
                         <div className="space-y-1.5">
                           {submoduleActions.map((permission) => {
                             const granted = isGranted(permission.id, selectedRole);
+                            const receiptRoleLocked =
+                              permission.id === 'viewStockReceipts' && selectedRole !== 'stockist';
+                            const restricted = isFinanceAdminOnlyAction(permission.id) || receiptRoleLocked;
+                            const restrictionTitle = receiptRoleLocked
+                              ? 'Recebimentos é restrito a Administrador e Estoquista.'
+                              : 'O Financeiro em beta está disponível somente para administradores.';
                             return (
                               <label
                                 key={permission.id}
-                                title={isFinanceAdminOnlyAction(permission.id)
-                                  ? 'O Financeiro em beta está disponível somente para administradores.'
-                                  : permission.description}
-                                className={`flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left hover:bg-white/80 dark:hover:bg-slate-900/80 ${isFinanceAdminOnlyAction(permission.id) ? 'cursor-not-allowed opacity-55 hover:bg-transparent dark:hover:bg-transparent' : 'cursor-pointer'}`}
+                                title={restricted ? restrictionTitle : permission.description}
+                                className={`flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left hover:bg-white/80 dark:hover:bg-slate-900/80 ${restricted ? 'cursor-not-allowed opacity-55 hover:bg-transparent dark:hover:bg-transparent' : 'cursor-pointer'}`}
                               >
                                 <span className="flex min-w-0 items-center gap-2">
                                   <i
@@ -406,11 +415,9 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
                                 </span>
                                 <PermissionCheckbox
                                   checked={granted}
-                                  disabled={isFinanceAdminOnlyAction(permission.id)}
+                                  disabled={restricted}
                                   label={`${capabilityLabels[permission.capability]}: ${permission.label} (${submodule})`}
-                                  title={isFinanceAdminOnlyAction(permission.id)
-                                    ? 'O Financeiro em beta está disponível somente para administradores.'
-                                    : permission.description}
+                                  title={restricted ? restrictionTitle : permission.description}
                                   onChange={(checked) => updatePermission(permission.id, selectedRole, checked)}
                                 />
                               </label>

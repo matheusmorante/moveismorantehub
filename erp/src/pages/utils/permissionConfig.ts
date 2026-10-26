@@ -58,6 +58,9 @@ const fiscalModuleViewers: UserRole[] = ['administrator', 'manager', 'accountant
 const financeAdministrators: UserRole[] = ['administrator'];
 const logisticsViewers: UserRole[] = ['manager', 'seller', 'deliverer'];
 
+export const isStockReceiptAccessRole = (role: UserRole): boolean =>
+  role === 'administrator' || role === 'stockist';
+
 export const FINANCE_ADMIN_ONLY_ACTIONS = [
   'viewFinancials',
   'viewFinanceTransactions',
@@ -106,7 +109,7 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
       action('finalizeStockInventory', 'Inventários', 'operate', 'Finalizar inventários', 'Concluir a revisão e registrar no estoque as quantidades apuradas.', 'bi-check2-circle', stockManagers),
       action('viewStockUnavailabilities', 'Indisponibilidades', 'view', 'Acessar', 'Consultar perdas, avarias e indisponibilidades.', 'bi-dash-circle-dotted', stockViewers),
       action('viewStockPurchases', 'Pedidos de compra', 'view', 'Acessar', 'Consultar pedidos de compra.', 'bi-cart-fill', stockViewers),
-      action('viewStockReceipts', 'Recebimentos', 'view', 'Acessar', 'Consultar conferências e recebimentos de mercadoria.', 'bi-clipboard-check', stockViewers),
+      action('viewStockReceipts', 'Recebimentos', 'view', 'Acessar', 'Consultar conferências e recebimentos de mercadoria.', 'bi-clipboard-check', ['stockist']),
       action('viewStockLabels', 'Etiquetas', 'view', 'Acessar', 'Consultar e imprimir etiquetas de produtos e preços.', 'bi-upc-scan', stockViewers),
       action('viewSuppliers', 'Fornecedores', 'view', 'Acessar', 'Consultar o submódulo de fornecedores do estoque.', 'bi-truck', ['manager', 'seller', 'stockist']),
     ],

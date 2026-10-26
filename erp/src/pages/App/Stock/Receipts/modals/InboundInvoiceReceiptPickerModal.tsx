@@ -17,6 +17,7 @@ interface InboundInvoiceReceiptPickerModalProps {
   readonly onClose: () => void;
   readonly onSelect: (invoice: InboundInvoice) => void;
   readonly onCreate: (invoice: InboundInvoice) => void;
+  readonly canAccessReceipts: boolean;
 }
 
 export function InboundInvoiceReceiptPickerModal({
@@ -24,6 +25,7 @@ export function InboundInvoiceReceiptPickerModal({
   onClose,
   onSelect,
   onCreate,
+  canAccessReceipts,
 }: InboundInvoiceReceiptPickerModalProps) {
   const [invoices, setInvoices] = useState<InboundInvoice[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -192,6 +194,7 @@ export function InboundInvoiceReceiptPickerModal({
           isOpen={Boolean(mappingInvoice)}
           onClose={() => setMappingInvoice(null)}
           invoice={mappingInvoice}
+          canAccessReceipts={canAccessReceipts}
           onSaveSuccess={() => {
             void loadInvoices();
           }}

@@ -2,17 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   formatGoodsReceiptCode,
   getGoodsReceiptIndex,
-  getNextGoodsReceiptIndex,
 } from '../goodsReceiptCode';
-
-vi.mock('../supabaseConfig', () => ({
-  supabase: {
-    rpc: vi.fn().mockResolvedValue({ data: null, error: new Error('RPC não disponível') }),
-    from: vi.fn(() => ({
-      select: vi.fn().mockResolvedValue({ data: [], error: null }),
-    })),
-  },
-}));
 
 describe('goodsReceiptCode', () => {
   describe('formatGoodsReceiptCode', () => {
@@ -48,19 +38,6 @@ describe('goodsReceiptCode', () => {
       expect(getGoodsReceiptIndex({ receiptIndex: '25' as any })).toBe(25);
       expect(getGoodsReceiptIndex(null as any)).toBeNull();
       expect(getGoodsReceiptIndex({ receiptIndex: null })).toBeNull();
-    });
-  });
-
-  describe('getNextGoodsReceiptIndex', () => {
-    it('deve calcular o próximo código com base no maior existente na lista local', async () => {
-      const localList = [{ receiptIndex: 1 }, { receiptIndex: 5 }, { receiptIndex: 3 }];
-      const next = await getNextGoodsReceiptIndex(localList);
-      expect(next).toBe(6);
-    });
-
-    it('deve retornar 1 se a lista estiver vazia e o banco não tiver registros', async () => {
-      const next = await getNextGoodsReceiptIndex([]);
-      expect(next).toBe(1);
     });
   });
 });

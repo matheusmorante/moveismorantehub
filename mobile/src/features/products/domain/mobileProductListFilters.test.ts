@@ -93,10 +93,31 @@ describe('mobileProductListFilters', () => {
       generalType: 'all',
       includeDeactivated: true,
       showTrash: false,
+      showMergedProducts: false,
     };
 
     expect(productListFormSchema.safeParse({ ...filters, showTestProducts: false }).success).toBe(true);
     expect(productListFormSchema.safeParse({ ...filters, showTestProducts: true }).success).toBe(true);
     expect(productListFormSchema.safeParse({ ...filters, showTestProducts: 'true' }).success).toBe(false);
+  });
+
+  it('validates merged-product visibility before the list query', () => {
+    const filters = {
+      page: 1,
+      itemsPerPage: 15,
+      search: '',
+      statusFilter: 'all',
+      category: '',
+      catalogStatus: 'all',
+      itemType: 'standard',
+      generalType: 'all',
+      includeDeactivated: true,
+      showTrash: false,
+      showTestProducts: false,
+    };
+
+    expect(productListFormSchema.safeParse({ ...filters, showMergedProducts: false }).success).toBe(true);
+    expect(productListFormSchema.safeParse({ ...filters, showMergedProducts: true }).success).toBe(true);
+    expect(productListFormSchema.safeParse({ ...filters, showMergedProducts: 'true' }).success).toBe(false);
   });
 });

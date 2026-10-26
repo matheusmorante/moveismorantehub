@@ -610,11 +610,8 @@ export function NcmManagementPanel() {
                   ))}
                 </div>
               )}
-              <div className="mt-3 flex items-center justify-between text-xs text-amber-900 dark:text-amber-200">
-                <span>
-                  {previewChangesTotal.toLocaleString('pt-BR')} mudanças · página{' '}
-                  {previewChangesPage + 1}
-                </span>
+              <div className="mt-3 flex flex-col gap-2 text-xs text-amber-900 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+                <span>{previewChangesTotal.toLocaleString('pt-BR')} mudanças</span>
                 <FixedPageSlots
                   ariaLabel="Paginação das mudanças da sincronização NCM"
                   currentPage={previewChangesPage + 1}
@@ -826,7 +823,6 @@ export function NcmManagementPanel() {
           <div className="mt-3 flex flex-col items-center justify-between gap-2 text-xs text-slate-500 sm:flex-row">
             <span>{total.toLocaleString('pt-BR')} resultados</span>
             <div className="flex flex-col items-center gap-2 sm:flex-row">
-              <span>{page + 1} / {pageCount}</span>
               <FixedPageSlots
                 ariaLabel="Paginação da tabela NCM"
                 currentPage={page + 1}
@@ -938,11 +934,7 @@ export function NcmManagementPanel() {
                           </span>
                         </label>
                       ))}
-                      <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2 text-[10px] text-slate-500 dark:border-slate-800">
-                        <span>
-                          Página {productPage + 1} de{' '}
-                          {Math.max(1, Math.ceil(productsTotal / PAGE_SIZE))}
-                        </span>
+                      <div className="flex flex-col gap-2 border-t border-slate-100 px-3 py-2 text-[10px] text-slate-500 dark:border-slate-800">
                         <FixedPageSlots
                           ariaLabel="Paginação de produtos vinculados ao NCM"
                           currentPage={productPage + 1}

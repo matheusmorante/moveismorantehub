@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,7 @@ export const InventoryScreen: React.FC<Props> = ({
   renderHeader,
 }) => {
   const { sessions, loading, loadingMore, loadMore, reload } = useInventory();
+  const listRef = useRef<FlatList<any>>(null);
   const [periodDays, setPeriodDays] = useState(30);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
@@ -71,6 +72,11 @@ export const InventoryScreen: React.FC<Props> = ({
     setCurrentPage(1);
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
   if (showCount) {
     return (
       <InventoryAuditFlow
@@ -92,6 +98,7 @@ export const InventoryScreen: React.FC<Props> = ({
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <FlatList
+        ref={listRef}
         data={data}
         keyExtractor={(item) => item.id}
         stickyHeaderIndices={[1]}
@@ -141,14 +148,11 @@ export const InventoryScreen: React.FC<Props> = ({
             )}
             {!loading && visibleSessions.length > 0 && (
               <View style={styles.pagination}>
-                <Text style={[styles.pageText, isDarkMode && styles.periodLabelDark]}>
-                  Página {currentPage} de {pageCount}
-                </Text>
                 <FixedPageSlots
                   label="Paginação de inventários"
                   currentPage={currentPage}
                   totalPages={pageCount}
-                  onPageChange={setCurrentPage}
+                  onPageChange={handlePageChange}
                   dark={isDarkMode}
                 />
               </View>

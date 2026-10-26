@@ -1,8 +1,8 @@
 # Auditoria de Egress — Supabase MoranteHub
 
-## Estado atual — 25/10/2026, 21:33 BRT (26/10, 00:33 UTC)
+## Estado atual — 26/10/2026, 00:35 BRT (03:35 UTC)
 
-CLI/plugin confirmaram novamente o ref correto; nenhum medidor oficial Usage/Egress disponível. Bytes, quota, excedente, cumprimento de 100 MB/dia e delta de Egress continuam indisponíveis. Agendamento ACTIVE de três horas conferido e preservado. Na janela 25/10 21:30–26/10 00:30 UTC, quatro RPCs da Central somaram 234 chamadas, ante 963 na janela anterior de três horas. A queda de 729 chamadas não mede redução de bytes nem efeito de patches locais. Sem nova correção comprovada; código e patches EGR-001/EGR-002 preservados. Inventário da Central atualizado para mudanças locais preexistentes de busca/reconexão; decisão sobre frequência continua pendente.
+CLI/plugin autenticados e projeto MoranteHub/hkoxhourxwlddgsfdgws reconfirmados; nenhum medidor oficial Usage/Egress disponível. Bytes, quota, excedente, delta de Egress e cumprimento de 100 MB/dia seguem indisponíveis. Recorrência ACTIVE/3 h preservada. Janela 26/10 00:30–03:30 UTC: gateway 2.865 eventos (ante 850); REST 2.641. Quatro RPCs da Central: 133 chamadas (ante 234). Contagens não medem bytes nem efeito de patches. Sem nova causa corrigível comprovada; apenas relatório/memória alterados. Inventário de autenticação ampliado, sem atribuir origem aos agregados; decisão de frequência da Central preservada.
 
 ## Coleta inicial — 25/10/2026, 09:35 BRT (12:35 UTC)
 
@@ -291,3 +291,58 @@ Inventário de estilo permanece vigente: helper com cache de módulo/promessa em
 **Decisão pendente preservada:** manter 6 s, aceitar 30 s com Realtime/foco (até 30 s sem evento) ou definir reconciliação do fallback, com os impactos já registrados. Meta confirmada: 100 MB/dia; período não precisa de nova escolha. Sem medidor oficial, uso/quota/excedente/delta em bytes e cumprimento da meta seguem indisponíveis.
 
 Somente revisão estática; sem testes, SQL no banco, alteração remota, commit ou deploy. Sem nova causa comprovada corrigível nesta execução. Validações funcionais dos patches anteriores e medição oficial permanecem pendentes. Entregas desta rodada restritas ao relatório e memória.
+## Sexta execução — 26/10/2026, 00:35 BRT (03:35 UTC)
+
+CLI 2.121.0: ajudas raiz/projects/list/inspect/db/telemetry redescobertas, sem medidor oficial de Usage/Egress faturável. Atualização 2.122.0 anunciada, não instalada. Plugin redescoberto com list_projects/query_logs, sem medidor explícito; get_cost cobre criação de projeto/branch. CLI e plugin autenticados com acesso ao projeto MoranteHub, ref `hkoxhourxwlddgsfdgws`; vínculo local e indicador linked da CLI conferem. Nesta versão a lista CLI retornou array raiz, tratado em memória; nenhuma identidade/credencial impressa. Recorrência ACTIVE/3 h conferida e preservada. Changelog oficial, aviso TLS e [referência de campos](https://supabase.com/docs/guides/observability/log-field-reference) consultados; nenhuma mudança pertinente comprovada.
+
+### Coleta: 2026-10-26T00:30:00Z–2026-10-26T03:30:00Z
+
+Janela completa **25/10 21:30–26/10 00:30 BRT**. Duas query_logs agregadas, sem polling: source/count e gateway por serviço/rota/status. Somente source, request.path e response.status_code documentados. Normalização REST `^/rest/v1/((?:rpc/)?[A-Za-z_][A-Za-z0-9_]*)(?:[/?]|$)`; demais serviços por prefixos fixos. Nenhum corpo, parâmetro, header, mensagem, SQL de usuários, objeto Storage ou linha de negócio retornado. Grupos abaixo do limite de 80.
+
+| Fonte | Eventos |
+| --- | ---: |
+| edge_logs | 2.865 |
+| postgres_logs | 632 |
+| postgrest_logs | 284 |
+| auth_logs | 201 |
+| pgbouncer_logs | 31 |
+| realtime_logs | 16 |
+| auth_audit_logs | 10 |
+| storage_logs | 7 |
+
+Fontes não se somam. Gateway: **REST 2.641; Auth 197 (195 status 200, dois 302); Realtime 23 (101); Storage quatro (dois 200, dois 400)**. Aumento de 2.015 eventos do gateway ante 850 na janela anterior de igual duração; não é delta de Egress.
+
+| Rota REST de destaque | Status | Chamadas |
+| --- | --- | ---: |
+| orders | 200 / 206 | 323 / 37 |
+| nfe_documents | 200 | 262 |
+| people | 200 / 204 / 400 | 240 / 6 / 2 |
+| profiles | 200 | 194 |
+| rpc/current_user_has_password | 200 | 130 |
+| rpc/is_administrator | 200 | 119 |
+| rede_transactions | 200 | 98 |
+| products | 200 / 206 / 204 | 86 / 8 / 6 |
+| rpc/claim_return_fiscal_emission_job | 200 | 90 |
+| rpc/flush_supabase_telemetry | 204 / 200 | 66 / 5 |
+| rpc/customer_support_list_conversations | 200 | 36 |
+| rpc/customer_support_list_customer_summaries | 200 | 36 |
+| rpc/customer_support_count_customer_orders | 200 | 35 |
+| rpc/customer_support_conversation_counts | 200 | 26 |
+| categories | 200 | 27 |
+| store_style_settings | 200 | 17 |
+| category_relationships | 200 | 9 |
+
+Tabela priorizada. Quatro RPCs da Central: **133 chamadas**, queda de 101 ante 234. Não atribuir as variações a sessão, versão, patch ou bytes. Rotas fiscais somente contadas, sem inspeção de código fiscal. Dois 400 de goods_receipts, dois 409 de goods_receipt_items e dois 400 de people, assim como Storage, não comprovam loop nem causa de Egress; dados/payloads não consultados.
+
+### Revisão estática e inventário atualizado
+
+AGENTS vigente, política remota, memória, relatório e skills lidos. Conferência intermediária do git status: 65 entradas, com trabalho preexistente; há mudanças concorrentes durante a execução. Diffs pertinentes examinados antes da escrita; nenhum código alterado. EGR-001/EGR-002 presentes no código atual, agora sem diff nos respectivos arquivos contra HEAD; isso não comprova implantação nem economia remota.
+
+| Integração / finalidade | Arquivos e chamadas | Gatilho / frequência | Deduplicação / cache / cancelamento | Evidência / risco |
+| --- | --- | --- | --- | --- |
+| ERP: sessão/perfil | erp/src/context/AuthContext.tsx:26 → auth/useAuthSession.ts:72–180,273–288 → auth/profileService.ts:53–89 | getSession e eventos onAuthStateChange; perfil buscado ao processar sessão | Guarda handlingSession contra simultaneidade; dedup de getSession/INITIAL_SESSION por usuário; projeção PROFILE_COLUMNS, filtro id/maybeSingle, timeout 6 s, uma repetição condicionada a erro de autenticação, cache como fallback | Rota profiles:194; há outros chamadores, inclusive mobileAuthProfile.ts:28. Não comprova excesso nem origem ERP; cache de perfil pode alterar atualidade/permissões e não foi introduzido |
+| ERP: estado de senha | auth/useAuthSession.ts:156–164 → auth/usePasswordCredentials.ts:25–34 → erp/src/services/authPasswordSetup.ts:33–40; política shared-utils/authSessionPolicy.ts:2–3 | Manutenção de sessão exceto TOKEN_REFRESHED; refresh explícito e após criação de senha | Chamador de sessão protegido pela guarda; timeout externo 4 s; sem cache/abort explícito na função de consulta | RPC current_user_has_password:130. Mobile também usa a RPC em services/authPasswordSetup.ts:39–40; contagens não atribuem plataforma/instância. Nenhuma evidência suficiente para alterar segurança/contrato |
+
+Central reconfirmada: Index.tsx:152 → hooks/useCustomerSupportConversations.ts:48–102,158–220 → customerSupportService.ts:179,221,233,267. Mesmo timer de seis segundos com página visível, foco/visibilidade e Realtime; páginas de 50, guarda silenciosa e descarte de resultados obsoletos. Inventários anteriores de menus, estilo e telemetria permanecem válidos. Chamador de is_administrator não estabelecido nesta inspeção; não inferir que venha do mesmo fluxo de senha/perfil.
+
+**Resultado:** nenhuma nova causa comprovada corrigível sem escolha de produto. Decisão preservada: manter 6 s, aceitar 30 s com Realtime/foco ou definir reconciliação do fallback, com impactos registrados na segunda execução. Meta de 100 MB/dia confirmada; sem medidor oficial, uso/quota/excedente/delta em bytes indisponíveis. Somente relatório e memória alterados; sem testes, consulta de dados de negócio/execute_sql, mudanças remotas, commit ou deploy. Validações funcionais anteriores e medição oficial continuam pendentes.

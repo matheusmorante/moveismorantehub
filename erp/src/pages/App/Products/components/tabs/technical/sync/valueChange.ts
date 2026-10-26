@@ -1,11 +1,12 @@
 import type Product from '@/pages/types/product.type';
 import { syncProductWithVariations } from './variationSync';
 import { cleanupDependentCharacteristicsOnZero } from './dependentCleanup';
-import {
-  normalizeTechnicalName,
-  parseNumericDimension,
-} from '../technicalTabUtils';
+import { normalizeTechnicalName } from '../technicalTabUtils';
 import { getProductTechnicalRootPatch } from '../../../../../../../../../shared-utils/productTechnicalRootPatch';
+import {
+  getProductTechnicalDimensionField,
+  parseProductTechnicalDimension,
+} from '../../../../../../../../../shared-utils/productTechnicalDimensions';
 
 /**
  * Atualiza os valores técnicos de um produto, aplicando regras de sincronização
@@ -43,34 +44,15 @@ export const applyTechnicalValueChangeToProduct = (
 
   Object.assign(next, getProductTechnicalRootPatch(fieldName, value));
 
+  const dimensionField = getProductTechnicalDimensionField(fieldName);
+  if (dimensionField) {
+    Object.assign(next, { [dimensionField]: parseProductTechnicalDimension(value) });
+    return syncProductWithVariations(next);
+  }
+
   const norm = normalizeTechnicalName(fieldName);
-  let dimensionChanged = false;
-
-  if (norm === 'peso') {
-    next.weight = parseNumericDimension(value);
-    return syncProductWithVariations(next);
-  }
-
-  if (norm === 'altura' || norm === 'altura total') {
-    next.height = parseNumericDimension(value);
-    dimensionChanged = true;
-  } else if (norm === 'largura' || norm === 'largura total') {
-    next.width = parseNumericDimension(value);
-    dimensionChanged = true;
-  } else if (
-    norm === 'profundidade' ||
-    norm === 'profundidade total' ||
-    norm === 'comprimento' ||
-    norm === 'comprimento total'
-  ) {
-    next.depth = parseNumericDimension(value);
-    dimensionChanged = true;
-  } else if (norm === 'modelo/linha' || norm === 'linha/modelo') {
+  if (norm === 'modelo/linha' || norm === 'linha/modelo') {
     next.line = typeof value === 'string' ? value : String(value ?? '');
-  }
-
-  if (dimensionChanged) {
-    return syncProductWithVariations(next);
   }
 
   return next;

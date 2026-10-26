@@ -76,7 +76,7 @@ export const DeliveryMapView: React.FC<Props> = ({
           typeLabel = 'Assistência';
           bgColor = '#eab308'; // Assistência (Amarelo)
         } else if (activityType === 'return') {
-          typeLabel = 'Devolução';
+          typeLabel = 'Coleta de devolução';
           bgColor = '#f97316'; // Coleta de Devolução (Laranja)
         }
 

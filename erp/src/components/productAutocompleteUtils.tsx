@@ -9,6 +9,11 @@ export type SuggestionItem = {
   variation?: Variation;
 };
 
+export type ProductAutocompleteExcludedLink = {
+  readonly productId: string;
+  readonly variationId?: string;
+};
+
 export const getVariationDisplayName = (product: Product, variation?: Variation) => {
   return getSelectedProductDisplayName(product, variation);
 };

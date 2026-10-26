@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ArrowLeft, RefreshCw, Search, X } from 'lucide-react-native';
+import { ArrowLeft, Search, X } from 'lucide-react-native';
 import type { MobileOrderType } from '../domain/types';
 
 type Props = {
@@ -9,7 +9,6 @@ type Props = {
   onSearch: (value: string) => void;
   statusFilter?: string;
   onSelectStatus?: (status: string) => void;
-  onRefresh: () => void;
   totalOrders?: number;
   title?: string;
   onBack?: () => void;
@@ -33,7 +32,6 @@ export function OrdersHeader({
   onSearch,
   statusFilter = 'all',
   onSelectStatus,
-  onRefresh,
   totalOrders,
   title = 'Pedidos de Venda',
   onBack,
@@ -61,13 +59,6 @@ export function OrdersHeader({
             </View>
           ) : null}
         </View>
-        <TouchableOpacity
-          onPress={onRefresh}
-          style={styles.refresh}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <RefreshCw size={16} color="#64748b" />
-        </TouchableOpacity>
       </View>
 
       <View style={[styles.search, dark && styles.darkCard]}>
@@ -174,9 +165,6 @@ const styles = StyleSheet.create({
   },
   light: {
     color: '#f8fafc',
-  },
-  refresh: {
-    padding: 6,
   },
   search: {
     flexDirection: 'row',

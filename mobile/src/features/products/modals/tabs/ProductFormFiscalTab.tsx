@@ -20,6 +20,10 @@ import {
   updateProductFiscalNcmCode,
 } from '../../../../../../shared-utils/productFiscalNcm';
 import { updateProductFiscalCst } from '../../../../../../shared-utils/productFiscalCst';
+import {
+  MOBILE_SERVICE_CFOP_OPTIONS,
+  resolveMobileServiceCfopLabel,
+} from '../../domain/mobileProductFiscalOptions';
 
 interface Props {
   formData: any;
@@ -33,17 +37,6 @@ interface Props {
   onAcceptNcmSuggestion?: () => void;
   onRejectNcmSuggestion?: () => void;
 }
-
-const CFOP_OPTIONS = [
-  { value: '5102', label: '5102 - Venda de mercadoria de terceiros' },
-  { value: '5405', label: '5405 - Venda mercadoria sujeita a ST' },
-  { value: '5101', label: '5101 - Venda de produção própria' },
-];
-
-const SERVICE_CFOP_OPTIONS = [
-  { value: '5933', label: '5933 - Prestação de serviço dentro do Estado' },
-  { value: '6933', label: '6933 - Prestação de serviço para fora do Estado' },
-];
 
 const CSOSN_OPTIONS = [
   { value: '102', label: '102 - Simples Nacional - Sem permissão de crédito (Venda padrão)' },
@@ -228,24 +221,21 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
     }));
   };
 
-  const availableCfopOptions =
-    formData.itemType === 'service' ? SERVICE_CFOP_OPTIONS : CFOP_OPTIONS;
   const currentCsosn = fiscal.cst || '103';
-  const selectedCfop = availableCfopOptions.find(
-    (c) => c.value === (fiscal.cfop || (formData.itemType === 'service' ? '5933' : '5102'))
-  );
   const selectedCsosn = CSOSN_OPTIONS.find((c) => c.value === currentCsosn);
   const selectedOrigem = ORIGEM_OPTIONS.find((o) => o.value === String(fiscal.origem ?? '0'));
   const selectedCest = CEST_OPTIONS.find((option) => option.value === String(fiscal.cest || ''));
 
   return (
     <View style={styles.container}>
-      {/* NCM Card */}
+      {/* Fiscal identification card */}
       <View style={[styles.card, dark && styles.darkCard]}>
         <View style={styles.cardHeader}>
           <FileText size={16} color="#2563eb" />
           <Text style={[styles.cardTitle, dark && styles.lightText]}>
-            Classificação Fiscal (NCM)
+            {formData.itemType === 'service'
+              ? 'Informações Fiscais para NF-e'
+              : 'Classificação Fiscal (NCM)'}
           </Text>
         </View>
 
@@ -464,27 +454,29 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
         )}
         <View
           pointerEvents={canConfigureProductTaxes ? 'auto' : 'none'}
-          accessibilityElementsHidden={!canConfigureProductTaxes}
-          importantForAccessibility={canConfigureProductTaxes ? 'auto' : 'no-hide-descendants'}
           style={[styles.taxFields, !canConfigureProductTaxes && styles.disabledTaxFields]}
         >
           {formData.itemType === 'service' && (
             <View style={styles.field}>
               <Text style={[styles.label, dark && styles.dimText]}>CFOP Padrão (Municipal)</Text>
               <TouchableOpacity
+                disabled={!canConfigureProductTaxes}
+                accessibilityState={{ disabled: !canConfigureProductTaxes }}
                 onPress={() => setShowCfopPicker(!showCfopPicker)}
                 style={[styles.selectBtn, dark && styles.darkInput]}
               >
                 <Text style={[styles.selectBtnText, dark && styles.lightText]} numberOfLines={1}>
-                  {selectedCfop?.label || SERVICE_CFOP_OPTIONS[0].label}
+                  {resolveMobileServiceCfopLabel(fiscal.cfop)}
                 </Text>
                 <ChevronDown size={14} color="#94a3b8" />
               </TouchableOpacity>
               {showCfopPicker && (
                 <View style={[styles.dropdownBox, dark && styles.darkCard]}>
-                  {SERVICE_CFOP_OPTIONS.map((opt) => (
+                  {MOBILE_SERVICE_CFOP_OPTIONS.map((opt) => (
                     <TouchableOpacity
                       key={opt.value}
+                      disabled={!canConfigureProductTaxes}
+                      accessibilityState={{ disabled: !canConfigureProductTaxes }}
                       onPress={() => {
                         setFiscalField('cfop', opt.value);
                         setShowCfopPicker(false);
@@ -509,6 +501,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                 : 'CST / CSOSN ICMS (Simples Nacional)'}
             </Text>
             <TouchableOpacity
+              disabled={!canConfigureProductTaxes}
+              accessibilityState={{ disabled: !canConfigureProductTaxes }}
               onPress={() => setShowCsosnPicker(!showCsosnPicker)}
               style={[styles.selectBtn, dark && styles.darkInput]}
             >
@@ -522,6 +516,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                 {CSOSN_OPTIONS.map((opt) => (
                   <TouchableOpacity
                     key={opt.value}
+                    disabled={!canConfigureProductTaxes}
+                    accessibilityState={{ disabled: !canConfigureProductTaxes }}
                     onPress={() => {
                       setShowCsosnPicker(false);
                       if (opt.value === currentCsosn) return;
@@ -557,6 +553,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
             <View style={styles.field}>
               <Text style={[styles.label, dark && styles.dimText]}>Origem da Mercadoria</Text>
               <TouchableOpacity
+                disabled={!canConfigureProductTaxes}
+                accessibilityState={{ disabled: !canConfigureProductTaxes }}
                 onPress={() => setShowOrigemPicker(!showOrigemPicker)}
                 style={[styles.selectBtn, dark && styles.darkInput]}
               >
@@ -570,6 +568,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                   {ORIGEM_OPTIONS.map((opt) => (
                     <TouchableOpacity
                       key={opt.value}
+                      disabled={!canConfigureProductTaxes}
+                      accessibilityState={{ disabled: !canConfigureProductTaxes }}
                       onPress={() => {
                         setFiscalField('origem', opt.value);
                         setShowOrigemPicker(false);
@@ -592,6 +592,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
               {formData.itemType === 'service' ? 'Alíquota ISS (%)' : 'Alíquota ICMS (%)'}
             </Text>
             <TextInput
+              editable={canConfigureProductTaxes}
+              accessibilityState={{ disabled: !canConfigureProductTaxes }}
               value={
                 formData.itemType === 'service'
                   ? String(fiscal.issPercent ?? 0)
@@ -619,6 +621,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                   {isPis ? 'PIS CST' : 'COFINS CST'}
                 </Text>
                 <TouchableOpacity
+                  disabled={!canConfigureProductTaxes}
+                  accessibilityState={{ disabled: !canConfigureProductTaxes }}
                   onPress={() => setVisible(!visible)}
                   style={[styles.selectBtn, dark && styles.darkInput]}
                 >
@@ -633,6 +637,8 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                       {PIS_COFINS_OPTIONS.map((option) => (
                         <TouchableOpacity
                           key={option.value}
+                          disabled={!canConfigureProductTaxes}
+                          accessibilityState={{ disabled: !canConfigureProductTaxes }}
                           onPress={() => {
                             setFiscalField(field, option.value);
                             setVisible(false);

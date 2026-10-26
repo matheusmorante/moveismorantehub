@@ -59,8 +59,8 @@ export const resolveHeaderColors = ({
   }
   if (isBudget) {
     return {
-      headerBg: dark ? '#1e1b4b' : '#c7d2fe',
-      headerBorder: dark ? '#312e81' : '#a5b4fc',
+      headerBg: dark ? '#1e3a8a' : '#dbeafe',
+      headerBorder: dark ? '#1d4ed8' : '#93c5fd',
     };
   }
   if (isReturn) {

@@ -1,57 +1,80 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { AlertTriangle } from 'lucide-react-native';
-import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
-import { DeliveryRouteDateScope } from '../../hooks/useDeliveryRoute';
+import type { DeliveryRouteDateScope, DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { ScheduleCard } from './ScheduleCard';
-import { analyzeOrderServiceHandlings } from '../../utils/scheduleServiceEstimator';
 import { supabase } from '../../../../services/supabaseClient';
 import type { AssemblyHandlingOption } from '../../../../utils/aiSummaryHelper';
+import { getOperationalScheduleDate } from '../../../../utils/operationalSchedule';
+import { getDeliveryTimelineMarker } from './deliveryTimelineMarker';
 
 interface Props {
   items: DeliveryRouteItem[];
   refreshing: boolean;
   onRefresh: () => void;
-  onStartDelivery: (item: DeliveryRouteItem) => void;
   onViewOrder: (item: DeliveryRouteItem) => void;
-  onOpenDeliveryFlow?: (item: DeliveryRouteItem) => void;
-  preparingOrderIds?: ReadonlySet<string>;
   handlingOptions?: AssemblyHandlingOption[];
   dateScope?: DeliveryRouteDateScope;
   onChangeDateScope?: (scope: DeliveryRouteDateScope) => void;
   isDarkMode?: boolean;
 }
 
+const getStartTimeMinutes = (item: DeliveryRouteItem) => {
+  const value = String(item.windowStart || item.periodLabel || '').toLocaleLowerCase('pt-BR');
+  const match = value.match(/(\d{1,2}):(\d{2})/);
+  if (match) return Number(match[1]) * 60 + Number(match[2]);
+  if (value.includes('manhã') || value.includes('manha')) return 8 * 60;
+  if (value.includes('tarde')) return 13 * 60;
+  if (value.includes('noite')) return 18 * 60;
+  return Number.POSITIVE_INFINITY;
+};
+
+const compareChronologically = (a: DeliveryRouteItem, b: DeliveryRouteItem) => {
+  const dateDiff = getOperationalScheduleDate(a.order).localeCompare(
+    getOperationalScheduleDate(b.order)
+  );
+  if (dateDiff) return dateDiff;
+
+  const timeA = getStartTimeMinutes(a);
+  const timeB = getStartTimeMinutes(b);
+  if (timeA !== timeB) {
+    if (!Number.isFinite(timeA)) return 1;
+    if (!Number.isFinite(timeB)) return -1;
+    return timeA - timeB;
+  }
+  return a.customerName.localeCompare(b.customerName, 'pt-BR');
+};
+
+const getRecordedDistance = (item: DeliveryRouteItem) => {
+  const distance = Number(
+    item.distanceKm ?? item.order?.order_data?.shipping?.distance ?? item.order?.shipping?.distance
+  );
+  return Number.isFinite(distance) && distance > 0 ? distance : Number.POSITIVE_INFINITY;
+};
+
 const matchesPeriod = (item: DeliveryRouteItem, period: 'morning' | 'afternoon') => {
-  const label = item.periodLabel.toLowerCase();
+  const value = String(item.windowStart || item.periodLabel || '').toLocaleLowerCase('pt-BR');
+  const startMinutes = getStartTimeMinutes(item);
+  if (Number.isFinite(startMinutes)) {
+    return period === 'morning'
+      ? startMinutes < 12 * 60
+      : startMinutes >= 12 * 60 && startMinutes <= 18 * 60;
+  }
   return period === 'morning'
-    ? label.includes('manhã') ||
-        label.includes('08:') ||
-        label.includes('09:') ||
-        label.includes('10:') ||
-        label.includes('11:')
-    : label.includes('tarde') ||
-        label.includes('13:') ||
-        label.includes('14:') ||
-        label.includes('15:') ||
-        label.includes('16:') ||
-        label.includes('17:') ||
-        label.includes('18:');
+    ? value.includes('manhã') || value.includes('manha')
+    : value.includes('tarde');
 };
 
 export const DeliveryTimelineView: React.FC<Props> = ({
   items,
   refreshing,
   onRefresh,
-  onStartDelivery,
   onViewOrder,
-  onOpenDeliveryFlow,
-  preparingOrderIds,
   handlingOptions: sharedHandlingOptions,
   dateScope = 'today',
   isDarkMode = false,
 }) => {
   const [periodFilter, setPeriodFilter] = useState<'all' | 'morning' | 'afternoon'>('all');
+  const [sortMode, setSortMode] = useState<'chronological' | 'proximity'>('chronological');
   const [loadedHandlingOptions, setLoadedHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
 
   const shiftCounts = useMemo(
@@ -89,9 +112,21 @@ export const DeliveryTimelineView: React.FC<Props> = ({
 
   // Filtro por Período (Todas, Manhã, Tarde)
   const filteredItems = useMemo(() => {
-    if (periodFilter === 'all') return items;
-    return items.filter((item) => matchesPeriod(item, periodFilter));
-  }, [items, periodFilter]);
+    const periodItems =
+      periodFilter === 'all' ? [...items] : items.filter((item) => matchesPeriod(item, periodFilter));
+    return periodItems.sort((a, b) => {
+      if (sortMode === 'proximity') {
+        const distanceA = getRecordedDistance(a);
+        const distanceB = getRecordedDistance(b);
+        const distanceDiff = distanceA - distanceB;
+        if (Number.isFinite(distanceDiff) && distanceDiff) return distanceDiff;
+        if (Number.isFinite(distanceA) !== Number.isFinite(distanceB)) {
+          return Number.isFinite(distanceA) ? -1 : 1;
+        }
+      }
+      return compareChronologically(a, b);
+    });
+  }, [items, periodFilter, sortMode]);
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -112,6 +147,8 @@ export const DeliveryTimelineView: React.FC<Props> = ({
               periodFilter === 'all' && styles.periodPillActive,
             ]}
             onPress={() => setPeriodFilter('all')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: periodFilter === 'all' }}
             activeOpacity={0.8}
           >
             <Text
@@ -132,6 +169,8 @@ export const DeliveryTimelineView: React.FC<Props> = ({
               periodFilter === 'morning' && styles.periodPillActive,
             ]}
             onPress={() => setPeriodFilter('morning')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: periodFilter === 'morning' }}
             activeOpacity={0.8}
           >
             <Text
@@ -152,6 +191,8 @@ export const DeliveryTimelineView: React.FC<Props> = ({
               periodFilter === 'afternoon' && styles.periodPillActive,
             ]}
             onPress={() => setPeriodFilter('afternoon')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: periodFilter === 'afternoon' }}
             activeOpacity={0.8}
           >
             <Text
@@ -166,6 +207,64 @@ export const DeliveryTimelineView: React.FC<Props> = ({
           </TouchableOpacity>
         </View>
 
+        <View style={styles.listControlsRow}>
+          <Text style={[styles.resultCount, isDarkMode && styles.textMuted]}>
+            Exibindo {filteredItems.length}{' '}
+            {filteredItems.length === 1 ? 'entrega' : 'entregas'}
+          </Text>
+          <View style={[styles.sortControl, isDarkMode && styles.sortControlDark]}>
+            <TouchableOpacity
+              style={[
+                styles.sortOption,
+                sortMode === 'chronological' && styles.sortOptionActive,
+                isDarkMode && sortMode === 'chronological' && styles.sortOptionActiveDark,
+              ]}
+              onPress={() => setSortMode('chronological')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: sortMode === 'chronological' }}
+              accessibilityLabel="Ordenar por horário"
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.sortOptionText,
+                  isDarkMode && styles.sortOptionTextDark,
+                  sortMode === 'chronological' && styles.sortOptionTextActive,
+                  isDarkMode && sortMode === 'chronological' && styles.sortOptionTextActiveDark,
+                ]}
+              >
+                Horário
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.sortOption,
+                sortMode === 'proximity' && styles.sortOptionActive,
+                isDarkMode && sortMode === 'proximity' && styles.sortOptionActiveDark,
+              ]}
+              onPress={() => setSortMode('proximity')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: sortMode === 'proximity' }}
+              accessibilityLabel="Ordenar por proximidade, usando a distância registrada no pedido"
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.sortOptionText,
+                  isDarkMode && styles.sortOptionTextDark,
+                  sortMode === 'proximity' && styles.sortOptionTextActive,
+                  isDarkMode && sortMode === 'proximity' && styles.sortOptionTextActiveDark,
+                ]}
+              >
+                Proximidade
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <Text style={[styles.timelineHint, isDarkMode && styles.textMuted]}>
+          Cada ponto indica a etapa ou situação atual; a lista não representa a rota.
+        </Text>
+
         {filteredItems.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, isDarkMode && styles.textMuted]}>
@@ -174,27 +273,14 @@ export const DeliveryTimelineView: React.FC<Props> = ({
           </View>
         ) : (
           filteredItems.map((item, index) => {
-            const nextItem = filteredItems[index + 1];
-            const travelMinutes = nextItem?.durationMin || 15;
-            const travelKm = nextItem?.distanceKm || 8;
-
-            // Análise de risco de atraso para o próximo compromisso fixo
-            const currentService = analyzeOrderServiceHandlings(
-              item.order?.order_data?.items || item.order?.items || []
-            );
-            const hasDelayRisk = Boolean(
-              nextItem?.isFixedTime && currentService.estimatedMinutes > 90
-            );
+            const marker = getDeliveryTimelineMarker(item, isDarkMode);
 
             return (
               <View key={item.id} style={styles.timelineItemWrapper}>
                 {/* Linha e Ponto da Timeline */}
                 <View style={styles.timelineSidebar}>
                   <View
-                    style={[
-                      styles.timelineNode,
-                      item.isFixedTime ? styles.timelineNodeFixed : styles.timelineNodeNormal,
-                    ]}
+                    style={[styles.timelineNode, { backgroundColor: marker.color }]}
                   />
                   {index < filteredItems.length - 1 && <View style={styles.timelineLine} />}
                 </View>
@@ -203,23 +289,10 @@ export const DeliveryTimelineView: React.FC<Props> = ({
                 <View style={styles.timelineContent}>
                   <ScheduleCard
                     item={item}
-                    onStartDelivery={onStartDelivery}
                     onViewOrder={onViewOrder}
-                    onOpenDeliveryFlow={onOpenDeliveryFlow}
-                    isPreparing={preparingOrderIds?.has(item.id)}
                     handlingOptions={handlingOptions}
                     isDarkMode={isDarkMode}
                   />
-
-                  {/* Alerta de Risco de Atraso no Próximo Horário Fixo (se houver) */}
-                  {index < filteredItems.length - 1 && hasDelayRisk && (
-                    <View style={styles.transitConnector}>
-                      <View style={styles.delayRiskBadge}>
-                        <AlertTriangle size={12} color="#dc2626" />
-                        <Text style={styles.delayRiskText}>RISCO DE ATRASO NO HORÁRIO FIXO</Text>
-                      </View>
-                    </View>
-                  )}
                 </View>
               </View>
             );
@@ -238,49 +311,23 @@ const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: '#0f172a',
   },
-  dateScopeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 10,
-  },
-  dateScopeButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 7,
-    borderRadius: 12,
-    backgroundColor: '#f1f5f9',
-  },
-  dateScopeButtonActive: {
-    backgroundColor: '#2563eb',
-  },
-  dateScopeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#64748b',
-  },
-  dateScopeTextActive: {
-    color: '#ffffff',
-  },
   periodFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 8,
-    paddingBottom: 12,
+    justifyContent: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingBottom: 8,
     marginBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
   periodFilterRowDark: { borderBottomColor: '#334155' },
   periodPill: {
-    paddingHorizontal: 16,
-    minHeight: 40,
-    paddingVertical: 9,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    minHeight: 36,
+    paddingVertical: 7,
+    borderRadius: 10,
     backgroundColor: '#f1f5f9',
     justifyContent: 'center',
   },
@@ -297,69 +344,61 @@ const styles = StyleSheet.create({
   periodPillTextActive: {
     color: '#ffffff',
   },
+  listControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginHorizontal: 10,
+    marginBottom: 2,
+  },
+  resultCount: { color: '#475569', fontSize: 10, fontWeight: '700', flexShrink: 1 },
+  sortControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    padding: 2,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  sortControlDark: { backgroundColor: '#1e293b' },
+  sortOption: { minHeight: 28, justifyContent: 'center', paddingHorizontal: 7, borderRadius: 6 },
+  sortOptionActive: { backgroundColor: '#ffffff' },
+  sortOptionActiveDark: { backgroundColor: '#1e3a8a' },
+  sortOptionText: { color: '#64748b', fontSize: 9, fontWeight: '700' },
+  sortOptionTextDark: { color: '#cbd5e1' },
+  sortOptionTextActive: { color: '#1d4ed8', fontWeight: '800' },
+  sortOptionTextActiveDark: { color: '#bfdbfe' },
+  timelineHint: { color: '#64748b', fontSize: 9, marginHorizontal: 10, marginBottom: 6 },
   scrollContent: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingTop: 0,
     paddingBottom: 16,
   },
   timelineItemWrapper: {
     flexDirection: 'row',
+    marginBottom: 6,
   },
   timelineSidebar: {
-    width: 28,
+    width: 16,
     alignItems: 'center',
+    paddingTop: 15,
   },
   timelineNode: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     zIndex: 2,
-  },
-  timelineNodeNormal: {
-    backgroundColor: '#2563eb',
-  },
-  timelineNodeFixed: {
-    backgroundColor: '#dc2626',
   },
   timelineLine: {
     flex: 1,
-    width: 2.5,
+    width: 1,
     backgroundColor: '#cbd5e1',
-    marginVertical: 4,
+    marginTop: 6,
   },
   timelineContent: {
     flex: 1,
-    paddingLeft: 8,
-  },
-  transitConnector: {
-    paddingVertical: 12,
     paddingLeft: 4,
-    gap: 6,
-  },
-  transitInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  transitText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#64748b',
-  },
-  delayRiskBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 8,
-    paddingVertical: 3.5,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  delayRiskText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#b91c1c',
   },
   emptyState: {
     paddingVertical: 40,
@@ -369,9 +408,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#64748b',
-  },
-  textLight: {
-    color: '#f8fafc',
   },
   textMuted: {
     color: '#94a3b8',

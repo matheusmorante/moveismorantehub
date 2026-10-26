@@ -122,19 +122,17 @@ export const OrderCardBody: React.FC<OrderCardBodyProps> = ({
           >
             {formattedDeliveryDate}
           </Text>
+          {Boolean(startTime) && (
+            <View style={styles.time}>
+              <Clock size={12} color="#2563eb" />
+              <Text style={styles.timeText}>
+                {startTime}
+                {endTime ? ` ÀS ${endTime}` : ''}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
-
-      {/* Horário Agendado */}
-      {Boolean(startTime) && (
-        <View style={styles.time}>
-          <Clock size={12} color="#2563eb" />
-          <Text style={styles.timeText}>
-            {startTime}
-            {endTime ? ` ÀS ${endTime}` : ''}
-          </Text>
-        </View>
-      )}
 
       {/* Total Financeiro */}
       <View style={styles.footer}>

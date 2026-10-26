@@ -324,9 +324,6 @@ export const ProductReconciliation: React.FC = () => {
             </span>
 
             <div className="flex flex-col items-center gap-2 self-end sm:self-center">
-              <span className="text-xs font-black text-purple-600 dark:text-purple-400 px-2">
-                Página {page} de {Math.max(1, Math.ceil(totalCount / pageSize))}
-              </span>
               <FixedPageSlots
                 ariaLabel="Paginação da conciliação de produtos"
                 currentPage={page}

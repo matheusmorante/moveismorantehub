@@ -4,10 +4,14 @@ export function hasCompleteInboundInvoiceMappings(invoice: InboundInvoice): bool
   const items = invoice.items || [];
   return Boolean(
     invoice.supplierId &&
-      items.length > 0 &&
-      (invoice.itemsCount === 0 || invoice.itemsCount === items.length) &&
+      hasCompleteInboundInvoiceItems(invoice) &&
       items.every((item) => Boolean(item.matchedProductId))
   );
+}
+
+export function hasCompleteInboundInvoiceItems(invoice: InboundInvoice): boolean {
+  const items = invoice.items || [];
+  return items.length > 0 && (invoice.itemsCount === 0 || invoice.itemsCount === items.length);
 }
 
 export function getInboundReceiptBlockedReason(
@@ -21,8 +25,7 @@ export function getInboundReceiptBlockedReason(
   if (!invoice.nfeKey?.trim()) return 'A chave de acesso da nota fiscal não está disponível.';
   if (!invoice.supplierId) return 'Vincule o fornecedor da NF-e ao cadastro de fornecedores.';
 
-  const items = invoice.items || [];
-  if (!items.length || (invoice.itemsCount > 0 && invoice.itemsCount !== items.length)) {
+  if (!hasCompleteInboundInvoiceItems(invoice)) {
     return 'Importe o XML completo para carregar todos os itens da NF-e.';
   }
   if (!hasCompleteInboundInvoiceMappings(invoice)) {

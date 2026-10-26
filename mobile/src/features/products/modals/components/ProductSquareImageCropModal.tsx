@@ -34,6 +34,10 @@ import {
   mobileProductPhotoUploadFormSchema,
   productImageReplacementFormSchema,
 } from '../../../../../../shared-utils/productImageFormSchemas';
+import {
+  downloadProductCropImageSource,
+  type PreparedProductCropImageSource,
+} from '../domain/productCropImageSource';
 
 async function deleteTemporaryPhotoUri(uri: string) {
   if (uri.startsWith('blob:')) {
@@ -52,52 +56,52 @@ interface Props {
   onConfirm: (newUrl: string) => void | Promise<void>;
 }
 
-interface PreparedImage {
-  uri: string;
-  cleanup?: () => void | Promise<void>;
-}
-
 const getImageFetchCandidates = (url: string) => [
   url,
   `https://images.weserv.nl/?url=${encodeURIComponent(url)}`,
   `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
 ];
 
-async function prepareImageSource(url: string): Promise<PreparedImage> {
+async function prepareImageSource(url: string, signal: AbortSignal): Promise<PreparedProductCropImageSource> {
   if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('file://')) {
     return { uri: url };
   }
 
   if (Platform.OS === 'web') {
     for (const candidate of getImageFetchCandidates(url)) {
+      if (signal.aborted) throw Object.assign(new Error('O carregamento da foto foi cancelado.'), { name: 'AbortError' });
+      const candidateController = new AbortController();
+      const cancelCandidate = () => candidateController.abort();
+      signal.addEventListener('abort', cancelCandidate, { once: true });
       try {
-        const response = await withTimeout(fetch(candidate), 12_000, null, 'Carregar foto para recorte');
-        if (!response?.ok) continue;
+        const response = await withTimeout(
+          fetch(candidate, { signal: candidateController.signal }),
+          12_000,
+          null,
+          'Carregar foto para recorte'
+        );
+        if (!response?.ok) {
+          candidateController.abort();
+          continue;
+        }
         const blob = await withTimeout(response.blob(), 12_000, null, 'Preparar foto para recorte');
-        if (!blob || blob.size === 0) continue;
+        if (!blob || blob.size === 0) {
+          candidateController.abort();
+          continue;
+        }
         const objectUrl = URL.createObjectURL(blob);
         return { uri: objectUrl, cleanup: () => URL.revokeObjectURL(objectUrl) };
       } catch {
+        if (signal.aborted) throw Object.assign(new Error('O carregamento da foto foi cancelado.'), { name: 'AbortError' });
         // URLs públicas alternativas permitem contornar CORS do armazenamento original.
+      } finally {
+        signal.removeEventListener('abort', cancelCandidate);
       }
     }
     throw new Error('Não foi possível carregar a foto para recorte. Verifique sua conexão e tente novamente.');
   }
 
-  const cacheDirectory = FileSystem.cacheDirectory;
-  if (!cacheDirectory) throw new Error('O armazenamento temporário do dispositivo não está disponível.');
-  const fileUri = `${cacheDirectory}produto-recorte-${Date.now()}.image`;
-  const downloaded = await withTimeout(
-    FileSystem.downloadAsync(url, fileUri),
-    20_000,
-    null,
-    'Baixar foto para recorte'
-  );
-  if (!downloaded?.uri) throw new Error('O download da foto demorou demais. Tente novamente.');
-  return {
-    uri: downloaded.uri,
-    cleanup: () => FileSystem.deleteAsync(downloaded.uri, { idempotent: true }),
-  };
+  return downloadProductCropImageSource(url, signal);
 }
 
 function readImageDimensions(uri: string): Promise<{ width: number; height: number }> {
@@ -127,7 +131,7 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
   const rendererRef = useRef<Svg>(null);
   const selectionRef = useRef<MobileSquareSelection | null>(null);
   const dragOriginRef = useRef<MobileSquareSelection | null>(null);
-  const sourceCleanupRef = useRef<PreparedImage['cleanup']>(undefined);
+  const sourceCleanupRef = useRef<PreparedProductCropImageSource['cleanup']>(undefined);
 
   const cropForm = useZodForm(squareImageCropFormSchema, {
     image: imageUrl,
@@ -158,6 +162,7 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
   useEffect(() => {
     if (!visible) return;
     let active = true;
+    const loadController = new AbortController();
     setLoading(true);
     setLoadError('');
     setSourceUri('');
@@ -169,9 +174,9 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
     setFrame({ width: 0, height: 0 });
 
     void (async () => {
-      let prepared: PreparedImage | null = null;
+      let prepared: PreparedProductCropImageSource | null = null;
       try {
-        prepared = await prepareImageSource(imageUrl);
+        prepared = await prepareImageSource(imageUrl, loadController.signal);
         if (!active) {
           await prepared.cleanup?.();
           return;
@@ -197,6 +202,7 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
 
     return () => {
       active = false;
+      loadController.abort();
       const cleanup = sourceCleanupRef.current;
       sourceCleanupRef.current = undefined;
       void Promise.resolve(cleanup?.()).catch(() => undefined);

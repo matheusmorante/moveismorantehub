@@ -4,6 +4,7 @@ const state = vi.hoisted(() => ({
   snapshot: null as any,
   readFailures: 0,
   requests: [] as string[],
+  hangingTables: [] as string[],
   filters: [] as Array<{ table: string; column: string; value: unknown; operator: string }>,
   deletionDenied: true,
   rows: {
@@ -81,6 +82,7 @@ vi.mock('../../../../services/supabaseClient', () => ({
         };
       query.range = async () => {
         state.requests.push(table);
+        if (state.hangingTables.includes(table)) return new Promise(() => {});
         return table === 'inventory_catalog_deletions' && state.deletionDenied
           ? { data: null, error: { code: '42501', message: 'permission denied' } }
           : {
@@ -139,6 +141,7 @@ beforeEach(() => {
   state.snapshot = null;
   state.readFailures = 0;
   state.requests = [];
+  state.hangingTables = [];
   state.filters = [];
   state.deletionDenied = true;
   state.rows = {
@@ -299,4 +302,27 @@ describe('sincronização do catálogo local de inventário', () => {
     ]);
     expect(state.requests.length).toBeGreaterThan(requestCount);
   });
+
+  it.each(['inventory_catalog_deletions', 'products'])(
+    'usa o catálogo salvo quando a consulta remota de %s não responde',
+    async (table) => {
+      state.deletionDenied = false;
+      expect((await syncOfflineInventoryCatalog()).success).toBe(true);
+      const cachedSyncedAt = state.snapshot.syncedAt;
+      state.hangingTables = [table];
+      clearOfflineInventoryCatalogCache();
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.useFakeTimers();
+
+      try {
+        const sync = syncOfflineInventoryCatalog();
+        await vi.advanceTimersByTimeAsync(10_001);
+
+        await expect(sync).resolves.toEqual({ success: false, syncedAt: cachedSyncedAt });
+        expect(await fetchInventoryScopeProducts('full')).toHaveLength(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    }
+  );
 });

@@ -4,11 +4,13 @@ import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import type { InboundSuggestion } from '../hooks/useInboundInvoiceSuggestions';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
+import type { ProductAutocompleteExcludedLink } from '@/components/productAutocompleteUtils';
 import { formatCurrency } from '@/pages/utils/formatters';
 
 interface InboundItemSingleModeProps {
   item: InboundInvoiceItem;
   supplierId?: string;
+  excludedProductLinks: readonly ProductAutocompleteExcludedLink[];
   suggestion?: InboundSuggestion;
   acceptingSuggestion: number | null;
   removingLink: number | null;
@@ -26,6 +28,7 @@ interface InboundItemSingleModeProps {
 export const InboundItemSingleMode: React.FC<InboundItemSingleModeProps> = ({
   item,
   supplierId,
+  excludedProductLinks,
   suggestion,
   acceptingSuggestion,
   removingLink,
@@ -86,6 +89,7 @@ export const InboundItemSingleMode: React.FC<InboundItemSingleModeProps> = ({
     <div className="space-y-2">
       <ProductAutocomplete
         supplierId={supplierId}
+        excludedProductLinks={excludedProductLinks}
         isSelected={false}
         placeholder="Digite 2 ou mais letras para buscar..."
         onSelect={(product, variation) => onSelectProduct(item.itemNumber, product, variation)}

@@ -8,7 +8,6 @@ import {
   isValidUuid,
 } from './goodsReceiptMapper';
 import { syncGoodsReceiptItems } from './goodsReceiptItemsSync';
-import { getNextGoodsReceiptIndex } from '../goodsReceiptCode';
 import { getTestArtifactContext } from '../../../../../shared-utils/testArtifactContext';
 
 export const saveGoodsReceiptDraft = async (
@@ -32,7 +31,7 @@ export const saveGoodsReceiptDraft = async (
     id,
     receiptIndex: isTestReceipt
       ? existing?.receiptIndex
-      : draftData.receiptIndex || existing?.receiptIndex || (await getNextGoodsReceiptIndex(localList)),
+      : draftData.receiptIndex || existing?.receiptIndex,
     purchaseId: draftData.purchaseId || existing?.purchaseId,
     supplierId: draftData.supplierId || existing?.supplierId,
     supplierName: draftData.supplierName || existing?.supplierName || 'Fornecedor',
@@ -65,22 +64,30 @@ export const saveGoodsReceiptDraft = async (
     updatedAt: now,
   };
 
+  const { data: savedRow, error } = await supabase
+    .from('goods_receipts')
+    .upsert(buildGoodsReceiptDbPayload(draftReceipt, now))
+    .select('receipt_index')
+    .single();
+  if (error) throw error;
+  const persistedIndex = Number(savedRow?.receipt_index);
+  if (!isTestReceipt && (!Number.isInteger(persistedIndex) || persistedIndex < 1 || persistedIndex > 999999))
+    throw new Error('O banco não retornou o código do rascunho salvo.');
+  const savedDraft = {
+    ...draftReceipt,
+    receiptIndex: isTestReceipt ? undefined : persistedIndex,
+  };
+  await syncGoodsReceiptItems(savedDraft.id, savedDraft.items);
+
   if (existingIndex !== -1) {
-    localList[existingIndex] = draftReceipt;
+    localList[existingIndex] = savedDraft;
   } else {
-    localList.unshift(draftReceipt);
+    localList.unshift(savedDraft);
   }
   saveStoredReceipts(localList);
   notifyListeners(localList);
 
-  try {
-    await supabase.from('goods_receipts').upsert(buildGoodsReceiptDbPayload(draftReceipt, now));
-    await syncGoodsReceiptItems(draftReceipt.id, draftReceipt.items);
-  } catch {
-    /* no-op: intencionalmente silencioso */
-  }
-
-  return draftReceipt;
+  return savedDraft;
 };
 
 export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<GoodsReceipt> => {
@@ -97,7 +104,7 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<Goods
 
   const receiptIndex = isTestReceipt
     ? existing?.receiptIndex
-    : receipt.receiptIndex || existing?.receiptIndex || (await getNextGoodsReceiptIndex(localList));
+    : receipt.receiptIndex || existing?.receiptIndex;
   const now = new Date().toISOString();
   const finalizedReceipt: GoodsReceipt = {
     ...receipt,
@@ -118,6 +125,20 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<Goods
     }
   );
   if (transactionError) throw transactionError;
+  if (!isTestReceipt) {
+    try {
+      const { data } = await supabase
+        .from('goods_receipts')
+        .select('receipt_index')
+        .eq('id', finalizedReceipt.id)
+        .maybeSingle();
+      const persistedIndex = Number(data?.receipt_index);
+      if (Number.isInteger(persistedIndex) && persistedIndex > 0 && persistedIndex <= 999999)
+        finalizedReceipt.receiptIndex = persistedIndex;
+    } catch {
+      /* O código persistido pelo gatilho é a fonte de verdade; realtime pode atualizar o local depois. */
+    }
+  }
   const moveByItemIndex = new Map<number, string>(
     (transaction?.moves || []).map((move: { itemIndex: number; inventoryMoveId: string }) => [
       move.itemIndex,
@@ -152,7 +173,7 @@ export const saveGoodsReceipt = async (data: Partial<GoodsReceipt>): Promise<Goo
   }
   const receiptIndex = isTestReceipt
     ? existing?.receiptIndex
-    : data.receiptIndex || existing?.receiptIndex || (await getNextGoodsReceiptIndex(localList));
+    : data.receiptIndex || existing?.receiptIndex;
   const fullReceipt: GoodsReceipt = {
     id,
     receiptIndex,

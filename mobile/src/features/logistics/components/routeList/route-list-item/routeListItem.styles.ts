@@ -131,9 +131,13 @@ export const styles = StyleSheet.create({
   },
   hBadgeDepot: {
     backgroundColor: '#f59e0b',
+    borderColor: '#d97706',
+    borderWidth: 1,
   },
   hBadgeOutside: {
     backgroundColor: '#dc2626',
+    borderColor: '#b91c1c',
+    borderWidth: 1,
   },
   hBadgeText: {
     fontSize: 9,

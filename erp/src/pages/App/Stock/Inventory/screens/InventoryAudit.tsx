@@ -57,9 +57,6 @@ export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onCopy, onOpen }
           </select>
         </label>
         <div className="flex flex-col items-center gap-2 sm:flex-row">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-            Página {page} de {pageCount}
-          </span>
           <FixedPageSlots
             ariaLabel="Paginação de inventários"
             currentPage={page}

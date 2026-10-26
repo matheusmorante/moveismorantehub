@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -45,6 +45,7 @@ interface Props {
 export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeader }) => {
   const { width: viewportWidth } = useWindowDimensions();
   const isCompactViewport = viewportWidth < 540;
+  const listRef = useRef<FlatList<InvoiceListRow>>(null);
   const [summaryInvoiceForXmlImport, setSummaryInvoiceForXmlImport] = useState<Invoice | null>(null);
   const {
     invoices,
@@ -85,6 +86,11 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
     [dateFilter.mode]
   );
 
+  const handlePageChange = (nextPage: number) => {
+    goToPage(nextPage);
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
   const rows: InvoiceListRow[] = [
     { type: 'module', id: 'module-header' },
     { type: 'page', id: 'page-header' },
@@ -103,6 +109,7 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
       <FlatList<InvoiceListRow>
+        ref={listRef}
         data={rows}
         keyExtractor={(item) => item.id}
         stickyHeaderIndices={[1]}
@@ -163,14 +170,11 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
                 </Text>
               </View>
               <View style={styles.paginationControls}>
-                <Text style={styles.pageCount}>
-                  {page} / {totalPages}
-                </Text>
                 <FixedPageSlots
                   label="Paginação de notas fiscais de entrada"
                   currentPage={page}
                   totalPages={totalPages}
-                  onPageChange={goToPage}
+                  onPageChange={handlePageChange}
                   loading={loading}
                   dark={isDarkMode}
                 />

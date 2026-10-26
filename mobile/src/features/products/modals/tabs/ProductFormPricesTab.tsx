@@ -14,6 +14,7 @@ import {
   getProductSupplierDisplayName,
   matchesProductSupplierSearch,
 } from '../../../../../../shared-utils/productSupplierDisplayName';
+import { normalizeProductSupplierIds } from '../../../../../../shared-utils/productSupplierIds';
 import {
   getProductSupplierStockOrigin,
   supplierProvidesStockOrigin,
@@ -103,6 +104,15 @@ export const ProductFormPricesTab: React.FC<Props> = ({
   }, [supplierLoadAttempt]);
 
   const selectedStockOrigin = getProductSupplierStockOrigin(formData.productKind);
+  const selectedSupplierIds = useMemo(
+    () =>
+      normalizeProductSupplierIds(
+        formData.supplierIds,
+        formData.mainSupplierId,
+        formData.supplierId
+      ),
+    [formData.supplierIds, formData.mainSupplierId, formData.supplierId]
+  );
   const isOwnProduction =
     formData.merchandiseOrigin === 'own_production' ||
     formData.isOwnProduction === true ||
@@ -118,12 +128,9 @@ export const ProductFormPricesTab: React.FC<Props> = ({
   // Regra: exige 2 ou mais caracteres para pesquisar fornecedores
   const visibleSuppliers = useMemo(() => {
     const q = supplierSearch.trim().toLowerCase();
-    const selectedIds: string[] = formData.supplierIds?.length
-      ? formData.supplierIds
-      : [formData.mainSupplierId || formData.supplierId].filter(Boolean);
     if (q.length < 2) return [];
     return suppliers.filter((sup) => {
-      if (selectedIds.includes(sup.id)) return false;
+      if (selectedSupplierIds.includes(sup.id)) return false;
       return (
         supplierProvidesStockOrigin(sup.stock_origins, selectedStockOrigin) &&
         matchesProductSupplierSearch(sup, q)
@@ -132,9 +139,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
   }, [
     suppliers,
     supplierSearch,
-    formData.mainSupplierId,
-    formData.supplierId,
-    formData.supplierIds,
+    selectedSupplierIds,
     selectedStockOrigin,
   ]);
 
@@ -249,9 +254,6 @@ export const ProductFormPricesTab: React.FC<Props> = ({
   );
 
   const f = (v: any) => (v !== null && v !== undefined && v !== '' ? String(v) : '');
-  const selectedSupplierIds: string[] = formData.supplierIds?.length
-    ? formData.supplierIds
-    : [formData.mainSupplierId || formData.supplierId].filter(Boolean);
   const addSupplier = (supplier: any) => {
     if (
       !supplier?.id ||
@@ -547,7 +549,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
         <View style={styles.cardHeader}>
           <DollarSign size={16} color="#16a34a" />
           <Text style={[styles.cardTitle, dark && styles.lightText]}>
-            Preços de Venda & Desconto
+            Precificação e Descontos{formData.hasVariations ? ' (Produto Pai)' : ''}
           </Text>
         </View>
 

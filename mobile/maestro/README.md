@@ -18,7 +18,9 @@ Requisitos: OpenJDK 17, Android SDK `platform-tools` (ADB) e Maestro CLI 2.10.0.
 * Antes do teste, registre a versão e o `versionCode` instalados no pacote `com.morante.mobile` e compare com `mobile/app.json`. Um resultado no aparelho comprova somente a build instalada; não atribua falhas ao checkout quando as versões divergirem.
 * Não use `clearState: true`, não limpe os dados do app e não desinstale/reinstale uma build durante uma auditoria. Se o fluxo pedir outra build, pare e registre a limitação.
 * `smoke/app-launch.yaml` só abre o app e verifica a raiz; não grava dados de estoque.
-* `inventory/inventory-audit.yaml` grava um rascunho local no SQLite do telefone ao confirmar o escopo e ao contar. Ele para antes da confirmação remota, então não atualiza saldo, mas deixa um rascunho no aparelho. Só rode esse fluxo quando houver limpeza do rascunho próprio pela UI; nunca confirme o inventário sobre produtos operacionais.
+* `inventory/inventory-audit.yaml` grava um rascunho local no SQLite ao confirmar o escopo e contar, e para antes da confirmação remota. Rode com a rede do app bloqueada; o flow só exclui o rascunho quando o código visível começa com `LOCAL-`, para não tocar em contagens existentes. Se essa guarda falhar, pare e limpe somente o rascunho próprio pela UI.
+* `inventory/inventory-offline-roundtrip.yaml` parte do escopo de um Novo Inventário já aberto e carregado, cria uma contagem offline, confere a persistência ao retomá-la e exclui pela UI somente quando o primeiro rascunho exibe código `LOCAL-`. Bloqueie a rede apenas para `com.morante.mobile`, mantenha o ADB Wi‑Fi conectado e confirme a limpeza antes de encerrar.
+* `inventory/inventory-offline-custom.yaml` exercita seleção personalizada e busca local de produto offline; também verifica a retomada e exclui apenas o rascunho próprio `LOCAL-` pela UI.
 * Para compras, recebimentos e indisponibilidades, mantenha o teste em leitura: abra listas, detalhes e formulários e cancele antes de salvar, receber, desfazer ou cancelar registros existentes. Qualquer operação que altere o banco operacional exige fixture própria com `runId`, owner, vínculos e gates comprovados em [`docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`](../../docs/testing/SUPABASE_REMOTE_TEST_POLICY.md).
 * `operations/operations-readonly.yaml` verifica as abas de Operações, o escopo Hoje/Dias Seguintes e os filtros de turno em Entregas. A montagem da tela também aciona a sincronização normal do próprio status em `team_locations`; execute somente com autorização do operador e com ownership/RLS já conferidos. O flow não inicia nem finaliza entregas ou montagens.
 * `operations/delivery-flow-readonly.yaml` valida os caminhos visíveis para abrir o Fluxo de Entrega, as quatro etapas e seus controles, sem avançar, voltar, finalizar ou cancelar pedidos.
@@ -36,7 +38,9 @@ mobile/maestro/flows/
 ├── smoke/
 │   └── app-launch.yaml       # Validação de inicialização e montagem do root
 ├── inventory/
-│   └── inventory-audit.yaml  # Abertura de Estoque, escopo, contagem e revisão
+│   ├── inventory-audit.yaml  # Abertura de Estoque, escopo, contagem e revisão
+│   ├── inventory-offline-roundtrip.yaml # Rascunho local, retomada e limpeza offline
+│   └── inventory-offline-custom.yaml # Busca local e contagem personalizada offline
 └── operations/
     ├── operations-readonly.yaml # Abas e filtros de Operações em leitura
     ├── delivery-flow-readonly.yaml # Abertura e controles do fluxo de entrega em leitura

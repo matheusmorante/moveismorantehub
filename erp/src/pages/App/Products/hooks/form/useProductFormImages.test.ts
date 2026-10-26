@@ -131,10 +131,14 @@ describe('useProductFormImages', () => {
     const setFormData = vi.fn((updater) => {
       formData = typeof updater === 'function' ? updater(formData) : updater;
     });
-    const { result } = renderHook(() => useProductFormImages(formData, setFormData, vi.fn()));
+    const onImagesSaved = vi.fn();
+    const { result } = renderHook(() =>
+      useProductFormImages(formData, setFormData, vi.fn(), onImagesSaved)
+    );
 
     act(() => result.current.removePhoto('cover.jpg'));
 
+    expect(onImagesSaved).toHaveBeenCalledOnce();
     expect(formData).toEqual({
       images: ['side.jpg'],
       variations: [

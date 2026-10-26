@@ -551,6 +551,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
             dark={isDarkMode}
             search={productsHook.searchTerm}
             totalCount={productsHook.totalItems}
+            showCount={productsHook.products.length > 0}
             onSearch={productsHook.setSearchTerm}
             onSubmitSearch={productsHook.submitSearchTerm}
             onNewProduct={handleOpenNew}

@@ -94,7 +94,7 @@ export const ReceiptsActionsMenu: React.FC<ReceiptsActionsMenuProps> = ({
           }}
           className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 cursor-pointer"
         >
-          <i className="bi bi-pencil-square" /> Editar Rascunho
+          <i className="bi bi-play-fill" aria-hidden="true" /> Retomar
         </button>
       )}
 

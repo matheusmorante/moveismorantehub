@@ -81,6 +81,45 @@ describe('fetchMobileProductsPage', () => {
     expect(result).toEqual({ data: [], total: 11 });
   });
 
+  it('mantém a Lixeira restrita a itens excluídos, deixando inativos para o filtro Desativados', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'not', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    supabaseMock.from.mockReturnValue(query);
+
+    await fetchMobileProductsPage(1, 15, {
+      showTrash: true,
+      showTestProducts: true,
+    });
+
+    expect(query.eq).toHaveBeenCalledWith('deleted', true);
+    expect(query.or).not.toHaveBeenCalledWith('active.eq.false,deleted.eq.true');
+    expect(query.not).toHaveBeenCalledWith('is_draft', 'is', true);
+    expect(query.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
+    expect(query.eq).not.toHaveBeenCalledWith('deleted', false);
+  });
+
+  it('encontra itens inativos no filtro Desativados sem incluir Lixeira', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'not', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    supabaseMock.from.mockReturnValue(query);
+
+    await fetchMobileProductsPage(1, 15, {
+      statusFilter: 'disabled',
+      showTrash: false,
+      showTestProducts: true,
+    });
+
+    expect(query.eq).toHaveBeenCalledWith('deleted', false);
+    expect(query.eq).toHaveBeenCalledWith('active', false);
+    expect(query.eq).not.toHaveBeenCalledWith('deleted', true);
+  });
+
   it('combina categoria com composição antes da contagem exata e da paginação', async () => {
     const productQuery: any = {};
     for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
@@ -1315,6 +1354,49 @@ describe('fetchMobileProductsPage', () => {
 
     expect(variation.technicalValues).toEqual({ Cor: '' });
     expect(variation.attributes).toEqual([]);
+  });
+
+  it('normaliza nome e valor dos atributos da variação como o ERP ao reabrir o produto', async () => {
+    const query: any = {};
+    for (const method of ['select', 'eq', 'or', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'product-attributes',
+          name: 'Armario',
+          code: '003963',
+          active: true,
+          status: 'hidden',
+          item_type: 'product',
+          product_categories: [],
+          product_variations: [
+            {
+              id: 'variation-attributes',
+              product_id: 'product-attributes',
+              name: 'Armario Branco',
+              sku: '003963-01',
+              attributes: [
+                { attribute_name: 'quantidade de portas', option: '6 PORTAS', showName: false },
+                { name: 'material', value: 'MDF' },
+                { name: 'acabamento incompleto', value: '' },
+              ],
+            },
+          ],
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(1, 10);
+
+    expect(result.data[0].allVariations[0].attributes).toEqual([
+      { name: 'Quantidade de Portas', value: '6 Portas', showName: false },
+      { name: 'Material', value: 'MDF', showName: true },
+    ]);
   });
 
   it('rehidrata valores técnicos próprios de cada variação pelo UUID, sem depender da ordem dos detalhes', async () => {

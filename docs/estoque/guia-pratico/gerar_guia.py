@@ -410,7 +410,7 @@ y = base('03 / Vínculos', 'Associe a nota aos cadastros corretos', 'No sistema,
 y = shot('04-gerenciar-vinculos', y, max_height=290, caption='Visão geral: 1 fornecedor  •  2 produtos  •  3 gerar recebimento. Os vínculos são salvos automaticamente.')
 y = shot('04b-fornecedor', y, max_height=65, caption='Ampliação do campo de fornecedor. Digite pelo menos duas letras para pesquisar.')
 y = step(1, 'Associe o fornecedor correto', 'Escolha o cadastro com o mesmo nome da empresa que emitiu a nota. Se não existir, use Novo fornecedor e confira os dados antes de criar.', y)
-y = step(2, 'Encontre o produto antes de criar outro', 'Pesquise pelo nome ou código. Confira modelo, cor e medida. Associar um item parecido pode registrar a entrada no produto errado.', y)
+y = step(2, 'Encontre o produto antes de criar outro', 'Pesquise pelo nome ou código. Um produto ou variação já vinculado a outra linha desta NF-e não aparece na busca. Confira modelo, cor e medida antes de criar outro cadastro.', y)
 y = step(3, 'Aguarde a confirmação do salvamento', 'Os dados são salvos automaticamente. Aguarde “Salvando e confirmando vínculos...” e resolva qualquer aviso antes de continuar.', y)
 
 # 08 - Cadastro rápido
@@ -475,7 +475,7 @@ for text in [
     'O fornecedor está associado ao cadastro correto.',
     'Todos os itens estão associados aos produtos e versões corretos.',
     'O sistema terminou de salvar as associações.',
-    'Você tem acesso a Recebimentos e a nota ainda permite gerar a entrada.',
+    'Você é Administrador ou Estoquista, e a nota ainda permite gerar a entrada.',
 ]:
     y = check(text, y)
 y = step(1, 'Resolva a pendência indicada', 'Se precisar trocar o fornecedor depois de vincular produtos, confira a orientação da tela e remova os vínculos necessários antes da troca.', y)
@@ -485,7 +485,7 @@ y = note('Ainda falta a conferência final', 'Gerar recebimento apenas prepara o
 # 11 - Receber caminhos
 y = base('04 / Recebimentos', 'Escolha o caminho de recebimento', 'Estoque > Recebimentos > Receber Mercadoria.')
 y = shot('06-opcoes-recebimento', y, max_height=220, caption='As três opções separam a origem dos dados. A confirmação final continua sendo feita no recebimento.')
-y = step(1, 'Com nota fiscal de entrada', 'Use a nota já registrada. Se fornecedor e produtos já estiverem associados, prefira Gerar recebimento na própria nota.', y)
+y = step(1, 'Com nota fiscal de entrada', 'Use NF-e com XML completo. Resumos e notas incompletas não aparecem; conclua o XML pela lista NF de entrada (pág. 7). Fornecedores Salvados-only ficam ocultos. Em cartões cinza, escolha “Finalizar Vinculação” e associe todos os produtos para usar “Usar NF”. Se fornecedor e itens já estiverem associados, prefira “Gerar recebimento” na própria nota.', y)
 y = step(2, 'Com pedido de compra', 'Escolha o fornecedor e o pedido desta carga. Confira os itens previstos e ajuste as quantidades para o que chegou.', y)
 y = step(3, 'Sem nota ou pedido adequado', 'Informe o fornecedor, os produtos, as quantidades recebidas e os custos disponíveis.', y)
 y = note('O pedido não substitui o recebimento', 'Mesmo que o pedido esteja como Atendido ou tenha sido conferido, registre a entrada em Recebimentos.', y, fill=AMBER)
@@ -496,7 +496,7 @@ y = shot('17-recebimento-campos', y, max_height=235, caption='Detalhe do formul�
 y = step(1, 'Confira fornecedor e data de chegada', 'Ao abrir pela nota, confira os dados carregados. Ajuste a data do recebimento para o dia em que a mercadoria chegou, não para a data em que a nota foi emitida.', y)
 y = step(2, 'Revise cada produto e a quantidade recebida', 'Confira modelo, cor ou medida, quantidade entregue e custo por unidade. Não registre o que ainda está faltando. No cadastro manual, selecione o fornecedor antes de Adicionar Item.', y)
 y = step(3, 'Registre observações e documentos úteis', 'Use as observações para explicar divergências. Anexe pedido, comprovante ou imagem quando ajudarem; a tela aceita até cinco anexos.', y)
-y = note('Rascunho não movimenta o estoque', 'Rascunho é um preenchimento ainda não confirmado. Continue a revisão e confirme quando os dados estiverem corretos. Não crie outro recebimento só porque já existe um rascunho.', y, fill=MINT)
+y = note('Rascunho não movimenta o estoque', 'Depois de selecionar o fornecedor e adicionar um item, o primeiro salvamento automático atribui um código ao rascunho. Se você excluir o rascunho, esse código fica disponível para outro recebimento. Para continuar o mesmo, abra o menu de ações na lista Recebimentos e escolha <b>Retomar</b>. Revise os dados e confirme quando estiverem corretos; não crie outro recebimento só porque já existe um rascunho.', y, fill=MINT)
 
 # 13 - Custos
 y = base('04 / Custos', 'Frete e despesas: confira sem duplicar', 'A entrega pode ter custos fora da NF-e, como uma transportadora cobrada separadamente.')

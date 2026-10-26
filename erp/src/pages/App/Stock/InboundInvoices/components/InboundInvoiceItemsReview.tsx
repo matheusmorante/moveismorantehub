@@ -25,6 +25,24 @@ interface InboundInvoiceItemsReviewProps {
 export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps) {
   const { items, supplierId, suggestionsEnabled = false } = props;
   const review = useInboundInvoiceItemsReview(props);
+  const excludedProductLinks = React.useMemo(() => {
+    const links = new Map<string, { productId: string; variationId?: string }>();
+    const addLink = (productId?: string, variationId?: string) => {
+      if (!productId) return;
+      const normalizedVariationId = variationId || undefined;
+      links.set(`${productId}\u0000${normalizedVariationId || ''}`, {
+        productId,
+        variationId: normalizedVariationId,
+      });
+    };
+
+    items.forEach((item) => {
+      addLink(item.matchedProductId, item.matchedVariationId);
+      item.compositionLinks?.forEach((link) => addLink(link.productId, link.variationId));
+    });
+
+    return Array.from(links.values());
+  }, [items]);
 
   return (
     <>
@@ -48,6 +66,7 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
               key={item.itemNumber}
               item={item}
               supplierId={supplierId}
+              excludedProductLinks={excludedProductLinks}
               suggestion={review.suggestionFor(item)}
               acceptingSuggestion={review.acceptingSuggestion}
               removingLink={review.removingLink}

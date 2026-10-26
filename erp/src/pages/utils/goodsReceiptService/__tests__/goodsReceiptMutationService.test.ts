@@ -7,7 +7,6 @@ import {
 } from '../goodsReceiptMutationService';
 import { GoodsReceipt } from '../goodsReceipt.types';
 import * as storage from '../goodsReceiptStorage';
-import { getNextGoodsReceiptIndex } from '../../goodsReceiptCode';
 import { mapGoodsReceiptRow } from '../goodsReceiptMapper';
 
 const testArtifactContextMocks = vi.hoisted(() => ({
@@ -51,10 +50,6 @@ vi.mock('../../../../../../shared-utils/testArtifactContext', () => ({
   getTestArtifactContext: testArtifactContextMocks.getTestArtifactContext,
 }));
 
-vi.mock('../../goodsReceiptCode', () => ({
-  getNextGoodsReceiptIndex: vi.fn(() => Promise.resolve(101)),
-}));
-
 describe('goodsReceiptMutationService', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -62,7 +57,14 @@ describe('goodsReceiptMutationService', () => {
     testArtifactContextMocks.getTestArtifactContext.mockReturnValue(null);
 
     fromMock.mockReturnValue({
-      upsert: vi.fn().mockResolvedValue({ error: null }),
+      upsert: vi.fn().mockImplementation((payload: { receipt_index?: number }) => ({
+        select: vi.fn(() => ({
+          single: vi.fn().mockResolvedValue({
+            data: { receipt_index: payload.receipt_index ?? 101 },
+            error: null,
+          }),
+        })),
+      })),
       delete: vi.fn().mockReturnValue({
         eq: vi.fn().mockResolvedValue({ error: null }),
       }),
@@ -164,7 +166,6 @@ describe('goodsReceiptMutationService', () => {
       expect(draft.receiptIndex).toBeUndefined();
       expect(draft.observation).toBe('Rascunho identificado para auditoria');
       expect(draft.testArtifact).toEqual(identity);
-      expect(getNextGoodsReceiptIndex).not.toHaveBeenCalled();
 
       const receiptTable = fromMock.mock.results.find(
         (_result, index) => fromMock.mock.calls[index]?.[0] === 'goods_receipts'
@@ -177,7 +178,7 @@ describe('goodsReceiptMutationService', () => {
       });
     });
 
-    it('mapeia a metadata do banco sem exibir o envelope JSON na observação', () => {
+    it('mapeia a metadata do banco sem exibir o envelope JSON na observação', async () => {
       const identity = {
         runId: 'be616368-45e4-4ea6-8dd0-2c5f9db4a318',
         ownerId: '8fa6500f-8e14-4c65-b8d8-1f2a21a6ad2e',
@@ -193,8 +194,7 @@ describe('goodsReceiptMutationService', () => {
 
       expect(receipt.observation).toBe('Anotação');
       expect(receipt.testArtifact).toEqual(identity);
-      expect(storage.ensureReceiptIndexes([receipt])[0].receiptIndex).toBeUndefined();
-      expect(getNextGoodsReceiptIndex).not.toHaveBeenCalled();
+      expect((await storage.ensureReceiptIndexes([receipt]))[0].receiptIndex).toBeUndefined();
     });
   });
 
@@ -221,7 +221,6 @@ describe('goodsReceiptMutationService', () => {
 
       expect(finalized.receiptIndex).toBeUndefined();
       expect(finalized.testArtifact).toEqual(identity);
-      expect(getNextGoodsReceiptIndex).not.toHaveBeenCalled();
       expect(rpcMock).toHaveBeenCalledWith(
         'confirm_goods_receipt_checked_transaction',
         expect.objectContaining({
@@ -329,7 +328,6 @@ describe('goodsReceiptMutationService', () => {
 
       expect(saved.receiptIndex).toBeUndefined();
       expect(saved.testArtifact).toEqual(identity);
-      expect(getNextGoodsReceiptIndex).not.toHaveBeenCalled();
       expect(rpcMock).toHaveBeenCalledWith(
         'confirm_goods_receipt_checked_transaction',
         expect.objectContaining({

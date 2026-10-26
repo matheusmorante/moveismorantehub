@@ -167,7 +167,7 @@ export const PurchaseReceiptPickerModal: React.FC<PurchaseReceiptPickerModalProp
         {selectedSupplierId && (
           <footer className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-955/30 sm:flex-row">
             <span className="text-xs font-bold text-slate-500">
-              Página {safeCurrentPage} de {totalPages} ({availablePurchases.length} pedidos)
+              Exibindo {availablePurchases.length} pedidos disponíveis
             </span>
             <FixedPageSlots
               ariaLabel="Paginação dos pedidos de compra disponíveis"

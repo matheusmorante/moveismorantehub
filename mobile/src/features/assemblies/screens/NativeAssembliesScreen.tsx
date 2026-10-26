@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 import { Calendar as CalendarIcon, ChevronDown, ChevronRight } from 'lucide-react-native';
-import { MobileDrill } from '../../../components/shared/MobileDrill';
 import { supabase } from '../../../services/supabaseClient';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { OrderRepository } from '../../../repositories/OrderRepository';
@@ -27,17 +26,74 @@ const HANDLING_OPTIONS_CACHE_KEY = 'order_handling_options_v1';
 
 interface Props {
   isDarkMode: boolean;
-  initialSubTab?: 'internal' | 'outside';
+  initialSubTab?: 'all' | 'internal' | 'outside';
   onSelectOrder?: (order: any) => void;
   dateScope?: 'today' | 'next_days';
   handlingOptions?: AssemblyHandlingOption[];
 }
 
+type AssemblyLocationFilter = 'all' | 'internal' | 'outside';
+
+const LOCATION_FILTER_TONES: Record<
+  AssemblyLocationFilter,
+  {
+    background: string;
+    backgroundDark: string;
+    border: string;
+    borderDark: string;
+    text: string;
+    textDark: string;
+    active: string;
+    activeDark: string;
+  }
+> = {
+  all: {
+    background: '#eff6ff',
+    backgroundDark: '#172554',
+    border: '#bfdbfe',
+    borderDark: '#1e40af',
+    text: '#1d4ed8',
+    textDark: '#bfdbfe',
+    active: '#2563eb',
+    activeDark: '#1d4ed8',
+  },
+  internal: {
+    background: '#fffbeb',
+    backgroundDark: '#451a03',
+    border: '#fde68a',
+    borderDark: '#92400e',
+    text: '#b45309',
+    textDark: '#fcd34d',
+    active: '#f59e0b',
+    activeDark: '#b45309',
+  },
+  outside: {
+    background: '#fef2f2',
+    backgroundDark: '#450a0a',
+    border: '#fecaca',
+    borderDark: '#991b1b',
+    text: '#b91c1c',
+    textDark: '#fca5a5',
+    active: '#dc2626',
+    activeDark: '#b91c1c',
+  },
+};
+
 const formatUpcomingDate = (dateKey: string) => {
   const [year, month, day] = dateKey.split('-').map(Number);
   const date = new Date(year, month - 1, day, 12);
-  const weekday = date.toLocaleDateString('pt-BR', { weekday: 'long' }).toLocaleUpperCase('pt-BR');
-  return `${weekday} · ${day}/${String(month).padStart(2, '0')}`;
+  const weekday = date.toLocaleDateString('pt-BR', { weekday: 'long' });
+  const title = weekday.charAt(0).toLocaleUpperCase('pt-BR') + weekday.slice(1);
+  return `${title}, ${day}/${String(month).padStart(2, '0')}`;
+};
+
+const getScheduledTimeKey = (value?: string) => {
+  const normalized = String(value || '').toLocaleLowerCase('pt-BR');
+  const match = normalized.match(/(\d{1,2}):(\d{2})/);
+  if (match) return `${match[1].padStart(2, '0')}:${match[2]}`;
+  if (normalized.includes('manhã') || normalized.includes('manha')) return '08:00';
+  if (normalized.includes('tarde') || normalized.includes('noite')) return '13:00';
+  return '99:99';
 };
 
 const webStickyHeaderStyle =
@@ -45,6 +101,7 @@ const webStickyHeaderStyle =
 
 export const NativeAssembliesScreen: React.FC<Props> = ({
   isDarkMode,
+  initialSubTab = 'all',
   onSelectOrder,
   dateScope,
   handlingOptions: sharedHandlingOptions,
@@ -54,7 +111,10 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [loadedHandlingOptions, setLoadedHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [locationFilter, setLocationFilter] = useState<AssemblyLocationFilter>(initialSubTab);
   const hasExternalHandlingOptions = sharedHandlingOptions !== undefined;
+
+  useEffect(() => setLocationFilter(initialSubTab), [initialSubTab]);
 
   const fetchSettings = async () => {
     try {
@@ -174,19 +234,37 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
     [orders, handlingOptions]
   );
   const todayKey = getLocalDateString(new Date());
-  const tasks = useMemo(
+  const periodTasks = useMemo(
     () =>
-      dateScope === 'today'
-        ? allTasks.filter((task) => task.dateKey === todayKey)
-        : dateScope === 'next_days'
-          ? allTasks.filter((task) => task.dateKey > todayKey)
-          : allTasks,
+      allTasks
+        .filter((task) =>
+          dateScope === 'today'
+            ? task.dateKey === todayKey
+            : dateScope === 'next_days'
+              ? task.dateKey > todayKey
+              : true
+        )
+        .sort(
+          (a, b) =>
+            a.dateKey.localeCompare(b.dateKey) ||
+            getScheduledTimeKey(a.scheduledTime).localeCompare(
+              getScheduledTimeKey(b.scheduledTime)
+            )
+        ),
     [allTasks, dateScope, todayKey]
   );
+  const locationCounts = {
+    all: periodTasks.length,
+    internal: periodTasks.filter((task) => !task.isOutside).length,
+    outside: periodTasks.filter((task) => task.isOutside).length,
+  };
+  const tasks = periodTasks.filter(
+    (task) =>
+      locationFilter === 'all' ||
+      (locationFilter === 'internal' ? !task.isOutside : task.isOutside)
+  );
   const todayTasks = tasks.filter((task) => task.dateKey === todayKey);
-  const upcomingTasks = tasks
-    .filter((task) => task.dateKey > todayKey)
-    .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  const upcomingTasks = tasks.filter((task) => task.dateKey > todayKey);
   const upcomingSections = Array.from(
     upcomingTasks.reduce((groups, task) => {
       const group = groups.get(task.dateKey) || [];
@@ -199,7 +277,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
   const defaultExpandedSectionKey = dateScope === 'next_days' ? upcomingSections[0]?.key : 'today';
   const sections = [
     ...(todayTasks.length
-      ? [{ key: 'today', title: 'HOJE', data: todayTasks }]
+      ? [{ key: 'today', title: 'Hoje', data: todayTasks }]
       : []),
     ...upcomingSections,
   ].map((section) => {
@@ -213,6 +291,29 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
       [key]: !(previous[key] ?? key !== defaultExpandedSectionKey),
     }));
   };
+  const emptyMessage =
+    periodTasks.length > 0
+      ? 'Nenhuma montagem para este local no período.'
+      : dateScope === 'today'
+        ? 'Nenhuma montagem agendada para hoje.'
+        : dateScope === 'next_days'
+          ? 'Nenhuma montagem agendada para os próximos dias.'
+          : 'Nenhuma montagem para hoje ou próximos dias.';
+  const filterSummary =
+    locationFilter === 'all'
+      ? 'Exibindo todas as montagens'
+      : locationFilter === 'internal'
+        ? 'Exibindo montagens no depósito'
+        : 'Exibindo montagens fora';
+  const locationFilterOptions: {
+    key: AssemblyLocationFilter;
+    label: string;
+    count: number;
+  }[] = [
+    { key: 'all', label: 'Todas', count: locationCounts.all },
+    { key: 'internal', label: 'No depósito', count: locationCounts.internal },
+    { key: 'outside', label: 'Fora', count: locationCounts.outside },
+  ];
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -223,35 +324,77 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
             Carregando montagens...
           </Text>
         </View>
-      ) : tasks.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>
-            {dateScope === 'today'
-              ? 'Nenhuma montagem agendada para hoje.'
-              : dateScope === 'next_days'
-                ? 'Nenhuma montagem agendada para os próximos dias.'
-                : 'Nenhuma montagem para hoje ou próximos dias.'}
-          </Text>
-        </View>
       ) : (
         <SectionList
           sections={sections}
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled
           ListHeaderComponent={
-            <View style={styles.legend}>
-              <View style={[styles.legendBadge, isDarkMode && styles.legendBadgeDark]}>
-                <MobileDrill size={13} />
-                <Text style={[styles.legendText, isDarkMode && styles.legendTextDark]}>
-                  MONTAGEM NO DEPÓSITO
-                </Text>
+            <View style={styles.listHeader}>
+              <View style={styles.locationFilters}>
+                {locationFilterOptions.map((option) => {
+                  const isSelected = locationFilter === option.key;
+                  const tone = LOCATION_FILTER_TONES[option.key];
+                  const textColor = isSelected
+                    ? '#ffffff'
+                    : isDarkMode
+                      ? tone.textDark
+                      : tone.text;
+                  return (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={[
+                        styles.locationFilter,
+                        {
+                          backgroundColor: isSelected
+                            ? isDarkMode
+                              ? tone.activeDark
+                              : tone.active
+                            : isDarkMode
+                              ? tone.backgroundDark
+                              : tone.background,
+                          borderColor: isSelected
+                            ? isDarkMode
+                              ? tone.activeDark
+                              : tone.active
+                            : isDarkMode
+                              ? tone.borderDark
+                              : tone.border,
+                        },
+                      ]}
+                      onPress={() => setLocationFilter(option.key)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[
+                          styles.locationFilterText,
+                          { color: textColor },
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.locationFilterCount,
+                          { color: textColor },
+                        ]}
+                      >
+                        {option.count}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-              <View style={[styles.legendBadge, isDarkMode && styles.legendBadgeDark]}>
-                <MobileDrill size={13} />
-                <Text style={[styles.legendText, isDarkMode && styles.legendTextDark]}>
-                  MONTAGEM FORA
-                </Text>
-              </View>
+              <Text style={[styles.filterSummary, isDarkMode && styles.filterSummaryDark]}>
+                {filterSummary}
+              </Text>
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>{emptyMessage}</Text>
             </View>
           }
           contentContainerStyle={styles.listContent}
@@ -270,6 +413,8 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
                   webStickyHeaderStyle,
                   isDarkMode && styles.sectionHeaderDark,
                 ]}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: !isCollapsed }}
               >
                 <View style={styles.sectionHeaderLeft}>
                   <CalendarIcon size={16} color="#2563eb" />
@@ -278,11 +423,9 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
                   </Text>
                 </View>
                 <View style={styles.sectionHeaderRight}>
-                  <View style={styles.sectionHeaderCount}>
-                    <Text style={styles.sectionHeaderCountText}>
-                      {section.count} {section.count === 1 ? 'montagem' : 'montagens'}
-                    </Text>
-                  </View>
+                  <Text style={[styles.sectionHeaderCount, isDarkMode && styles.sectionHeaderCountDark]}>
+                    {section.count} {section.count === 1 ? 'montagem' : 'montagens'}
+                  </Text>
                   {isCollapsed ? (
                     <ChevronRight size={18} color="#2563eb" />
                   ) : (
@@ -312,49 +455,49 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   containerDark: { backgroundColor: '#0f172a' },
-  listContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 24, gap: 8 },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 4, marginBottom: 4 },
-  legendBadge: {
+  listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
+  listHeader: { paddingTop: 4, paddingBottom: 8 },
+  locationFilters: { flexDirection: 'row', gap: 6 },
+  locationFilter: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    minHeight: 44,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  legendBadgeDark: { backgroundColor: '#334155' },
-  legendText: { color: '#475569', fontSize: 10, fontWeight: '800' },
-  legendTextDark: { color: '#e2e8f0' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  locationFilterText: { fontSize: 11, fontWeight: '700' },
+  locationFilterCount: { fontSize: 11, fontWeight: '800' },
+  filterSummary: { color: '#64748b', fontSize: 11, marginTop: 6 },
+  filterSummaryDark: { color: '#94a3b8' },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
     alignSelf: 'center',
-    backgroundColor: '#dbeafe',
-    paddingHorizontal: 12,
+    minHeight: 44,
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    paddingHorizontal: 4,
     paddingVertical: 8,
-    borderRadius: 10,
-    marginVertical: 4,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  sectionHeaderDark: { backgroundColor: '#1e293b' },
+  sectionHeaderDark: { backgroundColor: '#0f172a', borderBottomColor: '#334155' },
   sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionHeaderText: { fontSize: 12, fontWeight: '800', color: '#334155' },
-  sectionHeaderCount: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    backgroundColor: '#2563eb',
-  },
-  sectionHeaderCountText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  sectionHeaderText: { fontSize: 13, fontWeight: '800', color: '#334155' },
+  sectionHeaderCount: { color: '#64748b', fontSize: 11, fontWeight: '700' },
+  sectionHeaderCountDark: { color: '#94a3b8' },
   emptyText: {
     color: '#64748b',
     fontSize: 13,

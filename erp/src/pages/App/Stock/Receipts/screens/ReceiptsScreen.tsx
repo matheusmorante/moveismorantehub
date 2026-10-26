@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
-import { canPrintProductIdentificationLabels } from '@/pages/utils/accessRoles';
+import { canPerform } from '@/pages/utils/permissionService';
+import { canPrintProductIdentificationLabels, getProfileRoles } from '@/pages/utils/accessRoles';
 import { useReceipts } from '../hooks/useReceipts';
 import { ReceiptsHeader } from '../components/ReceiptsHeader';
 import { ReceiptsTable } from '../components/ReceiptsTable';
@@ -26,6 +27,10 @@ import type { IdentificationLabelProduct } from '@/pages/App/Stock/LabelPrinting
 export default function ReceiptsPage() {
   const { profile } = useAuth();
   const canPrintLabels = canPrintProductIdentificationLabels(profile);
+  const canAccessReceipts = canPerform(
+    'viewStockReceipts',
+    profile ? getProfileRoles(profile) : []
+  );
   const [searchParams] = useSearchParams();
   const inboundKeyParam = searchParams.get('inboundKey');
 
@@ -172,7 +177,7 @@ export default function ReceiptsPage() {
         }}
       />
 
-      <section className="overflow-hidden">
+      <section>
         {filteredReceipts.length === 0 ? (
           <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <i className="bi bi-box2-heart text-3xl text-slate-300 dark:text-slate-600" />
@@ -238,6 +243,7 @@ export default function ReceiptsPage() {
               totalItems={totalItems}
               itemsPerPage={ITEMS_PER_PAGE}
               onPageChange={setCurrentPage}
+              bare
             />
           </>
         )}
@@ -285,6 +291,7 @@ export default function ReceiptsPage() {
 
       <InboundInvoiceReceiptPickerModal
         isOpen={isInboundPickerOpen}
+        canAccessReceipts={canAccessReceipts}
         onClose={() => setIsInboundPickerOpen(false)}
         onSelect={handleSelectInboundInvoice}
         onCreate={handleSelectInboundInvoice}

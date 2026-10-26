@@ -1105,6 +1105,8 @@ describe('saveMobileProduct', () => {
       isDraft: true,
       unitPrice: '100,00',
       promoPrice: '80,00',
+      discountPercent: '20',
+      discountFixed: '20,00',
       costPrice: '50,00',
       hasVariations: true,
       variations: [
@@ -1148,6 +1150,12 @@ describe('saveMobileProduct', () => {
       use_parent_promo_price: false,
     });
     expect(parameters.p_product.is_draft).toBe(true);
+    expect(parameters.p_product.technical_specs.draftProduct).not.toHaveProperty('discountPercent');
+    expect(parameters.p_product.technical_specs.draftProduct).not.toHaveProperty('discountFixed');
+    expect(parameters.p_product.technical_specs.draftProduct).toMatchObject({
+      unitPrice: '100,00',
+      promoPrice: '80,00',
+    });
     expect(parameters.p_variations[1]).toMatchObject({
       price: 100,
       promo_price: 80,

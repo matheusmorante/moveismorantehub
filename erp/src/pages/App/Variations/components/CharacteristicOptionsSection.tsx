@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 import type { VariationOption } from '../../../types/variation.type';
 import type { CharacteristicSaveStatus } from '../domain/characteristicFormRules';
 
@@ -173,35 +174,18 @@ export function CharacteristicOptionsSection({
           ))
         )}
       </div>
-      <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+      <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[11px] text-slate-500 dark:text-slate-400">
           {firstVisibleOption}–{lastVisibleOption} de {filteredOptionsCount} opções
         </p>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onPageChange((current) => Math.max(0, current - 1))}
-            disabled={visiblePage === 0 || editingOptionId !== null}
-            aria-label="Página anterior"
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            <i className="bi bi-chevron-left" aria-hidden="true" />
-          </button>
-          <span className="min-w-10 text-center text-xs font-bold text-slate-600 dark:text-slate-300">
-            {visiblePage + 1} / {totalOptionPages}
-          </span>
-          <button
-            type="button"
-            onClick={() =>
-              onPageChange((current) => Math.min(totalOptionPages - 1, current + 1))
-            }
-            disabled={visiblePage >= totalOptionPages - 1 || editingOptionId !== null}
-            aria-label="Próxima página"
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            <i className="bi bi-chevron-right" aria-hidden="true" />
-          </button>
-        </div>
+        <FixedPageSlots
+          ariaLabel="Paginação de opções da característica"
+          currentPage={visiblePage + 1}
+          totalPages={totalOptionPages}
+          onPageChange={(page) => onPageChange(page - 1)}
+          loading={editingOptionId !== null}
+          className="w-full sm:max-w-md"
+        />
       </div>
     </section>
   );

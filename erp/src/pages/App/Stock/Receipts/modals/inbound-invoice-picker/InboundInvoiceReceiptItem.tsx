@@ -23,14 +23,18 @@ export const InboundInvoiceReceiptItem: React.FC<InboundInvoiceReceiptItemProps>
   return (
     <div
       key={inv.id}
-      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm hover:border-indigo-400 transition-all dark:border-slate-800 dark:bg-slate-950"
+      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border p-4 shadow-sm hover:border-indigo-400 transition-all ${
+        isFullyLinked
+          ? 'border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-950'
+          : 'border-slate-300 bg-slate-100 dark:border-slate-700 dark:bg-slate-800'
+      }`}
     >
       <div className="space-y-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-bold text-xs text-slate-800 dark:text-slate-100">
             NF-e #{inv.nfeNumber}
           </span>
-          <span className="text-[10px] text-slate-400">Série {inv.series}</span>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">Série {inv.series}</span>
           <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-black uppercase text-blue-700 dark:bg-blue-950 dark:text-blue-300">
             {inv.itemsCount || inv.items?.length || 0} itens
           </span>
@@ -38,11 +42,11 @@ export const InboundInvoiceReceiptItem: React.FC<InboundInvoiceReceiptItemProps>
         <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
           {inv.emitterName}
         </p>
-        <p className="text-[10px] text-slate-500">
+        <p className="text-[10px] text-slate-500 dark:text-slate-400">
           CNPJ: {inv.emitterCnpj || 'Não informado'} · Emissão:{' '}
           {formatToBRDate(inv.issuedAt)}
         </p>
-        <p className="text-[10px] font-mono text-slate-400 truncate">
+        <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400 truncate">
           Chave: {inv.nfeKey}
         </p>
         <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
@@ -71,10 +75,10 @@ export const InboundInvoiceReceiptItem: React.FC<InboundInvoiceReceiptItemProps>
 
       <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
         <div className="text-right">
-          <span className="block text-[10px] uppercase tracking-wider text-slate-400">
+          <span className="block text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Total
           </span>
-          <span className="text-sm font-black text-emerald-600">
+          <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
             {formatCurrency(inv.totalInvoice)}
           </span>
         </div>

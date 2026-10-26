@@ -3,11 +3,13 @@ import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeType
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
+import type { ProductAutocompleteExcludedLink } from '@/components/productAutocompleteUtils';
 import { formatCurrency } from '@/pages/utils/formatters';
 
 interface InboundItemCompositionModeProps {
   item: InboundInvoiceItem;
   supplierId?: string;
+  excludedProductLinks: readonly ProductAutocompleteExcludedLink[];
   compositionLinks: any[];
   handleAddComposition: (prod: Product, variation?: Variation) => void;
   handleRemoveCompositionLink: (id: string) => void;
@@ -17,6 +19,7 @@ interface InboundItemCompositionModeProps {
 export const InboundItemCompositionMode: React.FC<InboundItemCompositionModeProps> = ({
   item,
   supplierId,
+  excludedProductLinks,
   compositionLinks,
   handleAddComposition,
   handleRemoveCompositionLink,
@@ -100,6 +103,7 @@ export const InboundItemCompositionMode: React.FC<InboundItemCompositionModeProp
 
       <ProductAutocomplete
         supplierId={supplierId}
+        excludedProductLinks={excludedProductLinks}
         isSelected={false}
         clearOnSelect={true}
         placeholder="Adicionar produto à composição..."

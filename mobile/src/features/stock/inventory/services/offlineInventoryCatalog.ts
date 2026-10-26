@@ -28,6 +28,19 @@ export { resolveOfflineInventoryMatch };
 let syncInFlight: Promise<{ success: boolean; syncedAt: string | null }> | null = null;
 let cachedCatalog: OfflineInventoryCatalog | null = null;
 let lastSyncAttemptAt = 0;
+const CATALOG_QUERY_TIMEOUT_MS = 10_000;
+
+async function awaitCatalogQuery<T>(promise: Promise<T>, label: string): Promise<T> {
+  const result = await withTimeout(
+    promise.then((value) => ({ value })),
+    CATALOG_QUERY_TIMEOUT_MS,
+    null as { value: T } | null,
+    label
+  );
+  if (!result)
+    throw new Error(`Consulta do catálogo offline excedeu ${CATALOG_QUERY_TIMEOUT_MS}ms.`);
+  return result.value;
+}
 
 const fetchChangedRows = async (
   table: string,
@@ -113,7 +126,10 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
       const previous = await getOfflineInventoryCatalog();
       let deletions: CatalogRow[] | null;
       try {
-        deletions = await fetchDeletions(previous.deletionCursor || 0);
+        deletions = await awaitCatalogQuery(
+          fetchDeletions(previous.deletionCursor || 0),
+          'inventory:catalog:deletions'
+        );
       } catch (error: any) {
         if (error?.code !== '42501') throw error;
         if (previous.syncedAt) throw error;
@@ -121,29 +137,46 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
       }
       const fullRefresh = deletions === null;
       const [products, variations, labels, suppliers, employeesResult] = await Promise.all([
-        fetchChangedRows(
-          'products',
-          'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, product_kind, supplier_id, main_supplier_id, supplier_ids, updated_at',
-          fullRefresh ? undefined : previous.cursors.products,
-          ['item_type', 'product']
+        awaitCatalogQuery(
+          fetchChangedRows(
+            'products',
+            'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, product_kind, supplier_id, main_supplier_id, supplier_ids, updated_at',
+            fullRefresh ? undefined : previous.cursors.products,
+            ['item_type', 'product']
+          ),
+          'inventory:catalog:products'
         ),
-        fetchChangedRows(
-          'product_variations',
-          'id, product_id, name, sku, stock, active, status, merged_to_variation_id, updated_at',
-          fullRefresh ? undefined : previous.cursors.variations
+        awaitCatalogQuery(
+          fetchChangedRows(
+            'product_variations',
+            'id, product_id, name, sku, stock, active, status, merged_to_variation_id, updated_at',
+            fullRefresh ? undefined : previous.cursors.variations
+          ),
+          'inventory:catalog:variations'
         ),
-        fetchChangedRows(
-          'inventory_labels',
-          'id, product_id, variation_id, sku, barcode, status, updated_at',
-          fullRefresh ? undefined : previous.cursors.labels
+        awaitCatalogQuery(
+          fetchChangedRows(
+            'inventory_labels',
+            'id, product_id, variation_id, sku, barcode, status, updated_at',
+            fullRefresh ? undefined : previous.cursors.labels
+          ),
+          'inventory:catalog:labels'
         ),
-        fetchChangedRows(
-          'people',
-          'id, person_type, full_name, social_name, nickname, active, deleted, updated_at',
-          fullRefresh ? undefined : previous.cursors.suppliers,
-          ['person_type', 'suppliers']
+        awaitCatalogQuery(
+          fetchChangedRows(
+            'people',
+            'id, person_type, full_name, social_name, nickname, active, deleted, updated_at',
+            fullRefresh ? undefined : previous.cursors.suppliers,
+            ['person_type', 'suppliers']
+          ),
+          'inventory:catalog:suppliers'
         ),
-        withTimeout(fetchInventoryResponsibleRows(), 15_000, null, 'inventory:responsibles'),
+        withTimeout(
+          fetchInventoryResponsibleRows(),
+          CATALOG_QUERY_TIMEOUT_MS,
+          null,
+          'inventory:responsibles'
+        ),
       ]);
       const employees = employeesResult || [];
       const next: OfflineInventoryCatalog = {

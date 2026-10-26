@@ -14,7 +14,7 @@ export const productListPageSizeFormSchema = z.object({
 });
 export const productListFormSchema = z.object({
   page: z.number().int().positive(), itemsPerPage: productListPageSizeSchema, search: z.string(), statusFilter: z.enum(['all', 'active', 'disabled', 'draft']),
-  category: z.string(), catalogStatus: z.enum(['all', 'published', 'hidden']), itemType: z.enum(['standard', 'composition']), generalType: z.enum(['all', 'product', 'service']), includeDeactivated: z.boolean(), showTrash: z.boolean().optional(), showTestProducts: z.boolean(),
+  category: z.string(), catalogStatus: z.enum(['all', 'published', 'hidden']), itemType: z.enum(['standard', 'composition']), generalType: z.enum(['all', 'product', 'service']), includeDeactivated: z.boolean(), showTrash: z.boolean().optional(), showTestProducts: z.boolean(), showMergedProducts: z.boolean(),
 });
 const month = (value: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && !value.startsWith('0000');
 export const invoiceDateFilterFormSchema = z.object({

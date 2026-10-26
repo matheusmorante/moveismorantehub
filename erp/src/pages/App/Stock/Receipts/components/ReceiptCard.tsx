@@ -53,7 +53,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
       onClick={() => onClick(receipt)}
       onKeyDown={handleKeyDown}
       aria-label={`Recebimento #${formatGoodsReceiptCode(receipt)} de ${receipt.supplierName}`}
-      className="group relative flex flex-col justify-between rounded-3xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-900/50 cursor-pointer space-y-4 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+      className={`group relative flex flex-col justify-between rounded-3xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:border-emerald-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-900/50 cursor-pointer space-y-4 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${showMenu ? 'z-20' : ''}`}
     >
       {/* Top Bar: ID + Status Badge */}
       <div className="flex items-center justify-between gap-2">

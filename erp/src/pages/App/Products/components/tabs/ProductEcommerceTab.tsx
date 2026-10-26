@@ -168,6 +168,7 @@ const ProductEcommerceTab: React.FC<ProductEcommerceTabProps> = ({
                     if (draggedIndex === null || draggedIndex === index) return;
                     setDraggedIndex(index);
                     setFormData((prev) => moveProductImageGlobally(prev, draggedIndex, index));
+                    onImagesSaved?.();
                   }}
                   onDrop={(event) => {
                     event.preventDefault();

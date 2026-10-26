@@ -3,46 +3,12 @@ import { parseVariationImages } from './productImageHelpers';
 import { toTitleCase } from '../textUtils';
 import { getVariationDetails } from './productDraftSnapshot';
 import { resolveProductUnitPrice } from '../../../../../shared-utils/productUnitPrice';
+import { parseProductVariationAttributes } from '../../../../../shared-utils/productVariationAttributes';
 
 /**
  * Converte um atributo cru de variação em lista estruturada
  */
-export const parseVariationAttributes = (
-  rawAttrs: any
-): { name: string; value: string; showName?: boolean }[] => {
-  if (Array.isArray(rawAttrs)) {
-    return rawAttrs
-      .map((a: any) => ({
-        name: a.name || a.attribute_name || a.key || '',
-        value: String(a.value || a.option || ''),
-        showName: a.showName ?? true,
-      }))
-      .filter((a) => a.name && a.value);
-  }
-
-  if (rawAttrs && typeof rawAttrs === 'object') {
-    return Object.entries(rawAttrs)
-      .map(([name, value]) => ({
-        name,
-        value:
-          typeof value === 'object' && value !== null
-            ? String((value as any).value || (value as any).name || JSON.stringify(value))
-            : String(value),
-        showName: true,
-      }))
-      .filter((a) => a.name && a.value);
-  }
-
-  if (typeof rawAttrs === 'string') {
-    try {
-      return parseVariationAttributes(JSON.parse(rawAttrs));
-    } catch (e) {
-      // Se não for JSON válido, ignora
-    }
-  }
-
-  return [];
-};
+export const parseVariationAttributes = parseProductVariationAttributes;
 
 /**
  * Mapeia os registros de variação vindos do banco de dados para a interface Variation do domínio

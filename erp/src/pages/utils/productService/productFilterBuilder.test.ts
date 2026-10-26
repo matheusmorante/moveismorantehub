@@ -206,7 +206,7 @@ describe('productFilterBuilder', () => {
     );
   });
 
-  it('busca na lixeira itens desativados ou excluídos e omite rascunhos', async () => {
+  it('busca na lixeira somente itens excluídos e omite rascunhos', async () => {
     const mockQuery: any = {
       eq: vi.fn().mockReturnThis(),
       not: vi.fn().mockReturnThis(),
@@ -217,8 +217,8 @@ describe('productFilterBuilder', () => {
 
     await applyProductFiltersAndSort(mockQuery, { showTrash: true });
 
-    expect(mockQuery.eq).not.toHaveBeenCalledWith('deleted', false);
-    expect(mockQuery.or).toHaveBeenCalledWith('active.eq.false,deleted.eq.true');
+    expect(mockQuery.eq).toHaveBeenCalledWith('deleted', true);
+    expect(mockQuery.or).not.toHaveBeenCalledWith('active.eq.false,deleted.eq.true');
     expect(mockQuery.not).toHaveBeenCalledWith('is_draft', 'is', true);
     expect(mockQuery.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
   });

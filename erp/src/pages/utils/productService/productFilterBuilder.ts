@@ -44,9 +44,9 @@ export const applyProductFiltersAndSort = async (
   pagination?: ProductPaginationOptions
 ): Promise<any> => {
   let q = query;
-  if (options?.showTrash && options.isDraft !== true) {
+  if (options?.showTrash) {
     q = q
-      .or('active.eq.false,deleted.eq.true')
+      .eq('deleted', true)
       .not('is_draft', 'is', true)
       .filter('status', 'isdistinct', 'draft');
   } else {

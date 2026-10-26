@@ -2,7 +2,53 @@
 
 **Status:** em andamento. Este inventário acompanha as execuções cíclicas da auditoria. A Conciliação de Produtos segue exclusiva do ERP pela exceção dos Ciclos 127/131. A projeção técnica escolhida pelo usuário está aplicada nos dois writers desde o Ciclo 139, com `technical_specs` preservado por compatibilidade; o Ciclo 180 acrescentou 7 testes Vitest do helper compartilhado para simples, família, precedência, preservação e falha de leitura. O autosave seguro do Ciclo 117 já tem a RPC de ACK instalada no remoto pelo Ciclo 178; ainda falta provar resposta/idempotência com uma fixture previamente autorizada. O claim offline decidido pelo usuário está implementado e testado localmente (Ciclos 143/170), mas o backend remoto continua em v1: a migration necessária cria objetos em `app_private`, enquanto o `AGENTS.md` §13 autoriza migrations apenas em `public`; a pergunta sobre autorizar essa migration específica ou redesenhar o armazenamento continua pendente — a confirmação do modelo de ownership não concede essa autorização de schema. Não ativar as flags v2 nem declarar ownership remoto seguro antes dessa decisão e da validação. O Ciclo 181 comprovou acesso autenticado do ERP à lista e ao editor de composição por Playwright; outras abas/perfis e o aplicativo ainda não foram validados. O Ciclo 184 adicionou ao app o filtro administrativo para exibir registros de teste e compartilhou com o ERP o predicado PostgREST para marcadores em `technical_specs`; validação visual e Android/iOS seguem pendentes. Permanecem pendentes a confirmação de efeitos externos Meta/R2 e diagnósticos TypeScript globais em arquivos fora dos recortes recentes. Os demais ciclos e limitações seguem registrados abaixo; não declarar conclusão global enquanto houver estados sem conferência.
 
+**Atualização do Ciclo 377:** a revisão do custo no cadastro rápido mobile pela NF-e confirmou que o valor inicial inclui os custos fiscais e adicionais rateados, como o `finalCost` calculado pelo ERP; o campo editável é uma particularidade mobile já registrada no inventário de formulários. Não encontrei diferença suportada no estado de custo para itens válidos. A mesma reauditoria confirmou que os handlers manuais de desconto do Produto Pai permanecem implementados e ligados às entradas mobile, corrigindo uma frase desatualizada no inventário de formulários; não há teste direto de interação desses callbacks.
+
+**Atualização do Ciclo 378:** ERP e app mostram a galeria herdada sem ações de edição na variação única. Uma falha antiga era causada por teste ERP que esperava arraste nesse estado, contradizendo o código e o contrato de herança; atualizei a expectativa do teste para cobrir a visualização somente leitura, e a suíte focada passou em **5/5**. Nenhum comportamento de produção foi alterado.
+
+**Atualização do Ciclo 379:** comparei a falha parcial de um lote com múltiplas fotos no Produto Pai. Os dois clientes só aplicam URLs ao rascunho após o lote inteiro terminar; ERP agenda arquivos em paralelo e app processa um a um. Registrei a serialização do app como adaptação de processamento local, sem alteração de código; possíveis objetos remotos órfãos após falha não foram verificados em R2.
+
+**Atualização do Ciclo 380:** remover foto da galeria atualizava o rascunho no estado local, mas não agendava o autosave de 500 ms no ERP; no app, qualquer alteração no formulário incrementa a revisão e agenda o salvamento serializado. Passei a remoção ERP pelo callback de autosave já usado na inclusão/substituição e confirmei o contrato com teste focado **6/6**. Nenhuma operação de armazenamento remoto foi executada.
+
+**Atualização do Ciclo 381:** reordenar fotos do Produto Pai no ERP também alterava apenas o estado local, sem o autosave de 500 ms que o app aciona por revisão do formulário. A reordenação ERP agora agenda o callback existente depois de cada mudança efetiva de posição, com debounce já fornecido pelo autosave. O teste focado passou em **7/7**; também corrigi um fixture de teste antigo que tratava a variação única como família multi-variação.
+
+**Atualização do Ciclo 382:** recortar uma foto existente e aplicar o novo URL também agenda autosave de rascunho em ambos: ERP pelo callback após a substituição; app pelo incremento de revisão de `setFormData` e fila serializada. Acrescentei uma asserção RTL ao teste do recorte ERP; a suíte permaneceu em **7/7**. O app ainda revalida o URL de origem antes e depois do upload, proteção já documentada nos Ciclos 167–168.
+
+**Atualização do Ciclo 383:** corrigi o carregamento da origem do recorte mobile: fechar o modal ou atingir o timeout agora cancela o `DownloadResumable` e remove o arquivo parcial do cache; a variante web também aborta cada tentativa HTTP em timeout/fechamento. Três testes Vitest cobrem cancelamento, timeout/limpeza e limpeza após sucesso. O typecheck mobile continua não zero por diagnósticos fora deste recorte.
+
+**Atualização do Ciclo 384:** auditei a galeria de fotos próprias de cada variação em uma família com múltiplas variações. Seleção, limite de 15 URLs únicas da galeria do pai, compatibilidade de URLs legadas ao editar, desvinculação, recorte e ordenação final estão cobertos por regras compartilhadas ou equivalentes; os botões móveis “Mover para cima/baixo” substituem o arraste web sem restringir a ordem possível. O ERP aguarda o ACK do autosave do rascunho dentro da troca da foto; no app, o modal fecha após atualizar o formulário, e o `ProductFormScreen` exibe o estado da fila serializada (salvando/salvo/erro), agenda após 500 ms e faz flush/espera do ACK antes de fechar o formulário. Essa progressão é adaptação de feedback do modal nativo e permanece protegida contra perda silenciosa ao sair; não encontrei diferença comprovada de regra ou payload que justifique novo mecanismo. Vitest focado: ERP **42/42**; mobile **8/8**. Falta teste direto do componente editor móvel, UI autenticada Playwright e runtime Android/iOS; nenhum upload ou salvamento remoto foi feito. Detalhes e arquivos no Ciclo 384 abaixo.
+
+**Atualização do Ciclo 385:** a captura enviada pelo usuário mostrou o erro de carregamento da lista com o contador “0”, embora esse valor fosse apenas o estado inicial após falha. No ERP, erro e lista vazia retornam antes de renderizar o contador; no app ele aparecia sempre. O cabeçalho mobile agora só mostra a contagem quando a consulta mantém linhas, preservando-a durante atualização com snapshot. Teste Vitest focado: **2/2**. O estado visual pós-correção ainda não foi conferido em aparelho físico.
+
+**Atualização do Ciclo 386:** a restauração pela Lixeira aplica o mesmo gate `deleteProducts` e a mesma RPC `restore_product_from_trash(p_product_id)` no ERP e no app; ambos validam o UUID, restauram o pai e as variações conforme estados anteriores e solicitam sincronização Meta após sucesso. O app acrescenta resolver RHF/Zod e timeout limitado, e faz refresh aguardado; o ERP atualiza o cache/invalida queries e usa toast. Os testes focados passaram: ERP **3**, serviço mobile **5**, gate mobile **2**. A query antiga incluía também `active=false`; a decisão do usuário sobre Lixeira versus Desativados foi aplicada nos dois clientes no Ciclo 390.
+
+**Atualização do Ciclo 387:** ao reabrir produto para edição, a lista mobile não reconhecia atributos legados gravados como `attribute_name`/`option` e podia manter valores vazios; o ERP já os convertia e filtrava. Extraí o parser puro para `shared-utils` e passei a usá-lo no mapeamento ERP e na hidratação da lista mobile. A adaptação mobile preserva `showName` em objetos estruturados e aliases já aceitos (`attribute`/`val`). Vitest focado: **39/39**; `git diff --check` limpo, somente avisos de conversão CRLF/LF. Persistem sem conferência Playwright autenticada e runtime Android/Maestro. Nenhuma gravação remota ou sincronização externa ocorreu.
+
+**Atualização do Ciclo 388:** reauditei o botão “Tentar novamente” no estado de erro da lista mostrado na captura. ERP e app só substituem a lista por erro quando não há linhas para a consulta, usam a mesma mensagem e recarregam a mesma página/filtros ao tentar de novo. O QueryClient ERP e o helper mobile fazem uma repetição automática com intervalo inicial de 1 s antes de exibir a falha. Vitest focado ERP/mobile: **27/27**. Não encontrei diferença de código; a causa do erro da captura não é identificável sem log/erro da consulta real.
+
+**Atualização do Ciclo 389:** o typecheck mobile detectou uma referência restante a `getDimensionField` depois que o Ciclo 374 substituiu essa função local pelo helper compartilhado `getProductTechnicalDimensionField`. Troquei a chamada residual, mantendo o critério de dimensão física do formulário; o TS2304 saiu do arquivo de Produtos. Vitest do helper compartilhado: **21/21**. O typecheck global continua falhando por diagnósticos em outros arquivos, documentados abaixo.
+
 **Atualização do Ciclo 328:** as sugestões de componentes na aba Composição agora exibem o preço promocional com a mesma precedência do ERP, usando regra compartilhada. O preço regular que é gravado na linha do componente não foi alterado.
+
+**Atualização do Ciclo 352:** reauditei a elegibilidade de Serviços no seletor de componentes. `itemType: 'standard'` do app significa “fora de composição”, não “somente `item_type = product`”; ERP e app podem sugerir Serviços ativos. A divergência apontada inicialmente no Ciclo 324 era uma leitura incorreta desse enum e fica resolvida sem mudar o comportamento.
+
+**Atualização do Ciclo 353:** a busca de componentes no ERP agora mostra o estado vazio somente após resposta confirmada sem resultados. Se a consulta falhar, apresenta erro e retry sem afirmar também que nenhum produto existe, alinhando-se ao app.
+
+**Atualização dos Ciclos 354–355:** a reauditoria constatou que a suposta lista de CFOPs de Produto do Ciclo 354 era apenas um cálculo não renderizado; seu teste cobria o helper, não a tela. Removi essa alteração sem efeito. Na mesma aba, corrigi uma divergência real para Serviço: um CFOP municipal legado fora de 5933/6933 era mostrado falsamente como 5933 no app. Agora o valor salvo é identificado como indisponível sem ser alterado; somente a seleção explícita troca o código. Vitest mobile passou em **3/3**. A permissão do Catálogo (`productConfig`) segue distinta da permissão tributária e bloqueia a ação para perfis sem acesso, conforme confirmado pelo operador. Sem Playwright autenticado ou validação Android/Maestro; não houve consulta/escrita remota, SEFAZ, Meta, migration ou deploy.
+
+**Atualização do Ciclo 356:** para perfis sem permissão tributária, o grupo continua esmaecido e sem interação; agora cada controle nativo também é anunciado como desabilitado e permanece acessível ao leitor de tela, em vez de desaparecer da árvore de acessibilidade apesar do aviso de somente consulta. Vitest mobile passou em **2/2**. A regra de papéis válidos é equivalente entre ERP/app. A resposta recente sobre Catálogo confirma o contrato já coberto nos Ciclos 303–306: sem `productConfig`, o status fica visível, mas desabilitado; rascunho e requisitos de publicação são bloqueios diferentes. Esse gate não precisa ser reauditoria pendente.
+
+**Atualização do Ciclo 357:** na aba Tributário/NF, o app agora usa o título genérico do ERP quando o tipo é Serviço; antes dizia “Classificação Fiscal (NCM)” acima do código municipal de serviço. A revisão confirmou que as condições dos campos de Produto e Serviço já coincidem nos dois clientes. Vitest mobile **4/4**, teste fiscal ERP **3/3**; sem Playwright autenticado ou dispositivo nativo.
+
+**Atualização do Ciclo 358:** na aba Estoque e Precificação, alinhei o cabeçalho mobile “Preços de Venda & Desconto” ao ERP (“Precificação e Descontos”) e acrescentei “(Produto Pai)” quando o formulário contém variações. A alteração é de apresentação; handlers, cálculos compartilhados, sincronização e payloads não mudaram. Vitest/RTL mobile **2/2**; sem Playwright autenticado ou Android/Maestro.
+
+**Atualização do Ciclo 359:** o snapshot de rascunho mobile deixava os campos auxiliares de desconto do produto pai dentro de `technical_specs.draftProduct`, embora o ERP os mantenha apenas em estado local. O helper compartilhado agora os remove, preservando `unitPrice`/`promoPrice`; Vitest mobile **61/61** e ERP **10/10**. Auditoria geral continua aberta.
+
+**Atualização dos Ciclos 360–361:** a seleção de fornecedor confirmou equivalência de limite (três), fornecedor principal, defaults de IPI/frete e custo final. O Ciclo 361 corrigiu a divergência para IDs legados duplicados: ERP e app agora usam `normalizeProductSupplierIds` compartilhado. Vitest mobile focado: **3/3**; comparação visual/nativa segue pendente.
+
+**Atualização do Ciclo 363:** conferi a disponibilidade da aba Estoque e Precificação para Serviço. ERP e app a ocultam, mantêm a aba tributária e retornam à aba Geral se a troca de tipo invalidar o estado ativo. Nenhuma diferença funcional comprovada; sem mudança de código.
+
+**Atualização do Ciclo 364:** comparei o checklist de prontidão da variação no formulário principal mobile com o cabeçalho do modal de variação ERP. Ambos montam o registro efetivo pelo helper compartilhado e executam os mesmos verificadores de legibilidade do ERP e do Catálogo. No modo família, o indicador de preço verifica a existência de variações; o preço próprio/herdado de cada linha continua validado individualmente na submissão nos dois clientes. Não foi comprovada divergência mobile, então não alterei código.
 
 **Atualização do Ciclo 329:** o usuário confirmou alinhar ERP e app à documentação ao converter uma família salva de duas variações em produto simples. Os dois clientes já reativam a herança do pai para os campos comerciais documentados, mantendo UUID/SKU, saldo físico e atributos próprios; não foi necessária nova alteração de produção.
 
@@ -1241,7 +1287,7 @@ Auditar uma ação diferente do formulário de Produto em um único estado, usan
 - [x] O fluxo ERP ativo usa `VariationCompositionItemsTab` → `ProductAutocomplete` → `useProductAutocomplete`; após a mesma validação RHF/Zod de consulta mínima de três caracteres, aguardava 300 ms. O app usa `ProductFormCompositionTab` e o mesmo schema, mas aguardava 500 ms.
 - [x] Centralizei `PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS = 300` em `shared-utils/productAutocompleteFormSchema.ts`; ERP e app agora consomem a mesma constante. O valor escolhido conserva o comportamento ERP e reduz em 200 ms a latência da busca móvel. Fornecedor, normalização/validação do query, limite, filtros, payloads, estados de loading/erro/retry e persistência não foram alterados por esta correção.
 - [x] Os testes ERP de apresentação/hook e do serviço mobile de busca de componentes passaram: **3 arquivos, 10/10 testes**. Antes de validar, corrigi o mock de `ProductAutocomplete.form.test.tsx`, que não exportava `normalizeProductSearchSeparators`, helper já consumido pelo hook; as três falhas anteriores exibiam erro por ausência desse mock, e não falha do serviço ou do novo intervalo.
-- [ ] Diferença de escopo permanece sem decisão: o serviço mobile limita candidatos a `item_type = standard`, enquanto o autocomplete de composição ERP exclui composições mas não aplica filtro explícito equivalente a `productsOnly`, podendo oferecer serviços. A documentação confirma que a disponibilidade das composições deriva de estoque físico dos componentes, mas não declara expressamente se serviços podem ser escolhidos como componentes. **Pergunta pendente:** serviços devem ser aceitos como componentes de composição no ERP e no app, ou o app deve manter a exclusão atual e o ERP passar a aplicá-la?
+- [x] Hipótese de diferença de escopo registrada na primeira leitura e encerrada no Ciclo 352: `itemType = 'standard'` é um modo de lista que exclui composições, não um filtro de `item_type = 'product'`; a comparação dos filtros completos confirmou que ERP e app podem oferecer Serviços ativos como componentes. Não foi necessário escolher uma regra nova nem alterar o comportamento.
 - [x] Fontes consultadas: `VariationCompositionItemsTab`, `ProductAutocomplete`, `useProductAutocomplete`, `ProductFormCompositionTab`, `mobileProductCompositionService`, schema compartilhado, testes focados, documentação de estrutura produto/variação, operações de mover/merge, arquitetura offline-first, `AGENTS.md`, `docs/geral/USER_RULES.md`, regra `rules/products/product-reconciliation-erp-only.yml`, inventário e roadmap. Não há `AGENTS.md` aninhado nos diretórios ERP/mobile/shared-utils/docs deste recorte. A skill `erp-web-to-mobile-replication` segue acessível apenas na cópia de cache do backup ERP; não localizei fonte canônica no projeto.
 
 #### Validação e limitações
@@ -1250,11 +1296,11 @@ Auditar uma ação diferente do formulário de Produto em um único estado, usan
 - [x] `git diff --check` final sem erros; Git emitiu somente avisos de normalização CRLF/LF nos arquivos previamente alterados.
 - [ ] Sem Playwright autenticado nem teste em telefone Android/Maestro; Expo Web não comprova comportamento nativo. Não houve consulta ou escrita remota, alteração de backend/migration, acesso à Meta ou deploy.
 
-**Conclusão do recorte:** ERP e app agora usam o mesmo atraso de busca de 300 ms. O contrato de elegibilidade do tipo `service` fica pendente de definição explícita; não ampliei nem reduzi candidatos nesta execução.
+**Conclusão do recorte:** ERP e app agora usam o mesmo atraso de busca de 300 ms. A elegibilidade foi reexaminada no Ciclo 352 e não apresentou diferença entre clientes.
 
 #### Próximo recorte identificado
 
-Após definir se um serviço pode compor uma composição, auditar somente o filtro de tipo do autocomplete e atualizar as regras/documentação dos dois clientes em conjunto; até lá, preservar a filtragem mobile atual. Seguir depois para outra aba/estado, mantendo pendentes as validações visuais autenticada/nativa e remotas já listadas. Não reintroduzir Conciliação no app.
+Na época, a elegibilidade de Serviços ainda parecia aberta; a revisão do Ciclo 352 demonstrou que os clientes já permitem os mesmos candidatos e encerrou essa hipótese. Seguir para outro estado/ação, mantendo as validações visuais autenticada/nativa e remotas pendentes. Não reintroduzir Conciliação no app.
 
 ### Ciclo 325 — quantidade dos componentes da composição — 25/10/2026
 
@@ -1278,7 +1324,7 @@ Após definir se um serviço pode compor uma composição, auditar somente o fil
 
 #### Próximo recorte identificado
 
-Prosseguir para outro estado/ação de Produtos. Manter pendente a resposta sobre serviços como componentes, registrada no Ciclo 324, e não alterar o filtro até a decisão. Preservar as pendências de UI autenticada, runtime Android/Maestro e prova remota; Conciliação segue exclusiva do ERP.
+Prosseguir para outro estado/ação de Produtos. A dúvida então pendente sobre serviços como componentes foi encerrada no Ciclo 352, sem diferença a corrigir. Preservar as pendências de UI autenticada, runtime Android/Maestro e prova remota; Conciliação segue exclusiva do ERP.
 
 ### Ciclo 326 — remoção de componente da composição — 25/10/2026
 
@@ -1301,7 +1347,7 @@ Prosseguir para outro estado/ação de Produtos. Manter pendente a resposta sobr
 
 #### Próximo recorte identificado
 
-Continuar por outro estado de Produtos, uma ação por execução. Manter pendente a resposta do Ciclo 324 sobre serviços como componentes e não mudar o filtro até definição; preservar as limitações de validação visual autenticada, runtime nativo e persistência remota. A Conciliação permanece exclusiva do ERP.
+Continuar por outro estado de Produtos, uma ação por execução. A dúvida do Ciclo 324 sobre serviços como componentes foi encerrada no Ciclo 352 após confirmar que ERP e app aceitam a mesma classe; preservar as limitações de validação visual autenticada, runtime nativo e persistência remota. A Conciliação permanece exclusiva do ERP.
 
 ### Ciclo 327 — componente simples legado com variação virtual — 25/10/2026
 
@@ -1325,7 +1371,7 @@ Continuar por outro estado de Produtos, uma ação por execução. Manter penden
 
 #### Próximo recorte identificado
 
-Continuar por outra aba/estado de Produtos. Não alterar a elegibilidade de serviços como componentes sem a definição pendente do Ciclo 324. Manter abertas as comparações visuais autenticadas, validação nativa e prova de persistência remota; a Conciliação continua exclusiva do ERP.
+Continuar por outra aba/estado de Produtos. A revisão do Ciclo 352 confirmou paridade na elegibilidade de Serviços, sem necessidade de alterar o filtro. Manter abertas as comparações visuais autenticadas, validação nativa e prova de persistência remota; a Conciliação continua exclusiva do ERP.
 
 ### Ciclo 328 — preço exibido nas sugestões de componentes — 25/10/2026
 
@@ -1348,7 +1394,7 @@ Continuar por outra aba/estado de Produtos. Não alterar a elegibilidade de serv
 
 #### Próximo recorte identificado
 
-Continuar em outra aba/estado de Produtos. A decisão do Ciclo 324 sobre permitir serviços como componentes continua pendente; manter o filtro mobile sem mudanças até decisão. Preservar limitações de UI autenticada, validação nativa e prova remota; a Conciliação continua exclusiva do ERP.
+Continuar em outra aba/estado de Produtos. A hipótese do Ciclo 324 sobre serviços como componentes foi encerrada no Ciclo 352: os clientes aceitam a mesma classe de candidatos. Preservar limitações de UI autenticada, validação nativa e prova remota; a Conciliação continua exclusiva do ERP.
 
 ### Ciclo 329 — conversão de família salva em produto simples — 25/10/2026
 
@@ -1372,7 +1418,7 @@ Continuar em outra aba/estado de Produtos. A decisão do Ciclo 324 sobre permiti
 
 #### Próximo recorte identificado
 
-Continuar em outro estado do módulo Produtos. Manter pendente a decisão do Ciclo 324 sobre serviços como componentes, as validações visuais autenticadas/nativas e as provas remotas já registradas; não reabrir a Conciliação de Produtos, exclusiva do ERP.
+Continuar em outro estado do módulo Produtos. A hipótese do Ciclo 324 sobre serviços como componentes foi encerrada por evidência no Ciclo 352; manter as validações visuais autenticadas/nativas e as provas remotas já registradas; não reabrir a Conciliação de Produtos, exclusiva do ERP.
 
 ### Ciclo 330 — remoção de componente na aba móvel de Composição — 25/10/2026
 
@@ -1397,7 +1443,7 @@ Continuar em outro estado do módulo Produtos. Manter pendente a decisão do Cic
 
 #### Próximo recorte identificado
 
-Continuar em outro estado de Produtos. A elegibilidade de serviços como componentes permanece pendente de decisão; manter o filtro existente no app até definição. Seguem pendentes a inspeção visual autenticada e as provas nativas/remotas registradas, sem reintroduzir a Conciliação no aplicativo.
+Continuar em outro estado de Produtos. A elegibilidade de Serviços foi confirmada equivalente entre os clientes no Ciclo 352; não há ajuste de filtro pendente. Seguem pendentes a inspeção visual autenticada e as provas nativas/remotas registradas, sem reintroduzir a Conciliação no aplicativo.
 
 ### Ciclo 331 — visibilidade de atributos na geração em lote — 25/10/2026
 
@@ -1779,3 +1825,875 @@ Na aba Por ambiente, comparar o gesto de pull-to-refresh como affordance mobile 
 - [x] Regras consultadas: `AGENTS.md` (RHF/Zod, validadores permitidos e Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de estrutura de produto/variação, operações de mover/merge, notas mobile e inventário/roadmap. Skill canônica `erp-web-to-mobile-replication` não encontrada nas fontes do projeto; foi usada somente a orientação acessível em cache, cuja origem canônica não foi confirmada.
 
 **Conclusão do recorte:** quando a Categoria exige `Altura` para publicação, ERP e app agora mantêm o campo disponível; sem essa exigência, o app continua aplicando a particularidade documentada de Colchões. Próximo: seguir o valor preenchido na aba técnica até o payload de salvamento e a recarga da edição, cobrindo Produto simples e variações sem conflitar com atributos próprios. A auditoria geral permanece aberta.
+
+### Ciclo 349 — persistência e reabertura de atributos da variação — 25/10/2026
+
+**Recorte:** continuidade da aba técnica, seguindo um valor obrigatório por Categoria da entrada do formulário ao `product_variations.attributes` e de volta à edição.
+
+#### Comparação e correção
+
+- [x] O ERP e o app carregam os vínculos `category_attributes` verificados e usam `projectRequiredCategoryAttributesToVariations` compartilhado ao salvar. O helper projeta somente valor preenchido e exigido por Categoria para cada variação, mantém override próprio, respeita override explicitamente vazio e não remove atributos já persistidos se a exigência da Categoria for retirada. Ambos continuam gravando compatibilidade em `products.technical_specs`; a fonte canônica para os valores efetivos permanece `product_variations.attributes`.
+- [x] Divergência comprovada na reabertura: o ERP `mapDbVariations` passa os atributos por `toTitleCase` compartilhado (nome e valor; por exemplo, mantém a sigla `MDF`); o app retornava a estrutura de `attributes` sem a mesma normalização. Um valor salvo corretamente podia, portanto, aparecer com capitalização diferente ao editar.
+- [x] O mapeador de resposta mobile agora normaliza os atributos da variação via parser mobile existente e `toTitleCase` de `shared-utils`. A alteração é somente no objeto carregado para a UI: não atualiza a linha no banco, não altera `showName` e não mexe nos payloads. A rota `summaryOnly`, que não hidrata atributos por ser um resumo de lista, permaneceu inalterada.
+- [x] Acrescentei regressão para nome/valor em maiúsculas, preservação de `showName: false` e acrônimo `MDF`. O ERP já possui cobertura correspondente no `productVariationMapper.test.ts`.
+
+#### Validação e limites
+
+- [x] Vitest mobile, `mobileProductFetchService.test.ts`: **37/37**.
+- [x] Vitest ERP, `productVariationMapper.test.ts`: **8/8**. Uma primeira chamada com a configuração ERP executada a partir da raiz não selecionou testes por usar raiz de inclusão diferente; corrigido o diretório de execução e a suíte efetivamente executada passou.
+- [x] `git diff --check` nos dois arquivos mobile passou; Git emitiu apenas avisos de normalização CRLF/LF.
+- [ ] Os testes exercitam o mapeamento com respostas mockadas; não comprovam leitura persistida no PostgreSQL. Sem Playwright autenticado ou aparelho Android/Maestro; Expo Web não prova apresentação nativa. Não consultei/escrevi dados remotos, não apliquei migration nem fiz deploy.
+- [x] Regras consultadas: `AGENTS.md` (RHF/Zod, métodos de validação permitidos e Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, `docs/negocio/produtos/estrutura-produto-variacao.md`, `docs/negocio/produtos/operacoes-troca-pai-merge.md`, `docs/mobile/arquitetura_offline_first.md`, inventário e roadmap. A skill canônica `erp-web-to-mobile-replication` não está nas skills do projeto/globais examinadas; a cópia de cache não tem origem canônica confirmada e permanece apenas como orientação.
+
+**Conclusão do recorte:** o contrato de salvamento da projeção é comum e a reabertura mobile agora apresenta os atributos no mesmo padrão do ERP sem regravar dados. Próximo: verificar o estado de rascunho versus publicação para um atributo obrigatório ausente, incluindo a validação, o gate do Catálogo e a navegação do erro na aba técnica. A auditoria geral permanece aberta.
+
+### Ciclo 350 — rascunho, elegibilidade do Catálogo e destino do bloqueio — 25/10/2026
+
+**Recorte:** conclusão do formulário/aba técnica para atributo obrigatório ausente, distinguindo salvamento de produto, elegibilidade do Catálogo e autorização para alterar o status.
+
+#### Comparação e conclusão
+
+- [x] Rascunho incompleto é um estado de salvamento, não uma publicação. O ERP (`createProductFormSchema` com `saveAsDraft`) e o app (`createMobileProductFormSchema` com `draft`) permitem a persistência parcial necessária ao rascunho após validar o nome e a forma dos valores. A finalização executa o schema operacional de cadastro; os campos exigidos somente para o Catálogo não viram obrigatórios de cadastro por essa distinção.
+- [x] Salvar um produto finalizado não publica automaticamente o Catálogo: a criação/finalização o mantém oculto, e a publicação é uma ação separada no status da lista. Um atributo marcado obrigatório pela Categoria para o Catálogo pode permanecer pendente enquanto o item está oculto; ao pedir publicação, ERP e app carregam as exigências atuais da Categoria e usam `validateCatalogPublication` compartilhado, que rejeita a mudança sem persistir o status.
+- [x] Na interface, a publicação também é bloqueada para rascunho e para quem não tem `productConfig`; o status permanece visível e desabilitado nesse perfil. Essa foi a opção confirmada pelo usuário. `viewMetaCatalog` dá acesso à administração Meta e não substitui a permissão de gerenciar o status do produto. A guarda de banco tem migration local revisada nos Ciclos 305/306, mas sua aplicação/eficácia no Supabase remoto permanece sem comprovação.
+- [x] Se o produto já está publicado, ambos impedem salvar uma edição que deixe pendente um atributo exigido pela Categoria. Buscam novamente os vínculos da Categoria antes da gravação e falham fechados quando a leitura não pode ser confirmada. Para produtos ocultos, essa condição de preservação do estado publicado não se aplica.
+- [x] Erros operacionais estruturados do formulário encaminham para a aba/painel correspondente, inclusive Características Técnicas. Já a reprovação da exigência específica do Catálogo durante publicação/edição de item publicado é mostrada depois da validação do formulário e não navega automaticamente: ERP usa toast e o app usa alerta nativo, ambos retornando sem executar a gravação/status. As regras, o bloqueio e o destino são equivalentes; feedback visual é adaptação do runtime.
+- [x] O cabeçalho/checklist de prontidão continua listando requisitos gerais nos dois clientes; a exigência variável por Categoria é validada no ato da publicação/edição publicada, não aparece como item individual naquele checklist. Não introduzi no app um fluxo extra que não existe no ERP.
+- [x] Nenhuma alteração de produção ou teste foi necessária neste ciclo. Inventário anterior dos Ciclos 303–306 já registra a decisão do usuário de bloquear a ação de Catálogo para perfis sem permissão.
+
+#### Validação e limites
+
+- [x] Revisão estática das schemas RHF/Zod, do handler de submissão ERP/app, do helper compartilhado `catalogPublicationValidation`, dos controles de status, navegação e dos testes existentes. Nenhum runner foi executado, pois não houve alteração de código.
+- [ ] Sem Playwright autenticado, Android físico/Maestro ou leitura/gravação remota nesta execução; Expo Web não comprovaria gesto/comportamento nativo. Não houve chamada à Meta, migration remota ou deploy. A autorização de UI sem `productConfig` está verificada estaticamente, mas não foi feita prova de autorização no servidor.
+- [x] Regras consultadas: `AGENTS.md` (RHF/Zod, validadores permitidos e Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, `docs/negocio/produtos/estrutura-produto-variacao.md`, `docs/negocio/produtos/operacoes-troca-pai-merge.md`, `docs/mobile/arquitetura_offline_first.md`, notas/inventário/roadmap. A skill canônica `erp-web-to-mobile-replication` não foi encontrada em `.agents/skills`, `skills/` ou nas pastas globais pesquisadas; a cópia de cache permanece apenas como orientação, sem origem canônica confirmada.
+
+**Conclusão do recorte:** são verificações independentes: (1) salvar o produto, (2) estar conforme para publicação e (3) ter permissão para alterar o status do Catálogo. Um produto oculto pode ser salvo mesmo sem atributo exigido somente pelo Catálogo; publicar fica bloqueado enquanto ele for rascunho, não cumprir os requisitos ou o perfil não tiver `productConfig`. Para esse perfil, o status fica visível, mas desabilitado. Se um produto já publicado perder requisito durante a edição, essa gravação é barrada para não manter publicado um item inválido. Os comportamentos ERP/app estão alinhados, sem correção necessária; o bloqueio na interface foi confirmado, mas o guard remoto ainda não foi comprovado. Próximo: inspecionar na aba técnica a recuperação do operador após bloquear uma edição de produto publicado por atributo obrigatório. A auditoria geral permanece aberta.
+
+### Ciclo 351 — recuperação após edição publicada bloqueada por atributo da categoria — 25/10/2026
+
+**Recorte:** permanência do formulário aberto, retorno à aba Características Técnicas e atalhos de prontidão depois de uma edição ser bloqueada por atributo obrigatório de Categoria.
+
+#### Comparação e conclusão
+
+- [x] Na edição de item já publicado, ambos renovam os vínculos `category_attributes` (timeout de 15 s e falha fechada) antes de salvar. Se o atributo obrigatório estiver vazio, a validação retorna antes de montar/enviar payload, preserva o formulário aberto e mantém a aba atual. ERP mostra toast; app mostra alerta nativo. Os dois não limpam os valores digitados nem navegam automaticamente para outra aba.
+- [x] Com a categoria selecionada, a aba Características Técnicas continua disponível para correção manual nos dois formulários. O campo exigido é apresentado como obrigatório e não pode ser marcado como “Não informar”; após corrigir, o operador pode reenviar a edição. Se estiver em outra aba ao receber o bloqueio, precisa selecionar Características Técnicas manualmente.
+- [x] O checklist de prontidão do Catálogo em ambos lista requisitos gerais e não cria uma entrada por atributo obrigatório dinâmico de Categoria. Consequentemente, não existe atalho do checklist diretamente ao atributo ausente. O painel mostra o estado geral, mas a mensagem do bloqueio durante edição publicada não identifica o nome do campo; a publicação iniciada pela lista, por sua vez, usa o resultado detalhado compartilhado.
+- [x] A ausência de identificação/atalho após esse bloqueio é uma limitação comum ao ERP e ao app, não uma lacuna de replicação mobile. Não alterei somente o app nem criei um comportamento divergente sem respaldo documental; uma melhoria desse feedback deve ser decidida e aplicada ao fluxo de referência também.
+- [x] O esclarecimento do usuário permanece aplicado: para perfil sem `productConfig`, o status do Catálogo fica visível e desabilitado na interface. Isso é distinto de rascunho e de legibilidade; a proteção remota de banco continua sem prova e não foi alterada aqui.
+
+#### Validação e limites
+
+- [x] Revisão estática dos dois handlers de submissão, schemas Zod, navegação por erro, abas técnicas, requisitos visíveis e checklists de prontidão. Nenhuma alteração de código foi necessária; nenhum runner foi executado.
+- [ ] Sem UI autenticada por Playwright nesta sessão: o login tem risco conhecido de limpeza de rascunhos (Ciclo 182). Sem aparelho Android físico/Maestro; Expo Web não comprovaria a retomada nativa após Alert. Sem leitura/escrita remota, chamada Meta, migration ou deploy.
+- [x] Regras consultadas: `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura produto/variação, operações mover/merge, arquitetura offline-first, inventário e roadmap. A cópia procedural da skill foi localizada somente dentro de `erp/.vercel/builders-backup-72ebb3b0/node_modules/morante-hub-root/.agents/skills/`; trata-se de cache de backup de build (pacote `morante-hub-root`), sem origem canônica atual confirmada, usada apenas como orientação. As pastas canônicas e globais continuam sem a skill.
+
+**Conclusão do recorte:** após o bloqueio, ERP e app preservam o formulário e permitem correção manual na aba técnica; ambos deixam o operador identificar o atributo por conta própria, pois o aviso e o checklist não apontam o campo específico. Não há diferença de paridade a corrigir neste estado. Próximo: voltar à composição e auditar a elegibilidade de Serviços na busca de componentes; essa hipótese foi resolvida no Ciclo 352. A auditoria geral permanece aberta.
+
+### Ciclo 352 — elegibilidade de Serviços na busca de componentes — 25/10/2026
+
+**Recorte:** somente os filtros de busca e seleção de candidatos na aba Composição; sem alterar validação de ativação, cálculo de saldo ou gravação.
+
+#### Comparação e conclusão
+
+- [x] No ERP, `VariationCompositionItemsTab` usa `ProductAutocomplete` com `supplierId` e `excludeCombos=true`, sem `productsOnly`. `fetchAllProductSearchResults` consulta produtos ativos e não rascunhos, sem filtro de `item_type`; `useProductAutocomplete` exclui `isCombo`, `combo`, `composition` e variações mescladas, mas não exclui `service`.
+- [x] No app, `mobileProductCompositionService` pede `itemType: 'standard'`. Esse valor é um modo do filtro mobile que remove composições, não uma condição SQL `item_type = 'product'`; a query usa `item_type IS DISTINCT FROM 'composition'`, preservando linhas legadas e Serviços. O filtro posterior remove composições/combos, rascunhos e itens inativos, sem remover Serviços.
+- [x] Assim, a dúvida antiga registrada no Ciclo 324 veio de interpretar `standard` como tipo de item. O caminho efetivo não exclui Serviços em nenhum cliente: ambos podem oferecê-los como candidatos se ativos, não rascunho, não compostos e compatíveis com o fornecedor informado. Não há divergência ERP→app a corrigir e não é preciso decidir um contrato novo para fins de paridade.
+- [x] A documentação de composição exige ao menos dois componentes e calcula disponibilidade a partir de saldo; não define exclusão de Serviços. Não inferi uma nova regra de domínio além do comportamento atualmente comum aos clientes.
+- [x] Nenhuma alteração de código ou teste foi necessária. O Ciclo 324 permanece como registro histórico da hipótese inicial; esta auditoria a corrige e encerra a pendência de paridade.
+
+#### Evidências e limites
+
+- [x] Revisão estática de `VariationCompositionItemsTab`, `ProductAutocomplete`, `useProductAutocomplete`, `productAutocompleteUtils.fetchAllProductSearchResults`, `productFilterBuilder`, `ProductFormCompositionTab`, `mobileProductCompositionService` e `mobileProductFetchService`. O `ComboItemSelector` legado foi inspecionado, mas não possui callsites no código ERP; não foi usado como caminho ativo para a conclusão.
+- [x] Regras consultadas: `AGENTS.md` (RHF/Zod, validadores e Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura de produto/variação, mover/merge, arquitetura offline-first, este inventário e o item correspondente do roadmap. Não há `AGENTS.md` aninhado nos diretórios ERP/mobile/shared-utils deste recorte. A skill `erp-web-to-mobile-replication` segue sem fonte canônica localizada; apenas a cópia em cache de backup documentada em ciclos anteriores está disponível como orientação.
+- [ ] Nenhum runner foi executado, pois não houve alteração de lógica; sem Playwright autenticado, aparelho Android/Maestro, consulta/escrita remota, migration ou deploy. Revisão estática dos filtros não confirma a experiência visual em sessão real nem a projeção de saldo para registros remotos.
+
+**Conclusão do recorte:** os seletores ERP e app permitem a mesma classe de candidatos, incluindo Serviços, e excluem composições/combos. A diferença anotada no Ciclo 324 está encerrada por evidência do significado do enum mobile `standard`; nenhuma mudança de código é indicada. A auditoria geral permanece aberta.
+
+### Ciclo 353 — estados de vazio e erro na busca de componentes — 25/10/2026
+
+**Recorte:** estados de entrada curta, carregamento, resposta sem resultados, falha e retry na busca da aba Composição.
+
+#### Comparação e correção
+
+- [x] ERP e app usam `productAutocompleteFormSchema` compartilhado (consulta com no mínimo três caracteres), o debounce compartilhado de 300 ms, timeout de busca de 10 segundos, estado de loading, mensagem de busca sem resultados e retry explícito após falha. O app limpa o erro e os resultados anteriores ao editar a consulta; o hook ERP também invalida sugestões antigas ao mudar o termo.
+- [x] Divergência reproduzida por leitura do render: no ERP, depois de erro do serviço o hook limpava as sugestões e desativava loading, mas a lista suspensa continuava aberta e exibia “Nenhum produto encontrado para esta busca.” junto ao alerta de erro. Isso confundia falha de consulta com resposta vazia.
+- [x] Ajustei `ProductAutocomplete` para só renderizar “Nenhum produto encontrado” quando não há `searchError`. O app já tinha a mesma distinção (`!searchError`); não houve mudança no app, no schema, na seleção, no filtro ou no payload. O erro e o retry explícito permanecem disponíveis.
+- [x] Acrescentei regressão de UI pelo Vitest/RTL para as duas respostas: falha exibe alerta sem estado vazio; resposta bem-sucedida com array vazio exibe o estado vazio.
+
+#### Validação e limites
+
+- [x] Vitest ERP via runner do pacote: `ProductAutocomplete.form.test.tsx` — **6/6 testes aprovados**. O caso existente de timeout imprimiu o aviso esperado do helper de proteção; a suíte terminou com exit code 0.
+- [x] `git diff --check` sem erros; há apenas os avisos de normalização CRLF/LF nos arquivos anteriormente modificados.
+- [ ] Sem Playwright autenticado nem teste Android físico/Maestro. O Vitest/RTL verifica a lógica de apresentação com serviços mockados; não comprova layout de navegador autenticado, interação nativa nem conexão real. Nenhuma leitura/escrita remota, migration, Meta ou deploy foi realizada.
+- [x] Regras consultadas: `AGENTS.md` (RHF/Zod e runners permitidos), `docs/geral/USER_RULES.md`, regra `rules/products/product-reconciliation-erp-only.yml`, documentação de estrutura produto/variação, operações mover/merge, arquitetura offline-first, inventário e roadmap. Não há `AGENTS.md` aninhado nos diretórios ERP/mobile/docs usados neste recorte. A skill foi lida da única cópia acessível no backup `.vercel/builders-backup-72ebb3b0`; como a origem não é canônica, permanece apenas orientação, e as fontes `.agents/skills`/`skills/` do projeto não a contêm.
+
+**Conclusão do recorte:** a mensagem de vazio agora significa somente “a busca terminou sem resultados”; um erro permanece um erro com opção de retry, igual ao app. Busca curta, loading, sucesso e retry continuam preservados. A auditoria geral do módulo Produtos permanece aberta.
+
+#### Próximo recorte identificado
+
+Continuar a aba Tributário/NF pelo estado Produto normal versus Serviço e comparar quais campos aparecem fora/dentro do grupo de configuração. Manter pendentes as provas autenticadas/nativas e de persistência remota; preservar os gates separados de imposto e Catálogo, a confirmação do operador sobre `productConfig` e a Conciliação exclusiva do ERP.
+
+### Ciclo 354 — hipótese de paridade CFOP, reavaliada no Ciclo 355 — 25/10/2026
+
+**Recorte original:** cálculo de opções CFOP da aba Tributário/NF do formulário principal de Produto.
+
+#### Reauditoria
+
+- [x] A conclusão de que o ERP exibia uma lista de CFOPs ativos para produtos normais estava incorreta: `ProductFiscalTab.tsx` só renderiza o seletor de CFOP municipal dentro da condição `itemType === 'service'`. `productFiscalOptions.ts` é a fonte de outra superfície fiscal; não prova um controle no formulário de Produto.
+- [x] No app, `availableCfopOptions` e `selectedCfop` também eram calculados para Produto normal, mas `selectedCfop` só era renderizado no JSX de Serviço. A lista normal não era apresentada ao operador.
+- [x] O teste 1/1 do Ciclo 354 verificou apenas o conteúdo do adaptador novo e não demonstrou diferença visual/funcional do formulário. Removi o adaptador dessa hipótese e não alterei catálogo, seleção, payload ou emissão de produto normal.
+
+#### Evidências e limites
+
+- [x] Referências: `erp/src/pages/App/Products/components/tabs/fiscal/ProductFiscalTab.tsx:268-282` e `mobile/src/features/products/modals/tabs/ProductFormFiscalTab.tsx:464-488`; somente o seletor municipal de Serviço é exposto nos dois formulários.
+- [x] O Ciclo 355 corrigiu o valor salvo que não corresponde a opção municipal, descrito abaixo. A busca da skill canônica em `.agents/skills`, `skills/` e no cache `.vercel` disponível neste checkout não encontrou o arquivo; usei as regras do repositório e a evidência dos ciclos anteriores, sem tratar o registro de uma cópia histórica em cache como fonte canônica.
+
+**Conclusão reaberta:** não havia diferença de UI de CFOP para produto normal a corrigir. A anotação original do Ciclo 354 foi substituída por esta reauditoria; os arquivos de código e a validação reais estão no Ciclo 355.
+
+### Ciclo 355 — CFOP municipal legado no formulário de Serviço — 25/10/2026
+
+**Recorte:** aba Tributário/NF, Serviço, valor `fiscal.cfop` previamente salvo fora das opções municipais vigentes.
+
+#### Comparação e correção
+
+- [x] O ERP controla o seletor com `formData.fiscal?.cfop || '5933'` e oferece 5933/6933. Se um valor legado não corresponder às opções, ele não é apresentado como se fosse um código selecionado.
+- [x] O app também oferece 5933/6933, mas antes exibia `SERVICE_CFOP_OPTIONS[0]` como fallback para qualquer valor não reconhecido. Isso fazia um CFOP legado aparecer falsamente como 5933, sem que o estado salvo fosse 5933.
+- [x] Extraí as duas opções municipais e um resolvedor de rótulo para o domínio mobile. Campo ausente continua mostrando o default ERP 5933; 6933 continua selecionado normalmente; código legado agora é mostrado como salvo e fora das opções atuais. O valor só muda quando o operador escolhe explicitamente uma opção; nenhum payload ou regra de emissão foi alterado.
+- [x] A lista de CFOP para Produto normal que o Ciclo 354 tentou alinhar foi removida: a reauditoria confirmou que ela não aparecia em nenhum controle do formulário ERP ou mobile.
+
+#### Evidências, validação e limites
+
+- [x] Vitest mobile `mobileProductFiscalOptions.test.ts`: **3/3** (default ausente/vazio, opção municipal válida e valor legado indisponível). A ligação do resolvedor e das opções ao componente foi revisada estaticamente.
+- [x] Regras consultadas: `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, índice/invariantes e históricos fiscais, estrutura do produto/variação, mover/merge, documentação mobile disponível, este inventário e roadmap. Não há `AGENTS.md` aninhado nos diretórios alterados.
+- [x] A busca do Ciclo 355 cobriu `.agents/skills`, `skills/` e `.vercel/` na raiz, mas não `erp/.vercel/`; o Ciclo 356 localizou e leu a cópia em `erp/.vercel/builders-backup-72ebb3b0/node_modules/morante-hub-root/.agents/skills/erp-web-to-mobile-replication/SKILL.md`. É cache de backup de build, não fonte canônica; a localização foi corrigida sem promover essa cópia a autoridade.
+- [ ] Sem formulário autenticado no Playwright ou dispositivo físico Android/Maestro; Expo Web não demonstraria comportamento nativo. Sem consulta/escrita remota, Meta, SEFAZ, migration ou deploy.
+
+**Conclusão do recorte:** o valor legado municipal não é mascarado pelo default visual 5933 nem sobrescrito implicitamente. O próximo ciclo pode avançar para outra aba/estado de Produtos; a auditoria geral continua aberta.
+
+### Ciclo 356 — permissão de configuração tributária no formulário — 25/10/2026
+
+**Recorte:** aba Tributário/NF, formulário de Produto/Serviço aberto por perfis que não podem alterar as configurações de imposto; separado da ação publicar/ocultar do Catálogo.
+
+#### Comparação e conclusão
+
+- [x] O ERP deriva `canConfigureProductTaxes` no modal com `getProfileRoles(profile).some(role => role !== 'seller' && role !== 'stockist')`. `getProfileRoles` delega a `shared-utils/productPermissions.getProductProfileRoles`, que aceita os papéis tipados da sessão: `administrator`, `manager`, `stockist`, `seller`, `deliverer`, `accountant` ou `pending`.
+- [x] O app deriva o mesmo predicado em `useProductFormPermissions.ts`, a partir do mesmo helper de papéis, normalizando aliases/valores antes de avaliar. Para todos os valores suportados por `Profile/UserRole`, os resultados coincidem: perfis exclusivamente `seller`/`stockist` não editam os impostos; demais papéis válidos podem fazê-lo. Papel ausente ou somente `pending` resulta em bloqueio nos dois.
+- [x] No ERP, o grupo “Configurações de Imposto por Produto” fica visível, esmaecido e dentro de `<fieldset disabled>`. No app, fica visualmente desabilitado com `pointerEvents="none"`; antes, `accessibilityElementsHidden`/`no-hide-descendants` removiam seus valores do leitor de tela embora o texto dissesse que eram consultáveis. Corrigi o estado: o grupo continua sem interação, mas botões e campo numérico recebem `disabled`/`editable=false` e `accessibilityState.disabled`, ficando legíveis como controles desabilitados. Para perfil estoquista isolado, o grupo todo é ocultado nos dois; a área de NCM fica fora da guarda tributária em ambos.
+- [x] A divergência de normalização só aparece para valores/aliases que não pertencem ao tipo `Profile/UserRole`; o app falha fechado e o ERP poderia tratá-los como autorizados pelo predicado simples. Mantive o comportamento mobile mais restritivo, sem ampliar acesso a partir de dados fora do contrato.
+- [x] `productConfig` não é a fonte desse gate: ela controla a edição do cadastro e a mudança de status do Catálogo. A confirmação do usuário de que a ação do Catálogo fica bloqueada sem permissão continua atendida separadamente; os bloqueios de rascunho e de requisitos do Catálogo continuam sendo condições de elegibilidade, não autorização.
+- [x] Nenhuma diferença de regra/papéis válidos exigiu mudança de backend, payload ou identificador de permissão tributária. A única correção é a exposição acessível de estado bloqueado, sem habilitar alteração.
+
+#### Evidências, validação e limites
+
+- [x] Revisão estática em `erp/src/pages/App/Products/modals/ProductFormModal.tsx`, `erp/src/pages/utils/accessRoles.ts`, `erp/src/pages/App/Products/components/tabs/fiscal/ProductFiscalTab.tsx`, `mobile/src/features/products/hooks/useProductFormPermissions.ts`, `mobile/src/features/products/screens/ProductFormScreen.tsx`, `mobile/src/features/products/modals/tabs/ProductFormFiscalTab.tsx`, `shared-utils/productPermissions.ts` e tipos `Profile/UserRole`. Os paths não contêm `AGENTS.md` aninhado.
+- [x] A regra da skill foi consultada na cópia de cache de backup acima apenas como orientação (comparar ERP/shared/mobile; trabalhar um estado por vez; separar UI de regra; registrar limitações nativas). Nenhuma nova regra de negócio foi duplicada nem alterada.
+- [x] Regras consultadas: `AGENTS.md` (RHF/Zod, runners permitidos, não usar banco local e Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, `docs/fiscal/README.md`, `docs/fiscal/invariantes-arquiteturais.md`, estrutura produto/variação, mover/merge, arquitetura mobile offline-first, este inventário e roadmap.
+- [x] Vitest mobile `ProductFormFiscalTab.permission.test.tsx`: **2/2**, verificando controles e texto acessíveis porém desabilitados sem permissão e habilitados com permissão. `git diff --check` passou.
+- [x] Regras consultadas: `AGENTS.md` (formulários RHF/Zod, runners permitidos, sem banco local e Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, `docs/fiscal/README.md`, `docs/fiscal/invariantes-arquiteturais.md`, estrutura produto/variação, mover/merge, arquitetura mobile offline-first, este inventário e roadmap. A skill de replicação foi lida na única cópia localizada em cache de backup `erp/.vercel/builders-backup-72ebb3b0/node_modules/morante-hub-root/.agents/skills/erp-web-to-mobile-replication/SKILL.md`; ela não é fonte canônica confirmada e foi usada apenas como orientação. Não há `AGENTS.md` aninhado nos diretórios alterados.
+- [ ] Sem Playwright autenticado ou dispositivo físico Android/Maestro; a renderização Vitest com mocks verifica os props de acessibilidade, mas não prova anúncio de leitor de tela em runtime nativo. Sem consulta/escrita remota, chamada Meta/SEFAZ, migration ou deploy.
+
+**Conclusão do recorte:** o gate tributário está equivalente para os papéis válidos e permanece separado de `productConfig`; as informações fiscais bloqueadas agora continuam disponíveis para consulta assistiva e são identificadas como desabilitadas. O app mantém bloqueio fail-closed para papel fora do contrato. A resposta recente do operador sobre o Catálogo reafirma o comportamento já verificado nos Ciclos 303–306, sem nova mudança necessária. O Ciclo 357 segue abaixo com o estado Produto/Serviço. A auditoria geral permanece aberta.
+
+### Ciclo 357 — campos fiscais por tipo de item — 25/10/2026
+
+**Recorte:** somente os títulos e campos da aba Tributário/NF conforme `itemType` Produto normal ou Serviço; comparação das condições fora e dentro do grupo de impostos.
+
+#### Comparação e correção
+
+- [x] No ERP, a seção usa o título “Informações Fiscais para NF-e”. Para Produto, mostra o seletor NCM e, quando aplicável, CEST; dentro das configurações tributárias mostra origem da mercadoria, CSOSN ICMS, não exibe o CFOP municipal reservado a Serviço, mostra alíquota ICMS, PIS e COFINS. Para Serviço, troca NCM por Código Municipal/Serviço, não mostra CEST nem origem, e dentro do grupo tributário mostra CSOSN ISSQN, CFOP Municipal, alíquota ISS, PIS e COFINS.
+- [x] O mobile já aplicava as mesmas condições de campos: NCM/CEST/origem/ICMS somente no ramo Produto; Código Municipal/Serviço, CFOP Municipal e ISS no ramo Serviço; o grupo tributário e o CEST respeitam também o perfil estoquista conforme o ERP. O campo de Serviço tinha, porém, o título fixo “Classificação Fiscal (NCM)”, que não descrevia o conteúdo.
+- [x] O título mobile agora varia pelo `itemType`: Produto mantém “Classificação Fiscal (NCM)”; Serviço usa “Informações Fiscais para NF-e”, como o cabeçalho genérico do ERP. Nenhuma validação, valor fiscal, persistência, chamada, payload ou permissão foi alterada.
+
+#### Evidências, validação e limites
+
+- [x] Comparação estática: `erp/src/pages/App/Products/components/tabs/fiscal/ProductFiscalTab.tsx:90-204,231-359` e `mobile/src/features/products/modals/tabs/ProductFormFiscalTab.tsx:231-456,457-607`; exceção por item type e estoquista segue equivalente após a correção do título.
+- [x] Vitest mobile `ProductFormFiscalTab.permission.test.tsx`: **4/4** (campos mostrados/omitidos para Produto e Serviço, além dos estados permitido/bloqueado); teste ERP `ProductFiscalTab.test.tsx`: **3/3**; `git diff --check` passou, com avisos CRLF/LF somente.
+- [x] Regras consultadas: `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, `docs/fiscal/README.md`, invariantes e históricos fiscais vigentes, estrutura de Produto/Variação, operações de mover/merge, arquitetura mobile offline-first, inventário e roadmap. Não há `AGENTS.md` aninhado nos diretórios alterados.
+- [x] Skill `erp-web-to-mobile-replication` lida na cópia encontrada sob `erp/.vercel/builders-backup-72ebb3b0/node_modules/morante-hub-root/.agents/skills/`; é cache de backup, não fonte canônica. Nenhuma versão canônica foi encontrada nos diretórios `.agents/skills`/`skills` do projeto; o processo acessível foi usado somente como orientação.
+- [ ] Sem sessão autenticada Playwright para comparação visual e sem telefone físico Android/Maestro; a renderização dos testes Vitest não prova comportamento nativo. Expo Web não foi usado como substituto. Nenhuma consulta/escrita remota, chamada Meta/SEFAZ, migration ou deploy.
+
+**Conclusão do recorte:** as condições dos campos fiscais por `itemType` já eram equivalentes; corrigi apenas o cabeçalho mobile de Serviço, que o chamava incorretamente de NCM. Próximo: avançar para outro estado documentado do formulário de Produto, mantendo validação visual autenticada e nativa como pendente. A auditoria geral permanece aberta.
+
+### Ciclo 358 — cabeçalho da precificação do produto pai — 25/10/2026
+
+**Recorte:** título do cartão de preços de venda/descontos na aba Estoque e Precificação do formulário de Produto.
+
+#### Comparação e correção
+
+- [x] ERP (`ProductPricingFields`) identifica a seção como “Precificação e Descontos” e acrescenta “(Produto Pai)” quando o produto tem variações.
+- [x] O app usava “Preços de Venda & Desconto” e não identificava explicitamente que, em uma família, os preços exibidos nesse painel pertencem ao produto pai. Não há particularidade mobile documentada para essa diferença de rótulo.
+- [x] Alinhei o título e o sufixo condicional no cartão mobile. A mudança não altera entradas, cálculos, descontos, herança, fornecedores, custos, schema RHF/Zod, validação ou payload.
+- [x] Os handlers de preço e desconto continuam usando `shared-utils/productDiscountFields`; a mudança ficou restrita à apresentação do estado simples versus família.
+
+#### Validação e limites
+
+- [x] Vitest/RTL focado `ProductFormPricesTab.header.test.tsx`: **2/2** — título do produto simples e identificação do pai quando há variações.
+- [ ] Sem Playwright autenticado para comparação visual, sem aparelho Android/Maestro e sem prova de leitores de tela/runtime nativo. Expo Web não foi usado como substituto. Sem acesso ou gravações remotas, alteração de dados, Meta, SEFAZ, migration ou deploy.
+- [x] Regras consultadas: `AGENTS.md` (formulários RHF/Zod, validações permitidas e limite Conciliação ERP-only), `docs/geral/USER_RULES.md`, estrutura de Produto/Variação, mover/merge, arquitetura mobile offline-first, inventário de formulários, regra `product-reconciliation-erp-only.yml`, inventário e roadmap. Não há `AGENTS.md` aninhado nos diretórios do recorte. A skill de replicação foi consultada na única cópia disponível no cache de backup `.vercel/builders-backup-72ebb3b0`; `.agents/skills` e `skills/` canônicos não existem no checkout, portanto a cópia foi usada somente como orientação.
+
+**Conclusão do recorte:** cabeçalho da seção de precificação no estado simples/família agora corresponde ao ERP. Nenhuma diferença funcional de preço foi alterada neste ciclo. A auditoria geral permanece aberta; próxima execução deve selecionar outro estado ainda não fechado do formulário de Produto e manter pendente a validação visual/nativa autenticada.
+
+### Ciclo 359 — descontos auxiliares no snapshot de rascunho — 25/10/2026
+
+**Recorte:** contrato de persistência dos campos `% Desconto` e `R$ Desconto` do produto pai durante autosave de rascunho.
+
+#### Comparação e correção
+
+- [x] O ERP mantém `discountPercent` e `discountFixed` no estado local de `useProductFormPricing`; o objeto proprietário do Produto recebe somente `unitPrice` e `promoPrice`.
+- [x] No app, os campos auxiliares ficam no `formData`. Como `createMobileProductFormSchema` usa `passthrough`, o autosave os levava ao helper `createProductDraftSnapshot` e, então, ao JSON `technical_specs.draftProduct`. Na reabertura, `ProductFormScreen` recalcula esses campos a partir de preço e promoção e sobrescreve os valores do snapshot. A diferença não alterava a tela reaberta, mas gravava estado auxiliar redundante que o ERP não persiste.
+- [x] `shared-utils/productDraftSnapshot.ts` agora remove apenas os campos auxiliares do produto pai antes de serializar; preço de venda e preço promocional continuam no snapshot. Não alterei campos de desconto dentro das variações, regras de validação, cálculos, confirmação do autosave, versão/ACK, payload transacional nem comportamento de retomada.
+
+#### Evidências, validação e limites
+
+- [x] Comparação estática: `erp/src/pages/App/Products/hooks/form/useProductFormPricing.ts`, `shared-utils/mobileProductFormSchema.ts`, `mobile/src/features/products/screens/ProductFormScreen.tsx`, `mobile/src/features/products/services/mobileProductMutationService.ts` e `shared-utils/productDraftSnapshot.ts`.
+- [x] Vitest mobile `mobileProductMutationService.test.ts`: **61/61**, incluindo ausência dos auxiliares no snapshot enviado pela RPC e preservação de `unitPrice`/`promoPrice`; teste ERP `productDraftSnapshot.test.ts`: **10/10**; `git diff --check` passou (avisos somente de normalização CRLF/LF).
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, documentação vigente de estrutura e operações Produto/Variação, regra `product-reconciliation-erp-only.yml`, inventário de formulários, inventário de paridade, roadmap e a skill acessível. Não há `AGENTS.md` aninhado nos caminhos do recorte.
+- [x] A skill `erp-web-to-mobile-replication` foi lida na cópia de cache em `erp/.vercel/builders-backup-72ebb3b0`; continua sem fonte canônica confirmada em `.agents/skills`/`skills` do projeto, portanto serviu somente como orientação.
+- [ ] Sem comparação visual autenticada com Playwright ou validação em telefone físico Android/Maestro. Expo Web não foi usado como prova nativa. Nenhum banco local/remoto, dado operacional, Graph API, SEFAZ, migration ou deploy foi acessado neste ciclo.
+
+**Conclusão do recorte:** os campos auxiliares do desconto do produto pai deixaram de ser serializados no snapshot de rascunho, igualando o contrato ao ERP sem afetar os valores persistidos de preço. A auditoria geral permanece aberta; validação visual autenticada/nativa e demais estados da aba continuam pendentes.
+
+### Ciclo 360 — seleção e remoção de fornecedores no produto pai — 25/10/2026
+
+**Recorte:** seleção de até três fornecedores, definição do fornecedor principal, aplicação dos padrões de IPI/frete e inclusão/remoção na aba Estoque e Precificação.
+
+#### Comparação e conclusão
+
+- [x] No ERP (`ProductSupplierField`), a seleção deduplica os IDs, limita o vínculo a três fornecedores, filtra pela origem de estoque do produto e usa busca local a partir de dois caracteres. O primeiro fornecedor selecionado é `mainSupplierId`/`supplierId`; ao remover o principal, o primeiro restante assume esses campos.
+- [x] O app (`ProductFormPricesTab`) mantém os mesmos limites e resultados usando `getProductSupplierStockOrigin`, `supplierProvidesStockOrigin`, `matchesProductSupplierSearch` e `resolveProductSupplierPricingDefaults`, compartilhados com o ERP. O mapeamento do DTO snake_case fornece os mesmos defaults; zeros e `freightType: 'none'` permanecem valores explícitos. A remoção também promove o primeiro ID restante sem recalcular ou apagar defaults, como no ERP.
+- [x] O ERP recalcula `finalPurchasePrice` ao aplicar os campos alterados via `calculateProductFinalPurchasePrice`; o app usa `resolveMobileProductFinalPurchasePrice`, adaptador que normaliza os formatos camelCase/snake_case e chama a mesma função compartilhada. Ambos mantêm a seleção no formulário proprietário e submetem o produto ao resolver RHF/Zod existente.
+- [x] A inclusão de um fornecedor recém-criado também segue a mesma operação de seleção: o ERP encaminha o registro retornado por `PersonFormModal` a `addSupplier`; o app persiste via `SupplierFormModal`, atualiza a lista local e chama o mesmo handler de seleção da aba. Não encontrei diferença comprovada em limite, fornecedor principal, origem ou defaults que justifique mudança de código.
+- [x] A UI web usa dropdown/portal e a mobile usa superfície touch; são adaptações de plataforma. O estado mobile separado de carregamento/erro/vazio e retry após falha/timeout continua documentado nos Ciclos 27 e 89. O serviço ERP atual entrega lista vazia no callback após falha de consulta, enquanto o app distingue falha de lista vazia; preservo a recuperação mobile já documentada.
+
+#### Evidências, validação e limites
+
+- [x] Inspeção estática: `erp/src/pages/App/Products/components/tabs/ProductSupplierField.tsx`, `ProductInventoryTab.tsx`, `personQueryService.ts`; `shared-utils/productSupplierStockOrigin.ts`, `productSupplierDisplayName.ts`, `productSupplierPricingDefaults.ts`, `productPurchasePricing.ts`; `mobile/src/features/products/modals/tabs/ProductFormPricesTab.tsx`, `domain/productPurchasePrice.ts` e `services/mobileSupplierService.ts`.
+- [x] Consultei `AGENTS.md` (formulários e runners permitidos), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, a documentação de estrutura e operações Produto/Variação, o inventário de formulários e o roadmap. `rg --files -g AGENTS.md` encontrou apenas a regra raiz e a regra de `digital-catalog`; não há `AGENTS.md` aninhado nos diretórios deste recorte.
+- [x] A skill `erp-web-to-mobile-replication` foi lida na única cópia localizada em cache de backup `erp/.vercel/builders-backup-72ebb3b0`; não foi confirmada como fonte canônica e foi usada somente como orientação.
+- [ ] Sem alteração de código, não executei testes neste ciclo. Também não houve Playwright autenticado, comparação visual do app ou validação em aparelho Android/Maestro. Expo Web não comprova o runtime nativo; nenhum banco, serviço externo ou dado operacional foi acessado.
+
+**Conclusão do recorte:** os contratos de adicionar/remover fornecedor, limitar a três, escolher o principal e aplicar padrões de IPI/frete permanecem equivalentes ERP/mobile pela lógica compartilhada. Nenhuma correção de produção foi necessária. Permanecem pendentes as provas visuais/nativas e os demais estados de Estoque e Precificação; a auditoria geral continua aberta.
+
+### Ciclo 361 — deduplicação dos fornecedores vinculados no formulário — 25/10/2026
+
+**Recorte:** interpretação da lista de fornecedores já vinculados ao produto na aba Estoque e Precificação; limite de três, chips, busca de fornecedores ainda não selecionados e remoção.
+
+#### Comparação e correção
+
+- [x] O ERP resolvia `supplierIds` com ordem estável, remoção de valores vazios e deduplicação por ID antes de renderizar os chips, filtrar opções, calcular o limite de três e processar adição/remoção.
+- [x] O mapeamento mobile preserva `supplier_ids` recebido do produto, mas `ProductFormPricesTab` usava a lista sem deduplicar. A busca de metadados já usa `Set`, porém não é a fonte dos chips nem do limite desta aba. Assim, um registro legado com IDs repetidos podia ocupar vagas e exibir chips repetidos no app, divergindo do ERP.
+- [x] Extraí a normalização existente do ERP para `shared-utils/productSupplierIds.ts` e passei ERP e mobile a reutilizar `normalizeProductSupplierIds`. A ordem e o fallback para `mainSupplierId`/`supplierId` foram preservados. Uma inclusão ou remoção continua gravando a lista efetivamente selecionada; não normalizei o payload de produtos intocados nem alterei o banco.
+- [x] A alteração é restrita à seleção de fornecedores no formulário; defaults, cálculo, requisitos de fornecedor, schema/submissão RHF/Zod, autosave e payloads de outros campos não mudaram.
+
+#### Evidências, validação e limites
+
+- [x] Revisão estática: `erp/src/pages/App/Products/components/tabs/ProductSupplierField.tsx` já deduplicava por `Set`; `mobile/src/features/products/services/mobileProductFetchService.ts` hidrata o array sem normalização; `mobile/src/features/products/modals/tabs/ProductFormPricesTab.tsx` usava a lista direta nos chips/limite. O helper comum agora fornece o mesmo resultado aos dois clientes.
+- [x] Vitest mobile focado `productSupplierIds.test.ts`: **3/3**, cobrindo deduplicação estável, remoção de valores vazios, fallback principal/legado e preservação do contrato em que uma lista presente tem precedência. `git diff --check` passou, com avisos apenas de normalização CRLF/LF em arquivos existentes.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de Produto/Variação e operações mover/merge, inventário de formulários, este inventário e roadmap. A busca por `erp-web-to-mobile-replication` em `.agents/skills`, `skills`, `C:\Users\mathe\.agents\skills` e `C:\Users\mathe\.codex\skills` não encontrou fonte atual; a cópia de cache de backup `erp/.vercel/builders-backup-72ebb3b0` foi lida apenas como orientação. Não há `AGENTS.md` aninhado nos diretórios deste recorte.
+- [ ] Sem Playwright autenticado, validação visual mobile ou aparelho Android/Maestro. Expo Web não comprova runtime nativo. Nenhuma leitura/escrita remota, migration, Meta, SEFAZ ou deploy foi feita.
+
+**Conclusão do recorte:** a lista vinculada de fornecedores, a busca e o limite de três agora tratam IDs repetidos da mesma forma em ERP e app, sem alterar os registros até uma interação explícita. Permanecem pendentes as provas visuais/nativas e os demais estados da aba; a auditoria geral continua aberta.
+
+### Ciclo 362 — origem comercial do produto — 25/10/2026
+
+**Recorte:** alternância entre “Adquirido de Terceiros” e “Fabricação Própria” na aba Estoque e Precificação, incluindo os efeitos sobre fornecedor, validação e CFOP.
+
+#### Comparação e conclusão
+
+- [x] ERP (`ProductInventoryTab`) e app (`ProductFormPricesTab`) derivam `isOwnProduction` com a mesma precedência: `merchandiseOrigin === 'own_production'`, `isOwnProduction === true` ou `fiscal.merchandiseOrigin === 'own_production'`.
+- [x] Ambos atualizam `merchandiseOrigin`, `isOwnProduction` e `fiscal.merchandiseOrigin`. Ao alternar para fabricação própria, somente o CFOP base `5102` muda para `5101`; ao voltar para terceiros, somente `5101` muda para `5102`. Outros CFOPs existentes são preservados.
+- [x] A seleção de fornecedores fica preservada no estado do formulário quando o painel é ocultado para fabricação própria; voltar para terceiros reexibe os mesmos fornecedores. O ERP limpa `validationErrors.mainSupplierId`; no app, `onSupplierValidationCleared` limpa o erro do fornecedor no formulário proprietário (`ProductFormScreen`). Rascunho/finalização continuam passando pelo resolver RHF/Zod do proprietário.
+- [x] O aviso adicional de fabricação própria no app e o controle touch com `accessibilityState.selected` são adaptações visuais/acessíveis da plataforma; não mudam regra ou payload. O seletor web do ERP usa um grupo de botões.
+- [x] Não foi encontrada diferença funcional comprovada neste estado; nenhuma alteração de produção foi necessária. A dúvida do usuário sobre o gate do Catálogo não se aplica a este controle de origem e permanece documentada nos Ciclos 303–306 (`productConfig` autoriza publicar/ocultar; rascunho e requisitos de publicação são condições independentes).
+
+#### Evidências, validação e limites
+
+- [x] Inspeção estática: `erp/src/pages/App/Products/components/tabs/ProductInventoryTab.tsx:98-143`, `ProductManufacturingTypeToggle.tsx:3-73`, `mobile/src/features/products/modals/tabs/ProductFormPricesTab.tsx:106-120,292-373` e `mobile/src/features/products/screens/ProductFormScreen.tsx:1375-1388`.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura de Produto/Variação, mover/merge, inventário de formulários, inventário de paridade, roadmap e skill acessível. Como a inspeção incluiu conversão de CFOP, consultei também `docs/fiscal/README.md`, invariantes e históricos fiscais vigentes, conforme a regra raiz. Não há `AGENTS.md` aninhado nos diretórios ERP/mobile/shared-utils deste recorte. A skill de replicação continua localizada somente em cache de backup `.vercel`; foi usada como orientação, sem tratá-la como fonte canônica.
+- [x] Sem alteração de código, não executei testes. Não houve Playwright autenticado, comparação visual em aparelho Android/Maestro, consulta ou escrita remota, chamada externa, migration ou deploy. Expo Web não foi usado como prova de comportamento nativo.
+
+**Conclusão do recorte:** a alternância de origem comercial e seus efeitos sobre fornecedor, erro de validação e CFOP correspondem entre ERP e app. Permanecem pendentes outros estados da aba e as validações visuais/nativas; a auditoria geral continua aberta.
+
+### Ciclo 363 — abas de cadastro para Serviço — 25/10/2026
+
+**Recorte:** visibilidade da aba Estoque e Precificação no formulário de Produto quando `itemType = 'service'`, incluindo troca de tipo com a aba de Estoque aberta.
+
+#### Comparação e conclusão
+
+- [x] O ERP exclui, para Serviço, as abas e superfícies de Estoque e Precificação, Variações, Características, Descrição e Galeria; mantém Informações Básicas e Tributário/NF. O cabeçalho usa `isService` derivado do estado canônico do formulário e `ProductFormTabContent` não renderiza esses conteúdos para Serviço.
+- [x] O app aplica as mesmas condições em `TABS`: Fotos, Características, Descrição e Estoque exigem item diferente de Serviço; Variações usa `shouldShowMobileProductVariationsTab`; Tributário/NF continua disponível para Serviço. Ao carregar `product`, `ProductFormScreen` normaliza o tipo persistido (`item_type`/`itemType`) para `formData.itemType`, campo canônico usado pelas condições das abas.
+- [x] Se a mudança do tipo deixar a aba atual invisível, o efeito de `ProductFormScreen` retorna o foco a Informações Básicas, evitando manter uma superfície de Estoque inacessível para o tipo Serviço. O fluxo não substitui nem ignora o resolver RHF/Zod do formulário proprietário.
+- [x] A navegação horizontal nativa e o cabeçalho web são adaptações de plataforma. Não encontrei diferença funcional comprovada nem motivo para alterar código.
+
+#### Evidências, validação e limites
+
+- [x] Inspeção estática: `erp/src/pages/App/Products/components/form/ProductFormHeader.tsx:37-65`, `ProductFormTabContent.tsx:114-200`, `erp/src/pages/App/Products/hooks/form/useProductFormModal.ts:103-108`; `mobile/src/features/products/screens/ProductFormScreen.tsx:113-151,327-342,417-431,1121-1154`.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura Produto/Variação, operações mover/merge, notas de arquitetura mobile, inventário de formulários, inventário de paridade, roadmap e a skill acessível. A busca não encontrou `AGENTS.md` aninhado em `erp/`, `mobile/` ou `shared-utils`; a cópia da skill em `.vercel/builders-backup-72ebb3b0` continua sendo apenas cache/orientação, sem fonte canônica localizada.
+- [x] Sem mudança de código, não executei testes. Não houve Playwright autenticado, teste Android/Maestro, acesso remoto, mutation, migration ou deploy. Expo Web não comprovaria comportamento nativo.
+
+**Conclusão do recorte:** Serviço não oferece a aba Estoque e Precificação em nenhum cliente. As condições das abas e o retorno à aba Geral ao alterar o tipo são equivalentes pelo estado canônico carregado; nenhuma correção de produção foi necessária. A auditoria geral permanece aberta.
+
+### Ciclo 364 — prontidão individual da variação no formulário principal — 25/10/2026
+
+**Recorte:** checklist ERP/Catálogo exibido junto à linha de cada variação no formulário mobile, incluindo a leitura do preço efetivo e a validação individual da linha.
+
+#### Comparação e conclusão
+
+- [x] No ERP, `VariationFormModal` projeta o pai e a variação com `getEffectiveProductForVariationReadiness` e chama os verificadores compartilhados `checkERPLegibility` e `checkEcomLegibility` para o cabeçalho.
+- [x] No app, `ProductFormVariationsTab` monta a mesma projeção compartilhada e `getMobileProductReadiness` chama `checkProductErpLegibility` e `checkEcomLegibility`, as mesmas regras de domínio. O preço exibido na linha é resolvido por `resolveProductVariationPricing`, compartilhado.
+- [x] A regra compartilhada do indicador trata o preço de um pai em modo família como prontidão da família (existência de variações), não como confirmação individual do preço de cada linha. Esse comportamento é igual nos dois clientes; a submissão revalida cada variação separadamente com `getVariationRegistrationIssue` no ERP e `getMobileVariationRegistrationIssue`/schema RHF-Zod no app. Assim, o alias interno `unitPrice` não foi alterado apenas no mobile nem convertido em uma nova regra de interface.
+- [x] Nenhuma diferença suportada ERP→mobile foi comprovada neste estado; sem alteração de produção ou de teste. Uma eventual mudança do significado do indicador deve partir de regra comum e alcançar ERP e app, fora desta correção de paridade.
+
+#### Evidências, validação e limites
+
+- [x] Inspeção estática: `erp/src/pages/App/Products/modals/VariationFormModal.tsx:139-144`, `erp/src/pages/App/Products/hooks/variation/variationFormSubmitRules.ts:45-107`, `mobile/src/features/products/modals/tabs/ProductFormVariationsTab.tsx:587-637`, `mobile/src/features/products/domain/productRegistrationRules.ts:40-95`, `shared-utils/productErpLegibility.ts` e `shared-utils/productVariationPricing.ts`.
+- [x] Regras e fontes consultadas: `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, `docs/negocio/produtos/estrutura-produto-variacao.md`, `docs/negocio/produtos/operacoes-troca-pai-merge.md`, `docs/decisoes/adr-004-offline-first-eventos-atomicos-mobile.md`, `docs/forms/inventario-mobile-catalogo-2026-10-15.md`, este inventário, roadmap e skill de replicação acessível. A busca encontrou apenas o `AGENTS.md` raiz para os diretórios ERP/mobile/shared-utils deste recorte. A skill continua ausente em `.agents/skills` e `skills/` canônicos; a cópia em `erp/.vercel/builders-backup-72ebb3b0` foi usada somente como orientação.
+- [ ] Sem mudança de código, não executei testes. Não houve Playwright autenticado, renderização visual do app ou teste em Android/Maestro; Expo Web não comprovaria runtime nativo. Sem consulta/escrita remota, Meta, SEFAZ, migration ou deploy.
+
+**Conclusão do recorte:** os verificadores e as projeções usados pelo indicador de variação correspondem entre ERP e app. A regra compartilhada do checklist da família não representa validação de preço por linha; a submissão fornece essa validação separada nos dois clientes. Não há correção de paridade neste recorte. A auditoria geral permanece aberta.
+
+### Ciclo 365 — leitura da disponibilidade calculada de composições na lista — 25/10/2026
+
+**Recorte:** saldo exibido para composição simples e família de composição nas páginas da lista e no carregamento de produto completo.
+
+#### Comparação e exceção de segurança
+
+- [x] ERP (`applyCompositionAvailability`) e app (`applyMobileCompositionAvailability`) consultam os saldos atuais dos produtos e variações componentes com limite de 10 segundos. Se a leitura falha, excede o limite ou não há componentes referenciados, ambos exibem disponibilidade zero; a projeção não é salva em `products.stock` nem em `product_variations.stock`.
+- [x] Os dois integram as linhas do pai como fallback para variações sem composição própria, calculam o mínimo de kits montáveis pelo helper compartilhado `calculateCompositionAvailability` e somam a disponibilidade das variações quando alguma delas tem composição própria. As chamadas ocorrem depois da leitura/paginação; o app aplica o cálculo tanto ao resumo quanto ao resultado completo.
+- [x] Encontrei uma divergência restrita a dados inválidos: o ERP agrega primeiro quantidades de linhas repetidas para o mesmo produto/variação e só depois verifica se o total é positivo; o app rejeita cada quantidade não finita ou menor/igual a zero antes de agregar. Assim, linhas duplicadas inválidas de `-1` e `2` para o mesmo componente poderiam mostrar disponibilidade positiva no ERP e zero no app.
+- [x] Os schemas de operação não aceitam quantidades negativas; ao concluir, as validações compartilhadas exigem quantidade mínima 1. A divergência só alcança registros legados/corrompidos, fora do fluxo suportado de gravação. Mantive o app em modo fail-closed: copiar o cálculo permissivo nesse caso poderia anunciar kits vendáveis sem saldo válido. Registrei a diferença como exceção de segurança e possível correção interna do ERP, não como funcionalidade ausente no app.
+- [x] A consulta Supabase é específica de cada serviço, enquanto a regra matemática principal já é compartilhada. Não há necessidade de duplicar ou mover a integração ao mobile.
+
+#### Evidências, validação e limites
+
+- [x] Revisão estática de `erp/src/pages/utils/productService/productQueryService.ts:21-112,148-152,249-292`, `mobile/src/features/products/services/mobileProductFetchService.ts:115-219,451-456,736-741`, `shared-utils/compositionMath.ts`, `shared-utils/productVariationValidation.ts`, `shared-utils/mobileProductFormSchema.ts` e `mobile/src/features/products/services/mobileProductFetchService.test.ts:1515-1553`.
+- [x] O teste mobile existente confirma disponibilidade zero para quantidade inválida igual a zero; a leitura estática confirma a defesa mobile para qualquer linha inválida. Nenhum código mudou neste ciclo, portanto não executei runner.
+- [x] Regras consultadas: `AGENTS.md` (RHF/Zod, runners permitidos, preservação de saldo físico e limite Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de Produto/Variação e de mover/merge, notas offline-first, inventário e roadmap. Não há `AGENTS.md` aninhado nos diretórios deste recorte. A skill de replicação continua acessível apenas no cache de backup `.vercel`, sem fonte canônica confirmada; foi usada apenas como orientação.
+- [ ] Sem Playwright autenticado, Android físico/Maestro ou prova com banco remoto; não houve gravação, Meta, SEFAZ, migration ou deploy. Revisão estática e teste existente não demonstram o saldo de registros operacionais remotos.
+
+**Conclusão do recorte:** para dados válidos, a disponibilidade calculada e seus estados de falha são equivalentes. Em dados malformados, o app falha fechado e evita possível inflação de disponibilidade; preservei essa adaptação e registrei a permissividade residual do ERP para eventual correção comum. Não há alteração de produto/app neste ciclo. A auditoria geral permanece aberta.
+
+### Ciclo 366 — preço e saldo nas linhas expandidas de variação — 25/10/2026
+
+**Recorte:** valores de preço regular, promoção e estoque mostrados por variação ao expandir uma família na lista de Produtos.
+
+#### Comparação e conclusão
+
+- [x] ERP transforma as variações por `flattenProductsForList` e chama `resolveProductVariationPricing` para resolver preço regular e promoção independentemente conforme cada flag de herança; `ProductCardVariationItem` só trata como promoção um valor positivo inferior ao preço efetivo.
+- [x] O app mapeia `use_parent_price`/`use_parent_promo_price` para flags camelCase e materializa os valores efetivos do pai ou da variação em `mobileProductFetchService`; `MobileProductVariationCard` apresenta esses valores e aplica a mesma condição para o preço promocional. A linha não depende de preço calculado localmente no componente visual.
+- [x] A apresentação de estoque por linha também coincide: ambos usam `variation.stock` com fallback visual zero. Para composições, o dado chega da projeção de disponibilidade da lista auditada no Ciclo 365. A família mantém preço/estoque no nível dos filhos; os cards pais de múltiplas variações omitem esse rodapé nos dois clientes.
+- [x] O ERP mantém testes de preço próprio zero com promoção herdada e preço regular herdado com promoção própria em `ProductCardVariationItem.test.tsx`; os testes mobile do fetch confirmam os valores efetivos e flags de herança em `mobileProductFetchService.test.ts`. A inspeção não mostrou um ramo suportado no qual a projeção diverge.
+- [x] Nenhuma mudança de código foi necessária. Permissões de Catálogo, variação mesclada, menu e ações da linha não foram reabertas neste recorte; permanecem documentadas em ciclos próprios.
+
+#### Evidências e limites
+
+- [x] Comparação estática: `erp/src/pages/App/Products/ProductList/utils/catalog/productListTransformers.ts:50-80,95-138`, `erp/src/pages/App/Products/ProductList/components/Variations/ProductCardVariationItem.tsx:78-98,177-187`, `mobile/src/features/products/services/mobileProductFetchService.ts:510-552,600-620` e `mobile/src/features/products/components/MobileProductVariationCard.tsx:84-89,152-170`.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura Produto/Variação, operações mover/merge, notas offline-first, inventário de formulários, este inventário, roadmap e skill acessível. Não há `AGENTS.md` aninhado aplicável em ERP/mobile/shared-utils; a skill de replicação segue disponível somente no cache `.vercel` sem origem canônica confirmada e foi usada apenas como orientação.
+- [ ] Sem alteração de código, não executei testes. Os testes existentes foram inspecionados, não reexecutados. Sem Playwright autenticado ou Android físico/Maestro; Expo Web não comprovaria comportamento nativo. Nenhuma consulta/gravação remota, migration, Meta, SEFAZ ou deploy.
+
+**Conclusão do recorte:** preços efetivos e estoque exibidos em cada linha expandida seguem a mesma projeção de pai/variação e a mesma condição de promoção em dados válidos. Nenhuma diferença ERP→app requer correção neste estado. A auditoria geral permanece aberta.
+
+### Ciclo 367 — consulta somente leitura de produto e variação — 25/10/2026
+
+**Recorte:** conteúdo apresentado ao selecionar “Ver detalhes” para um produto ou uma variação, sem abrir o formulário de edição.
+
+#### Comparação e conclusão
+
+- [x] Os dois modais apresentam título, primeira imagem, preço promocional quando válido, saldo, estado Ativo/Inativo, descrição, Código, Categoria, Marca, Linha/Modelo, Cor, Material, dimensões e peso. O app aceita aliases legados adicionais (`color`, formatos snake_case e imagem em string) para dados já normalizados; isso amplia a tolerância de leitura sem alterar o contrato ERP.
+- [x] Ambos exibem características do registro e, quando houver, nome, SKU, preço e estoque das variações. Para a variação, ERP e app normalizam o nome com `normalizeProductVariationName`; a precedência de preço do modal continua igual (preço promocional efetivo, preço da variação, fallback para o pai), e o saldo vem da mesma projeção de lista.
+- [x] O objeto de leitura não executa mutações. ERP abre `ProductDetailsModal` quando recebe `viewingProduct`; o app passa `detailsProduct` ao `MobileProductDetailsModal` e só o exibe enquanto `canViewDetails` está autorizado. A ação do app é encaminhada pelas linhas/cartões correspondentes; não abre Conciliação nem formulário de edição.
+- [x] Modal central com clique externo/Escape no ERP e folha inferior com safe-area/botão de voltar no mobile são adaptações de plataforma. Não alteram os campos ou os dados consultados. Não encontrei diferença suportada que justifique mudança de código.
+
+#### Evidências e limites
+
+- [x] Comparação estática: `erp/src/pages/App/Products/modals/ProductDetailsModal.tsx:14-188`, `erp/src/pages/App/Products/modals/ProductsModalsContainer.tsx:28-55,100-108`, `mobile/src/features/products/modals/MobileProductDetailsModal.tsx:15-210`, `mobile/src/features/products/screens/NativeProductsScreen.tsx:88-92,650-653,724-729`, `mobile/src/features/products/services/mobileProductFetchService.ts:510-552,600-628` e `shared-utils/productVariationNameValidation.ts:19-28`.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura Produto/Variação, operações mover/merge, arquitetura offline-first, inventário de formulários, inventário de paridade, roadmap e skill de replicação acessível. A skill continua disponível apenas no cache `.vercel` (backup de build) sem origem canônica confirmada; usei-a como orientação. Não há `AGENTS.md` aninhado aplicável aos diretórios ERP/mobile/shared-utils deste recorte.
+- [ ] Não encontrei teste dedicado para os dois modais. Sem alteração de código, não executei teste. Não houve Playwright autenticado, teste Android físico/Maestro nem acesso remoto; Expo Web não comprovaria a adaptação nativa. Nenhuma consulta/escrita em banco, chamada Meta/SEFAZ, migration ou deploy.
+
+**Conclusão do recorte:** a visualização somente leitura cobre os mesmos dados de Produto e Variação. Ações e fechamentos diferem conforme a plataforma e a autorização, mas não a informação principal; nenhuma correção de paridade foi necessária. A auditoria geral permanece aberta.
+
+### Ciclo 368 — consulta de Serviço no modal de detalhes — 25/10/2026
+
+**Recorte:** visualizar detalhes de um Serviço pela lista, incluindo campos de preço/estoque, características e a disponibilidade do modal para perfis somente de leitura.
+
+#### Comparação e conclusão
+
+- [x] `ProductDetailsModal` e `MobileProductDetailsModal` não criam um formato alternativo para `itemType = service`: ambos mostram o preço efetivo (com promoção válida), o saldo informado ou zero, estado ativo, descrição e os mesmos detalhes gerais; características e linhas de variação aparecem somente se os dados vierem preenchidos.
+- [x] A regra de domínio exclui Serviço da invariante “todo Produto possui variação”; assim, um Serviço sem variações não ganha linhas fictícias no modal. Nenhum modal usa `item_type` para apresentar estoque, preço ou atributos com outra semântica. O rótulo “Estoque” é, portanto, igual nos dois clientes, ainda que o valor de um Serviço possa ser zero/ausente.
+- [x] No ERP, `openEditProduct(p, readOnly)` direciona registros em modo somente leitura para `viewingProduct`, e o container renderiza o modal. No app, o acesso ao modal exige `canViewDetails`, que é ocultado para perfil exclusivo de etiquetas e depende de leitura do catálogo ou das composições; o modal é desmontado quando a permissão não está presente. Não há mutação nesse fluxo.
+- [x] A folha inferior e a área segura do React Native seguem como adaptação de plataforma, enquanto o ERP usa modal central. Nenhuma diferença funcional de Serviço foi comprovada nesse recorte; sem mudança de código.
+
+#### Evidências, validação e limites
+
+- [x] Inspeção estática de `erp/src/pages/App/Products/modals/ProductDetailsModal.tsx:14-188`, `erp/src/pages/App/Products/hooks/useProductsModals.ts:32-53`, `erp/src/pages/App/Products/modals/ProductsModalsContainer.tsx:100-108`, `mobile/src/features/products/modals/MobileProductDetailsModal.tsx:34-210`, `mobile/src/features/products/screens/NativeProductsScreen.tsx:89-92,724-729`, `mobile/src/features/products/components/MobileProductCard.tsx:279-291` e `docs/negocio/produtos/estrutura-produto-variacao.md`.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, a documentação vigente de estrutura Produto/Variação e mover/merge, este inventário, roadmap e a skill `erp-web-to-mobile-replication` acessível. Não há `AGENTS.md` aninhado em `erp/`, `mobile/`, `shared-utils/`, `docs/` ou `rules/`; a skill segue localizada somente na cópia de cache de build `.vercel`, sem origem canônica confirmada, e foi usada apenas como orientação.
+- [ ] Sem alteração de código, não executei testes. Não houve Playwright autenticado ou Android físico/Maestro; Expo Web não comprovaria o comportamento nativo. Nenhuma leitura/escrita remota, chamada Meta/SEFAZ, migration ou deploy.
+
+**Conclusão do recorte:** a consulta de Serviço usa os mesmos campos e as mesmas condições de conteúdo em ERP e app; o app preserva a autorização da ação e a adaptação nativa não muda a regra. Nenhuma correção ERP→app necessária neste estado. A auditoria geral permanece aberta.
+
+### Ciclo 369 — finalização de Produto simples sem preço de venda — 25/10/2026
+
+**Recorte:** conclusão de Produto simples (uma variação única herdando o preço do pai) quando o preço de venda está ausente ou zerado; estado de bloqueio, retorno à precificação e mensagem.
+
+#### Comparação e conclusão
+
+- [x] A regra do domínio define Produto simples como pai com exatamente uma variação operacional, cuja precificação é herdada do pai. O ERP valida o preço efetivo dessa variação via `getVariationRegistrationIssue`/`checkProductErpLegibility` e converte o erro para `unitPrice`, selecionando a aba Estoque e Precificação. O formulário RHF/Zod bloqueia a submissão antes de chamar o serviço.
+- [x] No app, `createMobileProductFormSchema` valida que exista preço vendável no pai ou na variação única e emite erro no campo raiz `estoque`; a revalidação de registro da própria variação também rejeita preço efetivo não positivo. `presentValidationErrors` preserva o erro de preço, destaca o campo e abre a aba Estoque e Precificação antes de qualquer `onSave`.
+- [x] Para o caminho de preço ausente/zero, a mensagem apresentada pelo ERP e a mensagem resolvida para o alerta mobile são `Por favor, informe o Preço de Venda do produto na aba Estoque e Precificação.`. O título/estilo do toast web e do alerta nativo são adaptações de plataforma. Não encontrei diferença funcional comprovada nem mudança necessária.
+- [x] O estado de família multi-variação e preço próprio de filho não foi incluído; ele possui ciclo e roteamento próprios (Ciclo 24). Rascunho, fornecedor, fotos e demais pré-requisitos não foram alterados neste recorte.
+
+#### Evidências, validação e limites
+
+- [x] Inspeção estática: `shared-utils/productDomainValidation.ts:35-125`, `shared-utils/productErpLegibility.ts:70-118`, `shared-utils/productVariationRules.ts`, `erp/src/pages/App/Products/hooks/form/productFormValidation.ts:23-64,145-211`, `erp/src/pages/App/Products/hooks/form/useProductFormSubmit.ts:92-117`, `shared-utils/mobileProductFormSchema.ts:225-274`, `mobile/src/features/products/domain/productRegistrationRules.ts:150-207`, `mobile/src/features/products/domain/mobileProductFormErrorNavigation.ts:25-159` e `mobile/src/features/products/screens/ProductFormScreen.tsx:738-755,964-1070`.
+- [x] Vitest focado: mobile `mobileProductFormSchema.test.ts` + `mobileProductFormErrorNavigation.test.ts`: **60/60**; ERP `productFormValidation.test.ts` + `useProductFormSubmit.test.tsx`: **31/31**. O segundo grupo emite `stderr` de falhas de salvamento simuladas previstas pelos testes, que também passaram.
+- [x] Consultei `AGENTS.md` (RHF/Zod e runners permitidos), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura Produto/Variação, operações mover/merge, inventário de formulários, este inventário, roadmap e a skill de replicação disponível. Não há `AGENTS.md` aninhado nos diretórios ERP/mobile/shared-utils; a skill segue acessível somente na cópia de cache `.vercel`, sem origem canônica confirmada, usada apenas como orientação.
+- [ ] Sem alteração de código. Não houve Playwright autenticado, teste Android físico/Maestro ou prova remota; Expo Web não comprova runtime nativo. Nenhum dado remoto, Meta/SEFAZ, migration ou deploy foi acessado.
+
+**Conclusão do recorte:** ao concluir um Produto simples sem preço positivo, ERP e app impedem o salvamento, devolvem o operador à aba de precificação e orientam a informar o preço. A validação móvel permanece no resolver RHF/Zod do formulário proprietário; não foi adicionada submissão paralela. Nenhuma diferença ERP→app a corrigir neste estado. A auditoria geral permanece aberta.
+
+### Ciclo 370 — consulta inicial autenticada da lista de Produtos — 25/10/2026
+
+**Recorte:** estado inicial da lista padrão do ERP, sem aplicar busca, filtros ou ações; conferência estática do mesmo contrato inicial no app.
+
+#### Comparação e conclusão
+
+- [x] Playwright visível autenticou no ambiente de desenvolvimento e abriu `/products`; a lista terminou de carregar com **15 linhas** no DOM. A inspeção foi somente leitura, não abriu formulários nem acionou controles. Não houve request para `/api/nfe/inbound-manifestation` nesta sessão.
+- [x] No ERP, o estado inicial de `useProductsPageState` usa filtros vazios; `useProducts` envia página 1 com 15 itens, inclui desativados por padrão, exclui produtos de teste, mantém ordenação `created_at DESC` e deixa o status e a categoria sem filtro.
+- [x] No app, `DEFAULT_MOBILE_PRODUCT_LIST_FILTERS` inicia com status `all`, exibição de desativados, categoria vazia, Catálogo `all`, tipo geral `all` e teste oculto; `useMobileProducts` também começa na página 1 com 15 itens. A consulta mobile ordena `created_at DESC`; as opções de tamanho `[10, 15]` vêm do schema compartilhado. A inclusão de composições na lista padrão segue a permissão já auditada nos Ciclos 29–30.
+- [x] Para este estado inicial, não encontrei divergência de contrato ou paginação; nenhuma mudança de código foi necessária. A interpretação do usuário sobre `productConfig` permanece: o controle de publicar/ocultar fica desabilitado para quem não tem permissão; isso não bloqueia salvar produto ainda oculto. Rascunho e conformidade continuam sendo condições independentes de publicação (Ciclos 303–306/350).
+
+#### Evidências, validação e limites
+
+- [x] Playwright headed/in-memory: rota `/products`, título `ERP Móveis Morante`, 15 linhas, dois campos de entrada, sem request à rota de manifestação NF-e. A sessão permanece aberta para inspeção; valores de credenciais não foram mostrados, salvos ou incluídos em artefatos.
+- [x] Inspeção estática: `erp/src/pages/App/Products/hooks/useProductsPageState.ts:30-36`, `erp/src/pages/App/Products/ProductList/hooks/data/useProducts.ts:58-105`, `erp/src/pages/utils/productService/productQueryService.ts:159-190`, `mobile/src/features/products/domain/mobileProductListFilters.ts:5-12`, `mobile/src/features/products/hooks/useMobileProducts.ts:48-96,168-222`, `mobile/src/features/products/services/mobileProductFetchService.ts:223-346` e `shared-utils/listingFormSchemas.ts:6-9`.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura Produto/Variação, operações mover/merge, ADR offline-first, este inventário, roadmap e a skill acessível de replicação. Não há `AGENTS.md` aninhado aplicável. A skill permanece disponível somente no backup `.vercel`, sem origem canônica confirmada, e foi usada como orientação.
+- [ ] Sem mudança de código, não executei Vitest/RTL. Esta leitura autenticada do ERP não valida runtime nativo Android/iOS; Expo Web não foi usado como substituto. Não houve escrita de dados comerciais, chamada Meta/SEFAZ, migration ou deploy.
+
+**Conclusão do recorte:** o estado inicial autenticado da lista exibiu uma página de 15 linhas e corresponde aos defaults de consulta inspecionados no app. A validação abrange apenas a primeira página sem filtros; busca, filtros, outras páginas e runtime nativo continuam cobertos por ciclos próprios ou pendentes. A auditoria geral permanece aberta.
+
+### Ciclo 371 — ação de históricos na lista de Produtos — 25/10/2026
+
+**Recorte:** possibilidade de abrir os históricos de preço e de lotes a partir da lista de Produtos; comparação do modal ERP, do encadeamento de ações e do menu mobile.
+
+#### Comparação e conclusão
+
+- [x] O ERP mantém `PriceHistoryModal`, com abas de preços e lotes. A aba de preços consulta `product_price_history`; a de lotes consulta entradas de `inventory_moves`, calcula saldos residuais e permite editar quantidade/custo pelo serviço `updateInventoryMove`. O modal aplica RHF/Zod, timeout e bloqueio de repetição após resultado incerto.
+- [x] A abertura atualmente não chega a nenhum controle do ERP: `Index.tsx` passa `openShowHistory` para `ProductList`; a lista repassa `onShowHistory` às superfícies de tabela/cards/variações, porém os componentes terminais não o consomem. `ProductRowActionsCell` declara o prop mas não o encaminha a `ParentProductActions`; `ProductCardActions` e `VariationItemActions` também não o extraem nem invocam. A busca no módulo não encontrou chamada de `onShowHistory` nem outra montagem do modal além de `ProductsModalsContainer`.
+- [x] O app não oferece histórico de preço/lotes em `MobileProductActionsMenu`; ambos os clientes têm consulta de pedidos vinculados e etiqueta de preço. Como o modal ERP está sem entrada funcional na lista, a ausência móvel não comprova diferença de paridade e não justifica expor no app uma consulta que também carrega edição de custo e quantidade de lote. Nenhuma alteração foi feita.
+- [x] Este registro não inclui histórico de vendas/pedidos vinculados, edição de preços do produto, etiquetas ou movimentação de estoque iniciada pelas telas próprias de Estoque.
+
+#### Evidências, validação e limites
+
+- [x] Inspeção estática: `erp/src/pages/App/Products/modals/PriceHistoryModal.tsx:23-24,59-117`, `erp/src/pages/App/Products/priceHistory/priceHistoryService.ts:14-80`, `erp/src/pages/App/Products/hooks/useProductsModals.ts:114-117`, `erp/src/pages/App/Products/Index.tsx:145`, `erp/src/pages/App/Products/ProductList/index.tsx:191`, `erp/src/pages/App/Products/ProductList/components/Table/ProductRow.tsx:174`, `erp/src/pages/App/Products/ProductList/components/Table/ProductRowActionsCell.tsx:34-35,42-71`, `erp/src/pages/App/Products/ProductList/components/Card/ProductCardHeader.tsx:231`, `erp/src/pages/App/Products/ProductList/components/Card/ProductCardActions.tsx:26,39-52`, `erp/src/pages/App/Products/ProductList/components/Variations/ProductCardVariationItem.tsx:244` e `erp/src/pages/App/Products/ProductList/components/Variations/VariationItemActions.tsx:26,28-38`; app: `mobile/src/features/products/components/MobileProductActionsMenu.tsx:169-181`.
+- [x] Consultei as instruções de `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de estrutura e operações de produtos, arquitetura offline-first, inventário de formulários, roadmap, este inventário e a skill de replicação acessível. Não há `docs/AGENTS.md` ou `docs/produtos/AGENTS.md`. A skill segue ausente das pastas canônicas do workspace e disponível somente na cópia de backup `.vercel`; sua origem canônica não foi confirmada e ela foi usada apenas como orientação.
+- [ ] Sem alteração de código: não executei Vitest/RTL nem interagi com dados remotos. A lista ERP autenticada já estava aberta desde o Ciclo 370; este recorte foi concluído pela inspeção do grafo de props e serviços. Não foi feita comparação visual/nativa do modal, pois ele não tem ação alcançável no ERP. Nenhuma gravação comercial, chamada Meta/SEFAZ, migration ou deploy.
+
+**Conclusão do recorte:** existe implementação ERP de históricos, mas ela não está conectada a uma ação acessível na lista. A ausência correspondente no app não é diferença suportada pelo ERP ativo. Se o modal voltar a ser conectado no ERP, seu contrato de leitura e também a edição de lotes devem ser reavaliados antes de qualquer réplica mobile. A auditoria geral permanece aberta.
+
+### Ciclo 372 — atalho de movimentação de estoque na lista de Produtos — 25/10/2026
+
+**Recorte:** possibilidade de abrir o lançamento manual de entrada, saída ou ajuste diretamente a partir de um produto/variação na lista; verificação do alvo especial de Produto Composto e da superfície mobile.
+
+#### Comparação e conclusão
+
+- [x] O ERP tem `openLaunchStock`, que prepara o pai ou a variação e controla `StockLaunchModal`. O modal permite lançamento manual de entrada/saída/ajuste para item comum; para Produto Composto, substitui o formulário por orientação de que o saldo é calculado e a movimentação deve ocorrer nos componentes. O formulário usa `stockLaunchFormSchema`, `saveInventoryMove`, leitura das movimentações para saldo e bloqueio em resultado incerto.
+- [x] A lista tipa e encaminha `onLaunchStock`, mas nenhum controle terminal o executa. Na tabela, `ProductRowActionsCell` passa a prop para `ParentProductActions`, cujo tipo a declara, mas a implementação não a extrai nem renderiza ação. Nos cards, `ProductCardHeader` encaminha a prop para `ProductCardActions`, que também a declara sem a consumir. A lista de variações mantém o prop até `VariationItemActions`, que não o extrai nem invoca. `openLaunchStock` e o modal, portanto, não são alcançáveis pelas ações atuais de Produtos.
+- [x] O menu de ações do app não tem atalho de lançamento manual de estoque por produto/variação. Essa ausência não comprova diferença ERP→app porque a entrada correspondente do ERP está desconectada. Não acrescentei uma rota de escrita alternativa ao mobile; estoque físico continua pertencendo às movimentações e aos fluxos de Estoque. Para composições, a documentação vigente também proíbe gravar a disponibilidade calculada como saldo físico, e o modal órfão mostra componentes como único alvo operacional.
+- [x] Não alterei o guia prático de Estoque: nenhum passo ou ação operacional foi modificado; apenas registrei que o suposto atalho da lista não está ativo.
+
+#### Evidências, validação e limites
+
+- [x] Inspeção estática: `erp/src/pages/App/Products/hooks/useProductsModals.ts:119-126`, `erp/src/pages/App/Products/Index.tsx:146,205`, `erp/src/pages/App/Products/modals/ProductsModalsContainer.tsx:92-97`, `erp/src/pages/App/Stock/modals/StockLaunchModal.tsx:15-43,49-138`, `erp/src/pages/App/Products/ProductList/components/Table/ProductRowActionsCell.tsx:35,46-65,91-109`, `erp/src/pages/App/Products/ProductList/components/Table/ProductRowActions/ParentProductActions.tsx:33` e a implementação do componente, `erp/src/pages/App/Products/ProductList/components/Card/ProductCardHeader.tsx:232`, `erp/src/pages/App/Products/ProductList/components/Card/ProductCardActions.tsx:27` e seu destructuring, `erp/src/pages/App/Products/ProductList/components/Variations/VariationItemActions.tsx:27` e seu destructuring; no app: `mobile/src/features/products/components/MobileProductActionsMenu.tsx`, `mobile/src/features/products/screens/NativeProductsScreen.tsx:636-666`, além da arquitetura de estoque em `docs/mobile/arquitetura_offline_first.md` e da regra de saldo físico em `docs/negocio/produtos/estrutura-produto-variacao.md`.
+- [x] Consultei as regras vigentes de `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de Produto/Variação e mover/merge, nota offline-first, inventário de formulários, inventário de paridade, roadmap e skill de replicação acessível. A regra de RHF/Zod e a restrição de runners continuam respeitadas; não houve código alterado. A skill segue disponível somente na cópia de backup `.vercel`, sem origem canônica confirmada, e foi usada apenas como orientação.
+- [ ] Sem teste ou automação de UI: este recorte identifica um callback não consumido pelo código e não altera comportamento. A lista autenticada permaneceu aberta desde o Ciclo 370, sem interação neste ciclo; não usei Expo Web como prova nativa. Não houve escrita remota, atualização do guia, migration, Meta/SEFAZ ou deploy.
+
+**Conclusão do recorte:** o código ERP contém um modal de lançamento de estoque e seus handlers, mas nenhuma ação ativa na lista chega a ele. A ausência do atalho no app não é diferença suportada pelo ERP atual. Se o ERP voltar a conectar esse atalho, será necessário comparar a operação RHF/Zod, permissões, saldo e composição antes de considerar a réplica mobile. A auditoria geral permanece aberta.
+
+### Ciclo 373 — impressão de etiquetas na lista de Produtos — 26/10/2026
+
+**Recorte:** ações de etiquetas de identificação e de preço para Produto simples, pai com variações e linha de variação; gates de perfil e destino da ação móvel.
+
+#### Comparação e conclusão
+
+- [x] No ERP, linhas em modo somente leitura oferecem apenas **Detalhes** para perfis comuns; a ação de etiquetas fica no menu de perfis que podem editar Produtos. Etiqueta de identificação exige `printProductIdentificationLabels`, uma variação única e registro que não seja rascunho/mesclado. Linhas de variações oferecem identificação sob a mesma permissão e não oferecem etiqueta de preço individual. A etiqueta de preço do Produto pai fica no menu do pai.
+- [x] No app, `NativeProductsScreen` deriva as mesmas permissões de edição e impressão. O menu nativo da variação única recebe a ação de identificação apenas com `printProductIdentificationLabels`; a disponibilidade reutiliza `getProductIdentificationLabelActionAvailability` de `shared-utils/productPermissions.ts`. Variações filhas recebem somente a ação de identificação, bloqueada para mescladas. A ação de preço do pai requer edição, oculta lixeira/perfil exclusivo de identificação e recebe o UUID do pai, correspondendo ao gate do menu ERP; não liberei impressão de preço para perfil somente leitura.
+- [x] A identificação no ERP passa o produto preparado em `location.state` com pai/variação e quantidade 10 com preenchimento da folha. O app adapta a navegação para deep link com `productId`, `variationId`, `cat=identificacao`, `autoAddProduct=true` e `fillSheet=1`; `useLabelProducts` resolve pai e variação no mesmo destino de Etiquetas. O preço usa o mesmo destino `cat=precos` e pré-seleciona o UUID do pai. A variação não troca de alvo para o pai em uma ação por filho.
+- [x] A tela ERP de seleção de etiquetas usa `labelPrintSelectionFormSchema` via `useZodForm` e executa `validateAndRun`; o app abre essa mesma tela web, sem criar formulário ou regra de seleção de quantidade paralela. O atalho de preço no card nativo também dá acesso a uma capacidade já presente no menu ERP da tabela, embora não no card responsivo web; mantive-o como adaptação de entrada mobile para o fluxo existente.
+- [x] Não foi comprovada diferença de regra, permissionamento ou payload que justifique alteração de código. Não atualizei o guia de Estoque porque o fluxo de operação não mudou.
+
+#### Evidências, validação e limites
+
+- [x] Inspeção estática: ERP `ProductRowActionsCell.tsx:73-95`, `ParentProductActions.tsx:62-68,85-112,237-253,322-340`, `VariationItemActions.tsx:40-47,90-104`, `ProductRowModals.tsx:24-43`, `LabelPrintSelectionModal.tsx:53,118-140`, `useLabelPrintingState.ts:26-44,68-96` e `useLabelProducts.ts:30-90`; app `NativeProductsScreen.tsx:70-90,642-650`, `useMobileProductCardState.ts:35-52`, `MobileProductCard.tsx:155-175,529-558`, `MobileProductVariationCard.tsx:117-124,207-218`, `MobileProductActionsMenu.tsx`, `MobileProductVariationActionsMenu.tsx:86-101,188-199` e `productLabelLinks.ts:1-21`; lógica compartilhada `productPermissions.ts:197-235`.
+- [x] Consultei `AGENTS.md` (formulários RHF/Zod, runners UI, guia de Estoque e exceção Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação vigente Produto/Variação, operações mover/merge, arquitetura offline-first, inventário de formulários, inventário de paridade e roadmap. Não há `AGENTS.md` aninhado nas pastas ERP/mobile/shared-utils/docs/rules. A skill `erp-web-to-mobile-replication` foi consultada na cópia acessível em `erp/.vercel/builders-backup-72ebb3b0/node_modules/morante-hub-root/.agents/skills`; a versão canônica do projeto segue ausente e a proveniência do backup não foi confirmada.
+- [ ] Revisão estática apenas. Não executei testes, não imprimi etiqueta e não validei o deep link em Playwright autenticado nem no dispositivo Android/Maestro; Expo Web não comprova que `Linking.openURL` ou a impressão final funcionam no runtime nativo. Nenhuma consulta/escrita remota, Meta/SEFAZ, migration ou deploy.
+
+**Conclusão do recorte:** os gates e destinos de etiquetas correspondem para as ações equivalentes. O app usa deep link para reutilizar a tela web de impressão; a compatibilidade visual/autenticada e nativa permanece sem prova. Nenhuma diferença suportada exige correção neste estado; a auditoria geral continua aberta.
+
+### Ciclo 374 — dimensões na aba técnica do Produto e da Variação — 26/10/2026
+
+**Recorte:** edição de altura, largura, profundidade/comprimento e peso na aba técnica do formulário principal e no editor técnico da variação; projeção para propriedades numéricas e regras de herança.
+
+#### Diferença e correção
+
+- [x] No ERP, `applyTechnicalValueChangeToProduct` mapeia os nomes dimensionais base e `* total` para `height`, `width`, `depth` e `weight`, aceita somente números positivos nas propriedades físicas e sincroniza valores definidos com variações que herdam. No editor de uma variação, `VariationTechnicalTab.handleSetOverride` grava a característica em `technicalValues` e `attributes`; não injeta o rótulo textual `Não se aplica` nas colunas numéricas nem desativa as flags de herança.
+- [x] O app mapeava somente `Altura`, `Largura`, `Profundidade`/`Comprimento` e `Peso`, portanto `Altura total`, `Largura total`, `Profundidade total` e `Comprimento total` não atualizavam as propriedades numéricas como no ERP. O setter também copiava o valor textual de uma característica para a propriedade dimensional, inclusive `Não se aplica`, e fazia isso durante a edição de variação; o schema numérico do formulário rejeita esse valor e as propriedades são serializadas para o payload de gravação.
+- [x] `shared-utils/productTechnicalDimensions.ts` centraliza o mapeamento e a conversão já usados pela regra ERP. O ERP preserva o comportamento anterior por meio desse helper. No app, a aba técnica do Produto pai aplica a conversão numérica, reconhece os aliases `* total` e limpa a propriedade com `undefined`; o editor de variação mantém seu override em `technicalValues`/`attributes`, sem contaminar as dimensões herdadas nem as flags de sincronização. Isso preserva o contrato RHF/Zod do formulário proprietário; nenhuma submissão paralela foi introduzida.
+- [x] Não foi alterado o fluxo operacional do Estoque, de impressão ou de Conciliação. A exceção permanente ERP-only da Conciliação permanece preservada.
+
+#### Evidências, validação e limites
+
+- [x] Inspeção ERP: `erp/src/pages/App/Products/components/tabs/technical/sync/valueChange.ts`, `erp/src/pages/App/Products/components/tabs/technical/technicalTabUtils.ts:35-42`, `erp/src/pages/App/Products/components/variationTabs/VariationTechnicalTab.tsx:313-344,347-358`, `erp/src/pages/App/Products/hooks/variation/useVariationForm.ts:296-340` e `erp/src/pages/utils/productService/productPersistenceService.ts:315-326`.
+- [x] Inspeção mobile e contrato: `mobile/src/features/products/modals/tabs/ProductFormTechnicalTab.tsx:388-427,455-495`, `mobile/src/features/products/screens/ProductFormScreen.tsx:340-355,964-1000`, `mobile/src/features/products/modals/tabs/ProductFormVariationsTab.tsx:601-613`, `mobile/src/features/products/services/mobileProductMutationService.ts:652-658,793-803` e `shared-utils/mobileProductFormSchema.ts:20-42`.
+- [x] Regressão Vitest focada: **75/75 em três arquivos** (`productTechnicalDimensions.test.ts`, `technicalTabUtils.test.ts` e `mobileProductFormSchema.test.ts`), incluindo aliases base/total, conversão pt-BR, valores não positivos/inválidos, propagação ERP a variações herdadas e preservação do schema numérico mobile. A primeira seleção do helper usou um caminho fora do `include` e coletou zero testes; a rodada final foi refeita nos caminhos incluídos. Não houve consulta nem gravação de produto no banco.
+- [x] Consultei `AGENTS.md` (RHF/Zod e runners permitidos), `docs/geral/USER_RULES.md`, regra `rules/products/product-reconciliation-erp-only.yml`, docs vigentes de Produto/Variação e mover/merge, arquitetura offline-first, inventário de formulários, este inventário, roadmap e skill `erp-web-to-mobile-replication`. Não há `AGENTS.md` aninhado aplicável. A skill continua acessível somente na cópia de backup `.vercel`; sua proveniência canônica não foi confirmada e foi usada apenas como orientação.
+- [ ] Sem Playwright autenticado para abrir e interagir com os dois formulários, e sem validação Android/Maestro; a inspeção estática e o teste lógico não comprovam renderização, toque ou persistência nativa. Expo Web não foi tratado como prova de runtime Android/iOS. Nenhuma gravação remota, Meta/SEFAZ, migration ou deploy.
+
+**Conclusão do recorte:** os aliases dimensionais e o tratamento numérico no formulário principal agora seguem a regra ERP; características próprias da variação continuam em `technicalValues`/`attributes`, como no editor ERP, e não produzem strings inválidas nas colunas numéricas. A comparação autenticada visual/nativa permanece pendente. A auditoria geral continua aberta.
+
+### Ciclo 375 — estado vazio e carregamento da paginação de Produtos — 26/10/2026
+
+**Recorte:** presença do rodapé de paginação em resultado vazio, erro sem snapshot, carregamento bloqueante e atualização com linhas preservadas; limite e faixa da consulta por página.
+
+#### Comparação e conclusão
+
+- [x] O ERP substitui a lista por carregamento, erro sem linhas ou vazio sem resultados; nesses três estados o rodapé não é montado. Com linhas preservadas durante refresh, a tabela e o rodapé continuam visíveis. No app, `shouldShowMobileProductPagination` exige linhas e oculta o rodapé durante carregamento bloqueante; mantém-no no pull-to-refresh com o snapshot atual. Os estados correspondem.
+- [x] ERP e app usam `getFixedPageSlots` e `normalizePageNumber` de `shared-utils/fixedPagination.ts`; a consulta usa o mesmo intervalo inclusivo: `(page - 1) * pageSize` até `from + pageSize - 1`, ordenado por `created_at DESC` e com contagem exata. O tamanho permanece limitado a 10/15 por `listingFormSchemas.ts`. No app, `handleItemsPerPageChange` executa o resolver real do `productListFormSchema` antes de atualizar tamanho e voltar à página 1; no ERP, `ProductListPageSizeSelect` valida pelo `useZodForm` antes do handler equivalente.
+- [x] A observação anterior do Ciclo 316 — ausência de prop `loading` no componente móvel de slots — não cria um estado ativo divergente: nos estados com carregamento bloqueante, ERP e app substituem/ocultam a paginação; no refresh com cache/pull-to-refresh, ambos preservam linhas e controles. Não alterei o bloqueio de slots nem os controles de tamanho.
+- [x] Não encontrei diferença funcional suportada neste estado; nenhuma mudança de produção foi necessária. A Conciliação continua exclusiva do ERP conforme a exceção permanente.
+
+#### Evidências e limites
+
+- [x] Inspeção estática: ERP `erp/src/pages/App/Products/ProductList/index.tsx:117-157,244-273`, `erp/src/pages/App/Products/ProductList/components/Shared/ProductListPageSizeSelect.tsx:18-31`, `erp/src/pages/App/Products/ProductList/hooks/data/useProducts.ts:57-61,102-105,203-209`, `erp/src/pages/utils/productService/productQueryService.ts:159-190`; app `mobile/src/features/products/screens/NativeProductsScreen.tsx:596-631,670-683`, `mobile/src/features/products/domain/mobileProductListPresentation.ts:1-5`, `mobile/src/features/products/components/MobileProductPagination.tsx:29-83`, `mobile/src/features/products/hooks/useMobileProducts.ts:105-122,154-169,284-304,323-363,622-633`, `mobile/src/features/products/services/mobileProductFetchService.ts:221-234,346-358`; compartilhados `shared-utils/fixedPagination.ts` e `shared-utils/listingFormSchemas.ts:6-18`.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação vigente de estrutura Produto/Variação e mover/merge, inventários de paridade/formulários, roadmap e skill `erp-web-to-mobile-replication`. Não há `AGENTS.md` aninhado aplicável a ERP, mobile, shared-utils ou docs; a regra aninhada de Catálogo Digital não se aplica. A skill permanece acessível somente no backup `.vercel`, sem proveniência canônica confirmada, e foi usada apenas como orientação.
+- [x] Não executei testes nesta revisão sem alteração; os testes focados de request/paginação já documentados no Ciclo 316 cobrem helpers mobile e hook ERP. Nenhuma leitura/escrita remota, Meta/SEFAZ, migration, deploy ou ação operacional foi feita.
+- [ ] Playwright autenticado não exercitou visualmente o mobile nesta execução, e não houve validação Android/Maestro em aparelho físico. A inspeção estática não comprova toque nem layout nativo; Expo Web não foi tratado como prova nativa.
+
+**Conclusão do recorte:** resultado vazio, erro sem linhas e carregamento bloqueante escondem paginação nos dois clientes; refresh com snapshot preservado mantém a paginação visível. O range, a contagem, os tamanhos válidos e a validação antes da mudança estão alinhados. Nenhuma correção de código foi necessária. A auditoria geral permanece aberta.
+
+### Ciclo 376 — gate de criação de Produto Composto para Estoquista isolado — 26/10/2026
+
+**Recorte:** ação **Novo Produto Composto** no menu da lista padrão de Produtos, para perfil exclusivamente Estoquista.
+
+#### Comparação e classificação
+
+- [x] O ERP calcula `canManageProducts` por `canPerform('productConfig', roles)` e só mostra o menu de ações quando essa permissão está concedida. No modo padrão, o menu contém **Novo Produto Composto** e o callback abre o formulário com `itemType: 'composition'`. A regra ERP não acrescenta uma exceção pelo papel Estoquista.
+- [x] O app calcula `canEditProducts` pela mesma permissão compartilhada, mas deriva `canCreateComposition = canEditProducts && !isStockistOnly`; tanto a visibilidade do item do menu quanto o callback respeitam esse valor. Assim, no perfil exclusivamente Estoquista, o app bloqueia composição mesmo quando `productConfig` está concedida. A permissão padrão de `productConfig` inclui `stockist`; a migração de permissões remove o papel Estoquista de `viewProductCompositions`, sem removê-lo de `productConfig`.
+- [x] A divergência já está registrada como particularidade mobile no Ciclo 271 do roadmap: o perfil exclusivamente Estoquista não recebe a ação de criar composição, além do bloqueio geral para quem não tem `productConfig`. As instruções vigentes pedem preservar particularidades mobile documentadas. Mantive o gate existente e não alterei o formulário, a permissão ERP ou a matriz compartilhada. A exceção se restringe à criação de composição; a criação normal de produto continua sob `productConfig`.
+- [x] A Conciliação continua ERP-only pela regra permanente do usuário; não foi criada nem alterada superfície mobile para esse módulo.
+
+#### Evidências, validação e limites
+
+- [x] Inspeção ERP: `erp/src/pages/App/Products/Index.tsx:23,119-124`, `erp/src/pages/App/Products/components/ProductsTopToolbar.tsx:100-142`, `erp/src/pages/utils/permissionService.ts:44-65`, `erp/src/pages/utils/permissionConfig.ts:91-102` e `erp/src/pages/utils/settings/migrations.ts:45-80,241-255`.
+- [x] Inspeção app e regra compartilhada: `mobile/src/features/products/screens/NativeProductsScreen.tsx:71-80,513-564`, `mobile/src/features/products/components/header/ProductsHeaderMenuDropdown.tsx:95-114`, `shared-utils/productPermissions.ts:89-97,134-142,165-170` e `docs/geral/roadmap_pendente.md` (Ciclo 271). A skill `erp-web-to-mobile-replication` foi consultada somente na cópia do backup `.vercel`; a versão canônica não foi localizada.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação vigente de Produto/Variação e mover/merge, inventários pertinentes, este inventário e o item 5 do roadmap. Nenhum `AGENTS.md` aninhado aplicável foi encontrado nos diretórios ERP, mobile, shared-utils ou docs.
+- [x] Sem mudança de código, não executei Vitest/RTL nem TypeScript. Não houve consulta ou escrita remota, chamada Meta/SEFAZ, migration, deploy ou operação de Estoque.
+- [ ] A conferência permaneceu estática: a sessão Playwright disponível estava na tela de login e o perfil de teste disponível é fiscal, sem usar suas credenciais para contornar as permissões da tarefa. Não há telefone conectado por ADB Wi-Fi/Maestro nesta execução; não houve validação Android. Expo Web não comprovaria a interação nativa.
+
+**Conclusão do recorte:** o app tem um bloqueio adicional documentado para Estoquista isolado, embora o ERP exponha a criação quando `productConfig` permite. Mantive a particularidade mobile registrada no Ciclo 271, sem diferença não documentada a corrigir neste estado. A auditoria geral permanece aberta.
+
+### Ciclo 377 — custo derivado da NF-e no cadastro rápido mobile — 26/10/2026
+
+**Recorte:** custo unitário pré-preenchido para cadastrar um Produto simples pelo atalho de vínculo de item da NF-e, na aba mobile Estoque e Precificação.
+
+#### Comparação e classificação
+
+- [x] No ERP, o cadastro rápido recebe `item.finalCost` calculado por `itemCostWithAdditionalCosts` (ou usa `unitCost` quando não há `finalCost`). O custo considera o valor unitário da mercadoria, IPI, ICMS-ST, frete, seguro, outras despesas fiscais e custos adicionais não fiscais rateados pela quantidade. A seleção passa por `quickRegisterSelectionFormSchema`, que exige um custo finito e não negativo para Produto simples/Composição antes da criação.
+- [x] No app, `useInboundQuickRegistration` preenche `costPrice` com `landedUnitCost(item)`. A fórmula soma os mesmos componentes e rateia os extras pela quantidade; o valor chega ao campo condicional `showInboundCostPrice` no `ProductFormPricesTab`. O `ProductFormScreen` valida o cadastro pelo resolver RHF/Zod; na finalização o custo é obrigatório e não negativo, enquanto rascunho permanece incompleto. O serviço de produto não cria saldo inicial por esse custo.
+- [x] A entrada do app permite revisar esse custo no formulário completo; o modal rápido ERP usa o `finalCost` calculado e não apresenta campo de edição manual. A particularidade móvel já está documentada no inventário de formulários (Ciclo 91) e foi preservada. Para item fiscal válido, os custos incluídos na NF-e não são reaplicados ao editar o campo: `finalPurchasePrice` do fluxo usa o custo já desembarcado.
+- [x] A revisão não encontrou diferença de resultado para linha válida. As fórmulas continuam em módulos de plataforma separados; não extraí um helper compartilhado sem divergência funcional comprovada. Para `unitCost` negativo malformado, o mobile limita a parcela base a zero, enquanto o helper ERP recebe o valor bruto; o resolver de finalização rejeita custo resultante negativo. Nenhuma regra foi alterada para ampliar a tolerância a dados fiscais inválidos.
+- [x] Como conferência correlata da mesma aba, os callbacks do Produto Pai para percentual, desconto fixo, preço promocional e preço de venda continuam conectados no `ProductFormPricesTab`; usam os mesmos cálculos de `shared-utils/productDiscountFields.ts` que o hook ERP. Os descontos percentuais/fixos são auxiliares e não formam payload independente; o preço promocional segue pelo schema do formulário. Os limites no desconto do pai e as exceções de valor inválido já foram registrados nos Ciclos 19–24. A frase do inventário de formulários que dizia que os handlers continuavam pendentes estava desatualizada; foi corrigida para distinguir funcionalidade implementada de cobertura direta de interação ainda ausente.
+- [x] A exceção permanente ERP-only da Conciliação de Produtos permanece intacta. Este recorte é do cadastro rápido de item de NF-e e não cria tela, serviço, entrada ou fluxo de Conciliação no mobile.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Stock/InboundInvoices/modals/QuickRegisterVariationModal.tsx:116,250-255`, `erp/src/pages/App/Stock/InboundInvoices/hooks/useInboundInvoiceQuickRegister.ts:88,178-209`, `erp/src/pages/App/Stock/InboundInvoices/services/inboundProductPreparationService.ts:32,103-140`, `erp/src/pages/utils/inboundNfe/utils/inboundItemCosts.ts` e `shared-utils/operationsFormSchemas.ts` (`quickRegisterSelectionFormSchema`).
+- [x] App: `mobile/src/features/stock/invoices/modals/inbound-mappings/inboundCostUtils.ts:8-18`, `mobile/src/features/stock/invoices/modals/inbound-mappings/hooks/useInboundQuickRegistration.ts:66-75`, `mobile/src/features/stock/invoices/modals/inbound-mappings/InboundQuickProductModal.tsx:140-147`, `mobile/src/features/products/modals/tabs/ProductFormPricesTab.tsx:147-210,517-542`, `mobile/src/features/products/screens/ProductFormScreen.tsx:642-654` e `shared-utils/mobileProductFormSchema.ts:32-36,75`.
+- [x] Regras/documentação consultadas: `AGENTS.md` (RHF/Zod, testes permitidos, guia de Estoque e Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura Produto/Variação, operações mover/merge, inventários de Produtos e formulários, item 5 do roadmap e skill `erp-web-to-mobile-replication`. A busca pela skill atual em `.agents/skills`/skills do projeto não encontrou fonte canônica; a cópia acessível está no backup `.vercel` e sua proveniência não foi confirmada, então serviu apenas como orientação. Não há `AGENTS.md` aninhado aplicável a ERP, mobile, shared-utils ou docs.
+- [x] Sem mudança de código, não executei Vitest/RTL nem TypeScript. Os testes focados anteriores de custos NF e do cadastro rápido permanecem referenciados no inventário de formulários e nos testes de domínio ERP. Não houve consulta/escrita remota, operação de estoque, emissão/transmissão fiscal, chamada Meta, migration ou deploy.
+- [ ] Sem sessão Playwright autenticada para abrir os modais de cadastro rápido dos dois clientes neste recorte; não houve validação Android/Maestro em aparelho físico. A revisão de código não comprova toque, layout nativo nem persistência remota; Expo Web não foi tratado como prova nativa.
+
+**Conclusão do recorte:** o custo pré-preenchido para item válido chega ao Produto simples com os mesmos custos da NF-e no ERP e no app; a edição manual no formulário mobile permanece uma adaptação já documentada. Não surgiu diferença funcional suportada para corrigir. A auditoria geral permanece aberta.
+
+### Ciclo 378 — galeria herdada de fotos da variação única — 26/10/2026
+
+**Recorte:** aba Fotos da variação simples com exatamente uma variação; exibição das imagens do pai e affordances de editar, remover e reordenar fotos.
+
+#### Comparação e classificação
+
+- [x] O ERP resolve a galeria da variação única usando as URLs do produto pai e o componente `VariationPhotosTab` entra em modo de consulta: mostra a quantidade, capa e imagens herdadas, sem botões de seleção, recorte, desvínculo ou arraste. A ordenação continua sendo feita na galeria do pai, cuja regra compartilhada mantém a variação única sincronizada.
+- [x] O app passa `inheritsParentGallery={isSingleVariation}` a `ProductVariationPhotosEditor`, que mostra o contador herdado e omite os controles de edição e o seletor de fotos nesse estado. A edição/reordenação do produto pai continua atualizando a variação única pelo helper compartilhado; em famílias multi-variação, cada galeria segue editável e própria.
+- [x] A divergência pendente registrada no Ciclo 13 era uma expectativa obsoleta do teste ERP: ele tentava arrastar imagens com `isSingleVariation=true`, embora a implementação ativa e a documentação já definissem o estado como somente leitura. Corrigi apenas o teste para conferir fotos herdadas, contador/capa e ausência dos controles; não alterei a interface ou regra de produção. A Conciliação permanece ERP-only.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/components/tabs/images/VariationPhotosTab.tsx:75-103` (retorno somente leitura) e `erp/src/pages/App/Products/modals/VariationFormModal.tsx:121,229-247` (fonte e passagem da galeria do pai). App: `mobile/src/features/products/modals/tabs/ProductFormVariationsTab.tsx:1145-1153` e `mobile/src/features/products/modals/components/ProductVariationPhotosEditor.tsx:108-206` (contador herdado e controles condicionais). A ordem da galeria do pai usa `shared-utils/productImageOrdering.ts` por `ProductFormPhotosTab` mobile; a mesma regra havia sido auditada no Ciclo 13.
+- [x] Vitest/RTL focado: `npm run test -- --run --config vitest.config.ts src/pages/App/Products/components/tabs/images/VariationPhotosTab.test.tsx` em `erp/` — **1 arquivo, 5 testes aprovados**. `git diff --check` será conferido após registrar o ciclo.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, `docs/negocio/produtos/estrutura-produto-variacao.md`, `docs/negocio/produtos/operacoes-troca-pai-merge.md`, inventários de Produtos e formulários, item 5 do roadmap e a skill de replicação acessível. Nenhum `AGENTS.md` aninhado aplicável foi encontrado. A skill canônica do projeto não apareceu em `.agents/skills` ou nos diretórios ERP/mobile/shared-utils; a cópia do backup `.vercel` foi usada somente como orientação e sua origem não está confirmada.
+- [ ] Esta correção de teste não exercitou a tela em Playwright autenticado nem o componente no Android/Maestro físico; a renderização por Vitest/RTL não prova layout ou interação nativa. Não houve upload, consulta/escrita remota, chamada Meta/SEFAZ, migration, deploy ou mudança operacional do Estoque; o guia prático não precisou de atualização.
+
+**Conclusão do recorte:** o modo de foto herdada da variação única já tem o mesmo contrato no ERP e no app. O teste ERP que alegava reordenação pela variação única foi corrigido para refletir o comportamento documentado e a suíte focada passou. A validação visual/nativa das fotos permanece pendente; a auditoria geral continua aberta.
+
+### Ciclo 379 — falha parcial do envio múltiplo de fotos do Produto Pai — 26/10/2026
+
+**Recorte:** estado de erro ao selecionar e enviar mais de uma foto na galeria do Produto Pai, incluindo validação, aplicação dos URLs e efeitos de um arquivo que falha no meio do lote.
+
+#### Comparação e classificação
+
+- [x] O ERP limita a seleção e executa `imageFilesFormSchema` pelo `useZodForm` antes do upload. Prepara as derivações e envia cada arquivo do lote em paralelo; original é obrigatório e falha de `_medium`/`_thumb` usa fallback para o original. Só depois de `Promise.all` bem-sucedido acrescenta todos os URLs ao rascunho e sincroniza a galeria da variação única. Se qualquer original falhar, mantém o estado local anterior, mostra erro e encerra o indicador de carregamento; as outras tarefas já iniciadas podem continuar no armazenamento.
+- [x] O app aplica o mesmo limite antes da leitura dos assets, valida o conjunto com RHF/Zod (`mobileProductPhotoUploadFormSchema`) e valida URLs HTTPS recebidos por outro resolver (`mobileProductPhotoUrlsFormSchema`). O lote é processado em sequência; os derivados locais e remotos também são tentados em sequência e mantêm fallback para o original. O callback que acrescenta as fotos à galeria só é chamado depois que todos os URLs passam pela validação; no erro, nenhuma foto do lote é adicionada, o `Alert` apresenta a causa disponível e o indicador é encerrado.
+- [x] Para o usuário, o estado de erro é all-or-nothing nos dois clientes: nenhuma URL da seleção parcialmente enviada aparece no formulário. O app mantém o processamento sequencial como particularidade de plataforma: cada item lê uma origem e cria derivações locais por `ImageManipulator`, evitando concorrência entre essas etapas no dispositivo; a ordem final continua sendo a ordem de seleção. O app também mantém a mensagem detalhada do `Alert`, enquanto o ERP usa um toast genérico.
+- [x] Efeito remoto não confirmado: se uma imagem anterior do lote já tiver subido quando outra falha, seu objeto pode ficar sem referência no formulário. Esse risco existe nos dois clientes, com alcance diferente: o ERP já iniciou todas as tarefas paralelas; o app interrompe antes de iniciar as fotos seguintes. Não introduzi limpeza ou retry automático de objetos, pois exigiriam confirmação de ownership/resultado do upload e poderiam apagar imagem válida. A confirmação real no R2 permanece pendente.
+- [x] Não surgiu diferença de regra de negócio que justifique mudança de produção. A particularidade mobile de sequência e feedback de erro ficou documentada; não alterei limites, formulários, mensagens ou chamadas. A exceção ERP-only de Conciliação permanece intacta.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/hooks/form/useProductFormImages.ts:26,54-58,84-113`, `shared-utils/fileFormSchemas.ts:9-11`, `shared-utils/productImageSelection.ts` e `shared-utils/productImageDerivatives.ts`. App: `mobile/src/features/products/modals/tabs/ProductFormPhotosTab.tsx:49-75,98-139,143-181,196-208`, `mobile/src/features/products/services/mobileProductPhotoService.ts:138-180` e `shared-utils/productImageFormSchemas.ts:18-36`. As duas telas usam o formulário proprietário e resolvers Zod reais antes de enviar/aplicar dados.
+- [x] Consultei `AGENTS.md` (formulários RHF/Zod, runners e restrições de dados), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de estrutura Produto/Variação e mover/merge, inventários de Produto/formulários e item 5 do roadmap. A skill canônica não foi encontrada nas pastas de skills pesquisadas; a cópia acessível em `.vercel` foi consultada somente como orientação, com proveniência não confirmada. Não há `AGENTS.md` aninhado nas árvores ERP/mobile/shared-utils/docs/rules.
+- [ ] Revisão estática somente. Não rodei testes nem abri Playwright para este estado; um lote real pode gravar arquivos no R2 e não foi enviado. Não houve consulta/escrita Supabase, chamada Meta/SEFAZ, migration, deploy ou alteração operacional de Estoque. O guia prático não requer atualização.
+
+**Conclusão do recorte:** falha em qualquer item deixa a galeria local inalterada nos dois clientes; a única diferença comprovada está no agendamento e no texto do alerta. A sequência mobile é mantida como adaptação para processamento de imagens no dispositivo, e o risco de objetos órfãos após falha permanece registrado para validação remota autorizada. A auditoria geral continua aberta.
+
+### Ciclo 380 — autosave do rascunho ao remover foto do Produto Pai — 26/10/2026
+
+**Recorte:** remoção de uma foto já presente na galeria do Produto Pai, com atenção ao rascunho salvo e ao vínculo herdado pela variação única.
+
+#### Diferença e correção
+
+- [x] A operação local dos dois clientes reutiliza `removeProductImageGlobally`: remove a URL da galeria e, se houver uma única variação, mantém a galeria herdada sincronizada; em famílias com várias variações, remove o vínculo somente das variações que usavam a imagem. O helper é compartilhado e não executa exclusão do objeto no armazenamento.
+- [x] No app, `setFormData` incrementa a revisão do formulário, e o efeito agenda o autosave serializado após 500 ms quando o estado pode ser salvo como rascunho. No ERP, a remoção atualizava `formData` e, ao fechar, o rascunho acabaria salvando por `hasChanged`; porém `removePhoto` não chamava `scheduleDraftAutoSave`, ao contrário da inclusão e substituição. A remoção ficava somente local até outra ação que agendasse autosave ou até o fechamento explícito do modal, sem a confirmação de autosave em 500 ms que o restante da galeria oferece.
+- [x] Acrescentei `onImagesSaved?.()` ao caminho de remoção em `useProductFormImages`. A callback existente agenda em 500 ms somente para rascunhos; não introduz submissão própria nem contorna o schema do autosave. O teste de remoção também exige que a callback seja disparada, preservando a verificação dos vínculos pai/variações.
+- [x] Não alterei o app, a remoção física de objetos R2, o cadastro publicado, nem a regra de fotos herdadas. Nenhuma operação de Estoque foi modificada, portanto o guia de Estoque permanece correto.
+
+#### Evidências, validação e limites
+
+- [x] Comparei ERP `ProductEcommerceTab.tsx:58-76`, `ProductFormTabContent.tsx:115-125`, `useProductFormModal.ts:159-168,286-324` e `useProductFormImages.ts:120-125`; app `ProductFormPhotosTab.tsx:49-75,210-220`, `ProductFormScreen.tsx:345-356,873-901` e `mobileProductImageOrdering.ts`. O fluxo ERP/app reaproveita `shared-utils/productImageOperations.ts` para projeção da remoção.
+- [x] Consultei as regras do `AGENTS.md` e `docs/geral/USER_RULES.md`, a regra `rules/products/product-reconciliation-erp-only.yml`, documentos vigentes de estrutura e mover/merge de Produto, inventários de Produto e formulários, roadmap e a skill de replicação acessível. Não há `AGENTS.md` aninhado aplicável; skill canônica não encontrada na árvore `.agents/skills`, e a cópia em `.vercel` segue com proveniência não confirmada, usada apenas como orientação.
+- [x] Regressão Vitest focada em `erp/src/pages/App/Products/hooks/form/useProductFormImages.test.ts`: antes da correção a asserção falhou (`onImagesSaved` chamada 0 vezes); após a correção, **1 arquivo / 6 testes aprovados**. Não executei Playwright porque remover imagem em formulário autenticado pode gravar o rascunho no servidor; não usei Expo Web como prova nativa.
+- [x] Sem chamada ao R2, leitura ou escrita Supabase, Meta/SEFAZ, migration ou deploy. A suíte usa as funções de upload mockadas; não confirma comportamento do armazenamento real.
+
+**Conclusão do recorte:** a remoção no ERP agora agenda o autosave de rascunho no mesmo intervalo de 500 ms das demais alterações da galeria, preservando a validação/resolução existente e a sincronização de fotos herdadas. A verificação visual autenticada e o runtime nativo continuam pendentes; a auditoria geral permanece aberta.
+
+### Ciclo 381 — autosave do rascunho ao reordenar fotos do Produto Pai — 26/10/2026
+
+**Recorte:** reordenação por arraste na galeria principal do formulário de Produto, incluindo atualização da capa/secundária e sincronização herdada da variação única.
+
+#### Diferença e correção
+
+- [x] O ERP atualiza a ordem pelo `moveProductImageGlobally`, que mantém as fotos sincronizadas quando existe uma única variação. O app usa o mesmo helper e a reordenação acessível por ações de mover também atualiza o formulário; a arquitetura de autosave mobile agenda uma gravação de rascunho 500 ms após nova revisão.
+- [x] O manipulador ERP `onDragOver` alterava `formData` quando a foto passava a ocupar nova posição, mas não acionava `onImagesSaved`; portanto, ao contrário da inclusão/substituição/remoção, não agenda o autosave de 500 ms. O salvamento ocorria só por outra alteração agendada, ação explícita ou fechamento que detectasse `hasChanged`.
+- [x] Acrescentei a chamada ao callback existente somente dentro do ramo em que a posição realmente mudou. Eventos de arraste sem reordenação não agendam salvamento; alterações repetidas durante o arraste reutilizam o debounce de 500 ms da rotina de rascunho, sem criar submissão ou serviço novo.
+- [x] O teste RTL reproduz o arraste da primeira foto para a segunda, verifica a ordem final e a sincronização da variação única, e exige a chamada do autosave. A primeira execução evidenciou tanto a falha nova (callback não chamada) quanto uma asserção antiga com fixture incorreto: ela esperava ausência de selo de capa para uma única variação, apesar de o código marcar Produto simples. Corrigi o fixture para duas variações, que é o estado sem selo coberto pelo teste.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/components/tabs/ProductEcommerceTab.tsx` (ordenação por arraste e chamada de autosave), `ProductFormTabContent.tsx` (callback `scheduleDraftAutoSave`) e `useProductFormModal.ts` (debounce 500 ms limitado a rascunhos). App: `mobile/src/features/products/modals/tabs/ProductFormPhotosTab.tsx` (ações de reordenação), `ProductFormScreen.tsx` (incremento da revisão e autosave serializado) e `shared-utils/productImageOrdering.ts`.
+- [x] Consultei `AGENTS.md` (RHF/Zod, runners e limites de gravação), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, a documentação vigente de Produto/Variação e operações de mover/merge, inventários de Produto e formulários, roadmap e a skill de replicação acessível. Não há `AGENTS.md` aninhado aplicável; a fonte canônica da skill segue ausente e a cópia `.vercel` foi usada somente como orientação, com proveniência não confirmada.
+- [x] Regressão Vitest/RTL focada em `erp/src/pages/App/Products/components/tabs/ProductEcommerceTab.test.tsx`: inicialmente 5/7 passaram, revelando a chamada de autosave ausente e o fixture legado; após a correção e atualização do fixture, **1 arquivo / 7 testes passaram**. `git diff --check` será executado após registrar este ciclo.
+- [x] Sem Playwright autenticado: arrastar fotos poderia persistir alteração de um produto real. Não houve upload/R2, Supabase, Meta/SEFAZ, migration, deploy ou operação de Estoque. Nenhuma atualização do guia prático é necessária.
+
+**Conclusão do recorte:** quando a posição muda, a galeria ERP agora agenda autosave de rascunho; o app já tinha esse comportamento por revisão de estado. A ordem e a sincronização da variação única continuam no helper compartilhado. Validação visual/nativa permanece pendente e a auditoria geral continua aberta.
+
+### Ciclo 382 — aplicação do recorte e autosave do rascunho — 26/10/2026
+
+**Recorte:** concluir o recorte quadrado de uma foto existente na galeria do Produto Pai, validar origem e URL de substituição, atualizar a variação única e persistir o rascunho.
+
+#### Comparação e conclusão
+
+- [x] No ERP, `SquareImageCropper` executa `squareImageCropFormSchema`; após gerar o arquivo, `ProductEcommerceTab.handleCropPhoto` delega a `handleReplacePhoto`, que valida o arquivo com RHF/Zod, faz upload otimizado, troca a URL com `replaceProductImageGlobally` e chama `onImagesSaved`. A rotina do modal conecta esse callback a `scheduleDraftAutoSave`, que agenda após 500 ms somente para rascunhos. A primeira foto mantém sua posição de capa e a variação única recebe a nova galeria pelo helper compartilhado.
+- [x] No app, `ProductSquareImageCropModal` valida origem atual por `createProductImageCropSourceFormSchema` antes do processamento e novamente após upload; valida seleção/medidas com RHF/Zod, arquivo com `mobileProductPhotoUploadFormSchema`, e a troca old/new HTTPS com `productImageReplacementFormSchema`. A tela atualiza pai e variação única com `replaceProductImageGlobally`; `setFormData` incrementa a revisão, e o efeito da `ProductFormScreen` agenda o autosave serializado de 500 ms. Essa validação dupla da origem é uma salvaguarda mobile já registrada nos Ciclos 167–168.
+- [x] Não há diferença de persistência comprovada no caminho de sucesso: ambos alteram a galeria local somente após obter e validar o novo endereço; no app, fechamento do recorte após sucesso e imagem atualizada na grade dão o feedback nativo, enquanto o ERP mostra toast de sucesso. A mensagem/forma de feedback permanece como adaptação de plataforma, sem acrescentar alerta redundante ao app.
+- [x] Acrescentei `onImagesSaved` e a asserção de chamada ao teste RTL já existente de substituição por recorte, que também verifica propagação às variações. Nenhum código de produção foi alterado neste recorte.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/components/tabs/ProductEcommerceTab.tsx:58-94,311-316`, `erp/src/pages/App/Products/components/tabs/images/SquareImageCropper.tsx:22-29,179-251`, `erp/src/pages/App/Products/components/form/ProductFormTabContent.tsx:115-125` e `erp/src/pages/App/Products/hooks/form/useProductFormModal.ts:159-167`. App: `mobile/src/features/products/modals/components/ProductSquareImageCropModal.tsx:141-147,280-410`, `mobile/src/features/products/modals/tabs/ProductFormPhotosTab.tsx:449-463`, `mobile/src/features/products/screens/ProductFormScreen.tsx:345-356,873-901` e `mobile/src/features/products/services/mobileProductPhotoService.ts`. Regra de projeção: `shared-utils/productImageOperations.ts`.
+- [x] Consultei `AGENTS.md` (RHF/Zod, runners, guia de Estoque e Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, docs de estrutura e operações de variação, inventários de Produto e formulários, roadmap e skill acessível. Não encontrei `AGENTS.md` aninhado aplicável; `.agents/skills/erp-web-to-mobile-replication/SKILL.md` não está presente no workspace e a cópia `.vercel` foi usada apenas como orientação, sem proveniência canônica confirmada.
+- [x] Regressão Vitest/RTL ERP em `erp/src/pages/App/Products/components/tabs/ProductEcommerceTab.test.tsx`: **1 arquivo / 7 testes aprovados**, incluindo substituição por recorte, URLs em pai/variações e chamada do autosave. A suíte mocka upload e não verifica R2 nem a persistência do rascunho no banco.
+- [x] Revisão estática mobile; não executei Playwright autenticado porque recortar em sessão real envia um novo objeto e pode salvar o produto. Não houve upload R2, consulta/gravação Supabase, Meta/SEFAZ, migration, deploy ou alteração operacional de Estoque; o guia não precisou de atualização. Não usei Expo Web como prova nativa.
+
+**Conclusão do recorte:** o recorte concluído preserva a validação de origem e substituição no app; o salvamento de rascunhos após a troca está ligado ao mecanismo serializado mobile, equivalente ao callback de 500 ms do ERP. A apresentação visual autenticada e o processamento em Android/iOS permanecem pendentes; a auditoria geral continua aberta.
+
+### Ciclo 383 — erro, timeout e cancelamento ao carregar foto para recorte — 26/10/2026
+
+**Recorte:** abrir o recorte de uma imagem existente e fechar o modal, trocar a origem, atingir timeout ou falhar ao buscar/renderizar a imagem. Não inclui upload do recorte nem alteração do formulário.
+
+#### Diferença e correção
+
+- [x] O ERP tenta candidatos de leitura com `AbortController` e limite de 15 s; se os candidatos falham por CORS, tenta renderizar a URL original. Se essa URL também estiver indisponível, o `<img>` não tem `onError`: a imagem quebrada fica visível e o botão segue desabilitado porque `selection` nunca foi inicializada, mas a mensagem de falha/CORS não aparece. Não repliquei esse fallback menos informativo no app.
+- [x] No app, as falhas e timeouts de leitura já produziam `loadError` visível e mantinham a aplicação do recorte desabilitada. O problema comprovado era que `withTimeout` apenas encerrava a espera: `FileSystem.downloadAsync` podia continuar transferindo ao fechar/trocar a origem ou após os 20 s, e um resultado tardio de timeout podia deixar arquivo parcial no cache. A rotina agora usa `createDownloadResumable`, associa `cancelAsync` ao `AbortSignal` do efeito e, em falha/cancelamento/timeout, cancela e apaga o destino parcial. O download concluído conserva a limpeza temporária quando o modal fecha.
+- [x] Na variante web, cada candidato usa um `AbortController` ligado ao cancelamento do efeito; falha HTTP, resposta vazia ou timeout aborta essa tentativa antes de avançar. Fechar o modal ou trocar a URL interrompe a tentativa em curso. As mensagens de erro, candidatos/proxies e validação pré/pós-upload permanecem inalteradas.
+- [x] Regressão Vitest isolada do helper: `productCropImageSource.test.ts` cobre cancelamento por fechamento, timeout com cancelamento e remoção de arquivo parcial, e limpeza após download bem-sucedido: **1 arquivo / 3 testes aprovados**.
+
+#### Evidências, validação e limites
+
+- [x] ERP inspecionado: `erp/src/pages/App/Products/components/tabs/images/SquareImageCropper.tsx:51-102,352-372,449-458` (timeout/abort, fallback de URL e estados de loading/erro, sem `onError` no `<img>`). Mobile inspecionado: `mobile/src/features/products/modals/components/ProductSquareImageCropModal.tsx:35-105,159-214,421-454,579-590` (candidatos web, download local, erro visível, timeout do renderer, cancelamento e botões); API Expo confirmada em `mobile/node_modules/expo-file-system/src/legacy/FileSystem.ts:324-356,457-488`.
+- [x] Alterações: `mobile/src/features/products/modals/components/ProductSquareImageCropModal.tsx` passa sinal para fetch/download e aborta no cleanup; novo `mobile/src/features/products/modals/domain/productCropImageSource.ts` cancela downloads nativos e limpa cache parcial; novo teste Vitest no mesmo diretório.
+- [x] Consultei `AGENTS.md` (RHF/Zod, testes permitidos, Conciliação ERP-only e restrição de gravações), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, docs vigentes de Produto/Variação e mover/merge, inventários de produto e formulários, roadmap e a skill de replicação acessível. Não há `AGENTS.md` aninhado aplicável. A skill canônica `.agents/skills/erp-web-to-mobile-replication/SKILL.md` continua ausente; a cópia de cache `.vercel` serviu somente de orientação e a proveniência permanece não confirmada.
+- [x] `npm run test:unit:mobile --prefix erp -- src/features/products/modals/domain/productCropImageSource.test.ts`: **3/3**. `tsc --noEmit -p mobile/tsconfig.json --pretty false` continuou com exit 1 por diagnósticos globais em outros caminhos (inclusive `ProductFormTechnicalTab.tsx:689`, fora do recorte) e outros módulos; nenhum dos arquivos deste ciclo foi apontado. A primeira execução focou um caminho de teste incorreto e não descobriu testes; a execução no caminho correto passou.
+- [x] Sem Playwright autenticado: abrir o modal de recorte exige uma foto existente de produto, e a sessão/test fixture não é apropriada para validar esse estado sem tocar dado real; não fiz upload, gravação de produto, acesso ao R2/Supabase/Meta/SEFAZ, migration ou deploy. Expo Web não provaria o cancelamento nativo. Maestro/telefone físico não foram usados; runtime Android/iOS permanece pendente. `git diff --check` foi aplicado aos arquivos do recorte; o TypeScript global continua pendente. Sem impacto na operação do estoquista, não é necessária atualização do guia de Estoque.
+
+**Conclusão do recorte:** o app conserva o tratamento de falha mais explícito que o ERP e agora também interrompe tentativas de rede/Expo ao fechar/trocar a origem e limpa cache parcial após timeout. A variante web e o cancelamento nativo foram cobertos logicamente, mas o comportamento Android/iOS real e comparação visual autenticada permanecem pendentes; a auditoria geral continua aberta.
+
+### Ciclo 384 — galeria de fotos proprias das variacoes — 26/10/2026
+
+**Recorte:** seleção de fotos da galeria do produto pai para uma variação de uma família multi-variação; limite e unicidade; compatibilidade de imagens legadas; reordenação/desvinculação; recorte e salvamento de rascunho. A galeria herdada da variação única foi encerrada no Ciclo 378 e não faz parte deste estado.
+
+#### Comparação e classificação
+
+- [x] O ERP usa `VariationPhotosTab` e `VariationParentImagesSelectModal`; o app usa `ProductVariationPhotosEditor`. Ambos limitam novas seleções às imagens atualmente disponíveis no produto pai, removem URLs repetidas e limitam cada variação a 15 imagens por `createVariationImageSelectionFormSchema` e pelo helper `toggleAllParentProductImages`, compartilhados entre os clientes.
+- [x] O app separa validação de seleção nova da edição da lista atual. `createVariationImageListEditFormSchema` permite manter URLs legadas já vinculadas que deixaram de estar na galeria do pai, sem permitir inseri-las de novo no seletor; o ERP preserva o mesmo vínculo existente ao editar a lista. Não encontrei divergência de payload ou propriedade.
+- [x] Ambos permitem desvincular uma imagem, recortar uma imagem da variação e persistir a ordem, com a primeira imagem como capa. ERP usa drag-and-drop; o app usa ações acessíveis “Mover foto para cima/baixo”. A interação é diferente por plataforma, mas alcança a mesma sequência e não altera as regras de ordenação.
+- [x] O recorte ainda é validado pelo formulário RHF/Zod dono do Produto. O ERP aguarda `handleReplaceImageGlobal`; em rascunho, o callback faz `await autoSaveDraft(next)` e só conclui após ACK. No mobile, o callback atualiza o formulário proprietário, incrementa a revisão e agenda a fila serializada do autosave em 500 ms. O estado da fila apresenta salvando/salvo/erro e, ao fechar o formulário, `flushDraftAutoSave` espera o ACK ou oferece nova tentativa/descartar. O modal nativo de recorte fecha antes desse ACK; a divergência observada é de progressão/feedback dentro do modal, não de payload ou confirmação final. Com a fila central e o bloqueio de fechamento sem ACK, não surgiu uma correção menor e segura que preserve o contrato existente.
+- [x] Os mesmos contratos são usados para variações novas e já salvas; Produto simples e variação única mantêm o comportamento de galeria herdada somente leitura documentado no Ciclo 378.
+
+#### Evidências, validação e limites
+
+- [x] ERP inspecionado: `erp/src/pages/App/Products/components/tabs/images/VariationPhotosTab.tsx`, `erp/src/pages/App/Products/components/modals/variations/VariationParentImagesSelectModal.tsx`, `erp/src/pages/App/Products/modals/VariationFormModal.tsx`, `erp/src/pages/App/Products/hooks/variation/useVariationForm.ts:408-463` e `erp/src/pages/App/Products/hooks/form/useProductFormModal.ts:490-501`.
+- [x] Mobile inspecionado: `mobile/src/features/products/modals/components/ProductVariationPhotosEditor.tsx:15-101,117-201,208-329`, `mobile/src/features/products/modals/tabs/ProductFormVariationsTab.tsx:1144-1154` e `mobile/src/features/products/screens/ProductFormScreen.tsx:344-357,760-916,1626-1639`. Contratos compartilhados: `shared-utils/productImageFormSchemas.ts:38-60`, `shared-utils/productImageSelection.ts:24-39` e `shared-utils/productImageOperations.ts`.
+- [x] Testes Vitest: ERP `VariationPhotosTab.test.tsx` + `VariationFormModal.test.tsx`, **42/42**; mobile `productImageFormSchemas.test.ts` + `mobileProductImageCrop.test.ts`, **8/8**. O componente `ProductVariationPhotosEditor` não possui teste direto localizado; o resultado dos schemas/helpers não comprova gestos, layout ou toque.
+- [x] Consultei `AGENTS.md` (RHF/Zod, runners permitidos, Conciliação ERP-only e proteção de gravações), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura Produto/Variação, operações de mover/merge, inventários de produtos/formulários, item 5 do roadmap e skill de replicação acessível. Não há `AGENTS.md` aninhado aplicável. A skill canônica em `.agents/skills/erp-web-to-mobile-replication/SKILL.md` continua ausente; a cópia disponível no backup `.vercel` orientou a revisão, mas sua proveniência não foi confirmada.
+- [x] Sem alteração de código de produção neste ciclo. Não houve Playwright autenticado, upload de foto, leitura/gravação Supabase, chamada R2/Meta/SEFAZ, migration ou deploy. Android/iOS/Maestro não foram usados; Expo Web não seria evidência de comportamento nativo. A fila de autosave e a resposta de versão foram conferidas estaticamente, sem fixture remota. O recorte não altera a operação do estoquista, portanto o guia de Estoque não requer atualização.
+
+**Conclusão do recorte:** para galeria própria em família multi-variação, contratos de seleção, edição, recorte e ordem estão alinhados; a interação de ordenação usa affordance nativa. O app mantém ACK seguro por meio da fila serializada e do flush antes de fechar o formulário, embora feche o modal de recorte antes do ACK. O risco residual é de feedback e persistência remota não comprovada, registrado acima; não há diferença funcional suportada a corrigir sem alterar o desenho central de autosave. A auditoria geral continua aberta.
+
+### Ciclo 385 — contagem da lista durante erro ou vazio — 26/10/2026
+
+**Recorte:** contador no cabeçalho da lista de Produtos quando a consulta falha sem linhas ou retorna uma lista vazia.
+
+#### Diferença e correção
+
+- [x] A imagem enviada pelo usuário mostra a lista mobile em erro de carregamento: a interface exibe corretamente a mensagem de falha e “Tentar novamente”, mas também apresenta “Produtos 0”. Quando a consulta falha, esse zero é o estado inicial do contador e não uma contagem confirmada do catálogo.
+- [x] No ERP, `ProductList/index.tsx` retorna os estados de carregamento, erro sem linhas e lista vazia antes da seção que apresenta o total. O contador só aparece quando existem linhas renderizadas. O cabeçalho mobile, por outro lado, sempre renderizava `totalCount`, inclusive no erro e no vazio.
+- [x] `ProductsHeader` agora aceita `showCount`; a tela da lista o deriva da presença de linhas carregadas. Assim, erro sem snapshot, consulta vazia e carga inicial sem linhas não exibem “0”; quando uma atualização mantém o snapshot de linhas, o contador continua visível como no ERP. A mudança é apenas de apresentação: retry, consulta, total retornado e permissões não foram alterados.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/ProductList/index.tsx:119-175` retorna erro/vazio antes de montar a contagem. Mobile: `mobile/src/features/products/screens/NativeProductsScreen.tsx:546-555` passa total e presença de linhas; `mobile/src/features/products/components/ProductsHeader.tsx:20-52,66-101,140-153` controla a renderização do badge.
+- [x] Consultei `AGENTS.md` (formulários RHF/Zod, ferramentas de validação, preservação da Conciliação ERP-only e limites de gravação), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura Produto/Variação, operações de mover/merge, inventários de Produtos e formulários, roadmap e a skill de replicação acessível. Não há `AGENTS.md` aninhado aplicável. A skill canônica do projeto segue ausente das pastas `.agents/skills` verificadas; a cópia em cache `.vercel` serviu apenas como orientação e sua proveniência não foi confirmada.
+- [x] Vitest focado pelo runner do ERP: `npm run test -- --run --config vitest.config.ts ../mobile/src/features/products/components/ProductsHeader.test.tsx` — **1 arquivo, 2 testes aprovados** (badge omitido sem linhas e mantido com contagem/snapshot). A primeira execução encontrou apenas a ausência de `StyleSheet` no mock do teste; após completar o mock, passou.
+- [x] A captura inicial do usuário comprova o estado anterior no app; a nova captura anexada em 26/10/2026 mostra o mesmo erro e o botão “Tentar novamente”, mas sem o badge “0” ao lado de “Produtos”, confirmando visualmente a apresentação corrigida. A imagem é evidência fornecida pelo usuário, não uma execução independente de Playwright/Maestro; ainda falta validar o comportamento em sessão controlada no ERP e em aparelho Android físico. Expo Web não foi usado como prova nativa. Não houve consulta/escrita remota, operação de lixeira, Meta/R2/SEFAZ, migration, deploy ou alteração operacional do Estoque; o guia prático não requer atualização.
+
+**Conclusão do recorte:** a contagem não aparece mais como zero não confirmado nos estados mobile de erro/vazio e continua disponível enquanto há linhas. A correção de apresentação foi coberta por Vitest; a verificação no runtime nativo após a alteração permanece pendente. A auditoria geral continua aberta.
+
+### Ciclo 386 — restauração de produto pela Lixeira — 26/10/2026
+
+**Recorte:** ação individual Restaurar para o Produto Pai na lista filtrada da Lixeira, incluindo permissão, validação, chamada, resposta, atualização da lista e efeitos após sucesso/erro.
+
+#### Comparação e classificação
+
+- [x] No ERP, a lista só passa `showTrash` às ações quando `canDeleteProducts` é verdadeiro; `ParentProductActions` então apresenta Restaurar. O callback chama `executeRestoreProductFromTrash`, que mostra toast, executa `restoreProductFromTrash` e atualiza o cache/invalida a consulta somente após uma resposta de sucesso.
+- [x] No app, o filtro da Lixeira também exige `deleteProducts`. O card mostra Restaurar no estado `showTrash`, exceto para perfil de identificação; `runMobileProductRestoreAction` repete o gate antes de despachar. A ação executa `productRestoreFromTrashFormSchema` pelo `useZodForm` antes de chegar ao serviço; o resolver normaliza/valida o ID. Falha de validação mostra `Alert` e não chama a operação.
+- [x] Os dois serviços normalizam IDs de cards para o UUID do Produto Pai e chamam `restore_product_from_trash` com o mesmo argumento `p_product_id`. A função do banco é a mesma autoridade: exige usuário autenticado e `has_delete_products_permission()`, restaura pai e variações a partir de `trash_metadata.previous_state` e limpa o marcador `deleted`. Não executei a função nem consultei o Supabase remoto.
+- [x] Sucesso e falha mantêm o contrato: ambos propagam a mensagem de negócio; no sucesso, o ERP atualiza cache local/invalida consultas e agenda o helper de sincronização do catálogo Meta, enquanto o app agenda o helper mobile e recarrega a página atual; no erro, ERP usa toast e app usa `Alert`. Timeout explícito de 10 s no serviço mobile é proteção de runtime, sem mudar a chamada ou o resultado esperado. Esses efeitos de sincronização foram inspecionados no código, não executados externamente.
+- [x] Não há seleção em lote no estado mobile de cards; essa ausência acompanha o breakpoint de cards correspondente do ERP conforme o inventário do Ciclo 1186, então não criei restauração em lote no app.
+- [x] O usuário decidiu no Ciclo 390 que Lixeira lista somente `deleted=true`; produtos apenas inativos ficam no filtro Desativados. A query foi corrigida em ERP e app, removendo o estado que permitia exibir itens sem exclusão com ação Restaurar.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `ProductTable.tsx:335,385`, `ParentProductActions.tsx:64-74`, `useProductsDeletionActions.ts:52-81` e `productDependencyCheck.ts:265-304`. Predicado de consulta: `productFilterBuilder.ts:47-51`. Mobile: `NativeProductsScreen.tsx:139-149,590-594`, `MobileProductCard.tsx:238-258`, `productVariationOperationFormSchemas.ts:21-29`, `mobileProductMutationService.ts:465-484`, `useMobileProducts.ts:590-598` e `mobileProductFetchService.ts:244-251`. Contrato do RPC foi lido na migration versionada `supabase/migrations/20261013193600_product_trash_lifecycle.sql:329-424`.
+- [x] Testes focados via Vitest: ERP `useProductsDeletionActions.test.ts` — **3 aprovados** para sucesso/erro; mobile `mobileProductMutationService.test.ts` — **5 aprovados** para RPC, retorno, timeout e validação; `mobileProductCardRules.test.ts` — **2 aprovados** para gate/dispatch. São testes com serviços/banco simulados, sem execução remota.
+- [x] Consultei `AGENTS.md` (RHF/Zod, runners, política de não usar banco local e Conciliação ERP-only), `docs/geral/USER_RULES.md`, a regra pertinente `rules/products/product-reconciliation-erp-only.yml`, estrutura Produto/Variação, operações de mover/merge, inventário de paridade, registro de migração RHF/Zod, item 5 do roadmap e a skill acessível. Não encontrei `AGENTS.md` aninhado aplicável. A versão canônica da skill permanece ausente de `.agents/skills`; a cópia de cache em `.vercel` orientou o recorte, sem proveniência confirmada.
+- [ ] Revisão estática e testes de unidade focados; não houve Playwright autenticado nem teste Android/Maestro após ação real. Nenhuma mutação remota, chamada Meta, operação SEFAZ, migration, deploy ou alteração operacional de Estoque ocorreu; o guia prático não exige atualização. A decisão pendente sobre produtos apenas inativos na Lixeira foi resolvida e aplicada no Ciclo 390.
+
+**Conclusão do recorte:** a ação Restaurar do app corresponde ao ERP no gate, payload, resultado e atualização funcional, com validação e timeout mobile adicionais. A inconsistência para registros apenas inativos foi resolvida no Ciclo 390 conforme a decisão do usuário; a auditoria geral continua aberta.
+
+### Ciclo 387 — leitura de atributos legados das variações — 26/10/2026
+
+**Recorte:** parser das características de variação na consulta da lista e hidratação do produto ao abrir edição; formatos array/objeto, aliases, valores vazios e `showName`.
+
+#### Comparação e correção
+
+- [x] O ERP convertia arrays com `name`/`attribute_name`/`key` e `value`/`option`, convertia valores-objeto por `value`/`name`/JSON e descartava pares sem nome ou valor. A leitura mobile aceitava `name`/`attribute`/`key` e `value`/`val`, mas perdia os aliases ERP `attribute_name`/`option` e conservava valores vazios no modelo da lista. Como `NativeProductsScreen` reabre o cadastro a partir do produto recarregado pela consulta mobile, um atributo podia desaparecer no formulário ou surgir sem conteúdo.
+- [x] Centralizei o parsing puro em `shared-utils/productVariationAttributes.ts`, e ERP e app passaram a consumir a mesma função. Os aliases existentes exclusivos do app (`attribute`/`val`) foram mantidos para compatibilidade. A opção `preserveStructuredShowName` conserva no mobile a preferência antiga em mapas de objetos; arrays mantêm `showName` em ambos. O mapeamento mobile segue aplicando `toTitleCase` compartilhado. Nenhum payload de gravação, schema do banco ou comportamento de autosave foi alterado.
+- [x] A exceção Conciliação ERP-only permanece intacta; não houve alteração operacional no módulo Estoque e o guia prático não requer atualização.
+
+#### Evidências, validação e limites
+
+- [x] Referência ERP anterior: `erp/src/pages/utils/productService/productVariationMapper.ts` (parser `parseVariationAttributes` e chamada em `mapDbVariations`). Uso mobile: `mobile/src/features/products/services/mobileProductFetchService.ts` em `mapMobileVariationAttributes` e na leitura de `product_variations`. O fluxo de reabertura continua a partir do snapshot retornado por essa consulta.
+- [x] Compartilhamento: novo `shared-utils/productVariationAttributes.ts`; o ERP reexporta o helper por `parseVariationAttributes`, e o serviço mobile o usa antes da normalização de texto.
+- [x] Vitest via configuração do ERP: `npm run test -- --run --config vitest.config.ts ../mobile/src/features/products/domain/productVariationAttributes.test.ts ../mobile/src/features/products/services/mobileProductFetchService.test.ts` — **2 arquivos, 39 testes aprovados**. Cobrem aliases legados, exclusão de valores vazios, fallback objeto, preservação mobile de `showName` e mapeamento/carregamento da lista.
+- [x] `git diff --check` passou nos arquivos do recorte; Git emitiu apenas avisos de normalização CRLF→LF nos arquivos ERP/mobile já modificados.
+- [x] Antes da alteração, consultei o `AGENTS.md` da raiz informado nesta sessão, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação Produto/Variação e operações de mover/merge, inventários de produtos/formulários, item 5 do roadmap e skill acessível. Não há `AGENTS.md` aninhado nos diretórios envolvidos. A skill atual não foi encontrada em `.agents/skills`; usei somente como orientação a cópia armazenada no backup `.vercel`, cuja proveniência não foi confirmada.
+- [ ] Sem Playwright autenticado, sem validação nativa por Maestro/aparelho físico e sem verificação visual após a alteração. Não consultei Supabase, não fiz DML/RPC, upload Meta/R2, ação fiscal, migration nem deploy.
+
+**Conclusão do recorte:** leitura e normalização dos atributos legados de variação agora usam a mesma regra pura no ERP e no app, preservando a preferência `showName` previamente suportada pelo mobile. Os testes focados passaram; a auditoria do módulo Produtos permanece em andamento, com validação visual e nativa ainda pendentes.
+
+### Ciclo 388 — nova tentativa após erro da lista — 26/10/2026
+
+**Recorte:** estado da lista sem linhas após falha de consulta, botão de retry, repetição automática, preservação de página/filtros e retorno ao estado carregando/sucesso/erro.
+
+#### Comparação e conclusão
+
+- [x] No ERP, a tela prioriza loading; quando há erro e nenhuma linha, apresenta “Não foi possível carregar os produtos.” e “Tentar novamente”. A ação `refresh` invalida a query da chave atual, portanto conserva os filtros, a página e a política de retry do QueryClient.
+- [x] No app, o mesmo estado é exibido quando `loadError` existe e não há linhas. O botão chama `productsHook.retry()`, que inicia `loadProducts(false, currentPage)`, limpa o erro anterior, valida os filtros e consulta a página atual; a proteção contra respostas obsoletas continua ativa.
+- [x] A política de repetição também coincide: `erp/src/lib/queryClient.ts` define `retry: 1`, sem override na query de Produtos; o primeiro retry do TanStack Query espera 1 s por padrão. O mobile usa `retryMobileProductListReadOnce`, tenta a leitura novamente uma vez após `MOBILE_PRODUCT_LIST_RETRY_DELAY_MS = 1_000` e então propaga a falha. A mensagem e o rótulo do botão são iguais nos dois clientes. Não identifiquei diferença funcional no estado auditado.
+- [x] A contagem “Produtos 0” já havia sido removida para erro/vazio sem snapshot no Ciclo 385; o badge não reaparece pelo retry. Quando o refetch conserva linhas de um snapshot bem-sucedido, os dois clientes mantêm esses dados em vez de sobrepor erro vazio.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `ProductList/index.tsx:128-140`, `hooks/data/useProducts.ts:88-111,135-137` e `erp/src/lib/queryClient.ts:3-11`. Mobile: `NativeProductsScreen.tsx:597-614`, `useMobileProducts.ts:154-260,613-620` e `domain/mobileProductListRequest.ts:11-31`. Os contratos de estado e a diferença de disparo (invalidação TanStack versus consulta manual) foram comparados; a nova tentativa preserva a mesma consulta.
+- [x] Vitest pelo runner permitido: ERP `useProductsQueryState.test.tsx` e mobile `mobileProductListRequest.test.ts` — **2 arquivos, 27 testes aprovados**. Os casos de serviço de query usam mocks; a política ERP de retry foi conferida também no QueryClient de produção.
+- [x] Consultei o `AGENTS.md` da raiz fornecido nesta sessão (runners, login sem contornar gates, Conciliação ERP-only e proibição de DB local), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de Produto/Variação e mover/merge, inventário de paridade e item 5 do roadmap. Não há `AGENTS.md` aninhado nos diretórios ERP/mobile consultados. A skill canônica continua ausente de `.agents/skills`; a cópia `.vercel` foi usada somente como orientação e sua proveniência não foi confirmada.
+- [ ] Não houve Playwright autenticado nem Maestro em aparelho Android físico; a confirmação independente do botão e da tentativa no runtime visual/nativo segue pendente. A captura inicial mostra o estado anterior da contagem e a nova captura confirma visualmente o retry sem badge “0”; nenhuma delas inclui a causa HTTP/Supabase. Sem o erro da consulta real não é possível atribuir a falha a um filtro, autorização, sessão ou disponibilidade. Não consultei/gravei Supabase, não invoquei Meta/SEFAZ, migration ou deploy; nenhuma operação de Estoque foi alterada e o guia não requer atualização.
+
+**Conclusão do recorte:** retry, mensagem, uma repetição automática e preservação da mesma consulta estão alinhados entre ERP e mobile. Não alterei código. A causa observada na captura continua sem diagnóstico porque a imagem não contém log ou resposta da consulta; auditoria de Produtos permanece aberta.
+
+### Ciclo 389 — referência residual na aba técnica mobile — 26/10/2026
+
+**Recorte:** verificação estática de tipo na aba técnica do formulário, com foco no predicado que decide se uma característica é dimensão física e na equivalência com o helper usado pelo ERP.
+
+#### Evidência e correção
+
+- [x] O typecheck mobile falhava em `ProductFormTechnicalTab.tsx:689` porque `getDimensionField` era chamado após o Ciclo 374 remover a função local e passar a usar `getProductTechnicalDimensionField` para mapear as dimensões técnicas.
+- [x] O helper compartilhado já é importado e usado pela aba mobile ao atualizar/remover dimensões, e pelo ERP em `technical/sync/valueChange.ts`. Substituí a referência residual no cálculo de `isPhysicalDimension`; não adicionei função nem alterei a regra de `applicable`, somente usei a mesma fonte de mapeamento das demais chamadas.
+- [x] `productTechnicalDimensions.test.ts` passou em Vitest: **1 arquivo / 21 testes**. O typecheck mobile posterior não aponta mais `ProductFormTechnicalTab.tsx` nem `getDimensionField`.
+
+#### Evidências, validação e limites
+
+- [x] Fontes: `mobile/src/features/products/modals/tabs/ProductFormTechnicalTab.tsx:40,411,477,689-696`, `shared-utils/productTechnicalDimensions.ts:1-26`, `erp/src/pages/App/Products/components/tabs/technical/sync/valueChange.ts:1-50` e `productTechnicalDimensions.test.ts`.
+- [x] Consultei o `AGENTS.md` da raiz informado nesta sessão (runners, RHF/Zod, Conciliação ERP-only e restrições de validação), `docs/geral/USER_RULES.md`, regra `rules/products/product-reconciliation-erp-only.yml`, documentação de estrutura Produto/Variação e operações mover/merge, inventário, roadmap e skills `ponytail` e `erp-web-to-mobile-replication`. A skill de replicação canônica continua ausente de `.agents/skills`; usei apenas a cópia `.vercel` como orientação, sem confirmar a proveniência. Não existe `AGENTS.md` aninhado aplicável nos caminhos fonte consultados.
+- [x] `git diff --check` passou no arquivo do recorte, com aviso de normalização CRLF/LF.
+- [ ] `tsc --noEmit -p mobile/tsconfig.json --pretty false` permanece não zero por erros fora do formulário de Produtos: `DistanceInput.tsx`, `MeasurementInput.tsx`, `useAgendaData.ts`, hooks de inventário/estoque, `InventoryMoveEditModalContent.tsx`, `financialAiAssistantService.ts`, `mobile/vitest.config.ts` e `shared-utils/commercialScheduling`. Não alterei esses módulos, sem relação demonstrada com Produtos. Sem Playwright/Maestro ou interação visual; nenhum dado remoto, estoque operacional, Meta/R2/SEFAZ, migration ou deploy foi acessado.
+
+**Conclusão do recorte:** o erro de tipo na aba técnica de Produtos foi corrigido pela reutilização do helper compartilhado já usado pelo ERP. O projeto mobile ainda requer triagem dos diagnósticos globais fora deste recorte; a auditoria geral de Produtos continua aberta.
+
+### Ciclo 390 — folha de filtros: visibilidade de mesclados e Lixeira — 26/10/2026
+
+**Recorte:** filtros avançados da lista mobile e predicados ERP/mobile da Lixeira, mantendo separados o estado `active=false` e a exclusão lógica.
+
+#### Comparação, decisão e correção
+
+- [x] No ERP, os filtros são aplicados imediatamente pela sidebar; `ShowMergedProductsToggle` fica na toolbar e `productFilterBuilder` constrói a consulta. No app, a folha inferior atualiza os estados do hook, que consulta depois de `productListFormSchema` via `useZodForm.validateValues`; o botão “Aplicar filtros” fecha a folha, enquanto cada mudança já agenda a consulta.
+- [x] `showMergedProducts` alterava a consulta mobile, mas não pertencia a `productListFormSchema`; o fetch lia o valor diretamente do closure. Incluí o booleano no schema e nos objetos validados de consulta e tamanho de página. O payload `includeMerged` agora deriva do valor parseado pelo resolver. A regra de visibilidade dos registros mesclados não mudou.
+- [x] O usuário decidiu que Lixeira lista somente linhas com `deleted=true`; registros apenas inativos continuam no filtro **Desativados**. Substituí em `productFilterBuilder.ts` e `mobileProductFetchService.ts` o `OR active=false/deleted=true` por `eq('deleted', true)`. Os dois clientes continuam excluindo rascunhos; na lista normal o filtro Desativados usa `active=false` junto de `deleted=false`.
+- [x] A captura anexada pelo usuário é uma tela de erro da lista, sem instruções documentais a seguir; foi mantida como evidência visual já tratada nos Ciclos 385/388, não como evidência da causa HTTP.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/components/ProductFilters.tsx`, `ProductsTopToolbar.tsx`, `ProductList/hooks/data/useProducts.ts` e `erp/src/pages/utils/productService/productFilterBuilder.ts`. App: `ProductsHeaderFiltersSheet.tsx`, `useMobileProducts.ts`, `mobileProductFetchService.ts` e `shared-utils/listingFormSchemas.ts`.
+- [x] Regressões Vitest pelo runner do ERP: `productFilterBuilder.test.ts` (**17**), `mobileProductFetchService.test.ts` (**39**) e `mobileProductListFilters.test.ts` (**11**) — **3 arquivos, 67 testes aprovados**. Cobrem `deleted=true` na Lixeira, inativos no filtro Desativados, exclusão de rascunhos e tipos booleanos inválidos para opções de lista.
+- [x] `tsc --noEmit -p mobile/tsconfig.json --pretty false`: não há diagnóstico em `useMobileProducts.ts` após incluir o campo no objeto inicial RHF. O typecheck ainda termina com erros existentes em `DistanceInput.tsx`, `MeasurementInput.tsx`, `useAgendaData.ts`, hooks de inventário/estoque, `InventoryMoveEditModalContent.tsx`, `financialAiAssistantService.ts`, `mobile/vitest.config.ts` e `shared-utils/commercialScheduling`; nenhum pertence a este recorte.
+- [x] Consultei o `AGENTS.md` da raiz (formulários RHF/Zod, runners e Conciliação ERP-only), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, estrutura Produto/Variação, mover/merge, inventários de Produtos e formulários, item 5 do roadmap e a skill `erp-web-to-mobile-replication` acessível. Não há `AGENTS.md` aninhado nos diretórios envolvidos. A versão canônica da skill não foi localizada; usei somente a cópia no backup `.vercel` como orientação, sem proveniência confirmada.
+- [ ] Sem Playwright autenticado ou Maestro em aparelho Android físico; a folha e os filtros não foram conferidos no runtime visual/nativo após a mudança. Não houve consulta/escrita Supabase, RPC de restauração, sincronização Meta, operação SEFAZ, migration, deploy ou operação operacional de Estoque; o guia prático não requer atualização.
+
+**Conclusão do recorte:** `showMergedProducts` agora é validado antes da consulta e a separação entre Lixeira e Desativados está aplicada nos dois clientes. Os testes focados passaram; a prova visual autenticada e a nativa continuam pendentes. A auditoria global de Produtos segue em andamento.
+
+### Ciclo 391 — busca textual da lista de Produtos — 26/10/2026
+
+**Recorte:** limite mínimo, debounce, submissão por Enter, filtros de situação durante a busca e resolução de nomes/códigos/SKUs de variações na lista.
+
+#### Comparação e conclusão
+
+- [x] ERP e app usam `PRODUCT_LIST_SEARCH_MIN_LENGTH = 3` e o debounce compartilhado de **350 ms**. Ao digitar 1–2 caracteres, ambos mantêm o texto no campo e não fazem a busca; ao apagar tudo, limpam a consulta; no Enter, aplicam termos válidos, limpam termo vazio e ignoram termos curtos. O comportamento de busca ativo/desativado, com rascunhos preservados conforme o filtro, já está registrado no Ciclo 317 e segue alinhado.
+- [x] `productFilterBuilder.ts` e `mobileProductFetchService.ts` reutilizam `buildProductSearchTerms`, `buildProductVariationSearchFilter` e `buildProductParentSearchFilter` de `shared-utils/productListSearch.ts`. A procura abrange nome/código no pai, nome/SKU nas variações e os pais correspondentes; ambos interrompem a consulta quando a busca por variações excede o limite compartilhado de 100.
+- [x] A tela mobile valida a consulta pelo `productListFormSchema` real do `useZodForm` antes de chamar `fetchMobileProductsPage`; o campo inclui busca, filtros, paginação e opções de lista. A busca do ERP atualiza o filtro da lista a partir do input e segue a mesma normalização/limite, sem um formulário separado de submissão.
+- [x] Não encontrei diferença funcional comprovada neste estado; nenhuma alteração de produção foi necessária. O estado de falha por busca ampla e seu retry são tratados nos Ciclos 388 e 390.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/hooks/useProductsPageState.ts`, `ProductList/index.tsx` e `erp/src/pages/utils/productService/productFilterBuilder.ts`. App: `mobile/src/features/products/hooks/useMobileProducts.ts`, `mobile/src/features/products/domain/mobileProductListFilters.ts` e `mobile/src/features/products/services/mobileProductFetchService.ts`. Regra comum: `shared-utils/productListSearch.ts`; schema móvel: `shared-utils/listingFormSchemas.ts`.
+- [x] Vitest pelo runner do ERP: `productFilterBuilder.test.ts` (**17**), `mobileProductFetchService.test.ts` (**39**) e `mobileProductListFilters.test.ts` (**11**) — **3 arquivos, 67 testes aprovados**.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, a regra `rules/products/product-reconciliation-erp-only.yml`, documentação vigente de estrutura e operações de Produto/Variação, inventários de Produto e formulários, roadmap e a skill de replicação acessível. Não há `AGENTS.md` aninhado aplicável em ERP/mobile/shared-utils. A fonte canônica da skill permanece ausente; a cópia encontrada sob `.vercel` foi usada apenas como orientação e sem proveniência confirmada.
+- [ ] Não houve Playwright autenticado nem Maestro em aparelho Android físico; esta conclusão compara a lógica e os estados cobertos por testes, sem afirmar validação visual/nativa ou execução contra o Supabase remoto. Não houve leitura/escrita remota, Meta/R2/SEFAZ, migration, deploy ou mudança operacional de Estoque; o guia prático não requer atualização.
+
+**Conclusão do recorte:** busca curta, debounce, Enter, filtros de situação e construção da consulta permanecem equivalentes entre ERP e app, com regra pura compartilhada e validação Zod antes do fetch mobile. A prova autenticada/nativa continua pendente; a auditoria global de Produtos segue aberta.

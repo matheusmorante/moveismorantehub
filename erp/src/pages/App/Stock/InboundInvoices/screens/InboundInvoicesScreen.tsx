@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
-import { canPrintProductIdentificationLabels } from '@/pages/utils/accessRoles';
+import { canPrintProductIdentificationLabels, getProfileRoles } from '@/pages/utils/accessRoles';
 import { InboundInvoicesHeader, DateFilterConfig } from '../components/InboundInvoicesHeader';
 import { InboundInvoicesTable } from '../components/InboundInvoicesTable';
 import { InboundInvoiceDetailsModal } from '../modals/InboundInvoiceDetailsModal';
@@ -37,7 +37,7 @@ export default function InboundInvoicesPage() {
   const { profile } = useAuth();
   const canAccessReceipts = canPerform(
     'viewStockReceipts',
-    profile?.roles || profile?.role
+    profile ? getProfileRoles(profile) : []
   );
   const canPrintLabels = canPrintProductIdentificationLabels(profile);
   const [invoices, setInvoices] = useState<InboundInvoice[]>([]);

@@ -141,3 +141,8 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 * Antes de cada aplicação, revisar o SQL completo, confirmar o project ref, consultar o histórico remoto e validar precondições, compatibilidade e impacto. Aplicar somente no schema `public` do projeto operacional existente e verificar o resultado depois.
 * Esta autorização cobre DDL de migrations dentro do escopo solicitado. Não autoriza provisionar fixtures ou dados sintéticos, fazer escritas DML de teste, limpar dados, criar projetos/branches/bancos/schemas, enviar mensagens, executar ações fiscais nem contornar gates de ownership, isolamento e autorização específicos. Essas operações continuam sujeitas à política e às aprovações próprias.
 * Permanecem proibidos Supabase Local, migrations em banco local, `DROP`, `TRUNCATE`, DDL experimental e alterações amplas de RLS no banco compartilhado. Preferir migrations compatíveis e reversíveis, sem apagar histórico ou registros operacionais.
+
+## 14. Semântica da Lixeira de Produtos
+
+* A Lixeira lista somente produtos com `deleted = true`; produtos inativos sem exclusão permanecem no filtro **Desativados**.
+* Aplicar esse predicado tanto no ERP quanto no aplicativo. Não combinar `active = false` com a Lixeira.

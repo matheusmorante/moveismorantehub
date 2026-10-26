@@ -1,6 +1,10 @@
 import type { UserRole } from '../../context/AuthContext';
 import { getSettings } from '@/pages/utils/settingsService';
-import { findPermissionAction, isFinanceAdminOnlyAction } from './permissionConfig';
+import {
+  findPermissionAction,
+  isFinanceAdminOnlyAction,
+  isStockReceiptAccessRole,
+} from './permissionConfig';
 
 export type PermissionAction =
   | 'viewOrders'
@@ -37,6 +41,10 @@ export const canPerform = (action: PermissionAction, role?: UserRole | UserRole[
   // Normaliza para array
   const roles = Array.isArray(role) ? role : [role];
   if (roles.length === 0 || (roles.length === 1 && roles[0] === 'pending')) return false;
+
+  if (action === 'viewStockReceipts') {
+    return roles.some(isStockReceiptAccessRole);
+  }
 
   if (isFinanceAdminOnlyAction(action)) return roles.includes('administrator');
 

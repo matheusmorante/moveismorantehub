@@ -9,6 +9,7 @@ export interface ReceiptsPaginationProps {
   readonly onPageChange: (page: number) => void;
   readonly loading?: boolean;
   readonly itemName?: string;
+  readonly bare?: boolean;
 }
 
 export const ReceiptsPagination: React.FC<ReceiptsPaginationProps> = ({
@@ -19,6 +20,7 @@ export const ReceiptsPagination: React.FC<ReceiptsPaginationProps> = ({
   onPageChange,
   loading = false,
   itemName = 'recebimentos',
+  bare = false,
 }) => {
   const safeTotalPages = Math.max(1, totalPages);
   const safeCurrentPage = Math.min(safeTotalPages, Math.max(1, currentPage));
@@ -29,7 +31,11 @@ export const ReceiptsPagination: React.FC<ReceiptsPaginationProps> = ({
     <nav
       role="navigation"
       aria-label="Paginação de recebimentos"
-      className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-4 sm:px-6 bg-slate-50/70 dark:bg-slate-900/40 rounded-2xl border border-slate-200/70 dark:border-slate-800/80 shadow-sm mt-4 mb-2"
+      className={
+        bare
+          ? 'flex flex-col sm:flex-row items-center justify-between gap-4 py-3 px-1 mt-4 mb-2'
+          : 'flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-4 sm:px-6 bg-slate-50/70 dark:bg-slate-900/40 rounded-2xl border border-slate-200/70 dark:border-slate-800/80 shadow-sm mt-4 mb-2'
+      }
     >
       {/* Informações de contagem */}
       <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400">

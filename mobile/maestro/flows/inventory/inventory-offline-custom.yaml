@@ -1,0 +1,89 @@
+appId: com.morante.mobile
+---
+- assertVisible:
+    id: inventory-responsible-search
+- tapOn:
+    id: inventory-responsible-search
+- inputText: "an"
+- extendedWaitUntil:
+    visible:
+      id: "inventory-responsible-option-.*"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 5000
+- tapOn:
+    id: "inventory-responsible-option-.*"
+    index: 1
+- extendedWaitUntil:
+    visible: "Selecionado: .*"
+    timeout: 10000
+- tapOn: "Seleção Personalizada"
+- tapOn: "+ Adicionar produto ou variação"
+- extendedWaitUntil:
+    visible:
+      id: product-search-item
+    timeout: 20000
+- tapOn:
+    id: product-search-item
+    index: 0
+- assertVisible: "Continuar com 1 item(ns)"
+- tapOn:
+    id: continue-custom-btn
+- extendedWaitUntil:
+    visible:
+      id: increment-btn
+    timeout: 20000
+- tapOn:
+    id: increment-btn
+- tapOn:
+    id: increment-btn
+- tapOn:
+    id: decrement-btn
+- tapOn:
+    id: footer-review-btn
+- assertVisible:
+    id: confirm-review-btn
+- tapOn:
+    id: review-back-btn
+- tapOn:
+    id: footer-back-btn
+- assertVisible: "Sair da contagem"
+- tapOn: "FECHAR INVENTÁRIO"
+- extendedWaitUntil:
+    visible:
+      id: new-inventory-btn
+    timeout: 20000
+- assertVisible: "#LOCAL-.*"
+- tapOn:
+    id: inventory-card
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: count-input
+    timeout: 20000
+- assertVisible:
+    id: count-input
+    text: "1"
+- tapOn:
+    id: decrement-btn
+- assertVisible:
+    id: count-input
+    text: "0"
+- tapOn:
+    id: footer-back-btn
+- assertVisible: "Sair da contagem"
+- tapOn: "FECHAR INVENTÁRIO"
+- extendedWaitUntil:
+    visible:
+      id: new-inventory-btn
+    timeout: 20000
+- assertVisible: "#LOCAL-.*"
+- tapOn:
+    id: inventory-options-btn
+    index: 0
+- assertVisible: "Opções do Inventário #LOCAL-.*"
+- tapOn: "Excluir contagem"
+- assertVisible: "EXCLUIR"
+- tapOn: "EXCLUIR"
+- assertVisible: "Contagem em andamento excluída."
+- tapOn: "OK"

@@ -2,7 +2,10 @@ import React from 'react';
 import Product, { ProductKind, Variation } from '../pages/types/product.type';
 import DropdownPortal from './shared/DropdownPortal';
 import TruncatedProductTitle from './TruncatedProductTitle';
-import { getVariationDisplayName } from './productAutocompleteUtils';
+import {
+  getVariationDisplayName,
+  type ProductAutocompleteExcludedLink,
+} from './productAutocompleteUtils';
 import { useProductAutocomplete } from './hooks/useProductAutocomplete';
 import { resolveProductAutocompleteDisplayPrice } from '../../../shared-utils/productAutocompleteDisplayPrice';
 
@@ -37,6 +40,7 @@ interface ProductAutocompleteProps {
   /** Inclui produtos e variações desativados; variações fundidas continuam ocultas. */
   includeDeactivated?: boolean;
   allowedProductKinds?: readonly ProductKind[];
+  excludedProductLinks?: readonly ProductAutocompleteExcludedLink[];
   products?: Product[];
   clearOnSelect?: boolean;
   disabled?: boolean;
@@ -72,6 +76,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   productsOnly = false,
   includeDeactivated = false,
   allowedProductKinds,
+  excludedProductLinks,
   products: localProducts,
   clearOnSelect = false,
   disabled = false,
@@ -99,6 +104,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     variationsOnly,
     includeDeactivated,
     allowedProductKinds,
+    excludedProductLinks,
     localProducts,
     excludeCombos,
     disabled,
@@ -251,7 +257,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               <i className="bi bi-arrow-repeat animate-spin" />
               Buscando produtos...
             </div>
-          ) : suggestions.length === 0 ? (
+          ) : !searchError && suggestions.length === 0 ? (
             <div className="px-4 py-5 text-center text-xs font-bold text-slate-400">
               Nenhum produto encontrado para esta busca.
             </div>

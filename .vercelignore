@@ -43,6 +43,7 @@ tests/
 **/*.apk
 **/*.zip
 **/*.pdf
+!erp/public/guias/guia-pratico-estoque.pdf
 # Root scripts stay excluded; these two scripts are required by the ERP build.
 !erp/scripts
 !erp/scripts/build-fiscal.cjs

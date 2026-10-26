@@ -37,6 +37,10 @@ import {
   getProductTechnicalRootPatch,
 } from '../../../../../../shared-utils/productTechnicalRootPatch';
 import {
+  getProductTechnicalDimensionField,
+  parseProductTechnicalDimension,
+} from '../../../../../../shared-utils/productTechnicalDimensions';
+import {
   getCharacteristicDependencyState,
   isCharacteristicDependent,
   isCharacteristicDependentOnVariableField,
@@ -71,24 +75,6 @@ const normalizeSearchTerm = (value: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('pt-BR');
-
-const getDimensionField = (name: string) => {
-  const normalized = normalizeName(name);
-  if (normalized === 'altura') return 'height';
-  if (normalized === 'largura') return 'width';
-  if (['profundidade', 'comprimento'].includes(normalized)) return 'depth';
-  if (normalized === 'peso') return 'weight';
-  return null;
-};
-
-const getDimensionSyncField = (field: string) =>
-  field === 'width'
-    ? 'syncWidth'
-    : field === 'height'
-      ? 'syncHeight'
-      : field === 'depth'
-        ? 'syncDepth'
-        : 'syncWeight';
 
 export const ProductFormTechnicalTab: React.FC<Props> = ({
   formData,
@@ -419,10 +405,12 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
           getDefaultShowNameForVariationOverride(name)
         );
       }
-      const dimensionField = getDimensionField(name);
+      // O ERP grava as dimensões físicas no Produto pai. Na edição da variação,
+      // a característica própria fica em technicalValues/attributes e não altera
+      // as colunas herdadas de dimensão da variação.
+      const dimensionField = parentData ? null : getProductTechnicalDimensionField(name);
       if (dimensionField) {
-        next[dimensionField] = value;
-        if (parentData) next[getDimensionSyncField(dimensionField)] = false;
+        next[dimensionField] = parseProductTechnicalDimension(value);
       }
       return next;
     });
@@ -486,13 +474,13 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         const attributes = getProductCharacteristicAttributes(previous.attributes).filter(
           (attribute) => normalizeSearchTerm(attribute.name) !== normalizeSearchTerm(fieldName)
         );
-        const dimensionField = getDimensionField(fieldName);
+        const dimensionField = parentData ? null : getProductTechnicalDimensionField(fieldName);
         return {
           ...next,
           technicalValues,
           attributes,
           ...getProductTechnicalRootPatch(fieldName, undefined),
-          ...(dimensionField ? { [dimensionField]: '' } : {}),
+          ...(dimensionField ? { [dimensionField]: undefined } : {}),
         };
       }
       const currentTechnicalValue = getTechnicalValue(
@@ -698,7 +686,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                         isDependencySatisfied
                       ? 'global'
                       : 'not_inform';
-                  const isPhysicalDimension = getDimensionField(field.name) !== null;
+                  const isPhysicalDimension = getProductTechnicalDimensionField(field.name) !== null;
                   const hasConfiguredParentValue =
                     Boolean(parentData) && hasTechnicalValue(parentTechnicalValues, field.name);
                   const applicable =
