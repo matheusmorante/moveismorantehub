@@ -5,7 +5,7 @@ interface OrderSubHeaderProps {
 
 const OrderSubHeader = ({ seller, isBudget }: OrderSubHeaderProps) => {
   return (
-    <div className="flex justify-between items-center px-4 py-1 bg-slate-50 rounded-2xl border border-slate-100 mb-2 print-exact-bg">
+    <div className="flex justify-between items-center px-4 py-1 bg-slate-50 rounded-2xl mb-2 print-exact-bg">
       <div className="flex items-center gap-2">
         <i className="bi bi-person-badge text-slate-400 text-base"></i>
         <span className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">

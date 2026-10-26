@@ -19,7 +19,7 @@ describe('label selection submission', () => {
     expect(mocks.error).toHaveBeenCalled();
     rerender(<LabelPrintSelectionModal isOpen onClose={close} initialProduct={{ id: 'product', description: 'Mesa' }} labelType="price" />);
     await act(async () => fireEvent.click(screen.getByText('Imprimir Etiquetas')));
-    expect(mocks.navigate).toHaveBeenCalledWith('/estoque/etiquetas', { state: { labelType: 'price', batchProducts: [{ id: 'product', description: 'Mesa', images: undefined, labelQty: 1 }] } });
+    expect(mocks.navigate).toHaveBeenCalledWith('/estoque/etiquetas?cat=precos', { state: { labelType: 'price', batchProducts: [{ id: 'product', description: 'Mesa', images: undefined, labelQty: 1 }] } });
     expect(close).toHaveBeenCalledOnce();
   });
 });

@@ -1,5 +1,6 @@
 import { toTitleCase } from '../../../../../shared-utils/productText';
 import { parseProductVariationAttributes } from '../../../../../shared-utils/productVariationAttributes';
+import { normalizeProductVariationName } from '../../../../../shared-utils/productVariationNameValidation';
 import {
   getCompleteVariationName,
   getVariationNameAttributeValues,
@@ -12,7 +13,10 @@ import { getMobileProductRootCompositionItems } from './mobileProductComposition
  */
 export const getSingleVariationDisplayName = (product: any, variation: any): string => {
   const parentName = String(product?.name || product?.title || product?.description || '').trim();
-  const variationName = String(variation?.displayName || variation?.name || '').trim();
+  const variationName = normalizeProductVariationName(
+    parentName,
+    String(variation?.displayName || variation?.name || '')
+  );
   const attributes = parseProductVariationAttributes(variation?.attributes, {
     preserveStructuredShowName: true,
   });

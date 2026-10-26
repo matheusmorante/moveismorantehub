@@ -379,7 +379,7 @@ export const MobileProductCard: React.FC<Props> = ({
               <View
                 style={[styles.oppBadge, { backgroundColor: '#f3e8ff', borderColor: '#d8b4fe' }]}
               >
-                <Text style={[styles.oppText, { color: '#7e22ce' }]}>Composição</Text>
+                <Text style={[styles.oppText, { color: '#7e22ce' }]}>Composto</Text>
               </View>
             ) : null}
             {product.itemType === 'service' ? (

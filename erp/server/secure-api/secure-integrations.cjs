@@ -30,21 +30,58 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// erp/node_modules/@supabase/supabase-js/dist/index.cjs
+// node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs
+var require_tracingRegistry = __commonJS({
+  "node_modules/@supabase/supabase-js/dist/tracingRegistry.cjs"(exports2) {
+    var EXTRACTOR_KEY = Symbol.for("@supabase/supabase-js.traceContextExtractor");
+    function registerTraceContextExtractor(extractor) {
+      globalThis[EXTRACTOR_KEY] = extractor;
+    }
+    function getTraceContextExtractor() {
+      return globalThis[EXTRACTOR_KEY];
+    }
+    Object.defineProperty(exports2, "getTraceContextExtractor", {
+      enumerable: true,
+      get: function() {
+        return getTraceContextExtractor;
+      }
+    });
+    Object.defineProperty(exports2, "registerTraceContextExtractor", {
+      enumerable: true,
+      get: function() {
+        return registerTraceContextExtractor;
+      }
+    });
+  }
+});
+
+// node_modules/@supabase/supabase-js/dist/index.cjs
 var require_dist = __commonJS({
-  "erp/node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
-    var __supabase_functions_js = require("@supabase/functions-js");
-    var __supabase_postgrest_js = require("@supabase/postgrest-js");
-    var __supabase_realtime_js = require("@supabase/realtime-js");
-    var __supabase_storage_js = require("@supabase/storage-js");
-    var __supabase_auth_js = require("@supabase/auth-js");
-    var version = "2.99.1";
+  "node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
+    var require_tracingRegistry2 = require_tracingRegistry();
+    var _supabase_functions_js = require("@supabase/functions-js");
+    var _supabase_postgrest_js = require("@supabase/postgrest-js");
+    var _supabase_realtime_js = require("@supabase/realtime-js");
+    var _supabase_storage_js = require("@supabase/storage-js");
+    var _supabase_auth_js = require("@supabase/auth-js");
+    var version = "2.118.0";
     var JS_ENV = "";
-    if (typeof Deno !== "undefined") JS_ENV = "deno";
-    else if (typeof document !== "undefined") JS_ENV = "web";
+    var JS_RUNTIME_VERSION;
+    if (typeof Deno !== "undefined") {
+      JS_ENV = "deno";
+      JS_RUNTIME_VERSION = (_Deno$version = Deno.version) === null || _Deno$version === void 0 ? void 0 : _Deno$version.deno;
+    } else if (typeof document !== "undefined") JS_ENV = "web";
     else if (typeof navigator !== "undefined" && navigator.product === "ReactNative") JS_ENV = "react-native";
-    else JS_ENV = "node";
-    var DEFAULT_HEADERS = { "X-Client-Info": `supabase-js-${JS_ENV}/${version}` };
+    else {
+      JS_ENV = "node";
+      const _process = globalThis["process"];
+      JS_RUNTIME_VERSION = _process === null || _process === void 0 || (_process$version = _process["version"]) === null || _process$version === void 0 ? void 0 : _process$version.replace(/^v/, "");
+    }
+    var _Deno$version;
+    var _process$version;
+    var _runtimeMeta = [`runtime=${JS_ENV}`];
+    if (JS_RUNTIME_VERSION) _runtimeMeta.push(`runtime-version=${JS_RUNTIME_VERSION}`);
+    var DEFAULT_HEADERS = { "X-Client-Info": `supabase-js/${version}; ${_runtimeMeta.join("; ")}` };
     var DEFAULT_GLOBAL_OPTIONS = { headers: DEFAULT_HEADERS };
     var DEFAULT_DB_OPTIONS = { schema: "public" };
     var DEFAULT_AUTH_OPTIONS = {
@@ -54,6 +91,70 @@ var require_dist = __commonJS({
       flowType: "implicit"
     };
     var DEFAULT_REALTIME_OPTIONS = {};
+    var DEFAULT_TRACE_PROPAGATION_OPTIONS = {
+      enabled: false,
+      respectSamplingDecision: true
+    };
+    function parseTraceParent(traceparent) {
+      if (!traceparent || typeof traceparent !== "string") return null;
+      const parts = traceparent.split("-");
+      if (parts.length !== 4) return null;
+      const [version$1, traceId, parentId, traceFlags] = parts;
+      if (version$1.length !== 2 || traceId.length !== 32 || parentId.length !== 16 || traceFlags.length !== 2) return null;
+      const hexRegex = /^[0-9a-f]+$/i;
+      if (!hexRegex.test(version$1) || !hexRegex.test(traceId) || !hexRegex.test(parentId) || !hexRegex.test(traceFlags)) return null;
+      if (traceId === "00000000000000000000000000000000" || parentId === "0000000000000000") return null;
+      return {
+        version: version$1,
+        traceId,
+        parentId,
+        traceFlags,
+        isSampled: (parseInt(traceFlags, 16) & 1) === 1
+      };
+    }
+    function shouldPropagateToTarget(targetUrl, targets) {
+      if (!targetUrl || !targets || targets.length === 0) return false;
+      let url;
+      if (targetUrl instanceof URL) url = targetUrl;
+      else try {
+        url = new URL(targetUrl);
+      } catch (error) {
+        return false;
+      }
+      for (const target of targets) try {
+        if (typeof target === "string") {
+          if (matchStringTarget(url.hostname, target)) return true;
+        } else if (target instanceof RegExp) {
+          if (target.test(url.hostname)) return true;
+        } else if (typeof target === "function") {
+          if (target(url)) return true;
+        }
+      } catch (error) {
+        continue;
+      }
+      return false;
+    }
+    function matchStringTarget(hostname, target) {
+      if (target === hostname) return true;
+      if (target.startsWith("*.")) {
+        const domain = target.slice(2);
+        if (hostname.endsWith(domain)) {
+          if (hostname === domain || hostname.endsWith("." + domain)) return true;
+        }
+      }
+      return false;
+    }
+    function getDefaultPropagationTargets(supabaseUrl) {
+      const targets = [];
+      try {
+        const url = new URL(supabaseUrl);
+        targets.push(url.hostname);
+      } catch (error) {
+      }
+      targets.push("*.supabase.co", "*.supabase.in");
+      targets.push("localhost", "127.0.0.1", "[::1]");
+      return targets;
+    }
     function _typeof(o) {
       "@babel/helpers - typeof";
       return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o$1) {
@@ -112,31 +213,100 @@ var require_dist = __commonJS({
     var resolveHeadersConstructor = () => {
       return Headers;
     };
-    var fetchWithAuth = (supabaseKey, getAccessToken, customFetch) => {
+    var isNewApiKey = (key) => key.startsWith("sb_publishable_") || key.startsWith("sb_secret_");
+    var TEMP_KEY_PREFIX = "sb_temp_";
+    var warnedKeySubtypes = /* @__PURE__ */ new Set();
+    var checkApiKeyFormat = (key) => {
+      var _key$match$, _key$match;
+      if (!key.startsWith("sb_") || isNewApiKey(key) || key.startsWith(TEMP_KEY_PREFIX)) return;
+      const subtype = (_key$match$ = (_key$match = key.match(/^sb_[a-zA-Z0-9]+_/)) === null || _key$match === void 0 ? void 0 : _key$match[0]) !== null && _key$match$ !== void 0 ? _key$match$ : "unknown";
+      if (warnedKeySubtypes.has(subtype)) return;
+      warnedKeySubtypes.add(subtype);
+      console.warn("@supabase/supabase-js: Unrecognized Supabase API key format. The client will proceed and send this key as-is; if you see authentication errors you may need to upgrade @supabase/supabase-js to a version that recognizes this key type.");
+    };
+    var fetchWithAuth = (supabaseKey, supabaseUrl, getAccessToken, customFetch, tracePropagationOptions, options) => {
       const fetch$1 = resolveFetch(customFetch);
       const HeadersConstructor = resolveHeadersConstructor();
+      const traceEnabled = (tracePropagationOptions === null || tracePropagationOptions === void 0 ? void 0 : tracePropagationOptions.enabled) === true;
+      const respectSampling = (tracePropagationOptions === null || tracePropagationOptions === void 0 ? void 0 : tracePropagationOptions.respectSamplingDecision) !== false;
+      const traceTargets = traceEnabled ? getDefaultPropagationTargets(supabaseUrl) : null;
+      const allowKeyAsBearer = !((options === null || options === void 0 ? void 0 : options.omitApiKeyAsBearer) && isNewApiKey(supabaseKey));
       return async (input, init) => {
-        var _await$getAccessToken;
-        const accessToken = (_await$getAccessToken = await getAccessToken()) !== null && _await$getAccessToken !== void 0 ? _await$getAccessToken : supabaseKey;
+        const realToken = await getAccessToken();
         let headers = new HeadersConstructor(init === null || init === void 0 ? void 0 : init.headers);
         if (!headers.has("apikey")) headers.set("apikey", supabaseKey);
-        if (!headers.has("Authorization")) headers.set("Authorization", `Bearer ${accessToken}`);
+        if (!headers.has("Authorization")) {
+          const bearer = realToken !== null && realToken !== void 0 ? realToken : allowKeyAsBearer ? supabaseKey : null;
+          if (bearer) headers.set("Authorization", `Bearer ${bearer}`);
+        }
+        if (traceTargets) {
+          const traceHeaders = getTraceHeaders(input, traceTargets, respectSampling);
+          if (traceHeaders) {
+            if (traceHeaders.traceparent && !headers.has("traceparent")) headers.set("traceparent", traceHeaders.traceparent);
+            if (traceHeaders.tracestate && !headers.has("tracestate")) headers.set("tracestate", traceHeaders.tracestate);
+            if (traceHeaders.baggage && !headers.has("baggage")) headers.set("baggage", traceHeaders.baggage);
+          }
+        }
         return fetch$1(input, _objectSpread2(_objectSpread2({}, init), {}, { headers }));
       };
     };
+    var warnedMissingTracingRuntime = false;
+    var warnedNonW3CPropagator = false;
+    function getTraceHeaders(input, targets, respectSampling) {
+      const extractTraceContext = require_tracingRegistry2.getTraceContextExtractor();
+      if (!extractTraceContext) {
+        if (!warnedMissingTracingRuntime) {
+          warnedMissingTracingRuntime = true;
+          console.warn("@supabase/supabase-js: tracePropagation is enabled but the tracing runtime is not loaded, so trace headers will not be attached. Add `import '@supabase/supabase-js/tracing'` at your application entry point (requires the OpenTelemetry API package to be installed). The CDN/UMD build does not support trace propagation.");
+        }
+        return null;
+      }
+      if (!shouldPropagateToTarget(typeof input === "string" ? input : input instanceof URL ? input : input.url, targets)) return null;
+      const traceContext = extractTraceContext();
+      if (!traceContext || !traceContext.traceparent) {
+        var _traceContext$carrier;
+        if ((traceContext === null || traceContext === void 0 || (_traceContext$carrier = traceContext.carrierKeys) === null || _traceContext$carrier === void 0 ? void 0 : _traceContext$carrier.length) && !warnedNonW3CPropagator) {
+          warnedNonW3CPropagator = true;
+          const sentryHint = traceContext.carrierKeys.includes("sentry-trace") ? " Sentry detected: set `propagateTraceparent: true` in Sentry.init() to emit it." : " Configure your tracing SDK to emit W3C trace context on outgoing requests.";
+          console.warn(`@supabase/supabase-js: tracePropagation is enabled and a tracing SDK is active, but its propagator wrote [${traceContext.carrierKeys.join(", ")}] and no W3C traceparent header, so trace headers will not be attached.` + sentryHint);
+        }
+        return null;
+      }
+      if (respectSampling) {
+        const parsed = parseTraceParent(traceContext.traceparent);
+        if (parsed && !parsed.isSampled) return { traceparent: traceContext.traceparent };
+      }
+      return traceContext;
+    }
+    function normalizeTracePropagation(value) {
+      return typeof value === "boolean" ? { enabled: value } : value;
+    }
     function ensureTrailingSlash(url) {
       return url.endsWith("/") ? url : url + "/";
     }
+    var warnedTopLevelSchema = false;
+    function checkTopLevelSchemaOption(options) {
+      if (warnedTopLevelSchema) return;
+      if (typeof options !== "object" || options === null || !("schema" in options) || options.schema === void 0) return;
+      warnedTopLevelSchema = true;
+      console.warn(`@supabase/supabase-js: The "schema" option must be nested under "db", e.g. createClient(url, key, { db: { schema: 'myschema' } }). A top-level "schema" is ignored and queries go to the default schema.`);
+    }
     function applySettingDefaults(options, defaults) {
-      var _DEFAULT_GLOBAL_OPTIO, _globalOptions$header;
+      var _DEFAULT_GLOBAL_OPTIO, _globalOptions$header, _ref, _tracePropagationOpti, _ref2, _tracePropagationOpti2;
       const { db: dbOptions, auth: authOptions, realtime: realtimeOptions, global: globalOptions } = options;
       const { db: DEFAULT_DB_OPTIONS$1, auth: DEFAULT_AUTH_OPTIONS$1, realtime: DEFAULT_REALTIME_OPTIONS$1, global: DEFAULT_GLOBAL_OPTIONS$1 } = defaults;
+      const tracePropagationOptions = normalizeTracePropagation(options.tracePropagation);
+      const DEFAULT_TRACE_PROPAGATION_OPTIONS$1 = normalizeTracePropagation(defaults.tracePropagation);
       const result = {
         db: _objectSpread2(_objectSpread2({}, DEFAULT_DB_OPTIONS$1), dbOptions),
         auth: _objectSpread2(_objectSpread2({}, DEFAULT_AUTH_OPTIONS$1), authOptions),
         realtime: _objectSpread2(_objectSpread2({}, DEFAULT_REALTIME_OPTIONS$1), realtimeOptions),
         storage: {},
         global: _objectSpread2(_objectSpread2(_objectSpread2({}, DEFAULT_GLOBAL_OPTIONS$1), globalOptions), {}, { headers: _objectSpread2(_objectSpread2({}, (_DEFAULT_GLOBAL_OPTIO = DEFAULT_GLOBAL_OPTIONS$1 === null || DEFAULT_GLOBAL_OPTIONS$1 === void 0 ? void 0 : DEFAULT_GLOBAL_OPTIONS$1.headers) !== null && _DEFAULT_GLOBAL_OPTIO !== void 0 ? _DEFAULT_GLOBAL_OPTIO : {}), (_globalOptions$header = globalOptions === null || globalOptions === void 0 ? void 0 : globalOptions.headers) !== null && _globalOptions$header !== void 0 ? _globalOptions$header : {}) }),
+        tracePropagation: {
+          enabled: (_ref = (_tracePropagationOpti = tracePropagationOptions === null || tracePropagationOptions === void 0 ? void 0 : tracePropagationOptions.enabled) !== null && _tracePropagationOpti !== void 0 ? _tracePropagationOpti : DEFAULT_TRACE_PROPAGATION_OPTIONS$1 === null || DEFAULT_TRACE_PROPAGATION_OPTIONS$1 === void 0 ? void 0 : DEFAULT_TRACE_PROPAGATION_OPTIONS$1.enabled) !== null && _ref !== void 0 ? _ref : false,
+          respectSamplingDecision: (_ref2 = (_tracePropagationOpti2 = tracePropagationOptions === null || tracePropagationOptions === void 0 ? void 0 : tracePropagationOptions.respectSamplingDecision) !== null && _tracePropagationOpti2 !== void 0 ? _tracePropagationOpti2 : DEFAULT_TRACE_PROPAGATION_OPTIONS$1 === null || DEFAULT_TRACE_PROPAGATION_OPTIONS$1 === void 0 ? void 0 : DEFAULT_TRACE_PROPAGATION_OPTIONS$1.respectSamplingDecision) !== null && _ref2 !== void 0 ? _ref2 : true
+        },
         accessToken: async () => ""
       };
       if (options.accessToken) result.accessToken = options.accessToken;
@@ -153,7 +323,7 @@ var require_dist = __commonJS({
         throw Error("Invalid supabaseUrl: Provided URL is malformed.");
       }
     }
-    var SupabaseAuthClient = class extends __supabase_auth_js.AuthClient {
+    var SupabaseAuthClient = class extends _supabase_auth_js.AuthClient {
       constructor(options) {
         super(options);
       }
@@ -166,21 +336,22 @@ var require_dist = __commonJS({
       *
       * @param supabaseUrl The unique Supabase URL which is supplied when you create a new project in your project dashboard.
       * @param supabaseKey The unique Supabase Key which is supplied when you create a new project in your project dashboard.
-      * @param options.db.schema You can switch in between schemas. The schema needs to be on the list of exposed schemas inside Supabase.
-      * @param options.auth.autoRefreshToken Set to "true" if you want to automatically refresh the token before expiring.
-      * @param options.auth.persistSession Set to "true" if you want to automatically save the user session into local storage.
-      * @param options.auth.detectSessionInUrl Set to "true" if you want to automatically detects OAuth grants in the URL and signs in the user.
-      * @param options.realtime Options passed along to realtime-js constructor.
-      * @param options.storage Options passed along to the storage-js constructor.
-      * @param options.global.fetch A custom fetch implementation.
-      * @param options.global.headers Any additional headers to send with each network request.
+      * @param options Optional configuration for the client:
+      * - `db.schema` — You can switch in between schemas. The schema needs to be on the list of exposed schemas inside Supabase.
+      * - `auth.autoRefreshToken` — Set to `true` if you want to automatically refresh the token before expiring.
+      * - `auth.persistSession` — Set to `true` if you want to automatically save the user session into local storage.
+      * - `auth.detectSessionInUrl` — Set to `true` if you want to automatically detect OAuth grants in the URL and sign in the user.
+      * - `realtime` — Options passed along to the realtime-js constructor.
+      * - `storage` — Options passed along to the storage-js constructor.
+      * - `global.fetch` — A custom fetch implementation.
+      * - `global.headers` — Any additional headers to send with each network request.
       *
       * @example Creating a client
       * ```js
       * import { createClient } from '@supabase/supabase-js'
       *
       * // Create a single supabase client for interacting with your database
-      * const supabase = createClient('https://xyzcompany.supabase.co', 'publishable-or-anon-key')
+      * const supabase = createClient('https://xyzcompany.supabase.co', 'your-publishable-key')
       * ```
       *
       * @example With a custom domain
@@ -188,7 +359,7 @@ var require_dist = __commonJS({
       * import { createClient } from '@supabase/supabase-js'
       *
       * // Use a custom domain as the supabase URL
-      * const supabase = createClient('https://my-custom-domain.com', 'publishable-or-anon-key')
+      * const supabase = createClient('https://my-custom-domain.com', 'your-publishable-key')
       * ```
       *
       * @example With additional parameters
@@ -208,7 +379,7 @@ var require_dist = __commonJS({
       *     headers: { 'x-my-custom-header': 'my-app-name' },
       *   },
       * }
-      * const supabase = createClient("https://xyzcompany.supabase.co", "publishable-or-anon-key", options)
+      * const supabase = createClient("https://xyzcompany.supabase.co", "your-publishable-key", options)
       * ```
       *
       * @exampleDescription With custom schemas
@@ -221,22 +392,22 @@ var require_dist = __commonJS({
       * ```js
       * import { createClient } from '@supabase/supabase-js'
       *
-      * const supabase = createClient('https://xyzcompany.supabase.co', 'publishable-or-anon-key', {
+      * const supabase = createClient('https://xyzcompany.supabase.co', 'your-publishable-key', {
       *   // Provide a custom schema. Defaults to "public".
       *   db: { schema: 'other_schema' }
       * })
       * ```
       *
       * @exampleDescription Custom fetch implementation
-      * `supabase-js` uses the [`cross-fetch`](https://www.npmjs.com/package/cross-fetch) library to make HTTP requests,
+      * `supabase-js` uses the runtime's global `fetch` to make HTTP requests,
       * but an alternative `fetch` implementation can be provided as an option.
-      * This is most useful in environments where `cross-fetch` is not compatible (for instance Cloudflare Workers).
+      * This is useful in environments where the global `fetch` is unavailable or where you want to customize request behavior.
       *
       * @example Custom fetch implementation
       * ```js
       * import { createClient } from '@supabase/supabase-js'
       *
-      * const supabase = createClient('https://xyzcompany.supabase.co', 'publishable-or-anon-key', {
+      * const supabase = createClient('https://xyzcompany.supabase.co', 'your-publishable-key', {
       *   global: { fetch: fetch.bind(globalThis) }
       * })
       * ```
@@ -250,7 +421,7 @@ var require_dist = __commonJS({
       * import { createClient } from '@supabase/supabase-js'
       * import AsyncStorage from "@react-native-async-storage/async-storage";
       *
-      * const supabase = createClient("https://xyzcompany.supabase.co", "publishable-or-anon-key", {
+      * const supabase = createClient("https://xyzcompany.supabase.co", "your-publishable-key", {
       *   auth: {
       *     storage: AsyncStorage,
       *     autoRefreshToken: true,
@@ -327,7 +498,7 @@ var require_dist = __commonJS({
       *   }
       * }
       *
-      * const supabase = createClient("https://xyzcompany.supabase.co", "publishable-or-anon-key", {
+      * const supabase = createClient("https://xyzcompany.supabase.co", "your-publishable-key", {
       *   auth: {
       *     storage: new LargeSecureStore(),
       *     autoRefreshToken: true,
@@ -341,9 +512,35 @@ var require_dist = __commonJS({
       * ```ts
       * import { createClient } from '@supabase/supabase-js'
       *
-      * const supabase = createClient('https://xyzcompany.supabase.co', 'public-anon-key')
+      * const supabase = createClient('https://xyzcompany.supabase.co', 'your-publishable-key')
       *
       * const { data } = await supabase.from('profiles').select('*')
+      * ```
+      *
+      * @exampleDescription With OpenTelemetry tracing
+      * Opt in to W3C trace context propagation so the `trace_id` from your
+      * client-side spans is attached to Supabase requests and appears in API
+      * Gateway and Edge Function logs. Requires `@opentelemetry/api` to be
+      * installed in your application and the tracing runtime to be loaded via
+      * `import '@supabase/supabase-js/tracing'`. See [Tracing with the JS SDK](https://supabase.com/docs/guides/telemetry/client-side-tracing).
+      *
+      * @example With OpenTelemetry tracing
+      * ```ts
+      * import '@supabase/supabase-js/tracing'
+      * import { createClient } from '@supabase/supabase-js'
+      * import { trace } from '@opentelemetry/api'
+      *
+      * const supabase = createClient('https://xyzcompany.supabase.co', 'your-publishable-key', {
+      *   tracePropagation: true,
+      * })
+      *
+      * const tracer = trace.getTracer('my-app')
+      *
+      * await tracer.startActiveSpan('fetch-users', async (span) => {
+      *   // Outgoing request carries the active trace context.
+      *   const { data, error } = await supabase.from('users').select('*')
+      *   span.end()
+      * })
       * ```
       */
       constructor(supabaseUrl, supabaseKey, options) {
@@ -352,6 +549,8 @@ var require_dist = __commonJS({
         this.supabaseKey = supabaseKey;
         const baseUrl = validateSupabaseUrl(supabaseUrl);
         if (!supabaseKey) throw new Error("supabaseKey is required.");
+        checkApiKeyFormat(supabaseKey);
+        checkTopLevelSchemaOption(options);
         this.realtimeUrl = new URL("realtime/v1", baseUrl);
         this.realtimeUrl.protocol = this.realtimeUrl.protocol.replace("http", "ws");
         this.authUrl = new URL("auth/v1", baseUrl);
@@ -362,9 +561,11 @@ var require_dist = __commonJS({
           db: DEFAULT_DB_OPTIONS,
           realtime: DEFAULT_REALTIME_OPTIONS,
           auth: _objectSpread2(_objectSpread2({}, DEFAULT_AUTH_OPTIONS), {}, { storageKey: defaultStorageKey }),
-          global: DEFAULT_GLOBAL_OPTIONS
+          global: DEFAULT_GLOBAL_OPTIONS,
+          tracePropagation: DEFAULT_TRACE_PROPAGATION_OPTIONS
         };
         const settings = applySettingDefaults(options !== null && options !== void 0 ? options : {}, DEFAULTS);
+        this.settings = settings;
         this.storageKey = (_settings$auth$storag = settings.auth.storageKey) !== null && _settings$auth$storag !== void 0 ? _settings$auth$storag : "";
         this.headers = (_settings$global$head = settings.global.headers) !== null && _settings$global$head !== void 0 ? _settings$global$head : {};
         if (!settings.accessToken) {
@@ -376,29 +577,32 @@ var require_dist = __commonJS({
             throw new Error(`@supabase/supabase-js: Supabase Client is configured with the accessToken option, accessing supabase.auth.${String(prop)} is not possible`);
           } });
         }
-        this.fetch = fetchWithAuth(supabaseKey, this._getAccessToken.bind(this), settings.global.fetch);
+        this.fetch = fetchWithAuth(supabaseKey, supabaseUrl, this._getSessionToken.bind(this), settings.global.fetch, settings.tracePropagation);
+        this.functionsFetch = fetchWithAuth(supabaseKey, supabaseUrl, this._getSessionToken.bind(this), settings.global.fetch, settings.tracePropagation, { omitApiKeyAsBearer: true });
         this.realtime = this._initRealtimeClient(_objectSpread2({
           headers: this.headers,
-          accessToken: this._getAccessToken.bind(this)
+          accessToken: this._getAccessToken.bind(this),
+          fetch: this.fetch
         }, settings.realtime));
         if (this.accessToken) Promise.resolve(this.accessToken()).then((token) => this.realtime.setAuth(token)).catch((e) => console.warn("Failed to set initial Realtime auth token:", e));
-        this.rest = new __supabase_postgrest_js.PostgrestClient(new URL("rest/v1", baseUrl).href, {
+        this.rest = new _supabase_postgrest_js.PostgrestClient(new URL("rest/v1", baseUrl).href, {
           headers: this.headers,
           schema: settings.db.schema,
           fetch: this.fetch,
           timeout: settings.db.timeout,
-          urlLengthLimit: settings.db.urlLengthLimit
+          urlLengthLimit: settings.db.urlLengthLimit,
+          retry: settings.db.retry
         });
-        this.storage = new __supabase_storage_js.StorageClient(this.storageUrl.href, this.headers, this.fetch, options === null || options === void 0 ? void 0 : options.storage);
+        this.storage = new _supabase_storage_js.StorageClient(this.storageUrl.href, this.headers, this.fetch, options === null || options === void 0 ? void 0 : options.storage);
         if (!settings.accessToken) this._listenForAuthEvents();
       }
       /**
       * Supabase Functions allows you to deploy and invoke edge functions.
       */
       get functions() {
-        return new __supabase_functions_js.FunctionsClient(this.functionsUrl.href, {
+        return new _supabase_functions_js.FunctionsClient(this.functionsUrl.href, {
           headers: this.headers,
-          customFetch: this.fetch
+          customFetch: this.functionsFetch
         });
       }
       /**
@@ -418,6 +622,23 @@ var require_dist = __commonJS({
       */
       schema(schema) {
         return this.rest.schema(schema);
+      }
+      /**
+      * Fetch the OpenAPI description PostgREST publishes for this client's schema.
+      *
+      * The document lists only the tables, views and functions the caller's role
+      * holds privileges on. The request carries the same `apikey` and
+      * `Authorization` headers as every other query, so the description is scoped
+      * to the signed-in user. Call `.schema()` first to describe a schema other
+      * than the client default.
+      *
+      * @example
+      * ```ts
+      * const { data, error } = await supabase.getOpenApiSpec()
+      * ```
+      */
+      getOpenApiSpec() {
+        return this.rest.getOpenApiSpec();
       }
       /**
       * Perform a function call.
@@ -455,12 +676,20 @@ var require_dist = __commonJS({
       * @param {string} name - The name of the Realtime channel.
       * @param {Object} opts - The options to pass to the Realtime channel.
       *
+      * @category Realtime
       */
       channel(name, opts = { config: {} }) {
         return this.realtime.channel(name, opts);
       }
       /**
       * Returns all Realtime channels.
+      *
+      * @category Realtime
+      *
+      * @example Get all channels
+      * ```js
+      * const channels = supabase.getChannels()
+      * ```
       */
       getChannels() {
         return this.realtime.getChannels();
@@ -470,24 +699,54 @@ var require_dist = __commonJS({
       *
       * @param {RealtimeChannel} channel - The name of the Realtime channel.
       *
+      *
+      * @category Realtime
+      *
+      * @remarks
+      * - Removing a channel is a great way to maintain the performance of your project's Realtime service as well as your database if you're listening to Postgres changes. Supabase will automatically handle cleanup 30 seconds after a client is disconnected, but unused channels may cause degradation as more clients are simultaneously subscribed.
+      *
+      * @example Removes a channel
+      * ```js
+      * supabase.removeChannel(myChannel)
+      * ```
       */
       removeChannel(channel) {
         return this.realtime.removeChannel(channel);
       }
       /**
       * Unsubscribes and removes all Realtime channels from Realtime client.
+      *
+      * @category Realtime
+      *
+      * @remarks
+      * - Removing channels is a great way to maintain the performance of your project's Realtime service as well as your database if you're listening to Postgres changes. Supabase will automatically handle cleanup 30 seconds after a client is disconnected, but unused channels may cause degradation as more clients are simultaneously subscribed.
+      *
+      * @example Remove all channels
+      * ```js
+      * supabase.removeAllChannels()
+      * ```
       */
       removeAllChannels() {
         return this.realtime.removeAllChannels();
       }
-      async _getAccessToken() {
+      /**
+      * The raw session token — the custom `accessToken` result or the signed-in user's JWT —
+      * or `null` when there is no session. Unlike {@link _getAccessToken} it does not fall back
+      * to `supabaseKey`, so callers can distinguish "no session" from "has session".
+      */
+      async _getSessionToken() {
         var _this = this;
         var _data$session$access_, _data$session;
         if (_this.accessToken) return await _this.accessToken();
         const { data } = await _this.auth.getSession();
-        return (_data$session$access_ = (_data$session = data.session) === null || _data$session === void 0 ? void 0 : _data$session.access_token) !== null && _data$session$access_ !== void 0 ? _data$session$access_ : _this.supabaseKey;
+        return (_data$session$access_ = (_data$session = data.session) === null || _data$session === void 0 ? void 0 : _data$session.access_token) !== null && _data$session$access_ !== void 0 ? _data$session$access_ : null;
       }
-      _initSupabaseAuthClient({ autoRefreshToken, persistSession, detectSessionInUrl, storage, userStorage, storageKey, flowType, lock, debug, throwOnError }, headers, fetch$1) {
+      async _getAccessToken() {
+        var _this2 = this;
+        var _await$this$_getSessi;
+        return (_await$this$_getSessi = await _this2._getSessionToken()) !== null && _await$this$_getSessi !== void 0 ? _await$this$_getSessi : _this2.supabaseKey;
+      }
+      _initSupabaseAuthClient({ autoRefreshToken, persistSession, detectSessionInUrl, storage, userStorage, storageKey, flowType, lock, debug, throwOnError, experimental, lockAcquireTimeout, skipAutoInitialize }, headers, fetch$1) {
         const authHeaders = {
           Authorization: `Bearer ${this.supabaseKey}`,
           apikey: `${this.supabaseKey}`
@@ -505,12 +764,15 @@ var require_dist = __commonJS({
           lock,
           debug,
           throwOnError,
+          experimental,
           fetch: fetch$1,
+          lockAcquireTimeout,
+          skipAutoInitialize,
           hasCustomAuthorizationHeader: Object.keys(this.headers).some((key) => key.toLowerCase() === "authorization")
         });
       }
       _initRealtimeClient(options) {
-        return new __supabase_realtime_js.RealtimeClient(this.realtimeUrl.href, _objectSpread2(_objectSpread2({}, options), {}, { params: _objectSpread2(_objectSpread2({}, { apikey: this.supabaseKey }), options === null || options === void 0 ? void 0 : options.params) }));
+        return new _supabase_realtime_js.RealtimeClient(this.realtimeUrl.href, _objectSpread2(_objectSpread2({}, options), {}, { params: _objectSpread2(_objectSpread2({}, { apikey: this.supabaseKey }), options === null || options === void 0 ? void 0 : options.params) }));
       }
       _listenForAuthEvents() {
         return this.auth.onAuthStateChange((event, session) => {
@@ -518,7 +780,7 @@ var require_dist = __commonJS({
         });
       }
       _handleTokenChanged(event, source, token) {
-        if ((event === "TOKEN_REFRESHED" || event === "SIGNED_IN") && this.changedAccessToken !== token) {
+        if ((event === "TOKEN_REFRESHED" || event === "SIGNED_IN" || event === "INITIAL_SESSION") && this.changedAccessToken !== token) {
           this.changedAccessToken = token;
           this.realtime.setAuth(token);
         } else if (event === "SIGNED_OUT") {
@@ -532,81 +794,87 @@ var require_dist = __commonJS({
       return new SupabaseClient(supabaseUrl, supabaseKey, options);
     };
     function shouldShowDeprecationWarning() {
-      if (typeof window !== "undefined") return false;
+      if (typeof window !== "undefined" || globalThis["Deno"] !== void 0) return false;
       const _process = globalThis["process"];
       if (!_process) return false;
       const processVersion = _process["version"];
       if (processVersion === void 0 || processVersion === null) return false;
       const versionMatch = processVersion.match(/^v(\d+)\./);
       if (!versionMatch) return false;
-      return parseInt(versionMatch[1], 10) <= 18;
+      return parseInt(versionMatch[1], 10) <= 20;
     }
-    if (shouldShowDeprecationWarning()) console.warn("\u26A0\uFE0F  Node.js 18 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 20 or later. For more information, visit: https://github.com/orgs/supabase/discussions/37217");
+    if (shouldShowDeprecationWarning()) console.warn("\u26A0\uFE0F  Node.js 20 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 22 or later. For more information, visit: https://github.com/orgs/supabase/discussions/45715");
     Object.defineProperty(exports2, "FunctionRegion", {
       enumerable: true,
       get: function() {
-        return __supabase_functions_js.FunctionRegion;
+        return _supabase_functions_js.FunctionRegion;
       }
     });
     Object.defineProperty(exports2, "FunctionsError", {
       enumerable: true,
       get: function() {
-        return __supabase_functions_js.FunctionsError;
+        return _supabase_functions_js.FunctionsError;
       }
     });
     Object.defineProperty(exports2, "FunctionsFetchError", {
       enumerable: true,
       get: function() {
-        return __supabase_functions_js.FunctionsFetchError;
+        return _supabase_functions_js.FunctionsFetchError;
       }
     });
     Object.defineProperty(exports2, "FunctionsHttpError", {
       enumerable: true,
       get: function() {
-        return __supabase_functions_js.FunctionsHttpError;
+        return _supabase_functions_js.FunctionsHttpError;
       }
     });
     Object.defineProperty(exports2, "FunctionsRelayError", {
       enumerable: true,
       get: function() {
-        return __supabase_functions_js.FunctionsRelayError;
+        return _supabase_functions_js.FunctionsRelayError;
       }
     });
     Object.defineProperty(exports2, "PostgrestError", {
       enumerable: true,
       get: function() {
-        return __supabase_postgrest_js.PostgrestError;
+        return _supabase_postgrest_js.PostgrestError;
+      }
+    });
+    Object.defineProperty(exports2, "StorageApiError", {
+      enumerable: true,
+      get: function() {
+        return _supabase_storage_js.StorageApiError;
       }
     });
     exports2.SupabaseClient = SupabaseClient;
     exports2.createClient = createClient2;
-    Object.keys(__supabase_auth_js).forEach(function(k) {
+    Object.keys(_supabase_auth_js).forEach(function(k) {
       if (k !== "default" && !Object.prototype.hasOwnProperty.call(exports2, k)) Object.defineProperty(exports2, k, {
         enumerable: true,
         get: function() {
-          return __supabase_auth_js[k];
+          return _supabase_auth_js[k];
         }
       });
     });
-    Object.keys(__supabase_realtime_js).forEach(function(k) {
+    Object.keys(_supabase_realtime_js).forEach(function(k) {
       if (k !== "default" && !Object.prototype.hasOwnProperty.call(exports2, k)) Object.defineProperty(exports2, k, {
         enumerable: true,
         get: function() {
-          return __supabase_realtime_js[k];
+          return _supabase_realtime_js[k];
         }
       });
     });
   }
 });
 
-// erp/api/secure-integrations.ts
+// api/secure-integrations.ts
 var secure_integrations_exports = {};
 __export(secure_integrations_exports, {
   default: () => handler
 });
 module.exports = __toCommonJS(secure_integrations_exports);
 
-// erp/api/_lib/authenticatedErpRequest.ts
+// api/_lib/authenticatedErpRequest.ts
 var import_supabase_js = __toESM(require_dist(), 1);
 var DEFAULT_PERMISSION_ROLES = {
   createEditOrders: ["manager"],
@@ -674,7 +942,7 @@ function hasErpPermission(context, permission) {
   return context.roles.some((role) => allowedRoles.includes(role));
 }
 
-// erp/server/secure-api/verifyMetaAppCredentials.ts
+// server/secure-api/verifyMetaAppCredentials.ts
 var import_node_crypto = require("node:crypto");
 function getGraphErrorDetails(body) {
   const graphError = body && typeof body === "object" && !Array.isArray(body) ? body.error : void 0;
@@ -756,7 +1024,7 @@ async function verifyMetaAppCredentials({
   return { valid: true };
 }
 
-// erp/server/secure-api/verifyWhatsAppWebhookSubscription.ts
+// server/secure-api/verifyWhatsAppWebhookSubscription.ts
 var import_node_crypto2 = require("node:crypto");
 function isRecord(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -826,7 +1094,7 @@ async function verifyWhatsAppWebhookSubscription({
   return { valid: false, reason: "pagination_limit_exceeded" };
 }
 
-// erp/server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
+// server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
 var import_node_crypto3 = require("node:crypto");
 function isRecord2(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -941,7 +1209,7 @@ async function ensureWhatsAppEchoWebhookSubscription({
   return { valid: true, changed: true, fields: verifiedFields };
 }
 
-// erp/src/pages/utils/metaService/metaGraphProxyPolicy.ts
+// src/pages/utils/metaService/metaGraphProxyPolicy.ts
 var numericId = (value) => {
   const normalized = typeof value === "string" ? value.trim() : "";
   if (!/^\d{1,32}$/.test(normalized)) throw new Error("Identificador Meta inv\xE1lido.");
@@ -1095,7 +1363,7 @@ function planMetaGraphRequest(input, settings) {
   }
 }
 
-// erp/api/secure-integrations.ts
+// api/secure-integrations.ts
 var MAX_META_REQUEST_BYTES = 1e6;
 var MAX_GEMINI_REQUEST_BYTES = 1e6;
 var MAX_ROUTE_REQUEST_BYTES = 16e3;

@@ -1,18 +1,17 @@
 -- Claim ownership of a frozen inventory submission at its first authorized upload.
 -- Expand-only: the claim row survives a later finalization conflict so the same
 -- authenticated owner can retry the exact contract version and payload.
+-- Project policy: all schema objects stay in public; migration-time settings DML is omitted.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 SET LOCAL idle_in_transaction_session_timeout = '60s';
 
-CREATE SCHEMA IF NOT EXISTS app_private;
-
-CREATE OR REPLACE FUNCTION app_private.has_finalize_stock_inventory_permission()
+CREATE OR REPLACE FUNCTION public.has_finalize_stock_inventory_permission()
 RETURNS boolean
 LANGUAGE plpgsql
 STABLE
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path TO ''
 SET row_security TO 'off'
 AS $function$
@@ -64,28 +63,8 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION app_private.has_finalize_stock_inventory_permission()
+REVOKE ALL ON FUNCTION public.has_finalize_stock_inventory_permission()
   FROM PUBLIC, anon, authenticated, service_role;
-
--- Retain an administrator's explicit permission list; add the project default
--- only when the key is absent or malformed.
-UPDATE public.settings AS settings
-SET data = pg_catalog.jsonb_set(
-  COALESCE(settings.data, '{}'::jsonb),
-  '{rolePermissions}',
-  (
-    CASE
-      WHEN pg_catalog.jsonb_typeof(COALESCE(settings.data, '{}'::jsonb)->'rolePermissions') = 'object'
-        THEN COALESCE(settings.data->'rolePermissions', '{}'::jsonb)
-      ELSE '{}'::jsonb
-    END
-  ) || pg_catalog.jsonb_build_object(
-    'finalizeStockInventory', pg_catalog.jsonb_build_array('manager', 'stockist')
-  ),
-  true
-)
-WHERE settings.id = 'app'
-  AND pg_catalog.jsonb_typeof(settings.data #> '{rolePermissions,finalizeStockInventory}') IS DISTINCT FROM 'array';
 
 DO $block$
 BEGIN
@@ -95,7 +74,7 @@ BEGIN
 END;
 $block$;
 
-CREATE TABLE IF NOT EXISTS app_private.inventory_audit_submission_claims (
+CREATE TABLE IF NOT EXISTS public.inventory_audit_submission_claims (
   audit_id uuid PRIMARY KEY,
   owner_user_id uuid NOT NULL,
   contract_version smallint NOT NULL CHECK (contract_version IN (1, 2)),
@@ -105,14 +84,19 @@ CREATE TABLE IF NOT EXISTS app_private.inventory_audit_submission_claims (
   marker_move_id uuid
 );
 
-ALTER TABLE app_private.inventory_audit_submission_claims ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE app_private.inventory_audit_submission_claims
+ALTER TABLE public.inventory_audit_submission_claims ENABLE ROW LEVEL SECURITY;
+CREATE POLICY inventory_audit_submission_claims_deny_api
+  ON public.inventory_audit_submission_claims
+  FOR ALL TO anon, authenticated
+  USING (false)
+  WITH CHECK (false);
+REVOKE ALL ON TABLE public.inventory_audit_submission_claims
   FROM PUBLIC, anon, authenticated, service_role;
 
-COMMENT ON TABLE app_private.inventory_audit_submission_claims IS
+COMMENT ON TABLE public.inventory_audit_submission_claims IS
   'Vínculo imutável entre audit_id, usuário autenticado que fez o primeiro envio autorizado e hash da submissão congelada.';
 
-CREATE OR REPLACE FUNCTION app_private.inventory_audit_submission_hash(
+CREATE OR REPLACE FUNCTION public.inventory_audit_submission_hash(
   p_contract_version smallint,
   p_audit_id uuid,
   p_code text,
@@ -145,10 +129,10 @@ AS $function$
   );
 $function$;
 
-REVOKE ALL ON FUNCTION app_private.inventory_audit_submission_hash(smallint, uuid, text, jsonb, jsonb, text)
+REVOKE ALL ON FUNCTION public.inventory_audit_submission_hash(smallint, uuid, text, jsonb, jsonb, text)
   FROM PUBLIC, anon, authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION app_private.assert_inventory_submission_envelope(
+CREATE OR REPLACE FUNCTION public.assert_inventory_submission_envelope(
   p_contract_version smallint,
   p_audit_id uuid,
   p_code text,
@@ -157,7 +141,7 @@ CREATE OR REPLACE FUNCTION app_private.assert_inventory_submission_envelope(
 )
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path TO ''
 SET row_security TO 'off'
 AS $function$
@@ -281,10 +265,10 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION app_private.assert_inventory_submission_envelope(smallint, uuid, text, jsonb, jsonb)
+REVOKE ALL ON FUNCTION public.assert_inventory_submission_envelope(smallint, uuid, text, jsonb, jsonb)
   FROM PUBLIC, anon, authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION app_private.claim_inventory_audit_submission(
+CREATE OR REPLACE FUNCTION public.claim_inventory_audit_submission_internal(
   p_contract_version smallint,
   p_audit_id uuid,
   p_code text,
@@ -294,7 +278,7 @@ CREATE OR REPLACE FUNCTION app_private.claim_inventory_audit_submission(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path TO ''
 SET row_security TO 'off'
 AS $function$
@@ -307,15 +291,15 @@ DECLARE
   v_marker_id uuid;
   v_marker_observation jsonb;
 BEGIN
-  IF v_user_id IS NULL OR NOT app_private.has_finalize_stock_inventory_permission() THEN
+  IF v_user_id IS NULL OR NOT public.has_finalize_stock_inventory_permission() THEN
     RAISE EXCEPTION 'Seu perfil não possui a permissão Finalizar inventários.'
       USING ERRCODE = '42501';
   END IF;
 
-  PERFORM app_private.assert_inventory_submission_envelope(
+  PERFORM public.assert_inventory_submission_envelope(
     p_contract_version, p_audit_id, p_code, p_observation, p_items
   );
-  v_submission_hash := app_private.inventory_audit_submission_hash(
+  v_submission_hash := public.inventory_audit_submission_hash(
     p_contract_version, p_audit_id, p_code, p_observation, p_items, p_responsible_name
   );
 
@@ -323,7 +307,7 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext(p_audit_id::text));
   SELECT claim.owner_user_id, claim.contract_version, claim.submission_hash
     INTO v_owner_user_id, v_claim_version, v_claim_hash
-    FROM app_private.inventory_audit_submission_claims AS claim
+    FROM public.inventory_audit_submission_claims AS claim
    WHERE claim.audit_id = p_audit_id
    FOR UPDATE;
 
@@ -357,7 +341,7 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  INSERT INTO app_private.inventory_audit_submission_claims (
+  INSERT INTO public.inventory_audit_submission_claims (
     audit_id, owner_user_id, contract_version, submission_hash
   ) VALUES (
     p_audit_id, v_user_id, p_contract_version, v_submission_hash
@@ -367,7 +351,7 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION app_private.claim_inventory_audit_submission(smallint, uuid, text, jsonb, jsonb, text)
+REVOKE ALL ON FUNCTION public.claim_inventory_audit_submission_internal(smallint, uuid, text, jsonb, jsonb, text)
   FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.claim_inventory_audit_submission(
@@ -385,11 +369,11 @@ SET search_path TO ''
 SET row_security TO 'off'
 AS $function$
 BEGIN
-  IF auth.uid() IS NULL OR NOT app_private.has_finalize_stock_inventory_permission() THEN
+  IF auth.uid() IS NULL OR NOT public.has_finalize_stock_inventory_permission() THEN
     RAISE EXCEPTION 'Seu perfil não possui a permissão Finalizar inventários.'
       USING ERRCODE = '42501';
   END IF;
-  RETURN app_private.claim_inventory_audit_submission(
+  RETURN public.claim_inventory_audit_submission_internal(
     p_contract_version, p_audit_id, p_code, p_observation, p_items, p_responsible_name
   );
 END;
@@ -438,13 +422,13 @@ DECLARE
   v_moves jsonb := '[]'::jsonb;
   v_move_id uuid;
 BEGIN
-  IF v_user_id IS NULL OR NOT app_private.has_finalize_stock_inventory_permission() THEN
+  IF v_user_id IS NULL OR NOT public.has_finalize_stock_inventory_permission() THEN
     RAISE EXCEPTION 'Seu perfil não possui a permissão Finalizar inventários.'
       USING ERRCODE = '42501';
   END IF;
 
-  PERFORM app_private.assert_inventory_submission_envelope(1, p_audit_id, p_code, p_observation, p_items);
-  v_payload_hash := app_private.inventory_audit_submission_hash(
+  PERFORM public.assert_inventory_submission_envelope(1, p_audit_id, p_code, p_observation, p_items);
+  v_payload_hash := public.inventory_audit_submission_hash(
     1, p_audit_id, p_code, p_observation, p_items, p_responsible_name
   );
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext(p_audit_id::text));
@@ -453,7 +437,7 @@ BEGIN
          claim.finalized_at, claim.marker_move_id
     INTO v_claim_owner, v_claim_version, v_claim_hash,
          v_claim_finalized_at, v_claim_marker_id
-    FROM app_private.inventory_audit_submission_claims AS claim
+    FROM public.inventory_audit_submission_claims AS claim
    WHERE claim.audit_id = p_audit_id
    FOR UPDATE;
   v_claim_exists := FOUND;
@@ -487,7 +471,7 @@ BEGIN
 
   IF v_marker_id IS NOT NULL AND v_marker_observation->>'status' = 'completed' THEN
     IF v_claim_exists THEN
-      UPDATE app_private.inventory_audit_submission_claims
+      UPDATE public.inventory_audit_submission_claims
          SET finalized_at = COALESCE(finalized_at, pg_catalog.clock_timestamp()),
              marker_move_id = COALESCE(marker_move_id, v_marker_id)
        WHERE audit_id = p_audit_id;
@@ -504,7 +488,7 @@ BEGIN
   END IF;
 
   IF NOT v_claim_exists THEN
-    INSERT INTO app_private.inventory_audit_submission_claims (
+    INSERT INTO public.inventory_audit_submission_claims (
       audit_id, owner_user_id, contract_version, submission_hash
     ) VALUES (p_audit_id, v_user_id, 1, v_payload_hash);
   END IF;
@@ -577,7 +561,7 @@ BEGIN
     );
   END LOOP;
 
-  UPDATE app_private.inventory_audit_submission_claims
+  UPDATE public.inventory_audit_submission_claims
      SET finalized_at = pg_catalog.clock_timestamp(), marker_move_id = v_marker_id
    WHERE audit_id = p_audit_id;
 
@@ -632,13 +616,13 @@ DECLARE
   v_move_id uuid;
   v_moves jsonb := '[]'::jsonb;
 BEGIN
-  IF v_user_id IS NULL OR NOT app_private.has_finalize_stock_inventory_permission() THEN
+  IF v_user_id IS NULL OR NOT public.has_finalize_stock_inventory_permission() THEN
     RAISE EXCEPTION 'Seu perfil não possui a permissão Finalizar inventários.'
       USING ERRCODE = '42501';
   END IF;
 
-  PERFORM app_private.assert_inventory_submission_envelope(2, p_audit_id, p_code, p_observation, p_items);
-  v_submission_hash := app_private.inventory_audit_submission_hash(
+  PERFORM public.assert_inventory_submission_envelope(2, p_audit_id, p_code, p_observation, p_items);
+  v_submission_hash := public.inventory_audit_submission_hash(
     2, p_audit_id, p_code, p_observation, p_items, p_responsible_name
   );
   PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext(p_audit_id::text));
@@ -647,7 +631,7 @@ BEGIN
          claim.finalized_at, claim.marker_move_id
     INTO v_claim_owner, v_claim_version, v_claim_hash,
          v_claim_finalized_at, v_claim_marker_id
-    FROM app_private.inventory_audit_submission_claims AS claim
+    FROM public.inventory_audit_submission_claims AS claim
    WHERE claim.audit_id = p_audit_id
    FOR UPDATE;
   IF NOT FOUND
@@ -678,7 +662,7 @@ BEGIN
 
   IF v_marker_id IS NOT NULL THEN
     IF v_marker_observation->>'status' = 'completed' AND v_claim_marker_id = v_marker_id THEN
-      UPDATE app_private.inventory_audit_submission_claims
+      UPDATE public.inventory_audit_submission_claims
          SET finalized_at = COALESCE(finalized_at, pg_catalog.clock_timestamp())
        WHERE audit_id = p_audit_id;
       RETURN pg_catalog.jsonb_build_object(
@@ -802,7 +786,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  UPDATE app_private.inventory_audit_submission_claims
+  UPDATE public.inventory_audit_submission_claims
      SET finalized_at = pg_catalog.clock_timestamp(), marker_move_id = v_marker_id
    WHERE audit_id = p_audit_id;
 

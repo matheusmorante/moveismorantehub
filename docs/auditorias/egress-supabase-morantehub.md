@@ -1,8 +1,8 @@
 # Auditoria de Egress — Supabase MoranteHub
 
-## Estado atual — 26/10/2026, 08:47 BRT
+## Estado atual — 26/10/2026, 12:38 BRT
 
-CLI/plugin autenticados e ref hkoxhourxwlddgsfdgws reconfirmados. Sem medidor oficial Usage/Egress: bytes, quota, excedente, delta e meta de 100 MB/dia não verificáveis. Janela 26/10 08:30–11:30 UTC: gateway 444 eventos, REST 442; estilo 163 e produtos 157 chamadas. Nenhuma nova causa corrigível comprovada; sem alteração de código. Recorrência ACTIVE/3 h preservada; decisão anterior da Central permanece pendente.
+CLI/plugin autenticados e ref hkoxhourxwlddgsfdgws reconfirmados. Sem medidor oficial Usage/Egress: bytes, quota, excedente, delta e meta de 100 MB/dia não verificáveis. Janela 26/10 11:30–14:30 UTC: gateway 1.627 eventos, REST 1.565; produtos 282, estilo 193 e pedidos 147 chamadas. Projeção da consulta de transações Rede reduzida de `*` a quatro campos usados pela UI; economia em bytes não medida. Recorrência ACTIVE/3 h preservada; decisão anterior da Central permanece pendente.
 ## Coleta inicial — 25/10/2026, 09:35 BRT (12:35 UTC)
 
 Projeto confirmado: `hkoxhourxwlddgsfdgws` (MoranteHub). Primeira coleta desta auditoria; não havia relatório anterior. Automação existente ACTIVE, intervalo de três horas conferido no arquivo de configuração; agendamento preservado.
@@ -381,3 +381,28 @@ Ante a última coleta de igual duração (00:30–03:30 UTC), gateway caiu 2.421
 | Catálogo: estilo no detalhe | digital-catalog/src/app/produto/[slug]/page.tsx:17–28 | Renderização dinâmica por slug; dados compartilhados por generateMetadata/componente | React cache na função getProductData; estilo solicita só button_style, eq(id,true)/maybeSingle; sem cache persistente/abort | Cache entre requests alteraria frescor; contagem não comprova consulta excessiva. Produtos também têm outros chamadores |
 
 **Resultado:** sem nova causa comprovada para patch de código. Sem novo plano de catálogo; inventário existente apenas reconfirmado. Decisão anterior da Central (6 s / 30 s / fallback com reconciliação) preservada, sem alterar comportamento. Somente relatório e memória atualizados. Nenhum teste adicionado/executado, consulta de dados de negócio/execute_sql, mudança remota, dependência, migration, commit ou deploy. Revisão estática; validações funcionais anteriores e medição oficial continuam pendentes.
+
+## Oitava execução — 26/10/2026, 12:37 BRT
+
+**Fontes e acesso:** AGENTS raiz/catálogo, política remota, memória, relatório, skill Supabase e Ponytail lidos. CLI `2.121.0`; ajudas raiz, `projects`, `projects list`, `inspect`, `inspect db` e `telemetry` conferidas. Autenticação CLI confirmada sem imprimir identidade; ref `hkoxhourxwlddgsfdgws`, nome MoranteHub e vínculo local confirmados. Plugin `list_projects` confirmou o mesmo projeto. Nenhum medidor oficial Usage/Egress encontrado na CLI nem no plugin. Changelog e busca documental Supabase consultados; sem mudança pertinente a este ajuste. Automação segue ACTIVE a cada três horas.
+
+**Janela oficial de logs:** 2026-10-26T11:30:00Z–14:30:00Z (**08:30–11:30 BRT**), via duas consultas agregadas `query_logs`; campos somente `source`, `request.path` normalizado, `response.status_code` e `count()`. As fontes disponíveis retornaram: edge_logs 1.627, postgres_logs 624, postgrest_logs 235, auth_logs 39, pgbouncer_logs 20, auth_audit_logs 13, realtime_logs 12 e storage_logs 5. Fontes representam eventos distintos e não se somam como requests. No gateway: REST 1.565 (1.412 status 200, 106 status 204, 32 status 206, 8 status 201, 6 status 400, 1 status 401), Auth 34, Realtime 20 e Storage 8. Nenhum corpo, query string, header, SQL, ID ou dado de negócio foi consultado.
+
+| Rota REST | Status | Chamadas |
+| --- | --- | ---: |
+| products | 200 / 206 | 264 / 18 |
+| store_style_settings | 200 | 193 |
+| orders | 200 / 206 | 133 / 14 |
+| people | 200 / 204 / 400 | 113 / 11 / 3 |
+| rede_transactions | 200 | 88 |
+| rpc/claim_return_fiscal_emission_job | 200 | 90 |
+| profiles | 200 | 83 |
+| rpc/flush_supabase_telemetry | 204 / 200 | 69 / 5 |
+
+Ante a janela consecutiva anterior de três horas, gateway aumentou 1.183 eventos (444→1.627), produtos subiram 125 chamadas (157→282) e estilo subiu 30 (163→193). Isso compara contagens, não bytes, e não atribui origem, maior volume de resposta ou mudança ao código local. Não há uso, quota, excedente ou delta oficial de Egress disponível; cumprimento da meta de 100 MB/dia não verificável.
+
+**EGR-003 — projeção ampla no histórico de transações da Rede:** a tela `erp/src/pages/App/Finance/Settings/index.tsx:40` chama `financeService.getRedeTransactions(5)` e, em `:251–264`, exibe apenas `tid`, `status`, `amount` e `created_at`. O único chamador do serviço foi conferido. `erp/src/pages/services/financeService.ts:384–389` limitava cinco registros, mas solicitava `select('*')`; a rota `rede_transactions` teve 88 respostas 200 na janela, sem atribuição comprovada a esta tela. Alterada a projeção para `select('tid, status, amount, created_at')`, preservando limite, ordenação e renderização. Revisão estática confirmou que esses são todos os campos lidos pela UI; diff restrito a uma linha neste serviço. Nenhum teste executado/adicionado conforme a automação; validação funcional e economia em bytes pendentes. Sem commit, deploy ou alteração remota.
+
+**Inventário atualizado:** integração ERP de histórico da Rede: Finance/Settings → `financeService.getRedeTransactions(5)` → `rede_transactions`, uma carga ao montar a tela, limite 5, ordem por `created_at` decrescente, sem cache/deduplicação/abort; projeção explícita agora cobre apenas campos exibidos. As 88 chamadas observadas não identificam plataforma/tela. Produtos, estilo, pedidos, pessoas e fila fiscal lideram as contagens, mas sem evidência de excesso de payload ou repetição atribuível a causa local nova. EGR-001/EGR-002 e decisão de atualidade da Central (6 s / 30 s / reconciliação) preservados; sem mudança nesse fluxo.
+
+**Resultado:** revisão estática e atualização do relatório. Status inicial continha trabalho local preexistente; arquivos não relacionados foram preservados. `git diff --check` passou. Nenhum teste, consulta a dados de negócio, `execute_sql`, alteração remota, dependência, migration, commit ou deploy. Medição oficial de bytes e validação funcional continuam pendentes.

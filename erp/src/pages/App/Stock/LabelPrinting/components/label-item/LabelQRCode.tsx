@@ -33,18 +33,18 @@ export const QRCodeCanvas: React.FC<{ text: string }> = ({ text }) => {
   return (
     <canvas
       ref={canvasRef}
-      style={{ maxWidth: '100%', height: 'auto', maxHeight: '100%', display: 'block' }}
+      style={{ width: '100%', height: '100%', maxWidth: '100%', maxHeight: '100%', imageRendering: 'pixelated', display: 'block' }}
     />
   );
 };
 
-export const QRPreviewPlaceholder: React.FC = () => (
+export const QRPreviewPlaceholder: React.FC<{ sizeMm?: number }> = ({ sizeMm = 36 }) => (
   <div
     aria-label="Espaço reservado para o QR Code"
     title="O QR Code real será gerado ao imprimir"
     style={{
-      width: '30mm',
-      height: '30mm',
+      width: `${sizeMm}mm`,
+      height: `${sizeMm}mm`,
       border: '1px solid #94a3b8',
       background: '#ffffff',
       color: '#64748b',
@@ -54,6 +54,6 @@ export const QRPreviewPlaceholder: React.FC = () => (
       boxSizing: 'border-box',
     }}
   >
-    <i className="bi bi-qr-code" aria-hidden="true" style={{ fontSize: '10mm' }} />
+    <i className="bi bi-qr-code" aria-hidden="true" style={{ fontSize: `${Math.min(12, sizeMm / 3)}mm` }} />
   </div>
 );

@@ -38,11 +38,11 @@ const OrderHeader = ({ order, isBudget }: OrderHeaderProps) => {
         ? HEADER_THEMES.pickup
         : HEADER_THEMES.delivery;
 
-  const backgroundGradient = `linear-gradient(to right, #ffffff 0%, #ffffff 35%, ${theme.colorHex} 55%, ${theme.colorHex} 100%)`;
+  const backgroundGradient = `linear-gradient(to right, #ffffff 0%, #ffffff 24%, ${theme.colorHex} 40%, ${theme.colorHex} 100%)`;
 
   return (
     <div
-      className="order-print-header flex justify-between items-center px-3 py-1.5 rounded-xl mb-1.5 text-white print-exact-bg shadow-sm overflow-hidden"
+      className="order-print-header flex justify-between items-center px-3 py-1.5 rounded-xl mb-1.5 text-white print-exact-bg overflow-hidden"
       style={{
         background: backgroundGradient,
       }}

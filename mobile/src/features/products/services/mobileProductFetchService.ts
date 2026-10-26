@@ -2,7 +2,7 @@ import { restoreProductDraftSnapshot } from '../../../../../shared-utils/product
 import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import { calculateCompositionAvailability } from '../../../../../shared-utils/compositionMath';
 import { resolveProductUnitPrice } from '../../../../../shared-utils/productUnitPrice';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
 import { supabase } from '../../../services/supabaseClient';
 import {
   buildProductParentSearchFilter,
@@ -77,13 +77,10 @@ const applyMobileTrashEligibility = async (products: any[], showTrash = false) =
     }));
   }
 
-  const lookup = await withTimeout(
-    supabase.rpc('get_products_trash_eligibility', { p_product_ids: productIds })
-      .then((result) => ({ result })),
-    10_000,
-    null,
+  const lookup = await withAbortTimeout(
+    supabase.rpc('get_products_trash_eligibility', { p_product_ids: productIds }),
     'mobile:elegibilidade-lixeira'
-  );
+  ).then((result) => ({ result })).catch(() => null);
   if (!lookup || lookup.result.error || !Array.isArray(lookup.result.data)) {
     console.warn('[MobileProductService] Não foi possível confirmar a elegibilidade da lixeira.');
     return products.map((product) => ({
@@ -143,16 +140,13 @@ const applyMobileCompositionAvailability = async (products: any[]) => {
   );
   if (!componentIds.length) return unavailable();
 
-  const lookup = await withTimeout(
+  const lookup = await withAbortTimeout(
     supabase
       .from('products')
       .select('id, stock, product_variations(id, stock)')
-      .in('id', componentIds)
-      .then((result) => ({ result })),
-    10_000,
-    null,
+      .in('id', componentIds),
     'mobile:saldo-produtos-compostos'
-  );
+  ).then((result) => ({ result })).catch(() => null);
   if (!lookup || lookup.result.error) {
     console.warn('[MobileProductService] Não foi possível consultar o estoque atual dos componentes.');
     return unavailable();
@@ -318,11 +312,14 @@ export const fetchMobileProductsPage = async (
       let matchedParentIds: string[] = [];
 
       try {
-        const { data: matchedVars, error: variationsError } = await supabase
-          .from('product_variations')
-          .select('product_id')
-          .or(buildProductVariationSearchFilter(searchTerms.searchTerms))
-          .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1);
+        const { data: matchedVars, error: variationsError } = await withAbortTimeout(
+          supabase
+            .from('product_variations')
+            .select('product_id')
+            .or(buildProductVariationSearchFilter(searchTerms.searchTerms))
+            .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1),
+          'mobile:variation-search',
+        );
         if (variationsError && options?.throwOnError) throw variationsError;
         if (variationsError)
           console.warn('[MobileProductService] Erro ao buscar variações filhas:', variationsError);
@@ -346,7 +343,7 @@ export const fetchMobileProductsPage = async (
 
     query = query.order('created_at', { ascending: false }).range(from, to);
 
-    const { data, count, error } = await query;
+    const { data, count, error } = await withAbortTimeout(query, 'mobile:product-list');
     if (error) {
       if (options?.throwOnError) throw error;
       console.warn('[MobileProductService] Erro ao buscar produtos:', error);
@@ -356,7 +353,9 @@ export const fetchMobileProductsPage = async (
     const visibleData = options?.showTestProducts
       ? (data || [])
       : (data || []).filter((product: any) => !isTestProduct(product));
-    const visibleTotal = Math.max(0, (count || 0) - ((data || []).length - visibleData.length));
+    // Like the ERP, preserve the server's exact count; local row filtering must
+    // not make the total depend on which paginated slice happened to contain a test artifact.
+    const total = count ?? 0;
     const categoryIds = Array.from(
       new Set(
         visibleData.flatMap((product: any) => getMobileProductListCategoryIds(product))
@@ -365,10 +364,10 @@ export const fetchMobileProductsPage = async (
     const categoryNames = new Map<string, string>();
     if (categoryIds.length > 0) {
       try {
-        const { data: categoryRows, error: categoryError } = await supabase
-          .from('categories')
-          .select('id, name')
-          .in('id', categoryIds);
+        const { data: categoryRows, error: categoryError } = await withAbortTimeout(
+          supabase.from('categories').select('id, name').in('id', categoryIds),
+          'mobile:category-names',
+        );
         if (categoryError) throw categoryError;
         (categoryRows || []).forEach((category: any) => {
           categoryNames.set(String(category.id), category.name);
@@ -460,7 +459,7 @@ export const fetchMobileProductsPage = async (
       const withCompositionAvailability = await applyMobileCompositionAvailability(summaries);
       return {
         data: await applyMobileTrashEligibility(withCompositionAvailability, options?.showTrash),
-        total: visibleTotal,
+        total,
       };
     }
 
@@ -733,7 +732,7 @@ export const fetchMobileProductsPage = async (
     const withCompositionAvailability = await applyMobileCompositionAvailability(filteredFormatted);
     return {
       data: await applyMobileTrashEligibility(withCompositionAvailability, options?.showTrash),
-      total: visibleTotal,
+      total,
     };
   } catch (err) {
     if (options?.throwOnError || isProductVariationSearchTooBroadError(err)) throw err;

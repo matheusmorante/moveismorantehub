@@ -296,8 +296,10 @@ export function useReceiptForm({
         if (finalizingRef.current || completedRef.current) return;
         const currentSupplier = suppliers.find((p) => p.id === validated.supplierId);
         const safeReceivedAt = getSafeReceivedAt(validated.receiptDate);
+        const stableDraftId = draftIdRef.current || crypto.randomUUID();
+        draftIdRef.current = stableDraftId;
         const draftPayload = buildGoodsReceiptPayload(validated, {
-          id: draftIdRef.current || undefined,
+          id: stableDraftId,
           receiptIndex: receiptIndex || (copyReceipt ? undefined : initialReceipt?.receiptIndex),
           purchaseId: sourcePurchaseId || undefined,
           supplierName: currentSupplier?.fullName || 'Fornecedor',

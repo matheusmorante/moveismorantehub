@@ -109,7 +109,7 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
                 className="text-base sm:text-lg font-black uppercase tracking-wide"
               >
                 {fiscalKey || initialInboundInvoice
-                  ? 'Registrar Recebimento com NF-e'
+                  ? 'Registrar Recebimento com NF de Entrada'
                   : initialPurchase
                     ? 'Registrar Recebimento com Pedido de Compra'
                     : 'Registrar Recebimento sem Nota Fiscal'}

@@ -384,7 +384,7 @@ export const financeService = {
   async getRedeTransactions(limit = 50) {
     const { data, error } = await supabase
       .from('rede_transactions')
-      .select('*')
+      .select('tid, status, amount, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;

@@ -45,6 +45,18 @@ describe('getMobileProductVariationCardName', () => {
       )
     ).toBe('Sofá');
   });
+
+  it('remove o separador repetido entre nome do pai e variação como o ERP', () => {
+    expect(
+      getSingleVariationDisplayName(
+        { name: 'Tênis' },
+        {
+          name: 'Tênis - Azul',
+          attributes: [{ name: 'Cor', value: 'Azul' }],
+        }
+      )
+    ).toBe('Tênis Azul');
+  });
 });
 
 describe('getMobileProductCompositionCardItems', () => {

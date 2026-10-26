@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type InventoryMove from '@/pages/types/inventoryMove.type';
 import {
   deleteInventoryMove,
+  getNextInventoryCode,
   subscribeToInventoryMoves,
   reverseInventoryMove,
   unreverseInventoryMove,
@@ -14,6 +15,7 @@ import { mapInventoryMoveFromDB } from '@/pages/utils/inventoryService/inventory
 import {
   deleteWebInventoryDraft,
   listWebInventoryDrafts,
+  saveWebInventoryDraft,
   subscribeWebInventoryDrafts,
   type WebInventoryDraft,
 } from '../services/inventoryLocalDrafts';
@@ -32,6 +34,7 @@ export const useInventoryAuditSessions = () => {
   } | null>(null);
   const [periodDays, setPeriodDays] = useState(30);
   const [page, setPage] = useState(1);
+  const repairingDraftCodes = useRef(false);
 
   useEffect(() => {
     if (!activeSession) return;
@@ -59,6 +62,83 @@ export const useInventoryAuditSessions = () => {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (!localDrafts.length || repairingDraftCodes.current) return;
+    let cancelled = false;
+
+    const repairDuplicateCodes = async () => {
+      repairingDraftCodes.current = true;
+      try {
+        const reservedCodes = new Set<string>();
+        moves
+          .filter((move) => move.label?.startsWith('Inventário #'))
+          .forEach((move) => {
+            const snapshot = readSnapshot(move);
+            const code = String(
+              snapshot?.inventoryCode || move.label?.replace(/^Inventário #/, '') || ''
+            ).trim();
+            if (code) reservedCodes.add(code);
+          });
+
+        localDrafts
+          .filter((draft) => draft.status === 'pending_sync')
+          .forEach((draft) => reservedCodes.add(draft.code));
+
+        const draftsToRepair = localDrafts
+          .filter((draft) => draft.status === 'in_progress')
+          .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime());
+
+        let repaired = false;
+        for (const draft of draftsToRepair) {
+          const currentCode = draft.code.trim();
+          if (currentCode && !reservedCodes.has(currentCode)) {
+            reservedCodes.add(currentCode);
+            continue;
+          }
+
+          let nextCode: string;
+          try {
+            const localReservedCodes = (await listWebInventoryDrafts())
+              .filter((localDraft) => localDraft.id !== draft.id)
+              .map((localDraft) => localDraft.code.trim())
+              .filter((code) => /^\d{1,6}$/.test(code))
+              .map((code) => code.padStart(6, '0'));
+            const allReservedCodes = [...new Set([
+              ...localReservedCodes,
+              ...[...reservedCodes]
+                .map((code) => code.trim())
+                .filter((code) => /^\d{1,6}$/.test(code))
+                .map((code) => code.padStart(6, '0')),
+            ])];
+            nextCode = await getNextInventoryCode(allReservedCodes);
+          } catch {
+            nextCode = `LOCAL-${draft.id.replace(/-/g, '')}`;
+            while (reservedCodes.has(nextCode)) nextCode += 'X';
+          }
+
+          await saveWebInventoryDraft({
+            ...draft,
+            code: nextCode,
+            updatedAt: new Date().toISOString(),
+          });
+          reservedCodes.add(nextCode);
+          repaired = true;
+        }
+
+        if (repaired && !cancelled) setLocalDrafts(await listWebInventoryDrafts());
+      } catch (error) {
+        console.warn('Não foi possível corrigir códigos repetidos de inventário:', error);
+      } finally {
+        repairingDraftCodes.current = false;
+      }
+    };
+
+    void repairDuplicateCodes();
+    return () => {
+      cancelled = true;
+    };
+  }, [localDrafts, moves]);
 
   useEffect(() => {
     const refresh = () => {
@@ -265,6 +345,8 @@ export const useInventoryAuditSessions = () => {
     page,
     setPage,
     pageCount,
+    totalItems: filteredSessions.length,
+    itemsPerPage: pageSize,
     loading,
     activeSession,
     menuPos,

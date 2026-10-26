@@ -20,6 +20,7 @@ interface ProductAutocompleteProps {
   onSearch?: () => void;
   onCreateNew?: () => void;
   isSelected?: boolean;
+  multiline?: boolean;
   isTemporary?: boolean;
   inputEndAdornment?: React.ReactNode;
   isAiSuggestion?: boolean;
@@ -59,6 +60,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   onSearch,
   onCreateNew,
   isSelected = false,
+  multiline = false,
   isTemporary = false,
   inputEndAdornment,
   isAiSuggestion = false,
@@ -112,39 +114,90 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
       if (onChange) onChange(v);
     },
   });
+  const multilineInputRef = React.useRef<HTMLTextAreaElement>(null);
+
+  React.useLayoutEffect(() => {
+    if (!multiline) return;
+    const input = multilineInputRef.current;
+    if (!input) return;
+
+    const fitHeight = () => {
+      input.style.height = 'auto';
+      const style = window.getComputedStyle(input);
+      const borders = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+      input.style.height = `${input.scrollHeight + borders}px`;
+    };
+    fitHeight();
+
+    const observer = input.parentElement && typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(fitHeight)
+      : null;
+    if (observer && input.parentElement) observer.observe(input.parentElement);
+    return () => observer?.disconnect();
+  }, [multiline, query]);
 
   return (
     <div ref={wrapperRef} className={`relative ${className}`}>
       {searchError && <p role="alert" className="text-xs text-red-600">{searchError} <button type="button" disabled={disabled || isLoading} onClick={retrySearch}>Tentar buscar novamente</button></p>}
       <div className="flex gap-1.5">
         <div className="relative flex-1">
-          <input
-            type="text"
-            autoComplete="off"
-            autoFocus={autoFocus}
-            aria-busy={isLoadingSuggestions}
-            aria-label={inputAriaLabel}
-            disabled={disabled}
-            value={query || ''}
-            onChange={(e) => {
-              handleQueryChange(e.target.value);
-            }}
-            onBlur={onBlur}
-            onFocus={() => setShowSuggestions(query.trim().length > 0)}
-            placeholder={placeholder}
-            className={`${inputEndAdornment ? 'pr-10 ' : ''}${
-              inputClassName ||
-              `w-full border-b-2 bg-transparent px-3 py-2 text-sm font-medium outline-none transition-colors ${
-                isAiSuggestion
-                  ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500 bg-amber-50/20 dark:bg-amber-950/20 rounded-t-lg'
-                  : isTemporary
-                    ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500'
-                    : isSelected
-                      ? 'border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 pr-9'
-                      : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
-              } ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`
-            }`}
-          />
+          {multiline ? (
+            <textarea
+              ref={multilineInputRef}
+              rows={1}
+              wrap="soft"
+              aria-multiline="true"
+              aria-busy={isLoadingSuggestions}
+              aria-label={inputAriaLabel}
+              disabled={disabled}
+              value={query || ''}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+              onBlur={onBlur}
+              onFocus={() => setShowSuggestions(query.trim().length > 0)}
+              placeholder={placeholder}
+              className={`${inputEndAdornment ? 'pr-10 ' : ''}${
+                inputClassName ||
+                `w-full border-b-2 bg-transparent px-3 py-2 text-sm font-medium outline-none transition-colors ${
+                  isAiSuggestion
+                    ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500 bg-amber-50/20 dark:bg-amber-950/20 rounded-t-lg'
+                    : isTemporary
+                      ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500'
+                      : isSelected
+                        ? 'border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 pr-9'
+                        : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
+                } ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`
+              } resize-none overflow-hidden leading-4`}
+            />
+          ) : (
+            <input
+              type="text"
+              autoComplete="off"
+              autoFocus={autoFocus}
+              aria-busy={isLoadingSuggestions}
+              aria-label={inputAriaLabel}
+              disabled={disabled}
+              value={query || ''}
+              onChange={(e) => {
+                handleQueryChange(e.target.value);
+              }}
+              onBlur={onBlur}
+              onFocus={() => setShowSuggestions(query.trim().length > 0)}
+              placeholder={placeholder}
+              className={`${inputEndAdornment ? 'pr-10 ' : ''}${
+                inputClassName ||
+                `w-full border-b-2 bg-transparent px-3 py-2 text-sm font-medium outline-none transition-colors ${
+                  isAiSuggestion
+                    ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500 bg-amber-50/20 dark:bg-amber-950/20 rounded-t-lg'
+                    : isTemporary
+                      ? 'border-amber-400 text-amber-950 dark:text-amber-100 focus:border-amber-500'
+                      : isSelected
+                        ? 'border-emerald-500 text-emerald-950 dark:text-emerald-100 font-semibold focus:border-emerald-600 pr-9'
+                        : 'border-slate-200 dark:border-slate-800 focus:border-blue-600 dark:focus:border-blue-500'
+                } ${disabled ? 'opacity-60 cursor-not-allowed' : ''} ${className}`
+              }`}
+            />
+          )}
 
           {/* Faixa amarela animada passando no input durante o processamento */}
           {isLoadingSuggestions && (

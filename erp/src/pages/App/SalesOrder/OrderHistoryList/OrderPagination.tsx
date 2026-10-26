@@ -28,8 +28,13 @@ const OrderPagination: React.FC<OrderPaginationProps> = ({
   const endIndex = Math.min(safeCurrentPage * itemsPerPage, totalItems);
 
   return (
-    <div className={`flex flex-col items-center justify-between gap-4 rounded-2xl border border-slate-200/70 bg-slate-50/70 px-4 py-4 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/40 sm:flex-row sm:px-6 ${className}`}>
-      <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400">
+    <div
+      className={`mx-auto flex w-full flex-col items-center justify-between gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/70 px-3 py-3 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/40
+        sm:gap-4 sm:px-4 sm:py-4 md:max-w-4xl lg:max-w-5xl lg:px-6 xl:max-w-6xl xl:flex-row 2xl:max-w-7xl ${className}`}
+    >
+      <div
+        className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-xs font-bold text-slate-500 dark:text-slate-400 xl:w-auto xl:flex-none xl:justify-start xl:text-left"
+      >
         {loading && <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" aria-hidden="true" />}
         <span>
           Exibindo <span className="font-extrabold text-slate-800 dark:text-slate-200">{startIndex}-{endIndex}</span> de{' '}
@@ -44,6 +49,7 @@ const OrderPagination: React.FC<OrderPaginationProps> = ({
         totalPages={safeTotalPages}
         onPageChange={onPageChange}
         loading={loading}
+        className="min-w-0 xl:flex-1"
       />
     </div>
   );

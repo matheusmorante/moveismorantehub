@@ -1,0 +1,46 @@
+.label-queue-card-container {
+  container-name: label-queue-card;
+  container-type: inline-size;
+}
+
+.label-queue-card-container .label-queue-card-details {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.label-queue-card-container .label-queue-card-actions {
+  align-self: flex-end;
+  justify-content: flex-end;
+}
+
+@container label-queue-card (max-width: 200px) {
+  .label-queue-card-container .label-queue-card-actions {
+    gap: 0.25rem;
+  }
+
+  .label-queue-card-container .label-queue-card-quantity {
+    gap: 0.25rem;
+    padding: 0.25rem;
+  }
+
+  .label-queue-card-container .label-queue-card-quantity button,
+  .label-queue-card-container .label-queue-card-delete {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .label-queue-card-container .label-queue-card-quantity input {
+    width: 1.25rem;
+  }
+}
+
+@container label-queue-card (min-width: 540px) {
+  .label-queue-card-container .label-queue-card-details {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .label-queue-card-container .label-queue-card-actions {
+    align-self: auto;
+  }
+}

@@ -11,6 +11,37 @@ import { PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER } from '../../../../../shared-uti
 import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
 
 describe('productFilterBuilder', () => {
+  it('aborta a consulta paginada e propaga timeout ao chamador', async () => {
+    vi.useFakeTimers();
+    let receivedSignal: AbortSignal | undefined;
+    const pendingRequest = new Promise<never>(() => undefined);
+    const mockQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockReturnThis(),
+      abortSignal: vi.fn((signal: AbortSignal) => {
+        receivedSignal = signal;
+        return pendingRequest;
+      }),
+    };
+    const request = applyProductFiltersAndSort(
+      mockQuery,
+      {},
+      { orderColumn: 'created_at', ascending: false, from: 0, to: 14 }
+    );
+    const assertion = expect(request).rejects.toThrow('limite de 10000 ms');
+
+    try {
+      await vi.advanceTimersByTimeAsync(10_000);
+      await assertion;
+
+      expect(mockQuery.abortSignal).toHaveBeenCalledOnce();
+      expect(receivedSignal?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('aplica filtro de fornecedor quando supplierId é fornecido', async () => {
     const mockQuery: any = {
       eq: vi.fn().mockReturnThis(),
@@ -215,12 +246,34 @@ describe('productFilterBuilder', () => {
       then: vi.fn((resolve) => resolve({ data: [], error: null })),
     };
 
-    await applyProductFiltersAndSort(mockQuery, { showTrash: true });
+    await applyProductFiltersAndSort(mockQuery, {
+      showTrash: true,
+      activeOnly: false,
+    });
 
     expect(mockQuery.eq).toHaveBeenCalledWith('deleted', true);
+    expect(mockQuery.eq).not.toHaveBeenCalledWith('active', false);
     expect(mockQuery.or).not.toHaveBeenCalledWith('active.eq.false,deleted.eq.true');
     expect(mockQuery.not).toHaveBeenCalledWith('is_draft', 'is', true);
     expect(mockQuery.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
+  });
+
+  it('does not apply the default deactivated-product filter to the trash', async () => {
+    const mockQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      filter: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [], error: null })),
+    };
+
+    await applyProductFiltersAndSort(mockQuery, {
+      showTrash: true,
+      includeDeactivated: false,
+    });
+
+    expect(mockQuery.eq).toHaveBeenCalledWith('deleted', true);
+    expect(mockQuery.or).not.toHaveBeenCalledWith('active.eq.true,is_draft.eq.true');
   });
 
   it('exclui rascunhos legados pelo status ao solicitar registros não rascunho', async () => {

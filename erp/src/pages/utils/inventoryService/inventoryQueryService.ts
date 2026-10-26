@@ -51,19 +51,15 @@ export const getAvailableLots = async (
   }
 };
 
-export const getNextInventoryCode = async (): Promise<string> => {
-  const { data, error } = await supabase
-    .from(INVENTORY_TABLE_NAME)
-    .select('observation')
-    .ilike('label', 'Inventário #%');
-
+export const getNextInventoryCode = async (
+  reservedCodes: readonly string[] = []
+): Promise<string> => {
+  const { data, error } = await supabase.rpc('reserve_next_inventory_code', {
+    p_reserved_codes: [...reservedCodes],
+  });
   if (error) throw error;
-  const lastCode = (data || []).reduce((highest, move: any) => {
-    try {
-      return Math.max(highest, Number(JSON.parse(move.observation || '{}').inventoryCode) || 0);
-    } catch {
-      return highest;
-    }
-  }, 0);
-  return String(lastCode + 1).padStart(6, '0');
+  if (typeof data !== 'string' || !data) {
+    throw new Error('O servidor não retornou um código de inventário reservado.');
+  }
+  return data;
 };

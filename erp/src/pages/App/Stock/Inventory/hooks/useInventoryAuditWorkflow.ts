@@ -8,7 +8,11 @@ import type {
 import type { ScopeConfiguration } from '../types/inventoryScope.types';
 import { getEmployeeDisplayName } from '../utils/employeeDisplayName';
 import { useInventoryAuditData } from './useInventoryAuditData';
-import { getWebInventoryDraft, saveWebInventoryDraft } from '../services/inventoryLocalDrafts';
+import {
+  getWebInventoryDraft,
+  listWebInventoryDrafts,
+  saveWebInventoryDraft,
+} from '../services/inventoryLocalDrafts';
 import { finalizeWebInventory } from '../services/finalizeWebInventory';
 import { getInventorySubmission } from '../services/inventoryOutbox';
 import { ensureOfflineInventoryCatalogSynced } from '../services/offlineInventoryCatalog';
@@ -22,6 +26,16 @@ import {
 
 const rejectInvalidSnapshot = (errors: Parameters<typeof flattenFormErrors>[0]) => {
   throw new Error(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados do inventário.');
+};
+
+const reserveUnusedInventoryCode = async (auditId: string): Promise<string> => {
+  const localDrafts = await listWebInventoryDrafts();
+  const reservedCodes = localDrafts
+    .filter((draft) => draft.id !== auditId)
+    .map((draft) => draft.code.trim())
+    .filter((code) => /^\d{1,6}$/.test(code))
+    .map((code) => code.padStart(6, '0'));
+  return getNextInventoryCode([...new Set(reservedCodes)]);
 };
 
 export const useInventoryAuditWorkflow = (
@@ -312,12 +326,19 @@ export const useInventoryAuditWorkflow = (
     const auditId = draftRef.current.id || crypto.randomUUID();
     let code = draftRef.current.code || '';
     try {
-      if (!code) code = await withTimeout(getNextInventoryCode(), 10_000, '', 'inventario:codigo');
+      if (!code) {
+        code = await withTimeout(
+          reserveUnusedInventoryCode(auditId),
+          10_000,
+          '',
+          'inventario:codigo'
+        );
+      }
     } catch {
-      code = `LOCAL-${auditId.slice(0, 8)}`;
+      code = `LOCAL-${auditId.replace(/-/g, '').slice(0, 12)}`;
     }
     if (!isCurrent(captured)) return false;
-    if (!code) code = `LOCAL-${auditId.slice(0, 8)}`;
+    if (!code) code = `LOCAL-${auditId.replace(/-/g, '').slice(0, 12)}`;
     draftRef.current = { id: auditId, code, date: new Date().toISOString() };
     scannedLabelsRef.current.clear();
     scopeConfigRef.current = nextScope;

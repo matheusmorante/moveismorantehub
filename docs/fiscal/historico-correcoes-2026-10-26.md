@@ -1,5 +1,68 @@
 # Histórico de correções — 26/10/2026
 
+## Título do modal de recebimento com NF de entrada
+
+### Problema e sintomas observados
+
+Ao abrir um recebimento vinculado a uma nota de entrada, o título era “Registrar Recebimento com NF-e”. O operador pediu que o modal identificasse a origem como “NF de Entrada”.
+
+### Causa raiz técnica comprovada
+
+A ramificação de apresentação para recebimentos com chave fiscal ou nota de entrada inicial já usava o rótulo “Registrar Recebimento com NF-e”. Não havia falha no vínculo da nota, na validação ou na gravação do recebimento.
+
+### Arquivos e linhas modificados
+
+| Arquivo | Linhas |
+|---|---:|
+| `erp/src/pages/App/Stock/Receipts/modals/ReceiptFormModal.tsx` | 112 |
+| `docs/fiscal/historico-correcoes-2026-10-26.md` | 3–31 |
+| `docs/fiscal/README.md` | 9 |
+
+### Solução implementada
+
+O modal agora exibe “Registrar Recebimento com NF de Entrada”. A seleção, os dados e a confirmação do recebimento permanecem iguais. O guia prático já descreve a opção como “Com nota fiscal de entrada”, então seu conteúdo continua alinhado e não precisou ser regenerado.
+
+### Testes e validações
+
+- `git diff --check` não apontou erros de whitespace; Git avisou que CRLF será normalizado para LF no TSX e no índice existentes.
+- Busca textual confirmou o novo título no modal e que o rótulo anterior não permanece no fluxo de Recebimentos; a fonte do guia já usa “Com nota fiscal de entrada”.
+- Testes automatizados não foram executados para esta troca de texto.
+- Nenhum serviço fiscal, dado, regra tributária, banco, snapshot ou comunicação SEFAZ foi alterado.
+
+## Autosave do recebimento por NF de entrada resiliente a timeouts
+
+### Problema e sintomas observados
+
+Ao selecionar “Usar Nota” para a NF de entrada da Rodial, já completa e com os produtos vinculados, o modal apresentava “Não foi possível salvar o rascunho do recebimento.” durante o preenchimento automático.
+
+### Causa técnica identificada e limite da evidência
+
+O autosave exibe o aviso quando a gravação do cabeçalho falha. Durante a investigação, o projeto operacional registrou timeouts repetidos no serviço PostgREST, e o ERP resolvia localmente `@supabase/supabase-js` `2.99.1`, anterior às retentativas automáticas para erros transitórios, disponíveis a partir da versão `2.102.0`. Isso identifica uma falha de resiliência compatível com o sintoma. Como os logs não incluem rota nem o erro detalhado da chamada da Rodial, não é possível provar que um timeout específico causou aquele aviso; a correção cobre essa classe de falha transitória.
+
+### Arquivos e linhas modificados
+
+| Arquivo | Linhas |
+|---|---:|
+| `erp/package.json` | 12 |
+| `erp/package-lock.json` | 15, 6433–6503 |
+| `erp/src/pages/App/Stock/Receipts/hooks/useReceiptForm.ts` | 299–302 |
+| `docs/fiscal/README.md` | 10 |
+| `docs/fiscal/historico-correcoes-2026-10-26.md` | 32–65 |
+
+### Solução implementada
+
+- Atualizada a dependência do ERP para `@supabase/supabase-js ^2.115.0`, versão alinhada ao cliente já usado na raiz do repositório e que inclui retentativas automáticas limitadas para falhas transitórias do PostgREST.
+- O autosave cria o UUID do rascunho antes de enviar o primeiro `upsert` e o mantém em memória até o modal reinicializar. Se a resposta se perder após a gravação, a próxima tentativa reutiliza o mesmo ID, sem criar outro recebimento.
+- Não foi criado nem alterado rascunho operacional da NF da Rodial durante o diagnóstico. O fluxo de conferência e finalização continua igual; como os passos do estoquista não mudaram, o guia prático permanece correto.
+
+### Testes e validações
+
+- Consultados os logs remotos de PostgREST em modo somente leitura; a janela de 15 minutos exibiu timeouts repetidos. A consulta não identificou a rota do pedido.
+- Confirmado que antes da correção o ERP resolvia `2.99.1`; agora `package.json` e `package-lock.json` declaram `^2.115.0` e o workspace resolve `2.118.0`. A documentação oficial do Supabase descreve retentativas padrão para PostgREST a partir de `2.102.0`.
+- `git diff --check` passou nos arquivos desta correção, com avisos de normalização CRLF/LF em arquivos existentes.
+- Testes automatizados e gravação de recebimento não foram executados; não foram criados fixtures nem escritos dados operacionais.
+- Nenhuma migration, alteração de schema, regra tributária, snapshot ou comunicação com a SEFAZ foi realizada.
+
 ## Paginação segmentada padronizada em listas do ERP e do aplicativo
 
 ### Problema

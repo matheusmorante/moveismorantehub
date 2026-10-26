@@ -3,6 +3,7 @@ import labelMdf from '../../../../../../assets/label_mdf.png';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
 import type { Product, Variation } from '@/pages/types/product.type';
 import ProductSearchInput from '../ProductSearchInput';
+import './LabelQueueCard.responsive.css';
 
 interface LabelQueueCardProps {
   item: any;
@@ -45,6 +46,10 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
   handleDragLeave,
   handleDrop,
 }) => {
+  const isIdentificationQueue = selectedCategory === 'identificacao';
+  const hasSelectedProduct =
+    !item.isBlank && Boolean(item.productId || item.variationId);
+
   return (
     <div
       draggable={true}
@@ -52,7 +57,7 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
       onDragOver={(e) => handleDragOver(e, idx)}
       onDragLeave={handleDragLeave}
       onDrop={(e) => handleDrop(e, idx)}
-      className={`group relative w-full ${isPriceQueue ? 'max-w-none min-h-[132px] flex items-center' : 'max-w-2xl flex items-center'} bg-white dark:bg-slate-900 rounded-[1.75rem] p-3 transition-all duration-300 gap-3 cursor-grab active:cursor-grabbing ${
+      className={`group relative w-full ${isIdentificationQueue ? 'label-queue-card-container' : ''} ${isPriceQueue ? 'max-w-none min-h-[132px] flex items-center' : 'max-w-2xl flex items-center'} bg-white dark:bg-slate-900 rounded-[1.75rem] p-3 transition-all duration-300 gap-3 cursor-grab active:cursor-grabbing ${
         dragOverIdx === idx
           ? 'border-2 border-dashed border-blue-500 bg-blue-500/5 scale-[1.01] z-10'
           : ''
@@ -209,19 +214,25 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
 
       <div className="flex-1 flex flex-col gap-3 min-w-0">
         {/* CABEÇALHO DO ITEM (Produto / SKU) e AÇÕES (Qtd / Lixeira) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isIdentificationQueue ? 'label-queue-card-details' : ''}`}>
           {/* Nome e SKU */}
           <div className="min-w-0 flex-1">
             {selectedCategory === 'identificacao' ? (
               <ProductAutocomplete
                 value={item.isBlank ? '' : item.name || ''}
                 onSelect={(product, variation) => onReplaceProduct?.(idx, product, variation)}
+                isSelected={hasSelectedProduct}
+                multiline={isIdentificationQueue}
                 allowedProductKinds={['normal']}
                 variationsOnly
                 excludeCombos
                 maxSuggestions={5}
                 placeholder={item.isBlank ? 'Buscar produto convencional...' : 'Alterar produto da etiqueta...'}
-                inputClassName="w-full border-b-2 border-slate-200 bg-transparent px-2 py-2 text-xs font-bold text-slate-800 outline-none focus:border-blue-500 dark:border-slate-800 dark:text-slate-100"
+                inputClassName={`w-full border-b-2 bg-transparent px-2 py-2 pr-8 text-xs font-bold outline-none ${
+                  hasSelectedProduct
+                    ? 'border-emerald-500 text-emerald-700 focus:border-emerald-600 dark:border-emerald-500 dark:text-emerald-300'
+                    : 'border-slate-200 text-slate-800 focus:border-blue-500 dark:border-slate-800 dark:text-slate-100'
+                }`}
               />
             ) : item.isBlank ? (
               selectedCategory === 'precos' && item.printingMode === 'advanced' ? (
@@ -267,8 +278,8 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
           </div>
 
           {/* Quantidade e Lixeira */}
-          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-            <div className="flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1.5 shrink-0">
+          <div className={`flex items-center gap-2 shrink-0 self-end sm:self-auto ${isIdentificationQueue ? 'label-queue-card-actions' : ''}`}>
+            <div className={`flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1.5 shrink-0 ${isIdentificationQueue ? 'label-queue-card-quantity' : ''}`}>
               <button
                 type="button"
                 onClick={() =>
@@ -301,7 +312,7 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
 
             <button
               onClick={() => removeItem(idx)}
-              className="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 text-slate-400 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-all flex items-center justify-center border border-slate-200 dark:border-slate-800 shrink-0 shadow-sm"
+              className={`w-8 h-8 rounded-lg bg-white dark:bg-slate-900 text-slate-400 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-all flex items-center justify-center border border-slate-200 dark:border-slate-800 shrink-0 shadow-sm ${isIdentificationQueue ? 'label-queue-card-delete' : ''}`}
               title="Remover item"
             >
               <i className="bi bi-trash3-fill text-sm" />

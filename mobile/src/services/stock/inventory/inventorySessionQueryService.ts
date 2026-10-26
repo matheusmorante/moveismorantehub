@@ -183,34 +183,25 @@ export const fetchInventorySessions = async (
   }
 };
 
-export const getNextInventoryCode = async (): Promise<string> => {
-  const query = supabase
-    .from('inventory_moves')
-    .select('observation')
-    .ilike('label', 'Inventário #%')
-    .order('created_at', { ascending: false })
-    .limit(100);
-
+export const getNextInventoryCode = async (
+  reservedCodes: readonly string[] = []
+): Promise<string> => {
   const response = await withTimeout(
-    Promise.resolve(query).then((result) => ({ result })),
+    Promise.resolve(
+      supabase.rpc('reserve_next_inventory_code', { p_reserved_codes: [...reservedCodes] })
+    ).then((result) => ({ result })),
     5_000,
-    null as { result: { data: any[] | null; error: any } } | null,
+    null as { result: { data: string | null; error: any } } | null,
     'inventory:next-code'
   );
   if (!response) throw new Error('A consulta do próximo código de inventário excedeu 5000ms.');
   const { data, error } = response.result;
 
   if (error) throw error;
-  const lastCode = (data || []).reduce((highest, move: any) => {
-    try {
-      const obs = JSON.parse(move.observation || '{}');
-      const codeNum = Number(obs.inventoryCode);
-      return !isNaN(codeNum) ? Math.max(highest, codeNum) : highest;
-    } catch {
-      return highest;
-    }
-  }, 0);
-  return String(lastCode + 1).padStart(6, '0');
+  if (typeof data !== 'string' || !data) {
+    throw new Error('O servidor não retornou um código de inventário reservado.');
+  }
+  return data;
 };
 
 export const fetchInventorySessionDetails = async (sessionId: string) => {

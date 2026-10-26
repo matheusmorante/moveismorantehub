@@ -9,6 +9,7 @@ export interface ReceiptsPaginationProps {
   readonly onPageChange: (page: number) => void;
   readonly loading?: boolean;
   readonly itemName?: string;
+  readonly ariaLabel?: string;
   readonly bare?: boolean;
 }
 
@@ -20,6 +21,7 @@ export const ReceiptsPagination: React.FC<ReceiptsPaginationProps> = ({
   onPageChange,
   loading = false,
   itemName = 'recebimentos',
+  ariaLabel = 'Paginação de recebimentos',
   bare = false,
 }) => {
   const safeTotalPages = Math.max(1, totalPages);
@@ -30,7 +32,7 @@ export const ReceiptsPagination: React.FC<ReceiptsPaginationProps> = ({
   return (
     <nav
       role="navigation"
-      aria-label="Paginação de recebimentos"
+      aria-label={ariaLabel}
       className={
         bare
           ? 'flex flex-col sm:flex-row items-center justify-between gap-4 py-3 px-1 mt-4 mb-2'
@@ -66,7 +68,7 @@ export const ReceiptsPagination: React.FC<ReceiptsPaginationProps> = ({
 
       {/* Controles de Navegação */}
       <FixedPageSlots
-        ariaLabel="Paginação de recebimentos"
+        ariaLabel={ariaLabel}
         currentPage={currentPage}
         totalPages={safeTotalPages}
         onPageChange={onPageChange}

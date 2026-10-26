@@ -10,6 +10,7 @@ import { PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER } from '../../../../../shared-uti
 import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
 import { fetchProductListCategoryFilter } from '../../../../../shared-utils/productListCategoryFilters';
 import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../shared-utils/testArtifactQueries';
+import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
 export interface ProductQueryFilterOptions {
   showTrash?: boolean;
   search?: string;
@@ -71,13 +72,15 @@ export const applyProductFiltersAndSort = async (
       .filter('status', 'isdistinct', 'draft');
   }
 
-  if (options?.activeOnly === false) {
-    q = q.eq('active', false);
-  } else if (options?.activeOnly === true) {
-    q = q.eq('active', true);
-  } else if (options?.includeDeactivated === false && !options?.search) {
-    // Apenas oculta desativados se explicitamente solicitado e não houver busca ativa
-    q = q.or('active.eq.true,is_draft.eq.true');
+  if (!options?.showTrash) {
+    if (options?.activeOnly === false) {
+      q = q.eq('active', false);
+    } else if (options?.activeOnly === true) {
+      q = q.eq('active', true);
+    } else if (options?.includeDeactivated === false && !options?.search) {
+      // Apenas oculta desativados se explicitamente solicitado e não houver busca ativa
+      q = q.or('active.eq.true,is_draft.eq.true');
+    }
   }
 
   // Filtro de busca textual — busca pelo nome do produto (name) na tabela de produtos e variações utilizando índices GIN trigram
@@ -87,11 +90,14 @@ export const applyProductFiltersAndSort = async (
 
       // 1. Buscar nome e SKU das variações para o catálogo de atendimento aceitar código/SKU.
       let variationParentIds: string[] = [];
-      const { data: matchedVariations, error: variationSearchError } = await supabase
-        .from('product_variations')
-        .select('product_id')
-        .or(buildProductVariationSearchFilter(searchTerms))
-        .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1);
+      const { data: matchedVariations, error: variationSearchError } = await withAbortTimeout(
+        supabase
+          .from('product_variations')
+          .select('product_id')
+          .or(buildProductVariationSearchFilter(searchTerms))
+          .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1),
+        'products:variation-search',
+      );
       if (variationSearchError) throw variationSearchError;
       if ((matchedVariations?.length ?? 0) > PRODUCT_VARIATION_SEARCH_MATCH_LIMIT)
         throw createProductVariationSearchTooBroadError();
@@ -149,5 +155,5 @@ export const applyProductFiltersAndSort = async (
       .range(pagination.from, pagination.to);
   }
 
-  return await q;
+  return await withAbortTimeout(q, 'products:page');
 };

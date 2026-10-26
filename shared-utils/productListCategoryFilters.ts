@@ -1,3 +1,5 @@
+import { withAbortTimeout } from './withAbortTimeout';
+
 export const buildProductListCategoryFilter = (
   categoryId: string,
   categoryName?: string | null,
@@ -24,8 +26,14 @@ export const fetchProductListCategoryFilter = async (
   categoryId: string
 ): Promise<string> => {
   const [categoryResult, categoryLinksResult] = await Promise.all([
-    client.from('categories').select('name').eq('id', categoryId).maybeSingle(),
-    client.from('product_categories').select('product_id').eq('category_id', categoryId),
+    withAbortTimeout(
+      client.from('categories').select('name').eq('id', categoryId).maybeSingle(),
+      'products:category-name',
+    ),
+    withAbortTimeout(
+      client.from('product_categories').select('product_id').eq('category_id', categoryId),
+      'products:category-links',
+    ),
   ]);
 
   if (categoryResult.error) throw categoryResult.error;

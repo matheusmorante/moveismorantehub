@@ -127,14 +127,12 @@ BEGIN
 END;
 $function$;
 
-DROP TRIGGER IF EXISTS require_product_config_for_catalog_status ON public.products;
-CREATE TRIGGER require_product_config_for_catalog_status
+CREATE OR REPLACE TRIGGER require_product_config_for_catalog_status
   BEFORE INSERT OR UPDATE OF status ON public.products
   FOR EACH ROW
   EXECUTE FUNCTION public.enforce_product_catalog_status_permission();
 
-DROP TRIGGER IF EXISTS require_product_config_for_catalog_status ON public.product_variations;
-CREATE TRIGGER require_product_config_for_catalog_status
+CREATE OR REPLACE TRIGGER require_product_config_for_catalog_status
   BEFORE INSERT OR UPDATE OF status ON public.product_variations
   FOR EACH ROW
   EXECUTE FUNCTION public.enforce_product_catalog_status_permission();

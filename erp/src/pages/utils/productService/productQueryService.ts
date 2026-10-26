@@ -7,7 +7,7 @@ import { getLocalProducts, saveLocalProducts } from './productLocalCache';
 import { mapFromDB } from './productMapper';
 import { TABLE_NAME } from './productSkuService';
 import { calculateCompositionAvailability } from '../compositionMath';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
 
 export { getProductSalesStats, searchHistoricalItems };
 
@@ -45,16 +45,13 @@ export const applyCompositionAvailability = async (products: Product[]): Promise
   );
   if (!componentIds.length) return unavailable();
 
-  const lookup = await withTimeout(
+  const lookup = await withAbortTimeout(
     supabase
       .from(TABLE_NAME)
       .select('id, stock, product_variations(id, stock)')
-      .in('id', componentIds)
-      .then((result) => ({ result })),
-    10_000,
-    null,
+      .in('id', componentIds),
     'catalogo:saldo-produtos-compostos'
-  );
+  ).then((result) => ({ result })).catch(() => null);
   if (!lookup || lookup.result.error) {
     console.warn('[ProductService] Não foi possível consultar o estoque atual dos componentes.');
     return unavailable();
@@ -210,9 +207,9 @@ export const fetchProductsPage = async (
 
     if (productUuids.length > 0) {
       try {
-        const { data: eligibilityData, error: eligibilityError } = await supabase.rpc(
-          'get_products_trash_eligibility',
-          { p_product_ids: productUuids }
+        const { data: eligibilityData, error: eligibilityError } = await withAbortTimeout(
+          supabase.rpc('get_products_trash_eligibility', { p_product_ids: productUuids }),
+          'products:trash-eligibility',
         );
 
         if (!eligibilityError && Array.isArray(eligibilityData)) {

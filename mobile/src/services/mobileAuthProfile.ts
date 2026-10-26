@@ -1,14 +1,17 @@
 import { MASTER_DEFAULT_PROFILE, supabase } from './supabaseClient';
 import { offlineStorageService } from './offline/offlineStorageService';
+import { withTimeout as waitForProfileRequest } from '../../../shared-utils/withTimeout';
 
 const PROFILE_TIMEOUT_MS = 10000;
 const PROFILE_COLUMNS = 'id,email,full_name,role,roles';
 
-const withTimeout = <T,>(promise: Promise<T>) =>
-  Promise.race<T | null>([
-    promise,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), PROFILE_TIMEOUT_MS)),
-  ]);
+const withProfileTimeout = <T,>(promise: PromiseLike<T>) =>
+  waitForProfileRequest(
+    promise.then((value): T | null => value),
+    PROFILE_TIMEOUT_MS,
+    null,
+    'resolução do perfil móvel'
+  );
 
 const getProfileCacheKey = (userId: string) => `user_profile_${userId}`;
 
@@ -23,7 +26,7 @@ export const resolveMobileUserProfile = async (session: any) => {
 
   let response: any = null;
   try {
-    response = await withTimeout(
+    response = await withProfileTimeout(
       Promise.resolve(
         supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', session.user.id).maybeSingle()
       )
@@ -38,25 +41,27 @@ export const resolveMobileUserProfile = async (session: any) => {
   // Somente cria perfil 'pending' se a consulta ao banco respondeu sem erro e confirmou ausência do registro
   if (!profile && !hadNetworkOrTimeoutFailure) {
     try {
-      const { data } = await supabase
-        .from('profiles')
-        .upsert({
-          id: session.user.id,
-          email: session.user.email || '',
-          full_name: googleName || session.user.email?.split('@')[0] || 'Novo usuário',
-          role: 'pending',
-        })
-        .select(PROFILE_COLUMNS)
-        .maybeSingle();
-      profile = data;
+      const response = await withProfileTimeout(
+        supabase
+          .from('profiles')
+          .upsert({
+            id: session.user.id,
+            email: session.user.email || '',
+            full_name: googleName || session.user.email?.split('@')[0] || 'Novo usuário',
+            role: 'pending',
+          })
+          .select(PROFILE_COLUMNS)
+          .maybeSingle()
+      );
+      profile = response?.data;
     } catch {}
   }
 
   // Fallback offline: se houve falha de rede/timeout e não obteve profile do servidor, restaura o último perfil válido em cache
   if (!profile && hadNetworkOrTimeoutFailure) {
     try {
-      const cached = await offlineStorageService.getWorkingSet<any>(
-        getProfileCacheKey(session.user.id)
+      const cached = await withProfileTimeout(
+        offlineStorageService.getWorkingSet<any>(getProfileCacheKey(session.user.id))
       );
       if (cached?.data && cached.data.id === session.user.id) {
         return cached.data;
@@ -66,18 +71,19 @@ export const resolveMobileUserProfile = async (session: any) => {
 
   if (profile && googleName && profile.full_name !== googleName) {
     try {
-      await supabase.from('profiles').update({ full_name: googleName }).eq('id', session.user.id);
+      await withProfileTimeout(
+        supabase.from('profiles').update({ full_name: googleName }).eq('id', session.user.id)
+      );
     } catch {}
   }
 
   let personRoles: string[] = [];
   if (!hadNetworkOrTimeoutFailure) {
     try {
-      const { data: person } = await supabase
-        .from('people')
-        .select('roles,role')
-        .eq('email', userEmail)
-        .maybeSingle();
+      const response = await withProfileTimeout(
+        supabase.from('people').select('roles,role').eq('email', userEmail).maybeSingle()
+      );
+      const person = response?.data;
       if (person) {
         if (Array.isArray(person.roles) && person.roles.length > 0) {
           personRoles.push(...person.roles);
@@ -112,9 +118,8 @@ export const resolveMobileUserProfile = async (session: any) => {
 
   if (resolvedProfile.role && resolvedProfile.role !== 'pending') {
     try {
-      await offlineStorageService.cacheWorkingSet(
-        getProfileCacheKey(session.user.id),
-        resolvedProfile
+      await withProfileTimeout(
+        offlineStorageService.cacheWorkingSet(getProfileCacheKey(session.user.id), resolvedProfile)
       );
     } catch {}
   }

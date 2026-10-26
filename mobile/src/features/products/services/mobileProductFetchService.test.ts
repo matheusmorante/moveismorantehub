@@ -22,7 +22,36 @@ describe('fetchMobileProductsPage', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it('aborta a consulta paginada e propaga timeout para o estado de erro', async () => {
+    vi.useFakeTimers();
+    let receivedSignal: AbortSignal | undefined;
+    const pendingRequest = new Promise<never>(() => undefined);
+    const query: any = {};
+    for (const method of ['select', 'eq', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn(() => query);
+    query.abortSignal = vi.fn((signal: AbortSignal) => {
+      receivedSignal = signal;
+      return pendingRequest;
+    });
+    supabaseMock.from.mockReturnValue(query);
+
+    const request = fetchMobileProductsPage(1, 15, {
+      showTestProducts: true,
+      throwOnError: true,
+    });
+    const assertion = expect(request).rejects.toThrow('limite de 10000 ms');
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    await assertion;
+
+    expect(query.abortSignal).toHaveBeenCalledOnce();
+    expect(receivedSignal?.aborted).toBe(true);
   });
 
   it('propaga falhas da consulta quando a lista habilita throwOnError', async () => {
@@ -627,7 +656,7 @@ describe('fetchMobileProductsPage', () => {
 
     expect(query.or).toHaveBeenCalledWith(NON_TEST_PRODUCT_ARTIFACT_FILTER);
     expect(result.data).toHaveLength(0);
-    expect(result.total).toBe(0);
+    expect(result.total).toBe(1);
   });
 
   it('includes marked test rows only when the caller enables administrative visibility', async () => {

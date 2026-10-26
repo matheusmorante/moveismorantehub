@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
-  response: Promise.resolve({ data: [], error: null }) as Promise<any>,
+  response: Promise.resolve({ data: '000001', error: null }) as Promise<any>,
 }));
 
 vi.mock('../../supabaseClient', () => ({
   supabase: {
+    rpc: () => state.response,
     from: () => {
       const query: any = {
         select: () => query,
@@ -28,12 +29,12 @@ import { getNextInventoryCode } from './inventorySessionQueryService';
 
 describe('getNextInventoryCode', () => {
   beforeEach(() => {
-    state.response = Promise.resolve({ data: [], error: null });
+    state.response = Promise.resolve({ data: '000001', error: null });
   });
 
-  it('usa o maior código consultado para retornar o próximo', async () => {
+  it('usa o código devolvido pelo alocador atômico', async () => {
     state.response = Promise.resolve({
-      data: [{ observation: JSON.stringify({ inventoryCode: 41 }) }],
+      data: '000042',
       error: null,
     });
 

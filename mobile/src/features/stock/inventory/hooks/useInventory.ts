@@ -1,7 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { InventorySession } from '../../types/stock.types';
 import * as stockService from '../../../../services/stockService';
-import { listLocalInventoryDrafts } from '../../../../services/sqlite/inventoryDrafts';
+import {
+  listLocalInventoryDrafts,
+  saveLocalInventoryDraft,
+} from '../../../../services/sqlite/inventoryDrafts';
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import { syncPendingInventorySubmissions } from '../services/inventoryFinalizer';
 
@@ -32,6 +35,39 @@ export const useInventory = () => {
     if (pageNum === 0) {
       try {
         const localDrafts = await listLocalInventoryDrafts();
+        const reservedCodes = new Set(
+          localDrafts
+            .filter((draft) => draft.status === 'pending_sync')
+            .map((draft) => draft.code)
+        );
+        const inProgressDrafts = localDrafts
+          .filter((draft) => draft.status === 'in_progress')
+          .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
+
+        for (const draft of inProgressDrafts) {
+          const code = draft.code.trim();
+          if (code && !reservedCodes.has(code)) {
+            reservedCodes.add(code);
+            continue;
+          }
+
+          const reservedNumericCodes = [...reservedCodes]
+            .map((reservedCode) => reservedCode.trim())
+            .filter((reservedCode) => /^\d{1,6}$/.test(reservedCode))
+            .map((reservedCode) => reservedCode.padStart(6, '0'));
+          let nextCode: string;
+          try {
+            nextCode = await stockService.getNextInventoryCode(reservedNumericCodes);
+          } catch {
+            nextCode = `LOCAL-${draft.id.replace(/-/g, '')}`;
+            while (reservedCodes.has(nextCode)) nextCode += 'X';
+          }
+
+          await saveLocalInventoryDraft({ ...draft, code: nextCode });
+          draft.code = nextCode;
+          reservedCodes.add(nextCode);
+        }
+
         localDraftSessions = localDrafts.map((d) => ({
           id: d.id,
           name: d.name,

@@ -1,10 +1,24 @@
 # Auditoria de paridade do módulo Produtos: ERP → App Mobile
 
-**Status:** em andamento. Este inventário acompanha as execuções cíclicas da auditoria. A Conciliação de Produtos segue exclusiva do ERP pela exceção dos Ciclos 127/131. A projeção técnica escolhida pelo usuário está aplicada nos dois writers desde o Ciclo 139, com `technical_specs` preservado por compatibilidade; o Ciclo 180 acrescentou 7 testes Vitest do helper compartilhado para simples, família, precedência, preservação e falha de leitura. O autosave seguro do Ciclo 117 já tem a RPC de ACK instalada no remoto pelo Ciclo 178; ainda falta provar resposta/idempotência com uma fixture previamente autorizada. O claim offline decidido pelo usuário está implementado e testado localmente (Ciclos 143/170), mas o backend remoto continua em v1: a migration necessária cria objetos em `app_private`, enquanto o `AGENTS.md` §13 autoriza migrations apenas em `public`; a pergunta sobre autorizar essa migration específica ou redesenhar o armazenamento continua pendente — a confirmação do modelo de ownership não concede essa autorização de schema. Não ativar as flags v2 nem declarar ownership remoto seguro antes dessa decisão e da validação. O Ciclo 181 comprovou acesso autenticado do ERP à lista e ao editor de composição por Playwright; outras abas/perfis e o aplicativo ainda não foram validados. O Ciclo 184 adicionou ao app o filtro administrativo para exibir registros de teste e compartilhou com o ERP o predicado PostgREST para marcadores em `technical_specs`; validação visual e Android/iOS seguem pendentes. Permanecem pendentes a confirmação de efeitos externos Meta/R2 e diagnósticos TypeScript globais em arquivos fora dos recortes recentes. Os demais ciclos e limitações seguem registrados abaixo; não declarar conclusão global enquanto houver estados sem conferência.
+**Status:** em andamento. Este inventário acompanha as execuções cíclicas da auditoria. A Conciliação de Produtos segue exclusiva do ERP pela exceção dos Ciclos 127/131. A projeção técnica escolhida pelo usuário está aplicada nos dois writers desde o Ciclo 139, com `technical_specs` preservado por compatibilidade; o Ciclo 180 acrescentou 7 testes Vitest do helper compartilhado para simples, família, precedência, preservação e falha de leitura. O autosave seguro do Ciclo 117 já tem a RPC de ACK instalada no remoto pelo Ciclo 178; ainda falta provar resposta/idempotência com uma fixture previamente autorizada. O claim offline decidido pelo usuário segue o primeiro envio autenticado com `finalizeStockInventory`; no Ciclo 417, uma migration restrita ao schema `public` instalou remotamente o gate, o claim imutável por owner/versão/hash e as RPCs v1/v2. RLS, policy de negação e ACL foram conferidas somente por catálogo. Não houve RPC, fixture, DML operacional ou mudança de flag/deploy; a prova comportamental de ownership, idempotência, concorrência e saldo/CMPM permanece pendente. A função v2 foi instalada, mas as flags de cliente não foram alteradas. O Ciclo 181 comprovou acesso autenticado do ERP à lista e ao editor de composição por Playwright; outras abas/perfis e o aplicativo ainda não foram validados. O Ciclo 184 adicionou ao app o filtro administrativo para exibir registros de teste e compartilhou com o ERP o predicado PostgREST para marcadores em `technical_specs`; validação visual e Android/iOS seguem pendentes. Permanecem pendentes a confirmação de efeitos externos Meta/R2 e diagnósticos TypeScript globais em arquivos fora dos recortes recentes. Os demais ciclos e limitações seguem registrados abaixo; não declarar conclusão global enquanto houver estados sem conferência.
+
+**Atualização do Ciclo 423:** os 400 de `GET /rest/v1/products` da manhã de 26/10 carregavam o filtro direto `is_test.is.null,is_test.eq.false`, mas a tabela remota `public.products` não tem coluna `is_test`; o marcador vigente fica em `technical_specs`. O código atual mobile já usa o predicado JSON compartilhado e não contém aquele filtro direto. Consultas posteriores com o predicado JSON tiveram respostas 206/200. A hipótese mais forte é que os 400 vieram de um binário/build que ainda usava o filtro antigo; os logs disponíveis não incluem corpo nem código de erro, então a causa exata e a build continuam sem confirmação em aparelho.
+
+**Atualização do Ciclo 416:** a nova captura mostra o erro genérico da lista com “Tentar novamente” e não mostra o badge de contagem “0” visto na captura anterior, em linha com a correção visual do Ciclo 385. O ERP e o app usam a mesma mensagem/ação para erro da consulta principal; o ícone nativo e o anúncio acessível do app são adaptações já documentadas. A imagem não identifica a build nem traz a resposta da consulta e, portanto, não diagnostica a causa operacional. Não acionei o botão, não fiz consulta autenticada, nem alterei código.
 
 **Atualização do Ciclo 404:** corrigi uma divergência no título do cartão de Produto simples: o app inferia `Cor` de `technical_specs` do pai e a acrescentava ao nome, embora o ERP componha o título só a partir de `product_variations.attributes`. O app agora reutiliza os parsers/helpers compartilhados, preservando `showName:false` e os aliases legados sem sintetizar atributo técnico. Teste Vitest focado: **6/6**. A causa do erro de carregamento mostrado na captura permanece sem diagnóstico por falta da resposta da consulta/build correspondente; a comparação visual e nativa também segue pendente.
 
 **Atualização do Ciclo 405:** alinhei o nome de fallback de uma linha de variação sem nome salvo. O ERP e o helper compartilhado juntam pai e atributos visíveis com espaço (`Tênis Azul`); o app usava um separador ` - `. Agora o fallback usa `getCompleteVariationName` compartilhado. Vitest focado: **6/6**. O Playwright autenticou e abriu `/products`, mas não encontrou a busca nem o estado de erro da lista nesse perfil, então não houve comparação visual de linhas.
+
+**Atualização do Ciclo 406:** a nova captura enviada pelo usuário confirma que a lista ainda entra no erro genérico “Não foi possível carregar os produtos.” com a ação “Tentar novamente”, sem contador ou linhas. Ela não mostra a causa, resposta da consulta nem identificação da build. `adb devices -l` está vazio nesta sessão; não alterei o fetch sem evidência do erro real.
+
+**Atualização do Ciclo 407:** revalidei a regra obrigatória da Lixeira no `AGENTS.md`: ERP e app consultam apenas `deleted = true`, enquanto “Desativados” consulta `deleted = false` e `active = false`. Os testes focados dos dois fetchers passaram **57/57**; não houve mudança de código.
+
+**Atualização do Ciclo 408:** o ERP server-paginado simplificou o texto do rodapé para “Total de N itens no catálogo” (commit `46cb1202a`); o app continua mostrando o intervalo da página e o mesmo total. Essa diferença de apresentação permanece coberta pela adaptação mobile já documentada no Ciclo 316; a contagem e os controles compartilhados de página/tamanho não mudaram. A captura mais recente permanece no estado de erro, sem rodapé e sem dados que expliquem a falha de consulta.
+
+**Atualização do Ciclo 409:** limitei a espera das leituras da lista de produtos ERP/mobile, busca em variações, filtro por categoria, elegibilidade da Lixeira e saldo de componentes de composições a 10 s por consulta. Quando disponível, `.abortSignal` do PostgREST cancela o fetch real; fallbacks de enriquecimento/cálculo e propagação do erro principal permanecem nos pontos existentes. Vitest focado: **65/65 em 4 arquivos**. Isso evita espera indefinida, mas não diagnostica a falha específica da captura, cuja resposta/build ainda não foi obtida.
+
+**Atualização do Ciclo 410:** acrescentei regressões nos fetchers ERP e mobile: uma consulta paginada sem resposta aborta o sinal após 10 s e propaga o timeout aos chamadores; o hook mobile estático confirma `throwOnError: true`. Vitest focado: **59/59** (ERP **18**, mobile **41**). Isso valida os contratos dos serviços, não a renderização da tela nem a causa da captura original.
 
 **Atualização do Ciclo 377:** a revisão do custo no cadastro rápido mobile pela NF-e confirmou que o valor inicial inclui os custos fiscais e adicionais rateados, como o `finalCost` calculado pelo ERP; o campo editável é uma particularidade mobile já registrada no inventário de formulários. Não encontrei diferença suportada no estado de custo para itens válidos. A mesma reauditoria confirmou que os handlers manuais de desconto do Produto Pai permanecem implementados e ligados às entradas mobile, corrigindo uma frase desatualizada no inventário de formulários; não há teste direto de interação desses callbacks.
 
@@ -883,7 +897,7 @@ Continuar na próxima execução pela cadeia funcional de publicação já aprov
 - [x] O ERP calcula `readOnly = !canManageProducts` a partir de `productConfig`. Sem ela, o card mostra “Ver detalhes” em vez do menu de ações; `ChannelStatusBadges` conserva o status visível e desabilitado, inclusive como fallback quando o caller não informa `canManageCatalog` (Ciclo 303).
 - [x] O app deriva `canEditProducts` de `productConfig`; `MobileProductCard` passa `canChangeCatalog=false` sem essa permissão e mantém o status legível. Detalhes de leitura continuam em ação separada. Os demais itens do menu de edição e as regras de rascunho/lixeira foram conferidos contra os Ciclos 190–198; `Pedidos Vinculados` para leitura foi fechado no Ciclo 191.
 - [x] O estado da UI corresponde às regras compartilhadas de identidade de perfil/etiqueta em `shared-utils/productPermissions.ts`; a publicação continua validada pelo helper de elegibilidade usado pelos dois clientes. Salvar o formulário não publica o produto automaticamente.
-- [x] Revisão estática da migration local `supabase/migrations/20261025002304_protect_product_catalog_status_permission.sql`: os triggers em `products` e `product_variations` protegem mudança de `status` e inserção já `published`, verificam `auth.uid()`, perfil e `rolePermissions.productConfig` e falham fechados para configuração explícita malformada. É uma camada de servidor distinta do bloqueio visual; não substitui a validação de conteúdo do Catálogo.
+- [x] Revisão estática da migration `supabase/migrations/20261026144007_protect_product_catalog_status_permission.sql` (renomeada no Ciclo 414 para alinhar à versão registrada no remoto): os triggers em `products` e `product_variations` protegem mudança de `status` e inserção já `published`, verificam `auth.uid()`, perfil e `rolePermissions.productConfig` e falham fechados para configuração explícita malformada. É uma camada de servidor distinta do bloqueio visual; não substitui a validação de conteúdo do Catálogo.
 
 #### Limitações
 
@@ -911,7 +925,7 @@ Revisar outro estado da lista de Produtos, mantendo a confirmação autenticada 
 #### Limitações
 
 - [ ] Não repeti o login Playwright: o Ciclo 182 identificou a limpeza automática `runDraftCleanup` no Dashboard ao autenticar, com tentativas de marcar rascunhos antigos como excluídos. Não há fixture própria autorizada para esse perfil; os testes de regra/helper não substituem observação de interface nem execução autenticada.
-- [ ] A migration `20261025002304_protect_product_catalog_status_permission.sql` permanece local e não aplicada. A UI bloqueia a ação, mas a proteção contra escrita direta no banco não foi comprovada. Nenhuma chamada Meta, consulta/escrita remota ou DDL ocorreu.
+- [ ] Naquele ciclo, a migration `20261026144007_protect_product_catalog_status_permission.sql` ainda não estava aplicada. A pendência foi concluída no Ciclo 414; a validação de autorização por operação/perfil continua limitada por ausência de fixtures remotas autorizadas.
 - [x] Skill de replicação acessível somente na cópia de build/cache sob `erp/.vercel`; não foi tratada como fonte canônica. A skill Supabase e as regras de segurança do repositório foram consultadas; as policies locais permitem leitura do próprio perfil e da configuração de permissões.
 
 **Conclusão do recorte:** a interpretação do usuário está refletida na interface e coberta pela regra mobile: status do Catálogo permanece visível, mas a ação é bloqueada sem `productConfig`. O código de produção não precisou de alteração. O próximo ciclo segue para outro estado da lista de Produtos; a autenticação que pode disparar limpeza e a proteção server-side não devem ser declaradas validadas por esta evidência.
@@ -1187,7 +1201,7 @@ Prosseguir para outro estado funcional da lista ou das variações. Manter pende
 
 #### Evidência
 
-- [x] A migration local `supabase/migrations/20261025002304_protect_product_catalog_status_permission.sql` cria a função e os triggers em `public.products` e `public.product_variations`. A função usa `SECURITY INVOKER`, `search_path = ''`, `auth.uid()`, valida os papéis do próprio perfil e lê `settings.data.rolePermissions.productConfig`; mantém a decisão do usuário: a ação de Catálogo exige `productConfig`, enquanto a interface mantém o status visível. A inserção já `published` e a mudança de status são os únicos eventos novos bloqueados; salvar outros dados não publica nem oculta por si só.
+- [x] A migration `supabase/migrations/20261026144007_protect_product_catalog_status_permission.sql` cria a função e os triggers em `public.products` e `public.product_variations`. A função usa `SECURITY INVOKER`, `search_path = ''`, `auth.uid()`, valida os papéis do próprio perfil e lê `settings.data.rolePermissions.productConfig`; mantém a decisão do usuário: a ação de Catálogo exige `productConfig`, enquanto a interface mantém o status visível. A inserção já `published` e a mudança de status são os únicos eventos novos bloqueados; salvar outros dados não publica nem oculta por si só.
 - [x] A migration local `20260827221000_secure_profiles_access_management.sql` limita a policy de leitura de `profiles` à própria linha (ou administrador), que corresponde ao `WHERE profile.id = auth.uid()` do trigger. A policy `Anyone can read settings` da migration `20260827233000_secure_settings_writes.sql` permite a leitura da configuração; `20260928171344_restrict_settings_data_api.sql` concede explicitamente `SELECT` em `settings` a `authenticated`.
 - [x] A revisão não encontrou um `GRANT SELECT ON public.profiles TO authenticated` explícito nas migrations versionadas. RLS/policy limita linhas, mas não substitui o privilégio de tabela. A documentação atual do Supabase também separa esses dois controles: [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security) e [funções](https://supabase.com/docs/guides/database/functions). Não concluo que o grant esteja ausente do projeto — os privilégios padrão do projeto podem fornecê-lo —, apenas que os arquivos versionados não o comprovam.
 - [x] A migration segue local e sem aplicação remota; não foi executada leitura de ACL, chamada de teste, escrita, migration, deploy ou integração PostgreSQL nesta execução. Assim, nem o grant efetivo de `profiles`, nem a execução real do trigger foram comprovados. A política vigente do projeto proíbe banco local e exige que RLS, triggers e persistência sejam verificados no Supabase remoto operacional; mocks ou leitura SQL estática não bastam.
@@ -2993,3 +3007,389 @@ Continuar a aba Tributário/NF pelo estado Produto normal versus Serviço e comp
 - [ ] A apresentação precisa de comparação visual quando ERP e app estiverem exibindo linhas de variação carregadas. A falha original da captura permanece sem resposta da consulta e sem identificação da build; esta execução não a diagnosticou.
 
 **Conclusão do recorte:** sem nome persistido, o app agora gera o mesmo fallback por nome do pai + atributos visíveis que o ERP. Auditoria global permanece em andamento.
+
+### Ciclo 406 — terceira rechecagem visual do erro da lista mobile — 26/10/2026
+
+**Recorte:** nova captura do estado de erro da lista enviada pelo usuário, sem executar novamente a consulta ou alterar dados.
+
+#### Evidência e conclusão
+
+- [x] A captura repete o ícone de erro, a mensagem “Não foi possível carregar os produtos.” e o botão “Tentar novamente”. Não mostra contador, produto ou variação, nem dados técnicos da requisição, resposta HTTP, erro do serviço ou identificação da build/sessão.
+- [x] O estado corresponde ao ramo mobile já auditado nos Ciclos 385, 388 e 402; o retry chama novamente a leitura paginada com os filtros/página atuais. Os Ciclos 392 e 395 não obtiveram erro mobile: o ERP Development respondeu com sucesso e uma consulta auxiliar de categorias que falhe já não descarta linhas obtidas pela consulta principal (Ciclo 396). Esses fatos não identificam a causa da falha mostrada agora.
+- [x] `adb devices -l` não listou aparelho nesta sessão. Sem o mesmo app/build conectado, não há como capturar a resposta nativa e correlacioná-la com a captura. Não reiniciei servidores nem repeti Playwright/Expo Web como substituto de validação Android.
+- [x] Não encontrei diferença de contrato ou tratamento visual demonstrada por esta imagem; nenhuma mudança de produção ou teste foi necessária. Não houve consulta/escrita remota, chamada Meta/R2/SEFAZ, migration, deploy ou alteração operacional do Estoque; o guia prático não se aplica.
+
+#### Regras consultadas e limites
+
+- [x] Retomei este inventário e o item correspondente em `docs/geral/roadmap_pendente.md`; consultei o `AGENTS.md` do projeto fornecido pelo usuário, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, `docs/negocio/produtos/estrutura-produto-variacao.md`, `docs/negocio/produtos/operacoes-troca-pai-merge.md` e as notas/inventários móveis aplicáveis. Não há `AGENTS.md` aninhado aplicável em `mobile/src/features/products` ou `docs/produtos`. A skill canônica `erp-web-to-mobile-replication` não foi encontrada nas fontes atuais; a cópia de backup sob `.vercel` continua apenas como orientação, com proveniência não confirmada.
+- [ ] Diagnosticar a falha continua dependente da resposta da consulta na mesma sessão mobile e da versão/build executada. Nenhum aparelho está conectado por ADB nesta execução.
+
+**Conclusão do recorte:** a nova captura confirma que o estado de erro/retry continua ocorrendo, mas não fornece evidência técnica para atribuir a causa ao fetch, às permissões ou à build. O tratamento visual permanece alinhado ao contrato já auditado; o diagnóstico operacional e a auditoria global seguem pendentes.
+
+### Ciclo 407 — revalidação da semântica da Lixeira — 26/10/2026
+
+**Recorte:** confirmar no estado atual do código a regra explícita do `AGENTS.md` para separar produtos excluídos de produtos apenas inativos.
+
+#### Comparação e conclusão
+
+- [x] O `AGENTS.md` determina que a Lixeira liste somente produtos com `deleted = true`; produtos com `active = false` e sem exclusão ficam no filtro **Desativados**.
+- [x] O fetch ERP em `applyProductFiltersAndSort` aplica `deleted = true` em `showTrash` e, fora desse modo, `deleted = false`. O fetch mobile em `fetchMobileProductsPage` aplica o mesmo predicado nos dois ramos. No status Desativados, os dois também aplicam `active = false` sem incluir registros excluídos.
+- [x] Nenhum dos clientes combina `active = false` com a Lixeira. Ambos continuam excluindo rascunhos desse modo conforme o contrato já registrado no Ciclo 386; a regra não amplia o conjunto da Lixeira para produtos apenas inativos.
+- [x] Não encontrei diferença de query que justifique alteração de produção.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/utils/productService/productFilterBuilder.ts` e `productFilterBuilder.test.ts`. App: `mobile/src/features/products/services/mobileProductFetchService.ts` e `mobileProductFetchService.test.ts`. Regra obrigatória: `AGENTS.md` §14; o histórico anterior está no Ciclo 386.
+- [x] Vitest pelo runner ERP: `npm run test -- --run --config vitest.config.ts src/pages/utils/productService/productFilterBuilder.test.ts ../mobile/src/features/products/services/mobileProductFetchService.test.ts` — **2 arquivos, 57 testes aprovados** (17 ERP, 40 mobile), incluindo asserções de Lixeira e Desativados.
+- [x] Consultei o `AGENTS.md` vigente fornecido pelo usuário, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de Produto/Variação e mover/merge, inventário e roadmap. Não há `AGENTS.md` aninhado nos diretórios de serviço/teste verificados. A skill canônica de replicação não foi localizada nas fontes atuais; a cópia sob `.vercel` permanece orientação com proveniência não confirmada.
+- [x] Sem Playwright, Maestro ou consulta remota neste recorte; os testes cobrem a construção dos filtros com mocks e não afirmam o conteúdo real do banco. Não houve gravação remota, Meta/R2/SEFAZ, migration ou deploy. O comportamento operacional do Estoque não mudou; o guia prático não requer atualização.
+
+**Conclusão do recorte:** a regra explícita da Lixeira está aplicada de forma equivalente nos dois clientes e coberta por testes focados. A causa do erro de carregamento da captura e as validações visuais/nativas continuam pendentes; a auditoria global segue em andamento.
+
+### Ciclo 408 — rótulo do total no rodapé paginado — 26/10/2026
+
+**Recorte:** texto de contagem no rodapé da lista padrão de Produtos quando há linhas e a paginação server-side está ativa.
+
+#### Comparação e conclusão
+
+- [x] A versão atual do ERP mostra `Total de {totalItems} itens no catálogo`. O commit `46cb1202a` substituiu `Página {currentPage} · {totalItems} itens no catálogo`; a lógica de consulta, total, página selecionada e slots não mudou nesse diff.
+- [x] O rodapé mobile mostra `Exibindo {startItem}-{endItem} de {totalItems} produtos`, com o intervalo derivado de `currentPage`, `itemsPerPage` e `totalItems`; o seletor `FixedPageSlots` mostra a página corrente. A contagem numérica é a mesma do ERP, e o app fornece adicionalmente a faixa visível.
+- [x] A diferença de apresentação do indicador mobile já foi avaliada no Ciclo 316 como adaptação do rodapé nativo. O Ciclo 375 confirmou a equivalência dos estados de carregamento/erro/vazio, das faixas da consulta e dos controles. Mantive o intervalo mobile; não surgiu uma diferença de regra ou paginação a corrigir.
+- [x] A captura enviada junto desta execução mostra erro sem produtos, contador ou rodapé; portanto confirma somente o estado de falha já auditado nos Ciclos 385/388/406, não a apresentação deste estado paginado nem a causa da consulta.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/ProductList/index.tsx:248-273`; diff do commit `46cb1202a232945d7f9453771e80995a2c726e94`. App: `mobile/src/features/products/components/MobileProductPagination.tsx:29-83`; slots e esquema de paginação compartilhados: `shared-utils/fixedPagination.ts` e `shared-utils/listingFormSchemas.ts`.
+- [x] Retomei `docs/produtos/paridade-erp-app.md` e o item de Produtos em `docs/geral/roadmap_pendente.md`. Consultei o `AGENTS.md` fornecido pelo usuário, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação vigente de Produto/Variação e mover/merge e as notas de paridade de paginação dos Ciclos 316/375. Não há `AGENTS.md` aninhado nos diretórios de Produto consultados. A skill canônica `erp-web-to-mobile-replication` não está nas fontes atuais `.agents/skills`/`skills`; a cópia no backup `.vercel` segue sem proveniência confirmada e serve apenas como orientação.
+- [x] Revisão estática, sem mudança de código ou teste; não houve uma lista carregada na captura para comparação visual. Não usei Expo Web como prova nativa; `adb devices -l` permanece sem telefone conectado para Maestro. Sem leitura/escrita remota, Meta/R2/SEFAZ, migration, deploy ou alteração operacional do Estoque.
+- [ ] Comparação visual do rodapé com linhas carregadas no ERP e no app, incluindo runtime Android, continua pendente. Diagnosticar o erro da captura exige a resposta da consulta na mesma sessão e identificar a build; nenhuma causa foi inferida.
+
+**Conclusão do recorte:** o ERP agora enfatiza somente a contagem total; o app mantém o intervalo visível como adaptação de apresentação e exibe o mesmo total e a página selecionada. Não alterei o código. A auditoria global e a causa do erro de carregamento continuam pendentes.
+
+### Ciclo 409 — timeout abortável nas consultas da lista de Produtos — 26/10/2026
+
+**Recorte:** proteger a lista mobile do estado de carregamento sem fim quando uma leitura PostgREST não responde, incluindo consultas auxiliares que participam da montagem/filtros da lista.
+
+#### Diferença e correção
+
+- [x] O `AGENTS.md` exige que chamadas assíncronas ao Supabase/API não bloqueiem indefinidamente a interface. As consultas principais e algumas leituras que alimentam a lista de Produtos não tinham prazo explícito nos serviços ERP ou mobile. A falha genérica da captura não identifica qual chamada falhou, portanto não a tratei como causa comprovada.
+- [x] Acrescentei `shared-utils/withAbortTimeout.ts`: prazo padrão de **10 s**, reutilizando o helper existente `withTimeout`; quando o query builder oferece `.abortSignal(signal)`, o `AbortController` também cancela a requisição subjacente ao vencer o prazo. A resposta rápida é mantida e erros reais continuam rejeitados sem conversão em sucesso vazio.
+- [x] Apliquei o helper à leitura paginada principal e busca de variações nos dois fetchers, aos nomes/relacionamentos de categorias usados pelo filtro, à elegibilidade da Lixeira e à disponibilidade calculada dos componentes de composição. Foram preservados os comportamentos existentes: erro da leitura principal continua chegando ao estado de erro/retry; falha auxiliar de categoria segue com o fallback já existente; elegibilidade falha fechada; composição mantém disponibilidade indisponível/zero em erro. Não alterei filtros, ordenação, paginação, payload, permissões ou dados.
+- [x] A tela mobile continua responsável por exibir o estado de erro e o botão “Tentar novamente”; o timeout é uma proteção de liberação da espera, não um diagnóstico do motivo retornado pelo backend nem garantia de que os dados serão carregados.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/utils/productService/productFilterBuilder.ts` (busca e página), `productQueryService.ts` (elegibilidade e disponibilidade). Mobile: `mobile/src/features/products/services/mobileProductFetchService.ts` (busca, página, categorias, elegibilidade e composição). Compartilhado: `shared-utils/productListCategoryFilters.ts`, `shared-utils/withAbortTimeout.ts` e `shared-utils/withTimeout.ts`.
+- [x] Vitest pelo runner ERP: `withAbortTimeout.test.ts` (timeout aborta, sucesso antes do limite e erro original propagado), `productFilterBuilder.test.ts`, `productListCategoryFilters.test.ts` e `mobileProductFetchService.test.ts` — **4 arquivos, 65 testes aprovados**. `tsc --noEmit --strict` isolado no helper e `git diff --check` terminaram sem erros; o diff check mostrou somente avisos de normalização CRLF/LF em arquivos já modificados.
+- [x] Consultei `AGENTS.md` do usuário, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de estrutura e operações de Produtos e Variações, este inventário e o item correspondente do roadmap. O teste do helper foi colocado em `erp/src` para entrar no padrão de coleta do Vitest; a cópia em `shared-utils` não era coletada pela configuração do pacote.
+- [x] Não há `AGENTS.md` aninhado nos diretórios ERP/mobile/shared-utils/docs examinados. A skill canônica `erp-web-to-mobile-replication` continua ausente em `.agents/skills` e `skills`; a única cópia encontrada no backup `.vercel` foi usada apenas como orientação, sem proveniência confirmada. A regra permanente que mantém a Conciliação exclusivamente no ERP não foi alterada nem replicada ao app.
+- [x] Nenhuma consulta/escrita remota, Playwright, Expo Web, Maestro, acesso Meta/R2/SEFAZ, migration ou deploy foi realizado; `adb devices -l` não lista telefone físico nesta sessão. O guia operacional do Estoque não se aplica: o ciclo só limita espera de leituras da lista de Produtos e não modifica etapas ou ações do estoquista.
+- [ ] A causa do erro da captura ainda depende da resposta/erro da consulta na mesma sessão e da identificação da build. O prazo torna a falha finita e cancelável quando PostgREST fornece `.abortSignal`, mas não prova que essa proteção esteja na build retratada nem exclui erro de sessão, permissão, rede ou backend. A validação visual autenticada e Android/Maestro continuam pendentes.
+
+**Conclusão do recorte:** leituras relevantes à lista de Produtos agora têm prazo limitado e abortam a requisição PostgREST quando possível; a lista ainda preserva seus estados existentes de erro, retry e fallback. O erro observado continua sem causa comprovada e a auditoria global permanece em andamento.
+
+### Ciclo 410 — timeout da consulta mobile chega ao fluxo de erro da lista — 26/10/2026
+
+**Recorte:** validar a integração entre o limite abortável do fetch paginado mobile e o contrato de erro usado pelo hook da tela de Produtos.
+
+#### Regressão e evidências
+
+- [x] Adicionei regressões aos dois fetchers: `productFilterBuilder.test.ts` (ERP) e `mobileProductFetchService.test.ts` simulam uma query paginada pendente que expõe `.abortSignal()`. Ao avançar o timer para 10 s, os dois serviços abortam o sinal e propagam o timeout.
+- [x] Confirmei em `mobile/src/features/products/hooks/useMobileProducts.ts` que a leitura da lista chama `fetchMobileProductsPage` com `throwOnError: true`; a rejeição chega ao tratamento existente do hook para exibir o erro e manter a ação de retry. O comportamento do retry em si permanece coberto pela suíte de `mobileProductListRequest.test.ts`.
+- [x] Nenhuma consulta, filtro ou comportamento de produção mudou neste ciclo; o código do Ciclo 409 permanece responsável pelo timeout. Não usei mocks como prova de persistência de banco.
+
+#### Validação e limites
+
+- [x] Vitest pelo runner ERP: `productFilterBuilder.test.ts` e `mobileProductFetchService.test.ts` — **2 arquivos, 59 testes aprovados** (ERP **18**, mobile **41**), incluindo timeout abortável na consulta paginada, falha de consulta existente, filtros, paginação e enriquecimento.
+- [x] Consultei `AGENTS.md` fornecido pelo usuário, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação vigente de Produto/Variação e mover/merge, este inventário e o item do roadmap. Não há `AGENTS.md` aninhado em `mobile/src/features/products`.
+- [x] Sem Playwright, Expo Web, Maestro ou aparelho Android físico; o teste não monta `NativeProductsScreen` e não comprova TalkBack/VoiceOver. Nenhuma leitura/gravação remota, Meta/R2/SEFAZ, migration ou deploy. O guia de Estoque não se aplica porque o ciclo só acrescenta cobertura do fetch de Produtos.
+- [ ] A resposta real que causou a falha da captura e a identificação da build continuam ausentes. Os testes confirmam apenas o caminho determinístico em que a consulta não responde; não atribuem a causa operacional ao timeout.
+
+**Conclusão do recorte:** os fetchers ERP e mobile rejeitam uma leitura paginada que excede o prazo e acionam abortamento; no mobile, o chamador solicita a propagação ao fluxo de erro/retry. O tratamento está comprovado em serviços com mocks, não em runtime nativo; a auditoria geral permanece em andamento.
+
+### Ciclo 411 — rechecagem da captura de erro da lista e incidente no probe — 26/10/2026
+
+**Recorte:** usar Playwright no ERP em viewport móvel para verificar se o erro da captura também ocorre no ERP, sem inferir o resultado da build nativa.
+
+#### Evidências da tela e do incidente
+
+- [x] Autentiquei pela UI do ERP de desenvolvimento com o operador de teste disponibilizado pela Vercel Development, mantendo as credenciais somente em memória. O project ref observado coincide com o ERP: `hkoxhourxwlddgsfdgws`. Em viewport 412×915, `/products` carregou sem o painel “Não foi possível carregar os produtos” nem o botão de retry; as leituras PostgREST de `products` e `product_variations` retornaram 200, uma página de produtos retornou 206, e havia 15 linhas na tabela. Esse resultado é apenas do ERP web e não comprova o comportamento do aplicativo/build Android.
+- [x] Durante o login, o redirecionamento montou o Dashboard, que executa `runDraftCleanup()` em `erp/src/pages/App/Dashboard/Index.tsx` e `erp/src/pages/utils/draftCleanupService.ts`. A interceptação que deveria bloquear mutações tinha uma condição incorreta e deixou passar requisições de atualização/exclusão. Foram observadas respostas PostgREST `204` em duas chamadas `PATCH /rest/v1/products`, duas `PATCH /rest/v1/people` e duas `DELETE /rest/v1/services`. O código do cleanup seleciona rascunhos `is_draft=true` com `updated_at` há mais de 10 dias; nos updates de `products` e `people` também exclui artefatos marcados `testArtifact.is_test=true`, enquanto a exclusão de `services` não aplica esse filtro.
+- [ ] Os `204` foram respostas mínimas, sem contagem ou linhas retornadas. Não é possível confirmar se alguma linha foi alterada/removida nem quantas. Não tentei reverter ou executar outra mutação. Não farei novas consultas autenticadas até o operador orientar o próximo passo para este incidente.
+- [x] `adb devices -l` continua sem telefone conectado; não executei Maestro nem usei Expo Web como prova nativa. A captura do aplicativo não informa build ou resposta de rede da mesma sessão. Nenhum código de produção ou teste foi alterado neste ciclo; apenas este inventário e o roadmap foram atualizados.
+
+**Conclusão do recorte:** a lista do ERP web funcionou para este operador, mas isso não identifica por que a tela do app falha. A sessão também revelou e disparou o cleanup existente do Dashboard por causa de uma interceptação defeituosa; o possível efeito em registros é indeterminado. O diagnóstico do aplicativo e a decisão sobre uma revisão somente leitura do incidente permanecem pendentes.
+
+### Ciclo 412 — hipótese de `AbortController` ausente no Expo nativo — 26/10/2026
+
+**Recorte:** verificar se o timeout abortável do Ciclo 409 pode lançar a falha genérica por não existir `AbortController` no runtime nativo.
+
+#### Evidências e conclusão
+
+- [x] O checkout declara React Native `0.86.3` e Expo `57.0.25`. A entrada Expo padrão (`expo/AppEntry.js` → `registerRootComponent` → `Expo.fx.tsx`) carrega `expo/src/winter`; no alvo nativo, `runtime.native.ts` importa `react-native/Libraries/Core/InitializeCore`. A inicialização React Native chama `setUpDefaultReactNativeEnvironment`, que carrega `setUpXHR`; esse módulo instala `AbortController` e `AbortSignal` globais a partir de `abort-controller`. Assim, a ausência desse global não é uma explicação sustentada para o erro no checkout atual. A cadeia de dependências não comprova qual bundle está instalado no aparelho da captura.
+- [x] A consulta principal mobile seleciona `*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)`; a consulta paginada ERP usa `LIGHT_COLUMNS_WITH_CATS`, que inclui `product_variations(*)`, `product_images(*)` e `product_categories(*, categories(*))`. A projeção do mobile é mais estreita; não encontrei nesta comparação uma relação usada exclusivamente pelo mobile que explique a falha.
+- [x] `mobile/app.json` neste checkout está em `1.6.2`, `versionCode: 27`; o Ciclo 392 registrou no aparelho então consultado `1.6.2/29`. `adb devices -l` nesta execução não lista dispositivo, portanto a build da nova captura permanece desconhecida. Não houve leitura remota adicional, código/teste alterado, Maestro ou Expo Web.
+- [x] Consultei o `AGENTS.md` raiz, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação vigente de Produto/Variação e mover/merge, este inventário e o item correspondente do roadmap; não há `AGENTS.md` aninhado aplicável nos caminhos alterados. A skill canônica `erp-web-to-mobile-replication` não está nos diretórios de skills do projeto, nos diretórios globais `.agents/skills`/`.codex/skills` ou no `.vercel` deste checkout; usei `investigate-first` e segui as regras raiz. A exceção ERP-only da Conciliação permanece preservada.
+- [ ] A resposta/erro da consulta principal na mesma sessão da captura e a identificação de sua build continuam necessárias para diagnosticar a falha do aplicativo. A revisão somente leitura do possível efeito do cleanup do Ciclo 411 também segue pendente da orientação do operador.
+
+**Conclusão do recorte:** a inicialização documentada do runtime atual fornece o global usado por `withAbortTimeout`, então essa hipótese foi afastada para o checkout presente. A falha continua sem causa comprovada e pode pertencer a uma build ou sessão diferente.
+
+### Ciclo 413 — confirmação da semântica da Lixeira — 26/10/2026
+
+**Recorte:** confirmar a decisão recente do usuário sobre a separação entre Lixeira e produtos inativos, sem ampliar a revisão para a causa da falha da lista.
+
+#### Evidências e resultado
+
+- [x] O usuário confirmou: a Lixeira contém somente produtos com `deleted = true`; itens apenas inativos ficam no filtro **Desativados**. Essa decisão coincide com a regra do `AGENTS.md` §14 e com o resultado já aplicado nos Ciclos 386/407.
+- [x] ERP: `applyProductFiltersAndSort` aplica `deleted = true` e exclui rascunhos no ramo `showTrash`; fora da Lixeira usa `deleted = false`, e o estado Desativados acrescenta `active = false`. App: `fetchMobileProductsPage` mantém os mesmos predicados.
+- [x] Reexecutei os testes focados `productFilterBuilder.test.ts` e `mobileProductFetchService.test.ts`: **2 arquivos, 59/59 testes passaram** (ERP 18, app 41). Asserções cobrem `deleted = true` na Lixeira e o filtro separado `active = false`/`deleted = false` em Desativados.
+- [x] Não alterei código: a implementação atual já satisfaz a decisão do usuário. A superfície móvel adicional de Lixeira permanece justificada e registrada no Ciclo 255; este recorte valida apenas a semântica dos registros. A exceção de Conciliação exclusivamente no ERP permanece intocada.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação vigente de Produto/Variação e mover/merge, o inventário e o roadmap. Não há `AGENTS.md` aninhado aplicável. A skill canônica `erp-web-to-mobile-replication` continua ausente nas fontes atuais do projeto; a cópia de cache não foi tratada como fonte normativa.
+- [ ] Não houve Playwright, Maestro, Expo Web, consulta ou gravação remota neste recorte. A falha de carregamento da captura ainda precisa da resposta da consulta e build da mesma sessão; a revisão somente leitura do possível efeito do cleanup do Ciclo 411 continua pendente da orientação do operador.
+
+**Conclusão do recorte:** a decisão sobre Lixeira/Desativados está implementada de forma equivalente e validada com os testes de serviço dos dois clientes. A causa da falha da captura e o incidente de sessão continuam abertos; não fiz novas consultas autenticadas.
+
+### Ciclo 414 — gate remoto de permissão do Catálogo — 26/10/2026
+
+**Recorte:** concluir no banco operacional o bloqueio server-side aprovado para mudanças de status do Catálogo, sem alterar o contrato de salvar produtos nem a exceção da Conciliação ERP-only.
+
+#### Correção e aplicação
+
+- [x] A instrução fornecida para o repositório permite migrations DDL necessárias a esta tarefa no Supabase operacional e exige revisão, confirmação do ref, histórico, precondições, compatibilidade, impacto e conferência pós-aplicação. O ref conferido no ERP e pelo Supabase é `hkoxhourxwlddgsfdgws`; projeto `MoranteHub`, ativo e saudável, PostgreSQL **17.6.1.113**.
+- [x] A migration foi revisada inteira antes da aplicação. Ela só cria/substitui a função `public.enforce_product_catalog_status_permission`, cria/substitui triggers em `public.products` e `public.product_variations` e revoga a execução direta da função aos papéis de API; não executa DML, não altera policies/RLS e não altera dados existentes. A inserção já `published` e qualquer mudança de status são protegidas; inserções não publicadas e atualizações de outros campos continuam fora deste gate.
+- [x] O SQL original continha `DROP TRIGGER`, vedado pelo `AGENTS.md` e pela política remota. PostgreSQL 17 suporta `CREATE OR REPLACE TRIGGER`; troquei as duas ocorrências por essa forma, que também cobre objeto existente sem remoção. A permissão `productConfig` e o bypass de administrador correspondem a `shared-utils/productPermissions.ts`; antes da aplicação o valor remoto de `settings.data.rolePermissions.productConfig` era um array válido com `administrator`, `manager`, `seller` e `stockist`.
+- [x] Antes da aplicação, o histórico remoto tinha **219** migrations e não continha essa proteção; não existiam os triggers nem a função, e `products.status`, `product_variations.status` e os papéis `anon`, `authenticated`, `service_role` estavam presentes. A migration DDL autorizada foi aplicada pelo Supabase MCP e registrada remotamente como versão **`20261026144007`**. O arquivo local foi renomeado para `supabase/migrations/20261026144007_protect_product_catalog_status_permission.sql` para manter o arquivo e o histórico no mesmo versionamento.
+- [x] Verificação somente leitura pós-aplicação: histórico com **220** migrations e a nova versão; dois triggers encontrados, ativos (`tgenabled = O`), em `products` e `product_variations`, ambos `BEFORE INSERT OR UPDATE OF status`. A função está como `SECURITY INVOKER`, com `search_path` vazio; `anon`, `authenticated` e `service_role` não têm execução direta. Nenhum registro de negócio foi lido ou alterado pela verificação.
+
+#### Limites da prova
+
+- [ ] A verificação confirma instalação e metadados do DDL, mas não exercita o resultado de uma mudança autorizada/negada por perfil. Não criei fixture, não fiz DML e não reutilizei produto operacional. A política de teste remoto não libera provisionamento de artefatos sem ownership/readiness comprovados; essa prova comportamental fica pendente de fixture permitida.
+- [x] Não fiz login nem consulta autenticada no ERP/browser, nem chamei Graph API, R2, SEFAZ, Playwright, Maestro ou deploy. `adb devices -l` não lista telefone nesta execução; Expo Web não foi usado como prova nativa. Nenhum guia de Estoque precisa de alteração: o ciclo muda apenas a autorização server-side do botão de status do Catálogo.
+- [x] Consultei o `AGENTS.md` fornecido, `docs/geral/USER_RULES.md`, a política `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de Produtos/Variações, este inventário e o roadmap. A skill `supabase` instalada foi aplicada. A skill canônica `erp-web-to-mobile-replication` continua indisponível nas fontes atuais e a cópia em cache permanece somente orientação.
+
+**Conclusão do recorte:** publicar/ocultar agora possui o gate de permissão no banco além do controle visual ERP/app; salvar produtos e validar prontidão editorial continuam responsabilidades separadas. A instalação foi verificada no schema `public`; a execução funcional por perfis aguarda fixtures remotas autorizadas. A causa do erro de carregamento mostrado na captura e a revisão somente leitura dos efeitos possíveis do cleanup do Ciclo 411 continuam pendentes; a auditoria global não está concluída.
+
+### Ciclo 415 — separação dos filtros Lixeira e Desativados no fetch ERP — 26/10/2026
+
+**Recorte:** garantir que a query da Lixeira nunca combine o predicado de exclusão (`deleted = true`) com filtros de `active`, mesmo quando um chamador ERP enviar opções incompatíveis.
+
+#### Evidência e correção
+
+- [x] A UI ERP não abre a Lixeira nesta lista: `useProductsPageState` fixa `currentFilters.showTrash = false` (estado já registrado no Ciclo 255). A lista móvel mantém a Lixeira como superfície específica documentada: o menu oferece **Lixeira** separadamente de **Mostrar/Ocultar Inativos**.
+- [x] Encontrei um caso de borda no builder ERP: com `{ showTrash: true, activeOnly: false }`, `applyProductFiltersAndSort` acrescentava `.eq('active', false)` após `.eq('deleted', true)`; `{ showTrash: true, includeDeactivated: false }` também acrescentava o `OR` de ocultação de inativos. O estado de UI não produzia esses pares, mas o contrato do serviço aceitava ambos.
+- [x] Corrigi o menor ponto responsável, `erp/src/pages/utils/productService/productFilterBuilder.ts`: filtros `activeOnly`/`includeDeactivated` agora só são aplicados fora da Lixeira. Busca, categoria, tipo e a exclusão de rascunhos da Lixeira mantêm o comportamento anterior. O app já reseta o filtro de status ao entrar na Lixeira e não aplica `active`/`disabled` quando `showTrash` está ativo; nenhuma mudança mobile foi necessária.
+- [x] Acrescentei regressões em `erp/src/pages/utils/productService/productFilterBuilder.test.ts` para `showTrash + activeOnly=false` e `showTrash + includeDeactivated=false`. Vitest focado: **1 arquivo, 19/19 testes aprovados**.
+
+#### Limites e fontes
+
+- [x] Consultei o `AGENTS.md` vigente (§14: Lixeira somente `deleted=true`; inativos em Desativados), `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de estrutura e operações de Produtos/Variações, este inventário, o Ciclo 255 e o roadmap. Não há `AGENTS.md` aninhado em `erp/src/pages/utils/productService`.
+- [x] A skill canônica `erp-web-to-mobile-replication` continua ausente de `.agents/skills` e `skills`; a cópia encontrada em `.vercel/builders-backup-72ebb3b0/node_modules` foi lida apenas como orientação, sem proveniência canônica confirmada. A skill `surgical-patch` foi aplicada para manter a correção e a regressão restritas.
+- [ ] Sem Playwright autenticado ou validação nativa neste recorte; o caso incompatível foi comprovado no builder por Vitest. A UI ERP não tem entrada de Lixeira na lista e a superfície mobile permanece a exceção documentada no Ciclo 255. Não houve leitura/escrita remota, Meta/R2/SEFAZ, migration, deploy ou alteração operacional do Estoque; o guia não se aplica.
+
+**Conclusão do recorte:** a query ERP não combina mais um filtro de ativo/desativado com a Lixeira, mesmo em opções conflitantes. A semântica da Lixeira mobile continua preservada como adaptação documentada. A falha da captura e a revisão somente leitura do possível efeito do cleanup do Ciclo 411 permanecem pendentes; a auditoria global segue aberta.
+
+### Ciclo 416 — nova captura do erro da lista de Produtos — 26/10/2026
+
+**Recorte:** comparar apenas o estado de erro da lista de Produtos mostrado na captura mais recente, sem tentar novamente a consulta nem inferir sua causa.
+
+#### Comparação e resultado
+
+- [x] A captura mostra o estado de erro da lista: ícone de pacote, “Não foi possível carregar os produtos.” e botão “Tentar novamente”. Não há linhas nem badge de contagem `0`; isso é compatível com a correção do Ciclo 385, que passou a ocultar a contagem quando a lista está sem linhas após falha. Como a imagem não identifica o aplicativo/build de origem, ela não prova qual versão produziu o resultado.
+- [x] ERP: `erp/src/pages/App/Products/ProductList/index.tsx:128-139` usa a mensagem genérica para erro da consulta principal e expõe “Tentar novamente”; só o erro específico de busca ampla de variações substitui esse texto. Mobile: `mobile/src/features/products/hooks/useMobileProducts.ts:240-256` preserva a mesma exceção específica e a mensagem genérica, e `mobile/src/features/products/screens/NativeProductsScreen.tsx:602-619` mostra o ícone nativo, anuncia o texto como alerta e chama `retry()` no botão. A diferença do ícone e da semântica de acessibilidade é adaptação da plataforma documentada nos Ciclos 385/402.
+- [x] O retry visível corresponde à ação já comparada no Ciclo 388: reconsulta a mesma página e filtros, com a repetição automática inicial existente. A captura comprova apenas a apresentação estática do botão; não comprova que ele foi tocado ou que a consulta se recupera.
+- [ ] A imagem não fornece status/resposta HTTP, erro PostgREST, filtros efetivos, identidade da sessão ou versão instalada. A causa do erro não pode ser atribuída ao código deste checkout, à autorização, à rede ou ao backend sem essas evidências. A revisão somente leitura do possível efeito de `runDraftCleanup()` no Ciclo 411 permanece pendente de orientação; não fiz tentativa de reversão.
+
+#### Fontes e limites
+
+- [x] Consultei o `AGENTS.md` raiz fornecido pelo usuário e o arquivo do checkout, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, os documentos vigentes de estrutura e operações de Produto/Variação, o inventário e o item correspondente em `docs/geral/roadmap_pendente.md`. Não há `AGENTS.md` aninhado em `erp/src/pages/App/Products`, `mobile/src/features/products` ou `docs/produtos`.
+- [x] Procurei a skill vigente em `.agents/skills` e `skills`; essas pastas não estão presentes neste checkout. A única cópia encontrada continua no backup `.vercel/builders-backup-72ebb3b0/node_modules/morante-hub-root/.agents/skills/erp-web-to-mobile-replication/SKILL.md`, sem proveniência canônica confirmada; usei o texto acessível somente como orientação. A regra permanente de Conciliação ERP-only permanece intacta.
+- [x] Revisão estática do ERP e mobile e inspeção da imagem fornecida; sem alteração de código, teste, Playwright, Expo Web, Maestro, dispositivo Android, consulta/escrita remota, Meta/R2/SEFAZ, migration ou deploy. Não acionei “Tentar novamente”. O guia de Estoque não se aplica porque nenhum procedimento operacional foi alterado.
+
+**Conclusão do recorte:** a nova imagem confirma a apresentação genérica de erro e retry, agora sem o contador `0`; a mensagem e a ação correspondem ao estado ERP, com o ícone e anúncio acessível específicos do mobile. Ela não contém a evidência de rede/build necessária para diagnosticar por que a consulta falhou. A causa permanece pendente e a auditoria global continua em andamento.
+
+### Ciclo 417 — claim offline no schema `public` e gate remoto — 26/10/2026
+
+**Recorte:** reconciliar a implementação do claim offline com a autorização vigente de migrations, que permite somente o schema `public`, e aplicar o contrato aprovado sem tocar em dados operacionais.
+
+#### Migration e verificação remota
+
+- [x] O operador já havia escolhido que a primeira conta autenticada com `finalizeStockInventory` reivindica `audit_id`; retries exigem a mesma conta, versão e hash. A autorização do `AGENTS.md` §13 cobre DDL no `public`, não `app_private`, DML de configuração, fixtures ou chamadas às RPCs. Redesenhei a migration para criar somente objetos em `public`, removi os dois arquivos locais ainda não aplicados que criariam `app_private` e consolidei o contrato em `supabase/migrations/20261026151716_inventory_audit_submission_claims_public.sql`.
+- [x] O SQL foi revisado integralmente. A migration contém `BEGIN`/`COMMIT`, limites de `lock_timeout`, `statement_timeout` e `idle_in_transaction_session_timeout = 60s`; não contém `DROP`, `TRUNCATE`, criação de schema ou DML executado durante a instalação. O backfill de `settings` foi removido: sem valor explícito, o helper usa os defaults `manager`/`stockist` já definidos pelo catálogo de permissões; uma lista explícita permanece respeitada. A verificação do preflight confirmou `pgcrypto` em `extensions`, tipos/colunas usados nas tabelas remotas e ausência prévia de claim/helpers/v2.
+- [x] Confirmado novamente antes da aplicação o projeto operacional `MoranteHub` (`hkoxhourxwlddgsfdgws`), ativo, PostgreSQL 17.6.1.113; histórico de 220 migrations, última `20261026144007`, RPC v1 existente, demais objetos ausentes e executor/owner `postgres`. A migration foi aplicada pelo Supabase MCP e o remoto registrou a versão **`20261026151716`** (histórico agora com 221 migrations). A primeira chamada retornou um erro apenas no resumo JS posterior à aplicação; não foi reenviada. O histórico e o catálogo foram consultados antes de renomear o arquivo local para coincidir com a versão registrada.
+- [x] Pós-aplicação, consulta somente de catálogo confirmou tabela `public.inventory_audit_submission_claims` com RLS habilitado, policy `FOR ALL` com `USING (false)`/`WITH CHECK (false)` para `anon` e `authenticated`, sem privilégios de tabela para `anon`, `authenticated` ou `service_role`. Os helpers internos são `SECURITY INVOKER`, `search_path` vazio e sem execução pelos papéis da API. `claim_inventory_audit_submission`, `finalize_inventory_transaction` e `_v2` são as únicas RPCs de estoque deste recorte como `SECURITY DEFINER`; ACL permite `authenticated`, revoga `PUBLIC`/`anon`/`service_role`, e o código exige identidade e `finalizeStockInventory` antes do efeito.
+- [x] Advisors remotos após aplicar: `rls_enabled_no_policy` **26 INFO** (inalterado), `function_search_path_mutable` **21 WARN** (inalterado), `anon_security_definer_function_executable` **17 WARN** (inalterado) e `authenticated_security_definer_function_executable` **80 WARN**, antes 78. Os três achados de inventário são as RPCs intencionais autenticadas; grants, `auth.uid()`, gate de perfil e `search_path` fixo foram verificados. Não executei `npm run advisors`/CLI nem Supabase/PostgreSQL local. A CLI Supabase não está instalada; o arquivo segue o formato/timestamp do histórico remoto.
+
+#### Limites e compatibilidade
+
+- [ ] Não houve execução de `claim_inventory_audit_submission` nem de finalizador, fixture ou gravação de estoque. A política remota não fornece artefato próprio autorizado. A primeira reivindicação concorrente, retry mesma conta/hash, rejeição de outro owner/versão/hash, ACK legado, permissão por perfil e ajuste v1/v2/CMPM precisam de fixture/gates permitidos antes de afirmar prova comportamental. A migration instala a v2, mas nenhuma flag `VITE_INVENTORY_RPC_V2`/`EXPO_PUBLIC_INVENTORY_RPC_V2` foi editada e não houve deploy.
+- [x] Nenhuma linha de negócio foi lida ou alterada; não acionei Meta, R2, SEFAZ ou fluxos externos. O guia de Estoque não foi regenerado: a página 23 já orienta retomar o mesmo inventário com a conta do primeiro envio; esta migration apenas faz cumprir esse passo existente e não adiciona ação ao estoquista. Não removi a tabela nem os claims como rollback: uma correção futura deve ser forward-only para preservar ownership; a transação DDL abortaria integralmente se falhasse.
+- [x] Consultei `AGENTS.md` raiz e regra aplicável de Estoque, `docs/geral/USER_RULES.md`, `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`, skill `migration`, skill `supabase`, skill `morantehub-stock-guide`, guia atual, contrato do índice offline, inventário e roadmap. A skill canônica `erp-web-to-mobile-replication` continua ausente das fontes atuais; a cópia do backup `.vercel` foi usada somente como orientação. Conciliação ERP-only permanece intacta.
+
+**Conclusão do recorte:** o gate e o claim imutável foram instalados em `public`, sem DML de migração e sem abrir acesso direto à tabela/anon. A integração comportamental e o saldo autoritativo seguem sem prova; não publique clientes nem habilite a v2 com base somente na instalação do DDL. A causa do erro da captura de Produtos e a revisão somente leitura do incidente do Ciclo 411 também continuam pendentes.
+
+### Ciclo 418 — repetição da falha da lista de Produtos — 26/10/2026
+
+**Recorte:** registrar a nova captura enviada pelo usuário, sem acionar o retry nem atribuir uma causa que a imagem não mostra.
+
+- [x] O PNG mostra novamente a lista móvel de Produtos sem linhas, com busca, ícone de pacote, a mensagem genérica “Não foi possível carregar os produtos.” e o botão “Tentar novamente”; não há badge de contagem. É o mesmo estado visual já auditado no Ciclo 416 e compatível com a correção do Ciclo 385. A imagem contém interface, sem instruções textuais adicionais.
+- [x] A comparação de contrato previamente verificada continua válida: ERP e app exibem a mensagem genérica e oferecem retry; ícone e anúncio acessível são adaptações nativas documentadas. Esta captura não mostra toque no botão nem resposta após nova consulta.
+- [ ] Permanecem ausentes o status/corpo da resposta da consulta principal, filtros efetivos, sessão e versão instalada. A captura repetida não permite distinguir erro de rede, sessão, autorização, backend ou build. Não executei retry nem nova navegação autenticada.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, a regra ERP-only de Conciliação, os documentos vigentes de estrutura e operações de Produto/Variação, este inventário e o item correspondente do roadmap. Não existe `AGENTS.md` em `docs/`; o único arquivo aninhado está em `digital-catalog/` e não se aplica. A skill canônica de replicação continua indisponível nas fontes atuais; a cópia em `.vercel` permanece apenas orientação.
+- [x] Nenhum código, teste, consulta/escrita remota, chamada Meta/R2/SEFAZ, Playwright, Expo Web ou Maestro foi executado neste recorte. O guia de Estoque não se aplica.
+
+**Conclusão do recorte:** a captura confirma que o estado de erro ainda aparece, mas não acrescenta evidência causal ao Ciclo 416. Não fiz alteração de código; diagnóstico continua pendente da resposta da consulta e da identificação da build, e a auditoria global permanece aberta.
+
+### Ciclo 419 — revisão somente leitura do cleanup disparado no Ciclo 411 — 26/10/2026
+
+**Recorte:** estimar os efeitos possíveis das seis requisições `PATCH`/`DELETE` observadas no Ciclo 411, usando somente logs, metadados e consultas agregadas `SELECT`. Não restaurar, repetir ou executar mutações.
+
+#### Evidências e estimativa
+
+- [x] Confirmei novamente o projeto Supabase operacional: ref `hkoxhourxwlddgsfdgws`, `MoranteHub`, ativo/saudável, PostgreSQL **17.6.1.113**. Os logs de API situam as seis respostas `204` entre `2026-10-26T01:32:36.174Z` e `2026-10-26T01:32:37.624Z`: dois `PATCH /rest/v1/products`, dois `PATCH /rest/v1/people` e dois `DELETE /rest/v1/services`. Todas mostram `Content-Range: */*`, sem contagem de linhas. A consulta correspondente de logs PostgreSQL/PostgREST não trouxe instruções ou resultados por linha para esse intervalo.
+- [x] Consultei somente agregados atuais para rascunhos anteriores aos cutoffs registrados nos requests. Em `products`, há **1** rascunho antigo; ele está marcado como `testArtifact.is_test=true`, já está `deleted=true` e `active=false`; o total ainda elegível pelo filtro de exclusão de artefatos de teste do cleanup é **0**. Em `people`, os totais atuais de rascunhos antigos, antigos deletados e antigos inativos são **0**.
+- [x] Para `services`, a tabela está atualmente vazia e `pg_stat_user_tables.n_tup_del = 0`. O postmaster iniciou em `2026-10-18T11:26:14.613569Z`, antes do incidente, e `pg_stat_database.stats_reset` está nulo. Isso é forte evidência de que nenhum `DELETE` de linha em `services` foi contabilizado desde o início desse postmaster; portanto, o cenário mais provável é que os dois requests tenham removido **zero linhas**. As estatísticas são um contador agregado, não um retorno por request, então não trato isso como prova transacional exata.
+- [x] O código do cleanup instala triggers `BEFORE UPDATE` em `products` e `people` que substituem `updated_at` por `now()`. A consulta atual não encontrou registros existentes com `updated_at` na janela do incidente. Uma linha atualizada pode ter sido editada novamente depois e ter seu timestamp sobrescrito; por isso, a ausência de timestamp atual não comprova que nenhum `PATCH` alterou linhas.
+- [ ] Não é possível recuperar a quantidade exata de produtos ou pessoas que os `PATCH` afetaram: o PostgREST respondeu `204` com `Content-Range: */*`, e não há snapshot anterior, auditoria por linha ou log de contagem para essa execução. Os agregados atuais não reconstituem o estado anterior. A estimativa segura é **zero candidatos remanescentes agora**; a quantidade efetivamente atualizada durante os requests permanece **indeterminada**.
+
+#### Limites e encerramento
+
+- [x] A leitura foi limitada a logs e contagens agregadas; não selecionei nomes, IDs ou conteúdo de linhas operacionais. Não usei Playwright, não autentiquei em outra sessão, não repeti o cleanup e não executei `UPDATE`, `DELETE`, RPC de restauração, migration ou outra escrita remota.
+- [x] Nenhuma reversão foi tentada. Como o número e a identidade das linhas alteradas não podem ser recuperados, restaurar com base em inferência poderia sobrescrever alterações posteriores ou dados legítimos.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`, este inventário e o item correspondente do roadmap. O projeto/ref foi confirmado antes das consultas somente leitura.
+
+**Conclusão do recorte:** a revisão autorizada foi concluída. O DELETE em `services` provavelmente não removeu linhas, apoiado por tabela vazia e contador de exclusões zerado desde antes do incidente. Para `products` e `people`, os dados atuais não mostram candidatos não-test antigos remanescentes, mas não permitem medir os `PATCH` históricos; o efeito exato continua irrecuperável sem trilha por request. Não fiz qualquer restauração ou nova gravação. A causa do erro da lista móvel continua pendente e a auditoria global segue aberta.
+
+### Ciclo 420 — paridade do destino de etiquetas de Produto — 26/10/2026
+
+**Recorte:** conferir se a mudança recente do ERP, que sempre inclui a categoria da etiqueta na URL após o modal de seleção, está ausente no atalho móvel de Produto.
+
+#### Comparação e resultado
+
+- [x] O diff ERP em `erp/src/pages/App/Products/components/modals/product/LabelPrintSelectionModal.tsx` removeu o caso em que, sem `initialProducts`, o modal navegava para `/estoque/etiquetas` sem categoria. Agora ele envia sempre `cat=identificacao` ou `cat=precos` conforme `labelType`, preservando `batchProducts` e `labelType` em `location.state`. O teste `LabelPrintSelectionModal.test.tsx` cobre a categoria `precos` para seleção pré-carregada.
+- [x] Os links nativos já carregam a categoria correspondente antes desse ajuste do ERP: `buildProductIdentificationLabelUrl` envia `cat=identificacao` junto de `productId`, `variationId` quando aplicável, `autoAddProduct=true` e `fillSheet=1`; `buildProductPriceLabelUrl` envia `cat=precos`, `productId` e `autoAddProduct=true`. Os testes existentes em `productLabelLinks.test.ts` fixam esses dois contratos.
+- [x] A tela ERP de destino consome `cat` (ou alias `category`) em `useLabelCategory.ts` para selecionar a categoria/layout. `useLabelProducts.ts` resolve o produto por `productId`, e `useLabelPrintingState.ts` preserva os dados de lote enviados pelo modal. A diferença investigada não revela campo ou seleção ausente no deep link móvel; app e ERP terminam na mesma categoria de etiqueta e no produto alvo selecionado.
+- [x] Não alterei código: a mudança ERP confirmou uma informação de roteamento que os links móveis já incluíam. Não alterei o guia de Estoque, pois nenhum passo operacional ou procedimento de impressão mudou.
+
+#### Evidências e limites
+
+- [x] Revisão estática de `LabelPrintSelectionModal.tsx` e seu teste; `mobile/src/features/products/domain/productLabelLinks.ts` e `productLabelLinks.test.ts`; `useLabelCategory.ts`, `useLabelProducts.ts`, `useLabelPrintingState.ts`, `MobileProductCard.tsx` e `MobileProductVariationCard.tsx`. Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, a documentação vigente de Produto/Variação e mover/merge, o inventário e o item correspondente do roadmap. Não há `AGENTS.md` aninhado nos diretórios envolvidos.
+- [x] A skill atual `erp-web-to-mobile-replication` continua ausente em `.agents/skills` e `skills`; a cópia no backup `.vercel` não tem proveniência canônica confirmada e permanece somente orientação. A exceção permanente da Conciliação ERP-only foi preservada.
+- [ ] Não executei testes, Playwright, Expo Web ou Maestro. Não abri a tela nem imprimi etiquetas em sessão autenticada; a categoria final do runtime nativo permanece sem prova visual. `adb devices -l` não lista telefone nesta execução. Não fiz leitura/escrita remota, chamada Meta/R2/SEFAZ, migration ou deploy.
+
+**Conclusão do recorte:** o app já inclui a categoria na URL para ambos os tipos de etiqueta; a mudança recente do ERP não demonstra uma lacuna móvel. Não foi necessária correção neste estado. A impressão visual autenticada/nativa e a causa do erro da lista permanecem pendentes; a auditoria global continua aberta.
+
+### Ciclo 421 — autorização versus prontidão para publicar no Catálogo — 26/10/2026
+
+**Recorte:** aplicar o esclarecimento do usuário sobre perfis sem permissão e separar autorização para alterar o Catálogo das condições de conteúdo para publicar.
+
+#### Comparação e evidência
+
+- [x] O status de Catálogo na lista ERP deriva de `canManageProducts`, calculado por `canPerform('productConfig', roles)`. Sem essa permissão, `ChannelStatusBadges` mantém o controle visível e desabilitado, com explicação de permissão; rascunho também desabilita o controle. No mobile, `canEditProducts` deriva da mesma permissão, é passado como `canChangeCatalog`, e `getMobileCatalogStatusBadgeInteraction` bloqueia a mudança sem permissão ou em rascunho. A variação mesclada mantém uma interação explicativa que termina em alerta, sem chamar a mutação. A resposta do usuário (“para quem não tem permissão, pode bloquear assim”) confirma esse gate.
+- [x] Publicar é uma condição separada da autorização: `useProducts.deactivateCatalog` no ERP e `useMobileProducts.handleToggleCatalog` no app executam `validateCatalogPublication` antes de mudar um item oculto para `published`, usando a implementação compartilhada `shared-utils/catalogPublicationValidation.ts` e os requisitos atuais da categoria. Os dois bloqueiam rascunho, produto identificado como teste e pendências de conteúdo; erro/timeout ao verificar os requisitos falha fechado. Ocultar produto publicado não exige que ele satisfaça os requisitos de publicação.
+- [x] Salvar o cadastro e mudar status são operações distintas. A migration `20261026144007_protect_product_catalog_status_permission.sql` instalada no Ciclo 414 rejeita criação já `published` e mudança de `status` sem `productConfig`; o gatilho não barra gravações de conteúdo com status inalterado. O salvamento do formulário não publica automaticamente. O modal pós-salvamento continua sujeitando a publicação às condições de prontidão.
+- [x] Não havia diferença de contrato a corrigir. Preservei o controle desabilitado sem permissão, a validação de prontidão e a proteção server-side já instalada; nenhum código ou dado remoto foi alterado.
+
+#### Validação e limites
+
+- [x] Vitest ERP: `ChannelStatusBadges.test.tsx` e `catalogPublicationValidation.test.ts` — **18/18** testes aprovados. Cobrem botão desabilitado sem permissão, bloqueio em rascunho e publicação permitida/bloqueada por requisitos.
+- [x] Vitest mobile: `mobileProductCardRules.test.ts` — **61/61** testes aprovados, incluindo interação desabilitada por falta de permissão e por rascunho, e aviso de acessibilidade.
+- [ ] Os testes de lógica/UI mockada não provam execução do trigger remoto nem o visual autenticado em aparelho. Não criei fixture, não acionei RPC nem alterei o Supabase; a prova por perfil remoto segue limitada pelo inventário do Ciclo 414. Não houve Playwright ou dispositivo Android/Maestro; `adb devices -l` continua sem telefone. Expo Web não foi usado como prova nativa.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentos de Produto/Variação e operações mover/merge, inventário e roadmap. Não há `AGENTS.md` aninhado aplicável; a única cópia acessível da skill de replicação segue no backup `.vercel`, sem proveniência canônica confirmada, somente como orientação.
+
+**Conclusão do recorte:** para quem não tem `productConfig`, o Catálogo fica bloqueado mesmo que a UI receba callback. Rascunho e requisitos de publicação são gates de elegibilidade independentes; salvar conteúdo sem alterar status não publica por si só. ERP e mobile correspondem em código e nos testes focados; a confirmação comportamental do trigger por perfil não foi feita remotamente. A auditoria global continua aberta.
+
+### Ciclo 422 — contagem paginada após ocultar artefatos de teste — 26/10/2026
+
+**Recorte:** manter no mobile o mesmo total de servidor que o ERP quando uma página contém uma linha filtrada localmente como artefato de teste.
+
+#### Evidência e correção
+
+- [x] `fetchProductsPage` no ERP retorna o `count` exato do PostgREST. O hook ERP remove artefatos reconhecidos por `isTestProduct` da lista depois de receber a página, mas conserva o total do servidor.
+- [x] `fetchMobileProductsPage` também aplica `NON_TEST_PRODUCT_ARTIFACT_FILTER` antes da paginação e ainda filtra `isTestProduct` na página recebida. Antes desta correção, subtraía do `count` quantas linhas foram removidas apenas na página atual; assim a contagem mobile podia variar conforme a página e divergir do ERP.
+- [x] Alinhei o retorno do serviço mobile ao ERP: os itens continuam ocultos localmente, mas `total` conserva `count ?? 0` nas consultas de resumo e lista completa. Atualizei a asserção do teste existente para documentar o contrato: quando o mock representa uma linha no `count` e o filtro local a remove, `data` fica vazia e `total` permanece 1.
+- [x] Arquivos alterados: `mobile/src/features/products/services/mobileProductFetchService.ts` (retorno paginado de resumo/lista) e `mobile/src/features/products/services/mobileProductFetchService.test.ts` (expectativa do contrato existente). Nenhuma chamada ao Supabase remoto, migration, operação Meta/R2/SEFAZ ou fluxo de Conciliação foi executado.
+
+#### Validação e limites
+
+- [x] Vitest focado em `mobileProductFetchService.test.ts`: **41/41** testes aprovados, incluindo a expectativa do total do servidor quando um artefato é ocultado localmente. `git diff --check` passou; o Git reportou apenas avisos CRLF/LF em arquivos já modificados. Não houve Playwright autenticado nem validação Android/Maestro; `adb devices -l` não listou dispositivo no último registro.
+- [x] `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, `AGENTS.md`, os documentos vigentes de estrutura e operações de Produto/Variação e o item correspondente do roadmap foram consultados antes desta alteração. A skill canônica `erp-web-to-mobile-replication` não está disponível em `.agents/skills`, `skills` nem no catálogo desta execução; cópias de backup/cache sem proveniência confirmada permanecem apenas orientação.
+- [ ] O total do servidor representa as linhas após o predicado JSON, enquanto `isTestProduct` ainda pode ocultar marcadores legados após a paginação em ambos os clientes. Este ciclo elimina a divergência ERP/mobile do total, mas não altera a regra compartilhada nem garante preenchimento da página com linhas visíveis.
+
+**Conclusão do recorte:** o mobile agora preserva o mesmo total exato devolvido pela consulta paginada que o ERP, sem exibir artefatos filtrados. Não alego que essa mudança explique a captura de erro da lista; a resposta HTTP/filtros e a build nativa continuam necessárias para diagnosticar aquela falha. A auditoria global permanece aberta.
+
+### Ciclo 423 — diagnóstico somente leitura dos 400 na lista mobile — 26/10/2026
+
+**Recorte:** confrontar as respostas `400` da consulta de Produtos com os filtros enviados, o código atual do app e o catálogo remoto; não repetir a consulta funcional nem fazer gravações.
+
+#### Evidência
+
+- [x] Nos logs operacionais `edge_logs` do projeto `hkoxhourxwlddgsfdgws`, entre `2026-10-26T04:25:00Z` e `2026-10-26T05:10:00Z`, encontrei **8** respostas `400` a `GET /rest/v1/products` (quatro às 04:31, duas às 04:52 e duas às 05:05 UTC). As URLs tinham dois parâmetros `or`: o primeiro era exatamente `(is_test.is.null,is_test.eq.false)`; o outro aplicava o predicado JSON vigente a `technical_specs`. Não havia parâmetros de busca ou categoria nesses oito pedidos.
+- [x] A inspeção somente de catálogo de `public.products` confirma `technical_specs` e ausência de uma coluna `is_test`. O schema não permite a leitura direta do filtro legado como coluna da tabela.
+- [x] No checkout atual, `mobileProductFetchService.ts` usa `NON_TEST_PRODUCT_ARTIFACT_FILTER` de `shared-utils/testArtifactQueries.ts`, que consulta `technical_specs` e não emite o filtro direto `is_test`. A busca textual no fetcher, no hook e em `shared-utils` confirmou que o literal antigo não é usado pela consulta atual. A verificação do parser oficial do PostgREST mostra que parâmetros lógicos repetidos são coletados e analisados individualmente; portanto, a mera duplicação da chave `or` não explica por si só os 400.
+- [x] Consultas posteriores de Produtos, às 05:26–05:27 UTC, usaram apenas o predicado JSON e tiveram respostas `206` e `200`. Isso é compatível com um cliente/build anterior ainda emitindo o filtro direto, enquanto o código atual e a consulta posterior não o emitem.
+
+#### Limites e conclusão
+
+- [ ] Os logs do gateway não incluem o corpo da resposta nem o código/mensagem PostgREST; não posso afirmar se o erro foi especificamente coluna inexistente ou outro erro de validação. Também não há versão/build do app nos campos examinados. Assim, a causa mais provável é divergência entre o cliente que enviou o filtro obsoleto e o código do checkout; confirmação exige identificar a build/runtime nativa que produziu a captura.
+- [x] Nenhum código de produção, teste, migration, dado, RPC, cleanup, consulta funcional autenticada, Meta/R2/SEFAZ ou servidor local foi iniciado/alterado neste recorte. A consulta remota foi estritamente de logs e metadados de schema. `adb devices -l` não ofereceu dispositivo para validação nativa nesta sessão; Expo Web não foi usado como substituto.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, `docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`, `rules/products/product-reconciliation-erp-only.yml`, os documentos vigentes de Produto/Variação e mover/merge, este inventário e o item correspondente do roadmap. A skill canônica `erp-web-to-mobile-replication` segue indisponível em `.agents/skills`/`skills`; a cópia em backup/cache sem proveniência confirmada é apenas orientação. A exceção permanente da Conciliação ERP-only permanece intacta.
+
+**Conclusão do recorte:** os 400 observados estão associados a uma requisição cliente que inclui um campo direto ausente no schema remoto, e não ao filtro de artefatos de teste do código atual. A hipótese de build/runtime desatualizado é forte, mas não é confirmação do corpo de erro ou da versão instalada. Não houve correção de código necessária neste recorte; a conferência visual e nativa da build permanece pendente e a auditoria global segue aberta.
+
+### Ciclo 424 — normalização do título da variação única no card mobile — 26/10/2026
+
+**Recorte:** comparar o título do cartão de Produto simples/pai com exatamente uma variação entre ERP e aplicativo.
+
+#### Divergência e correção
+
+- [x] O ERP usa `getSelectedProductDisplayName` em `ProductCard`; esse domínio normaliza `displayName || name` com `normalizeProductVariationName` antes de decidir o título. Para pai `Tênis` e variação `Tênis - Azul`, o resultado é `Tênis Azul`.
+- [x] O cartão mobile passa pelo `getSingleVariationDisplayName`, mas recebia o nome salvo sem essa normalização. Com atributo visível, tratava o nome como completo e exibia `Tênis - Azul`, divergindo do ERP.
+- [x] Corrigi somente a projeção de apresentação do cartão mobile, reutilizando `normalizeProductVariationName` de `shared-utils/productVariationNameValidation.ts` antes da verificação dos atributos. O nome persistido, o payload, a consulta e os serviços não mudaram. Os cartões filhos com múltiplas variações permanecem iguais: ERP e app preferem o nome explícito da variação nessa linha.
+- [x] Acrescentei regressão para `Tênis - Azul` esperando `Tênis Azul`.
+
+#### Evidências e limites
+
+- [x] Comparei `erp/src/pages/App/Products/ProductList/components/Card/ProductCard.tsx`, `erp/src/domain/products/variations/variationNaming.ts`, `mobile/src/features/products/hooks/useMobileProductCardState.ts`, `mobile/src/features/products/domain/mobileProductCardDisplay.ts` e `shared-utils/productVariationNameValidation.ts`. A regra de `showName` e ordem dos valores permanece conforme `docs/negocio/produtos/estrutura-produto-variacao.md`; a particularidade anterior sobre não inferir atributos técnicos para o nome está registrada no Ciclo 404.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, a documentação vigente de estrutura e operações de Produto/Variação, `docs/produtos/auditoria-arquitetura-organizacao-produtos.md`, `rules/products/product-reconciliation-erp-only.yml`, este inventário e o item de Produtos no roadmap. A Conciliação ERP-only não foi alterada. Não há `AGENTS.md` aninhado aplicável. A skill canônica `erp-web-to-mobile-replication` continua ausente nas fontes atuais do projeto; a cópia de backup/cache já registrada permanece apenas orientação, sem proveniência canônica confirmada.
+- [x] Vitest mobile focado, via `npm run test:unit:mobile --prefix erp -- src/features/products/domain/mobileProductCardDisplay.test.ts`: **1 arquivo, 7/7 testes aprovados**. `git diff --check` sem erros.
+- [ ] Não fiz comparação visual autenticada com Playwright nem validação nativa Android/Maestro; `adb devices -l` não forneceu telefone e Expo Web não foi usado como prova nativa. Nenhum banco, RPC, catálogo Meta, R2, fluxo fiscal ou guia de Estoque foi acionado.
+
+**Conclusão do recorte:** o nome mostrado no cartão mobile de Produto simples agora aplica a mesma normalização de separador que o ERP, sem alterar dados persistidos. A prova visual/nativa permanece pendente; a auditoria global do módulo Produtos continua aberta.
+
+### Ciclo 425 — rótulo e resumo do cartão de Produto composto — 26/10/2026
+
+**Recorte:** conferir o identificador visual e a lista resumida de componentes no cartão de composição da lista de Produtos.
+
+#### Comparação e correção
+
+- [x] O cartão ERP mostra o selo **“Composto”** quando `itemType === 'composition'`; o mobile usava **“Composição”** na mesma condição. Alinhei o texto mobile para **“Composto”**, preservando cor, estilo e estrutura nativos do cartão.
+- [x] O resumo de componentes também corresponde: ERP e mobile usam apenas `product.comboItems`/`comboItems` do nível pai e reduzem cada descrição ao trecho anterior a `" - "`. Ambos não exibem resumo específico de componentes para cada linha de variação; não acrescentei esse comportamento ao aplicativo. O parser mobile ainda aceita aliases/JSON serializado e usa `Item sem nome` para descrição vazia como fallback nativo seguro.
+- [x] O fetcher mobile normaliza `item_type` em `itemType`, condição usada para renderizar o selo; a consulta não foi alterada. Disponibilidade de composição, preço, estoque e payload permanecem fora desta mudança.
+
+#### Evidências e limites
+
+- [x] Comparei `erp/src/pages/App/Products/ProductList/components/Card/ProductCardHeader.tsx`, `ProductCard.tsx`, `mobile/src/features/products/components/MobileProductCard.tsx`, `mobile/src/features/products/domain/mobileProductCardDisplay.ts` e `mobileProductCompositionItems.ts`. A estrutura e as regras de composição/estoque foram conferidas em `docs/negocio/produtos/estrutura-produto-variacao.md`; a exceção ERP-only de Conciliação segue intacta.
+- [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, a regra aplicável em `rules/products/product-reconciliation-erp-only.yml`, documentos vigentes de Produto/Variação, este inventário e o item correspondente do roadmap. Não há `AGENTS.md` aninhado aplicável. A skill canônica `erp-web-to-mobile-replication` não foi encontrada em `.agents/skills`/`skills`; a cópia em cache já registrada permanece somente orientação.
+- [x] `git diff --check` não apontou erro. Não há teste dedicado de `MobileProductCard` que cubra o texto deste selo; não rodei suíte de lógica/UI neste ajuste textual.
+- [ ] Não fiz comparação visual autenticada em Playwright nem validação nativa Android/Maestro; o telefone físico continua indisponível nesta execução, e Expo Web não comprova o rótulo no runtime nativo. Nenhum dado, RPC, Meta/R2/SEFAZ, migration ou fluxo de Estoque foi acionado.
+
+**Conclusão do recorte:** a lista de Produtos mobile agora nomeia o tipo de produto composto como o ERP; a síntese dos componentes já usava a mesma origem e regra textual, com fallback de apresentação para dados incompletos. Comparação visual/nativa permanece pendente e a auditoria global continua aberta.
+
+### Ciclo 426 — imagem principal no cartão de variação — 26/10/2026
+
+**Recorte:** comparar origem, prioridade e falha da imagem exibida em cada variação expandida na lista de Produtos.
+
+#### Comparação e resultado
+
+- [x] No ERP, `ProductCardVariationItem` seleciona a primeira foto própria normalizada da variação (`images` ou legado `image_url`) e, se não houver, a primeira foto normalizada do pai. O cartão mobile segue a mesma prioridade: primeira foto da variação e, sem ela, `parentImage` normalizada do pai.
+- [x] O serviço da lista mobile normaliza ambos os formatos de legado em `variation.images` por `parseVariationImages`; o teste existente de `mobileProductFetchService` cobre `image_url` como JSON e `images` como objetos. Portanto, o uso do alias camelCase no componente visual não deixa o caminho da consulta sem a foto.
+- [x] ERP e mobile derivam o mesmo sufixo de miniatura/média/original por `getDerivedImageUrl` e tentam miniatura → média → URL original. O ERP termina no glifo de imagem padrão; o app mostra o ícone local já registrado como adaptação nativa dos Ciclos 59/398. Não alterei payload, seleção, ordem, associação ou armazenamento de fotos.
+
+#### Evidências e limites
+
+- [x] Comparei `erp/src/pages/App/Products/ProductList/components/Variations/ProductCardVariationItem.tsx`, `erp/src/components/ProductImage.tsx`, `erp/src/utils/imageUrlUtils.ts`, `mobile/src/features/products/components/MobileProductVariationCard.tsx`, `MobileProductVariationList.tsx`, `MobileProductCard.tsx`, `mobile/src/components/shared/ProductImage.tsx`, `mobile/src/utils/imageUrlUtils.ts`, `mobile/src/features/products/services/mobileProductFetchService.ts` e seu teste de formatos de imagem. A herança pai→variação única está documentada em `docs/negocio/produtos/estrutura-produto-variacao.md`; as operações avançadas de variação foram consultadas, sem relação com este estado de leitura.
+- [x] Consultei as regras vigentes, este inventário e o item do roadmap; não há `AGENTS.md` aninhado aplicável. A skill canônica `erp-web-to-mobile-replication` continua ausente das fontes atuais pesquisadas; a cópia em cache é apenas orientação já registrada.
+- [x] Nenhuma alteração de código foi necessária. Não executei testes: a comparação foi estática e o serviço normalizador já tem cobertura existente. `git diff --check` passou para os dois documentos alterados (Git avisou apenas sobre normalização CRLF/LF no roadmap).
+- [ ] Comparação autenticada de imagens em Playwright e validação nativa Android/Maestro permanecem pendentes; Expo Web não comprova o fallback no runtime nativo. Nenhuma leitura/gravação remota, RPC, upload R2, Meta ou fluxo fiscal foi acionado.
+
+**Conclusão do recorte:** origem e prioridade da foto da variação, fallback para a foto do pai e cascata de URLs estão alinhados; o ícone local final é uma adaptação nativa documentada. A auditoria global de Produtos segue aberta.

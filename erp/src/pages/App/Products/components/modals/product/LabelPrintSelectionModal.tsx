@@ -132,9 +132,8 @@ export const LabelPrintSelectionModal: React.FC<LabelPrintSelectionModalProps> =
       labelQty: s.qty,
     }));
     return form.validateAndRun({ labelType, products }, (values) => {
-      const destination = initialProducts?.length
-        ? `/estoque/etiquetas?cat=${values.labelType === 'identification' ? 'identificacao' : 'precos'}`
-        : '/estoque/etiquetas';
+      const category = values.labelType === 'identification' ? 'identificacao' : 'precos';
+      const destination = `/estoque/etiquetas?cat=${category}`;
       navigate(destination, {
         state: {
           batchProducts: values.products,

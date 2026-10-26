@@ -13,6 +13,7 @@ export const LabelIdentificationLayout: React.FC<LabelIdentificationLayoutProps>
   previewMode = false,
   uuid,
 }) => {
+  const qrSizeMm = Math.max(1, Math.min(36, (config.labelHeight ?? 44) - 8));
   const barcodeValue =
     config.sku ||
     config.barcode ||
@@ -41,7 +42,7 @@ export const LabelIdentificationLayout: React.FC<LabelIdentificationLayoutProps>
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          paddingRight: '4mm',
+          paddingRight: '2mm',
           overflow: 'hidden',
         }}
       >
@@ -72,7 +73,7 @@ export const LabelIdentificationLayout: React.FC<LabelIdentificationLayoutProps>
       </div>
       <div
         style={{
-          width: '36mm',
+          width: `${qrSizeMm}mm`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -81,17 +82,16 @@ export const LabelIdentificationLayout: React.FC<LabelIdentificationLayoutProps>
       >
         <div
           style={{
-            width: '30mm',
-            height: '30mm',
+            width: `${qrSizeMm}mm`,
+            height: `${qrSizeMm}mm`,
             backgroundColor: 'white',
-            padding: '2mm',
             boxSizing: 'border-box',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          {previewMode ? <QRPreviewPlaceholder /> : <QRCodeCanvas text={qrText} />}
+          {previewMode ? <QRPreviewPlaceholder sizeMm={qrSizeMm} /> : <QRCodeCanvas text={qrText} />}
         </div>
       </div>
     </div>

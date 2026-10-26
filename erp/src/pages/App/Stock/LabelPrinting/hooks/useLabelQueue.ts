@@ -216,7 +216,9 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
         const product = values.product as unknown as Product;
         const fields = getProductLabelFields(product, values.quantity, selectedVariation);
         setLabelItems((items) => items.map((item, itemIndex) =>
-          itemIndex === index ? { ...item, ...fields, isBlank: false } : item
+          itemIndex === index
+            ? { ...item, ...fields, isBlank: false, printingMode: 'advanced' }
+            : item
         ));
         toast.success(`Produto da etiqueta atualizado para ${fields.name}.`);
         return true;
@@ -254,7 +256,7 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
       };
       setLabelItems((prev: any) => [...prev, newItem]);
     }
-    if (selectedCategory !== 'precos') {
+    if (selectedCategory === 'logos') {
       toast.success(`Etiqueta em branco (${quantity} un) adicionada à fila.`);
     }
   }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));

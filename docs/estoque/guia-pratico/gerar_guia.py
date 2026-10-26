@@ -537,7 +537,7 @@ y = note('Identificação e preço têm usos diferentes', 'A etiqueta de identif
 y = base('05 / Etiquetas', 'Confira a seleção antes de imprimir', 'A janela mostra os produtos associados e as quantidades. Revise antes de imprimir.')
 y = shot('15-selecionar-etiquetas', y, max_height=310, caption='1 Confira a quantidade de cada produto  •  2 Imprimir Etiquetas abre a preparação da impressão. Dados fictícios de exemplo.')
 y = step(1, 'Confira o produto e a quantidade', 'A etiqueta usa o cadastro, não a descrição da nota. Se o produto estiver errado, troque-o no campo do próprio card: digite pelo menos 3 caracteres, aguarde a busca e escolha entre até cinco produtos convencionais. Confira também a quantidade de unidades que vai identificar.', y)
-y = step(2, 'Confira o modelo e a prévia', 'Use Imprimir Etiquetas para preparar o arquivo. Revise o modelo e a posição das etiquetas na folha antes de imprimir.', y)
+y = step(2, 'Confira o modelo e a prévia', 'Na preparação, Adicionar cria uma linha para buscar outro produto. Selecione-o; o campo fica verde com check. Sem produto, a etiqueta permanece em branco. A etiqueta de identificação mostra nome, SKU e QR, sem foto. Revise o modelo e a posição na folha antes de imprimir.', y)
 y = step(3, 'Imprima e confira cada etiqueta', 'Confira o produto escrito na etiqueta antes de colar. Cada móvel precisa de uma identificação, mesmo que tenha várias caixas.', y)
 y = note('Evite duas etiquetas para o mesmo móvel', 'Cada impressão cria uma nova identificação. Não imprima os mesmos itens pela nota e pelo recebimento. Para substituir uma etiqueta, peça orientação para não deixar duas etiquetas ativas no mesmo móvel.', y, fill=AMBER)
 
@@ -585,7 +585,7 @@ y = shot('11-inventario-responsavel', y, max_height=120, caption='O campo lista 
 y = step(1, 'Escolha quais produtos contar', 'Estoque Completo lista produtos convencionais ativos por fornecedor. Produtos Salvados e Usados, e fornecedores exclusivos dessas origens, ficam fora. Seleção Personalizada também aceita apenas itens convencionais.', y)
 y = step(2, 'Escolha quem vai fazer a contagem', 'Digite pelo menos duas letras do nome e escolha um colaborador com perfil de acesso diferente de Contador. No app, atualize a lista com internet usando Tentar sincronizar lista. Se a pessoa não aparecer, peça à equipe responsável para conferir o perfil de acesso no cadastro de colaboradores.', y)
 y = step(3, 'Conte um, vários ou todos os fornecedores', 'Abra a etapa de um fornecedor; repita para vários ou percorra todas. Etapas e itens sem contagem ficam como estão. Na Seleção Personalizada, adicione os itens convencionais.', y)
-y = note('Duplicar inventário', 'Combine com a equipe para não contar duas vezes. Confira fornecedor e local. Ao duplicar, revise os produtos, quantidades e responsável; a contagem e as etiquetas antigas não são copiadas. Atualize a lista se faltar produto.', y, fill=MINT)
+y = note('Duplicar inventário', 'Cada código identifica uma contagem. Se ela já estiver em andamento, retome-a pela lista antes de criar outra. Ao duplicar, revise os produtos, quantidades e responsável; a contagem e as etiquetas antigas não são copiadas. Os botões para mudar de página ficam abaixo da lista.', y, fill=MINT)
 
 # 19 - Contagem
 y = base('07 / Inventário', 'Conte os produtos que encontrou', 'A contagem começa vazia. Use +/-, digite a quantidade ou leia a etiqueta QR correspondente ao produto.')

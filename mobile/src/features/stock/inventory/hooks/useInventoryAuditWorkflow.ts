@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getNextInventoryCode } from '../../../../services/stockService';
+import { listLocalInventoryDrafts } from '../../../../services/sqlite/inventoryDrafts';
 import { Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import {
@@ -156,11 +157,19 @@ export const useInventoryAuditWorkflow = (
         const auditId = draftRef.current.id || generateInventoryUUID();
         draftRef.current.id = auditId;
         try {
-          draftRef.current.code = await getNextInventoryCode();
+          const localDrafts = await listLocalInventoryDrafts();
+          const reservedCodes = localDrafts
+            .filter((draft) => draft.id !== auditId)
+            .map((draft) => draft.code.trim())
+            .filter((code) => /^\d{1,6}$/.test(code))
+            .map((code) => code.padStart(6, '0'));
+          draftRef.current.code = await getNextInventoryCode(reservedCodes);
         } catch {
-          draftRef.current.code = `LOCAL-${auditId.slice(0, 8)}`;
+          draftRef.current.code = `LOCAL-${auditId.replace(/-/g, '').slice(0, 12)}`;
         }
-        if (!draftRef.current.code) draftRef.current.code = `LOCAL-${auditId.slice(0, 8)}`;
+        if (!draftRef.current.code) {
+          draftRef.current.code = `LOCAL-${auditId.replace(/-/g, '').slice(0, 12)}`;
+        }
         const nextScope = {
           name: isDuplicate ? `Inventário #${draftRef.current.code} (Cópia)` : config.name,
           hasStages: config.hasStages ?? false,

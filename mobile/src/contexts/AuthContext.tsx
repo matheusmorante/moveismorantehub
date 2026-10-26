@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import { supabase } from '../services/supabaseClient';
@@ -6,6 +6,7 @@ import { completeGoogleSignIn } from '../services/googleAuth';
 import { resolveMobileUserProfile } from '../services/mobileAuthProfile';
 import { offlineSyncManager } from '../services/offline/offlineSyncManager';
 import { shouldRunAuthSessionMaintenance } from '../../../shared-utils/authSessionPolicy';
+import { withTimeout } from '../../../shared-utils/withTimeout';
 import {
   deriveAuthRoleFlags,
   resolveWebDevOverrideProfile,
@@ -47,9 +48,30 @@ interface AuthContextProps {
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
+const AUTH_PROFILE_TIMEOUT_MS = 15_000;
+
+const createFallbackProfile = (session: any) => {
+  const user = session?.user;
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    fullName:
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split('@')[0] ||
+      'Usuário',
+    email: user.email,
+    role: 'pending',
+    roles: [],
+    active: true,
+  };
+};
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [userProfile, setUserProfile] = useState<any>(() => resolveWebDevOverrideProfile());
   const [loadingProfile, setLoadingProfile] = useState(() => !resolveWebDevOverrideProfile());
+  const authSyncId = useRef(0);
 
   const {
     passwordCredentialStatus,
@@ -83,33 +105,52 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const syncAuthProfile = async (session: any, checkPasswordCredential = true) => {
-    offlineSyncManager.setCurrentUserId(session?.user?.id ?? null);
-    const webDevOverride = resolveWebDevOverrideProfile();
-    if (webDevOverride) {
-      setUserProfile(webDevOverride);
-      setPasswordCredentialStatus('idle');
-      setLoadingProfile(false);
-      return;
-    }
+    const syncId = ++authSyncId.current;
+    const isCurrentSync = () => authSyncId.current === syncId;
+    const fallbackProfile = createFallbackProfile(session);
 
-    setLoadingProfile(true);
     try {
-      setUserProfile(await resolveMobileUserProfile(session));
+      offlineSyncManager.setCurrentUserId(session?.user?.id ?? null);
+      const webDevOverride = resolveWebDevOverrideProfile();
+      if (webDevOverride) {
+        if (isCurrentSync()) {
+          setUserProfile(webDevOverride);
+          setPasswordCredentialStatus('idle');
+        }
+        return;
+      }
+
+      if (isCurrentSync()) setLoadingProfile(true);
+      const profileRequest = resolveMobileUserProfile(session).then((profile) => {
+        if (isCurrentSync()) setUserProfile(profile);
+        return profile;
+      });
+      const profile = await withTimeout(
+        profileRequest,
+        AUTH_PROFILE_TIMEOUT_MS,
+        fallbackProfile,
+        'perfil móvel'
+      );
+      if (isCurrentSync()) setUserProfile(profile);
+
+      if (session?.user && checkPasswordCredential) {
+        try {
+          await refreshPasswordCredentialStatus();
+        } catch (err) {
+          console.warn('[AuthChange] Não foi possível confirmar a credencial de senha:', err);
+        }
+      } else if (isCurrentSync()) {
+        setPasswordCredentialStatus('idle');
+      }
     } catch (err) {
       console.warn('[AuthChange] Erro ao processar autenticação:', err);
-      setUserProfile(null);
-    }
-
-    if (session?.user && checkPasswordCredential) {
-      try {
-        await refreshPasswordCredentialStatus();
-      } catch (err) {
-        console.warn('[AuthChange] Não foi possível confirmar a credencial de senha:', err);
+      if (isCurrentSync()) {
+        setUserProfile(fallbackProfile);
+        setPasswordCredentialStatus(session?.user ? 'error' : 'idle');
       }
-    } else {
-      setPasswordCredentialStatus('idle');
+    } finally {
+      if (isCurrentSync()) setLoadingProfile(false);
     }
-    setLoadingProfile(false);
   };
 
   const handleDeepLinkUrl = async (url: string) => {

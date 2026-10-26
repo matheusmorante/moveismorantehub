@@ -219,6 +219,7 @@ export const useLabelPrintingState = () => {
     logoItems: queue.logoItems,
     setLogoItems: queue.setLogoItems,
     handleProductSelect: queue.handleProductSelect,
+    handleReplaceProduct: queue.handleReplaceProduct,
     handleAddBlankLabel: queue.handleAddBlankLabel,
     isPrinting: queue.isPrinting,
     printLabels: queue.handlePrintLabels,

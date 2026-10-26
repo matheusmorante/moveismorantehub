@@ -5,7 +5,7 @@ import { InventoryAuditContextMenu } from '../components/InventoryAuditContextMe
 import { InventoryAuditSessionCards } from '../components/InventoryAuditSessionCards';
 import { InventoryAuditSessionsTable } from '../components/InventoryAuditSessionsTable';
 import { useInventoryAuditSessions } from '../hooks/useInventoryAuditSessions';
-import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { ReceiptsPagination } from '../../Receipts/components/ReceiptsPagination';
 
 interface InventoryAuditProps {
   readonly onCopy: (items: readonly InventorySnapshotItem[]) => void;
@@ -29,6 +29,8 @@ export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onCopy, onOpen }
     page,
     setPage,
     pageCount,
+    totalItems,
+    itemsPerPage,
   } = useInventoryAuditSessions();
 
   if (loading) {
@@ -56,14 +58,6 @@ export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onCopy, onOpen }
             <option value={0}>Todos os períodos</option>
           </select>
         </label>
-        <div className="flex flex-col items-center gap-2 sm:flex-row">
-          <FixedPageSlots
-            ariaLabel="Paginação de inventários"
-            currentPage={page}
-            totalPages={pageCount}
-            onPageChange={setPage}
-          />
-        </div>
       </div>
       <InventoryAuditSessionCards
         sessions={sessions}
@@ -76,6 +70,16 @@ export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onCopy, onOpen }
         activeSession={activeSession}
         onOpen={onOpen}
         onOpenMenu={handleOpenMenu}
+      />
+      <ReceiptsPagination
+        currentPage={page}
+        totalPages={pageCount}
+        totalItems={totalItems}
+        itemsPerPage={itemsPerPage}
+        onPageChange={setPage}
+        itemName="inventários"
+        ariaLabel="Paginação de inventários"
+        bare
       />
 
       <InventoryAuditContextMenu

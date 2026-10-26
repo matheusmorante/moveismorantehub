@@ -6,6 +6,8 @@
 
 ## Referências atuais
 
+- [Título do modal de recebimento com NF de entrada — 26/10](historico-correcoes-2026-10-26.md#título-do-modal-de-recebimento-com-nf-de-entrada): o recebimento agora identifica no título a origem como NF de Entrada; o fluxo permanece igual.
+- [Autosave do recebimento por NF de entrada resiliente a timeouts — 26/10](historico-correcoes-2026-10-26.md#autosave-do-recebimento-por-nf-de-entrada-resiliente-a-timeouts): atualiza o cliente Supabase do ERP para habilitar retentativas de erros transitórios e preserva o mesmo ID do rascunho durante novas tentativas.
 - [Paginação segmentada padronizada em listas — 26/10](historico-correcoes-2026-10-26.md#paginação-segmentada-padronizada-em-listas-do-erp-e-do-aplicativo): listas do ERP, app e Catálogo Digital exibem até cinco páginas consecutivas, destacam a atual em azul e voltam ao topo ao navegar.
 - [Vínculos únicos por NF-e, notas completas e acesso a Recebimentos — 25/10](historico-correcoes-2026-10-25.md#vínculos-únicos-por-nf-e-notas-completas-e-acesso-a-recebimentos): itens já vinculados não voltam à busca da mesma nota; notas resumo/incompletas ficam fora do seletor de recebimento; somente Administrador e Estoquista acessam Recebimentos.
 - [Seletor de recebimento: filtro de origem Normal e destaque de vinculos pendentes — 25/10](historico-correcoes-2026-10-25.md#seletor-de-recebimento-filtro-de-origem-normal-e-destaque-de-vinculos-pendentes): notas de fornecedores sem origem Normal não aparecem para uso no recebimento, inclusive quando a NF não tem `supplier_id` e a origem precisa ser localizada pelo CNPJ; produtos pendentes são destacados sem perder legibilidade ou a ação de finalizar o vínculo.
