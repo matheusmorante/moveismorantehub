@@ -1,10 +1,13 @@
 import { restoreProductDraftSnapshot } from '../../../../../shared-utils/productDraftSnapshot';
 import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import { calculateCompositionAvailability } from '../../../../../shared-utils/compositionMath';
+import { resolveProductUnitPrice } from '../../../../../shared-utils/productUnitPrice';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { supabase } from '../../../services/supabaseClient';
 import {
+  buildProductParentSearchFilter,
   buildProductSearchTerms,
+  buildProductVariationSearchFilter,
   createProductVariationSearchTooBroadError,
   isProductVariationSearchTooBroadError,
   PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
@@ -15,8 +18,15 @@ import {
 } from '../../../../../shared-utils/productListTypeFilters';
 import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
 import { fetchProductListCategoryFilter } from '../../../../../shared-utils/productListCategoryFilters';
+import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../shared-utils/testArtifactQueries';
+import { parseVariationImages } from '../../../../../shared-utils/productVariationImages';
 import { getMobileProductVariationRecords } from '../domain/mobileProductVariationVisibility';
 import { resolveMobileProductHasVariations } from '../domain/mobileProductVariationMode';
+import { parseLocalizedNumber } from '../domain/productNumbers';
+import {
+  getMobileProductListCategoryIds,
+  getMobileProductListCategoryLabel,
+} from '../domain/mobileProductListPresentation';
 
 export interface MobileProductFilterOptions {
   productId?: string;
@@ -25,8 +35,10 @@ export interface MobileProductFilterOptions {
   statusFilter?: 'all' | 'active' | 'disabled' | 'draft';
   catalogStatus?: 'all' | 'published' | 'hidden';
   includeDeactivated?: boolean;
+  excludeDraftsDuringSearch?: boolean;
   includeMerged?: boolean;
   showTrash?: boolean;
+  showTestProducts?: boolean;
   summaryOnly?: boolean;
   supplierId?: string;
   itemType?: 'standard' | 'composition';
@@ -38,7 +50,7 @@ export interface MobileProductFilterOptions {
 const MOBILE_PRODUCT_LIST_COLUMNS =
   '*, product_variations(*), product_categories(category_id), product_images(image_url, is_main)';
 const MOBILE_PRODUCT_SUMMARY_COLUMNS =
-  'id, name, title, description, code, sku, category, brand, condition, unit_price, price, promo_price, cost_price, stock, unit, active, status, deleted, item_type, is_draft, is_test, observations, technical_specs, combo_items, product_categories(category_id), product_variations(*)';
+  'id, name, title, description, code, sku, category_id, category, brand, condition, unit_price, price, promo_price, cost_price, stock, unit, active, status, deleted, item_type, is_draft, is_test, observations, technical_specs, combo_items, product_categories(category_id), product_variations(*)';
 
 const applyMobileTrashEligibility = async (products: any[], showTrash = false) => {
   const productIds = products
@@ -210,8 +222,13 @@ export const fetchMobileProductsPage = async (
       .from('products')
       .select(options?.summaryOnly ? MOBILE_PRODUCT_SUMMARY_COLUMNS : MOBILE_PRODUCT_LIST_COLUMNS, {
         count: 'exact',
-      })
-      .or('is_test.is.null,is_test.eq.false');
+      });
+
+    if (!options?.showTestProducts) {
+      query = query
+        .or('is_test.is.null,is_test.eq.false')
+        .or(NON_TEST_PRODUCT_ARTIFACT_FILTER);
+    }
 
     if (options?.productId) query = query.eq('id', options.productId);
 
@@ -266,6 +283,10 @@ export const fetchMobileProductsPage = async (
         .not('is_draft', 'is', true)
         .filter('status', 'isdistinct', 'draft')
         .eq('active', false);
+    } else if (!options?.showTrash && options?.excludeDraftsDuringSearch) {
+      query = query
+        .not('is_draft', 'is', true)
+        .filter('status', 'isdistinct', 'draft');
     } else if (!options?.showTrash && options?.includeDeactivated === false) {
       // Rascunhos seguem acessíveis para conclusão do cadastro; somente os
       // produtos de fato desativados ficam ocultos na visão padrão.
@@ -290,7 +311,7 @@ export const fetchMobileProductsPage = async (
         const { data: matchedVars, error: variationsError } = await supabase
           .from('product_variations')
           .select('product_id')
-          .or(searchTerms.searchTerms.map((term) => `name.ilike.%${term}%`).join(','))
+          .or(buildProductVariationSearchFilter(searchTerms.searchTerms))
           .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1);
         if (variationsError && options?.throwOnError) throw variationsError;
         if (variationsError)
@@ -309,25 +330,8 @@ export const fetchMobileProductsPage = async (
         console.warn('[MobileProductService] Erro ao buscar variações filhas:', e);
       }
 
-      // Paridade com productFilterBuilder do ERP: a busca textual da lista
-      // considera nome do produto e nome da variação, não descrição/código.
-      const orConditions = searchTerms.searchTerms.map((term) => `name.ilike.%${term}%`);
-      if (searchTerms.wordTerms.length > 0) {
-        const wordConditions = searchTerms.wordTerms.map(({ value, alternative }) =>
-          alternative
-            ? `or(name.ilike.%${value}%,name.ilike.%${alternative}%)`
-            : `name.ilike.%${value}%`
-        );
-        orConditions.push(`and(${wordConditions.join(',')})`);
-      }
-
-      if (matchedParentIds.length > 0) {
-        matchedParentIds.forEach((id) => {
-          orConditions.push(`id.eq.${id}`);
-        });
-      }
-
-      query = query.or(orConditions.join(','));
+      // Mantém o contrato ERP: nome/código do pai e nome/SKU das variações; descrição não participa.
+      query = query.or(buildProductParentSearchFilter(searchTerms, matchedParentIds));
     }
 
     query = query.order('created_at', { ascending: false }).range(from, to);
@@ -339,15 +343,13 @@ export const fetchMobileProductsPage = async (
       return { data: [], total: 0 };
     }
 
-    const visibleData = (data || []).filter((product: any) => !isTestProduct(product));
+    const visibleData = options?.showTestProducts
+      ? (data || [])
+      : (data || []).filter((product: any) => !isTestProduct(product));
     const visibleTotal = Math.max(0, (count || 0) - ((data || []).length - visibleData.length));
     const categoryIds = Array.from(
       new Set(
-        visibleData.flatMap((product: any) =>
-          (product.product_categories || [])
-            .map((relation: any) => relation.category_id)
-            .filter(Boolean)
-        )
+        visibleData.flatMap((product: any) => getMobileProductListCategoryIds(product))
       )
     );
     const categoryNames = new Map<string, string>();
@@ -404,21 +406,16 @@ export const fetchMobileProductsPage = async (
         const activeVariationCount = variations.filter(
           (variation: any) => variation.active !== false
         ).length;
-        const category = (product.product_categories || [])
-          .map((relation: any) => categoryNames.get(String(relation.category_id)))
-          .filter(Boolean)
-          .join(' | ');
-
         return {
           id: product.id,
           code: product.code,
           name: product.name,
           description: product.description,
-          category: category || product.category || '',
+          category: getMobileProductListCategoryLabel(product, categoryNames),
           brand: product.brand,
           condition: product.condition,
           price: product.price,
-          unitPrice: Number(product.unit_price ?? product.price ?? 0),
+          unitPrice: resolveProductUnitPrice(product),
           promoPrice: Number(product.promo_price ?? 0),
           costPrice: Number(product.cost_price ?? 0),
           stock: Number(product.stock ?? 0),
@@ -460,11 +457,7 @@ export const fetchMobileProductsPage = async (
       const productImages =
         relationImages.length > 0
           ? relationImages
-          : Array.isArray(p.images)
-            ? p.images
-            : typeof p.images === 'string' && p.images
-              ? [p.images]
-              : [];
+          : parseVariationImages(undefined, p.images);
 
       const storedVariations = p.product_variations || [];
       const productVariationRecords = getMobileProductVariationRecords(p, true);
@@ -489,15 +482,7 @@ export const fetchMobileProductsPage = async (
             discountFixed: _legacyDiscountFixed,
             ...details
           } = variationDetailsById.get(String(v.id)) || {};
-          const varImages =
-            Array.isArray(v.images) && v.images.length > 0
-              ? v.images
-              : v.image_url
-                ? String(v.image_url)
-                    .split(',')
-                    .map((s: string) => s.trim())
-                    .filter(Boolean)
-                : [];
+          const varImages = parseVariationImages(v.image_url, v.images);
 
           const suffix = String(vIdx + 1).padStart(2, '0');
           const expectedPrefix = parentCode ? `${parentCode}-` : '';
@@ -525,7 +510,7 @@ export const fetchMobileProductsPage = async (
           const syncIpi = details.syncIpi !== false;
           const syncFreight = details.syncFreight !== false;
           const variationPrice = syncUnitPrice
-            ? Number(p.unit_price ?? p.price ?? 0)
+            ? resolveProductUnitPrice(p)
             : Number(v.price ?? 0);
           const variationPromoPrice = syncPromoPrice
             ? p.promo_price === null || p.promo_price === undefined
@@ -593,7 +578,7 @@ export const fetchMobileProductsPage = async (
             sku: `${parentCode}-01`,
             name: p.name || 'Padrão',
             stock: Number(p.stock ?? 0),
-            price: Number(p.unit_price ?? p.price ?? 0),
+            price: resolveProductUnitPrice(p),
             promo_price:
               p.promo_price !== null && p.promo_price !== undefined
                 ? Number(p.promo_price)
@@ -616,21 +601,18 @@ export const fetchMobileProductsPage = async (
 
       const baseProduct = {
         ...p,
-        category:
-          (p.product_categories || [])
-            .map((relation: any) => categoryNames.get(String(relation.category_id)))
-            .filter(Boolean)
-            .join(' | ') ||
-          p.category ||
-          p.category_name ||
-          '',
+        category: getMobileProductListCategoryLabel(
+          p,
+          categoryNames,
+          p.category || p.category_name || ''
+        ),
         allVariations: allVars,
         images: productImages,
         comboItems: Array.isArray(p.combo_items) ? p.combo_items : [],
         variableTechnicalFields: Array.isArray(p.technical_specs?.variableTechnicalFields)
           ? p.technical_specs.variableTechnicalFields
           : undefined,
-        unitPrice: Number(p.unit_price ?? p.price ?? 0),
+        unitPrice: resolveProductUnitPrice(p),
         promoPrice: Number(p.promo_price ?? 0),
         costPrice: Number(p.cost_price ?? 0),
         stock: Number(p.stock ?? 0),
@@ -638,6 +620,7 @@ export const fetchMobileProductsPage = async (
         activeVariationsCount,
         totalVariationsCount,
         isParent,
+        isCombo: Boolean(p.is_combo),
         itemType: p.item_type || 'product',
         isDraft: Boolean(p.is_draft || p.status === 'draft'),
         variations: allVars,
@@ -656,25 +639,25 @@ export const fetchMobileProductsPage = async (
       const restoredVariations = Array.isArray(restoredProduct.variations)
         ? restoredProduct.variations.map((variation: any, variationIndex: number) => {
             const fallbackSku = `${parentCode}-${String(variationIndex + 1).padStart(2, '0')}`;
-            const price = Number(
+            const price = parseLocalizedNumber(
               variation.price ??
                 variation.unit_price ??
                 variation.unitPrice ??
                 restoredProduct.unitPrice ??
-                p.unit_price ??
-                p.price ??
-                0
+                resolveProductUnitPrice(p)
             );
             const promoPrice = variation.promo_price ?? variation.promoPrice;
             return {
               ...variation,
               sku: variation.sku || fallbackSku,
               price,
-              unitPrice: Number(variation.unitPrice ?? price),
+              unitPrice: parseLocalizedNumber(variation.unitPrice ?? price),
               promo_price: promoPrice,
               promoPrice:
-                promoPrice === null || promoPrice === undefined ? undefined : Number(promoPrice),
-              stock: Number(variation.stock ?? 0),
+                promoPrice === null || promoPrice === undefined
+                  ? undefined
+                  : parseLocalizedNumber(promoPrice),
+              stock: parseLocalizedNumber(variation.stock ?? 0),
               active: variation.active !== false,
               status: variation.status || restoredProduct.status || 'published',
               images: Array.isArray(variation.images) ? variation.images : [],
@@ -709,10 +692,10 @@ export const fetchMobileProductsPage = async (
             : [],
         variableTechnicalFields:
           restoredProduct.variableTechnicalFields ?? baseProduct.variableTechnicalFields,
-        unitPrice: Number(restoredProduct.unitPrice ?? p.unit_price ?? p.price ?? 0),
-        promoPrice: Number(restoredProduct.promoPrice ?? p.promo_price ?? 0),
-        costPrice: Number(restoredProduct.costPrice ?? p.cost_price ?? 0),
-        stock: Number(restoredProduct.stock ?? p.stock ?? 0),
+        unitPrice: parseLocalizedNumber(restoredProduct.unitPrice ?? resolveProductUnitPrice(p)),
+        promoPrice: parseLocalizedNumber(restoredProduct.promoPrice ?? p.promo_price ?? 0),
+        costPrice: parseLocalizedNumber(restoredProduct.costPrice ?? p.cost_price ?? 0),
+        stock: parseLocalizedNumber(restoredProduct.stock ?? p.stock ?? 0),
         active: restoredProduct.isDraft
           ? false
           : normalizedRestoredVariations.length > 0

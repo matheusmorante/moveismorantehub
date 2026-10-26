@@ -6,7 +6,10 @@ import { checkERPLegibility, checkEcomLegibility } from '../../domain/productLeg
 import { toast } from 'react-toastify';
 import { resolveVariationDimensions } from '../../domain/variationRegistrationRules';
 import { normalizeProductForSave } from '@/pages/utils/productKindRules';
-import { isTestProduct } from '@/pages/utils/hmlTestData';
+import {
+  isTestProduct,
+  shouldValidatePublishedCatalogEdit,
+} from '@/pages/utils/hmlTestData';
 import { validateProductFormSubmission } from './productFormValidation';
 import { createProductFormSchema } from './productFormValidation';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
@@ -150,7 +153,13 @@ export const useProductFormSubmit = ({
 
         return await (actualSaveAsDraft ? validateDraftProduct : validateFinalProduct)(submissionData, async (validatedData) => {
           let ecomVal = checkEcomLegibility(validatedData as any);
-          if (formData.status === 'published') {
+          const isCatalogTestProduct = isTestProduct(product) || isTestProduct(formData);
+          const validatePublishedCatalogEdit = shouldValidatePublishedCatalogEdit(
+            formData.status,
+            product,
+            formData,
+          );
+          if (validatePublishedCatalogEdit) {
             try {
               const categoryRequirements = await withTimeout(
                 fetchTechnicalFieldDefinitions('product-form', {
@@ -168,7 +177,7 @@ export const useProductFormSubmit = ({
               return false;
             }
           }
-          if (formData.status === 'published' && !ecomVal.isLegible) {
+          if (validatePublishedCatalogEdit && !ecomVal.isLegible) {
             toast.error('Despublique o Catálogo antes de remover ou alterar um campo obrigatório.');
             return false;
           }
@@ -176,7 +185,6 @@ export const useProductFormSubmit = ({
           setLoading(true);
           try {
             const enteredName = getEnteredProductName(validatedData as Partial<Product>);
-            const isCatalogTestProduct = isTestProduct(product) || isTestProduct(formData);
 
             let targetCatalogStatus: 'draft' | 'published' | 'hidden' = 'hidden';
             if (actualSaveAsDraft) {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { EnvironmentNode, CategoryNode } from '../types/categoryEnvironment.types';
 import { EnvironmentRow } from './EnvironmentRow';
+import { filterEnvironmentsBySearch } from '../../../../../../../shared-utils/categoryEnvironmentSearch';
 
 interface EnvironmentsTableProps {
   readonly environments: EnvironmentNode[];
@@ -24,14 +25,7 @@ export const EnvironmentsTable: React.FC<EnvironmentsTableProps> = ({
   searchTerm = '',
 }) => {
   const filteredEnvironments = React.useMemo(() => {
-    if (!searchTerm.trim()) return environments;
-    const norm = searchTerm.toLowerCase();
-    return environments.filter((env) => {
-      if (env.name.toLowerCase().includes(norm)) return true;
-      // Busca também se alguma categoria vinculada ao ambiente tem o termo
-      const envCats = categories.filter((c) => env.categories?.includes(c.id));
-      return envCats.some((c) => c.name.toLowerCase().includes(norm));
-    });
+    return filterEnvironmentsBySearch(environments, categories, searchTerm);
   }, [environments, categories, searchTerm]);
 
   return (

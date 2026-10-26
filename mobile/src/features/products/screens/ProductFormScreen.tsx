@@ -9,6 +9,7 @@ import {
 } from '../../../../../shared-utils/mobileProductSaveAcknowledgement';
 import { deriveProductDiscountFields } from '../../../../../shared-utils/productDiscountFields';
 import { withOwnInboundVariationCost } from '../../../../../shared-utils/inboundQuickRegisterRules';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import {
   Check,
   ChevronLeft,
@@ -47,21 +48,22 @@ import {
   resolveMobileProductFormHasVariations,
   shouldShowMobileProductVariationsTab,
 } from '../domain/mobileProductVariationMode';
+import { resolveMobileVariationImages } from '../domain/mobileVariationImages';
 import {
   isMobileProductNameError,
   isMobileProductCategoryError,
   isMobileProductCostPriceError,
   isMobileProductSupplierError,
   isMobileProductUnitPriceError,
+  hasMobileProductDescriptionTechnicalValidationError,
+  isMobileProductDescriptionTabDisabled,
   resolveMobileProductFormErrorNavigation,
   resolveMobileProductFormErrorMessage,
+  resolveMobileProductReadinessTab,
   type MobileProductFormErrorNavigation,
   type MobileProductFormTabId,
 } from '../domain/mobileProductFormErrorNavigation';
 import {
-  getEffectiveProductTechnicalValues,
-  getEffectiveVariationTechnicalValues,
-  getMissingRequiredCharacteristics,
   getPersistableProductTechnicalValues,
   getProductCharacteristicAttributes,
   getTechnicalValue,
@@ -71,17 +73,22 @@ import {
 import { parseLocalizedNumber as parseLocalizedPrice } from '../domain/productNumbers';
 import {
   getMobileVariationRegistrationIssue,
-  isMobileEcommerceLegible,
-  isMobileProductErpLegible,
+  getMobileProductReadiness,
+  getMobilePublishedCatalogEditLegibility,
+  isMobileSalvadoProduct,
   type MobileVariationRegistrationIssue,
 } from '../domain/productRegistrationRules';
-import { prepareMobileProductSaveState } from '../domain/productSaveState';
+import {
+  prepareMobileProductSaveState,
+  shouldValidatePublishedCatalogEdit,
+} from '../domain/productSaveState';
 import {
   createMobileProductDraftSaveQueue,
   type MobileProductDraftSaveEntry,
 } from '../domain/mobileProductDraftSaveQueue';
 import { syncMobileVariationsWithParent } from '../domain/productVariationParentSync';
 import { resolveMobileProductFinalPurchasePrice } from '../domain/productPurchasePrice';
+import { createMobileProductVariationId } from '../domain/mobileProductVariationGeneration';
 import { ProductFormBasicTab } from '../modals/tabs/ProductFormBasicTab';
 import { ProductFormDescriptionTab } from '../modals/tabs/ProductFormDescriptionTab';
 import { ProductFormFiscalTab } from '../modals/tabs/ProductFormFiscalTab';
@@ -91,6 +98,7 @@ import { ProductFormTechnicalTab } from '../modals/tabs/ProductFormTechnicalTab'
 import { ProductFormVariationsTab } from '../modals/tabs/ProductFormVariationsTab';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 import { fetchMobileProductFiscalDefaults } from '../services/mobileProductFiscalService';
+import { fetchMobileProductTechnicalFields } from '../services/mobileProductTechnicalService';
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 type TabId = MobileProductFormTabId;
@@ -248,8 +256,10 @@ export const ProductFormScreen: React.FC<Props> = ({
   const [costPriceError, setCostPriceError] = useState(false);
   const [unitPriceError, setUnitPriceError] = useState(false);
   const [supplierError, setSupplierError] = useState(false);
+  const [descriptionTechnicalValidationError, setDescriptionTechnicalValidationError] = useState(false);
   const [variationValidationTarget, setVariationValidationTarget] =
     useState<MobileProductFormErrorNavigation | null>(null);
+  const [openReadiness, setOpenReadiness] = useState<'erp' | 'catalog' | null>(null);
   const [formData, setFormDataRaw] = useState<any>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -280,11 +290,13 @@ export const ProductFormScreen: React.FC<Props> = ({
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
+    setOpenReadiness(null);
     setNameError(false);
     setCategoryError(false);
     setCostPriceError(false);
     setUnitPriceError(false);
     setSupplierError(false);
+    setDescriptionTechnicalValidationError(false);
   }, [visible, product?.id]);
 
   const clearVariationValidationTarget = useCallback(
@@ -300,23 +312,15 @@ export const ProductFormScreen: React.FC<Props> = ({
         : [];
   const hasCategory = categoryIds.length > 0;
   const hasProductName = String(formData.name || '').trim().length >= 2;
-  const hasMissingRequiredTechnical = (
-    Array.isArray(formData.variations) ? formData.variations : []
-  ).some(
-    (variation: any) =>
-      getMissingRequiredCharacteristics(
-        getEffectiveVariationTechnicalValues(
-          getEffectiveProductTechnicalValues(formData),
-          variation,
-          resolveMobileVariableTechnicalFieldNames(formData)
-        )
-      ).length > 0
-  );
 
   const isTabDisabled = (tabId: TabId) => {
     if (tabId === 'technical') return !hasCategory;
     if (tabId === 'description')
-      return !hasCategory || !hasProductName || hasMissingRequiredTechnical;
+      return isMobileProductDescriptionTabDisabled({
+        hasCategory,
+        hasProductName,
+        hasTechnicalValidationError: descriptionTechnicalValidationError,
+      });
     return false;
   };
 
@@ -333,7 +337,7 @@ export const ProductFormScreen: React.FC<Props> = ({
     formData.itemType,
     hasCategory,
     hasProductName,
-    hasMissingRequiredTechnical,
+    descriptionTechnicalValidationError,
     isStockistOnly,
   ]);
 
@@ -380,6 +384,8 @@ export const ProductFormScreen: React.FC<Props> = ({
             .filter(Boolean)
         : [];
       const rawVariations = Array.isArray(product.allVariations) ? product.allVariations : [];
+      const hasVariations = resolveMobileProductFormHasVariations(product);
+      const isComposition = (product.item_type || product.itemType) === 'composition';
       const technicalValues = getPersistableProductTechnicalValues(product);
       for (const [attribute, value] of [
         ['Altura', product.height],
@@ -467,6 +473,11 @@ export const ProductFormScreen: React.FC<Props> = ({
         variations: syncMobileVariationsWithParent(
           rawVariations.map((variation: any) => ({
             ...variation,
+            images: resolveMobileVariationImages(
+              variation.image_url ?? variation.imageUrl,
+              variation.images,
+              hasVariations
+            ),
             syncName: variation.syncName ?? variation.use_parent_name !== false,
             differentiateTitle: Boolean(
               variation.differentiateTitle ||
@@ -511,11 +522,14 @@ export const ProductFormScreen: React.FC<Props> = ({
           product
         ),
         comboItems,
-        hasVariations: resolveMobileProductFormHasVariations(product),
+        hasVariations,
         active: product.active ?? true,
         isDraft: Boolean(product.is_draft || product.isDraft || product.status === 'draft'),
         status: product.status || (product.is_draft || product.isDraft ? 'draft' : 'hidden'),
-        initialStock: product.initial_stock ?? product.initialStock ?? product.stock ?? 0,
+        // Disponibilidade calculada de uma composição não é estoque inicial.
+        initialStock: isComposition
+          ? undefined
+          : product.initial_stock ?? product.initialStock ?? product.stock ?? 0,
         unit: product.unit || 'UN',
         depthUseLength: product.depth_use_length ?? product.depthUseLength ?? false,
         technicalValues,
@@ -569,7 +583,7 @@ export const ProductFormScreen: React.FC<Props> = ({
             const productCode = String(prev.code || nextCode);
             clientProductCodeRef.current = productCode;
             const defaultVariation = {
-              id: `new_${productCode}-01`,
+              id: createMobileProductVariationId(),
               sku: `${productCode}-01`,
               name: prev.name || '',
               price: '',
@@ -620,6 +634,11 @@ export const ProductFormScreen: React.FC<Props> = ({
   }, [visible, product, initialData]);
 
   const existingProductImageCount = Array.isArray(product?.images) ? product.images.length : 0;
+  const validatePublishedCatalogEdit = shouldValidatePublishedCatalogEdit(
+    product?.status || formData.status,
+    product,
+    formData,
+  );
   const draftForm = useZodForm(createMobileProductFormSchema({
     draft: true,
     isStockistOnly,
@@ -630,7 +649,7 @@ export const ProductFormScreen: React.FC<Props> = ({
   const finalForm = useZodForm(createMobileProductFormSchema({
     draft: false,
     isStockistOnly,
-    published: (product?.status || formData.status) === 'published',
+    published: validatePublishedCatalogEdit,
     existingProductImageCount,
     requireInboundCostPrice: showInboundCostPrice,
   }), formData);
@@ -715,6 +734,11 @@ export const ProductFormScreen: React.FC<Props> = ({
     showAlert: boolean
   ) => {
     const messages = flattenFormErrors(errors);
+    if (showAlert) {
+      setDescriptionTechnicalValidationError(
+        !isDraft && hasMobileProductDescriptionTechnicalValidationError(messages)
+      );
+    }
     const firstErrorPath = Object.keys(messages)[0] || '';
     const fieldPath = isMobileProductNameError('name', messages) ? 'name' : firstErrorPath;
     setNameError(fieldPath === 'name');
@@ -1005,6 +1029,49 @@ export const ProductFormScreen: React.FC<Props> = ({
         await (isDraft ? draftForm : finalForm).validateAndRun(
           formDataToValidate,
           async (validated) => {
+            setDescriptionTechnicalValidationError(false);
+            if (
+              shouldValidatePublishedCatalogEdit(
+                product?.status || validated.status,
+                product,
+                validated,
+              )
+            ) {
+              let categoryRequirements: Awaited<
+                ReturnType<typeof fetchMobileProductTechnicalFields>
+              > | null = null;
+              try {
+                categoryRequirements = await withTimeout(
+                  fetchMobileProductTechnicalFields({ requireCategoryLinks: true }),
+                  15000,
+                  null,
+                  'produto:verificar-requisitos-do-catalogo'
+                );
+                if (!categoryRequirements) {
+                  throw new Error('Requisitos de categoria indisponíveis.');
+                }
+              } catch {
+                Alert.alert(
+                  'Verificação indisponível',
+                  'Não foi possível verificar as características obrigatórias da categoria. O produto publicado não foi alterado.'
+                );
+                return;
+              }
+
+              const catalogEditLegibility = getMobilePublishedCatalogEditLegibility(
+                product,
+                validated,
+                categoryRequirements
+              );
+              if (catalogEditLegibility && !catalogEditLegibility.isLegible) {
+                Alert.alert(
+                  'Catálogo publicado',
+                  'Despublique o Catálogo antes de remover ou alterar um campo obrigatório.'
+                );
+                return;
+              }
+            }
+
             const payload = await prepareSavePayload(validated, isDraft);
             await onSave(payload);
             saveOperationIdRef.current = null;
@@ -1097,8 +1164,171 @@ export const ProductFormScreen: React.FC<Props> = ({
 
   const varCount = Array.isArray(formData.variations) ? formData.variations.length : 0;
   const photoCount = Array.isArray(formData.images) ? formData.images.length : 0;
-  const erpReady = isMobileProductErpLegible(formData);
+  const readiness = getMobileProductReadiness(formData);
+  const erpReady = readiness.erp.isLegible;
+  const isSalvado = isMobileSalvadoProduct(formData);
   const catalogPublished = formData.status === 'published';
+  const isService = formData.itemType === 'service' || formData.item_type === 'service';
+  const isOwnProduction =
+    formData.merchandiseOrigin === 'own_production' ||
+    formData.isOwnProduction === true ||
+    formData.fiscal?.merchandiseOrigin === 'own_production';
+  const erpReadinessItems = [
+    {
+      id: 'name',
+      label: 'Nome do Produto (Mínimo 2 letras)',
+      ready: readiness.erp.checks.description,
+      tab: 'geral' as TabId,
+    },
+    {
+      id: 'unitPrice',
+      label: 'Preço de Venda > R$ 0 (ou Variações)',
+      ready: readiness.erp.checks.unitPrice,
+      tab: 'estoque' as TabId,
+    },
+    {
+      id: 'categories',
+      label: 'Pelo menos 1 Categoria',
+      ready: readiness.erp.checks.categories,
+      tab: 'geral' as TabId,
+    },
+    {
+      id: 'supplier',
+      label: isOwnProduction ? 'Fabricação Própria (Dispensado)' : 'Pelo menos 1 Fornecedor',
+      ready: readiness.erp.checks.supplier,
+      tab: 'estoque' as TabId,
+    },
+    {
+      id: 'origin',
+      label: 'Origem do Estoque Convencional',
+      ready: readiness.erp.checks.origin,
+      tab: 'geral' as TabId,
+    },
+    {
+      id: 'variationPhotos',
+      label: 'Fotos das Variações (mín. 1 vinculada por variação)',
+      ready: readiness.variationPhotos,
+      tab: 'variacoes' as TabId,
+    },
+  ];
+  const catalogReadinessItems = [
+    {
+      id: 'marketplaceTitle',
+      label: 'Nome do Produto',
+      ready: readiness.catalog.checks.marketplaceTitle,
+      tab: 'geral' as TabId,
+    },
+    {
+      id: 'unitPrice',
+      label: 'Preço de Venda > R$ 0',
+      ready: readiness.catalog.checks.unitPrice,
+      tab: 'estoque' as TabId,
+    },
+    {
+      id: 'images',
+      label: 'Pelo menos 1 Foto principal',
+      ready: readiness.catalog.checks.images,
+      tab: 'fotos' as TabId,
+    },
+    {
+      id: 'categories',
+      label: 'Pelo menos 1 Categoria',
+      ready: readiness.catalog.checks.categories,
+      tab: 'geral' as TabId,
+    },
+    ...(!isService
+      ? [
+          {
+            id: 'dimensions',
+            label: 'Ao menos uma dimensão ativa; todas as ativas > 0',
+            ready: readiness.catalog.checks.dimensions,
+          },
+        ]
+      : []),
+  ];
+  const activeReadiness =
+    openReadiness === 'erp' && !isSalvado
+      ? 'erp'
+      : openReadiness === 'catalog' && !hideCatalogPublicationStatus
+        ? 'catalog'
+        : null;
+  const activeReadinessItems =
+    activeReadiness === 'erp' ? erpReadinessItems : catalogReadinessItems;
+  const resolveReadinessTab = (itemId: string, tab?: TabId) =>
+    resolveMobileProductReadinessTab(
+      itemId,
+      tab,
+      enabledTabs.map((enabledTab) => enabledTab.id)
+    );
+  const renderReadinessItem = (item: {
+    id: string;
+    label: string;
+    ready: boolean;
+    tab?: TabId;
+  }) => {
+    const targetTab = resolveReadinessTab(item.id, item.tab);
+    const contents = (
+      <>
+        <View
+          style={[
+            styles.readinessStatusIcon,
+            item.ready ? styles.readinessStatusIconReady : styles.readinessStatusIconPending,
+          ]}
+        >
+          <Text
+            style={[
+              styles.readinessStatusIconText,
+              item.ready ? styles.readinessStatusIconTextReady : styles.readinessStatusIconTextPending,
+            ]}
+          >
+            {item.ready ? '✓' : '!'}
+          </Text>
+        </View>
+        <Text
+          style={[
+            styles.readinessItemLabel,
+            item.ready ? styles.readinessItemLabelReady : styles.readinessItemLabelPending,
+            dark && styles.readinessItemLabelDark,
+          ]}
+        >
+          {item.label}
+        </Text>
+        <Text
+          style={[
+            styles.readinessItemStatus,
+            item.ready ? styles.readinessItemStatusReady : styles.readinessItemStatusPending,
+          ]}
+        >
+          {item.ready ? 'OK' : 'Pendente'}
+        </Text>
+        {targetTab ? <ChevronRight size={14} color={dark ? '#94a3b8' : '#94a3b8'} /> : null}
+      </>
+    );
+
+    if (!targetTab) {
+      return (
+        <View key={item.id} style={styles.readinessItem}>
+          {contents}
+        </View>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        key={item.id}
+        onPress={() => {
+          setOpenReadiness(null);
+          handleTabChange(targetTab);
+        }}
+        style={styles.readinessItem}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.ready ? 'Concluído' : 'Pendente'}: ${item.label}`}
+        accessibilityHint={`Abre a aba ${targetTab}`}
+      >
+        {contents}
+      </TouchableOpacity>
+    );
+  };
 
   const renderTab = () => {
     switch (activeTab) {
@@ -1224,11 +1454,16 @@ export const ProductFormScreen: React.FC<Props> = ({
               </Text>
               <View style={styles.headerMeta}>
                 {formData.code ? <Text style={styles.headerCode}>{formData.code}</Text> : null}
-                <View
+              {!isSalvado && (
+                <TouchableOpacity
+                  onPress={() => setOpenReadiness(openReadiness === 'erp' ? null : 'erp')}
                   style={[
                     styles.statusBadge,
                     erpReady ? styles.erpStatusReady : styles.erpStatusPending,
                   ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`ERP: ${erpReady ? 'Ativo' : 'Pendente'}, abrir requisitos`}
+                  accessibilityState={{ expanded: openReadiness === 'erp' }}
                 >
                   <Text
                     style={[
@@ -1238,13 +1473,18 @@ export const ProductFormScreen: React.FC<Props> = ({
                   >
                     ERP: {erpReady ? 'Ativo' : 'Pendente'}
                   </Text>
-                </View>
+                </TouchableOpacity>
+              )}
                 {!hideCatalogPublicationStatus && (
-                  <View
+                  <TouchableOpacity
+                    onPress={() => setOpenReadiness(openReadiness === 'catalog' ? null : 'catalog')}
                     style={[
                       styles.statusBadge,
                       catalogPublished ? styles.catalogStatusPublished : styles.catalogStatusHidden,
                     ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Catálogo: ${catalogPublished ? 'Publicado' : 'Ocultado'}, abrir requisitos`}
+                    accessibilityState={{ expanded: openReadiness === 'catalog' }}
                   >
                     <Text
                       style={[
@@ -1256,7 +1496,7 @@ export const ProductFormScreen: React.FC<Props> = ({
                     >
                       CATÁLOGO: {catalogPublished ? 'Publicado' : 'Ocultado'}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
@@ -1271,6 +1511,38 @@ export const ProductFormScreen: React.FC<Props> = ({
               </TouchableOpacity>
             )}
           </View>
+
+          {activeReadiness ? (
+            <View style={[styles.readinessPanel, dark && styles.darkReadinessPanel]}>
+              <View style={styles.readinessPanelHeader}>
+                <View style={styles.readinessPanelTitleGroup}>
+                  <Text style={[styles.readinessPanelTitle, dark && styles.lightText]}>
+                    {activeReadiness === 'erp'
+                      ? 'Requisitos do ERP (Cadastro / Ativação)'
+                      : 'Requisitos do Catálogo'}
+                  </Text>
+                  <Text style={[styles.readinessPanelHint, dark && styles.dimText]}>
+                    Toque em um item para abrir a aba correspondente.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setOpenReadiness(null)}
+                  style={styles.readinessCloseButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar checklist de prontidão"
+                >
+                  <X size={16} color={dark ? '#94a3b8' : '#64748b'} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView
+                style={styles.readinessList}
+                showsVerticalScrollIndicator
+                nestedScrollEnabled
+              >
+                {activeReadinessItems.map(renderReadinessItem)}
+              </ScrollView>
+            </View>
+          ) : null}
 
           {/* ── Tabs Scrolláveis ── */}
           <View style={[styles.tabsContainer, dark && styles.darkTabsContainer]}>
@@ -1486,6 +1758,66 @@ const styles = StyleSheet.create({
   catalogStatusHidden: { backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' },
   catalogStatusTextPublished: { color: '#047857' },
   catalogStatusTextHidden: { color: '#475569' },
+  readinessPanel: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    paddingBottom: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+  },
+  darkReadinessPanel: { borderColor: '#334155', backgroundColor: '#111827' },
+  readinessPanelHeader: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 2,
+  },
+  readinessPanelTitleGroup: { flex: 1 },
+  readinessPanelTitle: { color: '#334155', fontSize: 10, fontWeight: '900' },
+  readinessPanelHint: { color: '#64748b', fontSize: 9, fontWeight: '600', marginTop: 2 },
+  readinessCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readinessList: { maxHeight: 224 },
+  readinessItem: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 5,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e2e8f0',
+  },
+  readinessStatusIcon: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readinessStatusIconReady: { backgroundColor: '#dbeafe' },
+  readinessStatusIconPending: { backgroundColor: '#fef3c7' },
+  readinessStatusIconText: { fontSize: 11, fontWeight: '900', lineHeight: 14 },
+  readinessStatusIconTextReady: { color: '#1d4ed8' },
+  readinessStatusIconTextPending: { color: '#b45309' },
+  readinessItemLabel: { flex: 1, fontSize: 10, fontWeight: '700' },
+  readinessItemLabelReady: { color: '#1d4ed8' },
+  readinessItemLabelPending: { color: '#64748b' },
+  readinessItemLabelDark: { color: '#cbd5e1' },
+  readinessItemStatus: { fontSize: 8, fontWeight: '900' },
+  readinessItemStatusReady: { color: '#1d4ed8' },
+  readinessItemStatusPending: { color: '#b45309' },
   headerSubtitle: { fontSize: 11, fontWeight: '600', color: '#94a3b8' },
   lightText: { color: '#f1f5f9' },
   dimText: { color: '#94a3b8' },

@@ -4,6 +4,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
 
 import { resolveOfflineInventoryMatch } from './offlineInventoryCatalog';
 import type { OfflineInventoryCatalog } from '../types/offlineInventoryCatalog.types';
+import { selectOfflineInventoryCatalogSuppliers } from '../domain/offlineInventoryCatalogSelectors';
 
 const labelId = '22222222-2222-4222-8222-222222222222';
 const legacyUnlinkedLabelId = '44444444-4444-4444-8444-444444444444';
@@ -50,12 +51,24 @@ const catalog: OfflineInventoryCatalog = {
       status: 'archived',
     },
   },
-  suppliers: { 'supplier-1': { id: 'supplier-1', full_name: 'Fornecedor 1' } },
+  suppliers: {
+    'supplier-1': {
+      id: 'supplier-1',
+      full_name: 'Fornecedor 1',
+      stock_origins: ['salvados', 'usados'],
+    },
+  },
   cursors: {},
   syncedAt: '2026-09-25T12:00:00.000Z',
 };
 
 describe('índice offline de inventário web', () => {
+  it('preserva as origens de estoque dos fornecedores no índice usado pelo ERP', () => {
+    expect(selectOfflineInventoryCatalogSuppliers(catalog)).toEqual([
+      expect.objectContaining({ id: 'supplier-1', stockOrigins: ['salvados', 'usados'] }),
+    ]);
+  });
+
   it('resolve UUID de etiqueta antiga para variação mesclada e preserva item inativo', () => {
     const result = resolveOfflineInventoryMatch(catalog, labelId);
 

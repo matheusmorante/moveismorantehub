@@ -93,7 +93,7 @@ def base(section, title, subtitle=''):
     c.line(M, 36, W - M, 36)
     c.setFillColor(MUTED)
     c.setFont('Segoe', 8)
-    c.drawString(M, 23, 'Operação do ERP  |  Edição ilustrada  |  24/10/2026')
+    c.drawString(M, 23, 'Operação do ERP  |  Edição ilustrada  |  25/10/2026')
     c.setFont('SegoeBold', 9)
     c.setFillColor(NAVY)
     c.drawRightString(W - M, 22, str(n).zfill(2))
@@ -222,6 +222,48 @@ def flow_card(title, body, x, top, width, height, fill=PALE, accent=BLUE,
     body_p.drawOn(c, x + 12, top - 13 - title_h - body_h)
 
 
+def product_structure_diagram(y):
+    y = para('Entenda o tipo de cadastro', y, size=11.2, bold=True, gap=7)
+    top = y
+    gap = 12
+    col_w = (TW - gap) / 2
+    left_x = M
+    right_x = M + col_w + gap
+    diagram_h = 112
+
+    flow_card(
+        'PRODUTO SIMPLES',
+        '<b>Exemplo: Luminária de mesa</b><br/>Uma única versão cadastrada. Ter uma ou várias unidades no estoque não muda o tipo do cadastro.',
+        left_x, top, col_w, diagram_h, fill=PALE, accent=BLUE,
+    )
+
+    flow_card(
+        'PRODUTO PAI: CADEIRA AURORA',
+        'Reúne os dados comuns da família e organiza as versões.',
+        right_x, top, col_w, 42, fill=MINT, accent=TEAL,
+        title_size=8.6, body_size=7.8,
+    )
+    child_top = top - 57
+    child_gap = 7
+    child_w = (col_w - child_gap) / 2
+    split_y = child_top + 5
+    center_x = right_x + col_w / 2
+    c.setStrokeColor(BLUE)
+    c.setLineWidth(1)
+    c.line(center_x, top - 43, center_x, split_y)
+    c.line(right_x + child_w / 2, split_y, right_x + child_w + child_gap + child_w / 2, split_y)
+    arrow(right_x + child_w / 2, split_y, right_x + child_w / 2, child_top)
+    arrow(right_x + child_w + child_gap + child_w / 2, split_y,
+          right_x + child_w + child_gap + child_w / 2, child_top)
+    flow_card('VARIAÇÃO: PRETA', 'Nome e saldo da versão.',
+              right_x, child_top, child_w, 51, fill=PALE, accent=BLUE,
+              title_size=7.4, body_size=7.3)
+    flow_card('VARIAÇÃO: BRANCA', 'Nome e saldo da versão.',
+              right_x + child_w + child_gap, child_top, child_w, 51, fill=PALE, accent=BLUE,
+              title_size=7.4, body_size=7.3)
+    return top - diagram_h - 14
+
+
 def check(text, y, x=M, width=TW):
     c.setStrokeColor(TEAL)
     c.setLineWidth(1)
@@ -230,7 +272,7 @@ def check(text, y, x=M, width=TW):
 
 
 # 01 - Capa
-y = base('Comece aqui', escape(GUIDE['title']).replace(' pra o Lucas', '<br/>pra o Lucas'))
+y = base('Comece aqui', escape(GUIDE['title']))
 c.setFillColor(NAVY)
 c.rect(0, H - 390, W, 255, fill=1, stroke=0)
 para('Da chegada da carga<br/>ao saldo certo.', H - 160, M, TW, size=31, leading=38, color=colors.white, bold=True)
@@ -273,11 +315,11 @@ for title, body in [
     yy = para(body, yy, xx, ww, size=9.7, leading=13.4, gap=9)
 y = min(yy, y - 480)
 y = table(['Procure por assunto', 'Páginas'], [
-    ['Conferência da carga, notas e vínculos', '4 a 11'],
-    ['Recebimento, custos e confirmação', '12 a 15'],
-    ['Etiquetas e caixas de um mesmo produto', '16 a 18'],
-    ['Compras e inventário', '19 a 22'],
-    ['Movimentações, indisponibilidades e checklist', '23 a 26'],
+    ['Conferência da carga, notas e vínculos', '4 a 12'],
+    ['Recebimento, custos e confirmação', '13 a 16'],
+    ['Etiquetas e caixas de um mesmo produto', '17 a 19'],
+    ['Compras e inventário', '20 a 23'],
+    ['Movimentações, indisponibilidades e checklist', '24 a 27'],
 ], y, widths=[TW - 90, 90], size=9.3)
 
 # 03 - Fluxo de recebimento
@@ -296,7 +338,7 @@ badge('SEM NOTA FISCAL', right_x + 2, branch_top, fill=AMBER, color=colors.HexCo
 cards_top = branch_top - 30
 card_h, card_gap = 70, 5
 invoice_steps = [
-    ('Use a nota ou importe o arquivo', 'Se o XML continuar incompleto após a sincronização automática, use o Portal SEFAZ para baixar o arquivo completo.'),
+    ('Use a nota ou importe o arquivo', 'Se os produtos não aparecerem na nota, abra XML incompleto e siga os passos da página 7.'),
     ('Associe fornecedor e produtos', 'Escolha o fornecedor correto e associe cada item da nota ao produto correspondente.'),
     ('Gere o recebimento', 'Com fornecedor e produtos associados, clique em Gerar recebimento.'),
     ('Confira quantidades e custos', 'Revise o que chegou, o custo, o frete e as outras despesas, sem duplicar valores.'),
@@ -334,17 +376,17 @@ for n, title, body in [
     (5, 'Cadastre a nota destinada à empresa', 'Garanta que toda nota em que sua empresa é destinatária apareça em NF de entrada. Se não estiver na lista, importe o XML. Mesmo com diferença na carga, cadastre a nota; avise o responsável e não confirme o recebimento até resolver. Sem nota, use o pedido de compra.'),
 ]:
     y = step(n, title, body, y)
-y = note('Se algo não estiver conforme', 'Avise a equipe responsável e não confirme quantidades incorretas. Só registre indisponibilidade quando separar a unidade e tirá-la do estoque disponível; veja as páginas 24 e 25.', y, fill=AMBER)
+y = note('Se algo não estiver conforme', 'Avise a equipe responsável e não confirme quantidades incorretas. Só registre indisponibilidade quando separar a unidade e tirá-la do estoque disponível; veja as páginas 25 e 26.', y, fill=AMBER)
 
 # 04 - Lista de NF
 y = base('02 / NF de entrada', 'Localize a nota antes de importar', 'Estoque > NF de entrada. Pesquise e confira o período para evitar duplicar trabalho.')
 y = shot('01-nf-entrada', y, max_height=275, caption='1 Importar XML  •  2 Vinculações pendentes  •  3 XML incompleto. Dados comerciais foram ocultados.')
 y = table(['O que aparece', 'O que fazer'], [
-    ['<b>XML incompleto</b>', 'A nota chegou em resumo, sem os itens. Abra esse rótulo para ver as instruções e importar o arquivo completo.'],
+    ['<b>XML incompleto</b>', 'Os produtos ainda não aparecem. Abra esse rótulo e importe o arquivo XML completo.'],
     ['<b>Vinculações Pendentes</b>', 'Abra o rótulo para associar o fornecedor e cada produto ao cadastro correto.'],
     ['<b>Disponível</b>', 'Confira os itens e os vínculos antes de gerar o recebimento. Esse status, sozinho, não significa entrada no saldo.'],
 ], y, widths=[145, TW - 145], size=10)
-y = para('Se a nota não aparecer, confira a busca e amplie o período de emissão. A consulta automática pode trazer apenas um resumo e não substitui a conferência dos documentos da carga.', y, size=10.8)
+y = para('Se a nota não aparecer, confira a busca e amplie o período de emissão. Se já tiver o XML, use Importar XML da NF-e.', y, size=10.8)
 y = note('Confira o destinatário e evite duplicidade', 'Toda nota recebida em que sua empresa aparece como destinatária deve estar nesta lista. Se já estiver, não importe novamente. Se aparecer como XML incompleto, siga o rótulo para completar. Notas cadastradas não podem ser excluídas.', y, fill=MINT)
 
 # 05 - Importar
@@ -356,12 +398,12 @@ y = step(3, 'Confira a mensagem do sistema', 'Nota nova: ela será adicionada. N
 y = note('Importar não é receber', 'Depois de importar, abra <b>Gerenciar vínculos</b>. A nota pode estar completa e ainda precisar de fornecedor e produtos vinculados.', y, fill=MINT)
 
 # 06 - XML incompleto
-y = base('02 / NF de entrada', 'O XML não chegou após a Ciência?', 'A Ciência não traz o XML junto com o evento. Se vier só o resumo, o sistema tenta de novo automaticamente.')
-y = shot('03-xml-incompleto', y, max_height=330, caption='1 Consultar no Portal  •  2 Importar o XML completo da mesma nota.')
-y = step(1, 'Aguarde a nova tentativa automática', 'Se a Ciência foi aceita e ainda veio só o resumo, o sistema tenta de novo em 15 minutos. Mantenha NF de entrada aberta.', y)
-y = step(2, 'Se continuar incompleta, consulte no Portal', 'Clique em XML incompleto e depois em Consultar no Portal. Se não conseguir baixar, peça o XML ao fornecedor.', y)
-y = step(3, 'Importe o arquivo nessa janela', 'Escolha o XML. Ele completa a nota existente. Confira os itens e depois associe fornecedor e produtos.', y)
-y = note('Ciência não confirma a compra', 'Não use Confirmação da Operação só para baixar o XML. Confirme apenas quando a operação realmente aconteceu.', y, fill=AMBER)
+y = base('02 / NF de entrada', 'Complete a nota com o XML', 'Use o arquivo XML completo para incluir os produtos que faltam na nota.')
+y = shot('03-xml-incompleto', y, width=TW, max_height=250, crop=(0, 275, 576, 225), caption='2 Selecione o XML completo da mesma nota.')
+y = step(1, 'Obtenha o XML completo', 'Se ainda não tem o arquivo, clique em Consultar no Portal ou peça o XML ao fornecedor.', y)
+y = step(2, 'Importe o arquivo na mesma nota', 'Selecione ou arraste o XML no campo Arquivo XML da NF-e.', y)
+y = step(3, 'Confira e associe os produtos', 'Verifique se os itens aparecem e, em seguida, vincule o fornecedor e os produtos corretos.', y)
+y = note('Ciência sem confirmação', 'Se aparecer “Comunicação sem confirmação”, consulte o Histórico Fiscal antes de tentar registrar a Ciência novamente. O envio pode ter sido processado mesmo sem uma resposta na tela.', y, fill=AMBER)
 
 # 07 - Vínculos
 y = base('03 / Vínculos', 'Associe a nota aos cadastros corretos', 'No sistema, esta etapa se chama Gerenciar vínculos. Abra Vinculações Pendentes ou os três pontinhos da nota.')
@@ -371,28 +413,59 @@ y = step(1, 'Associe o fornecedor correto', 'Escolha o cadastro com o mesmo nome
 y = step(2, 'Encontre o produto antes de criar outro', 'Pesquise pelo nome ou código. Confira modelo, cor e medida. Associar um item parecido pode registrar a entrada no produto errado.', y)
 y = step(3, 'Aguarde a confirmação do salvamento', 'Os dados são salvos automaticamente. Aguarde “Salvando e confirmando vínculos...” e resolva qualquer aviso antes de continuar.', y)
 
-# 08 - Cadastro direto
-y = base('03 / Vínculos', 'Produto novo ou outra versão?', 'Variação é outra versão do mesmo produto, como outra cor ou medida. Se o produto ainda não existe, use Cadastrar na linha da nota.')
-y = shot('05-cadastro-rapido', y, max_height=95, caption='Componente real com dados de exemplo: 1 Novo produto simples  •  2 Nova variação de produto existente.')
-y = shot('05c-confirmar-categoria', y, max_height=95, caption='1 Escolha a categoria correta  •  2 Confirme a categoria depois de revisá-la.')
-y = step(1, 'Escolha Novo produto simples e confira os dados', 'No ERP, confira o custo e o código fiscal do produto (NCM). No app, revise o custo em Estoque e Precificação. Você pode corrigi-lo antes de salvar; fornecedor e unidade vêm da nota.', y)
-y = step(2, 'Confira e confirme a categoria', 'A sugestão ajuda na escolha, mas não é salva sem sua confirmação. Se precisar, selecione outra categoria e marque a confirmação correspondente.', y)
-y = step(3, 'Conclua e confira a associação', 'No ERP, use Cadastrar e vincular. No app, salve o formulário. Confira se o produto ficou associado à nota; se houver falha, consulte o cadastro antes de repetir. A nota original é preservada.', y)
-y = note('O que fica para depois', 'O produto novo começa <b>sem entrada de estoque</b>, com preço de venda ainda a definir e oculto dos catálogos digitais. Revise o cadastro em Produtos quando precisar completar preço, características ou publicação.', y, fill=MINT)
-y = note('Se encontrar um cadastro parecido', 'Código do fornecedor ou código de barras (GTIN) já cadastrado bloqueia outra criação e oferece <b>Reutilizar e vincular</b>. Se só o nome for parecido, confira os resultados antes de criar outro produto.', y, fill=AMBER)
+# 08 - Cadastro rápido
+y = base('03 / Vínculos', 'Cadastro rápido: escolha o tipo certo', 'Abra Cadastro rápido na linha do item em Gerenciar vínculos quando não encontrar um produto correspondente. Pesquise primeiro para evitar outro cadastro igual.')
+y = shot('05-cadastro-rapido', y, max_height=70, caption='1 Produto simples  •  2 Variação de produto existente  •  3 Produto composto.')
+y = para('Produto simples tem uma única versão cadastrada. Variação é outra cor, medida ou versão do mesmo produto. O produto pai reúne dados comuns; cada versão é controlada separadamente. A quantidade de unidades não define o tipo do cadastro.', y, size=10.1, gap=8)
+y = product_structure_diagram(y)
+y = table(['Opção do formulário', 'Quando escolher'], [
+    ['<b>Produto simples</b>', 'O item não existe e não tem outras versões para agrupar. Exemplo: Luminária de mesa.'],
+    ['<b>Variação de produto existente</b>', 'O pai já existe. Exemplo: incluir a Cadeira Aurora Branca na família Cadeira Aurora.'],
+    ['<b>Produto composto</b>', 'Para kits ou conjuntos. Escolha pelo menos dois componentes distintos e suas quantidades. Não use para cor ou medida.'],
+], y, widths=[185, TW - 185], size=8.8)
+y = note('Campos e botões do cadastro rápido', 'No produto simples, revise <b>Nome do produto</b> e selecione <b>Categoria</b> (obrigatória). O sistema aproveita da NF-e fornecedor, unidade, GTIN, NCM e custo, quando informados. Preço, fotos e publicação podem ser completados depois em Produtos. <b>Cadastrar e vincular</b> salva e associa o item; <b>Cancelar</b> fecha sem cadastrar. O registro fica ativo para uso interno, oculto do catálogo digital e com saldo zero até Confirmar recebimento. Se o código do fornecedor ou GTIN já existir, use <b>Reutilizar e vincular</b>.', y, fill=MINT)
 
+# 10 - Composição e características
+y = base('03 / Cadastro de produtos', 'Composição e características', 'Produto simples é um item vendido por conta própria. Produto composto é um conjunto de produtos cadastrados como peças.')
+card_gap = 14
+card_w = (TW - card_gap) / 2
+flow_card(
+    'PRODUTO COMPOSTO',
+    'Use para vender um conjunto, como uma cozinha formada por módulos. Você escolhe manualmente as peças e quantidades. No pedido de venda, ao selecionar o conjunto, o ERP inclui automaticamente todas as peças e quantidades, reduzindo escolhas erradas e agilizando o pedido.',
+    M, y, card_w, 148, fill=PALE, accent=BLUE,
+    title_size=9.8, body_size=9.1,
+)
+flow_card(
+    'CARACTERÍSTICAS',
+    'São informações que descrevem o produto, como material, cor, quantidade de portas, medidas e peso. Elas ajudam a distinguir produtos e versões; não são a lista de itens que forma um conjunto.',
+    M + card_w + card_gap, y, card_w, 148, fill=MINT, accent=TEAL,
+    title_size=9.8, body_size=9.1,
+)
+y -= 166
+y = step(1, 'Quando cadastrar uma composição', 'Use Produto composto para kits ou conjuntos com pelo menos dois componentes distintos. Informe manualmente quantos de cada peça formam uma unidade. No composto simples, use a aba Composição do produto; com várias versões, abra a composição da variação correspondente. Para outra cor ou medida, cadastre uma variação.', y)
+y = step(2, 'Como preencher as características', 'No formulário do produto, abra Características e preencha os dados corretos nos campos correspondentes, como material ou quantidade de portas. Para uma variação, informe também o que distingue aquela versão. Use os mesmos nomes e valores para produtos semelhantes.', y)
+y = note(
+    'Conjunto que chega agrupado na NF-e',
+    'Em Gerenciar vínculos, associe manualmente cada peça da nota ao produto ou variação corretos e confira as quantidades. Ao receber, o ERP rateia automaticamente o custo total da linha da NF-e entre as peças conforme os preços de venda cadastrados e as quantidades. Para manter a mesma proporção entre custo e preço, some o custo unitário de cada peça multiplicado por sua quantidade e calcule manualmente: <b>preço unitário da peça = custo unitário da peça ÷ custo total do conjunto × preço total desejado do conjunto</b>. Exemplo: uma peça que representa 25% do custo total deve receber 25% do preço total desejado. Cadastre os preços unitários individualmente nas peças.',
+    y, fill=AMBER,
+)
+y = note(
+    'Por que vale a pena preencher bem?',
+    'Características claras ajudam a encontrar o produto, por exemplo, ao procurar um armário de três portas ou feito de determinado material. Elas também preparam os cadastros para filtros e relatórios por característica, inclusive análises financeiras por tipo de produto, quando disponíveis. No futuro, essas informações poderão dar à IA contexto para criar descrições, roteiros de vídeo e imagens que respeitem o material, a cor e outros detalhes do produto.',
+    y, fill=MINT,
+)
 # 09 - Seleção certa
-y = base('03 / Vínculos', 'Adicionar outra versão do produto', 'Escolha o cadastro principal correto. Uma variação é outra versão do mesmo produto, como uma cor ou medida diferente.')
-y = shot('05b-variacao-existente', y, max_height=110, caption='Em Nova variação de produto existente, escolha o produto principal do mesmo fornecedor. Um produto simples pode receber outra variação.')
-y = step(1, 'Confira o produto principal', 'O sistema chama esse cadastro de produto pai. A nova versão recebe o custo da nota sem mudar o custo principal. O saldo começa em zero e só aumenta no recebimento. Se ela já existir, escolha-a na busca.', y)
-y = step(2, 'Complete o nome da nova versão', 'Informe o que muda, como cor ou medida. Confira se o nome não repete outra versão do mesmo produto.', y)
-y = step(3, 'Preencha as características específicas exigidas', 'Confira as características configuradas por variação. Preencha as marcadas como obrigatórias; não é necessário completar características opcionais ou fotos para esta entrada.', y)
+y = base('03 / Vínculos', 'Nova variação: escolha o pai e complete a versão', 'Use esta opção quando o produto principal já existe e pertence ao fornecedor associado à NF-e.')
+y = shot('05b-variacao-existente', y, max_height=90, caption='No campo Produto pai, digite pelo menos duas letras e escolha o cadastro da família correta.')
+y = step(1, 'Confira o produto pai e o fornecedor', 'Escolha o produto principal correspondente ao item da nota. O sistema só permite usar um pai associado ao mesmo fornecedor. Se o item já existir como variação, selecione o cadastro encontrado em vez de criar outra versão.', y)
+y = step(2, 'Complete o nome da variação', 'Escreva o que diferencia esta versão. Exemplo: pai Cadeira Aurora + complemento Branca = Cadeira Aurora Branca. Confira o nome completo sugerido e não repita uma versão que já esteja cadastrada.', y)
+y = step(3, 'Preencha só as características obrigatórias', 'O pai fornece dados gerais como categoria, marca, modelo e NCM. Na seção Características da variação, preencha os campos com asterisco; os opcionais e as fotos podem ficar para depois.', y)
 y = table(['Se o código fiscal (NCM) da nota for diferente', 'O que acontece'], [
     ['Usar o NCM da NF só na variação', 'Aplica o código da nota só à nova versão e mantém o código fiscal do produto principal.'],
     ['Usar o NCM da NF e atualizar o pai', 'Muda também o código fiscal do produto principal. Confira antes de salvar.'],
     ['Manter o NCM do pai', 'A nova versão continua com o código fiscal do produto principal.'],
 ], y, widths=[245, TW - 245], size=9.8)
-y = note('Mais opções: produto composto', 'Produto composto é um conjunto formado por outros produtos. Abra <b>Mais opções de cadastro</b> &gt; <b>Novo produto composto</b> e escolha pelo menos dois produtos e suas quantidades. Use somente quando o sistema controlar o conjunto dessa forma. Esse cadastro não substitui o recebimento.', y, fill=AMBER)
+y = note('Cada variação tem seu próprio saldo', 'Depois de Cadastrar e vincular, o item da nota fica associado à nova versão. A quantidade só entra no estoque quando o recebimento for confirmado. Confira a cor, medida ou modelo antes de concluir.', y, fill=MINT)
 
 # 10 - Gerar
 y = base('03 / Vínculos', 'Quando Gerar recebimento fica disponível?', 'Se o botão cinza estiver bloqueado, passe o mouse sobre ele. No teclado, pressione Tab até o botão para ler o motivo.')
@@ -458,7 +531,7 @@ y = base('05 / Etiquetas', 'Escolha por onde imprimir as etiquetas', 'Use só a 
 y = shot('16-menus-de-acoes', y, max_height=267, caption='Menus reais com exemplo didático: 2 etiquetas pela NF-e  •  3 etiquetas pelo recebimento concluído. A opção 1 prepara o recebimento pela NF-e.')
 y = step(1, 'Pela nota fiscal', 'Com o fornecedor e todos os produtos vinculados, abra os três pontinhos e escolha Imprimir etiquetas de identificação.', y)
 y = step(2, 'Pelo recebimento', 'Com o recebimento concluído e no status Recebido, abra os três pontinhos e escolha a mesma ação. Em rascunho ou estornado, a impressão fica desativada.', y)
-y = note('Identificação e preço têm usos diferentes', 'A etiqueta de identificação acompanha a unidade física. A etiqueta de preço serve à exposição e à venda. Não use uma etiqueta de preço para contar o estoque.', y, fill=MINT)
+y = note('Identificação e preço têm usos diferentes', 'A etiqueta de identificação acompanha a unidade física. A etiqueta de preço serve à exposição e à venda; não use para contar estoque. Na lista Produtos, a ação Etiqueta de Preço exige permissão para editar Produtos. Perfis somente consulta devem solicitar a impressão a alguém autorizado.', y, fill=MINT)
 
 # 16 - Preparar etiquetas
 y = base('05 / Etiquetas', 'Confira a seleção antes de imprimir', 'A janela mostra os produtos associados e as quantidades. Revise antes de imprimir.')
@@ -496,7 +569,6 @@ y = top - 303
 y = para('<b>Na imagem: seis caixas formam dois móveis.</b> Imprima duas etiquetas, uma para cada móvel, e confira as demais caixas de cada conjunto.', y, size=12)
 y = step(1, 'Cole no volume 1 e confira a correspondência', 'Leia o produto da etiqueta e confira com a caixa antes de colar. Não misture a identificação de uma unidade com volumes de outra.', y)
 y = step(2, 'Se não puder colar no volume 1, mantenha um padrão', 'Combine com a equipe qual caixa será a principal e use sempre essa. Etiquetas em caixas diferentes podem causar separação ou entrega incompleta.', y)
-y = note('Etiquetas por volume ainda não fazem parte desta rotina', 'A quantidade de caixas pode mudar na fábrica. Uma solução futura precisará garantir que os volumes de uma mesma unidade compartilhem a mesma identificação e contem apenas uma unidade.', y, fill=AMBER)
 
 # 17 - Compras
 y = base('06 / Compras', 'Pedido de compra registra o combinado', 'Estoque > Pedidos de compra > Nova Compra. Use o pedido para lembrar o que foi comprado e conferir a entrega.')
@@ -510,20 +582,20 @@ y = note('Conferir Pedido também não dá entrada', 'Essa conferência compara 
 y = base('07 / Inventário', 'Defina o que será contado', 'Estoque > Inventário > Novo inventário. Escolha os produtos que entram na contagem antes de começar.')
 y = shot('10-inventario-escopo', y, max_height=180, caption='1 Estoque completo em etapas por fornecedor  •  2 Seleção personalizada de produtos ou variações.')
 y = shot('11-inventario-responsavel', y, max_height=120, caption='Pesquise o nome e escolha uma pessoa autorizada. A lista pode ser atualizada no app quando houver internet.')
-y = step(1, 'Escolha quais produtos contar', 'Estoque Completo organiza a contagem por fornecedor. Seleção Personalizada permite escolher os produtos que precisam ser contados.', y)
+y = step(1, 'Escolha quais produtos contar', 'Estoque Completo lista produtos convencionais ativos por fornecedor. Produtos Salvados e Usados, e fornecedores exclusivos dessas origens, ficam fora. Seleção Personalizada também aceita apenas itens convencionais.', y)
 y = step(2, 'Escolha quem vai fazer a contagem', 'Digite pelo menos duas letras do nome, escolha uma pessoa da lista e confira. Atualize a lista com internet usando Tentar sincronizar lista. Se continuar vazia, peça à equipe responsável para conferir o acesso dessa pessoa.', y)
-y = step(3, 'Use Confirmar e Iniciar', 'No inventário por etapas, abra Iniciar ou Continuar na etapa do fornecedor correto. Na seleção personalizada, adicione os itens que pertencem à contagem.', y)
+y = step(3, 'Conte um, vários ou todos os fornecedores', 'Abra a etapa de um fornecedor; repita para vários ou percorra todas. Etapas e itens sem contagem ficam como estão. Na Seleção Personalizada, adicione os itens convencionais.', y)
 y = note('Duplicar inventário', 'Combine com a equipe para não contar duas vezes. Confira fornecedor e local. Ao duplicar, revise os produtos, quantidades e responsável; a contagem e as etiquetas antigas não são copiadas. Atualize a lista se faltar produto.', y, fill=MINT)
 
 # 19 - Contagem
-y = base('07 / Inventário', 'Conte os produtos que encontrou', 'Digite a quantidade real de cada produto ou leia suas etiquetas de identificação, quando disponíveis.')
+y = base('07 / Inventário', 'Conte os produtos que encontrou', 'A contagem começa vazia. Use +/-, digite a quantidade ou leia a etiqueta QR correspondente ao produto.')
 y = shot('14-contagem-manual', y, max_height=315, caption='Exemplo didático: 1 filtros  •  2 quantidade contada  •  3 zero  •  4 campo vazio. Os dados não são de uma contagem real.')
 y = table(['Campo Contado', 'Significado'], [
     ['<b>4</b>', 'Você contou quatro unidades do produto completo.'],
     ['<b>0</b>', 'Você contou e não encontrou nenhuma unidade. Pode gerar ajuste para zero após a revisão.'],
     ['<b>Vazio</b>', 'Este item ainda não foi contado. Não equivale a zero e o saldo não deve ser zerado por isso.'],
 ], y, widths=[130, TW - 130], size=10.2)
-y = note('Leitura do QR Code', 'Cada etiqueta lida acrescenta uma unidade. Não leia a mesma etiqueta duas vezes. Se ela não estiver na lista da contagem, pare e confira. Leia uma etiqueta por móvel, não uma por caixa.', y, fill=MINT)
+y = note('Scanners do inventário geral', 'Na tela geral, o scanner aceita produtos de qualquer fornecedor incluído no inventário; produtos sem fornecedor ficam fora das etapas. Dentro da etapa, o scanner aceita somente produtos daquele fornecedor. Se ler item de outro fornecedor, aparece um alerta vermelho e a quantidade não muda: volte, escolha a etapa correta ou use o scanner geral. Cada etiqueta QR acrescenta uma unidade. Leituras seguidas são processadas em sequência, com um bipe por unidade; o visor mostra até as duas últimas leituras. Não repita a mesma etiqueta e use uma por móvel, não por caixa.', y, fill=MINT)
 
 # 20 - Revisão inventário
 y = base('07 / Inventário', 'Revise as diferenças antes de concluir', 'Compare Esperado (saldo no sistema), Contado (quantidade encontrada) e Ajuste (diferença que será aplicada). Reconte o que parecer errado.')
@@ -532,13 +604,13 @@ y = table(['Exemplo', 'Esperado', 'Contado', 'Ajuste'], [
     ['Mesa', '3', '0', '-3 unidades'],
     ['Cômoda não contada', '2', 'Vazio', 'Sem ajuste'],
 ], y, widths=[205, 90, 90, TW - 385], size=10.5)
-y = para('Os números são exemplos. O sistema considera as entradas e saídas feitas durante a contagem; confira a revisão atual, não só o saldo que aparecia no começo.', y, size=11)
+y = para('Os números são exemplos. O sistema considera as entradas e saídas feitas durante a contagem; confira a revisão atual, não só o saldo que aparecia no começo. Só itens com contagem numérica entram no ajuste: etapas não abertas e itens vazios ficam como estão. Zero digitado é uma contagem válida.', y, size=11)
 y = step(1, 'Reconte o que estiver diferente', 'Confira se o produto está em outro local, se houve entrada ou saída durante a contagem e se todas as caixas desse móvel foram verificadas.', y)
 y = step(2, 'Volte à contagem se precisar corrigir', 'Use Voltar para contagem quando encontrar erro. Não conclua um ajuste apenas para eliminar a pendência da tela.', y)
-y = step(3, 'Conclua depois da revisão', 'Só pessoas autorizadas podem finalizar inventários. Se o botão estiver indisponível, peça ajuda a um Gestor ou Estoquista autorizado. A conta conectada que fizer o primeiro envio autorizado fica vinculada ao envio; pode ser diferente da pessoa escolhida para a contagem. Aguarde a mensagem de sucesso e confira o status.', y)
+y = step(3, 'Conclua depois da revisão', 'Só pessoas autorizadas podem finalizar inventários. Se o botão estiver indisponível, peça ajuda a um Gestor ou Estoquista autorizado. Use a conta com que iniciou a confirmação; ela pode ser diferente da pessoa responsável pela contagem. Aguarde a mensagem de sucesso e confira o status.', y)
 y = table(['Status ou ação', 'O que significa na rotina'], [
     ['Em andamento / Continuar inventário', 'A contagem pode ser retomada. Se fechar a tela, continue o mesmo inventário no aparelho.'],
-    ['Aguardando envio / Retomar envio', 'Abra o mesmo inventário com a conta autorizada que fez o primeiro envio. Se aparecer conflito de conta, não comece outra contagem; peça ajuda a um Gestor.'],
+    ['Aguardando envio / Retomar envio', 'Retome o mesmo inventário usando a conta com que iniciou a confirmação. Se não tiver acesso a essa conta, peça ajuda a um Gestor. Não comece outra contagem.'],
     ['Concluído / Ver detalhes', 'Consulte o resultado. Se precisar desfazer algo, peça ajuda a uma pessoa autorizada.'],
 ], y, widths=[190, TW - 190], size=10)
 
@@ -627,16 +699,16 @@ for text in [
 y = para('Se algo der errado', y - 6, size=15, bold=True)
 y = table(['O que aconteceu?', 'Onde ir'], [
     ['A nota aparece sem produtos', 'Abra XML incompleto e siga as instruções. Pág. 7.'],
-    ['Não sei se crio ou associo um produto', 'Pesquise antes de criar. Págs. 8 a 10.'],
-    ['Gerar recebimento está bloqueado', 'Leia o motivo e resolva o que falta. Pág. 11.'],
-    ['Não sei se o recebimento foi salvo', 'Confira a lista antes de tentar de novo. Pág. 15.'],
-    ['Estoque ou produto avariado não confere', 'Revise as movimentações e o fluxo de indisponibilidade. Págs. 23 a 25.'],
+    ['Não sei se crio ou associo um produto', 'Pesquise antes de criar. Págs. 8 a 11.'],
+    ['Gerar recebimento está bloqueado', 'Leia o motivo e resolva o que falta. Pág. 12.'],
+    ['Não sei se o recebimento foi salvo', 'Confira a lista antes de tentar de novo. Pág. 16.'],
+    ['Estoque ou produto avariado não confere', 'Revise as movimentações e o fluxo de indisponibilidade. Págs. 24 a 26.'],
 ], y, widths=[190, TW - 190], size=10)
 para('Os números e setas azuis indicam onde clicar. Alguns dados comerciais foram ocultados e os exemplos são fictícios. No aplicativo, a tela pode estar organizada de outro jeito; procure os mesmos nomes de menus e botões.', y, size=9.4, color=MUTED)
 
 c.save()
 reader = PdfReader(str(OUTPUT))
-if len(reader.pages) != 26:
+if len(reader.pages) != 27:
     raise ValueError(f'Paginação inesperada: {len(reader.pages)}')
 for index, page in enumerate(reader.pages, 1):
     if not (page.extract_text() or '').strip():

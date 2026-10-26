@@ -6,6 +6,7 @@ import type { Variation } from '../../types/product.type';
 import { isDefined } from './predicates';
 import { normalizeCharacteristicName } from './predicates/normalization';
 import type { TechnicalFieldDefinition, TechnicalValuesMap } from './types';
+import { getProductTechnicalValueCandidateKeys } from '../../../../../shared-utils/productTechnicalValueAliases';
 
 export const getEffectiveVariationTechnicalValues = (
   parentValues: TechnicalValuesMap = {},
@@ -40,25 +41,6 @@ export const getEffectiveVariationTechnicalValues = (
   };
 };
 
-const getCandidateKeys = (key: string): string[] => {
-  const norm = key.trim().toLocaleLowerCase('pt-BR');
-  if (
-    norm === 'modelo/linha' ||
-    norm === 'modelo / linha' ||
-    norm === 'linha/modelo' ||
-    norm === 'linha / modelo'
-  ) {
-    return [key, 'Modelo/Linha', 'modelo/linha', 'Linha/Modelo', 'linha/modelo', 'Modelo', 'modelo', 'Linha', 'linha'];
-  }
-  if (norm === 'modelo') {
-    return [key, 'Modelo', 'modelo', 'Modelo/Linha', 'modelo/linha', 'Linha/Modelo', 'linha/modelo', 'Linha', 'linha'];
-  }
-  if (norm === 'linha') {
-    return [key, 'Linha', 'linha', 'Modelo/Linha', 'modelo/linha', 'Linha/Modelo', 'linha/modelo', 'Modelo', 'modelo'];
-  }
-  return [key];
-};
-
 /**
  * Resolve o valor efetivo de uma Especificação Técnica para uma variação.
  * Regra: valor efetivo = override da variação ?? valor do produto pai.
@@ -71,7 +53,7 @@ export const getEffectiveTechnicalValue = (
 ): any => {
   if (!fieldKeyOrName) return undefined;
 
-  const candidateKeys = getCandidateKeys(fieldKeyOrName);
+  const candidateKeys = getProductTechnicalValueCandidateKeys(fieldKeyOrName);
 
   // 1. Tentar override direto na variação
   for (const key of candidateKeys) {
@@ -103,7 +85,7 @@ export const hasVariationOverride = (
   variationOverrides: TechnicalValuesMap = {},
   fieldKeyOrName: string
 ): boolean => {
-  const candidateKeys = getCandidateKeys(fieldKeyOrName);
+  const candidateKeys = getProductTechnicalValueCandidateKeys(fieldKeyOrName);
   return candidateKeys.some(
     (key) =>
       Object.prototype.hasOwnProperty.call(variationOverrides, key) &&
@@ -119,7 +101,7 @@ export const removeVariationOverride = (
   fieldKeyOrName: string
 ): TechnicalValuesMap => {
   const updated = { ...variationOverrides };
-  const candidateKeys = getCandidateKeys(fieldKeyOrName);
+  const candidateKeys = getProductTechnicalValueCandidateKeys(fieldKeyOrName);
   candidateKeys.forEach((key) => {
     delete updated[key];
   });
@@ -144,9 +126,9 @@ export const isTechnicalFieldVariable = (
   fieldName: string,
   variableFieldNames: readonly string[] = []
 ): boolean => {
-  const candidates = getCandidateKeys(fieldName).map(normalizeCharacteristicName);
+  const candidates = getProductTechnicalValueCandidateKeys(fieldName).map(normalizeCharacteristicName);
   return variableFieldNames.some((name) =>
-    getCandidateKeys(name).some((candidate) => candidates.includes(normalizeCharacteristicName(candidate)))
+    getProductTechnicalValueCandidateKeys(name).some((candidate) => candidates.includes(normalizeCharacteristicName(candidate)))
   );
 };
 

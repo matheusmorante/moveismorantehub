@@ -15,7 +15,11 @@ export const AiQuotaHeaderNotice: React.FC = () => {
     return unsubscribe;
   }, []);
 
-  if (!alerts || alerts.length === 0) {
+  const visibleAlerts = alerts.filter(
+    (alert) => !alert.model.toLowerCase().includes('gemini-3.8-flash')
+  );
+
+  if (visibleAlerts.length === 0) {
     return null;
   }
 
@@ -28,7 +32,7 @@ export const AiQuotaHeaderNotice: React.FC = () => {
           </span>
           <span className="font-semibold text-amber-800">Aviso de Cota de IA:</span>
           <div className="flex items-center gap-1.5 flex-wrap">
-            {alerts.map((alert) => (
+            {visibleAlerts.map((alert) => (
               <span
                 key={alert.id}
                 className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30 text-[11px]"
@@ -57,7 +61,7 @@ export const AiQuotaHeaderNotice: React.FC = () => {
         <div className="flex items-center gap-2 self-end sm:self-center">
           <button
             type="button"
-            onClick={() => alerts.forEach((a) => dismissAiQuotaAlert(a.id))}
+            onClick={() => visibleAlerts.forEach((alert) => dismissAiQuotaAlert(alert.id))}
             className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 hover:underline px-1 py-0.5 rounded"
           >
             Fechar avisos

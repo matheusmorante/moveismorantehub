@@ -34,7 +34,6 @@ const SalesOrderFormSection = ({
   const { currentStep } = state;
   const isBudget = state.currentOrder.orderType === 'budget';
   const isReturn = state.currentOrder.orderType === 'return';
-  const [itemsTab, setItemsTab] = React.useState<'products' | 'services'>('products');
 
   return (
     <form
@@ -59,7 +58,8 @@ const SalesOrderFormSection = ({
               <SectionCard
                 icon="bi bi-box-seam"
                 iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
-                title="Itens do Pedido"
+                title="ITENS DO PEDIDO"
+                subtitle="Produtos e serviços"
                 compactHeader
               >
                 <ItemsTable
@@ -72,8 +72,6 @@ const SalesOrderFormSection = ({
                   isBudget={isBudget}
                   isReturn={isReturn}
                   highlightTemporaryItems={highlightTemporaryItems}
-                  activeTab={itemsTab}
-                  onTabChange={setItemsTab}
                 />
               </SectionCard>
             </div>

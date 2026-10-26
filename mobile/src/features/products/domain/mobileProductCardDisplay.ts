@@ -1,5 +1,6 @@
 import { toTitleCase } from '../../../../../shared-utils/productText';
 import { containsProductVariationNamePhrase } from './productVariationName';
+import { getMobileProductRootCompositionItems } from './mobileProductCompositionItems';
 
 /**
  * Normaliza partes de nomes para comparação textual no card mobile.
@@ -103,4 +104,30 @@ export const getSingleVariationDisplayName = (product: any, variation: any): str
   if (variationName && includesParent && includesAttributes) return toTitleCase(variationName);
 
   return toTitleCase([parentName, attributeValues.join(' ')].filter(Boolean).join(' - '));
+};
+
+/** Mirrors the ERP child-row label, while preserving the mobile fallback for unnamed records. */
+export const getMobileProductVariationCardName = (
+  product: any,
+  variation: any,
+  index: number
+): string =>
+  toTitleCase(variation?.displayName || variation?.name || '') ||
+  getSingleVariationDisplayName(product, variation) ||
+  `Variação #${index + 1}`;
+
+/** Mirrors the ERP card subtitle for products whose root composition is shown. */
+export const getMobileProductCompositionCardItems = (product: any): string[] => {
+  const isComposition =
+    product?.itemType === 'composition' ||
+    product?.item_type === 'composition' ||
+    product?.isCombo === true ||
+    product?.is_combo === true;
+  if (!isComposition) return [];
+
+  return getMobileProductRootCompositionItems(product).map((item) => {
+    const description = typeof item?.description === 'string' ? item.description : '';
+    const displayName = description.split(' - ')[0].trim();
+    return displayName || 'Item sem nome';
+  });
 };

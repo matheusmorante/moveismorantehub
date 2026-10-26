@@ -72,6 +72,34 @@ describe('VariationTechnicalFieldItem', () => {
       expect(state.canEditApplicability).toBe(true);
     });
 
+    it('usa o atributo canônico exibido quando technicalValues traz apenas um alias legado conflitante', () => {
+      const modelLineField: TechnicalFieldDefinition = {
+        ...baseField,
+        name: 'Modelo/Linha',
+      };
+      const state = resolveVariationFieldState(
+        modelLineField,
+        { 'Modelo/Linha': 'Modelo do pai' },
+        { 'Modelo/Linha': 'Atributo da variação', 'modelo/linha': 'Atributo da variação' },
+        { 'Linha/Modelo': 'TechnicalValues legado' },
+        true
+      );
+
+      expect(state.isOverridden).toBe(true);
+      expect(state.effectiveVal).toBe('Atributo da variação');
+    });
+
+    it('resolve aliases do pai pela ordem canônica do campo, não pela ordem do objeto', () => {
+      const state = resolveVariationFieldState(
+        { ...baseField, name: 'Modelo/Linha' },
+        { Linha: 'Linha do pai', Modelo: 'Modelo do pai' },
+        {},
+        {}
+      );
+
+      expect(state.effectiveVal).toBe('Modelo do pai');
+    });
+
     it('identifica Não se aplica corretamente', () => {
       const state = resolveVariationFieldState(
         baseField,

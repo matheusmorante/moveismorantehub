@@ -4,6 +4,7 @@ import { generateVariationSku } from '@/pages/utils/productService';
 import { buildProductVariationName } from '@/pages/utils/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
+import { getVariationNameAttributeValues } from '../../../../../../shared-utils/productVariationNameValidation';
 
 export interface BulkVariationOption {
   name: string;
@@ -81,8 +82,13 @@ export function buildBulkVariations(
   const isDraft = isProductDraft(formData);
 
   const newVars: Variation[] = combinations.map((combo, idx) => {
-    const attributeValues = attributes
-      .map((attr) => toTitleCase(String(combo[attr.name].value)))
+    const generatedAttributes = attributes.map((attr) => ({
+      name: toTitleCase(attr.name),
+      value: toTitleCase(String(combo[attr.name].value)),
+      showName: combo[attr.name].showName,
+    }));
+    const attributeValues = getVariationNameAttributeValues(generatedAttributes)
+      .map(toTitleCase)
       .join(' ');
 
     const name = toTitleCase(buildProductVariationName(parentName, attributeValues));
@@ -102,11 +108,7 @@ export function buildBulkVariations(
       images: [],
       active: false,
       status: isDraft ? 'draft' : 'hidden',
-      attributes: attributes.map((attr) => ({
-        name: toTitleCase(attr.name),
-        value: toTitleCase(String(combo[attr.name].value)),
-        showName: combo[attr.name].showName,
-      })),
+      attributes: generatedAttributes,
       comboItems: [],
     };
   });

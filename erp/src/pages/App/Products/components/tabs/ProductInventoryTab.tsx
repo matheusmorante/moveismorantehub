@@ -7,7 +7,10 @@ import { ProductManufacturingTypeToggle } from './ProductManufacturingTypeToggle
 import { syncVariationsWithParent } from '../../domain/variationParentSync';
 import type { SuggestPricesResult } from '../../hooks/form/useProductFormAi';
 import { calculateProductFinalPurchasePrice } from '../../../../../../../shared-utils/productPurchasePricing';
-import { parseProductMinimumStockInput } from '../../../../../../../shared-utils/productMinimumStockInput';
+import {
+  getProductMinimumStockInputDisplayValue,
+  parseProductMinimumStockInput,
+} from '../../../../../../../shared-utils/productMinimumStockInput';
 
 interface ProductInventoryTabProps {
   readonly formData: Partial<Product>;
@@ -129,12 +132,7 @@ const ProductInventoryTab: React.FC<ProductInventoryTabProps> = ({
     }));
   };
 
-  const minStockValue =
-    formData.minStock === null ||
-    formData.minStock === undefined ||
-    Number.isNaN(Number(formData.minStock))
-      ? ''
-      : formData.minStock;
+  const minStockValue = getProductMinimumStockInputDisplayValue(formData.minStock);
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">

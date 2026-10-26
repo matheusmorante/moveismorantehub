@@ -46,6 +46,17 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe('Mídias da Central no navegador', () => {
+  it('renderiza eco enviado pelo app como mensagem de saída e identifica sua origem', () => {
+    const { container } = render(<MessageBubble message={message({
+      direction: 'outbound', messageType: 'text', textContent: 'Respondido no celular',
+      authorName: 'WhatsApp Business (celular)', mediaId: null,
+    })} />);
+
+    expect(screen.getByText('Respondido no celular')).toBeTruthy();
+    expect(container.querySelector('[title="WhatsApp Business (celular)"]')).toBeTruthy();
+    expect(container.textContent).toContain('WB');
+  });
+
   it('envia o JWT somente no header e revoga a URL ao desmontar', async () => {
     const { result, unmount } = renderHook(() => useCustomerSupportMedia('12345'));
     await waitFor(() => expect(result.current.mediaUrl).toBe('blob:private-media'));
@@ -88,6 +99,16 @@ describe('Mídias da Central no navegador', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
     await waitFor(() => expect(screen.getByRole('img').getAttribute('src')).toBe('blob:private-media'));
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('explica indisponibilidade de rede sem exibir o erro bruto do navegador', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    render(<MessageBubble message={message()} />);
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.getByText('Não foi possível conectar ao serviço de mídia. Verifique sua conexão e tente novamente.')).toBeTruthy();
+    expect(screen.queryByText('Failed to fetch')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+    await waitFor(() => expect(screen.getByRole('img').getAttribute('src')).toBe('blob:private-media'));
   });
 
   it('não busca a Meta nem o proxy sem sessão', async () => {

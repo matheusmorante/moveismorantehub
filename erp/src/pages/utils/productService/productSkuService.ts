@@ -1,6 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { normalizeVariationSku } from '../productVariationDefaults';
 import { getLocalProducts } from './productLocalCache';
+import { getNextSequentialProductCodeFromValues } from '../../../../../shared-utils/productSequentialCode';
 
 export const TABLE_NAME = 'products';
 
@@ -190,7 +191,7 @@ export const generateVariationSku = (
  */
 export const getNextSequentialProductCode = async (): Promise<string> => {
   try {
-    let maxNum = 0;
+    const codes: unknown[] = [];
 
     // 1. Consulta códigos de produtos do Supabase (ordenados decrescente com limite)
     const { data: productsData } = await supabase
@@ -201,14 +202,7 @@ export const getNextSequentialProductCode = async (): Promise<string> => {
 
     if (Array.isArray(productsData)) {
       productsData.forEach((p: any) => {
-        const raw = String(p.code || p.sku || '').trim();
-        const match = raw.match(/^(\d+)/);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (!isNaN(num) && num > maxNum) {
-            maxNum = num;
-          }
-        }
+        codes.push(p.code || p.sku);
       });
     }
 
@@ -221,14 +215,7 @@ export const getNextSequentialProductCode = async (): Promise<string> => {
 
     if (Array.isArray(variationsData)) {
       variationsData.forEach((v: any) => {
-        const raw = String(v.sku || '').trim();
-        const match = raw.match(/^(\d+)/);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (!isNaN(num) && num > maxNum) {
-            maxNum = num;
-          }
-        }
+        codes.push(v.sku);
       });
     }
 
@@ -236,28 +223,14 @@ export const getNextSequentialProductCode = async (): Promise<string> => {
     const local = getLocalProducts();
     if (local && Array.isArray(local)) {
       local.forEach((p: any) => {
-        const raw = String(p.code || p.sku || '').trim();
-        const match = raw.match(/^(\d+)/);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (!isNaN(num) && num > maxNum) {
-            maxNum = num;
-          }
-        }
+        codes.push(p.code || p.sku);
         (p.variations || []).forEach((v: any) => {
-          const vRaw = String(v.sku || '').trim();
-          const vMatch = vRaw.match(/^(\d+)/);
-          if (vMatch) {
-            const vNum = parseInt(vMatch[1], 10);
-            if (!isNaN(vNum) && vNum > maxNum) {
-              maxNum = vNum;
-            }
-          }
+          codes.push(v.sku);
         });
       });
     }
 
-    return String(maxNum + 1).padStart(6, '0');
+    return getNextSequentialProductCodeFromValues(codes);
   } catch (err) {
     console.error('Erro ao calcular próximo SKU sequencial:', err);
     return '000001';

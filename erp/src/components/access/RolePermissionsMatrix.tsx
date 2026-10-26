@@ -92,6 +92,7 @@ const moduleViewChildren: Record<string, string[]> = {
     'viewMetaCatalog',
     'viewWhatsAppMarketplace',
   ],
+  viewCustomerSupport: ['sendCustomerSupportMessages'],
 };
 
 export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({

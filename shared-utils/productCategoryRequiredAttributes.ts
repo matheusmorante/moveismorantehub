@@ -1,8 +1,28 @@
+import {
+  getCanonicalProductTechnicalValueFieldName,
+  getProductTechnicalValueFieldAliasRank,
+  getProductTechnicalValueFieldIdentity,
+  findProductTechnicalValueEntry,
+  getProductTechnicalValueCandidateKeys,
+  isCombinedProductModelLineAlias,
+} from './productTechnicalValueAliases';
+import { removeProductVariationTechnicalAttribute } from './productVariationTechnicalAttributes';
+
 export interface RequiredProductCategoryAttribute {
   readonly attributeId: string;
   readonly name: string;
   readonly requiredCategoryIds: readonly string[];
 }
+
+/** Returns whether a technical field is required by any selected product category. */
+export const isProductTechnicalAttributeRequiredByCategories = (
+  requiredCategoryIds: readonly string[] | undefined,
+  selectedCategoryIds: readonly string[]
+): boolean => {
+  if (!requiredCategoryIds?.length || !selectedCategoryIds.length) return false;
+  const selected = new Set(selectedCategoryIds.map(String));
+  return requiredCategoryIds.some((categoryId) => selected.has(String(categoryId)));
+};
 
 export interface ProductVariationTechnicalAttributes {
   readonly attributes?: unknown;
@@ -48,7 +68,16 @@ const toAttributeValue = (value: unknown): string | undefined => {
       .filter((item): item is string => Boolean(item));
     return values.length ? values.join(', ') : undefined;
   }
-  if (typeof value === 'string') return value.trim() || undefined;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const normalized = trimmed
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase('pt-BR');
+    return !trimmed || ['nao se aplica', 'n/a', 'nao informar'].includes(normalized)
+      ? undefined
+      : trimmed;
+  }
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : undefined;
   if (typeof value === 'boolean') return String(value);
   if (typeof value === 'object') {
@@ -70,6 +99,36 @@ const MODEL_LINE_KEYS = [
   'linha',
 ];
 
+const findExistingAttributeIndex = (
+  attributes: readonly ProductVariationAttribute[],
+  name: string
+): number => {
+  const normalizedName = normalizeName(name);
+  const candidates = getProductTechnicalValueCandidateKeys(name).map(normalizeName);
+  if (MODEL_LINE_KEYS.includes(normalizedName)) {
+    candidates.push(...MODEL_LINE_KEYS);
+  }
+
+  for (const candidate of new Set(candidates)) {
+    const index = attributes.findIndex((attribute) => normalizeName(attribute.name) === candidate);
+    if (index >= 0) return index;
+  }
+  return -1;
+};
+
+const getExistingAttributeIndexes = (
+  attributes: readonly ProductVariationAttribute[],
+  name: string
+): number[] => {
+  const candidates = new Set(getProductTechnicalValueCandidateKeys(name).map(normalizeName));
+  if (MODEL_LINE_KEYS.includes(normalizeName(name))) {
+    MODEL_LINE_KEYS.forEach((candidate) => candidates.add(candidate));
+  }
+  return attributes.flatMap((attribute, index) =>
+    candidates.has(normalizeName(attribute.name)) ? [index] : []
+  );
+};
+
 const readNamedValue = (
   values: unknown,
   name: string
@@ -77,16 +136,33 @@ const readNamedValue = (
   if (!values || typeof values !== 'object' || Array.isArray(values)) {
     return { found: false, value: undefined };
   }
-  const entries = Object.entries(values as Record<string, unknown>);
-  const normalizedName = normalizeName(name);
-  const exact = entries.find(([key]) => normalizeName(key) === normalizedName);
-  if (exact) return { found: true, value: exact[1] };
+  const entry = findProductTechnicalValueEntry(values as Record<string, unknown>, name);
+  return entry ? { found: true, value: entry.value } : { found: false, value: undefined };
+};
 
-  if (MODEL_LINE_KEYS.includes(normalizedName)) {
-    const alias = entries.find(([key]) => MODEL_LINE_KEYS.includes(normalizeName(key)));
-    if (alias) return { found: true, value: alias[1] };
-  }
-  return { found: false, value: undefined };
+const readVariationValue = (
+  attributes: readonly ProductVariationAttribute[],
+  technicalValues: unknown,
+  name: string
+): { found: boolean; value: unknown } => {
+  const attributeValues = Object.fromEntries(
+    attributes.flatMap((attribute) => {
+      const attributeName = attribute.name.trim();
+      if (!attributeName) return [];
+      return [
+        [attributeName, attribute.value],
+        [attributeName.toLocaleLowerCase('pt-BR'), attribute.value],
+      ];
+    })
+  );
+  const variationTechnicalValues =
+    technicalValues && typeof technicalValues === 'object' && !Array.isArray(technicalValues)
+      ? (technicalValues as Record<string, unknown>)
+      : {};
+
+  // Match the editor's effective-value lookup: exact technical keys replace the
+  // same attribute key, while canonical/legacy aliases retain candidate order.
+  return readNamedValue({ ...attributeValues, ...variationTechnicalValues }, name);
 };
 
 /**
@@ -109,9 +185,9 @@ export const fetchRequiredProductCategoryAttributes = async (
     .eq('is_required', true);
   if (error) throw error;
 
-  const byAttributeId = new Map<
+  const byFieldIdentity = new Map<
     string,
-    { attributeId: string; name: string; requiredCategoryIds: Set<string> }
+    { attributeId: string; name: string; sourceName: string; requiredCategoryIds: Set<string> }
   >();
   for (const row of Array.isArray(data) ? data : []) {
     if (row?.is_required !== true) continue;
@@ -126,19 +202,37 @@ export const fetchRequiredProductCategoryAttributes = async (
     // Peso is deliberately not a category-required technical field in either form.
     if (normalizeName(name) === 'peso') continue;
 
-    const current = byAttributeId.get(attributeId) || {
+    const isCombinedModelLine = isCombinedProductModelLineAlias(name);
+    const identity = isCombinedModelLine
+      ? getProductTechnicalValueFieldIdentity(name)
+      : `attribute:${attributeId}`;
+    const canonicalName = getCanonicalProductTechnicalValueFieldName(name);
+    const current = byFieldIdentity.get(identity) || {
       attributeId,
-      name,
+      name: canonicalName,
+      sourceName: name,
       requiredCategoryIds: new Set<string>(),
     };
+    const currentAliasRank = getProductTechnicalValueFieldAliasRank(current.sourceName);
+    const nextAliasRank = getProductTechnicalValueFieldAliasRank(name);
+    const nextAliasHasPriority = isCombinedModelLine && nextAliasRank < currentAliasRank;
+    const sameAliasRankAndEarlierId =
+      isCombinedModelLine &&
+      nextAliasRank === currentAliasRank &&
+      attributeId.localeCompare(current.attributeId, 'en') < 0;
+    if (nextAliasHasPriority || sameAliasRankAndEarlierId) {
+      current.attributeId = attributeId;
+      current.name = canonicalName;
+      current.sourceName = name;
+    }
     current.requiredCategoryIds.add(categoryId);
-    byAttributeId.set(attributeId, current);
+    byFieldIdentity.set(identity, current);
   }
 
-  return [...byAttributeId.values()].map((attribute) => ({
+  return [...byFieldIdentity.values()].map((attribute) => ({
     attributeId: attribute.attributeId,
     name: attribute.name,
-    requiredCategoryIds: [...attribute.requiredCategoryIds],
+    requiredCategoryIds: [...attribute.requiredCategoryIds].sort((left, right) => left.localeCompare(right, 'en')),
   }));
 };
 
@@ -168,12 +262,19 @@ export const projectRequiredCategoryAttributesToVariations = <
     ) {
       continue;
     }
-    const normalizedName = normalizeName(attribute.name);
-    if (!requiredAttributes.has(normalizedName)) requiredAttributes.set(normalizedName, attribute.name.trim());
+    const identity = getProductTechnicalValueFieldIdentity(attribute.name);
+    const fieldName = getCanonicalProductTechnicalValueFieldName(attribute.name);
+    const currentName = requiredAttributes.get(identity);
+    if (
+      !currentName ||
+      (identity === 'modelo/linha' && fieldName === 'Modelo/Linha' && currentName !== fieldName)
+    ) {
+      requiredAttributes.set(identity, fieldName);
+    }
   }
 
   return variations.map((variation) => {
-    const attributes = getAttributeRecord(variation.attributes).map((value: any) => {
+    let attributes = getAttributeRecord(variation.attributes).map((value: any) => {
       if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new Error('Uma característica da variação está em formato inválido.');
       }
@@ -185,17 +286,18 @@ export const projectRequiredCategoryAttributesToVariations = <
       } as ProductVariationAttribute;
     });
 
-    for (const [normalizedName, fieldName] of requiredAttributes) {
-      const existingIndex = attributes.findIndex(
-        (attribute) => normalizeName(attribute.name) === normalizedName
-      );
-      const variationValue = readNamedValue(variation.technicalValues, fieldName);
+    for (const fieldName of requiredAttributes.values()) {
+      const existingIndex = findExistingAttributeIndex(attributes, fieldName);
+      const variationValue = readVariationValue(attributes, variation.technicalValues, fieldName);
       let filledValue: string | undefined;
 
       if (variationValue.found && variationValue.value !== undefined && variationValue.value !== null) {
         // An explicit empty variation override must not be replaced by the parent value.
         filledValue = toAttributeValue(variationValue.value);
-        if (!filledValue) continue;
+        if (!filledValue) {
+          attributes = removeProductVariationTechnicalAttribute(attributes, fieldName);
+          continue;
+        }
       } else if (existingIndex >= 0) {
         filledValue = toAttributeValue(attributes[existingIndex].value);
       }
@@ -207,7 +309,15 @@ export const projectRequiredCategoryAttributesToVariations = <
       if (!filledValue) continue;
 
       if (existingIndex >= 0) {
-        attributes[existingIndex] = { ...attributes[existingIndex], value: filledValue };
+        const matchingIndexes =
+          getProductTechnicalValueFieldIdentity(fieldName) === 'modelo/linha'
+            ? getExistingAttributeIndexes(attributes, fieldName)
+            : [existingIndex];
+        const firstMatchingIndex = matchingIndexes[0] ?? existingIndex;
+        const matchingIndexSet = new Set(matchingIndexes);
+        const preferredAttribute = { ...attributes[existingIndex], value: filledValue };
+        attributes = attributes.filter((_, index) => !matchingIndexSet.has(index));
+        attributes.splice(Math.min(firstMatchingIndex, attributes.length), 0, preferredAttribute);
       } else {
         attributes.push({ name: fieldName, value: filledValue, showName: false });
       }

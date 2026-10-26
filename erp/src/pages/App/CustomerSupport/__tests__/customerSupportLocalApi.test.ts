@@ -40,7 +40,7 @@ describe('Rotas da Central no adaptador HTTP de desenvolvimento', () => {
     }
   });
 
-  it('mantém as duas rotas de envio bloqueadas', async () => {
+  it('bloqueia o despacho sem sandbox configurado e no webhook legado', async () => {
     const outbound = vi.fn().mockRejectedValue(new Error('External requests forbidden in this proof.'));
     vi.stubGlobal('fetch', outbound);
     for (const path of ['/api/whatsapp-dispatch', '/api/whatsapp-webhook?operation=dispatch']) {

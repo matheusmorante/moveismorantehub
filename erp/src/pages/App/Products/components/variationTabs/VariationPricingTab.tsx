@@ -2,6 +2,7 @@ import React from 'react';
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
 import CurrencyInput from '@/components/CurrencyInput';
+import { resolveProductVariationPricing } from '../../../../../../../shared-utils/productVariationPricing';
 
 interface VariationPricingTabProps {
   readonly formData: Variation;
@@ -9,8 +10,8 @@ interface VariationPricingTabProps {
   readonly parentProduct: Product;
   readonly varDiscountPercent: string;
   readonly varDiscountFixed: string;
-  readonly getParentDiscountPercent: () => string;
-  readonly getParentDiscountFixed: () => string;
+  readonly getEffectiveDiscountPercent: () => string;
+  readonly getEffectiveDiscountFixed: () => string;
   readonly handlePriceChange: (valStr: string) => void;
   readonly handleDiscountPercentChange: (valStr: string) => void;
   readonly handleDiscountFixedChange: (valStr: string) => void;
@@ -25,14 +26,30 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
   parentProduct,
   varDiscountPercent,
   varDiscountFixed,
-  getParentDiscountPercent,
-  getParentDiscountFixed,
+  getEffectiveDiscountPercent,
+  getEffectiveDiscountFixed,
   handlePriceChange,
   handleDiscountPercentChange,
   handleDiscountFixedChange,
   handlePromoPriceFieldChange,
   isSingleVariation = false,
 }) => {
+  const effectivePricing = resolveProductVariationPricing(formData, parentProduct);
+  const inheritanceLabel = effectivePricing.hasMixedInheritance
+    ? 'Herança Parcial'
+    : effectivePricing.inheritsUnitPrice
+      ? 'Preço Herdado do Pai'
+      : 'Preço Personalizado';
+  const inheritanceTitle = effectivePricing.hasMixedInheritance
+    ? effectivePricing.inheritsUnitPrice
+      ? 'Preço regular herdado e promoção própria. Clique para tornar ambos próprios sem alterar os valores atuais.'
+      : 'Preço regular próprio e promoção herdada. Clique para herdar ambos do pai.'
+    : isSingleVariation
+      ? 'A única variação herda os dados do produto.'
+      : undefined;
+  const hasInheritedPrice =
+    effectivePricing.inheritsUnitPrice || effectivePricing.inheritsPromoPrice;
+
   return (
     <div className="space-y-6 animate-in fade-in duration-350">
       {/* Precificação e Venda */}
@@ -45,26 +62,34 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
             type="button"
             disabled={isSingleVariation}
             onClick={() => {
-              const nextSync = !formData.syncUnitPrice;
+              const nextSync = !effectivePricing.inheritsUnitPrice;
               setFormData((prev) =>
                 prev
                   ? {
                       ...prev,
                       syncUnitPrice: nextSync,
+                      syncPromoPrice: nextSync,
                       unitPrice: nextSync ? parentProduct.unitPrice : prev.unitPrice,
                       promoPrice: nextSync ? parentProduct.promoPrice : prev.promoPrice,
                     }
                   : null
               );
             }}
-            title={isSingleVariation ? 'A única variação herda os dados do produto.' : undefined}
+            title={inheritanceTitle}
+            aria-label={
+              effectivePricing.hasMixedInheritance
+                ? `Herança parcial: preço regular ${effectivePricing.inheritsUnitPrice ? 'herdado' : 'próprio'}, promoção ${effectivePricing.inheritsPromoPrice ? 'herdada' : 'própria'}`
+                : inheritanceLabel
+            }
             className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-xl transition-all ${isSingleVariation ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'} ${
-              formData.syncUnitPrice
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+              effectivePricing.hasMixedInheritance
+                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
+                : effectivePricing.inheritsUnitPrice
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
             }`}
           >
-            {formData.syncUnitPrice ? 'Preço Herdado do Pai' : 'Preço Personalizado'}
+            {inheritanceLabel}
           </button>
         </div>
 
@@ -80,10 +105,8 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
             <CurrencyInput
               id="variation-unit-price-input"
               aria-label="Preço de venda da variação"
-              disabled={formData.syncUnitPrice}
-              value={
-                formData.syncUnitPrice ? parentProduct.unitPrice || 0 : formData.unitPrice || 0
-              }
+              disabled={effectivePricing.inheritsUnitPrice}
+              value={Number(effectivePricing.unitPrice || 0)}
               onChange={(val) => handlePriceChange(String(val))}
               className="w-full text-left px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-blue-600 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60"
             />
@@ -104,9 +127,13 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
                 min="0"
                 max="100"
                 aria-label="Desconto em percentual da variação"
-                disabled={formData.syncUnitPrice}
+                disabled={effectivePricing.inheritsPromoPrice}
                 placeholder="0"
-                value={formData.syncUnitPrice ? getParentDiscountPercent() : varDiscountPercent}
+                value={
+                  hasInheritedPrice
+                    ? getEffectiveDiscountPercent()
+                    : varDiscountPercent
+                }
                 onChange={(e) => handleDiscountPercentChange(e.target.value)}
                 className="w-full pl-1 pr-8 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-emerald-600 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60"
               />
@@ -130,8 +157,12 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
             <CurrencyInput
               id="variation-discount-fixed-input"
               aria-label="Desconto fixo em reais da variação"
-              disabled={formData.syncUnitPrice}
-              value={formData.syncUnitPrice ? getParentDiscountFixed() : varDiscountFixed}
+              disabled={effectivePricing.inheritsPromoPrice}
+              value={
+                hasInheritedPrice
+                  ? getEffectiveDiscountFixed()
+                  : varDiscountFixed
+              }
               onChange={(val) => handleDiscountFixedChange(String(val))}
               className="w-full text-left px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-emerald-600 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60"
             />
@@ -148,10 +179,8 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
             <CurrencyInput
               id="variation-promo-price-input"
               aria-label="Preço promocional da variação"
-              disabled={formData.syncUnitPrice}
-              value={
-                formData.syncUnitPrice ? parentProduct.promoPrice || 0 : formData.promoPrice || 0
-              }
+              disabled={effectivePricing.inheritsPromoPrice}
+              value={Number(effectivePricing.promoPrice || 0)}
               onChange={(val) => handlePromoPriceFieldChange(String(val))}
               className="w-full text-left px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-amber-600 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60"
             />

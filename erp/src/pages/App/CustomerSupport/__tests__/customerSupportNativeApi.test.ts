@@ -13,8 +13,10 @@ it('carrega a API no Node nativo com o processador CJS produzido pelo build real
   mkdirSync(scratch, { recursive: true });
   const output = mkdtempSync(join(scratch, 'support-native-esm-'));
   const sources = ['erp/api/whatsapp-webhook.ts', 'api/whatsapp-webhook.ts', 'api/whatsapp-media.ts',
+    'api/whatsapp-dispatch.ts',
     'api/supabaseSecretKey.ts', 'erp/api/secure-integrations.ts', 'erp/api/_lib/authenticatedErpRequest.ts',
     'erp/server/secure-api/verifyMetaAppCredentials.ts', 'erp/server/secure-api/verifyWhatsAppWebhookSubscription.ts',
+    'erp/server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts',
     'erp/src/pages/utils/metaService/metaGraphProxyPolicy.ts', 'erp/src/pages/utils/customerSupport/whatsappMediaProxy.ts',
     'erp/src/pages/utils/customerSupport/whatsappWebhookProcessor.ts',
     'erp/src/pages/utils/customerSupport/customerMatchingService.ts',

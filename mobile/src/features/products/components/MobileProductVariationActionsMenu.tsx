@@ -1,5 +1,6 @@
 import {
   ArrowLeftRight,
+  Copy,
   Edit3,
   GitMerge,
   QrCode,
@@ -26,6 +27,7 @@ interface Props {
   isMerged?: boolean;
   onClose: () => void;
   onEdit?: () => void;
+  onDuplicate?: () => void;
   onPrintLabel?: () => void;
   onMoveToAnotherFamily?: () => void;
   onMergeWithAnotherVariation?: () => void;
@@ -34,8 +36,8 @@ interface Props {
   onMoveProductToTrash?: () => void;
   canMoveProductToTrash?: boolean;
   trashBlockReason?: string | null;
-  hasSupplier?: boolean;
-  hasValidAttributes?: boolean;
+  hasSupplier: boolean;
+  hasValidAttributes: boolean;
 }
 
 export const MobileProductVariationActionsMenu: React.FC<Props> = ({
@@ -45,6 +47,7 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
   isMerged = false,
   onClose,
   onEdit,
+  onDuplicate,
   onPrintLabel,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
@@ -53,8 +56,8 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
   onMoveProductToTrash,
   canMoveProductToTrash = false,
   trashBlockReason,
-  hasSupplier = true,
-  hasValidAttributes = true,
+  hasSupplier,
+  hasValidAttributes,
 }) => (
   <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <TouchableWithoutFeedback onPress={onClose}>
@@ -106,6 +109,20 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
                 <Text style={[styles.itemText, dark && styles.textDark]}>Editar Produto</Text>
               </TouchableOpacity>
             ) : null}
+            {onDuplicate ? (
+              <TouchableOpacity
+                style={styles.item}
+                onPress={() => {
+                  onClose();
+                  onDuplicate();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Duplicar produto"
+              >
+                <Copy size={16} color="#4f46e5" />
+                <Text style={[styles.itemText, dark && styles.textDark]}>Duplicar</Text>
+              </TouchableOpacity>
+            ) : null}
             {onMoveToAnotherFamily && !isMerged ? (
               <TouchableOpacity
                 style={styles.item}
@@ -114,14 +131,14 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
                   if (!hasSupplier) {
                     Alert.alert(
                       'Fornecedor obrigatório',
-                      'Selecione um fornecedor no produto antes de mover ou mesclar suas variações.'
+                      'Este produto não possui um fornecedor. Selecione um fornecedor antes de mover ou mesclar suas variações.'
                     );
                     return;
                   }
                   if (!hasValidAttributes) {
                     Alert.alert(
                       'Característica obrigatória',
-                      'Defina ao menos uma característica e um valor para mover esta variação.'
+                      'Este produto deve ter uma característica e um valor definidos.'
                     );
                     return;
                   }
@@ -140,7 +157,7 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
                   if (!hasSupplier) {
                     Alert.alert(
                       'Fornecedor obrigatório',
-                      'Selecione um fornecedor no produto antes de mover ou mesclar suas variações.'
+                      'Este produto não possui um fornecedor. Selecione um fornecedor antes de mover ou mesclar suas variações.'
                     );
                     return;
                   }

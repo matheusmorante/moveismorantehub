@@ -6,11 +6,13 @@ import { DEFAULT_QUICK_SNIPPETS } from '@/pages/utils/customerSupport/customerSu
 interface QuickSnippetsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSelect?: (snippet: QuickSnippet) => void;
 }
 
 export const QuickSnippetsModal: React.FC<QuickSnippetsModalProps> = ({
   isOpen,
   onClose,
+  onSelect,
 }) => {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
@@ -67,7 +69,7 @@ export const QuickSnippetsModal: React.FC<QuickSnippetsModalProps> = ({
                 Respostas Rápidas & Modelos
               </h3>
               <p className="text-xs text-slate-400">
-                Selecione um modelo pré-definido para copiar o texto
+                Insira uma resposta rápida no compositor ou copie o texto
               </p>
             </div>
           </div>
@@ -143,6 +145,16 @@ export const QuickSnippetsModal: React.FC<QuickSnippetsModalProps> = ({
                     <i className="bi bi-clipboard-check"></i>
                     Copiar
                   </button>
+                  {onSelect && (
+                    <button
+                      type="button"
+                      onClick={() => onSelect(s)}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-[11px] font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <i className="bi bi-arrow-return-left"></i>
+                      Inserir
+                    </button>
+                  )}
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-white/70 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 select-text">
                   {s.content}

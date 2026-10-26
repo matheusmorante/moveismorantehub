@@ -1,25 +1,21 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import {
+  buildProductParentSearchFilter,
   buildProductSearchTerms,
+  buildProductVariationSearchFilter,
   createProductVariationSearchTooBroadError,
   PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
 } from '../../../../../shared-utils/productListSearch';
 import { PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER } from '../../../../../shared-utils/productListTypeFilters';
 import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
 import { fetchProductListCategoryFilter } from '../../../../../shared-utils/productListCategoryFilters';
-const NON_TEST_PRODUCT_ARTIFACT_FILTER = [
-  'and(',
-  'or(technical_specs->>is_test.is.null,technical_specs->>is_test.neq.true),',
-  'or(technical_specs->>isTest.is.null,technical_specs->>isTest.neq.true),',
-  'or(technical_specs->testArtifact->>is_test.is.null,technical_specs->testArtifact->>is_test.neq.true),',
-  'or(technical_specs->testArtifact->>isTest.is.null,technical_specs->testArtifact->>isTest.neq.true)',
-  ')',
-].join('');
-
+import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../shared-utils/testArtifactQueries';
 export interface ProductQueryFilterOptions {
   showTrash?: boolean;
   search?: string;
   category?: string;
+  categoryIds?: string[];
+  brand?: string;
   activeOnly?: boolean;
   status?: string;
   isDraft?: boolean;
@@ -89,13 +85,12 @@ export const applyProductFiltersAndSort = async (
     const { searchTerms, wordTerms } = buildProductSearchTerms(options.search);
     if (searchTerms.length > 0) {
 
-      // 1. Buscar variações pelo campo 'name' na tabela product_variations (aproveita idx_product_variations_name_trgm)
+      // 1. Buscar nome e SKU das variações para o catálogo de atendimento aceitar código/SKU.
       let variationParentIds: string[] = [];
-      const varOrList = searchTerms.map((t) => `name.ilike.%${t}%`);
       const { data: matchedVariations, error: variationSearchError } = await supabase
         .from('product_variations')
         .select('product_id')
-        .or(varOrList.join(','))
+        .or(buildProductVariationSearchFilter(searchTerms))
         .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1);
       if (variationSearchError) throw variationSearchError;
       if ((matchedVariations?.length ?? 0) > PRODUCT_VARIATION_SEARCH_MATCH_LIMIT)
@@ -107,34 +102,20 @@ export const applyProductFiltersAndSort = async (
         );
       }
 
-      // 2. Montar filtro or com o campo name dos produtos e os IDs de variações (aproveita idx_products_name_trgm)
-      const orConditions: string[] = [];
-      searchTerms.forEach((t) => {
-        orConditions.push(`name.ilike.%${t}%`);
-      });
-
-      // Adicionar condição AND palavra por palavra para tolerar ordem ou palavras adicionais
-      if (wordTerms.length > 0) {
-        const andConditionsList = wordTerms.map(({ value, alternative }) =>
-          alternative
-            ? `or(name.ilike.%${value}%,name.ilike.%${alternative}%)`
-            : `name.ilike.%${value}%`
-        );
-        orConditions.push(`and(${andConditionsList.join(',')})`);
-      }
-
-      if (variationParentIds.length > 0) {
-        variationParentIds.forEach((id) => {
-          orConditions.push(`id.eq.${id}`);
-        });
-      }
-
-      q = q.or(orConditions.join(','));
+      // 2. Montar filtro OR com nome/código do produto e pais encontrados por nome/SKU da variação.
+      q = q.or(buildProductParentSearchFilter({ searchTerms, wordTerms }, variationParentIds));
     }
   }
 
   // Filtro de categoria
-  if (options?.category && options.category !== 'Serviços' && options.category !== 'Produtos') {
+  if (options?.categoryIds?.length) {
+    const categoryFilters = await Promise.all(
+      Array.from(new Set(options.categoryIds.filter(Boolean))).map((categoryId) =>
+        fetchProductListCategoryFilter(supabase, categoryId)
+      )
+    );
+    q = q.or(categoryFilters.join(','));
+  } else if (options?.category && options.category !== 'Serviços' && options.category !== 'Produtos') {
     q = q.or(await fetchProductListCategoryFilter(supabase, options.category));
   } else if (options?.category === 'Serviços') {
     q = q.eq('item_type', 'service');
@@ -152,6 +133,10 @@ export const applyProductFiltersAndSort = async (
     q = q.or(
       `supplier_id.eq.${options.supplierId},main_supplier_id.eq.${options.supplierId},supplier_ids.cs.{"${options.supplierId}"}`
     );
+  }
+
+  if (options?.brand) {
+    q = q.eq('brand', options.brand);
   }
 
   if (options?.excludeTestProducts) {

@@ -33,23 +33,11 @@ export function filterCategories(
     if (filterType === 'sem_ambiente' && hasEnv) return false;
 
     if (searchTerm && searchTerm.trim()) {
-      const norm = searchTerm.trim().toLowerCase();
+      const norm = searchTerm.toLowerCase();
       return c.name.toLowerCase().includes(norm);
     }
     return true;
   });
-}
-
-/**
- * Filtra ambientes com base em termo de busca textual.
- */
-export function filterEnvironments(
-  environments: EnvironmentNode[],
-  searchTerm: string
-): EnvironmentNode[] {
-  if (!searchTerm || !searchTerm.trim()) return environments;
-  const norm = searchTerm.trim().toLowerCase();
-  return environments.filter((e) => e.name.toLowerCase().includes(norm));
 }
 
 /**

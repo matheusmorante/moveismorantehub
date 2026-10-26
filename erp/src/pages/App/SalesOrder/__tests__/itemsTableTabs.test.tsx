@@ -39,7 +39,7 @@ import BodyRow from '../ItemsTable/BodyRow';
 import { Item, ItemsSummary } from '@/pages/types/items.type';
 import { calcItemsSummary } from '@/pages/utils/calculations';
 
-describe('ItemsTable - Abas Produtos e Serviços e Densidade Compacta', () => {
+describe('ItemsTable - Lista unificada de produtos e serviços', () => {
   afterEach(() => {
     cleanup();
   });
@@ -82,7 +82,21 @@ describe('ItemsTable - Abas Produtos e Serviços e Densidade Compacta', () => {
     },
   ];
 
-  it('deve exibir os contadores corretos nas abas Produtos e Serviços', () => {
+  const StatefulEmptyItemsTable: React.FC = () => {
+    const [items, setItems] = React.useState<Item[]>([]);
+    return (
+      <ItemsTable
+        items={items}
+        setItems={setItems}
+        summary={mockSummary}
+        deliveryMethod="delivery"
+        errors={{}}
+        onSelectProduct={vi.fn()}
+      />
+    );
+  };
+
+  it('exibe contadores de itens, produtos e serviços sem abas', () => {
     render(
       <ItemsTable
         items={initialItems}
@@ -94,19 +108,14 @@ describe('ItemsTable - Abas Produtos e Serviços e Densidade Compacta', () => {
       />
     );
 
-    // Aba Produtos: 2 itens de produto
-    const productTab = screen.getByRole('button', { name: /Produtos/i });
-    expect(productTab).toBeTruthy();
-    expect(productTab.textContent).toContain('2');
-
-    // Aba Serviços: 1 item de serviço
-    const serviceTab = screen.getByRole('button', { name: /Serviços/i });
-    expect(serviceTab).toBeTruthy();
-    expect(serviceTab.textContent).toContain('1');
+    expect(screen.getByText('3 itens')).toBeTruthy();
+    expect(screen.getByText('2 produtos')).toBeTruthy();
+    expect(screen.getByText('1 serviço')).toBeTruthy();
+    expect(screen.queryByRole('tab')).toBeNull();
   });
 
-  it('deve filtrar os itens conforme a aba ativa', () => {
-    render(
+  it('mantém produtos e serviços visíveis na ordem adicionada', () => {
+    const { container } = render(
       <ItemsTable
         items={initialItems}
         setItems={vi.fn()}
@@ -117,20 +126,17 @@ describe('ItemsTable - Abas Produtos e Serviços e Densidade Compacta', () => {
       />
     );
 
-    // Inicialmente na aba Produtos: deve listar os produtos
-    expect(screen.getByText('Mesa de Jantar Madeira')).toBeTruthy();
-    expect(screen.getByText('Cadeira Estofada')).toBeTruthy();
-    // Não deve listar o serviço
-    expect(screen.queryByText('Instalação e Montagem Especial')).toBeNull();
+    const descriptions = Array.from(
+      container.querySelectorAll<HTMLInputElement>(
+        'input[aria-label="Descrição do produto"], input[aria-label="Descrição do serviço"]'
+      )
+    ).map((input) => input.value);
 
-    // Clica na aba Serviços
-    const serviceTab = screen.getByRole('button', { name: /Serviços/i });
-    fireEvent.click(serviceTab);
-
-    // Agora na aba Serviços: deve listar o serviço e ocultar os produtos
-    expect(screen.getByText('Instalação e Montagem Especial')).toBeTruthy();
-    expect(screen.queryByText('Mesa de Jantar Madeira')).toBeNull();
-    expect(screen.queryByText('Cadeira Estofada')).toBeNull();
+    expect(descriptions).toEqual([
+      'Mesa de Jantar Madeira',
+      'Cadeira Estofada',
+      'Instalação e Montagem Especial',
+    ]);
   });
 
   it('aceita descrição avulsa e permite vincular o serviço a vários produtos', () => {
@@ -204,7 +210,7 @@ describe('ItemsTable - Abas Produtos e Serviços e Densidade Compacta', () => {
     });
   });
 
-  it('o botão contextual de adicionar deve mudar conforme a aba selecionada e ser único na linha das abas', () => {
+  it('permite adicionar produto ou serviço pelo botão Adicionar item', () => {
     const setItemsMock = vi.fn();
     render(
       <ItemsTable
@@ -217,18 +223,63 @@ describe('ItemsTable - Abas Produtos e Serviços e Densidade Compacta', () => {
       />
     );
 
-    // Na aba Produtos: deve existir exatamente 1 único botão de Adicionar produto
-    const addProductButtons = screen.getAllByRole('button', { name: /Adicionar produto/i });
-    expect(addProductButtons.length).toBe(1);
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar item/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Serviço' }));
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar item/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Produto' }));
 
-    // Alterna para aba Serviços
-    const serviceTab = screen.getByRole('button', { name: /Serviços/i });
-    fireEvent.click(serviceTab);
+    const additions = setItemsMock.mock.calls.map(([update]) => {
+      const nextItems = (update as (previous: Item[]) => Item[])(initialItems);
+      return nextItems[nextItems.length - 1]?.itemType;
+    });
+    expect(additions).toEqual(['service', 'product']);
+  });
 
-    // Agora deve ser Adicionar serviço: deve existir exatamente 1 único botão
-    const addServiceButtons = screen.getAllByRole('button', { name: /Adicionar serviço/i });
-    expect(addServiceButtons.length).toBe(1);
-    expect(screen.queryByRole('button', { name: /Adicionar produto/i })).toBeNull();
+  it('expande um serviço ao sair da descrição preenchida e não reabre após recolher', () => {
+    render(<StatefulEmptyItemsTable />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar item/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Serviço' }));
+
+    let description = screen.getByRole('textbox', { name: 'Descrição do serviço' });
+    expect(screen.getByRole('button', { name: /Aguarde a descrição para expandir/i })).toHaveProperty('disabled', true);
+
+    fireEvent.change(description, { target: { value: 'Montagem do móvel' } });
+    expect(screen.getByRole('button', { name: 'Expandir item 1' })).toHaveProperty('disabled', false);
+    fireEvent.blur(description);
+    expect(screen.getByTitle('Recolher item')).toBeTruthy();
+
+    fireEvent.click(screen.getByTitle('Recolher item'));
+    description = screen.getByRole('textbox', { name: 'Descrição do serviço' });
+    fireEvent.change(description, { target: { value: 'Montagem do móvel no local' } });
+    fireEvent.blur(description);
+
+    expect(screen.queryByTitle('Recolher item')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Expandir item 1' })).toHaveProperty('disabled', false);
+  });
+
+  it('expande um produto pela descrição digitada sem exigir seleção do catálogo', () => {
+    render(<StatefulEmptyItemsTable />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Adicionar item/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Produto' }));
+
+    let description = screen.getByRole('textbox', { name: 'Descrição do produto' });
+    expect(screen.getByRole('button', { name: /Aguarde a descrição para expandir/i })).toHaveProperty('disabled', true);
+
+    fireEvent.change(description, { target: { value: 'Produto avulso' } });
+    expect(screen.getByRole('button', { name: 'Expandir item 1' })).toHaveProperty('disabled', false);
+    fireEvent.blur(description);
+
+    expect(screen.getByTitle('Recolher item')).toBeTruthy();
+
+    fireEvent.click(screen.getByTitle('Recolher item'));
+    description = screen.getByRole('textbox', { name: 'Descrição do produto' });
+    fireEvent.change(description, { target: { value: 'Produto avulso atualizado' } });
+    fireEvent.blur(description);
+
+    expect(screen.queryByTitle('Recolher item')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Expandir item 1' })).toHaveProperty('disabled', false);
   });
 
   it('não deve separar os cálculos financeiros: calcItemsSummary soma produtos e serviços juntos', () => {

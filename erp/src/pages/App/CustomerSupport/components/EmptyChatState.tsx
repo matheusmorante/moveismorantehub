@@ -1,6 +1,10 @@
 import React from 'react';
 
-export const EmptyChatState: React.FC = () => {
+interface EmptyChatStateProps {
+  enableDevelopmentTestMode?: boolean;
+}
+
+export const EmptyChatState: React.FC<EmptyChatStateProps> = ({ enableDevelopmentTestMode = false }) => {
   return (
     <div className="flex-1 flex flex-col min-w-0 items-center justify-center p-8 bg-[#f0f2f5]/80 dark:bg-[#111b21] text-center select-none relative overflow-hidden transition-colors">
       {/* Padrão decorativo de fundo sutil estilo WhatsApp Web */}
@@ -72,8 +76,12 @@ export const EmptyChatState: React.FC = () => {
 
         {/* Aviso da política de envio */}
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-200/60 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 text-[11px] font-medium border border-slate-300/40 dark:border-slate-700/40">
-          <i className="bi bi-lock-fill text-amber-500 text-xs"></i>
-          <span>Envio de mensagens desativado pela política da empresa</span>
+          <i className={`bi ${enableDevelopmentTestMode ? 'bi-shield-check' : 'bi-lock-fill'} text-amber-500 text-xs`}></i>
+          <span>
+            {enableDevelopmentTestMode
+              ? 'Teste sandbox: conversa do número Meta e janela de 24 horas necessárias'
+              : 'Envio para clientes desativado pela política da empresa'}
+          </span>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import Order from '../types/order.type';
 import Person from '../types/person.type';
 import { calcItemTotalValue, calcPaymentTotalValue } from './calculations';
 import { toTitleCase } from './textUtils';
+import { formatBrlCurrency } from '../../../../shared-utils/productCurrencyFormatting';
 
 export const stringifyFullAddress = (address: any) => {
   if (!address) return '';
@@ -151,10 +152,7 @@ export const dateNow = () => {
 };
 
 export const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value);
+  return formatBrlCurrency(value);
 };
 
 export const capitalizeCustomerData = (data: CustomerData): CustomerData => {

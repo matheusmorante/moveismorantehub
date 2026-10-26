@@ -1,6 +1,7 @@
 import type Product from '../../../pages/types/product.type';
 import { toTitleCase } from '../../../pages/utils/textUtils';
 import { hasVariationAttribute } from './variationAttributes';
+import { isSingleProductVariationFormMode } from '../../../../../shared-utils/productVariationMode';
 
 /**
  * Remove somente o identificador interno que versões antigas ou colisões temporárias anexavam ao SKU.
@@ -26,22 +27,29 @@ export const isDefaultVariation = (variation: any, index?: number): boolean => {
 export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): T => {
   if (product.itemType === 'service') return product;
   const isDraft = Boolean(product.isDraft ?? (product as any).is_draft) || product.status === 'draft';
+  const storedDraftMode = product.hasVariations ?? (product as any).has_variations;
   if (product.variations?.length) {
+    const isSingleVariation = isSingleProductVariationFormMode(
+      product,
+      product.variations.length,
+      false
+    );
     return {
       ...product,
-      hasVariations: isDraft && typeof product.hasVariations === 'boolean'
-        ? product.hasVariations
+      hasVariations: isDraft && typeof storedDraftMode === 'boolean'
+        ? storedDraftMode
         : product.variations.length > 1,
-      ...(product.variations.length === 1
+      ...(isSingleVariation
         ? { variations: [{ ...product.variations[0], images: [...(product.images || [])] }] }
         : {}),
     };
   }
   const name = toTitleCase(product.name || product.title || product.description || '');
   const sku = product.code ? `${product.code}-01` : '';
+  const inheritDefaultVariationGallery = isSingleProductVariationFormMode(product, 0, true);
   return {
     ...product,
-    hasVariations: isDraft && typeof product.hasVariations === 'boolean' ? product.hasVariations : false,
+    hasVariations: isDraft && typeof storedDraftMode === 'boolean' ? storedDraftMode : false,
     // A variação principal é um novo registro físico e recebe seu próprio UUID.
     variations: [
       {
@@ -68,7 +76,7 @@ export const ensureDefaultVariation = <T extends Partial<Product>>(product: T): 
         active: product.active !== false,
         status: product.status || 'hidden',
         attributes: [],
-        images: [...(product.images || [])],
+        images: inheritDefaultVariationGallery ? [...(product.images || [])] : [],
         syncUnitPrice: true,
         syncPromoPrice: true,
         syncCostPrice: true,

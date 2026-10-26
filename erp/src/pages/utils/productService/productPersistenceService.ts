@@ -22,6 +22,20 @@ export const ensureUuidFormat = (product: Partial<Product>): string => {
   );
 };
 
+export const isCompositionProduct = (product: Partial<Product>): boolean =>
+  product.itemType === 'composition' || (product as any).item_type === 'composition';
+
+/** Availability of a composition is a read projection, not physical inventory. */
+export const omitCompositionAvailabilityStock = <T extends Partial<Product>>(product: T): T => {
+  if (!isCompositionProduct(product)) return product;
+
+  return {
+    ...product,
+    stock: undefined,
+    variations: product.variations?.map((variation) => ({ ...variation, stock: undefined })),
+  } as T;
+};
+
 export const syncProductToSupabase = async (
   product: Product,
   options: { insertOnly?: boolean } = {}
@@ -55,7 +69,10 @@ export const syncProductToSupabase = async (
       requiredCategoryAttributes = fetchedAttributes;
     }
 
-    const dbData = mapToDB(product);
+    // Composition availability is calculated from its components when read. Do not
+    // write that projection over the physical-stock cache maintained by inventory moves.
+    const persistenceProduct = omitCompositionAvailabilityStock(product);
+    const dbData = mapToDB(persistenceProduct);
     // Remover propriedades que não são colunas diretas da tabela products
     delete dbData.variations;
     delete dbData.category;
@@ -161,9 +178,10 @@ export const syncProductToSupabase = async (
         product.variations &&
         product.variations.length > 0
       ) {
-        const existingSpecs = product.technicalSpecs || (product as any).technical_specs || {};
+        const existingSpecs =
+          persistenceProduct.technicalSpecs || (persistenceProduct as any).technical_specs || {};
         const variationsToPersist = projectRequiredCategoryAttributesToVariations(
-          [...product.variations],
+          [...(persistenceProduct.variations || [])],
           {
             categoryIds,
             requiredAttributes: requiredCategoryAttributes,
@@ -281,7 +299,9 @@ export const syncProductToSupabase = async (
               : v.unitPrice !== undefined && v.unitPrice !== null
                 ? Number(v.unitPrice)
                 : 0,
-            stock: v.stock ? parseInt(String(v.stock), 10) : 0,
+            ...(isCompositionProduct(product)
+              ? {}
+              : { stock: v.stock ? parseInt(String(v.stock), 10) : 0 }),
             image_url: effectiveImages.length > 0 ? effectiveImages.join(',') : null,
             attributes: attributesToSave,
             combo_items: Array.isArray((v as any).comboItems) ? (v as any).comboItems : [],

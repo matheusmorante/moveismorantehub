@@ -22,6 +22,8 @@ function getHandler(routeName) {
     ? path.join(serverSecureApiDir, 'secure-integrations.cjs')
     : routeName === 'whatsapp-webhook'
     ? path.join(projectRoot, 'erp/server/customer-support/whatsapp-webhook.cjs')
+    : routeName === 'whatsapp-dispatch'
+    ? path.join(projectRoot, 'erp/server/customer-support/whatsapp-dispatch.cjs')
     : routeName === 'test-artifact-operator'
     ? path.join(projectRoot, 'erp/server/testing/test-artifact-operator.cjs')
     : path.join(serverNfeDir, `${routeName}.cjs`);
@@ -62,9 +64,11 @@ const server = http.createServer(async (req, res) => {
 
   let routeName = null;
   let supportOperation = null;
-  if (pathname === '/api/whatsapp-media' || pathname === '/api/whatsapp-dispatch' || pathname === '/api/whatsapp-webhook') {
+  if (pathname === '/api/whatsapp-media' || pathname === '/api/whatsapp-webhook') {
     routeName = 'whatsapp-webhook';
-    supportOperation = pathname === '/api/whatsapp-media' ? 'media' : pathname === '/api/whatsapp-dispatch' ? 'dispatch' : null;
+    supportOperation = pathname === '/api/whatsapp-media' ? 'media' : null;
+  } else if (pathname === '/api/whatsapp-dispatch') {
+    routeName = 'whatsapp-dispatch';
   } else if (pathname === '/api/testing/test-artifact-operator') {
     routeName = 'test-artifact-operator';
   } else if (['/api/meta-graph', '/api/gemini-proxy', '/api/google-routes'].includes(pathname)) {

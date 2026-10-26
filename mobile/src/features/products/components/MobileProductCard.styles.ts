@@ -148,6 +148,14 @@ export const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0f172a',
   },
+  compositionSummary: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#64748b',
+  },
+  darkCompositionSummary: {
+    color: '#94a3b8',
+  },
   lightText: {
     color: '#f8fafc',
   },

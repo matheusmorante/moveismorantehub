@@ -5,6 +5,7 @@ import {
   unlinkMobileCategoryFromEnvironment,
   saveMobileCategory,
   deleteMobileCategory,
+  fetchMobileCategories,
   fetchMobileCategoryProductCounts,
   fetchMobileCategoryAttributes,
 } from '../../services/mobileCategoryService';
@@ -23,8 +24,37 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
     vi.clearAllMocks();
   });
 
+  it('mantém ambientes fora das categorias disponíveis para produtos', async () => {
+    const categoriesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: [
+          { id: 'cat-1', name: 'Cozinha', type: 'category' },
+          { id: 'env-1', name: 'Casa', type: 'environment' },
+          { id: 'cat-legacy', name: 'Legada' },
+        ],
+        error: null,
+      }),
+    };
+    const relationshipsQuery = {
+      select: vi.fn().mockResolvedValue({
+        data: [{ parent_id: 'env-1', child_id: 'cat-1' }],
+        error: null,
+      }),
+    };
+    (supabase.from as any).mockImplementation((table: string) =>
+      table === 'categories' ? categoriesQuery : relationshipsQuery
+    );
+
+    await expect(fetchMobileCategories()).resolves.toEqual([
+      { id: 'cat-1', name: 'Cozinha', type: 'category', parents: ['env-1'] },
+      { id: 'cat-legacy', name: 'Legada', parents: [] },
+    ]);
+  });
+
   describe('1. Persistência de Ambientes (saveMobileEnvironment, delete, unlink)', () => {
     it('AC-04: Cria novo ambiente persistindo nome, tipo environment e vínculos', async () => {
+      const mockSlugLookup = vi.fn().mockResolvedValue({ data: [], error: null });
       const mockInsert = vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
           single: vi
@@ -41,7 +71,10 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
 
       (supabase.from as any).mockImplementation((table: string) => {
         if (table === 'categories') {
-          return { insert: mockInsert };
+          return {
+            select: vi.fn().mockReturnValue({ like: mockSlugLookup }),
+            insert: mockInsert,
+          };
         }
         if (table === 'category_relationships') {
           return { delete: mockDeleteRel, insert: mockInsertRel };
@@ -52,15 +85,16 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       const result = await saveMobileEnvironment('SALA VIP', ['cat-1', 'cat-2']);
       expect(result).toBe('env-new-1');
       expect(mockInsert).toHaveBeenCalledWith([
-        expect.objectContaining({ name: 'SALA VIP', type: 'environment' }),
+        expect.objectContaining({ name: 'Sala Vip', type: 'environment', slug: 'sala-vip' }),
       ]);
       expect(mockInsertRel).toHaveBeenCalledWith([
         { parent_id: 'env-new-1', child_id: 'cat-1' },
         { parent_id: 'env-new-1', child_id: 'cat-2' },
       ]);
+      expect(mockDeleteRel).not.toHaveBeenCalled();
     });
 
-    it('AC-07 / AC-08: Edita ambiente existente e atualiza relacionamentos atomicamente', async () => {
+    it('AC-07 / AC-08: Edita ambiente existente e sincroniza os relacionamentos', async () => {
       const mockUpdate = vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({
@@ -85,7 +119,7 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       const result = await saveMobileEnvironment('SALA ATUALIZADA', [], 'env-1');
       expect(result).toBe('env-1');
       expect(mockUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'SALA ATUALIZADA', type: 'environment' })
+        expect.objectContaining({ name: 'Sala Atualizada', type: 'environment' })
       );
       expect(mockDeleteRel).toHaveBeenCalled();
     });
@@ -145,11 +179,15 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
 
   describe('2. Persistência de Categorias e Características (saveMobileCategory, delete)', () => {
     it('AC-08 / AC-12: Preserva obrigatoriedade configurada e as regras de Cor, Linha e Peso ao criar', async () => {
+      const mockSlugLookup = vi.fn().mockResolvedValue({
+        data: [{ slug: 'sofa-retratil' }, { slug: 'sofa-retratil-2' }],
+        error: null,
+      });
       const mockInsertCat = vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
           single: vi
             .fn()
-            .mockResolvedValue({ data: { id: 'cat-new-1', name: 'SOFÁ RETRÁTIL' }, error: null }),
+            .mockResolvedValue({ data: { id: 'cat-new-1', name: 'Sofá Retrátil' }, error: null }),
         }),
       });
 
@@ -163,7 +201,11 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       const mockInsertAttr = vi.fn().mockResolvedValue({ error: null });
 
       (supabase.from as any).mockImplementation((table: string) => {
-        if (table === 'categories') return { insert: mockInsertCat };
+        if (table === 'categories')
+          return {
+            select: vi.fn().mockReturnValue({ like: mockSlugLookup }),
+            insert: mockInsertCat,
+          };
         if (table === 'category_relationships')
           return { delete: mockDeleteRel, insert: mockInsertRel };
         if (table === 'category_attributes')
@@ -182,7 +224,15 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
         ]
       );
 
-      expect(result).toEqual({ id: 'cat-new-1', name: 'SOFÁ RETRÁTIL' });
+      expect(result).toEqual({ id: 'cat-new-1', name: 'Sofá Retrátil' });
+      expect(mockInsertCat).toHaveBeenCalledWith([
+        expect.objectContaining({
+          name: 'Sofá Retrátil',
+          slug: 'sofa-retratil-3',
+          type: 'category',
+          meta_title: 'SOFÁ RETRÁTIL | Móveis Morante',
+        }),
+      ]);
       expect(mockInsertRel).toHaveBeenCalledWith([
         { parent_id: 'env-1', child_id: 'cat-new-1' },
         { parent_id: 'env-2', child_id: 'cat-new-1' },
@@ -193,6 +243,45 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
         { category_id: 'cat-new-1', attribute_id: 'attr-peso', is_required: false },
         { category_id: 'cat-new-1', attribute_id: 'attr-linha', is_required: true },
       ]);
+      expect(mockDeleteRel).not.toHaveBeenCalled();
+      expect(mockDeleteAttr).not.toHaveBeenCalled();
+    });
+
+    it('Propaga falha ao inserir vínculos de nova categoria após criar o registro base', async () => {
+      const linkError = new Error('Falha ao gravar os ambientes vinculados.');
+      const mockInsertCategory = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: { id: 'cat-partial-1', name: 'Cadeira' },
+            error: null,
+          }),
+        }),
+      });
+      const mockDeleteRel = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+      const mockInsertRel = vi.fn().mockResolvedValue({ error: linkError });
+
+      (supabase.from as any).mockImplementation((table: string) => {
+        if (table === 'categories') {
+          return {
+            select: vi.fn().mockReturnValue({
+              like: vi.fn().mockResolvedValue({ data: [], error: null }),
+            }),
+            insert: mockInsertCategory,
+          };
+        }
+        if (table === 'category_relationships')
+          return { delete: mockDeleteRel, insert: mockInsertRel };
+        return {};
+      });
+
+      await expect(saveMobileCategory('Cadeira', ['env-1'])).rejects.toBe(linkError);
+      expect(mockInsertCategory).toHaveBeenCalled();
+      expect(mockInsertRel).toHaveBeenCalledWith([
+        { parent_id: 'env-1', child_id: 'cat-partial-1' },
+      ]);
+      expect(mockDeleteRel).not.toHaveBeenCalled();
     });
 
     it('AC-13: Atualiza categoria desmarcando características e removendo vínculos de category_attributes', async () => {
@@ -207,13 +296,16 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       const mockDeleteAttr = vi
         .fn()
         .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+      const mockDeleteRel = vi
+        .fn()
+        .mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
       const mockInsertAttr = vi.fn().mockResolvedValue({ error: null });
 
       (supabase.from as any).mockImplementation((table: string) => {
         if (table === 'categories') return { update: mockUpdateCat };
         if (table === 'category_relationships') {
           return {
-            delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+            delete: mockDeleteRel,
             insert: vi.fn().mockResolvedValue({ error: null }),
           };
         }
@@ -225,7 +317,9 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       // Salva com lista vazia de características (desmarcação total)
       await saveMobileCategory('SOFÁ', ['env-1'], [], 'cat-1');
       expect(mockDeleteAttr).toHaveBeenCalled();
+      expect(mockDeleteRel).toHaveBeenCalled();
       expect(mockInsertAttr).not.toHaveBeenCalled();
+      expect(mockUpdateCat).toHaveBeenCalledWith({ name: 'Sofá', type: 'category' });
     });
 
     it('AC-14: Bloqueia exclusão de categoria quando possuir produtos (relacional + direto)', async () => {
@@ -250,6 +344,74 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       await expect(deleteMobileCategory('00000000-0000-4000-8000-000000000014')).rejects.toThrow(
         /utilizada por 3 produtos/
       );
+    });
+
+    it('informa produtos distintos quando a mesma referência aparece nas duas fontes', async () => {
+      const categoryId = '00000000-0000-4000-8000-000000000016';
+      const makeQuery = (count: number, rows: unknown[]) => ({
+        select: vi.fn().mockImplementation((_columns: string, options?: { head?: boolean }) => ({
+          eq: vi.fn().mockResolvedValue(
+            options?.head ? { count, error: null } : { data: rows, error: null }
+          ),
+        })),
+      });
+      const relationQuery = makeQuery(2, [{ product_id: 'product-1' }, { product_id: 'product-2' }]);
+      const directQuery = makeQuery(1, [{ id: 'product-2' }]);
+      (supabase.from as any).mockImplementation((table: string) =>
+        table === 'product_categories' ? relationQuery : directQuery
+      );
+
+      await expect(deleteMobileCategory(categoryId)).rejects.toThrow(/utilizada por 2 produtos/);
+      expect(supabase.from).not.toHaveBeenCalledWith('category_attributes');
+      expect(supabase.from).not.toHaveBeenCalledWith('categories');
+    });
+
+    it('falha fechado se a leitura dos IDs para deduplicar falhar', async () => {
+      const categoryId = '00000000-0000-4000-8000-000000000017';
+      const detailError = new Error('Falha ao ler produtos vinculados');
+      const relationQuery = {
+        select: vi.fn().mockImplementation((_columns: string, options?: { head?: boolean }) => ({
+          eq: vi.fn().mockResolvedValue(
+            options?.head
+              ? { count: 1, error: null }
+              : { data: null, error: detailError }
+          ),
+        })),
+      };
+      const directQuery = {
+        select: vi.fn().mockImplementation((_columns: string, options?: { head?: boolean }) => ({
+          eq: vi.fn().mockResolvedValue(options?.head ? { count: 0, error: null } : { data: [], error: null }),
+        })),
+      };
+      (supabase.from as any).mockImplementation((table: string) =>
+        table === 'product_categories' ? relationQuery : directQuery
+      );
+
+      await expect(deleteMobileCategory(categoryId)).rejects.toBe(detailError);
+      expect(supabase.from).not.toHaveBeenCalledWith('category_attributes');
+      expect(supabase.from).not.toHaveBeenCalledWith('categories');
+    });
+
+    it('falha fechado quando uma das consultas de contagem retorna erro', async () => {
+      const categoryId = '00000000-0000-4000-8000-000000000018';
+      const checkError = new Error('Falha ao consultar vínculos de Produto');
+      const relationQuery = {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ count: null, error: checkError }),
+        }),
+      };
+      const directQuery = {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
+        }),
+      };
+      (supabase.from as any).mockImplementation((table: string) =>
+        table === 'product_categories' ? relationQuery : directQuery
+      );
+
+      await expect(deleteMobileCategory(categoryId)).rejects.toBe(checkError);
+      expect(supabase.from).not.toHaveBeenCalledWith('category_attributes');
+      expect(supabase.from).not.toHaveBeenCalledWith('categories');
     });
 
     it('AC-15: Exclui categoria sem produtos com cascata em relacionamentos e características', async () => {
@@ -324,6 +486,23 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       const counts = await fetchMobileCategoryProductCounts();
       expect(counts['c1']).toBe(2); // p1, p2
       expect(counts['c2']).toBe(1); // p3
+    });
+
+    it('propaga falha de consulta da contagem em vez de apresentar total zero', async () => {
+      const queryError = new Error('Falha ao consultar product_categories');
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      (supabase.from as any).mockImplementation((table: string) => {
+        if (table === 'product_categories') {
+          return { select: vi.fn().mockResolvedValue({ data: null, error: queryError }) };
+        }
+        return {
+          select: vi.fn().mockReturnValue({
+            not: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        };
+      });
+
+      await expect(fetchMobileCategoryProductCounts()).rejects.toBe(queryError);
     });
 
     it('AT-11: Consulta características vinculadas com estado opcional/obrigatório preservado', async () => {

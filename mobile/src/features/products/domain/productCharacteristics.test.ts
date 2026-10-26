@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SINK_CATEGORY_ID } from '../../../../../shared-utils/productSinkCategoryRules';
 import { getDefaultShowNameForVariationOverride } from '../../../../../shared-utils/productVariationAttributeDefaults';
 import {
+  MATTRESS_CATEGORY_ID,
   getApplicableProductTechnicalFields,
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
@@ -13,6 +14,7 @@ import {
   groupProductTechnicalFields,
   hasTechnicalValue,
   getTechnicalValue,
+  isMobileVariableTechnicalField,
   isExcludedProductTechnicalField,
   isProductTechnicalFieldRequired,
   isProductTechnicalFieldRequiredForCatalog,
@@ -228,6 +230,33 @@ describe('productCharacteristics', () => {
     ).toEqual(['Cor', 'Da categoria', 'Legado preenchido', 'Campo legado inativo']);
   });
 
+  it('mantém Altura visível quando a categoria de colchão a exige para o catálogo', () => {
+    const requiredHeight = {
+      name: 'Altura',
+      active: true,
+      categoryIds: [MATTRESS_CATEGORY_ID],
+      requiredCategoryIds: [MATTRESS_CATEGORY_ID],
+    };
+
+    const applicable = getApplicableProductTechnicalFields(
+      [requiredHeight],
+      [MATTRESS_CATEGORY_ID]
+    );
+
+    expect(applicable).toHaveLength(1);
+    expect(applicable[0]).toMatchObject({
+      name: 'Altura',
+      isRequired: false,
+      isRequiredForCatalog: true,
+    });
+    expect(
+      getApplicableProductTechnicalFields(
+        [{ name: 'Altura', active: true, categoryIds: [MATTRESS_CATEGORY_ID] }],
+        [MATTRESS_CATEGORY_ID]
+      )
+    ).toEqual([]);
+  });
+
   it('aplica as regras de campos da categoria Pias iguais às do ERP', () => {
     const fields = [
       { name: 'Material da estrutura', categoryIds: [SINK_CATEGORY_ID] },
@@ -302,6 +331,80 @@ describe('productCharacteristics', () => {
     expect(isExcludedProductTechnicalField('Linha/Modelo')).toBe(false);
   });
 
+  it('agrupa requisitos de categoria Modelo/Linha com aliases e IDs distintos', () => {
+    const definitions = [
+        {
+          id: 'legacy-model-line',
+          name: 'Linha/Modelo',
+          data_type: 'list',
+          options: [{ id: 'legacy-option', value: 'Linha legada' }],
+          categoryIds: ['cat-line'],
+          requiredCategoryIds: ['cat-line'],
+          active: true,
+        },
+        {
+          id: 'canonical-model-line',
+          name: 'Modelo/Linha',
+          data_type: 'text',
+          options: [{ id: 'canonical-option', value: 'Modelo canônico' }],
+          categoryIds: ['cat-model'],
+          requiredCategoryIds: ['cat-model'],
+          active: true,
+        },
+    ];
+    const fields = getApplicableProductTechnicalFields(definitions, ['cat-line', 'cat-model']);
+    const reversedFields = getApplicableProductTechnicalFields(
+      [...definitions].reverse(),
+      ['cat-line', 'cat-model']
+    );
+
+    expect(fields).toHaveLength(1);
+    expect(fields[0]).toMatchObject({
+      id: 'canonical-model-line',
+      name: 'Modelo/Linha',
+      data_type: 'text',
+      categoryIds: ['cat-line', 'cat-model'],
+      requiredCategoryIds: ['cat-line', 'cat-model'],
+      options: [
+        { id: 'canonical-option', value: 'Modelo canônico' },
+        { id: 'legacy-option', value: 'Linha legada' },
+      ],
+    });
+    expect(reversedFields).toEqual(fields);
+  });
+
+  it('mantém o campo e preenche o alias legado após remover uma categoria com requisito compartilhado', () => {
+    const mergedDefinition = {
+      id: 'canonical-model-line',
+      name: 'Modelo/Linha',
+      data_type: 'text',
+      options: [],
+      categoryIds: ['cat-removed', 'cat-kept'],
+      requiredCategoryIds: ['cat-removed', 'cat-kept'],
+      active: true,
+    };
+    const remainingFields = getApplicableProductTechnicalFields(
+      [mergedDefinition],
+      ['cat-kept'],
+      { 'Linha/Modelo': 'Valor legado' }
+    );
+
+    expect(remainingFields).toHaveLength(1);
+    expect(remainingFields[0]).toMatchObject({
+      name: 'Modelo/Linha',
+      isRequiredForCatalog: true,
+    });
+    expect(getTechnicalValue({ 'Linha/Modelo': 'Valor legado' }, remainingFields[0].name)).toBe(
+      'Valor legado'
+    );
+    expect(
+      getTechnicalValue(
+        { 'Modelo/Linha': '', 'Linha/Modelo': 'Valor legado' },
+        remainingFields[0].name
+      )
+    ).toBe('');
+  });
+
   it('mantém compatibilidade com valores legados de Modelo e Linha para Modelo/Linha', () => {
     expect(hasTechnicalValue({ Modelo: 'Capri' }, 'Modelo/Linha')).toBe(true);
     expect(hasTechnicalValue({ Linha: 'Paris' }, 'Modelo/Linha')).toBe(true);
@@ -325,6 +428,59 @@ describe('productCharacteristics', () => {
       'Modelo/Linha': 'Paris',
       Cor: 'Branco',
     });
+  });
+
+  it('resolve aliases legados da variação e mantém override canônico vazio ao editar família', () => {
+    expect(isMobileVariableTechnicalField('Linha/Modelo', ['Modelo/Linha'])).toBe(true);
+
+    const inheritedLegacyVariation = getEffectiveVariationTechnicalValues(
+      { 'Modelo/Linha': 'Modelo do pai' },
+      { technicalValues: { 'Linha/Modelo': 'Paris' } },
+      ['Modelo/Linha']
+    );
+    expect(getTechnicalValue(inheritedLegacyVariation, 'Modelo/Linha')).toBe('Paris');
+    expect(hasTechnicalValue(inheritedLegacyVariation, 'Modelo/Linha')).toBe(true);
+
+    const explicitlyClearedVariation = getEffectiveVariationTechnicalValues(
+      {},
+      { technicalValues: { 'Modelo/Linha': '', Modelo: 'Valor legado antigo' } },
+      ['Modelo/Linha']
+    );
+    expect(getTechnicalValue(explicitlyClearedVariation, 'Modelo/Linha')).toBe('');
+  });
+
+  it('atualiza e limpa aliases de atributos da variação preservando showName', () => {
+    const legacyAttributes = [{ name: 'Linha/Modelo', value: 'Antigo', showName: false }];
+
+    expect(
+      upsertProductCharacteristicAttribute(legacyAttributes, 'Modelo/Linha', 'Atualizado')
+    ).toEqual([{ name: 'Linha/Modelo', value: 'Atualizado', showName: false }]);
+    expect(upsertProductCharacteristicAttribute(legacyAttributes, 'Modelo/Linha', '')).toEqual([]);
+    expect(
+      upsertProductCharacteristicAttribute(legacyAttributes, 'Modelo/Linha', 'Não se aplica')
+    ).toEqual([]);
+  });
+
+  it('exibe o atributo canônico da variação antes de technicalValues com alias legado conflitante', () => {
+    const values = getEffectiveVariationTechnicalValues(
+      { 'Modelo/Linha': 'Modelo do pai' },
+      {
+        attributes: [{ name: 'Modelo/Linha', value: 'Atributo da variação', showName: true }],
+        technicalValues: { 'Linha/Modelo': 'TechnicalValues legado' },
+      },
+      ['Modelo/Linha']
+    );
+
+    expect(getTechnicalValue(values, 'Modelo/Linha')).toBe('Atributo da variação');
+  });
+
+  it('resolve aliases do pai pela ordem canônica do campo, não pela ordem do objeto', () => {
+    const parentValues = getEffectiveProductTechnicalValues({
+      technicalValues: { Linha: 'Linha do pai', Modelo: 'Modelo do pai' },
+    });
+    const variationValues = getEffectiveVariationTechnicalValues(parentValues, {});
+
+    expect(getTechnicalValue(variationValues, 'Modelo/Linha')).toBe('Modelo do pai');
   });
 
   it('mantém Profundidade e Comprimento exclusivos e prioriza a opção preenchida', () => {

@@ -7,11 +7,13 @@ export interface MobileProductCompositionCandidate {
   code?: string | null;
   price?: number | null;
   unit_price?: number | null;
+  promoPrice?: number | null;
   stock?: number | null;
   variationId?: string;
   variationName?: string | null;
   variationSku?: string | null;
   variationPrice?: number | null;
+  variationPromoPrice?: number | null;
   variationStock?: number | null;
 }
 
@@ -65,6 +67,9 @@ export const searchMobileProductCompositionCandidates = async (
             code: product.code,
             price: Number(product.unitPrice ?? product.price ?? 0),
             unit_price: Number(product.unitPrice ?? product.price ?? 0),
+            promoPrice: product.promoPrice == null && product.promo_price == null
+              ? null
+              : Number(product.promoPrice ?? product.promo_price),
             stock: Number(product.stock ?? 0),
           }];
         }
@@ -75,11 +80,17 @@ export const searchMobileProductCompositionCandidates = async (
           code: product.code,
           price: Number(product.unitPrice ?? product.price ?? 0),
           unit_price: Number(product.unitPrice ?? product.price ?? 0),
+          promoPrice: product.promoPrice == null && product.promo_price == null
+            ? null
+            : Number(product.promoPrice ?? product.promo_price),
           stock: Number(product.stock ?? 0),
           variationId: String(variation.id),
           variationName: variation.name,
           variationSku: variation.sku,
           variationPrice: variation.unitPrice ?? variation.price ?? variation.unit_price ?? 0,
+          variationPromoPrice: variation.promoPrice == null && variation.promo_price == null
+            ? null
+            : Number(variation.promoPrice ?? variation.promo_price),
           variationStock: Number(variation.stock ?? 0),
         }));
       }
@@ -90,6 +101,9 @@ export const searchMobileProductCompositionCandidates = async (
         code: product.code,
         price: Number(product.unitPrice ?? product.price ?? 0),
         unit_price: Number(product.unitPrice ?? product.price ?? 0),
+        promoPrice: product.promoPrice == null && product.promo_price == null
+          ? null
+          : Number(product.promoPrice ?? product.promo_price),
         stock: Number(product.stock ?? 0),
       }];
     })

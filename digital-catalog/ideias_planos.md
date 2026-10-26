@@ -87,3 +87,7 @@ Pendências do modal agregado de produto e navegação resolvidas:
 - `user-nav.tsx`: login por e-mail/senha migrado para formulário real com `useForm`, `zodResolver(loginFormSchema)`, timeout protegido via `waitForAuthOperation`, feedback de erro/sucesso e link de cadastro para `/auth/signup`.
 - Provas automatizadas em `erp/tests/catalog-forms/catalogAggregateModals.test.tsx` (5/5) e suite completa do catálogo com 53/53 testes aprovados. TypeScript com 0 erros e build de produção Next.js aprovado.
 
+## Auditoria de Egress — 25/10/2026
+
+- Projeções da página de categorias restringidas aos campos consumidos (EGR-001); menus compartilham somente a carga em andamento (EGR-002). Inventário e validações pendentes em `../docs/auditorias/egress-supabase-morantehub.md`. Meta confirmada: 100 MB/dia. Sem TTL novo ou economia medida; conferir UI, deduplicação simultânea, refetch posterior e falhas em validação futura autorizada.
+

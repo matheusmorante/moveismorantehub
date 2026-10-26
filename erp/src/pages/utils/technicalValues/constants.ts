@@ -10,9 +10,13 @@ export const CHARACTERISTIC_TOPICS: ReadonlyArray<{ title: string; matches: RegE
   {
     title: 'Dimensões e Peso',
     matches:
-      /\b(altura|largura|profundidade|comprimento|espessura|assento)\b|\bpeso\b(?!.*(prateleira|gaveta))/i,
+      /\b(altura|largura|profundidade|comprimento|espessura|assento)\b|\bpeso\b(?!.*\b(?:prateleira|gaveta|suportad[oa])\b)/i,
   },
-  { title: 'Estrutura', matches: /\b(estrutura|material da estrutura)\b/i },
+  {
+    title: 'Estrutura',
+    matches:
+      /\b(estrutura|material da estrutura)\b|\bpeso\b(?!.*\b(?:prateleira|gaveta)\b).*\bsuportad[oa]\b/i,
+  },
   { title: 'Portas', matches: /\b(portas?)\b/i },
   { title: 'Gavetas', matches: /\b(gavetas?|corredi[çc]as?)\b/i },
   { title: 'Prateleiras', matches: /\b(prateleiras?)\b/i },

@@ -5,6 +5,11 @@ import {
   getVariationAttributePairs,
   normalizeAttributePart,
 } from './variationAttributes';
+import {
+  getVariationNameAttributeValues,
+  normalizeProductVariationName,
+} from '../../../../../shared-utils/productVariationNameValidation';
+export { normalizeProductVariationName };
 
 export const normalizeNameTokens = (value: unknown): string[] =>
   String(value || '')
@@ -26,9 +31,7 @@ export const containsNamePhrase = (name: string, phrase: string): boolean => {
 export const getVariationAttributeValuesInNameOrder = (
   attributes: Variation['attributes'] | Record<string, any> | string = []
 ): string[] =>
-  getVariationAttributePairs({ attributes })
-    .filter(({ showName }) => showName)
-    .map(({ value }) => String(value).trim());
+  getVariationNameAttributeValues(getVariationAttributePairs({ attributes }));
 
 /** Usa somente atributos explicitamente incluídos no complemento do nome. */
 export const getVariationNameAttributes = (
@@ -41,19 +44,6 @@ export const buildProductVariationName = (parentName: string, suffix: string): s
   if (!parent) return variationSuffix;
   if (!variationSuffix) return parent;
   return `${parent} ${variationSuffix}`;
-};
-
-export const normalizeProductVariationName = (
-  parentName: string,
-  variationName: string
-): string => {
-  const parent = parentName.trim();
-  const name = variationName.trim();
-  if (!parent || name.slice(0, parent.length).toLowerCase() !== parent.toLowerCase()) return name;
-
-  const suffix = name.slice(parent.length);
-  if (!/^\s*[-–—]\s*/u.test(suffix)) return name;
-  return `${name.slice(0, parent.length)} ${suffix.replace(/^\s*[-–—]\s*/u, '')}`.trim();
 };
 
 export const isVariationNamePlaceholderSuffix = (suffix: string): boolean =>

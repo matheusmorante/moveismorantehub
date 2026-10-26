@@ -30,7 +30,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
   onToggleActive,
   onToggleCatalog,
   canToggleActive = true,
-  canManageCatalog = true,
+  canManageCatalog = false,
   isParent = false,
   isNonConventional = false,
   isSalvado = false,
@@ -51,8 +51,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
   const isCatalogPublished = !isDraft && catalogStatus === 'published';
   const isERPActive = !isDraft && !isNonConventional && active !== false;
   const isERPDisabled = disabled || isNonConventional || isDraft || !canToggleActive;
-  const isCatalogDisabled =
-    disabled || isDraft || (!canManageCatalog && !onToggleCatalog);
+  const isCatalogDisabled = disabled || isDraft || !canManageCatalog;
 
   const textSize = size === 'xs' ? 'text-[9px]' : 'text-[10px]';
   const py = size === 'xs' ? 'py-0.5' : 'py-1';
@@ -83,11 +82,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
 
   const handleCatalogClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (disabled || isDraft) return;
-    if (!canManageCatalog && !onToggleCatalog) {
-      toast.warning('Seu perfil não possui permissão para gerenciar o catálogo.');
-      return;
-    }
+    if (disabled || isDraft || !canManageCatalog) return;
     onToggleCatalog?.(e);
   };
 
@@ -302,20 +297,18 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
               ? undefined
               : isDraft
                 ? 'Produtos em rascunho ficam ocultos e não podem ser publicados no Catálogo Digital.'
-                : !canManageCatalog && !onToggleCatalog
-                  ? 'Gerenciamento de catálogo indisponível'
+                : !canManageCatalog
+                  ? 'Seu perfil não possui permissão para gerenciar o catálogo.'
                   : isCatalogPublished
                     ? 'Clique para ocultar do Catálogo Digital'
                     : 'Clique para publicar no Catálogo Digital'
           }
           className={`inline-flex items-stretch rounded-lg shadow-2xs border transition-all select-none overflow-hidden active:scale-95 ${
-            disabled || isDraft
+            isCatalogDisabled
               ? 'border-slate-300 dark:border-slate-700 opacity-60 cursor-not-allowed bg-slate-200 dark:bg-slate-800 grayscale'
-              : !canManageCatalog && !onToggleCatalog
-                ? 'border-slate-300 dark:border-slate-700 opacity-50 cursor-not-allowed bg-slate-200 dark:bg-slate-800 grayscale'
-                : isCatalogPublished
-                  ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 cursor-pointer'
-                  : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 cursor-pointer'
+              : isCatalogPublished
+                ? 'border-emerald-200/80 dark:border-emerald-800/50 hover:border-emerald-300 cursor-pointer'
+                : 'border-slate-200/80 dark:border-slate-700/60 hover:border-slate-300 cursor-pointer'
           }`}
         >
           {/* Tag Fixa Catálogo */}
@@ -328,7 +321,7 @@ export const ChannelStatusBadges: React.FC<ChannelStatusBadgesProps> = ({
           {/* Status Interativo Catálogo */}
           <span
             className={`${pxStatus} ${py} flex items-center gap-1.5 font-bold ${textSize} ${
-              disabled || isDraft || (!canManageCatalog && !onToggleCatalog)
+            isCatalogDisabled
                 ? 'bg-slate-200/90 dark:bg-slate-800/90 text-slate-500 dark:text-slate-500'
                 : isCatalogPublished
                   ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'

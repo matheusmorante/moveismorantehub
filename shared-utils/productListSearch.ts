@@ -34,6 +34,38 @@ export const buildProductSearchTerms = (search: string): ProductSearchTerms => {
   return { safeSearch, searchTerms, wordTerms };
 };
 
+export const buildProductVariationSearchFilter = (searchTerms: readonly string[]): string =>
+  searchTerms
+    .flatMap((term) => [`name.ilike.%${term}%`, `sku.ilike.%${term}%`])
+    .join(',');
+
+export const buildProductParentSearchFilter = (
+  search: Pick<ProductSearchTerms, 'searchTerms' | 'wordTerms'>,
+  variationParentIds: readonly string[] = []
+): string => {
+  const conditions: string[] = [];
+
+  search.searchTerms.forEach((term) => {
+    conditions.push(`name.ilike.%${term}%`, `code.ilike.%${term}%`);
+  });
+
+  if (search.wordTerms.length > 0) {
+    const andConditions = search.wordTerms.map(({ value, alternative }) => {
+      const matchingTerms = Array.from(new Set([value, alternative].filter(Boolean))) as string[];
+      const matchingFields = matchingTerms.flatMap((term) => [
+        `name.ilike.%${term}%`,
+        `code.ilike.%${term}%`,
+      ]);
+      return `or(${matchingFields.join(',')})`;
+    });
+    conditions.push(`and(${andConditions.join(',')})`);
+  }
+
+  variationParentIds.forEach((id) => conditions.push(`id.eq.${id}`));
+
+  return conditions.join(',');
+};
+
 export const createProductVariationSearchTooBroadError = (): Error => {
   const error = new Error(PRODUCT_VARIATION_SEARCH_TOO_BROAD_MESSAGE);
   error.name = 'ProductVariationSearchTooBroadError';

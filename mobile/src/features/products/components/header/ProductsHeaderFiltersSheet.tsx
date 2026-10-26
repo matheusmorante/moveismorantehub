@@ -14,10 +14,14 @@ interface ProductsHeaderFiltersSheetProps {
   generalTypeFilter?: 'all' | 'product' | 'service';
   onGeneralTypeFilterChange?: (value: 'all' | 'product' | 'service') => void;
   showMergedProducts?: boolean;
+  isAdministrator?: boolean;
+  showTestProducts?: boolean;
   showTrash?: boolean;
   onToggleMergedProducts?: () => void;
+  onToggleTestProducts?: () => void;
   catalogStatusFilter: 'all' | 'published' | 'hidden';
   onCatalogStatusFilterChange: (value: 'all' | 'published' | 'hidden') => void;
+  canFilterByCategory: boolean;
   categories: any[];
   categoryFilter: string;
   onCategoryFilterChange: (value: string) => void;
@@ -37,10 +41,14 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
   generalTypeFilter = 'all',
   onGeneralTypeFilterChange,
   showMergedProducts,
+  isAdministrator = false,
+  showTestProducts = false,
   showTrash = false,
   onToggleMergedProducts,
+  onToggleTestProducts,
   catalogStatusFilter,
   onCatalogStatusFilterChange,
+  canFilterByCategory,
   categories,
   categoryFilter,
   onCategoryFilterChange,
@@ -66,10 +74,10 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
           {!showTrash && <View style={styles.choiceRow}>
             {(
               [
-                ['all', 'Todos'],
-                ['active', 'Ativos'],
-                ['disabled', 'Desativados'],
-                ['draft', 'Rascunhos'],
+                ['all', 'Todos os Produtos'],
+                ['active', 'Produtos Ativos'],
+                ['disabled', 'Produtos Desativados'],
+                ['draft', 'Rascunhos (Em Cadastro)'],
               ] as const
             ).map(([value, label]) => (
               <TouchableOpacity
@@ -130,13 +138,27 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
             </TouchableOpacity>
           )}
 
+          {!showTrash && mode !== 'categories' && isAdministrator && onToggleTestProducts && (
+            <TouchableOpacity
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: showTestProducts }}
+              onPress={onToggleTestProducts}
+              style={styles.testToggleRow}
+            >
+              <View style={[styles.testCheckbox, showTestProducts && styles.testCheckboxChecked]}>
+                {showTestProducts && <Check size={14} color="#ffffff" />}
+              </View>
+              <Text style={[styles.choiceText, dark && styles.light]}>Mostrar dados de teste</Text>
+            </TouchableOpacity>
+          )}
+
           {!showTrash && <Text style={[styles.filterLabel, dark && styles.light]}>Catálogo digital</Text>}
           {!showTrash && <View style={styles.choiceRow}>
             {(
               [
                 ['all', 'Todos'],
-                ['published', 'Publicados'],
-                ['hidden', 'Ocultados'],
+                ['published', 'Publicado no Catálogo'],
+                ['hidden', 'Ocultado do Catálogo'],
               ] as const
             ).map(([value, label]) => (
               <TouchableOpacity
@@ -156,40 +178,44 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
             ))}
           </View>}
 
-          <Text style={[styles.filterLabel, dark && styles.light]}>Categoria</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.choiceRow}
-          >
-            <TouchableOpacity
-              onPress={() => onCategoryFilterChange('')}
-              style={[styles.choice, !categoryFilter && styles.choiceActive]}
-            >
-              <Text style={[styles.choiceText, !categoryFilter && styles.choiceTextActive]}>
-                Todas
-              </Text>
-            </TouchableOpacity>
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                onPress={() => onCategoryFilterChange(String(category.id))}
-                style={[
-                  styles.choice,
-                  categoryFilter === String(category.id) && styles.choiceActive,
-                ]}
+          {canFilterByCategory && (
+            <>
+              <Text style={[styles.filterLabel, dark && styles.light]}>Categoria</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.choiceRow}
               >
-                <Text
-                  style={[
-                    styles.choiceText,
-                    categoryFilter === String(category.id) && styles.choiceTextActive,
-                  ]}
+                <TouchableOpacity
+                  onPress={() => onCategoryFilterChange('')}
+                  style={[styles.choice, !categoryFilter && styles.choiceActive]}
                 >
-                  {category.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+                  <Text style={[styles.choiceText, !categoryFilter && styles.choiceTextActive]}>
+                    Todas as Categorias
+                  </Text>
+                </TouchableOpacity>
+                {categories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    onPress={() => onCategoryFilterChange(String(category.id))}
+                    style={[
+                      styles.choice,
+                      categoryFilter === String(category.id) && styles.choiceActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.choiceText,
+                        categoryFilter === String(category.id) && styles.choiceTextActive,
+                      ]}
+                    >
+                      {category.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </>
+          )}
 
           <View style={styles.filterActions}>
             {onResetFilters && (

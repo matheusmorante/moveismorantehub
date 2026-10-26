@@ -4,6 +4,10 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
+    "api/whatsapp-webhook.ts": {
+      "maxDuration": 60,
+      "regions": ["gru1"]
+    },
     "api/dist-dfe.ts": {
       "maxDuration": 30,
       "regions": ["gru1"]
@@ -67,6 +71,7 @@
     },
     { "source": "/api/whatsapp-media", "destination": "/api/whatsapp-webhook?operation=media" },
     { "source": "/api/whatsapp-dispatch", "destination": "/api/whatsapp-webhook?operation=dispatch" },
+    { "source": "/api/whatsapp-support-send", "destination": "/api/whatsapp-webhook?operation=support-send" },
     { "source": "/api/meta-graph", "destination": "/api/secure-integrations?operation=meta-graph" },
     { "source": "/api/gemini-proxy", "destination": "/api/secure-integrations?operation=gemini-proxy" },
     { "source": "/api/google-routes", "destination": "/api/secure-integrations?operation=google-routes" },

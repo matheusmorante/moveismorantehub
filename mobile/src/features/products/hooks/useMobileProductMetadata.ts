@@ -64,6 +64,10 @@ export function useMobileProductMetadata(product: any) {
     product.main_supplier_id,
     product.supplier_id,
     JSON.stringify(product.supplierIds || product.supplier_ids || []),
+    product.supplierName,
+    product.supplier_name,
+    product.supplier?.name,
+    product.supplier,
   ]);
 
   return { oppName, supplierNames };

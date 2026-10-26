@@ -17,6 +17,17 @@ export interface MobileProductFormErrorNavigation {
   variationPanel?: 'estoque' | 'fotos';
 }
 
+export const hasMobileProductDescriptionTechnicalValidationError = (
+  messages: Record<string, string>
+): boolean => Boolean(messages.technical || messages.technicalValues);
+
+export const isMobileProductDescriptionTabDisabled = (input: {
+  hasCategory: boolean;
+  hasProductName: boolean;
+  hasTechnicalValidationError: boolean;
+}): boolean =>
+  !input.hasCategory || !input.hasProductName || input.hasTechnicalValidationError;
+
 const PRODUCT_UNIT_PRICE_ERROR_MESSAGE =
   'Por favor, informe o Preço de Venda do produto na aba Estoque e Precificação.';
 const PRODUCT_MIN_STOCK_MOBILE_ERROR_MESSAGE =
@@ -82,6 +93,20 @@ export const resolveMobileProductFormErrorNavigation = (
   }
 
   return undefined;
+};
+
+/** Resolve para uma aba visível do app a navegação dos requisitos do cabeçalho. */
+export const resolveMobileProductReadinessTab = (
+  requirementId: string,
+  preferredTab: MobileProductFormTabId | undefined,
+  enabledTabs: readonly MobileProductFormTabId[]
+): MobileProductFormTabId | undefined => {
+  let targetTab = preferredTab;
+  if (requirementId === 'variationPhotos' && !enabledTabs.includes('variacoes')) {
+    targetTab = 'fotos';
+  }
+
+  return targetTab && enabledTabs.includes(targetTab) ? targetTab : undefined;
 };
 
 export const isMobileProductUnitPriceError = (

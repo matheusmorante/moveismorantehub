@@ -18,6 +18,8 @@ describe('StockOriginBadge - Rótulo de Origem do Estoque', () => {
     it('retorna Salvados quando productKind é salvado, is_salvado é true ou oportunidade contém salvado', () => {
       expect(resolveStockOrigin({ productKind: 'salvado' } as Product)).toBe('Salvados');
       expect(resolveStockOrigin({ is_salvado: true } as any)).toBe('Salvados');
+      expect(resolveStockOrigin({ product_kind: 'salvados' } as any)).toBe('Salvados');
+      expect(resolveStockOrigin({ stock_origin: 'salvados' } as any)).toBe('Salvados');
       expect(resolveStockOrigin({ opportunityName: 'Queima dos Salvados' } as Product)).toBe(
         'Salvados'
       );
@@ -26,6 +28,7 @@ describe('StockOriginBadge - Rótulo de Origem do Estoque', () => {
 
     it('retorna Usados quando productKind é usado ou oportunidade contém usado', () => {
       expect(resolveStockOrigin({ productKind: 'usado' } as Product)).toBe('Usados');
+      expect(resolveStockOrigin({ stock_origin: 'usados' } as any)).toBe('Usados');
       expect(resolveStockOrigin({ opportunityName: 'Móveis Usados Selecionados' } as Product)).toBe(
         'Usados'
       );

@@ -1,4 +1,5 @@
 import { cartesianVariationFormSchema } from '../../../../../shared-utils/catalogFormSchemas';
+import { getVariationNameAttributeValues } from '../../../../../shared-utils/productVariationNameValidation';
 import { toTitleCase } from '../../../../../shared-utils/productText';
 import { resolveMobileVariableTechnicalFieldNames } from './productCharacteristics';
 import { generateVariationSku } from './productSku';
@@ -10,6 +11,11 @@ export type MobileBulkVariationOption = {
 };
 
 type ProductVariation = Record<string, any>;
+
+export const createMobileProductVariationId = (): string => crypto.randomUUID();
+
+export const getInitialMobileVariationName = (product: Record<string, any>): string =>
+  toTitleCase(String(product.name || product.description || 'Nova Variação'));
 
 export const getInitialMobileVariationStatus = (product: Record<string, any>): 'draft' | 'hidden' =>
   product.isDraft || product.is_draft || product.status === 'draft' ? 'draft' : 'hidden';
@@ -44,11 +50,11 @@ export const generateMobileProductVariations = (
       value: toTitleCase(combination[attribute.name].value),
       showName: combination[attribute.name].showName,
     }));
-    const suffix = attributes.map((attribute) => attribute.value).join(' ');
+    const suffix = getVariationNameAttributeValues(attributes).map(toTitleCase).join(' ');
     const sku = generateVariationSku(parentCode, [...existingVariations, ...variations], 0);
 
     variations.push({
-      id: crypto.randomUUID(),
+      id: createMobileProductVariationId(),
       name: toTitleCase([parentName, suffix].filter(Boolean).join(' ')),
       sku,
       unitPrice: product.unitPrice || 0,

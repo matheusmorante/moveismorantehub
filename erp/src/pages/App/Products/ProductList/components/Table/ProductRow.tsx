@@ -7,7 +7,7 @@ import { ProductRowDescriptionCell } from './ProductRowDescriptionCell';
 import { ProductRowActionsCell } from './ProductRowActionsCell';
 import { ProductRowModals } from '../../modals/ProductRowModals';
 import { renderProductRowStandardCell } from './ProductRowStandardCells';
-import { getProductKind } from '@/pages/utils/productKindRules';
+import { isSalvadoStockOrigin } from '../../../../../../../../shared-utils/productStockOrigin';
 import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 import type { ProductListRow } from '../../types';
 
@@ -81,19 +81,13 @@ export const ProductRow: React.FC<ProductRowProps> = ({
     open: false,
     message: '',
   });
+  const { oppName, supplierNames } = useProductMetadata(product);
 
   const isDraft =
     Boolean(product.isDraft) ||
     Boolean((product as { is_draft?: boolean }).is_draft) ||
     product.status === 'draft';
-  const isSalvado =
-    getProductKind(product) === 'salvado' ||
-    getProductKind(singleVariation as any) === 'salvado' ||
-    Boolean(
-      (product.opportunityName || product.opportunity?.name || '')
-        .toLowerCase()
-        .includes('salvado')
-    );
+  const isSalvado = isSalvadoStockOrigin(product, singleVariation, oppName);
   const canManageCatalog = !readOnly;
   const isChildVar = Boolean(product.isVariation) || Boolean(product.parentId);
   const isDeactivated =
@@ -103,7 +97,6 @@ export const ProductRow: React.FC<ProductRowProps> = ({
         product.status === 'hidden' ||
         product.deleted) && !isDraft;
 
-  const { oppName, supplierNames } = useProductMetadata(product);
   const rowBackground = isDeactivated
     ? 'bg-slate-100/90 dark:bg-slate-800/70'
     : product.isParent && !singleVariation
@@ -123,6 +116,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
 
   const cellContext = {
     product,
+    opportunityName: oppName,
     visibilitySettings,
     isChildVar,
     hasVariations,

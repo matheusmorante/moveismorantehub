@@ -185,9 +185,17 @@ export function useSalesOrderRoutingFilters({
   useEffect(() => {
     const saleOrderId = location.state?.saleOrderIdToOpen as string | undefined;
     if (!saleOrderId) return;
+    const orderTypeToOpen = location.state?.orderTypeToOpen as string | undefined;
     setFilters((prev) => ({ ...prev, searchId: saleOrderId }));
     setHighlightOrderId(saleOrderId);
-    navigate('/sales-order', { replace: true, state: null });
+    const destination = orderTypeToOpen === 'budget'
+      ? '/budgets'
+      : orderTypeToOpen === 'assistance'
+        ? '/assistance-orders'
+        : orderTypeToOpen === 'return'
+          ? '/returns'
+          : '/sales-order';
+    navigate(destination, { replace: true, state: null });
   }, [location.state, navigate, setHighlightOrderId]);
 
   useEffect(() => {

@@ -72,6 +72,12 @@ classDiagram
 - A regra está em `shared-utils/productActivationValidation.ts`; a tela do ERP e o serviço de mutação mobile usam a mesma validação.
 - Os formulários atuais expõem edição de componentes dentro da variação. A edição de componentes no produto pai para uma composição simples não foi localizada no ERP nem no mobile, apesar de a validação e a persistência aceitarem `comboItems` no pai; não considerar o fluxo simples de montagem comprovado pela existência do modelo.
 
+### Disponibilidade calculada e estoque físico de composições
+
+- A disponibilidade de uma composição é calculada em leitura a partir dos saldos atuais de seus componentes. O número exibido no catálogo representa kits montáveis e não uma movimentação física do produto composto.
+- Não gravar essa projeção em `products.stock` nem em `product_variations.stock` ao salvar o formulário de Produtos. Esses campos são caches do saldo físico mantido pelos fluxos de estoque; `inventory_moves` permanece a fonte contábil/auditável, conforme [a arquitetura do banco](../../arquitetura/estrutura_banco_supabase.md).
+- Alterar preço, componentes, rascunho ou outros dados comerciais de uma composição não altera o estoque físico. A composição continua tendo a disponibilidade recalculada quando consultada.
+
 ## Visibilidade do atributo no nome da Variação
 
 - Cada item de `product_variations.attributes` pode persistir `showName: false` para manter o atributo disponível para filtros e regras sem incluir seu valor no nome automático da variação.
@@ -85,7 +91,7 @@ classDiagram
 - Detecção na Conciliação: `Reconciliation/services/pendencyDetector.ts`.
 - Correção de valores: `ReconciliationProductCard.tsx` e `VariationAttributeValueInput.tsx`.
 - Regressão: `categories-deletion-safety.spec.ts` e `pendencyDetector.test.ts`.
-- Visibilidade no nome: `productVariationDefaults.ts`, `VariationIdentificationTab.tsx` e seus testes unitários.
+- Visibilidade no nome: `shared-utils/productVariationNameValidation.ts`, `productVariationDefaults.ts`, `variationGenerationRules.ts`, `VariationIdentificationTab.tsx` e os testes ERP/mobile.
 
 ---
 

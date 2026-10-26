@@ -49,13 +49,15 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
   const photoUploadForm = useZodForm(mobileProductPhotoUploadFormSchema, { photos: [] });
   const photoUrlsForm = useZodForm(mobileProductPhotoUrlsFormSchema, { urls: [] });
 
-  const uploadPhotos = async (photos: Array<{ file: Blob; name: string; contentType: string }>) => {
+  const uploadPhotos = async (
+    photos: Array<{ file: Blob; name: string; contentType: string; sourceUri?: string }>
+  ) => {
     const result = await photoUploadForm.validateAndRun(
       { photos },
       async ({ photos: validatedPhotos }) => {
         const urls: string[] = [];
         for (const photo of validatedPhotos) {
-          urls.push(await uploadMobileProductPhoto(photo.file, photo.name, photo.contentType));
+          urls.push(await uploadMobileProductPhoto(photo.file, photo.name, photo.contentType, photo.sourceUri));
         }
         return urls;
       },
@@ -115,18 +117,24 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
         const files = limitSelectedFiles(Array.from(input.files || []));
         if (files.length === 0) return;
         setUploading(true);
+        const photos: Array<{ file: Blob; name: string; contentType: string; sourceUri: string }> = [];
         try {
-          const uploadedUrls = await uploadPhotos(files.map((file) => ({
-            file,
-            name: file.name || 'produto.jpg',
-            contentType: file.type || '',
-          })));
+          for (const file of files) {
+            photos.push({
+              file,
+              name: file.name || 'produto.jpg',
+              contentType: file.type || '',
+              sourceUri: URL.createObjectURL(file),
+            });
+          }
+          const uploadedUrls = await uploadPhotos(photos);
           if (uploadedUrls.length > 0) {
             onImagesPicked(uploadedUrls);
           }
         } catch (error: any) {
           Alert.alert('Erro ao enviar foto(s)', error?.message || 'Tente novamente.');
         } finally {
+          photos.forEach(({ sourceUri }) => URL.revokeObjectURL(sourceUri));
           setUploading(false);
         }
       };
@@ -144,15 +152,25 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
           setUploading(true);
           try {
             const uploadedUrls: string[] = [];
-          const photos: Array<{ file: Blob; name: string; contentType: string }> = [];
+            const photos: Array<{
+              file: Blob;
+              name: string;
+              contentType: string;
+              sourceUri?: string;
+            }> = [];
             for (const asset of assets) {
               const response = await withTimeout(fetch(asset.uri), 15_000, null, 'Ler foto selecionada');
               if (!response?.ok) throw new Error('Não foi possível ler uma das fotos selecionadas.');
               const blob = await withTimeout(response.blob(), 12_000, null, 'Preparar foto selecionada');
               if (!blob) throw new Error('A leitura da foto demorou demais. Tente novamente.');
-              photos.push({ file: blob, name: asset.name || 'produto.jpg', contentType: asset.mimeType || blob.type || '' });
+              photos.push({
+                file: blob,
+                name: asset.name || 'produto.jpg',
+                contentType: asset.mimeType || blob.type || '',
+                sourceUri: asset.uri,
+              });
             }
-          uploadedUrls.push(...(await uploadPhotos(photos)));
+            uploadedUrls.push(...(await uploadPhotos(photos)));
             if (uploadedUrls.length > 0) {
               onImagesPicked(uploadedUrls);
             }
@@ -431,6 +449,7 @@ export const ProductFormPhotosTab: React.FC<Props> = ({ formData, setFormData, d
       <ProductSquareImageCropModal
         visible={Boolean(croppingPhotoUrl)}
         imageUrl={croppingPhotoUrl}
+        availableImageUrls={images}
         dark={dark}
         onCancel={() => setCroppingPhotoUrl('')}
         onConfirm={(newUrl) => {

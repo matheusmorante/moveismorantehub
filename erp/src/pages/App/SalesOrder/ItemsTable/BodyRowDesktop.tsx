@@ -2,7 +2,6 @@ import React from 'react';
 import Item from '../../../types/items.type';
 import Product, { Variation } from '../../../types/product.type';
 import { calcItemTotalValue } from '../../../utils/calculations';
-import CurrencyOrPercentInput from '../../../../components/CurrencyOrPercentInput';
 import UnitInput from './UnitInput';
 import CurrencyInput from '../../../../components/CurrencyInput';
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
@@ -11,6 +10,7 @@ import TemporaryProductWarning from './TemporaryProductWarning';
 import { getSettings } from '@/pages/utils/settingsService';
 import { isGenericHandlingLabel } from '@/pages/utils/handlingMigration';
 import { BodyRowViewProps } from './BodyRowMobile';
+import DiscountInput from './DiscountInput';
 
 const STOCK_ORIGIN_PRODUCT_KINDS = {
   '': ['normal', 'salvado', 'usado'],
@@ -22,6 +22,8 @@ const STOCK_ORIGIN_PRODUCT_KINDS = {
 export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   item,
   idx,
+  displayNumber = String(idx + 1),
+  isCompositionComponent = false,
   deliveryMethod,
   settings: propSettings,
   isBudget,
@@ -29,9 +31,14 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   hideHandling,
   shouldHideHandling,
   highlightAsTemporary,
+  isExpanded = true,
+  autoFocusDescription = false,
+  onDescriptionBlur,
   pricing,
   onChange,
   onDelete,
+  onToggleExpand,
+  onToggleDiscountType,
   onSelectProduct,
   handleStockOriginChange,
   handleHandlingChange,
@@ -39,6 +46,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   shouldShowStockOrigin,
   isLinkedProduct,
   showTemporaryProductLabel,
+  itemHasError,
   error,
   handlingError,
   assemblyResponsibleRequired,
@@ -66,6 +74,40 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
 
   const settings = propSettings || getSettings();
 
+  if (isCompositionComponent && !isExpanded) {
+    return (
+      <tr className="border-b border-slate-100 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/40">
+        <td colSpan={hideHandling ? 8 : 9} className="px-3 py-1.5">
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            aria-expanded={false}
+            className="flex w-full items-center justify-between gap-4 rounded-lg px-2 py-1 text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <i className="bi bi-chevron-right text-[10px] text-slate-400" />
+              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                #{displayNumber}
+              </span>
+              <span className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+                <i className="bi bi-box-seam mr-1 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+                {item.description}
+              </span>
+              <span className="shrink-0 text-[10px] text-slate-400">{item.quantity} un.</span>
+            </span>
+            <span className="flex shrink-0 items-center gap-3">
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                <CurrencyDisplay value={calcItemTotalValue(item)} />
+              </span>
+              {itemHasError && <i aria-label="Pendência no componente" className="bi bi-exclamation-circle-fill text-red-500" />}
+              <i className="bi bi-pencil-square text-xs text-blue-500" />
+            </span>
+          </button>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <tr
       className={`group transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0 font-sans ${
@@ -76,49 +118,131 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
     >
       <td className="px-3 py-1.5 relative group/desc">
         {isService ? (
-          <>
-            <input
-              type="text"
-              aria-label="Descrição do serviço"
-              value={item.description}
-              onChange={(event) => onChange(idx, 'description', event.target.value)}
-              placeholder="Descrição do serviço..."
-              className={`w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 ${error ? 'border-red-500 ring-2 ring-red-500' : 'border-slate-200'}`}
-            />
+          <div className="flex min-w-0 items-start gap-2">
+            <span className="mt-1 inline-flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[9px] font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+              <i className="bi bi-tools" aria-hidden="true" />
+              #{displayNumber}
+            </span>
+            <div className="min-w-0 flex-1">
+              <input
+                type="text"
+                aria-label="Descrição do serviço"
+              autoFocus={autoFocusDescription}
+                value={item.description}
+                onChange={(event) => onChange(idx, 'description', event.target.value)}
+              onBlur={onDescriptionBlur}
+                placeholder="Descrição do serviço..."
+                className={`w-full border-x-0 border-t-0 border-b-2 rounded-none bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-b-blue-500 dark:bg-slate-800 dark:text-slate-200 ${error ? 'border-b-red-500 dark:border-b-red-500 focus:border-b-red-500 dark:focus:border-b-red-500' : 'border-b-slate-200 dark:border-b-slate-700'}`}
+              />
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type="text"
+                  value={tempObservation}
+                  onChange={(e) => setTempObservation(e.target.value)}
+                  onBlur={commitObservation}
+                  placeholder="Observação..."
+                  className="w-full bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500 px-2 py-0.5 rounded-none text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+                />
+              </div>
+              {serviceProductLink}
+            </div>
+          </div>
+        ) : isCompositionComponent ? (
+          <div>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                <i className="bi bi-box-seam mr-1" aria-hidden="true" />
+                #{displayNumber}
+              </span>
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  {item.description}
+                </span>
+                <span className="text-[9px] font-medium text-slate-400">Produto fixo na composição</span>
+              </div>
+              <button
+                type="button"
+                onClick={onToggleExpand}
+                aria-expanded="true"
+                aria-label={`Recolher componente ${displayNumber}`}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              >
+                <i className="bi bi-chevron-up text-[10px]" />
+              </button>
+            </div>
             <div className="mt-1 flex items-center gap-2">
+              {shouldShowStockOrigin && (
+                <>
+                  <select
+                    className={`w-[110px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-0.5 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
+                      stockOriginError
+                        ? 'border-b-red-500 focus:border-b-red-500'
+                        : 'border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500'
+                    }`}
+                    value={item.condition ?? ''}
+                    onChange={(event) => handleStockOriginChange(event.target.value)}
+                    title="Origem do estoque"
+                    aria-label="Origem do estoque (obrigatória)"
+                    aria-required="true"
+                    aria-invalid={Boolean(stockOriginError)}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="novo">Convencional</option>
+                    <option value="salvado">Salvados</option>
+                    <option value="usado">Usados</option>
+                  </select>
+                  <span className="text-[10px] font-black text-red-500" aria-hidden="true">
+                    *
+                  </span>
+                </>
+              )}
               <input
                 type="text"
                 value={tempObservation}
-                onChange={(e) => setTempObservation(e.target.value)}
+                onChange={(event) => setTempObservation(event.target.value)}
                 onBlur={commitObservation}
                 placeholder="Observação..."
-                className="w-full bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+                aria-label={`Observação do componente ${displayNumber}`}
+                className="w-full bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500 px-2 py-0.5 rounded-none text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
               />
             </div>
-            {serviceProductLink}
-          </>
+            {stockOriginError && (
+              <span className="mt-1 block text-[10px] text-red-600 dark:text-red-400">
+                {stockOriginError}
+              </span>
+            )}
+          </div>
         ) : !item.isComboItem ? (
           <>
+            <span className="mb-0.5 inline-flex rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              <i className="bi bi-box-seam mr-1" aria-hidden="true" />
+              #{displayNumber}
+            </span>
             <ProductAutocomplete
               value={item.description}
               onChange={(val) => onChange(idx, 'description', val)}
               onSelect={(p, v) => onSelectProduct(idx, p, v)}
+              autoFocus={autoFocusDescription}
+              onBlur={onDescriptionBlur}
+              maxSuggestions={5}
+              productsOnly
+              excludeCombos
               allowedProductKinds={STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']}
               includeDeactivated
-              placeholder="Busque ou digite um produto..."
+              placeholder="Busque ou descreva o produto... (mínimo de 3 caracteres para buscar)"
               isTemporary={showTemporaryProductLabel}
               inputEndAdornment={showTemporaryProductLabel ? <TemporaryProductWarning /> : undefined}
               isSelected={isLinkedProduct}
-              className={error ? 'border-red-500 rounded-xl ring-2 ring-red-500' : ''}
+              className={error ? 'border-red-500 focus:border-red-500 dark:border-red-500 dark:focus:border-red-500' : ''}
             />
             <div className="mt-1 flex items-center gap-2">
               {shouldShowStockOrigin && (
                 <>
                   <select
-                    className={`w-[110px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border px-2 py-0.5 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
+                    className={`w-[110px] shrink-0 bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 px-2 py-0.5 rounded-none text-[10px] font-bold text-slate-700 dark:text-slate-200 outline-none transition-all ${
                       stockOriginError
-                        ? 'border-red-500 focus:border-red-500'
-                        : 'border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500'
+                        ? 'border-b-red-500 focus:border-b-red-500'
+                        : 'border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500'
                     }`}
                     value={item.condition ?? ''}
                     onChange={(e) => handleStockOriginChange(e.target.value)}
@@ -143,7 +267,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
                 onChange={(e) => setTempObservation(e.target.value)}
                 onBlur={commitObservation}
                 placeholder="Observação (ex: salvados, peça do mostruário com avaria)..."
-                className="w-full bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 focus:border-blue-500 px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
+                className="w-full bg-slate-50/60 dark:bg-slate-800/40 border-x-0 border-t-0 border-b-2 border-b-slate-200/80 dark:border-b-slate-700/80 focus:border-b-blue-500 px-2 py-0.5 rounded-none text-[11px] font-medium text-slate-700 dark:text-slate-200 outline-none transition-all placeholder:text-slate-400"
               />
             </div>
             {stockOriginError && (
@@ -259,11 +383,11 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
           -
         </td>
       )}
-      <td className="px-2 py-1.5 w-[80px]">
+      <td className="px-2 py-1.5 w-[105px]">
         <UnitInput
           value={item.quantity}
           onChange={(value: number) => onChange(idx, 'quantity', value)}
-          disabled={item.isComboItem}
+          disabled={item.isComboItem || isCompositionComponent}
         />
       </td>
       <td className="px-2 py-1.5 w-[110px]">
@@ -272,35 +396,23 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
             value={tempUnitPrice}
             onChange={(val: number) => setTempUnitPrice(val)}
             onBlur={commitUnitPrice}
-            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1 rounded-xl text-xs font-bold outline-none text-right"
           />
         ) : (
           <div className="text-right text-xs font-bold text-slate-400">-</div>
         )}
       </td>
-      <td className="px-2 py-1.5 w-[100px]">
+      <td colSpan={2} className="px-2 py-1.5">
         {!item.isComboItem ? (
-          <CurrencyInput
-            value={tempDiscountValue}
-            max={item.unitPrice || undefined}
-            onChange={(val: number) => setTempDiscountValue(val)}
-            onBlur={commitDiscountValue}
-            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1 rounded-xl text-xs font-bold outline-none text-right"
-          />
-        ) : (
-          <div className="text-right text-xs font-bold text-slate-400">-</div>
-        )}
-      </td>
-      <td className="px-2 py-1.5 w-[85px]">
-        {!item.isComboItem ? (
-          <CurrencyOrPercentInput
-            prefix=""
-            suffix=" %"
-            value={tempDiscountPercent}
-            max={100}
-            onChange={(val: number) => setTempDiscountPercent(val)}
-            onBlur={commitDiscountPercent}
-            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1 rounded-xl text-xs font-bold outline-none text-right"
+          <DiscountInput
+            discountType={item.discountType}
+            fixedValue={tempDiscountValue}
+            percentageValue={tempDiscountPercent}
+            unitPrice={item.unitPrice}
+            onFixedValueChange={setTempDiscountValue}
+            onPercentageValueChange={setTempDiscountPercent}
+            onFixedBlur={commitDiscountValue}
+            onPercentageBlur={commitDiscountPercent}
+            onToggleType={onToggleDiscountType}
           />
         ) : (
           <div className="text-right text-xs font-bold text-slate-400">-</div>
@@ -313,7 +425,6 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
             max={item.unitPrice || undefined}
             onChange={(val: number) => setTempSubtotal(val)}
             onBlur={commitSubtotal}
-            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-blue-500 px-2 py-1 rounded-xl text-xs font-bold outline-none text-right"
           />
         ) : (
           <div className="text-right text-xs font-bold text-slate-400">-</div>
@@ -325,7 +436,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
         </div>
       </td>
       <td className="px-2 py-1.5 w-[50px] text-center">
-        {!item.isComboItem && (
+        {!item.isComboItem && !isCompositionComponent && (
           <button
             type="button"
             onClick={onDelete}

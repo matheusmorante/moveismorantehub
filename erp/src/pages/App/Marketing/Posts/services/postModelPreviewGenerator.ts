@@ -1,4 +1,5 @@
 import { AiGateway } from '@/services/aiGateway/AiGateway';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { PostTemplate } from '../types/postTemplate';
 import { postGenerationGuidelines } from './postGenerationGuidelines';
 import {
@@ -51,19 +52,41 @@ export interface GenerationPreviewResult {
 }
 
 async function imageToGenerativePart(url: string) {
-  const response = await fetch(url);
+  const controller = new AbortController();
+  const reader = new FileReader();
+  try {
+    const part = await withTimeout(
+      loadImagePart(url, controller.signal, reader),
+      30_000,
+      null,
+      'marketing:referencia-preview'
+    );
+    if (!part) throw new Error('O carregamento da referência demorou demais. Tente novamente.');
+    return part;
+  } finally {
+    controller.abort();
+    reader.abort();
+    reader.onload = null;
+    reader.onerror = null;
+    reader.onabort = null;
+  }
+}
+
+async function loadImagePart(url: string, signal: AbortSignal, reader: FileReader) {
+  const response = await fetch(url, { signal });
   if (!response.ok) {
-    throw new Error(`Não foi possível carregar o arquivo de referência: ${url}`);
+    throw new Error('Não foi possível carregar o arquivo de referência.');
   }
   const blob = await response.blob();
+  if (signal.aborted) throw new Error('Carregamento da referência interrompido.');
   const base64Data = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
     reader.onload = () => {
       const res = String(reader.result);
       const commaIdx = res.indexOf(',');
       resolve(commaIdx >= 0 ? res.slice(commaIdx + 1) : res);
     };
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error('Não foi possível ler o arquivo de referência.'));
+    reader.onabort = () => reject(new Error('Leitura da referência interrompida.'));
     reader.readAsDataURL(blob);
   });
 

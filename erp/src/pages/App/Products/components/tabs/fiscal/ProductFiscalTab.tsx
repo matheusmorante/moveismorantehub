@@ -11,6 +11,7 @@ import {
 import { createInitialProductFiscalInfo } from './productFiscalDefaults';
 import { ProductNcmSelector } from './ProductNcmSelector';
 import type { PendingNcmSuggestion } from '../../../hooks/fiscal/useProductJevClassification';
+import { updateProductFiscalCst } from '../../../../../../../../shared-utils/productFiscalCst';
 
 interface ProductFiscalTabProps {
   readonly formData: Partial<Product>;
@@ -39,14 +40,9 @@ const ProductFiscalTab: React.FC<ProductFiscalTabProps> = ({
   const currentCsosn = formData.fiscal?.cst || '103';
 
   const updateFiscalCst = (value: string) => {
-    const isSt = ['201', '202', '500'].includes(value);
     setFormData((prev) => ({
       ...prev,
-      fiscal: {
-        ...prev.fiscal!,
-        cst: value,
-        cest: isSt ? prev.fiscal?.cest || '' : '',
-      },
+      fiscal: updateProductFiscalCst(prev.fiscal, value),
     }));
   };
 

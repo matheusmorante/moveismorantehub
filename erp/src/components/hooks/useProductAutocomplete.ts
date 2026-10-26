@@ -2,12 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import Product, { ProductKind } from '../../pages/types/product.type';
 import { getProductKind } from '../../pages/utils/productKindRules';
 import { useZodForm, flattenFormErrors } from '@/hooks/useZodForm';
-import { productAutocompleteFormSchema } from '../../../../shared-utils/productAutocompleteFormSchema';
+import {
+  PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS,
+  productAutocompleteFormSchema,
+} from '../../../../shared-utils/productAutocompleteFormSchema';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import {
   fetchAllProductSearchResults,
   getVariationDisplayName,
   normalizeProductSearch,
+  normalizeProductSearchSeparators,
   SuggestionItem,
 } from '../productAutocompleteUtils';
 
@@ -15,6 +19,7 @@ interface UseProductAutocompleteProps {
   value?: string;
   supplierId?: string;
   parentsOnly?: boolean;
+  productsOnly?: boolean;
   variationsOnly?: boolean;
   includeDeactivated?: boolean;
   allowedProductKinds?: readonly ProductKind[];
@@ -28,6 +33,7 @@ export function useProductAutocomplete({
   value = '',
   supplierId,
   parentsOnly = false,
+  productsOnly = false,
   variationsOnly = false,
   includeDeactivated = false,
   allowedProductKinds,
@@ -42,7 +48,7 @@ export function useProductAutocomplete({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchError, setSearchError] = useState('');
   const generation = useRef(0), renderedGeneration = generation.current;
-  const context = JSON.stringify([query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds, disabled]);
+  const context = JSON.stringify([query, supplierId, parentsOnly, productsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds, disabled]);
   const latest = useRef({ context, localProducts }); latest.current = { context, localProducts };
   const { enqueueAndRun } = useZodForm(productAutocompleteFormSchema, { query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds: allowedProductKinds ? [...allowedProductKinds] : undefined });
   const setQuery = (next: string) => {
@@ -105,8 +111,12 @@ export function useProductAutocomplete({
         if (!Array.isArray(productsData)) throw new Error('A busca de produtos não foi confirmada. Consulte novamente.');
         const items: SuggestionItem[] = [];
         const searchNormWords = words.map(normalizeProductSearch);
+        const searchNormNameWords = words.map(normalizeProductSearchSeparators);
 
         (productsData || []).forEach((p: Product) => {
+          const itemType = p.itemType || (p as any).item_type || 'product';
+          if (productsOnly && (itemType !== 'product' || (p as any).isComposition)) return;
+
           const productKind = getProductKind(p);
           const isSalvado = productKind === 'salvado';
           if (allowedProductKinds && !allowedProductKinds.includes(productKind)) return;
@@ -140,10 +150,12 @@ export function useProductAutocomplete({
           if (parentsOnly) {
             if (!parentIsSelectable) return;
             const baseName = (p.name || p.title || '').trim();
+            const normalizedBaseName = normalizeProductSearchSeparators(baseName);
+            const normalizedCode = normalizeProductSearch(p.code || '');
             const matchesAll = searchNormWords.every(
-              (word) =>
-                normalizeProductSearch(baseName).includes(word) ||
-                normalizeProductSearch(p.code || '').includes(word)
+              (word, index) =>
+                normalizedBaseName.includes(searchNormNameWords[index]) ||
+                normalizedCode.includes(word)
             );
             if (matchesAll) items.push({ product: p });
           } else if (variations.length > 0) {
@@ -153,11 +165,13 @@ export function useProductAutocomplete({
                 : includeDeactivated || v.active !== false;
               if (variationIsSelectable && !v.mergedToVariationId) {
                 const fullName = getVariationDisplayName(p, v);
-                const normFullName = normalizeProductSearch(fullName);
+                const normFullName = normalizeProductSearchSeparators(fullName);
                 const normSku = normalizeProductSearch(v.sku || '');
 
                 const matchesAll = searchNormWords.every(
-                  (nw) => normFullName.includes(nw) || normSku.includes(nw)
+                  (nw, index) =>
+                    normFullName.includes(searchNormNameWords[index]) ||
+                    normSku.includes(nw)
                 );
 
                 if (matchesAll) {
@@ -191,7 +205,7 @@ export function useProductAutocomplete({
       }
     };
 
-    const timeoutId = setTimeout(fetchSuggestions, 300);
+    const timeoutId = setTimeout(fetchSuggestions, PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS);
     return () => {
       active = false;
       clearTimeout(timeoutId);
@@ -201,6 +215,7 @@ export function useProductAutocomplete({
     supplierId,
     variationsOnly,
     parentsOnly,
+    productsOnly,
     includeDeactivated,
     excludeCombos,
     allowedProductKinds,

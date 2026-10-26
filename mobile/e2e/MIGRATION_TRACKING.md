@@ -67,11 +67,32 @@ Os rótulos de classificação seguem exatamente `MIGRAR_PARA_MAESTRO`, `MANTER_
 6. O comando `adb devices -l` retornou lista vazia, apesar do aparelho estar fisicamente conectado conforme informado pelo usuário. Estado para a configuração atual: `AGUARDANDO_CELULAR_WIFI`; o fluxo agora requer pareamento pela Depuração sem fio e não usa drivers USB.
 7. Comandos reproduzíveis e proteção que recusa emulador/AVD e alvo USB estão em `mobile/maestro/README.md` e `mobile/scripts/maestro-device.mjs`. `run-inventory-audit.mjs` segue sem execução até revisar seus efeitos de escrita.
 
-## Validação desta auditoria
+## Validação da auditoria original (2026-09-25)
 
 - Nenhum cenário E2E foi executado contra o banco real.
 - Nenhum arquivo `erp/**` ou Playwright do ERP foi alterado nesta migração.
-- Flow criado: 1 smoke de abertura, ainda não validado no aparelho (`FLOW_CRIADO_NAO_VALIDADO`).
+- Flow criado: 1 smoke de abertura. A execução física posterior está registrada abaixo.
 - Cenários do roteiro migrados/validados: 0; 19 candidatos para Maestro aguardam implementação/execução física; 1 permanece como Expo Web; 6 continuam `BLOQUEADO_POR_DADOS`.
 - Playwright removido: 0; Playwright do ERP permanece intacto.
-- Execução em celular não foi possível porque o ADB retornou zero devices. Não rodamos Maestro contra emulador nem executamos cenários que possam tocar dados reais.
+- Na auditoria original, a execução em celular não foi possível porque o ADB retornou zero devices. O status atual está registrado abaixo.
+
+## Atualização de execução física (2026-10-24)
+
+- O ADB detectou um telefone Android físico por Depuração sem fio. Duas entradas mDNS correspondiam ao mesmo hardware; o Maestro foi apontado a um serial explícito.
+- O Maestro CLI 2.10.0 não estava no PATH nem no caminho padrão esperado pelo runner. Para esta execução, a versão documentada foi extraída em `%TEMP%`; o PATH e a instalação do app não foram alterados.
+- O pacote instalado era `com.morante.mobile`, versão `1.6.2`, `versionCode` 29. O checkout informa `versionCode` 27 em `mobile/app.json`; portanto, o binário do aparelho não corresponde ao build descrito pelo checkout.
+- `smoke/app-launch.yaml` foi executado no telefone e falhou após 28 segundos: o elemento `app-root` não ficou visível. Depois do fluxo, a atividade em primeiro plano era a tela inicial do Android. Os marcadores filtrados de crash nativo/AndroidRuntime não indicaram exceção fatal. A causa da ausência de `app-root` não foi comprovada.
+- Uma segunda tentativa temporária, somente com `launchApp` e `waitForAnimationToEnd`, foi interrompida porque o Maestro não conseguiu gravar os logs (`java.io.IOException: Espaço insuficiente no disco`). O resultado é inconclusivo; após a interrupção, o Android estava na tela inicial. A unidade C: chegou a 0 bytes livres. Os artefatos dessa execução permanecem nos diretórios locais do Maestro; a remoção direcionada foi bloqueada pela política do ambiente. Nenhum botão de estoque ou envio de formulário foi acionado.
+- Até esta etapa, nenhum fluxo de Estoque foi aberto e nenhuma gravação remota foi realizada. `inventory-audit.yaml` continua pendente: confirmar o escopo e contar grava um rascunho local no SQLite e o fluxo não faz a limpeza desse rascunho.
+- Mais tarde, com espaço disponível, o fluxo somente de abertura foi repetido com --test-output-dir e --debug-output em H:/MoranteHub-Maestro-Audit-20261024. O Maestro marcou 1/1 como Passed em 10 segundos, mas a captura mostrava a busca do launcher MIUI, não o MoranteHub; depois do fluxo, com.morante.mobile não tinha processo ativo e a atividade em primeiro plano era o launcher. O comando enviou a abertura a com.morante.mobile/.MainActivity, sem exceção fatal nos marcadores AndroidRuntime filtrados. Como o fluxo não afirmava a visibilidade do app, o resultado não valida a abertura nem autoriza seguir para Estoque; a causa permanece não comprovada.
+- Após instalar os auxiliares do Maestro, `--no-reinstall-driver` permitiu execuções sem novo prompt. Uma captura confirmou a tela de Operações; `Mais` → `Estoque` abriu o menu, e as telas de lista/detalhe de Inventário foram abertas em leitura. Nenhum botão `Iniciar`, `Revisar` ou `Novo Inventário` foi acionado.
+- Observação sobre Inventário: a lista mostrou dois registros `#000008` em andamento, sendo um identificado na UI como armazenado no aparelho; o detalhe mostrou 3/271 itens contados (1%). No checkout, `useInventory` mescla rascunhos locais e sessões remotas deduplicando por ID, e `InventoryCardContent` mostra `productsCount/items_count` sob o rótulo “Produtos contados”; para rascunhos locais, esse valor é `d.items.length`, o tamanho do escopo, não a quantidade com contagem física. Isso explica o cartão 271 versus detalhe 3/271 no checkout, mas a build instalada é outra. A repetição do número entre registro local e remoto é suspeita: o código visível não deduplica por código de negócio, porém a causa não está confirmada na versão instalada. O cabeçalho 0/0 acompanha a etapa ativa; no resumo sem etapa selecionada, o checkout passa listas vazias ao cabeçalho enquanto o cartão geral calcula o total.
+- Na volta, o botão visível da tela de detalhe retornou à lista; o BACK do Android levou ao launcher. As tentativas seguintes não reabriram a raiz do app, então Pedidos de Compra não chegou a abrir. Recebimentos e Indisponíveis também permanecem pendentes.
+- Status do smoke original: `FLOW_CRIADO_NAO_VALIDADO`. Uma asserção posterior de `app-root` passou quando o processo do app foi preservado; isso não valida ainda o smoke original nem os demais módulos. Repetir com build correspondente ao checkout antes de atribuir os resultados ao código atual.
+
+## Continuação da validação nativa (2026-10-24)
+
+- Com o app reaberto pelo usuário e o auxiliar Maestro instalado, a auditoria continuou no aplicativo Android físico, sem Expo Web. Resumo, Movimentações, Inventário, Pedidos de Compra (lista e detalhe), NF Entrada, Recebimentos, Fornecedores e Indisponíveis foram acessados; os filtros de Indisponíveis também foram exercitados em leitura.
+- O detalhe de Pedido #1 foi fechado pelo controle do modal, retornando à lista. Depois, os módulos restantes foram acessados pelo botão de retorno interno, sem usar BACK do Android.
+- Foram observados: conteúdo vazio sem mensagem na tela de Recebimentos; pedidos cancelados com subtítulo “Aguardando recebimento”; diferença entre contagem do cartão e detalhe de Inventário e dois códigos `#000008` em andamento; aviso de falha da Ciência automática na lista de NF Entrada. Evidências, hipóteses e limites estão em [`mobile/maestro/audit-stock-native-2026-10-24.md`](../maestro/audit-stock-native-2026-10-24.md).
+- Os fluxos exploratórios não executaram gravações locais/remotas e não mudam a contagem de cenários Playwright migrados: não usam fixtures próprias e não substituem a migração formal. A diferença `versionCode` 29 instalado versus 27 no checkout permanece, então causas atribuídas ao código do checkout precisam ser revalidadas no binário correspondente.

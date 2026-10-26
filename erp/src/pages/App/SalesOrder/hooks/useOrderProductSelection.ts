@@ -30,7 +30,7 @@ export function useOrderProductSelection(
   const handleSelectProduct = useCallback(
     (index: number, product: any, variation?: any) => {
       if (product.isComposition || product.itemType === 'composition') {
-        // EXPLOSÃO DO KIT (COMPOSIÇÃO)
+        // Mantém linhas comerciais por componente e associa a fotografia do produto composto.
         const compositionItems =
           variation?.items || product.items || product.variations?.[0]?.items;
 
@@ -42,13 +42,23 @@ export function useOrderProductSelection(
         setItems((currentItems) => {
           const newItems = [...currentItems];
           const chosenOrigin = currentItems[index]?.condition;
-          const requestedQuantity = Number(currentItems[index]?.quantity ?? 1);
-          const explodedItems = compositionItems.map((compItem: any) => {
+          const requestedQuantity = Math.max(1, Math.floor(Number(currentItems[index]?.quantity) || 1));
+          const compositionSnapshot = {
+            groupId: crypto.randomUUID(),
+            productId: String(product.id),
+            variationId: variation?.id ? String(variation.id) : undefined,
+            description: getSelectedProductDisplayName(product, variation),
+            code: variation?.sku || product.code || product.sku || '',
+            orderedQuantity: requestedQuantity,
+            componentCount: compositionItems.length,
+          };
+          const explodedItems = compositionItems.map((compItem: any, componentIndex: number) => {
             const realProduct = compItem.product;
             const realVariation = compItem.variation;
             const condition = selectedStockOrigin(realProduct, realVariation, chosenOrigin);
             const movesStock = condition === 'novo';
 
+            const quantityPerComposition = Number(compItem.quantity ?? 1);
             const pricing = getSelectedProductPricing(realProduct, realVariation);
             const selectedCost = realVariation
               ? (realVariation.costPrice ?? realProduct.costPrice ?? 0)
@@ -62,33 +72,40 @@ export function useOrderProductSelection(
             // O cliente disse "expandiremos a composição em suas partes componentes originais para que o pedido deduza os estoques perfeitamente das peças individuais sem violar a rastreabilidade fiscal e contábil."
             // Como não pediram rateio de preço agora, vamos usar o preço real. Se a composição era mais barata, o usuário aplica desconto no pedido.
 
-            return createFiscalItemSnapshot(
-              {
-                id: crypto.randomUUID(), // fake id para novo item
-                orderItemId: crypto.randomUUID(),
-                productId: movesStock ? realProduct.id : undefined,
-                variationId: movesStock ? realVariation?.id : undefined,
-                isTemporaryProduct: !movesStock,
-                code: resolvedCode || '',
-                description: getSelectedProductDisplayName(realProduct, realVariation),
-                unitPrice: pricing.unitPrice,
-                unitDiscount: pricing.unitDiscount,
-                discountType: pricing.discountType,
-                quantity: Number(compItem.quantity ?? 1) * requestedQuantity,
-                total: Math.max(
-                  0,
-                  (pricing.unitPrice - (pricing.unitDiscount || 0)) *
-                    Number(compItem.quantity ?? 1) *
-                    requestedQuantity
-                ),
-                costPrice: Number(selectedCost) || 0,
-                handlingType: '',
-                condition,
+            return {
+              ...createFiscalItemSnapshot(
+                {
+                  id: crypto.randomUUID(),
+                  orderItemId: crypto.randomUUID(),
+                  productId: movesStock ? realProduct.id : undefined,
+                  variationId: movesStock ? realVariation?.id : undefined,
+                  isTemporaryProduct: !movesStock,
+                  code: resolvedCode || '',
+                  description: getSelectedProductDisplayName(realProduct, realVariation),
+                  unitPrice: pricing.unitPrice,
+                  unitDiscount: pricing.unitDiscount,
+                  discountType: pricing.discountType,
+                  quantity: quantityPerComposition * requestedQuantity,
+                  total: Math.max(
+                    0,
+                    (pricing.unitPrice - (pricing.unitDiscount || 0)) *
+                      quantityPerComposition *
+                      requestedQuantity
+                  ),
+                  costPrice: Number(selectedCost) || 0,
+                  handlingType: '',
+                  condition,
+                },
+                realProduct,
+                realVariation,
+                { preserveExisting: false }
+              ),
+              compositionGroup: {
+                ...compositionSnapshot,
+                quantityPerComposition,
+                componentIndex,
               },
-              realProduct,
-              realVariation,
-              { preserveExisting: false }
-            );
+            };
           });
 
           // Substitui a linha vazia (index) pelos itens explodidos

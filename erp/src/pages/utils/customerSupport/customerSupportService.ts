@@ -13,13 +13,25 @@ import {
 } from './customerMatchingService';
 import { SupportOrderSummary } from './supportOrdersService';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
-import { supportInternalCommentSchema, supportMessageSearchSchema, supportNotesSchema, supportTagSchema } from '../../../../../shared-utils/customerSupportFormSchemas';
+import type { ProductCatalogSendSelection } from '../../../../../shared-utils/productCatalogFormSchemas';
+import {
+  supportInternalCommentSchema,
+  supportGlobalMessageSearchSchema,
+  supportMessageSearchSchema,
+  supportNotesSchema,
+  supportSandboxMessageSchema,
+  supportCustomerSendSchema,
+  supportTagSchema,
+} from '../../../../../shared-utils/customerSupportFormSchemas';
 
 export const CONVERSATION_SELECT_COLUMNS =
   'id, business_phone_number_id, contact_phone, contact_wa_id, contact_name, customer_id, customer_link_status, last_message_text, last_message_at, last_customer_message_at, unread_count, is_archived, internal_notes, tags, assigned_to, created_at, updated_at';
 
 export const MESSAGE_SELECT_COLUMNS =
   'id, conversation_id, api_message_id, direction, message_type, text_content, media_id, media_mime_type, media_url, media_filename, media_caption, reply_to_message_id, reply_to_wamid, status, error_code, failure_reason, raw_payload, timestamp, created_at';
+
+const MESSAGE_GLOBAL_SEARCH_COLUMNS =
+  'id, conversation_id, direction, message_type, text_content, media_filename, media_caption, timestamp, created_at';
 
 // Modelos fixos orientam a conferência; dados e resultados comerciais exigem uma fonte real.
 export const DEFAULT_QUICK_SNIPPETS: QuickSnippet[] = [
@@ -99,6 +111,12 @@ export function mapRowToConversation(row: any): WhatsAppConversation {
 }
 
 export function mapRowToMessage(row: any): WhatsAppMessage {
+  const legacyUnsupportedText = row.direction === 'inbound'
+    && row.message_type === 'unsupported'
+    && (row.text_content === 'Formato de mensagem não suportado diretamente pela central.'
+      || row.text_content === '[Mensagem tipo unsupported]')
+    ? 'Mensagem sem prévia: a integração não salvou o tipo nem o conteúdo original. Peça ao cliente para reenviar como texto, imagem, áudio ou documento.'
+    : row.text_content;
   const authorName =
     row.raw_payload?.author_name || (row.direction === 'outbound' ? 'Atendente' : null);
   const authorAvatar = row.raw_payload?.author_avatar || null;
@@ -110,7 +128,7 @@ export function mapRowToMessage(row: any): WhatsAppMessage {
     apiMessageId: row.api_message_id,
     direction: row.direction,
     messageType: row.message_type || 'text',
-    textContent: row.text_content,
+    textContent: legacyUnsupportedText,
     mediaId: row.media_id,
     mediaMimeType: row.media_mime_type,
     mediaUrl: row.media_url,
@@ -346,6 +364,16 @@ function literalSupportSearchPattern(search: string): string {
   return `%${search.replace(/[\\%_*]/g, (character) => `\\${character}`)}%`;
 }
 
+function quoteSupportFilterValue(value: string) {
+  return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+}
+
+function supportSearchOrFilters(filters: Array<{ column: string; pattern: string }>) {
+  return filters.map(({ column, pattern }) =>
+    column + '.ilike.' + quoteSupportFilterValue(pattern)
+  ).join(',');
+}
+
 async function fetchConversationHistoryPage(
   query: any,
   fallbackMessage: string,
@@ -419,33 +447,255 @@ export async function fetchConversationMessageSearchPage(
   conversationId: string,
   cursor: CustomerSupportHistoryCursor | null = null,
   search = '',
-  pageSize = CUSTOMER_SUPPORT_HISTORY_PAGE_SIZE
+  pageSize = 5,
+  signal?: AbortSignal
 ): Promise<CustomerSupportHistoryPage> {
+  const trimmedSearch = search.trim();
+  if (!conversationId || !trimmedSearch) return { messages: [], hasMore: false, nextCursor: null };
   const parsed = supportMessageSearchSchema.safeParse({ search });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'Busca inválida.');
-  if (!conversationId || !parsed.data.search) return { messages: [], hasMore: false, nextCursor: null };
   const pattern = literalSupportSearchPattern(parsed.data.search);
-  const limit = Math.max(1, Math.min(50, Math.trunc(pageSize) || CUSTOMER_SUPPORT_HISTORY_PAGE_SIZE));
-  const responses = await Promise.all(['text_content', 'media_filename', 'media_caption'].map((column) => {
-    let query = supabase.from('whatsapp_messages')
-      .select(MESSAGE_SELECT_COLUMNS)
-      .eq('conversation_id', conversationId)
-      .ilike(column, pattern);
-    query = applyHistoryCursor(query, cursor)
-      .order('timestamp', { ascending: false })
-      .order('id', { ascending: false })
-      .limit(limit + 1);
-    return withTimeout<any>(query, 15_000, null, 'central:busca-mensagens');
-  }));
-  if (responses.some((response) => !response || response.error || !Array.isArray(response.data))) {
+  const limit = Math.max(1, Math.min(5, Math.trunc(pageSize) || 5));
+  let query = supabase.from('whatsapp_messages')
+    .select(MESSAGE_SELECT_COLUMNS)
+    .eq('conversation_id', conversationId)
+    .or(supportSearchOrFilters(['text_content', 'media_filename', 'media_caption']
+      .map((column) => ({ column, pattern }))));
+  query = applyHistoryCursor(query, cursor)
+    .order('timestamp', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit + 1);
+  const response = await withTimeout<any>(
+    withSupportSearchAbort(query, signal),
+    15_000,
+    null,
+    'central:busca-mensagens'
+  );
+  if (signal?.aborted) throw new Error('Busca cancelada.');
+  if (!response || response.error || !Array.isArray(response.data)) {
     throw new Error('Não foi possível pesquisar as mensagens. Tente novamente.');
   }
-  const rows = Array.from(new Map(
-    responses.flatMap((response) => response.data as any[]).map((row) => [row.id, row])
-  ).values()).sort((a: any, b: any) =>
-    String(b.timestamp).localeCompare(String(a.timestamp)) || String(b.id).localeCompare(String(a.id))
+  return toHistoryPage(response.data, limit);
+}
+
+export interface CustomerSupportGlobalSearchPage<T> {
+  items: T[];
+  hasMore: boolean;
+  nextCursor: CustomerSupportHistoryCursor | null;
+}
+
+export interface CustomerSupportGlobalMessageMatch {
+  message: WhatsAppMessage;
+  conversation: WhatsAppConversation;
+}
+
+function withSupportSearchAbort(query: any, signal?: AbortSignal) {
+  return signal && typeof query?.abortSignal === 'function' ? query.abortSignal(signal) : query;
+}
+
+function applyColumnTimestampCursor(query: any, column: string, cursor: CustomerSupportHistoryCursor | null) {
+  if (!cursor) return query;
+  const timestamp = JSON.stringify(cursor.timestamp);
+  return query.or(
+    column + '.lt.' + timestamp + ',and(' + column + '.eq.' + timestamp + ',id.lt.' + cursor.id + ')'
   );
-  return toHistoryPage(rows, limit);
+}
+
+function getGlobalSearchLimit(pageSize: number) {
+  return Math.max(1, Math.min(5, Math.trunc(pageSize) || 5));
+}
+
+/** Searches message content across conversations visible to the current operator via RLS. */
+export async function fetchGlobalCustomerSupportMessagePage(
+  supabase: SupabaseClient,
+  search: string,
+  cursor: CustomerSupportHistoryCursor | null = null,
+  pageSize = 5,
+  signal?: AbortSignal
+): Promise<CustomerSupportGlobalSearchPage<CustomerSupportGlobalMessageMatch>> {
+  const parsed = supportGlobalMessageSearchSchema.safeParse({ search });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'Busca inválida.');
+  const term = parsed.data.search;
+  if (signal?.aborted) throw new Error('Busca cancelada.');
+
+  const limit = getGlobalSearchLimit(pageSize);
+  const pattern = literalSupportSearchPattern(term);
+  let query = supabase.from('whatsapp_messages')
+    .select(MESSAGE_GLOBAL_SEARCH_COLUMNS)
+    .or(supportSearchOrFilters(['text_content', 'media_filename', 'media_caption']
+      .map((column) => ({ column, pattern }))));
+  query = applyHistoryCursor(query, cursor)
+    .order('timestamp', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit + 1);
+  const response = await withTimeout<any>(
+    withSupportSearchAbort(query, signal),
+    15_000,
+    null,
+    'central:busca-global-mensagens'
+  );
+  if (signal?.aborted) throw new Error('Busca cancelada.');
+  if (!response || response.error || !Array.isArray(response.data)) {
+    throw new Error('Não foi possível pesquisar as mensagens. Tente novamente.');
+  }
+
+  const rows = response.data as any[];
+  const pageRows = rows.slice(0, limit);
+  const conversationIds = Array.from(new Set(pageRows.map((row) => String(row.conversation_id))));
+  const conversationResponse = conversationIds.length
+    ? await withTimeout<any>(
+      withSupportSearchAbort(supabase.from('whatsapp_conversations')
+        .select(CONVERSATION_SELECT_COLUMNS)
+        .in('id', conversationIds), signal),
+      15_000,
+      null,
+      'central:busca-global-conversas'
+    )
+    : { data: [], error: null };
+  if (signal?.aborted) throw new Error('Busca cancelada.');
+  if (!conversationResponse || conversationResponse.error || !Array.isArray(conversationResponse.data)) {
+    throw new Error('Não foi possível carregar as conversas dos resultados. Tente novamente.');
+  }
+  const conversations = new Map<string, WhatsAppConversation>(
+    conversationResponse.data.map((row: any) => [String(row.id), mapRowToConversation(row)] as const)
+  );
+  const items = pageRows.flatMap((row) => {
+    const conversation = conversations.get(String(row.conversation_id));
+    return conversation ? [{
+      message: mapRowToMessage({
+        ...row,
+        api_message_id: null,
+        media_id: null,
+        media_mime_type: null,
+        media_url: null,
+        reply_to_message_id: null,
+        reply_to_wamid: null,
+        status: 'received',
+        error_code: null,
+        failure_reason: null,
+        raw_payload: null,
+      }),
+      conversation,
+    }] : [];
+  });
+  const last = pageRows[pageRows.length - 1];
+  return {
+    items,
+    hasMore: rows.length > limit,
+    nextCursor: last ? { timestamp: last.timestamp || last.created_at, id: last.id } : null,
+  };
+}
+
+/** Searches contact name and phone separately from message content, under the same conversation RLS. */
+export async function fetchGlobalCustomerSupportContactPage(
+  supabase: SupabaseClient,
+  search: string,
+  cursor: CustomerSupportHistoryCursor | null = null,
+  pageSize = 5,
+  signal?: AbortSignal
+): Promise<CustomerSupportGlobalSearchPage<WhatsAppConversation>> {
+  const parsed = supportGlobalMessageSearchSchema.safeParse({ search });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'Busca inválida.');
+  if (signal?.aborted) throw new Error('Busca cancelada.');
+
+  const limit = getGlobalSearchLimit(pageSize);
+  const term = parsed.data.search;
+  const pattern = literalSupportSearchPattern(term);
+  const digits = term.replace(/\D/g, '');
+  const filters = [{ column: 'contact_name', pattern }];
+  if (digits.length >= 3) {
+    const phonePattern = literalSupportSearchPattern(digits);
+    filters.push(
+      { column: 'contact_phone', pattern: phonePattern },
+      { column: 'contact_wa_id', pattern: phonePattern }
+    );
+  }
+  let query = supabase.from('whatsapp_conversations')
+    .select(CONVERSATION_SELECT_COLUMNS)
+    .or(supportSearchOrFilters(filters));
+  query = applyColumnTimestampCursor(query, 'created_at', cursor)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit + 1);
+  const response = await withTimeout<any>(
+    withSupportSearchAbort(query, signal),
+    15_000,
+    null,
+    'central:busca-global-contatos'
+  );
+  if (signal?.aborted) throw new Error('Busca cancelada.');
+  if (!response || response.error || !Array.isArray(response.data)) {
+    throw new Error('Não foi possível pesquisar conversas por contato. Tente novamente.');
+  }
+  const rows = response.data as any[];
+  const pageRows = rows.slice(0, limit);
+  const last = pageRows[pageRows.length - 1];
+  return {
+    items: pageRows.map(mapRowToConversation),
+    hasMore: rows.length > limit,
+    nextCursor: last ? { timestamp: last.created_at, id: last.id } : null,
+  };
+}
+
+export interface CustomerSupportMessageContext {
+  messages: WhatsAppMessage[];
+  hasOlderMessages: boolean;
+}
+
+/** Loads a message plus neighboring history so global search can jump to unloaded messages. */
+export async function fetchConversationMessageContext(
+  supabase: SupabaseClient,
+  conversationId: string,
+  messageId: string,
+  contextSize = 10
+): Promise<CustomerSupportMessageContext> {
+  if (!conversationId || !messageId) {
+    return { messages: [], hasOlderMessages: false };
+  }
+  const targetResponse = await withTimeout<any>(supabase.from('whatsapp_messages')
+    .select(MESSAGE_SELECT_COLUMNS)
+    .eq('conversation_id', conversationId)
+    .eq('id', messageId)
+    .maybeSingle(), 15_000, null, 'central:mensagem-alvo');
+  if (!targetResponse || targetResponse.error || !targetResponse.data) {
+    throw new Error('Não foi possível localizar essa mensagem no histórico da conversa.');
+  }
+  const target = targetResponse.data;
+  const cursor = { timestamp: target.timestamp || target.created_at, id: target.id };
+  const limit = Math.max(1, Math.min(20, Math.trunc(contextSize) || 10));
+  const beforeQuery = applyTimestampCursor(supabase.from('whatsapp_messages')
+    .select(MESSAGE_SELECT_COLUMNS)
+    .eq('conversation_id', conversationId), cursor)
+    .order('timestamp', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit + 1);
+  const afterTimestamp = JSON.stringify(cursor.timestamp);
+  const afterQuery = supabase.from('whatsapp_messages')
+    .select(MESSAGE_SELECT_COLUMNS)
+    .eq('conversation_id', conversationId)
+    .or('timestamp.gt.' + afterTimestamp + ',and(timestamp.eq.' + afterTimestamp + ',id.gt.' + cursor.id + ')')
+    .order('timestamp', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(limit);
+  const [beforeResponse, afterResponse] = await Promise.all([
+    withTimeout<any>(beforeQuery, 15_000, null, 'central:mensagem-contexto-anterior'),
+    withTimeout<any>(afterQuery, 15_000, null, 'central:mensagem-contexto-posterior'),
+  ]);
+  if (!beforeResponse || beforeResponse.error || !Array.isArray(beforeResponse.data)
+    || !afterResponse || afterResponse.error || !Array.isArray(afterResponse.data)) {
+    throw new Error('Não foi possível carregar o contexto da mensagem. Tente novamente.');
+  }
+  const beforeRows = beforeResponse.data.slice(0, limit).reverse();
+  const rows = [...beforeRows, target, ...afterResponse.data];
+  const uniqueRows = Array.from(new Map(rows.map((row) => [row.id, row])).values())
+    .sort((a: any, b: any) =>
+      String(a.timestamp || a.created_at).localeCompare(String(b.timestamp || b.created_at))
+        || String(a.id).localeCompare(String(b.id))
+    );
+  return {
+    messages: uniqueRows.map(mapRowToMessage),
+    hasOlderMessages: beforeResponse.data.length > limit,
+  };
 }
 
 /** Resolve a quoted source only inside the same conversation and under the caller's RLS. */
@@ -563,6 +813,187 @@ export async function createInternalNoteMessage(
   }), 15_000, null, 'central:comentario');
   const row = Array.isArray(response?.data) ? response.data[0] : null;
   return !response?.error && row ? mapRowToMessage(row) : null;
+}
+
+export interface CustomerSupportTestSendResult {
+  accepted: true;
+  persisted: boolean;
+  warning?: string;
+}
+
+/** Sends only through the Meta test sender endpoint; the server enforces the Development sandbox. */
+export async function sendCustomerSupportTestMessage(
+  supabase: SupabaseClient,
+  conversationId: string,
+  message: string
+): Promise<CustomerSupportTestSendResult> {
+  const parsed = supportSandboxMessageSchema.safeParse({ message });
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'Mensagem inválida.');
+
+  const sessionResponse = await withTimeout<any>(supabase.auth.getSession(), 10_000, null, 'central:envio-teste-sessao');
+  const accessToken = sessionResponse?.data?.session?.access_token;
+  if (sessionResponse?.error || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const response = await fetch('/api/whatsapp-dispatch', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ conversationId, message: parsed.data.message }),
+      signal: controller.signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Não foi possível enviar a mensagem de teste.');
+    if (data.accepted !== true) throw new Error('A Meta não confirmou o envio da mensagem.');
+    return {
+      accepted: true,
+      persisted: data.persisted === true,
+      ...(typeof data.warning === 'string' ? { warning: data.warning } : {}),
+    };
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error('Resultado do envio incerto. Atualize a conversa antes de tentar novamente.');
+    }
+    throw error instanceof Error ? error : new Error('Não foi possível enviar a mensagem de teste.');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export interface CustomerSupportTestSender {
+  enabled: boolean;
+  phoneNumberId?: string;
+  phoneNumber?: string;
+}
+
+export class CustomerSupportSendError extends Error {
+  constructor(message: string, readonly outcomeUncertain = false) {
+    super(message);
+    this.name = 'CustomerSupportSendError';
+  }
+}
+
+export interface CustomerSupportSendInput {
+  message: string;
+  file?: File;
+  contact?: { name: string; phone: string };
+  catalogSelection?: ProductCatalogSendSelection;
+}
+
+export interface CustomerSupportSendResult {
+  accepted: true;
+  persisted: boolean;
+  apiMessageId?: string;
+  warning?: string;
+}
+
+/** Envia uma mensagem do atendimento pela rota autenticada, vinculada à conversa ativa. */
+export async function sendCustomerSupportMessage(
+  supabase: SupabaseClient,
+  conversationId: string,
+  input: CustomerSupportSendInput
+): Promise<CustomerSupportSendResult> {
+  const attachmentType = input.contact ? 'contact' : input.file ? 'file' : input.catalogSelection ? 'catalog' : 'text';
+  const parsed = supportCustomerSendSchema.safeParse({
+    conversationId,
+    message: input.message,
+    attachmentType,
+    ...(input.file ? {
+      fileName: input.file.name,
+      fileMimeType: input.file.type || 'application/octet-stream',
+      fileSize: input.file.size,
+    } : {}),
+    ...(input.contact ? {
+      contactName: input.contact.name,
+      contactPhone: input.contact.phone,
+    } : {}),
+    ...(input.catalogSelection ? { catalogSelection: input.catalogSelection } : {}),
+  });
+  if (!parsed.success) {
+    throw new CustomerSupportSendError(parsed.error.issues[0]?.message || 'Mensagem inválida.');
+  }
+  if (input.file && parsed.data.message.trim().length > 1024) {
+    throw new CustomerSupportSendError('A legenda do anexo pode ter até 1024 caracteres.');
+  }
+
+  const sessionResponse = await withTimeout<any>(supabase.auth.getSession(), 10_000, null, 'central:envio-sessao');
+  const accessToken = sessionResponse?.data?.session?.access_token;
+  if (sessionResponse?.error || !accessToken) throw new CustomerSupportSendError('Sessão inválida. Entre novamente.');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 55_000);
+  let responseReceived = false;
+  try {
+    const headers: Record<string, string> = { Authorization: `Bearer ${accessToken}` };
+    let body: BodyInit;
+    if (input.file) {
+      const formData = new FormData();
+      formData.set('conversationId', parsed.data.conversationId);
+      formData.set('message', parsed.data.message);
+      formData.set('file', input.file, input.file.name);
+      body = formData;
+    } else {
+      headers['Content-Type'] = 'application/json';
+      body = JSON.stringify({
+        conversationId: parsed.data.conversationId,
+        message: parsed.data.message,
+        ...(input.contact ? { contact: input.contact } : {}),
+        ...(parsed.data.catalogSelection ? { catalogSelection: parsed.data.catalogSelection } : {}),
+      });
+    }
+
+    const response = await fetch('/api/whatsapp-support-send', {
+      method: 'POST',
+      headers,
+      body,
+      signal: controller.signal,
+    });
+    responseReceived = true;
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new CustomerSupportSendError(
+        typeof data.error === 'string' ? data.error : 'Não foi possível enviar a mensagem.',
+        data.outcomeUncertain === true,
+      );
+    }
+    if (data.accepted !== true) {
+      throw new CustomerSupportSendError('O WhatsApp não confirmou o envio. Atualize a conversa antes de tentar novamente.', true);
+    }
+    return {
+      accepted: true,
+      persisted: data.persisted === true,
+      ...(typeof data.apiMessageId === 'string' ? { apiMessageId: data.apiMessageId } : {}),
+      ...(typeof data.warning === 'string' ? { warning: data.warning } : {}),
+    };
+  } catch (error) {
+    if (error instanceof CustomerSupportSendError) throw error;
+    if (controller.signal.aborted || !responseReceived) {
+      throw new CustomerSupportSendError(
+        'Resultado do envio incerto. Atualize a conversa antes de tentar novamente.',
+        true,
+      );
+    }
+    throw new CustomerSupportSendError(error instanceof Error ? error.message : 'Não foi possível enviar a mensagem.');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function fetchCustomerSupportTestSender(): Promise<CustomerSupportTestSender> {
+  try {
+    const response = await withTimeout<Response | null>(fetch('/api/whatsapp-dispatch?operation=test-sender', { cache: 'no-store' }), 10_000, null, 'central:remetente-teste');
+    if (!response?.ok) return { enabled: false };
+    const data = await response.json();
+    return data?.enabled === true && typeof data.phoneNumberId === 'string' && typeof data.phoneNumber === 'string'
+      ? { enabled: true, phoneNumberId: data.phoneNumberId, phoneNumber: data.phoneNumber }
+      : { enabled: false };
+  } catch {
+    return { enabled: false };
+  }
 }
 
 /**

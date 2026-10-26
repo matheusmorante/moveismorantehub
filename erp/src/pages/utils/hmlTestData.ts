@@ -1,7 +1,10 @@
-import { isTestProduct } from '../../../../shared-utils/isTestProduct';
+import {
+  isTestProduct,
+  shouldValidatePublishedCatalogEdit,
+} from '../../../../shared-utils/isTestProduct';
 import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
 
-export { isTestProduct };
+export { isTestProduct, shouldValidatePublishedCatalogEdit };
 
 export const HML_FISCAL_TEST_ORDER_MARKER = 'NFE_HML_MATRIX_2026_10';
 export const HML_FISCAL_TEST_PRODUCT_MARKER = 'HMLNFTEST';

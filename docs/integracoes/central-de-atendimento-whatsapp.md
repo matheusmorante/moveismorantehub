@@ -1,6 +1,6 @@
 # Central de Atendimento WhatsApp — MoranteHub ERP
 
-> Estado conferido em 24/10/2026 BRT: os metadados Vercel apontam `dpl_5jY7ptsGrQe9SAZVQF3zQmMYmt2z` como deployment Production mais recente (`READY`), commit `e4fe2bb35c43722e86d116eaa5acc86ac362c64f`, com aliases `morantehub.com` e `morantehub.vercel.app`. No deployment atual, probes autenticados confirmaram credenciais Meta válidas, `valid=true` e `subscribed=true` para o WABA; o webhook recusou assinatura ausente/inválida e aceitou HMAC válida apenas para `entry: []`, sem processar evento. Ainda não houve entrega originada pela Meta. A leitura real de áudio foi confirmada pela UI em Development, mas não em Production. As mudanças locais atuais de chats responsivos e forma de onda não foram publicadas. O envio permanece bloqueado por política. O build e `test:unit` executam `build:support`, que gera a fronteira CJS do processador compartilhado; o adaptador local usa o mesmo produtor. Ver [diagnóstico de runtime](central-de-atendimento-runtime-esm-2026-10-21.md).
+> Estado conferido em 24/10/2026 BRT: o deployment Production `dpl_B1qZgVLZRjEjMvzVdDooHhTEQpmM` está `READY` nos aliases `morantehub.com` e `morantehub.vercel.app`. A leitura autenticada da Meta confirmou credenciais válidas, inscrição do WABA e os campos `messages` e `smb_message_echoes` no app. A migration de ecos está aplicada. Ainda não entrou mensagem real enviada pelo celular após a ativação; o contador de ecos no banco segue em zero. O envio comercial e em Production continua bloqueado; o Development permanece limitado ao sandbox Meta. O build e `test:unit` executam `build:support`, que gera a fronteira CJS do processador compartilhado; o adaptador local usa o mesmo produtor. Ver [diagnóstico de runtime](central-de-atendimento-runtime-esm-2026-10-21.md).
 
 ## Confirmação de Production e do WABA — 23/10/2026 BRT
 
@@ -12,7 +12,7 @@ Nenhuma migration, fixture, gravação no banco, alteração de configuração M
 
 > **Módulo:** Central de Atendimento (`/atendimento`)  
 > **Integração:** WhatsApp Cloud API Oficial da Meta (Graph API)  
-> **Status:** Inbox publicada em produção; credenciais Meta, inscrição WABA e validação HMAC confirmadas no deployment atual; leitura de áudio confirmada em Development; entrega legítima de webhook e leitura de mídia em Production pendentes; envio bloqueado por política da empresa
+> **Status:** Inbox publicada em produção; credenciais Meta, inscrição WABA e validação HMAC confirmadas no deployment atual; leitura de áudio confirmada em Development; envio comercial e em Production bloqueado; envio sandbox limitado ao Development e sem conversa elegível encontrada
 > **Data:** 24/10/2026 (BRT)
 
 ---
@@ -24,11 +24,13 @@ A **Central de Atendimento** é o novo módulo principal do MoranteHub ERP proje
 ### Política de envio
 A página oficial de preços da [WhatsApp Business Platform](https://whatsappbusiness.com/products/platform-pricing/) informa que mensagens de serviço dentro da janela de atendimento de 24 horas não são cobradas. Isso diverge da franquia mensal de 1.000 mensagens descrita em versões antigas desta documentação; esse número não é uma fonte confirmada para o produto e foi removido da interface.
 
-A empresa mantém o envio desativado por política operacional, independentemente da janela de atendimento ou da categoria de preço da Meta:
-1. A Central permite consultar e organizar conversas e receber mensagens.
-2. O campo de composição e o botão de envio permanecem desativados, com aviso de política empresarial.
-3. O backend rejeita requisições de despacho com `403 Forbidden` (`BLOCKED_FREE_TIER_PROTECTION`).
-4. A interface não exibe contagem ou limite numérico de mensagens.
+A empresa mantém bloqueado o envio comercial e em Production. Para validar a integração sem usar o número comercial, o Development admite apenas o fluxo do número sandbox da Meta:
+1. O atendimento permite consulta, organização e recebimento nos ambientes autorizados.
+2. O compositor só habilita quando a conversa foi recebida pelo Phone Number ID sandbox, o destinatário abriu a janela de 24 horas e o atendente tem permissão na Central.
+3. O backend repete a validação de ambiente, remetente, janela, sessão e permissão antes de chamar a Graph API. O adaptador local da porta `3000` encaminha `/api/whatsapp-dispatch` para esse mesmo handler.
+4. `WHATSAPP_TEST_PHONE_NUMBER`, `WHATSAPP_TEST_PHONE_NUMBER_ID` e `WHATSAPP_TEST_WABA_ID` ficam somente em Development; `WHATSAPP_ACCESS_TOKEN` permanece server-side.
+5. Em 24/10/2026, a consulta RLS da conta de teste encontrou zero conversas para o Phone Number ID sandbox. Nenhuma mensagem foi enviada; uma conversa recebida pelo número de teste e um destinatário autorizado na Meta ainda são necessários para comprovar entrega.
+6. A interface não exibe contagem ou limite numérico de mensagens.
 
 ---
 
@@ -178,7 +180,7 @@ A interface foi estruturada em quatro regiões perfeitamente integradas, espelha
   - Estados vazios elaborados e skeletons de carregamento durante a busca inicial.
 
 * **Região C — Área Principal do Chat (`ChatArea.tsx` & `EmptyChatState.tsx`):**
-  - Tela inicial com arte vetorial SVG, 3 cartões de recursos e aviso de envio bloqueado pela política da empresa.
+  - Tela inicial com arte vetorial SVG, 3 cartões de recursos e aviso compatível com o ambiente: regras do sandbox em Development e bloqueio de envio comercial nos demais ambientes.
   - Cabeçalho fixo (~64px):
     - Dados do contato clicáveis (abrem o painel do cliente) e indicador da Janela de 24h.
     - Seletor de Atendente Responsável (`Assignee Dropdown`): atribuição rápida a si mesmo ("Atribuir a mim") ou a membros da equipe.
@@ -332,3 +334,19 @@ A prova passou **1/1 em 46,4s** com ambiente Vercel Development, servidor ERP na
 No mesmo deployment, o webhook respondeu **401** sem assinatura, **401** para HMAC inválida e **200 `EVENT_RECEIVED`** para HMAC válida com `entry: []`; nenhum evento foi processado. `POST /api/whatsapp-dispatch` respondeu **403** via Vercel CLI autenticado; o despacho segue bloqueado. Nenhuma fixture, migration, gravação no banco, mudança Meta ou mensagem foi feita nesta revalidação. O log de aceite registra o build remoto e os avisos de dependências.
 
 Continuam pendentes uma entrega legítima originada pela Meta e a leitura de mídia real. A conferência de edição/exclusão de pastas entre duas identidades permanece adiada pelo proprietário. O domínio customizado é informado como verificado pela Vercel, mas o resolvedor do ambiente não permitiu validar seu HTTP; a UI foi conferida pelo alias público `morantehub.vercel.app`. Consulte [Central de Atendimento — aceite e validação](central-de-atendimento-aceite-2026-10-21.md) para o registro pós-publicação completo.
+
+## Mensagens enviadas pelo WhatsApp Business no celular — Production, 24/10/2026
+
+Em números conectados à Cloud API pelo modo Coexistence, a Meta entrega mensagens enviadas pelo WhatsApp Business no campo separado `smb_message_echoes`. O webhook reconhece `value.message_echoes`, identifica o destinatário em `to` e persiste a mensagem como saída na conversa compartilhada. O `wamid` torna o recebimento idempotente; a gravação não aumenta não lidas nem altera a janela de atendimento, atribuição, status, arquivamento ou notas. A origem aparece como “WhatsApp Business (celular)”. Referência: [documentação Meta do evento `smb_message_echoes`](https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/reference/smb_message_echoes).
+
+A migration local `supabase/migrations/20261024170000_customer_support_whatsapp_app_echoes.sql` foi aplicada ao Supabase operacional `hkoxhourxwlddgsfdgws`, registrada remotamente na versão `20261024195230`. Ela adiciona uma RPC `SECURITY INVOKER`, executável somente por `service_role`, que cria a conversa se o eco for a primeira atividade e atualiza a prévia sem substituir vínculos já existentes. O rollback remove somente a RPC e preserva os registros.
+
+O novo endpoint protegido `ensure_smb_message_echoes_subscription` exige `manageSettings`, lê a inscrição atual do app e só a atualiza se o campo estiver ausente, preservando callback, `messages`, os demais campos e `include_values`. O App Secret e o token de verificação ficam no runtime. A consulta de Production encontrou `smb_message_echoes` já inscrito; portanto, retornou `changed=false` e não alterou a configuração Meta. A verificação separada confirmou `valid=true`, `subscribed=true` para o WABA.
+
+O candidato foi publicado como `dpl_B1qZgVLZRjEjMvzVdDooHhTEQpmM` (`READY`), nos aliases `morantehub.com` e `morantehub.vercel.app`. No banco, `whatsapp_messages` está com RLS habilitada, política SELECT para authenticated e na publicação Realtime. A leitura de confirmação encontrou zero mensagens de origem `whatsapp_business_app`, então a entrega de uma mensagem real pelo celular ainda não foi observada. Nenhum evento sintético ou envio pela API foi feito.
+
+A seleção de cinco arquivos focados passou em **50 testes** e `npm run build -- --minify false` passou por completo. O build Production da Vercel terminou com sucesso. A suíte do banco não foi executada com fixtures: a autorização cobriu somente migration, publicação e inspeção/ajuste da assinatura. O fluxo ficará comprovado quando um eco natural do WhatsApp Business chegar e aparecer na conversa; o envio comercial e em Production segue bloqueado.
+
+### Autorização permanente para migrations — 24/10/2026
+
+O operador autorizou o agente a aplicar migrations de schema necessárias a tarefas explicitamente solicitadas no Supabase operacional, sem confirmação repetida por migration. Cada execução continua exigindo revisão do SQL, confirmação do project ref, leitura do histórico e validação do resultado. Esta autorização não cobre fixtures, dados sintéticos, limpeza de dados ou envio de mensagens; esses efeitos seguem os gates de [`docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`](../testing/SUPABASE_REMOTE_TEST_POLICY.md).

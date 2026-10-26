@@ -5,13 +5,34 @@ const asRecord = (value: unknown): UnknownRecord | null =>
     ? (value as UnknownRecord)
     : null;
 
-const removeInitialStockFields = <T extends object>(data: T): T => {
+export const removeInitialStockFields = <T extends object>(data: T): T => {
   const result = { ...data } as T & Record<string, unknown>;
   for (const field of ['launchInitialStock', 'initialStock', 'initialCost', 'initialStockEntries']) {
     delete result[field];
   }
   return result;
 };
+
+/** Creates the editable draft snapshot shared by the ERP and mobile clients. */
+export function createProductDraftSnapshot<T extends UnknownRecord>(product: T): T {
+  const snapshot = removeInitialStockFields(product) as T & Record<string, any>;
+  delete snapshot.technicalSpecs;
+  delete snapshot.technical_specs;
+
+  return JSON.parse(JSON.stringify({
+    ...snapshot,
+    isDraft: true,
+    active: false,
+    status: 'draft',
+    variations: Array.isArray(product.variations)
+      ? product.variations.map((variation: UnknownRecord) => ({
+          ...removeInitialStockFields(variation),
+          active: false,
+          status: 'hidden',
+        }))
+      : undefined,
+  })) as T;
+}
 
 /** Restores the editable product state while retaining confirmed stock from normalized rows. */
 export function restoreProductDraftSnapshot<T extends UnknownRecord>(product: T): T {

@@ -35,6 +35,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
           isParent={false}
           isNonConventional={true}
           isSalvado={true}
+          canManageCatalog={true}
           onToggleActive={handleToggleActive}
           onToggleCatalog={handleToggleCatalog}
         />
@@ -101,6 +102,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
           isParent={false}
           isNonConventional={true}
           isSalvado={false}
+          canManageCatalog={true}
           onToggleActive={handleToggleActive}
           onToggleCatalog={handleToggleCatalog}
         />
@@ -149,6 +151,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
           catalogStatus="hidden"
           isParent={false}
           isNonConventional={false}
+          canManageCatalog={true}
           onToggleActive={handleToggleActive}
           onToggleCatalog={handleToggleCatalog}
         />
@@ -233,7 +236,7 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
     });
   });
 
-  describe('Interatividade do Catálogo Digital para Rascunhos e Salvados Ocultos', () => {
+  describe('Interatividade do Catálogo Digital: rascunhos, permissões e Salvados', () => {
     it('desabilita o botão de catálogo Oculto quando o produto é um rascunho', () => {
       const handleToggleCatalog = vi.fn();
 
@@ -255,6 +258,60 @@ describe('ChannelStatusBadges - Regra de Origem de Estoque Salvados', () => {
       expect(catalogButton).toBeDefined();
       expect(catalogButton.disabled).toBe(true);
       expect(catalogButton.className).toContain('cursor-not-allowed');
+
+      fireEvent.click(catalogButton);
+      expect(handleToggleCatalog).not.toHaveBeenCalled();
+    });
+
+    it('desabilita o botão de Catálogo sem permissão mesmo quando o callback está presente', () => {
+      const handleToggleCatalog = vi.fn();
+
+      render(
+        <ChannelStatusBadges
+          active={true}
+          catalogStatus="hidden"
+          isDraft={false}
+          isParent={false}
+          canManageCatalog={false}
+          onToggleCatalog={handleToggleCatalog}
+        />
+      );
+
+      const catalogButton = screen.getByRole('button', {
+        name: /Status Catálogo: Oculto/i,
+      }) as HTMLButtonElement;
+
+      expect(catalogButton.disabled).toBe(true);
+      expect(catalogButton.className).toContain('cursor-not-allowed');
+      expect(catalogButton.title).toBe(
+        'Seu perfil não possui permissão para gerenciar o catálogo.'
+      );
+
+      fireEvent.click(catalogButton);
+      expect(handleToggleCatalog).not.toHaveBeenCalled();
+    });
+
+    it('bloqueia por padrão se o chamador não informou a permissão do Catálogo', () => {
+      const handleToggleCatalog = vi.fn();
+
+      render(
+        <ChannelStatusBadges
+          active={true}
+          catalogStatus="hidden"
+          isDraft={false}
+          isParent={false}
+          onToggleCatalog={handleToggleCatalog}
+        />
+      );
+
+      const catalogButton = screen.getByRole('button', {
+        name: /Status Catálogo: Oculto/i,
+      }) as HTMLButtonElement;
+
+      expect(catalogButton.disabled).toBe(true);
+      expect(catalogButton.title).toBe(
+        'Seu perfil não possui permissão para gerenciar o catálogo.'
+      );
 
       fireEvent.click(catalogButton);
       expect(handleToggleCatalog).not.toHaveBeenCalled();

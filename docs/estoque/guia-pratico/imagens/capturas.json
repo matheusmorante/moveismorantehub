@@ -562,23 +562,31 @@
   {
     "name": "05-cadastro-rapido",
     "file": "05-cadastro-rapido.png",
-    "width": 726,
-    "height": 128,
+    "width": 727,
+    "height": 86,
     "boxes": [
       {
         "n": 1,
-        "label": "Novo produto simples",
-        "x": 13,
+        "label": "Produto simples",
+        "x": 12,
         "y": 38,
-        "w": 333,
+        "w": 218,
         "h": 16
       },
       {
         "n": 2,
-        "label": "Nova variação",
-        "x": 380,
+        "label": "Variação de produto existente",
+        "x": 257,
         "y": 38,
-        "w": 333,
+        "w": 216,
+        "h": 16
+      },
+      {
+        "n": 3,
+        "label": "Produto composto",
+        "x": 502,
+        "y": 38,
+        "w": 216,
         "h": 16
       }
     ]

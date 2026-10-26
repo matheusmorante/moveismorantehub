@@ -40,6 +40,17 @@ describe('technicalValues - Overrides e Nomes de Variação', () => {
     expect(hasVariationOverride(clearedOverrides, 'Cor')).toBe(false);
   });
 
+  it('lê o alias legado Linha/Modelo e prioriza override canônico vazio', () => {
+    expect(getEffectiveTechnicalValue({}, { 'Linha/Modelo': 'Paris' }, 'Modelo/Linha')).toBe('Paris');
+    expect(
+      getEffectiveTechnicalValue(
+        { 'Modelo/Linha': 'Valor do pai' },
+        { 'Modelo/Linha': '', Modelo: 'Alias antigo' },
+        'Modelo/Linha'
+      )
+    ).toBe('');
+  });
+
   it('detecta diferença efetiva apenas quando o override diverge do pai', () => {
     const parentValues: TechnicalValuesMap = {
       Cor: 'Branco',

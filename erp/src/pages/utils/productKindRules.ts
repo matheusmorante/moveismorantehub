@@ -1,31 +1,13 @@
 import type Product from '@/pages/types/product.type';
 import type { ProductKind } from '@/pages/types/product.type';
+import {
+  getProductKind as getSharedProductKind,
+  type ProductKindCandidate,
+} from '../../../../shared-utils/productStockOrigin';
 import { MAX_VARIATION_IMAGES } from './productImageLimits';
 
-export const getProductKind = (
-  value?: {
-    productKind?: unknown;
-    product_kind?: unknown;
-    condition?: unknown;
-    is_salvado?: unknown;
-    stock_origin?: unknown;
-    stockOrigins?: unknown;
-  } | null
-): ProductKind => {
-  const kind = value?.productKind ?? value?.product_kind ?? value?.condition;
-  if (
-    kind === 'salvado' ||
-    kind === 'salvados' ||
-    value?.is_salvado === true ||
-    value?.stock_origin === 'salvados'
-  ) {
-    return 'salvado';
-  }
-  if (kind === 'usado' || kind === 'usados' || value?.stock_origin === 'usados') {
-    return 'usado';
-  }
-  return 'normal';
-};
+export const getProductKind = (value?: ProductKindCandidate | null): ProductKind =>
+  getSharedProductKind(value);
 
 export const isNonConventionalProduct = (
   value?: {

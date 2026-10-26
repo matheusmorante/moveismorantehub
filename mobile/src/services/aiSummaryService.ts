@@ -18,6 +18,7 @@ import { buildDeliverySummaryPrompt } from './aiSummaryPrompt';
 // Camada quente da sessão: evita nova geração quando o operador alterna entre
 // Hoje e Dias seguintes antes mesmo da leitura persistida terminar.
 const summaryTextMemoryCache = new Map<string, string>();
+const inFlightSummaries = new Map<string, Promise<string>>();
 
 export function clearSummaryTextMemoryCache() {
   summaryTextMemoryCache.clear();
@@ -106,101 +107,107 @@ export const generateDeliveryAISummary = async (
       return memoryText;
     }
 
-    // 2. Verificar se já existe um resumo persistido para a mesma fingerprint
-    const savedRecord = await getSavedSummaryRecord(mode, currentFingerprint);
+    // Identidade exata local; refresh explícito não reutiliza uma geração comum.
+    const requestKey = JSON.stringify([canonicalPayload, forceRefresh]);
+    let pending = inFlightSummaries.get(requestKey);
+    if (!pending) {
+      pending = (async () => {
+        // 2. Verificar se já existe um resumo persistido para a mesma fingerprint
+        const savedRecord = await getSavedSummaryRecord(mode, currentFingerprint);
 
-    if (!forceRefresh && savedRecord) {
-      if (savedRecord.text_status === 'READY' && savedRecord.text) {
-        // Mesmo estado dos pedidos -> mesmo texto e nenhuma chamada adicional de Gemini.
-        summaryTextMemoryCache.set(memoryCacheKey, savedRecord.text);
-        if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(savedRecord.text);
-        else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)
-          setAiSummaryTomorrow(savedRecord.text);
-        return savedRecord.text;
-      }
+        if (!forceRefresh && savedRecord) {
+          if (savedRecord.text_status === 'READY' && savedRecord.text) {
+            // Mesmo estado dos pedidos -> mesmo texto e nenhuma chamada adicional de Gemini.
+            summaryTextMemoryCache.set(memoryCacheKey, savedRecord.text);
+            return savedRecord.text;
+          }
 
-      if (
-        savedRecord.text_status === 'GENERATING' &&
-        !isLeaseExpired(savedRecord.generation_started_at)
-      ) {
-        // Geração já em andamento em outro dispositivo -> Aguarda sem duplicar requisição
-        if (savedRecord.text) {
-          if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(savedRecord.text);
-          else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)
-            setAiSummaryTomorrow(savedRecord.text);
+          if (
+            savedRecord.text_status === 'GENERATING' &&
+            !isLeaseExpired(savedRecord.generation_started_at)
+          ) {
+            // Lease observado em outro dispositivo; não comprova aquisição atômica.
+            return savedRecord.text || '';
+          }
         }
-        return savedRecord.text || '';
-      }
+
+        // 3. Registrar GENERATING; a exclusão local pertence à promessa compartilhada
+        await saveSummaryRecord({
+          scope: mode,
+          data_fingerprint: currentFingerprint,
+          text: savedRecord?.text || null,
+          text_status: 'GENERATING',
+          generation_started_at: new Date().toISOString(),
+        });
+
+        // Se já existir um texto válido, reutiliza o texto.
+        let smartText = '';
+        const shouldReuseText =
+          savedRecord?.text_status === 'READY' && Boolean(savedRecord.text) && !forceRefresh;
+
+        if (shouldReuseText && savedRecord?.text) {
+          smartText = savedRecord.text;
+        } else {
+          // 4. Gerar o texto com o modelo de logística
+          smartText = generateLocalSmartText(canonicalPayload);
+
+          if (canonicalPayload.orders.length > 0) {
+            try {
+              const geminiPrompt = buildDeliverySummaryPrompt(smartText);
+              const resJson = await MobileAgentClient.generateContent({
+                model: 'gemini-3.5-flash-lite',
+                contents: [{ role: 'user', parts: [{ text: geminiPrompt }] }],
+              });
+              const aiText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (aiText && aiText.trim()) {
+                smartText = aiText
+                  .trim()
+                  .replace(/[*#]/g, '')
+                  .replace(/:/g, ' ')
+                  .replace(/[()]/g, '')
+                  .replace(/\s+/g, ' ');
+              }
+              setSummaryQuotaExceeded(false);
+            } catch (geminiErr: any) {
+              const errMsg = String(geminiErr?.message || geminiErr || '');
+              if (/429|quota|resource_exhausted/i.test(errMsg)) {
+                setSummaryQuotaExceeded(true);
+              }
+              console.warn(
+                'Erro ao chamar Gemini Flash para resumo (usando texto estruturado local):',
+                geminiErr
+              );
+            }
+          }
+        }
+
+        // 5. Salvar o resumo gerado com sucesso com estado READY
+        await saveSummaryRecord({
+          scope: mode,
+          data_fingerprint: currentFingerprint,
+          text: smartText,
+          text_status: 'READY',
+          generation_started_at: null,
+          error_message: null,
+        });
+
+        summaryTextMemoryCache.set(memoryCacheKey, smartText);
+
+        return smartText;
+      })();
+      inFlightSummaries.set(requestKey, pending);
+      const request = pending;
+      const clearRequest = () => {
+        if (inFlightSummaries.get(requestKey) === request) inFlightSummaries.delete(requestKey);
+      };
+      void request.then(clearRequest, clearRequest);
     }
 
     if (setIsGeneratingAISummary) setIsGeneratingAISummary(true);
-
-    // 3. Travar estado em GENERATING para concorrência
-    await saveSummaryRecord({
-      scope: mode,
-      data_fingerprint: currentFingerprint,
-      text: savedRecord?.text || null,
-      text_status: 'GENERATING',
-      generation_started_at: new Date().toISOString(),
-    });
-
-    // Se já existir um texto válido, reutiliza o texto.
-    let smartText = '';
-    const shouldReuseText =
-      savedRecord?.text_status === 'READY' && Boolean(savedRecord.text) && !forceRefresh;
-
-    if (shouldReuseText && savedRecord?.text) {
-      smartText = savedRecord.text;
-    } else {
-      // 4. Gerar o texto com o modelo de logística
-      smartText = generateLocalSmartText(canonicalPayload);
-
-      if (canonicalPayload.orders.length > 0) {
-        try {
-          const geminiPrompt = buildDeliverySummaryPrompt(smartText);
-          const resJson = await MobileAgentClient.generateContent({
-            model: 'gemini-3.5-flash-lite',
-            contents: [{ role: 'user', parts: [{ text: geminiPrompt }] }],
-          });
-          const aiText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (aiText && aiText.trim()) {
-            smartText = aiText
-              .trim()
-              .replace(/[*#]/g, '')
-              .replace(/:/g, ' ')
-              .replace(/[()]/g, '')
-              .replace(/\s+/g, ' ');
-          }
-          setSummaryQuotaExceeded(false);
-        } catch (geminiErr: any) {
-          const errMsg = String(geminiErr?.message || geminiErr || '');
-          if (/429|quota|resource_exhausted/i.test(errMsg)) {
-            setSummaryQuotaExceeded(true);
-          }
-          console.warn(
-            'Erro ao chamar Gemini Flash para resumo (usando texto estruturado local):',
-            geminiErr
-          );
-        }
-      }
-    }
-
-    // 5. Salvar o resumo gerado com sucesso com estado READY
-    await saveSummaryRecord({
-      scope: mode,
-      data_fingerprint: currentFingerprint,
-      text: smartText,
-      text_status: 'READY',
-      generation_started_at: null,
-      error_message: null,
-    });
-
-    summaryTextMemoryCache.set(memoryCacheKey, smartText);
-
-    if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(smartText);
-    else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)
+    const smartText = await pending;
+    if (smartText && mode === 'today' && setAiSummaryToday) setAiSummaryToday(smartText);
+    else if (smartText && (mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)
       setAiSummaryTomorrow(smartText);
-
     return smartText;
   } catch (err: any) {
     console.warn('Erro durante geração de resumo:', err);

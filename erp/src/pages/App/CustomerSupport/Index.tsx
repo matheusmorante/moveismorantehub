@@ -7,20 +7,16 @@ import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
-import { fetchTeamProfiles } from '@/pages/utils/customerSupport/customerSupportService';
+import { fetchTeamProfiles, sendCustomerSupportMessage } from '@/pages/utils/customerSupport/customerSupportService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { AssignedProfileSummary, CustomerSupportFolder, WhatsAppConversation } from './types';
+import type { SupportOrderSummary } from '@/pages/utils/customerSupport/supportOrdersService';
 import {
   useCustomerSupportConversations,
   useCustomerSupportMessages,
   useCustomerSupportActions,
   useCustomerSupportFolders,
 } from './hooks';
-import { CustomerSupportChatPane } from './components/CustomerSupportChatPane';
-import {
-  CUSTOMER_SUPPORT_MAX_OPEN_CHATS,
-  getCustomerSupportMultiChatPresentation,
-} from './customerSupportMultiChatLayout';
 import {
   NavigationRail,
   InboxSidebar,
@@ -50,19 +46,13 @@ export default function CustomerSupport() {
   const [isConversationSidebarOpen, setIsConversationSidebarOpen] = useState(true);
   const [conversationSidebarWidth, setConversationSidebarWidth] = useState(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.conversationsWidth);
   const [isMobileInboxOpen, setIsMobileInboxOpen] = useState(false);
-  const [isMobileConversationsOpen, setIsMobileConversationsOpen] = useState(false);
-  const [isMultiChatMode, setIsMultiChatMode] = useState(false);
-  const [openChatConversations, setOpenChatConversations] = useState<WhatsAppConversation[]>([]);
-  const [activeMultiChatId, setActiveMultiChatId] = useState<string | null>(null);
-  const [viewportWidth, setViewportWidth] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth : 1280
-  );
   const [isMobileViewport, setIsMobileViewport] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
   );
   const [isDraggingSupportPanel, setIsDraggingSupportPanel] = useState(false);
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [shareOrderRequest, setShareOrderRequest] = useState<{ conversationId: string; requestId: string; record: SupportOrderSummary } | null>(null);
   const [agents, setAgents] = useState<AssignedProfileSummary[]>([]);
   const [isLoadingAgents, setIsLoadingAgents] = useState(true);
   const [agentsError, setAgentsError] = useState<string | null>(null);
@@ -100,7 +90,6 @@ export default function CustomerSupport() {
     const media = window.matchMedia('(max-width: 767px)');
     const updateViewport = () => {
       setIsMobileViewport(media.matches);
-      setViewportWidth(window.innerWidth);
     };
     updateViewport();
     media.addEventListener('change', updateViewport);
@@ -147,10 +136,9 @@ export default function CustomerSupport() {
     setFilter,
     sortOrder,
     setSortOrder,
-    search,
-    setSearch,
     isLoadingConversations,
-    isRealtimeConnected,
+    realtimeStatus,
+    reconnectRealtime,
     loadConversations,
     totalAll,
     unreadCountTotal,
@@ -196,7 +184,7 @@ export default function CustomerSupport() {
     messagesError,
     refreshMessages,
   } = useCustomerSupportMessages({
-    selectedConversation: isMultiChatMode ? null : selectedConversation,
+    selectedConversation,
     onClearUnread: handleClearUnread,
   });
 
@@ -209,7 +197,7 @@ export default function CustomerSupport() {
     handleUpdateStatus,
     handleAddInternalNote,
   } = useCustomerSupportActions({
-    selectedConversation: isMultiChatMode ? null : selectedConversation,
+    selectedConversation,
     setSelectedConversation,
     setConversations,
     setMessages,
@@ -258,7 +246,6 @@ export default function CustomerSupport() {
   };
 
   const handleToggleInboxPanel = () => {
-    if (isMultiChatMode) return;
     if (isMobileViewport) setIsMobileInboxOpen((open) => !open);
     else setIsInboxSidebarOpen((open) => !open);
   };
@@ -270,13 +257,8 @@ export default function CustomerSupport() {
 
   const handleToggleConversationPanel = () => {
     if (isMobileViewport) {
-      if (isMultiChatMode) {
-        setIsMobileInboxOpen(false);
-        setIsMobileConversationsOpen((open) => !open);
-      } else {
-        setIsMobileInboxOpen(false);
-        setSelectedConversation(null);
-      }
+      setIsMobileInboxOpen(false);
+      setSelectedConversation(null);
     } else setIsConversationSidebarOpen((open) => !open);
   };
 
@@ -287,95 +269,13 @@ export default function CustomerSupport() {
     setIsConversationSidebarOpen(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.isConversationsOpen);
   };
 
-  const handleEnterMultiChatMode = () => {
-    if (!selectedConversation) return;
-    setOpenChatConversations([selectedConversation]);
-    setActiveMultiChatId(selectedConversation.id);
-    setIsMultiChatMode(true);
-    setIsMobileConversationsOpen(false);
-  };
-
-  const handleExitMultiChatMode = () => {
-    const remaining = openChatConversations.find((conversation) => conversation.id === activeMultiChatId)
-      || selectedConversation
-      || openChatConversations[0]
-      || null;
-    setIsMultiChatMode(false);
-    setOpenChatConversations([]);
-    setActiveMultiChatId(null);
-    setIsMobileConversationsOpen(false);
-    setSelectedConversation(remaining);
-  };
-
-  const handleActivateMultiChat = (conversation: WhatsAppConversation) => {
-    const alreadyOpen = openChatConversations.some((openChat) => openChat.id === conversation.id);
-    if (!alreadyOpen && openChatConversations.length >= CUSTOMER_SUPPORT_MAX_OPEN_CHATS) {
-      toast.info('Você pode manter até 3 chats abertos ao mesmo tempo.');
-      return;
-    }
-    setOpenChatConversations((previous) => alreadyOpen
-      ? previous.map((openChat) => openChat.id === conversation.id ? conversation : openChat)
-      : [...previous, conversation]);
-    setActiveMultiChatId(conversation.id);
-    setSelectedConversation(conversation);
-    setIsMobileConversationsOpen(false);
-  };
-
-  const handleMultiChatConversationChanged = (conversation: WhatsAppConversation) => {
-    setOpenChatConversations((previous) => previous.map((openChat) =>
-      openChat.id === conversation.id ? conversation : openChat
-    ));
-    setConversations((previous) => previous.map((existing) =>
-      existing.id === conversation.id ? conversation : existing
-    ));
-    setSelectedConversation((previous) => previous?.id === conversation.id ? conversation : previous);
-  };
-
-  const handleCloseMultiChat = (conversationId: string) => {
-    const remaining = openChatConversations.filter((conversation) => conversation.id !== conversationId);
-    if (remaining.length <= 1) {
-      const selected = remaining[0] || null;
-      setIsMultiChatMode(false);
-      setOpenChatConversations([]);
-      setActiveMultiChatId(null);
-      setSelectedConversation(selected);
-    } else {
-      setOpenChatConversations(remaining);
-      if (activeMultiChatId === conversationId) {
-        setActiveMultiChatId(remaining[0].id);
-        setSelectedConversation(remaining[0]);
-      }
-    }
-  };
-
   const handleSelectConversation = (conversation: WhatsAppConversation) => {
-    if (isMultiChatMode) {
-      handleActivateMultiChat(conversation);
-      return;
-    }
     setSelectedConversation(conversation);
     if (isMobileViewport) setIsMobileInboxOpen(false);
   };
 
-  const multiChatPresentation = getCustomerSupportMultiChatPresentation(
-    isMultiChatMode,
-    openChatConversations.length,
-    viewportWidth,
-  );
-  const isMultiChatTabs = multiChatPresentation === 'tabs';
-  const inboxPanelVisible = !isMultiChatMode && (isMobileViewport ? isMobileInboxOpen : isInboxSidebarOpen);
-  const inboxPanelStyle = isMultiChatMode
-    ? {
-        position: 'relative' as const,
-        width: '0px',
-        flex: '0 0 0px',
-        minWidth: '0px',
-        maxWidth: '0px',
-        zIndex: 0,
-        visibility: 'hidden' as const,
-        pointerEvents: 'none' as const,
-      }
-    : isMobileViewport
+  const inboxPanelVisible = isMobileViewport ? isMobileInboxOpen : isInboxSidebarOpen;
+  const inboxPanelStyle = isMobileViewport
     ? {
         position: 'absolute' as const,
         left: '56px',
@@ -401,38 +301,13 @@ export default function CustomerSupport() {
         transition: isDraggingSupportPanel ? 'none' : 'width 180ms ease, flex-basis 180ms ease',
       };
 
-  const conversationPanelStyle = isMobileViewport && isMultiChatMode && isMobileConversationsOpen
-    ? {
-        position: 'absolute' as const,
-        left: '56px',
-        top: 0,
-        bottom: 0,
-        width: 'calc(100% - 56px)',
-        flex: '0 0 auto',
-        minWidth: 0,
-        maxWidth: 'none',
-        zIndex: 50,
-        background: 'white',
-        boxShadow: '0 12px 32px rgba(15, 23, 42, 0.24)',
-      }
-    : isMobileViewport
+  const conversationPanelStyle = isMobileViewport
     ? {
         position: 'relative' as const,
         width: 'auto',
         flex: '1 1 0%',
         minWidth: 0,
         maxWidth: 'none',
-        transition: 'none',
-      }
-    : isMultiChatMode
-    ? {
-        position: 'relative' as const,
-        width: '260px',
-        flex: '0 0 260px',
-        minWidth: '260px',
-        maxWidth: '260px',
-        visibility: 'visible' as const,
-        pointerEvents: 'auto' as const,
         transition: 'none',
       }
     : {
@@ -474,20 +349,13 @@ export default function CustomerSupport() {
       {/* Coluna 1: Barra Vertical de Navegação (~56-60px) */}
       <div className="flex h-full shrink-0 relative z-20">
         <NavigationRail
-          activeFilter={filter}
-          onFilterChange={handleFilterChange}
           unreadCountTotal={unreadCountTotal}
-          mineCountTotal={mineCountTotal}
-          unassignedCountTotal={unassignedCountTotal}
           onOpenPolicy={() => setIsPolicyModalOpen(true)}
-          isLoading={isLoadingConversations}
-          onRefresh={loadConversations}
-          isRealtimeConnected={isRealtimeConnected}
+          realtimeStatus={realtimeStatus}
+          onReconnectRealtime={reconnectRealtime}
           isInboxSidebarOpen={inboxPanelVisible}
           onToggleInboxSidebar={handleToggleInboxPanel}
-          isConversationSidebarOpen={isMobileViewport
-            ? isMultiChatMode ? isMobileConversationsOpen : !selectedConversation
-            : isConversationSidebarOpen}
+          isConversationSidebarOpen={isMobileViewport ? !selectedConversation : isConversationSidebarOpen}
           onToggleConversationSidebar={handleToggleConversationPanel}
           isMobileViewport={isMobileViewport}
           onResetLayout={handleResetLayout}
@@ -546,7 +414,7 @@ export default function CustomerSupport() {
           testIdentity={folderTestIdentity}
         />
       </div>
-      {!isMultiChatMode && <CustomerSupportResizeHandle
+      <CustomerSupportResizeHandle
         panelId="customer-support-inbox-panel"
         panelRef={inboxPanelRef}
         layoutRef={supportLayoutRef}
@@ -560,30 +428,24 @@ export default function CustomerSupport() {
         onResize={setInboxSidebarWidth}
         onToggle={setIsInboxSidebarOpen}
         onDragChange={setIsDraggingSupportPanel}
-      />}
+      />
 
       {/* A lista continua montada quando recolhida ou quando o chat ocupa a tela móvel. */}
       <div
         ref={conversationPanelRef}
         id="customer-support-conversations-panel"
         data-testid="customer-support-conversations-panel"
-        aria-hidden={isMobileViewport
-          ? isMultiChatMode ? !isMobileConversationsOpen : Boolean(selectedConversation)
-          : !isConversationSidebarOpen && !isMultiChatMode}
-        className={`relative h-full shrink-0 overflow-hidden ${isMobileViewport && (isMultiChatMode
-          ? !isMobileConversationsOpen
-          : Boolean(selectedConversation)) ? 'hidden' : 'flex'}`}
+        aria-hidden={isMobileViewport ? Boolean(selectedConversation) : !isConversationSidebarOpen}
+        className={`relative h-full shrink-0 overflow-hidden ${isMobileViewport && Boolean(selectedConversation) ? 'hidden' : 'flex'}`}
         style={conversationPanelStyle}
       >
         <ConversationSidebar
           conversations={conversations}
           selectedConversation={selectedConversation}
           onSelectConversation={handleSelectConversation}
+          onJumpToMessage={jumpToMessage}
           filter={filter}
           onFilterChange={handleFilterChange}
-          search={search}
-          onSearchChange={setSearch}
-          onOpenPolicy={() => setIsPolicyModalOpen(true)}
           isLoading={isLoadingConversations}
           onRefresh={loadConversations}
           currentUserId={user?.id}
@@ -595,13 +457,12 @@ export default function CustomerSupport() {
           totalCount={totalCount}
           onLoadMore={loadMoreConversations}
           canViewCommercialInfo={canViewCommercialInfo}
-          isMultiChatMode={isMultiChatMode}
-          openChatCount={openChatConversations.length}
-          onOpenMultiChat={handleEnterMultiChatMode}
-          onExitMultiChat={handleExitMultiChatMode}
+          isConversationSidebarOpen={isConversationSidebarOpen}
+          onToggleConversationSidebar={handleToggleConversationPanel}
+          isMobileViewport={isMobileViewport}
         />
       </div>
-      {!isMultiChatMode && <CustomerSupportResizeHandle
+      <CustomerSupportResizeHandle
         panelId="customer-support-conversations-panel"
         panelRef={conversationPanelRef}
         layoutRef={supportLayoutRef}
@@ -615,80 +476,11 @@ export default function CustomerSupport() {
         onResize={setConversationSidebarWidth}
         onToggle={setIsConversationSidebarOpen}
         onDragChange={setIsDraggingSupportPanel}
-      />}
+      />
 
       {/* Coluna 4: Área Principal do Chat (Flex-1) */}
-      {isMultiChatMode ? (
-        <div className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden">
-          {isMultiChatTabs && (
-            <div role="tablist" aria-label="Chats abertos" className="flex min-h-12 shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-800 dark:bg-slate-950">
-              {openChatConversations.map((conversation) => {
-                const displayName = conversation.customer?.fullName
-                  || conversation.contactName
-                  || conversation.contactPhone;
-                const isActive = activeMultiChatId === conversation.id;
-                return (
-                  <div key={conversation.id} className={`flex min-w-0 max-w-[220px] items-center rounded-lg ${isActive ? 'bg-white shadow-sm dark:bg-slate-900' : ''}`}>
-                    <button
-                      type="button"
-                      role="tab"
-                      id={`customer-support-chat-tab-${conversation.id}`}
-                      aria-controls={`customer-support-chat-panel-${conversation.id}`}
-                      aria-selected={isActive}
-                      onClick={() => handleActivateMultiChat(conversation)}
-                      className={`min-w-0 flex-1 truncate px-3 py-2 text-left text-xs font-medium ${isActive ? 'text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300'}`}
-                    >
-                      {displayName}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Fechar chat ${displayName}`}
-                      onClick={() => handleCloseMultiChat(conversation.id)}
-                      className="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                    >
-                      <i className="bi bi-x-lg text-[10px]" aria-hidden="true" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-            {openChatConversations
-              .filter((conversation) => !isMultiChatTabs || conversation.id === activeMultiChatId)
-              .map((conversation) => (
-                <div
-                  key={conversation.id}
-                  id={`customer-support-chat-panel-${conversation.id}`}
-                  role={isMultiChatTabs ? 'tabpanel' : undefined}
-                  aria-labelledby={isMultiChatTabs ? `customer-support-chat-tab-${conversation.id}` : undefined}
-                  className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden"
-                >
-                  <CustomerSupportChatPane
-                    conversation={conversation}
-                    teamMembers={agents}
-                    isLoadingAgents={isLoadingAgents}
-                    agentsError={agentsError}
-                    onReloadAgents={() => setAgentReloadKey((key) => key + 1)}
-                    setConversations={setConversations}
-                    currentUserName={currentUserName}
-                    currentUserId={user?.id}
-                    currentUserRole={profile?.role}
-                    onConversationChanged={handleMultiChatConversationChanged}
-                    onSelectConversation={(activeConversation) => {
-                      setActiveMultiChatId(activeConversation.id);
-                      setSelectedConversation(activeConversation);
-                    }}
-                    onBackMobile={() => setIsMobileConversationsOpen(true)}
-                    isMultiChatPanel
-                    onClosePanel={() => handleCloseMultiChat(conversation.id)}
-                  />
-                </div>
-              ))}
-          </div>
-        </div>
-      ) : selectedConversation ? (
-        <div className="flex-1 flex h-full min-w-0 md:min-w-[240px] relative">
+      {selectedConversation ? (
+        <div className="flex-1 flex h-full min-h-0 min-w-0 md:min-w-[240px] relative">
           <ChatArea
             key={`chat-${selectedConversation.id}`}
             conversation={selectedConversation}
@@ -717,12 +509,15 @@ export default function CustomerSupport() {
             onAssign={handleAssignConversation}
             onUpdateStatus={handleUpdateStatus}
             onAddInternalNote={handleAddInternalNote}
+            onSendCustomerMessage={(input) => sendCustomerSupportMessage(supabase, selectedConversation.id, input)}
             onRefreshMessages={refreshMessages}
             isRefreshingMessages={isRefreshingMessages}
             onResolveReplyTarget={resolveReplyTarget}
             onJumpToMessage={jumpToMessage}
             jumpToMessageId={jumpToMessageId}
             onJumpComplete={clearJumpToMessage}
+            shareOrderRequest={shareOrderRequest}
+            onShareOrderRequestHandled={(requestId) => setShareOrderRequest((current) => current?.requestId === requestId ? null : current)}
           />
 
           {/* Coluna 5: Painel Contextual do ERP (Dados do Cliente e Pedidos) */}
@@ -732,6 +527,11 @@ export default function CustomerSupport() {
             isOpen={isInfoPanelOpen}
             onClose={() => setIsInfoPanelOpen(false)}
             onConversationUpdated={handleConversationUpdated}
+            onShareBudget={(record) => selectedConversation && setShareOrderRequest({
+              conversationId: selectedConversation.id,
+              requestId: `${Date.now()}-${Math.random()}`,
+              record,
+            })}
             onJumpToMessage={(message) => {
               jumpToMessage(message);
               setIsInfoPanelOpen(false);
@@ -748,7 +548,7 @@ export default function CustomerSupport() {
         </div>
       ) : (
         <div className="hidden md:flex flex-1 h-full min-w-0 md:min-w-[240px]">
-          <EmptyChatState />
+          <EmptyChatState enableDevelopmentTestMode={import.meta.env.DEV} />
         </div>
       )}
 
@@ -756,6 +556,7 @@ export default function CustomerSupport() {
       <UsageConsumptionModal
         isOpen={isPolicyModalOpen}
         onClose={() => setIsPolicyModalOpen(false)}
+        enableDevelopmentTestMode={import.meta.env.DEV}
       />
     </div>
   );

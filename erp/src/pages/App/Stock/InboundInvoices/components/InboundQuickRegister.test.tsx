@@ -11,7 +11,7 @@ import { prepareExistingParentNewVariation } from '../services/inboundProductPre
 
 const mocks = vi.hoisted(() => ({
   full: vi.fn(), code: vi.fn(), categories: vi.fn(), category: vi.fn(), change: vi.fn(),
-  save: vi.fn(), variation: vi.fn(), find: vi.fn(), link: vi.fn(), barcode: vi.fn(), nameMatches: vi.fn(), categorySuggestion: vi.fn(), updateParent: vi.fn(),
+  save: vi.fn(), variation: vi.fn(), find: vi.fn(), link: vi.fn(), barcode: vi.fn(), nameMatches: vi.fn(), updateParent: vi.fn(),
   componentSequence: 0,
   toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn(), info: vi.fn() },
 }));
@@ -23,10 +23,6 @@ vi.mock('@/pages/utils/productService/productSkuService', () => ({ getNextSequen
 vi.mock('@/pages/utils/categoryService', () => ({ fetchGroupsAndCategories: mocks.categories }));
 vi.mock('@/pages/utils/categoryResolutionService', () => ({ resolveAutoCategory: mocks.category }));
 vi.mock('@/pages/App/Products/services/technicalFieldService', () => ({ fetchTechnicalFieldDefinitions: vi.fn().mockResolvedValue([]) }));
-vi.mock('../services/inboundProductPreparationService', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../services/inboundProductPreparationService')>()),
-  suggestInboundProductCategory: mocks.categorySuggestion,
-}));
 vi.mock('@/pages/utils/aiService', () => ({ aiService: {} }));
 vi.mock('@/pages/utils/productSupplierCodesService', () => ({ findProductSupplierCodes: mocks.find, saveProductSupplierCode: mocks.link, deleteProductSupplierCode: vi.fn() }));
 vi.mock('@/pages/utils/inboundNfe/inboundSupplierProductContext', () => ({ fetchSupplierProductsForContext: vi.fn().mockResolvedValue([]), buildSupplierContextSummary: vi.fn() }));
@@ -49,9 +45,9 @@ function Page({ items = [item], supplierId = ' supplier-1 ' }: { items?: Inbound
   return <InboundInvoiceItemsReview contextKey="invoice-1" items={items} supplierId={supplierId} suppliers={[]} onChange={mocks.change} suggestionsEnabled={false} />;
 }
 async function open(mode: 'new' | 'existing' = 'new', ncmChoice: string | null = 'Usar o NCM da NF-e e atualizar o produto pai') {
-  fireEvent.click(screen.getByRole('button', { name: 'Cadastrar' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cadastro rápido' }));
   if (mode === 'existing') {
-    fireEvent.click(screen.getByRole('button', { name: /Nova variação de produto existente/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Variação de produto existente/ }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Selecionar pai' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Cadastrar e vincular' }).hasAttribute('disabled')).toBe(false));
     const resolution = ncmChoice ? screen.queryByLabelText(ncmChoice) : null;
@@ -59,7 +55,6 @@ async function open(mode: 'new' | 'existing' = 'new', ncmChoice: string | null =
   } else {
     const category = await screen.findByRole('combobox', { name: /Categoria/ });
     fireEvent.change(category, { target: { value: 'cat-1' } });
-    fireEvent.click(screen.getByRole('checkbox', { name: /Confirmo a categoria selecionada/ }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Cadastrar e vincular' }).hasAttribute('disabled')).toBe(false));
   }
 }
@@ -69,7 +64,6 @@ beforeEach(() => {
   mocks.full.mockReset().mockImplementation(async (id: string) => products.get(id));
   mocks.code.mockReset().mockResolvedValue('101');
   mocks.categories.mockReset().mockResolvedValue({ categories: [{ id: 'cat-1', name: 'Categoria', type: 'category', active: true }] }); mocks.category.mockReset().mockResolvedValue(null);
-  mocks.categorySuggestion.mockReset().mockResolvedValue({ category: { id: 'cat-1', name: 'Categoria' }, source: 'ai' });
   mocks.find.mockReset().mockImplementation(async () => new Map(mappings));
   mocks.barcode.mockReset().mockResolvedValue(null); mocks.nameMatches.mockReset().mockResolvedValue([]); mocks.updateParent.mockReset().mockImplementation(async (id: string, update: Partial<Product>) => { const current = products.get(id); if (current) products.set(id, { ...current, ...update }); });
   mocks.link.mockReset().mockImplementation(async (reference) => { mappings.set(reference.supplierProductCode, reference); });
@@ -88,10 +82,10 @@ describe('cadastro rápido da NF-e com resolver real, criação direta e víncul
     expect(getCompleteQuickVariationName('Mesa', 'Branca')).toBe('Mesa Branca');
     expect(hasSiblingVariationName([{ name: 'Mesa Branca', attributes: [] }], 'Mesa', 'Mesa Brânca')).toBe(true);
   });
-  it('schema exige confirmar categoria, NCM divergente, campos obrigatórios e componentes', () => {
+  it('schema exige categoria manual, NCM divergente, campos obrigatórios e componentes', () => {
     const simple = { mode: 'SIMPLE', name: 'Mesa', categoryId: 'cat-1', costPrice: 10 };
-    expect(quickRegisterSelectionFormSchema.safeParse(simple).success).toBe(false);
-    expect(quickRegisterSelectionFormSchema.safeParse({ ...simple, categoryConfirmed: true }).success).toBe(true);
+    expect(quickRegisterSelectionFormSchema.safeParse(simple).success).toBe(true);
+    expect(quickRegisterSelectionFormSchema.safeParse({ ...simple, categoryId: '' }).success).toBe(false);
     const variation = { mode: 'EXISTING_PARENT', parentProductId: 'parent', nameSuffix: 'Branca', variationFullName: 'Mesa Branca', ncmMismatch: true };
     expect(quickRegisterSelectionFormSchema.safeParse(variation).success).toBe(false);
     for (const ncmResolution of ['variation', 'update-parent', 'keep-parent'] as const) {
@@ -100,7 +94,7 @@ describe('cadastro rápido da NF-e com resolver real, criação direta e víncul
     const noNcmMismatch = { ...variation, ncmMismatch: false };
     expect(quickRegisterSelectionFormSchema.safeParse({ ...noNcmMismatch, requiredVariableFields: ['Cor'], technicalValues: {} }).success).toBe(false);
     expect(quickRegisterSelectionFormSchema.safeParse({ ...noNcmMismatch, requiredVariableFields: [], technicalValues: {} }).success).toBe(true);
-    const composition = { mode: 'COMPOSITION', name: 'Kit', categoryId: 'cat-1', categoryConfirmed: true, costPrice: 10 };
+    const composition = { mode: 'COMPOSITION', name: 'Kit', categoryId: 'cat-1', costPrice: 10 };
     expect(quickRegisterSelectionFormSchema.safeParse(composition).success).toBe(false);
     expect(quickRegisterSelectionFormSchema.safeParse({ ...composition, components: [{ productId: 'component', description: 'Cadeira', unitPrice: 20, stock: 5, quantity: 1 }] }).success).toBe(false);
     expect(quickRegisterSelectionFormSchema.safeParse({ ...composition, components: [
@@ -153,25 +147,30 @@ describe('cadastro rápido da NF-e com resolver real, criação direta e víncul
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(mocks.variation).toHaveBeenCalledWith('parent-1', expect.objectContaining({ syncNcm: false, fiscal: expect.objectContaining({ ncm: '94036000' }) }));
   });
-  it('exige confirmar a categoria outra vez se o nome do produto mudar', async () => {
-    render(<Page />); await open();
-    const categoryConfirmation = screen.getByRole('checkbox', { name: /Confirmo a categoria selecionada/ }) as HTMLInputElement;
-    expect(categoryConfirmation.checked).toBe(true);
+  it('deixa a categoria para escolha manual sem IA, checkbox de confirmação ou restauração', async () => {
+    render(<Page />);
+    const category = await screen.findByRole('combobox', { name: /Categoria/ }) as HTMLSelectElement;
+    expect(category.value).toBe('');
+    expect(screen.getByText(/NCM 94036000/)).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: /Custo de aquisição|NCM da NF-e/ })).toBeNull();
+    expect(screen.queryByText(/Custo da NF-e:/)).toBeNull();
+    expect(screen.queryByText(/Sugestão de IA|Sugestão pelo nome/)).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: /Confirmo a categoria selecionada/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Restaurar dados sugeridos pela NF-e/ })).toBeNull();
+    fireEvent.change(category, { target: { value: 'cat-1' } });
     fireEvent.change(screen.getByRole('textbox', { name: 'Nome do produto *' }), { target: { value: 'Mesa de jantar extensível' } });
-    expect(categoryConfirmation.checked).toBe(false);
     submit();
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Confirme a categoria'));
-    expect(mocks.save).not.toHaveBeenCalled();
+    await waitFor(() => expect(mocks.change).toHaveBeenCalledOnce());
   });
   it.each([
     ['produto', { matchedProductId: 'product-1', matchedVariationId: 'variation-1' }],
     ['composição', { linkMode: 'composition' as const, compositionLinks: [{ id: 'link-1', productId: 'product-1', variationId: 'variation-1', productErpName: 'Mesa', linkedProductCode: 'SKU-1', sellingPrice: 50, apportionedCost: 10, quantityMultiplier: 1 }] }],
   ])('oculta o atalho quando o item já tem vínculo de %s', (_kind, update) => {
     render(<Page items={[{ ...item, ...update }]} />);
-    expect(screen.queryByRole('button', { name: 'Cadastrar' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cadastro rápido' })).toBeNull();
   });
   it('exibe erro do resolver sem consultar quando falta selecionar pai', async () => {
-    render(<Page />); await open(); fireEvent.click(screen.getByRole('button', { name: /Nova variação de produto existente/ })); submit();
+    render(<Page />); await open(); fireEvent.click(screen.getByRole('button', { name: /Variação de produto existente/ })); submit();
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Selecione o produto pai'));
     expect(mocks.full).not.toHaveBeenCalled(); expect(mocks.save).not.toHaveBeenCalled();
   });
@@ -256,8 +255,7 @@ describe('cadastro rápido da NF-e com resolver real, criação direta e víncul
   });
   it('cria produto composto somente com componentes selecionados manualmente', async () => {
     render(<Page />); await open();
-    fireEvent.click(screen.getByText('Mais opções de cadastro'));
-    fireEvent.click(screen.getByRole('button', { name: /Novo produto composto/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Produto composto/ }));
     const dialog = within(screen.getByRole('dialog'));
     fireEvent.click(dialog.getByRole('button', { name: 'Selecionar componente' }));
     fireEvent.click(dialog.getByRole('button', { name: 'Selecionar componente' })); submit();

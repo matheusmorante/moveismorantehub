@@ -54,6 +54,9 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
           ...(isMultiVariationMode
             ? [{ id: 'variacoes' as const, label: 'Variações', icon: 'bi-grid-3x3-gap' }]
             : []),
+          ...(isComposition && !isMultiVariationMode
+            ? [{ id: 'composicao' as const, label: 'Composição', icon: 'bi-diagram-3' }]
+            : []),
         ]
       : []),
     ...(!isComposition

@@ -265,6 +265,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       {isParent && hasParentVariations && (
         <ProductCardVariationList
           product={product}
+          opportunityName={oppName ?? undefined}
           readOnly={readOnly}
           canDeleteProducts={canDeleteProducts}
           showCatalogControl={showCatalogControl}

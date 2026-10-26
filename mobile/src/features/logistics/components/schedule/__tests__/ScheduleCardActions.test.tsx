@@ -3,6 +3,11 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-native', () => ({
+  Animated: {
+    Value: vi.fn(function () {
+      return { interpolate: vi.fn(() => ({})) };
+    }),
+  },
   View: 'div',
   Text: 'span',
   TouchableOpacity: ({ testID: _testID, onPress, children, ...props }: any) =>
@@ -64,8 +69,8 @@ describe('ScheduleCard - Botões de Ação no Cronograma', () => {
   const assemblyItem: DeliveryRouteItem = {
     ...deliveryItem,
     id: 'ass-1',
-    activityType: 'assembly',
-    activityLabel: 'MONTAGEM',
+    activityType: 'assistance',
+    activityLabel: 'ASSISTÊNCIA',
     activityColor: '#d97706',
     activityBackgroundColor: '#fef3c7',
   };
@@ -80,7 +85,7 @@ describe('ScheduleCard - Botões de Ação no Cronograma', () => {
       />
     );
 
-    expect(html).toContain('ABRIR FLUXO DE ENTREGA');
+    expect(html).toContain('Iniciar fluxo de entrega - preparação');
   });
 
   it('exibe apenas "ABRIR ATIVIDADE" quando não for atividade de entrega', () => {
@@ -93,8 +98,8 @@ describe('ScheduleCard - Botões de Ação no Cronograma', () => {
       />
     );
 
-    expect(html).toContain('ABRIR ATIVIDADE');
-    expect(html).not.toContain('ABRIR FLUXO DE ENTREGA');
+    expect(html).toContain('Abrir atividade');
+    expect(html).not.toContain('Iniciar fluxo de entrega - preparação');
   });
 
   it('renderiza "ABRIR FLUXO DE ENTREGA" se onOpenDeliveryFlow for omitido', () => {
@@ -106,6 +111,6 @@ describe('ScheduleCard - Botões de Ação no Cronograma', () => {
       />
     );
 
-    expect(html).toContain('ABRIR FLUXO DE ENTREGA');
+    expect(html).toContain('Iniciar fluxo de entrega - preparação');
   });
 });

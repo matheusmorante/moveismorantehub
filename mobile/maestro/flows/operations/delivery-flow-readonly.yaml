@@ -1,0 +1,133 @@
+appId: com.morante.mobile
+---
+# Valida navegação e controles do fluxo sem confirmar transições de pedido.
+- launchApp:
+    stopApp: false
+- runFlow:
+    when:
+      visible: "Fluxo de Entrega"
+    commands:
+      - tapOn: "Voltar"
+- extendedWaitUntil:
+    visible: "Operações"
+    timeout: 20000
+- tapOn: "Operações"
+- extendedWaitUntil:
+    visible: "Resumo"
+    timeout: 20000
+- tapOn: "Entregas"
+- tapOn: "Dias Seguintes"
+- extendedWaitUntil:
+    visible: "Iniciar fluxo de entrega - preparação"
+    timeout: 30000
+
+# Pedido pendente: o botão do card deve abrir Preparação e mostrar as quatro etapas.
+- runFlow:
+    when:
+      visible: "Iniciar fluxo de entrega - preparação"
+    commands:
+      - tapOn:
+          text: "Iniciar fluxo de entrega - preparação"
+          index: 0
+      - extendedWaitUntil:
+          visible: "Fluxo de Entrega"
+          timeout: 20000
+      - assertVisible: "ETAPA 1 DE 4"
+      - assertVisible: "Preparação"
+      - assertVisible: "Em Rota"
+      - assertVisible: "Chegada"
+      - assertVisible: "Atendimento"
+      - assertVisible: "« Deslize para INICIAR ROTA"
+      - tapOn: "Voltar"
+
+# Um pedido em rota expõe o botão animado e abre a etapa 2.
+- runFlow:
+    when:
+      visible: "Em rota"
+    commands:
+      - tapOn:
+          text: "Em rota"
+          index: 0
+      - extendedWaitUntil:
+          visible: "ETAPA 2 DE 4"
+          timeout: 20000
+      - assertVisible: "Preparação"
+      - assertVisible: "Em Rota"
+      - assertVisible: "Chegada"
+      - assertVisible: "Atendimento"
+      - assertVisible: "« Deslize para CHEGUEI NO DESTINO"
+      - assertVisible: "Deslize para VOLTAR AO PREPARO »"
+      - tapOn: "Voltar"
+
+# Um pedido em atendimento expõe o botão animado e abre a etapa 4.
+- runFlow:
+    when:
+      visible: "Em atendimento"
+    commands:
+      - tapOn:
+          text: "Em atendimento"
+          index: 0
+      - extendedWaitUntil:
+          visible: "ETAPA 4 DE 4"
+          timeout: 20000
+      - assertVisible: "Preparação"
+      - assertVisible: "Em Rota"
+      - assertVisible: "Chegada"
+      - assertVisible: "Atendimento"
+      - assertVisible: "« Deslize para FINALIZAR"
+      - assertVisible: "Deslize para VOLTAR À CHEGADA »"
+      - tapOn: "Voltar"
+
+# Abre detalhes pelo selo da atividade e testa o botão do rodapé sem efetuar transição.
+- runFlow:
+    when:
+      visible: "ENTREGA"
+    commands:
+      - tapOn:
+          text: "ENTREGA"
+          index: 0
+      - extendedWaitUntil:
+          visible: "Detalhes do Pedido"
+          timeout: 20000
+      - runFlow:
+          when:
+            visible: "Iniciar fluxo de entrega"
+          commands:
+            - tapOn: "Iniciar fluxo de entrega"
+            - extendedWaitUntil:
+                visible: "ETAPA 1 DE 4"
+                timeout: 20000
+            - assertVisible: "« Deslize para INICIAR ROTA"
+            - tapOn: "Voltar"
+      - runFlow:
+          when:
+            visible: "EM ROTA"
+          commands:
+            - tapOn: "EM ROTA"
+            - extendedWaitUntil:
+                visible: "ETAPA 2 DE 4"
+                timeout: 20000
+            - assertVisible: "« Deslize para CHEGUEI NO DESTINO"
+            - tapOn: "Voltar"
+      - runFlow:
+          when:
+            visible: "CHEGADA NO LOCAL"
+          commands:
+            - tapOn: "CHEGADA NO LOCAL"
+            - extendedWaitUntil:
+                visible: "ETAPA 3 DE 4"
+                timeout: 20000
+            - assertVisible: "« Deslize para INICIAR ATENDIMENTO"
+            - assertVisible: "Deslize para VOLTAR PARA EM ROTA »"
+            - tapOn: "Voltar"
+      - runFlow:
+          when:
+            visible: "EM ATENDIMENTO"
+          commands:
+            - tapOn: "EM ATENDIMENTO"
+            - extendedWaitUntil:
+                visible: "ETAPA 4 DE 4"
+                timeout: 20000
+            - assertVisible: "« Deslize para FINALIZAR"
+            - tapOn: "Voltar"
+      - tapOn: "Fechar detalhes do pedido"

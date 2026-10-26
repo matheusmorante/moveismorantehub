@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { normalizeToE164 } from './phoneUtils.js';
+import { extractDigits, normalizeToE164 } from './phoneUtils.js';
 import { matchCustomerByPhone } from './customerMatchingService.js';
 
 export interface WebhookProcessResult {
@@ -80,6 +80,76 @@ export async function readRawWebhookBody(request: AsyncIterable<Buffer | string>
   return Buffer.concat(chunks);
 }
 
+async function processBusinessAppEcho(
+  supabase: SupabaseClient,
+  businessPhoneNumberId: string,
+  value: any,
+  message: any,
+): Promise<boolean | null> {
+  const wamid = String(message?.id || '');
+  const contactWaId = extractDigits(String(message?.to || ''));
+  if (!wamid || contactWaId.length < 8 || contactWaId.length > 15) return null;
+
+  const { data: existingMessage, error: duplicateError } = await supabase
+    .from('whatsapp_messages')
+    .select('id')
+    .eq('api_message_id', wamid)
+    .maybeSingle();
+  if (duplicateError) throw duplicateError;
+
+  let matchedCustomerId: string | null = null;
+  let customerLinkStatus = 'unlinked';
+  if (!existingMessage) {
+    const { data: conversation, error: conversationError } = await supabase
+      .from('whatsapp_conversations')
+      .select('id, customer_id, customer_link_status')
+      .eq('business_phone_number_id', businessPhoneNumberId)
+      .eq('contact_wa_id', contactWaId)
+      .maybeSingle();
+    if (conversationError) throw conversationError;
+
+    if (!conversation?.customer_id && conversation?.customer_link_status !== 'manually_linked') {
+      const matchResult = await matchCustomerByPhone(supabase, contactWaId);
+      if (matchResult.status === 'auto_matched' && matchResult.customer) {
+        matchedCustomerId = matchResult.customer.id;
+        customerLinkStatus = 'auto_matched';
+      } else if (matchResult.status === 'ambiguous') {
+        customerLinkStatus = 'ambiguous';
+      }
+    }
+  }
+
+  const extracted = extractMessageContent(message);
+  const timestamp = message.timestamp
+    ? new Date(Number(message.timestamp) * 1000).toISOString()
+    : new Date().toISOString();
+  const profile = value.contacts?.find((contact: any) => extractDigits(contact?.wa_id) === contactWaId)?.profile?.name;
+  const { data: receipt, error: receiptError } = await supabase.rpc('customer_support_receive_message_echo', {
+    p_business_phone_number_id: businessPhoneNumberId,
+    p_contact_wa_id: contactWaId,
+    p_contact_phone: normalizeToE164(contactWaId),
+    p_contact_name: profile || null,
+    p_customer_id: matchedCustomerId,
+    p_customer_link_status: customerLinkStatus,
+    p_message: {
+      api_message_id: wamid,
+      message_type: extracted.type,
+      text_content: extracted.text,
+      media_id: extracted.mediaId ?? null,
+      media_mime_type: extracted.mediaMimeType ?? null,
+      media_filename: extracted.mediaFilename ?? null,
+      media_caption: extracted.mediaCaption ?? null,
+      reply_to_wamid: extracted.replyToWamid ?? null,
+      timestamp,
+    },
+  });
+  if (receiptError) throw receiptError;
+  if (!receipt?.conversation_id || !receipt?.message_id || typeof receipt.inserted !== 'boolean') {
+    throw new Error('Recebimento da mensagem enviada pelo WhatsApp Business não confirmado pelo servidor.');
+  }
+  return receipt.inserted;
+}
+
 /**
  * Extrai resumo e metadados de uma mensagem da Meta
  */
@@ -93,7 +163,7 @@ export function extractMessageContent(msg: any): {
   replyToWamid?: string;
 } {
   const type = msg.type || 'unknown';
-  const replyToWamid = msg.context?.id;
+  const replyToWamid = msg.context?.id || msg.reaction?.message_id;
 
   switch (type) {
     case 'text':
@@ -155,6 +225,77 @@ export function extractMessageContent(msg: any): {
       };
     }
 
+    case 'button': {
+      const buttonLabel = msg.button?.text || msg.button?.payload || 'Resposta de botão';
+      return {
+        type: 'interactive',
+        text: `🔘 ${buttonLabel}`,
+        replyToWamid,
+      };
+    }
+
+    case 'reaction': {
+      const emoji = typeof msg.reaction?.emoji === 'string' ? msg.reaction.emoji : '';
+      return {
+        type: 'interactive',
+        text: emoji ? `Reação ${emoji} a uma mensagem` : 'Reação removida de uma mensagem',
+        replyToWamid,
+      };
+    }
+
+    case 'order': {
+      const order = msg.order || {};
+      const items = Array.isArray(order.product_items) ? order.product_items : [];
+      const itemSummaries = items.map((item: any) => {
+        const quantity = String(item?.quantity ?? '1').trim() || '1';
+        const product = typeof item?.product_retailer_id === 'string' && item.product_retailer_id.trim()
+          ? item.product_retailer_id.trim()
+          : 'Produto do catálogo';
+        const amount = item?.item_price == null ? Number.NaN : Number(item.item_price);
+        const currency = typeof item?.currency === 'string' ? item.currency.toUpperCase() : '';
+        let unitPrice = '';
+        if (Number.isFinite(amount)) {
+          try {
+            unitPrice = currency
+              ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(amount).replace(/\u00a0/g, ' ')
+              : amount.toFixed(2);
+          } catch {
+            unitPrice = `${amount.toFixed(2)}${currency ? ` ${currency}` : ''}`;
+          }
+        }
+        return `• ${quantity} × ${product}${unitPrice ? ` — ${unitPrice} cada` : ''}`;
+      });
+      const customerText = typeof order.text === 'string' ? order.text.trim() : '';
+      return {
+        type: 'interactive',
+        text: [
+          '🛒 Pedido recebido pelo catálogo',
+          ...itemSummaries,
+          ...(customerText ? [`Mensagem: ${customerText}`] : []),
+        ].join('\n'),
+        replyToWamid,
+      };
+    }
+
+    case 'system': {
+      const systemBody = typeof msg.system?.body === 'string' ? msg.system.body.trim() : '';
+      const systemType = typeof msg.system?.type === 'string'
+        ? msg.system.type.replace(/_/g, ' ')
+        : '';
+      return {
+        type: 'interactive',
+        text: systemBody || (systemType ? `Aviso do WhatsApp: ${systemType}` : 'Aviso do sistema do WhatsApp'),
+        replyToWamid,
+      };
+    }
+
+    case 'request_welcome':
+      return {
+        type: 'interactive',
+        text: '👋 Cliente solicitou iniciar o atendimento',
+        replyToWamid,
+      };
+
     case 'sticker':
       return {
         type: 'sticker',
@@ -196,9 +337,24 @@ export function extractMessageContent(msg: any): {
     }
 
     default:
+      if (type === 'unsupported') {
+        const providerError = Array.isArray(msg.errors) ? msg.errors[0] : null;
+        const errorCode = providerError?.code != null ? String(providerError.code) : '';
+        const providerDetails = typeof providerError?.details === 'string'
+          ? providerError.details.trim()
+          : '';
+        const explanation = errorCode === '131051'
+          ? 'A API do WhatsApp informou que este tipo de mensagem não é suportado.'
+          : providerDetails || 'A Meta não disponibilizou uma prévia compatível.';
+        return {
+          type: 'unsupported',
+          text: `${explanation}${errorCode ? ` (código ${errorCode})` : ''}`,
+          replyToWamid,
+        };
+      }
       return {
         type: 'unsupported',
-        text: 'Formato de mensagem não suportado diretamente pela central.',
+        text: `A central ainda não consegue exibir este tipo de mensagem (${String(type).replace(/[^a-z0-9_-]/gi, '').slice(0, 40) || 'não identificado'}).`,
         replyToWamid,
       };
   }
@@ -231,6 +387,21 @@ export async function processWhatsAppWebhookPayload(
       if (!value) continue;
 
       const businessPhoneNumberId = String(value.metadata?.phone_number_id || '');
+
+      // Coexistence reports messages sent from the WhatsApp Business app in a
+      // separate webhook field. Persist them as outbound echoes for every agent.
+      if (change.field === 'smb_message_echoes' && Array.isArray(value.message_echoes)) {
+        for (const message of value.message_echoes) {
+          try {
+            const inserted = await processBusinessAppEcho(supabase, businessPhoneNumberId, value, message);
+            if (inserted) result.processedMessages++;
+            else if (inserted === false) result.duplicatesIgnored++;
+          } catch (err: any) {
+            console.error('[WhatsApp Webhook] Erro ao processar mensagem enviada pelo app:', err);
+            result.errors.push(err.message || String(err));
+          }
+        }
+      }
 
       // 1. Processa mensagens recebidas
       if (value.messages && Array.isArray(value.messages)) {

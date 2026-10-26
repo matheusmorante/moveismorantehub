@@ -2,6 +2,7 @@ import { Variation } from '../../types/product.type';
 import { parseVariationImages } from './productImageHelpers';
 import { toTitleCase } from '../textUtils';
 import { getVariationDetails } from './productDraftSnapshot';
+import { resolveProductUnitPrice } from '../../../../../shared-utils/productUnitPrice';
 
 /**
  * Converte um atributo cru de variação em lista estruturada
@@ -100,7 +101,8 @@ export const mapDbVariations = (
         sku: resolvedSku,
         name: formattedName,
         stock: Number(v.stock || 0),
-        unitPrice: v.use_parent_price ? Number(data.unit_price || 0) : Number(v.price || 0),
+        unitPrice:
+          v.use_parent_price !== false ? resolveProductUnitPrice(data) : Number(v.price || 0),
         promoPrice: v.use_parent_promo_price
           ? Number(data.promo_price || 0)
           : Number(v.promo_price || 0),
@@ -176,9 +178,7 @@ export const createDefaultVariation = (
       sku: parentCode ? `${parentCode}-01` : '01',
       name: rawName || 'Padrão',
       stock: Number(data.stock || 0),
-      unitPrice: Number(
-        data.price !== undefined && data.price !== null ? data.price : data.unit_price || 0
-      ),
+      unitPrice: resolveProductUnitPrice(data),
       promoPrice:
         data.promo_price !== null && data.promo_price !== undefined
           ? Number(data.promo_price)

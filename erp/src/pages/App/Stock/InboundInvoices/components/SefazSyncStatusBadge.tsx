@@ -89,6 +89,8 @@ export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSy
               : `Ciência registrada para ${count} NF-e; a busca automática do XML seguirá respeitando cinco minutos por CNPJ.`
           );
           onSyncSuccessRef.current?.();
+        } else if (science.communicationUnconfirmed && science.error) {
+          setAutomationNotice(`Comunicação sem confirmação: ${science.error}`);
         } else if (science.pending && science.error) {
           setAutomationNotice(`Lote de Ciência pendente de reconciliação: ${science.error}`);
         } else if (!science.success && !science.skipped && science.error) {

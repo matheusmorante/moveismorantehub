@@ -15,6 +15,8 @@ interface UseCustomerSupportConversationsParams {
 
 const PAGE_SIZE = 50;
 
+export type CustomerSupportRealtimeStatus = 'connected' | 'reconnecting' | 'disconnected';
+
 export function useCustomerSupportConversations({
   agentId = null,
   folderCriteria = null,
@@ -24,11 +26,10 @@ export function useCustomerSupportConversations({
   const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
   const [filter, setFilter] = useState<ConversationFilter>('all');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
-  const [search, setSearch] = useState('');
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshingConversations, setIsRefreshingConversations] = useState(false);
-  const [isRealtimeConnected, setIsRealtimeConnected] = useState(true);
+  const [realtimeStatus, setRealtimeStatus] = useState<CustomerSupportRealtimeStatus>('reconnecting');
   const [totalCount, setTotalCount] = useState(0);
   const [conversationsError, setConversationsError] = useState('');
   const [counts, setCounts] = useState({ all: 0, mine: 0, unassigned: 0, unread: 0 });
@@ -39,7 +40,9 @@ export function useCustomerSupportConversations({
   const requestIdRef = useRef(0);
   const pendingRequestRef = useRef<number | null>(null);
   const moreRequestRef = useRef<number | null>(null);
-  const queryKey = JSON.stringify([filter, search, agentId, folderCriteria, canViewCommercialInfo, sortOrder]);
+  const realtimeRetryCountRef = useRef(0);
+  const reconnectRealtimeRef = useRef<(() => void) | null>(null);
+  const queryKey = JSON.stringify([filter, agentId, folderCriteria, canViewCommercialInfo, sortOrder]);
   const activeQueryKeyRef = useRef(queryKey);
   activeQueryKeyRef.current = queryKey;
 
@@ -63,7 +66,6 @@ export function useCustomerSupportConversations({
       const pageResults = await Promise.all(
         Array.from({ length: pagesToLoad }, (_, index) => fetchConversations(supabase, {
           filter: folderCriteria ? 'all' : filter,
-          search,
           page: index + 1,
           pageSize: PAGE_SIZE,
           agentId: folderCriteria ? null : agentId,
@@ -99,7 +101,7 @@ export function useCustomerSupportConversations({
         setIsRefreshingConversations(false);
       }
     }
-  }, [filter, search, agentId, folderCriteria, canViewCommercialInfo, sortOrder, queryKey]);
+  }, [filter, agentId, folderCriteria, canViewCommercialInfo, sortOrder, queryKey]);
 
   const loadMoreConversations = useCallback(async () => {
     if (moreRequestRef.current !== null || isLoadingConversations || conversations.length >= totalCount) return;
@@ -113,7 +115,6 @@ export function useCustomerSupportConversations({
     try {
       const result = await fetchConversations(supabase, {
         filter: folderCriteria ? 'all' : filter,
-        search,
         page: nextPage,
         pageSize: PAGE_SIZE,
         agentId: folderCriteria ? null : agentId,
@@ -149,7 +150,7 @@ export function useCustomerSupportConversations({
         setIsLoadingMore(false);
       }
     }
-  }, [isLoadingConversations, conversations.length, totalCount, folderCriteria, filter, search, agentId, canViewCommercialInfo, sortOrder, queryKey, loadConversations]);
+  }, [isLoadingConversations, conversations.length, totalCount, folderCriteria, filter, agentId, canViewCommercialInfo, sortOrder, queryKey, loadConversations]);
 
   useEffect(() => {
     void loadConversations();
@@ -173,13 +174,22 @@ export function useCustomerSupportConversations({
     };
   }, [loadConversations]);
 
+  const reconnectRealtime = useCallback(() => reconnectRealtimeRef.current?.(), []);
+
   useEffect(() => {
     let active = true;
     let channelGeneration = 0;
     let channel: ReturnType<typeof supabase.channel> | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    const setupChannel = () => {
+    realtimeRetryCountRef.current = 0;
+    setRealtimeStatus('reconnecting');
+    const setupChannel = (manual = false) => {
       if (!active) return;
+      if (manual) {
+        realtimeRetryCountRef.current = 0;
+        setRealtimeStatus('reconnecting');
+      } else if (realtimeRetryCountRef.current < 3) {
+        setRealtimeStatus('reconnecting');
+      }
       const generation = ++channelGeneration;
       const isCurrent = () => active && generation === channelGeneration;
       if (channel) void supabase.removeChannel(channel);
@@ -191,19 +201,23 @@ export function useCustomerSupportConversations({
         })
         .subscribe((status) => {
           if (!isCurrent()) return;
-          if (reconnectTimer) clearTimeout(reconnectTimer);
-          reconnectTimer = null;
-          const connected = status === 'SUBSCRIBED';
-          setIsRealtimeConnected(connected);
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            reconnectTimer = setTimeout(setupChannel, 3000);
+          if (status === 'SUBSCRIBED') {
+            realtimeRetryCountRef.current = 0;
+            setRealtimeStatus('connected');
+          } else if (status === 'CLOSED') {
+            realtimeRetryCountRef.current = 3;
+            setRealtimeStatus('disconnected');
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            realtimeRetryCountRef.current += 1;
+            setRealtimeStatus(realtimeRetryCountRef.current >= 3 ? 'disconnected' : 'reconnecting');
           }
         });
     };
+    reconnectRealtimeRef.current = () => setupChannel(true);
     setupChannel();
     return () => {
       active = false;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectRealtimeRef.current = null;
       if (channel) void supabase.removeChannel(channel);
     };
   }, [loadConversations]);
@@ -217,13 +231,12 @@ export function useCustomerSupportConversations({
     setFilter,
     sortOrder,
     setSortOrder,
-    search,
-    setSearch,
     isLoadingConversations,
     isLoadingMore,
     conversationsError,
     isRefreshingConversations,
-    isRealtimeConnected,
+    realtimeStatus,
+    reconnectRealtime,
     loadConversations,
     loadMoreConversations,
     totalCount,

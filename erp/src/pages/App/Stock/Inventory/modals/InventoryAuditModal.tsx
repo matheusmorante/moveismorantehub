@@ -15,6 +15,10 @@ import { useInventoryAuditWorkflow } from '../hooks/useInventoryAuditWorkflow';
 import { getVariationDisplayName } from '@/components/productAutocompleteUtils';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
+import {
+  getInventorySupplierIds,
+  isInventoryProductEligible,
+} from '../domain/inventoryScopeEligibility';
 
 interface InventoryAuditModalProps {
   readonly isOpen: boolean;
@@ -57,6 +61,7 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
   } = useInventoryAuditWorkflow(isOpen, onClose, editingSession);
 
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [manualProductError, setManualProductError] = useState('');
 
   if (!isOpen) return null;
 
@@ -86,6 +91,13 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
   };
 
   const handleUpdateItemProduct = (itemId: string, product: Product, variation?: Variation) => {
+    if (!isInventoryProductEligible(product, suppliers)) {
+      setManualProductError(
+        'Produtos Salvados e Usados e fornecedores exclusivos desses itens não entram no inventário.'
+      );
+      return;
+    }
+
     const key = `${product.id}-${variation?.id || 'main'}`;
     // Evita duplicatas pela chave
     if (items.some((i) => i.key === key && i.id !== itemId)) {
@@ -93,9 +105,7 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
       return;
     }
 
-    const supplierIds = [product.mainSupplierId, product.supplierId, ...(product.supplierIds || [])]
-      .filter(Boolean)
-      .map(String);
+    const supplierIds = getInventorySupplierIds(product, suppliers);
 
     const supplierNames =
       supplierIds
@@ -129,6 +139,7 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
     setItems((prev) =>
       prev.map((item) => (item.id === itemId ? { ...item, ...updatedData } : item))
     );
+    setManualProductError('');
   };
 
   return (
@@ -159,7 +170,11 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
 
         {isReady && view === 'operation' && scopeConfig && (
           <fieldset disabled={isSaving} className="contents">
-            {operationError && <p role="alert" className="p-4 text-sm text-red-700">{operationError}</p>}
+            {(operationError || manualProductError) && (
+              <p role="alert" className="p-4 text-sm text-red-700">
+                {manualProductError || operationError}
+              </p>
+            )}
             {isSaving && <p role="status" className="p-4 text-sm animate-pulse">Validando e salvando o inventário…</p>}
             <InventoryOperationScreen
               items={items}

@@ -20,17 +20,27 @@ import { MobileProductVariationList } from './MobileProductVariationList';
 import { StockOriginBadge } from './StockOriginBadge';
 import { MergedBadge } from './MergedBadge';
 import { styles } from './MobileProductCard.styles';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { productRestoreFromTrashFormSchema } from '../../../../../shared-utils/productVariationOperationFormSchemas';
+import { formatBrlCurrency } from '../../../../../shared-utils/productCurrencyFormatting';
 import {
   buildProductIdentificationLabelUrl,
   buildProductPriceLabelUrl,
 } from '../domain/productLabelLinks';
-import { canToggleProductActivationFromCardMenu } from '../domain/mobileProductCardRules';
+import { getMobileProductCompositionCardItems } from '../domain/mobileProductCardDisplay';
+import {
+  canShowMobileProductPriceLabel,
+  canShowMobileSingleVariationReorganizationActions,
+  canToggleProductActivationFromCardMenu,
+} from '../domain/mobileProductCardRules';
+import { getMobileVariationActionRequirements } from '../services/mobileProductVariationActionsService';
 
 interface Props {
   product: any;
   dark: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
+  canDeleteFromMenu?: boolean;
   canChangeCatalog?: boolean;
   showCatalogStatus?: boolean;
   canPrintLabels?: boolean;
@@ -65,6 +75,7 @@ export const MobileProductCard: React.FC<Props> = ({
   dark,
   canEdit = false,
   canDelete = false,
+  canDeleteFromMenu = canDelete,
   canChangeCatalog = false,
   showCatalogStatus = true,
   canPrintLabels = false,
@@ -86,6 +97,10 @@ export const MobileProductCard: React.FC<Props> = ({
   const [expanded, setExpanded] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [variationMenuVisible, setVariationMenuVisible] = useState(false);
+  const restoreForm = useZodForm(productRestoreFromTrashFormSchema, {
+    productId: String(product?.id ?? ''),
+    action: 'restore',
+  });
 
   const {
     variations,
@@ -123,6 +138,19 @@ export const MobileProductCard: React.FC<Props> = ({
     canPrintLabels,
     canEdit,
   });
+  const compositionCardItems = getMobileProductCompositionCardItems(product);
+  const singleVariationActionRequirements = getMobileVariationActionRequirements(
+    product,
+    singleVariation
+  );
+  const canReorganizeSingleVariation = canShowMobileSingleVariationReorganizationActions({
+    canEditProducts: canEdit,
+    isLabelOnlyProfile,
+    isDraft,
+    isMerged: isSingleVariationMerged,
+    isVirtual: Boolean(singleVariation?.isVirtual),
+    showTrash,
+  });
 
   const handlePrintLabel = () => {
     const parentId = product.id || singleVariation?.productId || singleVariation?.id;
@@ -151,6 +179,7 @@ export const MobileProductCard: React.FC<Props> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.88}
+      accessible={false}
       onPress={() => hasExpandableVars && setExpanded((prev) => !prev)}
       style={[
         styles.card,
@@ -166,6 +195,12 @@ export const MobileProductCard: React.FC<Props> = ({
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setExpanded((prev) => !prev)}
+              accessibilityRole="button"
+              accessibilityLabel={`${expanded ? 'Ocultar' : 'Mostrar'} variações de ${
+                product.name || 'produto'
+              } (${variations.length})`}
+              accessibilityState={{ expanded }}
+              accessibilityHint="Expande ou recolhe as variações deste produto."
               style={[styles.varToggleBtn, dark && styles.darkVarToggleBtn]}
             >
               {expanded ? (
@@ -205,7 +240,17 @@ export const MobileProductCard: React.FC<Props> = ({
               activeOpacity={0.7}
               onPress={(e) => {
                 e.stopPropagation();
-                onRestore(product.id);
+                void restoreForm.validateAndRun(
+                  { productId: String(product?.id ?? ''), action: 'restore' },
+                  ({ productId }) => onRestore(productId),
+                  (errors) => {
+                    const message = Object.values(flattenFormErrors(errors))[0];
+                    Alert.alert(
+                      'Não foi possível restaurar o produto',
+                      message || 'Confira os dados do produto e tente novamente.'
+                    );
+                  }
+                );
               }}
               accessibilityRole="button"
               accessibilityLabel={`Restaurar ${product.name || 'produto'}`}
@@ -265,7 +310,7 @@ export const MobileProductCard: React.FC<Props> = ({
             ) : null
           ) : (
             !isLabelOnlyProfile &&
-            (canEdit || canDelete || onShowOrders) && (
+            (canEdit || canDeleteFromMenu || onShowOrders) && (
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={(e) => {
@@ -303,6 +348,16 @@ export const MobileProductCard: React.FC<Props> = ({
           >
             {displayTitle}
           </Text>
+
+          {compositionCardItems.length > 0 ? (
+            <Text
+              accessibilityLabel={`Componentes da composição: ${compositionCardItems.join(', ')}`}
+              numberOfLines={2}
+              style={[styles.compositionSummary, dark && styles.darkCompositionSummary]}
+            >
+              {compositionCardItems.join(' • ')}
+            </Text>
+          ) : null}
 
           <View style={styles.tagsRow}>
             {product.itemType !== 'service' && (
@@ -365,10 +420,10 @@ export const MobileProductCard: React.FC<Props> = ({
         {(!isParent || isSingleVariationCard) && (
           <View style={styles.priceCol}>
             {hasCardPromo && (
-              <Text style={styles.oldPrice}>R$ {cardUnitPrice.toFixed(2).replace('.', ',')}</Text>
+              <Text style={styles.oldPrice}>{formatBrlCurrency(cardUnitPrice)}</Text>
             )}
             <Text style={[styles.price, dark && styles.priceDark]}>
-              R$ {cardPrice.toFixed(2).replace('.', ',')}
+              {formatBrlCurrency(cardPrice)}
             </Text>
             {product.itemType !== 'service' && (
               <Text style={styles.stockText}>
@@ -419,6 +474,7 @@ export const MobileProductCard: React.FC<Props> = ({
       {hasExpandableVars && expanded && (
         <MobileProductVariationList
           variations={variations}
+          opportunityName={oppName ?? undefined}
           dark={dark}
           parentImage={
             Array.isArray(product.images)
@@ -430,6 +486,8 @@ export const MobileProductCard: React.FC<Props> = ({
           isParentDraft={isDraft}
           onToggleCatalog={(varId, st) => onToggleCatalog(product.id, st, true, varId)}
           onToggleActive={canDelete ? (varId, act) => onToggleActive(varId, act) : undefined}
+          canViewDetails={canViewDetails}
+          onViewDetails={onViewDetails}
           parentProduct={product}
           onEdit={canEdit && !isLabelOnlyProfile ? onEdit : undefined}
           onMoveVariation={canEdit && !isLabelOnlyProfile ? onMoveVariation : undefined}
@@ -451,7 +509,7 @@ export const MobileProductCard: React.FC<Props> = ({
         isDraft={isDraft}
         isActive={isActive}
         canEdit={canEdit && !isLabelOnlyProfile}
-        canDelete={canDelete && !isLabelOnlyProfile}
+        canDelete={canDeleteFromMenu && !isLabelOnlyProfile}
         canToggleActive={canToggleProductActivationFromCardMenu({
           isFamilyParent: hasExpandableVars,
           canDelete,
@@ -469,7 +527,15 @@ export const MobileProductCard: React.FC<Props> = ({
             : undefined
         }
         onShowOrders={cardActionAvailability.canShowLinkedOrders ? onShowOrders : undefined}
-        onPrintPriceLabel={!isLabelOnlyProfile && !showTrash ? handlePrintPriceLabel : undefined}
+        onPrintPriceLabel={
+          canShowMobileProductPriceLabel({
+            canEditProducts: canEdit,
+            isLabelOnlyProfile,
+            showTrash,
+          })
+            ? handlePrintPriceLabel
+            : undefined
+        }
       />
 
       {/* Modal de Ações da Variação Única */}
@@ -482,13 +548,23 @@ export const MobileProductCard: React.FC<Props> = ({
           onClose={() => setVariationMenuVisible(false)}
           onPrintLabel={canPrintIdentificationLabel ? handlePrintLabel : undefined}
           onPrintPriceLabel={
-            !isLabelOnlyProfile && !showTrash && !isSingleVariationMerged
+            canShowMobileProductPriceLabel({
+              canEditProducts: canEdit,
+              isLabelOnlyProfile,
+              showTrash,
+              isMergedVariation: isSingleVariationMerged,
+            })
               ? () => handlePrintPriceLabel(product)
               : undefined
           }
           onEdit={
             canEdit && !isLabelOnlyProfile && !isSingleVariationMerged
               ? () => onEdit(product)
+              : undefined
+          }
+          onDuplicate={
+            canEdit && !isLabelOnlyProfile && cardActionAvailability.canDuplicate && onDuplicate
+              ? () => onDuplicate(product)
               : undefined
           }
           onShowOrders={
@@ -500,25 +576,19 @@ export const MobileProductCard: React.FC<Props> = ({
               : undefined
           }
           onMoveToAnotherFamily={
-            canEdit &&
-            !isLabelOnlyProfile &&
-            !isSingleVariationMerged &&
-            !singleVariation.isVirtual &&
-            onMoveVariation
+            canReorganizeSingleVariation && onMoveVariation
               ? () => onMoveVariation(singleVariation, product)
               : undefined
           }
           onMergeWithAnotherVariation={
-            canEdit &&
-            !isLabelOnlyProfile &&
-            !isSingleVariationMerged &&
-            !singleVariation.isVirtual &&
-            onMergeVariation
+            canReorganizeSingleVariation && onMergeVariation
               ? () => onMergeVariation(singleVariation, product)
               : undefined
           }
+          hasSupplier={singleVariationActionRequirements.hasSupplier}
+          hasValidAttributes={singleVariationActionRequirements.hasValidAttributes}
           onMoveProductToTrash={
-            canDelete && !showTrash && !isDraft && onMoveToTrash
+            canDeleteFromMenu && !showTrash && !isDraft && onMoveToTrash
               ? () => onMoveToTrash(product.id)
               : undefined
           }

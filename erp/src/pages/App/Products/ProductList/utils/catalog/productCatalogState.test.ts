@@ -41,6 +41,46 @@ describe('updateProductCatalogState', () => {
     expect(updated[0].variations[0].status).toBe('published');
   });
 
+  it('mantém o pai publicado ao ocultar uma variação se outra continua publicada', () => {
+    const publishedFamily: any[] = [
+      {
+        id: 'family-parent',
+        status: 'published',
+        variations: [
+          { id: 'variation-to-hide', status: 'published' },
+          { id: 'remaining-published-variation', status: 'published' },
+        ],
+      },
+    ];
+
+    const updated = updateProductCatalogState(publishedFamily, 'variation-to-hide', 'hidden');
+
+    expect(updated[0].variations.map((variation: any) => variation.status)).toEqual([
+      'hidden',
+      'published',
+    ]);
+    expect(updated[0].status).toBe('published');
+  });
+
+  it('oculta o pai quando a última variação publicada é ocultada', () => {
+    const lastPublishedFamily: any[] = [
+      {
+        id: 'last-family-parent',
+        status: 'published',
+        variations: [{ id: 'last-published-variation', status: 'published' }],
+      },
+    ];
+
+    const updated = updateProductCatalogState(
+      lastPublishedFamily,
+      'last-published-variation',
+      'hidden'
+    );
+
+    expect(updated[0].variations[0].status).toBe('hidden');
+    expect(updated[0].status).toBe('hidden');
+  });
+
   it('atualiza o produto e suas variações quando o ID é do pai', () => {
     const updated = updateProductCatalogState(products, 'parent', 'published');
     expect(updated[0].status).toBe('published');

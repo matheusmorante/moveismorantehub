@@ -49,3 +49,16 @@ export const isTestProduct = (value: unknown): boolean => {
 
   return variations.some(isTestProduct);
 };
+
+/**
+ * Existing published test artifacts must be allowed through edit validation so
+ * the save path can force them to hidden instead of leaving them published.
+ */
+export const shouldValidatePublishedCatalogEdit = (
+  catalogStatus: unknown,
+  currentProduct: unknown,
+  submittedProduct: unknown,
+): boolean =>
+  catalogStatus === 'published' &&
+  !isTestProduct(currentProduct) &&
+  !isTestProduct(submittedProduct);

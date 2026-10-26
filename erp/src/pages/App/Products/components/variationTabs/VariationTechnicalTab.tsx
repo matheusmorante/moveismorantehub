@@ -26,6 +26,10 @@ import { VariationTechnicalDescriptionSection } from './VariationTechnicalDescri
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { getDefaultShowNameForVariationOverride } from '../../../../../../../shared-utils/productVariationAttributeDefaults';
 import {
+  removeProductVariationTechnicalAttribute,
+  syncProductVariationTechnicalAttribute,
+} from '../../../../../../../shared-utils/productVariationTechnicalAttributes';
+import {
   isDoorDependentCharacteristic,
   isDoorQuantityCharacteristic,
   isDrawerDependentCharacteristic,
@@ -317,7 +321,6 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
 
     // Manter sincronizado com formData.attributes para retrocompatibilidade
     let currentAttrs = [...(formData.attributes || [])];
-    const lowerName = fieldName.trim().toLowerCase();
     const isDoorQuantity = isDoorQuantityCharacteristic(fieldName);
     const isDrawerQuantity = isDrawerQuantityCharacteristic(fieldName);
     const isZero = value === 0 || (typeof value === 'string' && value.trim() === '0');
@@ -330,28 +333,15 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
         return true;
       });
     }
-    const existingIdx = currentAttrs.findIndex((a) => a.name?.trim().toLowerCase() === lowerName);
-    const valueIsNotApplicable =
-      typeof value === 'string' &&
-      ['não se aplica', 'nao se aplica', 'n/a', 'não informar'].includes(
-        normalizeSearchTerm(value)
-      );
-    const hasValue = value !== '' && value !== undefined && value !== null && !valueIsNotApplicable;
-    if (hasValue) {
-      if (existingIdx >= 0) {
-        currentAttrs[existingIdx] = { ...currentAttrs[existingIdx], value: String(value) };
-      } else {
-        currentAttrs.push({
-          name: fieldName,
-          value: String(value),
-          showName: getDefaultShowNameForVariationOverride(fieldName),
-        });
-      }
-      handleChange('attributes', currentAttrs);
-    } else if (existingIdx >= 0) {
-      currentAttrs.splice(existingIdx, 1);
-      handleChange('attributes', currentAttrs);
-    }
+    handleChange(
+      'attributes',
+      syncProductVariationTechnicalAttribute(
+        currentAttrs,
+        fieldName,
+        value,
+        getDefaultShowNameForVariationOverride(fieldName)
+      )
+    );
   };
 
   const handleRemoveOverride = (fieldName: string) => {
@@ -360,8 +350,9 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     handleChange('technicalValues', updated);
 
     // Ao remover override e voltar a herdar, limpa também a característica correspondente se existir
-    const currentAttrs = (formData.attributes || []).filter(
-      (a) => a.name?.trim().toLowerCase() !== fieldName.trim().toLowerCase()
+    const currentAttrs = removeProductVariationTechnicalAttribute(
+      formData.attributes || [],
+      fieldName
     );
     handleChange('attributes', currentAttrs);
   };

@@ -5,6 +5,7 @@ import { extractProductImages, extractProductDimensions } from './productDimensi
 import { getProductKind, isNonConventionalProduct } from '../productKindRules';
 import { restoreProductDraft } from './productDraftSnapshot';
 import { getLegacyVariableTechnicalFieldNames } from '../technicalValuesService';
+import { resolveProductUnitPrice } from '../../../../../shared-utils/productUnitPrice';
 
 export { mapToDB };
 
@@ -83,9 +84,7 @@ export const mapFromDB = (data: any, index?: number): Product => {
           badge_color: data.opportunities.badge_color,
         }
       : null,
-    unitPrice: Number(
-      data.price !== undefined && data.price !== null ? data.price : data.unit_price || 0
-    ),
+    unitPrice: resolveProductUnitPrice(data),
     costPrice: Number(data.cost_price || 0),
     freightType: data.freight_type || 'fixed',
     freightCost: Number(data.freight_cost || 0),

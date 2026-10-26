@@ -156,10 +156,16 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
               <TextInput
                 value={nameInput}
                 onChangeText={(text) => onChangeNameInput(text.toUpperCase())}
+                editable={!isSubmitting}
                 placeholder={isEnv ? 'EX: SALA DE ESTAR' : 'EX: SOFÁ RETRÁTIL'}
                 placeholderTextColor="#94a3b8"
                 autoCapitalize="characters"
-                style={[styles.input, dark && styles.inputDark, dark && styles.textLight]}
+                style={[
+                  styles.input,
+                  dark && styles.inputDark,
+                  dark && styles.textLight,
+                  isSubmitting && styles.inputDisabled,
+                ]}
               />
             </View>
 
@@ -171,6 +177,7 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
               environments={environments}
               selectedLinks={selectedLinks}
               onToggleLink={onToggleLink}
+              disabled={isSubmitting}
             />
 
             {/* Características da Categoria (apenas categoria) */}
@@ -295,6 +302,7 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     backgroundColor: '#ffffff',
   },
+  inputDisabled: { opacity: 0.6 },
   inputDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
   footer: {
     flexDirection: 'row',

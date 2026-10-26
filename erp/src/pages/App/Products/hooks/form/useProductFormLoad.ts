@@ -4,14 +4,17 @@ import { getFullProduct, getNextSequentialProductCode } from '@/pages/utils/prod
 import { ensureDefaultVariation } from '@/pages/utils/productVariationDefaults';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 import { INITIAL_PRODUCT_FORM_DATA } from '../../utils/form/productFormInitialData';
+import { isSingleProductVariationFormMode } from '../../../../../../../shared-utils/productVariationMode';
 
 const ensureProductFormVariation = <T extends Partial<Product>>(product: T): T => {
   if (product.itemType === 'service') return product;
   const withDefault = ensureDefaultVariation(product);
   const isDraft = isProductDraft(product);
-  const hasVariations = isDraft && typeof product.hasVariations === 'boolean'
-    ? product.hasVariations
-    : (withDefault.variations?.length || 0) > 1;
+  const hasVariations = !isSingleProductVariationFormMode(
+    product,
+    withDefault.variations?.length || 0,
+    false
+  );
   return {
     ...withDefault,
     hasVariations,

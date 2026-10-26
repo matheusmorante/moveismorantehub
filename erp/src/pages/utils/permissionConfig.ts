@@ -181,6 +181,7 @@ export const PERMISSION_AREAS: PermissionAreaDef[] = [
     icon: 'bi-chat-dots-fill',
     actions: [
       action('viewCustomerSupport', 'Acesso à Central', 'view', 'Acessar Central de Atendimento', 'Consultar conversas e mensagens recebidas pelo WhatsApp.', 'bi-chat-dots-fill', ['manager', 'seller', 'deliverer']),
+      action('sendCustomerSupportMessages', 'Mensagens', 'operate', 'Enviar mensagens e anexos', 'Enviar mensagens pela Central em conversas com a janela de atendimento aberta.', 'bi-send-fill', ['manager', 'seller']),
       action('viewCustomerCommercialInfo', 'Dados comerciais no atendimento', 'view', 'Visualizar informações comerciais', 'Consultar pedidos, valores e dados comerciais do cliente na Central.', 'bi-bag-check-fill', ['manager', 'seller']),
     ],
   },

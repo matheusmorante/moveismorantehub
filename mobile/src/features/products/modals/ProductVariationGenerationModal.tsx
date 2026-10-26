@@ -166,6 +166,8 @@ export const ProductVariationGenerationModal: React.FC<Props> = ({
             attributes.map((attribute) => {
               const selection = selectedOptions.find((option) => option.name === attribute.name);
               const selected = Boolean(selection);
+              const selectedValues = selection?.values ?? [];
+              const showName = selection?.showName ?? true;
               return (
                 <View key={attribute.id} style={[styles.attributeCard, dark && styles.darkCard]}>
                   <TouchableOpacity
@@ -188,23 +190,31 @@ export const ProductVariationGenerationModal: React.FC<Props> = ({
                     <>
                       <View style={styles.valuesHeader}>
                         <Text style={[styles.label, dark && styles.dimText]}>
-                          Valores selecionados: {selection.values.length}
+                          Valores selecionados: {selectedValues.length}
                         </Text>
                         <TouchableOpacity
                           onPress={() => toggleShowName(attribute.name)}
                           style={styles.nameToggle}
                           accessibilityRole="button"
-                          accessibilityLabel={selection.showName ? 'Ocultar nome da característica' : 'Mostrar nome da característica'}
+                          accessibilityLabel={
+                            showName
+                              ? 'Valor da característica exibido no nome da variação'
+                              : 'Valor da característica oculto no nome da variação'
+                          }
                         >
-                          {selection.showName ? <Eye size={14} color="#2563eb" /> : <EyeOff size={14} color="#64748b" />}
-                          <Text style={[styles.nameToggleText, !selection.showName && styles.hiddenNameText]}>
-                            {selection.showName ? 'Com rótulo' : 'Só valor'}
+                          {showName ? (
+                            <Eye size={14} color="#2563eb" />
+                          ) : (
+                            <EyeOff size={14} color="#64748b" />
+                          )}
+                          <Text style={[styles.nameToggleText, !showName && styles.hiddenNameText]}>
+                            {showName ? 'Valor no Nome' : 'Valor Oculto'}
                           </Text>
                         </TouchableOpacity>
                       </View>
                       <View style={styles.values}>
                         {attribute.options.map((option) => {
-                          const isChosen = selection.values.includes(option.value);
+                          const isChosen = selectedValues.includes(option.value);
                           return (
                             <TouchableOpacity
                               key={option.id}

@@ -7,11 +7,16 @@ import {
 } from './mobileProductVariationMode';
 
 describe('initializeMobileProductCode', () => {
-  const defaultVariation = { id: 'generated-01', sku: 'PRD-01' };
+  const defaultVariation = { id: 'generated-01', sku: 'PRD-01', images: [] };
 
   it('keeps a selected variation mode while adding the generated code and default variation', () => {
     const initialized = initializeMobileProductCode(
-      { itemType: 'product', hasVariations: true, variations: [] },
+      {
+        itemType: 'product',
+        hasVariations: true,
+        variations: [],
+        images: ['parent.jpg'],
+      },
       'PRD',
       defaultVariation
     );
@@ -20,8 +25,10 @@ describe('initializeMobileProductCode', () => {
       itemType: 'product',
       hasVariations: true,
       variations: [defaultVariation],
+      images: ['parent.jpg'],
       code: 'PRD',
     });
+    expect(initialized.variations[0].images).toEqual([]);
   });
 
   it('keeps simple products simple, derives mode from multiple rows, and clears service mode', () => {

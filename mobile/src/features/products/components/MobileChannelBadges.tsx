@@ -1,5 +1,12 @@
 import type React from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  getMobileCatalogStatusBadgeAccessibilityHint,
+  getMobileCatalogStatusBadgeInteraction,
+  getMobileErpStatusBadgeInteraction,
+} from '../domain/mobileProductCardRules';
+
+const draftStatusHint = 'Termine o cadastramento deste produto para poder ativá-lo no ERP.';
 
 interface MobileChannelBadgesProps {
   dark: boolean;
@@ -35,6 +42,18 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
   onToggleCatalog,
 }) => {
   const erpActive = isActive && !isDraft && !isNonConventional && !isSalvado;
+  const erpStatusInteraction = getMobileErpStatusBadgeInteraction({
+    canToggleActive,
+    isDraft,
+    isMerged: disabled,
+    isParent,
+    isNonConventional,
+  });
+  const catalogStatusInteraction = getMobileCatalogStatusBadgeInteraction({
+    canToggleCatalog,
+    isDraft,
+    isMerged: disabled,
+  });
 
   const handleToggleERP = () => {
     if (disabled) {
@@ -53,16 +72,14 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
     }
     if (isParent) return;
     if (isDraft) {
-      Alert.alert(
-        'Produto em Rascunho',
-        'Termine o cadastramento deste produto para poder ativá-lo no ERP.'
-      );
+      Alert.alert('Produto em Rascunho', draftStatusHint);
       return;
     }
     onToggleActive();
   };
 
   const handleToggleCat = () => {
+    if (isDraft) return;
     if (disabled) {
       Alert.alert(
         'Variação Mesclada',
@@ -81,8 +98,8 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       {!isSalvado && (
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={(canToggleActive || disabled) && !isNonConventional ? handleToggleERP : undefined}
-          disabled={(!canToggleActive && !disabled) || isParent || isNonConventional}
+          onPress={erpStatusInteraction.canPress ? handleToggleERP : undefined}
+          disabled={erpStatusInteraction.disabled}
           accessibilityRole="button"
           accessibilityLabel={
             isNonConventional
@@ -90,15 +107,17 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
               : `Status ERP: ${erpActive ? 'Ativo' : 'Desativado'}`
           }
           accessibilityHint={
-            isNonConventional
-              ? 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
-              : undefined
+            isDraft
+              ? draftStatusHint
+              : isNonConventional
+                ? 'Produtos de origem de estoque diferente de Convencional não podem ser ativados no ERP, apenas no catálogo digital.'
+                : undefined
           }
           style={[
             styles.bipartiteBtn,
             erpActive ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
             dark && styles.darkBipartiteBorder,
-            disabled && styles.disabledBtn,
+            (disabled || isDraft) && styles.disabledBtn,
             isNonConventional && styles.nonConventionalBtn,
           ]}
         >
@@ -132,13 +151,21 @@ export const MobileChannelBadges: React.FC<MobileChannelBadgesProps> = ({
       {showCatalog && onToggleCatalog && (
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={canToggleCatalog || disabled ? handleToggleCat : undefined}
-          disabled={!canToggleCatalog && !disabled}
+          onPress={catalogStatusInteraction.canPress ? handleToggleCat : undefined}
+          disabled={catalogStatusInteraction.disabled}
+          accessibilityRole="button"
+          accessibilityLabel={`Status Catálogo: ${isPublished && !isDraft ? 'Publicado' : 'Oculto'}`}
+          accessibilityHint={getMobileCatalogStatusBadgeAccessibilityHint({
+            canToggleCatalog,
+            isDraft,
+            isMerged: disabled,
+            disabledReason,
+          })}
           style={[
             styles.bipartiteBtn,
             isPublished && !isDraft ? styles.bipartiteActiveBorder : styles.bipartiteInactiveBorder,
             dark && styles.darkBipartiteBorder,
-            disabled && styles.disabledBtn,
+            (catalogStatusInteraction.disabled || disabled) && styles.disabledBtn,
           ]}
         >
           <View style={[styles.bipartiteTag, styles.catTag, dark && styles.darkCatTag]}>

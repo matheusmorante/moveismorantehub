@@ -106,6 +106,9 @@ export const InboundItemCompositionMode: React.FC<InboundItemCompositionModeProp
         onSelect={handleAddComposition}
         onEditClick={onRequestEditProduct}
       />
+      <p className="text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
+        Associe manualmente cada peça e confira as quantidades. Ao receber, o ERP rateia o custo total desta linha da NF-e automaticamente, conforme os preços de venda cadastrados e as quantidades. Para manter a mesma proporção entre custo e preço do conjunto, some o custo unitário de cada peça multiplicado por sua quantidade. Depois defina manualmente o preço unitário: custo unitário da peça ÷ custo total do conjunto × preço total desejado do conjunto.
+      </p>
       {compositionLinks.length === 0 && (
         <p className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-900/30 p-2 rounded-lg border border-amber-200 dark:border-amber-800/50 flex items-center gap-1.5">
           <i className="bi bi-exclamation-triangle-fill" />

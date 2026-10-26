@@ -148,12 +148,13 @@ export const persistCatalogStatus = async (
         if (parentStatusError) throw parentStatusError;
       } else {
         // Se a variação foi ocultada, verifica se ainda existe alguma outra variação publicada
-        const { data: remainingVars } = await supabase
+        const { data: remainingVars, error: remainingVarsError } = await supabase
           .from('product_variations')
           .select('id')
           .eq('product_id', parentProduct.id)
           .neq('id', variation.id)
           .eq('status', 'published');
+        if (remainingVarsError) throw remainingVarsError;
 
         if (!remainingVars || remainingVars.length === 0) {
           const { error: parentStatusError } = await supabase

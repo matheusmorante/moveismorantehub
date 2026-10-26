@@ -5,6 +5,7 @@ import {
   resolveCategoryAttributeIsRequired,
   type CategoryAttributeSelection,
 } from '../../../../shared-utils/categoryAttributeSelection';
+import { countDistinctProductsByCategory } from '../../../../shared-utils/categoryProductCounts';
 import { withCatalogAttributesLoadTimeout } from '../../../../shared-utils/catalogAttributesLoadTimeout';
 
 export type { CategoryAttributeSelection } from '../../../../shared-utils/categoryAttributeSelection';
@@ -298,32 +299,22 @@ export const fetchCategoryProductCounts = async (): Promise<Record<string, numbe
       supabase.from('product_categories').select('category_id, product_id'),
       supabase.from('products').select('id, category_id').not('category_id', 'is', null),
     ]);
+    if (pcRes.error) throw pcRes.error;
+    if (prodRes.error) throw prodRes.error;
 
-    const countsMap: Record<string, Set<string>> = {};
-
-    (pcRes.data || []).forEach((row: { category_id: string; product_id: string }) => {
-      if (row.category_id && row.product_id) {
-        if (!countsMap[row.category_id]) countsMap[row.category_id] = new Set<string>();
-        countsMap[row.category_id].add(String(row.product_id));
-      }
-    });
-
-    (prodRes.data || []).forEach((row: { id: string; category_id: string }) => {
-      if (row.category_id && row.id) {
-        if (!countsMap[row.category_id]) countsMap[row.category_id] = new Set<string>();
-        countsMap[row.category_id].add(String(row.id));
-      }
-    });
-
-    const result: Record<string, number> = {};
-    Object.entries(countsMap).forEach(([catId, set]) => {
-      result[catId] = set.size;
-    });
-
-    return result;
+    return countDistinctProductsByCategory([
+      ...(pcRes.data || []).map((row: { category_id: string; product_id: string }) => ({
+        categoryId: row.category_id,
+        productId: row.product_id,
+      })),
+      ...(prodRes.data || []).map((row: { id: string; category_id: string }) => ({
+        categoryId: row.category_id,
+        productId: row.id,
+      })),
+    ]);
   } catch (err) {
     console.error('[CategoryService] Erro ao buscar contagem de produtos por categoria:', err);
-    return {};
+    throw err;
   }
 };
 
@@ -342,20 +333,28 @@ export const deleteCategory = async (id: string) => {
       .eq('category_id', id),
     supabase.from('products').select('id', { count: 'exact', head: true }).eq('category_id', id),
   ]);
+  if (pcCheck.error) throw pcCheck.error;
+  if (prodCheck.error) throw prodCheck.error;
 
   const totalLinked = (pcCheck.count || 0) + (prodCheck.count || 0);
   if (totalLinked > 0) {
-    const distinctProductIds = new Set<string>();
     const [pcRows, prodRows] = await Promise.all([
       supabase.from('product_categories').select('product_id').eq('category_id', id),
       supabase.from('products').select('id').eq('category_id', id),
     ]);
-    (pcRows.data || []).forEach(
-      (r: any) => r.product_id && distinctProductIds.add(String(r.product_id))
-    );
-    (prodRows.data || []).forEach((r: any) => r.id && distinctProductIds.add(String(r.id)));
-
-    const finalCount = distinctProductIds.size || totalLinked;
+    if (pcRows.error) throw pcRows.error;
+    if (prodRows.error) throw prodRows.error;
+    const finalCount =
+      countDistinctProductsByCategory([
+        ...(pcRows.data || []).map((row: { product_id: string }) => ({
+          categoryId: id,
+          productId: row.product_id,
+        })),
+        ...(prodRows.data || []).map((row: { id: string }) => ({
+          categoryId: id,
+          productId: row.id,
+        })),
+      ])[id] || totalLinked;
     throw new Error(
       `Não é possível excluir esta categoria porque ela está sendo utilizada por ${finalCount} produto${finalCount > 1 ? 's' : ''}. Remova ou altere a categoria desses produtos antes de excluí-la.`
     );

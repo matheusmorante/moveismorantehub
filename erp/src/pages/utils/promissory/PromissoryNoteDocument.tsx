@@ -57,8 +57,8 @@ export const PromissoryNoteCard: React.FC<PromissoryNoteCardProps> = ({
         </div>
       </header>
 
-      {/* Destaque: Valor e Vencimento */}
-      <div className="grid grid-cols-2 gap-4 mb-5">
+      {/* Destaque do valor */}
+      <div className="mb-5">
         <div className="bg-slate-50 border border-slate-300 rounded-lg p-3 text-left">
           <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-0.5">
             Valor
@@ -68,14 +68,6 @@ export const PromissoryNoteCard: React.FC<PromissoryNoteCardProps> = ({
           </div>
         </div>
 
-        <div className="bg-slate-50 border border-slate-300 rounded-lg p-3 text-right">
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 block mb-0.5">
-            Vencimento
-          </span>
-          <div className="text-base sm:text-xl font-black text-slate-900 font-mono tracking-tight">
-            {note.dueDate || '____ / ____ / ________'}
-          </div>
-        </div>
       </div>
 
       {/* Cláusula Cambial Legal (Art. 75 Decreto 57.663/1966) */}
@@ -85,28 +77,18 @@ export const PromissoryNoteCard: React.FC<PromissoryNoteCardProps> = ({
         </p>
       </div>
 
-      {/* Campo de Vencimento e Informações de Preenchimento Manual a Caneta */}
-      <div className="bg-slate-50/70 border border-slate-300 rounded-lg p-3.5 my-3 text-xs text-slate-800">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2 mb-2">
-          <span className="text-[9px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-            <i className="bi bi-pen text-slate-500"></i>
-            Informações sobre o vencimento (preenchimento manual a caneta)
+      {/* Campo único para registrar o dia mensal de vencimento à caneta */}
+      <div className="border border-slate-300 rounded-lg px-3.5 py-3 my-3 text-sm font-bold text-slate-900">
+        <div className="flex flex-wrap items-center gap-2">
+          <span>Vencimento: todo dia</span>
+          <span className="inline-block min-w-12 border-b-2 border-slate-700 text-center font-mono">
+            &nbsp;
           </span>
-          <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-            <span>Data de vencimento:</span>
-            <span className="font-mono px-2.5 py-0.5 bg-white border border-slate-300 rounded text-slate-900 tracking-wider">
-              {note.dueDate || '____ / ____ / ________'}
-            </span>
-          </div>
-        </div>
-        <div className="space-y-2 pt-1 text-[11px] text-slate-600">
-          <div className="flex items-end gap-2">
-            <span className="text-[9px] font-bold uppercase text-slate-500 shrink-0">
-              Observações / Acordo do vencimento:
-            </span>
-            <div className="w-full border-b border-dashed border-slate-400 min-h-[1.25rem]"></div>
-          </div>
-          <div className="w-full border-b border-dashed border-slate-300 min-h-[1.25rem]"></div>
+          <span>de cada mês, a partir de</span>
+          <span className="inline-block min-w-20 border-b-2 border-slate-700 text-center font-mono">
+            &nbsp;
+          </span>
+          <span className="text-xs font-normal">(mês/ano)</span>
         </div>
       </div>
 
@@ -176,7 +158,6 @@ export const PromissoryNoteCard: React.FC<PromissoryNoteCardProps> = ({
               order || {
                 id: note.id,
                 orderIndex: note.orderIndex,
-                date: note.rawDueDate,
                 seller: note.sellerName,
               }
             }

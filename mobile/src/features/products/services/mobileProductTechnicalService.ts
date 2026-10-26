@@ -1,5 +1,9 @@
 import { supabase } from '../../../services/supabaseClient';
-import { isRequiredCharacteristicName } from '../domain/productCharacteristics';
+import {
+  isExcludedProductTechnicalField,
+  isRequiredCharacteristicName,
+} from '../domain/productCharacteristics';
+import { deduplicateProductTechnicalValueAliasFields } from '../../../../../shared-utils/productTechnicalValueAliases';
 
 export interface MobileTechnicalFieldOption {
   readonly id: string;
@@ -78,8 +82,8 @@ export const fetchMobileProductTechnicalFields = async (
 
   const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
 
-  return (attributes ?? [])
-    .filter((attribute) => !/^reclin[aá]vel$/i.test(String(attribute.name).trim()))
+  const mappedFields: MobileProductTechnicalField[] = (attributes ?? [])
+    .filter((attribute) => !isExcludedProductTechnicalField(attribute.name))
     .map((attribute) => {
       const normalizedName = String(attribute.name).trim().toLocaleLowerCase('pt-BR');
       const isFirmnessField = normalizedName === 'nível de firmeza do estofamento';
@@ -129,4 +133,6 @@ export const fetchMobileProductTechnicalFields = async (
         options: orderedValues,
       };
     });
+
+  return deduplicateProductTechnicalValueAliasFields<MobileProductTechnicalField>(mappedFields);
 };

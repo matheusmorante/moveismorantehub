@@ -86,6 +86,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
   let simulatedReadAcknowledgements = 0;
   let simulateAudioMessage = false;
   let audioMediaResponsePending = false;
+  let simulateAudioMediaFailure = false;
   let simulatedAudioMediaRequests = 0;
   let blockedRealAudioReadReceipts = 0;
   const audioMediaId = 'support-readonly-audio-player';
@@ -140,21 +141,37 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       const conversationId = url.searchParams.get('conversation_id')?.replace(/^eq\./, '') || '';
       simulateAudioMessage = false;
       audioMediaResponsePending = true;
-      const timestamp = new Date(Date.UTC(2026, 9, 24, 12, 0, 0)).toISOString();
-      await route.fulfill({ status: 200, contentType: 'application/json',
-        headers: { 'content-range': '0-0/1' }, body: JSON.stringify([{
-          id: 'support-readonly-audio-message', conversation_id: conversationId, api_message_id: null,
-          direction: 'inbound', message_type: 'audio', text_content: null, media_id: audioMediaId,
-          media_mime_type: 'audio/wav', media_filename: 'audio-sintetico.wav', media_caption: null,
+      const messages = Array.from({ length: 80 }, (_, index) => {
+        const sequence = 80 - index;
+        const isAudio = sequence === 80;
+        const isUnsupported = sequence === 79;
+        const timestamp = new Date(Date.UTC(2026, 9, 24, 12, sequence, 0)).toISOString();
+        return {
+          id: isAudio ? 'support-readonly-audio-message' : `support-readonly-history-${sequence.toString().padStart(3, '0')}`,
+          conversation_id: conversationId, api_message_id: null, direction: 'inbound',
+          message_type: isAudio ? 'audio' : isUnsupported ? 'unsupported' : 'text',
+          text_content: isAudio ? null : isUnsupported
+            ? 'Formato de mensagem não suportado diretamente pela central.'
+            : `Mensagem sintética ${sequence}`,
+          media_id: isAudio ? audioMediaId : null, media_mime_type: isAudio ? 'audio/wav' : null,
+          media_filename: isAudio ? 'audio-sintetico.wav' : null, media_caption: null,
           reply_to_message_id: null, reply_to_wamid: null, status: 'received', error_code: null,
           failure_reason: null, raw_payload: {}, timestamp, created_at: timestamp,
-        }]) });
+        };
+      });
+      await route.fulfill({ status: 200, contentType: 'application/json',
+        headers: { 'content-range': '0-79/81' }, body: JSON.stringify(messages) });
       return;
     }
     if (audioMediaResponsePending && method === 'GET' && url.pathname === '/api/whatsapp-media'
       && url.searchParams.get('id') === audioMediaId) {
       audioMediaResponsePending = false;
       simulatedAudioMediaRequests++;
+      if (simulateAudioMediaFailure) {
+        simulateAudioMediaFailure = false;
+        await route.abort('failed');
+        return;
+      }
       await route.fulfill({ status: 200, contentType: 'audio/wav',
         headers: { 'Cache-Control': 'no-store' }, body: createWaveformWav() });
       return;
@@ -1190,8 +1207,26 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       const cards = list.locator('[role="button"]');
       await expect(cards.first(), 'Aguardar uma conversa existente antes de abrir o player.').toBeVisible({ timeout: 15_000 });
       simulateAudioMessage = true;
+      simulateAudioMediaFailure = true;
       await cards.first().click();
 
+      const history = page.getByRole('region', { name: 'Histórico da conversa', exact: true });
+      const composer = page.getByRole('textbox', { name: 'Mensagem', exact: true });
+      const attachmentsButton = page.getByRole('button', { name: 'Abrir menu de anexos', exact: true });
+      await expect(history.locator('[data-message-id]')).toHaveCount(80);
+      await expect(history.getByText('Mensagem sem prévia: a integração não salvou o tipo nem o conteúdo original. Peça ao cliente para reenviar como texto, imagem, áudio ou documento.', { exact: true })).toBeVisible();
+      await expect(composer).toBeVisible();
+      await expect(attachmentsButton).toBeVisible();
+      expect(await history.evaluate(element => element.scrollHeight > element.clientHeight),
+        'O histórico longo deve rolar dentro do painel do chat.').toBe(true);
+      const composerBox = await composer.boundingBox();
+      expect(composerBox).not.toBeNull();
+      expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(800);
+
+      await expect(page.getByText('Não foi possível conectar ao serviço de mídia. Verifique sua conexão e tente novamente.', { exact: true })).toBeVisible();
+      await expect(composer, 'Falha ao buscar mídia individual não deve ocultar o compositor.').toBeVisible();
+      audioMediaResponsePending = true;
+      await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
       const playButton = page.getByRole('button', { name: 'Reproduzir áudio', exact: true });
       await expect(playButton).toBeVisible();
       await expect(page.getByText('0:00 / 0:10', { exact: true })).toBeVisible();
@@ -1200,7 +1235,7 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       const waveformHeights = await waveform.evaluateAll(elements => elements.map(element => Number.parseInt((element as HTMLElement).style.height, 10)));
       expect(waveformHeights).toContain(4);
       expect(new Set(waveformHeights).size).toBeGreaterThan(1);
-      expect(simulatedAudioMediaRequests).toBe(1);
+      expect(simulatedAudioMediaRequests).toBe(2);
       const audioSource = await page.locator('audio').evaluate(element => (element as HTMLAudioElement).currentSrc);
       expect(audioSource).toMatch(/^blob:/);
       await expect(page.locator('audio[controls]')).toHaveCount(0);
@@ -1217,8 +1252,36 @@ test('login autônomo e consulta da Inbox sem gravações de negócio', async ()
       await expect(page.getByRole('button', { name: 'Velocidade 2x', exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Velocidade 2x', exact: true }).click();
       await expect(page.getByRole('button', { name: 'Velocidade 1x', exact: true })).toBeVisible();
-      test.info().annotations.push({ type: 'audio-player-browser-synthetic', description: 'Chromium recebeu pela UI uma mensagem e um WAV sintético com trechos de amplitudes distintas, interceptados no navegador; forma de onda, blob protegido, duração, play/pause e ciclo de velocidades foram exercitados. Nenhuma escrita ou chamada real à Meta; não comprova download de mídia Production.' });
-      console.info('[support-readonly] Player de áudio exercitado no Chromium com WAV sintético local; mídia real da Meta não consultada.');
+
+      await attachmentsButton.click();
+      const attachmentMenu = page.getByRole('menu', { name: 'Anexos e catálogo', exact: true });
+      await expect(attachmentMenu.getByRole('menuitem', { name: /Catálogo de produtos/ })).toBeVisible();
+      await expect(attachmentMenu.getByRole('menuitem', { name: /Fotos e vídeos/ })).toBeVisible();
+      await expect(attachmentMenu.getByRole('menuitem', { name: /Documentos e áudio/ })).toBeVisible();
+      await attachmentsButton.click();
+
+      const chatPanel = history.locator('..');
+      await chatPanel.locator('h3').first().evaluate(element => { element.textContent = 'Cliente de teste'; });
+      await chatPanel.screenshot({ path: test.info().outputPath('central-compositor-corrigido.png') });
+
+      const timelineScroll = await history.evaluate(element => {
+        const maxScroll = element.scrollHeight - element.clientHeight;
+        element.scrollTop = Math.max(25, Math.floor(maxScroll / 2));
+        return { scrollTop: element.scrollTop, maxScroll };
+      });
+      expect(timelineScroll.maxScroll).toBeGreaterThan(0);
+      expect(timelineScroll.scrollTop).toBeGreaterThan(24);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(page.getByRole('button', { name: 'Voltar para a lista', exact: true })).toBeVisible();
+      await expect(composer).toBeVisible();
+      await expect(attachmentsButton).toBeVisible();
+      const mobileOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+      expect(mobileOverflow, 'A Central não deve criar rolagem horizontal no celular.').toBe(false);
+      const mobileComposerBox = await composer.boundingBox();
+      expect(mobileComposerBox).not.toBeNull();
+      expect(mobileComposerBox!.y + mobileComposerBox!.height).toBeLessThanOrEqual(844);
+      test.info().annotations.push({ type: 'audio-player-browser-synthetic', description: 'Chromium exibiu 80 mensagens sintéticas no histórico; falha de transporte da mídia foi simulada, o texto de erro localizado e a repetição bem-sucedida foram conferidos. Compositor, rolagem interna, catálogo/anexos e viewport desktop/celular foram verificados. Nenhuma mensagem foi enviada, nenhum dado de negócio foi gravado e nenhuma chamada real à Meta foi feita.' });
+      console.info('[support-readonly] Histórico longo, falha/repetição de mídia, compositor e anexos conferidos em desktop e celular, sem escritas de negócio.');
     }
 
     if (verifyRealAudioMedia) {

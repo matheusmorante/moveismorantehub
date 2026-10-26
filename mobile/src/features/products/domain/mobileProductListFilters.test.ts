@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canShowMobileProductCategoryFilter,
   canShowMobileTestProducts,
   DEFAULT_MOBILE_PRODUCT_LIST_FILTERS,
   resolveAppliedMobileProductSearch,
+  resolveMobileProductListResetState,
   resolveMobileProductStatusFilter,
+  resolveSubmittedMobileProductSearch,
+  shouldExcludeMobileDraftsDuringSearch,
 } from './mobileProductListFilters';
+import { productListFormSchema } from '../../../../../shared-utils/listingFormSchemas';
 
 describe('mobileProductListFilters', () => {
   it('usa os padrões do ERP ao limpar filtros', () => {
@@ -15,6 +20,21 @@ describe('mobileProductListFilters', () => {
       categoryFilter: '',
       catalogStatusFilter: 'all',
       generalTypeFilter: 'all',
+      showTestProducts: false,
+    });
+  });
+
+  it('limpa os filtros e retorna à página inicial sem desligar toggles independentes', () => {
+    expect(
+      resolveMobileProductListResetState({
+        showTestProducts: true,
+        showMergedProducts: true,
+      })
+    ).toEqual({
+      ...DEFAULT_MOBILE_PRODUCT_LIST_FILTERS,
+      showTestProducts: true,
+      showMergedProducts: true,
+      currentPage: 1,
     });
   });
 
@@ -22,6 +42,12 @@ describe('mobileProductListFilters', () => {
     expect(resolveAppliedMobileProductSearch('ca')).toBe('');
     expect(resolveAppliedMobileProductSearch(' cadeira ')).toBe('cadeira');
     expect(resolveAppliedMobileProductSearch('  ')).toBe('');
+  });
+
+  it('matches ERP Enter submission for valid, empty, and too-short search terms', () => {
+    expect(resolveSubmittedMobileProductSearch(' cadeira ')).toBe('cadeira');
+    expect(resolveSubmittedMobileProductSearch('  ')).toBe('');
+    expect(resolveSubmittedMobileProductSearch('ca')).toBeNull();
   });
 
   it('preserves status filters without a search and keeps draft searches scoped to drafts', () => {
@@ -35,9 +61,42 @@ describe('mobileProductListFilters', () => {
     expect(resolveMobileProductStatusFilter('all', 'mesa')).toBe('all');
   });
 
+  it('preserves the non-draft constraint only for active/deactivated searches', () => {
+    expect(shouldExcludeMobileDraftsDuringSearch('active', 'cadeira')).toBe(true);
+    expect(shouldExcludeMobileDraftsDuringSearch('disabled', 'mesa')).toBe(true);
+    expect(shouldExcludeMobileDraftsDuringSearch('all', 'mesa')).toBe(false);
+    expect(shouldExcludeMobileDraftsDuringSearch('draft', 'mesa')).toBe(false);
+    expect(shouldExcludeMobileDraftsDuringSearch('active', '   ')).toBe(false);
+  });
+
   it('allows the test-data toggle only for administrators', () => {
     expect(canShowMobileTestProducts(true, true)).toBe(true);
     expect(canShowMobileTestProducts(false, true)).toBe(false);
     expect(canShowMobileTestProducts(true, false)).toBe(false);
+  });
+
+  it('shows category choices only when the profile can view categories or configure products', () => {
+    expect(canShowMobileProductCategoryFilter(false, false)).toBe(false);
+    expect(canShowMobileProductCategoryFilter(true, false)).toBe(true);
+    expect(canShowMobileProductCategoryFilter(false, true)).toBe(true);
+  });
+
+  it('validates the test-data visibility flag with the product-list domain schema', () => {
+    const filters = {
+      page: 1,
+      itemsPerPage: 15,
+      search: '',
+      statusFilter: 'all',
+      category: '',
+      catalogStatus: 'all',
+      itemType: 'standard',
+      generalType: 'all',
+      includeDeactivated: true,
+      showTrash: false,
+    };
+
+    expect(productListFormSchema.safeParse({ ...filters, showTestProducts: false }).success).toBe(true);
+    expect(productListFormSchema.safeParse({ ...filters, showTestProducts: true }).success).toBe(true);
+    expect(productListFormSchema.safeParse({ ...filters, showTestProducts: 'true' }).success).toBe(false);
   });
 });

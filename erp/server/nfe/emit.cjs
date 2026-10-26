@@ -2104,6 +2104,7 @@ function determineWithApprovedRules(snapshot, ruleSet) {
 }
 
 // api/nfe/fiscalSnapshot.ts
+var NF_PAYMENT_SETTLEMENT_POLICY = "NF_HANDED_OVER_AFTER_PAYMENT";
 var UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 var SHA256_PATTERN = /^[0-9a-f]{64}$/;
 var CLIENT_AUTHORITY_FIELDS = [
@@ -2833,6 +2834,7 @@ function getOrderPaymentActualDate(payment) {
 // api/nfe/normal-sale/payments.ts
 function resolveNormalSalePayments(params) {
   const { snapshot, data, shipping, modelDecision, traces, invoice, feeCentsByPayment } = params;
+  const useInvoicePaymentSettlementPolicy = snapshot.paymentSettlementPolicy === NF_PAYMENT_SETTLEMENT_POLICY;
   const emissionDate = saoPauloEmissionTimestamp(snapshot.capturedAt).slice(0, 10);
   const rawPayments = Array.isArray(data.payments) ? data.payments.map(obj) : [];
   const resolvedPayments = [];
@@ -2846,14 +2848,18 @@ function resolveNormalSalePayments(params) {
       throw new Error(`Valor do pagamento ${index + 1} inv\xE1lido.`);
     if (amountValue === 0) continue;
     const amountCents = money(amountValue, `Pagamento ${index + 1}`, true) + feeCents;
-    const settlement = classifyOrderPaymentSettlement(payment2.status);
+    const originalMethod = typeof payment2.method === "string" ? payment2.method.trim() : "";
+    const isPromissory = isPromissoryPaymentMethod(originalMethod);
+    const recordedSettlement = classifyOrderPaymentSettlement(payment2.status);
+    const normalizedStatus = normalize(String(payment2.status ?? ""));
+    const paymentOnDelivery = shipping.deliveryMethod === "delivery" && (recordedSettlement === "pending" || normalizedStatus === "pagamento na entrega" || normalizedStatus === "pendente - na entrega");
+    const settledForInvoice = useInvoicePaymentSettlementPolicy && !isPromissory && (paymentOnDelivery || normalizedStatus === "verificar");
+    const settlement = isPromissory ? "pending" : settledForInvoice ? "paid" : recordedSettlement;
     if (settlement === "unconfirmed")
       throw new Error(
         `Pagamento ${index + 1} est\xE1 como \u201C${String(payment2.status)}\u201D; confirme se foi recebido ou permanece pendente antes de transmitir.`
       );
-    const originalMethod = typeof payment2.method === "string" ? payment2.method.trim() : "";
     const method = normalize(originalMethod);
-    const isPromissory = isPromissoryPaymentMethod(originalMethod);
     const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
     let methodCode = method.includes("PIX") ? "17" : method.includes("CREDITO") || method.includes("CREDIT") ? "03" : method.includes("DEBITO") || method.includes("DEBIT") ? "04" : method.includes("DINHEIRO") || method.includes("CASH") ? "01" : method.includes("BOLETO") ? "15" : isPromissory || method === "VERIFICAR" && settlement === "paid" ? "99" : void 0;
     let description = methodCode === "99" ? originalMethod : void 0;
@@ -2882,7 +2888,7 @@ function resolveNormalSalePayments(params) {
       amountCents,
       settlement,
       ...description ? { description } : {},
-      ...settlement === "paid" && getOrderPaymentActualDate(payment2) ? { paymentDate: getOrderPaymentActualDate(payment2) } : {},
+      ...settlement === "paid" && recordedSettlement === "paid" && getOrderPaymentActualDate(payment2) ? { paymentDate: getOrderPaymentActualDate(payment2) } : {},
       ...settlement === "pending" ? { dueDate: getOrderPaymentDueDate(payment2, shipping) } : {},
       installments: rawInstallments,
       ...card ? { card } : {}
@@ -2930,7 +2936,7 @@ function resolveNormalSalePayments(params) {
   const payments = resolvedPayments.map((payment2) => ({
     methodCode: payment2.methodCode,
     amount: payment2.amountCents / 100,
-    paymentIndicator: payment2.settlement === "paid" || payment2.dueDate === emissionDate ? "0" : "1",
+    paymentIndicator: payment2.settlement === "paid" || payment2.dueDate === emissionDate && !isPromissoryPaymentMethod(payment2.description) ? "0" : "1",
     ...payment2.description ? { description: payment2.description } : {},
     ...payment2.paymentDate ? { paymentDate: payment2.paymentDate } : {},
     ...payment2.card ? { card: payment2.card } : {},
@@ -8282,6 +8288,7 @@ async function dispatchNormalEmission(reqBody, authHeader, supabase, res) {
   const candidate = {
     schemaVersion: 1,
     capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    paymentSettlementPolicy: NF_PAYMENT_SETTLEMENT_POLICY,
     order: {
       id: String(orderRow.id),
       type: String(orderRow.order_type),

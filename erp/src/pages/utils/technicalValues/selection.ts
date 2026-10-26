@@ -18,6 +18,8 @@ import {
   isCharacteristicDependent,
 } from './predicates';
 import type { TechnicalFieldDefinition, TechnicalValuesMap } from './types';
+import { deduplicateProductTechnicalValueAliasFields } from '../../../../../shared-utils/productTechnicalValueAliases';
+import { isProductTechnicalAttributeRequiredByCategories } from '../../../../../shared-utils/productCategoryRequiredAttributes';
 
 /**
  * Resolve a exclusividade mútua entre Profundidade (total) e Comprimento (total).
@@ -91,8 +93,9 @@ export const getApplicableTechnicalFields = (
   };
 
   const isRequiredForCatalog = (field: TechnicalFieldDefinition): boolean =>
-    Boolean(
-      field.requiredCategoryIds?.some((categoryId) => activeCategorySet.has(String(categoryId)))
+    isProductTechnicalAttributeRequiredByCategories(
+      field.requiredCategoryIds,
+      productCategoryIds
     );
 
   let applicable = safeFields.filter((field) => {
@@ -131,6 +134,9 @@ export const getApplicableTechnicalFields = (
     if (isMattress && isHeightCharacteristic(field.name)) {
       return hasExistingValue || manualSet.has(field.name);
     }
+
+    // O peso do produto é uma medida padrão, independente da categoria ou dos vínculos.
+    if (isWeightCharacteristicName(field.name)) return true;
 
     // Campos inativos deixam de ser oferecidos em novos produtos, mas continuam visíveis
     // quando já possuem um valor no cadastro em edição para preservar o dado existente.
@@ -184,7 +190,7 @@ export const getApplicableTechnicalFields = (
     });
   }
 
-  return applicable.map((field) => {
+  return deduplicateProductTechnicalValueAliasFields(applicable.map((field) => {
     const isWeight = isWeightCharacteristicName(field.name) || field.dataType === 'weight';
     return {
       ...field,
@@ -192,7 +198,7 @@ export const getApplicableTechnicalFields = (
       isRequiredForCatalog: isRequiredForCatalog(field),
       decimalPlaces: isWeight ? 1 : field.decimalPlaces,
     };
-  });
+  }));
 };
 
 /**

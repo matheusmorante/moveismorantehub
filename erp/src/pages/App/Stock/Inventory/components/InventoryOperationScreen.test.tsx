@@ -12,6 +12,7 @@ vi.mock('@/components/shared/QRScannerModal', () => ({
         <p>{subtitle}</p>
         <button onClick={() => onScan('SKU-A')}>Ler A</button>
         <button onClick={() => onScan('SKU-B')}>Ler B</button>
+        <button onClick={() => onScan('SKU-C')}>Ler C</button>
         <button onClick={() => onScan('UNKNOWN')}>Ler desconhecido</button>
         {footerContent}
       </div>
@@ -77,7 +78,11 @@ const renderInventory = () => {
   const onReview = vi.fn();
   render(
     <InventoryOperationScreen
-      items={[item('a', 'SKU-A', 'Telasul'), item('b', 'SKU-B', 'Henn')]}
+      items={[
+        item('a', 'SKU-A', 'Telasul'),
+        item('b', 'SKU-B', 'Henn'),
+        item('c', 'SKU-C', 'Sem fornecedor'),
+      ]}
       hasStages
       inventoryName="Teste"
       onUpdateCount={vi.fn()}
@@ -94,9 +99,17 @@ describe('escopo do scanner do inventário web', () => {
     const { onIncrementScannedItem, onReview } = renderInventory();
     fireEvent.click(screen.getByText('Abrir scanner'));
     expect(screen.getByText('Contagem geral')).toBeTruthy();
+    expect(
+      screen.getByText('Aceita itens de qualquer fornecedor listado neste inventário')
+    ).toBeTruthy();
     fireEvent.click(screen.getByText('Ler A'));
     fireEvent.click(screen.getByText('Ler B'));
     await waitFor(() => expect(onIncrementScannedItem).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByText('Ler C'));
+    await waitFor(() =>
+      expect(screen.getByText('Produto não pertence às etapas deste inventário')).toBeTruthy()
+    );
+    expect(onIncrementScannedItem).toHaveBeenCalledTimes(2);
     expect(screen.getByText('Contagem geral')).toBeTruthy();
     expect(onReview).not.toHaveBeenCalled();
   });
@@ -106,11 +119,16 @@ describe('escopo do scanner do inventário web', () => {
     fireEvent.click(screen.getByText('Etapa Telasul'));
     fireEvent.click(screen.getByText('Abrir scanner'));
     expect(screen.getByText('Contagem — Telasul')).toBeTruthy();
+    expect(screen.getByText('Somente produtos de Telasul')).toBeTruthy();
     fireEvent.click(screen.getByText('Ler B'));
     await waitFor(() => expect(screen.getByText('Produto de outro fornecedor')).toBeTruthy());
+    fireEvent.click(screen.getByText('Ler C'));
+    await waitFor(() =>
+      expect(screen.getByText('Produto não pertence às etapas deste inventário')).toBeTruthy()
+    );
     fireEvent.click(screen.getByText('Ler desconhecido'));
     await waitFor(() =>
-      expect(screen.getByText('Produto não pertence a este inventário')).toBeTruthy()
+      expect(screen.getByText('Produto não pertence às etapas deste inventário')).toBeTruthy()
     );
     expect(onIncrementScannedItem).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Ler A'));

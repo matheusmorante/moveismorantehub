@@ -1,4 +1,5 @@
 import Product from '../../../../../types/product.type';
+import { resolveProductCatalogParentStatus } from '../../../../../../../../shared-utils/productCatalogStatus';
 /** Aplica no estado local o resultado otimista de publicar ou ocultar no Catálogo. */
 export function updateProductCatalogState(
   products: Product[],
@@ -10,8 +11,7 @@ export function updateProductCatalogState(
       const variations = product.variations.map((variation: any) =>
         String(variation.id) === String(id) ? { ...variation, status } : variation
       );
-      const hasAnyPublished = variations.some((v: any) => v.status === 'published');
-      const parentStatus = hasAnyPublished ? 'published' : 'hidden';
+      const parentStatus = resolveProductCatalogParentStatus(variations);
       return { ...product, status: parentStatus, variations };
     }
 

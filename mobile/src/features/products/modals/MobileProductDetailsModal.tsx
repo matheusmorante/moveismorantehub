@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { normalizeProductVariationName } from '../../../../../shared-utils/productVariationNameValidation';
 
 interface Props {
   visible: boolean;
@@ -54,7 +55,7 @@ export const MobileProductDetailsModal: React.FC<Props> = ({
     ['Código', product.code || product.sku],
     ['Categoria', product.category],
     ['Marca', product.brand],
-    ['Linha', product.line],
+    ['Linha/Modelo', product.line],
     ['Cor', product.colors || product.color],
     ['Material', product.material],
     ['Largura', product.width ? `${product.width} cm` : undefined],
@@ -111,7 +112,7 @@ export const MobileProductDetailsModal: React.FC<Props> = ({
                 )}
                 <View style={styles.badges}>
                   <Text style={[styles.badge, dark && styles.badgeDark]}>
-                    Estoque: {product.stock ?? 0} {product.unit || 'UN'}
+                    Estoque: {product.stock ?? 0}
                   </Text>
                   <Text
                     style={[
@@ -163,8 +164,11 @@ export const MobileProductDetailsModal: React.FC<Props> = ({
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Variações</Text>
                 {variations.map((variation: any, index: number) => {
+                  const normalizedName = variation.name
+                    ? normalizeProductVariationName(title, String(variation.name))
+                    : '';
                   const variationName =
-                    variation.name ||
+                    normalizedName ||
                     toAttributes(variation.attributes)
                       .map((attribute) => attribute.value)
                       .filter(Boolean)

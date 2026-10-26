@@ -4,11 +4,14 @@ import { MobileProductVariationCard } from './MobileProductVariationCard';
 
 interface Props {
   variations: any[];
+  opportunityName?: string;
   dark: boolean;
   parentImage?: string | null;
   isParentDraft?: boolean;
   onToggleCatalog: (varId: string, currentStatus: string) => void;
   onToggleActive?: (varId: string, currentActive: boolean) => void;
+  canViewDetails?: boolean;
+  onViewDetails?: (product: any) => void;
   onEdit?: (product: any) => void;
   onMoveVariation?: (variation: any, parentProduct: any) => void;
   onMergeVariation?: (variation: any, parentProduct: any) => void;
@@ -23,11 +26,14 @@ interface Props {
 
 export const MobileProductVariationList: React.FC<Props> = ({
   variations,
+  opportunityName,
   dark,
   parentImage,
   isParentDraft = false,
   onToggleCatalog,
   onToggleActive,
+  canViewDetails = false,
+  onViewDetails,
   onEdit,
   onMoveVariation,
   onMergeVariation,
@@ -51,12 +57,15 @@ export const MobileProductVariationList: React.FC<Props> = ({
         <MobileProductVariationCard
           key={v.id || index}
           variation={v}
+          opportunityName={opportunityName}
           index={index}
           dark={dark}
           parentImage={parentImage}
           isParentDraft={isParentDraft}
           onToggleActive={onToggleActive}
           onToggleCatalog={onToggleCatalog}
+          canViewDetails={canViewDetails}
+          onViewDetails={onViewDetails}
           parentProduct={parentProduct}
           onEdit={onEdit}
           onMoveVariation={onMoveVariation}

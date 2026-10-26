@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { deleteCategory, deleteEnvironment } from '../categoryService';
+import { deleteCategory, deleteEnvironment, fetchCategoryProductCounts } from '../categoryService';
 import { ecommerceSupabase as supabase } from '../supabaseConfig';
 
 vi.mock('../supabaseConfig', () => {
@@ -49,6 +49,101 @@ describe('Regras de Exclusão Segura — Backend / Service (categoryService)', (
     await expect(deleteCategory(catId)).rejects.toThrow(
       /Não é possível excluir esta categoria porque ela está sendo utilizada por \d+ produto/
     );
+  });
+
+  it('propaga falha de consulta da contagem em vez de apresentar total zero', async () => {
+    const queryError = new Error('Falha ao consultar product_categories');
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    (supabase.from as any).mockImplementation((table: string) => {
+      if (table === 'product_categories') {
+        return { select: vi.fn().mockResolvedValue({ data: null, error: queryError }) };
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          not: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      };
+    });
+
+    await expect(fetchCategoryProductCounts()).rejects.toBe(queryError);
+  });
+
+  it('informa produtos distintos quando uma categoria aparece nas duas fontes', async () => {
+    const catId = 'cat-product-distinct-count';
+    const makeQuery = (count: number, rows: unknown[]) => ({
+      select: vi.fn().mockImplementation((_columns: string, options?: { head?: boolean }) => ({
+        eq: vi.fn().mockResolvedValue(
+          options?.head ? { count, error: null } : { data: rows, error: null }
+        ),
+      })),
+    });
+    const productCategoriesQuery = makeQuery(2, [
+      { product_id: 'product-1' },
+      { product_id: 'product-2' },
+    ]);
+    const productsQuery = makeQuery(1, [{ id: 'product-2' }]);
+    (supabase.from as any).mockImplementation((table: string) => {
+      if (table === 'product_categories') return productCategoriesQuery;
+      if (table === 'products') return productsQuery;
+      return { delete: vi.fn().mockReturnThis(), eq: vi.fn().mockResolvedValue({ error: null }) };
+    });
+
+    await expect(deleteCategory(catId)).rejects.toThrow(
+      /Não é possível excluir esta categoria porque ela está sendo utilizada por 2 produtos/
+    );
+  });
+
+  it('falha fechado se não consegue verificar os vínculos antes de excluir', async () => {
+    const catId = 'cat-link-check-error';
+    const checkError = new Error('Falha ao consultar vínculo de Produto');
+    const deleteCategoryEq = vi.fn().mockResolvedValue({ error: null });
+    (supabase.from as any).mockImplementation((table: string) => {
+      if (table === 'product_categories') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({ count: null, data: null, error: checkError }),
+        };
+      }
+      if (table === 'products') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({ count: 0, data: [], error: null }),
+        };
+      }
+      return { delete: vi.fn().mockReturnValue({ eq: deleteCategoryEq }) };
+    });
+
+    await expect(deleteCategory(catId)).rejects.toBe(checkError);
+    expect(supabase.from).not.toHaveBeenCalledWith('category_relationships');
+    expect(supabase.from).not.toHaveBeenCalledWith('categories');
+    expect(deleteCategoryEq).not.toHaveBeenCalled();
+  });
+
+  it('falha fechado se não consegue ler os IDs distintos após uma contagem positiva', async () => {
+    const catId = 'cat-detail-check-error';
+    const detailError = new Error('Falha ao listar produtos vinculados');
+    const makeQuery = (
+      headCount: number,
+      rows: unknown[],
+      detailQueryError: Error | null = null
+    ) => ({
+      select: vi.fn().mockImplementation((_columns: string, options?: { head?: boolean }) => ({
+        eq: vi.fn().mockResolvedValue(
+          options?.head
+            ? { count: headCount, error: null }
+            : { data: detailQueryError ? null : rows, error: detailQueryError }
+        ),
+      })),
+    });
+    (supabase.from as any).mockImplementation((table: string) => {
+      if (table === 'product_categories') return makeQuery(1, [], detailError);
+      if (table === 'products') return makeQuery(0, []);
+      return { delete: vi.fn().mockReturnThis(), eq: vi.fn().mockResolvedValue({ error: null }) };
+    });
+
+    await expect(deleteCategory(catId)).rejects.toBe(detailError);
+    expect(supabase.from).not.toHaveBeenCalledWith('category_relationships');
+    expect(supabase.from).not.toHaveBeenCalledWith('categories');
   });
 
   it('Cenário 4: Deve permitir a exclusão de categoria sem produtos vinculados e remover seus relacionamentos com ambientes', async () => {

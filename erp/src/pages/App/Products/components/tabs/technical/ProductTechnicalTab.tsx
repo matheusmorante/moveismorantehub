@@ -150,11 +150,7 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                         Características principais
                       </h4>
                       {mainGroup && renderGroup(mainGroup, true)}
-                      {dimensionsGroup && (
-                        <div className="ml-2 border-l border-slate-200 pl-3 dark:border-slate-800">
-                          {renderGroup(dimensionsGroup)}
-                        </div>
-                      )}
+                      {dimensionsGroup && renderGroup(dimensionsGroup)}
                     </section>
                   </React.Fragment>
                 );

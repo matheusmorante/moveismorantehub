@@ -180,6 +180,9 @@ SUAS REGRAS FUNDAMENTAIS:
           tools: erpAgentTools,
           toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
           temperature: 0.1,
+        }, {
+          signal: options.signal,
+          timeoutMs: Math.min(30_000, 90_000 - (Date.now() - startedAt)),
         }), 30_000);
 
         const candidate = apiResponse.candidates?.[0];

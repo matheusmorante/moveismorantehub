@@ -14,7 +14,11 @@ import {
 } from '../../services/mobileProductCompositionService';
 import { parseLocalizedNumber } from '../../domain/productNumbers';
 import { useZodForm } from '../../../../hooks/useZodForm';
-import { productAutocompleteFormSchema } from '../../../../../../shared-utils/productAutocompleteFormSchema';
+import { resolveProductAutocompleteDisplayPrice } from '../../../../../../shared-utils/productAutocompleteDisplayPrice';
+import {
+  PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS,
+  productAutocompleteFormSchema,
+} from '../../../../../../shared-utils/productAutocompleteFormSchema';
 
 interface Props {
   formData: any;
@@ -85,7 +89,7 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
         if (current) setSearching(false);
       }
     };
-    const to = setTimeout(search, 500);
+    const to = setTimeout(search, PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS);
     return () => {
       current = false;
       clearTimeout(to);
@@ -242,7 +246,12 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
                     </Text>
                     <Text style={[styles.resultCode, dark && styles.dimText]}>
                       {r.variationSku || r.code} · R${' '}
-                      {Number(r.variationPrice ?? r.price ?? r.unit_price ?? 0).toFixed(2)} · Estoque:{' '}
+                      {resolveProductAutocompleteDisplayPrice({
+                        parentPromoPrice: r.promoPrice,
+                        parentUnitPrice: r.price ?? r.unit_price,
+                        variationPromoPrice: r.variationPromoPrice,
+                        variationUnitPrice: r.variationPrice,
+                      }).toFixed(2)} · Estoque:{' '}
                       {Number(r.variationStock ?? r.stock ?? 0)}
                     </Text>
                   </View>

@@ -172,7 +172,8 @@ describe('promissoryNoteService', () => {
       expect(note.amount).toBe(1000);
       expect(note.amountFormatted).toContain('1.000,00');
       expect(note.amountInWords).toBe('mil reais');
-      expect(note.dueDate).toBe('17/11/2026');
+      expect(note).not.toHaveProperty('dueDate');
+      expect(note).not.toHaveProperty('rawDueDate');
       expect(note.noteNumber).toBe('001234');
       expect(note.orderReference).toBe('Pedido de venda nº 1234');
       expect(note.debtorName).toBe('Maria da Silva');
@@ -217,17 +218,19 @@ describe('promissoryNoteService', () => {
       expect(notes[0].noteNumber).toBe('005678/01');
       expect(notes[0].installmentText).toBe('Parcela 1 de 3');
       expect(notes[0].amount).toBe(300);
-      expect(notes[0].dueDate).toBe('17/11/2026');
 
       expect(notes[1].noteNumber).toBe('005678/02');
       expect(notes[1].installmentText).toBe('Parcela 2 de 3');
       expect(notes[1].amount).toBe(300);
-      expect(notes[1].dueDate).toBe('17/12/2026');
 
       expect(notes[2].noteNumber).toBe('005678/03');
       expect(notes[2].installmentText).toBe('Parcela 3 de 3');
       expect(notes[2].amount).toBe(300);
-      expect(notes[2].dueDate).toBe('17/01/2027');
+
+      for (const note of notes) {
+        expect(note).not.toHaveProperty('dueDate');
+        expect(note).not.toHaveProperty('rawDueDate');
+      }
     });
   });
 });

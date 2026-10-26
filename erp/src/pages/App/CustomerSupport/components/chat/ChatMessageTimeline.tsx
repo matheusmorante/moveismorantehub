@@ -10,6 +10,7 @@ interface ChatMessageTimelineProps {
   searchRevision?: number;
   isLoadingMessages: boolean;
   conversationId: string;
+  searchUserId?: string;
   hasOlderMessages?: boolean;
   isLoadingOlderMessages?: boolean;
   onLoadOlderMessages?: () => Promise<number>;
@@ -69,6 +70,7 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   searchRevision = 0,
   isLoadingMessages,
   conversationId,
+  searchUserId,
   hasOlderMessages = false,
   isLoadingOlderMessages = false,
   error = '',
@@ -83,8 +85,9 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   const previousLastMessageIdRef = useRef<string | null>(null);
   const previousConversationIdRef = useRef<string | null>(null);
   const loadingOlderRef = useRef(false);
+  const jumpCompleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [preserveScroll, setPreserveScroll] = useState<{ height: number; top: number } | null>(null);
-  const search = useCustomerSupportMessageSearch(conversationId, inChatSearch, searchRevision);
+  const search = useCustomerSupportMessageSearch(conversationId, inChatSearch, searchRevision, searchUserId);
   const isSearching = Boolean(inChatSearch.trim());
   const timelineMessages = isSearching ? search.messages : messages;
   const timelineError = isSearching ? search.error : error;
@@ -144,13 +147,25 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
       .find((element) => element.dataset.messageId === jumpToMessageId);
     if (!target) return;
     target.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-    onJumpComplete?.();
+    if (jumpCompleteTimerRef.current) clearTimeout(jumpCompleteTimerRef.current);
+    jumpCompleteTimerRef.current = setTimeout(() => {
+      jumpCompleteTimerRef.current = null;
+      onJumpComplete?.();
+    }, 2000);
+    return () => {
+      if (jumpCompleteTimerRef.current) clearTimeout(jumpCompleteTimerRef.current);
+      jumpCompleteTimerRef.current = null;
+    };
   }, [jumpToMessageId, filteredMessages.length, onJumpComplete]);
+
+  useEffect(() => () => {
+    if (jumpCompleteTimerRef.current) clearTimeout(jumpCompleteTimerRef.current);
+  }, []);
 
   const grouped = groupMessagesByDate(filteredMessages);
 
   return (
-    <div ref={timelineRef} role="region" aria-label="Histórico da conversa" onScroll={handleTimelineScroll} className="flex-1 overflow-y-auto p-4 space-y-3 z-0">
+    <div ref={timelineRef} role="region" aria-label="Histórico da conversa" onScroll={handleTimelineScroll} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 z-0">
       {timelineError && <p role="alert" className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950 text-xs text-amber-800 dark:text-amber-300">{timelineError}</p>}
       {!isSearching && error && hasOlderMessages && onLoadOlderMessages && <button type="button" disabled={isLoadingOlderMessages} onClick={() => void onLoadOlderMessages()} className="text-xs underline text-emerald-700 dark:text-emerald-400">Tentar carregar mensagens anteriores</button>}
       {!isSearching && isLoadingOlderMessages && (
@@ -199,7 +214,7 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
       {isSearching && (search.hasMore || search.error) && (
         <button type="button" disabled={search.isLoading} onClick={() => void search.loadMore()}
           className="w-full py-2 text-xs text-blue-600 dark:text-blue-400 disabled:opacity-50">
-          {search.isLoading ? 'Pesquisando mensagens…' : search.error ? 'Tentar pesquisar novamente' : 'Carregar mais resultados'}
+          {search.isLoading ? 'Pesquisando mensagens…' : search.error ? 'Tentar pesquisar novamente' : 'Ver mais 5 resultados'}
         </button>
       )}
       <div ref={messagesEndRef} />

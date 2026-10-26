@@ -3,15 +3,7 @@ import {
   calculateVariationCatalogStats,
   type VariationCatalogStats,
 } from '../utils/catalog/registeredVariationCount';
-
-const NON_TEST_PRODUCT_ARTIFACT_FILTER = [
-  'and(',
-  'or(technical_specs->>is_test.is.null,technical_specs->>is_test.neq.true),',
-  'or(technical_specs->>isTest.is.null,technical_specs->>isTest.neq.true),',
-  'or(technical_specs->testArtifact->>is_test.is.null,technical_specs->testArtifact->>is_test.neq.true),',
-  'or(technical_specs->testArtifact->>isTest.is.null,technical_specs->testArtifact->>isTest.neq.true)',
-  ')',
-].join('');
+import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../../../shared-utils/testArtifactQueries';
 
 export interface LoadProductCatalogStatsOptions {
   readonly showTestProducts?: boolean;

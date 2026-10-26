@@ -12,7 +12,9 @@ import {
   normalizeVariationSku,
 } from '@/pages/utils/productVariationDefaults';
 import { toTitleCase } from '@/pages/utils/textUtils';
-import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { isSalvadoStockOrigin } from '../../../../../../../../shared-utils/productStockOrigin';
+import { resolveProductVariationPricing } from '../../../../../../../../shared-utils/productVariationPricing';
 import ProductImage from '@/components/ProductImage';
 import { parseVariationImages } from '@/pages/utils/productService';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
@@ -22,6 +24,7 @@ import { VariationItemActions } from './VariationItemActions';
 
 interface ProductCardVariationItemProps {
   readonly product: Product;
+  readonly opportunityName?: string;
   readonly readOnly?: boolean;
   readonly canDeleteProducts: boolean;
   readonly showCatalogControl?: boolean;
@@ -46,6 +49,7 @@ interface ProductCardVariationItemProps {
 
 export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> = ({
   product,
+  opportunityName,
   readOnly = false,
   canDeleteProducts,
   showCatalogControl = true,
@@ -77,14 +81,9 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
     `Variação #${index + 1}`;
   const targetVarCatalogId = v.id || '';
 
-  const effectiveUnitPrice =
-    v.syncUnitPrice !== false && !v.unitPrice && product.unitPrice
-      ? product.unitPrice
-      : v.unitPrice || product.unitPrice || 0;
-  const effectivePromoPrice =
-    v.syncPromoPrice !== false && !v.promoPrice && product.promoPrice
-      ? product.promoPrice
-      : v.promoPrice || 0;
+  const effectivePricing = resolveProductVariationPricing(v, product);
+  const effectiveUnitPrice = Number(effectivePricing.unitPrice ?? 0);
+  const effectivePromoPrice = Number(effectivePricing.promoPrice ?? 0);
 
   const hasPromo = Boolean(
     effectivePromoPrice &&
@@ -140,15 +139,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
               catalogStatus={v.status}
               isParent={false}
               isNonConventional={isNonConventionalProduct(product) || isNonConventionalProduct(v as any)}
-              isSalvado={
-                getProductKind(product) === 'salvado' ||
-                getProductKind(v as any) === 'salvado' ||
-                Boolean(
-                  (product.opportunityName || product.opportunity?.name || '')
-                    .toLowerCase()
-                    .includes('salvado')
-                )
-              }
+              isSalvado={isSalvadoStockOrigin(product, v, opportunityName)}
               canManageCatalog={canManageCatalog && !readOnly}
               canToggleActive={canDeleteProducts}
               showCatalogControl={showCatalogControl}

@@ -15,6 +15,7 @@ const DEFAULT_PERMISSION_ROLES: Record<string, string[]> = {
   viewChannelCatalog: ['manager'],
   viewMarketing: ['manager'],
   viewDeliverySchedule: ['manager', 'seller', 'deliverer'],
+  sendCustomerSupportMessages: ['manager', 'seller'],
 };
 
 function getBearerToken(req: VercelRequest): string {

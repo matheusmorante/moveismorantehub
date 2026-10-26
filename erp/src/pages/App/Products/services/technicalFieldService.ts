@@ -1,30 +1,16 @@
 import { ecommerceSupabase as supabase } from '@/pages/utils/supabaseConfig';
 import {
+  isExcludedCharacteristic,
   isRequiredCharacteristicName,
   isWeightCharacteristicName,
   type TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
+import { isProductMeasureCharacteristic } from '../../../../../../shared-utils/productAiAttributeTypes';
+import { deduplicateProductTechnicalValueAliasFields } from '../../../../../../shared-utils/productTechnicalValueAliases';
 
 export type TechnicalFieldUnitPolicy = 'product-form' | 'variation-form';
 
 const FIRMNESS_OPTION_ORDER = ['macio', 'médio', 'firme'];
-const MEASURE_CHARACTERISTIC_NAMES = new Set([
-  'altura',
-  'altura total',
-  'largura',
-  'largura total',
-  'profundidade',
-  'profundidade total',
-  'comprimento',
-  'comprimento total',
-  'espessura',
-  'espessura do colchão',
-  'profundidade fechado',
-  'profundidade aberto',
-  'altura do assento ao chão',
-  'altura do chão até o assento',
-]);
-
 interface TechnicalAttributeRow {
   readonly id: string;
   readonly name: string;
@@ -128,14 +114,14 @@ export const fetchTechnicalFieldDefinitions = async (
         if (options?.requireCategoryLinks) throw categoryLinksError;
       }
 
-      const result = (attributes ?? [])
-        .filter((attribute) => !/^(reclin[aá]vel|linha|modelo)$/i.test(String(attribute.name).trim()))
+      const mappedFields: TechnicalFieldDefinition[] = (attributes ?? [])
+        .filter((attribute) => !isExcludedCharacteristic(String(attribute.name)))
         .map((attribute) => {
           const normalizedName = String(attribute.name).trim().toLocaleLowerCase('pt-BR');
           const isFirmnessField = normalizedName === 'nível de firmeza do estofamento';
           // Dimensões são valores numéricos livres. Características legadas sem tipo (ou como lista)
           // viram comboboxes e Ctrl+V só filtra opções, sem atualizar o valor da característica.
-          const isMeasureCharacteristic = MEASURE_CHARACTERISTIC_NAMES.has(normalizedName);
+          const isMeasureCharacteristic = isProductMeasureCharacteristic(attribute.name);
           const options = (values ?? [])
             .filter((value) => value.attribute_id === attribute.id)
             .map((value) => ({
@@ -201,6 +187,7 @@ export const fetchTechnicalFieldDefinitions = async (
             requiredCategoryIds,
           };
         });
+      const result = deduplicateProductTechnicalValueAliasFields<TechnicalFieldDefinition>(mappedFields);
 
       cachedDefinitions[unitPolicy] = {
         data: result,

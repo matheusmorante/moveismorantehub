@@ -5,8 +5,10 @@ import {
   calculateProductDiscountFromPercent,
   calculateProductDiscountFromPromoPrice,
 } from '../../../../../../shared-utils/productDiscountFields';
-import { parseProductMinimumStockInput } from '../../../../../../shared-utils/productMinimumStockInput';
-import { calculateProductFinalPurchasePrice } from '../../../../../../shared-utils/productPurchasePricing';
+import {
+  getProductMinimumStockInputDisplayValue,
+  parseProductMinimumStockInput,
+} from '../../../../../../shared-utils/productMinimumStockInput';
 import { resolveProductSupplierPricingDefaults } from '../../../../../../shared-utils/productSupplierPricingDefaults';
 import {
   getProductSupplierDisplayName,
@@ -272,12 +274,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
           defaultFreightType: supplier.default_freight_type || 'none',
         }),
       };
-      next.finalPurchasePrice = calculateProductFinalPurchasePrice(
-        parsePrice(next.costPrice),
-        parsePrice(next.ipiPercent),
-        parsePrice(next.freightCost),
-        next.freightType || 'fixed'
-      );
+      next.finalPurchasePrice = resolveMobileProductFinalPurchasePrice(next);
       return next;
     });
   };
@@ -618,7 +615,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
         <View style={[styles.card, dark && styles.darkCard]}>
           <Text style={[styles.label, dark && styles.dimText]}>Estoque Mínimo</Text>
           <TextInput
-            value={f(formData.minStock)}
+            value={getProductMinimumStockInputDisplayValue(formData.minStock)}
             onChangeText={(value) => set('minStock', parseProductMinimumStockInput(value))}
             keyboardType="numeric"
             placeholder="0"

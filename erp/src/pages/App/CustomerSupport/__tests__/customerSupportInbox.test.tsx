@@ -404,7 +404,7 @@ describe('Inbox da Central de Atendimento', () => {
     expect(addTag).toHaveBeenCalledWith('prioridade');
   });
 
-  it('oculta ferramentas sem função e mantém visível o bloqueio de envio', () => {
+  it('oculta ferramentas sem função e deixa o envio de teste bloqueado sem o sandbox ativo', () => {
     render(<ChatComposer onAddInternalNote={vi.fn()} onOpenSnippets={vi.fn()} />);
 
     for (const title of [
@@ -421,10 +421,10 @@ describe('Inbox da Central de Atendimento', () => {
 
     expect(screen.getByTitle('Modelos Rápidos / Snippets')).toBeTruthy();
     expect(screen.getByText('WhatsApp')).toBeTruthy();
-    expect(screen.getByText('Envio bloqueado pela política da empresa')).toBeTruthy();
+    expect(screen.getByText(/Envio de teste disponível apenas no ambiente Development/)).toBeTruthy();
     expect(
       screen
-        .getByTitle('O envio de mensagens para o cliente está bloqueado pela política da empresa')
+        .getByRole('button', { name: 'Enviar mensagem de teste' })
         .hasAttribute('disabled'),
     ).toBe(true);
   });
@@ -511,7 +511,7 @@ describe('Inbox da Central de Atendimento', () => {
     }
   });
 
-  it('mantém o despacho bloqueado no backend', async () => {
+  it('mantém o despacho bloqueado fora do Development', async () => {
     const response = {
       statusCode: 200,
       setHeader: vi.fn(),
@@ -521,7 +521,7 @@ describe('Inbox da Central de Atendimento', () => {
     } as any;
     await whatsappDispatchHandler({ method: 'POST', headers: {} } as any, response);
     expect(response.statusCode).toBe(403);
-    expect(response.json).toHaveBeenCalledWith(expect.objectContaining({ status: 'BLOCKED_FREE_TIER_PROTECTION' }));
+    expect(response.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining('só fica disponível no Development') }));
   });
 });
 

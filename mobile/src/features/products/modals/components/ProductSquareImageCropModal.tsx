@@ -30,13 +30,23 @@ import { uploadMobileProductPhoto } from '../../services/mobileProductPhotoServi
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import { squareImageCropFormSchema } from '../../../../../../shared-utils/fileFormSchemas';
 import {
+  createProductImageCropSourceFormSchema,
   mobileProductPhotoUploadFormSchema,
   productImageReplacementFormSchema,
 } from '../../../../../../shared-utils/productImageFormSchemas';
 
+async function deleteTemporaryPhotoUri(uri: string) {
+  if (uri.startsWith('blob:')) {
+    URL.revokeObjectURL(uri);
+    return;
+  }
+  await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+}
+
 interface Props {
   visible: boolean;
   imageUrl: string;
+  availableImageUrls?: readonly string[];
   dark: boolean;
   onCancel: () => void;
   onConfirm: (newUrl: string) => void | Promise<void>;
@@ -99,6 +109,7 @@ function readImageDimensions(uri: string): Promise<{ width: number; height: numb
 export const ProductSquareImageCropModal: React.FC<Props> = ({
   visible,
   imageUrl,
+  availableImageUrls,
   dark,
   onCancel,
   onConfirm,
@@ -127,6 +138,11 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
     sourceHeight: 0,
     selection: { x: 0, y: 0, size: 0 },
   });
+  const sourceFormSchema = useMemo(
+    () => createProductImageCropSourceFormSchema(availableImageUrls ?? []),
+    [availableImageUrls]
+  );
+  const sourceForm = useZodForm(sourceFormSchema, { oldUrl: '' });
   const uploadForm = useZodForm(mobileProductPhotoUploadFormSchema, { photos: [] });
   const replacementForm = useZodForm(productImageReplacementFormSchema, { oldUrl: '', newUrl: '' });
 
@@ -260,7 +276,17 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
   const applyCrop = async () => {
     if (!sourceUri || !selection || !rendererReady || applying || loadError) return;
     setApplying(true);
+    let croppedSourceUri: string | undefined;
     try {
+      if (availableImageUrls) {
+        const sourceIsCurrent = await sourceForm.validateAndRun(
+          { oldUrl: imageUrl },
+          (values) => values.oldUrl,
+          showValidationError
+        );
+        if (sourceIsCurrent === false) return;
+      }
+
       const cropResult = await cropForm.validateAndRun(
         {
           image: sourceUri,
@@ -318,7 +344,8 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
             throw new Error('A imagem preparada não ficou no formato quadrado esperado.');
           }
           let file: Blob | null = null;
-          for (const compress of [0.95, 0.85, 0.75, 0.65, 0.55]) {
+          const compressionQualities = [0.95, 0.85, 0.75, 0.65, 0.55];
+          for (const [index, compress] of compressionQualities.entries()) {
             const result = await withTimeout(
               rendered.saveAsync({ format: SaveFormat.WEBP, compress }),
               15_000,
@@ -326,13 +353,18 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
               'Salvar foto recortada'
             );
             if (!result?.uri) throw new Error('Não foi possível salvar a foto recortada.');
+            let keepForDerivativeGeneration = false;
             try {
               const response = await withTimeout(fetch(result.uri), 12_000, null, 'Ler foto recortada');
               if (!response?.ok) throw new Error('Não foi possível preparar a foto recortada para envio.');
               file = await withTimeout(response.blob(), 12_000, null, 'Preparar foto recortada');
               if (!file || file.size === 0) throw new Error('A foto recortada ficou vazia. Tente novamente.');
+              if (file.size <= 0.3 * 1024 * 1024 || index === compressionQualities.length - 1) {
+                croppedSourceUri = result.uri;
+                keepForDerivativeGeneration = true;
+              }
             } finally {
-              await FileSystem.deleteAsync(result.uri, { idempotent: true }).catch(() => undefined);
+              if (!keepForDerivativeGeneration) await deleteTemporaryPhotoUri(result.uri);
             }
             if (file.size <= 0.3 * 1024 * 1024) break;
           }
@@ -340,11 +372,16 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
 
           const uploadedUrl = await uploadForm.validateAndRun(
             {
-              photos: [{ file, name: `produto-recortado-${Date.now()}.webp`, contentType: 'image/webp' }],
+              photos: [{
+                file,
+                name: `produto-recortado-${Date.now()}.webp`,
+                contentType: 'image/webp',
+                sourceUri: croppedSourceUri,
+              }],
             },
             async ({ photos }) => {
               const photo = photos[0];
-              return uploadMobileProductPhoto(photo.file, photo.name, photo.contentType);
+              return uploadMobileProductPhoto(photo.file, photo.name, photo.contentType, photo.sourceUri);
             },
             showValidationError
           );
@@ -356,6 +393,16 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
             showValidationError
           );
           if (validUrl === false) return false;
+
+          if (availableImageUrls) {
+            const sourceIsStillCurrent = await sourceForm.validateAndRun(
+              { oldUrl: imageUrl },
+              (values) => values.oldUrl,
+              showValidationError
+            );
+            if (sourceIsStillCurrent === false) return false;
+          }
+
           await onConfirm(validUrl);
           return true;
         },
@@ -365,6 +412,7 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
     } catch (error) {
       Alert.alert('Erro ao recortar foto', error instanceof Error ? error.message : 'Tente novamente.');
     } finally {
+      if (croppedSourceUri) await deleteTemporaryPhotoUri(croppedSourceUri);
       setApplying(false);
     }
   };

@@ -4,11 +4,16 @@ import DropdownPortal from './shared/DropdownPortal';
 import TruncatedProductTitle from './TruncatedProductTitle';
 import { getVariationDisplayName } from './productAutocompleteUtils';
 import { useProductAutocomplete } from './hooks/useProductAutocomplete';
+import { resolveProductAutocompleteDisplayPrice } from '../../../shared-utils/productAutocompleteDisplayPrice';
 
 interface ProductAutocompleteProps {
   onSelect: (product: Product, variation?: Variation) => void;
   onSelectDescription?: (description: string) => void;
   onChange?: (value: string) => void;
+  onBlur?: React.FocusEventHandler<HTMLInputElement>;
+  autoFocus?: boolean;
+  preventBlurOnSelect?: boolean;
+  inputAriaLabel?: string;
   onSearch?: () => void;
   onCreateNew?: () => void;
   isSelected?: boolean;
@@ -27,6 +32,8 @@ interface ProductAutocompleteProps {
   excludeCombos?: boolean;
   /** Limita a busca aos cadastros de produto, sem oferecer variações filhas. */
   parentsOnly?: boolean;
+  /** Exibe somente itens individuais do tipo produto, ocultando serviços e composições. */
+  productsOnly?: boolean;
   /** Inclui produtos e variações desativados; variações fundidas continuam ocultas. */
   includeDeactivated?: boolean;
   allowedProductKinds?: readonly ProductKind[];
@@ -41,6 +48,10 @@ interface ProductAutocompleteProps {
 const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   onSelect,
   onChange,
+  onBlur,
+  autoFocus = false,
+  preventBlurOnSelect = false,
+  inputAriaLabel,
   onSearch,
   onCreateNew,
   isSelected = false,
@@ -58,6 +69,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   variationsOnly = false,
   excludeCombos = false,
   parentsOnly = false,
+  productsOnly = false,
   includeDeactivated = false,
   allowedProductKinds,
   products: localProducts,
@@ -83,6 +95,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     value,
     supplierId,
     parentsOnly,
+    productsOnly,
     variationsOnly,
     includeDeactivated,
     allowedProductKinds,
@@ -102,12 +115,15 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
           <input
             type="text"
             autoComplete="off"
+            autoFocus={autoFocus}
             aria-busy={isLoadingSuggestions}
+            aria-label={inputAriaLabel}
             disabled={disabled}
             value={query || ''}
             onChange={(e) => {
               handleQueryChange(e.target.value);
             }}
+            onBlur={onBlur}
             onFocus={() => setShowSuggestions(query.trim().length > 0)}
             placeholder={placeholder}
             className={`${inputEndAdornment ? 'pr-10 ' : ''}${
@@ -246,15 +262,19 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               const displayName = fullName;
 
               const displayCode = v?.sku || p.code || '';
-              const displayPrice = v
-                ? v.promoPrice || v.unitPrice || p.promoPrice || p.unitPrice || 0
-                : p.promoPrice || p.unitPrice || 0;
+              const displayPrice = resolveProductAutocompleteDisplayPrice({
+                parentPromoPrice: p.promoPrice,
+                parentUnitPrice: p.unitPrice,
+                variationPromoPrice: v?.promoPrice,
+                variationUnitPrice: v?.unitPrice,
+              });
               const displayStock = v ? (v.stock ?? 0) : (p.stock ?? 0);
 
               return (
                 <button
                   key={`${p.id}-${v?.id || 'base'}-${index}`}
                   type="button"
+                  onMouseDown={preventBlurOnSelect ? (event) => event.preventDefault() : undefined}
                   onClick={() => {
                     if (!isCurrentSuggestion(item)) return;
                     onSelect(p, v);

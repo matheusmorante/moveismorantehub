@@ -176,7 +176,7 @@ export const getNewOrderHeaderTheme = ({
     ? 'Novo Orçamento'
     : isReturn
       ? 'Nova Devolução avulsa'
-      : 'Novo Pedido';
+      : 'Novo pedido de venda';
 
   return { containerBg, iconBadgeBg, iconClass, titleColor, titleText };
 };

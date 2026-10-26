@@ -33,6 +33,7 @@ export interface SefazSyncResult {
 export interface InboundManifestationResult {
   success: boolean;
   pending?: boolean;
+  communicationUnconfirmed?: boolean;
   alreadyProcessed?: boolean;
   processed?: boolean;
   processedCount?: number;
@@ -272,9 +273,10 @@ export async function processNextAutomaticInboundScience(): Promise<InboundManif
   } catch {
     return {
       success: false,
-      pending: true,
+      pending: false,
+      communicationUnconfirmed: true,
       retryable: true,
-      error: 'Não foi possível confirmar a Ciência automática. Confira o histórico fiscal antes de tentar novamente.',
+      error: 'Não foi possível receber a resposta do lote. O envio pode ter sido processado; confira o Histórico Fiscal antes de tentar novamente.',
     };
   } finally {
     clearTimeout(timeoutId);

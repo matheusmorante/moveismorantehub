@@ -14,7 +14,10 @@ import {
 } from 'react-native';
 import { MAX_VARIATION_IMAGES } from '../../domain/productImageLimits';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
-import { createVariationImageSelectionFormSchema } from '../../../../../../shared-utils/productImageFormSchemas';
+import {
+  createVariationImageListEditFormSchema,
+  createVariationImageSelectionFormSchema,
+} from '../../../../../../shared-utils/productImageFormSchemas';
 import { toggleAllParentProductImages } from '../../../../../../shared-utils/productImageSelection';
 import { ProductImage } from '../../../../components/shared/ProductImage';
 import { ProductSquareImageCropModal } from './ProductSquareImageCropModal';
@@ -45,9 +48,13 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
     createVariationImageSelectionFormSchema(availableParentImages, MAX_VARIATION_IMAGES),
     { images: [] }
   );
+  const imageListEditForm = useZodForm(
+    createVariationImageListEditFormSchema(MAX_VARIATION_IMAGES),
+    { images: [] }
+  );
 
   const commitImages = (nextImages: string[]) => {
-    void selectionForm.validateAndRun(
+    void imageListEditForm.validateAndRun(
       { images: nextImages },
       (values) => onChangeImages(values.images),
       (errors) => {
@@ -310,6 +317,7 @@ export const ProductVariationPhotosEditor: React.FC<Props> = ({
       <ProductSquareImageCropModal
         visible={Boolean(croppingPhotoUrl)}
         imageUrl={croppingPhotoUrl}
+        availableImageUrls={images}
         dark={dark}
         onCancel={() => setCroppingPhotoUrl('')}
         onConfirm={(newUrl) => {

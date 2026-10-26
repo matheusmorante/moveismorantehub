@@ -23,6 +23,7 @@ import {
   isProductTechnicalFieldRequired,
   isProductTechnicalFieldRequiredForCatalog,
   isRequiredCharacteristicName,
+  removeProductCharacteristicAttribute,
   upsertProductCharacteristicAttribute,
   resolveMobileVariableTechnicalFieldNames,
 } from '../../domain/productCharacteristics';
@@ -31,7 +32,10 @@ import {
   canUseProductCharacteristicInVariationName,
   isProductCharacteristicIncludedInVariationNames,
 } from '../../domain/productVariationName';
-import { getProductTechnicalRootPatch } from '../../../../../../shared-utils/productTechnicalRootPatch';
+import {
+  getProductTechnicalRootFallbackValue,
+  getProductTechnicalRootPatch,
+} from '../../../../../../shared-utils/productTechnicalRootPatch';
 import {
   getCharacteristicDependencyState,
   isCharacteristicDependent,
@@ -150,12 +154,31 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       isCharacteristicDependentOnVariableField(fieldName, variableTechnicalFieldNames),
     [variableTechnicalFieldNames]
   );
+  const isVariationEditing = Boolean(parentData);
   const ownTechnicalValues = useMemo(
-    // Preserve every saved override for display/editing, as the ERP does. The
-    // variable-field list controls inheritance and scope below, not whether a
-    // previously stored value is allowed to remain visible.
-    () => getEffectiveVariationTechnicalValues({}, formData),
-    [formData.attributes, formData.technicalValues]
+    () => {
+      // Root weight is an own fallback only for products and variations that do not inherit it.
+      const values = getEffectiveVariationTechnicalValues({}, formData);
+      const usesOwnWeight =
+        !isVariationEditing ||
+        formData.syncWeight === false ||
+        formData.use_parent_dimensions === false;
+
+      if (usesOwnWeight && !hasTechnicalValue(values, 'Peso')) {
+        const fallback = getProductTechnicalRootFallbackValue('Peso', formData);
+        if (fallback !== undefined) values.Peso = fallback;
+      }
+
+      return values;
+    },
+    [
+      formData.attributes,
+      formData.technicalValues,
+      formData.weight,
+      formData.syncWeight,
+      formData.use_parent_dimensions,
+      isVariationEditing,
+    ]
   );
   const dependencyValues = useMemo(() => {
     const values = { ...parentTechnicalValues, ...ownTechnicalValues };
@@ -389,19 +412,12 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         },
       };
       if (parentData) {
-        const isNotApplicable =
-          typeof value === 'string' &&
-          ['nao se aplica', 'n/a', 'nao informar'].includes(normalizeSearchTerm(value));
-        next.attributes = isNotApplicable
-          ? getProductCharacteristicAttributes(prev.attributes).filter(
-              (attribute) => normalizeName(attribute.name) !== normalizeName(name)
-            )
-          : upsertProductCharacteristicAttribute(
-              prev.attributes,
-              name,
-              value,
-              getDefaultShowNameForVariationOverride(name)
-            );
+        next.attributes = upsertProductCharacteristicAttribute(
+          prev.attributes,
+          name,
+          value,
+          getDefaultShowNameForVariationOverride(name)
+        );
       }
       const dimensionField = getDimensionField(name);
       if (dimensionField) {
@@ -534,9 +550,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
           targetField.name,
           currentValue
         );
-        next.attributes = next.attributes.filter(
-          (attribute: any) => normalizeName(attribute.name) !== normalizeName(sourceName)
-        );
+        next.attributes = removeProductCharacteristicAttribute(next.attributes, sourceName);
         next.depth = currentValue;
         next.syncDepth = false;
       } else {

@@ -3,6 +3,7 @@ import type Order from '../erp/src/pages/types/order.type';
 import type { CommercialRequiredFields } from './commercialDomainTypes';
 import { validateAssistanceOrder, validateOrder, type ValidationErrors } from './commercialOrderRules';
 import { commercialSchedulingFormSchema } from './commercialSchedulingFormSchema';
+import { orderCompositionSnapshotSchema } from './orderCompositionSnapshot';
 
 const orderItemSchema = z.object({
   description: z.string().optional(),
@@ -10,6 +11,7 @@ const orderItemSchema = z.object({
   quantity: z.number().nonnegative('A quantidade não pode ser negativa.'),
   unitPrice: z.number().nonnegative('O preço do item não pode ser negativo.'),
   unitDiscount: z.number().nonnegative().default(0),
+  compositionGroup: orderCompositionSnapshotSchema.optional(),
   assemblyResponsible: z.enum(['Nossa equipe', 'Montador terceirizado', '']).optional(),
   discountType: z.enum(['fixed', 'percentage']).default('fixed'),
 }).passthrough().superRefine((item, ctx) => {
@@ -82,6 +84,37 @@ export const createOrderDomainSchema = (requiredFields: CommercialRequiredFields
       if (item.quantity <= 0) ctx.addIssue({ code: 'custom', path: ['items', index, 'quantity'], message: 'A quantidade deve ser maior que zero.' });
     });
   }
+  const compositionGroups = new Map<string, Array<{ item: (typeof value.items)[number]; index: number }>>();
+  value.items.forEach((item, index) => {
+    const group = item.compositionGroup;
+    if (!group) return;
+    const members = compositionGroups.get(group.groupId) || [];
+    members.push({ item, index });
+    compositionGroups.set(group.groupId, members);
+    const expectedQuantity = group.quantityPerComposition * group.orderedQuantity;
+    if (Math.abs(item.quantity - expectedQuantity) > 0.000001) {
+      ctx.addIssue({ code: 'custom', path: ['items', index, 'quantity'], message: 'A quantidade do componente deve corresponder à quantidade do produto composto.' });
+    }
+    if (group.componentIndex >= group.componentCount) {
+      ctx.addIssue({ code: 'custom', path: ['items', index, 'compositionGroup', 'componentIndex'], message: 'Componente inválido para o produto composto.' });
+    }
+  });
+  compositionGroups.forEach((members) => {
+    const group = members[0].item.compositionGroup!;
+    const componentIndexes = new Set(members.map(({ item }) => item.compositionGroup!.componentIndex));
+    const snapshotMismatch = members.some(({ item }) => {
+      const candidate = item.compositionGroup!;
+      return candidate.productId !== group.productId ||
+        candidate.variationId !== group.variationId ||
+        candidate.description !== group.description ||
+        candidate.code !== group.code ||
+        candidate.orderedQuantity !== group.orderedQuantity ||
+        candidate.componentCount !== group.componentCount;
+    });
+    if (members.length !== group.componentCount || componentIndexes.size !== group.componentCount || snapshotMismatch) {
+      ctx.addIssue({ code: 'custom', path: ['items', members[0].index, 'compositionGroup'], message: 'A composição do produto está incompleta ou inconsistente.' });
+    }
+  });
   if (value.status === 'quoted' && value.orderType !== 'budget') {
     ctx.addIssue({ code: 'custom', path: ['status'], message: 'Somente orçamentos podem usar este status.' });
   }

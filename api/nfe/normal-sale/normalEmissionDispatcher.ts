@@ -4,6 +4,7 @@ import { withNfeEmissionStage } from '../nfeEmissionPerformance';
 import { authorizeFiscalOperator } from '../fiscalAuthorization';
 import type { FiscalDatabase } from '../fiscalDatabaseTypes';
 import {
+  NF_PAYMENT_SETTLEMENT_POLICY,
   parseFiscalEmissionCommand,
   type FiscalIssuerProfileKey,
   type FiscalJsonValue,
@@ -149,6 +150,7 @@ export async function dispatchNormalEmission(
   const candidate: FiscalSnapshotCandidate = {
     schemaVersion: 1,
     capturedAt: new Date().toISOString(),
+    paymentSettlementPolicy: NF_PAYMENT_SETTLEMENT_POLICY,
     order: {
       id: String(orderRow.id),
       type: String(orderRow.order_type),

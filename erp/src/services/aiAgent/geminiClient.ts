@@ -2,6 +2,7 @@ import { ApiUsageGuard } from '../apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '../apiMonitoring/apiUsageTracker';
 import { supabase } from '../../pages/utils/supabaseConfig';
 import { GeminiContent, GeminiTool, GeminiToolConfig } from './geminiAgentTypes';
+import { withTimeout } from '../../../../shared-utils/withTimeout';
 
 // Cliente HTTP para a API Gemini v1beta com monitoramento de cotas e circuit breaker
 
@@ -31,17 +32,9 @@ export const setGeminiCustomTransport = (fn: GeminiTransportFn | null) => {
 
 export class GeminiClient {
   public static async generateContent(
-    payload: GeminiGenerateRequest
+    payload: GeminiGenerateRequest,
+    options: { signal?: AbortSignal; timeoutMs?: number } = {},
   ): Promise<GeminiGenerateResponse> {
-    if (customTransport) {
-      return customTransport(payload);
-    }
-
-    const guard = await ApiUsageGuard.check('gemini_flash');
-    if (!guard.allowed) {
-      throw new Error(`[ApiUsageGuard] Chamada bloqueada: ${guard.reason}`);
-    }
-
     const model = 'gemini-3.8-flash';
     const startTime = Date.now();
 
@@ -60,66 +53,92 @@ export class GeminiClient {
     if (payload.tools && payload.tools.length > 0) bodyData.tools = payload.tools;
     if (payload.toolConfig) bodyData.toolConfig = payload.toolConfig;
 
-    let res: Response;
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (sessionError || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
-      res = await fetch('/api/gemini-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ model, action: 'generateContent', payload: bodyData }),
-      });
-    } catch (networkErr: any) {
-      ApiUsageTracker.record({
-        provider: 'gemini',
-        service: 'gemini_flash',
-        operation: 'generateContent',
-        units: 1,
-        status: 'ERROR',
-        response_time_ms: Date.now() - startTime,
-        module_source: 'financial',
-        error_message: networkErr.message,
-      });
-      throw networkErr;
-    }
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      let errorMsg = `HTTP ${res.status}: ${res.statusText}`;
-      try {
-        const parsed = JSON.parse(errText);
-        errorMsg = parsed?.error?.message || errorMsg;
-      } catch {
-        /* no-op: intencionalmente silencioso */
+    const controller = new AbortController();
+    const expired = Symbol('expired');
+    const transport = customTransport;
+    let httpStatus: number | undefined;
+    let guardAllowed = false;
+    const checkAborted = () => {
+      if (controller.signal.aborted) {
+        const error = new Error('Consulta ao assistente interrompida.');
+        error.name = 'AbortError';
+        throw error;
       }
+    };
+    let rejectAborted!: (reason: Error) => void;
+    const aborted = new Promise<never>((_, reject) => { rejectAborted = reject; });
+    const onAbort = () => {
+      controller.abort();
+      const error = new Error('Consulta ao assistente interrompida.');
+      error.name = 'AbortError';
+      rejectAborted(error);
+    };
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    if (options.signal?.aborted) onAbort();
 
-      ApiUsageTracker.record({
+    try {
+      const request = async (): Promise<GeminiGenerateResponse> => {
+        checkAborted();
+        if (transport) return transport(payload);
+        const guard = await ApiUsageGuard.check('gemini_flash');
+        checkAborted();
+        if (!guard.allowed) {
+          throw new Error(`[ApiUsageGuard] Chamada bloqueada: ${guard.reason}`);
+        }
+        guardAllowed = true;
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        checkAborted();
+        const accessToken = sessionData.session?.access_token;
+        if (sessionError || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
+        const res = await fetch('/api/gemini-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ model, action: 'generateContent', payload: bodyData }),
+          signal: controller.signal,
+        });
+        httpStatus = res.status;
+        if (!res.ok) throw new Error(`Erro na API Gemini: HTTP ${res.status}.`);
+        return await res.json().catch(() => {
+          throw new Error('A API Gemini retornou uma resposta inválida.');
+        });
+      };
+      const result = await withTimeout<GeminiGenerateResponse | typeof expired>(
+        Promise.race([request(), aborted]),
+        Math.max(1, Math.min(options.timeoutMs ?? 30_000, 30_000)),
+        expired,
+        'assistente ERP: transporte Gemini',
+      );
+      if (result === expired) throw new Error('A resposta do assistente excedeu o prazo.');
+      checkAborted();
+      if (!transport) {
+        ApiUsageTracker.record({
+          provider: 'gemini',
+          service: 'gemini_flash',
+          operation: 'generateContent',
+          units: 1,
+          status: 'SUCCESS',
+          http_status: httpStatus,
+          response_time_ms: Date.now() - startTime,
+          module_source: 'financial',
+        });
+      }
+      return result;
+    } catch (error) {
+      if (!transport && guardAllowed) ApiUsageTracker.record({
         provider: 'gemini',
         service: 'gemini_flash',
         operation: 'generateContent',
         units: 1,
-        status: res.status === 429 ? 'RATE_LIMITED' : 'ERROR',
-        http_status: res.status,
+        status: httpStatus === 429 ? 'RATE_LIMITED' : 'ERROR',
+        http_status: httpStatus,
         response_time_ms: Date.now() - startTime,
         module_source: 'financial',
-        error_message: errorMsg,
+        error_message: httpStatus ? `Falha na consulta Gemini (HTTP ${httpStatus}).` : 'Consulta Gemini interrompida ou indisponível.',
       });
-
-      throw new Error(`Erro na API Gemini: ${errorMsg}`);
+      throw error;
+    } finally {
+      options.signal?.removeEventListener('abort', onAbort);
+      controller.abort();
     }
-
-    ApiUsageTracker.record({
-      provider: 'gemini',
-      service: 'gemini_flash',
-      operation: 'generateContent',
-      units: 1,
-      status: 'SUCCESS',
-      http_status: 200,
-      response_time_ms: Date.now() - startTime,
-      module_source: 'financial',
-    });
-
-    return await res.json();
   }
 }

@@ -129,6 +129,97 @@ describe('persistência completa do rascunho', () => {
     });
   });
 
+  it('reabre família composta concluída pelas linhas atuais quando draftProduct está vazio', () => {
+    const ownVariationId = 'completed-composition-own-variation';
+    const inheritedVariationId = 'completed-composition-inherited-variation';
+    const ownComboItems = [{ productId: 'component-a', variationId: 'component-a-blue', quantity: 1 }];
+    const inheritedComboItems = [{ productId: 'component-b', variationId: 'component-b-green', quantity: 2 }];
+
+    const reopened = mapFromDB({
+      id: 'completed-composition',
+      code: 'KIT-FINAL',
+      name: 'Kit finalizado',
+      item_type: 'composition',
+      is_combo: true,
+      is_draft: false,
+      has_variations: true,
+      active: true,
+      status: 'published',
+      unit_price: 220,
+      promo_price: 180,
+      cost_price: 50,
+      combo_items: [],
+      technical_specs: {
+        draftProduct: null,
+        variationDetails: [
+          { id: ownVariationId, syncCostPrice: false, costPrice: 40 },
+          { id: inheritedVariationId, syncCostPrice: true },
+        ],
+      },
+      product_variations: [
+        {
+          id: ownVariationId,
+          product_id: 'completed-composition',
+          sku: 'KIT-FINAL-01',
+          name: 'Kit Azul',
+          active: true,
+          status: 'published',
+          price: 165,
+          promo_price: 140,
+          cost_price: 31,
+          use_parent_price: false,
+          use_parent_promo_price: false,
+          combo_items: ownComboItems,
+          attributes: [],
+        },
+        {
+          id: inheritedVariationId,
+          product_id: 'completed-composition',
+          sku: 'KIT-FINAL-02',
+          name: 'Kit Verde',
+          active: true,
+          status: 'published',
+          price: 99,
+          promo_price: 88,
+          cost_price: 22,
+          use_parent_price: true,
+          use_parent_promo_price: true,
+          combo_items: inheritedComboItems,
+          attributes: [],
+        },
+      ],
+    });
+
+    expect(reopened).toMatchObject({
+      isDraft: false,
+      itemType: 'composition',
+      isCombo: true,
+      hasVariations: true,
+      unitPrice: 220,
+      promoPrice: 180,
+      status: 'published',
+      technicalSpecs: { draftProduct: null },
+    });
+    expect(reopened.variations).toMatchObject([
+      {
+        id: ownVariationId,
+        unitPrice: 165,
+        promoPrice: 140,
+        syncUnitPrice: false,
+        syncPromoPrice: false,
+        comboItems: ownComboItems,
+      },
+      {
+        id: inheritedVariationId,
+        unitPrice: 220,
+        promoPrice: 180,
+        syncUnitPrice: true,
+        syncPromoPrice: true,
+        comboItems: inheritedComboItems,
+      },
+    ]);
+  });
+
   it('não cria variação DEFAULT sintética para rascunhos sem variações e normaliza status ao concluir', () => {
     const draftMapped = mapFromDB({
       id: product.id,

@@ -7,8 +7,23 @@ import {
   resolveMobileVariableTechnicalFieldNames,
 } from './productCharacteristics';
 import { parseLocalizedNumber } from './productNumbers';
-import { checkProductErpLegibility } from '../../../../../shared-utils/productErpLegibility';
+import {
+  checkProductErpLegibility,
+  hasProductVariationPhotos,
+  type ProductErpLegibilityResult,
+} from '../../../../../shared-utils/productErpLegibility';
+import {
+  checkEcomLegibility,
+  type CatalogCharacteristicRequirement,
+  type EcomLegibilityResult,
+} from '../../../../../shared-utils/catalogPublicationValidation';
 import { hasRequiredProductCategory } from '../../../../../shared-utils/productCategoryRequirement';
+
+export interface MobileProductReadiness {
+  erp: ProductErpLegibilityResult;
+  catalog: EcomLegibilityResult;
+  variationPhotos: boolean;
+}
 
 export type MobileVariationRegistrationIssue = {
   message: string;
@@ -36,7 +51,7 @@ export const getMobileEffectiveVariationPrice = (parent: any = {}, variation: an
   );
 
 /** Mantém o estado de prontidão do App igual a checkERPLegibility do ERP. */
-export const isMobileProductErpLegible = (product: any = {}) => {
+export const getMobileProductErpLegibility = (product: any = {}): ProductErpLegibilityResult => {
   const unitPrice = parseLocalizedNumber(product.unitPrice ?? product.unit_price ?? product.price);
   const promoPrice = parseLocalizedNumber(product.promoPrice ?? product.promo_price);
   return checkProductErpLegibility({
@@ -45,7 +60,56 @@ export const isMobileProductErpLegible = (product: any = {}) => {
     productKind: product.productKind ?? product.product_kind,
     unitPrice,
     promoPrice,
-  }).isLegible;
+  });
+};
+
+export const isMobileProductErpLegible = (product: any = {}) =>
+  getMobileProductErpLegibility(product).isLegible;
+
+export const isMobileSalvadoProduct = (product: any = {}) => {
+  const kind = product.productKind ?? product.product_kind ?? product.condition;
+  return (
+    kind === 'salvado' ||
+    kind === 'salvados' ||
+    product.is_salvado === true ||
+    product.stock_origin === 'salvados'
+  );
+};
+
+/** Dados detalhados dos dois badges do cabeçalho, sem alterar as regras de salvamento. */
+export const getMobileProductReadiness = (product: any = {}): MobileProductReadiness => ({
+  erp: getMobileProductErpLegibility(product),
+  catalog: checkEcomLegibility({
+    ...product,
+    unitPrice: parseLocalizedNumber(product.unitPrice ?? product.unit_price ?? product.price),
+    promoPrice: parseLocalizedNumber(product.promoPrice ?? product.promo_price),
+    width: parseLocalizedNumber(product.width ?? product.width_cm),
+    height: parseLocalizedNumber(product.height ?? product.height_cm),
+    depth: parseLocalizedNumber(product.depth ?? product.depth_cm),
+  }),
+  variationPhotos: hasProductVariationPhotos(product),
+});
+
+/** Revalida os requisitos completos antes de salvar uma edição já publicada. */
+export const getMobilePublishedCatalogEditLegibility = (
+  product: any,
+  candidate: any,
+  categoryRequirements: readonly CatalogCharacteristicRequirement[]
+): EcomLegibilityResult | null => {
+  if ((product?.status || candidate?.status) !== 'published') return null;
+  return checkEcomLegibility(
+    {
+      ...candidate,
+      unitPrice: parseLocalizedNumber(
+        candidate.unitPrice ?? candidate.unit_price ?? candidate.price
+      ),
+      promoPrice: parseLocalizedNumber(candidate.promoPrice ?? candidate.promo_price),
+      width: parseLocalizedNumber(candidate.width ?? candidate.width_cm),
+      height: parseLocalizedNumber(candidate.height ?? candidate.height_cm),
+      depth: parseLocalizedNumber(candidate.depth ?? candidate.depth_cm),
+    },
+    categoryRequirements
+  );
 };
 
 const getEffectiveVariationPromoPrice = (parent: any = {}, variation: any = {}) =>

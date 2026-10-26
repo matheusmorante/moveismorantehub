@@ -10,6 +10,7 @@ interface Props {
   environments: EnvironmentNode[];
   selectedLinks: string[];
   onToggleLink: (id: string) => void;
+  disabled?: boolean;
 }
 
 export const CategoryLinksPicker: React.FC<Props> = ({
@@ -19,6 +20,7 @@ export const CategoryLinksPicker: React.FC<Props> = ({
   environments,
   selectedLinks,
   onToggleLink,
+  disabled = false,
 }) => {
   const items = isEnv
     ? categories.map((c) => ({ id: c.id, name: c.name }))
@@ -47,8 +49,12 @@ export const CategoryLinksPicker: React.FC<Props> = ({
               <TouchableOpacity
                 key={item.id}
                 onPress={() => onToggleLink(item.id)}
-                style={styles.checkRow}
+                disabled={disabled}
+                style={[styles.checkRow, disabled && styles.checkRowDisabled]}
                 activeOpacity={0.7}
+                accessibilityRole="checkbox"
+                accessibilityLabel={item.name}
+                accessibilityState={{ checked: isChecked, disabled }}
               >
                 <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
                   {isChecked && <Check size={12} color="#ffffff" />}
@@ -91,6 +97,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     borderRadius: 6,
   },
+  checkRowDisabled: { opacity: 0.55 },
   checkbox: {
     width: 18,
     height: 18,

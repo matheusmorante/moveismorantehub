@@ -2,7 +2,8 @@ import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/accessRoles';
 import Product from '../../../../../types/product.type';
-import { getProductKind, isNonConventionalProduct } from '../../../../../utils/productKindRules';
+import { isNonConventionalProduct } from '../../../../../utils/productKindRules';
+import { isSalvadoStockOrigin } from '../../../../../../../../shared-utils/productStockOrigin';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import { StockOriginBadge } from '../Shared/StockOriginBadge';
@@ -128,11 +129,7 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
           catalogStatus={singleVariation?.status || product.status}
           isParent={isParent && !singleVariation}
           isNonConventional={isNonConventionalProduct(product)}
-          isSalvado={
-            getProductKind(product) === 'salvado' ||
-            getProductKind(singleVariation as any) === 'salvado' ||
-            Boolean(oppName && oppName.toLowerCase().includes('salvado'))
-          }
+          isSalvado={isSalvadoStockOrigin(product, singleVariation, oppName)}
           canManageCatalog={canManageCatalog}
           canToggleActive={canDeleteProducts}
           showCatalogControl={showCatalogControl}

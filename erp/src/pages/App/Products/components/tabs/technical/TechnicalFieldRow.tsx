@@ -5,6 +5,7 @@ import {
   isDoorDrawerDependentCharacteristicActive,
   isCharacteristicDependent,
   isQuantityCharacteristic,
+  isWeightCharacteristicName,
   type TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
@@ -80,6 +81,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   const displayName = /^retr[aá]til\??$/i.test(field.name.trim()) ? 'É Retrátil?' : field.name;
   const isMandatory = Boolean(field.isRequired || field.isRequiredForCatalog);
   const isQuantityField = isQuantityCharacteristic(field.name);
+  const isWeightField = isWeightCharacteristicName(field.name);
   const hasExplicitValue = Object.prototype.hasOwnProperty.call(
     formData.technicalValues || {},
     field.name
@@ -96,13 +98,20 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   const isOpenClosedSofaDepth =
     normName === 'profundidade aberto' || normName === 'profundidade fechado';
   const effectiveIsVariable = isVariable && !isSimpleProduct;
+  const shouldDefaultToGlobal =
+    hasConfiguredValue ||
+    hasExplicitValue ||
+    isManual ||
+    isMandatory ||
+    isDependencySatisfied ||
+    isWeightField;
   const scope = effectiveIsVariable
     ? 'variation'
     : isExplicitlyNotApplicable
       ? 'not_inform'
-      : hasConfiguredValue || hasExplicitValue || isManual || isMandatory || isDependencySatisfied
-      ? 'global'
-      : 'not_inform';
+      : shouldDefaultToGlobal
+        ? 'global'
+        : 'not_inform';
   const availableScopeOptions = isMandatory
     ? REQUIRED_TECHNICAL_FIELD_SCOPES
     : TECHNICAL_FIELD_SCOPES;
@@ -114,6 +123,10 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
     : normName.includes('total')
       ? 'Alternar para Profundidade total'
       : 'Alternar para Profundidade';
+
+  React.useEffect(() => {
+    if (isFieldDisabled) setIsScopeMenuOpen(false);
+  }, [isFieldDisabled]);
 
   React.useEffect(() => {
     if (!isScopeMenuOpen) return;
@@ -166,9 +179,13 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
       }`}
     >
       <div className="flex w-full flex-col gap-2">
-        <div className="flex w-full min-w-0 items-center gap-2">
+        <div
+          className={`flex w-full min-w-0 flex-nowrap items-center gap-2 ${
+            isSimpleProduct ? 'min-h-5' : 'min-h-11'
+          }`}
+        >
           <label
-            className={`min-w-0 flex-1 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-colors ${
+            className={`min-w-0 flex-1 whitespace-nowrap text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-colors ${
               isFieldInvalid
                 ? 'text-red-600 dark:text-red-400'
                 : isFieldDisabled
@@ -187,18 +204,40 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               />
             )}
           </label>
+          {isDepthOrLengthField && !isOpenClosedSofaDepth && (
+            <button
+              type="button"
+              title={toggleDepthLengthTooltip}
+              aria-label={toggleDepthLengthTooltip}
+              onClick={() => onToggleDepthLength(field)}
+              className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-blue-600"
+            >
+              <i className="bi bi-arrow-left-right" />
+            </button>
+          )}
           {isColorField && (
-            <span className="inline-flex shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
+            <span className="inline-flex h-5 shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
               <button
                 type="button"
                 title="Gerenciar cores"
                 aria-label="Gerenciar cores"
                 onClick={onOpenAttributeModal}
-                className="inline-flex items-center rounded-md px-1.5 py-1 text-[9px] font-black normal-case tracking-normal text-blue-700 transition-colors hover:bg-white dark:text-blue-300 dark:hover:bg-blue-900/60"
+                className="inline-flex h-full items-center rounded-md px-1.5 text-[9px] font-black normal-case tracking-normal text-blue-700 transition-colors hover:bg-white dark:text-blue-300 dark:hover:bg-blue-900/60"
               >
                 Gerenciar
               </button>
             </span>
+          )}
+          {isManual && !isQuantityField && !isAutomaticallyActiveByQuantity && (
+            <button
+              type="button"
+              onClick={() => onRemoveManualField(field.name)}
+              title={`Remover ${field.name}`}
+              aria-label={`Remover campo ${field.name}`}
+              className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-xs text-slate-400 transition-colors hover:text-red-500"
+            >
+              <i className="bi bi-trash3" />
+            </button>
           )}
           {onToggleVariable && isSimpleProduct && !isMandatory && !isDependencyVariable && (
             <button
@@ -206,10 +245,12 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               role="switch"
               aria-label={`Exibir característica ${field.name}`}
               aria-checked={scope === 'global'}
+              disabled={isFieldDisabled}
+              title={isFieldDisabled ? disabledReason : undefined}
               onClick={() =>
                 onToggleVariable(field.name, scope === 'global' ? 'not_inform' : 'global')
               }
-              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-slate-900 ${
                 scope === 'global' ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'
               }`}
             >
@@ -229,7 +270,8 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
                 aria-haspopup="menu"
                 aria-expanded={isScopeMenuOpen}
                 aria-controls={scopeMenuId}
-                title={selectedScope.label}
+                title={isFieldDisabled ? disabledReason : selectedScope.label}
+                disabled={isFieldDisabled}
                 onClick={() => setIsScopeMenuOpen((open) => !open)}
                 onKeyDown={(event) => {
                   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -239,7 +281,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
                     setIsScopeMenuOpen(false);
                   }
                 }}
-                className="inline-flex h-11 w-12 items-center justify-center gap-1 rounded-lg text-slate-600 outline-none transition-colors hover:text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-slate-300 dark:hover:text-blue-300"
+                className="inline-flex h-11 w-12 items-center justify-center gap-1 rounded-lg text-slate-600 outline-none transition-colors hover:text-blue-600 focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-300 dark:hover:text-blue-300"
               >
                 <selectedScope.Icon aria-hidden="true" className="h-4 w-4" />
                 <ChevronDown aria-hidden="true" className="h-3 w-3" />
@@ -249,7 +291,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
                 id={scopeMenuId}
                 role="menu"
                 aria-label={`Escopo da característica ${field.name}`}
-                hidden={!isScopeMenuOpen}
+                hidden={!isScopeMenuOpen || isFieldDisabled}
                 onBlur={(event) => {
                   if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                     setIsScopeMenuOpen(false);
@@ -286,31 +328,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
           )}
         </div>
 
-        <div className="flex w-full items-center gap-1.5">
-          {isDepthOrLengthField && !isOpenClosedSofaDepth && (
-            <button
-              type="button"
-              title={toggleDepthLengthTooltip}
-              aria-label={toggleDepthLengthTooltip}
-              onClick={() => onToggleDepthLength(field)}
-              className="text-slate-400 hover:text-blue-600 transition-colors ml-1"
-            >
-              <i className="bi bi-arrow-left-right" />
-            </button>
-          )}
-
-          {isManual && !isQuantityField && !isAutomaticallyActiveByQuantity && (
-            <button
-              type="button"
-              onClick={() => onRemoveManualField(field.name)}
-              title={`Remover ${field.name}`}
-              aria-label={`Remover campo ${field.name}`}
-              className="text-slate-400 hover:text-red-500 p-0.5 text-xs transition-colors ml-1"
-            >
-              <i className="bi bi-trash3" />
-            </button>
-          )}
-        </div>
       </div>
 
       {(scope === 'global' || isDependentCharacteristic) && (

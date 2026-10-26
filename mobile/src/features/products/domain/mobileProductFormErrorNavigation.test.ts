@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { flattenFormErrors } from '../../../hooks/useZodForm';
 import {
+  hasMobileProductDescriptionTechnicalValidationError,
+  isMobileProductDescriptionTabDisabled,
   isMobileProductCategoryError,
   isMobileProductNameError,
   isMobileProductCostPriceError,
@@ -8,11 +10,46 @@ import {
   isMobileProductUnitPriceError,
   resolveMobileProductFormErrorMessage,
   resolveMobileProductFormErrorNavigation,
+  resolveMobileProductReadinessTab,
 } from './mobileProductFormErrorNavigation';
 import { PRODUCT_NAME_REQUIRED_MESSAGE } from '../../../../../shared-utils/productNameRequirement';
 import { PRODUCT_CATEGORY_REQUIRED_MESSAGE } from '../../../../../shared-utils/productCategoryRequirement';
 
 describe('mobileProductFormErrorNavigation', () => {
+  it('permite a aba Descrição antes da validação técnica, como o ERP', () => {
+    expect(isMobileProductDescriptionTabDisabled({
+      hasCategory: true,
+      hasProductName: true,
+      hasTechnicalValidationError: false,
+    })).toBe(false);
+  });
+
+  it('bloqueia a aba Descrição somente quando a submissão sinaliza erro técnico', () => {
+    expect(hasMobileProductDescriptionTechnicalValidationError({ technical: 'Preencha Marca.' })).toBe(true);
+    expect(hasMobileProductDescriptionTechnicalValidationError({ variationRegistration: 'Preencha em cada variação.' })).toBe(false);
+    expect(isMobileProductDescriptionTabDisabled({
+      hasCategory: true,
+      hasProductName: true,
+      hasTechnicalValidationError: true,
+    })).toBe(true);
+  });
+
+  it('resolve o requisito para uma aba habilitada do formulário', () => {
+    const enabledTabs = ['geral', 'fotos', 'estoque'] as const;
+
+    expect(resolveMobileProductReadinessTab('name', 'geral', enabledTabs)).toBe('geral');
+    expect(resolveMobileProductReadinessTab('unitPrice', 'estoque', enabledTabs)).toBe('estoque');
+    expect(resolveMobileProductReadinessTab('dimensions', undefined, enabledTabs)).toBeUndefined();
+  });
+
+  it('leva fotos da variação única à aba Fotos e respeita abas ocultas/desabilitadas', () => {
+    expect(resolveMobileProductReadinessTab('variationPhotos', 'variacoes', ['geral', 'fotos'])).toBe(
+      'fotos'
+    );
+    expect(resolveMobileProductReadinessTab('variationPhotos', 'variacoes', ['geral'])).toBeUndefined();
+    expect(resolveMobileProductReadinessTab('categories', 'geral', ['estoque'])).toBeUndefined();
+  });
+
   it.each(['discountPercent', 'discountFixed'])(
     'leva o erro de %s à variação e ao painel de precificação',
     (field) => {

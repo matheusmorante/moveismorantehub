@@ -14,6 +14,8 @@ describe('optimized image upload boundary', () => {
   it('shares an image identity across original, medium and thumbnail and awaits them', async () => {
     const original = await uploadOptimizedProductImage(file()); const paths = mocks.upload.mock.calls.map((call) => call[1]); expect(paths).toHaveLength(3);
     expect(paths[1]).toBe(paths[0].replace('.webp', '_medium.webp')); expect(paths[2]).toBe(paths[0].replace('.webp', '_thumb.webp')); expect(original).toBe('https://images.example/' + paths[0]);
+    expect(mocks.compress.mock.calls[0][1]).toMatchObject({ maxMB: 0.5, maxWidth: 1000, initialQuality: 0.85, fileType: 'image/webp' });
+    expect(mocks.compress.mock.calls[1][1]).toMatchObject({ maxMB: 0.05, maxWidth: 200, initialQuality: 0.75, fileType: 'image/webp' });
   });
   it('keeps confirmed original upload when an optional derivative fails', async () => {
     mocks.upload.mockImplementation(async (_file, path: string) => { if (path.includes('_medium')) throw new Error('Derivative failed'); return 'https://images.example/' + path; });

@@ -106,7 +106,7 @@ export const InboundItemLinkHeader: React.FC<InboundItemLinkHeaderProps> = ({
         </button>
       </div>
 
-      {/* Botão Cadastrar — mesma linha, empurrado para direita */}
+      {/* Cadastro rápido — mesma linha, empurrado para direita */}
       {supplierId?.trim() && !item.matchedProductId && compositionLinks.length === 0 && (
         <button
           type="button"
@@ -128,10 +128,10 @@ export const InboundItemLinkHeader: React.FC<InboundItemLinkHeaderProps> = ({
               },
             })
           }
-          className="ml-auto inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 transition-colors shrink-0 cursor-pointer"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-yellow-500 bg-yellow-300 px-3 py-1 text-[10px] font-black text-black hover:bg-yellow-400 transition-colors shrink-0 whitespace-nowrap cursor-pointer"
         >
-          <i className="bi bi-plus-circle-fill" />
-          Cadastrar
+          <i className="bi bi-lightning-fill text-black" aria-hidden="true" />
+          Cadastro rápido
         </button>
       )}
     </div>

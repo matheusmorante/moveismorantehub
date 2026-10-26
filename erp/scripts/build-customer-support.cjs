@@ -19,6 +19,10 @@ async function buildCustomerSupportApi() {
     entryPoints: [resolve(root, 'erp/api/whatsapp-webhook.ts')],
     outfile: resolve(output, 'whatsapp-webhook.cjs'),
   });
+  await build({ ...options,
+    entryPoints: [resolve(root, 'api/whatsapp-dispatch.ts')],
+    outfile: resolve(output, 'whatsapp-dispatch.cjs'),
+  });
   const secureApiOutput = resolve(root, 'erp/server/secure-api');
   await mkdir(secureApiOutput, { recursive: true });
   await build({ ...options,

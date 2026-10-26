@@ -21,7 +21,7 @@ const makeVariation = (): Variation => ({
 });
 
 describe('useProductFormSync simple creation inheritance', () => {
-  it('inherits the parent fields while leaving variation photos empty for the parent-photo fallback', async () => {
+  it('inherits the parent fields and photos in the sole variation', async () => {
     const { result } = renderHook(() => {
       const [formData, setFormData] = useState<Partial<Product>>({
         name: 'Mesa',
@@ -76,7 +76,7 @@ describe('useProductFormSync simple creation inheritance', () => {
         minStock: 2,
         attributes: [],
         technicalValues: { Material: 'MDF', Acabamento: 'Fosco' },
-        images: [],
+        images: ['https://img.test/mesa.jpg'],
       });
     });
   });

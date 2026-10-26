@@ -20,9 +20,17 @@ const suppliers: Person[] = [];
 beforeEach(() => { vi.clearAllMocks(); authState.profile = null; });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
-function setup(allProducts = products, onConfirm = vi.fn<(config: ScopeConfiguration) => void | boolean | Promise<void | boolean>>().mockResolvedValue(true), copiedItems?: React.ComponentProps<typeof InventoryScopeModal>['copiedItems'], employeeList = employees) {
+function setup(
+  allProducts = products,
+  onConfirm = vi
+    .fn<(config: ScopeConfiguration) => void | boolean | Promise<void | boolean>>()
+    .mockResolvedValue(true),
+  copiedItems?: React.ComponentProps<typeof InventoryScopeModal>['copiedItems'],
+  employeeList = employees,
+  supplierList = suppliers
+) {
   const onCancel = vi.fn();
-  const props = { allProducts, suppliers, employees: employeeList, onCancel, onConfirm, copiedItems };
+  const props = { allProducts, suppliers: supplierList, employees: employeeList, onCancel, onConfirm, copiedItems };
   const view = render(<InventoryScopeModal {...props} />);
   const selectType = (type: 'full' | 'custom' = 'full') => fireEvent.click(screen.getByRole('button', {
     name: type === 'full' ? /Estoque Completo/ : /Seleção Personalizada/,
@@ -62,6 +70,61 @@ describe('inventory scope owner with real builder, children and RHF/resolver', (
     const view = setup([{ ...product, stock: Number.NaN }]); view.selectType(); view.selectResponsible(); view.submit();
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
     expect(view.onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('omits Salvados/Usados products and suppliers while keeping conventional inventory items', async () => {
+    const specialSupplier = {
+      id: 'supplier-special',
+      fullName: 'Salvados e Usados',
+      type: 'suppliers',
+      stockOrigins: ['salvados', 'usados'],
+    } as Person;
+    const normalSupplier = {
+      id: 'supplier-normal',
+      fullName: 'Fornecedor Convencional',
+      type: 'suppliers',
+      stockOrigins: ['normal'],
+    } as Person;
+    const candidates: Product[] = [
+      { ...product, id: 'salvado', productKind: 'salvado', supplierId: 'supplier-special' },
+      { ...product, id: 'usado', productKind: 'usado', supplierId: 'supplier-special' },
+      { ...product, id: 'special-supplier', supplierId: 'supplier-special' },
+      {
+        ...product,
+        id: 'legacy-special-supplier',
+        supplierId: 'supplier-legacy-special',
+      },
+      {
+        ...product,
+        id: 'mixed-suppliers',
+        mainSupplierId: 'supplier-special',
+        supplierId: 'supplier-normal',
+        supplierIds: ['supplier-special', 'supplier-normal'],
+      },
+      { ...product, id: 'normal-supplier', supplierId: 'supplier-normal' },
+    ];
+    const legacySpecialSupplier = {
+      id: 'supplier-legacy-special',
+      fullName: 'Fornecedor de Salvados e Usados',
+      type: 'suppliers',
+    } as Person;
+    const view = setup(candidates, undefined, undefined, employees, [
+      specialSupplier,
+      legacySpecialSupplier,
+      normalSupplier,
+    ]);
+    view.selectType();
+    view.selectResponsible();
+    view.submit();
+
+    await waitFor(() => expect(view.onConfirm).toHaveBeenCalledOnce());
+    const snapshot = view.onConfirm.mock.calls[0][0].itemsSnapshot;
+    expect(snapshot.map((item) => item.productId)).toEqual(['mixed-suppliers', 'normal-supplier']);
+    expect(snapshot[0]).toMatchObject({
+      assignedSupplier: 'Fornecedor Convencional',
+      supplierNames: 'Fornecedor Convencional',
+    });
+    expect(snapshot.some((item) => item.assignedSupplier === 'Salvados e Usados')).toBe(false);
   });
 
   it.each([undefined, true])('preserves zero stock and false activity with a successful %s callback', async (result) => {

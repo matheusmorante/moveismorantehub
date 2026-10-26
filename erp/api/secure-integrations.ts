@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { authenticateErpRequest, hasErpPermission } from './_lib/authenticatedErpRequest.js';
 import { verifyMetaAppCredentials } from '../server/secure-api/verifyMetaAppCredentials.js';
 import { verifyWhatsAppWebhookSubscription } from '../server/secure-api/verifyWhatsAppWebhookSubscription.js';
+import { ensureWhatsAppEchoWebhookSubscription } from '../server/secure-api/ensureWhatsAppEchoWebhookSubscription.js';
 import { planMetaGraphRequest, type MetaGraphSettings } from '../src/pages/utils/metaService/metaGraphProxyPolicy.js';
 
 const MAX_META_REQUEST_BYTES = 1_000_000;
@@ -125,6 +126,46 @@ async function handleMetaGraph(req: VercelRequest, res: VercelResponse) {
     } catch {
       return res.status(controller.signal.aborted ? 504 : 502).json({
         error: controller.signal.aborted ? 'A verificação do webhook demorou demais.' : 'Não foi possível verificar a inscrição do webhook.',
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  if (body.operation === 'ensure_smb_message_echoes_subscription') {
+    if (!hasErpPermission(context, 'manageSettings')) {
+      return res.status(403).json({ error: 'Sem permissão para alterar a inscrição do webhook.' });
+    }
+    const appId = process.env.WHATSAPP_APP_ID?.trim() || '';
+    const appSecret = process.env.WHATSAPP_APP_SECRET?.trim() || '';
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN?.trim() || '';
+    if (!appId || !appSecret || !verifyToken) {
+      return res.status(503).json({ error: 'Atualização da inscrição do webhook indisponível no servidor.' });
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    try {
+      const result = await ensureWhatsAppEchoWebhookSubscription({
+        appId,
+        appSecret,
+        verifyToken,
+        graphVersion: GRAPH_VERSION,
+        signal: controller.signal,
+      });
+      if (result.valid) return res.status(200).json(result);
+      const status = result.reason === 'messages_not_subscribed'
+        || result.reason === 'subscription_inactive'
+        || result.reason === 'callback_not_allowed'
+        || result.reason === 'subscription_not_found'
+        ? 409
+        : result.reason === 'invalid_input' || result.reason === 'verify_token_missing'
+          ? 503
+          : 502;
+      return res.status(status).json(result);
+    } catch {
+      return res.status(controller.signal.aborted ? 504 : 502).json({
+        error: controller.signal.aborted ? 'A atualização do webhook demorou demais.' : 'Não foi possível atualizar a inscrição do webhook.',
       });
     } finally {
       clearTimeout(timeout);

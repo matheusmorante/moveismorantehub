@@ -60,7 +60,11 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     if (!activeStage) return [];
     return items.filter((item) => (item.assignedSupplier || 'Sem fornecedor') === activeStage);
   }, [items, hasStages, activeStage]);
-  const scannerItems = hasStages && activeStage ? activeItems : items;
+  const supplierItems = useMemo(
+    () => items.filter((item) => (item.assignedSupplier || 'Sem fornecedor') !== 'Sem fornecedor'),
+    [items]
+  );
+  const scannerItems = hasStages ? (activeStage ? activeItems : supplierItems) : items;
 
   const { filter, setFilter, search, setSearch, filteredItems } =
     useInventoryOperation(activeItems);
@@ -98,7 +102,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     );
     let directOtherItem =
       !directScopedItem && isSupplierScanner
-        ? items.find((candidate) => matchScannedProductItem(candidate, rawCode))
+        ? supplierItems.find((candidate) => matchScannedProductItem(candidate, rawCode))
         : undefined;
     let catalogItem: OfflineInventoryMatch | null = null;
     if (!directScopedItem && !directOtherItem) {
@@ -113,7 +117,8 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
         String(candidate.variationId || '') === catalogItem.variationId ||
         (String(candidate.productId) === catalogItem.productId && !candidate.variationId);
       directScopedItem = scannerItems.find(matchesCatalog);
-      if (!directScopedItem && isSupplierScanner) directOtherItem = items.find(matchesCatalog);
+      if (!directScopedItem && isSupplierScanner)
+        directOtherItem = supplierItems.find(matchesCatalog);
     }
     const scopedItem = directScopedItem;
 
@@ -122,11 +127,15 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
       if (otherSupplierItem) {
         showErrorFeedback(
           'Produto de outro fornecedor',
-          `Produto: ${otherSupplierItem.name} · Fornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}. Nenhuma quantidade foi alterada.`
+          `Produto: ${otherSupplierItem.name} · Fornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}. Nenhuma quantidade foi alterada. Volte à lista, escolha esse fornecedor ou use o scanner geral.`
         );
         return;
       }
-      showErrorFeedback('Produto não pertence a este inventário');
+      showErrorFeedback(
+        hasStages
+          ? 'Produto não pertence às etapas deste inventário'
+          : 'Produto não pertence a este inventário'
+      );
       return;
     }
 
@@ -240,8 +249,8 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
         title={isSupplierScanner ? `Contagem — ${activeStage}` : 'Contagem geral'}
         subtitle={
           isSupplierScanner
-            ? 'Somente produtos deste fornecedor'
-            : 'Produtos de todos os fornecedores'
+            ? `Somente produtos de ${activeStage}`
+            : 'Aceita itens de qualquer fornecedor listado neste inventário'
         }
         qrCodeOnly
         allowManualInput={false}

@@ -5,6 +5,7 @@ import {
   hasVariationAttribute,
   getIncompleteVariationAttributes,
   hasMissingRequiredAttributes,
+  ensureDefaultVariation,
 } from '../productVariationDefaults';
 
 describe('computeVariationName', () => {
@@ -40,6 +41,56 @@ describe('computeVariationName', () => {
         JSON.stringify([{ name: 'Quantidade de portas', value: '6 portas', showName: false }])
       )
     ).toBe('Armário');
+  });
+});
+
+describe('ensureDefaultVariation no modo família de rascunho', () => {
+  it('preserva a galeria própria quando a família em rascunho já tem uma variação provisória', () => {
+    const parentImages = ['pai.jpg'];
+    const variationImages = ['propria.jpg'];
+    const product = ensureDefaultVariation({
+      name: 'Mesa',
+      status: 'draft',
+      isDraft: true,
+      hasVariations: true,
+      images: parentImages,
+      variations: [{ id: 'variation-1', images: variationImages } as any],
+    });
+
+    expect(product.hasVariations).toBe(true);
+    expect(product.images).toEqual(parentImages);
+    expect(product.variations?.[0].images).toEqual(variationImages);
+  });
+
+  it('cria a primeira linha de família sem herdar fotos do pai', () => {
+    const product = ensureDefaultVariation({
+      name: 'Mesa',
+      code: 'MESA',
+      status: 'draft',
+      isDraft: true,
+      has_variations: true,
+      images: ['pai.jpg'],
+      variations: [],
+    } as any);
+
+    expect(product.hasVariations).toBe(true);
+    expect(product.images).toEqual(['pai.jpg']);
+    expect(product.variations).toHaveLength(1);
+    expect(product.variations?.[0].images).toEqual([]);
+  });
+
+  it('mantém a herança de fotos quando o rascunho está no modo simples', () => {
+    const product = ensureDefaultVariation({
+      name: 'Mesa',
+      status: 'draft',
+      isDraft: true,
+      hasVariations: false,
+      images: ['pai.jpg'],
+      variations: [{ id: 'variation-1', images: [] } as any],
+    });
+
+    expect(product.hasVariations).toBe(false);
+    expect(product.variations?.[0].images).toEqual(['pai.jpg']);
   });
 });
 

@@ -4,6 +4,7 @@ import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { renderProductRowStandardCell } from './ProductRowStandardCells';
+import ProductRow from './ProductRow';
 import { ProductCardHeader } from '../Card/ProductCardHeader';
 import type Product from '@/pages/types/product.type';
 import type { ProductListRow } from '../../types';
@@ -21,6 +22,12 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ profile: { role: 'admin' } }),
 }));
+
+vi.mock('../../hooks/data/useProductMetadata', () => ({
+  useProductMetadata: () => ({ oppName: 'Queima dos Salvados', supplierNames: [] }),
+}));
+
+vi.mock('./ProductRowModals', () => ({ ProductRowModals: () => null }));
 
 vi.mock('@/pages/utils/accessRoles', () => ({
   isProductIdentificationLabelOnlyProfile: () => false,
@@ -121,6 +128,64 @@ describe('Exibição do SKU quando o produto possui variação única', () => {
     );
 
     expect(screen.getByText('000100-01')).toBeDefined();
+  });
+
+  it('oculta o badge ERP na tabela quando a oportunidade resolvida por ID é de Salvados', () => {
+    const ctx = {
+      product: { ...baseProduct, opportunityId: 'opportunity-1' } as any,
+      opportunityName: 'Queima dos Salvados',
+      visibilitySettings,
+      isChildVar: false,
+      canManageCatalog: true,
+      canDeleteProducts: true,
+      isDraft: false,
+      onToggleActive: () => {},
+      onDeactivateCatalog: () => {},
+    };
+
+    render(
+      <table>
+        <tbody>
+          <tr>{renderProductRowStandardCell('status', ctx)}</tr>
+        </tbody>
+      </table>
+    );
+
+    expect(screen.queryByText('ERP')).toBeNull();
+    expect(screen.getByRole('button', { name: /Status Catálogo/i })).toBeDefined();
+  });
+
+  it('usa o nome resolvido por ID no badge e no fundo da linha da tabela', () => {
+    const product = {
+      ...baseProduct,
+      opportunityId: 'opportunity-1',
+      active: false,
+      status: 'published',
+    } as any;
+
+    const { container } = render(
+      <table>
+        <tbody>
+          <ProductRow
+            product={product}
+            canDeleteProducts={true}
+            onEdit={() => {}}
+            onDelete={() => {}}
+            onRestore={() => {}}
+            onToggleActive={() => {}}
+            onDeactivateCatalog={() => {}}
+            visibilitySettings={{ ...visibilitySettings, description: false, actions: false }}
+            orderedColumnKeys={['status']}
+          />
+        </tbody>
+      </table>
+    );
+
+    const row = container.querySelector('tr');
+    expect(row?.className).toContain('bg-white dark:bg-slate-900');
+    expect(row?.className).not.toContain('bg-slate-100/90');
+    expect(screen.queryByText('ERP')).toBeNull();
+    expect(screen.getByRole('button', { name: /Status Catálogo/i })).toBeDefined();
   });
 
   it('exibe o SKU da variação única no card do produto', () => {

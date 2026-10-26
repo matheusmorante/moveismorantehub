@@ -17,6 +17,7 @@ import {
 import { Check, FileText, Search, Sparkles, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZodForm, flattenFormErrors } from '../../../../hooks/useZodForm';
+import { resolveProductAiAttributeDataType } from '../../../../../../shared-utils/productAiAttributeTypes';
 import {
   productAiCharacteristicsModalFormSchema,
   productAiDescriptiveTextFormSchema,
@@ -106,7 +107,7 @@ export const ProductAiCharacteristicsAssistant: React.FC<Props> = ({
     availableAttributes: availableAttributes.map((attribute) => ({
       id: String(attribute.id),
       name: attribute.name,
-      dataType: attribute.data_type,
+      dataType: resolveProductAiAttributeDataType(attribute.name, attribute.data_type),
       options: (attribute.options || []).map((option: any) => String(option?.value ?? option?.label ?? option)),
     })),
   });

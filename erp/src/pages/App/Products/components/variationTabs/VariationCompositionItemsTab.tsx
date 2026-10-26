@@ -5,7 +5,7 @@ import ProductAutocomplete from '../../../../../components/ProductAutocomplete';
 interface VariationCompositionItemsTabProps {
   readonly formData: Variation;
   readonly setFormData: React.Dispatch<React.SetStateAction<Variation | null>>;
-  readonly parentProduct: Product;
+  readonly parentProduct: Partial<Product>;
 }
 
 export const VariationCompositionItemsTab: React.FC<VariationCompositionItemsTabProps> = ({
@@ -40,7 +40,9 @@ export const VariationCompositionItemsTab: React.FC<VariationCompositionItemsTab
       currentItems[index] = {
         ...currentItems[index],
         productId: product.id,
-        variationId: variation?.id,
+        // Variações virtuais são apenas um fallback visual para produtos legados sem linha real.
+        // combo_items deve usar o estoque do pai, sem persistir esse identificador sintético.
+        variationId: variation?.isVirtual ? undefined : variation?.id,
         description: variation ? variation.name : product.name,
         unitPrice: variation?.unitPrice ?? product.unitPrice ?? 0,
         stock: variation?.stock ?? product.stock ?? 0,
@@ -81,7 +83,7 @@ export const VariationCompositionItemsTab: React.FC<VariationCompositionItemsTab
   const items = formData.comboItems || [];
   const supplierId = parentProduct.supplierId || parentProduct.mainSupplierId;
 
-  // Calcula o custo total da composição baseado nos itens
+  // Calcula o preço sugerido de venda com base nos itens
   const suggestedPrice = items.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
 
   return (
@@ -93,7 +95,7 @@ export const VariationCompositionItemsTab: React.FC<VariationCompositionItemsTab
             Produtos que compõem o produto composto
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-            Adicione os produtos reais que compõem esta variação. O estoque será deduzido deles.
+            Use para vender um conjunto formado por outros produtos. No pedido de venda, o ERP inclui automaticamente cada componente e sua quantidade. Defina o preço de venda nos cadastros dos componentes; o preço sugerido soma esses valores.
           </p>
         </div>
 

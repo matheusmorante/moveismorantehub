@@ -28,6 +28,7 @@ import {
   computeDefaultVariationTitle,
 } from './variationFormDefaults';
 import { prepareFinalVariation } from './variationFormSubmitRules';
+import { isSingleProductVariationFormMode } from '../../../../../../../shared-utils/productVariationMode';
 
 export interface UseVariationFormOptions {
   isOpen: boolean;
@@ -111,9 +112,11 @@ export function useVariationForm({
   });
 
   const isDraft = isProductDraft(parentProduct);
-  const isSingleVariation = variation
-    ? (parentProduct.variations || []).length === 1
-    : (parentProduct.variations || []).length === 0;
+  const isSingleVariation = isSingleProductVariationFormMode(
+    parentProduct,
+    parentProduct.variations?.length || 0,
+    !variation
+  );
 
   const schema = useMemo(
     () => createProductVariationSubmissionSchema(parentProduct, isSingleVariation),
@@ -133,8 +136,8 @@ export function useVariationForm({
     setVarDiscountPercent,
     varDiscountFixed,
     setVarDiscountFixed,
-    getParentDiscountPercent,
-    getParentDiscountFixed,
+    getEffectiveDiscountPercent,
+    getEffectiveDiscountFixed,
     handlePriceChange,
     handleDiscountPercentChange,
     handleDiscountFixedChange,
@@ -479,8 +482,8 @@ export function useVariationForm({
     fetchDbAttributes,
     varDiscountPercent,
     varDiscountFixed,
-    getParentDiscountPercent,
-    getParentDiscountFixed,
+    getEffectiveDiscountPercent,
+    getEffectiveDiscountFixed,
     getDefaultVariationName,
     getDefaultVariationTitle,
     handlePriceChange,

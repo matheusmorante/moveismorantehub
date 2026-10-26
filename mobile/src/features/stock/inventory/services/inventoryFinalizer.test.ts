@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { rpc, removeDraft, markPending, alert, connected, withTimeout } = vi.hoisted(() => ({
+const { rpc, getSession, removeDraft, markPending, alert, connected, withTimeout } = vi.hoisted(() => ({
   rpc: vi.fn(),
+  getSession: vi.fn(),
   removeDraft: vi.fn(),
   markPending: vi.fn(),
   alert: vi.fn(),
@@ -10,7 +11,9 @@ const { rpc, removeDraft, markPending, alert, connected, withTimeout } = vi.hois
 }));
 
 vi.mock('react-native', () => ({ Alert: { alert }, Platform: { OS: 'android' } }));
-vi.mock('../../../../services/supabaseClient', () => ({ supabase: { rpc } }));
+vi.mock('../../../../services/supabaseClient', () => ({
+  supabase: { rpc, auth: { getSession } },
+}));
 vi.mock('../../../../services/sqlite/inventoryDrafts', () => ({
   deleteLocalInventoryDraft: removeDraft,
   markLocalDraftPendingSync: markPending,
@@ -66,6 +69,11 @@ const makeParams = () => ({
   onClose: vi.fn(),
 });
 
+const mockClaimAndFinalize = (auditId: string) => {
+  rpc.mockResolvedValueOnce({ data: { auditId, status: 'claimed' }, error: null });
+  rpc.mockResolvedValueOnce({ data: { auditId, status: 'processed' }, error: null });
+};
+
 describe('conclusão do inventário mobile', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -73,16 +81,20 @@ describe('conclusão do inventário mobile', () => {
     delete process.env.EXPO_PUBLIC_INVENTORY_RPC_V2;
     await deleteInventorySubmission('audit-1');
     connected.connected = true;
+    getSession.mockResolvedValue({ data: { session: { user: { id: 'operator-1' } } } });
     removeDraft.mockResolvedValue(undefined);
     markPending.mockResolvedValue(undefined);
   });
 
   it('envia um único commit consolidado e remove o rascunho somente após confirmação', async () => {
-    rpc.mockResolvedValue({ data: { auditId: 'audit-1', status: 'processed' }, error: null });
+    mockClaimAndFinalize('audit-1');
     const params = makeParams();
     expect(await executeInventoryFinalization(params)).toBe(true);
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc.mock.calls[0][1].p_items).toEqual([
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls[0][0]).toBe('claim_inventory_audit_submission');
+    expect(rpc.mock.calls[0][1]).not.toHaveProperty('p_user_id');
+    expect(rpc.mock.calls[1][0]).toBe('finalize_inventory_transaction');
+    expect(rpc.mock.calls[1][1].p_items).toEqual([
       { productId: 'p1', variationId: 'v1', name: 'Produto', physicalCount: 3, previousStock: 4 },
     ]);
     expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(removeDraft.mock.invocationCallOrder[0]);
@@ -90,7 +102,7 @@ describe('conclusão do inventário mobile', () => {
   });
 
   it('envia o colaborador escolhido no escopo sem trocar o ator autenticado', async () => {
-    rpc.mockResolvedValue({ data: { auditId: 'audit-1', status: 'processed' }, error: null });
+    mockClaimAndFinalize('audit-1');
     const params = makeParams();
     params.scopeConfig = {
       ...params.scopeConfig,
@@ -99,23 +111,37 @@ describe('conclusão do inventário mobile', () => {
     };
 
     expect(await executeInventoryFinalization(params)).toBe(true);
-    expect(rpc.mock.calls[0][1].p_responsible_name).toBe('Colaboradora selecionada');
-    expect(rpc.mock.calls[0][1].p_observation.responsibleId).toBe('people-employee-42');
+    expect(rpc.mock.calls[1][1].p_responsible_name).toBe('Colaboradora selecionada');
+    expect(rpc.mock.calls[1][1].p_observation.responsibleId).toBe('people-employee-42');
+  });
+
+  it('não chama a RPC de estoque se o claim não confirmar o audit_id', async () => {
+    rpc.mockResolvedValueOnce({ data: { auditId: 'other-audit', status: 'claimed' }, error: null });
+
+    expect(await executeInventoryFinalization(makeParams())).toBe(false);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls[0][0]).toBe('claim_inventory_audit_submission');
+    expect(removeDraft).not.toHaveBeenCalled();
   });
 
   it('preserva o rascunho numa falha e reenvia com o mesmo ID na tentativa seguinte', async () => {
-    rpc.mockResolvedValueOnce({ data: null, error: new Error('network') }).mockResolvedValueOnce({
-      data: { auditId: 'audit-1', status: 'already_processed' },
-      error: null,
-    });
+    rpc
+      .mockResolvedValueOnce({ data: { auditId: 'audit-1', status: 'claimed' }, error: null })
+      .mockResolvedValueOnce({ data: null, error: new Error('network') })
+      .mockResolvedValueOnce({ data: { auditId: 'audit-1', status: 'already_claimed' }, error: null })
+      .mockResolvedValueOnce({ data: { auditId: 'audit-1', status: 'already_processed' }, error: null });
     const params = makeParams();
     expect(await executeInventoryFinalization(params)).toBe(false);
     expect(removeDraft).not.toHaveBeenCalled();
     expect((await getInventorySubmission('audit-1'))?.items[0].physicalCount).toBe(3);
     params.itemsWithAdjustment[0].physicalCount = 99;
     expect(await executeInventoryFinalization(params)).toBe(true);
-    expect(rpc.mock.calls[0][1].p_audit_id).toBe(rpc.mock.calls[1][1].p_audit_id);
-    expect(rpc.mock.calls[0][1]).toEqual(rpc.mock.calls[1][1]);
+    expect(rpc).toHaveBeenCalledTimes(4);
+    expect(rpc.mock.calls[0][0]).toBe('claim_inventory_audit_submission');
+    expect(rpc.mock.calls[2][0]).toBe('claim_inventory_audit_submission');
+    expect(rpc.mock.calls[0][1].p_audit_id).toBe(rpc.mock.calls[2][1].p_audit_id);
+    expect(rpc.mock.calls[0][1]).toEqual(rpc.mock.calls[2][1]);
+    expect(rpc.mock.calls[1][1]).toEqual(rpc.mock.calls[3][1]);
     expect(removeDraft).toHaveBeenCalledTimes(1);
   });
 
@@ -129,7 +155,10 @@ describe('conclusão do inventário mobile', () => {
 
   it('limita o commit e o retry da outbox sem descartar a submissão não confirmada', async () => {
     rpc.mockImplementation(() => new Promise(() => {}));
-    withTimeout.mockImplementationOnce((_promise, _timeoutMs, fallback) => Promise.resolve(fallback));
+    withTimeout
+      .mockImplementationOnce((_promise, _timeoutMs, fallback) => Promise.resolve(fallback))
+      .mockImplementationOnce((promise) => Promise.resolve(promise))
+      .mockImplementationOnce((_promise, _timeoutMs, fallback) => Promise.resolve(fallback));
 
     expect(await executeInventoryFinalization(makeParams())).toBe(false);
     expect(alert).toHaveBeenCalledWith(
@@ -141,15 +170,13 @@ describe('conclusão do inventário mobile', () => {
 
     withTimeout.mockImplementationOnce((_promise, _timeoutMs, fallback) => Promise.resolve(fallback));
     expect(await syncPendingInventorySubmissions()).toBe(0);
-    expect(withTimeout).toHaveBeenNthCalledWith(
-      1,
+    expect(withTimeout).toHaveBeenCalledWith(
       expect.anything(),
-      30_000,
+      10_000,
       null,
-      'inventario:finalizacao-rpc'
+      'inventario:outbox-auth-session'
     );
-    expect(withTimeout).toHaveBeenNthCalledWith(
-      2,
+    expect(withTimeout).toHaveBeenCalledWith(
       expect.anything(),
       30_000,
       null,
@@ -169,10 +196,7 @@ describe('conclusão do inventário mobile', () => {
 
   it('prepara contrato v2 com horário e envia todas as contagens quando habilitado', async () => {
     process.env.EXPO_PUBLIC_INVENTORY_RPC_V2 = 'true';
-    rpc.mockResolvedValue({
-      data: { auditId: 'audit-1', status: 'processed', moves: [] },
-      error: null,
-    });
+    mockClaimAndFinalize('audit-1');
     const params = makeParams();
     params.items.push({
       ...params.items[0],
@@ -194,8 +218,10 @@ describe('conclusão do inventário mobile', () => {
       difference: 0,
     });
     expect(await executeInventoryFinalization(params)).toBe(true);
-    expect(rpc.mock.calls[0][0]).toBe('finalize_inventory_transaction_v2');
-    expect(rpc.mock.calls[0][1].p_items[0].countedAt).toBe('2026-09-25T10:00:00Z');
-    expect(rpc.mock.calls[0][1].p_items).toHaveLength(2);
+    expect(rpc.mock.calls[0][0]).toBe('claim_inventory_audit_submission');
+    expect(rpc.mock.calls[0][1].p_contract_version).toBe(2);
+    expect(rpc.mock.calls[1][0]).toBe('finalize_inventory_transaction_v2');
+    expect(rpc.mock.calls[1][1].p_items[0].countedAt).toBe('2026-09-25T10:00:00Z');
+    expect(rpc.mock.calls[1][1].p_items).toHaveLength(2);
   });
 });

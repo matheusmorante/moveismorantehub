@@ -25,6 +25,7 @@ interface Props {
   search: string;
   totalCount: number;
   onSearch: (value: string) => void;
+  onSubmitSearch?: () => void;
   onNewProduct: () => void;
   canCreateProduct?: boolean;
   onNewComposition?: () => void;
@@ -39,9 +40,13 @@ interface Props {
   onToggleDeactivated: () => void;
   showMergedProducts?: boolean;
   onToggleMergedProducts?: () => void;
+  isAdministrator?: boolean;
+  showTestProducts?: boolean;
+  onToggleTestProducts?: () => void;
   showTrash?: boolean;
   canViewTrash?: boolean;
   onToggleTrash?: () => void;
+  canFilterByCategory: boolean;
   categories: any[];
   statusFilter: 'all' | 'active' | 'disabled' | 'draft';
   categoryFilter: string;
@@ -67,6 +72,7 @@ export function ProductsHeader({
   search,
   totalCount,
   onSearch,
+  onSubmitSearch,
   onNewProduct,
   canCreateProduct = false,
   onNewComposition,
@@ -81,9 +87,13 @@ export function ProductsHeader({
   onToggleDeactivated,
   showMergedProducts = false,
   onToggleMergedProducts,
+  isAdministrator = false,
+  showTestProducts = false,
+  onToggleTestProducts,
   showTrash = false,
   canViewTrash = false,
   onToggleTrash,
+  canFilterByCategory,
   categories,
   statusFilter,
   categoryFilter,
@@ -156,11 +166,9 @@ export function ProductsHeader({
           <TextInput
             value={search}
             onChangeText={onSearch}
-            placeholder={
-              mode === 'composition'
-                ? 'Buscar composições (mín. 3 caracteres)...'
-                : 'Buscar produtos por nome (mín. 3 caracteres)...'
-            }
+            onSubmitEditing={onSubmitSearch}
+            returnKeyType="search"
+            placeholder="Buscar por nome, código ou SKU (mín. 3 caracteres)..."
             placeholderTextColor="#94a3b8"
             style={[styles.input, dark && styles.light, { outlineStyle: 'none' } as any]}
           />
@@ -215,10 +223,14 @@ export function ProductsHeader({
         generalTypeFilter={generalTypeFilter}
         onGeneralTypeFilterChange={onGeneralTypeFilterChange}
         showMergedProducts={showMergedProducts}
+        isAdministrator={isAdministrator}
+        showTestProducts={showTestProducts}
+        onToggleTestProducts={onToggleTestProducts}
         showTrash={showTrash}
         onToggleMergedProducts={onToggleMergedProducts}
         catalogStatusFilter={catalogStatusFilter}
         onCatalogStatusFilterChange={onCatalogStatusFilterChange}
+        canFilterByCategory={canFilterByCategory}
         categories={categories}
         categoryFilter={categoryFilter}
         onCategoryFilterChange={onCategoryFilterChange}

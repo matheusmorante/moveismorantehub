@@ -22,6 +22,18 @@ import {
   isCharacteristicDependent,
   isCharacteristicDependentOnVariableField,
 } from '../../../../../shared-utils/productCharacteristicDependencies';
+import {
+  findProductTechnicalValueEntry,
+  deduplicateProductTechnicalValueAliasFields,
+  getProductTechnicalValueCandidateKeys,
+} from '../../../../../shared-utils/productTechnicalValueAliases';
+import {
+  removeProductVariationTechnicalAttribute,
+  syncProductVariationTechnicalAttribute,
+} from '../../../../../shared-utils/productVariationTechnicalAttributes';
+import {
+  isProductTechnicalAttributeRequiredByCategories,
+} from '../../../../../shared-utils/productCategoryRequiredAttributes';
 
 // ============================================================================
 // 1. TYPES & INTERFACES
@@ -273,7 +285,7 @@ export const isProductTechnicalFieldRequiredForCatalog = (
 ): boolean =>
   !isWeightCharacteristicName(field.name) &&
   (field.requiredForCategory === true ||
-    Boolean(field.requiredCategoryIds?.some((id) => categoryIds.map(String).includes(String(id)))));
+    isProductTechnicalAttributeRequiredByCategories(field.requiredCategoryIds, categoryIds));
 
 export const getDimensionSortRank = (name: string): number => {
   const norm = normalizeName(name);
@@ -375,25 +387,14 @@ export const upsertProductCharacteristicAttribute = (
   defaultShowName = true
 ): ProductCharacteristicAttribute[] => {
   const next = getProductCharacteristicAttributes(rawAttributes);
-  const normalizedName = normalizeName(name);
-  const index = next.findIndex((attribute) => normalizeName(attribute.name) === normalizedName);
-
-  if (!String(value ?? '').trim()) {
-    if (index >= 0) next.splice(index, 1);
-    return next;
-  }
-
-  const existing = index >= 0 ? next[index] : undefined;
-  const updated = {
-    ...existing,
-    name,
-    value: String(value),
-    showName: existing?.showName ?? defaultShowName,
-  };
-  if (index >= 0) next[index] = updated;
-  else next.push(updated);
-  return next;
+  return syncProductVariationTechnicalAttribute(next, name, value, defaultShowName);
 };
+
+export const removeProductCharacteristicAttribute = (
+  rawAttributes: unknown,
+  name: string
+): ProductCharacteristicAttribute[] =>
+  removeProductVariationTechnicalAttribute(getProductCharacteristicAttributes(rawAttributes), name);
 
 /** Valores do produto pai: características legadas e, depois, technicalValues como fonte prioritária. */
 export const getEffectiveProductTechnicalValues = (product: any = {}) => {
@@ -416,10 +417,9 @@ const normalizeVariableFieldName = (value: unknown) =>
     .toLocaleLowerCase('pt-BR');
 
 const variableFieldAliases = (value: unknown) => {
-  const normalized = normalizeVariableFieldName(value).replace(/\s/g, '');
-  return ['modelo', 'linha', 'modelolinha', 'linhamodelo'].includes(normalized)
-    ? ['modelo', 'linha', 'modelolinha', 'linhamodelo']
-    : [normalized];
+  return getProductTechnicalValueCandidateKeys(String(value || '')).map((candidate) =>
+    normalizeVariableFieldName(candidate).replace(/\s/g, '')
+  );
 };
 
 export const isMobileVariableTechnicalField = (
@@ -524,48 +524,31 @@ export const getEffectiveVariationTechnicalValues = (
     Object.entries(toTechnicalValuesMap(variation?.technicalValues)).filter(([name]) => isAllowed(name))
   );
 
-  return normalizeValues({
+  const variationValues = normalizeValues({
+    ...variationAttributes,
+    ...variationTechnicalValues,
+  });
+  const effectiveValues = normalizeValues({
     ...parentValues,
     ...variationAttributes,
     ...variationTechnicalValues,
   });
+  const variationModelLine = findProductTechnicalValueEntry(variationValues, 'Modelo/Linha');
+  if (variationModelLine && variationModelLine.value !== undefined && variationModelLine.value !== null) {
+    effectiveValues[normalizeName('Modelo/Linha')] = variationModelLine.value;
+  }
+  return effectiveValues;
 };
 
 export const getTechnicalValue = (values: Record<string, unknown> = {}, name: string) => {
-  const normalizedName = normalizeName(name);
-  const matchingEntry = Object.entries(values).find(
-    ([key]) => normalizeName(key) === normalizedName
-  );
-  if (
-    matchingEntry?.[1] !== undefined &&
-    matchingEntry?.[1] !== null &&
-    String(matchingEntry[1]).trim() !== ''
-  ) {
-    return matchingEntry[1];
-  }
-  if (normalizedName === 'modelo/linha' || normalizedName === 'linha/modelo') {
-    const fallbackEntry = Object.entries(values).find(([key]) => {
-      const k = normalizeName(key);
-      return k === 'modelo' || k === 'linha' || k === 'modelo e linha' || k === 'modelo ou linha';
-    });
-    if (fallbackEntry?.[1] !== undefined && fallbackEntry?.[1] !== null) {
-      return fallbackEntry[1];
-    }
-  }
-  return matchingEntry?.[1];
+  return findProductTechnicalValueEntry(values, name)?.value;
 };
 
 export const hasTechnicalValue = (values: Record<string, unknown> = {}, name: string) => {
-  const normalizedName = normalizeName(name);
-  const exists = Object.keys(values).some((key) => normalizeName(key) === normalizedName);
-  if (exists) return true;
-  if (normalizedName === 'modelo/linha' || normalizedName === 'linha/modelo') {
-    return Object.keys(values).some((key) => {
-      const k = normalizeName(key);
-      return k === 'modelo' || k === 'linha' || k === 'modelo e linha' || k === 'modelo ou linha';
-    });
-  }
-  return false;
+  const candidates = new Set(
+    getProductTechnicalValueCandidateKeys(name).map((candidate) => normalizeName(candidate))
+  );
+  return Object.keys(values).some((key) => candidates.has(normalizeName(key)));
 };
 
 // ============================================================================
@@ -640,10 +623,10 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
     const hasExistingValue = hasTechnicalValue(values, field.name);
     const norm = normalizeName(field.name);
 
+    if (isProductTechnicalFieldRequiredForCatalog(field, categoryIds)) return true;
     if (isMattress && isHeightCharacteristic(field.name)) {
       return hasExistingValue || manualNames.has(norm);
     }
-    if (isProductTechnicalFieldRequiredForCatalog(field, categoryIds)) return true;
     if (field.active === false) {
       return hasExistingValue || manualNames.has(norm);
     }
@@ -673,7 +656,7 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
     });
   }
 
-  return applicable.map((field) => ({
+  return deduplicateProductTechnicalValueAliasFields(applicable.map((field) => ({
     ...field,
     isRequired: isProductTechnicalFieldRequired(field, categoryIds),
     isRequiredForProduct: isProductTechnicalFieldRequired(field, categoryIds),
@@ -682,7 +665,7 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
       isWeightCharacteristicName(field.name) || field.data_type === 'weight'
         ? 1
         : field.decimal_places,
-  }));
+  })));
 };
 
 // ============================================================================

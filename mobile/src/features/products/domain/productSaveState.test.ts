@@ -1,7 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { prepareMobileProductSaveState } from './productSaveState';
+import {
+  prepareMobileProductSaveState,
+  shouldValidatePublishedCatalogEdit,
+} from './productSaveState';
 
 describe('productSaveState', () => {
+  it('revalida a publicação somente para produto normal que permanece publicado', () => {
+    expect(shouldValidatePublishedCatalogEdit('published', { status: 'published' }, {})).toBe(true);
+    expect(
+      shouldValidatePublishedCatalogEdit(
+        'published',
+        { status: 'published', observations: 'Produto HMLNFTEST' },
+        {},
+      ),
+    ).toBe(false);
+    expect(
+      shouldValidatePublishedCatalogEdit(
+        'published',
+        { status: 'published' },
+        { observations: 'NFE_HML_MATRIX_2026_10' },
+      ),
+    ).toBe(false);
+    expect(shouldValidatePublishedCatalogEdit('hidden', { status: 'hidden' }, {})).toBe(false);
+  });
+
   it('salva rascunho existente desativado e preserva status próprios das variações', () => {
     const state = prepareMobileProductSaveState(
       { id: 'product-1', status: 'draft' },

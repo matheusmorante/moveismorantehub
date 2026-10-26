@@ -10,12 +10,18 @@ interface Props {
   onSelect: (product: Product, variation?: Variation) => void;
   onClose: () => void;
   priceType?: 'unit' | 'cost';
+  compositionOnly?: boolean;
 }
 
-const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) => {
+const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit', compositionOnly = false }: Props) => {
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [selectingKey, setSelectingKey] = useState<string | null>(null);
   const { search, setSearch, loading, filtered } = useProductSearch_new(priceType);
+  const visibleItems = compositionOnly
+    ? filtered
+        .filter((item) => item.isComposition || item.p.itemType === 'composition')
+        .slice(0, 5)
+    : filtered;
 
   const handleItemClick = async (item: any) => {
     if (selectingKey) return;
@@ -51,26 +57,28 @@ const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) =>
         <div className="px-6 sm:px-8 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-blue-50 dark:bg-blue-900/10 shrink-0">
           <div className="flex items-center gap-4">
             <div className="bg-blue-600 p-2.5 rounded-2xl shadow-lg shadow-blue-200 dark:shadow-blue-900/30">
-              <i className="bi bi-box-seam-fill text-white text-xl" />
+              <i className={`bi ${compositionOnly ? 'bi-boxes' : 'bi-box-seam-fill'} text-white text-xl`} />
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight leading-tight">
-                Selecionar Item
+                {compositionOnly ? 'Selecionar produto composto' : 'Selecionar item'}
               </h2>
               <p className="text-[10px] uppercase font-black text-blue-600 dark:text-blue-400 tracking-widest mt-0.5">
-                Pesquise no catálogo
+                {compositionOnly ? 'Pesquise no catálogo de composições' : 'Pesquise no catálogo'}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-            <button
-              type="button"
-              onClick={() => setIsProductFormOpen(true)}
-              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-all shadow-md active:scale-95 font-black text-[9px] sm:text-[10px] uppercase tracking-widest"
-            >
-              <i className="bi bi-plus-lg" />
-              <span className="hidden xs:inline">Novo</span>
-            </button>
+            {!compositionOnly && (
+              <button
+                type="button"
+                onClick={() => setIsProductFormOpen(true)}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-all shadow-md active:scale-95 font-black text-[9px] sm:text-[10px] uppercase tracking-widest"
+              >
+                <i className="bi bi-plus-lg" />
+                <span className="hidden xs:inline">Novo</span>
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-xl transition-colors text-slate-400 hover:text-slate-600"
@@ -87,7 +95,11 @@ const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) =>
             <input
               autoFocus
               type="text"
-              placeholder="Descrição, código ou categoria..."
+              placeholder={
+                compositionOnly
+                  ? 'Busque a composição... (mínimo de 3 caracteres para buscar)'
+                  : 'Descrição, código ou categoria...'
+              }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all placeholder:font-normal placeholder:text-slate-400"
@@ -110,13 +122,15 @@ const ProductSearchModal = ({ onSelect, onClose, priceType = 'unit' }: Props) =>
               <i className="bi bi-arrow-repeat text-2xl animate-spin mb-2" />
               <p className="text-xs font-bold">Carregando itens...</p>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : visibleItems.length === 0 ? (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400 text-center">
               <i className="bi bi-inbox text-3xl mb-2" />
-              <p className="text-xs font-bold">Nenhum item encontrado</p>
+              <p className="text-xs font-bold">
+                {compositionOnly ? 'Nenhum produto composto encontrado' : 'Nenhum item encontrado'}
+              </p>
             </div>
           ) : (
-            filtered.map((item) => (
+            visibleItems.map((item) => (
               <ProductSearchItem
                 key={item.key}
                 product={item.p}

@@ -39,6 +39,13 @@ vi.mock('./productLocalCache', () => ({
 }));
 vi.mock('./productPersistenceService', () => ({
   ensureUuidFormat: (product: any) => product.id || crypto.randomUUID(),
+  omitCompositionAvailabilityStock: (product: any) => product.itemType === 'composition'
+    ? {
+        ...product,
+        stock: undefined,
+        variations: product.variations?.map((variation: any) => ({ ...variation, stock: undefined })),
+      }
+    : product,
   syncProductToSupabase: vi.fn(async (...args: any[]) => {
     mockDb.syncCalls.push(args);
   }),
@@ -348,5 +355,38 @@ describe('productMutationService - Sincronização de active entre pai e variaç
       TEST_PRODUCT_CATALOG_PUBLICATION_ERROR
     );
     expect(updates).toEqual([]);
+  });
+
+  it('não grava saldo derivado de composição no fallback de edição sem cache local', async () => {
+    const uuid = 'b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078';
+    await updateProduct(uuid, {
+      itemType: 'composition',
+      stock: 8,
+      isDraft: false,
+      status: 'hidden',
+      variations: [{
+        id: 'c9f1bb8a-8e5a-48c5-ab8c-e065f3ea4079',
+        sku: 'KIT-08',
+        stock: 8,
+      }],
+    } as any);
+
+    const parentUpdate = updates.find((entry) => entry.table === 'products');
+    expect(parentUpdate?.value).not.toHaveProperty('stock');
+    expect(updates.some((entry) => entry.table === 'product_variations' && 'stock' in entry.value)).toBe(false);
+  });
+
+  it('preserva brand no fallback de edição de produto ausente do cache local', async () => {
+    const uuid = 'b9f1bb8a-8e5a-48c5-ab8c-e065f3ea4078';
+
+    await updateProduct(uuid, {
+      brand: 'Morante',
+      isDraft: false,
+      status: 'hidden',
+    } as any);
+
+    const parentUpdate = updates.find((entry) => entry.table === 'products');
+    expect(parentUpdate?.filter).toEqual({ col: 'id', val: uuid });
+    expect(parentUpdate?.value).toHaveProperty('brand', 'Morante');
   });
 });

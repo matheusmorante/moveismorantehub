@@ -17,10 +17,12 @@ const product = () =>
   });
 const writes: Array<{ table: string; value: unknown }> = [];
 let actualVariations: { id: string }[] = [];
+let actualSiblingStatuses: { active?: boolean | null }[] = [];
 let queryError: Error | null = null;
 let productKind = 'normal';
 beforeEach(() => {
   actualVariations = [];
+  actualSiblingStatuses = [];
   queryError = null;
   productKind = 'normal';
   writes.length = 0;
@@ -38,7 +40,7 @@ beforeEach(() => {
         error: queryError,
       })),
       then: (resolve: (value: unknown) => unknown) =>
-        Promise.resolve({ data: [], error: queryError }).then(resolve),
+        Promise.resolve({ data: actualSiblingStatuses, error: queryError }).then(resolve),
     };
     return chain;
   });
@@ -86,6 +88,14 @@ it('não desativa o pai quando falha a leitura das variações', async () => {
   queryError = new Error('Falha de conexão');
   await expect(syncParentActiveInDb(parentId)).rejects.toThrow('Falha de conexão');
   expect(writes).toEqual([]);
+});
+
+it('mantém o pai ativo quando uma variação é desativada e outra irmã continua ativa', async () => {
+  actualSiblingStatuses = [{ active: false }, { active: true }];
+
+  await syncParentActiveInDb(parentId);
+
+  expect(writes).toEqual([{ table: 'products', value: { active: true } }]);
 });
 
 it('impede ativar uma composição Salvado pela listagem', async () => {

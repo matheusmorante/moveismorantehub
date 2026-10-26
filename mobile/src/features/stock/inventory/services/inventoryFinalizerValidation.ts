@@ -29,23 +29,12 @@ export interface InventoryFinalizationValidationResult {
 export const validateInventoryBeforeFinalization = async ({
   items,
   itemsWithAdjustment,
-  scopeConfig,
   useV2,
 }: {
   items: AuditItem[];
   itemsWithAdjustment: FinalizeAdjustmentItem[];
-  scopeConfig: InventoryFinalizerScopeConfig;
   useV2: boolean;
 }): Promise<InventoryFinalizationValidationResult> => {
-  const uncountedCount = items.filter((i) => i.physicalCount === null).length;
-  if (scopeConfig.hasStages && uncountedCount > 0) {
-    return {
-      valid: false,
-      alertTitle: 'Etapas pendentes',
-      alertMessage: 'Todos os produtos devem ser contados antes de concluir o inventário por etapas.',
-    };
-  }
-
   if (!items.some((i) => i.physicalCount !== null)) {
     return {
       valid: false,

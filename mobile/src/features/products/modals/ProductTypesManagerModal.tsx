@@ -32,6 +32,7 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
   const [types, setTypes] = useState<MobileProductType[]>([]);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const form = useZodForm(catalogNameFormSchema, { name });
 
   const load = async () => {
@@ -51,13 +52,16 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
 
   const add = async () => {
     return form.validateAndRun({ name }, async (values) => {
-    try {
-      await saveMobileProductType(values.name);
-      setName('');
-      await load();
-    } catch (error: any) {
-      Alert.alert('Não foi possível salvar', error?.message || 'Tente novamente.');
-    }
+      setSaving(true);
+      try {
+        await saveMobileProductType(values.name);
+        setName('');
+        await load();
+      } catch (error: any) {
+        Alert.alert('Não foi possível salvar', error?.message || 'Tente novamente.');
+      } finally {
+        setSaving(false);
+      }
     }, (errors) => Alert.alert('Revise o tipo', Object.values(flattenFormErrors(errors))[0]));
   };
 
@@ -112,11 +116,17 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
             />
             <TouchableOpacity
               onPress={() => void add()}
-              style={styles.add}
+              style={[styles.add, saving && styles.disabled]}
+              disabled={saving}
               accessibilityRole="button"
-              accessibilityLabel="Adicionar tipo de produto"
+              accessibilityLabel={saving ? 'Salvando tipo de produto' : 'Adicionar tipo de produto'}
+              accessibilityState={{ disabled: saving, busy: saving }}
             >
-              <Plus size={17} color="#fff" />
+              {saving ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Plus size={17} color="#fff" />
+              )}
             </TouchableOpacity>
           </View>
           {loading ? (
@@ -188,6 +198,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  disabled: { opacity: 0.55 },
   item: {
     flexDirection: 'row',
     alignItems: 'center',

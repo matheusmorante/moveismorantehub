@@ -1,5 +1,6 @@
 import type { FiscalInfo } from './product.type.js';
 import type { ServiceFiscalSnapshot } from './service.type.js';
+import type { OrderCompositionSnapshot } from '../../../../shared-utils/orderCompositionSnapshot.js';
 
 type DiscountType = 'percentage' | 'fixed';
 
@@ -40,6 +41,8 @@ export type Item = {
   fiscal?: FiscalInfo;
   isCombo?: boolean;
   isComboItem?: boolean;
+  /** Immutable parent and per-component quantity snapshot for a composed product in this order. */
+  compositionGroup?: OrderCompositionSnapshot;
   currentStock?: number;
   minStock?: number;
   /** Quantidade devolvida no pedido de devolução */

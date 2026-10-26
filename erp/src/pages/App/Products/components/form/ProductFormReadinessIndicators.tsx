@@ -2,6 +2,7 @@ import React from 'react';
 import Product from '../../../../types/product.type';
 import { checkERPLegibility } from '../../domain/productLegibilityRules';
 import { getProductKind } from '@/pages/utils/productKindRules';
+import { hasProductVariationPhotos } from '../../../../../../../shared-utils/productErpLegibility';
 
 interface ProductFormReadinessIndicatorsProps {
   readonly formData: Partial<Product>;
@@ -20,17 +21,7 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
 }) => {
   const erpStatus = checkERPLegibility(formData);
   const isSalvado = getProductKind(formData) === 'salvado';
-  const hasVariationPhotos = Boolean(
-    formData.variations?.length &&
-      formData.variations.every((v) => {
-        const imgs = Array.isArray(v.images)
-          ? v.images.filter(Boolean)
-          : typeof (v as any).image_url === 'string' && (v as any).image_url.trim()
-            ? (v as any).image_url.split(',').filter(Boolean)
-            : [];
-        return imgs.length > 0;
-      })
-  );
+  const hasVariationPhotos = hasProductVariationPhotos(formData);
 
   return (
     <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center">

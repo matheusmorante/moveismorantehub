@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import { ChevronDown, ChevronRight, Edit2, Trash2, X, Plus, Inbox } from 'lucide-react-native';
 import { EnvironmentNode, CategoryNode } from '../types/mobileCategory.types';
+import { filterEnvironmentsBySearch } from '../../../../../../shared-utils/categoryEnvironmentSearch';
 
 interface Props {
   dark: boolean;
@@ -33,13 +34,7 @@ export const MobileEnvironmentsList: React.FC<Props> = ({
   };
 
   const filteredEnvironments = useMemo(() => {
-    if (!searchTerm.trim()) return environments;
-    const norm = searchTerm.toLowerCase();
-    return environments.filter((env) => {
-      if (env.name.toLowerCase().includes(norm)) return true;
-      const envCats = categories.filter((c) => env.categories?.includes(c.id));
-      return envCats.some((c) => c.name.toLowerCase().includes(norm));
-    });
+    return filterEnvironmentsBySearch(environments, categories, searchTerm);
   }, [environments, categories, searchTerm]);
 
   return (

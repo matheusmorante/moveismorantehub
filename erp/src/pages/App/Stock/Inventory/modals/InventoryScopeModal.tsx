@@ -10,6 +10,10 @@ import { InventoryScopeTypeSelector } from '../components/InventoryScopeTypeSele
 import { InventoryScopeConfigForm } from '../components/InventoryScopeConfigForm';
 import type { ScopeConfiguration } from '../types/inventoryScope.types';
 import type { InventorySnapshotItem } from '../types/inventoryAudit.types';
+import {
+  isInventoryProductEligible,
+  isInventorySupplierEligible,
+} from '../domain/inventoryScopeEligibility';
 
 export type { InventoryScopeType, ScopeConfiguration } from '../types/inventoryScope.types';
 
@@ -55,22 +59,29 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
     const selected: Array<{ product: Product; variation?: NonNullable<Product['variations']>[number] }> = [];
     const seen = new Set<string>();
     for (const source of copiedItems) {
-      const product = allProducts.find((item) => String(item.id) === source.productId && !item.deleted);
+      const product = allProducts.find(
+        (item) =>
+          String(item.id) === source.productId &&
+          !item.deleted &&
+          isInventoryProductEligible(item, suppliers)
+      );
       const variation = source.variationId ? product?.variations?.find((item) => item.id === source.variationId) : undefined;
       const key = JSON.stringify([source.productId, source.variationId || '']);
       if (!product || (source.variationId && !variation) || seen.has(key)) return null;
       seen.add(key); selected.push({ product, variation });
     }
     return selected;
-  }, [copiedItems, allProducts]);
+  }, [copiedItems, allProducts, suppliers]);
   const initializedCopy = useRef(false);
   useEffect(() => {
     if (!copyRequested || !copiedSelection) return;
     setCustomProducts(copiedSelection);
     if (!initializedCopy.current) { initializedCopy.current = true; handleNextStep('custom'); }
   }, [copyRequested, copiedSelection, setCustomProducts, handleNextStep]);
-  const copyError = copyRequested && !copiedSelection
-    ? 'A cópia contém itens indisponíveis ou não possui itens. Confira o catálogo antes de iniciar.' : '';
+  const copyError =
+    copyRequested && !copiedSelection
+      ? 'A cópia contém itens indisponíveis, fora do escopo do inventário ou não possui itens. Confira a lista antes de iniciar.'
+      : '';
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -108,7 +119,13 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
           setError('O responsável não está mais disponível. Selecione um responsável da lista.');
           return false;
         }
-        if (data.type === 'supplier' && !options.current.suppliers.some((supplier) => String(supplier.id) === data.supplierId)) {
+        if (
+          data.type === 'supplier' &&
+          !options.current.suppliers.some(
+            (supplier) =>
+              String(supplier.id) === data.supplierId && isInventorySupplierEligible(supplier)
+          )
+        ) {
           setError('O fornecedor não está mais disponível. Selecione um fornecedor da lista.');
           return false;
         }

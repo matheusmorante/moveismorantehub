@@ -3,6 +3,7 @@ export type ProductFormTabKey =
   | 'ambientes'
   | 'estoque'
   | 'variacoes'
+  | 'composicao'
   | 'ecommerce'
   | 'description'
   | 'technical'

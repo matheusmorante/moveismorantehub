@@ -29,12 +29,253 @@ vi.mock('../../../../../shared-utils/productCategoryRequiredAttributes', async (
 
 import {
   checkMobileProductVariationHasMoves,
+  deleteMobileProduct,
+  moveMobileProductToTrash,
+  restoreMobileProductFromTrash,
   saveMobileProduct,
   toggleMobileProductCatalog,
   toggleMobileProductActive,
 } from './mobileProductMutationService';
+import { fetchRequiredProductCategoryAttributes } from '../../../../../shared-utils/productCategoryRequiredAttributes';
+import {
+  productDraftDiscardFormSchema,
+  productMoveToTrashFormSchema,
+  productRestoreFromTrashFormSchema,
+} from '../../../../../shared-utils/productVariationOperationFormSchemas';
 
 let query: any;
+
+describe('productDraftDiscardFormSchema', () => {
+  it('accepts an explicitly confirmed draft and normalizes a display suffix from its UUID', () => {
+    expect(
+      productDraftDiscardFormSchema.safeParse({
+        productId: '123e4567-e89b-42d3-a456-426614174000_display',
+        confirmed: true,
+      })
+    ).toMatchObject({
+      success: true,
+      data: {
+        productId: '123e4567-e89b-42d3-a456-426614174000',
+        confirmed: true,
+      },
+    });
+  });
+
+  it.each([
+    { productId: 'not-a-uuid', confirmed: true },
+    { productId: '123e4567-e89b-42d3-a456-426614174000', confirmed: false },
+  ])('rejects invalid identifiers or an unconfirmed discard (%o)', (values) => {
+    expect(productDraftDiscardFormSchema.safeParse(values).success).toBe(false);
+  });
+
+  it('requires explicit confirmation and a valid product ID before moving to trash', () => {
+    expect(
+      productMoveToTrashFormSchema.safeParse({
+        productId: '123e4567-e89b-42d3-a456-426614174000',
+        confirmed: true,
+      }).success
+    ).toBe(true);
+    expect(
+      productMoveToTrashFormSchema.safeParse({
+        productId: '123e4567-e89b-42d3-a456-426614174000',
+        confirmed: false,
+      }).success
+    ).toBe(false);
+  });
+
+  it('requires the restore action and parses the product UUID before restoring', () => {
+    expect(
+      productRestoreFromTrashFormSchema.safeParse({
+        productId: '123e4567-e89b-42d3-a456-426614174000_display',
+        action: 'restore',
+      })
+    ).toMatchObject({
+      success: true,
+      data: {
+        productId: '123e4567-e89b-42d3-a456-426614174000',
+        action: 'restore',
+      },
+    });
+    expect(
+      productRestoreFromTrashFormSchema.safeParse({
+        productId: 'not-a-uuid',
+        action: 'restore',
+      }).success
+    ).toBe(false);
+    expect(
+      productRestoreFromTrashFormSchema.safeParse({
+        productId: '123e4567-e89b-42d3-a456-426614174000',
+        action: 'delete',
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('deleteMobileProduct', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.rpc.mockResolvedValue({
+      data: { success: true, code: 'product_deleted', message: 'Produto excluído com sucesso.' },
+      error: null,
+    });
+  });
+
+  it('discards drafts through the permission and reference checked ERP RPC', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174000';
+
+    await expect(deleteMobileProduct(productId, true)).resolves.toMatchObject({
+      success: true,
+      code: 'product_deleted',
+    });
+
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledWith('delete_unreferenced_product', {
+      p_product_id: productId,
+    });
+  });
+
+  it.each([
+    { success: false, code: 'permission_denied', message: 'Seu perfil não permite excluir produtos.' },
+    { success: false, code: 'product_in_use', message: 'Produto possui vínculos ou histórico.' },
+  ])('surfaces an unsuccessful RPC result without a direct-delete fallback (%o)', async (result) => {
+    mocks.rpc.mockResolvedValueOnce({ data: result, error: null });
+
+    await expect(deleteMobileProduct('123e4567-e89b-42d3-a456-426614174000', true)).rejects.toThrow(
+      result.message
+    );
+
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledOnce();
+  });
+
+  it('rejects invalid draft identifiers before any database call', async () => {
+    await expect(deleteMobileProduct('not-a-uuid', true)).rejects.toThrow('ID do produto inválido.');
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('moveMobileProductToTrash', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.rpc.mockResolvedValue({
+      data: { success: true, code: 'moved_to_trash', message: 'Produto movido com sucesso.' },
+      error: null,
+    });
+  });
+
+  it('uses the transactional ERP RPC and schedules Meta sync only after confirmed success', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174000';
+
+    await expect(moveMobileProductToTrash(productId)).resolves.toMatchObject({
+      success: true,
+      code: 'moved_to_trash',
+    });
+
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledWith('move_product_to_trash', {
+      p_product_id: productId,
+    });
+    expect(mocks.triggerMetaCatalogSync).toHaveBeenCalledWith(productId);
+  });
+
+  it.each([
+    {
+      success: false,
+      code: 'permission_denied',
+      message: 'Seu perfil não possui permissão para mover produtos para a lixeira.',
+    },
+    {
+      success: false,
+      code: 'product_in_use',
+      message: 'O produto possui vínculos e deve permanecer ativo.',
+    },
+  ])('does not synchronize or fall back when the RPC rejects the operation (%o)', async (result) => {
+    mocks.rpc.mockResolvedValueOnce({ data: result, error: null });
+
+    await expect(moveMobileProductToTrash('123e4567-e89b-42d3-a456-426614174000')).rejects.toThrow(
+      result.message
+    );
+
+    expect(mocks.triggerMetaCatalogSync).not.toHaveBeenCalled();
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid IDs before calling the backend', async () => {
+    await expect(moveMobileProductToTrash('not-a-uuid')).rejects.toThrow('ID do produto inválido.');
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.triggerMetaCatalogSync).not.toHaveBeenCalled();
+  });
+});
+
+describe('restoreMobileProductFromTrash', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.rpc.mockResolvedValue({
+      data: { success: true, code: 'restored', message: 'Produto restaurado.' },
+      error: null,
+    });
+  });
+
+  it('calls the protected ERP RPC and synchronizes Meta only after success', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174000';
+
+    await expect(restoreMobileProductFromTrash(productId)).resolves.toMatchObject({
+      success: true,
+      code: 'restored',
+    });
+
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledWith('restore_product_from_trash', {
+      p_product_id: productId,
+    });
+    expect(mocks.triggerMetaCatalogSync).toHaveBeenCalledWith(productId);
+  });
+
+  it.each([
+    {
+      success: false,
+      code: 'permission_denied',
+      message: 'Seu perfil não possui permissão para restaurar produtos da lixeira.',
+    },
+    { success: false, code: 'not_in_trash', message: 'Este produto não está na lixeira.' },
+  ])('does not synchronize or fall back when the RPC rejects restoration (%o)', async (result) => {
+    mocks.rpc.mockResolvedValueOnce({ data: result, error: null });
+
+    await expect(
+      restoreMobileProductFromTrash('123e4567-e89b-42d3-a456-426614174000')
+    ).rejects.toThrow(result.message);
+
+    expect(mocks.triggerMetaCatalogSync).not.toHaveBeenCalled();
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid IDs before calling the backend', async () => {
+    await expect(restoreMobileProductFromTrash('not-a-uuid')).rejects.toThrow(
+      'ID do produto inválido.'
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.triggerMetaCatalogSync).not.toHaveBeenCalled();
+  });
+
+  it('times out a restoration RPC that does not settle', async () => {
+    vi.useFakeTimers();
+    mocks.rpc.mockReturnValueOnce(new Promise(() => {}));
+    const restoration = restoreMobileProductFromTrash('123e4567-e89b-42d3-a456-426614174000');
+
+    try {
+      const rejection = expect(restoration).rejects.toThrow(
+        'A operação expirou. Verifique a conexão e tente novamente.'
+      );
+      await vi.advanceTimersByTimeAsync(10_001);
+      await rejection;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(mocks.triggerMetaCatalogSync).not.toHaveBeenCalled();
+  });
+});
 
 const validProductActivationRow = (overrides: Record<string, unknown> = {}) => ({
   id: '123e4567-e89b-42d3-a456-426614174000',
@@ -66,6 +307,7 @@ const validProductActivationRow = (overrides: Record<string, unknown> = {}) => (
 describe('saveMobileProduct', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(fetchRequiredProductCategoryAttributes).mockResolvedValue([]);
     query = {
       select: vi.fn(() => query),
       eq: vi.fn(() => query),
@@ -76,6 +318,218 @@ describe('saveMobileProduct', () => {
     };
     mocks.from.mockReturnValue(query);
     mocks.rpc.mockResolvedValue({ data: 'saved-product-id', error: null });
+  });
+
+  it('salva Modelo/Linha canônico e projeta requisito de categoria com aliases legados', async () => {
+    vi.mocked(fetchRequiredProductCategoryAttributes).mockResolvedValue([
+      {
+        attributeId: 'attribute-model-line',
+        name: 'Modelo/Linha',
+        requiredCategoryIds: ['category-model'],
+      },
+    ]);
+
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'MODEL-LINE',
+      name: 'Produto com variações',
+      itemType: 'product',
+      productKind: 'normal',
+      categoryIds: ['category-model'],
+      technicalValues: { 'Linha/Modelo': 'Linha Global' },
+      variableTechnicalFields: ['Modelo/Linha'],
+      hasVariations: true,
+      variations: [
+        {
+          name: 'Produto Azul',
+          sku: 'MODEL-LINE-01',
+          technicalValues: { 'Linha/Modelo': 'Linha Azul' },
+          attributes: [],
+          comboItems: [],
+        },
+        {
+          name: 'Produto sem linha',
+          sku: 'MODEL-LINE-02',
+          technicalValues: { 'Modelo/Linha': '', Modelo: 'Valor legado obsoleto' },
+          attributes: [],
+          comboItems: [],
+        },
+      ],
+      images: [],
+    });
+
+    const [, parameters] = mocks.rpc.mock.calls[0];
+    expect(parameters.p_product.technical_specs.technicalValues).toEqual({
+      'Linha/Modelo': 'Linha Global',
+      'Modelo/Linha': 'Linha Global',
+    });
+    expect(parameters.p_variations.map((variation: any) => variation.attributes)).toEqual([
+      [{ name: 'Modelo/Linha', value: 'Linha Azul', showName: false }],
+      [],
+    ]);
+    expect(parameters.p_product.technical_specs.variationDetails[1].technicalValues).toEqual({
+      'Modelo/Linha': '',
+      Modelo: 'Valor legado obsoleto',
+    });
+  });
+
+  it('não mascara alias próprio legado de attributes com Modelo/Linha herdado do pai', async () => {
+    vi.mocked(fetchRequiredProductCategoryAttributes).mockResolvedValue([
+      {
+        attributeId: 'attribute-model-line',
+        name: 'Modelo/Linha',
+        requiredCategoryIds: ['category-model'],
+      },
+    ]);
+
+    const legacyAttributes = [
+      { name: 'Linha/Modelo', value: 'Linha própria', showName: false },
+    ];
+
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'MODEL-LINE-LEGACY',
+      name: 'Produto legado com variação',
+      itemType: 'product',
+      productKind: 'normal',
+      categoryIds: ['category-model'],
+      technicalValues: { 'Modelo/Linha': 'Linha herdada' },
+      hasVariations: true,
+      variations: [
+        {
+          name: 'Produto da linha própria',
+          sku: 'MODEL-LINE-LEGACY-01',
+          technicalValues: {},
+          attributes: legacyAttributes,
+          comboItems: [],
+        },
+      ],
+      images: [],
+    });
+
+    const [, parameters] = mocks.rpc.mock.calls[0];
+    expect(parameters.p_variations[0].attributes).toEqual(legacyAttributes);
+  });
+
+  it('não sobrescreve o atributo canônico mostrado por alias legado conflitante no payload', async () => {
+    vi.mocked(fetchRequiredProductCategoryAttributes).mockResolvedValue([
+      {
+        attributeId: 'attribute-model-line',
+        name: 'Modelo/Linha',
+        requiredCategoryIds: ['category-model'],
+      },
+    ]);
+
+    const displayedAttribute = [
+      { name: 'Modelo/Linha', value: 'Atributo da variação', showName: true },
+    ];
+
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'MODEL-LINE-CONFLICT',
+      name: 'Produto com fontes divergentes',
+      itemType: 'product',
+      productKind: 'normal',
+      categoryIds: ['category-model'],
+      technicalValues: { 'Modelo/Linha': 'Modelo do pai' },
+      variableTechnicalFields: ['Modelo/Linha'],
+      hasVariations: true,
+      variations: [
+        {
+          name: 'Produto com atributo canônico',
+          sku: 'MODEL-LINE-CONFLICT-01',
+          technicalValues: { 'Linha/Modelo': 'TechnicalValues legado' },
+          attributes: displayedAttribute,
+          comboItems: [],
+        },
+      ],
+      images: [],
+    });
+
+    const [, parameters] = mocks.rpc.mock.calls[0];
+    expect(parameters.p_variations[0].attributes).toEqual(displayedAttribute);
+  });
+
+  it('envia um único atributo canônico quando dois requisitos de categoria usam aliases', async () => {
+    vi.mocked(fetchRequiredProductCategoryAttributes).mockResolvedValue([
+      {
+        attributeId: 'legacy-line-model',
+        name: 'Linha/Modelo',
+        requiredCategoryIds: ['category-model'],
+      },
+      {
+        attributeId: 'canonical-model-line',
+        name: 'Modelo/Linha',
+        requiredCategoryIds: ['category-model'],
+      },
+    ]);
+
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'MODEL-LINE-DUPLICATE-REQUIREMENTS',
+      name: 'Produto com requisito técnico duplicado',
+      itemType: 'product',
+      productKind: 'normal',
+      categoryIds: ['category-model'],
+      hasVariations: true,
+      variations: [
+        {
+          name: 'Produto com dois aliases técnicos',
+          sku: 'MODEL-LINE-DUPLICATE-REQUIREMENTS-01',
+          technicalValues: {},
+          attributes: [
+            { name: 'Linha/Modelo', value: 'Valor legado', showName: false, source: 'legacy' },
+            { name: 'Modelo/Linha', value: 'Valor canônico', showName: true, source: 'canonical' },
+          ],
+          comboItems: [],
+        },
+      ],
+      images: [],
+    });
+
+    const [, parameters] = mocks.rpc.mock.calls[0];
+    expect(parameters.p_variations[0].attributes).toEqual([
+      { name: 'Modelo/Linha', value: 'Valor canônico', showName: true },
+    ]);
+  });
+
+  it('não persiste alias antigo quando o override canônico foi explicitamente limpo', async () => {
+    vi.mocked(fetchRequiredProductCategoryAttributes).mockResolvedValue([
+      {
+        attributeId: 'attribute-model-line',
+        name: 'Modelo/Linha',
+        requiredCategoryIds: ['category-model'],
+      },
+    ]);
+
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'MODEL-LINE-CLEARED',
+      name: 'Produto com campo limpo',
+      itemType: 'product',
+      productKind: 'normal',
+      categoryIds: ['category-model'],
+      technicalValues: { 'Modelo/Linha': 'Linha herdada' },
+      hasVariations: true,
+      variations: [
+        {
+          name: 'Produto sem linha',
+          sku: 'MODEL-LINE-CLEARED-01',
+          technicalValues: { 'Modelo/Linha': '' },
+          attributes: [{ name: 'Linha/Modelo', value: 'Valor antigo', showName: false }],
+          comboItems: [],
+        },
+      ],
+      images: [],
+    });
+
+    const [, parameters] = mocks.rpc.mock.calls[0];
+    expect(parameters.p_variations[0].attributes).toEqual([]);
   });
 
   it('envia os campos suportados em uma RPC, converte preço local e deixa o estoque sob controle do inventário', async () => {
@@ -170,6 +624,190 @@ describe('saveMobileProduct', () => {
     expect(parameters.p_product.technical_specs.variationDetails[0]).not.toHaveProperty('discountFixed');
   });
 
+  it('preserva Marca vazia ao limpar a característica, como no mapper ERP', async () => {
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174010',
+      operationId: '123e4567-e89b-42d3-a456-426614174011',
+      code: 'PROD',
+      name: 'Produto sem marca',
+      itemType: 'product',
+      productKind: 'normal',
+      brand: '',
+      categoryIds: [],
+      variations: [
+        {
+          id: 'new_PROD-01',
+          name: 'Produto sem marca',
+          sku: 'PROD-01',
+          attributes: [],
+          comboItems: [],
+        },
+      ],
+      images: [],
+    });
+
+    const [, parameters] = mocks.rpc.mock.calls[0];
+    expect(parameters.p_product.brand).toBe('');
+  });
+
+  it('limita fotos de família a 15 na RPC e nos detalhes técnicos, preservando a galeria pai', async () => {
+    const parentImages = Array.from({ length: 18 }, (_, index) =>
+      `https://images.test/parent-${index + 1}.webp`
+    );
+    const variationImages = Array.from({ length: 20 }, (_, index) =>
+      `https://images.test/variation-${index + 1}.webp`
+    );
+
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'PROD-FOTOS',
+      name: 'Produto com variações',
+      itemType: 'product',
+      hasVariations: true,
+      variations: [
+        { id: 'new_PROD-FOTOS-01', name: 'Azul', sku: 'PROD-FOTOS-01', images: variationImages, comboItems: [] },
+        { id: 'new_PROD-FOTOS-02', name: 'Verde', sku: 'PROD-FOTOS-02', images: variationImages, comboItems: [] },
+      ],
+      images: parentImages,
+      categoryIds: [],
+    });
+
+    const parameters = mocks.rpc.mock.calls[0][1];
+    const expectedVariationImages = variationImages.slice(0, 15);
+
+    expect(parameters.p_product.images).toEqual(parentImages);
+    expect(parameters.p_product.technical_specs.variationDetails.map((row: any) => row.images)).toEqual([
+      expectedVariationImages,
+      expectedVariationImages,
+    ]);
+    expect(parameters.p_variations.map((row: any) => row.image_url)).toEqual([
+      expectedVariationImages.join(','),
+      expectedVariationImages.join(','),
+    ]);
+  });
+
+  it('preserva modo e fotos próprias ao salvar rascunho de família com uma variação provisória', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174000';
+    const previousVersion = '2026-10-25T10:00:00.000Z';
+    const acknowledgedVersion = '2026-10-25T10:00:01.000Z';
+    const parentImages = ['https://images.test/parent.webp'];
+    const variationImages = Array.from({ length: 18 }, (_, index) =>
+      `https://images.test/provisional-${index + 1}.webp`
+    );
+    mocks.rpc.mockResolvedValueOnce({
+      data: [{ product_id: productId, updated_at: acknowledgedVersion }],
+      error: null,
+    });
+
+    const acknowledgement = await saveMobileProduct({
+      id: productId,
+      updated_at: previousVersion,
+      clientProductId: productId,
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      saveUpdatedAt: '2026-10-25T10:00:00.500Z',
+      code: 'PROD-RASCUNHO-FAMILIA',
+      name: 'Produto com variações em rascunho',
+      itemType: 'product',
+      isDraft: true,
+      status: 'draft',
+      hasVariations: true,
+      variations: [
+        {
+          id: 'new_PROD-RASCUNHO-FAMILIA-01',
+          name: 'Azul',
+          sku: 'PROD-RASCUNHO-FAMILIA-01',
+          images: variationImages,
+          comboItems: [],
+        },
+      ],
+      images: parentImages,
+      categoryIds: [],
+    }, { returnVersionAcknowledgement: true });
+
+    const parameters = mocks.rpc.mock.calls[0][1];
+    const expectedVariationImages = variationImages.slice(0, 15);
+
+    expect(acknowledgement).toEqual({ productId, updatedAt: acknowledgedVersion });
+    expect(mocks.rpc).toHaveBeenCalledWith('save_mobile_product_transaction_with_version', expect.any(Object));
+    expect(parameters.p_expected_updated_at).toBe(previousVersion);
+    expect(parameters.p_product.has_variations).toBe(true);
+    expect(parameters.p_product.is_draft).toBe(true);
+    expect(parameters.p_product.images).toEqual(parentImages);
+    expect(parameters.p_product.technical_specs.variationDetails[0].images).toEqual(
+      expectedVariationImages
+    );
+    expect(parameters.p_variations[0].image_url).toBe(expectedVariationImages.join(','));
+    expect(parameters.p_variations[0].image_url).not.toContain(parentImages[0]);
+  });
+
+  it('mantém modo família e galeria própria vazia ao salvar a primeira linha de rascunho sem variações', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174020';
+    const parentImages = ['https://images.test/parent.webp'];
+    mocks.rpc.mockResolvedValueOnce({
+      data: [{ product_id: productId, updated_at: '2026-10-25T10:00:01.000Z' }],
+      error: null,
+    });
+
+    await saveMobileProduct({
+      clientProductId: productId,
+      operationId: '123e4567-e89b-42d3-a456-426614174021',
+      saveUpdatedAt: '2026-10-25T10:00:00.500Z',
+      code: 'PROD-PRIMEIRA-VARIACAO',
+      name: 'Família em rascunho',
+      itemType: 'product',
+      isDraft: true,
+      status: 'draft',
+      hasVariations: true,
+      variations: [],
+      images: parentImages,
+      categoryIds: [],
+    }, { returnVersionAcknowledgement: true });
+
+    const parameters = mocks.rpc.mock.calls[0][1];
+
+    expect(parameters.p_product.has_variations).toBe(true);
+    expect(parameters.p_product.is_draft).toBe(true);
+    expect(parameters.p_product.images).toEqual(parentImages);
+    expect(parameters.p_product.technical_specs.variationDetails).toHaveLength(1);
+    expect(parameters.p_product.technical_specs.variationDetails[0].images).toEqual([]);
+    expect(parameters.p_variations).toHaveLength(1);
+    expect(parameters.p_variations[0].image_url).toBeNull();
+  });
+
+  it('mantém a galeria completa do pai na variação simples, sem reaproveitar URL antiga', async () => {
+    const parentImages = Array.from({ length: 18 }, (_, index) =>
+      `https://images.test/parent-${index + 1}.webp`
+    );
+
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'PROD-SIMPLES',
+      name: 'Produto simples',
+      itemType: 'product',
+      hasVariations: false,
+      variations: [
+        {
+          id: 'new_PROD-SIMPLES-01',
+          name: 'Produto simples',
+          sku: 'PROD-SIMPLES-01',
+          images: [],
+          imageUrl: 'https://images.test/legacy.webp',
+          comboItems: [],
+        },
+      ],
+      images: parentImages,
+      categoryIds: [],
+    });
+
+    const parameters = mocks.rpc.mock.calls[0][1];
+
+    expect(parameters.p_product.images).toEqual(parentImages);
+    expect(parameters.p_product.technical_specs.variationDetails[0].images).toEqual(parentImages);
+    expect(parameters.p_variations[0].image_url).toBe(parentImages.join(','));
+  });
+
   it('usa a RPC versionada quando o formulário precisa continuar editando o rascunho', async () => {
     const productId = '123e4567-e89b-42d3-a456-426614174050';
     const operationId = '123e4567-e89b-42d3-a456-426614174051';
@@ -207,6 +845,209 @@ describe('saveMobileProduct', () => {
     );
   });
 
+  it('atualiza o snapshot do rascunho versionado com preços próprios/herdados e composição atuais', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174060';
+    const ownPriceVariationId = '123e4567-e89b-42d3-a456-426614174061';
+    const inheritedPriceVariationId = '123e4567-e89b-42d3-a456-426614174062';
+    const component = {
+      productId: '123e4567-e89b-42d3-a456-426614174063',
+      variationId: '123e4567-e89b-42d3-a456-426614174064',
+      quantity: 2,
+      description: 'Componente atual',
+    };
+    const staleSnapshot = {
+      id: productId,
+      isDraft: true,
+      itemType: 'composition',
+      unitPrice: '90,00',
+      variations: [
+        {
+          id: ownPriceVariationId,
+          price: '90,00',
+          syncUnitPrice: true,
+          costPrice: '30,00',
+          syncCostPrice: false,
+          comboItems: [],
+        },
+      ],
+    };
+    mocks.rpc.mockResolvedValueOnce({
+      data: [{ product_id: productId, updated_at: '2026-10-25T12:30:01.000Z' }],
+      error: null,
+    });
+    query.in.mockImplementation((column: string) =>
+      Promise.resolve({
+        data: column === 'id'
+          ? [
+              { id: ownPriceVariationId, cost_price: 31 },
+              { id: inheritedPriceVariationId, cost_price: 22 },
+            ]
+          : [],
+        error: null,
+      })
+    );
+
+    await saveMobileProduct(
+      {
+        id: productId,
+        updated_at: '2026-10-25T12:20:00.000Z',
+        operationId: '123e4567-e89b-42d3-a456-426614174065',
+        saveUpdatedAt: '2026-10-25T12:30:00.000Z',
+        code: 'KIT-RASCUNHO',
+        name: 'Kit em rascunho',
+        itemType: 'composition',
+        isDraft: true,
+        status: 'draft',
+        hasVariations: true,
+        unitPrice: '220,00',
+        costPrice: '50,00',
+        promoPrice: '180,00',
+        comboItems: [component],
+        technical_specs: { customField: 'preservado', draftProduct: staleSnapshot },
+        variations: [
+          {
+            id: ownPriceVariationId,
+            name: 'Kit Azul',
+            sku: 'KIT-RASCUNHO-01',
+            price: '165,00',
+            promoPrice: '140,00',
+            costPrice: '40,00',
+            syncUnitPrice: false,
+            syncPromoPrice: false,
+            syncCostPrice: false,
+            comboItems: [component],
+          },
+          {
+            id: inheritedPriceVariationId,
+            name: 'Kit Verde',
+            sku: 'KIT-RASCUNHO-02',
+            price: '220,00',
+            promoPrice: '180,00',
+            costPrice: '50,00',
+            syncUnitPrice: true,
+            syncPromoPrice: true,
+            syncCostPrice: true,
+            comboItems: [component],
+          },
+        ],
+        images: [],
+        categoryIds: [],
+      },
+      { returnVersionAcknowledgement: true }
+    );
+
+    const parameters = mocks.rpc.mock.calls[0][1];
+    const savedDraft = parameters.p_product.technical_specs.draftProduct;
+
+    expect(parameters.p_product.technical_specs.customField).toBe('preservado');
+    expect(savedDraft).toMatchObject({
+      id: productId,
+      isDraft: true,
+      active: false,
+      status: 'draft',
+      itemType: 'composition',
+      unitPrice: '220,00',
+      costPrice: '50,00',
+      promoPrice: '180,00',
+    });
+    expect(savedDraft.variations).toMatchObject([
+      {
+        id: ownPriceVariationId,
+        price: '165,00',
+        promoPrice: '140,00',
+        costPrice: '40,00',
+        syncUnitPrice: false,
+        syncPromoPrice: false,
+        syncCostPrice: false,
+        comboItems: [component],
+        active: false,
+        status: 'hidden',
+      },
+      {
+        id: inheritedPriceVariationId,
+        price: '220,00',
+        promoPrice: '180,00',
+        costPrice: '50,00',
+        syncUnitPrice: true,
+        syncPromoPrice: true,
+        syncCostPrice: true,
+        comboItems: [component],
+        active: false,
+        status: 'hidden',
+      },
+    ]);
+    expect(savedDraft).not.toHaveProperty('technicalSpecs');
+    expect(savedDraft).not.toHaveProperty('technical_specs');
+    expect(parameters.p_variations).toMatchObject([
+      {
+        price: 165,
+        promo_price: 140,
+        cost_price: 31,
+        use_parent_price: false,
+        use_parent_promo_price: false,
+      },
+      {
+        price: 220,
+        promo_price: 180,
+        cost_price: 22,
+        use_parent_price: true,
+        use_parent_promo_price: true,
+      },
+    ]);
+  });
+
+  it('remove o snapshot obsoleto ao finalizar um rascunho após autosave', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174070';
+    const variationId = '123e4567-e89b-42d3-a456-426614174071';
+    const component = {
+      productId: '123e4567-e89b-42d3-a456-426614174073',
+      variationId: '123e4567-e89b-42d3-a456-426614174074',
+      quantity: 1,
+      description: 'Componente final',
+    };
+
+    await saveMobileProduct({
+      id: productId,
+      updated_at: '2026-10-25T12:30:01.000Z',
+      operationId: '123e4567-e89b-42d3-a456-426614174072',
+      code: 'PROD-FINAL',
+      name: 'Produto concluído',
+      itemType: 'composition',
+      isDraft: false,
+      status: 'hidden',
+      hasVariations: true,
+      unitPrice: '220,00',
+      comboItems: [component],
+      technical_specs: {
+        draftProduct: { id: productId, isDraft: true, variations: [{ id: variationId, price: '90,00' }] },
+      },
+      variations: [
+        {
+          id: variationId,
+          name: 'Produto Azul',
+          sku: 'PROD-FINAL-01',
+          price: '165,00',
+          syncUnitPrice: false,
+          comboItems: [component],
+        },
+      ],
+      images: [],
+      categoryIds: [],
+    });
+
+    const parameters = mocks.rpc.mock.calls[0][1];
+    expect(parameters.p_product.is_draft).toBe(false);
+    expect(parameters.p_product.is_combo).toBe(true);
+    expect(parameters.p_product.combo_items).toMatchObject([component]);
+    expect(parameters.p_product.technical_specs.draftProduct).toBeNull();
+    expect(parameters.p_variations[0]).toMatchObject({
+      price: 165,
+      use_parent_price: false,
+      status: 'hidden',
+      combo_items: [expect.objectContaining(component)],
+    });
+  });
+
   it('rejeita ACK versionado de outro produto sem avançar a versão local', async () => {
     const requestedProductId = '123e4567-e89b-42d3-a456-426614174050';
     mocks.rpc.mockResolvedValueOnce({
@@ -237,22 +1078,41 @@ describe('saveMobileProduct', () => {
     ).rejects.toThrow(/produto diferente do solicitado/i);
   });
 
-  it('persiste promoção própria quando o preço de venda continua herdado do pai', async () => {
+  it('preserva promoção e custos próprios/herdados ao salvar um rascunho de família', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174000';
+    const variationId = '123e4567-e89b-42d3-a456-426614174002';
+    const inheritedCostVariationId = '123e4567-e89b-42d3-a456-426614174003';
+    query.in.mockImplementation((column: string) =>
+      Promise.resolve({
+        data:
+          column === 'id'
+            ? [
+                { id: variationId, cost_price: 31 },
+                { id: inheritedCostVariationId, cost_price: 22 },
+              ]
+            : [],
+        error: null,
+      })
+    );
+
     await saveMobileProduct({
-      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      id: productId,
+      updated_at: '2026-10-24T12:20:00+00:00',
       operationId: '123e4567-e89b-42d3-a456-426614174001',
       code: 'PROD',
       name: 'Produto de teste',
       itemType: 'product',
+      isDraft: true,
       unitPrice: '100,00',
       promoPrice: '80,00',
       costPrice: '50,00',
       hasVariations: true,
       variations: [
         {
-          id: '123e4567-e89b-42d3-a456-426614174002',
+          id: variationId,
           name: 'Produto Azul',
           sku: 'PROD-01',
+          cost_price: 12,
           attributes: [{ name: 'Cor', value: 'Azul' }],
           syncUnitPrice: true,
           syncPromoPrice: false,
@@ -260,6 +1120,19 @@ describe('saveMobileProduct', () => {
           promoPrice: '65,00',
           syncCostPrice: false,
           costPrice: '40,00',
+          comboItems: [],
+        },
+        {
+          id: inheritedCostVariationId,
+          name: 'Produto Verde',
+          sku: 'PROD-02',
+          cost_price: 14,
+          syncUnitPrice: true,
+          syncPromoPrice: true,
+          syncCostPrice: true,
+          price: '100,00',
+          promoPrice: '80,00',
+          costPrice: '50,00',
           comboItems: [],
         },
       ],
@@ -270,10 +1143,21 @@ describe('saveMobileProduct', () => {
     expect(parameters.p_variations[0]).toMatchObject({
       price: 100,
       promo_price: 65,
-      cost_price: 40,
+      cost_price: 31,
       use_parent_price: true,
       use_parent_promo_price: false,
     });
+    expect(parameters.p_product.is_draft).toBe(true);
+    expect(parameters.p_variations[1]).toMatchObject({
+      price: 100,
+      promo_price: 80,
+      cost_price: 22,
+      use_parent_price: true,
+      use_parent_promo_price: true,
+      status: 'draft',
+      active: false,
+    });
+    expect(query.select).toHaveBeenCalledWith('id, cost_price');
     expect(parameters.p_product.technical_specs.variationDetails[0]).toMatchObject({
       syncUnitPrice: true,
       syncPromoPrice: false,
@@ -281,6 +1165,99 @@ describe('saveMobileProduct', () => {
       promoPrice: '65,00',
       costPrice: '40,00',
     });
+  });
+
+  it('mantém custo próprio de variação nova no snapshot sem inicializar o CMPM', async () => {
+    await saveMobileProduct({
+      id: '123e4567-e89b-42d3-a456-426614174000',
+      updated_at: '2026-10-24T12:20:00+00:00',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'PROD',
+      name: 'Produto de teste',
+      itemType: 'product',
+      unitPrice: '100,00',
+      costPrice: '50,00',
+      variations: [
+        {
+          id: 'new_PROD-01',
+          name: 'Produto Azul',
+          sku: 'PROD-01',
+          syncCostPrice: false,
+          costPrice: '40,00',
+          comboItems: [],
+        },
+      ],
+      images: [],
+    });
+
+    const parameters = mocks.rpc.mock.calls[0][1];
+    expect(parameters.p_variations[0].cost_price).toBeNull();
+    expect(parameters.p_product.technical_specs.variationDetails[0]).toMatchObject({
+      syncCostPrice: false,
+      costPrice: '40,00',
+    });
+  });
+
+  it('preserva CMPM de variação composta sem serializar o saldo calculado', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174010';
+    const variationId = '123e4567-e89b-42d3-a456-426614174012';
+    query.in.mockImplementation((column: string) =>
+      Promise.resolve({
+        data: column === 'id' ? [{ id: variationId, cost_price: 27 }] : [],
+        error: null,
+      })
+    );
+
+    await saveMobileProduct({
+      id: productId,
+      updated_at: '2026-10-24T12:20:00+00:00',
+      operationId: '123e4567-e89b-42d3-a456-426614174011',
+      code: 'KIT',
+      name: 'Kit de teste',
+      itemType: 'composition',
+      stock: 12,
+      initialStock: 12,
+      unitPrice: '200,00',
+      costPrice: '90,00',
+      hasVariations: true,
+      variations: [
+        {
+          id: variationId,
+          name: 'Kit Azul',
+          sku: 'KIT-01',
+          stock: 8,
+          syncCostPrice: false,
+          costPrice: '55,00',
+          comboItems: [
+            {
+              productId: '123e4567-e89b-42d3-a456-426614174020',
+              quantity: 2,
+              stock: 8,
+            },
+          ],
+        },
+      ],
+      images: [],
+    });
+
+    const parameters = mocks.rpc.mock.calls[0][1];
+    expect(parameters.p_variations[0].cost_price).toBe(27);
+    expect(parameters.p_variations[0]).not.toHaveProperty('stock');
+    expect(parameters.p_product).not.toHaveProperty('stock');
+    expect(parameters.p_product).not.toHaveProperty('initial_stock');
+    expect(parameters.p_variations[0].combo_items).toEqual([
+      expect.objectContaining({
+        productId: '123e4567-e89b-42d3-a456-426614174020',
+        quantity: 2,
+        stock: 8,
+      }),
+    ]);
+    expect(parameters.p_product.technical_specs.variationDetails[0]).toMatchObject({
+      syncCostPrice: false,
+      costPrice: '55,00',
+    });
+    expect(parameters.p_product.technical_specs.variationDetails[0]).not.toHaveProperty('stock');
+    expect(mocks.from).not.toHaveBeenCalledWith('inventory_moves');
   });
 
   it('persiste override variável vazio em technical_specs e remove atributo vazio da linha', async () => {
@@ -354,6 +1331,10 @@ describe('saveMobileProduct', () => {
       ])
     );
 
+    expect(parameters.p_variations.map((variation: any) => variation.id)).toEqual([
+      '123e4567-e89b-42d3-a456-426614174002',
+      '123e4567-e89b-42d3-a456-426614174003',
+    ]);
     expect(valuesById).toEqual({
       '123e4567-e89b-42d3-a456-426614174002': 'Azul',
       '123e4567-e89b-42d3-a456-426614174003': 'Verde',
@@ -631,6 +1612,20 @@ describe('toggleMobileProductCatalog', () => {
     expect(query.update).toHaveBeenNthCalledWith(2, expect.objectContaining({ status: 'hidden' }));
   });
 
+  it('propaga a negação de permissão e não inicia sincronização Meta', async () => {
+    const denial = {
+      code: '42501',
+      message: 'Seu perfil não possui permissão para alterar o Catálogo Digital.',
+    };
+    query.eq.mockResolvedValueOnce({ error: denial });
+
+    await expect(
+      toggleMobileProductCatalog('123e4567-e89b-42d3-a456-426614174000', 'published')
+    ).rejects.toMatchObject(denial);
+
+    expect(mocks.triggerMetaCatalogSync).not.toHaveBeenCalled();
+  });
+
   it('mantém o produto pai publicado se outra variação ainda estiver publicada', async () => {
     query.eq.mockImplementation((column: string, value: unknown) => {
       if (column === 'status' && value === 'published') {
@@ -717,6 +1712,49 @@ describe('toggleMobileProductActive', () => {
     ]);
   });
 
+  it('mantém o pai ativo ao desativar uma variação quando outra irmã continua ativa', async () => {
+    const writes: Array<{ table: string; values: Record<string, unknown> }> = [];
+    mocks.from.mockImplementation((table: string) => {
+      let updateValues: Record<string, unknown> | undefined;
+      const builder: any = {
+        select: vi.fn(() => builder),
+        update: vi.fn((values: Record<string, unknown>) => {
+          updateValues = values;
+          return builder;
+        }),
+        eq: vi.fn((column: string) => {
+          if (updateValues) {
+            writes.push({ table, values: updateValues });
+            return Promise.resolve({ error: null });
+          }
+          if (table === 'product_variations' && column === 'product_id') {
+            return Promise.resolve({ data: [{ active: false }, { active: true }], error: null });
+          }
+          return builder;
+        }),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: validProductActivationRow(),
+          error: null,
+        }),
+      };
+      return builder;
+    });
+
+    await expect(
+      toggleMobileProductActive(
+        '123e4567-e89b-42d3-a456-426614174000',
+        true,
+        true,
+        '123e4567-e89b-42d3-a456-426614174001'
+      )
+    ).resolves.toBe(false);
+
+    expect(writes).toEqual([
+      { table: 'product_variations', values: expect.objectContaining({ active: false }) },
+      { table: 'products', values: expect.objectContaining({ active: true }) },
+    ]);
+  });
+
   it('não ativa se falhar a consulta da origem do produto', async () => {
     query.maybeSingle.mockResolvedValueOnce({ data: null, error: new Error('consulta falhou') });
 
@@ -779,6 +1817,19 @@ describe('toggleMobileProductActive', () => {
       )
     ).rejects.toThrow('preço de venda');
     expect(query.update).not.toHaveBeenCalled();
+  });
+
+  it('valida ativação pelo preço canônico quando o alias legado diverge', async () => {
+    query.maybeSingle.mockResolvedValueOnce({
+      data: validProductActivationRow({ unit_price: 100, price: 0 }),
+      error: null,
+    });
+
+    await expect(
+      toggleMobileProductActive('123e4567-e89b-42d3-a456-426614174000', false)
+    ).resolves.toBe(true);
+
+    expect(query.update).toHaveBeenCalledWith(expect.objectContaining({ active: true }));
   });
 
   it('bloqueia ativação de composição simples com menos de dois componentes', async () => {

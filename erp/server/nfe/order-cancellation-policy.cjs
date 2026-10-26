@@ -742,6 +742,12 @@ var CFOP_BY_CODE = new Map(
   CANONICAL_CFOPS.map((def) => [def.code, def])
 );
 
+// shared-utils/fiscalIcmsGroups.ts
+var CSOSN_CODES = ["101", "102", "103", "201", "202", "203", "300", "400", "500", "900"];
+
+// shared-utils/fiscalItemSelections.ts
+var csosns = new Set(CSOSN_CODES);
+
 // api/nfe/cancellationPreflight.ts
 function validateCancellationDocumentRecord(doc, productionConfirmed) {
   if (!["outbound", "return", "estorno"].includes(String(doc.document_type)))

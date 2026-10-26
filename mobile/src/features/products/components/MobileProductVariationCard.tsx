@@ -1,18 +1,24 @@
-import { MoreVertical, Package } from 'lucide-react-native';
+import { Eye, MoreVertical, Package } from 'lucide-react-native';
 import React from 'react';
 import { Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { WEB_URL } from '../../../services/supabaseClient';
 import { toMobileVariationAttributes } from '../services/mobileProductVariationActionsService';
-import { isSalvadoProduct } from '../domain/mobileProductCardRules';
+import {
+  getMobileProductVariationCardActionAvailability,
+} from '../domain/mobileProductCardRules';
 import { isNonConventionalProduct } from '../../../../../shared-utils/productActivationValidation';
+import { formatBrlCurrency } from '../../../../../shared-utils/productCurrencyFormatting';
+import { isSalvadoStockOrigin } from '../../../../../shared-utils/productStockOrigin';
 import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
 import { MergedBadge } from './MergedBadge';
 import { buildProductIdentificationLabelUrl } from '../domain/productLabelLinks';
 import { canShowProductVariationActionsMenu } from '../../../../../shared-utils/productPermissions';
+import { getMobileProductVariationCardName } from '../domain/mobileProductCardDisplay';
 
 interface MobileProductVariationCardProps {
   variation: any;
+  opportunityName?: string;
   index: number;
   dark: boolean;
   parentImage?: string | null;
@@ -21,6 +27,8 @@ interface MobileProductVariationCardProps {
   onToggleCatalog: (varId: string, currentStatus: string) => void;
   parentProduct?: any;
   onEdit?: (product: any) => void;
+  canViewDetails?: boolean;
+  onViewDetails?: (product: any) => void;
   onMoveVariation?: (variation: any, parentProduct: any) => void;
   onMergeVariation?: (variation: any, parentProduct: any) => void;
   onShowOrders?: (product: any) => void;
@@ -33,6 +41,7 @@ interface MobileProductVariationCardProps {
 
 export const MobileProductVariationCard: React.FC<MobileProductVariationCardProps> = ({
   variation: v,
+  opportunityName,
   index,
   dark,
   parentImage,
@@ -41,6 +50,8 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   onToggleCatalog,
   parentProduct,
   onEdit,
+  canViewDetails = false,
+  onViewDetails,
   onMoveVariation,
   onMergeVariation,
   onShowOrders,
@@ -51,16 +62,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   isLabelOnlyProfile = false,
 }) => {
   const [menuVisible, setMenuVisible] = React.useState(false);
-  let varName = '';
-  if (v.attributes && Array.isArray(v.attributes)) {
-    varName = v.attributes
-      .map((a: any) => a.value)
-      .filter(Boolean)
-      .join(' · ');
-  } else if (v.attributes && typeof v.attributes === 'object') {
-    varName = Object.values(v.attributes).filter(Boolean).join(' · ');
-  }
-  if (!varName) varName = v.name || v.displayName || `Variação #${index + 1}`;
+  const varName = getMobileProductVariationCardName(parentProduct, v, index);
 
   const isPublished = v.status === 'published';
   const isActive = v.active !== false;
@@ -69,7 +71,12 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
     isIdentificationLabelOnlyProfile: isLabelOnlyProfile,
     canPrintIdentificationLabel: canPrintLabel,
   });
-  const isSalvado = isSalvadoProduct(parentProduct) || isSalvadoProduct(v);
+  const variationActionAvailability = getMobileProductVariationCardActionAvailability({
+    canViewDetails: canViewDetails && Boolean(onViewDetails),
+    isLabelOnlyProfile,
+    canShowActionsMenu,
+  });
+  const isSalvado = isSalvadoStockOrigin(parentProduct, v, opportunityName);
   const isNonConventional =
     isNonConventionalProduct(parentProduct) || isNonConventionalProduct(v);
   const imgUrl =
@@ -150,10 +157,10 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
 
           <View style={styles.priceStockRow}>
             {hasPromo && (
-              <Text style={styles.oldPrice}>R$ {normalPrice.toFixed(2).replace('.', ',')}</Text>
+              <Text style={styles.oldPrice}>{formatBrlCurrency(normalPrice)}</Text>
             )}
             <Text style={[styles.price, dark && styles.priceDark]}>
-              R$ {displayPrice.toFixed(2).replace('.', ',')}
+              {formatBrlCurrency(displayPrice)}
             </Text>
 
             <View style={styles.stockWrapper}>
@@ -161,7 +168,34 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
             </View>
           </View>
         </View>
-        {canShowActionsMenu && (
+        {variationActionAvailability.canViewDetails && onViewDetails ? (
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() =>
+              onViewDetails({
+                ...(parentProduct || {}),
+                ...v,
+                id: v.id || v.variationId || parentProduct?.id,
+                name: v.name || v.displayName || parentProduct?.name,
+                code: v.sku || parentProduct?.code,
+                sku: v.sku || parentProduct?.sku,
+                description: parentProduct?.description,
+                unitPrice: v.unitPrice ?? parentProduct?.unitPrice,
+                promoPrice: v.promoPrice,
+                stock: v.stock ?? parentProduct?.stock,
+                active: v.active ?? parentProduct?.active,
+                isVariation: true,
+                isParent: false,
+                parentId: parentProduct?.id,
+                attributes: v.attributes,
+              })
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`Ver detalhes da variação ${varName}`}
+          >
+            <Eye size={17} color={dark ? '#93c5fd' : '#2563eb'} />
+          </TouchableOpacity>
+        ) : variationActionAvailability.canShowActionsMenu ? (
           <TouchableOpacity
             style={styles.menuButton}
             onPress={() => setMenuVisible(true)}
@@ -170,10 +204,10 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
           >
             <MoreVertical size={17} color={dark ? '#cbd5e1' : '#64748b'} />
           </TouchableOpacity>
-        )}
+        ) : null}
       </View>
       <MobileProductVariationActionsMenu
-        visible={menuVisible && canShowActionsMenu}
+        visible={menuVisible && variationActionAvailability.canShowActionsMenu}
         dark={dark}
         variationName={varName}
         isMerged={isMerged}

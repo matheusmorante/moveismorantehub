@@ -26,7 +26,17 @@ export const processNextAutomaticInboundScience = async () => {
       error: response.ok ? null : { message: result.error || 'Não foi possível processar a Ciência automática.' },
     };
   } catch {
-    return { data: null, error: { message: 'Falha de comunicação ao processar a Ciência automática.' } };
+    const message = 'Não foi possível receber a resposta do lote. O envio pode ter sido processado; confira o Histórico Fiscal antes de tentar novamente.';
+    return {
+      data: {
+        success: false,
+        pending: false,
+        communicationUnconfirmed: true,
+        retryable: true,
+        error: message,
+      },
+      error: { message },
+    };
   } finally {
     clearTimeout(timeoutId);
   }

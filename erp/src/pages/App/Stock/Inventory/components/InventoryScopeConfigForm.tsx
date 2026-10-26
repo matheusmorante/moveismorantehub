@@ -3,6 +3,7 @@ import type Person from '@/pages/types/person.type';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import InventoryResponsibleSelect from '../components/InventoryResponsibleSelect';
 import type { InventoryScopeType } from '../types/inventoryScope.types';
+import { isInventorySupplierEligible } from '../domain/inventoryScopeEligibility';
 
 interface InventoryScopeConfigFormProps {
   readonly scopeType: InventoryScopeType | null;
@@ -31,6 +32,8 @@ export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> =
   suppliers,
   employees,
 }) => {
+  const inventorySuppliers = suppliers.filter(isInventorySupplierEligible);
+
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 space-y-5 shadow-sm">
@@ -41,7 +44,7 @@ export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> =
                 Fornecedor
               </label>
               <SupplierAutocomplete
-                suppliers={suppliers as Person[]}
+                suppliers={inventorySuppliers as Person[]}
                 selectedSupplierId={selectedSupplierId}
                 onSelect={(id) => {
                   setSelectedSupplierId(id);

@@ -24,6 +24,9 @@ import {
   isBarcodeWithinScannerFrame,
 } from './inventory-scanner/scannerFrameGeometry';
 
+const RECENT_SCAN_WINDOW_MS = 1500;
+const MAX_RECENT_FEEDBACKS = 2;
+
 interface Props {
   isDarkMode: boolean;
   onScan: (data: string) => void | Promise<void | InventoryScanFeedback>;
@@ -66,7 +69,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [isReadingText, setIsReadingText] = useState(false);
-  const [lastFeedback, setLastFeedback] = useState<InventoryScanFeedback | null>(null);
+  const [recentFeedbacks, setRecentFeedbacks] = useState<InventoryScanFeedback[]>([]);
   const [unitsRead, setUnitsRead] = useState(0);
   const [productsRead, setProductsRead] = useState<Set<string>>(new Set());
   const [frameBorderState, setFrameBorderState] = useState<
@@ -74,7 +77,9 @@ export const InventoryScannerScreen: React.FC<Props> = ({
   >('idle');
   const [scannerAreaLayout, setScannerAreaLayout] = useState<LayoutRectangle | null>(null);
   const processingRef = useRef(false);
-  const recentScanRef = useRef<{ data: string; at: number }>({ data: '', at: 0 });
+  const scanQueueRef = useRef<string[]>([]);
+  const pendingScansRef = useRef(new Set<string>());
+  const recentScansRef = useRef(new Map<string, number>());
   const cameraRef = useRef<CameraView>(null);
   const frameBorderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scannerFrame = scannerAreaLayout ? getScannerFrameRect(scannerAreaLayout) : null;
@@ -103,39 +108,29 @@ export const InventoryScannerScreen: React.FC<Props> = ({
     );
   };
 
-  const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
-    const { data } = result;
-    if (
-      restrictToScannerFrame &&
-      (!scannerFrame || !isBarcodeWithinScannerFrame(result, scannerFrame))
-    ) {
-      return;
-    }
-    if (processingRef.current || (!continuous && scanned)) return;
-    if (
-      continuous &&
-      data === recentScanRef.current.data &&
-      Date.now() - recentScanRef.current.at < 1500
-    ) {
-      return;
-    }
-    processingRef.current = true;
+  const processScannedData = async (data: string) => {
     setScanned(true);
     try {
       const result = await onScan(data);
       if (result) {
-        setLastFeedback(result);
+        setRecentFeedbacks((current) => [result, ...current].slice(0, MAX_RECENT_FEEDBACKS));
         if (result.kind === 'error') {
           triggerFrameBorder('error');
           setTimeout(
-            () => setLastFeedback((current) => (current === result ? null : current)),
+            () =>
+              setRecentFeedbacks((current) =>
+                current.filter((feedback) => feedback !== result)
+              ),
             1800
           );
         }
         if (result.kind === 'warning') {
           triggerFrameBorder('warning');
           setTimeout(
-            () => setLastFeedback((current) => (current === result ? null : current)),
+            () =>
+              setRecentFeedbacks((current) =>
+                current.filter((feedback) => feedback !== result)
+              ),
             1800
           );
         }
@@ -147,22 +142,70 @@ export const InventoryScannerScreen: React.FC<Props> = ({
           Boolean(result.itemId)
         ) {
           triggerFrameBorder('success');
-          playInventoryCountSound();
           setUnitsRead((count) => count + 1);
           if (result.itemId) setProductsRead((previous) => new Set(previous).add(result.itemId!));
+          await playInventoryCountSound();
         }
       }
     } catch (error) {
       console.error('[Scanner] Falha ao processar leitura:', error);
       triggerFrameBorder('error');
-      setLastFeedback({ kind: 'error', title: 'Falha na leitura', message: 'Tente novamente.' });
+      const feedback = {
+        kind: 'error' as const,
+        title: 'Falha na leitura',
+        message: 'Tente novamente.',
+      };
+      setRecentFeedbacks((current) => [feedback, ...current].slice(0, MAX_RECENT_FEEDBACKS));
     } finally {
       if (continuous) {
-        recentScanRef.current = { data, at: Date.now() };
-        processingRef.current = false;
-        setScanned(false);
+        recentScansRef.current.set(data, Date.now());
+        pendingScansRef.current.delete(data);
+        const nextScan = scanQueueRef.current.shift();
+        if (nextScan !== undefined) {
+          void processScannedData(nextScan);
+        } else {
+          processingRef.current = false;
+          setScanned(false);
+        }
       }
     }
+  };
+
+  const handleBarCodeScanned = (result: BarcodeScanningResult) => {
+    const { data } = result;
+    if (
+      restrictToScannerFrame &&
+      (!scannerFrame || !isBarcodeWithinScannerFrame(result, scannerFrame))
+    ) {
+      return;
+    }
+    if (!continuous) {
+      if (processingRef.current || scanned) return;
+      processingRef.current = true;
+      void processScannedData(data);
+      return;
+    }
+
+    const now = Date.now();
+    for (const [recentData, scannedAt] of recentScansRef.current) {
+      if (now - scannedAt >= RECENT_SCAN_WINDOW_MS) recentScansRef.current.delete(recentData);
+    }
+    const recentScanAt = recentScansRef.current.get(data);
+    if (
+      pendingScansRef.current.has(data) ||
+      (recentScanAt !== undefined && now - recentScanAt < RECENT_SCAN_WINDOW_MS)
+    ) {
+      return;
+    }
+
+    pendingScansRef.current.add(data);
+    if (processingRef.current) {
+      scanQueueRef.current.push(data);
+      return;
+    }
+
+    processingRef.current = true;
+    void processScannedData(data);
   };
 
   const handleReadText = async () => {
@@ -290,7 +333,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
           {continuous && (
             <InventoryScannerFeedbackView
               description={description}
-              lastFeedback={lastFeedback}
+              feedbacks={recentFeedbacks}
               unitsRead={unitsRead}
               productsReadCount={productsRead.size}
               scanned={scanned}

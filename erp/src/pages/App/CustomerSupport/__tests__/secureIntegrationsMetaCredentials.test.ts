@@ -52,6 +52,7 @@ beforeEach(() => {
   vi.stubEnv('WHATSAPP_ACCESS_TOKEN', metaToken);
   vi.stubEnv('WHATSAPP_APP_ID', appId);
   vi.stubEnv('WHATSAPP_APP_SECRET', appSecret);
+  vi.stubEnv('WHATSAPP_VERIFY_TOKEN', 'webhook-verify-token-unit');
   authMocks.authenticateErpRequest.mockResolvedValue({
     userId: 'operator-unit', roles: ['manager'], rolePermissions: {}, userDb: {},
   });
@@ -188,5 +189,38 @@ describe('POST /api/meta-graph verify_waba_subscription', () => {
     expect(res.statusCode).toBe(503);
     expect(res.body).toEqual({ error: 'WABA não configurado no sistema.' });
     expect(graph).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/meta-graph ensure_smb_message_echoes_subscription', () => {
+  it('exige manageSettings antes de chamar a Meta', async () => {
+    const graph = vi.fn();
+    vi.stubGlobal('fetch', graph);
+    authMocks.hasErpPermission.mockReturnValue(false);
+
+    const res = await callVerificationRoute('ensure_smb_message_echoes_subscription');
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body).toEqual({ error: 'Sem permissão para alterar a inscrição do webhook.' });
+    expect(graph).not.toHaveBeenCalled();
+  });
+
+  it('atualiza a inscrição idempotente usando segredo somente no servidor e confirma o readback', async () => {
+    const current = { object: 'whatsapp_business_account', callback_url: 'https://morantehub.vercel.app/api/whatsapp-webhook',
+      active: true, fields: [{ name: 'messages' }], include_values: false };
+    const updated = { ...current, fields: [...current.fields, { name: 'smb_message_echoes' }] };
+    const graph = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [current] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [updated] }), { status: 200 }));
+    vi.stubGlobal('fetch', graph);
+
+    const res = await callVerificationRoute('ensure_smb_message_echoes_subscription');
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ valid: true, changed: true, fields: ['messages', 'smb_message_echoes'] });
+    expect(JSON.stringify(res.body)).not.toContain(appSecret);
+    expect(JSON.stringify(res.body)).not.toContain('webhook-verify-token-unit');
+    expect(graph).toHaveBeenCalledTimes(3);
   });
 });

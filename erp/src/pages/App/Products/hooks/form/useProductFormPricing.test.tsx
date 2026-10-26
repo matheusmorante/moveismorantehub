@@ -68,6 +68,45 @@ describe('useProductFormPricing', () => {
     expect(result.current.formData.variations?.[0].promoPrice).toBeUndefined();
   });
 
+  it('propaga preço e promoção do pai somente para campos herdados da família', () => {
+    const { result } = renderPricing({
+      unitPrice: 100,
+      promoPrice: 80,
+      variations: [
+        {
+          ...productWithInheritedPromo.variations![0],
+          syncUnitPrice: true,
+          syncPromoPrice: true,
+        },
+        {
+          ...productWithInheritedPromo.variations![0],
+          id: 'variation-custom',
+          syncUnitPrice: false,
+          syncPromoPrice: false,
+          unitPrice: 65,
+          promoPrice: 55,
+        },
+        {
+          ...productWithInheritedPromo.variations![0],
+          id: 'variation-mixed',
+          syncUnitPrice: true,
+          syncPromoPrice: false,
+          unitPrice: 100,
+          promoPrice: 45,
+        },
+      ],
+    });
+
+    act(() => result.current.handlePriceChange(120));
+    act(() => result.current.handlePromoPriceFieldChange(90));
+
+    expect(result.current.formData.variations?.map(({ unitPrice, promoPrice }) => [unitPrice, promoPrice])).toEqual([
+      [120, 90],
+      [65, 55],
+      [120, 45],
+    ]);
+  });
+
   it('preserva o sinal de desconto fixo negativo e não aplica promoção', () => {
     const { result } = renderPricing(productWithInheritedPromo);
 

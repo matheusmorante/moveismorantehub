@@ -52,8 +52,8 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
   useEffect(() => {
     async function loadData() {
       const [catRes, relRes] = await Promise.all([
-        supabase.from('categories').select('*').order('name'),
-        supabase.from('category_relationships').select('*'),
+        supabase.from('categories').select('id, name, slug, type').order('name'),
+        supabase.from('category_relationships').select('parent_id, child_id'),
       ]);
 
       const loadedCats = catRes.data || [];

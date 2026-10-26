@@ -1,18 +1,13 @@
 import React from 'react';
-import { ConversationFilter } from '../types';
 import { useAuth } from '@/context/AuthContext';
 import { NavigationRailItem, NavigationRailFooter } from './navigationRail/index';
+import type { CustomerSupportRealtimeStatus } from '../hooks/useCustomerSupportConversations';
 
 export interface NavigationRailProps {
-  activeFilter: ConversationFilter;
-  onFilterChange: (filter: ConversationFilter) => void;
   unreadCountTotal: number;
-  mineCountTotal?: number;
-  unassignedCountTotal?: number;
   onOpenPolicy: () => void;
-  isLoading: boolean;
-  onRefresh: () => void;
-  isRealtimeConnected: boolean;
+  realtimeStatus: CustomerSupportRealtimeStatus;
+  onReconnectRealtime: () => void;
   isInboxSidebarOpen?: boolean;
   onToggleInboxSidebar?: () => void;
   isConversationSidebarOpen?: boolean;
@@ -22,13 +17,10 @@ export interface NavigationRailProps {
 }
 
 export const NavigationRail: React.FC<NavigationRailProps> = ({
-  activeFilter,
-  onFilterChange,
   unreadCountTotal,
   onOpenPolicy,
-  isLoading,
-  onRefresh,
-  isRealtimeConnected,
+  realtimeStatus,
+  onReconnectRealtime,
   isInboxSidebarOpen = true,
   onToggleInboxSidebar,
   isConversationSidebarOpen = true,
@@ -36,7 +28,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
   isMobileViewport = false,
   onResetLayout,
 }) => {
-  const { profile } = useAuth();
+  const { profile, user, logout } = useAuth();
 
   const userInitials = (profile?.full_name || 'Usuário')
     .split(' ')
@@ -55,7 +47,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         {/* Brand Icon */}
         <div
           title="MoranteHub CRM & Atendimento"
-          className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-emerald-600 to-emerald-500 text-white flex items-center justify-center shadow-md shadow-blue-600/20 mb-1 cursor-pointer transition-transform hover:scale-105"
+          className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-emerald-600 to-emerald-500 text-white flex items-center justify-center shadow-md shadow-blue-600/20 mb-1"
         >
           <i className="bi bi-chat-quote-fill text-lg"></i>
         </div>
@@ -66,7 +58,7 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         <NavigationRailItem
           icon="bi-inbox-fill"
           title="Caixa de entrada e filas de atendimento"
-          isActive={true}
+          isActive={isInboxSidebarOpen}
           badgeCount={unreadCountTotal}
           ariaLabel="Caixa de entrada"
           ariaExpanded={isInboxSidebarOpen}
@@ -74,49 +66,30 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
           onClick={onToggleInboxSidebar}
         />
 
-        <NavigationRailItem
-          icon="bi-chat-left-text-fill"
-          title="Lista de conversas"
-          ariaLabel="Mostrar ou recolher lista de conversas"
-          ariaExpanded={isConversationSidebarOpen}
-          ariaControls="customer-support-conversations-panel"
-          onClick={onToggleConversationSidebar}
-        />
-
-        {!isMobileViewport && onResetLayout && (
+        {!isConversationSidebarOpen && (
           <NavigationRailItem
-            icon="bi-arrow-clockwise"
-            title="Restaurar layout padrão"
-            ariaLabel="Restaurar layout padrão"
-            onClick={onResetLayout}
+            icon="bi-chat-left-text-fill"
+            title="Mostrar lista de conversas"
+            ariaLabel="Mostrar lista de conversas"
+            ariaExpanded={false}
+            ariaControls="customer-support-conversations-panel"
+            onClick={onToggleConversationSidebar}
           />
         )}
-
-        {/* Contatos / Clientes */}
-        <NavigationRailItem
-          icon="bi-person-lines-fill"
-          title="Contatos e Clientes do ERP"
-          isActive={activeFilter === 'linked'}
-          onClick={() => onFilterChange('linked')}
-        />
-
-        {/* Política de uso da Central */}
-        <NavigationRailItem
-          icon="bi-shield-lock-fill"
-          title="Política de envio da Central"
-          onClick={onOpenPolicy}
-        />
       </div>
 
-      {/* Base: Avatar do Atendente com Dot Online + Notificações, Tracker e Realtime */}
+      {/* Perfil, opções da Central e estado da conexão de dados em tempo real */}
       <NavigationRailFooter
         userInitials={userInitials}
         userName={profile?.full_name}
         userRole={profile?.role}
+        userEmail={user?.email}
+        onLogout={logout}
         onOpenPolicy={onOpenPolicy}
-        isLoading={isLoading}
-        onRefresh={onRefresh}
-        isRealtimeConnected={isRealtimeConnected}
+        onResetLayout={onResetLayout}
+        isMobileViewport={isMobileViewport}
+        realtimeStatus={realtimeStatus}
+        onReconnectRealtime={onReconnectRealtime}
       />
     </aside>
   );

@@ -64,7 +64,7 @@ describe('composição real do formulário de variações', () => {
   });
   it('mantém linha vazia de componente, direciona o erro e permite removê-la antes de concluir', async () => {
     const value = { ...variation, comboItems: [{ productId: 'componente', description: 'Banco', unitPrice: 20, stock: 0, quantity: 2 }] };
-    const view = mount(value, { ...parent, itemType: 'composition' }); tab('Produtos Componentes');
+    const view = mount(value, { ...parent, itemType: 'composition' }); tab('Composição');
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar Produto' })); submit();
     expect((await screen.findByRole('alert')).textContent).toContain('Selecione o produto'); expect(view.onSave).not.toHaveBeenCalled();
     const remove = screen.getAllByRole('button', { name: 'Remover Item' }); fireEvent.click(remove[1]);
@@ -163,10 +163,30 @@ describe('composição real do formulário de variações', () => {
   });
   it('autocomplete real preserva preço e estoque zero da variação componente', async () => {
     mocks.fetchProductsPage.mockResolvedValue({ data: [{ ...parent, id: 'componente', name: 'Banco', unitPrice: 80, stock: 10, variations: [{ ...variation, id: 'banco-azul', name: 'Banco Azul', unitPrice: 0, stock: 0 }] }] });
-    const view = mount(variation, { ...parent, itemType: 'composition' }); tab('Produtos Componentes'); fireEvent.click(screen.getByRole('button', { name: 'Adicionar Produto' }));
+    const view = mount(variation, { ...parent, itemType: 'composition' }); tab('Composição'); fireEvent.click(screen.getByRole('button', { name: 'Adicionar Produto' }));
     fireEvent.change(screen.getByPlaceholderText('Buscar produto (mesmo fornecedor)'), { target: { value: 'Banco' } });
     fireEvent.click(await screen.findByRole('button', { name: /Banco.*Azul/ })); submit(); await waitFor(() => expect(view.onSave).toHaveBeenCalled());
     expect(view.onSave.mock.calls[0][0].comboItems).toEqual([expect.objectContaining({ variationId: 'banco-azul', unitPrice: 0, stock: 0 })]);
+  });
+  it('não persiste o ID sintético da variação virtual de um componente simples legado', async () => {
+    mocks.fetchProductsPage.mockResolvedValue({ data: [{
+      ...parent,
+      id: 'componente-simples-legado',
+      name: 'Banqueta Legada',
+      code: 'BAN-1',
+      unitPrice: 50,
+      stock: 8,
+      variations: [{ ...variation, id: 'componente-simples-legado_BAN-1-01', isVirtual: true, name: 'Banqueta Legada', unitPrice: 50, stock: 8 }],
+    }] });
+    const existingItem = { productId: 'componente-existente', quantity: 1, description: 'Mesa', unitPrice: 120, stock: 4 };
+    const view = mount({ ...variation, comboItems: [existingItem] }, { ...parent, itemType: 'composition' });
+    tab('Composição'); fireEvent.click(screen.getByRole('button', { name: 'Adicionar Produto' }));
+    fireEvent.change(screen.getByPlaceholderText('Buscar produto (mesmo fornecedor)'), { target: { value: 'Banqueta' } });
+    fireEvent.click(await screen.findByRole('button', { name: /Banqueta Legada/ })); submit();
+    await waitFor(() => expect(view.onSave).toHaveBeenCalled());
+    const addedItem = view.onSave.mock.calls[0][0].comboItems[1];
+    expect(addedItem).toMatchObject({ productId: 'componente-simples-legado', description: 'Banqueta Legada', quantity: 1, unitPrice: 50, stock: 8 });
+    expect(addedItem.variationId).toBeUndefined();
   });
   it('atributos/fotos sem resposta deixam de carregar em 10s e ignoram fotos tardias', async () => {
     vi.useFakeTimers(); let finish!: (value: unknown) => void;

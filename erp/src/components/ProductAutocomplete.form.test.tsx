@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ search: vi.fn() }));
-vi.mock('./productAutocompleteUtils', () => ({ fetchAllProductSearchResults: mocks.search, getVariationDisplayName: (product: any, variation: any) => variation?.name || product.name, normalizeProductSearch: (value: string) => value.toLocaleLowerCase(), renderHighlightedProductText: (value: string) => value }));
+vi.mock('./productAutocompleteUtils', () => ({ fetchAllProductSearchResults: mocks.search, getVariationDisplayName: (product: any, variation: any) => variation?.name || product.name, normalizeProductSearch: (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase(), normalizeProductSearchSeparators: (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim(), renderHighlightedProductText: (value: string) => value }));
 vi.mock('./shared/DropdownPortal', () => ({ default: ({ children, isOpen }: any) => isOpen ? <div>{children}</div> : null }));
 import ProductAutocomplete from './ProductAutocomplete';
 const product = { id: 'product', name: 'Armário', code: '1', supplierId: 'supplier', active: true, unitPrice: 0, stock: 0, productKind: 'normal', itemType: 'product', variations: [] };

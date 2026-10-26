@@ -1,6 +1,7 @@
 import Product from '../../../../../types/product.type';
 import { parseVariationImages } from '@/pages/utils/productService';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
+import { resolveProductVariationPricing } from '../../../../../../../../shared-utils/productVariationPricing';
 import type { ProductListRow, ProductListVariationAttribute } from '../../types';
 
 interface RawVariationItem {
@@ -103,6 +104,7 @@ function buildVariationListRow(
 
   const mergedToVariationId =
     variation.mergedToVariationId || variation.merged_to_variation_id || undefined;
+  const effectivePricing = resolveProductVariationPricing(variation, product);
 
   return {
     ...product,
@@ -125,19 +127,11 @@ function buildVariationListRow(
     syncHeight: variation.syncHeight !== false,
     syncDepth: variation.syncDepth !== false,
     syncWeight: variation.syncWeight !== false,
-    unitPrice:
-      variation.syncUnitPrice ||
-      typeof variation.unitPrice === 'undefined' ||
-      variation.unitPrice === null ||
-      variation.unitPrice === 0
-        ? product.unitPrice
-        : variation.unitPrice,
+    unitPrice: Number(effectivePricing.unitPrice ?? 0),
     promoPrice:
-      variation.syncPromoPrice !== false ||
-      typeof variation.promoPrice === 'undefined' ||
-      variation.promoPrice === null
-        ? product.promoPrice
-        : variation.promoPrice,
+      effectivePricing.promoPrice === null || effectivePricing.promoPrice === undefined
+        ? undefined
+        : Number(effectivePricing.promoPrice),
     costPrice:
       variation.syncCostPrice ||
       typeof variation.costPrice === 'undefined' ||

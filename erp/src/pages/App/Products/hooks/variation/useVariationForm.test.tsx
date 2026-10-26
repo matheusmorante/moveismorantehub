@@ -249,7 +249,7 @@ describe('edição explícita de variação', () => {
     expect(operation).toHaveBeenCalledTimes(2); expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('não vincula automaticamente fotos do produto pai e preserva fotos vinculadas manualmente', async () => {
+  it('sincroniza automaticamente a galeria completa do pai na variação simples', async () => {
     const singleVar: Variation = {
       ...variation,
       images: [],
@@ -272,16 +272,7 @@ describe('edição explícita de variação', () => {
       })
     );
 
-    // Não herda automaticamente fotos do pai
-    expect(result.current.formData.images).toHaveLength(0);
-
-    // Simula vinculação manual de fotos pelo usuário
-    act(() => {
-      result.current.setFormData((prev: any) => ({
-        ...prev,
-        images: ['https://img.test/photo-2.jpg', 'https://img.test/photo-1.jpg'],
-      }));
-    });
+    await waitFor(() => expect(result.current.formData?.images).toEqual(parentWithTwentyImages.images));
 
     await act(async () => {
       await result.current.handleSubmit({ preventDefault() {} } as React.FormEvent);
@@ -289,9 +280,39 @@ describe('edição explícita de variação', () => {
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
-        images: ['https://img.test/photo-2.jpg', 'https://img.test/photo-1.jpg'],
+        images: parentWithTwentyImages.images,
       })
     );
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('reabre rascunho em modo família com uma variação e preserva sua galeria própria limitada', async () => {
+    const parentImages = ['https://img.test/pai.jpg'];
+    const variationImages = Array.from(
+      { length: 18 },
+      (_, index) => `https://img.test/variacao-${index + 1}.jpg`
+    );
+    const familyVariation = { ...variation, images: variationImages };
+    const familyDraft = {
+      ...parent,
+      hasVariations: true,
+      images: parentImages,
+      variations: [familyVariation],
+    };
+
+    const { result } = renderHook(() =>
+      useVariationForm({
+        isOpen: true,
+        onClose: vi.fn(),
+        parentProduct: familyDraft,
+        variation: familyVariation,
+        onSave: vi.fn(),
+      })
+    );
+
+    await waitFor(() =>
+      expect(result.current.formData?.images).toEqual(variationImages.slice(0, 15))
+    );
+    expect(result.current.formData?.images).not.toContain(parentImages[0]);
   });
 });

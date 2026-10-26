@@ -6,10 +6,15 @@ vi.mock('../../../services/supabaseClient', () => ({ supabase: supabaseMock }));
 
 import { fetchMobileProductsPage } from './mobileProductFetchService';
 import {
+  resolveMobileProductStatusFilter,
+  shouldExcludeMobileDraftsDuringSearch,
+} from '../domain/mobileProductListFilters';
+import {
   PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER,
   PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER,
 } from '../../../../../shared-utils/productListTypeFilters';
 import { PRODUCT_LIST_DRAFT_FILTER } from '../../../../../shared-utils/productListDraftFilters';
+import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../shared-utils/testArtifactQueries';
 
 describe('fetchMobileProductsPage', () => {
   beforeEach(() => {
@@ -26,6 +31,252 @@ describe('fetchMobileProductsPage', () => {
     supabaseMock.from.mockReturnValue(query);
 
     await expect(fetchMobileProductsPage(1, 15, { throwOnError: true })).rejects.toBe(queryError);
+  });
+
+  it('isola composições e mantém a contagem exata ao buscar outra página', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 21, error: null });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(2, 10, {
+      itemType: 'composition',
+      canViewCompositions: true,
+      throwOnError: true,
+    });
+
+    expect(query.select).toHaveBeenCalledWith(expect.any(String), { count: 'exact' });
+    expect(query.eq).toHaveBeenCalledWith('item_type', 'composition');
+    expect(query.filter).not.toHaveBeenCalledWith('item_type', 'isdistinct', 'composition');
+    expect(query.range).toHaveBeenCalledWith(10, 19);
+    expect(query.eq.mock.invocationCallOrder[0]).toBeLessThan(
+      query.range.mock.invocationCallOrder[0]
+    );
+    expect(result).toEqual({ data: [], total: 21 });
+  });
+
+  it('filtra produtos padrão pelo status do Catálogo antes da contagem e do intervalo da página', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 11, error: null });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(2, 10, {
+      itemType: 'standard',
+      catalogStatus: 'published',
+      throwOnError: true,
+    });
+
+    expect(query.select).toHaveBeenCalledWith(expect.any(String), { count: 'exact' });
+    expect(query.filter).toHaveBeenCalledWith('item_type', 'isdistinct', 'composition');
+    expect(query.eq).toHaveBeenCalledWith('status', 'published');
+    expect(query.range).toHaveBeenCalledWith(10, 19);
+    expect(query.eq.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      query.range.mock.invocationCallOrder[0]
+    );
+    expect(result).toEqual({ data: [], total: 11 });
+  });
+
+  it('combina categoria com composição antes da contagem exata e da paginação', async () => {
+    const productQuery: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      productQuery[method] = vi.fn(() => productQuery);
+    }
+    productQuery.range = vi.fn().mockResolvedValue({ data: [], count: 21, error: null });
+    const categoryQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { name: 'Sala' }, error: null }),
+    };
+    const categoryLinksQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [{ product_id: 'composition-1' }], error: null })),
+    };
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'categories') return categoryQuery;
+      if (table === 'product_categories') return categoryLinksQuery;
+      return productQuery;
+    });
+
+    const result = await fetchMobileProductsPage(2, 10, {
+      itemType: 'composition',
+      category: 'category-1',
+      canViewCompositions: true,
+      throwOnError: true,
+    });
+
+    expect(productQuery.select).toHaveBeenCalledWith(expect.any(String), { count: 'exact' });
+    expect(productQuery.eq).toHaveBeenCalledWith('item_type', 'composition');
+    expect(productQuery.or).toHaveBeenCalledWith(
+      'category_id.eq.category-1,category.eq."Sala",id.in.(composition-1)'
+    );
+    expect(productQuery.range).toHaveBeenCalledWith(10, 19);
+    expect(productQuery.eq.mock.invocationCallOrder[0]).toBeLessThan(
+      productQuery.range.mock.invocationCallOrder[0]
+    );
+    expect(
+      productQuery.or.mock.invocationCallOrder.some(
+        (callOrder) => callOrder < productQuery.range.mock.invocationCallOrder[0]
+      )
+    ).toBe(true);
+    expect(result).toEqual({ data: [], total: 21 });
+  });
+
+  it('combina situação no ERP e status do Catálogo em composições antes da contagem exata e paginação', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'not', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 7, error: null });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(2, 10, {
+      itemType: 'composition',
+      statusFilter: 'disabled',
+      catalogStatus: 'hidden',
+      canViewCompositions: true,
+      throwOnError: true,
+    });
+
+    expect(query.select).toHaveBeenCalledWith(expect.any(String), { count: 'exact' });
+    expect(query.eq).toHaveBeenCalledWith('item_type', 'composition');
+    expect(query.not).toHaveBeenCalledWith('is_draft', 'is', true);
+    expect(query.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
+    expect(query.eq).toHaveBeenCalledWith('active', false);
+    expect(query.eq).toHaveBeenCalledWith('status', 'hidden');
+    expect(query.range).toHaveBeenCalledWith(10, 19);
+    expect(result.total).toBe(7);
+
+    const filterCallOrders = [
+      ...query.eq.mock.invocationCallOrder,
+      ...query.not.mock.invocationCallOrder,
+      ...query.filter.mock.invocationCallOrder,
+    ];
+    expect(filterCallOrders.every((callOrder) => callOrder < query.range.mock.invocationCallOrder[0])).toBe(true);
+  });
+
+  it('busca composição por código do pai e SKU de variação sem ampliar o tipo consultado', async () => {
+    const productQuery: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      productQuery[method] = vi.fn(() => productQuery);
+    }
+    productQuery.range = vi.fn().mockResolvedValue({ data: [], count: 21, error: null });
+    const variationQuery: any = {
+      select: vi.fn(() => variationQuery),
+      or: vi.fn(() => variationQuery),
+      limit: vi.fn().mockResolvedValue({ data: [{ product_id: 'composition-parent' }], error: null }),
+    };
+    supabaseMock.from.mockImplementation((table: string) =>
+      table === 'product_variations' ? variationQuery : productQuery
+    );
+
+    const result = await fetchMobileProductsPage(2, 10, {
+      search: 'KTX',
+      itemType: 'composition',
+      canViewCompositions: true,
+      throwOnError: true,
+    });
+
+    expect(variationQuery.or).toHaveBeenCalledWith('name.ilike.%KTX%,sku.ilike.%KTX%');
+    expect(productQuery.eq).toHaveBeenCalledWith('item_type', 'composition');
+    expect(productQuery.or).toHaveBeenCalledWith(
+      expect.stringContaining('name.ilike.%KTX%,code.ilike.%KTX%')
+    );
+    expect(productQuery.or).toHaveBeenCalledWith(
+      expect.stringContaining('id.eq.composition-parent')
+    );
+    expect(productQuery.range).toHaveBeenCalledWith(10, 19);
+    expect(result.total).toBe(21);
+  });
+
+  it.each(['active', 'disabled'] as const)(
+    'suspende o filtro %s durante busca de composição, mantendo não-rascunho e Catálogo',
+    async (selectedStatus) => {
+      const query: any = {};
+      for (const method of ['select', 'or', 'eq', 'not', 'filter', 'order']) {
+        query[method] = vi.fn(() => query);
+      }
+      query.range = vi.fn().mockResolvedValue({ data: [], count: 7, error: null });
+      const variationQuery: any = {
+        select: vi.fn(() => variationQuery),
+        or: vi.fn(() => variationQuery),
+        limit: vi.fn().mockResolvedValue({
+          data: [{ product_id: 'composition-parent' }],
+          error: null,
+        }),
+      };
+      supabaseMock.from.mockImplementation((table: string) =>
+        table === 'product_variations' ? variationQuery : query
+      );
+      const search = 'KTX';
+
+      const result = await fetchMobileProductsPage(1, 10, {
+        search,
+        statusFilter: resolveMobileProductStatusFilter(selectedStatus, search),
+        excludeDraftsDuringSearch: shouldExcludeMobileDraftsDuringSearch(selectedStatus, search),
+        catalogStatus: 'hidden',
+        itemType: 'composition',
+        canViewCompositions: true,
+        throwOnError: true,
+      });
+
+      expect(query.select).toHaveBeenCalledWith(expect.any(String), { count: 'exact' });
+      expect(query.eq).toHaveBeenCalledWith('item_type', 'composition');
+      expect(query.not).toHaveBeenCalledWith('is_draft', 'is', true);
+      expect(query.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
+      expect(query.eq).toHaveBeenCalledWith('status', 'hidden');
+      expect(query.eq).not.toHaveBeenCalledWith('active', true);
+      expect(query.eq).not.toHaveBeenCalledWith('active', false);
+      expect(variationQuery.or).toHaveBeenCalledWith('name.ilike.%KTX%,sku.ilike.%KTX%');
+      expect(query.range).toHaveBeenCalledWith(0, 9);
+      expect(result.total).toBe(7);
+    }
+  );
+
+  it('mantém busca de composição em rascunhos quando o status do Catálogo também está selecionado', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'not', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({ data: [], count: 3, error: null });
+    const variationQuery: any = {
+      select: vi.fn(() => variationQuery),
+      or: vi.fn(() => variationQuery),
+      limit: vi.fn().mockResolvedValue({
+        data: [{ product_id: 'composition-draft-parent' }],
+        error: null,
+      }),
+    };
+    supabaseMock.from.mockImplementation((table: string) =>
+      table === 'product_variations' ? variationQuery : query
+    );
+    const search = 'KTX';
+    const selectedStatus = 'draft' as const;
+
+    const result = await fetchMobileProductsPage(1, 10, {
+      search,
+      statusFilter: resolveMobileProductStatusFilter(selectedStatus, search),
+      excludeDraftsDuringSearch: shouldExcludeMobileDraftsDuringSearch(selectedStatus, search),
+      catalogStatus: 'hidden',
+      itemType: 'composition',
+      canViewCompositions: true,
+      throwOnError: true,
+    });
+
+    expect(query.select).toHaveBeenCalledWith(expect.any(String), { count: 'exact' });
+    expect(query.eq).toHaveBeenCalledWith('item_type', 'composition');
+    expect(query.or).toHaveBeenCalledWith(PRODUCT_LIST_DRAFT_FILTER);
+    expect(query.eq).toHaveBeenCalledWith('status', 'hidden');
+    expect(query.not).not.toHaveBeenCalledWith('is_draft', 'is', true);
+    expect(query.filter).not.toHaveBeenCalledWith('status', 'isdistinct', 'draft');
+    expect(variationQuery.or).toHaveBeenCalledWith('name.ilike.%KTX%,sku.ilike.%KTX%');
+    expect(query.range).toHaveBeenCalledWith(0, 9);
+    expect(result.total).toBe(3);
   });
 
   it('usa o predicado compartilhado para categorias primárias, relações e registros legados', async () => {
@@ -73,7 +324,7 @@ describe('fetchMobileProductsPage', () => {
           code: 'MESA-1',
           category: 'Sala',
           unit_price: '1200',
-          price: '1200',
+          price: '1450',
           promo_price: null,
           cost_price: '800',
           stock: 3,
@@ -103,6 +354,252 @@ describe('fetchMobileProductsPage', () => {
       costPrice: 800,
       allVariations: [{ sku: 'MESA-1-01' }],
     });
+    expect(result.total).toBe(1);
+  });
+
+  it.each([undefined, { summaryOnly: true }] as const)(
+    'loads the legacy category_id name for list cards when normalized links are absent (%o)',
+    async (options) => {
+      const productQuery: any = {};
+      for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+        productQuery[method] = vi.fn(() => productQuery);
+      }
+      productQuery.range = vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'product-legacy-category',
+            name: 'Cama Aurora',
+            code: 'CAMA-01',
+            category_id: 'category-legacy',
+            category: '',
+            unit_price: 1200,
+            stock: 1,
+            active: true,
+            status: 'published',
+            item_type: 'product',
+            product_categories: [],
+            product_variations: [],
+          },
+        ],
+        count: 1,
+        error: null,
+      });
+      const categoryQuery: any = {
+        select: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({
+          data: [{ id: 'category-legacy', name: 'Quarto' }],
+          error: null,
+        }),
+      };
+      supabaseMock.from.mockImplementation((table: string) =>
+        table === 'categories' ? categoryQuery : productQuery
+      );
+
+      const result = await fetchMobileProductsPage(1, 10, options);
+
+      const selectedColumns = productQuery.select.mock.calls[0][0];
+      expect(selectedColumns).toContain(options?.summaryOnly ? 'category_id' : '*, product_variations(');
+      expect(categoryQuery.in).toHaveBeenCalledWith('id', ['category-legacy']);
+      expect(result.data[0].category).toBe('Quarto');
+    }
+  );
+
+  it('propaga falha ao resolver nomes de categoria para o estado de erro da lista', async () => {
+    const productQuery: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      productQuery[method] = vi.fn(() => productQuery);
+    }
+    productQuery.range = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'product-category-error',
+          name: 'Cama Aurora',
+          code: 'CAMA-01',
+          category_id: 'category-legacy',
+          category: '',
+          unit_price: 1200,
+          stock: 1,
+          active: true,
+          status: 'published',
+          item_type: 'product',
+          product_categories: [],
+          product_variations: [],
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+    const categoryError = new Error('Falha ao consultar nomes das categorias');
+    const categoryQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      in: vi.fn().mockResolvedValue({ data: null, error: categoryError }),
+    };
+    supabaseMock.from.mockImplementation((table: string) =>
+      table === 'categories' ? categoryQuery : productQuery
+    );
+
+    await expect(fetchMobileProductsPage(1, 10, { throwOnError: true })).rejects.toBe(
+      categoryError
+    );
+  });
+
+  it('uses legacy parent price when unit_price is null in the list result', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'legacy-product',
+          name: 'Mesa legada',
+          code: 'MESA-LEGADA',
+          unit_price: null,
+          price: '145.00',
+          promo_price: null,
+          cost_price: 80,
+          stock: 2,
+          active: true,
+          status: 'published',
+          item_type: 'product',
+          is_draft: false,
+          product_categories: [],
+          product_variations: [],
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(1, 10);
+
+    expect(query.select.mock.calls[0][0]).toContain('product_variations(*)');
+    expect(result.data[0]).toMatchObject({
+      unitPrice: 145,
+      allVariations: [{ price: 145 }],
+    });
+  });
+
+  it('normalizes legacy parent and family variation image formats with the ERP parser', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'product-image-formats',
+          name: 'Sofá Aurora',
+          code: 'SOFA-1',
+          item_type: 'product',
+          status: 'published',
+          active: true,
+          images: 'https://img.example/parent-a.jpg, https://img.example/parent-b.jpg',
+          product_images: [],
+          product_categories: [],
+          product_variations: [
+            {
+              id: 'variation-json-images',
+              product_id: 'product-image-formats',
+              sku: 'SOFA-1-01',
+              name: 'Sofá Aurora Azul',
+              image_url: '["https://img.example/blue-a.jpg", "https://img.example/blue-b.jpg"]',
+              images: null,
+              active: true,
+              stock: 2,
+            },
+            {
+              id: 'variation-object-images',
+              product_id: 'product-image-formats',
+              sku: 'SOFA-1-02',
+              name: 'Sofá Aurora Cinza',
+              image_url: null,
+              images: [{ url: 'https://img.example/gray.jpg' }],
+              active: true,
+              stock: 1,
+            },
+          ],
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(1, 10);
+
+    expect(result.data[0].images).toEqual([
+      'https://img.example/parent-a.jpg',
+      'https://img.example/parent-b.jpg',
+    ]);
+    expect(result.data[0].allVariations.map((variation: any) => variation.images)).toEqual([
+      ['https://img.example/blue-a.jpg', 'https://img.example/blue-b.jpg'],
+      ['https://img.example/gray.jpg'],
+    ]);
+  });
+
+  it('applies the ERP test-artifact predicates before paging and hides test rows by default', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({
+      data: [{
+        id: 'test-product',
+        name: '[HML NF TEST] P1',
+        code: 'NFEHML26P1',
+        item_type: 'product',
+        status: 'draft',
+        is_draft: true,
+        is_test: false,
+        technical_specs: { testArtifact: { is_test: true } },
+        product_categories: [],
+        product_variations: [],
+      }],
+      count: 1,
+      error: null,
+    });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(1, 10, { summaryOnly: true });
+
+    expect(query.or).toHaveBeenCalledWith(NON_TEST_PRODUCT_ARTIFACT_FILTER);
+    expect(result.data).toHaveLength(0);
+    expect(result.total).toBe(0);
+  });
+
+  it('includes marked test rows only when the caller enables administrative visibility', async () => {
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({
+      data: [{
+        id: 'test-product',
+        name: '[HML NF TEST] P1',
+        code: 'NFEHML26P1',
+        item_type: 'product',
+        status: 'draft',
+        is_draft: true,
+        is_test: true,
+        technical_specs: { testArtifact: { is_test: true } },
+        product_categories: [],
+        product_variations: [],
+      }],
+      count: 1,
+      error: null,
+    });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(1, 10, {
+      summaryOnly: true,
+      showTestProducts: true,
+    });
+
+    expect(query.or).not.toHaveBeenCalledWith(NON_TEST_PRODUCT_ARTIFACT_FILTER);
+    expect(query.or).not.toHaveBeenCalledWith('is_test.is.null,is_test.eq.false');
+    expect(result.data).toHaveLength(1);
     expect(result.total).toBe(1);
   });
 
@@ -193,6 +690,34 @@ describe('fetchMobileProductsPage', () => {
     await fetchMobileProductsPage(1, 15, { statusFilter: 'draft' });
 
     expect(query.or).toHaveBeenCalledWith(PRODUCT_LIST_DRAFT_FILTER);
+  });
+
+  it('exclui rascunhos quando a busca suspende Ativos/Desativados para todos os estados', async () => {
+    const productQuery: any = {};
+    for (const method of ['select', 'or', 'eq', 'not', 'filter', 'order']) {
+      productQuery[method] = vi.fn(() => productQuery);
+    }
+    productQuery.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+
+    const variationQuery: any = {};
+    variationQuery.select = vi.fn(() => variationQuery);
+    variationQuery.or = vi.fn(() => variationQuery);
+    variationQuery.limit = vi.fn().mockResolvedValue({ data: [], error: null });
+
+    supabaseMock.from.mockImplementation((table: string) =>
+      table === 'product_variations' ? variationQuery : productQuery
+    );
+
+    await fetchMobileProductsPage(1, 15, {
+      search: 'mesa',
+      statusFilter: 'all',
+      includeDeactivated: true,
+      excludeDraftsDuringSearch: true,
+    });
+
+    expect(productQuery.not).toHaveBeenCalledWith('is_draft', 'is', true);
+    expect(productQuery.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
+    expect(productQuery.eq).not.toHaveBeenCalledWith('active', expect.anything());
   });
 
   it('limits product autocomplete to active non-draft products from the selected supplier', async () => {
@@ -364,6 +889,31 @@ describe('fetchMobileProductsPage', () => {
               use_parent_description: true,
               attributes: [{ name: 'Cor', value: 'Azul' }],
             },
+            {
+              id: 'var-3',
+              product_id: 'product-1',
+              name: 'Guarda Roupa Paris Incompleto',
+              sku: '000312-03',
+              price: 0,
+              use_parent_price: false,
+              use_parent_promo_price: true,
+              use_parent_dimensions: true,
+              use_parent_description: true,
+              attributes: [{ name: 'Cor', value: 'Incompleto' }],
+            },
+            {
+              id: 'var-4',
+              product_id: 'product-1',
+              name: 'Guarda Roupa Paris Promoção Própria',
+              sku: '000312-04',
+              price: 999,
+              promo_price: 1100,
+              use_parent_price: true,
+              use_parent_promo_price: false,
+              use_parent_dimensions: true,
+              use_parent_description: true,
+              attributes: [{ name: 'Cor', value: 'Promoção própria' }],
+            },
           ],
           technical_specs: {
             technicalValues: { Marca: 'Morante' },
@@ -436,6 +986,291 @@ describe('fetchMobileProductsPage', () => {
     });
     expect(ownPriceVariation).not.toHaveProperty('discountPercent');
     expect(ownPriceVariation).not.toHaveProperty('discountFixed');
+    expect(result.data[0].allVariations[2]).toMatchObject({
+      syncUnitPrice: false,
+      syncPromoPrice: true,
+      unitPrice: 0,
+      promoPrice: 1350,
+    });
+    expect(result.data[0].allVariations[3]).toMatchObject({
+      syncUnitPrice: true,
+      syncPromoPrice: false,
+      unitPrice: 1500,
+      promoPrice: 1100,
+    });
+  });
+
+  it('reabre família de composição em rascunho com a versão mais recente dos preços próprios e herdados', async () => {
+    const productId = '123e4567-e89b-42d3-a456-426614174060';
+    const ownPriceVariationId = '123e4567-e89b-42d3-a456-426614174061';
+    const inheritedPriceVariationId = '123e4567-e89b-42d3-a456-426614174062';
+    const query: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.range = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: productId,
+          name: 'Kit em rascunho',
+          code: 'KIT-RASCUNHO',
+          item_type: 'composition',
+          has_variations: true,
+          is_combo: true,
+          is_draft: true,
+          status: 'draft',
+          active: false,
+          unit_price: 220,
+          promo_price: 180,
+          combo_items: [],
+          product_categories: [],
+          product_variations: [
+            {
+              id: ownPriceVariationId,
+              product_id: productId,
+              name: 'Kit Azul',
+              sku: 'KIT-RASCUNHO-01',
+              price: 165,
+              promo_price: 140,
+              use_parent_price: false,
+              use_parent_promo_price: false,
+              active: false,
+              status: 'draft',
+              stock: 0,
+              combo_items: [],
+              attributes: [],
+            },
+            {
+              id: inheritedPriceVariationId,
+              product_id: productId,
+              name: 'Kit Verde',
+              sku: 'KIT-RASCUNHO-02',
+              price: 220,
+              promo_price: 180,
+              use_parent_price: true,
+              use_parent_promo_price: true,
+              active: false,
+              status: 'draft',
+              stock: 0,
+              combo_items: [],
+              attributes: [],
+            },
+          ],
+          technical_specs: {
+            variationDetails: [
+              {
+                id: ownPriceVariationId,
+                syncUnitPrice: false,
+                syncPromoPrice: false,
+                syncCostPrice: false,
+                costPrice: '40,00',
+              },
+              {
+                id: inheritedPriceVariationId,
+                syncUnitPrice: true,
+                syncPromoPrice: true,
+                syncCostPrice: true,
+              },
+            ],
+            draftProduct: {
+              id: productId,
+              isDraft: true,
+              active: false,
+              status: 'draft',
+              itemType: 'composition',
+              hasVariations: true,
+              unitPrice: '220,00',
+              promoPrice: '180,00',
+              variations: [
+                {
+                  id: ownPriceVariationId,
+                  name: 'Kit Azul',
+                  price: '165,00',
+                  unitPrice: '165,00',
+                  promoPrice: '140,00',
+                  costPrice: '40,00',
+                  syncUnitPrice: false,
+                  syncPromoPrice: false,
+                  syncCostPrice: false,
+                  comboItems: [],
+                },
+                {
+                  id: inheritedPriceVariationId,
+                  name: 'Kit Verde',
+                  price: '220,00',
+                  unitPrice: '220,00',
+                  promoPrice: '180,00',
+                  costPrice: '50,00',
+                  syncUnitPrice: true,
+                  syncPromoPrice: true,
+                  syncCostPrice: true,
+                  comboItems: [],
+                },
+              ],
+            },
+          },
+        },
+      ],
+      count: 1,
+      error: null,
+    });
+    supabaseMock.from.mockReturnValue(query);
+
+    const result = await fetchMobileProductsPage(1, 10);
+
+    expect(result.data[0]).toMatchObject({
+      id: productId,
+      itemType: 'composition',
+      isDraft: true,
+      hasVariations: true,
+      active: false,
+      unitPrice: 220,
+      promoPrice: 180,
+    });
+    expect(result.data[0].variations).toMatchObject([
+      {
+        id: ownPriceVariationId,
+        unitPrice: 165,
+        promoPrice: 140,
+        costPrice: '40,00',
+        syncUnitPrice: false,
+        syncPromoPrice: false,
+        syncCostPrice: false,
+      },
+      {
+        id: inheritedPriceVariationId,
+        unitPrice: 220,
+        promoPrice: 180,
+        costPrice: '50,00',
+        syncUnitPrice: true,
+        syncPromoPrice: true,
+        syncCostPrice: true,
+      },
+    ]);
+  });
+
+  it('reabre composição concluída pelas linhas atuais e ignora snapshot de rascunho', async () => {
+    const productId = 'completed-composition';
+    const ownVariationId = 'completed-composition-own-variation';
+    const inheritedVariationId = 'completed-composition-inherited-variation';
+    const ownComboItems = [{ productId: 'component-product', variationId: 'component-blue', quantity: 1 }];
+    const inheritedComboItems = [{ productId: 'component-product', variationId: 'component-green', quantity: 2 }];
+    const productQuery: any = {};
+    for (const method of ['select', 'or', 'eq', 'filter', 'order', 'not']) {
+      productQuery[method] = vi.fn(() => productQuery);
+    }
+    productQuery.range = vi.fn().mockResolvedValue({
+      data: [{
+        id: productId,
+        name: 'Kit finalizado',
+        code: 'KIT-FINAL',
+        item_type: 'composition',
+        is_combo: true,
+        is_draft: false,
+        has_variations: true,
+        active: true,
+        status: 'published',
+        unit_price: 220,
+        promo_price: 180,
+        cost_price: 50,
+        combo_items: [],
+        product_categories: [],
+        product_images: [],
+        technical_specs: {
+          draftProduct: null,
+          variationDetails: [
+            { id: ownVariationId, syncCostPrice: false, costPrice: 40 },
+            { id: inheritedVariationId, syncCostPrice: true },
+          ],
+        },
+        product_variations: [
+          {
+            id: ownVariationId,
+            product_id: productId,
+            sku: 'KIT-FINAL-01',
+            name: 'Kit Azul',
+            active: true,
+            status: 'published',
+            price: 165,
+            promo_price: 140,
+            cost_price: 31,
+            use_parent_price: false,
+            use_parent_promo_price: false,
+            combo_items: ownComboItems,
+            attributes: [],
+          },
+          {
+            id: inheritedVariationId,
+            product_id: productId,
+            sku: 'KIT-FINAL-02',
+            name: 'Kit Verde',
+            active: true,
+            status: 'published',
+            price: 99,
+            promo_price: 88,
+            cost_price: 22,
+            use_parent_price: true,
+            use_parent_promo_price: true,
+            combo_items: inheritedComboItems,
+            attributes: [],
+          },
+        ],
+      }],
+      count: 1,
+      error: null,
+    });
+    const componentStockQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve({
+        data: [{
+          id: 'component-product',
+          stock: 10,
+          product_variations: [
+            { id: 'component-blue', stock: 8 },
+            { id: 'component-green', stock: 6 },
+          ],
+        }],
+        error: null,
+      }).then(resolve),
+    };
+    supabaseMock.from
+      .mockReturnValueOnce(productQuery)
+      .mockReturnValueOnce(componentStockQuery);
+
+    const result = await fetchMobileProductsPage(1, 10);
+
+    expect(result.data[0]).toMatchObject({
+      id: productId,
+      itemType: 'composition',
+      isDraft: false,
+      isCombo: true,
+      is_combo: true,
+      hasVariations: true,
+      unitPrice: 220,
+      promoPrice: 180,
+      technicalSpecs: { draftProduct: null },
+    });
+    expect(result.data[0].variations).toMatchObject([
+      {
+        id: ownVariationId,
+        unitPrice: 165,
+        promoPrice: 140,
+        syncUnitPrice: false,
+        syncPromoPrice: false,
+        comboItems: ownComboItems,
+        stock: 8,
+      },
+      {
+        id: inheritedVariationId,
+        unitPrice: 220,
+        promoPrice: 180,
+        syncUnitPrice: true,
+        syncPromoPrice: true,
+        comboItems: inheritedComboItems,
+        stock: 3,
+      },
+    ]);
   });
 
   it('restaura override técnico próprio explicitamente vazio sem convertê-lo em herança', async () => {

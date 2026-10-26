@@ -35,7 +35,7 @@ export const TechnicalCharacteristicSearch: React.FC<TechnicalCharacteristicSear
       >
         Pesquisar característica
       </label>
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex items-center gap-2 border-x-0 border-t-0 border-b-2 border-slate-200 bg-transparent px-1 py-2 focus-within:border-blue-500 dark:border-slate-700 dark:bg-transparent dark:focus-within:border-blue-400">
         <i className="bi bi-search text-slate-400" aria-hidden="true" />
         <input
           id="technical-characteristic-search"

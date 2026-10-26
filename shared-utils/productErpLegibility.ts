@@ -10,9 +10,50 @@ export interface ProductErpLegibilityResult {
   };
 }
 
+/**
+ * Builds the effective parent/variation record used by the ERP variation
+ * readiness header. The mobile editor consumes the same projection so its
+ * read-only checklist follows the exact inheritance behavior.
+ */
+export const getEffectiveProductForVariationReadiness = (
+  parentProduct: Record<string, any> = {},
+  variation: Record<string, any> = {}
+): Record<string, any> => ({
+  ...parentProduct,
+  mainSupplierId: parentProduct.mainSupplierId || parentProduct.supplierId || 'inherited',
+  description: variation.name || parentProduct.name || parentProduct.description,
+  unitPrice: variation.syncUnitPrice
+    ? parentProduct.unitPrice
+    : variation.unitPrice || parentProduct.unitPrice,
+  images:
+    variation.images && variation.images.length > 0
+      ? variation.images
+      : parentProduct.images || [],
+});
+
 const isPositiveNumber = (value: unknown): boolean => {
   const num = Number(value);
   return Number.isFinite(num) && num > 0;
+};
+
+/**
+ * Requisito informativo do checklist de ativação do ERP: cada variação precisa
+ * ter ao menos uma foto própria. Isso não compõe `isLegible`.
+ */
+export const hasProductVariationPhotos = (source: object = {}): boolean => {
+  const variations = (source as Record<string, any>).variations;
+  return Boolean(
+    Array.isArray(variations) &&
+      variations.length > 0 &&
+      variations.every((variation) => {
+        const images = Array.isArray(variation?.images)
+          ? variation.images.filter(Boolean)
+          : typeof variation?.image_url === 'string' && variation.image_url.trim()
+            ? variation.image_url.split(',').filter(Boolean)
+            : [];
+        return images.length > 0;
+      })
+  );
 };
 
 /** Canonical product readiness rule used by both the ERP and Mobile App. */

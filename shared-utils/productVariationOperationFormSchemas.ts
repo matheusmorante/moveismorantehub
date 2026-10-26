@@ -18,6 +18,37 @@ export const variationToSimpleConfirmationSchema = z.object({
 	acknowledged: z.boolean().default(true),
 });
 
+export const productRestoreFromTrashFormSchema = z.object({
+	productId: z
+		.string()
+		.min(1, "ID do produto é obrigatório")
+		.transform((productId) => productId.split("_")[0])
+		.pipe(z.uuid("ID do produto inválido.")),
+	action: z.literal("restore"),
+});
+
+export const productDraftDiscardFormSchema = z.object({
+	productId: z
+		.string()
+		.min(1, "ID do produto é obrigatório")
+		.transform((productId) => productId.split("_")[0])
+		.pipe(z.uuid("ID do produto inválido.")),
+	confirmed: z.boolean().refine((confirmed) => confirmed, {
+		message: "Confirme o descarte do rascunho.",
+	}),
+});
+
+export const productMoveToTrashFormSchema = z.object({
+	productId: z
+		.string()
+		.min(1, "ID do produto é obrigatório")
+		.transform((productId) => productId.split("_")[0])
+		.pipe(z.uuid("ID do produto inválido.")),
+	confirmed: z.boolean().refine((confirmed) => confirmed, {
+		message: "Confirme a movimentação para a lixeira.",
+	}),
+});
+
 export type VariationToSimpleConfirmationData = z.infer<
 	typeof variationToSimpleConfirmationSchema
 >;

@@ -8,7 +8,7 @@ const technicalValue = z.union([
   z.number(),
   z.boolean(),
   z.array(z.any()),
-  z.record(z.any()),
+  z.record(z.string(), z.any()),
   z.null(),
   z.undefined(),
 ]);

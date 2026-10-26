@@ -13,7 +13,7 @@ vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'operator' }, profile: { full_name: 'Atendente' } }) }));
-vi.mock('../components/chat/ChatComposer', () => ({ ChatComposer: () => null }));
+vi.mock('../components/chat/ChatComposer', () => ({ ChatComposer: () => <footer data-testid="chat-composer" /> }));
 vi.mock('../components/QuickSnippetsModal', () => ({ QuickSnippetsModal: () => null }));
 vi.mock('../components/MessageBubble', () => ({
   MessageBubble: ({ message }: { message: WhatsAppMessage }) => <p>{message.textContent}</p>,
@@ -148,6 +148,18 @@ describe('Busca de mensagens em todo o histórico', () => {
 });
 
 describe('Formulário de busca de mensagens', () => {
+  it.each(['open', 'closed'] as const)('mantém o compositor visível com histórico em erro na conversa %s', (status) => {
+    const { container } = render(<ChatArea
+      conversation={{ id: 'conversation-1', contactPhone: '5511999990000', contactName: 'Fixture', tags: [], status } as unknown as WhatsAppConversation}
+      messages={latest} teamMembers={[]} isLoadingMessages={false} messagesError="Falha ao carregar mensagens."
+      isInfoPanelOpen={false} onBackMobile={vi.fn()} onToggleInfoPanel={vi.fn()} onToggleArchive={vi.fn()} />);
+
+    expect(screen.getByRole('alert').textContent).toContain('Falha ao carregar mensagens.');
+    expect(screen.getByTestId('chat-composer')).toBeTruthy();
+    expect(container.firstElementChild?.classList.contains('min-h-0')).toBe(true);
+    expect(screen.getByRole('region', { name: 'Histórico da conversa' }).classList.contains('min-h-0')).toBe(true);
+  });
+
   it('repete a consulta com o mesmo termo ao submeter novamente ou recarregar a conversa', async () => {
     const source = message(20, 'Primeiro resultado agulha');
     const incoming = message(201, 'Novo resultado agulha');
@@ -168,7 +180,8 @@ describe('Formulário de busca de mensagens', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Buscar$/ }));
     await screen.findByText(incoming.textContent!);
     expect(mocks.fetchMessageSearch).toHaveBeenCalledTimes(2);
-    fireEvent.click(screen.getByRole('button', { name: /^Recarregar mensagens$/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mais ações da conversa' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Atualizar mensagens' }));
     await screen.findByText(refreshed.textContent!);
     expect(refreshMessages).toHaveBeenCalledTimes(1);
     expect(mocks.fetchMessageSearch).toHaveBeenCalledTimes(3);

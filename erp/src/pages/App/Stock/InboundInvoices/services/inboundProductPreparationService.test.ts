@@ -11,6 +11,7 @@ vi.mock('@/pages/utils/aiService', () => ({
   aiService: { extractProductColor: vi.fn().mockResolvedValue('Azul') },
 }));
 vi.mock('@/pages/utils/categoryService', () => ({ fetchGroupsAndCategories: vi.fn() }));
+vi.mock('@/pages/utils/categoryResolutionService', () => ({ resolveAutoCategory: vi.fn() }));
 vi.mock('@/pages/utils/variationService', () => ({
   ensureAttributeValue: vi.fn().mockResolvedValue({ name: 'Cor', value: 'Azul' }),
 }));
@@ -60,24 +61,19 @@ describe('SKU interno no cadastro rápido da nota', () => {
     expect(result.variations?.some((variation) => variation.sku === item.productCode)).toBe(false);
   });
 
-  it('preenche automaticamente categoryIds e categories com a categoria correspondente à descrição', async () => {
-    const { fetchGroupsAndCategories } = await import('@/pages/utils/categoryService');
-    vi.mocked(fetchGroupsAndCategories).mockResolvedValueOnce({
-      categories: [
-        { id: 'cat-balcao-pia', name: 'Balcões para Pia', active: true },
-        { id: 'cat-mesas-escritorio', name: 'Mesas para Escritório', active: true },
-      ],
-      groups: [],
-    } as any);
+  it('uses the manually selected category without resolving one automatically', async () => {
+    const [{ fetchGroupsAndCategories }, { resolveAutoCategory }] = await Promise.all([
+      import('@/pages/utils/categoryService'),
+      import('@/pages/utils/categoryResolutionService'),
+    ]);
+    vi.mocked(fetchGroupsAndCategories).mockClear();
+    vi.mocked(resolveAutoCategory).mockClear();
 
-    const balcaoItem = {
-      productDescription: 'Balcão para pia 1.20m cinza',
-      productCode: 'FORN-111',
-      unitCost: 200,
-    };
-    const initial = await prepareNewParentWithVariation(balcaoItem, 'fornecedor-teste');
+    const initial = await prepareNewParentWithVariation(item, 'fornecedor-teste', undefined, { categoryId: 'cat-manual' });
 
-    expect(initial.categoryIds).toEqual(['cat-balcao-pia']);
+    expect(initial.categoryIds).toEqual(['cat-manual']);
+    expect(fetchGroupsAndCategories).not.toHaveBeenCalled();
+    expect(resolveAutoCategory).not.toHaveBeenCalled();
   });
 
   it('garante que a variação inicial não contenha atributos automáticos (deve ser configurada manualmente)', async () => {

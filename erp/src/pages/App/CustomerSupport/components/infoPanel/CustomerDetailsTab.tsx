@@ -52,7 +52,7 @@ export const CustomerDetailsTab: React.FC<CustomerDetailsTabProps> = ({
               to="/registrations/customers"
               className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
             >
-              Cadastro
+              Ver cadastro completo
               <i className="bi bi-box-arrow-up-right text-[10px]"></i>
             </Link>
           </div>

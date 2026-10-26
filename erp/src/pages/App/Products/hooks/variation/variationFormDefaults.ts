@@ -13,6 +13,7 @@ import {
   type ProductFreightType,
   type ProductIpiType,
 } from '../../../../../../../shared-utils/productPurchasePricing';
+import { resolveProductVariationPricing } from '../../../../../../../shared-utils/productVariationPricing';
 
 export function computeDefaultVariationName(
   parentProduct: Product,
@@ -89,12 +90,9 @@ export function buildInitialVariationFormData(
       syncFreight: isSingleVariation || (variation.syncFreight ?? true),
     };
 
-    const orig = Number(
-      variation.syncUnitPrice ? parentProduct.unitPrice : variation.unitPrice || 0
-    );
-    const promo = Number(
-      variation.syncUnitPrice ? parentProduct.promoPrice : variation.promoPrice || 0
-    );
+    const effectivePricing = resolveProductVariationPricing(formData, parentProduct);
+    const orig = Number(effectivePricing.unitPrice || 0);
+    const promo = Number(effectivePricing.promoPrice || 0);
 
     let discountFixed = '';
     let discountPercent = '';

@@ -57,7 +57,7 @@ describe('PromissoryNoteDocument', () => {
     observation: '',
   };
 
-  it('renderiza o campo de vencimento e informações sobre o vencimento para escrita manual a caneta', () => {
+  it('renderiza somente o campo do dia de vencimento mensal para preenchimento manual', () => {
     const notes = buildPromissoryNotesFromOrder(baseOrder);
     render(<PromissoryNoteDocument notes={notes} order={baseOrder} />);
 
@@ -65,12 +65,11 @@ describe('PromissoryNoteDocument', () => {
     expect(screen.getByRole('heading', { name: /NOTA PROMISSÓRIA/i })).toBeTruthy();
     expect(screen.getByText(/DOCUMENTO FINANCEIRO/i)).toBeTruthy();
 
-    // Campo de vencimento manual a caneta
-    expect(
-      screen.getByText(/Informações sobre o vencimento \(preenchimento manual a caneta\)/i)
-    ).toBeTruthy();
-    expect(screen.getByText(/Observações \/ Acordo do vencimento:/i)).toBeTruthy();
-    expect(screen.getAllByText(/17\/11\/2026/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Vencimento: todo dia/i)).toBeTruthy();
+    expect(screen.getByText(/de cada mês, a partir de/i)).toBeTruthy();
+    expect(screen.getByText(/mês\/ano/i)).toBeTruthy();
+    expect(screen.queryByText('17/11/2026')).toBeNull();
+    expect(screen.queryByText(/Observações|Acordo do vencimento/i)).toBeNull();
   });
 
   it('renderiza o campo de assinatura da cliente e a assinatura da loja com o carimbo do certificado digital', () => {

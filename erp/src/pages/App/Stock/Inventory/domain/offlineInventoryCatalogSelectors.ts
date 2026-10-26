@@ -37,6 +37,7 @@ interface OfflineInventoryCatalogSupplierOption {
   fullName: string | undefined;
   tradeName: string | undefined;
   nickname: string | undefined;
+  stockOrigins: string[];
   type: 'suppliers';
 }
 
@@ -118,5 +119,8 @@ export const selectOfflineInventoryCatalogSuppliers = (
       fullName: supplier.full_name,
       tradeName: supplier.social_name,
       nickname: supplier.nickname,
+      stockOrigins: Array.isArray(supplier.stock_origins)
+        ? supplier.stock_origins
+        : ['normal'],
       type: 'suppliers',
     }));

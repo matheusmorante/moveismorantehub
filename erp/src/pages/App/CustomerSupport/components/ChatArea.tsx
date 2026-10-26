@@ -1,8 +1,14 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { WhatsAppConversation, WhatsAppMessage, ConversationStatus, AssignedProfileSummary } from '../types';
 import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
 import { whatsappSupportGuard } from '@/pages/utils/customerSupport/whatsappSupportGuard';
 import { useAuth } from '@/context/AuthContext';
+import { canPerform } from '@/pages/utils/permissionService';
+import { getProfileRoles } from '@/pages/utils/accessRoles';
+import { getSettings } from '@/pages/utils/settingsService';
+import type { CustomerSupportSendInput, CustomerSupportSendResult } from '@/pages/utils/customerSupport/customerSupportService';
+import type { QuickSnippet } from '../types';
+import type { SupportOrderSummary } from '@/pages/utils/customerSupport/supportOrdersService';
 import { QuickSnippetsModal } from './QuickSnippetsModal';
 import { ChatHeader } from './chat/ChatHeader';
 import { ChatInChatSearch } from './chat/ChatInChatSearch';
@@ -29,6 +35,7 @@ export interface ChatAreaProps {
   onAssign?: (profileId: string | null, profileName?: string) => Promise<boolean | void>;
   onUpdateStatus?: (status: ConversationStatus) => Promise<boolean | void>;
   onAddInternalNote?: (text: string) => Promise<boolean | void>;
+  onSendCustomerMessage?: (input: CustomerSupportSendInput) => Promise<CustomerSupportSendResult>;
   hasOlderMessages?: boolean;
   isLoadingOlderMessages?: boolean;
   onLoadOlderMessages?: () => Promise<number>;
@@ -40,6 +47,8 @@ export interface ChatAreaProps {
   jumpToMessageId?: string | null;
   onJumpComplete?: () => void;
   messagesError?: string;
+  shareOrderRequest?: { conversationId: string; requestId: string; record: SupportOrderSummary } | null;
+  onShareOrderRequestHandled?: (requestId: string) => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -59,6 +68,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onAssign,
   onUpdateStatus,
   onAddInternalNote,
+  onSendCustomerMessage,
   hasOlderMessages = false,
   isLoadingOlderMessages = false,
   onLoadOlderMessages,
@@ -70,12 +80,23 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   jumpToMessageId,
   onJumpComplete,
   messagesError = '',
+  shareOrderRequest = null,
+  onShareOrderRequestHandled,
 }) => {
   const { profile, user } = useAuth();
   const [inChatSearch, setInChatSearch] = useState('');
   const [searchRevision, setSearchRevision] = useState(0);
   const [isSearchingInChat, setIsSearchingInChat] = useState(false);
   const [isSnippetsModalOpen, setIsSnippetsModalOpen] = useState(false);
+  const [insertedSnippet, setInsertedSnippet] = useState<{ id: number; text: string } | null>(null);
+  const snippetRevision = useRef(0);
+  const catalogSpaceRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!jumpToMessageId) return;
+    setIsSearchingInChat(false);
+    setInChatSearch('');
+  }, [jumpToMessageId]);
 
   const displayName =
     conversation.customer?.fullName ||
@@ -84,6 +105,19 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   const formattedPhone = formatPhoneForDisplay(conversation.contactPhone);
   const careWindow = whatsappSupportGuard.calculateCareWindow(conversation.lastCustomerMessageAt);
+  const roles = profile ? getProfileRoles(profile) : [];
+  const canSend = canPerform('sendCustomerSupportMessages', roles);
+  const canShareCommercialInfo = canPerform('viewCustomerCommercialInfo', roles);
+  const configuredPhoneNumberId = getSettings().whatsappConfig?.phoneNumberId;
+  const isChannelConnected = Boolean(
+    configuredPhoneNumberId && configuredPhoneNumberId === conversation.businessPhoneNumberId,
+  );
+
+  const handleInsertSnippet = (snippet: QuickSnippet) => {
+    snippetRevision.current += 1;
+    setInsertedSnippet({ id: snippetRevision.current, text: snippet.content });
+    setIsSnippetsModalOpen(false);
+  };
 
   const initials = displayName
     .split(' ')
@@ -96,7 +130,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const currentUserName = profile?.full_name || user?.email || 'Atendente';
 
   return (
-    <div className="@container/chat flex-1 flex flex-col min-w-0 h-full bg-[#efeae2]/80 dark:bg-[#0b141a] relative overflow-hidden select-none transition-colors">
+    <div ref={catalogSpaceRef} className="@container/chat flex-1 flex flex-col min-w-0 min-h-0 h-full bg-[#efeae2]/80 dark:bg-[#0b141a] relative overflow-hidden select-none transition-colors">
       {/* Textura sutil de fundo estilo WhatsApp Web */}
       <div className="absolute inset-0 opacity-[0.04] dark:opacity-[0.03] pointer-events-none bg-[radial-gradient(#128c7e_1px,transparent_1px)] [background-size:20px_20px]" />
 
@@ -161,6 +195,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         isLoadingMessages={isLoadingMessages}
         error={messagesError}
         conversationId={conversation.id}
+        searchUserId={user?.id}
         hasOlderMessages={hasOlderMessages}
         isLoadingOlderMessages={isLoadingOlderMessages}
         onLoadOlderMessages={onLoadOlderMessages}
@@ -172,14 +207,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
       {/* 4. Rodapé de Composição (WhatsApp vs Comentário Interno) */}
       <ChatComposer
+        conversation={conversation}
+        displayName={displayName}
+        canSend={canSend}
+        canShareCommercialInfo={canShareCommercialInfo}
+        shareOrderRequest={shareOrderRequest?.conversationId === conversation.id
+          ? { record: shareOrderRequest.record, requestId: shareOrderRequest.requestId }
+          : null}
+        onShareOrderRequestHandled={onShareOrderRequestHandled}
+        careWindowOpen={careWindow.isOpen}
+        isChannelConnected={isChannelConnected}
+        onSendCustomerMessage={onSendCustomerMessage}
+        onRefreshMessages={onRefreshMessages}
+        insertedSnippet={insertedSnippet}
         onAddInternalNote={onAddInternalNote}
         onOpenSnippets={() => setIsSnippetsModalOpen(true)}
+        catalogSpaceRef={catalogSpaceRef}
       />
 
       {/* Modal de Respostas Rápidas & Snippets */}
       <QuickSnippetsModal
         isOpen={isSnippetsModalOpen}
         onClose={() => setIsSnippetsModalOpen(false)}
+        onSelect={handleInsertSnippet}
       />
     </div>
   );

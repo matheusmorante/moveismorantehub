@@ -1,8 +1,11 @@
 import React from 'react';
 import type Product from '@/pages/types/product.type';
-import { getProductKind } from '@/pages/utils/productKindRules';
+import {
+  resolveStockOrigin,
+  type StockOrigin,
+} from '../../../../../../../../shared-utils/productStockOrigin';
 
-export type StockOrigin = 'Convencional' | 'Salvados' | 'Usados';
+export { resolveStockOrigin, type StockOrigin };
 
 export interface StockOriginBadgeProps {
   readonly product?: Partial<Product> | null;
@@ -10,32 +13,6 @@ export interface StockOriginBadgeProps {
   readonly oppName?: string | null;
   readonly size?: 'sm' | 'xs';
   readonly className?: string;
-}
-
-/**
- * Resolve o rótulo canônico da origem do estoque ('Convencional', 'Salvados' ou 'Usados')
- */
-export function resolveStockOrigin(
-  product?: Partial<Product> | null,
-  singleVariation?: any,
-  oppName?: string | null
-): StockOrigin {
-  const target = singleVariation || product;
-  const kind = getProductKind(target as any);
-  if (kind === 'salvado') return 'Salvados';
-  if (kind === 'usado') return 'Usados';
-
-  const combinedOpp = (
-    product?.opportunityName ||
-    product?.opportunity?.name ||
-    oppName ||
-    ''
-  ).toLowerCase();
-
-  if (combinedOpp.includes('salvado')) return 'Salvados';
-  if (combinedOpp.includes('usado')) return 'Usados';
-
-  return 'Convencional';
 }
 
 /**

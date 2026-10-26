@@ -21,9 +21,10 @@ describe('searchMobileProductCompositionCandidates', () => {
           itemType: 'product',
           active: true,
           unitPrice: 120,
+          promoPrice: 105,
           stock: 4,
           variations: [
-            { id: 'active-var', name: 'Mesa Aurora Azul', sku: 'MESA-1-01', unitPrice: 120, stock: 4, active: true },
+            { id: 'active-var', name: 'Mesa Aurora Azul', sku: 'MESA-1-01', unitPrice: 120, promoPrice: 90, stock: 4, active: true },
             { id: 'inactive-var', name: 'Mesa Aurora Verde', active: false },
             { id: 'merged-var', name: 'Mesa Aurora Branca', active: true, mergedToVariationId: 'target-var' },
           ],
@@ -35,6 +36,7 @@ describe('searchMobileProductCompositionCandidates', () => {
           itemType: 'product',
           active: true,
           unitPrice: 50,
+          promoPrice: 45,
           stock: 8,
           variations: [{ id: 'virtual-var', isVirtual: true, name: 'Banqueta simples', unitPrice: 50, stock: 8, active: true }],
         },
@@ -53,9 +55,11 @@ describe('searchMobileProductCompositionCandidates', () => {
           variationId: 'active-var',
           variationName: 'Mesa Aurora Azul',
           variationPrice: 120,
+          variationPromoPrice: 90,
+          promoPrice: 105,
           variationStock: 4,
         }),
-        expect.objectContaining({ id: 'legacy-simple', code: 'BAN-1', stock: 8 }),
+        expect.objectContaining({ id: 'legacy-simple', code: 'BAN-1', stock: 8, price: 50, promoPrice: 45 }),
       ]);
 
     expect(fetchProductsPage).toHaveBeenCalledWith(1, 25, {

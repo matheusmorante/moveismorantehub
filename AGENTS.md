@@ -82,14 +82,16 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 
 ---
 
-## 7. Testes: interface via Playwright, lógica via Vitest e banco remoto
+## 7. Testes: Playwright, Maestro, Vitest e banco remoto
 
 * Não iniciar nem usar Supabase Local, PostgreSQL local, Docker ou banco/simulador local como infraestrutura de teste. O fluxo local de Supabase está extinto no projeto; não executar `supabase start`, resets locais, migrations em banco local nem `npm run advisors` (o script usa `--local`).
-* Os únicos runners de teste permitidos são Playwright para fluxos de interface no navegador e Vitest/RTL para componentes e lógica. Não executar scripts de teste avulsos em Node/CJS/SQL nem CLI Supabase; testes que dependam do banco remoto devem estar integrados ao Playwright ou Vitest e obedecer às guardas abaixo.
-* Testes de interface devem exercitar o navegador de desenvolvimento pela UI com Playwright. Testes de componente e lógica isolada devem usar Vitest/RTL; mocks não comprovam persistência ou comportamento real do PostgreSQL.
+* Os runners permitidos são Playwright para fluxos de interface no navegador, Maestro CLI para fluxos nativos do aplicativo Android em telefone físico e Vitest/RTL para componentes e lógica isolada. Não executar scripts de teste avulsos em Node/CJS/SQL nem CLI Supabase. Os scripts `npm run test:mobile:*` são permitidos quando delegam a execução ao Maestro e respeitam as guardas abaixo.
+* Testes de interface no navegador devem exercitar a UI com Playwright; testes nativos do aplicativo Android devem usar Maestro conforme [`mobile/maestro/README.md`](mobile/maestro/README.md). Não usar Expo Web nem emulador como substituto do teste no aplicativo Android. Testes de componente e lógica isolada devem usar Vitest/RTL; mocks não comprovam persistência ou comportamento real do PostgreSQL.
+* Para Maestro, usar somente telefone físico conectado por Depuração sem fio via ADB, escolher explicitamente o serial quando houver mais de um destino e preservar os dados existentes do aplicativo. Não limpar os dados do app, desinstalar ou instalar outra build durante uma auditoria sem autorização explícita.
 * Ao executar testes de navegador, iniciar o servidor de desenvolvimento do ERP e usar sempre a porta `5173`; configurar `strictPort` para impedir fallback silencioso para outra porta.
-* Quando a propriedade depender do banco, usar somente o projeto Supabase remoto operacional existente, schema `public` e fixtures próprias com ownership e gates comprovados, conforme [`docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`](docs/testing/SUPABASE_REMOTE_TEST_POLICY.md). Não criar branches, projetos, bancos ou schemas para testar.
-* Emissão fiscal real à SEFAZ só pode ocorrer pela UI, em Homologação e com autorização explícita. Se autenticação, ownership ou isolamento dos artefatos não for comprovado, não contornar a guarda: concluir as provas locais seguras e registrar o cenário remoto como pendente com a causa concreta.
+* Quando a propriedade depender do banco, usar somente o projeto Supabase remoto operacional existente, schema `public` e fixtures próprias com ownership e gates comprovados, conforme [`docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`](docs/testing/SUPABASE_REMOTE_TEST_POLICY.md). Isso vale também para fluxos Maestro. Não criar branches, projetos, bancos ou schemas para testar.
+* O operador concedeu autorização permanente para o agente aplicar migrations de schema necessárias a tarefas explicitamente solicitadas no Supabase operacional existente, sem pedir nova confirmação para cada migration. A autorização e seus limites estão registrados em [`docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`](docs/testing/SUPABASE_REMOTE_TEST_POLICY.md).
+* Emissão fiscal real à SEFAZ só pode ocorrer pela UI, em Homologação e com autorização explícita. Se autenticação, ownership ou isolamento dos artefatos não for comprovado, não contornar a guarda: concluir as provas de UI somente leitura seguras com Playwright ou Maestro e registrar o cenário remoto gravável como pendente com a causa concreta.
 
 ## 8. Remoção do Catálogo da Meta
 
@@ -102,6 +104,7 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 
 * O agente é responsável por executar os logins necessários ao trabalho autorizado. Não pedir ao usuário que tente entrar, preencha credenciais ou faça o login manualmente.
 * As credenciais devem ser obtidas das variáveis de ambiente da Vercel do projeto e ambiente corretos. Usar a integração ou CLI autenticada e os mecanismos de ambiente já adotados pelo repositório.
+* **Acesso às ferramentas com perfil de operador:** As credenciais de operador disponibilizadas nos ambientes do projeto podem ser usadas pelo agente para autenticar no ERP/app e acessar as ferramentas necessárias a uma tarefa autorizada, não apenas para testes. Usar o ambiente compatível com a tarefa e respeitar as permissões do perfil, os gates de ownership e as autorizações já definidas; o login não concede autorização adicional para operações fiscais em produção, externas ou irreversíveis.
 * Se o login falhar, investigar e corrigir a causa — configuração, carregamento das variáveis, formulário, sessão, permissões ou automação do navegador — e repetir o fluxo apropriado. Resolver os impedimentos técnicos de autonomia antes de transferir trabalho ao usuário.
 * Carregar credenciais somente em memória durante a execução. Não expor senhas, tokens ou sessões em mensagens, argumentos de comando, snapshots, screenshots, traces, logs ou arquivos de evidência.
 * A autonomia de login preserva as permissões da conta, os gates de ownership e isolamento dos testes e as autorizações exigidas para operações fiscais ou outras ações externas.
@@ -131,3 +134,10 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 
 * A Conciliação de Produtos permanece somente no ERP por decisão explícita do usuário. Não crie nem reintroduza no aplicativo tela, rota, serviço/adaptador, botão, entrada de menu, fluxo ou link que abra a Conciliação como módulo mobile. Não registre sua ausência no app como diferença de paridade.
 * Preserve as telas, rotas, permissões, queries, mutações e helpers compartilhados que o ERP usa. A regra de código que protege a superfície mobile está em `rules/products/product-reconciliation-erp-only.yml`; só reverta esta exceção mediante pedido explícito posterior do usuário.
+
+## 13. Autorização permanente para migrations Supabase
+
+* Em 24/10/2026, o operador autorizou o agente a executar, sem confirmação repetida por migration, migrations de schema necessárias para implementar tarefas explicitamente solicitadas no Supabase operacional já usado pelo ERP.
+* Antes de cada aplicação, revisar o SQL completo, confirmar o project ref, consultar o histórico remoto e validar precondições, compatibilidade e impacto. Aplicar somente no schema `public` do projeto operacional existente e verificar o resultado depois.
+* Esta autorização cobre DDL de migrations dentro do escopo solicitado. Não autoriza provisionar fixtures ou dados sintéticos, fazer escritas DML de teste, limpar dados, criar projetos/branches/bancos/schemas, enviar mensagens, executar ações fiscais nem contornar gates de ownership, isolamento e autorização específicos. Essas operações continuam sujeitas à política e às aprovações próprias.
+* Permanecem proibidos Supabase Local, migrations em banco local, `DROP`, `TRUNCATE`, DDL experimental e alterações amplas de RLS no banco compartilhado. Preferir migrations compatíveis e reversíveis, sem apagar histórico ou registros operacionais.

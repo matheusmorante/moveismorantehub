@@ -51,6 +51,27 @@ describe('updateProductActivationState', () => {
     expect(updated[0].active).toBe(false);
   });
 
+  it('mantém o pai ativo ao desativar uma variação quando outra irmã continua ativa', () => {
+    const productWithActiveSibling: any[] = [
+      {
+        id: 'parent-3',
+        active: true,
+        variations: [
+          { id: 'var-3a', sku: 'V3A', active: true },
+          { id: 'var-3b', sku: 'V3B', active: true },
+        ],
+      },
+    ];
+
+    const updated = updateProductActivationState(productWithActiveSibling, 'var-3a', false);
+
+    expect(updated[0].variations).toEqual([
+      { id: 'var-3a', sku: 'V3A', active: false },
+      { id: 'var-3b', sku: 'V3B', active: true },
+    ]);
+    expect(updated[0].active).toBe(true);
+  });
+
   it('ao reativar uma variação, o produto pai volta a ficar ativo', () => {
     const productAllInactive: any[] = [
       {

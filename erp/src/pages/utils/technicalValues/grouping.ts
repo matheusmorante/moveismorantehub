@@ -32,9 +32,11 @@ export const groupCharacteristicsByTopic = <
   const groups = new Map<string, T[]>();
   const requiredCharacteristicFields: T[] = [];
   const otherFields: T[] = [];
+  const isStructuralWeightCapacity = (name: string) =>
+    /\bpeso\b(?!.*\b(?:prateleira|gaveta)\b).*\bsuportad[oa]\b/i.test(name);
 
   fields.forEach((field) => {
-    if (field.isCustom) {
+    if (field.isCustom && !isStructuralWeightCapacity(field.name)) {
       otherFields.push(field);
       return;
     }

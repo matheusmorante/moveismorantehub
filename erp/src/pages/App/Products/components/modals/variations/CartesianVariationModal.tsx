@@ -201,15 +201,15 @@ export const CartesianVariationModal: React.FC<CartesianVariationModalProps> = (
                                     className={`mt-6 px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer ${opt.showName ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}
                                     title={
                                       opt.showName
-                                        ? 'Mostrar nome no título'
-                                        : 'Ocultar nome no título'
+                                        ? 'Valor da característica exibido no nome automático'
+                                        : 'Valor da característica oculto no nome automático'
                                     }
                                   >
                                     <i
                                       className={`bi ${opt.showName ? 'bi-eye-fill' : 'bi-eye-slash-fill'} mr-1.5`}
                                       aria-hidden="true"
                                     />
-                                    {opt.showName ? 'Mostrar Nome' : 'Ocultar Nome'}
+                                    {opt.showName ? 'Valor no Nome' : 'Valor Oculto'}
                                   </button>
                                 </div>
 

@@ -92,6 +92,46 @@ describe('syncMobileVariationsWithParent', () => {
     expect(updated[0].technicalValues).toEqual({ Material: 'MDF', Acabamento: 'Fosco' });
   });
 
+  it('hidrata as fotos herdadas da variação única mesmo quando a galeria do pai não mudou', () => {
+    const hydrated = syncMobileVariationsWithParent(
+      [{ images: [] }],
+      { hasVariations: false, images: ['parent.jpg'] },
+      { hasVariations: false, images: ['parent.jpg'] }
+    );
+    const cleared = syncMobileVariationsWithParent(
+      [{ images: ['stale-variation.jpg'] }],
+      { hasVariations: false, images: [] },
+      { hasVariations: false, images: [] }
+    );
+
+    expect(hydrated[0].images).toEqual(['parent.jpg']);
+    expect(cleared[0].images).toEqual([]);
+  });
+
+  it('preserva fotos próprias quando o produto possui várias variações', () => {
+    const variations = [{ images: ['blue.jpg'] }, { images: ['wood.jpg'] }];
+    const synced = syncMobileVariationsWithParent(
+      variations,
+      { hasVariations: true, images: ['parent.jpg'] },
+      { hasVariations: true, images: [] }
+    );
+
+    expect(synced.map((variation) => variation.images)).toEqual([
+      ['blue.jpg'],
+      ['wood.jpg'],
+    ]);
+  });
+
+  it('preserva a galeria própria de rascunho que mantém modo de família com uma variação', () => {
+    const synced = syncMobileVariationsWithParent(
+      [{ images: ['draft-family.jpg'] }],
+      { has_variations: true, images: ['parent.jpg'] },
+      { has_variations: true, images: [] }
+    );
+
+    expect(synced[0].images).toEqual(['draft-family.jpg']);
+  });
+
   it('mantém a variação simples herdada do pai e preserva valores próprios da família', () => {
     const current = { Material: 'Madeira maciça' };
     const saved = syncMobileVariationsWithParent(
@@ -141,6 +181,7 @@ describe('syncMobileVariationsWithParent', () => {
       },
       {
         syncUnitPrice: false,
+        syncPromoPrice: false,
         syncDescription: false,
         syncCostPrice: false,
         syncCondition: false,
@@ -149,6 +190,7 @@ describe('syncMobileVariationsWithParent', () => {
         syncFreight: false,
         syncWidth: false,
         price: 85,
+        promoPrice: 45,
         costPrice: 51,
         description: 'Descrição própria',
         width: 60,
@@ -157,6 +199,12 @@ describe('syncMobileVariationsWithParent', () => {
         ipiPercent: 2,
         freightCost: 20,
         freightType: 'percentage',
+      },
+      {
+        syncUnitPrice: true,
+        syncPromoPrice: false,
+        price: 100,
+        promoPrice: 45,
       },
     ];
 
@@ -193,6 +241,7 @@ describe('syncMobileVariationsWithParent', () => {
     });
     expect(updated[1]).toMatchObject({
       price: 85,
+      promoPrice: 45,
       costPrice: 51,
       description: 'Descrição própria',
       width: 60,
@@ -202,6 +251,7 @@ describe('syncMobileVariationsWithParent', () => {
       freightCost: 20,
       freightType: 'percentage',
     });
+    expect(updated[2]).toMatchObject({ price: '120,00', promoPrice: 45 });
     expect(variations[0].price).toBe(100);
   });
 

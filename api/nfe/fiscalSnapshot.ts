@@ -43,10 +43,15 @@ export type FiscalTransporter = {
   uf?: string;
 };
 
+export const NF_PAYMENT_SETTLEMENT_POLICY = 'NF_HANDED_OVER_AFTER_PAYMENT' as const;
+export type FiscalPaymentSettlementPolicy = typeof NF_PAYMENT_SETTLEMENT_POLICY;
+
 /** Commercial facts captured from PostgreSQL; fiscal classifications remain undetermined. */
 export type FiscalSnapshot = {
   schemaVersion: 1;
   capturedAt: string;
+  /** Absent on historical snapshots; the policy is included in the persisted snapshot hash. */
+  paymentSettlementPolicy?: FiscalPaymentSettlementPolicy;
   order: {
     id: string;
     type: string;

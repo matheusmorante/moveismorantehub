@@ -7,7 +7,11 @@ import {
   isPromissoryPaymentMethod,
 } from '../../../shared-utils/orderPaymentState';
 import { saoPauloEmissionTimestamp } from './attemptPolicy';
-import type { FiscalDecisionTrace, FiscalSnapshotCandidate } from '../fiscalSnapshot';
+import {
+  NF_PAYMENT_SETTLEMENT_POLICY,
+  type FiscalDecisionTrace,
+  type FiscalSnapshotCandidate,
+} from '../fiscalSnapshot';
 import { money, normalize, obj } from './values';
 
 type ReadyFiscalModelDecision = Extract<FiscalModelDecision, { status: 'ready' }>;
@@ -22,6 +26,8 @@ export function resolveNormalSalePayments(params: {
   feeCentsByPayment: number[];
 }) {
   const { snapshot, data, shipping, modelDecision, traces, invoice, feeCentsByPayment } = params;
+  const useInvoicePaymentSettlementPolicy =
+    snapshot.paymentSettlementPolicy === NF_PAYMENT_SETTLEMENT_POLICY;
   const emissionDate = saoPauloEmissionTimestamp(snapshot.capturedAt).slice(0, 10);
   const rawPayments = Array.isArray(data.payments) ? data.payments.map(obj) : [];
   const resolvedPayments: Array<{
@@ -50,15 +56,30 @@ export function resolveNormalSalePayments(params: {
       throw new Error(`Valor do pagamento ${index + 1} inválido.`);
     if (amountValue === 0) continue;
     const amountCents = money(amountValue, `Pagamento ${index + 1}`, true) + feeCents;
-    const settlement = classifyOrderPaymentSettlement(payment.status);
+    const originalMethod = typeof payment.method === 'string' ? payment.method.trim() : '';
+    const isPromissory = isPromissoryPaymentMethod(originalMethod);
+    const recordedSettlement = classifyOrderPaymentSettlement(payment.status);
+    const normalizedStatus = normalize(String(payment.status ?? ''));
+    const paymentOnDelivery =
+      shipping.deliveryMethod === 'delivery' &&
+      (recordedSettlement === 'pending' ||
+        normalizedStatus === 'pagamento na entrega' ||
+        normalizedStatus === 'pendente - na entrega');
+    const settledForInvoice =
+      useInvoicePaymentSettlementPolicy &&
+      !isPromissory &&
+      (paymentOnDelivery || normalizedStatus === 'verificar');
+    const settlement = isPromissory
+      ? 'pending'
+      : settledForInvoice
+        ? 'paid'
+        : recordedSettlement;
     if (settlement === 'unconfirmed')
       throw new Error(
         `Pagamento ${index + 1} está como “${String(payment.status)}”; confirme se foi recebido ou permanece pendente antes de transmitir.`
       );
 
-    const originalMethod = typeof payment.method === 'string' ? payment.method.trim() : '';
     const method = normalize(originalMethod);
-    const isPromissory = isPromissoryPaymentMethod(originalMethod);
     const fulfillmentCondition = getOrderFulfillmentPaymentCondition(shipping.deliveryMethod);
     let methodCode = method.includes('PIX')
       ? '17'
@@ -116,7 +137,7 @@ export function resolveNormalSalePayments(params: {
       amountCents,
       settlement,
       ...(description ? { description } : {}),
-      ...(settlement === 'paid' && getOrderPaymentActualDate(payment)
+      ...(settlement === 'paid' && recordedSettlement === 'paid' && getOrderPaymentActualDate(payment)
         ? { paymentDate: getOrderPaymentActualDate(payment) }
         : {}),
       ...(settlement === 'pending' ? { dueDate: getOrderPaymentDueDate(payment, shipping) } : {}),
@@ -181,7 +202,8 @@ export function resolveNormalSalePayments(params: {
     methodCode: payment.methodCode,
     amount: payment.amountCents / 100,
     paymentIndicator:
-      payment.settlement === 'paid' || payment.dueDate === emissionDate
+      payment.settlement === 'paid' ||
+      (payment.dueDate === emissionDate && !isPromissoryPaymentMethod(payment.description))
         ? ('0' as const)
         : ('1' as const),
     ...(payment.description ? { description: payment.description } : {}),

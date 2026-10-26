@@ -9,6 +9,11 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import {
+  productDraftDiscardFormSchema,
+  productMoveToTrashFormSchema,
+} from '../../../../../shared-utils/productVariationOperationFormSchemas';
 
 interface MobileProductActionsMenuProps {
   visible: boolean;
@@ -47,6 +52,15 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
   onShowOrders,
   onPrintPriceLabel,
 }) => {
+  const draftDiscardForm = useZodForm(productDraftDiscardFormSchema, {
+    productId: String(product?.id ?? ''),
+    confirmed: false,
+  });
+  const moveToTrashForm = useZodForm(productMoveToTrashFormSchema, {
+    productId: String(product?.id ?? ''),
+    confirmed: false,
+  });
+
   const handleEdit = () => {
     onClose();
     onEdit(product);
@@ -67,7 +81,48 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
         {
           text: 'Descartar',
           style: 'destructive',
-          onPress: () => onDelete(product.id, true),
+          onPress: () => {
+            void draftDiscardForm.validateAndRun(
+              { productId: String(product?.id ?? ''), confirmed: true },
+              ({ productId }) => onDelete(productId, true),
+              (errors) => {
+                const message = Object.values(flattenFormErrors(errors))[0];
+                Alert.alert(
+                  'Não foi possível descartar o rascunho',
+                  message || 'Confira os dados e tente novamente.'
+                );
+              }
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const handleMoveToTrash = () => {
+    if (!onMoveToTrash) return;
+    onClose();
+    Alert.alert(
+      'Mover produto para a lixeira?',
+      'O produto e todas as suas variações serão movidos para a lixeira. Você poderá restaurá-los durante 30 dias.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Mover para lixeira',
+          style: 'destructive',
+          onPress: () => {
+            void moveToTrashForm.validateAndRun(
+              { productId: String(product?.id ?? ''), confirmed: true },
+              ({ productId }) => onMoveToTrash(productId),
+              (errors) => {
+                const message = Object.values(flattenFormErrors(errors))[0];
+                Alert.alert(
+                  'Não foi possível mover para a lixeira',
+                  message || 'Confira os dados e tente novamente.'
+                );
+              }
+            );
+          },
         },
       ]
     );
@@ -189,23 +244,7 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                         accessibilityLabel="Mover para lixeira"
                         accessibilityState={{ disabled: product.can_trash !== true }}
                         accessibilityHint={product.trash_block_reason || 'Move o produto e suas variações para a lixeira.'}
-                        onPress={() =>
-                          Alert.alert(
-                            'Mover produto para a lixeira?',
-                            'O produto e todas as suas variações serão movidos para a lixeira. Você poderá restaurá-los durante 30 dias.',
-                            [
-                              { text: 'Cancelar', style: 'cancel' },
-                              {
-                                text: 'Mover para lixeira',
-                                style: 'destructive',
-                                onPress: () => {
-                                  onClose();
-                                  onMoveToTrash(product.id);
-                                },
-                              },
-                            ]
-                          )
-                        }
+                        onPress={handleMoveToTrash}
                       >
                         <Trash2
                           size={16}

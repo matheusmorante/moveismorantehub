@@ -8,9 +8,10 @@ interface Props {
   items?: Item[];
   isMobile?: boolean;
   isBudget?: boolean;
+  physicalProductQuantity?: number;
 }
 
-const Footer = ({ summary, items = [], isMobile, isBudget }: Props) => {
+const Footer = ({ summary, items = [], isMobile, isBudget, physicalProductQuantity = 0 }: Props) => {
   // Apuração dos subtotais segregados por tipo
   const productsSubtotal = items
     .filter((i) => i.itemType !== 'service')
@@ -20,7 +21,7 @@ const Footer = ({ summary, items = [], isMobile, isBudget }: Props) => {
     .filter((i) => i.itemType === 'service')
     .reduce((acc, i) => acc + calcItemTotalValue(i), 0);
 
-  const hasServices = servicesSubtotal > 0;
+  const hasServices = items.some((item) => item.itemType === 'service');
   const hasDiscounts = (summary.totalFixedDiscount || 0) > 0;
 
   if (isMobile) {
@@ -28,6 +29,14 @@ const Footer = ({ summary, items = [], isMobile, isBudget }: Props) => {
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs">
         {/* Detalhamento compacto dos subtotais */}
         <div className="flex items-center gap-3 sm:gap-4 flex-wrap text-slate-500 dark:text-slate-400 font-bold text-[11px]">
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
+              Unidades físicas:
+            </span>
+            <span className="text-slate-700 dark:text-slate-300 font-extrabold">
+              {physicalProductQuantity.toLocaleString('pt-BR')}
+            </span>
+          </div>
           <div className="flex items-center gap-1.5">
             <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
               Produtos:
@@ -78,6 +87,14 @@ const Footer = ({ summary, items = [], isMobile, isBudget }: Props) => {
       <tr>
         <td colSpan={colSpanValue} className="px-4 py-2.5">
           <div className="flex items-center gap-4 text-xs font-bold text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
+                Unidades físicas:
+              </span>
+              <span className="text-slate-700 dark:text-slate-300">
+                {physicalProductQuantity.toLocaleString('pt-BR')}
+              </span>
+            </div>
             <div className="flex items-center gap-1.5">
               <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
                 Produtos:

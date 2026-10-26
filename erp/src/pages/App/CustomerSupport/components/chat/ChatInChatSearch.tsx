@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
@@ -17,12 +17,26 @@ export const ChatInChatSearch: React.FC<ChatInChatSearchProps> = ({
   onSearchChange,
   onClose,
 }) => {
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<MessageSearchForm>({
+  const { register, handleSubmit, reset, setValue, watch, getValues, trigger, formState: { errors } } = useForm<MessageSearchForm>({
     resolver: zodResolver(supportMessageSearchSchema), defaultValues: { search: searchQuery },
+    mode: 'onChange',
   });
   useEffect(() => { reset({ search: searchQuery }); }, [reset, searchQuery]);
-  const submitSearch = handleSubmit((data) => onSearchChange(data.search));
+  const onSearchChangeRef = useRef(onSearchChange);
+  onSearchChangeRef.current = onSearchChange;
   const draft = watch('search');
+  useEffect(() => {
+    const trimmedDraft = (draft || '').trim();
+    if (trimmedDraft === searchQuery.trim()) return;
+    let active = true;
+    void trigger('search').then((isValid) => {
+      if (!active || getValues('search').trim() !== trimmedDraft) return;
+      if (isValid) onSearchChangeRef.current(trimmedDraft);
+      else if (searchQuery) onSearchChangeRef.current('');
+    });
+    return () => { active = false; };
+  }, [draft, getValues, searchQuery, trigger]);
+  const submitSearch = handleSubmit((data) => onSearchChange(data.search));
 
   return (
     <div className="px-4 py-2 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 z-10 animate-slide-down">
@@ -39,7 +53,10 @@ export const ChatInChatSearch: React.FC<ChatInChatSearchProps> = ({
         {draft && (
           <button
             type="button"
-            onClick={() => { setValue('search', ''); void submitSearch(); }}
+            onClick={() => {
+              setValue('search', '', { shouldValidate: true });
+              onSearchChangeRef.current('');
+            }}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
             title="Limpar pesquisa"
           >

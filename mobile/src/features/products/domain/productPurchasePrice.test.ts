@@ -24,4 +24,28 @@ describe('resolveMobileProductFinalPurchasePrice', () => {
       })
     ).toBe(290);
   });
+
+  it('preserva o tipo de IPI snake case recebido do registro persistido', () => {
+    expect(
+      resolveMobileProductFinalPurchasePrice({
+        cost_price: '250,00',
+        ipi_percent: '10,00',
+        ipi_type: 'fixed',
+        freight_cost: '30,00',
+        freight_type: 'fixed',
+      })
+    ).toBe(290);
+  });
+
+  it('não acrescenta IPI quando o tipo persistido é none', () => {
+    expect(
+      resolveMobileProductFinalPurchasePrice({
+        cost_price: '250,00',
+        ipi_percent: '10,00',
+        ipi_type: 'none',
+        freight_cost: '30,00',
+        freight_type: 'fixed',
+      })
+    ).toBe(280);
+  });
 });

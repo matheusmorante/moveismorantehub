@@ -12,6 +12,7 @@ import {
   parseDrawerQuantityValue,
   parseFeetQuantityValue,
 } from '@/pages/utils/technicalValuesService';
+import { getProductTechnicalRootFallbackValue } from '../../../../../../../../shared-utils/productTechnicalRootPatch';
 
 export const SYNCED_FIELDS = new Set<keyof Product>([
   'description',
@@ -92,6 +93,8 @@ export const computeTechnicalFieldItemState = (
   ) {
     if ((norm === 'altura' || norm === 'altura total') && formData.height) {
       rawValue = formData.height;
+    } else if (norm === 'peso') {
+      rawValue = getProductTechnicalRootFallbackValue(field.name, formData);
     } else if ((norm === 'largura' || norm === 'largura total') && formData.width) {
       rawValue = formData.width;
     } else if (
@@ -117,6 +120,7 @@ export const computeTechnicalFieldItemState = (
       formData.technicalValues?.[field.name] !== null) ||
     (/^marca$/i.test(field.name.trim()) && Boolean(formData.brand)) ||
     ((norm === 'altura' || norm === 'altura total') && Boolean(formData.height)) ||
+    (norm === 'peso' && Boolean(getProductTechnicalRootFallbackValue(field.name, formData))) ||
     ((norm === 'largura' || norm === 'largura total') && Boolean(formData.width)) ||
     ((norm === 'profundidade' ||
       norm === 'profundidade total' ||

@@ -1,0 +1,43 @@
+appId: com.morante.mobile
+---
+# Verifica que a rota não pode iniciar enquanto o checklist da etapa 1 estiver incompleto.
+- launchApp:
+    stopApp: false
+- runFlow:
+    when:
+      visible: "Fluxo de Entrega"
+    commands:
+      - tapOn: "Voltar"
+- extendedWaitUntil:
+    visible: "Operações"
+    timeout: 20000
+- tapOn: "Operações"
+- extendedWaitUntil:
+    visible: "Resumo"
+    timeout: 20000
+- tapOn: "Entregas"
+- tapOn: "Dias Seguintes"
+- extendedWaitUntil:
+    visible: "Iniciar fluxo de entrega - preparação"
+    timeout: 30000
+- tapOn:
+    text: "Iniciar fluxo de entrega - preparação"
+    index: 0
+- extendedWaitUntil:
+    visible: "ETAPA 1 DE 4"
+    timeout: 20000
+- assertVisible: "Preparação"
+- assertVisible: "Em Rota"
+- assertVisible: "Chegada"
+- assertVisible: "Atendimento"
+- assertVisible: "Confira todos os itens do checklist acima para iniciar a rota"
+- assertVisible: "« Deslize para INICIAR ROTA"
+- swipe:
+    start: 90%, 88%
+    end: 10%, 88%
+    duration: 500
+- assertNotVisible: "Iniciar Fluxo de Entrega"
+- extendedWaitUntil:
+    visible: "ETAPA 1 DE 4"
+    timeout: 10000
+- tapOn: "Voltar"

@@ -72,6 +72,23 @@ describe('variationGenerationRules', () => {
       expect(result[0].active).toBe(false);
       expect(result[0].syncUnitPrice).toBe(true);
     });
+
+    it('preserva atributos ocultos mas não usa seus valores no nome automático', () => {
+      const result = buildBulkVariations(
+        [
+          { name: 'Cor', values: ['azul'], showName: true },
+          { name: 'Lote interno', values: ['premium'], showName: false },
+        ],
+        { name: 'Tênis' },
+        []
+      );
+
+      expect(result[0].name).toBe('Tênis Azul');
+      expect(result[0].attributes).toEqual([
+        { name: 'Cor', value: 'Azul', showName: true },
+        { name: 'Lote Interno', value: 'Premium', showName: false },
+      ]);
+    });
   });
 
   describe('createDefaultNewVariation', () => {

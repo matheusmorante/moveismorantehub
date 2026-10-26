@@ -1,5 +1,122 @@
 # Histórico de correções fiscais — 24/10/2026
 
+## Aviso de comunicação separado de lote pendente de reconciliação na Ciência automática
+
+### Problema e sintomas
+
+Quando o navegador não recebia a resposta da chamada de Ciência automática, a tela apresentava “Lote de Ciência pendente de reconciliação”. Esse estado é reservado às respostas do servidor que confirmam eventos sem resultado individual seguro; uma falha de comunicação não confirma que exista um evento registrado para reconciliar.
+
+### Causa raiz comprovada
+
+O `catch` do serviço ERP convertia timeout ou falha de rede em `pending: true`, e o componente associava qualquer `pending` a um lote confirmado pelo servidor. O serviço mobile retornava erro genérico sem distinguir a ausência de resposta do estado de reconciliação informado pela API.
+
+### Solução e arquivos alterados
+
+- `erp/src/pages/utils/inboundNfe/services/sefazInboundSyncService.ts:36,274–280` — representa falha de comunicação como `communicationUnconfirmed`, mantendo a retomada automática e sem classificá-la como lote pendente.
+- `erp/src/pages/App/Stock/InboundInvoices/components/SefazSyncStatusBadge.tsx:92–95` — apresenta “Comunicação sem confirmação” para ausência de resposta e reserva “Lote de Ciência pendente de reconciliação” para pendência confirmada na resposta da API.
+- `mobile/src/services/stock/stockSefazService.ts:28–40` e `mobile/src/features/stock/invoices/components/SefazSyncStatusBadge.tsx:90–93` — aplicam a mesma distinção e mantêm a retomada automática.
+- `docs/estoque/guia-pratico/gerar_guia.py:400–406` e os dois PDFs do guia (página 7) — orientam a conferir o Histórico Fiscal antes de tentar registrar a Ciência novamente após uma falha de comunicação.
+- `docs/estoque/guia-pratico/README.md:40`, `docs/fiscal/README.md:9` e este histórico (`:3–25`) — registram a orientação e a correção.
+
+O aviso informa que o processamento pode ter sido iniciado e não autoriza repetir o evento sem conferir o Histórico Fiscal. A API e a guarda de idempotência não foram alteradas.
+
+### Validação e limites
+
+Inspeção estática confirmou que falhas de comunicação ficam separadas do campo `pending` retornado pela API e que ambos os clientes mantêm o backoff de retomada existente. `git diff --check` passou nos arquivos textuais alterados. O guia foi gerado em 27 páginas; a página 7 foi renderizada e revisada, e as duas cópias têm o mesmo SHA-256. O acesso pelo submenu Estoque continua apontando para `/guias/guia-pratico-estoque.pdf`. Não executei testes automatizados. Nenhuma transmissão à SEFAZ, gravação remota ou migration foi realizada.
+
+## Busca do produto pai no cadastro rápido da NF-e
+
+### Problema e sintomas
+
+Ao buscar “Guarda-roupa Monza” no campo Produto pai, o nome não aparecia mesmo havendo um produto ativo “Guarda Roupa Monza 4 Portas c/ Pés” no catálogo.
+
+### Causa raiz comprovada
+
+O filtro local do autocomplete normalizava acentos e caixa, mas mantinha hífens. Assim, o token “Guarda-roupa” não correspondia ao trecho “Guarda Roupa” do nome cadastrado. O construtor da consulta já normalizava o hífen para espaço, de modo que a divergência acontecia na comparação dos nomes após a busca.
+
+### Solução e arquivos alterados
+
+- `erp/src/components/productAutocompleteUtils.tsx:42–46` — adiciona normalização de hífens e sublinhados como separadores para comparação de nomes.
+- `erp/src/components/hooks/useProductAutocomplete.ts:11,109,142–165` — aplica essa normalização aos nomes do produto pai e das variações; mantém a comparação de SKU e código com o normalizador original e preserva os filtros de fornecedor, status ativo e rascunho.
+- `docs/fiscal/README.md:9` e este histórico (`:3–21`) — registram a correção e suas validações nas referências atuais.
+
+### Validação e limites
+
+A consulta somente leitura no ERP pelo navegador mostrou o produto ativo “Guarda Roupa Monza 4 Portas c/ Pés”, que usa espaço no lugar do hífen digitado; a importação do módulo atualizado no navegador confirmou que os termos normalizados encontram esse nome. Também há um cadastro exato “Guarda Roupa Monza” em rascunho e desativado; ele continua indisponível como produto pai pelas validações existentes. Uma consulta somente leitura ao projeto operacional (`hkoxhourxwlddgsfdgws`) encontrou zero novos registros nas tabelas `public.inbound_manifestation_events` e `public.sefaz_inbound_xml_consult_attempts` entre 23:08 e 23:15:30 UTC de 24/10/2026. Não registrei produto nem vínculo de fornecedor. Não executei testes automatizados.
+
+## Botão Cadastro rápido em Gerenciar Vínculos da NF-e de entrada
+
+### Problema e sintomas
+
+Em Gerenciar Vínculos, o botão da linha sem produto associado abria o fluxo de cadastro rápido, mas mostrava “Cadastrar”, um ícone de mais e uma pílula verde. O usuário pediu que a ação ficasse identificada como “Cadastro rápido”, em amarelo, com um raio preto.
+
+### Causa raiz comprovada
+
+O rótulo, ícone e cores estavam definidos diretamente no botão condicional de `InboundItemLinkHeader`; o fluxo acionado já era o callback existente de cadastro rápido.
+
+### Solução e arquivos alterados
+
+- `erp/src/pages/App/Stock/InboundInvoices/components/InboundItemLinkHeader.tsx:109–137` — muda o rótulo para “Cadastro rápido”, aplica formato de pílula amarela, remove transformação para caixa alta e usa raio preto. O callback e as condições para exibir a ação permanecem os mesmos.
+- `docs/estoque/guia-pratico/gerar_guia.py:375` — atualiza a instrução da página 9 para o nome atual do botão.
+- `docs/estoque/guia-pratico/README.md` — registra o trecho atualizado na página 9.
+- `erp/public/guias/guia-pratico-estoque.pdf` e `output/pdf/guia-pratico-do-estoque.pdf` — cópias geradas pelo mesmo script e conferidas como idênticas.
+- `docs/fiscal/README.md` e este histórico — registram a mudança nas referências atuais.
+
+### Validação e limites
+
+O gerador do guia conferiu páginas, texto e igualdade dos dois PDFs; a página 9 foi renderizada e revisada visualmente. Não rodei testes automatizados: a alteração no ERP é apenas visual, e o fluxo/callback não mudou. Não houve gravação remota, migration ou operação na SEFAZ.
+
+## Cadastro rápido da NF-e: categoria manual e dados informativos
+
+### Problema e sintomas
+
+O modal de cadastro rápido duplicava o NCM, que já aparece no resumo “Produto da nota fiscal”, e apresentava um campo editável de custo de aquisição. Também sugeria a categoria por IA ou regra local, exigia uma confirmação por checkbox e oferecia restaurar os dados da NF-e. O operador pediu seleção manual da categoria e remoção desses controles.
+
+### Causa raiz comprovada
+
+O modal combinava dados informativos da nota com campos editáveis e uma etapa de sugestão/confirmação de categoria. Além do helper de sugestão por IA/regra, a preparação do produto ainda chamava um resolvedor automático quando criava o produto pai. O custo e o NCM também alimentam internamente o cadastro e a resolução de divergência fiscal; remover seus inputs não exige apagar esses dados derivados da NF-e nem o resumo já existente.
+
+### Solução e arquivos alterados
+
+- `erp/src/pages/App/Stock/InboundInvoices/modals/QuickRegisterVariationModal.tsx:92,112–165,239–265,309–328,349–352,413–423,452` — remove os inputs de custo e NCM, mantém o NCM no resumo da nota e nos controles de divergência da variação; remove a sugestão automática, a confirmação da categoria e o botão de restaurar; deixa a categoria inicialmente vazia para seleção manual; aplica borda inferior aos campos editáveis.
+- `erp/src/pages/App/Stock/InboundInvoices/services/inboundProductPreparationService.ts:12–47,82–99,198–219,232 (trechos removidos/alterados); 55,146 (estado atual)` — remove o helper de sugestão e as resoluções automáticas na preparação de produto; a criação usa somente `categoryId` selecionado, ou nenhuma categoria se ausente.
+- `shared-utils/operationsFormSchemas.ts:92–140` — remove `categoryConfirmed` e sua validação; continua exigindo categoria escolhida e preserva o resolver real do formulário.
+- `erp/src/pages/App/Stock/InboundInvoices/components/InboundQuickRegister.test.tsx:48,85–100,150–164,170` — atualiza os casos existentes para categoria manual e ausência de controles removidos; não executado nesta revisão.
+- `erp/src/pages/App/Stock/InboundInvoices/services/inboundProductPreparationService.test.ts:14,64–77` — atualiza a expectativa para categoria escolhida manualmente e ausência de chamadas ao resolvedor automático; não executado nesta revisão.
+- `docs/estoque/guia-pratico/gerar_guia.py:375–386` e `docs/estoque/guia-pratico/README.md:36,42` — atualiza as instruções para custo médio do estoque, CMV na venda e escolha manual da categoria; remove captura obsoleta da confirmação automática.
+- `erp/public/guias/guia-pratico-estoque.pdf` (páginas 9–10) e `output/pdf/guia-pratico-do-estoque.pdf` — PDFs gerados; 26 páginas, 21 capturas utilizadas e cópias idênticas.
+- `docs/fiscal/README.md:10,16` e este histórico (`:25–50`) — registram a revisão atual.
+
+O campo de custo removido era apenas uma edição do cadastro. A origem do custo operacional continua sendo o estoque: as entradas atualizam o custo médio, e a venda materializa o CMV conforme o custo médio vigente no momento da baixa, seguindo `docs/decisoes/adr-002-cmpm-e-cmv-materializado.md`. O app móvel mantém seu formulário de custo, que é uma interface distinta.
+
+### Validação e limites
+
+Revisão estática e `git diff --check` concluídos; nenhuma suíte foi executada. O gerador verificou paginação e texto, produziu 26 páginas com 21 capturas e confirmou que as duas cópias são idênticas. As páginas 9 e 10 foram renderizadas e revisadas visualmente, sem cortes ou sobreposições. Não houve gravação remota, migration ou operação na SEFAZ.
+
+## Campo CST/CSOSN consistente no cadastro de produto
+
+### Problema e sintomas
+
+Ao escolher um código CSOSN na aba Fiscal do cadastro mobile, a interface atualizava `fiscal.cst` e também acrescentava `fiscal.csosn`. O cadastro ERP atualiza somente `fiscal.cst`, que é o campo de domínio declarado como CST ou CSOSN. Como os dois clientes persistem o objeto fiscal completo, o app podia gravar uma chave adicional ausente no payload ERP.
+
+### Causa raiz comprovada
+
+`ProductFormFiscalTab.updateFiscalCst` escrevia `csosn: value` enquanto `ProductFiscalTab.updateFiscalCst` escrevia somente `cst` e `cest`. `FiscalInfo` declara `cst?: string` (“or CSOSN”) e não declara um campo próprio `csosn`; os mappers ERP e mobile enviam o JSON fiscal completo. Ambos os handlers também mantinham a mesma regra de CEST: preservar o valor nos códigos `201`, `202` e `500`, limpar para os demais.
+
+### Solução e arquivos alterados
+
+- `shared-utils/productFiscalCst.ts:1–20` — centraliza a atualização do código e do CEST, preservando os demais campos do JSON fiscal.
+- `erp/src/pages/App/Products/components/tabs/fiscal/ProductFiscalTab.tsx:14,42–47` — passa a usar a regra compartilhada.
+- `mobile/src/features/products/modals/tabs/ProductFormFiscalTab.tsx:22,224–229` — passa a usar a mesma regra e deixa de adicionar `csosn` nas novas alterações do campo.
+- `erp/src/pages/utils/productFiscalCst.test.ts:1–38` — cobre preservação/limpeza do CEST, dados fiscais não relacionados e uma chave `csosn` legada já existente.
+- `docs/fiscal/README.md:9`, este histórico `:3–25`, `docs/produtos/paridade-erp-app.md:2976–2987` e `docs/geral/roadmap_pendente.md:421–423` — registram a correção, evidência e limites.
+
+O helper preserva chaves legadas que já estejam no JSON fiscal; não houve migração nem remoção de dados históricos. Nenhuma regra tributária, operação de emissão, XML ou integração SEFAZ mudou.
+
+### Validação e limites
+
+Vitest pelo runner ERP: **7/7** em `productFiscalCst.test.ts` e `ProductFiscalTab.test.tsx`. O primeiro arquivo confere a regra compartilhada; o segundo cobre a aba ERP existente. Não foi feita validação visual autenticada do cadastro de Produtos nem execução do formulário nativo. Nenhuma migration, gravação remota ou operação na SEFAZ foi realizada.
+
 ## Edição de pedido não invalida a versão carregada pelo autosave do rascunho
 
 ### Problema e sintomas
@@ -21,6 +138,30 @@ O controle otimista de concorrência permanece ativo; a alteração remove a esc
 ### Validação e limites
 
 Inspeção estática rastreou a opção até a condição do hook, o salvamento explícito e a comparação versionada que gera `ORDER_VERSION_CONFLICT`. Testes automatizados não foram executados nesta sessão. Nenhuma migration, gravação no banco remoto ou operação na SEFAZ foi realizada.
+
+## Pagamento na entrega e status Verificar nas novas NF-e
+
+### Problema e sintomas
+
+Na emissão de NF-e de venda, o status `Verificar` bloqueava a determinação fiscal por ser tratado como não confirmado. Já `Pendente` continuava sendo tratado como pagamento a prazo, embora a interface apresente esse estado como “Pendente - na entrega” para pedidos com entrega. O usuário informou que a NF só será entregue depois que o cliente pagar.
+
+### Causa raiz comprovada
+
+`classifyOrderPaymentSettlement` só classifica status iniciados por “pago” como recebidos, status iniciados por “pendente” como pendentes e os demais — inclusive `Verificar` — como não confirmados. `resolveNormalSalePayments` bloqueava pagamentos não confirmados e gerava `indPag=1`/cobrança para os pendentes. Em `BodyRow.tsx`, a opção persistida é `Pendente`; o texto “na entrega” é apresentado conforme `deliveryMethod === 'delivery'`.
+
+### Solução e arquivos alterados
+
+- `api/nfe/fiscalSnapshot.ts` — declara o campo opcional tipado `paymentSettlementPolicy`; a ausência do campo identifica snapshots históricos, e o campo participa do hash persistido.
+- `api/nfe/normal-sale/normalEmissionDispatcher.ts` — inclui `NF_HANDED_OVER_AFTER_PAYMENT` no snapshot criado no servidor, antes da determinação e persistência.
+- `api/nfe/normal-sale/payments.ts` — quando a política está presente, status `Verificar` e `Pendente` de pedidos com entrega contam como recebidos exclusivamente para a NF, exceto quando o meio é Promissória. Promissórias sempre permanecem pendentes/a prazo (`indPag=1`). Para os demais meios assumidos como recebidos, `indPag` passa a `0` (à vista), os valores e meios de pagamento registrados são preservados e não se cria vencimento/cobrança para essas linhas. Uma data de pagamento só é incluída se houver status `Pago` e o meio não for Promissória.
+- `api/nfe/normalSaleRuleSet.ts`, `api/nfe/fiscalXmlAudit.ts` e `api/nfe/orderEditFiscalAudit.ts` — já passam o snapshot imutável ao resolvedor; o novo campo faz a emissão e as auditorias usarem a mesma política. Snapshots antigos sem o campo continuam usando os status registrados.
+- `docs/fiscal/README.md` e este histórico — registram a regra nas referências atuais.
+
+O [MOC 7.0, Anexo I, grupo YA](https://www.confaz.fazenda.gov.br/legislacao/arquivo-manuais/moc7-anexo-i-leiaute-e-rv.pdf) define `indPag=0` como pagamento à vista e `indPag=1` como pagamento a prazo; `tPag` continua identificando o meio de pagamento. A regra segue a premissa operacional informada pelo usuário, não consulta comprovante bancário ou adquirente e não altera o status nem o saldo comercial do pedido. O snapshot continua com `schemaVersion=1` e o ruleset aceito pelo RPC; o campo é criado pelo servidor e fica coberto pelo hash do próprio snapshot. Documentos e tentativas já preparados não são reescritos.
+
+### Validação e limites
+
+Inspeção estática conferiu a criação server-side da política, sua participação no snapshot e a regra compartilhada de auditoria; `git diff --check` passou. Testes automatizados e validação XSD não foram executados nesta sessão. Nenhum XML foi preparado/transmitido, nenhuma emissão foi feita na SEFAZ e nenhum dado fiscal ou migration foi alterado no banco remoto.
 
 ## Retentativa automática do XML completo após Ciência aceita
 

@@ -52,6 +52,8 @@ import {
 } from './offlineInventoryCatalog';
 import { getWebInventoryDraft, saveWebInventoryDraft } from './inventoryLocalDrafts';
 import { freezeInventorySubmission, getInventorySubmission } from './inventoryOutbox';
+import { writeOfflineInventoryCatalogSnapshot } from '../storage/offlineInventoryCatalogStorage';
+import type { OfflineInventoryCatalog } from '../types/offlineInventoryCatalog.types';
 
 const firstTimestamp = '2026-09-20T12:00:00.000Z';
 const nextTimestamp = '2026-09-25T19:00:00.000Z';
@@ -95,7 +97,15 @@ beforeEach(async () => {
         updated_at: firstTimestamp,
       },
     ],
-    people: [],
+    people: [
+      {
+        id: 'supplier-special',
+        person_type: 'suppliers',
+        full_name: 'Salvados e Usados',
+        stock_origins: ['salvados', 'usados'],
+        updated_at: firstTimestamp,
+      },
+    ],
     inventory_catalog_deletions: [],
   };
 });
@@ -104,6 +114,9 @@ describe('sincronização incremental do índice offline web', () => {
   it('atualiza registros alterados desde o cursor e aplica tombstones de etiquetas', async () => {
     expect((await syncOfflineInventoryCatalog()).success).toBe(true);
     expect((await getOfflineInventoryCatalog()).labels[labelId]).toBeTruthy();
+    expect(
+      (await getOfflineInventoryCatalog()).suppliers['supplier-special'].stock_origins
+    ).toEqual(['salvados', 'usados']);
     await saveWebInventoryDraft({
       id: 'audit-preserved',
       code: 'LOCAL-1',
@@ -228,8 +241,34 @@ describe('sincronização incremental do índice offline web', () => {
       'inventory-identification-index',
       'inventory-identification-index-v2',
     ]);
-    expect(stored.find((row) => row.id.endsWith('-v2')).snapshot.formatVersion).toBe(2);
+    expect(stored.find((row) => row.id.endsWith('-v2')).snapshot.formatVersion).toBe(3);
     expect(verifyDb.objectStoreNames.contains('outbox')).toBe(true);
     expect((await getWebInventoryDraft('audit-legacy'))?.items[0].physicalCount).toBe(7);
+  });
+
+  it('refaz a carga de fornecedores ao atualizar o formato para incluir as origens de estoque', async () => {
+    const staleCatalog: OfflineInventoryCatalog = {
+      products: {},
+      variations: {},
+      labels: {},
+      suppliers: {
+        'supplier-special': { id: 'supplier-special', full_name: 'Salvados e Usados' },
+      },
+      cursors: { suppliers: firstTimestamp },
+      syncedAt: firstTimestamp,
+      formatVersion: 2,
+    };
+    await writeOfflineInventoryCatalogSnapshot(staleCatalog);
+
+    expect((await syncOfflineInventoryCatalog()).success).toBe(true);
+    expect(state.filters).not.toContainEqual({
+      table: 'people',
+      operator: 'gte',
+      column: 'updated_at',
+      value: firstTimestamp,
+    });
+    expect(
+      (await getOfflineInventoryCatalog()).suppliers['supplier-special'].stock_origins
+    ).toEqual(['salvados', 'usados']);
   });
 });

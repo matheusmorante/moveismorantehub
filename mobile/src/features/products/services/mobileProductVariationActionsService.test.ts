@@ -20,6 +20,7 @@ import {
   checkMobileVariationAttributeConflict,
   countMobileParentVariations,
   ensureMobileAttributeValue,
+  getMobileVariationActionRequirements,
   fetchMobileVariationFamilies,
   mergeMobileVariationIntoCanonical,
   mobileVariationAttributesConflict,
@@ -82,6 +83,18 @@ describe('mobileProductVariationActionsService', () => {
     expect(toMobileVariationAttributes([{ key: 'Tamanho', val: 'M' }])).toEqual([
       { name: 'Tamanho', value: 'M', showName: undefined },
     ]);
+  });
+
+  it('deriva fornecedor e característica válida para as ações de uma variação', () => {
+    expect(
+      getMobileVariationActionRequirements(
+        { supplier_id: 'supplier-1' },
+        { attributes: '{"Cor":{"value":"Azul"}}' }
+      )
+    ).toEqual({ hasSupplier: true, hasValidAttributes: true });
+    expect(
+      getMobileVariationActionRequirements({}, { attributes: [{ name: 'Cor', value: '  ' }] })
+    ).toEqual({ hasSupplier: false, hasValidAttributes: false });
   });
 
   it('detecta combinações iguais sem depender da ordem ou caixa dos atributos', () => {
@@ -178,6 +191,16 @@ describe('mobileProductVariationActionsService', () => {
     expect(query.filter).toHaveBeenCalledWith('value', 'imatch', '^Preto Fosco$');
     expect(query.insert).toHaveBeenNthCalledWith(1, { name: 'Cor (Acabamento)', active: true });
     expect(query.insert).toHaveBeenNthCalledWith(2, { attribute_id: targetParentId, value: 'Preto Fosco' });
+  });
+
+  it('não prossegue para cadastrar valor quando o INSERT da característica não retorna linha', async () => {
+    queueResults('attributes',
+      { data: [], error: null },
+      { data: null, error: null, status: 201 }
+    );
+
+    await expect(ensureMobileAttributeValue('Cor', 'Azul')).rejects.toMatchObject({ uncertain: true });
+    expect(mocks.from).not.toHaveBeenCalledWith('attribute_values');
   });
 
   it('move a variação pela RPC e mantém a relação de fotos do produto pai sincronizada', async () => {

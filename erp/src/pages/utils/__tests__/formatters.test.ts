@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capitalizeOrder } from '../formatters';
+import { capitalizeOrder, formatCurrency } from '../formatters';
 
 describe('capitalizeOrder', () => {
   it('formata um pedido sem depender de variável global', () => {
@@ -14,5 +14,13 @@ describe('capitalizeOrder', () => {
 
     expect(order.customerData.fullName).toBe('Maria da Silva');
     expect(order.customerData.fullAddress.street).toBe('Rua das Flores');
+  });
+});
+
+describe('formatCurrency', () => {
+  it('usa a formatação BRL pt-BR compartilhada, incluindo milhares e centavos', () => {
+    expect(formatCurrency(1234.5)).toBe(
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(1234.5)
+    );
   });
 });

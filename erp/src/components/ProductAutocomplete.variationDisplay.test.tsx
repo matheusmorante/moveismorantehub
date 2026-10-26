@@ -40,6 +40,7 @@ const variation = {
   sku: '001-01',
   stock: 2,
   unitPrice: 100,
+  promoPrice: 70,
   active: true,
 } as Variation;
 
@@ -66,5 +67,15 @@ describe('ProductAutocomplete variation display', () => {
     const view = render(<ProductAutocomplete onSelect={vi.fn()} />);
 
     expect(view.container.querySelector('button')?.textContent).toContain('Sofá Capri Azul');
+  });
+
+  it('shows the promotion price for the variation suggestion', () => {
+    const view = render(<ProductAutocomplete onSelect={vi.fn()} />);
+    const expectedPrice = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(70);
+
+    expect(view.container.querySelector('button')?.textContent).toContain(expectedPrice);
   });
 });

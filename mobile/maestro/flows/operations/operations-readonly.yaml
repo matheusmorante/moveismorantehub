@@ -1,0 +1,50 @@
+appId: com.morante.mobile
+---
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: "Operações"
+    timeout: 20000
+- tapOn: "Operações"
+- extendedWaitUntil:
+    visible: "Resumo"
+    timeout: 20000
+- assertVisible: "Hoje"
+- assertVisible: "Dias Seguintes"
+- assertVisible: "Entregas"
+- assertVisible: "Montagens"
+- assertVisible: "Mapa"
+- extendedWaitUntil:
+    visible: "Visão geral de hoje"
+    timeout: 30000
+- tapOn: "Dias Seguintes"
+- tapOn: "Resumo"
+- extendedWaitUntil:
+    visible: "Visão geral dos próximos dias"
+    timeout: 20000
+- tapOn: "Hoje"
+- assertVisible: "Visão geral de hoje"
+- tapOn: "Entregas"
+- extendedWaitUntil:
+    visible: "Todas \\([0-9]+\\)"
+    timeout: 30000
+- tapOn: "Manhã \\([0-9]+\\)"
+- tapOn: "Tarde \\([0-9]+\\)"
+- tapOn: "Todas \\([0-9]+\\)"
+- tapOn: "Dias Seguintes"
+- tapOn: "Resumo"
+- assertVisible: "Visão geral dos próximos dias"
+- tapOn: "Entregas"
+- tapOn: "Montagens"
+- extendedWaitUntil:
+    visible: "(?i).*(nenhuma montagem|montagem no depósito|montagem fora).*"
+    timeout: 30000
+- tapOn: "Hoje"
+- tapOn: "Mapa"
+- extendedWaitUntil:
+    visible: "Enquadrar roteiro"
+    timeout: 30000
+- tapOn: "Dias Seguintes"
+- tapOn: "Hoje"
+- tapOn: "Resumo"
+- assertVisible: "Visão geral de hoje"

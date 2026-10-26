@@ -1,8 +1,7 @@
 /**
- * Camada de segurança e guarda de envio para a Central de Atendimento WhatsApp.
- * 
- * A política da empresa mantém a Central em modo de consulta e recebimento.
- * O envio fica bloqueado em todas as circunstâncias até uma mudança explícita dessa política.
+ * Guardas dos caminhos legados de envio da Central WhatsApp.
+ * O compositor atual envia pela rota autenticada, que revalida permissão,
+ * conversa, canal e janela de atendimento no servidor.
  */
 
 export interface SendingAuthorizationCheck {
@@ -21,8 +20,7 @@ export interface CareWindow {
 
 export const whatsappSupportGuard = {
   /**
-   * Verifica se o envio de mensagens está liberado na Central.
-   * Na versão atual, SEMPRE retorna allowed: false.
+   * Mantém desativados os caminhos legados que não usam a rota do compositor.
    */
   checkAuthorization: async (
     _recipientPhone?: string,

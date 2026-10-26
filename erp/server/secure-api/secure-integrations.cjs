@@ -614,7 +614,8 @@ var DEFAULT_PERMISSION_ROLES = {
   viewOrders: ["manager"],
   viewChannelCatalog: ["manager"],
   viewMarketing: ["manager"],
-  viewDeliverySchedule: ["manager", "seller", "deliverer"]
+  viewDeliverySchedule: ["manager", "seller", "deliverer"],
+  sendCustomerSupportMessages: ["manager", "seller"]
 };
 function getBearerToken(req) {
   const header = Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization;
@@ -823,6 +824,121 @@ async function verifyWhatsAppWebhookSubscription({
     after = nextAfter;
   }
   return { valid: false, reason: "pagination_limit_exceeded" };
+}
+
+// server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
+var import_node_crypto3 = require("node:crypto");
+function isRecord2(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+function fieldNames(value) {
+  if (!Array.isArray(value)) return null;
+  const names = value.map((field) => {
+    if (typeof field === "string") return field;
+    return isRecord2(field) && typeof field.name === "string" ? field.name : "";
+  });
+  if (names.some((name) => !name)) return null;
+  return [...new Set(names)];
+}
+function callbackIsProduction(value) {
+  if (typeof value !== "string") return false;
+  try {
+    const callback = new URL(value);
+    return callback.protocol === "https:" && ["morantehub.com", "morantehub.vercel.app"].includes(callback.hostname) && callback.pathname === "/api/whatsapp-webhook" && !callback.username && !callback.password && !callback.search && !callback.hash;
+  } catch {
+    return false;
+  }
+}
+function graphErrorDetails(body) {
+  const error = isRecord2(body) && isRecord2(body.error) ? body.error : {};
+  return typeof error.code === "number" || typeof error.code === "string" ? { graphCode: error.code } : {};
+}
+function parseSubscriptionList(body) {
+  if (!isRecord2(body) || !Array.isArray(body.data)) return null;
+  return body.data.filter(isRecord2);
+}
+async function ensureWhatsAppEchoWebhookSubscription({
+  appId,
+  appSecret,
+  verifyToken,
+  graphVersion,
+  signal
+}) {
+  const normalizedAppId = appId.trim();
+  const normalizedSecret = appSecret.trim();
+  const normalizedVerifyToken = verifyToken.trim();
+  if (!/^\d{1,32}$/.test(normalizedAppId) || !normalizedSecret || !/^v\d+\.\d+$/.test(graphVersion)) {
+    return { valid: false, reason: "invalid_input" };
+  }
+  if (!normalizedVerifyToken) return { valid: false, reason: "verify_token_missing" };
+  const appAccessToken = `${normalizedAppId}|${normalizedSecret}`;
+  const appSecretProof = (0, import_node_crypto3.createHmac)("sha256", normalizedSecret).update(appAccessToken).digest("hex");
+  const url = new URL(`https://graph.facebook.com/${graphVersion}/${normalizedAppId}/subscriptions`);
+  url.searchParams.set("appsecret_proof", appSecretProof);
+  const getSubscriptions = async () => {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${appAccessToken}` },
+      signal
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      return { ok: false, result: { valid: false, reason: "graph_http_error", graphStatus: response.status, ...graphErrorDetails(body) } };
+    }
+    const subscriptions = parseSubscriptionList(body);
+    if (!subscriptions) {
+      return { ok: false, result: { valid: false, reason: "invalid_response", graphStatus: response.status } };
+    }
+    const matches = subscriptions.filter((subscription2) => subscription2.object === "whatsapp_business_account");
+    if (matches.length !== 1) {
+      return { ok: false, result: { valid: false, reason: matches.length ? "invalid_response" : "subscription_not_found" } };
+    }
+    const subscription = matches[0];
+    const fields = fieldNames(subscription.fields);
+    if (!fields) {
+      return { ok: false, result: { valid: false, reason: "invalid_response", graphStatus: response.status } };
+    }
+    return { ok: true, response, subscription, fields };
+  };
+  const currentResult = await getSubscriptions();
+  if (!currentResult.ok) return currentResult.result;
+  const { subscription: current, fields: currentFields } = currentResult;
+  if (current.active !== true) return { valid: false, reason: "subscription_inactive" };
+  if (!currentFields.includes("messages")) return { valid: false, reason: "messages_not_subscribed" };
+  if (!callbackIsProduction(current.callback_url)) return { valid: false, reason: "callback_not_allowed" };
+  if (currentFields.includes("smb_message_echoes")) {
+    return { valid: true, changed: false, fields: currentFields };
+  }
+  const form = new URLSearchParams({
+    object: "whatsapp_business_account",
+    callback_url: current.callback_url,
+    verify_token: normalizedVerifyToken,
+    fields: [...currentFields, "smb_message_echoes"].join(",")
+  });
+  if (typeof current.include_values === "boolean") {
+    form.set("include_values", String(current.include_values));
+  }
+  const updateResponse = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${appAccessToken}`,
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: form,
+    signal
+  });
+  const updateBody = await updateResponse.json().catch(() => null);
+  if (!updateResponse.ok) {
+    return { valid: false, reason: "graph_http_error", graphStatus: updateResponse.status, ...graphErrorDetails(updateBody) };
+  }
+  const verifiedResult = await getSubscriptions();
+  if (!verifiedResult.ok) return verifiedResult.result;
+  const { subscription: verified, fields: verifiedFields } = verifiedResult;
+  const preservedFields = currentFields.every((field) => verifiedFields.includes(field));
+  if (verified.active !== true || verified.callback_url !== current.callback_url || !preservedFields || !verifiedFields.includes("messages") || !verifiedFields.includes("smb_message_echoes")) {
+    return { valid: false, reason: "verification_failed" };
+  }
+  return { valid: true, changed: true, fields: verifiedFields };
 }
 
 // src/pages/utils/metaService/metaGraphProxyPolicy.ts
@@ -1079,6 +1195,37 @@ async function handleMetaGraph(req, res) {
     } catch {
       return res.status(controller2.signal.aborted ? 504 : 502).json({
         error: controller2.signal.aborted ? "A verifica\xE7\xE3o do webhook demorou demais." : "N\xE3o foi poss\xEDvel verificar a inscri\xE7\xE3o do webhook."
+      });
+    } finally {
+      clearTimeout(timeout2);
+    }
+  }
+  if (body.operation === "ensure_smb_message_echoes_subscription") {
+    if (!hasErpPermission(context, "manageSettings")) {
+      return res.status(403).json({ error: "Sem permiss\xE3o para alterar a inscri\xE7\xE3o do webhook." });
+    }
+    const appId = process.env.WHATSAPP_APP_ID?.trim() || "";
+    const appSecret = process.env.WHATSAPP_APP_SECRET?.trim() || "";
+    const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN?.trim() || "";
+    if (!appId || !appSecret || !verifyToken) {
+      return res.status(503).json({ error: "Atualiza\xE7\xE3o da inscri\xE7\xE3o do webhook indispon\xEDvel no servidor." });
+    }
+    const controller2 = new AbortController();
+    const timeout2 = setTimeout(() => controller2.abort(), 3e4);
+    try {
+      const result = await ensureWhatsAppEchoWebhookSubscription({
+        appId,
+        appSecret,
+        verifyToken,
+        graphVersion: GRAPH_VERSION,
+        signal: controller2.signal
+      });
+      if (result.valid) return res.status(200).json(result);
+      const status = result.reason === "messages_not_subscribed" || result.reason === "subscription_inactive" || result.reason === "callback_not_allowed" || result.reason === "subscription_not_found" ? 409 : result.reason === "invalid_input" || result.reason === "verify_token_missing" ? 503 : 502;
+      return res.status(status).json(result);
+    } catch {
+      return res.status(controller2.signal.aborted ? 504 : 502).json({
+        error: controller2.signal.aborted ? "A atualiza\xE7\xE3o do webhook demorou demais." : "N\xE3o foi poss\xEDvel atualizar a inscri\xE7\xE3o do webhook."
       });
     } finally {
       clearTimeout(timeout2);

@@ -9,6 +9,7 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', () => ({
+  Platform: { OS: 'web' },
   View: ({ children, style, ...props }: any) => {
     // Flatten style array to inspect paddingBottom
     const flatStyle = Array.isArray(style)

@@ -1,5 +1,6 @@
 import React from 'react';
 import type Product from '../../../../types/product.type';
+import type { Variation } from '../../../../types/product.type';
 import ProductFiscalTab from '../tabs/fiscal/ProductFiscalTab';
 import ProductDescriptionTab from '../tabs/ProductDescriptionTab';
 import ProductEcommerceTab from '../tabs/ProductEcommerceTab';
@@ -7,6 +8,7 @@ import ProductGeneralTab from '../tabs/ProductGeneralTab';
 import ProductInventoryTab from '../tabs/ProductInventoryTab';
 import ProductVariationsTab from '../tabs/ProductVariationsTab';
 import ProductTechnicalTab from '../tabs/technical/ProductTechnicalTab';
+import VariationCompositionItemsTab from '../variationTabs/VariationCompositionItemsTab';
 
 type EcommerceSubTab = 'vitrine' | 'photos' | 'descriptions' | 'logistics' | 'seo';
 
@@ -63,6 +65,34 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
   handleDeleteVariation,
   onOpenAiCharacteristicsModal,
 }) => {
+  const legacyItemType = 'item_type' in formData ? formData.item_type : undefined;
+  const isComposition = formData.itemType === 'composition' || legacyItemType === 'composition';
+  const firstVariation = formData.variations?.length === 1 ? formData.variations[0] : undefined;
+  const compositionVariation = firstVariation
+    ? {
+        ...firstVariation,
+        comboItems: firstVariation.comboItems?.length
+          ? firstVariation.comboItems
+          : formData.comboItems || [],
+      }
+    : undefined;
+  const setCompositionVariation: React.Dispatch<React.SetStateAction<Variation | null>> = (update) => {
+    setFormData((previous) => {
+      const storedVariation = previous.variations?.[0];
+      if (!storedVariation) return previous;
+      const currentVariation = storedVariation.comboItems?.length
+        ? storedVariation
+        : { ...storedVariation, comboItems: previous.comboItems || [] };
+
+      const nextVariation = typeof update === 'function' ? update(currentVariation) : update;
+      if (!nextVariation) return previous;
+
+      const variations = [...(previous.variations || [])];
+      variations[0] = nextVariation;
+      return { ...previous, comboItems: nextVariation.comboItems || [], variations };
+    });
+  };
+
   return (
     <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-3 sm:p-4 lg:p-6">
       {activeTab === 'geral' && (
@@ -166,6 +196,17 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
           isConventionalProduct={formData.productKind === 'normal'}
         />
       )}
+
+      {!isService &&
+        isComposition &&
+        activeTab === 'composicao' &&
+        compositionVariation && (
+          <VariationCompositionItemsTab
+            formData={compositionVariation}
+            setFormData={setCompositionVariation}
+            parentProduct={formData}
+          />
+        )}
 
       {activeTab === 'fiscal' && (
         <ProductFiscalTab

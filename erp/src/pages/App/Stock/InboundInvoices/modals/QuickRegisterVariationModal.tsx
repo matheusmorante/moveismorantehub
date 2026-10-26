@@ -11,7 +11,6 @@ import type { ComboItem, Variation } from '@/pages/types/product.type';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
-import { suggestInboundProductCategory } from '../services/inboundProductPreparationService';
 import { getCompleteQuickVariationName, hasSiblingVariationName, normalizeNcm } from '../../../../../../../shared-utils/inboundQuickRegisterRules';
 import { getDefaultShowNameForVariationOverride } from '../../../../../../../shared-utils/productVariationAttributeDefaults';
 
@@ -37,7 +36,6 @@ export type QuickRegisterSelection = {
   readonly parentProductId?: string;
   readonly parentProductName?: string;
   readonly categoryId?: string;
-  readonly categoryConfirmed?: boolean;
   readonly ncm?: string;
   readonly costPrice?: number;
   readonly barcode?: string;
@@ -85,12 +83,13 @@ const initialSelection = {
   ncm: '',
   costPrice: 0,
   categoryId: '',
-  categoryConfirmed: false,
   ncmResolution: undefined,
   requiredVariableFields: [],
   technicalValues: {},
   components: [],
 };
+
+const quickRegisterFieldClassName = 'w-full rounded-none border-x-0 border-t-0 border-b border-b-slate-300 bg-transparent px-0 py-2 text-sm text-slate-800 outline-none transition-colors focus:border-b-indigo-600 focus:ring-0 dark:border-b-slate-600 dark:text-slate-100';
 
 export function QuickRegisterVariationModal({
   isOpen,
@@ -111,12 +110,10 @@ export function QuickRegisterVariationModal({
   const [error, setError] = useState('');
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [categoryLoading, setCategoryLoading] = useState(false);
-  const [categorySuggestion, setCategorySuggestion] = useState<{ id: string; name: string; source: 'ai' | 'rules' } | null>(null);
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [categoryConfirmed, setCategoryConfirmed] = useState(false);
-  const [ncm, setNcm] = useState('');
-  const [costPrice, setCostPrice] = useState(0);
+  const ncm = item?.ncm || '';
+  const costPrice = item?.finalCost ?? item?.unitCost ?? 0;
   const [nameSuffix, setNameSuffix] = useState('');
   const [ncmResolution, setNcmResolution] = useState<QuickRegisterSelection['ncmResolution']>();
   const [technicalValues, setTechnicalValues] = useState<Record<string, unknown>>({});
@@ -143,11 +140,8 @@ export function QuickRegisterVariationModal({
     setParentProduct(null);
     setName(item.productDescription.trim());
     setNameSuffix('');
+    setCategories([]);
     setCategoryId('');
-    setCategoryConfirmed(false);
-    setCategorySuggestion(null);
-    setNcm(item.ncm || '');
-    setCostPrice(item.finalCost ?? item.unitCost);
     setNcmResolution(undefined);
     setTechnicalValues({});
     setTechnicalDefinitions([]);
@@ -163,17 +157,9 @@ export function QuickRegisterVariationModal({
         const options = ((result?.categories || []) as CategoryOption[])
           .filter((category) => category.active !== false && category.type !== 'environment' && Boolean(category.id && category.name));
         setCategories(options);
-        const suggestion = await withTimeout(
-          suggestInboundProductCategory(item, options),
-          18000,
-          null,
-          'entrada:sugerir-categoria'
-        );
-        if (!current || !active.current || context.current !== submittedContext || !suggestion?.category) return;
-        setCategorySuggestion({ ...suggestion.category, source: suggestion.source === 'none' ? 'rules' : suggestion.source });
-        setCategoryId(suggestion.category.id);
+        if (!options.length) setError('Nenhuma categoria ativa está disponível para seleção.');
       } catch {
-        if (current && active.current && context.current === submittedContext) setError('Não foi possível sugerir uma categoria. Selecione uma manualmente.');
+        if (current && active.current && context.current === submittedContext) setError('Não foi possível carregar as categorias. Tente novamente.');
       } finally {
         if (current && active.current && context.current === submittedContext) setCategoryLoading(false);
       }
@@ -274,7 +260,6 @@ export function QuickRegisterVariationModal({
           mode,
           name,
           categoryId,
-          categoryConfirmed,
           ncm,
           costPrice,
           components: mode === 'COMPOSITION' ? componentPayload() : [],
@@ -323,15 +308,6 @@ export function QuickRegisterVariationModal({
     setComponents((current) => [...current, component]);
   };
 
-  const restoreSuggestions = () => {
-    setName(item.productDescription.trim());
-    setNcm(item.ncm || '');
-    setCostPrice(item.finalCost ?? item.unitCost);
-    setCategoryConfirmed(false);
-    setCategoryId(categorySuggestion?.id || '');
-    setNcmResolution(undefined);
-  };
-
   const renderCategoryFields = () => (
     <section className="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
       <div className="flex items-center justify-between gap-3">
@@ -340,33 +316,17 @@ export function QuickRegisterVariationModal({
       </div>
       <label className="block space-y-1 text-xs font-bold text-slate-700 dark:text-slate-300">
         Nome do produto <span className="text-rose-600">*</span>
-        <input value={name} onChange={(event) => { setName(event.target.value); setCategoryConfirmed(false); }} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium dark:border-slate-700 dark:bg-slate-950" />
+        <input value={name} onChange={(event) => setName(event.target.value)} className={`${quickRegisterFieldClassName} font-medium`} />
       </label>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1 text-xs font-bold text-slate-700 dark:text-slate-300">
-          <label htmlFor="quick-register-cost">Custo de aquisição <span className="text-rose-600">*</span></label>
-          <input id="quick-register-cost" inputMode="decimal" value={String(costPrice).replace('.', ',')} onChange={(event) => setCostPrice(Number(event.target.value.replace(',', '.')))} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium dark:border-slate-700 dark:bg-slate-950" />
-        </div>
-        <div className="space-y-1 text-xs font-bold text-slate-700 dark:text-slate-300">
-          <label htmlFor="quick-register-ncm">NCM da NF-e</label>
-          <input id="quick-register-ncm" value={ncm} onChange={(event) => { setNcm(event.target.value); setCategoryConfirmed(false); }} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium dark:border-slate-700 dark:bg-slate-950" />
-        </div>
-      </div>
       <p className="text-[11px] text-slate-500">Fornecedor: {supplierName || 'fornecedor vinculado à NF-e'} · Unidade: {item.unit || 'UN'} · GTIN: {item.ean || item.eanTrib || 'não informado'} · Preço de venda e fotos podem ser definidos depois.</p>
       <div className="space-y-2">
         <label htmlFor="quick-register-category" className="block text-xs font-bold text-slate-700 dark:text-slate-300">Categoria <span className="text-rose-600">*</span></label>
-        <select id="quick-register-category" value={categoryId} onChange={(event) => { setCategoryId(event.target.value); setCategoryConfirmed(false); }} disabled={categoryLoading} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950">
+        <select id="quick-register-category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)} disabled={categoryLoading} className={quickRegisterFieldClassName}>
           <option value="">Selecione uma categoria</option>
           {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
         </select>
-        {categoryLoading && <p role="status" className="text-[11px] text-indigo-600">Consultando sugestão de categoria...</p>}
-        {categorySuggestion && categoryId === categorySuggestion.id && <p className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">{categorySuggestion.source === 'ai' ? 'Sugestão de IA' : 'Sugestão pelo nome'}: {categorySuggestion.name}. Revise se corresponde ao nome e aos dados atuais e confirme antes de salvar.</p>}
-        <label className="flex items-start gap-2 text-[11px] text-slate-600 dark:text-slate-300">
-          <input type="checkbox" checked={categoryConfirmed} onChange={(event) => setCategoryConfirmed(event.target.checked)} className="mt-0.5" />
-          Confirmo a categoria selecionada para este produto.
-        </label>
+        {categoryLoading && <p role="status" className="text-[11px] text-indigo-600">Carregando categorias...</p>}
       </div>
-      <button type="button" onClick={restoreSuggestions} className="text-[11px] font-bold text-slate-600 underline dark:text-slate-300">Restaurar dados sugeridos pela NF-e</button>
     </section>
   );
 
@@ -409,20 +369,17 @@ export function QuickRegisterVariationModal({
               <fieldset disabled={busy || Boolean(duplicateCandidate)} className="space-y-4">
                 <div className="space-y-2">
                   <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Como deseja cadastrar?</p>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2 sm:grid-cols-3">
                     <button type="button" onClick={() => setMode('SIMPLE')} aria-pressed={mode === 'SIMPLE'} className={`rounded-2xl border p-3 text-left transition-colors ${mode === 'SIMPLE' ? 'border-indigo-600 bg-indigo-50 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}`}>
-                      <span className="block text-xs font-black">Novo produto simples</span><span className="mt-1 block text-[10px]">Produto independente, com uma variação.</span>
+                      <span className="block text-xs font-black">Produto simples</span><span className="mt-1 block text-[10px]">Produto independente, com uma variação.</span>
                     </button>
                     <button type="button" onClick={() => setMode('EXISTING_PARENT')} aria-pressed={mode === 'EXISTING_PARENT'} className={`rounded-2xl border p-3 text-left transition-colors ${mode === 'EXISTING_PARENT' ? 'border-indigo-600 bg-indigo-50 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}`}>
-                      <span className="block text-xs font-black">Nova variação de produto existente</span><span className="mt-1 block text-[10px]">Herda os dados globais do produto pai.</span>
+                      <span className="block text-xs font-black">Variação de produto existente</span><span className="mt-1 block text-[10px]">Herda os dados globais do produto pai.</span>
+                    </button>
+                    <button type="button" onClick={() => setMode('COMPOSITION')} aria-pressed={mode === 'COMPOSITION'} className={`rounded-2xl border p-3 text-left transition-colors ${mode === 'COMPOSITION' ? 'border-indigo-600 bg-indigo-50 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}`}>
+                      <span className="block text-xs font-black">Produto composto</span><span className="mt-1 block text-[10px]">Selecione os componentes e suas quantidades.</span>
                     </button>
                   </div>
-                  <details className="rounded-xl border border-slate-200 px-3 py-2 dark:border-slate-700">
-                    <summary className="cursor-pointer text-xs font-bold text-slate-600 dark:text-slate-300">Mais opções de cadastro</summary>
-                    <button type="button" onClick={() => setMode('COMPOSITION')} aria-pressed={mode === 'COMPOSITION'} className={`mt-2 w-full rounded-xl border p-3 text-left ${mode === 'COMPOSITION' ? 'border-indigo-600 bg-indigo-50 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}`}>
-                      <span className="block text-xs font-black">Novo produto composto</span><span className="mt-1 block text-[10px]">Selecione manualmente os componentes e suas quantidades.</span>
-                    </button>
-                  </details>
                 </div>
 
                 {(mode === 'SIMPLE' || mode === 'COMPOSITION') && renderCategoryFields()}
@@ -451,17 +408,17 @@ export function QuickRegisterVariationModal({
                           <p className="mt-1 text-slate-500">Categoria: {parentProduct.category || 'do produto pai'} · Marca e modelo: {parentProduct.brand || '—'} / {parentProduct.model || '—'} · NCM: {parentProduct.fiscal?.ncm || 'não informado'}</p>
                         </div>
                         <label className="block space-y-1 text-xs font-bold text-slate-700 dark:text-slate-300">Complemento do nome <span className="text-rose-600">*</span>
-                          <input value={nameSuffix} onChange={(event) => setNameSuffix(event.target.value)} placeholder="Ex.: Branco, 120 cm" className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                          <input value={nameSuffix} onChange={(event) => setNameSuffix(event.target.value)} placeholder="Ex.: Branco, 120 cm" className={quickRegisterFieldClassName} />
                         </label>
                         <p className="text-xs text-slate-600 dark:text-slate-300">Nome completo sugerido: <strong>{completeVariationName || '—'}</strong></p>
                         {variationNameDuplicate && <p role="alert" className="text-xs text-rose-700">Esse nome completo já existe entre as variações do produto pai.</p>}
-                        <p className="text-[11px] text-slate-500">Custo da NF-e: R$ {(item.finalCost ?? item.unitCost).toFixed(2)} · GTIN: {item.ean || item.eanTrib || 'não informado'} · As características variáveis usam apenas os campos configurados no produto pai.</p>
+                        <p className="text-[11px] text-slate-500">GTIN: {item.ean || item.eanTrib || 'não informado'} · As características variáveis usam apenas os campos configurados no produto pai.</p>
                         {technicalLoading ? <p role="status" className="text-[11px] text-indigo-600">Carregando características configuradas...</p> : variationFields.length > 0 && (
                           <div className="space-y-3">
                             <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Características da variação</p>
                             {variationFields.map(({ name: fieldName, definition, required }) => (
                               <label key={fieldName} className="block space-y-1 text-xs font-bold text-slate-700 dark:text-slate-300">{fieldName}{required && <span className="ml-1 text-rose-600">*</span>}
-                                {definition?.options?.length ? <select value={String(technicalValues[fieldName] || '')} onChange={(event) => updateTechnicalValue(fieldName, event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"><option value="">Selecione</option>{definition.options.map((option: { id: string; value: string }) => <option key={option.id} value={option.value}>{option.value}</option>)}</select> : <input type={['integer', 'decimal', 'number', 'measure', 'weight', 'percentage'].includes(definition?.dataType || '') ? 'number' : 'text'} value={String(technicalValues[fieldName] || '')} onChange={(event) => updateTechnicalValue(fieldName, event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />}
+                                {definition?.options?.length ? <select value={String(technicalValues[fieldName] || '')} onChange={(event) => updateTechnicalValue(fieldName, event.target.value)} className={quickRegisterFieldClassName}><option value="">Selecione</option>{definition.options.map((option: { id: string; value: string }) => <option key={option.id} value={option.value}>{option.value}</option>)}</select> : <input type={['integer', 'decimal', 'number', 'measure', 'weight', 'percentage'].includes(definition?.dataType || '') ? 'number' : 'text'} value={String(technicalValues[fieldName] || '')} onChange={(event) => updateTechnicalValue(fieldName, event.target.value)} className={quickRegisterFieldClassName} />}
                               </label>
                             ))}
                           </div>
@@ -485,12 +442,12 @@ export function QuickRegisterVariationModal({
                 {mode === 'COMPOSITION' && (
                   <section className="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
                     <h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Componentes do produto composto <span className="text-rose-600">*</span></h4>
-                    <p className="text-[11px] text-slate-500">Os componentes são escolhidos manualmente. O conjunto indicado na NF-e não define automaticamente a composição.</p>
+                    <p className="text-[11px] text-slate-500">Use para kits ou conjuntos de peças cadastradas separadamente. Escolha cada peça e quantidade manualmente, mesmo se a NF-e trouxer o conjunto em uma só linha; no pedido de venda, o ERP inclui automaticamente esses componentes.</p>
                     <ProductAutocomplete disabled={busy} supplierId={supplierId} value="" placeholder="Buscar produto ou variação componente..." onSelect={handleAddComponent} onChange={() => {}} />
                     {components.map((component) => (
                       <div key={component.key} className="grid grid-cols-[1fr_90px_auto] items-center gap-2 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
                         <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{component.description}</span>
-                        <label className="text-[10px] font-bold text-slate-500">Quantidade<input type="number" min="1" value={component.quantity} onChange={(event) => setComponents((current) => current.map((row) => row.key === component.key ? { ...row, quantity: Number(event.target.value) } : row))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-950" /></label>
+                        <label className="text-[10px] font-bold text-slate-500">Quantidade<input type="number" min="1" value={component.quantity} onChange={(event) => setComponents((current) => current.map((row) => row.key === component.key ? { ...row, quantity: Number(event.target.value) } : row))} className={`mt-1 ${quickRegisterFieldClassName} px-0 py-1`} /></label>
                         <button type="button" aria-label={`Remover ${component.description}`} onClick={() => setComponents((current) => current.filter((row) => row.key !== component.key))} className="rounded-lg px-2 py-1 text-rose-600 hover:bg-rose-50">Remover</button>
                       </div>
                     ))}

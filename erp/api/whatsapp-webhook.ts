@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { handleWhatsAppMedia } from '../src/pages/utils/customerSupport/whatsappMediaProxy.js';
+import { createWhatsAppTestDispatchHandler, MAX_WHATSAPP_TEST_REQUEST_BYTES } from '../../api/whatsapp-dispatch.js';
+import { createWhatsAppSupportSendHandler } from '../../api/whatsapp-support-send.js';
 import processor from '../server/customer-support/whatsapp-processor.cjs';
 
 const {
@@ -15,6 +17,8 @@ export const config = { api: { bodyParser: false } };
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN?.trim() || '';
 const APP_SECRET = process.env.WHATSAPP_APP_SECRET?.trim() || '';
+const handleTestDispatch = createWhatsAppTestDispatchHandler();
+const handleCustomerSupportSend = createWhatsAppSupportSendHandler();
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://hkoxhourxwlddgsfdgws.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || '';
 
@@ -26,11 +30,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const operation = req.query.operation as string | undefined;
   if (operation === 'dispatch') {
-    return res.status(403).json({
-      error: 'Envio indisponível por política da empresa.',
-      status: 'BLOCKED_FREE_TIER_PROTECTION',
-      reason: 'A Central de Atendimento permite consulta e recebimento, mas não despacha mensagens para clientes.',
-    });
+    if (req.method === 'POST' && req.body === undefined) {
+      // This shared route disables Vercel's JSON parser to preserve webhook HMAC bytes.
+      const rawBody = await readRawWebhookBody(req);
+      if (rawBody.byteLength > MAX_WHATSAPP_TEST_REQUEST_BYTES) {
+        return res.status(413).json({ error: 'Solicitação excede o tamanho permitido.' });
+      }
+      try {
+        req.body = rawBody.length ? JSON.parse(rawBody.toString('utf8')) : {};
+      } catch {
+        return res.status(400).json({ error: 'Solicitação inválida.' });
+      }
+    }
+    return handleTestDispatch(req, res);
+  }
+
+  if (operation === 'support-send') {
+    return handleCustomerSupportSend(req, res);
   }
 
   if (operation === 'media') {

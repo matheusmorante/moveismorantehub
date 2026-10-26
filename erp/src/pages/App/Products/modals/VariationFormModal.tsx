@@ -14,6 +14,8 @@ import { VariationTechnicalTab } from '../components/variationTabs/VariationTech
 import { VariationDescriptionTab } from '../components/variationTabs/VariationDescriptionTab';
 import { VariationCompositionItemsTab } from '../components/variationTabs/VariationCompositionItemsTab';
 import { checkERPLegibility, checkEcomLegibility } from '../domain/productLegibilityRules';
+import { getEffectiveProductForVariationReadiness } from '../../../../../../shared-utils/productErpLegibility';
+import { isSingleProductVariationFormMode } from '../../../../../../shared-utils/productVariationMode';
 import { isStockistOnlyProfile } from '@/pages/utils/accessRoles';
 import {
   getVariationFormTabs,
@@ -74,9 +76,11 @@ const VariationFormSession: React.FC<
   const { profile } = useAuth();
   const isStockistOnly = isStockistOnlyProfile(profile);
 
-  const isSingleVariation = variation
-    ? (parentProduct.variations || []).length === 1
-    : (parentProduct.variations || []).length === 0;
+  const isSingleVariation = isSingleProductVariationFormMode(
+    parentProduct,
+    parentProduct.variations?.length || 0,
+    !variation
+  );
   const isSingleExistingVariation = Boolean(variation) && isSingleVariation;
 
   const {
@@ -98,8 +102,8 @@ const VariationFormSession: React.FC<
     fetchDbAttributes,
     varDiscountPercent,
     varDiscountFixed,
-    getParentDiscountPercent,
-    getParentDiscountFixed,
+    getEffectiveDiscountPercent,
+    getEffectiveDiscountFixed,
     getDefaultVariationName,
     getDefaultVariationTitle,
     handlePriceChange,
@@ -132,18 +136,10 @@ const VariationFormSession: React.FC<
 
   if (!isOpen || !formData) return null;
 
-  const effectiveProductForValidation: Partial<Product> = {
-    ...parentProduct,
-    mainSupplierId: parentProduct.mainSupplierId || parentProduct.supplierId || 'inherited',
-    description: formData.name || parentProduct.name || parentProduct.description,
-    unitPrice: formData.syncUnitPrice
-      ? parentProduct.unitPrice
-      : formData.unitPrice || parentProduct.unitPrice,
-    images:
-      formData.images && formData.images.length > 0
-        ? formData.images
-        : parentProduct.images || [],
-  };
+  const effectiveProductForValidation = getEffectiveProductForVariationReadiness(
+    parentProduct,
+    formData
+  );
 
   const erpStatus = checkERPLegibility(effectiveProductForValidation);
   const ecomStatus = checkEcomLegibility(effectiveProductForValidation);
@@ -267,8 +263,8 @@ const VariationFormSession: React.FC<
                   parentProduct={parentProduct}
                   varDiscountPercent={varDiscountPercent}
                   varDiscountFixed={varDiscountFixed}
-                  getParentDiscountPercent={getParentDiscountPercent}
-                  getParentDiscountFixed={getParentDiscountFixed}
+                  getEffectiveDiscountPercent={getEffectiveDiscountPercent}
+                  getEffectiveDiscountFixed={getEffectiveDiscountFixed}
                   handlePriceChange={handlePriceChange}
                   handleDiscountPercentChange={handleDiscountPercentChange}
                   handleDiscountFixedChange={handleDiscountFixedChange}

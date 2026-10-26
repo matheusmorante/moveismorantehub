@@ -22,8 +22,6 @@ export interface PromissoryNoteItem {
   amount: number;
   amountFormatted: string;
   amountInWords: string;
-  dueDate: string;
-  rawDueDate?: string;
   creditorName: string;
   creditorCnpj: string;
   paymentPlace: string;
@@ -157,17 +155,6 @@ const MONTH_NAMES_PT = [
 ];
 
 /**
- * Converte data ISO ou YYYY-MM-DD em DD/MM/AAAA.
- */
-export function formatDateToPtBr(dateStr?: string | null): string {
-  if (!dateStr) return '';
-  const match = String(dateStr).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!match) return '';
-  const [, year, month, day] = match;
-  return `${day}/${month}/${year}`;
-}
-
-/**
  * Converte data em texto por extenso com cidade/UF: "Colombo/PR, 17 de outubro de 2026"
  */
 export function formatEmissionDateExtenso(
@@ -197,20 +184,6 @@ export function formatEmissionDateExtenso(
 
   const location = city && uf ? `${city}/${uf}` : city || uf || 'Local';
   return `${location}, ${day} de ${monthName} de ${year}`;
-}
-
-/**
- * Adiciona N meses a uma data base preservando o dia limite.
- */
-function addMonths(date: Date, months: number): Date {
-  const result = new Date(date.getTime());
-  const expectedMonth = (result.getMonth() + months) % 12;
-  result.setMonth(result.getMonth() + months);
-  // Ajuste de virada de mês (ex: 31 de janeiro + 1 mês -> final de fevereiro)
-  if (result.getMonth() !== (expectedMonth < 0 ? expectedMonth + 12 : expectedMonth)) {
-    result.setDate(0);
-  }
-  return result;
 }
 
 /**
@@ -268,16 +241,11 @@ export function buildPromissoryNotesFromOrder(
       const amount = Number(payment.amount);
       const amountFormatted = formatCurrency(amount);
       const amountInWords = currencyToWordsPtBr(amount);
-      const dueDate = payment.dueDate
-        ? formatDateToPtBr(payment.dueDate)
-        : formatDateToPtBr(
-            addMonths(new Date(order.date || Date.now()), installmentIndex).toISOString().slice(0, 10)
-          );
 
       const noteNumber = `${baseNoteNumber}/${String(installmentIndex).padStart(2, '0')}`;
       const installmentText = `Parcela ${installmentIndex} de ${total}`;
 
-      const legalText = `Por esta única via de NOTA PROMISSÓRIA, prometo pagar, pura e simplesmente, à ${creditorName}, CNPJ ${creditorCnpj}, ou à sua ordem, a quantia de ${amountFormatted} (${amountInWords}), na data de vencimento indicada acima.`;
+      const legalText = `Por esta única via de NOTA PROMISSÓRIA, prometo pagar, pura e simplesmente, à ${creditorName}, CNPJ ${creditorCnpj}, ou à sua ordem, a quantia de ${amountFormatted} (${amountInWords}), no dia do mês indicado neste título.`;
 
       notes.push({
         id: `promissory-${order.id || baseNoteNumber}-${installmentIndex}`,
@@ -288,8 +256,6 @@ export function buildPromissoryNotesFromOrder(
         amount,
         amountFormatted,
         amountInWords,
-        dueDate,
-        rawDueDate: payment.dueDate,
         creditorName,
         creditorCnpj,
         paymentPlace,
@@ -326,16 +292,6 @@ export function buildPromissoryNotesFromOrder(
     const baseCents = Math.floor(Math.round(totalAmount * 100) / numInstallments);
     let remainderCents = Math.round(totalAmount * 100) - baseCents * numInstallments;
 
-    let baseDueDate: Date;
-    if (singlePayment.dueDate) {
-      const match = singlePayment.dueDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      baseDueDate = match
-        ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
-        : new Date(singlePayment.dueDate);
-    } else {
-      baseDueDate = addMonths(new Date(order.date || Date.now()), 1);
-    }
-
     for (let i = 1; i <= numInstallments; i++) {
       let instCents = baseCents;
       if (remainderCents > 0) {
@@ -346,12 +302,9 @@ export function buildPromissoryNotesFromOrder(
       const amountFormatted = formatCurrency(instAmount);
       const amountInWords = currencyToWordsPtBr(instAmount);
 
-      const instDueDateObj = i === 1 ? baseDueDate : addMonths(baseDueDate, i - 1);
-      const dueDate = formatDateToPtBr(instDueDateObj.toISOString().slice(0, 10));
-
       const noteNumber = `${baseNoteNumber}/${String(i).padStart(2, '0')}`;
       const installmentText = `Parcela ${i} de ${numInstallments}`;
-      const legalText = `Por esta única via de NOTA PROMISSÓRIA, prometo pagar, pura e simplesmente, à ${creditorName}, CNPJ ${creditorCnpj}, ou à sua ordem, a quantia de ${amountFormatted} (${amountInWords}), na data de vencimento indicada acima.`;
+      const legalText = `Por esta única via de NOTA PROMISSÓRIA, prometo pagar, pura e simplesmente, à ${creditorName}, CNPJ ${creditorCnpj}, ou à sua ordem, a quantia de ${amountFormatted} (${amountInWords}), no dia do mês indicado neste título.`;
 
       notes.push({
         id: `promissory-${order.id || baseNoteNumber}-${i}`,
@@ -362,8 +315,6 @@ export function buildPromissoryNotesFromOrder(
         amount: instAmount,
         amountFormatted,
         amountInWords,
-        dueDate,
-        rawDueDate: instDueDateObj.toISOString().slice(0, 10),
         creditorName,
         creditorCnpj,
         paymentPlace,
@@ -385,14 +336,9 @@ export function buildPromissoryNotesFromOrder(
   // Parcela única (1x)
   const amountFormatted = formatCurrency(totalAmount);
   const amountInWords = currencyToWordsPtBr(totalAmount);
-  const dueDate = singlePayment.dueDate
-    ? formatDateToPtBr(singlePayment.dueDate)
-    : formatDateToPtBr(
-        addMonths(new Date(order.date || Date.now()), 1).toISOString().slice(0, 10)
-      );
 
   const noteNumber = baseNoteNumber;
-  const legalText = `Por esta única via de NOTA PROMISSÓRIA, prometo pagar, pura e simplesmente, à ${creditorName}, CNPJ ${creditorCnpj}, ou à sua ordem, a quantia de ${amountFormatted} (${amountInWords}), na data de vencimento indicada acima.`;
+  const legalText = `Por esta única via de NOTA PROMISSÓRIA, prometo pagar, pura e simplesmente, à ${creditorName}, CNPJ ${creditorCnpj}, ou à sua ordem, a quantia de ${amountFormatted} (${amountInWords}), no dia do mês indicado neste título.`;
 
   notes.push({
     id: `promissory-${order.id || baseNoteNumber}-1`,
@@ -403,8 +349,6 @@ export function buildPromissoryNotesFromOrder(
     amount: totalAmount,
     amountFormatted,
     amountInWords,
-    dueDate,
-    rawDueDate: singlePayment.dueDate,
     creditorName,
     creditorCnpj,
     paymentPlace,

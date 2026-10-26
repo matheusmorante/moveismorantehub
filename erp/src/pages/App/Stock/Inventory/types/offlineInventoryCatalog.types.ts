@@ -23,6 +23,7 @@ export interface OfflineInventoryCatalogRow {
   merged_to_variation_id?: string | number;
   updated_at?: string;
   person_type?: string;
+  stock_origins?: string[];
   full_name?: string;
   social_name?: string;
   nickname?: string;
@@ -32,7 +33,7 @@ export interface OfflineInventoryCatalogRow {
 }
 
 export interface OfflineInventoryCatalog {
-  formatVersion?: 2;
+  formatVersion?: 2 | 3;
   products: Record<string, OfflineInventoryCatalogRow>;
   variations: Record<string, OfflineInventoryCatalogRow>;
   labels: Record<string, OfflineInventoryCatalogRow>;

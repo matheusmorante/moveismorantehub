@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { CategoryNode, EnvironmentNode } from '../types/mobileCategory.types';
 import {
   filterCategories,
-  filterEnvironments,
   validateNodeName,
   canDeleteEnvironment,
   canDeleteCategory,
@@ -56,22 +55,19 @@ describe('Roteiro 1: Regras de Domínio e Validação - Categorias, Ambientes e 
       expect(semAmbiente.map((c) => c.name)).toEqual(['POLTRONA ÓRFÃ', 'RACK TV']);
     });
 
-    it('aplica busca textual por nome de categoria (case-insensitive com trim)', () => {
-      const busca = filterCategories(mockCategories, 'todas', '  Mesa  ');
+    it('aplica busca textual por categoria case-insensitive, preservando espaços como no ERP', () => {
+      const busca = filterCategories(mockCategories, 'todas', 'Mesa');
       expect(busca).toHaveLength(1);
       expect(busca[0].name).toBe('MESA DE JANTAR');
 
+      const buscaComEspacosNasPontas = filterCategories(mockCategories, 'todas', '  Mesa  ');
+      expect(buscaComEspacosNasPontas).toHaveLength(0);
+
+      const somenteEspacos = filterCategories(mockCategories, 'todas', '   ');
+      expect(somenteEspacos).toHaveLength(mockCategories.length);
+
       const buscaSemMatch = filterCategories(mockCategories, 'todas', 'inexistente');
       expect(buscaSemMatch).toHaveLength(0);
-    });
-
-    it('filtra ambientes por busca textual', () => {
-      const todos = filterEnvironments(mockEnvironments, '');
-      expect(todos).toHaveLength(3);
-
-      const filtrados = filterEnvironments(mockEnvironments, 'jantar');
-      expect(filtrados).toHaveLength(1);
-      expect(filtrados[0].name).toBe('SALA DE JANTAR');
     });
 
     it('calcula categorias órfãs corretamente', () => {

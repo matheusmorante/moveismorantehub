@@ -3,7 +3,11 @@ import {
   resolveCategoryAttributeIsRequired,
   type CategoryAttributeSelection,
 } from '../../../../../shared-utils/categoryAttributeSelection';
+import { countDistinctProductsByCategory } from '../../../../../shared-utils/categoryProductCounts';
+import { isProductCategoryOption } from '../../../../../shared-utils/productCategoryOptions';
 import { withCatalogAttributesLoadTimeout } from '../../../../../shared-utils/catalogAttributesLoadTimeout';
+import { toTitleCase } from '../../../../../shared-utils/productText';
+import { normalizeSlug, resolveUniqueSlug } from '../../../../../shared-utils/uniqueSlug';
 
 export type { CategoryAttributeSelection } from '../../../../../shared-utils/categoryAttributeSelection';
 
@@ -43,30 +47,37 @@ export const fetchMobileEnvironments = async (): Promise<MobileEnvironment[]> =>
 export const saveMobileEnvironment = async (name: string, categoryIds: string[], id?: string) => {
   const trimmed = name.trim();
   if (!trimmed) return null;
+  const formattedName = toTitleCase(trimmed);
   let environmentId = id;
   if (id) {
     const { data, error } = await supabase
       .from('categories')
-      .update({ name: trimmed, type: 'environment' })
+      .update({ name: formattedName, type: 'environment' })
       .eq('id', id)
       .select('*')
       .single();
     if (error) throw error;
     environmentId = data.id;
+    const { error: deleteError } = await supabase
+      .from('category_relationships')
+      .delete()
+      .eq('parent_id', environmentId);
+    if (deleteError) throw deleteError;
   } else {
+    let uniqueSlug = normalizeSlug(formattedName);
+    try {
+      uniqueSlug = await resolveUniqueSlug(supabase, 'categories', uniqueSlug);
+    } catch {
+      /* Mantém o fallback usado pelo cadastro do ERP quando a consulta de colisões falha. */
+    }
     const { data, error } = await supabase
       .from('categories')
-      .insert([{ name: trimmed, type: 'environment' }])
+      .insert([{ name: formattedName, type: 'environment', slug: uniqueSlug }])
       .select('*')
       .single();
     if (error) throw error;
     environmentId = data.id;
   }
-  const { error: deleteError } = await supabase
-    .from('category_relationships')
-    .delete()
-    .eq('parent_id', environmentId);
-  if (deleteError) throw deleteError;
   if (categoryIds.length > 0) {
     const { error: insertError } = await supabase
       .from('category_relationships')
@@ -108,7 +119,7 @@ export const fetchMobileCategories = async (): Promise<MobileCategory[]> => {
     }
 
     const categoriesWithParents = (catsData || [])
-      .filter((cat: any) => cat.type !== 'environment')
+      .filter(isProductCategoryOption)
       .map((cat: any) => ({
         ...cat,
         parents:
@@ -128,32 +139,22 @@ export const fetchMobileCategoryProductCounts = async (): Promise<Record<string,
       supabase.from('product_categories').select('category_id, product_id'),
       supabase.from('products').select('id, category_id').not('category_id', 'is', null),
     ]);
+    if (pcRes.error) throw pcRes.error;
+    if (prodRes.error) throw prodRes.error;
 
-    const countsMap: Record<string, Set<string>> = {};
-
-    (pcRes.data || []).forEach((row: { category_id: string; product_id: string }) => {
-      if (row.category_id && row.product_id) {
-        if (!countsMap[row.category_id]) countsMap[row.category_id] = new Set<string>();
-        countsMap[row.category_id].add(String(row.product_id));
-      }
-    });
-
-    (prodRes.data || []).forEach((row: { id: string; category_id: string }) => {
-      if (row.category_id && row.id) {
-        if (!countsMap[row.category_id]) countsMap[row.category_id] = new Set<string>();
-        countsMap[row.category_id].add(String(row.id));
-      }
-    });
-
-    const result: Record<string, number> = {};
-    Object.keys(countsMap).forEach((key) => {
-      result[key] = countsMap[key].size;
-    });
-
-    return result;
+    return countDistinctProductsByCategory([
+      ...(pcRes.data || []).map((row: { category_id: string; product_id: string }) => ({
+        categoryId: row.category_id,
+        productId: row.product_id,
+      })),
+      ...(prodRes.data || []).map((row: { id: string; category_id: string }) => ({
+        categoryId: row.category_id,
+        productId: row.id,
+      })),
+    ]);
   } catch (err) {
     console.warn('[MobileCategoryService] Erro ao buscar contagem de produtos:', err);
-    return {};
+    throw err;
   }
 };
 
@@ -212,6 +213,7 @@ export const saveMobileCategory = async (
 ): Promise<MobileCategory | null> => {
   const trimmed = name.trim();
   if (!trimmed) return null;
+  const formattedName = toTitleCase(trimmed);
 
   // Tratar sobrecarga: se o segundo parâmetro for string, é o id antigo
   let actualId: string | undefined = id;
@@ -222,22 +224,36 @@ export const saveMobileCategory = async (
   } else if (Array.isArray(environmentIdsOrId)) {
     envIds = environmentIdsOrId;
   }
+  const isCreating = !actualId;
 
   let catData: any = null;
 
   if (actualId) {
     const { data, error } = await supabase
       .from('categories')
-      .update({ name: trimmed, type: 'category' })
+      .update({ name: formattedName, type: 'category' })
       .eq('id', actualId)
       .select('*')
       .single();
     if (error) throw error;
     catData = data;
   } else {
+    let uniqueSlug = normalizeSlug(formattedName);
+    try {
+      uniqueSlug = await resolveUniqueSlug(supabase, 'categories', uniqueSlug);
+    } catch {
+      /* Mantém o fallback usado pelo cadastro do ERP quando a consulta de colisões falha. */
+    }
     const { data, error } = await supabase
       .from('categories')
-      .insert([{ name: trimmed, type: 'category' }])
+      .insert([
+        {
+          name: formattedName,
+          type: 'category',
+          slug: uniqueSlug,
+          meta_title: `${trimmed} | Móveis Morante`,
+        },
+      ])
       .select('*')
       .single();
     if (error) throw error;
@@ -247,11 +263,13 @@ export const saveMobileCategory = async (
 
   // Sincronizar relacionamentos com ambientes se array foi fornecido
   if (Array.isArray(environmentIdsOrId) && actualId) {
-    const { error: relDelErr } = await supabase
-      .from('category_relationships')
-      .delete()
-      .eq('child_id', actualId);
-    if (relDelErr) throw relDelErr;
+    if (!isCreating) {
+      const { error: relDelErr } = await supabase
+        .from('category_relationships')
+        .delete()
+        .eq('child_id', actualId);
+      if (relDelErr) throw relDelErr;
+    }
 
     if (envIds.length > 0) {
       const links = envIds.map((eid) => ({ parent_id: eid, child_id: actualId }));
@@ -262,11 +280,13 @@ export const saveMobileCategory = async (
 
   // Sincronizar características se fornecidas
   if (attributes !== undefined && actualId) {
-    const { error: attrDelErr } = await supabase
-      .from('category_attributes')
-      .delete()
-      .eq('category_id', actualId);
-    if (attrDelErr) throw attrDelErr;
+    if (!isCreating) {
+      const { error: attrDelErr } = await supabase
+        .from('category_attributes')
+        .delete()
+        .eq('category_id', actualId);
+      if (attrDelErr) throw attrDelErr;
+    }
 
     const uniqueAttributes = [
       ...new Map(attributes.map((attribute) => [attribute.id, attribute] as const)).values(),
@@ -299,10 +319,28 @@ export const deleteMobileCategory = async (id: string): Promise<void> => {
   ]);
   if (relationCheck.error) throw relationCheck.error;
   if (directCheck.error) throw directCheck.error;
-  const count = (relationCheck.count || 0) + (directCheck.count || 0);
-  if (count > 0) {
+  const totalLinked = (relationCheck.count || 0) + (directCheck.count || 0);
+  if (totalLinked > 0) {
+    const [relationRows, directRows] = await Promise.all([
+      supabase.from('product_categories').select('product_id').eq('category_id', id),
+      supabase.from('products').select('id').eq('category_id', id),
+    ]);
+    if (relationRows.error) throw relationRows.error;
+    if (directRows.error) throw directRows.error;
+
+    const distinctCount =
+      countDistinctProductsByCategory([
+        ...(relationRows.data || []).map((row: { product_id: string }) => ({
+          categoryId: id,
+          productId: row.product_id,
+        })),
+        ...(directRows.data || []).map((row: { id: string }) => ({
+          categoryId: id,
+          productId: row.id,
+        })),
+      ])[id] || totalLinked;
     throw new Error(
-      `Não é possível excluir esta categoria porque ela está sendo utilizada por ${count} produto${count > 1 ? 's' : ''}. Remova ou altere os vínculos antes de excluí-la.`
+      `Não é possível excluir esta categoria porque ela está sendo utilizada por ${distinctCount} produto${distinctCount > 1 ? 's' : ''}. Remova ou altere a categoria desses produtos antes de excluí-la.`
     );
   }
 

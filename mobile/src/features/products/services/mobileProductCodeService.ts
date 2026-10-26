@@ -1,24 +1,41 @@
 import { supabase } from '../../../services/supabaseClient';
+import { getNextSequentialProductCodeFromValues } from '../../../../../shared-utils/productSequentialCode';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 /** Fetches the next six-digit product code used by the ERP registration flow. */
 export const getNextSequentialProductCode = async (): Promise<string> => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, code')
-      .order('created_at', { ascending: false })
-      .limit(500);
+    const productsResult = await withTimeout(
+      supabase
+        .from('products')
+        .select('code')
+        .order('code', { ascending: false })
+        .limit(50),
+      10_000,
+      null,
+      'mobile:codigo-produto-produtos'
+    );
+    const variationsResult = await withTimeout(
+      supabase
+        .from('product_variations')
+        .select('sku')
+        .order('sku', { ascending: false })
+        .limit(50),
+      10_000,
+      null,
+      'mobile:codigo-produto-variacoes'
+    );
 
-    let maxNum = 0;
-    if (!error && Array.isArray(data)) {
-      data.forEach((product) => {
-        const match = String(product.code || '').trim().match(/^(\d+)/);
-        const codeNumber = match?.[1] ? Number.parseInt(match[1], 10) : Number.NaN;
-        if (Number.isFinite(codeNumber) && codeNumber > maxNum) maxNum = codeNumber;
-      });
-    }
+    const codes = [
+      ...(Array.isArray(productsResult?.data)
+        ? productsResult.data.map((product: { code?: unknown; sku?: unknown }) => product.code || product.sku)
+        : []),
+      ...(Array.isArray(variationsResult?.data)
+        ? variationsResult.data.map((variation: { sku?: unknown }) => variation.sku)
+        : []),
+    ];
 
-    return String(maxNum + 1).padStart(6, '0');
+    return getNextSequentialProductCodeFromValues(codes);
   } catch (error) {
     console.error('[mobileProductCodeService] Erro ao obter próximo código sequencial:', error);
     return '000001';

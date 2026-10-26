@@ -170,22 +170,15 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span className="font-mono text-[11px]">{formattedPhone}</span>
-            <span>•</span>
-            <span
-              className={`flex items-center gap-1 text-[11px] font-medium ${
-                careWindow.isOpen
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-amber-600 dark:text-amber-400'
-              }`}
-            >
-              <i
-                className={`bi ${careWindow.isOpen ? 'bi-check-circle-fill' : 'bi-clock-history'}`}
-              ></i>
-              {careWindow.isOpen
-                ? `Janela 24h aberta (${careWindow.remainingHours}h)`
-                : 'Janela expirada'}
+          <div className="flex min-w-0 items-center gap-1.5 truncate text-[11px] text-slate-400" title={`${formattedPhone} · ${careWindow.isOpen ? `Janela de 24h aberta (${careWindow.remainingHours}h)` : 'Janela de 24h expirada'}`}>
+            <span className="shrink-0">WhatsApp</span>
+            <span>·</span>
+            <span className="shrink-0 font-medium text-slate-600 dark:text-slate-300">
+              {currentStatus === 'closed' ? 'Atendimento fechado' : currentStatus === 'snoozed' ? 'Atendimento adiado' : 'Atendimento aberto'}
+            </span>
+            <span>·</span>
+            <span className={`truncate ${careWindow.isOpen ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              {careWindow.isOpen ? `Janela 24h aberta (${careWindow.remainingHours}h)` : 'Janela expirada'}
             </span>
           </div>
         </div>
@@ -273,42 +266,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           )}
         </div>
 
-        {/* Indicador Ao Vivo (Realtime / Auto-Reload) */}
-        <span
-          className="hidden @3xl/chat:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 select-none"
-          title="Sincronização em tempo real ativa: novas mensagens chegam sozinhas automaticamente via WebSocket e auto-reload"
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          Tempo Real
-        </span>
-
-        {/* Botão de Atualizar / Recarregar Mensagens */}
-        <button
-          type="button"
-          onClick={onRefreshMessages}
-          title="Recarregar mensagens desta conversa (atualização automática ativa)"
-          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          aria-label="Recarregar mensagens"
-        >
-          <i
-            className={`bi bi-arrow-clockwise text-base ${
-              isRefreshingMessages ? 'animate-spin text-emerald-500' : ''
-            }`}
-          ></i>
-        </button>
-
-        {/* 2. Respostas Rápidas / Snippets (⚡) */}
-        <button
-          type="button"
-          onClick={onOpenSnippets}
-          title="Respostas rápidas e modelos (⚡)"
-          className="w-9 h-9 rounded-full flex items-center justify-center text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 hover:text-amber-600 transition-colors cursor-pointer"
-          aria-label="Respostas rápidas"
-        >
-          <i className="bi bi-lightning-charge-fill text-base"></i>
-        </button>
-
-        {/* 3. Busca Interna na Conversa (🔍) */}
+        {/* Busca na conversa */}
         <button
           type="button"
           onClick={onToggleSearchInChat}
@@ -328,6 +286,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           type="button"
           onClick={() => setIsMenuOpen((prev) => !prev)}
           title="Mais opções da conversa"
+          aria-label="Mais ações da conversa"
+          aria-expanded={isMenuOpen}
           className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
         >
           <i className="bi bi-three-dots-vertical text-sm"></i>
@@ -342,7 +302,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
             >
               <i className="bi bi-arrow-repeat text-slate-400"></i>
-              Reopen
+              Reabrir
             </button>
           ) : (
             <div className="inline-flex rounded-xl shadow-xs border border-emerald-600/30 overflow-hidden">
@@ -352,7 +312,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <i className="bi bi-check2"></i>
-                <span>Close</span>
+                <span>Fechar</span>
               </button>
               <button
                 type="button"
@@ -376,7 +336,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 className="w-full px-3.5 py-2 text-left text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2 font-bold cursor-pointer"
               >
                 <i className="bi bi-check-circle-fill"></i>
-                Fechar (Close)
+                Fechar atendimento
               </button>
               <button
                 type="button"
@@ -384,7 +344,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 className="w-full px-3.5 py-2 text-left text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center gap-2 font-bold cursor-pointer"
               >
                 <i className="bi bi-alarm-fill"></i>
-                Adiar (Snooze)
+                Adiar atendimento
               </button>
             </div>
           )}
@@ -412,26 +372,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           <i className="bi bi-person-vcard text-sm"></i>
         </button>
 
-        {/* 7. Botão Linha do Tempo / Histórico de Atividades ([🕒]) */}
-        <button
-          type="button"
-          onClick={onToggleTimeline}
-          title={
-            isTimelineOpen
-              ? 'Ocultar linha do tempo de atividades'
-              : 'Ver linha do tempo de atividades (🕒)'
-          }
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-            isTimelineOpen
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-          aria-label="Linha do tempo de atividades"
-          aria-pressed={isTimelineOpen}
-        >
-          <i className="bi bi-clock-history text-sm"></i>
-        </button>
-
         {onClosePanel && (
           <button
             type="button"
@@ -450,9 +390,39 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         {/* Dropdown do Menu 3 Pontos */}
         {isMenuOpen && (
           <div
-            className="absolute right-12 top-11 w-52 rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-100 dark:border-slate-800 py-1.5 z-50 animate-slide-down text-xs"
+            className="absolute right-12 top-11 w-60 rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-100 dark:border-slate-800 py-1.5 z-50 animate-slide-down text-xs"
             onClick={() => setIsMenuOpen(false)}
           >
+            {onRefreshMessages && (
+              <button
+                type="button"
+                onClick={() => void onRefreshMessages()}
+                className="w-full px-4 py-2.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+              >
+                <i className={`bi bi-arrow-clockwise ${isRefreshingMessages ? 'animate-spin text-emerald-500' : 'text-slate-400'}`} />
+                Atualizar mensagens
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onOpenSnippets}
+              className="w-full px-4 py-2.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+            >
+              <i className="bi bi-lightning-charge text-amber-500"></i>
+              Respostas rápidas
+            </button>
+            {onToggleTimeline && (
+              <button
+                type="button"
+                onClick={onToggleTimeline}
+                aria-pressed={isTimelineOpen}
+                className="w-full px-4 py-2.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+              >
+                <i className={`bi bi-clock-history ${isTimelineOpen ? 'text-blue-500' : 'text-slate-400'}`}></i>
+                {isTimelineOpen ? 'Ocultar linha do tempo' : 'Linha do tempo'}
+              </button>
+            )}
+            <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
             <button
               type="button"
               onClick={async () => {
@@ -466,15 +436,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               className="w-full px-4 py-2.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
             >
               <i className="bi bi-clipboard text-slate-400"></i>
-              Copiar telefone
-            </button>
-            <button
-              type="button"
-              onClick={onOpenSnippets}
-              className="w-full px-4 py-2.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-            >
-              <i className="bi bi-lightning-charge text-amber-500"></i>
-              Modelos de resposta rápida
+              Copiar telefone · {formattedPhone}
             </button>
             <button
               type="button"

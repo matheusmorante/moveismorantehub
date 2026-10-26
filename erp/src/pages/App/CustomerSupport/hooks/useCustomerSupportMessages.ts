@@ -3,6 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { WhatsAppConversation, WhatsAppMessage } from '../types';
 import {
   fetchConversationMessages,
+  fetchConversationMessageContext,
   fetchPreviousConversationMessages,
   fetchConversationReplyTarget,
   markConversationAsRead,
@@ -24,6 +25,7 @@ export function useCustomerSupportMessages({
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const messagesRef = useRef<WhatsAppMessage[]>([]);
   const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
+  const pendingJumpRef = useRef<WhatsAppMessage | null>(null);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
@@ -58,22 +60,6 @@ export function useCustomerSupportMessages({
     const conversationId = activeConvIdRef.current;
     if (!conversationId || reference.conversationId !== conversationId) return null;
     return fetchConversationReplyTarget(supabase, conversationId, reference);
-  }, []);
-
-  const jumpToMessage = useCallback((message: WhatsAppMessage) => {
-    if (!message.id || message.conversationId !== activeConvIdRef.current) return;
-    const current = messagesRef.current;
-    if (!current.some((item) => item.id === message.id)) {
-      const oldest = current[0];
-      if (oldest && (message.timestamp < oldest.timestamp || (message.timestamp === oldest.timestamp && message.id < oldest.id))) {
-        setHasOlderMessages(true);
-      }
-      setMessages((existing) => existing.some((item) => item.id === message.id)
-        ? existing
-        : [...existing, message].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id))
-      );
-    }
-    setJumpToMessageId(message.id);
   }, []);
 
   const clearJumpToMessage = useCallback(() => setJumpToMessageId(null), []);
@@ -125,6 +111,60 @@ export function useCustomerSupportMessages({
       }
     }
   }, []);
+
+  const loadMessageContext = useCallback(async (
+    convId: string,
+    target: WhatsAppMessage,
+    generation: number,
+    mergeWithCurrent = false
+  ) => {
+    if (!convId || target.conversationId !== convId) return;
+    const request = ++latestRequestRef.current;
+    pendingLatestRef.current = generation;
+    setIsLoadingMessages(true);
+    setMessagesError('');
+    try {
+      const context = await fetchConversationMessageContext(supabase, convId, target.id);
+      if (generation !== generationRef.current || request !== latestRequestRef.current) return;
+      historyConversationIdRef.current = convId;
+      initializedHistoryRef.current = generation;
+      historyCursorRef.current = context.messages[0]
+        ? { timestamp: context.messages[0].timestamp, id: context.messages[0].id }
+        : null;
+      setHasOlderMessages(context.hasOlderMessages);
+      setMessages((current) => {
+        const combined = new Map((mergeWithCurrent ? current : []).map((message) => [message.id, message]));
+        context.messages.forEach((message) => combined.set(message.id, { ...combined.get(message.id), ...message }));
+        return Array.from(combined.values()).sort((a, b) =>
+          a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id)
+        );
+      });
+      setJumpToMessageId(target.id);
+    } catch (error) {
+      if (generation === generationRef.current && request === latestRequestRef.current) {
+        setMessagesError(error instanceof Error ? error.message : 'Não foi possível abrir essa mensagem no histórico.');
+      }
+    } finally {
+      if (generation === generationRef.current && request === latestRequestRef.current) {
+        pendingLatestRef.current = null;
+        setIsLoadingMessages(false);
+      }
+    }
+  }, []);
+
+  const jumpToMessage = useCallback((message: WhatsAppMessage) => {
+    if (!message.id) return;
+    if (message.conversationId !== activeConvIdRef.current) {
+      pendingJumpRef.current = message;
+      return;
+    }
+    pendingJumpRef.current = null;
+    if (messagesRef.current.some((item) => item.id === message.id)) {
+      setJumpToMessageId(message.id);
+      return;
+    }
+    void loadMessageContext(message.conversationId, message, generationRef.current, true);
+  }, [loadMessageContext]);
 
   const loadOlderMessages = useCallback(async () => {
     const convId = activeConvIdRef.current;
@@ -187,15 +227,22 @@ export function useCustomerSupportMessages({
       if (convId) {
         setMessages([]);
         setHasOlderMessages(false);
-        void loadMessages(convId);
+        const pendingTarget = pendingJumpRef.current;
+        pendingJumpRef.current = null;
+        if (pendingTarget?.conversationId === convId) {
+          void loadMessageContext(convId, pendingTarget, generationRef.current);
+        } else {
+          void loadMessages(convId);
+        }
       } else {
+        pendingJumpRef.current = null;
         setMessages([]);
         setHasOlderMessages(false);
       }
     }
     // A lista também recupera mensagens cujo evento Realtime não chegou.
     if (convId && unreadCount > 0) void confirmRead(convId);
-  }, [selectedConversation?.id, selectedConversation?.unreadCount, loadMessages, confirmRead]);
+  }, [selectedConversation?.id, selectedConversation?.unreadCount, loadMessages, loadMessageContext, confirmRead]);
 
   useEffect(() => {
     const interval = setInterval(() => {

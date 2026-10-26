@@ -1,10 +1,11 @@
 import {
   getMobileProductCardActionAvailability,
   isMobileProductStockLow,
-  isSalvadoProduct,
+  resolveMobileProductCardPricing,
   resolveCanonicalOpportunityBadge,
 } from '../domain/mobileProductCardRules';
 import { isNonConventionalProduct } from '../../../../../shared-utils/productActivationValidation';
+import { isSalvadoStockOrigin } from '../../../../../shared-utils/productStockOrigin';
 import { getProductIdentificationLabelActionAvailability } from '../../../../../shared-utils/productPermissions';
 import { useMobileProductMetadata } from './useMobileProductMetadata';
 import { getSingleVariationDisplayName } from '../domain/mobileProductCardDisplay';
@@ -78,14 +79,8 @@ export function useMobileProductCardState({
 
   const cardImage = variationProductImage || parentProductImage;
 
-  const cardUnitPrice = Number(
-    singleVariation?.unitPrice ?? singleVariation?.price ?? product.unitPrice ?? 0
-  );
-  const cardPromoPrice = Number(
-    singleVariation?.promoPrice ?? singleVariation?.promo_price ?? product.promoPrice ?? 0
-  );
-  const hasCardPromo = cardPromoPrice > 0 && cardPromoPrice < cardUnitPrice;
-  const cardPrice = hasCardPromo ? cardPromoPrice : cardUnitPrice;
+  const { cardUnitPrice, cardPromoPrice, hasCardPromo, cardPrice } =
+    resolveMobileProductCardPricing(product, singleVariation);
 
   const cardStock = Number(singleVariation?.stock ?? product.stock ?? 0);
   const cardMinStock = Number(
@@ -102,7 +97,7 @@ export function useMobileProductCardState({
     : canEdit;
 
   const { oppName, supplierNames } = useMobileProductMetadata(product);
-  const isSalvado = isSalvadoProduct(product) || isSalvadoProduct(singleVariation);
+  const isSalvado = isSalvadoStockOrigin(product, singleVariation, oppName);
   const isNonConventional =
     isNonConventionalProduct(product) || isNonConventionalProduct(singleVariation);
   const oppBadgeInfo = resolveCanonicalOpportunityBadge(

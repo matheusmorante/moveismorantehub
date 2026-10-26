@@ -6,6 +6,35 @@ import {
   isProductCharacteristicIncludedInVariationNames,
   resolveProductVariationName,
 } from './productVariationName';
+import {
+  getVariationNameAttributeValues,
+  normalizeProductVariationName,
+} from '../../../../../shared-utils/productVariationNameValidation';
+
+describe('normalizeProductVariationName', () => {
+  it.each(['-', '–', '—'])('removes the %s separator after a repeated product name', (separator) => {
+    expect(normalizeProductVariationName('Produto', `Produto ${separator} Azul`)).toBe(
+      'Produto Azul'
+    );
+  });
+
+  it('preserves non-prefixed names and parent prefixes without a dash', () => {
+    expect(normalizeProductVariationName('Produto', 'Produto Azul')).toBe('Produto Azul');
+    expect(normalizeProductVariationName('Produto', 'Linha Azul')).toBe('Linha Azul');
+  });
+});
+
+describe('getVariationNameAttributeValues', () => {
+  it('preserves order, omits explicitly hidden values, and defaults missing visibility to true', () => {
+    expect(
+      getVariationNameAttributeValues([
+        { value: ' Azul ' },
+        { value: 'Premium', showName: false },
+        { value: ' P ', showName: true },
+      ])
+    ).toEqual(['Azul', 'P']);
+  });
+});
 
 describe('containsProductVariationNamePhrase', () => {
   it('matches complete phrases regardless of accents or case', () => {

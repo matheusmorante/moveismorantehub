@@ -97,6 +97,115 @@ describe('productFilterBuilder', () => {
     expect(mockQuery.eq).not.toHaveBeenCalledWith('category', 'category-1');
   });
 
+  it('combina categoria com item_type de composição antes de paginar', async () => {
+    const categoryQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { name: 'Sala' }, error: null }),
+    };
+    const categoryLinksQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) =>
+        resolve({ data: [{ product_id: 'composition-1' }], error: null })
+      ),
+    };
+    mocks.from.mockImplementation((table: string) =>
+      table === 'categories' ? categoryQuery : categoryLinksQuery
+    );
+    const productQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      filter: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [], count: 21, error: null })),
+    };
+
+    await applyProductFiltersAndSort(
+      productQuery,
+      { itemType: 'composition', category: 'category-1' },
+      { orderColumn: 'created_at', ascending: false, from: 10, to: 19 }
+    );
+
+    expect(productQuery.eq).toHaveBeenCalledWith('item_type', 'composition');
+    expect(productQuery.or).toHaveBeenCalledWith(
+      'category_id.eq.category-1,category.eq."Sala",id.in.(composition-1)'
+    );
+    expect(productQuery.range).toHaveBeenCalledWith(10, 19);
+    expect(productQuery.eq.mock.invocationCallOrder[1]).toBeLessThan(
+      productQuery.range.mock.invocationCallOrder[0]
+    );
+    expect(
+      productQuery.or.mock.invocationCallOrder.some(
+        (callOrder) => callOrder < productQuery.range.mock.invocationCallOrder[0]
+      )
+    ).toBe(true);
+  });
+
+  it('combina situação no ERP e status do Catálogo em composições antes de paginar', async () => {
+    const productQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      filter: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [], count: 7, error: null })),
+    };
+
+    await applyProductFiltersAndSort(
+      productQuery,
+      {
+        itemType: 'composition',
+        isDraft: false,
+        activeOnly: false,
+        status: 'hidden',
+      },
+      { orderColumn: 'created_at', ascending: false, from: 10, to: 19 }
+    );
+
+    expect(productQuery.eq).toHaveBeenCalledWith('item_type', 'composition');
+    expect(productQuery.not).toHaveBeenCalledWith('is_draft', 'is', true);
+    expect(productQuery.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
+    expect(productQuery.eq).toHaveBeenCalledWith('active', false);
+    expect(productQuery.eq).toHaveBeenCalledWith('status', 'hidden');
+    expect(productQuery.range).toHaveBeenCalledWith(10, 19);
+
+    const filterCallOrders = [
+      ...productQuery.eq.mock.invocationCallOrder,
+      ...productQuery.not.mock.invocationCallOrder,
+      ...productQuery.filter.mock.invocationCallOrder,
+    ];
+    expect(filterCallOrders.every((callOrder) => callOrder < productQuery.range.mock.invocationCallOrder[0])).toBe(true);
+  });
+
+  it('filtra produtos padrão pelo status do Catálogo antes do intervalo da página', async () => {
+    const productQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      filter: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [], count: 11, error: null })),
+    };
+
+    await applyProductFiltersAndSort(
+      productQuery,
+      { excludeItemType: 'composition', status: 'published' },
+      { orderColumn: 'created_at', ascending: false, from: 10, to: 19 }
+    );
+
+    expect(productQuery.filter).toHaveBeenCalledWith('item_type', 'isdistinct', 'composition');
+    expect(productQuery.eq).toHaveBeenCalledWith('status', 'published');
+    expect(productQuery.range).toHaveBeenCalledWith(10, 19);
+    expect(productQuery.eq.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      productQuery.range.mock.invocationCallOrder[0]
+    );
+  });
+
   it('busca na lixeira itens desativados ou excluídos e omite rascunhos', async () => {
     const mockQuery: any = {
       eq: vi.fn().mockReturnThis(),
@@ -183,6 +292,72 @@ describe('productFilterBuilder', () => {
 
     expect(mockQuery.filter).toHaveBeenCalledWith('item_type', 'isdistinct', 'composition');
     expect(mockQuery.neq).not.toHaveBeenCalledWith('item_type', 'composition');
+  });
+
+  it('isola composições antes de paginar o intervalo solicitado', async () => {
+    const mockQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      filter: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [], count: 21, error: null })),
+    };
+
+    await applyProductFiltersAndSort(
+      mockQuery,
+      { itemType: 'composition' },
+      { orderColumn: 'created_at', ascending: false, from: 10, to: 19 }
+    );
+
+    expect(mockQuery.eq).toHaveBeenCalledWith('item_type', 'composition');
+    expect(mockQuery.range).toHaveBeenCalledWith(10, 19);
+    expect(mockQuery.eq.mock.invocationCallOrder[0]).toBeLessThan(
+      mockQuery.range.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('busca uma composição por código do pai e SKU da variação sem perder o filtro de tipo', async () => {
+    const variationQuery: any = {
+      select: vi.fn(() => variationQuery),
+      or: vi.fn(() => variationQuery),
+      limit: vi.fn().mockResolvedValue({ data: [{ product_id: 'composition-parent' }], error: null }),
+    };
+    mocks.from.mockReturnValue(variationQuery);
+    const productQuery: any = {
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      filter: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockReturnThis(),
+      then: vi.fn((resolve) => resolve({ data: [], count: 21, error: null })),
+    };
+
+    await applyProductFiltersAndSort(
+      productQuery,
+      { itemType: 'composition', search: 'KTX', isDraft: false, status: 'hidden' },
+      { orderColumn: 'created_at', ascending: false, from: 10, to: 19 }
+    );
+
+    expect(variationQuery.or).toHaveBeenCalledWith('name.ilike.%KTX%,sku.ilike.%KTX%');
+    expect(productQuery.eq).toHaveBeenCalledWith('item_type', 'composition');
+    expect(productQuery.not).toHaveBeenCalledWith('is_draft', 'is', true);
+    expect(productQuery.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
+    expect(productQuery.eq).toHaveBeenCalledWith('status', 'hidden');
+    expect(productQuery.or).toHaveBeenCalledWith(
+      expect.stringContaining('name.ilike.%KTX%,code.ilike.%KTX%')
+    );
+    expect(productQuery.or).toHaveBeenCalledWith(expect.stringContaining('id.eq.composition-parent'));
+    expect(productQuery.range).toHaveBeenCalledWith(10, 19);
+    const filterCallOrders = [
+      ...productQuery.eq.mock.invocationCallOrder,
+      ...productQuery.not.mock.invocationCallOrder,
+      ...productQuery.filter.mock.invocationCallOrder,
+      ...productQuery.or.mock.invocationCallOrder,
+    ];
+    expect(filterCallOrders.every((callOrder) => callOrder < productQuery.range.mock.invocationCallOrder[0])).toBe(true);
   });
 
   it('exclui artefatos de teste do total antes de paginar a lista', async () => {

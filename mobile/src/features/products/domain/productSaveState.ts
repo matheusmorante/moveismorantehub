@@ -1,7 +1,10 @@
-import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
+import {
+  isTestProduct,
+  shouldValidatePublishedCatalogEdit,
+} from '../../../../../shared-utils/isTestProduct';
 import { isMobileEcommerceLegible } from './productRegistrationRules';
 
-export { isTestProduct };
+export { isTestProduct, shouldValidatePublishedCatalogEdit };
 
 export const prepareMobileProductSaveState = (
   product: any,

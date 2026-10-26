@@ -7,6 +7,7 @@ import {
 type ParentVariationFields = {
   id?: unknown;
   hasVariations?: unknown;
+  has_variations?: unknown;
   technicalValues?: Record<string, unknown> | null;
   unitPrice?: unknown;
   unit_price?: unknown;
@@ -54,6 +55,7 @@ export const syncMobileVariationsWithParent = <T extends Record<string, any>>(
 ): T[] => {
   if (!variations?.length) return (variations || []) as T[];
 
+  const parentHasVariations = Boolean(parent.hasVariations ?? parent.has_variations);
   let changed = false;
   const updated = variations.map((variation) => {
     let next: Record<string, any> = variation;
@@ -94,14 +96,10 @@ export const syncMobileVariationsWithParent = <T extends Record<string, any>>(
     }
 
     const parentImages = Array.isArray(parent.images) ? parent.images : undefined;
-    const previousImages = Array.isArray(previousParent?.images)
-      ? previousParent.images
-      : undefined;
     if (
+      !parentHasVariations &&
       variations.length === 1 &&
       parentImages &&
-      previousImages &&
-      !sameValue(parentImages, previousImages) &&
       !sameValue(variation.images, parentImages)
     ) {
       if (next === variation) next = { ...variation };

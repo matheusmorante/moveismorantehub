@@ -2,6 +2,7 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'react-toastify';
 
 const mocks = vi.hoisted(() => ({ fetchProductsPage: vi.fn() }));
 
@@ -22,7 +23,7 @@ vi.mock('../../utils/activation/productActivationState', () => ({
   updateProductActivationState: vi.fn(),
 }));
 vi.mock('../../utils/catalog/productCatalogState', () => ({ updateProductCatalogState: vi.fn() }));
-vi.mock('../productQueryMutations', () => ({ persistAndInvalidateProductList: vi.fn() }));
+vi.mock('./productQueryMutations', () => ({ persistAndInvalidateProductList: vi.fn() }));
 vi.mock('../activation/useProductsActivationValidation', () => ({
   validateErpActivationRequirements: vi.fn(),
 }));
@@ -42,6 +43,8 @@ vi.mock('../actions/useProductsDeletionActions', () => ({
 }));
 
 import { useProducts } from './useProducts';
+import { persistAndInvalidateProductList } from './productQueryMutations';
+import { persistCatalogStatus, resolveCatalogEntities } from '../actions/useProductsCatalogActions';
 
 afterEach(() => {
   cleanup();
@@ -165,6 +168,115 @@ describe('useProducts query snapshot', () => {
     );
   });
 
+  it('reinicia em página um ao alterar ou limpar categoria sem perder o modo de composições', async () => {
+    mocks.fetchProductsPage.mockResolvedValue({ data: [], total: 40 });
+    const { result, rerender } = renderHook(
+      ({ category }: { category: string }) => useProducts({ category, itemType: 'composition' }),
+      { initialProps: { category: 'category-a' }, wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
+    expect(mocks.fetchProductsPage).toHaveBeenLastCalledWith(
+      1,
+      15,
+      expect.objectContaining({ category: 'category-a', itemType: 'composition' }),
+      { throwOnError: true }
+    );
+
+    act(() => result.current.setCurrentPage(3));
+    await waitFor(() => expect(result.current.currentPage).toBe(3));
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(2));
+    mocks.fetchProductsPage.mockClear();
+
+    rerender({ category: 'category-b' });
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
+    expect(mocks.fetchProductsPage).toHaveBeenLastCalledWith(
+      1,
+      15,
+      expect.objectContaining({ category: 'category-b', itemType: 'composition' }),
+      { throwOnError: true }
+    );
+    expect(result.current.currentPage).toBe(1);
+
+    act(() => result.current.setCurrentPage(2));
+    await waitFor(() => expect(result.current.currentPage).toBe(2));
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(2));
+    mocks.fetchProductsPage.mockClear();
+
+    rerender({ category: '' });
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
+    expect(mocks.fetchProductsPage).toHaveBeenLastCalledWith(
+      1,
+      15,
+      expect.objectContaining({ category: '', itemType: 'composition' }),
+      { throwOnError: true }
+    );
+    expect(result.current.currentPage).toBe(1);
+  });
+
+  it('preserva composição, exclusão de rascunhos e Catálogo ao buscar a partir de desativados', async () => {
+    mocks.fetchProductsPage.mockResolvedValue({ data: [], total: 40 });
+    const filters = {
+      activeOnly: false,
+      isDraft: false,
+      status: 'hidden',
+      itemType: 'composition',
+      search: '',
+    };
+    const { result, rerender } = renderHook(
+      ({ currentFilters }: { currentFilters: typeof filters }) => useProducts(currentFilters),
+      { initialProps: { currentFilters: filters }, wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
+    act(() => result.current.setCurrentPage(3));
+    await waitFor(() => expect(result.current.currentPage).toBe(3));
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(2));
+    mocks.fetchProductsPage.mockClear();
+
+    rerender({ currentFilters: { ...filters, search: 'KTX' } });
+
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
+    expect(mocks.fetchProductsPage).toHaveBeenLastCalledWith(
+      1,
+      15,
+      expect.objectContaining({
+        search: 'KTX',
+        activeOnly: undefined,
+        isDraft: false,
+        status: 'hidden',
+        itemType: 'composition',
+      }),
+      { throwOnError: true }
+    );
+    expect(result.current.currentPage).toBe(1);
+  });
+
+  it('returns to page one and refetches the selected page size', async () => {
+    mocks.fetchProductsPage.mockResolvedValue({ data: [], total: 40 });
+    const { result } = renderHook(() => useProducts({}), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
+    act(() => result.current.setCurrentPage(3));
+    await waitFor(() => expect(result.current.currentPage).toBe(3));
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(2));
+
+    mocks.fetchProductsPage.mockClear();
+    act(() => result.current.handleItemsPerPageChange(10));
+
+    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
+    expect(mocks.fetchProductsPage).toHaveBeenCalledWith(
+      1,
+      10,
+      expect.any(Object),
+      { throwOnError: true }
+    );
+    expect(result.current.currentPage).toBe(1);
+    expect(result.current.itemsPerPage).toBe(10);
+    expect(result.current.totalItems).toBe(40);
+    expect(result.current.totalPages).toBe(4);
+  });
+
   it('includes test-product visibility in the query key and server filter', async () => {
     mocks.fetchProductsPage.mockResolvedValue({ data: [], total: 0 });
     const { rerender } = renderHook(
@@ -215,5 +327,57 @@ describe('useProducts query snapshot', () => {
       expect(result.current.products).toHaveLength(5);
     });
     expect(result.current.products[0]?.id).toBe('product-1');
+  });
+
+  it('reports catalog permission denial without showing success or changing local status', async () => {
+    const denial = {
+      code: '42501',
+      message: 'Seu perfil não possui permissão para alterar o Catálogo Digital.',
+    };
+    const product = { id: 'catalog-product', status: 'published', variations: [] };
+    mocks.fetchProductsPage.mockResolvedValue({ data: [product], total: 1 });
+    vi.mocked(resolveCatalogEntities).mockResolvedValueOnce({
+      parentProduct: product as never,
+      variation: undefined,
+      isVariation: false,
+    });
+    vi.mocked(persistAndInvalidateProductList).mockImplementationOnce((persist) => persist());
+    vi.mocked(persistCatalogStatus).mockRejectedValueOnce(denial);
+
+    const { result } = renderHook(() => useProducts({}), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.products[0]?.id).toBe(product.id));
+
+    await act(async () => {
+      await result.current.deactivateCatalog(product.id);
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(denial.message);
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(result.current.products[0]?.status).toBe('published');
+  });
+
+  it('asks for a refresh when the catalog mutation result cannot be confirmed', async () => {
+    const product = { id: 'catalog-product', status: 'published', variations: [] };
+    mocks.fetchProductsPage.mockResolvedValue({ data: [product], total: 1 });
+    vi.mocked(resolveCatalogEntities).mockResolvedValueOnce({
+      parentProduct: product as never,
+      variation: undefined,
+      isVariation: false,
+    });
+    vi.mocked(persistAndInvalidateProductList).mockImplementationOnce((persist) => persist());
+    vi.mocked(persistCatalogStatus).mockRejectedValueOnce(new Error('network failed'));
+
+    const { result } = renderHook(() => useProducts({}), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.products[0]?.id).toBe(product.id));
+
+    await act(async () => {
+      await result.current.deactivateCatalog(product.id);
+    });
+
+    expect(toast.error).toHaveBeenCalledWith(
+      'Não foi possível confirmar o resultado da alteração no Catálogo Digital. Atualize a lista antes de tentar novamente.'
+    );
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(result.current.products[0]?.status).toBe('published');
   });
 });

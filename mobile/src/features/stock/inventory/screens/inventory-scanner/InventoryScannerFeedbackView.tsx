@@ -5,7 +5,7 @@ import { styles } from './inventoryScanner.styles';
 
 interface InventoryScannerFeedbackViewProps {
   description: string;
-  lastFeedback: InventoryScanFeedback | null;
+  feedbacks: InventoryScanFeedback[];
   unitsRead: number;
   productsReadCount: number;
   scanned: boolean;
@@ -14,7 +14,7 @@ interface InventoryScannerFeedbackViewProps {
 
 export const InventoryScannerFeedbackView: React.FC<InventoryScannerFeedbackViewProps> = ({
   description,
-  lastFeedback,
+  feedbacks,
   unitsRead,
   productsReadCount,
   scanned,
@@ -22,39 +22,44 @@ export const InventoryScannerFeedbackView: React.FC<InventoryScannerFeedbackView
 }) => {
   return (
     <>
-      {lastFeedback && (
+      {feedbacks.map((feedback, index) => (
         <View
+          key={`${feedback.itemId || feedback.title}-${index}`}
           style={[
             styles.feedback,
-            lastFeedback.kind === 'error'
+            feedback.kind === 'error'
               ? styles.feedbackError
-              : lastFeedback.kind === 'warning'
+              : feedback.kind === 'warning'
                 ? styles.feedbackWarning
                 : styles.feedbackSuccess,
           ]}
         >
           <Text style={styles.feedbackTitle}>
-            {lastFeedback.kind === 'success' ? 'ÚLTIMA CONTAGEM' : lastFeedback.title}
+            {feedback.kind === 'success'
+              ? index === 0
+                ? 'ÚLTIMA CONTAGEM'
+                : 'CONTAGEM ANTERIOR'
+              : feedback.title}
           </Text>
-          {lastFeedback.kind === 'success' && (
-            <Text style={styles.feedbackText}>{lastFeedback.title}</Text>
+          {feedback.kind === 'success' && (
+            <Text style={styles.feedbackText}>{feedback.title}</Text>
           )}
-          {lastFeedback.sku && (
-            <Text style={styles.feedbackText}>SKU: {lastFeedback.sku}</Text>
+          {feedback.sku && (
+            <Text style={styles.feedbackText}>SKU: {feedback.sku}</Text>
           )}
-          {lastFeedback.supplier && (
-            <Text style={styles.feedbackText}>Fornecedor: {lastFeedback.supplier}</Text>
+          {feedback.supplier && (
+            <Text style={styles.feedbackText}>Fornecedor: {feedback.supplier}</Text>
           )}
-          {lastFeedback.quantity !== undefined && (
+          {feedback.quantity !== undefined && (
             <Text style={styles.feedbackText}>
-              Quantidade contada: {lastFeedback.quantity}
+              Quantidade contada: {feedback.quantity}
             </Text>
           )}
-          {lastFeedback.message && (
-            <Text style={styles.feedbackText}>{lastFeedback.message}</Text>
+          {feedback.message && (
+            <Text style={styles.feedbackText}>{feedback.message}</Text>
           )}
         </View>
-      )}
+      ))}
       <Text style={[styles.footerText, styles.footerTextInventory]}>{description}</Text>
       <View style={styles.sessionStatsRow}>
         <Text style={styles.sessionStat}>

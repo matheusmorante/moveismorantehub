@@ -3,6 +3,7 @@ import { uploadFile } from '@/pages/utils/storageService';
 import { imageFilesFormSchema } from '../../../../../../../../shared-utils/fileFormSchemas';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import { productImageReplacementFormSchema } from '../../../../../../../../shared-utils/productImageFormSchemas';
+import { PRODUCT_IMAGE_DERIVATIVES } from '../../../../../../../../shared-utils/productImageDerivatives';
 
 /**
  * Faz compressão e upload otimizado de uma imagem de produto para o R2,
@@ -28,25 +29,25 @@ export async function uploadOptimizedProductImage(file: File, options?: { isCurr
 
   // Medium (webp, 1000px, 0.85)
   const mediumFile = await withTimeout(compressImageToFile(file, {
-    maxMB: 0.5,
-    maxWidth: 1000,
+    maxMB: PRODUCT_IMAGE_DERIVATIVES.medium.maxSizeBytes / (1024 * 1024),
+    maxWidth: PRODUCT_IMAGE_DERIVATIVES.medium.maxDimension,
     fileType: 'image/webp',
-    initialQuality: 0.85,
+    initialQuality: PRODUCT_IMAGE_DERIVATIVES.medium.initialQuality,
   }), 10_000, null, 'Preparar foto média').catch(() => { throw Object.assign(new Error('Não foi possível preparar a foto média.'), { knownFailure: true }); });
   if (!mediumFile) throw Object.assign(new Error('A preparação da foto demorou demais.'), { knownFailure: true });
   assertCurrent();
-  const mediumPath = `products/${baseName}_medium.webp`;
+  const mediumPath = `products/${baseName}${PRODUCT_IMAGE_DERIVATIVES.medium.suffix}.webp`;
 
   // Thumb (webp, 200px, 0.75)
   const thumbFile = await withTimeout(compressImageToFile(file, {
-    maxMB: 0.05,
-    maxWidth: 200,
+    maxMB: PRODUCT_IMAGE_DERIVATIVES.thumbnail.maxSizeBytes / (1024 * 1024),
+    maxWidth: PRODUCT_IMAGE_DERIVATIVES.thumbnail.maxDimension,
     fileType: 'image/webp',
-    initialQuality: 0.75,
+    initialQuality: PRODUCT_IMAGE_DERIVATIVES.thumbnail.initialQuality,
   }), 10_000, null, 'Preparar miniatura').catch(() => { throw Object.assign(new Error('Não foi possível preparar a miniatura.'), { knownFailure: true }); });
   if (!thumbFile) throw Object.assign(new Error('A preparação da miniatura demorou demais.'), { knownFailure: true });
   assertCurrent();
-  const thumbPath = `products/${baseName}_thumb.webp`;
+  const thumbPath = `products/${baseName}${PRODUCT_IMAGE_DERIVATIVES.thumbnail.suffix}.webp`;
 
   let originalUrl;
   try { [originalUrl] = await Promise.all([

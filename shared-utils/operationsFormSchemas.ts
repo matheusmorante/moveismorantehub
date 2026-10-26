@@ -100,7 +100,6 @@ export const quickRegisterSelectionFormSchema = z
     existingVariationNames: z.array(z.string()).optional(),
     ncmMismatch: z.boolean().optional(),
     categoryId: z.string().trim().optional(),
-    categoryConfirmed: z.boolean().optional(),
     ncm: z.string().trim().optional(),
     costPrice: z.number().nonnegative('O custo de aquisição deve ser maior ou igual a zero.').optional(),
     ncmResolution: z.enum(['variation', 'update-parent', 'keep-parent']).optional(),
@@ -128,7 +127,6 @@ export const quickRegisterSelectionFormSchema = z
     if (value.mode === 'SIMPLE' || value.mode === 'COMPOSITION') {
       if (!value.name?.trim()) ctx.addIssue({ code: 'custom', path: ['name'], message: 'Informe o nome do produto.' });
       if (!value.categoryId?.trim()) ctx.addIssue({ code: 'custom', path: ['categoryId'], message: 'Selecione uma categoria.' });
-      if (!value.categoryConfirmed) ctx.addIssue({ code: 'custom', path: ['categoryConfirmed'], message: 'Confirme a categoria antes de salvar.' });
       if (value.costPrice === undefined || !Number.isFinite(value.costPrice)) ctx.addIssue({ code: 'custom', path: ['costPrice'], message: 'Informe um custo de aquisição válido.' });
     }
     if (value.mode === 'EXISTING_PARENT') {

@@ -10,6 +10,56 @@ import { flattenProductsForList } from './productListTransformers';
 import type Product from '@/pages/types/product.type';
 
 describe('flattenProductsForList - Regras de Variações e Produtos Mesclados', () => {
+  it('resolve independentemente o preço efetivo quando as heranças da variação divergem', () => {
+    const products: Product[] = [
+      {
+        id: 'prod-pricing',
+        name: 'Produto com preço incompleto',
+        code: 'PRICING',
+        unitPrice: 100,
+        promoPrice: 80,
+        hasVariations: true,
+        variations: [
+          {
+            id: 'var-pricing',
+            sku: 'PRICING-01',
+            name: 'Variação com preço próprio',
+            unitPrice: 0,
+            promoPrice: 80,
+            syncUnitPrice: false,
+            syncPromoPrice: true,
+            active: false,
+          },
+          {
+            id: 'var-promo',
+            sku: 'PRICING-02',
+            name: 'Variação com promoção própria',
+            unitPrice: 90,
+            promoPrice: 65,
+            syncUnitPrice: true,
+            syncPromoPrice: false,
+            active: true,
+          },
+        ],
+      } as any,
+    ];
+
+    const variationRows = flattenProductsForList(products).filter((row) => row.isVariation);
+
+    expect(variationRows[0]).toMatchObject({
+      unitPrice: 0,
+      promoPrice: 80,
+      syncUnitPrice: false,
+      syncPromoPrice: true,
+    });
+    expect(variationRows[1]).toMatchObject({
+      unitPrice: 100,
+      promoPrice: 65,
+      syncUnitPrice: true,
+      syncPromoPrice: false,
+    });
+  });
+
   it('marca isMerged como false quando nenhuma variação possui mergedToVariationId', () => {
     const products: Product[] = [
       {

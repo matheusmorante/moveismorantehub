@@ -6,6 +6,7 @@ import Product, { ProductVisibilitySettings } from '../../../types/product.type'
 import type { ProductCategoryTree, ProductListFilters } from './types';
 import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
 import { MoveProductToTrashModal } from './modals/MoveProductToTrashModal';
+import ProductListPageSizeSelect from './components/Shared/ProductListPageSizeSelect';
 
 interface ProductListProps {
   mode?: 'standard' | 'composition';
@@ -74,7 +75,7 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
       itemsPerPage,
       totalPages,
       setCurrentPage,
-      setItemsPerPage,
+      handleItemsPerPageChange,
       handleDelete,
       handleRestore,
       handleMoveToTrash,
@@ -256,20 +257,10 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
                 )}
               </span>
               <div className="flex items-center gap-2">
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-600 dark:text-slate-400 focus:outline-none"
-                >
-                  {(isServerPagination ? [10, 15] : [10, 15]).map((size) => (
-                    <option key={size} value={size}>
-                      {size} por página
-                    </option>
-                  ))}
-                </select>
+                <ProductListPageSizeSelect
+                  itemsPerPage={itemsPerPage}
+                  onChange={handleItemsPerPageChange}
+                />
               </div>
             </div>
             <FixedPageSlots

@@ -18,6 +18,8 @@ import { canPerform } from '@/pages/utils/permissionService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
 import { fetchTechnicalFieldDefinitions } from '@/pages/App/Products/services/technicalFieldService';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
+import { getProductCatalogMutationFailureNotice } from '../../../../../../../../shared-utils/productCatalogPermission';
+import type { ProductListPageSize } from '../../../../../../../../shared-utils/listingFormSchemas';
 import {
   resolveCatalogEntities,
   validateCatalogPublication,
@@ -53,7 +55,11 @@ export const useProducts = (filters?: ProductListFilters) => {
   const [mutationLoading, setMutationLoading] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(15);
+  const [itemsPerPage, setItemsPerPage] = useState<ProductListPageSize>(15);
+  const handleItemsPerPageChange = useCallback((nextItemsPerPage: ProductListPageSize) => {
+    setItemsPerPage(nextItemsPerPage);
+    setCurrentPage(1);
+  }, []);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 
   const queryFilters = useMemo(() => {
@@ -347,7 +353,6 @@ export const useProducts = (filters?: ProductListFilters) => {
 
   // ─── Catálogo Digital ───────────────────
   const deactivateCatalog = async (id: string) => {
-    let rollbackCatalogStatus: Product['status'] | undefined;
     try {
       const { parentProduct, variation, isVariation } = await resolveCatalogEntities(
         id,
@@ -356,7 +361,6 @@ export const useProducts = (filters?: ProductListFilters) => {
       const currentStatus = isVariation
         ? variation.status || parentProduct?.status || 'hidden'
         : parentProduct?.status || 'hidden';
-      rollbackCatalogStatus = currentStatus;
       const newStatus = currentStatus === 'published' ? 'hidden' : 'published';
 
       if (newStatus === 'published') {
@@ -397,9 +401,13 @@ export const useProducts = (filters?: ProductListFilters) => {
         }
       }
 
-      // Atualização otimista
-      setServerProducts((previous) => updateProductCatalogState(previous, id, newStatus));
+      await persistAndInvalidateProductList(
+        () =>
+          persistCatalogStatus(id, newStatus, parentProduct, variation, productsForCurrentQuery),
+        () => queryClient.invalidateQueries({ queryKey: ['products'] })
+      );
 
+      setServerProducts((previous) => updateProductCatalogState(previous, id, newStatus));
       if (isVariation) {
         toast.success(
           `Variação ${newStatus === 'published' ? 'publicada no Catálogo Digital.' : 'ocultada do Catálogo Digital.'}`
@@ -409,20 +417,10 @@ export const useProducts = (filters?: ProductListFilters) => {
           `Catálogo Digital: Produto ${newStatus === 'published' ? 'publicado' : 'ocultado'} com sucesso! 🚀`
         );
       }
-
-      await persistAndInvalidateProductList(
-        () =>
-          persistCatalogStatus(id, newStatus, parentProduct, variation, productsForCurrentQuery),
-        () => queryClient.invalidateQueries({ queryKey: ['products'] })
-      );
     } catch (error) {
       console.error('Erro ao alternar catálogo:', error);
-      if (rollbackCatalogStatus) {
-        setServerProducts((previous) =>
-          updateProductCatalogState(previous, id, rollbackCatalogStatus)
-        );
-      }
-      toast.error('Erro ao alterar status no Catálogo Digital.');
+      const failureNotice = getProductCatalogMutationFailureNotice(error);
+      toast.error(failureNotice.message);
     }
   };
 
@@ -435,7 +433,7 @@ export const useProducts = (filters?: ProductListFilters) => {
     itemsPerPage,
     totalPages,
     setCurrentPage,
-    setItemsPerPage,
+    handleItemsPerPageChange,
     loading: serverLoading || mutationLoading,
     error: queryError,
     isServerPagination: true,

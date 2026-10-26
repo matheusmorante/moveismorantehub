@@ -24,7 +24,6 @@ import { InventoryOperationHeader } from '../components/inventory-operation/Inve
 import { InventoryOperationFilterBar } from '../components/inventory-operation/InventoryOperationFilterBar';
 import { InventoryOperationItemCard } from '../components/inventory-operation/InventoryOperationItemCard';
 import { InventoryOperationFooter } from '../components/inventory-operation/InventoryOperationFooter';
-import { playInventoryCountSound } from '../../../../services/inventoryCountSound';
 
 import type { AuditItem } from '../types/inventoryWorkflow.types';
 
@@ -110,7 +109,7 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
         return {
           kind: 'error',
           title: 'Produto de outro fornecedor',
-          message: `Produto: ${otherSupplierItem.name}\nFornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}\nNenhuma quantidade foi alterada.`,
+          message: `Produto: ${otherSupplierItem.name}\nFornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}\nNenhuma quantidade foi alterada. Volte à lista, escolha esse fornecedor ou use o scanner geral.`,
         };
       return { kind: 'error', title: 'Produto não pertence a este inventário' };
     }
@@ -120,7 +119,6 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
       const nextCount = await onIncrementScannedItem(item.id, physicalLabelId);
       if (nextCount === null)
         return { kind: 'warning', title: 'Unidade física já contabilizada', message: item.name };
-      await playInventoryCountSound();
       return {
         kind: 'success',
         title: item.name,
@@ -235,7 +233,13 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
           continuous
           title=""
           restrictToScannerFrame
-          description="Aponte para o QR Code da etiqueta"
+          description={
+            scopeType === 'full'
+              ? activeStage
+                ? `Somente produtos de ${activeStage}. Para outro fornecedor, volte à lista e use o scanner geral.`
+                : 'Scanner geral: aceita produtos de qualquer fornecedor incluído neste inventário.'
+              : 'Aponte para o QR Code da etiqueta'
+          }
         />
       </Modal>
 

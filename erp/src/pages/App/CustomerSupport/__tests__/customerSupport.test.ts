@@ -303,6 +303,59 @@ describe('Central de Atendimento WhatsApp — Suíte Completa de Testes', () => 
     expect(extractMessageContent({ type: 'contacts', contacts: [{}] }).text).toBe('👤 Contato compartilhado');
   });
 
+  it('exibe reações do WhatsApp e mantém o vínculo com a mensagem reagida', () => {
+    expect(extractMessageContent({
+      type: 'reaction',
+      reaction: { message_id: 'wamid.original', emoji: '❤️' },
+    })).toEqual(expect.objectContaining({
+      type: 'interactive',
+      text: 'Reação ❤️ a uma mensagem',
+      replyToWamid: 'wamid.original',
+    }));
+  });
+
+  it('resume pedidos recebidos pelo catálogo com produto, quantidade e preço', () => {
+    const extracted = extractMessageContent({
+      type: 'order',
+      order: {
+        product_items: [{
+          product_retailer_id: 'SKU-GUARDA-ROUPA',
+          quantity: '2',
+          item_price: '1299.00',
+          currency: 'BRL',
+        }],
+        text: 'Pode entregar amanhã?',
+      },
+    });
+
+    expect(extracted.type).toBe('interactive');
+    expect(extracted.text).toContain('Pedido recebido pelo catálogo');
+    expect(extracted.text).toContain('2 × SKU-GUARDA-ROUPA');
+    expect(extracted.text).toContain('R$ 1.299,00 cada');
+    expect(extracted.text).toContain('Pode entregar amanhã?');
+  });
+
+  it('mostra o código e o motivo quando a Meta marca a mensagem como unsupported', () => {
+    expect(extractMessageContent({
+      type: 'unsupported',
+      errors: [{ code: 131051, details: 'Message type is not currently supported' }],
+    })).toEqual(expect.objectContaining({
+      type: 'unsupported',
+      text: expect.stringContaining('código 131051'),
+    }));
+    expect(extractMessageContent({
+      type: 'unsupported',
+      errors: [{ code: 131051, details: 'Message type is not currently supported' }],
+    }).text).toContain('A API do WhatsApp informou que este tipo de mensagem não é suportado.');
+  });
+
+  it('identifica tipos futuros sem expor payload bruto', () => {
+    const extracted = extractMessageContent({ type: 'future_message_type' });
+    expect(extracted.type).toBe('unsupported');
+    expect(extracted.text).toContain('future_message_type');
+    expect(extracted.text).not.toContain('[object Object]');
+  });
+
   // 7. Identificação correta de cliente
   it('7. deve identificar o cliente no cadastro ao receber número brasileiro com/sem nono dígito', async () => {
     const mockSupabase: any = {

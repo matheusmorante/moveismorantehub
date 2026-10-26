@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { processWhatsAppWebhookPayload } from '@/pages/utils/customerSupport/whatsappWebhookProcessor';
+import { mapRowToMessage } from '@/pages/utils/customerSupport/customerSupportService';
 
 const payload = {
   entry: [{ changes: [{ value: {
@@ -9,6 +10,13 @@ const payload = {
     messages: [{ id: 'wamid.unit-inbound', from: '5511999990000', timestamp: '1792580000',
       type: 'image', image: { id: 'media-unit', mime_type: 'image/jpeg', caption: 'Legenda' },
       context: { id: 'wamid.unit-reply' } }],
+  } }] }],
+};
+const appEchoPayload = {
+  entry: [{ changes: [{ field: 'smb_message_echoes', value: {
+    metadata: { phone_number_id: 'channel-unit' },
+    message_echoes: [{ id: 'wamid.unit-app-echo', from: '551166665555', to: '+5511999990000', timestamp: '1792580001',
+      type: 'text', text: { body: 'Enviado pelo celular' } }],
   } }] }],
 };
 
@@ -90,6 +98,47 @@ describe('Recebimento/reabertura — contrato unitário, sem PostgreSQL', () => 
     expect(result.duplicatesIgnored).toBe(0);
     expect(result.errors).toHaveLength(1);
     if ('lookupError' in options || 'conversationError' in options) expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('Mensagens enviadas pelo WhatsApp Business app — eco de Coexistence', () => {
+  it('persiste smb_message_echoes como saída na conversa do destinatário', async () => {
+    const supabase = client();
+    const result = await processWhatsAppWebhookPayload(supabase as never, appEchoPayload);
+    expect(result).toMatchObject({ processedMessages: 1, duplicatesIgnored: 0, errors: [] });
+    expect(supabase.rpc).toHaveBeenCalledWith('customer_support_receive_message_echo', {
+      p_business_phone_number_id: 'channel-unit', p_contact_wa_id: '5511999990000',
+      p_contact_phone: '+5511999990000', p_contact_name: null,
+      p_customer_id: null, p_customer_link_status: 'unlinked',
+      p_message: { api_message_id: 'wamid.unit-app-echo', message_type: 'text', text_content: 'Enviado pelo celular',
+        media_id: null, media_mime_type: null, media_filename: null, media_caption: null,
+        reply_to_wamid: null, timestamp: new Date(1792580001 * 1000).toISOString() },
+    });
+    expect(supabase.from.mock.calls.map(([table]) => table)).toEqual(['whatsapp_messages', 'whatsapp_conversations']);
+  });
+
+  it('contabiliza replay como duplicata e ignora mudança de outro campo', async () => {
+    const duplicate = await processWhatsAppWebhookPayload(client({ inserted: false }) as never, appEchoPayload);
+    const unrelated = await processWhatsAppWebhookPayload(client() as never, {
+      entry: [{ changes: [{ field: 'messages', value: { ...appEchoPayload.entry[0].changes[0].value } }] }],
+    });
+    expect(duplicate).toMatchObject({ processedMessages: 0, duplicatesIgnored: 1, errors: [] });
+    expect(unrelated).toMatchObject({ processedMessages: 0, duplicatesIgnored: 0, errors: [] });
+  });
+
+  it('expõe a origem no balão e mantém a RPC fechada a clientes/anon', () => {
+    const echoMigration = readFileSync(new URL('../../../../../../supabase/migrations/20261024170000_customer_support_whatsapp_app_echoes.sql', import.meta.url), 'utf8');
+    const message = mapRowToMessage({ direction: 'outbound', raw_payload: {
+      source: 'whatsapp_business_app', author_name: 'WhatsApp Business (celular)',
+    } });
+    expect(message.authorName).toBe('WhatsApp Business (celular)');
+    expect(echoMigration).toContain('SECURITY INVOKER SET search_path = \'\'');
+    expect(echoMigration).toContain('FROM PUBLIC, anon, authenticated;');
+    expect(echoMigration).toContain('TO service_role;');
+    expect(echoMigration).toContain('ON CONFLICT (api_message_id) DO NOTHING');
+    expect(echoMigration).toContain("'source', 'whatsapp_business_app'");
+    expect(echoMigration).not.toMatch(/unread_count\s*=|last_customer_message_at\s*=|is_archived\s*=|tags\s*=/);
+    expect(echoMigration).not.toMatch(/whatsapp_dispatches|net\.http|customer_support_receive_message\(/);
   });
 });
 

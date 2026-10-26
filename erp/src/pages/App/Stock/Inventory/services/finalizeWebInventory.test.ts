@@ -31,6 +31,17 @@ const adjustments = [
   },
 ];
 
+const mockClaimAndFinalize = (auditId: string) => {
+  rpc.mockResolvedValueOnce({
+    data: { auditId, status: 'claimed' },
+    error: null,
+  });
+  rpc.mockResolvedValueOnce({
+    data: { auditId, status: 'processed' },
+    error: null,
+  });
+};
+
 describe('commit do inventário web', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -40,7 +51,7 @@ describe('commit do inventário web', () => {
   });
 
   it('envia um único lote e limpa o IndexedDB depois da resposta confirmada', async () => {
-    rpc.mockResolvedValue({ data: { auditId: draft.id, status: 'processed' }, error: null });
+    mockClaimAndFinalize(draft.id);
     await finalizeWebInventory(
       draft.id,
       draft.code,
@@ -51,26 +62,33 @@ describe('commit do inventário web', () => {
       },
       adjustments
     );
-    expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc.mock.calls[0][1].p_items[0].previousStock).toBe(4);
-    expect(rpc.mock.calls[0][1].p_responsible_name).toBe('Operador Teste');
-    expect(rpc.mock.calls[0][1].p_observation.responsibleName).toBe('Operador Teste');
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls[0][0]).toBe('claim_inventory_audit_submission');
+    expect(rpc.mock.calls[0][1]).not.toHaveProperty('p_user_id');
+    expect(rpc.mock.calls[1][0]).toBe('finalize_inventory_transaction');
+    expect(rpc.mock.calls[1][1].p_items[0].previousStock).toBe(4);
+    expect(rpc.mock.calls[1][1].p_responsible_name).toBe('Operador Teste');
+    expect(rpc.mock.calls[1][1].p_observation.responsibleName).toBe('Operador Teste');
     expect(await getWebInventoryDraft(draft.id)).toBeNull();
   });
 
   it('recupera o responsável do rascunho quando ele falta no snapshot enviado', async () => {
-    rpc.mockResolvedValue({ data: { auditId: draft.id, status: 'processed' }, error: null });
+    mockClaimAndFinalize(draft.id);
     await finalizeWebInventory(draft.id, draft.code, { status: 'completed' }, adjustments);
 
-    expect(rpc.mock.calls[0][1].p_responsible_name).toBe('Operador Teste');
-    expect(rpc.mock.calls[0][1].p_observation.responsibleName).toBe('Operador Teste');
+    expect(rpc.mock.calls[1][1].p_responsible_name).toBe('Operador Teste');
+    expect(rpc.mock.calls[1][1].p_observation.responsibleName).toBe('Operador Teste');
   });
 
   it('preserva a contagem quando o Supabase falha e permite retomar com o mesmo ID', async () => {
-    rpc.mockResolvedValueOnce({ data: null, error: new Error('offline') }).mockResolvedValueOnce({
-      data: { auditId: draft.id, status: 'already_processed' },
-      error: null,
-    });
+    rpc
+      .mockResolvedValueOnce({ data: { auditId: draft.id, status: 'claimed' }, error: null })
+      .mockResolvedValueOnce({ data: null, error: new Error('offline') })
+      .mockResolvedValueOnce({ data: { auditId: draft.id, status: 'already_claimed' }, error: null })
+      .mockResolvedValueOnce({
+        data: { auditId: draft.id, status: 'already_processed' },
+        error: null,
+      });
     await expect(
       finalizeWebInventory(draft.id, draft.code, { status: 'completed' }, adjustments)
     ).rejects.toThrow('offline');
@@ -79,25 +97,28 @@ describe('commit do inventário web', () => {
     await finalizeWebInventory(draft.id, draft.code, { status: 'changed' }, [
       { ...adjustments[0], physicalCount: 99 },
     ]);
-    expect(rpc.mock.calls[0][1].p_audit_id).toBe(rpc.mock.calls[1][1].p_audit_id);
-    expect(rpc.mock.calls[0][1]).toEqual(rpc.mock.calls[1][1]);
+    expect(rpc).toHaveBeenCalledTimes(4);
+    expect(rpc.mock.calls[0][0]).toBe('claim_inventory_audit_submission');
+    expect(rpc.mock.calls[2][0]).toBe('claim_inventory_audit_submission');
+    expect(rpc.mock.calls[0][1].p_audit_id).toBe(rpc.mock.calls[2][1].p_audit_id);
+    expect(rpc.mock.calls[0][1]).toEqual(rpc.mock.calls[2][1]);
+    expect(rpc.mock.calls[1][1]).toEqual(rpc.mock.calls[3][1]);
     expect(await getWebInventoryDraft(draft.id)).toBeNull();
   });
 
   it('não apaga o rascunho diante de resposta sem confirmação', async () => {
-    rpc.mockResolvedValue({ data: { auditId: 'outro-id', status: 'processed' }, error: null });
+    rpc.mockResolvedValueOnce({ data: { auditId: 'outro-id', status: 'claimed' }, error: null });
     await expect(
       finalizeWebInventory(draft.id, draft.code, { status: 'completed' }, adjustments)
     ).rejects.toThrow('não confirmou');
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls[0][0]).toBe('claim_inventory_audit_submission');
     expect(await getWebInventoryDraft(draft.id)).not.toBeNull();
   });
 
   it('envia todas as contagens com horário pela RPC v2 quando habilitada', async () => {
     vi.stubEnv('VITE_INVENTORY_RPC_V2', 'true');
-    rpc.mockResolvedValue({
-      data: { auditId: draft.id, status: 'processed', moves: [] },
-      error: null,
-    });
+    mockClaimAndFinalize(draft.id);
     await finalizeWebInventory(
       draft.id,
       draft.code,
@@ -132,8 +153,10 @@ describe('commit do inventário web', () => {
         },
       ]
     );
-    expect(rpc.mock.calls[0][0]).toBe('finalize_inventory_transaction_v2');
-    expect(rpc.mock.calls[0][1].p_items[0].countedAt).toBe('2026-09-25T10:00:00Z');
-    expect(rpc.mock.calls[0][1].p_items).toHaveLength(2);
+    expect(rpc.mock.calls[0][0]).toBe('claim_inventory_audit_submission');
+    expect(rpc.mock.calls[0][1].p_contract_version).toBe(2);
+    expect(rpc.mock.calls[1][0]).toBe('finalize_inventory_transaction_v2');
+    expect(rpc.mock.calls[1][1].p_items[0].countedAt).toBe('2026-09-25T10:00:00Z');
+    expect(rpc.mock.calls[1][1].p_items).toHaveLength(2);
   });
 });

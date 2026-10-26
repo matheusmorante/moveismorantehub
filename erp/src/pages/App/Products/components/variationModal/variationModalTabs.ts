@@ -31,7 +31,7 @@ export const getVariationFormTabs = (
   tabs.push({ id: 'estoque', label: 'Precificação', icon: 'bi-tag' });
 
   if (isComposition) {
-    tabs.push({ id: 'compostos', label: 'Produtos Componentes', icon: 'bi-diagram-3' });
+    tabs.push({ id: 'compostos', label: 'Composição', icon: 'bi-diagram-3' });
   }
 
   return tabs;

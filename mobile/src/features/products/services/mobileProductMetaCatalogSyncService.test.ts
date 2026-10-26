@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   getSession: vi.fn(),
+  getAppSettings: vi.fn(),
 }));
 
 vi.mock('../../../services/supabaseClient', () => ({
@@ -11,6 +12,12 @@ vi.mock('../../../services/supabaseClient', () => ({
     from: mocks.from,
   },
 }));
+
+vi.mock('../../../services/appSettingsCache', () => ({
+  getAppSettings: mocks.getAppSettings,
+}));
+
+import { META_CATALOG_GLOBAL_PREFIX } from '../../../../../shared-utils/metaCatalogPayload';
 
 import {
   syncMobileProductToMetaCatalog,
@@ -35,6 +42,7 @@ const product = {
   id: 'product-1',
   code: 'PROD-01',
   name: 'Mesa de jantar',
+  description: 'Descrição específica do produto',
   status: 'published',
   active: true,
   deleted: false,
@@ -55,6 +63,9 @@ describe('mobileProductMetaCatalogSyncService', () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'session-token' } },
       error: null,
+    });
+    mocks.getAppSettings.mockResolvedValue({
+      channelBaseDescriptions: { whatsapp: 'Base institucional personalizada' },
     });
     mocks.from.mockImplementation((table: string) => {
       if (table === 'products') return createQuery({ data: product, error: null });
@@ -128,6 +139,11 @@ describe('mobileProductMetaCatalogSyncService', () => {
         custom_label_3: 'Sala de jantar',
       },
     });
+    const description = body.payload.requests[1].data.description as string;
+    const globalPrefix = META_CATALOG_GLOBAL_PREFIX.trim();
+    expect(description).toContain('Base institucional personalizada');
+    expect(description).toContain('Descrição específica do produto');
+    expect(description.split(globalPrefix)).toHaveLength(2);
   });
 
   it('não usa produção como fallback em desenvolvimento sem URL configurada', async () => {

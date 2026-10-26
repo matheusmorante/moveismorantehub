@@ -81,6 +81,21 @@ export const toMobileVariationAttributes = (value: unknown): MobileVariationAttr
   return [];
 };
 
+export const getMobileVariationActionRequirements = (
+  parentProduct:
+    | { supplierId?: unknown; supplier_id?: unknown; main_supplier_id?: unknown }
+    | null
+    | undefined,
+  variation: { attributes?: unknown } | null | undefined
+): { hasSupplier: boolean; hasValidAttributes: boolean } => ({
+  hasSupplier: Boolean(
+    parentProduct?.supplierId || parentProduct?.supplier_id || parentProduct?.main_supplier_id
+  ),
+  hasValidAttributes: toMobileVariationAttributes(variation?.attributes).some(
+    (attribute) => attribute.name.trim() && attribute.value.trim()
+  ),
+});
+
 export const mobileVariationAttributesConflict = (
   first: readonly MobileVariationAttribute[],
   second: readonly MobileVariationAttribute[]
@@ -244,6 +259,9 @@ export const ensureMobileAttributeValue = async (
       .select('id, name')
       .single(), true);
     handleWriteError(response.error);
+    if (!response.data) {
+      throw new VariationFamilyUnconfirmedError('O cadastro da característica não foi confirmado. Consulte as características antes de repetir.');
+    }
     attribute = response.data;
   }
   if (!attribute?.id || typeof attribute.name !== 'string'

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AssignedProfileSummary, WhatsAppConversation } from '../types';
+import type { SupportOrderSummary } from '@/pages/utils/customerSupport/supportOrdersService';
 import { useCustomerSupportMessages, useCustomerSupportActions } from '../hooks';
 import { ActivityTimelineDrawer } from './ActivityTimelineDrawer';
 import { ChatArea } from './ChatArea';
@@ -43,10 +44,12 @@ export const CustomerSupportChatPane: React.FC<CustomerSupportChatPaneProps> = (
   const chatConversationRef = useRef(chatConversation);
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [shareOrderRequest, setShareOrderRequest] = useState<{ conversationId: string; requestId: string; record: SupportOrderSummary } | null>(null);
 
   useEffect(() => {
     chatConversationRef.current = conversation;
     setChatConversation(conversation);
+    setShareOrderRequest(null);
   }, [conversation]);
 
   useEffect(() => {
@@ -153,6 +156,8 @@ export const CustomerSupportChatPane: React.FC<CustomerSupportChatPaneProps> = (
         onJumpToMessage={jumpToMessage}
         jumpToMessageId={jumpToMessageId}
         onJumpComplete={clearJumpToMessage}
+        shareOrderRequest={shareOrderRequest}
+        onShareOrderRequestHandled={(requestId) => setShareOrderRequest((current) => current?.requestId === requestId ? null : current)}
       />
 
       <CustomerInfoPanel
@@ -162,6 +167,11 @@ export const CustomerSupportChatPane: React.FC<CustomerSupportChatPaneProps> = (
         isOverlay={isMultiChatPanel}
         onClose={() => setIsInfoPanelOpen(false)}
         onConversationUpdated={handleConversationUpdated}
+        onShareBudget={(record) => setShareOrderRequest({
+          conversationId: chatConversation.id,
+          requestId: `${Date.now()}-${Math.random()}`,
+          record,
+        })}
         onJumpToMessage={(message) => {
           jumpToMessage(message);
           setIsInfoPanelOpen(false);

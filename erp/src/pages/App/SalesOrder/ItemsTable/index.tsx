@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Footer from './Footer';
 import Body from './Body';
 import { Item, ItemsSummary } from '../../../types/items.type';
 import { ValidationErrors } from '../../../utils/validations';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
-import { ItemsTableTabsBar } from './ItemsTableTabsBar';
+import { ItemsTableHeader } from './ItemsTableHeader';
 import { ItemsTableDesktopHeader } from './ItemsTableDesktopHeader';
 
 interface Props {
@@ -19,8 +19,6 @@ interface Props {
   hideHandling?: boolean;
   /** Se true, destaca visualmente os itens sem produto real vinculado */
   highlightTemporaryItems?: boolean;
-  activeTab?: 'products' | 'services';
-  onTabChange?: (tab: 'products' | 'services') => void;
 }
 
 function createEmptyOrderItem(itemType: 'product' | 'service'): Item {
@@ -47,38 +45,47 @@ const ItemsTable = ({
   isReturn,
   hideHandling: propHideHandling,
   highlightTemporaryItems,
-  activeTab: externalActiveTab,
-  onTabChange: externalOnTabChange,
 }: Props) => {
   const hideHandling = Boolean(propHideHandling || isBudget || isReturn);
 
-  // Estado da aba interna (Produtos vs Serviços)
-  const [internalTab, setInternalTab] = useState<'products' | 'services'>('products');
-  const activeTab = externalActiveTab !== undefined ? externalActiveTab : internalTab;
-  const setActiveTab = (tab: 'products' | 'services') => {
-    if (externalOnTabChange) externalOnTabChange(tab);
-    setInternalTab(tab);
-  };
-
   // Apenas um item expandido por vez no modo card
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
-    // Se houver apenas 1 item e ele estiver vazio, abre expandido
-    if (items.length === 1 && !items[0].description) return 0;
-    return null;
-  });
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [descriptionFocusIndex, setDescriptionFocusIndex] = useState<number | null>(null);
+  const [compositionDraftOpen, setCompositionDraftOpen] = useState(false);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
-  const productsCount = items.filter((i) => i.itemType !== 'service').length;
+  const compositionGroups = new Set(
+    items.map((item) => item.compositionGroup?.groupId).filter((groupId): groupId is string => Boolean(groupId))
+  );
+  const productsCount =
+    items.filter((item) => item.itemType !== 'service' && !item.compositionGroup).length +
+    compositionGroups.size;
   const servicesCount = items.filter((i) => i.itemType === 'service').length;
+  const physicalProductQuantity = items
+    .filter((item) => item.itemType !== 'service')
+    .reduce((total, item) => total + (Number(item.quantity) || 0), 0);
 
-  const handleAddItem = (itemType: 'product' | 'service') => {
+  const handleAddItem = (itemType: 'product' | 'composition' | 'service') => {
+    setExpandedIndex(null);
+    setDescriptionFocusIndex(null);
+
+    if (itemType === 'composition') {
+      setCompositionDraftOpen(true);
+      return;
+    }
+
+    setCompositionDraftOpen(false);
     const newItemIndex = items.length;
     setItems((prev: Item[]) => [...prev, createEmptyOrderItem(itemType)]);
-    setActiveTab(itemType === 'service' ? 'services' : 'products');
-    setExpandedIndex(newItemIndex);
+    setDescriptionFocusIndex(newItemIndex);
   };
 
-  const handleAddCurrent = () => {
-    handleAddItem(activeTab === 'services' ? 'service' : 'product');
+  const handleCompositionSelect = (product: any, variation?: any) => {
+    const newItemIndex = itemsRef.current.length;
+    onSelectProduct(newItemIndex, product, variation);
+    setExpandedIndex(newItemIndex);
+    setCompositionDraftOpen(false);
   };
 
   const { width } = useWindowSize();
@@ -87,42 +94,48 @@ const ItemsTable = ({
   return (
     <div className="flex flex-col gap-3 p-0 h-full w-full">
       {!isReturn && (
-        <ItemsTableTabsBar
-          activeTab={activeTab}
+        <ItemsTableHeader
           productsCount={productsCount}
           servicesCount={servicesCount}
-          onSelectTab={setActiveTab}
-          onAddCurrent={handleAddCurrent}
+          onAddItem={handleAddItem}
         />
       )}
 
       {/* Conteúdo: Modo Cards (telas < 1280px) ou Modo Tabela (telas >= 1280px) */}
       {isCardsView ? (
-        <div className="flex flex-col gap-2.5">
-          <Body
-            items={items}
-            setItems={setItems}
-            deliveryMethod={deliveryMethod}
-            errors={errors}
-            isMobile={true}
-            onSelectProduct={onSelectProduct}
-            isBudget={isBudget}
-            isReturn={isReturn}
-            hideHandling={hideHandling}
-            highlightTemporaryItems={highlightTemporaryItems}
-            activeTab={activeTab}
-            expandedIndex={expandedIndex}
-            setExpandedIndex={setExpandedIndex}
-          />
+        <div className="flex flex-col">
+          <div className="flex flex-col">
+            <Body
+              items={items}
+              setItems={setItems}
+              deliveryMethod={deliveryMethod}
+              errors={errors}
+              isMobile={true}
+              onSelectProduct={onSelectProduct}
+              isBudget={isBudget}
+              isReturn={isReturn}
+              hideHandling={hideHandling}
+              highlightTemporaryItems={highlightTemporaryItems}
+              expandedIndex={expandedIndex}
+              setExpandedIndex={setExpandedIndex}
+              autoFocusDescriptionIndex={descriptionFocusIndex}
+              onDescriptionBlur={(idx) =>
+                setDescriptionFocusIndex((current) => (current === idx ? null : current))
+              }
+              compositionDraftOpen={compositionDraftOpen}
+              onSelectComposition={handleCompositionSelect}
+              onCancelCompositionDraft={() => setCompositionDraftOpen(false)}
+            />
+          </div>
 
-          <div className="mt-1 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-sm">
-            <Footer summary={summary} items={items} isMobile={true} isBudget={isBudget} />
+          <div className="border-t border-slate-200/70 bg-slate-50/50 px-3 py-3 dark:border-slate-800 dark:bg-slate-800/20">
+            <Footer summary={summary} items={items} isMobile={true} isBudget={isBudget} physicalProductQuantity={physicalProductQuantity} />
           </div>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200/70 dark:border-slate-800">
           <table className="w-full border-collapse table-fixed">
-            <ItemsTableDesktopHeader activeTab={activeTab} hideHandling={hideHandling} />
+            <ItemsTableDesktopHeader hideHandling={hideHandling} />
             <Body
               items={items}
               setItems={setItems}
@@ -134,9 +147,15 @@ const ItemsTable = ({
               isReturn={isReturn}
               hideHandling={hideHandling}
               highlightTemporaryItems={highlightTemporaryItems}
-              activeTab={activeTab}
+              autoFocusDescriptionIndex={descriptionFocusIndex}
+              onDescriptionBlur={(idx) =>
+                setDescriptionFocusIndex((current) => (current === idx ? null : current))
+              }
+              compositionDraftOpen={compositionDraftOpen}
+              onSelectComposition={handleCompositionSelect}
+              onCancelCompositionDraft={() => setCompositionDraftOpen(false)}
             />
-            <Footer summary={summary} items={items} isBudget={isBudget} />
+            <Footer summary={summary} items={items} isBudget={isBudget} physicalProductQuantity={physicalProductQuantity} />
           </table>
         </div>
       )}

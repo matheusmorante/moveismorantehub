@@ -91,4 +91,33 @@ describe('variationFormDefaults', () => {
     expect(discountFixed).toBe('100.00');
     expect(discountPercent).toBe('20.0');
   });
+
+  it('usa promoção própria para o desconto quando somente o preço regular é herdado', () => {
+    const existing: Variation = {
+      id: 'var-mixed-pricing',
+      sku: 'CAD100-02',
+      name: 'Cadeira Gamer Preta',
+      unitPrice: 500,
+      promoPrice: 300,
+      syncUnitPrice: true,
+      syncPromoPrice: false,
+      active: true,
+      status: 'published',
+      stock: 2,
+      attributes: [],
+    };
+
+    const { formData, discountFixed, discountPercent } = buildInitialVariationFormData(
+      mockParent,
+      existing,
+      false,
+      false,
+      []
+    );
+
+    expect(formData.unitPrice).toBe(500);
+    expect(formData.promoPrice).toBe(300);
+    expect(discountFixed).toBe('200.00');
+    expect(discountPercent).toBe('40.0');
+  });
 });

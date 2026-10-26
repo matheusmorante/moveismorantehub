@@ -3,7 +3,8 @@ import Product, { ProductVisibilitySettings } from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { getCategoryBreadcrumb } from '@/pages/utils/categoryService';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
-import { getProductKind, isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
+import { isSalvadoStockOrigin } from '../../../../../../../../shared-utils/productStockOrigin';
 import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
 import type { ProductListRow } from '../../types';
 
@@ -17,6 +18,7 @@ export interface CellProductLike extends Product {
 
 export interface CellContext {
   readonly product: CellProductLike;
+  readonly opportunityName?: string | null;
   readonly visibilitySettings: ProductVisibilitySettings;
   readonly isChildVar: boolean;
   readonly singleVariation?: ProductListRow;
@@ -35,6 +37,7 @@ export interface CellContext {
 export function renderProductRowStandardCell(key: string, ctx: CellContext): React.ReactNode {
   const {
     product,
+    opportunityName,
     visibilitySettings,
     isChildVar,
     singleVariation,
@@ -268,15 +271,7 @@ export function renderProductRowStandardCell(key: string, ctx: CellContext): Rea
               catalogStatus={singleVariation?.status || product.status}
               isParent={Boolean(product.isParent && !singleVariation)}
               isNonConventional={isNonConventionalProduct(product as any)}
-              isSalvado={
-                getProductKind(product) === 'salvado' ||
-                getProductKind(singleVariation as any) === 'salvado' ||
-                Boolean(
-                  (product.opportunityName || product.opportunity?.name || '')
-                    .toLowerCase()
-                    .includes('salvado')
-                )
-              }
+              isSalvado={isSalvadoStockOrigin(product, singleVariation, opportunityName)}
               canManageCatalog={canManageCatalog}
               canToggleActive={canDeleteProducts}
               showCatalogControl={showCatalogControl}

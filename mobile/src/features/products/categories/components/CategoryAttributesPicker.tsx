@@ -151,7 +151,7 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
             );
           })}
         </View>
-      )}
+      ) : null}
 
       {selectedAttributes.length > 0 && (
         <View style={styles.selectedAttributes}>

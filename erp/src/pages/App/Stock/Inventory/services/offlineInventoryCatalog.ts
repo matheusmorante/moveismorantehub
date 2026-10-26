@@ -107,8 +107,8 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
         ),
         fetchChangedRows(
           'people',
-          'id, person_type, full_name, social_name, nickname, active, deleted, updated_at',
-          previous.cursors.suppliers,
+          'id, person_type, full_name, social_name, nickname, stock_origins, active, deleted, updated_at',
+          previous.formatVersion === 3 ? previous.cursors.suppliers : undefined,
           ['person_type', 'suppliers']
         ),
         fetchDeletions(previous.deletionCursor || 0),
@@ -154,7 +154,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
       );
       const compact: OfflineInventoryCatalog = {
         ...next,
-        formatVersion: 2,
+        formatVersion: 3,
         products: compactOfflineInventoryCatalogRows(next.products, [
           'id',
           'name',
@@ -198,6 +198,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
           'full_name',
           'social_name',
           'nickname',
+          'stock_origins',
           'active',
           'deleted',
           'updated_at',
@@ -205,7 +206,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
       };
       await writeOfflineInventoryCatalogSnapshot(compact);
       const verified = await readOfflineInventoryCatalogSnapshot();
-      if (verified?.formatVersion !== 2 || verified.syncedAt !== compact.syncedAt) {
+      if (verified?.formatVersion !== 3 || verified.syncedAt !== compact.syncedAt) {
         throw new Error('Não foi possível confirmar a gravação do novo índice no navegador.');
       }
       cachedCatalog = compact;

@@ -14,10 +14,10 @@ const hydrateProductComposition = async (
     : product.comboItems || [];
 
   if (variation && !variation.comboItems?.length && !product.comboItems?.length) {
-    throw new Error('A variação deste produto composto não possui produtos componentes.');
+    throw new Error('Esta variação do produto composto não possui componentes cadastrados.');
   }
   if (!compositionItems.length) {
-    throw new Error('Este produto composto ainda não possui produtos componentes.');
+    throw new Error('Este produto composto não possui componentes cadastrados.');
   }
 
   const resolvedItems = await Promise.all(

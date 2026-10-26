@@ -3,9 +3,10 @@ import React from 'react';
 interface UsageConsumptionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  enableDevelopmentTestMode?: boolean;
 }
 
-export const UsageConsumptionModal: React.FC<UsageConsumptionModalProps> = ({ isOpen, onClose }) => {
+export const UsageConsumptionModal: React.FC<UsageConsumptionModalProps> = ({ isOpen, onClose, enableDevelopmentTestMode = false }) => {
   if (!isOpen) return null;
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="support-policy-title" className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in select-none">
@@ -25,12 +26,18 @@ export const UsageConsumptionModal: React.FC<UsageConsumptionModalProps> = ({ is
           <div className="flex items-start gap-3">
             <i className="bi bi-lock-fill mt-0.5 text-amber-600 dark:text-amber-400" />
             <div>
-              <strong className="block text-xs font-bold">Envio de mensagens desativado</strong>
-              <p className="mt-1 text-[11px] leading-relaxed">A Central permite consultar e organizar conversas, mas não despacha mensagens para clientes. O bloqueio está definido pela política da empresa e continua aplicado no navegador e no servidor.</p>
+              <strong className="block text-xs font-bold">
+                Envio controlado por permissão e janela de atendimento
+              </strong>
+              <p className="mt-1 text-[11px] leading-relaxed">
+                {enableDevelopmentTestMode
+                  ? 'O compositor segue as mesmas validações do ambiente de produção: perfil autorizado, conversa aberta, canal configurado e janela de 24 horas. A mensagem só é enviada após a confirmação explícita do atendente.'
+                  : 'Somente perfis autorizados podem enviar mensagens em conversas abertas, pelo canal conectado e durante a janela de 24 horas. O servidor revalida essas condições antes de chamar a Meta; a Central não envia mensagens automaticamente.'}
+              </p>
             </div>
           </div>
         </div>
-        <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">Não há contador de franquia nesta tela porque o produto não possui uma fonte de consumo confirmada para exibir um limite numérico.</p>
+        <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">Mensagens fora da janela de 24 horas e modelos aprovados ainda não estão disponíveis neste compositor.</p>
         <button type="button" onClick={onClose} className="mt-5 w-full py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs">Entendi</button>
       </div>
     </div>

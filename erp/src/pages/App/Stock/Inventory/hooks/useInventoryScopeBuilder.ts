@@ -7,6 +7,10 @@ import type {
   InventoryScopeType,
   ScopeConfiguration,
 } from '../types/inventoryScope.types';
+import {
+  getInventorySupplierIds,
+  isInventoryProductEligible,
+} from '../domain/inventoryScopeEligibility';
 
 export const useInventoryScopeBuilder = (
   allProducts: readonly Product[],
@@ -27,13 +31,7 @@ export const useInventoryScopeBuilder = (
 
   const getAssignedSupplierName = useCallback(
     (product: Product) => {
-      const supplierId = [
-        product.mainSupplierId,
-        product.supplierId,
-        ...(product.supplierIds || []),
-      ]
-        .filter(Boolean)
-        .map(String)[0];
+      const supplierId = getInventorySupplierIds(product, suppliers)[0];
 
       if (!supplierId) return 'Sem fornecedor';
 
@@ -45,13 +43,7 @@ export const useInventoryScopeBuilder = (
 
   const getSupplierNames = useCallback(
     (product: Product) => {
-      const supplierIds = [
-        product.mainSupplierId,
-        product.supplierId,
-        ...(product.supplierIds || []),
-      ]
-        .filter(Boolean)
-        .map(String);
+      const supplierIds = getInventorySupplierIds(product, suppliers);
 
       const names = supplierIds
         .map((supplierId) => {
@@ -69,6 +61,7 @@ export const useInventoryScopeBuilder = (
     const items: ScopeConfiguration['itemsSnapshot'] = [];
 
     const addProductVariations = (product: Product, specificVariation?: Variation) => {
+      if (!isInventoryProductEligible(product, suppliers)) return;
       const assignedSupplier = getAssignedSupplierName(product);
       const supplierNames = getSupplierNames(product);
 
@@ -131,13 +124,7 @@ export const useInventoryScopeBuilder = (
       }
     } else if (scopeType === 'supplier' && selectedSupplierId) {
       const supplierProducts = allProducts.filter((product) => {
-        const supplierIds = [
-          product.mainSupplierId,
-          product.supplierId,
-          ...(product.supplierIds || []),
-        ]
-          .filter(Boolean)
-          .map(String);
+        const supplierIds = getInventorySupplierIds(product, suppliers);
         return supplierIds.includes(String(selectedSupplierId));
       });
       for (const product of supplierProducts) {
@@ -150,7 +137,15 @@ export const useInventoryScopeBuilder = (
     }
 
     return items;
-  }, [scopeType, allProducts, selectedSupplierId, customProducts, getAssignedSupplierName, getSupplierNames]);
+  }, [
+    scopeType,
+    allProducts,
+    suppliers,
+    selectedSupplierId,
+    customProducts,
+    getAssignedSupplierName,
+    getSupplierNames,
+  ]);
 
   const handleNextStep = useCallback((type: InventoryScopeType) => {
     setScopeType(type);

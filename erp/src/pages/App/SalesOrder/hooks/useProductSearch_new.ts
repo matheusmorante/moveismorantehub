@@ -3,10 +3,22 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { parseVariationAttributes } from '@/pages/utils/productService/productVariationMapper';
 import type { SelectableCatalogItem } from './productSearchDeepFetch';
 
-export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
+interface ProductSearchOptions {
+  /** Busca cada palavra separadamente e une os resultados, para frases que não são contíguas no nome. */
+  matchTermsIndividually?: boolean;
+  /** A RPC não retorna products.item_type; consulta o tipo para classificar composições antigas do catálogo. */
+  resolveProductItemTypes?: boolean;
+}
+
+export const useProductSearch_new = (
+  priceType: 'unit' | 'cost' = 'unit',
+  options?: ProductSearchOptions
+) => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [filtered, setFiltered] = useState<SelectableCatalogItem[]>([]);
+  const matchTermsIndividually = options?.matchTermsIndividually ?? false;
+  const resolveProductItemTypes = options?.resolveProductItemTypes ?? false;
 
   useEffect(() => {
     let isMounted = true;
@@ -25,13 +37,21 @@ export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
 
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .rpc('search_catalog_shallow', { p_query: term, p_limit: 15 })
-          .abortSignal(controller.signal);
+        const queryTerms = matchTermsIndividually
+          ? Array.from(new Set([term, ...term.split(/\s+/).filter((word) => word.length >= 3)]))
+          : [term];
+        const searchResults = await Promise.all(
+          queryTerms.map((query) =>
+            supabase
+              .rpc('search_catalog_shallow', { p_query: query, p_limit: 15 })
+              .abortSignal(controller.signal)
+          )
+        );
 
-        if (error) {
-          if (error.code === 'DOMException' || error.message?.includes('AbortError')) return;
-          console.error('[useProductSearch_new] Erro na busca remota:', error);
+        const failedSearch = searchResults.find(({ error }) => error);
+        if (failedSearch?.error) {
+          if (failedSearch.error.code === 'DOMException' || failedSearch.error.message?.includes('AbortError')) return;
+          console.error('[useProductSearch_new] Erro na busca remota:', failedSearch.error);
           if (isMounted) {
             setFiltered([]);
             setLoading(false);
@@ -39,7 +59,38 @@ export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
           return;
         }
 
-        if (isMounted && data && !controller.signal.aborted) {
+        const rowsByQuery = searchResults.map(({ data }) => data ?? []);
+        const data = Array.from(
+          new Map(rowsByQuery.flat().map((row: any) => [row.key, row])).values()
+        );
+
+        if (isMounted && !controller.signal.aborted) {
+          const productItemTypeById = new Map<string, string>();
+          const productIds = resolveProductItemTypes
+            ? Array.from(new Set(data.map((row: any) => row.product_id).filter(Boolean)))
+            : [];
+
+          if (productIds.length > 0) {
+            try {
+              const { data: products, error: productsError } = await supabase
+                .from('products')
+                .select('id, item_type')
+                .in('id', productIds)
+                .abortSignal(controller.signal);
+
+              if (productsError) {
+                console.error('[useProductSearch_new] Erro ao identificar tipos de produto:', productsError);
+              } else {
+                for (const product of products ?? []) {
+                  productItemTypeById.set(product.id, product.item_type || 'product');
+                }
+              }
+            } catch {
+              if (controller.signal.aborted) return;
+              // A classificação é complementar; resultados de composições próprias da RPC continuam válidos.
+            }
+          }
+
           const variationIds = Array.from(
             new Set(
               data
@@ -77,7 +128,8 @@ export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
 
           const mapped: SelectableCatalogItem[] = data.map((row: any) => {
             const isComp = row.entity_type.startsWith('composition');
-            const isProductComposition = isComp || row.item_type === 'composition';
+            const productItemType = row.item_type || productItemTypeById.get(row.product_id);
+            const isProductComposition = isComp || productItemType === 'composition';
             const hasVar = row.entity_type.includes('variation');
 
             const p: any = {
@@ -89,7 +141,7 @@ export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
               unitPrice: Number(row.unit_price || 0),
               costPrice: Number(row.cost_price || 0),
               isComposition: isProductComposition,
-              itemType: isProductComposition ? 'composition' : row.item_type || 'product',
+              itemType: isProductComposition ? 'composition' : productItemType || 'product',
             };
 
             let v: any = undefined;
@@ -131,7 +183,7 @@ export const useProductSearch_new = (priceType: 'unit' | 'cost' = 'unit') => {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [search]);
+  }, [search, matchTermsIndividually, resolveProductItemTypes]);
 
   return {
     search,

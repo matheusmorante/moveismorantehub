@@ -73,7 +73,7 @@ Essas operações fiscais não movimentam estoque, financeiro ou reservas comerc
 
 ### Escopo da emissão existente
 
-`HML_NORMAL_SALE_V2` cobre a matriz já aprovada de venda interna, CRT 1, CFOP 5102 e grupos suportados de ICMS próprio zerado. Escolher 55 por operação interestadual, devolução, crédito ou outra exceção não autoriza reutilizar essa tributação: o fluxo exige a matriz própria da operação. Devoluções/remessas continuam pelos fluxos fiscais específicos. Produção continua exigindo sua aprovação fiscal própria. A alteração do modelo não aprova tributos automaticamente.
+`HML_NORMAL_SALE_V2` cobre a matriz aprovada de venda interna, CRT 1, CFOP 5102 e grupos suportados de ICMS próprio zerado. A emissão também registra no snapshot a política de pagamentos vigente, descrita no [histórico de 24/10](historico-correcoes-2026-10-24.md#pagamento-na-entrega-e-status-verificar-nas-novas-nf-e); snapshots históricos sem esse campo mantêm a regra anterior. Escolher 55 por operação interestadual, devolução, crédito ou outra exceção não autoriza reutilizar essa tributação: o fluxo exige a matriz própria da operação. Devoluções/remessas continuam pelos fluxos fiscais específicos. Produção continua exigindo sua aprovação fiscal própria. A alteração do modelo não aprova tributos automaticamente.
 
 O serializer usa NFC-e online com QR Code v3 (`chave|3|tpAmb`), `tpImp=4` e suplemento antes da assinatura. O backend deriva o endpoint HML de autorização/consulta conforme 55 ou 65, sem fallback para Produção. Os builders antigos do frontend permanecem somente como compatibilidade; a emissão usa o Fiscal Core no servidor.
 

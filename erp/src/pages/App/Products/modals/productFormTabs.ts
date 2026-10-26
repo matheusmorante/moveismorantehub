@@ -7,6 +7,7 @@ export type ProductFormTab =
   | 'variacoes'
   | 'ecommerce'
   | 'technical'
+  | 'composicao'
   | 'fiscal';
 
 export const getProductFormTabs = (
@@ -27,6 +28,9 @@ export const getProductFormTabs = (
             : []),
           { id: 'estoque' as const, label: 'Estoque e Precificação' },
           ...(isMultiVariationMode ? [{ id: 'variacoes' as const, label: 'Variações' }] : []),
+          ...(isComposition && !isMultiVariationMode
+            ? [{ id: 'composicao' as const, label: 'Composição' }]
+            : []),
         ]
       : []),
     ...(!isComposition ? [{ id: 'fiscal' as const, label: 'Tributário / NF' }] : []),

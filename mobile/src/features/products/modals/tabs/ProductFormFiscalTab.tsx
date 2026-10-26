@@ -19,6 +19,7 @@ import {
   fillMissingProductFiscalNcmDescription,
   updateProductFiscalNcmCode,
 } from '../../../../../../shared-utils/productFiscalNcm';
+import { updateProductFiscalCst } from '../../../../../../shared-utils/productFiscalCst';
 
 interface Props {
   formData: any;
@@ -223,12 +224,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
   const updateFiscalCst = (value: string) => {
     setFormData((prev) => ({
       ...prev,
-      fiscal: {
-        ...(prev.fiscal || {}),
-        cst: value,
-        csosn: value,
-        cest: ['201', '202', '500'].includes(value) ? prev.fiscal?.cest || '' : '',
-      },
+      fiscal: updateProductFiscalCst(prev.fiscal, value),
     }));
   };
 

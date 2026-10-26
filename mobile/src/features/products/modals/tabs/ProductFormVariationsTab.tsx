@@ -36,8 +36,10 @@ import {
   calculateProductDiscountFromPromoPrice,
   deriveProductDiscountFields,
 } from '../../../../../../shared-utils/productDiscountFields';
+import { resolveProductVariationPricing } from '../../../../../../shared-utils/productVariationPricing';
 import { generateVariationSku } from '../../domain/productSku';
-import { isMobileProductErpLegible } from '../../domain/productRegistrationRules';
+import { getMobileProductReadiness } from '../../domain/productRegistrationRules';
+import { getEffectiveProductForVariationReadiness } from '../../../../../../shared-utils/productErpLegibility';
 import { checkMobileProductVariationHasMoves } from '../../services/mobileProductMutationService';
 import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
@@ -48,11 +50,14 @@ import { inheritMobileSimpleVariationFromParent } from '../../domain/productVari
 import { replaceMobileProductImageGlobally } from '../../domain/mobileProductImageOrdering';
 import type { MobileProductFormErrorNavigation } from '../../domain/mobileProductFormErrorNavigation';
 import {
+  createMobileProductVariationId,
   generateMobileProductVariations,
+  getInitialMobileVariationName,
   getInitialMobileVariationStatus,
 } from '../../domain/mobileProductVariationGeneration';
 import { ProductVariationGenerationModal } from '../ProductVariationGenerationModal';
 import { variationToSimpleConfirmationSchema } from '../../../../../../shared-utils/productVariationOperationFormSchemas';
+import { isSingleProductVariationFormMode } from '../../../../../../shared-utils/productVariationMode';
 
 type VariationTabId = 'identificacao' | 'tecnico' | 'descricao' | 'fotos' | 'compostos' | 'estoque';
 
@@ -79,6 +84,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
 }) => {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [activeVariationTab, setActiveVariationTab] = useState<VariationTabId>('identificacao');
+  const [openReadiness, setOpenReadiness] = useState<'erp' | 'catalog' | null>(null);
   const [isGenerationModalOpen, setIsGenerationModalOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const simpleConversionForm = useZodForm(variationToSimpleConfirmationSchema, {
@@ -139,6 +145,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
       (variation) => String(variation.id || '') === String(selectedVariationId)
     );
     if (selectedIndex < 0) return;
+    setOpenReadiness(null);
     setExpanded(selectedIndex);
     setActiveVariationTab('identificacao');
   }, [selectedVariationId, variationIds]);
@@ -155,6 +162,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
       return;
     }
 
+    setOpenReadiness(null);
     setExpanded(variationIndex);
     if (target.variationPanel) {
       setActiveVariationTab(target.variationPanel);
@@ -165,10 +173,10 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
   const handleAdd = () => {
     const parentCode = (formData.code || '000000').trim();
     const resolvedSku = generateVariationSku(parentCode, variations);
-    const parentName = String(formData.name || '').trim();
-    const name = parentName || 'Produto';
+    const name = getInitialMobileVariationName(formData);
 
     const v = {
+      id: createMobileProductVariationId(),
       name,
       title: name,
       marketplaceTitle: name,
@@ -208,6 +216,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
       hasVariations: true,
       variations: [...(prev.variations || []), v],
     }));
+    setOpenReadiness(null);
     setExpanded(variations.length);
     setActiveVariationTab('identificacao');
   };
@@ -357,13 +366,17 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
     setFormData((prev) => {
       const vars = [...(prev.variations || [])];
       const current = vars[idx];
-      const parentPrice = parseLocalizedPrice(prev.unitPrice);
-      const regularPrice = parseLocalizedPrice(
-        current.syncUnitPrice !== false ? parentPrice : current.price
+      const effectivePricing = resolveProductVariationPricing(
+        {
+          syncUnitPrice: current.syncUnitPrice,
+          syncPromoPrice: current.syncPromoPrice,
+          unitPrice: current.price,
+          promoPrice: current.promoPrice,
+        },
+        { unitPrice: prev.unitPrice, promoPrice: prev.promoPrice }
       );
-      const currentPromoPrice = parseLocalizedPrice(
-        current.syncUnitPrice !== false ? prev.promoPrice : current.promoPrice
-      );
+      const regularPrice = parseLocalizedPrice(effectivePricing.unitPrice);
+      const currentPromoPrice = parseLocalizedPrice(effectivePricing.promoPrice);
       const inheritedDiscount = deriveProductDiscountFields(regularPrice, currentPromoPrice);
       let next = current;
 
@@ -434,7 +447,11 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
         }
       }
 
-      vars[idx] = { ...next, syncUnitPrice: false, syncPromoPrice: false };
+      vars[idx] = {
+        ...next,
+        syncUnitPrice: field === 'price' ? false : current.syncUnitPrice,
+        syncPromoPrice: false,
+      };
       return { ...prev, variations: vars };
     });
   };
@@ -470,7 +487,11 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
   const parentCategoryIds: string[] =
     formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []);
   const isComposition = formData.itemType === 'composition' || formData.item_type === 'composition';
-  const isSingleVariation = variations.length === 1;
+  const isSingleVariation = isSingleProductVariationFormMode(
+    formData,
+    variations.length,
+    false
+  );
   const isSingleExistingVariation = isExistingProduct && isSingleVariation;
   const inheritedDataTabs: readonly VariationTabId[] = [
     'tecnico',
@@ -563,13 +584,17 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
           </View>
         ) : (
           variations.map((v: any, idx: number) => {
-            const parentPrice = parseLocalizedPrice(formData.unitPrice);
-            const regularPrice = parseLocalizedPrice(
-              v.syncUnitPrice !== false ? parentPrice : v.price
+            const effectivePricing = resolveProductVariationPricing(
+              {
+                syncUnitPrice: v.syncUnitPrice,
+                syncPromoPrice: v.syncPromoPrice,
+                unitPrice: v.price,
+                promoPrice: v.promoPrice,
+              },
+              { unitPrice: formData.unitPrice, promoPrice: formData.promoPrice }
             );
-            const promoPrice = parseLocalizedPrice(
-              v.syncUnitPrice !== false ? formData.promoPrice : v.promoPrice
-            );
+            const regularPrice = parseLocalizedPrice(effectivePricing.unitPrice);
+            const promoPrice = parseLocalizedPrice(effectivePricing.promoPrice);
             const finalPrice =
               promoPrice > 0 && promoPrice < regularPrice ? promoPrice : regularPrice;
             const hasDiscount = finalPrice < regularPrice;
@@ -590,20 +615,32 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
             const isOpen = expanded === idx;
             const variationImage = Array.isArray(v.images) ? v.images[0] : null;
             const openVariation = () => {
+              setOpenReadiness(null);
               setExpanded(idx);
               setActiveVariationTab('identificacao');
             };
-            const erpReady = isMobileProductErpLegible(formData);
+            const effectiveVariationProduct = getEffectiveProductForVariationReadiness(
+              formData,
+              { ...v, unitPrice: v.unitPrice ?? v.price ?? v.unit_price }
+            );
+            const readiness = getMobileProductReadiness(effectiveVariationProduct);
+            const erpReady = readiness.erp.isLegible;
+            const readinessItems =
+              openReadiness === 'erp'
+                ? [
+                    { label: 'Nome / Identificação Válida', complete: readiness.erp.checks.description },
+                    { label: 'Preço de Venda > R$ 0', complete: readiness.erp.checks.unitPrice },
+                    { label: 'Categoria (Herdada do Pai)', complete: readiness.erp.checks.categories },
+                    { label: 'Fornecedor (Herdado do Pai)', complete: readiness.erp.checks.supplier },
+                  ]
+                : [
+                    { label: 'Preço de Venda > R$ 0', complete: readiness.catalog.checks.unitPrice },
+                    { label: 'Fotos vinculadas (Pai ou Variação)', complete: readiness.catalog.checks.images },
+                  ];
             const catalogPublished = formData.status === 'published';
             const derivedDiscount = deriveProductDiscountFields(regularPrice, promoPrice);
-            const discountPercent =
-              v.syncUnitPrice !== false
-                ? derivedDiscount.discountPercent
-                : String(v.discountPercent ?? derivedDiscount.discountPercent);
-            const discountFixed =
-              v.syncUnitPrice !== false
-                ? derivedDiscount.discountFixed
-                : String(v.discountFixed ?? derivedDiscount.discountFixed);
+            const discountPercent = derivedDiscount.discountPercent;
+            const discountFixed = derivedDiscount.discountFixed;
             return (
               <View
                 key={v.id || v.sku || `${v.name || 'variacao'}-${idx}`}
@@ -769,7 +806,14 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                           </TouchableOpacity>
                         </View>
                         <View style={styles.statusPills}>
-                          <View
+                          <TouchableOpacity
+                            hitSlop={8}
+                            onPress={() =>
+                              setOpenReadiness((current) => (current === 'erp' ? null : 'erp'))
+                            }
+                            accessibilityRole="button"
+                            accessibilityLabel={`ERP: ${erpReady ? 'Ativo' : 'Pendente'}, abrir requisitos da variação`}
+                            accessibilityState={{ expanded: openReadiness === 'erp' }}
                             style={[
                               styles.statusPill,
                               erpReady ? styles.erpReadyPill : styles.erpPendingPill,
@@ -783,8 +827,15 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                             >
                               ERP: {erpReady ? 'Ativo' : 'Pendente'}
                             </Text>
-                          </View>
-                          {!isStockistOnly && <View
+                          </TouchableOpacity>
+                          {!isStockistOnly && <TouchableOpacity
+                            hitSlop={8}
+                            onPress={() =>
+                              setOpenReadiness((current) => (current === 'catalog' ? null : 'catalog'))
+                            }
+                            accessibilityRole="button"
+                            accessibilityLabel={`Catálogo: ${catalogPublished ? 'Publicado' : 'Ocultado'}, abrir requisitos da variação`}
+                            accessibilityState={{ expanded: openReadiness === 'catalog' }}
                             style={[
                               styles.statusPill,
                               catalogPublished
@@ -802,7 +853,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                             >
                               Catálogo: {catalogPublished ? 'Publicado' : 'Ocultado'}
                             </Text>
-                          </View>}
+                          </TouchableOpacity>}
                         </View>
                         <ScrollView
                           horizontal
@@ -852,6 +903,41 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                           contentContainerStyle={styles.variationModalBodyContent}
                           keyboardShouldPersistTaps="handled"
                         >
+                          {openReadiness && (openReadiness === 'erp' || !isStockistOnly) && (
+                            <View style={[styles.readinessPanel, dark && styles.darkReadinessPanel]}>
+                              <Text style={[styles.readinessPanelTitle, dark && styles.lightText]}>
+                                {openReadiness === 'erp'
+                                  ? 'Requisitos do ERP (Variação / Ativação)'
+                                  : 'Requisitos para o Catálogo'}
+                              </Text>
+                              {readinessItems.map((item) => (
+                                <View
+                                  key={item.label}
+                                  accessible
+                                  accessibilityLabel={`${item.label}: ${item.complete ? 'atendido' : 'pendente'}`}
+                                  style={styles.readinessItem}
+                                >
+                                  {item.complete ? (
+                                    <Check size={14} color={openReadiness === 'erp' ? '#3b82f6' : '#10b981'} />
+                                  ) : (
+                                    <X size={14} color={openReadiness === 'erp' ? '#f59e0b' : '#94a3b8'} />
+                                  )}
+                                  <Text
+                                    style={[
+                                      styles.readinessItemText,
+                                      dark && styles.dimText,
+                                      item.complete && (openReadiness === 'erp'
+                                        ? styles.erpReadinessComplete
+                                        : styles.catalogReadinessComplete),
+                                      !item.complete && styles.readinessItemPending,
+                                    ]}
+                                  >
+                                    {item.label}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          )}
                           <View
                             style={showInheritedDataNotice ? styles.inheritedNoticeDisabledContent : null}
                             pointerEvents={showInheritedDataNotice ? 'none' : 'auto'}
@@ -1085,7 +1171,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                               </Text>
                               <TouchableOpacity
                                 onPress={() => {
-                                  const sync = v.syncUnitPrice === false;
+                                  const sync = !effectivePricing.inheritsUnitPrice;
                                   setFormData((prev) => {
                                     const vars = [...(prev.variations || [])];
                                     vars[idx] = {
@@ -1105,20 +1191,41 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 }}
                                 style={[
                                   styles.inheritButton,
-                                  v.syncUnitPrice !== false && styles.inheritButtonActive,
+                                  effectivePricing.hasMixedInheritance
+                                    ? styles.inheritButtonPartial
+                                    : effectivePricing.inheritsUnitPrice &&
+                                        styles.inheritButtonActive,
                                 ]}
                                 accessibilityRole="switch"
-                                accessibilityState={{ checked: v.syncUnitPrice !== false }}
+                                accessibilityLabel={
+                                  effectivePricing.hasMixedInheritance
+                                    ? effectivePricing.inheritsUnitPrice
+                                      ? 'Herança parcial: preço regular herdado e promoção própria. Toque para tornar ambos próprios, preservando os valores.'
+                                      : 'Herança parcial: preço regular próprio e promoção herdada. Toque para herdar ambos do pai.'
+                                    : effectivePricing.inheritsUnitPrice
+                                      ? 'Preço herdado do pai'
+                                      : 'Preço personalizado'
+                                }
+                                accessibilityState={{
+                                  checked: effectivePricing.hasMixedInheritance
+                                    ? 'mixed'
+                                    : effectivePricing.inheritsUnitPrice,
+                                }}
                               >
                                 <Text
                                   style={[
                                     styles.inheritButtonText,
-                                    v.syncUnitPrice !== false && styles.inheritButtonTextActive,
+                                    effectivePricing.hasMixedInheritance
+                                      ? styles.inheritButtonTextPartial
+                                      : effectivePricing.inheritsUnitPrice &&
+                                          styles.inheritButtonTextActive,
                                   ]}
                                 >
-                                  {v.syncUnitPrice !== false
-                                    ? 'Preço Herdado do Pai'
-                                    : 'Preço Personalizado'}
+                                  {effectivePricing.hasMixedInheritance
+                                    ? 'Herança Parcial'
+                                    : effectivePricing.inheritsUnitPrice
+                                      ? 'Preço Herdado do Pai'
+                                      : 'Preço Personalizado'}
                                 </Text>
                               </TouchableOpacity>
                             </View>
@@ -1129,9 +1236,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 </Text>
                                 <TextInput
                                   value={String(
-                                    v.syncUnitPrice !== false
-                                      ? formData.unitPrice || 0
-                                      : (v.price ?? '')
+                                    effectivePricing.unitPrice ?? ''
                                   )}
                                   onChangeText={(val) => updateVariationPricing(idx, 'price', val)}
                                   editable={v.syncUnitPrice === false}
@@ -1141,7 +1246,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                     styles.input,
                                     dark && styles.darkInput,
                                     dark && styles.lightText,
-                                    v.syncUnitPrice !== false && styles.inheritedInput,
+                                    effectivePricing.inheritsUnitPrice && styles.inheritedInput,
                                   ]}
                                 />
                               </View>
@@ -1152,14 +1257,14 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 <TextInput
                                   value={String(discountPercent)}
                                   onChangeText={(val) => updateVariationPricing(idx, 'discountPercent', val)}
-                                  editable={v.syncUnitPrice === false}
+                                  editable={v.syncPromoPrice === false}
                                   keyboardType="numeric"
                                   placeholder="0"
                                   style={[
                                     styles.input,
                                     dark && styles.darkInput,
                                     dark && styles.lightText,
-                                    v.syncUnitPrice !== false && styles.inheritedInput,
+                                    effectivePricing.inheritsPromoPrice && styles.inheritedInput,
                                   ]}
                                 />
                               </View>
@@ -1170,14 +1275,14 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 <TextInput
                                   value={String(discountFixed)}
                                   onChangeText={(val) => updateVariationPricing(idx, 'discountFixed', val)}
-                                  editable={v.syncUnitPrice === false}
+                                  editable={v.syncPromoPrice === false}
                                   keyboardType="numeric"
                                   placeholder="0,00"
                                   style={[
                                     styles.input,
                                     dark && styles.darkInput,
                                     dark && styles.lightText,
-                                    v.syncUnitPrice !== false && styles.inheritedInput,
+                                    effectivePricing.inheritsPromoPrice && styles.inheritedInput,
                                   ]}
                                 />
                               </View>
@@ -1187,19 +1292,17 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 </Text>
                                 <TextInput
                                   value={String(
-                                    v.syncUnitPrice !== false
-                                      ? formData.promoPrice || 0
-                                      : (v.promoPrice ?? '')
+                                    effectivePricing.promoPrice ?? ''
                                   )}
                                   onChangeText={(val) => updateVariationPricing(idx, 'promoPrice', val)}
-                                  editable={v.syncUnitPrice === false}
+                                  editable={v.syncPromoPrice === false}
                                   keyboardType="numeric"
                                   placeholder="Sem desconto"
                                   style={[
                                     styles.input,
                                     dark && styles.darkInput,
                                     dark && styles.lightText,
-                                    v.syncUnitPrice !== false && styles.inheritedInput,
+                                    effectivePricing.inheritsPromoPrice && styles.inheritedInput,
                                   ]}
                                 />
                               </View>
@@ -1307,8 +1410,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
   },
   inheritButtonActive: { backgroundColor: '#2563eb' },
+  inheritButtonPartial: { backgroundColor: '#fef3c7' },
   inheritButtonText: { fontSize: 9, fontWeight: '900', color: '#64748b' },
   inheritButtonTextActive: { color: '#ffffff' },
+  inheritButtonTextPartial: { color: '#92400e' },
   inheritedInput: { opacity: 0.65 },
   variationTabs: {
     flexDirection: 'row',
@@ -1331,6 +1436,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
   },
   statusPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  readinessPanel: {
+    marginBottom: 12,
+    padding: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+  },
+  darkReadinessPanel: { borderColor: '#334155', backgroundColor: '#1e293b' },
+  readinessPanelTitle: {
+    color: '#64748b',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  readinessItem: { minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  readinessItemText: { flex: 1, color: '#334155', fontSize: 11, fontWeight: '700' },
+  erpReadinessComplete: { color: '#1d4ed8' },
+  catalogReadinessComplete: { color: '#047857' },
+  readinessItemPending: { color: '#64748b' },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderRadius: 20 },
   statusPillText: {
     fontSize: 9,

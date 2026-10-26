@@ -39,6 +39,12 @@ export const normalizeProductSearch = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
+export const normalizeProductSearchSeparators = (value: string) =>
+  normalizeProductSearch(value)
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 export const renderHighlightedProductText = (text: string, query: string) => {
   const words = query.trim().split(/\s+/).filter(Boolean);
   if (!words.length) return <span>{text}</span>;

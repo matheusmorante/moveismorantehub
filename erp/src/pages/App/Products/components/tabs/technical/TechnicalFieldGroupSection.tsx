@@ -166,13 +166,12 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
 
   if (isDimensionsGroup) {
     return (
-      <details aria-labelledby={`technical-group-${group.title}`} className="group flex flex-col gap-3">
-        <summary id={`technical-group-${group.title}`} className={`${headingClassName} cursor-pointer`}>
-          <i className="bi bi-chevron-right transition-transform group-open:rotate-90" aria-hidden="true" />
+      <section aria-labelledby={`technical-group-${group.title}`} className="flex flex-col gap-3">
+        <h4 id={`technical-group-${group.title}`} className={headingClassName}>
           {group.title}
-        </summary>
+        </h4>
         {fieldGrid}
-      </details>
+      </section>
     );
   }
 

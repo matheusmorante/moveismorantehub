@@ -8,6 +8,7 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { imageFilesFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 import { removeProductImageGlobally } from '../../../../../../../shared-utils/productImageOperations';
 import { limitProductImageSelection } from '../../../../../../../shared-utils/productImageSelection';
+import { PRODUCT_IMAGE_DERIVATIVES } from '../../../../../../../shared-utils/productImageDerivatives';
 
 export type FileInputSource =
   | React.ChangeEvent<HTMLInputElement>
@@ -63,21 +64,21 @@ export function useProductFormImages(
 
         // Medium - compressão em WEBP, max 1000px, 85 de qualidade
         const mediumFile = await compressImageToFile(file, {
-          maxMB: 0.5,
-          maxWidth: 1000,
+          maxMB: PRODUCT_IMAGE_DERIVATIVES.medium.maxSizeBytes / (1024 * 1024),
+          maxWidth: PRODUCT_IMAGE_DERIVATIVES.medium.maxDimension,
           fileType: 'image/webp',
-          initialQuality: 0.85,
+          initialQuality: PRODUCT_IMAGE_DERIVATIVES.medium.initialQuality,
         });
-        const mediumPath = `products/${baseName}_medium.webp`;
+        const mediumPath = `products/${baseName}${PRODUCT_IMAGE_DERIVATIVES.medium.suffix}.webp`;
 
         // Thumbnail - compressão em WEBP, max 200px, 75 de qualidade
         const thumbFile = await compressImageToFile(file, {
-          maxMB: 0.05,
-          maxWidth: 200,
+          maxMB: PRODUCT_IMAGE_DERIVATIVES.thumbnail.maxSizeBytes / (1024 * 1024),
+          maxWidth: PRODUCT_IMAGE_DERIVATIVES.thumbnail.maxDimension,
           fileType: 'image/webp',
-          initialQuality: 0.75,
+          initialQuality: PRODUCT_IMAGE_DERIVATIVES.thumbnail.initialQuality,
         });
-        const thumbPath = `products/${baseName}_thumb.webp`;
+        const thumbPath = `products/${baseName}${PRODUCT_IMAGE_DERIVATIVES.thumbnail.suffix}.webp`;
 
         // Upload paralelo das 3 variações da imagem (original mandatória; medium e thumb como otimizações)
         const [originalUrl] = await Promise.all([

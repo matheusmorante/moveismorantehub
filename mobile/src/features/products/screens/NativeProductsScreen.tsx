@@ -30,6 +30,11 @@ import { MobileProductPagination } from '../components/MobileProductPagination';
 import { ProductsHeader } from '../components/ProductsHeader';
 import type { ProductListMode } from '../components/header/ProductsHeaderModeSelector';
 import { useMobileProducts } from '../hooks/useMobileProducts';
+import { canShowMobileProductCategoryFilter } from '../domain/mobileProductListFilters';
+import {
+  getMobileCompositionEmptyHint,
+  shouldShowMobileProductPagination,
+} from '../domain/mobileProductListPresentation';
 import { MobileMergeVariationModal } from '../modals/MobileMergeVariationModal';
 import { MobileMoveVariationModal } from '../modals/MobileMoveVariationModal';
 import { MobileProductDetailsModal } from '../modals/MobileProductDetailsModal';
@@ -40,6 +45,12 @@ import { NativeMetaCatalogScreen } from './NativeMetaCatalogScreen';
 import { fetchMobileCategories } from '../services/mobileCategoryService';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import { copyMobileProductImages } from '../services/mobileProductPhotoService';
+import {
+  canShowMobileLinkedProductOrders,
+  canShowMobileProductDeletionActions,
+  runMobileProductDeleteAction,
+  runMobileProductRestoreAction,
+} from '../domain/mobileProductCardRules';
 import { generateVariationSku } from '../domain/productSku';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 
@@ -61,7 +72,12 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const canViewCatalog = canUseProductPermission('viewProducts');
   const canEditProducts = canUseProductPermission('productConfig');
   const canDeleteProducts = canUseProductPermission('deleteProducts');
+  const canDeleteProductsFromCardActions = canShowMobileProductDeletionActions({
+    canEditProducts,
+    canDeleteProducts,
+  });
   const canViewCompositions = !isStockistOnly && canUseProductPermission('viewProductCompositions');
+  const canCreateComposition = canEditProducts && !isStockistOnly;
   const canViewCategories = !isStockistOnly && canUseProductPermission('viewProductCategories');
   const canViewCharacteristics = canUseProductPermission('viewProductCharacteristics');
   const canViewMetaCatalog = canUsePermission('viewMetaCatalog', ['manager']);
@@ -112,7 +128,69 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const productsHook = useMobileProducts(
     activeMode === 'composition' ? 'composition' : 'standard',
     selectedMode !== null && activeMode !== 'categories' && availableModes.includes(activeMode),
-    canViewCompositions
+    canViewCompositions,
+    isAdmin
+  );
+  const canViewLinkedProductOrders = canShowMobileLinkedProductOrders({
+    canEditProducts,
+    isLabelOnlyProfile,
+    showTrash: productsHook.showTrash,
+  });
+  const handleRestoreProductFromTrash = useCallback(
+    (productId: string) => {
+      runMobileProductRestoreAction({
+        canDeleteProducts,
+        productId,
+        onRestore: productsHook.handleRestoreFromTrash,
+        onPermissionDenied: () =>
+          Alert.alert('Permissão insuficiente', 'Seu perfil não permite reativar produtos.'),
+      });
+    },
+    [canDeleteProducts, productsHook.handleRestoreFromTrash]
+  );
+  const handleDeleteProduct = useCallback(
+    (productId: string, isDraft = false) =>
+      runMobileProductDeleteAction({
+        canDeleteProducts:
+          canDeleteProductsFromCardActions && !productsHook.showTrash && !isLabelOnlyProfile,
+        productId,
+        isDraft,
+        onDelete: productsHook.handleDelete,
+        onPermissionDenied: () =>
+          Alert.alert(
+            'Permissão insuficiente',
+            isDraft
+              ? 'Seu perfil não permite descartar rascunhos.'
+              : 'Seu perfil não permite excluir ou desativar produtos.'
+          ),
+      }),
+    [
+      canDeleteProductsFromCardActions,
+      isLabelOnlyProfile,
+      productsHook.handleDelete,
+      productsHook.showTrash,
+    ]
+  );
+  const handleMoveProductToTrash = useCallback(
+    (productId: string) =>
+      runMobileProductDeleteAction({
+        canDeleteProducts:
+          canDeleteProductsFromCardActions && !productsHook.showTrash && !isLabelOnlyProfile,
+        productId,
+        isDraft: false,
+        onDelete: productsHook.handleMoveToTrash,
+        onPermissionDenied: () =>
+          Alert.alert(
+            'Permissão insuficiente',
+            'Seu perfil não permite mover produtos para a lixeira.'
+          ),
+      }),
+    [
+      canDeleteProductsFromCardActions,
+      isLabelOnlyProfile,
+      productsHook.handleMoveToTrash,
+      productsHook.showTrash,
+    ]
   );
   const [categories, setCategories] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
@@ -214,6 +292,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
           statusFilter: 'all',
           includeDeactivated: true,
           includeMerged: true,
+          showTestProducts: productsHook.showTestProducts,
           throwOnError: true,
         }),
         10_000,
@@ -256,6 +335,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
           statusFilter: 'all',
           includeDeactivated: true,
           includeMerged: true,
+          showTestProducts: productsHook.showTestProducts,
           throwOnError: true,
         }),
         10_000,
@@ -430,13 +510,14 @@ export const NativeProductsScreen: React.FC<Props> = ({
             onSearch={() => {}}
             onNewProduct={handleOpenNew}
             canCreateProduct={canEditProducts}
-            canCreateComposition={canEditProducts && !isStockistOnly}
+            canCreateComposition={canCreateComposition}
             onOpenConfigs={() => {
               if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
             }}
             canOpenConfigs={canViewCategories || canViewCharacteristics}
             canViewMetaCatalog={canViewMetaCatalog}
             canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
+            canFilterByCategory={canShowMobileProductCategoryFilter(canViewCategories, canEditProducts)}
             onOpenMetaCatalog={handleOpenMetaCatalog}
             onOpenWhatsAppMarketplace={handleOpenWhatsAppMarketplace}
             categories={categories}
@@ -450,11 +531,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
             onToggleDeactivated={() => {}}
           />
           <NativeCategoriesScreen dark={isDarkMode} onCategoriesUpdated={loadCategories} />
-        </View>
-      ) : productsHook.loading && !productsHook.refreshing ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.loading}>Carregando produtos...</Text>
         </View>
       ) : (
         <ScrollView
@@ -476,21 +552,23 @@ export const NativeProductsScreen: React.FC<Props> = ({
             search={productsHook.searchTerm}
             totalCount={productsHook.totalItems}
             onSearch={productsHook.setSearchTerm}
+            onSubmitSearch={productsHook.submitSearchTerm}
             onNewProduct={handleOpenNew}
             canCreateProduct={canEditProducts}
             onNewComposition={() => {
-              if (!canEditProducts || isStockistOnly) return;
+              if (!canCreateComposition) return;
               setEditingProduct(null);
               setNewProductInitialData({ itemType: 'composition' });
               setShowFormModal(true);
             }}
-            canCreateComposition={canEditProducts && !isStockistOnly}
+            canCreateComposition={canCreateComposition}
             onOpenConfigs={() => {
               if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
             }}
             canOpenConfigs={canViewCategories || canViewCharacteristics}
             canViewMetaCatalog={canViewMetaCatalog}
             canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
+            canFilterByCategory={canShowMobileProductCategoryFilter(canViewCategories, canEditProducts)}
             onOpenMetaCatalog={handleOpenMetaCatalog}
             onOpenWhatsAppMarketplace={handleOpenWhatsAppMarketplace}
             categories={categories}
@@ -500,6 +578,9 @@ export const NativeProductsScreen: React.FC<Props> = ({
             generalTypeFilter={productsHook.generalTypeFilter}
             showMergedProducts={productsHook.showMergedProducts}
             onToggleMergedProducts={productsHook.onToggleMergedProducts}
+            isAdministrator={isAdmin}
+            showTestProducts={productsHook.showTestProducts}
+            onToggleTestProducts={productsHook.onToggleTestProducts}
             onStatusFilterChange={productsHook.setStatusFilter}
             onCategoryFilterChange={productsHook.setCategoryFilter}
             onCatalogStatusFilterChange={productsHook.setCatalogStatusFilter}
@@ -512,12 +593,17 @@ export const NativeProductsScreen: React.FC<Props> = ({
             onToggleTrash={() => productsHook.setShowTrash((value) => !value)}
           />
 
-          {productsHook.loadError ? (
+          {productsHook.loading && !productsHook.refreshing ? (
+            <View style={styles.loadingContent}>
+              <ActivityIndicator size="large" color="#2563eb" />
+              <Text style={styles.loading}>Carregando produtos...</Text>
+            </View>
+          ) : productsHook.loadError && productsHook.products.length === 0 ? (
             <View style={styles.empty}>
               <Package size={40} color="#dc2626" />
               <Text style={styles.emptyText}>{productsHook.loadError}</Text>
               <TouchableOpacity
-                onPress={() => productsHook.refresh()}
+                onPress={() => productsHook.retry()}
                 style={styles.retryButton}
                 accessibilityRole="button"
               >
@@ -537,7 +623,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
               {!productsHook.showTrash && (
                 <Text style={[styles.emptyHint, isDarkMode && styles.emptyHintDark]}>
                   {activeMode === 'composition'
-                    ? 'Tente ajustar seus filtros ou adicione uma nova composição.'
+                    ? getMobileCompositionEmptyHint(canCreateComposition)
                     : 'Tente ajustar seus filtros ou adicione um novo produto ou serviço.'}
                 </Text>
               )}
@@ -549,14 +635,15 @@ export const NativeProductsScreen: React.FC<Props> = ({
                 product={product}
                 dark={isDarkMode}
                 showTrash={productsHook.showTrash}
-                onRestore={productsHook.showTrash ? productsHook.handleRestoreFromTrash : undefined}
-                onMoveToTrash={productsHook.handleMoveToTrash}
+                onRestore={productsHook.showTrash ? handleRestoreProductFromTrash : undefined}
+                onMoveToTrash={handleMoveProductToTrash}
                 onEdit={handleOpenEdit}
                 onToggleCatalog={productsHook.handleToggleCatalog}
                 onToggleActive={productsHook.handleToggleActive}
-                onDelete={productsHook.handleDelete}
+                onDelete={handleDeleteProduct}
                 canEdit={canEditProducts && !productsHook.showTrash}
                 canDelete={canDeleteProducts && !productsHook.showTrash}
+                canDeleteFromMenu={canDeleteProductsFromCardActions && !productsHook.showTrash}
                 canChangeCatalog={canEditProducts && !productsHook.showTrash && !hideCatalogPublicationStatus}
                 showCatalogStatus={!hideCatalogPublicationStatus}
                 canPrintLabels={canPrintLabels && !productsHook.showTrash}
@@ -564,7 +651,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
                 isLabelOnlyProfile={isLabelOnlyProfile}
                 onDuplicate={handleDuplicate}
                 onViewDetails={setDetailsProduct}
-                onShowOrders={canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile ? setOrdersProduct : undefined}
+                onShowOrders={canViewLinkedProductOrders ? setOrdersProduct : undefined}
                 onMoveVariation={
                   canEditProducts && !productsHook.showTrash && !isLabelOnlyProfile
                     ? (variation, parentProduct) => setVariationToMove({ variation, parentProduct })
@@ -580,14 +667,21 @@ export const NativeProductsScreen: React.FC<Props> = ({
             ))
           )}
 
-          <MobileProductPagination
-            currentPage={productsHook.currentPage}
-            totalPages={productsHook.totalPages}
-            totalItems={productsHook.totalItems}
-            itemsPerPage={productsHook.itemsPerPage}
-            dark={isDarkMode}
-            onPageChange={handlePageChange}
-          />
+          {shouldShowMobileProductPagination(
+            productsHook.products.length,
+            productsHook.loading,
+            productsHook.refreshing,
+          ) && (
+            <MobileProductPagination
+              currentPage={productsHook.currentPage}
+              totalPages={productsHook.totalPages}
+              totalItems={productsHook.totalItems}
+              itemsPerPage={productsHook.itemsPerPage}
+              dark={isDarkMode}
+              onPageChange={handlePageChange}
+              onItemsPerPageChange={productsHook.onItemsPerPageChange}
+            />
+          )}
         </ScrollView>
       )}
 
@@ -622,7 +716,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
         canManageCharacteristics={canViewCharacteristics}
       />
       <ProductLinkedOrdersModal
-        visible={Boolean(ordersProduct) && canEditProducts && !isLabelOnlyProfile}
+        visible={Boolean(ordersProduct) && canViewLinkedProductOrders}
         dark={isDarkMode}
         product={ordersProduct}
         onClose={() => setOrdersProduct(null)}
@@ -657,6 +751,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   dark: { backgroundColor: '#0f172a' },
   content: { paddingHorizontal: 16, paddingBottom: 36, gap: 10 },
+  loadingContent: {
+    minHeight: 240,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   moduleMenuContent: { padding: 16, paddingBottom: 32, gap: 12 },
   moduleMenuTitle: { fontSize: 21, fontWeight: '900', color: '#0f172a' },
   moduleMenuSubtitle: {

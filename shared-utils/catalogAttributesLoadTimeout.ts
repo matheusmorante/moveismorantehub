@@ -16,7 +16,7 @@ export async function withCatalogAttributesLoadTimeout<T>(
     label,
   );
 
-  if (outcome.timedOut) {
+  if (!('value' in outcome)) {
     throw new Error(
       `O carregamento das características excedeu ${CATALOG_ATTRIBUTES_LOAD_TIMEOUT_MS / 1000} segundos.`,
     );

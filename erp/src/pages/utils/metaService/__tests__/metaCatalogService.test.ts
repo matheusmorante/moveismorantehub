@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { metaCatalogService } from '../metaCatalogService';
 import { metaHttpClient } from '../metaHttpClient';
 import { getSettings } from '@/pages/utils/settingsService';
+import { META_CATALOG_GLOBAL_PREFIX } from '../../../../../../shared-utils/metaCatalogPayload';
 
 vi.mock('@/pages/utils/settingsService', () => ({
   getSettings: vi.fn(),
@@ -24,6 +25,7 @@ describe('metaCatalogService', () => {
       whatsappConfig: {
         catalogId: '3456789012',
       },
+      channelBaseDescriptions: { whatsapp: 'Base institucional personalizada' },
     } as any);
 
     vi.mocked(metaHttpClient.request).mockResolvedValue(response({
@@ -63,6 +65,7 @@ describe('metaCatalogService', () => {
         id: 'prod-1',
         code: 'SKU-001',
         name: 'Guarda Roupa',
+        description: 'Descrição específica do produto',
         price: 999.9,
         image_url: 'https://moveismorante.com.br/foto.png',
         active: true,
@@ -72,6 +75,33 @@ describe('metaCatalogService', () => {
       expect(metaHttpClient.request).toHaveBeenCalledWith('sync_catalog_batch', expect.objectContaining({
         payload: expect.objectContaining({ requests: expect.arrayContaining([expect.objectContaining({ retailer_id: 'SKU-001' })]) }),
       }));
+      const request = vi.mocked(metaHttpClient.request).mock.calls[0][1] as any;
+      const description = request.payload.requests[0].data.description as string;
+      expect(description).toContain('Base institucional personalizada');
+      expect(description).toContain('Descrição específica do produto');
+      expect(description.split(META_CATALOG_GLOBAL_PREFIX.trim())).toHaveLength(2);
+    });
+
+    it('aplica a base configurada também no envio Graph em lote', async () => {
+      vi.mocked(metaHttpClient.request).mockResolvedValue(response({ handles: ['h_batch'] }));
+
+      await metaCatalogService.syncBatchProductsToCatalog([
+        {
+          id: 'prod-batch',
+          code: 'SKU-BATCH',
+          name: 'Mesa lateral',
+          description: 'Descrição específica do lote',
+          price: 250,
+          stock: 2,
+          images: ['https://cdn.example.test/mesa.png'],
+        },
+      ]);
+
+      const request = vi.mocked(metaHttpClient.request).mock.calls[0][1] as any;
+      const description = request.payload.requests[0].data.description as string;
+      expect(description).toContain('Base institucional personalizada');
+      expect(description).toContain('Descrição específica do lote');
+      expect(description.split(META_CATALOG_GLOBAL_PREFIX.trim())).toHaveLength(2);
     });
   });
 

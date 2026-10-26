@@ -1,17 +1,22 @@
 // @vitest-environment happy-dom
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type Product from '@/pages/types/product.type';
 import { HML_FISCAL_TEST_ORDER_MARKER } from '@/pages/utils/hmlTestData';
 import { useProductFormSubmit } from './useProductFormSubmit';
 import { toast } from 'react-toastify';
 import { useRef, useState } from 'react';
 import { useProductFormDraft } from './useProductFormDraft';
+import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
 
 const mocks = vi.hoisted(() => ({ saveProduct: vi.fn(async (product: Product) => product.id) }));
 vi.mock('@/pages/utils/productService', () => mocks);
 vi.mock('react-toastify', () => ({ toast: { error: vi.fn(), warn: vi.fn(), success: vi.fn() } }));
+vi.mock('../../services/technicalFieldService', () => ({
+  fetchTechnicalFieldDefinitions: vi.fn().mockResolvedValue([]),
+}));
 afterEach(cleanup);
+beforeEach(() => vi.mocked(fetchTechnicalFieldDefinitions).mockResolvedValue([]));
 
 const complete: Product = {
   id: 'parent', name: 'Armário', description: '', unitPrice: 150, unit: 'UN', itemType: 'product',
@@ -214,10 +219,33 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
 
     await act(async () => { expect(await result.current.handleSubmit(false)).toBe(true); });
 
+    expect(fetchTechnicalFieldDefinitions).not.toHaveBeenCalled();
     expect(mocks.saveProduct).toHaveBeenCalledWith(expect.objectContaining({
       status: 'hidden',
       variations: [expect.objectContaining({ status: 'hidden' })],
     }));
+  });
+  it('mantém produto normal publicado sem salvar quando a leitura dos requisitos de categoria falha', async () => {
+    const publishedProduct: Product = {
+      ...complete,
+      isDraft: false,
+      status: 'published',
+      active: true,
+      title: 'Armário publicado',
+    };
+    vi.mocked(fetchTechnicalFieldDefinitions).mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderSubmit(publishedProduct, true);
+
+    await act(async () => { expect(await result.current.handleSubmit(false)).toBe(false); });
+
+    expect(fetchTechnicalFieldDefinitions).toHaveBeenCalledWith('product-form', {
+      forceRefresh: true,
+      requireCategoryLinks: true,
+    });
+    expect(mocks.saveProduct).not.toHaveBeenCalled();
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith(
+      'Não foi possível verificar as características obrigatórias da categoria. O produto publicado não foi alterado.'
+    );
   });
   it('persiste as dimensões técnicas da variação que validou durante a conclusão do pai', async () => {
     const { result } = renderSubmit({ ...complete, width: 0, height: 0, depth: 0,

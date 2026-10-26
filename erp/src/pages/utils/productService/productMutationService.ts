@@ -24,7 +24,11 @@ import { isProductDraft } from './productDraftSnapshot';
 import { validateProductImageLimits } from './productImageHelpers';
 import { getLocalProducts, notifySubscribers, saveLocalProducts } from './productLocalCache';
 import { mapFromDB, mapToDB } from './productMapper';
-import { ensureUuidFormat, syncProductToSupabase } from './productPersistenceService';
+import {
+  ensureUuidFormat,
+  omitCompositionAvailabilityStock,
+  syncProductToSupabase,
+} from './productPersistenceService';
 import { checkSkusUniquenessBatch, generateUniqueCode, TABLE_NAME } from './productSkuService';
 import { formatProductTextData } from './productValidation';
 import { triggerProductMetaCatalogSync } from './productMetaCatalogSync';
@@ -265,7 +269,8 @@ export const updateProduct = async (
     return;
   }
   if (index === -1) {
-    const dbUpdate = mapToDB({ ...productToUpdate, id: resolvedId });
+    const persistenceProduct = omitCompositionAvailabilityStock({ ...productToUpdate, id: resolvedId });
+    const dbUpdate = mapToDB(persistenceProduct);
     delete dbUpdate.id;
     delete dbUpdate.variations;
     delete dbUpdate.category;
@@ -286,8 +291,8 @@ export const updateProduct = async (
       .single();
     if (error) throw error;
 
-    if (Array.isArray(productToUpdate.variations) && productToUpdate.variations.length > 0) {
-      for (const v of productToUpdate.variations) {
+    if (Array.isArray(persistenceProduct.variations) && persistenceProduct.variations.length > 0) {
+      for (const v of persistenceProduct.variations) {
         if (v.id && v.stock !== undefined) {
           await supabase
             .from('product_variations')

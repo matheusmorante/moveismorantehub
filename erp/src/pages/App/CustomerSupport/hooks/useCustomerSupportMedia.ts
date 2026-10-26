@@ -42,10 +42,13 @@ export function useCustomerSupportMedia(mediaId: string | null) {
         objectUrl = URL.createObjectURL(blob);
         setState({ key, url: objectUrl, loading: false, error: '' });
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Não foi possível carregar a mídia.';
+        const isNetworkError = /failed to fetch|networkerror|load failed|fetch failed/i.test(errorMessage);
         if (active) setState({
           key, url: null, loading: false,
           error: controller.signal.aborted ? 'A consulta da mídia demorou demais. Tente novamente.'
-            : error instanceof Error ? error.message : 'Não foi possível carregar a mídia.',
+            : isNetworkError ? 'Não foi possível conectar ao serviço de mídia. Verifique sua conexão e tente novamente.'
+            : errorMessage,
         });
       } finally {
         clearTimeout(timer);

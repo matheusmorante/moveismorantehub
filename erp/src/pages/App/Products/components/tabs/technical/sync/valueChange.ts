@@ -46,6 +46,11 @@ export const applyTechnicalValueChangeToProduct = (
   const norm = normalizeTechnicalName(fieldName);
   let dimensionChanged = false;
 
+  if (norm === 'peso') {
+    next.weight = parseNumericDimension(value);
+    return syncProductWithVariations(next);
+  }
+
   if (norm === 'altura' || norm === 'altura total') {
     next.height = parseNumericDimension(value);
     dimensionChanged = true;

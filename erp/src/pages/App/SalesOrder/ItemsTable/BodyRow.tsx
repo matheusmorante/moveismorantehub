@@ -17,6 +17,8 @@ interface Props {
   onToggleDiscountType: () => void;
   onDelete: () => void;
   idx: number;
+  displayNumber?: string;
+  isCompositionComponent?: boolean;
   deliveryMethod: 'delivery' | 'pickup';
   errors: ValidationErrors;
   isMobile?: boolean;
@@ -27,6 +29,9 @@ interface Props {
   highlightAsTemporary?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
+  autoFocusDescription?: boolean;
+  onAutoExpand?: () => void;
+  onDescriptionBlur?: () => void;
 }
 
 const BodyRow: React.FC<Props> = ({
@@ -37,6 +42,8 @@ const BodyRow: React.FC<Props> = ({
   onToggleDiscountType,
   onDelete,
   idx,
+  displayNumber,
+  isCompositionComponent,
   deliveryMethod,
   errors,
   isMobile,
@@ -47,6 +54,9 @@ const BodyRow: React.FC<Props> = ({
   highlightAsTemporary,
   isExpanded = true,
   onToggleExpand,
+  autoFocusDescription = false,
+  onAutoExpand,
+  onDescriptionBlur,
 }) => {
   const isService = item.itemType === 'service';
   const shouldShowStockOrigin = !isService && !isBudget && !isReturn;
@@ -188,6 +198,8 @@ const BodyRow: React.FC<Props> = ({
   const sharedProps = {
     item,
     idx,
+    displayNumber,
+    isCompositionComponent: Boolean(isCompositionComponent || item.compositionGroup),
     deliveryMethod,
     settings,
     isBudget,
@@ -197,6 +209,9 @@ const BodyRow: React.FC<Props> = ({
     highlightAsTemporary,
     isExpanded,
     onToggleExpand,
+    autoFocusDescription,
+    onAutoExpand,
+    onDescriptionBlur,
     pricing,
     onChange,
     onBatchChange,

@@ -75,7 +75,6 @@ export const executeInventoryFinalization = async ({
     const validation = await validateInventoryBeforeFinalization({
       items,
       itemsWithAdjustment,
-      scopeConfig,
       useV2,
     });
     if (!validation.valid) {
