@@ -1,5 +1,5 @@
 import type React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { MobileProductVariationCard } from './MobileProductVariationCard';
 
 interface Props {
@@ -49,10 +49,6 @@ export const MobileProductVariationList: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, dark && styles.darkContainer]}>
-      <Text style={[styles.headerText, dark && styles.lightHeaderText]}>
-        Variações ({variations.length})
-      </Text>
-
       {variations.map((v: any, index: number) => (
         <MobileProductVariationCard
           key={v.id || index}
@@ -99,16 +95,5 @@ const styles = StyleSheet.create({
   darkContainer: {
     backgroundColor: '#090d16',
     borderTopColor: '#1e293b',
-  },
-  headerText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#64748b',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  lightHeaderText: {
-    color: '#94a3b8',
   },
 });

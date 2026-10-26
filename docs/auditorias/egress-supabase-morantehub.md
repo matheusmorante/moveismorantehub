@@ -1,9 +1,8 @@
 # Auditoria de Egress — Supabase MoranteHub
 
-## Estado atual — 26/10/2026, 00:35 BRT (03:35 UTC)
+## Estado atual — 26/10/2026, 08:47 BRT
 
-CLI/plugin autenticados e projeto MoranteHub/hkoxhourxwlddgsfdgws reconfirmados; nenhum medidor oficial Usage/Egress disponível. Bytes, quota, excedente, delta de Egress e cumprimento de 100 MB/dia seguem indisponíveis. Recorrência ACTIVE/3 h preservada. Janela 26/10 00:30–03:30 UTC: gateway 2.865 eventos (ante 850); REST 2.641. Quatro RPCs da Central: 133 chamadas (ante 234). Contagens não medem bytes nem efeito de patches. Sem nova causa corrigível comprovada; apenas relatório/memória alterados. Inventário de autenticação ampliado, sem atribuir origem aos agregados; decisão de frequência da Central preservada.
-
+CLI/plugin autenticados e ref hkoxhourxwlddgsfdgws reconfirmados. Sem medidor oficial Usage/Egress: bytes, quota, excedente, delta e meta de 100 MB/dia não verificáveis. Janela 26/10 08:30–11:30 UTC: gateway 444 eventos, REST 442; estilo 163 e produtos 157 chamadas. Nenhuma nova causa corrigível comprovada; sem alteração de código. Recorrência ACTIVE/3 h preservada; decisão anterior da Central permanece pendente.
 ## Coleta inicial — 25/10/2026, 09:35 BRT (12:35 UTC)
 
 Projeto confirmado: `hkoxhourxwlddgsfdgws` (MoranteHub). Primeira coleta desta auditoria; não havia relatório anterior. Automação existente ACTIVE, intervalo de três horas conferido no arquivo de configuração; agendamento preservado.
@@ -346,3 +345,39 @@ AGENTS vigente, política remota, memória, relatório e skills lidos. Conferên
 Central reconfirmada: Index.tsx:152 → hooks/useCustomerSupportConversations.ts:48–102,158–220 → customerSupportService.ts:179,221,233,267. Mesmo timer de seis segundos com página visível, foco/visibilidade e Realtime; páginas de 50, guarda silenciosa e descarte de resultados obsoletos. Inventários anteriores de menus, estilo e telemetria permanecem válidos. Chamador de is_administrator não estabelecido nesta inspeção; não inferir que venha do mesmo fluxo de senha/perfil.
 
 **Resultado:** nenhuma nova causa comprovada corrigível sem escolha de produto. Decisão preservada: manter 6 s, aceitar 30 s com Realtime/foco ou definir reconciliação do fallback, com impactos registrados na segunda execução. Meta de 100 MB/dia confirmada; sem medidor oficial, uso/quota/excedente/delta em bytes indisponíveis. Somente relatório e memória alterados; sem testes, consulta de dados de negócio/execute_sql, mudanças remotas, commit ou deploy. Validações funcionais anteriores e medição oficial continuam pendentes.
+
+## Sétima execução — 26/10/2026, 08:47 BRT
+
+**Acesso e fontes:** CLI 2.121.0, ajudas raiz/projects/list/inspect/db/telemetry redescobertas; nenhum medidor de Usage/Egress faturável. Plugin redescoberto sem medidor explícito; list_projects confirmou MoranteHub/hkoxhourxwlddgsfdgws. CLI projects list filtrada em memória confirmou autenticação, nome/ref, linked e vínculo local; nenhuma identidade/credencial armazenada. Automação ACTIVE com intervalo de três horas conferida e preservada. Changelog oficial consultado (índice Markdown por HTTP); sem mudança pertinente identificada. Campos e consultas confirmados na documentação atual de [logs](https://supabase.com/docs/guides/observability/advanced-log-filtering) e [detecção](https://supabase.com/docs/guides/observability/detecting).
+
+**Janela exata:** 2026-10-26T08:30:00Z–2026-10-26T11:30:00Z (**05:30–08:30 BRT**). Duas query_logs, somente source/count e gateway por rota normalizada/status/count, sem polling. Mesmo padrão REST das coletas anteriores e prefixos fixos Auth/Realtime/Storage; nenhum parâmetro, mensagem, corpo, header, ID de usuário/objeto ou SQL de negócio consultado.
+
+| Fonte | Eventos |
+| --- | ---: |
+| postgres_logs | 612 |
+| edge_logs | 444 |
+| postgrest_logs | 111 |
+| pgbouncer_logs | 9 |
+| storage_logs | 1 |
+
+Fontes não se somam. Gateway: **REST 442 e Storage dois** (um 200, um 400); nove grupos, sem truncamento. Demais serviços sem eventos retornados nesta janela, o que não prova ausência de tráfego fora da cobertura.
+
+| Rota REST | Status | Chamadas |
+| --- | --- | ---: |
+| store_style_settings | 200 | 163 |
+| products | 200 / 206 | 156 / 1 |
+| rpc/claim_return_fiscal_emission_job | 200 | 90 |
+| categories | 200 | 21 |
+| category_relationships | 200 | 9 |
+| opportunities | 200 | 2 |
+
+Ante a última coleta de igual duração (00:30–03:30 UTC), gateway caiu 2.421 eventos (2.865→444); estilo subiu 146 (17→163). Janelas não contíguas: intervalo 03:30–08:30 UTC não coletado nesta rodada. Não é delta de Egress nem prova de efeito dos patches. Central não apareceu nos agregados atuais. Bytes, uso/quota/excedente e cumprimento de 100 MB/dia indisponíveis; nenhum valor antigo reutilizado como consumo atual.
+
+**Revisão estática e inventário:** AGENTS raiz/catálogo, política, skill Supabase, memória e relatório lidos. Status inicial com dois documentos de paridade/roadmap preexistentes modificados; diffs conferidos e preservados. Arquivos da integração inspecionada sem diff preexistente. EGR-001/EGR-002 continuam presentes, sem inferir deploy.
+
+| Integração / finalidade | Chamadores e consulta | Gatilho / frequência | Deduplicação / cache / cancelamento | Evidência / risco |
+| --- | --- | --- | --- | --- |
+| Catálogo: estilo visual | store-design-provider.tsx:18 e useCatalogProductsQuery.ts:206 → digital-catalog/src/lib/store-settings-cache.ts:8–31 | Montagem do provider/carga da grade | Projeção explícita STYLE_COLUMNS; eq(id,true)/maybeSingle; promessa compartilhada e cache de módulo após sucesso; sem abort/TTL | 163 chamadas agregadas da rota, sem atribuição a cliente/instância. Não comprova duplicação do helper |
+| Catálogo: estilo no detalhe | digital-catalog/src/app/produto/[slug]/page.tsx:17–28 | Renderização dinâmica por slug; dados compartilhados por generateMetadata/componente | React cache na função getProductData; estilo solicita só button_style, eq(id,true)/maybeSingle; sem cache persistente/abort | Cache entre requests alteraria frescor; contagem não comprova consulta excessiva. Produtos também têm outros chamadores |
+
+**Resultado:** sem nova causa comprovada para patch de código. Sem novo plano de catálogo; inventário existente apenas reconfirmado. Decisão anterior da Central (6 s / 30 s / fallback com reconciliação) preservada, sem alterar comportamento. Somente relatório e memória atualizados. Nenhum teste adicionado/executado, consulta de dados de negócio/execute_sql, mudança remota, dependência, migration, commit ou deploy. Revisão estática; validações funcionais anteriores e medição oficial continuam pendentes.

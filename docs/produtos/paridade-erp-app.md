@@ -2,6 +2,10 @@
 
 **Status:** em andamento. Este inventário acompanha as execuções cíclicas da auditoria. A Conciliação de Produtos segue exclusiva do ERP pela exceção dos Ciclos 127/131. A projeção técnica escolhida pelo usuário está aplicada nos dois writers desde o Ciclo 139, com `technical_specs` preservado por compatibilidade; o Ciclo 180 acrescentou 7 testes Vitest do helper compartilhado para simples, família, precedência, preservação e falha de leitura. O autosave seguro do Ciclo 117 já tem a RPC de ACK instalada no remoto pelo Ciclo 178; ainda falta provar resposta/idempotência com uma fixture previamente autorizada. O claim offline decidido pelo usuário está implementado e testado localmente (Ciclos 143/170), mas o backend remoto continua em v1: a migration necessária cria objetos em `app_private`, enquanto o `AGENTS.md` §13 autoriza migrations apenas em `public`; a pergunta sobre autorizar essa migration específica ou redesenhar o armazenamento continua pendente — a confirmação do modelo de ownership não concede essa autorização de schema. Não ativar as flags v2 nem declarar ownership remoto seguro antes dessa decisão e da validação. O Ciclo 181 comprovou acesso autenticado do ERP à lista e ao editor de composição por Playwright; outras abas/perfis e o aplicativo ainda não foram validados. O Ciclo 184 adicionou ao app o filtro administrativo para exibir registros de teste e compartilhou com o ERP o predicado PostgREST para marcadores em `technical_specs`; validação visual e Android/iOS seguem pendentes. Permanecem pendentes a confirmação de efeitos externos Meta/R2 e diagnósticos TypeScript globais em arquivos fora dos recortes recentes. Os demais ciclos e limitações seguem registrados abaixo; não declarar conclusão global enquanto houver estados sem conferência.
 
+**Atualização do Ciclo 404:** corrigi uma divergência no título do cartão de Produto simples: o app inferia `Cor` de `technical_specs` do pai e a acrescentava ao nome, embora o ERP componha o título só a partir de `product_variations.attributes`. O app agora reutiliza os parsers/helpers compartilhados, preservando `showName:false` e os aliases legados sem sintetizar atributo técnico. Teste Vitest focado: **6/6**. A causa do erro de carregamento mostrado na captura permanece sem diagnóstico por falta da resposta da consulta/build correspondente; a comparação visual e nativa também segue pendente.
+
+**Atualização do Ciclo 405:** alinhei o nome de fallback de uma linha de variação sem nome salvo. O ERP e o helper compartilhado juntam pai e atributos visíveis com espaço (`Tênis Azul`); o app usava um separador ` - `. Agora o fallback usa `getCompleteVariationName` compartilhado. Vitest focado: **6/6**. O Playwright autenticou e abriu `/products`, mas não encontrou a busca nem o estado de erro da lista nesse perfil, então não houve comparação visual de linhas.
+
 **Atualização do Ciclo 377:** a revisão do custo no cadastro rápido mobile pela NF-e confirmou que o valor inicial inclui os custos fiscais e adicionais rateados, como o `finalCost` calculado pelo ERP; o campo editável é uma particularidade mobile já registrada no inventário de formulários. Não encontrei diferença suportada no estado de custo para itens válidos. A mesma reauditoria confirmou que os handlers manuais de desconto do Produto Pai permanecem implementados e ligados às entradas mobile, corrigindo uma frase desatualizada no inventário de formulários; não há teste direto de interação desses callbacks.
 
 **Atualização do Ciclo 378:** ERP e app mostram a galeria herdada sem ações de edição na variação única. Uma falha antiga era causada por teste ERP que esperava arraste nesse estado, contradizendo o código e o contrato de herança; atualizei a expectativa do teste para cobrir a visualização somente leitura, e a suíte focada passou em **5/5**. Nenhum comportamento de produção foi alterado.
@@ -27,6 +31,22 @@
 **Atualização do Ciclo 388:** reauditei o botão “Tentar novamente” no estado de erro da lista mostrado na captura. ERP e app só substituem a lista por erro quando não há linhas para a consulta, usam a mesma mensagem e recarregam a mesma página/filtros ao tentar de novo. O QueryClient ERP e o helper mobile fazem uma repetição automática com intervalo inicial de 1 s antes de exibir a falha. Vitest focado ERP/mobile: **27/27**. Não encontrei diferença de código; a causa do erro da captura não é identificável sem log/erro da consulta real.
 
 **Atualização do Ciclo 389:** o typecheck mobile detectou uma referência restante a `getDimensionField` depois que o Ciclo 374 substituiu essa função local pelo helper compartilhado `getProductTechnicalDimensionField`. Troquei a chamada residual, mantendo o critério de dimensão física do formulário; o TS2304 saiu do arquivo de Produtos. Vitest do helper compartilhado: **21/21**. O typecheck global continua falhando por diagnósticos em outros arquivos, documentados abaixo.
+
+**Atualização do Ciclo 396:** após a consulta principal retornar produtos, uma falha da segunda consulta de nomes de categorias não transforma mais o resultado em falha total da lista. A categoria fica com o rótulo legado disponível (ou vazia, se não houver fallback), enquanto erros da consulta principal continuam chegando ao estado de erro. Vitest focado do serviço mobile: **40/40**, incluindo respostas de erro e promessas rejeitadas no enriquecimento. Essa diferença era comprovada pela separação das consultas, mas a captura do usuário não identifica se ela causou o erro observado.
+
+**Atualização do Ciclo 397:** a apresentação das categorias no card mobile também foi comparada com o card/tabela ERP. Ambos resolvem os IDs vinculados e juntam os nomes na ordem selecionada, separados por ` | `; não encontrei diferença visual de regra. Acrescentei um teste de regressão para mais de uma categoria; Vitest **12/12**.
+
+**Atualização do Ciclo 398:** os cartões mobile de Produto e Variação deixaram de solicitar diretamente a URL original e passaram a reutilizar `ProductImage` com `size="thumbnail"`. O componente existente aplica miniatura → média → original quando a imagem falha e, por fim, o ícone local do app; isso alinha a prioridade e a recuperação do cartão ao `CardThumbnail`/`ProductImage` ERP. O marcador final local é uma adaptação visual mobile e não é idêntico ao glifo ERP. A nova captura do usuário repete o erro de carregamento da lista sem contador “0”, mas não mostra a resposta da consulta; sua causa continua sem diagnóstico.
+
+**Atualização do Ciclo 399:** no estado expandido de um Produto Pai com múltiplas variações, o app repetia no painel a contagem “Variações (n)” que já aparece no botão de expansão. O ERP mostra a contagem no cabeçalho do pai e inicia o painel diretamente nas linhas. Removi o subtítulo duplicado; o controle, a lista de variações e suas ações permanecem intactos.
+
+**Atualização do Ciclo 400:** a lista de variações sobrescrevia SKUs comerciais válidos quando não tinham o prefixo do produto pai, e o card acrescentava visualmente um sufixo a alguns SKUs. ERP e app agora usam a mesma normalização: preservam o SKU salvo e sua capitalização, removem o sufixo interno legado definido pelo ERP e geram `pai-NN` somente quando o SKU está ausente. A captura mais recente continua no estado de erro da lista e não expõe resposta da consulta; portanto, não diagnostica essa falha.
+
+**Atualização do Ciclo 401:** confirmei que “Pedidos Vinculados” não aparece no menu de uma linha filha de família com múltiplas variações em nenhum dos clientes. O ERP só oferece a ação no cartão pai quando não há múltiplas variações; o app deriva `canShowLinkedOrders=false` para pais e não encaminha o callback às linhas expandidas. Produtos simples e famílias de variação única continuam podendo abrir pedidos vinculados nos dois clientes. Não houve diferença a corrigir; a captura do estado de erro continua sem evidência para diagnosticar a consulta principal.
+
+**Atualização do Ciclo 402:** o estado de erro da lista no ERP é anunciado com `role="alert"`; a mensagem mobile não tinha papel nem região dinâmica de acessibilidade. A mensagem nativa agora usa `accessibilityRole="alert"` e `accessibilityLiveRegion="assertive"`, preservando o botão de retry como controle independente. O ajuste comunica o erro a leitores de tela, mas não altera nem diagnostica a falha da consulta.
+
+**Atualização do Ciclo 403:** comparei a ordem das variações no painel expandido. ERP e app preservam a ordem da relação `product_variations` recebida, sem ordenação própria; os documentos vigentes definem a ordem dos atributos no nome, mas não uma ordenação independente das linhas. Sem diferença comprovada ou critério documentado para acrescentar um sort.
 
 **Atualização do Ciclo 328:** as sugestões de componentes na aba Composição agora exibem o preço promocional com a mesma precedência do ERP, usando regra compartilhada. O preço regular que é gravado na linha do componente não foi alterado.
 
@@ -2735,3 +2755,241 @@ Continuar a aba Tributário/NF pelo estado Produto normal versus Serviço e comp
 - [ ] A causa da falha segue sem diagnóstico: a imagem não contém a resposta da chamada da lista. É necessário capturar a falha na mesma sessão mobile e confirmar que a build executada corresponde ao checkout, sem apagar dados/reinstalar o aparelho.
 
 **Conclusão do recorte:** a captura confirma a persistência do mesmo estado visual de erro, não uma causa nova. O tratamento da tela continua alinhado ao ERP; o diagnóstico nativo permanece pendente e a auditoria de Produtos segue aberta.
+
+### Ciclo 394 — atualização do resumo nativo do Catálogo Meta — 26/10/2026
+
+**Recorte:** meios de recarregar o resumo do Catálogo Meta após a retirada do botão de atualização no cabeçalho mobile.
+
+#### Comparação e conclusão
+
+- [x] O cabeçalho atual de `NativeMetaCatalogScreen` contém o retorno ao módulo Produtos e não mantém um botão “Atualizar”. A remoção não eliminou a recuperação: a tela carrega ao abrir, oferece `RefreshControl` no gesto de puxar para atualizar, mantém “Tentar novamente” no estado de erro e recarrega o resumo após uma sincronização Graph bem-sucedida.
+- [x] O painel ERP também não apresenta um botão separado para atualizar estatísticas. `MetaCatalog/index.tsx` carrega no mount e quando `isSyncing` muda; a ação “Sincronizar via Graph API” é uma ação externa distinta, não um botão de recarga do resumo.
+- [x] A única diferença de frequência observada é que o efeito ERP repete a leitura ao iniciar e finalizar a sincronização, inclusive em falha, enquanto o mobile recarrega após sucesso. Essa leitura calcula contagens dos campos locais `products.status` e `product_variations.status`; os serviços de lote revisados enviam o payload ao endpoint Graph e não gravam esses campos locais. Em falha, a contagem local não fica desatualizada por causa do envio externo e o app ainda oferece pull-to-refresh/retry. Não há perda funcional comprovada que justifique restaurar um botão no cabeçalho.
+- [x] Os gates já documentados permanecem distintos: `viewMetaCatalog` abre a tela administrativa; `isAdmin` habilita a sincronização em lote. Nenhuma chamada à Graph API foi feita nesta comparação.
+
+#### Evidências, validação e limites
+
+- [x] App: `NativeMetaCatalogScreen.tsx:41-57,70-111,131-139,216-228`, `mobileMetaCatalogStatsService.ts:8-28`, `mobileMetaCatalogSyncService.ts:144-160` e `mobileProductMetaCatalogSyncService.ts:138-166`. Regra pura das contagens: `shared-utils/metaCatalogStats.ts:1-60`. ERP: `MetaCatalog/index.tsx:19-67,133-150`, `metaCatalogDataService.ts:9-24` e `metaCatalogService.ts:210-250`.
+- [x] Retomei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentos vigentes de Produto/Variação e mover/merge, `docs/mobile/arquitetura_offline_first.md`, inventário, roadmap e `mobile/maestro/README.md`. Não há nota mobile específica de atualização do painel Meta. O `AGENTS.md` aninhado em `digital-catalog` não se aplica. A skill canônica `erp-web-to-mobile-replication` continua ausente de `.agents/skills` e `skills`; a cópia de cache `.vercel` não tem proveniência confirmada.
+- [x] Sem mudança de produção e sem testes neste recorte estático. Não houve leitura ou escrita remota, requisição à Meta, migration, deploy ou alteração de operação de Estoque; o guia prático não requer atualização.
+- [ ] A experiência de pull-to-refresh e retry ainda não foi observada no runtime Android atual. `adb devices -l` listou dois aliases Wi‑Fi para o mesmo modelo; o executável `maestro` não está no `PATH`, embora o runner do projeto procure a instalação local. Expo Web não foi usado como substituto de teste nativo.
+
+**Conclusão do recorte:** o resumo continua atualizável no mobile por meios equivalentes ou mais recuperáveis que o ERP. A remoção do botão redundante não deixa uma diferença funcional comprovada; a validação visual/nativa do gesto e do retry permanece pendente.
+
+### Ciclo 395 — revisão adicional da consulta por trás do erro da lista — 26/10/2026
+
+**Recorte:** query e enriquecimentos de categoria usados pela lista mobile em erro, comparados ao fetch paginado ERP, sem repetir a ação de retry no aparelho.
+
+#### Evidências e conclusão
+
+- [x] O fetch paginado ERP usa `LIGHT_COLUMNS_WITH_CATS`, contagem exata, `applyProductFiltersAndSort` e propaga o erro quando `throwOnError` está ativo. O mobile também solicita contagem exata, paginação e relações de produto/variações/imagens, aplica os filtros equivalentes e `useMobileProducts` habilita `throwOnError: true`; não encontrei divergência de retry ou de tratamento do erro da consulta principal.
+- [x] Há uma diferença de composição de consulta: o ERP inclui categorias relacionadas em `LIGHT_COLUMNS_WITH_CATS`; o mobile obtém IDs de `product_categories` e faz uma segunda leitura em `categories`. Quando essa leitura falha, o mobile propaga o erro no modo estrito e a tela mostra o mesmo erro genérico. Isso é uma hipótese de origem da falha, não uma causa comprovada; sem a resposta da chamada não dá para concluir se é categoria, query base, política de acesso, sessão ou conectividade. Não removi a consulta nem converti o erro em sucesso parcial sem evidência de que a lista principal foi carregada corretamente.
+- [x] Os caminhos auxiliares de elegibilidade para Lixeira falham fechados sem interromper a lista, e a leitura de disponibilidade de composições retorna estoque zero quando indisponível. Esses auxiliares não explicam por si só a tela de erro observada.
+- [x] `adb devices -l` na sessão atual não listou aparelho. A verificação anterior dos aliases Wi‑Fi não vale como conexão presente; não reconectei por endereço desconhecido nem rodei Maestro. Sem request/response capturados na mesma sessão, nenhuma mudança de produção é sustentada.
+
+#### Regras consultadas, validação e limites
+
+- [x] Retomei o inventário e o item do roadmap e consultei o `AGENTS.md` fornecido nesta conversa, `docs/geral/USER_RULES.md`, a regra `rules/products/product-reconciliation-erp-only.yml`, documentação de estrutura Produto/Variação e mover/merge, `docs/mobile/arquitetura_offline_first.md` e a skill de replicação acessível. A skill canônica continua ausente de `.agents/skills` e `skills`; a única cópia encontrada no backup `.vercel` foi lida apenas como orientação, com proveniência não confirmada.
+- [x] Não houve mudança de código ou execução de testes. Nenhuma consulta/escrita Supabase, Graph API, R2/Meta, SEFAZ, migration, deploy ou ação operacional de Estoque foi realizada; o guia prático não requer atualização.
+- [ ] O diagnóstico precisa da resposta da consulta da lista na própria sessão mobile e da versão/build que a executou. `adb devices -l` vazio deixa a validação nativa indisponível nesta sessão; Expo Web não foi usado como substituto.
+
+**Conclusão do recorte:** a consulta principal e a propagação de erro permanecem equivalentes; a leitura separada de categorias é uma hipótese a verificar com a resposta real, não base suficiente para mudar a lista. O erro observado segue sem diagnóstico e a auditoria global de Produtos continua aberta.
+
+### Ciclo 396 — falha na leitura auxiliar de nomes de categorias — 26/10/2026
+
+**Recorte:** resultado da lista depois que a página de Produtos foi carregada, mas a consulta secundária `categories(id, name)` falha ao enriquecer os rótulos de categoria.
+
+#### Diferença e correção
+
+- [x] A consulta principal mobile já havia retornado os produtos e a contagem, mas a leitura auxiliar de nomes de categoria ainda podia lançar erro quando `throwOnError` estava ativo; a tela descartava assim linhas que já tinham sido carregadas. Essa leitura só preenche o texto da coluna/cartão. O mapeador ERP aceita relações ausentes e mantém `products.category` como fallback; no mobile a mesma função `getMobileProductListCategoryLabel` já implementava esse fallback.
+- [x] Removi a propagação do erro somente nessa leitura de enriquecimento, incluindo tanto respostas Supabase com `error` quanto rejeições de transporte. A página permanece disponível com o nome legado do produto; quando não há fallback, a categoria fica vazia e um aviso estático fica no log. O modo estrito continua propagando erros da consulta principal, das buscas que a compõem e de filtros selecionados. A correção não altera predicados, contagem, paginação, permissões ou dados gravados.
+- [x] A captura anexada pelo usuário continua sem resposta HTTP/RPC, portanto não comprova que esta falha secundária tenha causado o erro visível; a correção atende a diferença independente que foi identificada no Ciclo 395 e evita perder produtos já obtidos.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/utils/productService/productQueryService.ts` inclui relações de categoria no select principal `LIGHT_COLUMNS_WITH_CATS`; `productMapper.ts` prioriza `products.category`, depois o nome relacionado. Mobile: `mobile/src/features/products/services/mobileProductFetchService.ts` executa o select de `products` antes da consulta secundária de `categories`, e `getMobileProductListCategoryLabel` já aplica o fallback do texto legado.
+- [x] Teste Vitest permitido via ERP: `npm run test -- --run --config vitest.config.ts ../mobile/src/features/products/services/mobileProductFetchService.test.ts` — **1 arquivo, 40 testes aprovados**. O caso antes esperava rejeição; agora cobre erro retornado e requisição rejeitada, verificando que a linha e a contagem permanecem e usam `Categoria legada`.
+- [x] Retomei `AGENTS.md`, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação vigente de Produto/Variação e mover/merge, arquitetura offline-first, inventário e roadmap. A skill canônica `erp-web-to-mobile-replication` segue ausente de `.agents/skills` e `skills`; a cópia em backup `.vercel` permanece orientação somente, com proveniência não confirmada. Não há `AGENTS.md` aninhado aplicável ao serviço e teste mobile.
+- [x] `git diff --check` passou nos arquivos alterados; Git reportou apenas avisos de normalização CRLF/LF. Não executei Playwright, Maestro, Expo Web, consulta/gravação remota, RPC, Meta/R2/SEFAZ, migration ou deploy. Não alterei o comportamento operacional de Estoque; o guia prático não precisa de atualização.
+- [ ] Diagnóstico da captura ainda exige a resposta da consulta na mesma sessão e a build correspondente; `adb devices -l` estava vazio na última verificação. A validação nativa em aparelho físico permanece pendente.
+
+**Conclusão do recorte:** falhas do enriquecimento de nomes não derrubam mais a página já carregada, preservando o fallback legado; erros da consulta principal continuam visíveis e sua causa não foi inferida. Auditoria global permanece em andamento.
+
+### Ciclo 397 — nomes de múltiplas categorias no card da lista — 26/10/2026
+
+**Recorte:** apresentação, no card mobile e no card/tabela ERP, de produto vinculado a mais de uma categoria.
+
+#### Comparação e conclusão
+
+- [x] O ERP chama `getCategoryBreadcrumb(product.categoryIds, categoryTree)`: apesar do nome, essa função não monta caminho hierárquico; resolve cada ID pela lista de categorias e junta os nomes existentes com ` | `. `ProductCard` e `ProductRowStandardCells` preferem esse resultado e recorrem ao texto de `product.category` quando ele fica vazio.
+- [x] O serviço mobile mantém a ordem de `product_categories`, resolve os mesmos IDs na consulta auxiliar e `getMobileProductListCategoryLabel` junta os nomes encontrados com o mesmo delimitador ` | `; quando não há nome de vínculo, usa o texto legado do produto. `MobileProductCard` renderiza esse valor sem transformação adicional. Não há divergência comprovada que justifique mudar a apresentação.
+- [x] Acrescentei um caso de regressão que verifica ordem e separador para duas categorias vinculadas; nenhuma regra de produção foi alterada.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/utils/categoryService.ts:getCategoryBreadcrumb`, `erp/src/pages/App/Products/ProductList/components/Card/ProductCard.tsx` e `ProductRowStandardCells.tsx`. App: `mobile/src/features/products/domain/mobileProductListPresentation.ts`, `mobile/src/features/products/services/mobileProductFetchService.ts` e `mobile/src/features/products/components/MobileProductCard.tsx`.
+- [x] Vitest permitido via ERP: `npm run test -- --run --config vitest.config.ts ../mobile/src/features/products/domain/mobileProductListPresentation.test.ts` — **1 arquivo, 12 testes aprovados**.
+- [x] Consultei o `AGENTS.md`, `docs/geral/USER_RULES.md`, a regra de Conciliação ERP-only, documentação vigente de estrutura Produto/Variação e mover/merge, inventário e roadmap. Nenhum formulário, mutation ou serviço remoto mudou; sem consulta/gravação de dados, Graph API, SEFAZ, migration ou deploy. O guia prático do Estoque não se aplica.
+- [ ] A equivalência de apresentação foi verificada por código e teste de domínio, sem Playwright autenticado ou validação Android/Maestro; não há aparelho ADB conectado. Expo Web não foi usado como prova nativa.
+
+**Conclusão do recorte:** nomes vinculados, ordem e delimitador de múltiplas categorias correspondem entre os clientes. A auditoria geral continua aberta.
+
+### Ciclo 398 — miniaturas nos cartões de produto e variação — 26/10/2026
+
+**Recorte:** tamanho da imagem solicitada e recuperação quando a miniatura de um cartão da lista falha.
+
+#### Diferença e correção
+
+- [x] ERP seleciona a primeira imagem priorizada para o cartão e `CardThumbnail` a renderiza por `ProductImage` com `size="thumbnail"`. O componente ERP tenta a URL derivada da miniatura, depois a média, a original e, se configurado, um fallback; sem imagem renderiza o glifo de imagem.
+- [x] Os cartões mobile simples/pai e de variação já selecionavam a mesma imagem priorizada, mas a renderizavam diretamente com `Image` e a URL recebida: não solicitavam a variante reduzida do ERP e não tinham recuperação `onError`. Ambos agora reutilizam o `ProductImage` nativo já empregado na edição de fotos, com `size="thumbnail"`; o componente mobile tenta miniatura → média → original e usa o ícone local do app como fallback final. A falta de URL continua exibindo o placeholder próprio do cartão. O fallback final é uma adaptação visual mobile, não uma cópia pixel a pixel do glifo ERP.
+- [x] A mudança não interfere no erro geral da lista mostrado nas capturas: nenhuma resposta da consulta de produtos foi obtida nelas para diagnosticar a causa. Este ciclo só corrige carregamento de imagens de cartões quando há uma URL de imagem.
+- [x] A captura mais recente repete o estado de erro/retry sem contagem incerta, compatível com a mudança visual registrada no Ciclo 385. Como ela não inclui erro, request/response ou identificação da build/sessão, não permite diagnosticar a consulta que falhou.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/ProductList/components/Card/CardThumbnail.tsx` passa `images[0]` e `size="thumbnail"`; `erp/src/components/ProductImage.tsx` contém a cascata de recuperação. App: `MobileProductCard.tsx` e `MobileProductVariationCard.tsx` usam o componente existente `mobile/src/components/shared/ProductImage.tsx`; a ordenação de imagens permanece inalterada.
+- [x] A suíte Vitest permitida para `imageUrlUtils.test.ts`, executada no ERP, passou **6/6**. Ela verifica a transformação de URL compartilhada pelo utilitário ERP; não é teste de renderização ou de `onError` do componente React Native. Não havia teste de componente mobile para esta cascata.
+- [x] Consultei o `AGENTS.md` fornecido, `docs/geral/USER_RULES.md`, a exceção de Conciliação ERP-only, documentação vigente de Produto/Variação e mover/merge, notas/inventário mobile, roadmap e instrução acessível da skill de replicação. A skill canônica permanece ausente de `.agents/skills` e `skills`; a cópia sob backup `.vercel` não tem proveniência confirmada. Não há regra que altere a experiência visual das miniaturas.
+- [x] `git diff --check` passou; Git reportou avisos de normalização CRLF/LF. Não executei Playwright, Maestro ou Expo Web como prova de comportamento nativo; `adb devices -l` está vazio. Sem leitura/escrita remota, upload de foto, consulta Meta, migration ou deploy. Nenhuma operação de Estoque mudou; o guia prático não requer atualização.
+- [ ] A cascata precisa de verificação visual em aparelho Android físico para confirmar a renderização nativa e o comportamento de falha em cada tamanho. A indisponibilidade do aparelho deixa essa validação pendente.
+
+**Conclusão do recorte:** cartões mobile agora pedem primeiro a miniatura derivada e usam o fallback já implementado no app quando a imagem falha; a escolha e ordenação das imagens continuam as mesmas. A equivalência foi revisada por código, não comprovada em runtime nativo. A auditoria global permanece em andamento.
+
+### Ciclo 399 — cabeçalho duplicado ao expandir variações — 26/10/2026
+
+**Recorte:** estado expandido da lista de variações dentro do card do Produto Pai.
+
+#### Diferença e correção
+
+- [x] No ERP, `ProductCardHeader` apresenta o controle “Variações (n)” e `ProductCardVariationList` renderiza as linhas filhas sem outro título. No app, `MobileProductCard` já apresentava a mesma contagem no botão acessível, mas `MobileProductVariationList` repetia o texto no início do painel.
+- [x] Removi o subtítulo repetido e seus estilos exclusivos da lista mobile. A contagem segue disponível no botão que expande/recolhe; as linhas, permissões, callbacks e o espaçamento entre cartões de variação não foram alterados.
+- [x] O modelo documenta produto simples como uma variação única e família com duas ou mais variações. A correção só atinge o painel da família expandida; o estado de variação única não usa essa lista.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/ProductList/components/Card/ProductCardHeader.tsx` e `ProductCard.tsx` mantêm a contagem no controle do pai; `ProductCardVariationList.tsx` percorre as linhas sem cabeçalho. App: `mobile/src/features/products/components/MobileProductCard.tsx` mantém o controle acessível com contagem; `MobileProductVariationList.tsx` agora inicia pelas linhas.
+- [x] Revisei o `AGENTS.md` fornecido, `docs/geral/USER_RULES.md`, documentação vigente de Produto/Variação e mover/merge, exceção ERP-only da Conciliação, inventário e roadmap. Não encontrei nota mobile que justificasse repetir o título. A fonte canônica da skill de replicação continua ausente de `.agents/skills` e `skills`; a única cópia disponível em `.vercel` foi lida como orientação, sem proveniência confirmada.
+- [x] `git diff --check` passou. Não executei Playwright porque não iniciei sessão visual do Expo/ERP neste recorte; `adb devices -l` não mostrou telefone físico para Maestro. A comparação foi estática e não comprova o layout nativo. Nenhum formulário, serviço, permissão, payload, consulta/escrita remota, Meta/R2/SEFAZ, migration, deploy ou operação do Estoque mudou; o guia prático não se aplica.
+- [ ] A disposição visual em Android continua pendente de validação com telefone físico conectado por Wi‑Fi/ADB e Maestro, sem apagar os dados existentes do app.
+
+**Conclusão do recorte:** a contagem de variações aparece uma vez no controle do pai, como no ERP; o painel mobile começa pela primeira linha filha. Auditoria global permanece em andamento.
+
+### Ciclo 400 — SKU comercial nas linhas de variação — 26/10/2026
+
+**Recorte:** apresentação do SKU no estado expandido da lista de produtos com variações, incluindo SKU customizado e SKU ausente.
+
+#### Diferença e correção
+
+- [x] O transformador ERP preserva `variation.sku` após remover o sufixo interno legado conhecido; se estiver ausente, gera sequência `parentSku-NN`. O app reescrevia na busca completa SKUs que não começavam com o código do pai e o card também inventava um sufixo para certos valores. Isso ocultava identificadores comerciais válidos, apesar de o contrato permitir alterá-los sem trocar o UUID da variação.
+- [x] Extraí `normalizeProductVariationSku` e `resolveProductVariationSku` para `shared-utils` e conectei o ERP e o app. Ambos agora preferem o SKU comercial da variação e preservam sua capitalização; somente tiram o sufixo interno legado `-NN-token` que o ERP já removia. SKU vazio recebe o fallback numerado baseado no SKU/código pai, com padding de dois dígitos. A linha mobile não acrescenta mais um sufixo apenas para exibição.
+- [x] O alinhamento cobre o mapeamento completo e o resumo carregado pela lista. Não alterei geração nem normalização do payload de gravação mobile; este recorte é somente leitura/apresentação da lista.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/ProductList/utils/catalog/productListTransformers.ts` define a precedência do SKU/código pai e cria as linhas; `erp/src/domain/products/variations/variationDefaults.ts` fornecia a remoção do sufixo legado. App: `mobile/src/features/products/services/mobileProductFetchService.ts` prepara as variações nas consultas completa e resumida; `MobileProductVariationCard.tsx` exibe o SKU da linha. `docs/negocio/produtos/estrutura-produto-variacao.md` descreve o SKU comercial como editável com UUID estável. A exceção de Conciliação ERP-only continua preservada.
+- [x] Vitest focado executado pelo ERP: shared resolver **3/3**, normalizador mobile **7/7**, fetch mobile **40/40**, transformador ERP **5/5**; total **55/55 em 4 arquivos**. O primeiro passe detectou que a fixture mantinha um SKU explícito e por isso não testava o fallback; corrigi a fixture para SKU ausente e repeti a suíte com sucesso.
+- [x] `git diff --check` passou. `adb devices -l` não listou aparelho conectado nesta sessão.
+- [x] Consultei o `AGENTS.md` fornecido, `docs/geral/USER_RULES.md`, a regra `rules/products/product-reconciliation-erp-only.yml`, documentos vigentes de Produto/Variação e mover/merge, inventário e roadmap. A skill canônica de replicação permanece ausente de `.agents/skills` e `skills`; usei a única cópia encontrada no backup `.vercel` como orientação, sem proveniência confirmada. Nenhuma consulta ou escrita remota, Meta/R2/SEFAZ, migration ou deploy foi realizada; guia de Estoque não se aplica.
+- [ ] Sem Playwright visual autenticado ou runtime Android/Maestro neste recorte. A captura disponível mostra falha de carregamento, então não contém linha de SKU para comparar. Expo Web não foi usado como prova nativa. A origem do erro da lista permanece pendente de request/response e identificação da build/sessão.
+
+**Conclusão do recorte:** a lista ERP e a lista mobile agora preservam o SKU comercial salvo em cada variação, aplicam a mesma retirada do sufixo interno legado e sintetizam um código apenas quando o valor está ausente. A auditoria global continua aberta.
+
+### Ciclo 401 — ação de pedidos vinculados em linhas de família expandida — 26/10/2026
+
+**Recorte:** disponibilidade da ação “Pedidos Vinculados” no menu de uma linha de variação dentro de uma família com múltiplas variações.
+
+#### Comparação e conclusão
+
+- [x] No ERP, `ProductCardActions` mostra “Ver Pedidos Vinculados” apenas fora do perfil de etiquetas e quando o produto não é pai ou a família tem exatamente uma variação. Em famílias expandidas com várias linhas, o pai é reconhecido como `isParent` e a condição falha. `VariationItemActions` não renderiza uma ação de pedidos vinculados para a linha filha.
+- [x] No app, `useMobileProductCardState` trata o registro como pai quando `product.isParent` ou quando há variações. `getMobileProductCardActionAvailability` define `canShowLinkedOrders` como falso para pais, e `MobileProductCard` passa esse gate para `MobileProductVariationList` e suas linhas; `MobileProductVariationCard` só fornece o callback ao menu quando o gate é verdadeiro. Assim, a família expandida também não expõe a ação no app.
+- [x] O controle do cartão principal continua equivalente: um produto simples pode abrir seus pedidos, e uma família com variação única mantém a ação no cartão, como no ERP. O serviço mobile aceita `variationId` quando esse fluxo é usado; não alterei o serviço nem removi callbacks compartilhados.
+- [x] Não encontrei diferença comprovada neste estado e não fiz alteração de código nem acrescentei teste. Esta auditoria não explica o erro de carregamento da captura: ela não inclui a resposta da consulta de produtos.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/ProductList/components/Card/ProductCardActions.tsx` e `Variations/VariationItemActions.tsx`. App: `mobile/src/features/products/hooks/useMobileProductCardState.ts`, `domain/mobileProductCardRules.ts`, `components/MobileProductCard.tsx`, `MobileProductVariationList.tsx` e `MobileProductVariationCard.tsx`. `mobile/src/features/products/domain/mobileProductCardRules.test.ts` já documenta o gate que oculta pedidos vinculados em produto pai; nenhuma regra nova foi testada neste recorte.
+- [x] Retomei o `AGENTS.md` fornecido, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação vigente de Produto/Variação e mover/merge, inventário e item correspondente no roadmap. A skill canônica `erp-web-to-mobile-replication` continua ausente em `.agents/skills` e `skills`; a cópia no backup `.vercel` foi usada somente como orientação, sem proveniência confirmada.
+- [x] Comparação estática dos gates e callbacks. Não executei Playwright, Maestro, Expo Web, consulta/escrita remota, chamadas Meta/R2/SEFAZ, migration ou deploy. `adb devices -l` não tinha aparelho para Maestro; o guia prático do Estoque não se aplica.
+- [ ] A verificação visual no ERP e no Android físico permanece pendente; o estado de erro mostrado não contém menus de produto nem linhas para comparação. Para diagnosticar essa falha, continuam necessários resposta/erro da consulta na mesma sessão e identificação da build do aplicativo.
+
+**Conclusão do recorte:** o menu de linha filha não expõe “Pedidos Vinculados” em nenhum dos clientes; o acesso permanece no cartão simples ou de variação única, conforme o gate ERP. Nenhuma mudança era necessária. A auditoria global permanece em andamento.
+
+### Ciclo 402 — anúncio acessível do erro da lista — 26/10/2026
+
+**Recorte:** semântica de acessibilidade do erro mostrado quando a consulta da lista falha sem linhas disponíveis.
+
+#### Diferença e correção
+
+- [x] O ERP renderiza a mensagem de erro dentro de um elemento com `role="alert"` e mantém “Tentar novamente” como botão separado.
+- [x] No mobile, o mesmo estado visual tinha uma mensagem `Text` sem papel de alerta ou anúncio de mudança. Acrescentei `accessibilityRole="alert"` e `accessibilityLiveRegion="assertive"` somente ao texto de erro. Isso dá a semântica de alerta multiplataforma documentada pelo React Native e pede ao TalkBack que anuncie a atualização imediatamente; o botão “Tentar novamente” permanece um controle acessível independente.
+- [x] O estado vazio sem erro, o contador, a consulta, o retry e o texto exibido não foram alterados. Esta diferença não explica por que a consulta falhou na captura.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/ProductList/index.tsx` usa `role="alert"` no painel de erro. App: `mobile/src/features/products/screens/NativeProductsScreen.tsx` acrescenta as propriedades no `Text` dentro do ramo `loadError && products.length === 0`.
+- [x] A versão instalada no projeto é React Native **0.86.3** (`mobile/package.json`); seus tipos locais incluem `accessibilityRole="alert"` e `accessibilityLiveRegion`. A documentação oficial da versão 0.86 descreve o papel de alerta e que `assertive` anuncia mudanças imediatamente no Android: [Accessibility](https://reactnative.dev/docs/0.86/accessibility) e [View](https://reactnative.dev/docs/0.86/view).
+- [x] Consultei o `AGENTS.md` fornecido, `docs/geral/USER_RULES.md`, a regra ERP-only de Conciliação, documentação atual de Produto/Variação e mover/merge, inventário de formulários, nota offline-first, inventário e roadmap. Não há `AGENTS.md` aninhado aplicável no diretório do componente. A skill canônica de replicação não está em `.agents/skills` nem em `skills`; usei como orientação a cópia do backup `.vercel`, cuja proveniência não foi confirmada.
+- [x] Não acrescentei nem executei teste: a propriedade é suportada pela versão/type local, mas a emissão real de TalkBack/VoiceOver requer runtime nativo. `adb devices -l` não lista aparelho nesta sessão; não houve Playwright, Maestro, Expo Web, acesso a dados remotos, Meta/R2/SEFAZ, migration ou deploy. Nenhum formulário, payload, permissão ou operação de Estoque mudou; o guia prático não se aplica.
+- [ ] Anúncio deve ser confirmado no app Android com TalkBack (e VoiceOver em iOS, se disponível). O dispositivo físico não estava conectado nesta execução.
+
+**Conclusão do recorte:** a falha da lista agora tem semântica acessível e anúncio dinâmico no mobile, alinhando a mensagem de erro ao `role="alert"` do ERP sem alterar o fluxo de consulta. A causa operacional da falha da captura segue pendente de resposta/build da consulta; a auditoria global continua em andamento.
+
+### Ciclo 403 — ordem das variações no Produto Pai expandido — 26/10/2026
+
+**Recorte:** ordem em que as linhas filhas de variação são exibidas dentro de um Produto Pai expandido.
+
+#### Comparação e conclusão
+
+- [x] A consulta ERP inclui `product_variations(*)`; `flattenProductsForList` percorre `product.variations` na ordem recebida e `ProductCardVariationList` renderiza as linhas com `variations.map`, sem ordenar.
+- [x] A consulta mobile também inclui `product_variations(*)`; `getMobileProductVariationRecords` remove somente placeholders/mesclados conforme os filtros ativos e preserva a ordem relativa das linhas restantes. O mapeamento usa essa sequência e `MobileProductVariationList` a renderiza com `variations.map`, sem sort.
+- [x] `estrutura-produto-variacao.md` define ordenação de valores visíveis dos atributos pela aba **Identificação e Atributos**, mas não estabelece ordenação própria para as linhas de variação na lista. Como ambos mantêm a sequência do relacionamento e não há outro contrato documentado, não há diferença comprovada nem justificativa para introduzir critério de ordenação novo.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/utils/productService/productQueryService.ts`, `erp/src/pages/App/Products/ProductList/utils/catalog/productListTransformers.ts` e `ProductList/components/Variations/ProductCardVariationList.tsx`. App: `mobile/src/features/products/services/mobileProductFetchService.ts`, `domain/mobileProductVariationVisibility.ts` e `components/MobileProductVariationList.tsx`.
+- [x] Consultei o `AGENTS.md` fornecido, `docs/geral/USER_RULES.md`, a regra de Conciliação ERP-only, `estrutura-produto-variacao.md`, `operacoes-troca-pai-merge.md`, inventário, roadmap e a skill acessível de replicação. A skill canônica continua ausente de `.agents/skills` e `skills`; a cópia em backup `.vercel` permanece apenas orientação, sem proveniência confirmada. Não há `AGENTS.md` aninhado nos diretórios de listagem verificados.
+- [x] Revisão estática; não fiz mudança de código nem rodei testes, Playwright, Maestro ou Expo Web. Não havia telefone físico conectado para validar a ordenação visual nativa. Nenhuma consulta/escrita remota, chamada Meta/R2/SEFAZ, migration ou deploy. O guia de Estoque não se aplica.
+- [ ] A ordem visual final das linhas ainda não foi observada em sessão Playwright autenticada e aparelho Android físico. Como o contrato não define um sort próprio, não introduzi essa alteração sem respaldo.
+
+**Conclusão do recorte:** a lista ERP e o painel mobile preservam a sequência de variações retornada pela relação, sem ordenação adicional em qualquer cliente. Nenhuma mudança era necessária. A auditoria global permanece em andamento.
+
+### Ciclo 404 — atributos visíveis no título de Produto simples — 26/10/2026
+
+**Recorte:** título exibido no cartão da lista quando o produto tem a variação principal única.
+
+#### Diferença e correção
+
+- [x] O cartão ERP chama `getSelectedProductDisplayName`; sem atributos visíveis em `variation.attributes`, ele usa o nome salvo da variação ou do produto pai. A função não projeta características de `technical_specs` para o título.
+- [x] O cartão mobile passava o mesmo estado por `getSingleVariationDisplayName`, mas `getVariationAttributeValues` adicionava implicitamente `Cor` a partir de `variation.technicalValues` ou dos dados técnicos do pai quando faltava esse atributo em `variation.attributes`. Para produtos sem uma Cor atribuída à variação, o título podia divergir do ERP (por exemplo, `Sofá - Azul` em vez de `Sofá`).
+- [x] Removi essa inferência mobile e passei a extrair os valores do nome com `parseProductVariationAttributes` e `getVariationNameAttributeValues`, compartilhados com as demais regras de nome. A ordem dos atributos e `showName:false` são preservados; dados legados continuam passando pelo parser comum. Não alterei nomes persistidos, `technical_specs`, consultas, payloads ou serviços.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/ProductList/components/Card/ProductCard.tsx` e `erp/src/domain/products/variations/variationNaming.ts`. App: `mobile/src/features/products/hooks/useMobileProductCardState.ts` e `mobile/src/features/products/domain/mobileProductCardDisplay.ts`. Compartilhado: `shared-utils/productVariationAttributes.ts` e `shared-utils/productVariationNameValidation.ts`. Contrato de visibilidade: `docs/negocio/produtos/estrutura-produto-variacao.md`, seção “Visibilidade do atributo no nome da Variação”.
+- [x] Incluí regressão para pai com `technical_specs.Cor = Azul` e variação sem atributos, esperando somente `Sofá`. Vitest focado via ERP: `npm run test -- --run --config vitest.config.ts ../mobile/src/features/products/domain/mobileProductCardDisplay.test.ts` — **1 arquivo, 6 testes aprovados**. `git diff --check` não apontou erros.
+- [x] Retomei o `AGENTS.md` informado e li suas regras de validação/formulários; `docs/geral/USER_RULES.md`; `rules/products/product-reconciliation-erp-only.yml`; `estrutura-produto-variacao.md`; `operacoes-troca-pai-merge.md`; este inventário; e o item de Produtos no roadmap. Não há `AGENTS.md` aninhado nos diretórios do código/teste alterados. A skill canônica `erp-web-to-mobile-replication` não foi encontrada em `.agents/skills`, `skills` ou no diretório pessoal aplicável; consultei somente a cópia de backup em `erp/.vercel/builders-backup-72ebb3b0/node_modules/morante-hub-root/.agents/skills/erp-web-to-mobile-replication/SKILL.md`, com proveniência não confirmada, como orientação.
+- [x] A revisão de código confirmou o callsite do título simples no hook mobile e o helper de título do ERP. Não rodei Playwright porque não há servidor autenticado disponível nesta sessão; não usei Expo Web como prova nativa. `adb devices -l` segue sem telefone conectado, portanto não rodei Maestro. Sem acesso ou gravação remota, Meta/R2/SEFAZ, migration ou deploy. O guia prático de Estoque não se aplica.
+- [ ] Conferir o título visual no ERP e no app Android permanece pendente. O estado de erro da captura não contém produto carregado para comparação. A falha operacional de carregamento ainda depende da resposta da consulta e da identificação da build para diagnóstico.
+
+**Conclusão do recorte:** o título mobile de Produto simples agora deriva somente de atributos efetivamente persistidos na variação e segue a regra do ERP; campos técnicos do pai não são convertidos em atributo de nome. A auditoria global permanece em andamento.
+
+### Ciclo 405 — nome de fallback nas linhas de variação — 26/10/2026
+
+**Recorte:** nome renderizado em uma linha filha quando a variação não tem nome/displayName utilizável.
+
+#### Diferença e correção
+
+- [x] A linha ERP prioriza o nome salvo e, se ele falta ou não contém os atributos visíveis, `getSelectedProductDisplayName` usa `computeVariationName`/`buildProductVariationName`: nome do pai seguido pelos valores visíveis com espaço, por exemplo `Tênis Azul`.
+- [x] O caminho equivalente mobile passa por `getMobileProductVariationCardName` e `getSingleVariationDisplayName`, mas gerava o fallback com ` - ` (`Tênis - Azul`). Não havia particularidade mobile documentada que justificasse esse separador.
+- [x] Substituí a montagem local por `getCompleteVariationName`, mantendo o parser compartilhado de atributos e a regra `showName:false`. Os nomes já salvos continuam prioritários; alterou-se somente o texto de fallback gerado na leitura. Nenhum dado, query, payload ou serviço foi modificado.
+
+#### Evidências, validação e limites
+
+- [x] ERP: `erp/src/pages/App/Products/ProductList/components/Variations/ProductCardVariationItem.tsx` e `erp/src/domain/products/variations/variationNaming.ts`. App: `mobile/src/features/products/components/MobileProductVariationCard.tsx` e `mobile/src/features/products/domain/mobileProductCardDisplay.ts`. Regra compartilhada: `shared-utils/productVariationNameValidation.ts:getCompleteVariationName`; parser: `shared-utils/productVariationAttributes.ts`. Documentação: `estrutura-produto-variacao.md`, seção “Visibilidade do atributo no nome da Variação”, e `docs/produtos/auditoria-arquitetura-organizacao-produtos.md`, que recomenda consolidar a geração de nomes entre Web e Mobile.
+- [x] Atualizei o caso de regressão do fallback para `Tênis Azul`. O teste Vitest focado do helper mobile passou **6/6** após corrigir uma referência local não declarada detectada na primeira execução. `git diff --check` não apontou erros.
+- [x] O servidor local já estava ativo nas portas 5173/3000; não reiniciei a pilha. Playwright visível autenticou usando as credenciais autorizadas do ambiente Development e abriu `/products`, mas após a espera a sessão não expôs campo de busca, alerta de erro nem cabeçalhos da lista; portanto não houve produto renderizado para comparação visual. `adb devices -l` não listou telefone físico e não rodei Maestro. Não usei Expo Web como prova nativa.
+- [x] Consultei o `AGENTS.md` informado, `docs/geral/USER_RULES.md`, `rules/products/product-reconciliation-erp-only.yml`, documentação de Produto/Variação e mover/merge, a auditoria arquitetural de Produtos, o inventário e o roadmap. Não há `AGENTS.md` aninhado aplicável aos diretórios de código e documentação alterados. A skill canônica `erp-web-to-mobile-replication` continua ausente das fontes atuais verificadas; a cópia de backup sob `.vercel` foi lida somente como orientação, sem proveniência confirmada.
+- [x] Não fiz consultas ou gravações diretas no banco, ações Meta/R2/SEFAZ, migration ou deploy. Não houve mudança operacional no Estoque; o guia prático não se aplica.
+- [ ] A apresentação precisa de comparação visual quando ERP e app estiverem exibindo linhas de variação carregadas. A falha original da captura permanece sem resposta da consulta e sem identificação da build; esta execução não a diagnosticou.
+
+**Conclusão do recorte:** sem nome persistido, o app agora gera o mesmo fallback por nome do pai + atributos visíveis que o ERP. Auditoria global permanece em andamento.

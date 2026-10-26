@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { supabaseMock } = vi.hoisted(() => ({ supabaseMock: { from: vi.fn() } }));
 
@@ -19,6 +19,10 @@ import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../shared-utils/te
 describe('fetchMobileProductsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('propaga falhas da consulta quando a lista habilita throwOnError', async () => {
@@ -361,6 +365,7 @@ describe('fetchMobileProductsPage', () => {
           id: 'product-1',
           name: 'Mesa Aurora',
           code: 'MESA-1',
+          sku: 'MESA-CATALOGO',
           category: 'Sala',
           unit_price: '1200',
           price: '1450',
@@ -391,7 +396,7 @@ describe('fetchMobileProductsPage', () => {
       name: 'Mesa Aurora',
       unitPrice: 1200,
       costPrice: 800,
-      allVariations: [{ sku: 'MESA-1-01' }],
+      allVariations: [{ sku: 'MESA-CATALOGO-01' }],
     });
     expect(result.total).toBe(1);
   });
@@ -443,44 +448,56 @@ describe('fetchMobileProductsPage', () => {
     }
   );
 
-  it('propaga falha ao resolver nomes de categoria para o estado de erro da lista', async () => {
-    const productQuery: any = {};
-    for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
-      productQuery[method] = vi.fn(() => productQuery);
-    }
-    productQuery.range = vi.fn().mockResolvedValue({
-      data: [
-        {
-          id: 'product-category-error',
-          name: 'Cama Aurora',
-          code: 'CAMA-01',
-          category_id: 'category-legacy',
-          category: '',
-          unit_price: 1200,
-          stock: 1,
-          active: true,
-          status: 'published',
-          item_type: 'product',
-          product_categories: [],
-          product_variations: [],
-        },
-      ],
-      count: 1,
-      error: null,
-    });
-    const categoryError = new Error('Falha ao consultar nomes das categorias');
-    const categoryQuery: any = {
-      select: vi.fn().mockReturnThis(),
-      in: vi.fn().mockResolvedValue({ data: null, error: categoryError }),
-    };
-    supabaseMock.from.mockImplementation((table: string) =>
-      table === 'categories' ? categoryQuery : productQuery
-    );
+  it.each([
+    ['resposta de erro', false],
+    ['requisição rejeitada', true],
+  ] as const)(
+    'preserva produtos carregados quando falha o enriquecimento da categoria (%s)',
+    async (_failureMode, rejectRequest) => {
+      const productQuery: any = {};
+      for (const method of ['select', 'or', 'eq', 'filter', 'order']) {
+        productQuery[method] = vi.fn(() => productQuery);
+      }
+      productQuery.range = vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'product-category-error',
+            name: 'Cama Aurora',
+            code: 'CAMA-01',
+            category_id: 'category-legacy',
+            category: 'Categoria legada',
+            unit_price: 1200,
+            stock: 1,
+            active: true,
+            status: 'published',
+            item_type: 'product',
+            product_categories: [],
+            product_variations: [],
+          },
+        ],
+        count: 1,
+        error: null,
+      });
+      const categoryError = new Error('Falha ao consultar nomes das categorias');
+      const categoryQuery: any = {
+        select: vi.fn().mockReturnThis(),
+        in: vi.fn(),
+      };
+      if (rejectRequest) categoryQuery.in.mockRejectedValue(categoryError);
+      else categoryQuery.in.mockResolvedValue({ data: null, error: categoryError });
+      supabaseMock.from.mockImplementation((table: string) =>
+        table === 'categories' ? categoryQuery : productQuery
+      );
 
-    await expect(fetchMobileProductsPage(1, 10, { throwOnError: true })).rejects.toBe(
-      categoryError
-    );
-  });
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const result = await fetchMobileProductsPage(1, 10, { throwOnError: true });
+
+      expect(result).toMatchObject({
+        total: 1,
+        data: [{ id: 'product-category-error', category: 'Categoria legada' }],
+      });
+    }
+  );
 
   it('uses legacy parent price when unit_price is null in the list result', async () => {
     const query: any = {};
@@ -531,6 +548,7 @@ describe('fetchMobileProductsPage', () => {
           id: 'product-image-formats',
           name: 'Sofá Aurora',
           code: 'SOFA-1',
+          sku: 'SOFA-CATALOGO',
           item_type: 'product',
           status: 'published',
           active: true,
@@ -541,7 +559,7 @@ describe('fetchMobileProductsPage', () => {
             {
               id: 'variation-json-images',
               product_id: 'product-image-formats',
-              sku: 'SOFA-1-01',
+              sku: 'SKU-COMERCIAL-AZUL',
               name: 'Sofá Aurora Azul',
               image_url: '["https://img.example/blue-a.jpg", "https://img.example/blue-b.jpg"]',
               images: null,
@@ -551,7 +569,7 @@ describe('fetchMobileProductsPage', () => {
             {
               id: 'variation-object-images',
               product_id: 'product-image-formats',
-              sku: 'SOFA-1-02',
+              sku: null,
               name: 'Sofá Aurora Cinza',
               image_url: null,
               images: [{ url: 'https://img.example/gray.jpg' }],
@@ -571,6 +589,10 @@ describe('fetchMobileProductsPage', () => {
     expect(result.data[0].images).toEqual([
       'https://img.example/parent-a.jpg',
       'https://img.example/parent-b.jpg',
+    ]);
+    expect(result.data[0].allVariations.map((variation: any) => variation.sku)).toEqual([
+      'SKU-COMERCIAL-AZUL',
+      'SOFA-CATALOGO-02',
     ]);
     expect(result.data[0].allVariations.map((variation: any) => variation.images)).toEqual([
       ['https://img.example/blue-a.jpg', 'https://img.example/blue-b.jpg'],

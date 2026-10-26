@@ -1,7 +1,7 @@
 import Product from '../../../../../types/product.type';
 import { parseVariationImages } from '@/pages/utils/productService';
-import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
 import { resolveProductVariationPricing } from '../../../../../../../../shared-utils/productVariationPricing';
+import { resolveProductVariationSku } from '../../../../../../../../shared-utils/productVariationSku';
 import type { ProductListRow, ProductListVariationAttribute } from '../../types';
 
 interface RawVariationItem {
@@ -97,10 +97,7 @@ function buildVariationListRow(
   index: number,
   parentSku: string
 ): ProductListRow {
-  const sku =
-    variation.sku && String(variation.sku).trim()
-      ? normalizeVariationSku(String(variation.sku).trim())
-      : `${parentSku}-${String(index + 1).padStart(2, '0')}`;
+  const sku = resolveProductVariationSku(variation.sku, parentSku, index);
 
   const mergedToVariationId =
     variation.mergedToVariationId || variation.merged_to_variation_id || undefined;

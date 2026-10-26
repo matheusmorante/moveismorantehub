@@ -71,4 +71,21 @@ describe('mobile product-list category presentation', () => {
       )
     ).toBe('Categoria legada');
   });
+
+  it('joins multiple linked category names in the same order and format as the ERP list', () => {
+    expect(
+      getMobileProductListCategoryLabel(
+        {
+          product_categories: [
+            { category_id: 'bedroom' },
+            { category_id: 'living-room' },
+          ],
+        },
+        new Map([
+          ['bedroom', 'Quarto'],
+          ['living-room', 'Sala'],
+        ])
+      )
+    ).toBe('Quarto | Sala');
+  });
 });

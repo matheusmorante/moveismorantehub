@@ -30,9 +30,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// node_modules/@supabase/supabase-js/dist/index.cjs
+// erp/node_modules/@supabase/supabase-js/dist/index.cjs
 var require_dist = __commonJS({
-  "node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
+  "erp/node_modules/@supabase/supabase-js/dist/index.cjs"(exports2) {
     var __supabase_functions_js = require("@supabase/functions-js");
     var __supabase_postgrest_js = require("@supabase/postgrest-js");
     var __supabase_realtime_js = require("@supabase/realtime-js");
@@ -599,14 +599,14 @@ var require_dist = __commonJS({
   }
 });
 
-// api/secure-integrations.ts
+// erp/api/secure-integrations.ts
 var secure_integrations_exports = {};
 __export(secure_integrations_exports, {
   default: () => handler
 });
 module.exports = __toCommonJS(secure_integrations_exports);
 
-// api/_lib/authenticatedErpRequest.ts
+// erp/api/_lib/authenticatedErpRequest.ts
 var import_supabase_js = __toESM(require_dist(), 1);
 var DEFAULT_PERMISSION_ROLES = {
   createEditOrders: ["manager"],
@@ -674,7 +674,7 @@ function hasErpPermission(context, permission) {
   return context.roles.some((role) => allowedRoles.includes(role));
 }
 
-// server/secure-api/verifyMetaAppCredentials.ts
+// erp/server/secure-api/verifyMetaAppCredentials.ts
 var import_node_crypto = require("node:crypto");
 function getGraphErrorDetails(body) {
   const graphError = body && typeof body === "object" && !Array.isArray(body) ? body.error : void 0;
@@ -756,7 +756,7 @@ async function verifyMetaAppCredentials({
   return { valid: true };
 }
 
-// server/secure-api/verifyWhatsAppWebhookSubscription.ts
+// erp/server/secure-api/verifyWhatsAppWebhookSubscription.ts
 var import_node_crypto2 = require("node:crypto");
 function isRecord(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -826,7 +826,7 @@ async function verifyWhatsAppWebhookSubscription({
   return { valid: false, reason: "pagination_limit_exceeded" };
 }
 
-// server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
+// erp/server/secure-api/ensureWhatsAppEchoWebhookSubscription.ts
 var import_node_crypto3 = require("node:crypto");
 function isRecord2(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -941,7 +941,7 @@ async function ensureWhatsAppEchoWebhookSubscription({
   return { valid: true, changed: true, fields: verifiedFields };
 }
 
-// src/pages/utils/metaService/metaGraphProxyPolicy.ts
+// erp/src/pages/utils/metaService/metaGraphProxyPolicy.ts
 var numericId = (value) => {
   const normalized = typeof value === "string" ? value.trim() : "";
   if (!/^\d{1,32}$/.test(normalized)) throw new Error("Identificador Meta inv\xE1lido.");
@@ -1095,7 +1095,7 @@ function planMetaGraphRequest(input, settings) {
   }
 }
 
-// api/secure-integrations.ts
+// erp/api/secure-integrations.ts
 var MAX_META_REQUEST_BYTES = 1e6;
 var MAX_GEMINI_REQUEST_BYTES = 1e6;
 var MAX_ROUTE_REQUEST_BYTES = 16e3;

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getMobileProductCompositionCardItems,
   getMobileProductVariationCardName,
+  getSingleVariationDisplayName,
 } from './mobileProductCardDisplay';
 
 describe('getMobileProductVariationCardName', () => {
@@ -21,7 +22,7 @@ describe('getMobileProductVariationCardName', () => {
     ).toBe('Tênis Azul');
   });
 
-  it('deriva o fallback do pai usando apenas atributos visíveis quando a variação não tem nome', () => {
+  it('usa o mesmo nome composto pelo ERP quando o nome salvo da variação está ausente', () => {
     expect(
       getMobileProductVariationCardName(
         { name: 'Tênis' },
@@ -33,7 +34,16 @@ describe('getMobileProductVariationCardName', () => {
         },
         1
       )
-    ).toBe('Tênis - Azul');
+    ).toBe('Tênis Azul');
+  });
+
+  it('não infere atributo Cor das especificações técnicas do produto pai', () => {
+    expect(
+      getSingleVariationDisplayName(
+        { name: 'Sofá', technical_specs: { Cor: 'Azul' } },
+        { name: 'Sofá', attributes: [] }
+      )
+    ).toBe('Sofá');
   });
 });
 

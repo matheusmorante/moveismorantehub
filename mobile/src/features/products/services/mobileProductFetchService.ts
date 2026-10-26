@@ -22,6 +22,7 @@ import { NON_TEST_PRODUCT_ARTIFACT_FILTER } from '../../../../../shared-utils/te
 import { parseVariationImages } from '../../../../../shared-utils/productVariationImages';
 import { toTitleCase } from '../../../../../shared-utils/productText';
 import { parseProductVariationAttributes } from '../../../../../shared-utils/productVariationAttributes';
+import { resolveProductVariationSku } from '../../../../../shared-utils/productVariationSku';
 import { getMobileProductVariationRecords } from '../domain/mobileProductVariationVisibility';
 import { resolveMobileProductHasVariations } from '../domain/mobileProductVariationMode';
 import { parseLocalizedNumber } from '../domain/productNumbers';
@@ -363,14 +364,21 @@ export const fetchMobileProductsPage = async (
     );
     const categoryNames = new Map<string, string>();
     if (categoryIds.length > 0) {
-      const { data: categoryRows, error: categoryError } = await supabase
-        .from('categories')
-        .select('id, name')
-        .in('id', categoryIds);
-      if (categoryError && options?.throwOnError) throw categoryError;
-      (categoryRows || []).forEach((category: any) => {
-        categoryNames.set(String(category.id), category.name);
-      });
+      try {
+        const { data: categoryRows, error: categoryError } = await supabase
+          .from('categories')
+          .select('id, name')
+          .in('id', categoryIds);
+        if (categoryError) throw categoryError;
+        (categoryRows || []).forEach((category: any) => {
+          categoryNames.set(String(category.id), category.name);
+        });
+      } catch {
+        // O nome da categoria é enriquecimento; mantenha as linhas da consulta principal.
+        console.warn(
+          '[MobileProductService] Falha ao carregar nomes de categorias; usando fallback.'
+        );
+      }
     }
 
     if (options?.summaryOnly) {
@@ -383,15 +391,16 @@ export const fetchMobileProductsPage = async (
             rawVars.every((v: any) => Boolean(v.merged_to_variation_id || v.mergedToVariationId));
           return !isMerged;
         })
-        .map((product: any) => {
-          const parentCode = product.code || product.sku || '000000';
+        .map((product: any, productIndex: number) => {
+          const parentCode =
+            product.sku || product.code || String(productIndex + 1).padStart(6, '0');
           let variations = getMobileProductVariationRecords(
             product,
             options?.includeMerged === true
           )
-            .map((variation: any) => ({
+            .map((variation: any, variationIndex: number) => ({
               id: variation.id,
-              sku: variation.sku,
+              sku: resolveProductVariationSku(variation.sku, parentCode, variationIndex),
               active: variation.active !== false,
               stock: Number(variation.stock ?? 0),
               comboItems: Array.isArray(variation.combo_items) ? variation.combo_items : [],
@@ -455,8 +464,8 @@ export const fetchMobileProductsPage = async (
       };
     }
 
-    const formatted = visibleData.map((p: any) => {
-      const parentCode = p.code || p.sku || '000000';
+    const formatted = visibleData.map((p: any, productIndex: number) => {
+      const parentCode = p.sku || p.code || String(productIndex + 1).padStart(6, '0');
       const orderedImageRows = Array.isArray(p.product_images)
         ? [...p.product_images].sort(
             (a: any, b: any) => Number(Boolean(b.is_main)) - Number(Boolean(a.is_main))
@@ -493,19 +502,7 @@ export const fetchMobileProductsPage = async (
           } = variationDetailsById.get(String(v.id)) || {};
           const varImages = parseVariationImages(v.image_url, v.images);
 
-          const suffix = String(vIdx + 1).padStart(2, '0');
-          const expectedPrefix = parentCode ? `${parentCode}-` : '';
-          const isAlreadyFormatted = Boolean(
-            expectedPrefix && v.sku && typeof v.sku === 'string' && v.sku.startsWith(expectedPrefix)
-          );
-          let resolvedSku = isAlreadyFormatted
-            ? v.sku
-            : parentCode
-              ? `${parentCode}-${suffix}`
-              : v.sku || '';
-          resolvedSku = String(resolvedSku || '')
-            .trim()
-            .replace(/^(.*-\d{2})-[a-z0-9_-]+$/i, '$1');
+          const resolvedSku = resolveProductVariationSku(v.sku, parentCode, vIdx);
 
           const syncUnitPrice = v.use_parent_price !== false;
           const syncPromoPrice = v.use_parent_promo_price !== false;

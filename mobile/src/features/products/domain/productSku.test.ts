@@ -39,6 +39,8 @@ describe('mobile generateVariationSku', () => {
 
   it('normaliza SKU de variação corretamente', () => {
     expect(normalizeVariationSku('  000312-01  ')).toBe('000312-01');
+    expect(normalizeVariationSku('  AbC-01-a1b2c3  ')).toBe('AbC-01');
+    expect(normalizeVariationSku('custom-red')).toBe('custom-red');
     expect(normalizeVariationSku(null)).toBe('');
     expect(normalizeVariationSku(undefined)).toBe('');
   });

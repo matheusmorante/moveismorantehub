@@ -59,6 +59,7 @@ export const fetchGeoMapOrders = async (limit: number = 50): Promise<GeoMapOrder
       .from(TABLE_NAME)
       .select('id, total_amount, status, order_type, customer_name, order_data'))
       .in('status', ['scheduled', 'fulfilled'])
+      .or('order_type.is.null,order_type.eq.sale,order_type.eq.showroom')
       .or('deleted.is.null,deleted.eq.false')
       .order('created_at', { ascending: false })
       .limit(limit);

@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { GeoMapOrderProjection } from '@/pages/types/dashboardOrderProjection.type';
 import { getNeighborhoodCoords } from '@/pages/utils/maps';
+import { isDashboardSaleOrder } from '../dashboardRevenue';
 
 interface ProfitHeatMapProps {
   orders: GeoMapOrderProjection[];
@@ -20,7 +21,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
 
   // Converte ordens em GeoJSON para MapLibre (usando coordenadas salvas ou centróides de bairros/cidades)
   const geoJsonData = useMemo(() => {
-    const features = orders.map((order) => {
+    const features = orders.filter(isDashboardSaleOrder).map((order) => {
       const fullAddr = order.customerData?.fullAddress;
       const neighborhood = (fullAddr?.neighborhood || '').toUpperCase().trim();
       const city = (fullAddr?.city || '').toUpperCase().trim();
@@ -46,7 +47,7 @@ export const ProfitHeatMap: React.FC<ProfitHeatMapProps> = ({ orders }) => {
       const jitterLat = ((seed % 20) - 10) * jitterScale;
       const jitterLng = ((Math.floor(seed / 5) % 20) - 10) * jitterScale;
 
-      const totalValue = order.itemsSummary?.itemsTotalValue || 0;
+      const totalValue = order.totalAmount || 0;
 
       return {
         type: 'Feature',

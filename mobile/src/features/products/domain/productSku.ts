@@ -1,3 +1,5 @@
+import { normalizeProductVariationSku } from '../../../../../shared-utils/productVariationSku';
+
 interface VariationSkuSource {
   sku?: string | null;
 }
@@ -55,7 +57,4 @@ export const generateVariationSku = (
   }
 };
 
-export const normalizeVariationSku = (sku?: string | null): string => {
-  if (!sku) return '';
-  return String(sku).trim().toUpperCase();
-};
+export const normalizeVariationSku = normalizeProductVariationSku;

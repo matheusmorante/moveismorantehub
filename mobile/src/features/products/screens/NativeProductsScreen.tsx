@@ -602,7 +602,13 @@ export const NativeProductsScreen: React.FC<Props> = ({
           ) : productsHook.loadError && productsHook.products.length === 0 ? (
             <View style={styles.empty}>
               <Package size={40} color="#dc2626" />
-              <Text style={styles.emptyText}>{productsHook.loadError}</Text>
+              <Text
+                style={styles.emptyText}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+              >
+                {productsHook.loadError}
+              </Text>
               <TouchableOpacity
                 onPress={() => productsHook.retry()}
                 style={styles.retryButton}

@@ -10,6 +10,24 @@ import { flattenProductsForList } from './productListTransformers';
 import type Product from '@/pages/types/product.type';
 
 describe('flattenProductsForList - Regras de Variações e Produtos Mesclados', () => {
+  it('preserves commercial variation SKUs and generates only missing ones from the parent SKU', () => {
+    const rows = flattenProductsForList([
+      {
+        id: 'prod-custom-skus',
+        name: 'Produto com SKU comercial',
+        code: 'ERP-CODE',
+        sku: 'CATALOG-PARENT',
+        hasVariations: true,
+        variations: [
+          { id: 'var-custom', sku: 'CUSTOM-RED', name: 'Vermelho', active: true },
+          { id: 'var-missing', sku: null, name: 'Azul', active: true },
+        ],
+      } as any,
+    ]).filter((row) => !row.isParent);
+
+    expect(rows.map((row) => row.sku)).toEqual(['CUSTOM-RED', 'CATALOG-PARENT-02']);
+  });
+
   it('resolve independentemente o preço efetivo quando as heranças da variação divergem', () => {
     const products: Product[] = [
       {

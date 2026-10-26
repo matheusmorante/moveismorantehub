@@ -10,8 +10,9 @@ import {
 } from 'lucide-react-native';
 import type React from 'react';
 import { useState } from 'react';
-import { Alert, Image, Linking, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Text, TouchableOpacity, View } from 'react-native';
 import { WEB_URL } from '../../../services/supabaseClient';
+import { ProductImage } from '../../../components/shared/ProductImage';
 import { useMobileProductCardState } from '../hooks/useMobileProductCardState';
 import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductActionsMenu } from './MobileProductActionsMenu';
@@ -333,7 +334,12 @@ export const MobileProductCard: React.FC<Props> = ({
       <View style={styles.productInfoRow}>
         {(!isParent || isSingleVariationCard) &&
           (cardImage ? (
-            <Image source={{ uri: cardImage }} style={styles.productImage} resizeMode="cover" />
+            <ProductImage
+              src={cardImage}
+              size="thumbnail"
+              style={styles.productImage}
+              resizeMode="cover"
+            />
           ) : (
             <View
               style={[styles.productImagePlaceholder, dark && styles.darkProductImagePlaceholder]}

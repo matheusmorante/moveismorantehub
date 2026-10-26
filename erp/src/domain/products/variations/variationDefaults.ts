@@ -2,15 +2,13 @@ import type Product from '../../../pages/types/product.type';
 import { toTitleCase } from '../../../pages/utils/textUtils';
 import { hasVariationAttribute } from './variationAttributes';
 import { isSingleProductVariationFormMode } from '../../../../../shared-utils/productVariationMode';
+import { normalizeProductVariationSku } from '../../../../../shared-utils/productVariationSku';
 
 /**
  * Remove somente o identificador interno que versões antigas ou colisões temporárias anexavam ao SKU.
  * Exemplo: 000123-01-a1b2c3 -> 000123-01
  */
-export const normalizeVariationSku = (sku?: string): string => {
-  const value = String(sku || '').trim();
-  return value.replace(/^(.*-\d{2})-[a-z0-9_-]+$/i, '$1');
-};
+export const normalizeVariationSku = normalizeProductVariationSku;
 
 /**
  * Determina se a variação é a variação padrão/simples (sem atributos específicos adicionados).

@@ -1,8 +1,10 @@
 import { Eye, MoreVertical, Package } from 'lucide-react-native';
 import React from 'react';
-import { Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { WEB_URL } from '../../../services/supabaseClient';
+import { ProductImage } from '../../../components/shared/ProductImage';
 import { toMobileVariationAttributes } from '../services/mobileProductVariationActionsService';
+import { normalizeVariationSku } from '../domain/productSku';
 import {
   getMobileProductVariationCardActionAvailability,
 } from '../domain/mobileProductCardRules';
@@ -127,7 +129,12 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
       {/* Linha Superior: Foto e Informações */}
       <View style={styles.topRow}>
         {imgUrl ? (
-          <Image source={{ uri: imgUrl }} style={styles.image} resizeMode="cover" />
+          <ProductImage
+            src={imgUrl}
+            size="thumbnail"
+            style={styles.image}
+            resizeMode="cover"
+          />
         ) : (
           <View style={[styles.placeholder, dark && styles.darkPlaceholder]}>
             <Package size={14} color="#94a3b8" />
@@ -140,12 +147,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
           </Text>
 
           <Text style={styles.sku}>
-            SKU:{' '}
-            {v.sku && String(v.sku).includes('-')
-              ? v.sku
-              : v.sku
-                ? `${v.sku}-${String(index + 1).padStart(2, '0')}`
-                : '-'}
+            SKU: {normalizeVariationSku(v.sku) || '-'}
           </Text>
           {isMerged && (
             <MergedBadge
