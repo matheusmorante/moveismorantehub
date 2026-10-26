@@ -313,6 +313,32 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     expect(mocks.saveProduct).toHaveBeenCalled();
   });
 
+  it('opens the composition tab and prevents saving an active simple composition with one part', async () => {
+    const simpleComposition: Product = {
+      ...complete,
+      itemType: 'composition',
+      isDraft: false,
+      status: 'hidden',
+      active: true,
+      comboItems: [{ productId: 'base', description: 'Base', quantity: 1 }],
+      variations: [{
+        ...complete.variations![0],
+        active: false,
+        status: 'hidden',
+        comboItems: [],
+      }],
+    };
+    const { result, setActiveTab } = renderSubmit(simpleComposition);
+
+    await act(async () => { expect(await result.current.handleSubmit(false)).toBe(false); });
+
+    expect(mocks.saveProduct).not.toHaveBeenCalled();
+    expect(setActiveTab).toHaveBeenCalledWith('composicao');
+    expect(toast.error).toHaveBeenCalledWith(
+      'Vincule pelo menos 2 produtos componentes para manter ativa esta composição.'
+    );
+  });
+
   it('bloqueia conclusão do cadastro quando a variação não possui foto vinculada', async () => {
     const productWithoutVariationPhoto: Product = {
       ...complete,

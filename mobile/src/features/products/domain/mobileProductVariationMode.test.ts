@@ -4,6 +4,7 @@ import {
   resolveMobileProductHasVariations,
   initializeMobileProductCode,
   shouldShowMobileProductVariationsTab,
+  shouldShowMobileProductCompositionTab,
 } from './mobileProductVariationMode';
 
 describe('initializeMobileProductCode', () => {
@@ -153,6 +154,28 @@ describe('resolveMobileProductHasVariations', () => {
       itemType: 'service',
       hasVariations: true,
       variations: [{ id: 'one' }, { id: 'two' }],
+    })).toBe(false);
+  });
+
+  it('shows the composition editor only for simple compositions, not composition families', () => {
+    expect(shouldShowMobileProductCompositionTab({
+      itemType: 'composition',
+      hasVariations: false,
+      variations: [{ id: 'primary' }],
+    })).toBe(true);
+    expect(shouldShowMobileProductCompositionTab({
+      item_type: 'composition',
+      has_variations: true,
+      variations: [{ id: 'one' }, { id: 'two' }],
+    })).toBe(false);
+    expect(shouldShowMobileProductCompositionTab({
+      itemType: 'product',
+      hasVariations: false,
+      variations: [{ id: 'primary' }],
+    })).toBe(false);
+    expect(shouldShowMobileProductCompositionTab({
+      itemType: 'service',
+      variations: [],
     })).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import type { Product, Variation } from '../erp/src/pages/types/product.type';
 import { getEffectiveVariationTechnicalValues } from '../erp/src/pages/utils/technicalValuesService';
 import { hasDuplicateVariationAttributeCombination } from '../erp/src/pages/utils/productVariationDefaults';
 import { checkProductErpLegibility as checkERPLegibility } from './productErpLegibility';
+import { getActiveCompositionVariationRequirementIssue } from './productCompositionRequirements';
 import type { VariationTabId } from '../erp/src/pages/App/Products/hooks/variation/variationForm.types';
 
 export function resolveVariationDimensions(parent: Partial<Product>, variation: Variation) {
@@ -51,6 +52,9 @@ export function getVariationRegistrationIssue(
       tab: 'identificacao',
     };
   }
+
+  const compositionIssue = getActiveCompositionVariationRequirementIssue(parent, variation);
+  if (compositionIssue) return compositionIssue;
 
 
 

@@ -3,6 +3,16 @@ import { getProductFormTabs } from './productFormTabs';
 import { getVariationFormTabs } from '../components/variationModal/variationModalTabs';
 
 describe('productFormTabs e variationModalTabs para Estoquista vs Geral', () => {
+  it('expõe Composição para produto simples composto e mantém famílias no tab Variações', () => {
+    const simpleCompositionTabs = getProductFormTabs(false, true, false, false);
+    const compositionFamilyTabs = getProductFormTabs(false, true, false, true);
+
+    expect(simpleCompositionTabs.some((tab) => tab.id === 'composicao')).toBe(true);
+    expect(simpleCompositionTabs.some((tab) => tab.id === 'variacoes')).toBe(false);
+    expect(compositionFamilyTabs.some((tab) => tab.id === 'composicao')).toBe(false);
+    expect(compositionFamilyTabs.some((tab) => tab.id === 'variacoes')).toBe(true);
+  });
+
   it('oculta a aba Características (technical) para estoquista no formulário principal de produto', () => {
     const stockistTabs = getProductFormTabs(false, false, true, true);
     const regularTabs = getProductFormTabs(false, false, false, true);

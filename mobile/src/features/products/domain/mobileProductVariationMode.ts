@@ -86,3 +86,11 @@ export const shouldShowMobileProductVariationsTab = (
       : [];
   return hasVariations || variations.length > 1;
 };
+
+/** Mirrors the ERP composition tab for a simple composition, not a composition family. */
+export const shouldShowMobileProductCompositionTab = (
+  product: MobileProductVariationModeSource
+): boolean => {
+  const itemType = product.itemType ?? product.item_type;
+  return itemType === 'composition' && !shouldShowMobileProductVariationsTab(product);
+};

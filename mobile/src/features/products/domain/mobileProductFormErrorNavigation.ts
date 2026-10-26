@@ -9,12 +9,13 @@ export type MobileProductFormTabId =
   | 'description'
   | 'estoque'
   | 'variacoes'
+  | 'composicao'
   | 'fiscal';
 
 export interface MobileProductFormErrorNavigation {
   tab: MobileProductFormTabId;
   variationIndex?: number;
-  variationPanel?: 'estoque' | 'fotos';
+  variationPanel?: 'estoque' | 'fotos' | 'compostos';
 }
 
 export const hasMobileProductDescriptionTechnicalValidationError = (
@@ -43,6 +44,7 @@ const PRODUCT_FORM_TABS = new Set<MobileProductFormTabId>([
   'description',
   'estoque',
   'variacoes',
+  'composicao',
   'fiscal',
 ]);
 
@@ -64,11 +66,20 @@ export const resolveMobileProductFormErrorNavigation = (
 
   if (variationMatch) {
     const variationField = variationMatch[2];
+    const isCompositionField = Boolean(
+      variationField &&
+      (variationField === 'comboItems' ||
+        variationField.startsWith('comboItems_') ||
+        variationField === 'combo_items' ||
+        variationField.startsWith('combo_items_'))
+    );
     const variationPanel = variationField && VARIATION_PRICING_FIELDS.has(variationField)
       ? 'estoque'
       : variationField && VARIATION_PHOTO_FIELDS.has(variationField)
         ? 'fotos'
-        : undefined;
+        : isCompositionField
+          ? 'compostos'
+          : undefined;
     return {
       tab: 'variacoes',
       variationIndex: Number(variationMatch[1]),
@@ -86,6 +97,15 @@ export const resolveMobileProductFormErrorNavigation = (
 
   if (fieldPath === 'categoryIds') {
     return { tab: 'geral' };
+  }
+
+  if (
+    fieldPath === 'comboItems' ||
+    fieldPath.startsWith('comboItems_') ||
+    fieldPath === 'combo_items' ||
+    fieldPath.startsWith('combo_items_')
+  ) {
+    return { tab: 'composicao' };
   }
 
   if (PRODUCT_FORM_TABS.has(fieldPath as MobileProductFormTabId)) {

@@ -20,6 +20,10 @@ import {
   hasRequiredProductSupplier,
   PRODUCT_SUPPLIER_REQUIRED_MESSAGE,
 } from './productSupplierRequirement';
+import {
+  getActiveCompositionProductRequirementIssue,
+  isProductComposition,
+} from './productCompositionRequirements';
 
 const isNonnegativeLocalizedNumber = (value: number | string) => {
   if (typeof value === 'number') return Number.isFinite(value) && value >= 0;
@@ -95,7 +99,7 @@ export const createMobileProductFormSchema = (options: {
   }
   const variations = data.variations || [];
   const isMultiVariationMode = Boolean(data.hasVariations) || variations.length > 1;
-  if (variations.length > 1) {
+  if (!options.draft && variations.length > 1) {
     variations.forEach((variation, index) => {
       if (variation.syncUnitPrice !== false) return;
       const unitPrice = parseLocalizedNumber(variation.price ?? variation.unitPrice ?? data.unitPrice);
@@ -110,6 +114,8 @@ export const createMobileProductFormSchema = (options: {
   }
   if (options.draft) return;
   const issue = (tab: string, message: string) => ctx.addIssue({ code: 'custom', path: [tab], message });
+  const compositionIssue = getActiveCompositionProductRequirementIssue({ ...data, variations });
+  if (compositionIssue) issue(compositionIssue.tab, compositionIssue.message);
   if (options.requireInboundCostPrice && !String(data.costPrice ?? '').trim()) {
     issue('costPrice', 'Informe um custo de aquisição válido.');
   }
@@ -141,7 +147,10 @@ export const createMobileProductFormSchema = (options: {
       }
     });
   };
-  validateComboItems(data.comboItems || [], ['variacoes']);
+  const rootComboItemsPath = isProductComposition(data) && !isMultiVariationMode
+    ? ['comboItems']
+    : ['variacoes'];
+  validateComboItems(data.comboItems || [], rootComboItemsPath);
   variations.forEach((variation, index) =>
     validateComboItems(variation.comboItems || [], ['variacoes', index, 'comboItems'])
   );
@@ -266,6 +275,12 @@ export const createMobileProductFormSchema = (options: {
       ctx.addIssue({
         code: 'custom',
         path: ['variacoes', invalidVariation.index, 'price'],
+        message: invalidVariation.issue.message,
+      });
+    } else if (invalidVariation.issue.tab === 'compostos') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['variacoes', invalidVariation.index, 'comboItems'],
         message: invalidVariation.issue.message,
       });
     } else {

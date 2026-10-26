@@ -70,7 +70,8 @@ classDiagram
 - Preço herdado exige preço positivo no pai. Preço próprio exige preço positivo na variação, mesmo que o pai tenha outro preço.
 - Uma variação de composição exige pelo menos dois componentes vinculados à própria variação. A composição simples verifica os componentes do produto.
 - A regra está em `shared-utils/productActivationValidation.ts`; a tela do ERP e o serviço de mutação mobile usam a mesma validação.
-- Os formulários atuais expõem edição de componentes dentro da variação. A edição de componentes no produto pai para uma composição simples não foi localizada no ERP nem no mobile, apesar de a validação e a persistência aceitarem `comboItems` no pai; não considerar o fluxo simples de montagem comprovado pela existência do modelo.
+- Para composição simples, ERP e app expõem a aba **Composição** no formulário do produto. Ao carregar, os dois preferem os componentes da variação principal quando ela os tem e recorrem aos componentes do produto quando não tem; ao editar, atualizam o produto e sua variação principal. Essa compatibilidade mantém a edição simples sincronizada com o payload existente.
+- Em famílias compostas com várias variações, a edição permanece na composição de cada variação; a aba de composição simples não é exibida. A exigência de dois componentes para ativação é aplicada ao produto simples ou a cada variação ativa da família correspondente.
 
 ### Disponibilidade calculada e estoque físico de composições
 

@@ -16,19 +16,6 @@ export interface ProductTechnicalTabProps {
   readonly validationErrors?: Record<string, boolean>;
 }
 
-const getSearchInsertionIndex = (
-  groups: readonly { title: string }[],
-  requiredGroupsCount: number
-): number => {
-  if (groups.length === 0) return 0;
-  const principalIndex = groups.findIndex((g) => g.title === 'Características principais');
-  const dimensionsIndex = groups.findIndex((g) => g.title === 'Dimensões e Peso');
-  if (principalIndex >= 0 || dimensionsIndex >= 0) {
-    return Math.max(principalIndex, dimensionsIndex) + 1;
-  }
-  return Math.min(requiredGroupsCount, groups.length);
-};
-
 export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   formData,
   setFormData,
@@ -40,8 +27,8 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   const {
     loadingFields,
     visibleFields,
-    fieldGroups,
     requiredFieldGroups,
+    displayedOptionalFields,
     manualFieldNames,
     characteristicSearchTerm,
     normalizedSearchTerm,
@@ -84,10 +71,13 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     />
   ) : null;
 
-  const searchInsertionIndex = getSearchInsertionIndex(
-    fieldGroups,
-    requiredFieldGroups.length
-  );
+  const fieldGroups = [
+    ...requiredFieldGroups,
+    ...(!requiredFieldsOnly
+      ? [{ title: 'Características secundárias adicionadas', fields: displayedOptionalFields }]
+      : []),
+  ];
+  const searchInsertionIndex = requiredFieldGroups.length;
   const mainGroup = fieldGroups.find((group) => group.title === 'Características principais');
   const dimensionsGroup = fieldGroups.find((group) => group.title === 'Dimensões e Peso');
   const mainGroupIndex = fieldGroups.findIndex(

@@ -39,6 +39,7 @@ import {
   isHasDrawersCharacteristic,
 } from '@/pages/utils/technicalValues/predicates/furniture';
 import { cleanupDependentCharacteristicsOnZero } from '../tabs/technical/sync/dependentCleanup';
+import { isSofaCategoryName } from '../../../../../../../shared-utils/productTechnicalFieldRules';
 
 export interface VariationTechnicalTabProps {
   readonly formData: Variation & { readonly material?: string | null };
@@ -214,6 +215,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   const isChairCategorySelected = /(?:^|[^a-z0-9])cadeiras?(?=$|[^a-z0-9])/i.test(
     normalizeSearchTerm(parentProduct.category || '')
   );
+  const isSofaCategorySelected = isSofaCategoryName(parentProduct.category || '');
 
   const visibleFields = useMemo(() => {
     const fieldsByName = new Map<string, TechnicalFieldDefinition>();
@@ -228,13 +230,18 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       }
       if (!isVariableField(field.name)) return;
       const key = normalizeSearchTerm(field.name);
-      if (!fieldsByName.has(key)) fieldsByName.set(key, field);
+      const visibleField =
+        isSofaCategorySelected && isDepthCharacteristic(field.name)
+          ? { ...field, isRequired: false, isRequiredForCatalog: false }
+          : field;
+      if (!fieldsByName.has(key)) fieldsByName.set(key, visibleField);
     });
     return [...fieldsByName.values()];
   }, [
     allTechnicalFields,
     applicableFields,
     isChairCategorySelected,
+    isSofaCategorySelected,
     isVariableField,
     parentProduct.categoryIds,
   ]);

@@ -105,7 +105,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
   variationAttributeValues,
   dependencyValues,
   formDataTechnicalValues = {},
-  isManual,
   isVariable = false,
   isSingleVariation = false,
   onSetOverride,
@@ -131,7 +130,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
   const effectiveDependencyValues = dependencyValues || combinedValues;
   const dep = getCharacteristicDependencyState(field.name, effectiveDependencyValues);
   const isDependencyDisabled = dep.isDisabled;
-  const isDependencySatisfied = dep.isDependent && !dep.isDisabled;
   const isExplicitlyNotApplicable = [
     'não se aplica',
     'nao se aplica',
@@ -203,16 +201,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
         </label>
 
         <div className="flex items-center gap-1 shrink-0">
-          {isManual && !isQuantityField && !isDependencySatisfied && (
-            <button
-              type="button"
-              onClick={() => onRemoveManualField(field.name)}
-              title={`Remover campo ${field.name}`}
-              className="text-slate-400 hover:text-red-500 text-xs p-0.5 cursor-pointer"
-            >
-              <i className="bi bi-trash3" />
-            </button>
-          )}
           {isQuantityField && !field.isRequired && !field.isRequiredForCatalog && (
             <button
               type="button"

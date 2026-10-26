@@ -18,6 +18,7 @@ import {
   type EcomLegibilityResult,
 } from '../../../../../shared-utils/catalogPublicationValidation';
 import { hasRequiredProductCategory } from '../../../../../shared-utils/productCategoryRequirement';
+import { getActiveCompositionVariationRequirementIssue } from '../../../../../shared-utils/productCompositionRequirements';
 
 export interface MobileProductReadiness {
   erp: ProductErpLegibilityResult;
@@ -27,7 +28,7 @@ export interface MobileProductReadiness {
 
 export type MobileVariationRegistrationIssue = {
   message: string;
-  tab: 'identificacao' | 'estoque' | 'tecnico';
+  tab: 'identificacao' | 'estoque' | 'tecnico' | 'compostos';
 };
 
 const normalizeAttributePart = (value: unknown) =>
@@ -152,6 +153,12 @@ export const getMobileVariationRegistrationIssue = (
   variation: any,
   variations: any[] = Array.isArray(parent?.variations) ? parent.variations : []
 ): MobileVariationRegistrationIssue | null => {
+  const compositionIssue = getActiveCompositionVariationRequirementIssue(
+    { ...parent, variations },
+    variation
+  );
+  if (compositionIssue) return compositionIssue;
+
   const combination = getAttributeCombinationKey(variation);
   if (
     combination &&

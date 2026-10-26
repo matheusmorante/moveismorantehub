@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type Product from '@/pages/types/product.type';
 import { createProductFormSchema, validateProductFormSubmission } from './productFormValidation';
 import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productSupplierRequirement';
+import { PRODUCT_COMPOSITION_PRODUCT_COMPONENTS_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productCompositionRequirements';
 
 describe('validateProductFormSubmission - validação de conformidade de fotos por variação', () => {
   const baseProduct: Partial<Product> = {
@@ -207,6 +208,15 @@ describe('createProductFormSchema - modos de variação', () => {
     expect(draft.success).toBe(true);
   });
 
+  it('permite manter descontos de variação ainda inválidos enquanto o produto é rascunho', () => {
+    const draft = createProductFormSchema({ isStockistOnly: false, saveAsDraft: true }).safeParse({
+      name: 'Rascunho com desconto em edição',
+      variations: [{ discountPercent: '-1', discountFixed: 'acima do preço' }],
+    });
+
+    expect(draft.success).toBe(true);
+  });
+
   it('exige duas variações e nomes completos distintos no modo múltiplo', () => {
     const tooFew = schema.safeParse({
       ...base,
@@ -237,5 +247,99 @@ describe('createProductFormSchema - modos de variação', () => {
       variations: [variation('1', '', [])],
     });
     expect(draft.success).toBe(true);
+  });
+
+  it('bloqueia variação ativa de composição sem dois componentes ao concluir o produto', () => {
+    const composition = {
+      ...base,
+      itemType: 'composition',
+      hasVariations: true,
+      variations: [
+        {
+          ...variation('1', 'Poltrona Azul'),
+          attributes: [{ name: 'Cor', value: 'Azul' }],
+          comboItems: [
+            { productId: 'base', description: 'Base', quantity: 1, unitPrice: 10, stock: 0 },
+            { productId: 'encosto', description: 'Encosto', quantity: 1, unitPrice: 10, stock: 0 },
+          ],
+        },
+        {
+          ...variation('2', 'Poltrona Verde'),
+          attributes: [{ name: 'Cor', value: 'Verde' }],
+          comboItems: [
+            { productId: 'base-verde', description: 'Base Verde', quantity: 1, unitPrice: 10, stock: 0 },
+          ],
+        },
+      ],
+    } as Partial<Product>;
+
+    const result = validateProductFormSubmission(composition, {
+      isStockistOnly: false,
+      saveAsDraft: false,
+    });
+
+    expect(result.errors.variationRegistration).toBe(true);
+    expect(result.invalidVariation?.variation.id).toBe('2');
+    expect(result.invalidVariation?.issue).toEqual({
+      message: 'Vincule pelo menos 2 produtos componentes para manter ativa esta variação de composição.',
+      tab: 'compostos',
+    });
+  });
+});
+
+describe('validateProductFormSubmission - composição simples', () => {
+  const composition = {
+    name: 'Kit Aurora',
+    itemType: 'composition',
+    productKind: 'normal',
+    active: true,
+    hasVariations: false,
+    unitPrice: 500,
+    categoryIds: ['sala'],
+    mainSupplierId: 'supplier-1',
+    images: ['https://img.test/kit.jpg'],
+    variations: [{
+      id: 'primary',
+      name: 'Kit Aurora',
+      sku: 'KIT-AURORA',
+      unitPrice: 500,
+      active: true,
+      attributes: [],
+      images: ['https://img.test/kit.jpg'],
+      comboItems: [],
+    }],
+  } as Partial<Product>;
+  const component = (id: string) => ({
+    productId: id,
+    description: `Componente ${id}`,
+    quantity: 1,
+  });
+
+  it('blocks an active simple composition with fewer than two parts and returns its tab path', () => {
+    const result = validateProductFormSubmission({
+      ...composition,
+      comboItems: [component('base')],
+    } as any, { isStockistOnly: false, saveAsDraft: false });
+
+    expect(result.errors.composicao).toBe(true);
+    expect(result.errorMessage).toBe(PRODUCT_COMPOSITION_PRODUCT_COMPONENTS_REQUIRED_MESSAGE);
+    expect(validateProductFormSubmission({
+      ...composition,
+      comboItems: [component('base'), component('seat')],
+    } as any, { isStockistOnly: false, saveAsDraft: false }).errors.composicao).toBeUndefined();
+  });
+
+  it('allows incomplete inactive compositions and drafts', () => {
+    expect(validateProductFormSubmission({
+      ...composition,
+      active: false,
+      comboItems: [],
+    }, { isStockistOnly: false, saveAsDraft: false }).errors.composicao).toBeUndefined();
+
+    expect(validateProductFormSubmission({
+      ...composition,
+      comboItems: [],
+    }, { isStockistOnly: false, saveAsDraft: true }).errors.composicao).toBeUndefined();
+
   });
 });

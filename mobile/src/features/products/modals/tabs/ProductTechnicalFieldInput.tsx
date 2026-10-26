@@ -34,6 +34,7 @@ type Props = {
   value: unknown;
   disabled?: boolean;
   dark?: boolean;
+  placeholder?: string;
   onChange: (value: unknown) => void;
 };
 
@@ -73,6 +74,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
   value,
   disabled = false,
   dark = false,
+  placeholder,
   onChange,
 }) => {
   const type = resolveTechnicalFieldDataType(field.name, field.data_type);
@@ -113,6 +115,19 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
       type === 'percentage' ? formatPercentage(value) : formatDecimal(value, decimalPlaces)
     );
   }, [value, decimalPlaces, type]);
+
+  if (disabled && placeholder) {
+    return (
+      <TextInput
+        editable={false}
+        value=""
+        placeholder={placeholder}
+        placeholderTextColor="#94a3b8"
+        accessibilityLabel={`${field.name}: ${placeholder}`}
+        style={[styles.input, dark && styles.darkInput, styles.disabled]}
+      />
+    );
+  }
 
   if (type === 'integer' || type === 'number') {
     return (

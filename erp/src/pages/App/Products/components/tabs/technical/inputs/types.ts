@@ -9,5 +9,6 @@ export interface BaseTechnicalInputProps {
 export interface TechnicalFieldInputProps extends BaseTechnicalInputProps {
   field: TechnicalFieldDefinition;
   value: any;
+  placeholder?: string;
   onChange: (value: any) => void;
 }

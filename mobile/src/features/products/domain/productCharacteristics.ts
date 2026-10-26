@@ -36,6 +36,7 @@ import {
 } from '../../../../../shared-utils/productCategoryRequiredAttributes';
 import {
   isChairWeightCapacityCharacteristic,
+  isSofaCategoryName,
   isShelfWeightCapacityCharacteristic,
   isWeightCharacteristicName,
   isWeightCapacityCharacteristic,
@@ -295,9 +296,11 @@ export const isRequiredCharacteristicName = (name: string): boolean => {
 
 export const isProductTechnicalFieldRequired = (
   field: ProductTechnicalField,
-  categoryIds: readonly string[] = []
+  categoryIds: readonly string[] = [],
+  categoryName = ''
 ): boolean => {
   if (isWeightCharacteristicName(field.name) || isWeightCapacityCharacteristic(field.name)) return false;
+  if (isSofaCategoryName(categoryName) && isDepthCharacteristic(field.name)) return false;
   const isMattress = isMattressCategory(categoryIds);
 
   if (isMattress && isHeightCharacteristic(field.name)) return false;
@@ -311,8 +314,10 @@ export const isProductTechnicalFieldRequired = (
 
 export const isProductTechnicalFieldRequiredForCatalog = (
   field: ProductTechnicalField,
-  categoryIds: readonly string[] = []
+  categoryIds: readonly string[] = [],
+  categoryName = ''
 ): boolean =>
+  !(isSofaCategoryName(categoryName) && isDepthCharacteristic(field.name)) &&
   !isWeightCharacteristicName(field.name) &&
   !isWeightCapacityCharacteristic(field.name) &&
   (field.requiredForCategory === true ||
@@ -661,14 +666,14 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
       isWeightCharacteristicName(field.name) ||
       isShelfWeightCapacityCharacteristic(field.name)
     ) return true;
-    if (isProductTechnicalFieldRequiredForCatalog(field, categoryIds)) return true;
+    if (isProductTechnicalFieldRequiredForCatalog(field, categoryIds, categoryName)) return true;
     if (isMattress && isHeightCharacteristic(field.name)) {
       return hasExistingValue || manualNames.has(norm);
     }
     if (field.active === false) {
       return hasExistingValue || manualNames.has(norm);
     }
-    if (isProductTechnicalFieldRequired(field, categoryIds)) return true;
+    if (isProductTechnicalFieldRequired(field, categoryIds, categoryName)) return true;
     if (hasExistingValue) return true;
     if (manualNames.has(norm)) return true;
     if (isCharacteristicDependent(field.name)) return true;
@@ -696,9 +701,9 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
 
   return deduplicateProductTechnicalValueAliasFields(applicable.map((field) => ({
     ...field,
-    isRequired: isProductTechnicalFieldRequired(field, categoryIds),
-    isRequiredForProduct: isProductTechnicalFieldRequired(field, categoryIds),
-    isRequiredForCatalog: isProductTechnicalFieldRequiredForCatalog(field, categoryIds),
+    isRequired: isProductTechnicalFieldRequired(field, categoryIds, categoryName),
+    isRequiredForProduct: isProductTechnicalFieldRequired(field, categoryIds, categoryName),
+    isRequiredForCatalog: isProductTechnicalFieldRequiredForCatalog(field, categoryIds, categoryName),
     decimal_places:
       isWeightCharacteristicName(field.name) ||
       isWeightCapacityCharacteristic(field.name) ||

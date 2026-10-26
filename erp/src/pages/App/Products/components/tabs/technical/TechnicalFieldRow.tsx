@@ -2,10 +2,8 @@ import React from 'react';
 import { Check, ChevronDown, CircleMinus, Globe, Layers2 } from 'lucide-react';
 import type { Product } from '../../../../../types/product.type';
 import {
-  isDoorDrawerDependentCharacteristicActive,
   isCharacteristicDependent,
   isShelfWeightCapacityCharacteristic,
-  isQuantityCharacteristic,
   type TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
 import { TechnicalFieldInput } from './TechnicalFieldInput';
@@ -57,7 +55,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   onValueChange,
   onOpenAttributeModal,
   onToggleDepthLength,
-  onRemoveManualField,
 }) => {
   const [showTooltip, setShowTooltip] = React.useState(false);
   const [isScopeMenuOpen, setIsScopeMenuOpen] = React.useState(false);
@@ -68,7 +65,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
 
   const {
     rawValue,
-    isManual,
     isFieldInvalid,
     isColorField,
     isDepthOrLengthField,
@@ -84,11 +80,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
       ? 'É Retrátil?'
       : field.name;
   const isMandatory = Boolean(field.isRequired || field.isRequiredForCatalog);
-  const isQuantityField = isQuantityCharacteristic(field.name);
-  const isAutomaticallyActiveByQuantity = isDoorDrawerDependentCharacteristicActive(
-    field.name,
-    formData.technicalValues || {}
-  );
   const isDependentCharacteristic = isCharacteristicDependent(field.name);
   const isDependencySatisfied = isDependentCharacteristic && !isFieldDisabled;
   const isExplicitlyNotApplicable = ['não se aplica', 'nao se aplica', 'n/a', 'não informar'].includes(
@@ -228,17 +219,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               </button>
             </span>
           )}
-          {isManual && !isQuantityField && !isAutomaticallyActiveByQuantity && (
-            <button
-              type="button"
-              onClick={() => onRemoveManualField(field.name)}
-              title={`Remover ${field.name}`}
-              aria-label={`Remover campo ${field.name}`}
-              className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-xs text-slate-400 transition-colors hover:text-red-500"
-            >
-              <i className="bi bi-trash3" />
-            </button>
-          )}
           {onToggleVariable &&
             isSimpleProduct &&
             !isMandatory &&
@@ -337,7 +317,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
 
       </div>
 
-      {(scope === 'global' || isDependentCharacteristic) && (
+      {(scope === 'global' || scope === 'variation' || isDependentCharacteristic) && (
         <div className="w-full">
           <DisabledFieldWrapper
             isDisabled={
@@ -364,6 +344,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
                 isFieldDisabled ||
                 effectiveIsVariable
               }
+              placeholder={scope === 'variation' ? 'Defina na variação...' : undefined}
               onChange={(selectedVal) => onValueChange(field.name, selectedVal)}
             />
           </DisabledFieldWrapper>

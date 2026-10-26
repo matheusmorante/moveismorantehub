@@ -146,12 +146,18 @@ const getProductCategoryIds = (data: Readonly<Record<string, any>>): string[] =>
   return ids.map((id: unknown) => String(id));
 };
 
+const isSofaProduct = (data: Readonly<Record<string, any>>): boolean =>
+  [data.categoryName, data.category_name, data.category].some((name) =>
+    /(?:^|[^a-z0-9])sofas?(?=$|[^a-z0-9])/.test(normalizeCharacteristicName(name))
+  );
+
 /** Returns category-required characteristics that have no usable value on the product or its variants. */
 export const getMissingCategoryRequiredCharacteristics = (
   data: Readonly<Record<string, any>>,
   requirements: readonly CatalogCharacteristicRequirement[]
 ): string[] => {
   const activeCategories = new Set(getProductCategoryIds(data));
+  const isSofa = isSofaProduct(data);
   const requiredNames = requirements
     .filter(
       (requirement) =>
@@ -159,7 +165,11 @@ export const getMissingCategoryRequiredCharacteristics = (
         requirement.requiredCategoryIds?.some((id) => activeCategories.has(String(id)))
     )
     .map((requirement) => requirement.name.trim())
-    .filter(Boolean);
+    .filter(
+      (name) =>
+        Boolean(name) &&
+        !(isSofa && ['profundidade', 'profundidade total'].includes(normalizeCharacteristicName(name)))
+    );
 
   const variations = [data.variations, data.product_variations, data.allVariations]
     .find((items) => Array.isArray(items) && items.length > 0) || [];

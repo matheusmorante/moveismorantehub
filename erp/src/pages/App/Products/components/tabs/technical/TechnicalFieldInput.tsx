@@ -21,10 +21,24 @@ import {
 export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
   field,
   value,
+  placeholder,
   disabled,
   isInvalid,
   onChange,
 }) => {
+  if (disabled && placeholder) {
+    return (
+      <input
+        type="text"
+        value=""
+        disabled
+        placeholder={placeholder}
+        aria-label={`${field.name}: ${placeholder}`}
+        className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none placeholder:text-slate-400 placeholder:font-normal disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-100"
+      />
+    );
+  }
+
   const type = resolveTechnicalInputType(field);
 
   if (isYesNoCharacteristic(field)) {

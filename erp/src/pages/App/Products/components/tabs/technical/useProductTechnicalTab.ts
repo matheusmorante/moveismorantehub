@@ -115,15 +115,10 @@ export const useProductTechnicalTab = ({
       }
 
       setFormData((prev) => {
-        const fieldDefinition = allTechnicalFields.find(
-          (field) => field.name.trim().toLocaleLowerCase('pt-BR') === fieldName.trim().toLocaleLowerCase('pt-BR')
-        );
-        const isRequiredForCatalog = fieldDefinition?.requiredCategoryIds?.some((categoryId) =>
-          (prev.categoryIds || []).map(String).includes(String(categoryId))
-        );
         const applicableField = applicability.visibleFields.find(
           (field) => field.name.trim().toLocaleLowerCase('pt-BR') === fieldName.trim().toLocaleLowerCase('pt-BR')
         );
+        const isRequiredForCatalog = Boolean(applicableField?.isRequiredForCatalog);
         if (scope === 'not_inform' && (isRequiredForCatalog || applicableField?.isRequired)) return prev;
 
         const variableFields = resolveVariableTechnicalFieldNames(
@@ -181,7 +176,7 @@ export const useProductTechnicalTab = ({
             : isQuantityCharacteristic(fieldName)
               ? {
                   ...next,
-                    technicalValues: { ...(next.technicalValues || {}), [fieldName]: '' },
+                  technicalValues: { ...(next.technicalValues || {}), [fieldName]: '' },
                 }
               : applyTechnicalValueChangeToProduct(next, fieldName, '');
         }
@@ -190,7 +185,6 @@ export const useProductTechnicalTab = ({
       });
     },
     [
-      allTechnicalFields,
       applicability.visibleFields,
       setFormData,
       setManualFieldNames,

@@ -42,10 +42,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useProductFormPermissions } from '../hooks/useProductFormPermissions';
 import { useMobileProductJevClassification } from '../hooks/useMobileProductJevClassification';
-import { getMobileProductRootCompositionItems } from '../domain/mobileProductCompositionItems';
+import {
+  getMobileProductFormCompositionItems,
+  synchronizeMobileProductFormCompositionItems,
+} from '../domain/mobileProductCompositionItems';
 import {
   initializeMobileProductCode,
   resolveMobileProductFormHasVariations,
+  shouldShowMobileProductCompositionTab,
   shouldShowMobileProductVariationsTab,
 } from '../domain/mobileProductVariationMode';
 import { resolveMobileVariationImages } from '../domain/mobileVariationImages';
@@ -90,6 +94,7 @@ import { syncMobileVariationsWithParent } from '../domain/productVariationParent
 import { resolveMobileProductFinalPurchasePrice } from '../domain/productPurchasePrice';
 import { createMobileProductVariationId } from '../domain/mobileProductVariationGeneration';
 import { ProductFormBasicTab } from '../modals/tabs/ProductFormBasicTab';
+import { ProductFormCompositionTab } from '../modals/tabs/ProductFormCompositionTab';
 import { ProductFormDescriptionTab } from '../modals/tabs/ProductFormDescriptionTab';
 import { ProductFormFiscalTab } from '../modals/tabs/ProductFormFiscalTab';
 import { ProductFormPhotosTab } from '../modals/tabs/ProductFormPhotosTab';
@@ -141,6 +146,12 @@ const TABS: Tab[] = [
     label: 'Variações',
     Icon: Grid3X3,
     condition: (formData) => shouldShowMobileProductVariationsTab(formData),
+  },
+  {
+    id: 'composicao',
+    label: 'Composição',
+    Icon: Package,
+    condition: (formData) => shouldShowMobileProductCompositionTab(formData),
   },
   {
     id: 'fiscal',
@@ -406,7 +417,10 @@ export const ProductFormScreen: React.FC<Props> = ({
           technicalValues[attribute] = value;
         }
       }
-      const comboItems = getMobileProductRootCompositionItems(product);
+      const comboItems = getMobileProductFormCompositionItems(
+        product,
+        isComposition && !hasVariations
+      );
       const unitPrice = product.unitPrice ?? product.unit_price ?? '';
       const promoPrice = product.promoPrice ?? product.promo_price ?? '';
       const finalPurchasePrice = resolveMobileProductFinalPurchasePrice(product);
@@ -1398,6 +1412,21 @@ export const ProductFormScreen: React.FC<Props> = ({
             selectedVariationId={product?.selectedVariationId}
             validationTarget={variationValidationTarget}
             onValidationTargetHandled={clearVariationValidationTarget}
+          />
+        );
+      case 'composicao':
+        return (
+          <ProductFormCompositionTab
+            formData={formData}
+            setFormData={(update) => setFormData((previous: any) => {
+              const next = update(previous);
+              return synchronizeMobileProductFormCompositionItems(
+                next,
+                Array.isArray(next.comboItems) ? next.comboItems : []
+              );
+            })}
+            dark={dark}
+            supplierId={formData.mainSupplierId || formData.supplierId}
           />
         );
       case 'fiscal':

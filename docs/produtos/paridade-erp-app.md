@@ -3721,3 +3721,100 @@ Continuar a aba Tributário/NF pelo estado Produto normal versus Serviço e comp
 - [x] Consultei `AGENTS.md`, `docs/geral/USER_RULES.md`, a regra ERP-only de Conciliação, a documentação vigente de Produto/Variação e operações mover/merge, a política de Supabase remoto, este inventário e o item do roadmap. Não há `AGENTS.md` aninhado nos caminhos mobile/shared-utils tocados. A skill canônica `erp-web-to-mobile-replication` continua indisponível nas fontes acessíveis e não foi tratada como cópia canônica.
 
 **Conclusão do recorte:** as regras de capacidade técnica agora correspondem ao ERP no domínio, mapeamento, apresentação e seleção por categoria do mobile. A validação visual/nativa e a persistência remota ainda não foram provadas; a auditoria global de Produtos continua aberta.
+
+### Ciclo 443 — desconto próprio inválido em rascunho — 26/10/2026
+
+**Recorte:** validação de `discountPercent`/`discountFixed` de variações próprias durante autosave e salvamento explícito do rascunho, preservando a validação de finalização.
+
+#### Comparação e correção
+
+- [x] No ERP, `useProductFormDraft` usa `createProductFormSchema({ saveAsDraft: true })` via `useZodForm`. O schema valida o nome e retorna antes das regras de finalização; o objeto de cada variação é parcial e passthrough. `saveProduct` direciona rascunhos a `persistProductDraft` e `createProductDraftSnapshot` preserva os dados da variação. A submissão manual também retorna após a validação do schema quando `saveAsDraft` é verdadeiro; não encontrei uma validação de faixa de desconto downstream nesse caminho.
+- [x] No app, `ProductFormScreen` agenda a fila serial/coalescida e chama `draftForm.enqueueAndRun`; `useZodForm` configura React Hook Form com `zodResolver`, e o `handleSubmit` validado chama `onAutoSave` somente no sucesso. O resolver real já era executado antes do serviço, e a fila/ACK versionado foram preservados.
+- [x] A divergência estava em `createMobileProductFormSchema`: a faixa do desconto próprio da variação era verificada antes do retorno para rascunho. Isso bloqueava autosave/Salvar rascunho de um valor em edição que o ERP aceita preservar até a conclusão. Alterei a regra para validar a faixa apenas fora do modo rascunho; a finalização continua rejeitando descontos fora dos limites.
+- [x] Mantive a validação estrutural do campo, a validação do nome do rascunho, as demais validações de finalização, a confirmação do ACK e o tratamento de resultado incerto. O valor inválido pode ficar guardado no rascunho para correção posterior; não torna o produto finalizável sem correção.
+
+#### Validação e limites
+
+- [x] Regressão ERP para o contrato-fonte: `createProductFormSchema(saveAsDraft: true)` aceita valores de desconto ainda inválidos na variação — Vitest, **1 arquivo / 10 testes aprovados**.
+- [x] Regressão mobile: rascunho aceita o desconto inválido e finalização continua retornando o erro de faixa — Vitest, **1 arquivo / 34 testes aprovados**.
+- [x] `git diff --check` passou.
+- [ ] Sem Playwright/Maestro: este recorte verifica validação de domínio e a cadeia estática até o serviço; não comprova apresentação nativa nem persistência remota do valor. Não rodei TypeScript global.
+- [x] Nenhuma consulta ou escrita Supabase, migration, cleanup, chamada Meta/R2/SEFAZ, deploy ou operação de Estoque. O guia prático de Estoque não exige atualização.
+- [x] Revisei `AGENTS.md` (RHF/Zod, rascunhos parciais e validadores permitidos), `docs/geral/USER_RULES.md`, documentação vigente de Produto/Variação e mover/merge, regra ERP-only de Conciliação, o item de autosave do roadmap, este inventário, os schemas/hook/serviços/testes ERP e app. Não há `AGENTS.md` aninhado nos caminhos alterados. A skill canônica `erp-web-to-mobile-replication` e o diretório `.vercel/builders-backup` não estão disponíveis no estado atual; a limitação permanece explícita.
+
+**Conclusão do recorte:** o mobile agora mantém no rascunho um desconto de variação ainda inválido, como o ERP, e exige correção antes da finalização. Autosave segue passando pelo resolver RHF/Zod e pela fila versionada; validação nativa e persistência real continuam pendentes. A auditoria global de Produtos permanece aberta.
+
+### Ciclo 444 — composição ativa exige dois componentes — 26/10/2026
+
+**Recorte:** fechar o caminho de edição que permitia salvar ativa uma variação de família composta depois de remover componentes, preservando a edição de composições inativas.
+
+#### Comparação e correção
+
+- [x] A regra documentada em `docs/negocio/produtos/estrutura-produto-variacao.md` exige pelo menos dois componentes na própria variação composta. A ativação pela lista já bloqueava o estado incompleto com a validação compartilhada; os formulários, porém, só validavam cada linha e não a quantidade mínima, permitindo retirar componentes de uma variação ativa e salvar o estado inválido.
+- [x] Criei `shared-utils/productCompositionRequirements.ts` para reconhecer os aliases de composição e centralizar a contagem mínima. A mesma regra agora atende à ativação e à submissão dos formulários.
+- [x] No ERP, `getVariationRegistrationIssue` bloqueia a submissão de uma variação ativa quando o pai tem duas ou mais variações operacionais e ela tem menos de dois componentes; o erro aponta para **Produtos Componentes**. A validação também alcança a submissão do formulário de produto antes do serviço de gravação.
+- [x] No app, `getMobileVariationRegistrationIssue` aplica a mesma regra ao schema RHF/Zod; o erro identifica a variação e a navegação abre seu painel **Composição**. Variações inativas continuam editáveis e podem ser salvas sem completar a composição.
+- [x] Ajustei os testes do autocomplete ERP para manter dois componentes no cenário de uma variação ativa; o caso continua cobrindo a preservação de preço e estoque zero do componente escolhido.
+
+#### Validação e limites
+
+- [x] ERP `productFormValidation.test.ts`: **11/11**; `useProductsActivationValidation.test.ts`: **15/15**; casos focados de `VariationFormModal.test.tsx`: **2/2**.
+- [x] App `mobileProductFormSchema.test.ts` e casos de ativação em `mobileProductMutationService.test.ts`, com filtro direcionado: **40 aprovados, 58 ignorados pelo filtro**. Inclui rejeição do estado incompleto e direcionamento ao painel de composição.
+- [ ] A suíte completa `VariationFormModal.test.tsx` terminou com **36 aprovados e 2 falhas fora deste recorte**: ambos os testes de fotos terminaram em `finish is not a function` (linhas 218 e 228 no arquivo durante esta execução). O teste de autocomplete que inicialmente falhou por falta do segundo componente passou depois da atualização da fixture.
+- [ ] A suíte separada `mobileProductFormErrorNavigation.test.ts` não coletou porque a importação existente de `useZodForm` não resolveu `@hookform/resolvers/zod` na configuração mobile. A asserção da rota `variacoes_1_comboItems → compostos` passou no teste isolado do schema mobile.
+- [x] `git diff --check` passou após as alterações de código. Não rodei TypeScript global.
+- [ ] A linha ativa sem componentes observada no ERP no Ciclo 181 não foi consultada nem modificada remotamente. A correção impede novas submissões inválidas, mas aquela linha pode continuar no banco até ser desativada ou receber componentes; nenhuma fixture/ownership autorizada foi fornecida para verificar.
+- [ ] Não rodei Playwright neste ciclo. `adb devices -l` segue sem aparelho físico e o Maestro CLI não está disponível; comportamento nativo continua sem prova.
+- [x] Revisei `AGENTS.md` e as regras de formulários RHF/Zod, `docs/geral/USER_RULES.md`, a regra ERP-only de Conciliação, a documentação de estrutura e operações de variações, o item do Ciclo 181 no roadmap e os validadores/formulários atuais. Não existe `AGENTS.md` aninhado nos diretórios tocados. A skill canônica `erp-web-to-mobile-replication` continua ausente das fontes acessíveis e essa limitação não foi ocultada.
+- [x] Não houve leitura/escrita Supabase, migration, cleanup, envio Meta/R2/SEFAZ ou alteração do guia de Estoque; a mudança valida cadastro de produto e não altera a operação de estoque.
+
+**Conclusão do recorte:** ERP e app agora impedem salvar ativa uma variação de família composta com menos de dois componentes, com erro localizado na aba correspondente; desativar a variação permite a correção gradual. A linha histórica vista no ERP, os erros de console do Ciclo 181 e a validação visual/nativa continuam pendentes. A auditoria global de Produtos permanece aberta.
+
+### Ciclo 445 — composição de produto simples — 26/10/2026
+
+**Achado registrado antes da correção:** o ERP inclui a aba **Composição** para produto composto simples (`getProductFormTabs` e `ProductFormTabContent`); o app tem `ProductFormCompositionTab`, mas não a declara em `TABS` nem a renderiza em `ProductFormScreen`. Assim, o cadastro/edição de componentes do produto simples está ausente no app. A documentação de estrutura que diz que esse fluxo não foi localizado nos dois clientes está desatualizada frente ao ERP atual. Sem justificativa de particularidade mobile; painel existente permite adaptar a UI nativa.
+
+#### Comparação e correção
+
+- [x] ERP: `getProductFormTabs` oferece **Composição** apenas quando o produto é composto e não está no modo multi-variação. `ProductFormTabContent` monta o editor com a composição da variação principal e faz fallback para os componentes do produto; cada alteração persiste a lista em `comboItems` do produto e da variação principal.
+- [x] Mobile: conectei `ProductFormCompositionTab` em `TABS`/`ProductFormScreen`, somente para composições simples. A hidratação prefere os componentes não vazios da variação principal, com fallback para o produto; o atualizador grava em ambos os caminhos e preserva os demais dados da variação. Famílias compostas continuam com edição por variação na aba **Variações**.
+- [x] Conferi a persistência existente: a mutação móvel envia `combo_items` no produto e no payload de `product_variations`; o ERP também grava ambos. Não foi necessário alterar serviço, RPC ou contrato do banco.
+- [x] Extraí em `shared-utils/productCompositionRequirements.ts` a exigência de dois componentes para a composição simples ativa e compartilhei a regra entre os schemas de finalização do ERP e app. Ela usa a composição da variação principal quando presente e o fallback do pai quando vazia. A verificação não se aplica a famílias multi-variação, a rascunhos nem a produto explicitamente inativo. Variações novas começam inativas no formulário; como a finalização ativa o produto/variação, esse valor inicial não libera uma composição incompleta.
+- [x] O ERP agora seleciona a aba **Composição** e mostra a mensagem específica quando a finalização falha nessa regra. No app, o schema RHF/Zod emite erro no caminho `composicao`, o roteador abre a aba conectada e apresenta a mensagem do domínio antes de qualquer chamada de salvamento.
+- [x] Corrigi a descrição em `docs/negocio/produtos/estrutura-produto-variacao.md`: documenta a aba simples de ERP e app, a precedência/fallback de leitura e a sincronização; famílias continuam editadas por variação. O guia prático de Estoque já descrevia a aba Composição e o processo operacional não mudou, então as cópias PDF permanecem sem alteração.
+
+#### Validação e limites
+
+- [x] ERP: `npm run test:unit --prefix erp -- src/pages/App/Products/hooks/form/productFormValidation.test.ts src/pages/App/Products/hooks/form/useProductFormSubmit.test.tsx src/pages/App/Products/modals/productFormTabs.test.ts` — **3 arquivos, 39/39 testes aprovados**. Inclui caminho da aba no erro, regra de componente mínimo e disponibilidade da aba simples versus família. Os dois avisos `stderr` são falhas simuladas esperadas dos testes de retry.
+- [x] Mobile: runner Vitest oficial para schema, modo de variação, leitura/sincronização de componentes e painel — **4 arquivos, 54/54 testes aprovados**.
+- [x] Payload mobile: runner Vitest oficial em `mobileProductMutationService.test.ts`, filtrando sincronização pai/variação e componentes exclusivos — **2 aprovados, 60 ignorados pelo filtro**.
+- [x] `git diff --check` passou; não rodei TypeScript global.
+- [ ] Sem Playwright: ERP autenticado não foi aberto neste ciclo. `adb devices -l` não lista aparelho físico e não executei Maestro; o layout, acessibilidade por leitor de tela e comportamento nativo da nova aba seguem sem prova no dispositivo.
+- [x] Não fiz consulta ou gravação Supabase, DML/DDL, RPC, migration, cleanup, ação externa ou deploy. A revisão estritamente somente leitura do cleanup de rascunhos autorizada pelo operador já consta no Ciclo 437 (estimativa mais provável de zero linhas, contagem histórica exata indeterminada); não repeti consultas.
+- [x] Revisei `AGENTS.md`, `docs/geral/USER_RULES.md`, a documentação vigente de produto/variação e mover/merge, a regra ERP-only de Conciliação, este inventário, o item do roadmap, formulários/tabs/schemas/serviços e testes ERP/mobile. Não há `AGENTS.md` aninhado nos caminhos alterados. A skill canônica `erp-web-to-mobile-replication` continua indisponível nas fontes canônicas acessíveis; limitação mantida.
+
+**Conclusão do recorte:** produto composto simples agora pode editar componentes no app pela aba correspondente ao ERP; o fallback e os dois campos de persistência foram conferidos, e a finalização ativa exige dois componentes sem bloquear rascunho/inativo. A UI de navegador e o runtime nativo continuam pendentes; a auditoria global de Produtos permanece aberta.
+
+### Ciclo 446 — interações da composição simples — 26/10/2026
+
+**Recorte:** após conectar a aba no Ciclo 445, conferir uma linha funcional da composição simples no ERP e no app: busca/seleção de componentes, quantidade, remoção, preço sugerido e estados de consulta.
+
+#### Comparação e conclusão
+
+- [x] O ERP monta `VariationCompositionItemsTab` somente para o produto composto simples; o app monta `ProductFormCompositionTab` na mesma condição. Famílias com múltiplas variações continuam editando a composição dentro de cada variação.
+- [x] Ambos validam a consulta do autocomplete com `productAutocompleteFormSchema` pelo resolver RHF/Zod antes de chamar o serviço, exigem pelo menos três caracteres e usam o debounce compartilhado de 300 ms. Os dois caminhos limitam a lista visível a 15 candidatos e usam timeout de 10 segundos; o filtro efetivo de elegibilidade e fornecedores já foi comparado no Ciclo 1940.
+- [x] A seleção ERP preenche uma linha vazia; no app, tocar no resultado acrescenta diretamente o componente e limpa a busca. Nos dois casos, a linha recebe produto/variação real, quantidade inicial 1, preço e estoque atuais do candidato e sua descrição. O editor móvel não inclui variações virtuais; o ERP também deixa explícito no handler que identificadores virtuais são só fallback visual e não podem ser persistidos. Há uma diferença de representação sem efeito de negócio: para componente sem variação real, o ERP deixa `variationId` como `undefined` e o app normaliza para `null`; o schema compartilhado aceita `nullish` e a chave significa ausência de vínculo de variação nos dois.
+- [x] O ERP mantém a quantidade persistida em pelo menos 1; o app guarda o texto durante a digitação e, no blur, confirma o valor válido ou retorna à última quantidade persistida. Os botões móveis também limitam a quantidade mínima a 1. Ambos removem apenas a linha acionada e recalculam o preço sugerido a partir de `preço unitário × quantidade`.
+- [x] O preço do componente é somente leitura nos dois editores; a função `handlePriceChange` ERP não tem campo/call site na tabela ativa. O app também apresenta o estoque atual do componente no cartão — informação suplementar de leitura, sem alterar saldo ou payload. A busca em cartões e o botão de adicionar compõem uma adaptação de interação nativa ao autocomplete por linha ERP. O mobile mantém `productName`/`productCode` auxiliares no estado de tela, mas `normalizeComboItems` projeta os mesmos campos de negócio do ERP antes da mutação; só a representação `variationId` ausente/`null` permanece diferente e é aceita como `nullish`.
+- [x] Loading, erro com retry e resposta vazia já correspondem; a apresentação do caso de erro da consulta do autocomplete foi alinhada no Ciclo 353, sem necessidade de mudança neste recorte.
+- [x] A captura anexada pelo usuário repete o estado já documentado de falha da lista Produtos. A revisão somente leitura dos requests de cleanup de rascunhos foi concluída no Ciclo 437; não repeti logs nem consultas. A causa das capturas da lista segue apontando para a consulta antiga de `is_test` documentada no Ciclo 440, enquanto a build exata permanece sem identificação conforme Ciclo 441.
+
+#### Evidência e limites
+
+- [x] Revisão estática de `ProductFormTabContent.tsx`, `VariationCompositionItemsTab.tsx`, `ProductAutocomplete.tsx`, `useProductAutocomplete.ts`, `productAutocompleteFormSchema.ts`, `ProductFormScreen.tsx`, `ProductFormCompositionTab.tsx` e `mobileProductCompositionService.ts`; conferi também a cobertura já existente de remoção em `ProductFormCompositionTab.test.tsx`.
+- [x] Consultei `AGENTS.md` (RHF/Zod e runners permitidos), `docs/geral/USER_RULES.md`, a regra `rules/products/product-reconciliation-erp-only.yml`, `docs/negocio/produtos/estrutura-produto-variacao.md`, `docs/negocio/produtos/operacoes-troca-pai-merge.md`, o inventário e o roadmap. Não há `AGENTS.md` aninhado nos caminhos ERP/mobile/shared-utils usados. A skill canônica `erp-web-to-mobile-replication` não está nas fontes `.agents/skills`/`skills` acessíveis; não usei a cópia de cache como canônica.
+- [x] Nenhuma divergência de contrato ou regra comprovada foi encontrada; não alterei código e não executei runner por se tratar de comparação estática sem lógica nova. A existência dos testes não substitui validação visual.
+- [ ] Sem Playwright autenticado ou dispositivo Android físico/Maestro neste recorte. A interação de cartões, leitor de tela, persistência online da composição e o estado mostrado na captura não foram repetidos em runtime. A pendência de build/400 da lista permanece independente desta aba.
+- [x] Sem consulta/escrita Supabase, RPC, DML/DDL, cleanup, ação Meta/R2/SEFAZ ou deploy. A operação de Estoque não mudou e não requer atualização do guia.
+
+**Conclusão do recorte:** a busca e a edição de cada componente da composição simples mantêm os mesmos valores persistidos e a mesma regra de quantidade/preço nos dois clientes; o app usa cartões como adaptação nativa ao editor em tabela do ERP. Não há diferença suportada para corrigir neste estado. A validação visual/nativa e a auditoria global de Produtos continuam abertas.

@@ -1,3 +1,5 @@
+import { hasMinimumCompositionComponents, isProductComposition } from './productCompositionRequirements';
+
 export interface ProductActivationVariation {
   readonly id?: string | number;
   readonly sku?: string | null;
@@ -24,6 +26,8 @@ export interface ProductActivationProduct {
   readonly has_variations?: boolean;
   readonly itemType?: string | null;
   readonly isCombo?: boolean;
+  readonly is_combo?: boolean;
+  readonly item_type?: string | null;
   readonly comboItems?: readonly unknown[] | null;
   readonly variations?: readonly ProductActivationVariation[] | null;
   readonly productKind?: unknown;
@@ -140,9 +144,9 @@ export const validateProductActivationRequirements = (
     if (!parent.mainSupplierId && !parent.supplierId) {
       missingFields.push('fornecedor no pai');
     }
-    if (parent.itemType === 'composition' || parent.isCombo) {
+    if (isProductComposition(parent)) {
       const comboItems = variation.comboItems || variation.combo_items || [];
-      if (comboItems.length < 2) {
+      if (!hasMinimumCompositionComponents(comboItems)) {
         missingFields.push('pelo menos 2 produtos componentes vinculados');
       }
     }
@@ -181,9 +185,9 @@ export const validateProductActivationRequirements = (
       if (!product.mainSupplierId && !product.supplierId) {
         missingFields.push('fornecedor');
       }
-      if (!isParent && (product.itemType === 'composition' || product.isCombo)) {
+      if (!isParent && isProductComposition(product)) {
         const comboItems = product.comboItems || [];
-        if (comboItems.length < 2) {
+        if (!hasMinimumCompositionComponents(comboItems)) {
           missingFields.push('pelo menos 2 produtos componentes vinculados');
         }
       }

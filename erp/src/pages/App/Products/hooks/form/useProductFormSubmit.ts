@@ -15,6 +15,7 @@ import { createProductFormSchema } from './productFormValidation';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import type { useProductFormDraft } from './useProductFormDraft';
 import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productSupplierRequirement';
+import { PRODUCT_COMPOSITION_PRODUCT_COMPONENTS_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productCompositionRequirements';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 
@@ -95,6 +96,8 @@ export const useProductFormSubmit = ({
                 setActiveTab('fiscal');
               } else if (singleVariationParentIssue) {
                 setActiveTab(singleVariationParentIssue.tab);
+              } else if (errors.composicao) {
+                setActiveTab('composicao');
               } else if (errors.dimensions || errors.technicalValues) {
                 setActiveTab('technical');
               } else if (errors.variations || errors.variationRegistration) {
@@ -124,6 +127,8 @@ export const useProductFormSubmit = ({
               } else if (errors.variationRegistration && invalidVariation?.issue) {
                 variations.setEditingVariationId(invalidVariation.variation.id);
                 toast.error(invalidVariation.issue.message);
+              } else if (errors.composicao) {
+                toast.error(PRODUCT_COMPOSITION_PRODUCT_COMPONENTS_REQUIRED_MESSAGE);
               } else if (errors.variations) {
                 toast.error(validationResult.errorMessage || 'Adicione pelo menos uma variação ao produto.');
               } else if (errors.mainSupplierId) {

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Check, Info, PlusCircle, Search, Trash2 } from 'lucide-react-native';
+import { ArrowLeftRight, Check, Info, PlusCircle, Search } from 'lucide-react-native';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -23,7 +23,6 @@ import {
   isMobileVariableTechnicalField,
   isProductTechnicalFieldRequired,
   isProductTechnicalFieldRequiredForCatalog,
-  isRequiredCharacteristicName,
   isProductTechnicalFieldApplicableByCategory,
   removeProductCharacteristicAttribute,
   upsertProductCharacteristicAttribute,
@@ -257,7 +256,11 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         data_type: 'text',
         unit: '',
         options: [],
-        isRequired: isRequiredCharacteristicName(name),
+        isRequired: isProductTechnicalFieldRequired(
+          { name },
+          categoryIds,
+          selectedCategoryName
+        ),
       }));
     const allVisibleFields = [...visible, ...preservedLegacyFields];
     if (parentData) {
@@ -277,7 +280,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       return [...fieldsByName.values()];
     }
     return requiredFieldsOnly
-      ? allVisibleFields.filter((field) => isProductTechnicalFieldRequired(field, categoryIds))
+      ? allVisibleFields.filter((field) =>
+          isProductTechnicalFieldRequired(field, categoryIds, selectedCategoryName)
+        )
       : allVisibleFields;
   }, [
     technicalFields,
@@ -293,8 +298,8 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
 
   const isFieldRequired = useCallback(
     (field: MobileProductTechnicalField) =>
-      isProductTechnicalFieldRequired(field, categoryIds),
-    [categoryIds]
+      isProductTechnicalFieldRequired(field, categoryIds, selectedCategoryName),
+    [categoryIds, selectedCategoryName]
   );
 
   const requiredFieldGroups = useMemo(
@@ -305,7 +310,11 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         : visibleTechnicalFields.filter(
             (field) =>
               !isFieldRequired(field) &&
-              isProductTechnicalFieldRequiredForCatalog(field, categoryIds)
+              isProductTechnicalFieldRequiredForCatalog(
+                field,
+                categoryIds,
+                selectedCategoryName
+              )
           );
       return groupProductTechnicalFields([...productRequired, ...catalogRequired]);
     },
@@ -316,9 +325,14 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       visibleTechnicalFields.filter(
         (field) =>
           !isFieldRequired(field) &&
-          (Boolean(parentData) || !isProductTechnicalFieldRequiredForCatalog(field, categoryIds))
+          (Boolean(parentData) ||
+            !isProductTechnicalFieldRequiredForCatalog(
+              field,
+              categoryIds,
+              selectedCategoryName
+            ))
       ),
-    [visibleTechnicalFields, categoryIds, isFieldRequired, parentData]
+    [visibleTechnicalFields, categoryIds, selectedCategoryName, isFieldRequired, parentData]
   );
   const selectedOptionalFields = useMemo(() => {
     return optionalTechnicalFields.filter((field) => {
@@ -358,12 +372,24 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       (field) =>
         field.active !== false &&
         (!parentData || isVariableField(field.name)) &&
-        !isProductTechnicalFieldRequired(field, categoryIds) &&
-        (Boolean(parentData) || !isProductTechnicalFieldRequiredForCatalog(field, categoryIds)) &&
+        !isProductTechnicalFieldRequired(field, categoryIds, selectedCategoryName) &&
+        (Boolean(parentData) ||
+          !isProductTechnicalFieldRequiredForCatalog(
+            field,
+            categoryIds,
+            selectedCategoryName
+          )) &&
         !isExcludedProductTechnicalField(field.name) &&
         !selectedNames.has(normalizeName(field.name))
     );
-  }, [parentData, technicalFields, selectedOptionalFields, categoryIds, isVariableField]);
+  }, [
+    parentData,
+    technicalFields,
+    selectedOptionalFields,
+    categoryIds,
+    selectedCategoryName,
+    isVariableField,
+  ]);
   const normalizedSearchTerm = normalizeSearchTerm(characteristicSearchTerm);
   const normalizedDebouncedSearchTerm = normalizeSearchTerm(debouncedCharacteristicSearchTerm);
   const matchingOptionalFields =
@@ -378,7 +404,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
       : [];
   const fieldGroups = [
     ...requiredFieldGroups,
-    ...groupProductTechnicalFields(selectedOptionalFields),
+    ...(!requiredFieldsOnly
+      ? [{ title: 'Características secundárias adicionadas', fields: selectedOptionalFields }]
+      : []),
   ];
 
   useEffect(() => {
@@ -442,8 +470,16 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     if (
       scope === 'not_inform' &&
       requiredCatalogField &&
-      (isProductTechnicalFieldRequired(requiredCatalogField, categoryIds) ||
-        isProductTechnicalFieldRequiredForCatalog(requiredCatalogField, categoryIds))
+      (isProductTechnicalFieldRequired(
+        requiredCatalogField,
+        categoryIds,
+        selectedCategoryName
+      ) ||
+        isProductTechnicalFieldRequiredForCatalog(
+          requiredCatalogField,
+          categoryIds,
+          selectedCategoryName
+        ))
     ) return;
 
     setFormData((previous: any) => {
@@ -468,11 +504,13 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
           !dependency.isDisabled &&
           !isProductTechnicalFieldRequired(
             requiredCatalogField || { name: fieldName },
-            categoryIds
+            categoryIds,
+            selectedCategoryName
           ) &&
           !isProductTechnicalFieldRequiredForCatalog(
             requiredCatalogField || { name: fieldName },
-            categoryIds
+            categoryIds,
+            selectedCategoryName
           )
         ) {
           return {
@@ -677,7 +715,11 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                   ].includes(normalizeSearchTerm(currentValue));
                   const isDependentCharacteristic = isCharacteristicDependent(field.name);
                   const currentFieldIsRequired = isFieldRequired(field);
-                  const requiredForCatalog = isProductTechnicalFieldRequiredForCatalog(field, categoryIds);
+                  const requiredForCatalog = isProductTechnicalFieldRequiredForCatalog(
+                    field,
+                    categoryIds,
+                    selectedCategoryName
+                  );
                   const alwaysApplicable =
                     currentFieldIsRequired ||
                     (!parentData && requiredForCatalog) ||
@@ -819,36 +861,6 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                               trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
                             />
                           )}
-                          {isManual && !isQuantityField && (
-                            <TouchableOpacity
-                              onPress={() => {
-                                setManualFieldNames((previous) =>
-                                  previous.filter((name) => name !== field.name)
-                                );
-                                setFormData((previous: any) => {
-                                  const technicalValues = Object.fromEntries(
-                                    Object.entries(previous.technicalValues || {}).filter(
-                                      ([name]) => normalizeName(name) !== normalizeName(field.name)
-                                    )
-                                  );
-                                  const attributes = parentData
-                                    ? getProductCharacteristicAttributes(previous.attributes).filter(
-                                        (attribute) =>
-                                          normalizeName(attribute.name) !== normalizeName(field.name)
-                                      )
-                                    : previous.attributes;
-                                  return {
-                                    ...previous,
-                                    technicalValues,
-                                    ...(parentData ? { attributes } : {}),
-                                  };
-                                });
-                              }}
-                              accessibilityLabel={`Remover característica ${field.name}`}
-                            >
-                              <Trash2 size={16} color="#ef4444" />
-                            </TouchableOpacity>
-                          )}
                           {!parentData && isColorField && (
                             <TouchableOpacity
                               disabled={!canUseInVariationName}
@@ -964,7 +976,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                         ? isCurrentVariableField ||
                           hasOwnValue ||
                           (isDependentCharacteristic && isDependencyDisabled)
-                        : currentScope === 'global' || isDependentCharacteristic) && (
+                        : currentScope === 'global' ||
+                          currentScope === 'variation' ||
+                          isDependentCharacteristic) && (
                         <ProductTechnicalFieldInput
                           field={field}
                           value={currentValue === 'Não se aplica' ? '' : storedValue}
@@ -977,6 +991,11 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                             (parentData && !isCurrentVariableField && !hasOwnValue)
                           }
                           dark={dark}
+                          placeholder={
+                            !parentData && currentScope === 'variation'
+                              ? 'Defina na variação...'
+                              : undefined
+                          }
                           onChange={(value) => setTechnicalValue(field.name, value)}
                         />
                       )}

@@ -10,6 +10,7 @@ import {
   isTechnicalFieldVariable,
   resolveVariableTechnicalFieldNames,
 } from '@/pages/utils/technicalValuesService';
+import { isSofaCategoryName } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
 import {
   normalizeSearchTerm,
   isOptionalFieldSelected,
@@ -46,9 +47,7 @@ export const useTechnicalFieldApplicability = ({
   characteristicSearchTerm,
   debouncedCharacteristicSearchTerm,
 }: UseTechnicalFieldApplicabilityParams) => {
-  const isSofaCategorySelected = /(?:^|[^a-z0-9])sofas?(?=$|[^a-z0-9])/i.test(
-    normalizeSearchTerm(categoryName)
-  );
+  const isSofaCategorySelected = isSofaCategoryName(categoryName);
   const isChairCategorySelected = /(?:^|[^a-z0-9])cadeiras?(?=$|[^a-z0-9])/i.test(
     normalizeSearchTerm(categoryName)
   );
@@ -133,7 +132,7 @@ export const useTechnicalFieldApplicability = ({
     const normalizedName = normalizeSearchTerm(field.name);
     if (!isSofaCategorySelected) return field;
     if (normalizedName === 'profundidade' || normalizedName === 'profundidade total') {
-      return { ...field, isRequired: false };
+      return { ...field, isRequired: false, isRequiredForCatalog: false };
     }
     if (isOpenClosedSofaDepth(field.name)) {
       return { ...field, isRequired: isSofaRetractableActive };

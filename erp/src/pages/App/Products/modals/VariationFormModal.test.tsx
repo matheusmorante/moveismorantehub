@@ -63,13 +63,31 @@ describe('composição real do formulário de variações', () => {
     expect(view.onSave).not.toHaveBeenCalled(); expect(screen.getByRole('tab', { name: 'Informações Básicas' }).getAttribute('aria-selected')).toBe('true');
   });
   it('mantém linha vazia de componente, direciona o erro e permite removê-la antes de concluir', async () => {
-    const value = { ...variation, comboItems: [{ productId: 'componente', description: 'Banco', unitPrice: 20, stock: 0, quantity: 2 }] };
+    const value = { ...variation, comboItems: [
+      { productId: 'componente', description: 'Banco', unitPrice: 20, stock: 0, quantity: 2 },
+      { productId: 'mesa', description: 'Mesa', unitPrice: 30, stock: 0, quantity: 1 },
+    ] };
     const view = mount(value, { ...parent, itemType: 'composition' }); tab('Composição');
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar Produto' })); submit();
     expect((await screen.findByRole('alert')).textContent).toContain('Selecione o produto'); expect(view.onSave).not.toHaveBeenCalled();
-    const remove = screen.getAllByRole('button', { name: 'Remover Item' }); fireEvent.click(remove[1]);
-    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '3' } }); submit();
-    await waitFor(() => expect(view.onSave).toHaveBeenCalledWith(expect.objectContaining({ comboItems: [expect.objectContaining({ quantity: 3 })] })));
+    const remove = screen.getAllByRole('button', { name: 'Remover Item' }); fireEvent.click(remove[2]);
+    fireEvent.change(screen.getAllByRole('spinbutton')[0], { target: { value: '3' } }); submit();
+    await waitFor(() => expect(view.onSave).toHaveBeenCalledWith(expect.objectContaining({ comboItems: expect.arrayContaining([
+      expect.objectContaining({ productId: 'componente', quantity: 3 }),
+      expect.objectContaining({ productId: 'mesa', quantity: 1 }),
+    ]) })));
+  });
+  it('impede concluir variação ativa de família composta com menos de dois componentes', async () => {
+    const value = {
+      ...variation,
+      comboItems: [{ productId: 'componente', description: 'Banco', unitPrice: 20, stock: 0, quantity: 1 }],
+    };
+    const view = mount(value, { ...parent, itemType: 'composition' });
+    submit();
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Vincule pelo menos 2 produtos componentes');
+    expect(view.onSave).not.toHaveBeenCalled();
+    expect(view.onClose).not.toHaveBeenCalled();
   });
   it('bloqueia fechar, Escape, edição e repetição enquanto aguarda o callback real', async () => {
     let finish!: (value: boolean) => void; const onSave = vi.fn(() => new Promise<boolean>((resolve) => { finish = resolve; }));
@@ -163,10 +181,14 @@ describe('composição real do formulário de variações', () => {
   });
   it('autocomplete real preserva preço e estoque zero da variação componente', async () => {
     mocks.fetchProductsPage.mockResolvedValue({ data: [{ ...parent, id: 'componente', name: 'Banco', unitPrice: 80, stock: 10, variations: [{ ...variation, id: 'banco-azul', name: 'Banco Azul', unitPrice: 0, stock: 0 }] }] });
-    const view = mount(variation, { ...parent, itemType: 'composition' }); tab('Composição'); fireEvent.click(screen.getByRole('button', { name: 'Adicionar Produto' }));
+    const initialComponent = { productId: 'mesa', description: 'Mesa', unitPrice: 30, stock: 1, quantity: 1 };
+    const view = mount({ ...variation, comboItems: [initialComponent] }, { ...parent, itemType: 'composition' }); tab('Composição'); fireEvent.click(screen.getByRole('button', { name: 'Adicionar Produto' }));
     fireEvent.change(screen.getByPlaceholderText('Buscar produto (mesmo fornecedor)'), { target: { value: 'Banco' } });
     fireEvent.click(await screen.findByRole('button', { name: /Banco.*Azul/ })); submit(); await waitFor(() => expect(view.onSave).toHaveBeenCalled());
-    expect(view.onSave.mock.calls[0][0].comboItems).toEqual([expect.objectContaining({ variationId: 'banco-azul', unitPrice: 0, stock: 0 })]);
+    expect(view.onSave.mock.calls[0][0].comboItems).toEqual(expect.arrayContaining([
+      expect.objectContaining(initialComponent),
+      expect.objectContaining({ variationId: 'banco-azul', unitPrice: 0, stock: 0 }),
+    ]));
   });
   it('não persiste o ID sintético da variação virtual de um componente simples legado', async () => {
     mocks.fetchProductsPage.mockResolvedValue({ data: [{

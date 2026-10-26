@@ -16,6 +16,7 @@ import {
   hasRequiredProductCategory,
   PRODUCT_CATEGORY_REQUIRED_MESSAGE,
 } from './productCategoryRequirement';
+import { getActiveCompositionProductRequirementIssue } from './productCompositionRequirements';
 
 const productNumericFields = productVariationDraftSchema.pick({
   unitPrice: true, promoPrice: true, costPrice: true, freightCost: true, ipiPercent: true,
@@ -95,6 +96,14 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
 
       const variations = Array.isArray(data.variations) ? data.variations : [];
       const isMultiVariationMode = Boolean(data.hasVariations) || variations.length > 1;
+      const compositionIssue = getActiveCompositionProductRequirementIssue(data as any);
+      if (compositionIssue) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: compositionIssue.message,
+          path: [compositionIssue.tab],
+        });
+      }
       if (variations.length === 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
