@@ -5,6 +5,10 @@ const { state } = vi.hoisted(() => ({
     dbData: {} as Record<string, unknown>,
     from: vi.fn(),
     upsert: vi.fn(),
+    deleteImages: vi.fn(),
+    insertImages: vi.fn(),
+    deleteImagesError: null as Error | null,
+    insertImagesError: null as Error | null,
     mapToDB: vi.fn(),
   },
 }));
@@ -35,6 +39,8 @@ describe('syncProductToSupabase', () => {
       ...(product.stock !== undefined ? { stock: product.stock } : {}),
     }));
     state.upsert.mockResolvedValue({ error: null });
+    state.deleteImagesError = null;
+    state.insertImagesError = null;
     const query: any = {};
     query.select = vi.fn(() => query);
     query.eq = vi.fn(() => query);
@@ -42,9 +48,56 @@ describe('syncProductToSupabase', () => {
     query.neq = vi.fn(() => query);
     query.upsert = state.upsert;
     query.update = vi.fn(() => query);
+    query.delete = state.deleteImages.mockImplementation(() => query);
+    query.insert = state.insertImages.mockImplementation(() =>
+      Promise.resolve({ error: state.insertImagesError })
+    );
     query.then = (resolve: (value: any) => unknown) =>
-      Promise.resolve({ data: [], error: null }).then(resolve);
+      Promise.resolve({ data: [], error: state.deleteImagesError }).then(resolve);
     state.from.mockReturnValue(query);
+  });
+
+  const productWithGallery = () => ({
+    id: '123e4567-e89b-42d3-a456-426614174000',
+    name: 'Mesa Aurora',
+    images: ['cover.jpg', 'side.jpg'],
+    variations: [],
+    hasVariations: false,
+    isDraft: false,
+    itemType: 'product',
+  } as any);
+
+  it('propaga falha ao remover a galeria persistida do produto', async () => {
+    state.deleteImagesError = new Error('falha ao excluir product_images');
+
+    await expect(syncProductToSupabase(productWithGallery())).rejects.toThrow(
+      'falha ao excluir product_images'
+    );
+
+    expect(state.deleteImages).toHaveBeenCalledTimes(1);
+    expect(state.insertImages).not.toHaveBeenCalled();
+  });
+
+  it('propaga falha ao inserir a nova galeria do produto', async () => {
+    state.insertImagesError = new Error('falha ao inserir product_images');
+
+    await expect(syncProductToSupabase(productWithGallery())).rejects.toThrow(
+      'falha ao inserir product_images'
+    );
+
+    expect(state.deleteImages).toHaveBeenCalledTimes(1);
+    expect(state.insertImages).toHaveBeenCalledWith([
+      {
+        product_id: '123e4567-e89b-42d3-a456-426614174000',
+        image_url: 'cover.jpg',
+        is_main: true,
+      },
+      {
+        product_id: '123e4567-e89b-42d3-a456-426614174000',
+        image_url: 'side.jpg',
+        is_main: false,
+      },
+    ]);
   });
 
   it('preserva a coluna products.brand no payload do produto', async () => {

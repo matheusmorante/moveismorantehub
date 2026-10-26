@@ -98,14 +98,24 @@ describe('variationGenerationRules', () => {
         code: '200',
         unitPrice: 150,
         costPrice: 80,
+        images: ['parent-cover.jpg', 'parent-side.jpg'],
       };
       const variation = createDefaultNewVariation(formData, []);
       expect(variation.name).toBe('Mesa de Centro');
       expect(variation.unitPrice).toBe(150);
       expect(variation.costPrice).toBe(80);
+      expect(variation.images).toEqual(formData.images);
       expect(variation.syncUnitPrice).toBe(true);
       expect(variation.syncCostPrice).toBe(true);
       expect(variation.syncDimensions).toBe(true);
+    });
+
+    it('não herda a galeria do pai em família com variações ou rascunho de família', () => {
+      const parent = { name: 'Mesa', status: 'hidden', hasVariations: true, images: ['parent.jpg'] };
+      const existingVariation = { id: 'existing', sku: 'MESA-01' } as Variation;
+
+      expect(createDefaultNewVariation(parent, [existingVariation]).images).toEqual([]);
+      expect(createDefaultNewVariation({ ...parent, status: 'draft' }, []).images).toEqual([]);
     });
   });
 

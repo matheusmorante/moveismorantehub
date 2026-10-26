@@ -1,8 +1,8 @@
 # Auditoria de Egress — Supabase MoranteHub
 
-## Estado atual — 26/10/2026, 12:38 BRT
+## Estado atual — 26/10/2026, 14:49 BRT
 
-CLI/plugin autenticados e ref hkoxhourxwlddgsfdgws reconfirmados. Sem medidor oficial Usage/Egress: bytes, quota, excedente, delta e meta de 100 MB/dia não verificáveis. Janela 26/10 11:30–14:30 UTC: gateway 1.627 eventos, REST 1.565; produtos 282, estilo 193 e pedidos 147 chamadas. Projeção da consulta de transações Rede reduzida de `*` a quatro campos usados pela UI; economia em bytes não medida. Recorrência ACTIVE/3 h preservada; decisão anterior da Central permanece pendente.
+CLI/plugin autenticados e ref hkoxhourxwlddgsfdgws reconfirmados. Sem medidor oficial Usage/Egress: bytes, quota, excedente, delta e meta de 100 MB/dia não verificáveis. Janela 26/10 14:30–17:30 UTC: gateway 4.370 eventos, REST 4.240; leituras de produtos 879 e pedidos 656. Sem nova causa comprovada para correção local nesta rodada; EGR-003 permanece com projeção explícita. Recorrência ACTIVE/3 h preservada; decisão anterior da Central permanece pendente.
 ## Coleta inicial — 25/10/2026, 09:35 BRT (12:35 UTC)
 
 Projeto confirmado: `hkoxhourxwlddgsfdgws` (MoranteHub). Primeira coleta desta auditoria; não havia relatório anterior. Automação existente ACTIVE, intervalo de três horas conferido no arquivo de configuração; agendamento preservado.
@@ -406,3 +406,34 @@ Ante a janela consecutiva anterior de três horas, gateway aumentou 1.183 evento
 **Inventário atualizado:** integração ERP de histórico da Rede: Finance/Settings → `financeService.getRedeTransactions(5)` → `rede_transactions`, uma carga ao montar a tela, limite 5, ordem por `created_at` decrescente, sem cache/deduplicação/abort; projeção explícita agora cobre apenas campos exibidos. As 88 chamadas observadas não identificam plataforma/tela. Produtos, estilo, pedidos, pessoas e fila fiscal lideram as contagens, mas sem evidência de excesso de payload ou repetição atribuível a causa local nova. EGR-001/EGR-002 e decisão de atualidade da Central (6 s / 30 s / reconciliação) preservados; sem mudança nesse fluxo.
 
 **Resultado:** revisão estática e atualização do relatório. Status inicial continha trabalho local preexistente; arquivos não relacionados foram preservados. `git diff --check` passou. Nenhum teste, consulta a dados de negócio, `execute_sql`, alteração remota, dependência, migration, commit ou deploy. Medição oficial de bytes e validação funcional continuam pendentes.
+
+## Nona execução — 26/10/2026, 14:49 BRT
+
+**Acesso e limites:** regras, política remota, memória, relatório e skills Supabase/Ponytail consultados. CLI 2.121.0; ajudas raiz/projects/list/inspect/db/telemetry redescobertas, sem Usage/Egress faturável. `projects list` filtrado em memória confirmou autenticação, nome MoranteHub, ref hkoxhourxwlddgsfdgws e linked=true; vínculo local correto. Plugin `list_projects` confirmou o mesmo projeto, sem ferramenta de medição de bytes. Automação ACTIVE, RRULE de três horas, preservada. [Changelog](https://supabase.com/changelog) e [campos/agregações oficiais](https://supabase.com/docs/guides/observability/detecting) consultados. Nenhuma mudança de integração exigida pelos avisos consultados.
+
+**Janela exata:** 2026-10-26T14:30:00Z–2026-10-26T17:30:00Z (**11:30–14:30 BRT**). Duas `query_logs`, somente agregados de source e gateway por rota normalizada/status/count, sem polling. Campos documentados source, request.path e response.status_code; nomes REST restritos por regex, demais serviços apenas prefixos fixos. Sem corpos, parâmetros, headers, mensagens, SQL de negócio ou dados individuais.
+
+Fontes: edge_logs 4.370; postgres_logs 628; postgrest_logs 328; pgbouncer_logs 147; auth_logs 68; storage_logs 45; auth_audit_logs 21; realtime_logs 3. Não somar fontes como requests. Gateway: **REST 4.240, Auth 60, Realtime 20, Storage 50**; 64 grupos, sem truncamento.
+
+| Rota REST | Status | Chamadas |
+| --- | --- | ---: |
+| products | 200 / 206 / 204 / 400 | 865 / 14 / 10 / 4 |
+| orders | 200 / 206 | 561 / 95 |
+| product_variations | 200 | 379 |
+| people | 200 / 204 / 201 | 329 / 10 / 1 |
+| rpc/get_products_trash_eligibility | 200 | 245 |
+| store_style_settings | 200 | 185 |
+| rede_transactions | 200 | 159 |
+| rpc/flush_supabase_telemetry | 204 / 200 | 144 / 9 |
+
+Ante a janela consecutiva anterior de três horas, gateway +2.743 eventos (1.627→4.370), REST +2.675 (1.565→4.240), leituras de produtos +597 (282→879), pedidos +509 (147→656), Rede +71 (88→159). São contagens, sem evidência de bytes, origem ou versão. Storage retornou 33 status 400; o agregado por serviço não identifica causa/objeto nem comprova repetição. Nenhum valor antigo reapresentado como Egress atual; bytes/quota/excedente/delta oficial e meta 100 MB/dia continuam indisponíveis.
+
+**Inventário e revisão estática:**
+
+| Integração / finalidade | Arquivos e chamadas | Gatilho / proteção | Evidência / risco |
+| --- | --- | --- | --- |
+| ERP: lista e elegibilidade para lixeira | `erp/src/pages/App/Products/ProductList/hooks/data/useProducts.ts:101–107` → `erp/src/pages/utils/productService/productQueryService.ts:178–247` → products e RPC get_products_trash_eligibility | Página/filtros no queryKey; staleTime 60 s e gcTime 5 min; uma RPC em lote dos IDs retornados, timeout com abort e fallback conservador; sem cache próprio da elegibilidade | 245 chamadas da RPC entre todos os clientes; não atribuir ao ERP ou inferir excesso. Cache independente poderia desatualizar a elegibilidade |
+| Mobile: lista e elegibilidade para lixeira | `mobile/src/features/products/hooks/useMobileProducts.ts:209–238` → `services/mobileProductFetchService.ts:218–344,459–461,732–734`; helper RPC em :67–112 | Página/filtros/busca aplicada; retry de leitura uma vez com guarda de requisição atual; paginação range; elegibilidade em lote, pula lixeira/rascunhos, timeout/abort e fallback seguro; helper sem cache próprio | Vários chamadores de products; contagens não provam qual projeção/tela foi usada. Campos amplos requerem rastrear todos os consumidores antes de retirar |
+| ERP: histórico da Rede | Finance/Settings/index.tsx:36–53 → financeService.ts:384–392 | Montagem ou botão Tentar novamente; limite 5, projeção de quatro campos, timeout 15 s e descarte de resposta obsoleta; sem polling/cache/abort nesta carga | EGR-003 preservada, sem diff contra HEAD; 159 respostas 200 não provam implantação/efeito da correção ou loop |
+
+**Resultado:** sem nova causa comprovada corrigível nesta rodada. Somente relatório e memória atualizados; preservadas 14 entradas iniciais de trabalho local, inclusive arquivos novos e mudanças concorrentes nos produtos. Diffs pertinentes conferidos antes de escrever. Nenhum código alterado, teste adicionado/executado, dado de negócio consultado, execute_sql, mudança remota, migration, dependência, commit ou deploy. Fluxos fiscais não inspecionados. Decisão anterior da Central (6 s / 30 s / reconciliação) continua pendente, sem repetir o achado. Revisão estática; validação funcional e medição oficial permanecem pendentes.

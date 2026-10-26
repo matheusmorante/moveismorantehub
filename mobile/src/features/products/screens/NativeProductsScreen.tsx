@@ -30,6 +30,7 @@ import { MobileProductPagination } from '../components/MobileProductPagination';
 import { ProductsHeader } from '../components/ProductsHeader';
 import type { ProductListMode } from '../components/header/ProductsHeaderModeSelector';
 import { useMobileProducts } from '../hooks/useMobileProducts';
+import { useMobileVariationExitFlags } from '../hooks/useMobileVariationExitFlags';
 import { canShowMobileProductCategoryFilter } from '../domain/mobileProductListFilters';
 import {
   getMobileCompositionEmptyHint,
@@ -125,11 +126,17 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const returnToMenu = () => setSelectedMode(null);
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
+  const isProductListEnabled =
+    selectedMode !== null && activeMode !== 'categories' && availableModes.includes(activeMode);
   const productsHook = useMobileProducts(
     activeMode === 'composition' ? 'composition' : 'standard',
-    selectedMode !== null && activeMode !== 'categories' && availableModes.includes(activeMode),
+    isProductListEnabled,
     canViewCompositions,
     isAdmin
+  );
+  const exitedVariationIds = useMobileVariationExitFlags(
+    productsHook.products,
+    isProductListEnabled
   );
   const canViewLinkedProductOrders = canShowMobileLinkedProductOrders({
     canEditProducts,
@@ -640,6 +647,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
               <MobileProductCard
                 key={product.id}
                 product={product}
+                exitedVariationIds={exitedVariationIds}
                 dark={isDarkMode}
                 showTrash={productsHook.showTrash}
                 onRestore={productsHook.showTrash ? handleRestoreProductFromTrash : undefined}

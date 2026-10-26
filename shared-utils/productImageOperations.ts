@@ -1,6 +1,8 @@
+import { parseVariationImages } from './productVariationImages';
+
 export interface ProductWithImageReferences {
   images?: string[];
-  variations?: Array<{ images?: string[]; image_url?: string }>;
+  variations?: Array<{ images?: string[]; image_url?: string | null }>;
 }
 
 /** Removes a parent gallery photo and its variation links, matching the ERP form behavior. */
@@ -10,13 +12,28 @@ export const removeProductImageGlobally = <T extends ProductWithImageReferences>
 ): T => {
   const updatedImages = product.images?.filter((image) => image !== imageUrl);
   const updatedVariations = product.variations?.map((variation) => {
+    const variationImages = parseVariationImages(variation.image_url, variation.images);
+    const hasImage = variationImages.includes(imageUrl);
     if (product.variations?.length === 1) {
-      return { ...variation, images: updatedImages || [] };
+      const inheritedImages = updatedImages || [];
+      return {
+        ...variation,
+        images: inheritedImages,
+        ...(variation.image_url !== undefined
+          ? { image_url: inheritedImages.length > 0 ? inheritedImages.join(',') : null }
+          : {}),
+      };
     }
-    if (variation.images?.includes(imageUrl)) {
-      return { ...variation, images: variation.images.filter((image) => image !== imageUrl) };
-    }
-    return variation;
+    if (!hasImage) return variation;
+
+    const remainingImages = variationImages.filter((image) => image !== imageUrl);
+    return {
+      ...variation,
+      images: remainingImages,
+      ...(variation.image_url !== undefined
+        ? { image_url: remainingImages.length > 0 ? remainingImages.join(',') : null }
+        : {}),
+    };
   });
 
   return {

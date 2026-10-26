@@ -74,8 +74,19 @@ export function useVariationFormReferences({
     let accepting = true;
     if (isOpen) {
       setAllParentImages([]);
-      setReferenceLoading((previous) => ({ ...previous, images: true }));
       setReferenceErrors((previous) => ({ ...previous, images: '' }));
+
+      // During product editing, the form state is authoritative. Fetching the
+      // persisted gallery here can bring back photos removed in the unsaved form.
+      if (Array.isArray(parentProduct?.images)) {
+        setAllParentImages(parentProduct.images.filter(Boolean));
+        setReferenceLoading((previous) => ({ ...previous, images: false }));
+        return () => {
+          accepting = false;
+        };
+      }
+
+      setReferenceLoading((previous) => ({ ...previous, images: true }));
       const realParentId = parentProduct?.parentId || parentId || parentProduct?.id;
       if (realParentId) {
         void withTimeout(
@@ -94,8 +105,7 @@ export function useVariationFormReferences({
               throw new Error('Fotos não confirmadas.');
             }
             const databaseImages = response.data.map((i) => i.image_url).filter(Boolean);
-            const formImages = (parentProduct?.images || []).filter(Boolean);
-            setAllParentImages(Array.from(new Set([...databaseImages, ...formImages])));
+            setAllParentImages(Array.from(new Set(databaseImages)));
           })
           .catch(() => {
             if (session.active && accepting) {

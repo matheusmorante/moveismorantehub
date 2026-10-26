@@ -230,11 +230,7 @@ const VariationFormSession: React.FC<
                   images={
                     isSingleVariation
                       ? parentImageGallery
-                      : (
-                          formData.images && formData.images.length > 0
-                            ? formData.images
-                            : parentImageGallery
-                        ).slice(0, MAX_VARIATION_IMAGES)
+                      : (formData.images || []).slice(0, MAX_VARIATION_IMAGES)
                   }
                   parentImages={parentImageGallery}
                   isSingleVariation={isSingleVariation}

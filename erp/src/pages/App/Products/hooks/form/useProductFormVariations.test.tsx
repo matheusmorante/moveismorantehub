@@ -142,7 +142,8 @@ describe('modo simples e modo com variações', () => {
     expect(result.current.formData.hasVariations).toBe(false);
   });
 
-  it('preserva os campos da variação simples existente ao trocar o modo', () => {
+  it('reativa a galeria herdada sem alterar os demais dados da variação existente', () => {
+    const parentImages = ['parent-cover.jpg', 'parent-side.jpg'];
     const variation = {
       id: 'saved-variation', sku: 'SAVED-1', name: 'Armário Mogno', stock: 7,
       unitPrice: 125, active: true, attributes: [{ name: 'Madeira', value: 'Mogno' }],
@@ -150,14 +151,18 @@ describe('modo simples e modo com variações', () => {
     };
     const { result } = renderHook(() => {
       const [formData, setFormData] = useState<Partial<Product>>({
-        id: 'parent', name: 'Armário', status: 'hidden', variations: [variation], hasVariations: false,
+        id: 'parent', name: 'Armário', status: 'hidden', images: parentImages,
+        variations: [variation], hasVariations: false,
       });
       return { ...useProductFormVariations(formData, setFormData, true, true), formData };
     });
     act(() => result.current.setProductMode(true));
     act(() => result.current.setProductMode(false));
 
-    expect(result.current.formData.variations?.[0]).toEqual(variation);
+    expect(result.current.formData.variations?.[0]).toEqual({
+      ...variation,
+      images: parentImages,
+    });
     expect(result.current.formData.hasVariations).toBe(false);
   });
 

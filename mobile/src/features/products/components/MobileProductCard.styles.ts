@@ -165,6 +165,27 @@ export const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 4,
   },
+  exitLaunchedBadge: {
+    backgroundColor: '#fff7ed',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+  },
+  darkExitLaunchedBadge: {
+    backgroundColor: '#43140740',
+    borderColor: '#9a341260',
+  },
+  exitLaunchedText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#c2410c',
+    textTransform: 'uppercase',
+  },
+  darkExitLaunchedText: {
+    color: '#fb923c',
+  },
   oppBadge: {
     flexDirection: 'row',
     alignItems: 'center',

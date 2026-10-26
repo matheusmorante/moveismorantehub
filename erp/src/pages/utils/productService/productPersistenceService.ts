@@ -148,25 +148,21 @@ export const syncProductToSupabase = async (
 
     // Sincronizar imagens na tabela product_images
     if (product.id && Array.isArray(product.images)) {
-      try {
-        const imageRecords = product.images.map((url, idx) => ({
-          product_id: product.id,
-          image_url: url,
-          is_main: idx === 0,
-        }));
-        const { error: deleteImagesError } = await supabase
+      const imageRecords = product.images.map((url, idx) => ({
+        product_id: product.id,
+        image_url: url,
+        is_main: idx === 0,
+      }));
+      const { error: deleteImagesError } = await supabase
+        .from('product_images')
+        .delete()
+        .eq('product_id', product.id);
+      if (deleteImagesError) throw deleteImagesError;
+      if (imageRecords.length > 0) {
+        const { error: insertImagesError } = await supabase
           .from('product_images')
-          .delete()
-          .eq('product_id', product.id);
-        if (deleteImagesError) throw deleteImagesError;
-        if (imageRecords.length > 0) {
-          const { error: insertImagesError } = await supabase
-            .from('product_images')
-            .insert(imageRecords);
-          if (insertImagesError) throw insertImagesError;
-        }
-      } catch (imgErr) {
-        console.error('[ProductService] Erro ao sincronizar product_images:', imgErr);
+          .insert(imageRecords);
+        if (insertImagesError) throw insertImagesError;
       }
     }
 

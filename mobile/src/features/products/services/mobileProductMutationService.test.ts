@@ -320,6 +320,48 @@ describe('saveMobileProduct', () => {
     mocks.rpc.mockResolvedValue({ data: 'saved-product-id', error: null });
   });
 
+  it('propaga erro da RPC que grava a galeria e mantém o payload de fotos do produto pai', async () => {
+    mocks.rpc.mockResolvedValueOnce({
+      data: null,
+      error: new Error('Falha ao persistir product_images.'),
+    });
+
+    await expect(
+      saveMobileProduct({
+        clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+        operationId: '123e4567-e89b-42d3-a456-426614174001',
+        code: 'MESA-01',
+        name: 'Mesa Aurora',
+        itemType: 'product',
+        isDraft: true,
+        status: 'draft',
+        hasVariations: false,
+        categoryIds: [],
+        images: ['parent-cover.jpg', 'parent-side.jpg'],
+        variations: [
+          {
+            id: '123e4567-e89b-42d3-a456-426614174002',
+            sku: 'MESA-01-01',
+            name: 'Mesa Aurora',
+            status: 'draft',
+            active: false,
+            images: ['parent-cover.jpg', 'parent-side.jpg'],
+          },
+        ],
+      })
+    ).rejects.toThrow('Falha ao persistir product_images.');
+
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'save_mobile_product_transaction',
+      expect.objectContaining({
+        p_images: ['parent-cover.jpg', 'parent-side.jpg'],
+        p_product: expect.objectContaining({
+          images: ['parent-cover.jpg', 'parent-side.jpg'],
+        }),
+      })
+    );
+  });
+
   it('salva Modelo/Linha canônico e projeta requisito de categoria com aliases legados', async () => {
     vi.mocked(fetchRequiredProductCategoryAttributes).mockResolvedValue([
       {

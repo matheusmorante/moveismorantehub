@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { INVENTORY_EXIT_QUERY_TYPES } from '../../../../../../../../shared-utils/inventoryMoveToDb';
 
 // ─── Cache em nível de módulo ───────────────────────────────────────────────
 // Evita múltiplas queries simultâneas quando vários componentes montam
@@ -18,7 +19,7 @@ const fetchExitedVariationIds = async (): Promise<Set<string>> => {
       const { data, error } = await supabase
         .from('inventory_moves')
         .select('variation_id')
-        .eq('type', 'withdrawal')
+        .in('type', [...INVENTORY_EXIT_QUERY_TYPES])
         .not('order_id', 'is', null)
         .not('variation_id', 'is', null);
 

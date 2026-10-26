@@ -70,9 +70,16 @@ export function useProductFormVariations(
         const current = prev.variations || [];
         if (!hasVariations && current.length > 1) return prev;
 
+        const isReturningExistingProductToSimple =
+          isExistingProduct &&
+          !hasVariations &&
+          Boolean(prev.hasVariations) &&
+          current.length === 1;
         const variations = !isExistingProduct && current.length === 1
           ? [inheritSimpleVariation(prev, current[0])]
-          : current;
+          : isReturningExistingProductToSimple
+            ? [{ ...current[0], images: [...(prev.images || [])] }]
+            : current;
         return { ...prev, hasVariations, variations };
       });
       if (!hasVariations && !isExistingProduct) setEditingVariationId(null);

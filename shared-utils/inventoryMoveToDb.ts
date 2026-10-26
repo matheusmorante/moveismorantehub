@@ -1,3 +1,6 @@
+/** `withdrawal` remains accepted for legacy rows; current writes normalize it to `exit`. */
+export const INVENTORY_EXIT_QUERY_TYPES = ['exit', 'withdrawal'] as const;
+
 /** Maps a validated inventory movement to the persisted ledger contract. */
 export interface InventoryMoveDatabaseInput {
   productId: string;

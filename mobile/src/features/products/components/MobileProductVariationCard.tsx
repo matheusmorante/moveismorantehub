@@ -20,6 +20,7 @@ import { getMobileProductVariationCardName } from '../domain/mobileProductCardDi
 
 interface MobileProductVariationCardProps {
   variation: any;
+  exitedVariationIds?: ReadonlySet<string>;
   opportunityName?: string;
   index: number;
   dark: boolean;
@@ -43,6 +44,7 @@ interface MobileProductVariationCardProps {
 
 export const MobileProductVariationCard: React.FC<MobileProductVariationCardProps> = ({
   variation: v,
+  exitedVariationIds,
   opportunityName,
   index,
   dark,
@@ -65,6 +67,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
 }) => {
   const [menuVisible, setMenuVisible] = React.useState(false);
   const varName = getMobileProductVariationCardName(parentProduct, v, index);
+  const isExitLaunched = exitedVariationIds?.has(String(v.variationId || v.id));
 
   const isPublished = v.status === 'published';
   const isActive = v.active !== false;
@@ -142,9 +145,19 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
         )}
 
         <View style={styles.infoCol}>
-          <Text style={[styles.name, dark && styles.lightText]} numberOfLines={1}>
-            {varName}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={[styles.name, dark && styles.lightText]} numberOfLines={1}>
+              {varName}
+            </Text>
+            {isExitLaunched && (
+              <Text
+                style={[styles.exitLaunchedBadge, dark && styles.darkExitLaunchedBadge]}
+                accessibilityLabel="Saída Lançada"
+              >
+                Saída Lançada
+              </Text>
+            )}
+          </View>
 
           <Text style={styles.sku}>
             SKU: {normalizeVariationSku(v.sku) || '-'}
@@ -316,6 +329,11 @@ const styles = StyleSheet.create({
   infoCol: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   menuButton: {
     width: 44,
     height: 44,
@@ -324,9 +342,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   name: {
+    flexShrink: 1,
     fontSize: 12,
     fontWeight: '700',
     color: '#0f172a',
+  },
+  exitLaunchedBadge: {
+    flexShrink: 0,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+    borderRadius: 999,
+    backgroundColor: '#fff7ed',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    color: '#c2410c',
+    fontSize: 8,
+    fontWeight: '800',
+  },
+  darkExitLaunchedBadge: {
+    borderColor: '#7c2d12',
+    backgroundColor: '#431407',
+    color: '#fb923c',
   },
   sku: {
     fontSize: 10,

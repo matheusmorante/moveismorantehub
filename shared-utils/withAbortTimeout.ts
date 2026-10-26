@@ -6,7 +6,7 @@ type AbortablePromiseLike<T> = PromiseLike<T> & {
   abortSignal?: (signal: AbortSignal) => PromiseLike<T>;
 };
 
-export const withAbortTimeout = async <T>(
+export const withAbortTimeout = async <T,>(
   request: PromiseLike<T>,
   label: string,
   timeoutMs = PRODUCT_LIST_QUERY_TIMEOUT_MS,

@@ -38,6 +38,7 @@ import { getMobileVariationActionRequirements } from '../services/mobileProductV
 
 interface Props {
   product: any;
+  exitedVariationIds?: ReadonlySet<string>;
   dark: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
@@ -73,6 +74,7 @@ interface Props {
  */
 export const MobileProductCard: React.FC<Props> = ({
   product,
+  exitedVariationIds,
   dark,
   canEdit = false,
   canDelete = false,
@@ -139,6 +141,11 @@ export const MobileProductCard: React.FC<Props> = ({
     canPrintLabels,
     canEdit,
   });
+  const isSingleVariationExitLaunched = Boolean(
+    singleVariation &&
+      !singleVariation.isVirtual &&
+      exitedVariationIds?.has(String(singleVariation.variationId || singleVariation.id || ''))
+  );
   const compositionCardItems = getMobileProductCompositionCardItems(product);
   const singleVariationActionRequirements = getMobileVariationActionRequirements(
     product,
@@ -375,6 +382,16 @@ export const MobileProductCard: React.FC<Props> = ({
                 size="sm"
               />
             )}
+            {isSingleVariationExitLaunched && (
+              <View style={[styles.exitLaunchedBadge, dark && styles.darkExitLaunchedBadge]}>
+                <Text
+                  accessibilityLabel="Saída Lançada"
+                  style={[styles.exitLaunchedText, dark && styles.darkExitLaunchedText]}
+                >
+                  Saída Lançada
+                </Text>
+              </View>
+            )}
             {product.itemType === 'composition' ? (
               <View
                 style={[styles.oppBadge, { backgroundColor: '#f3e8ff', borderColor: '#d8b4fe' }]}
@@ -480,6 +497,7 @@ export const MobileProductCard: React.FC<Props> = ({
       {hasExpandableVars && expanded && (
         <MobileProductVariationList
           variations={variations}
+          exitedVariationIds={exitedVariationIds}
           opportunityName={oppName ?? undefined}
           dark={dark}
           parentImage={

@@ -5,6 +5,7 @@ import { buildProductVariationName } from '@/pages/utils/productVariationDefault
 import { toTitleCase } from '@/pages/utils/textUtils';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 import { getVariationNameAttributeValues } from '../../../../../../shared-utils/productVariationNameValidation';
+import { isSingleProductVariationFormMode } from '../../../../../../shared-utils/productVariationMode';
 
 export interface BulkVariationOption {
   name: string;
@@ -126,6 +127,11 @@ export function createDefaultNewVariation(
   const baseName = toTitleCase(formData.name || formData.description || 'Nova Variação');
   const parentCode = formData.code || '000000';
   const newSku = generateVariationSku(parentCode, existingVariations);
+  const inheritsParentGallery = isSingleProductVariationFormMode(
+    formData,
+    existingVariations.length,
+    true
+  );
 
   return {
     id: crypto.randomUUID(),
@@ -134,7 +140,7 @@ export function createDefaultNewVariation(
     unitPrice: formData.unitPrice || 0,
     costPrice: formData.costPrice || 0,
     stock: 0,
-    images: [],
+    images: inheritsParentGallery ? [...(formData.images || [])] : [],
     active: false,
     status: isProductDraft(formData) ? 'draft' : 'hidden',
     syncUnitPrice: true,
