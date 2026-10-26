@@ -32,11 +32,11 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
   const border = hasError ? '#f43f5e' : isDarkMode ? '#475569' : '#cbd5e1';
   const text = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
-  const selected = employees.find((employee) => String(employee.id) === selectedId);
   const eligibleEmployees = useMemo(
     () => filterInventoryResponsibleCandidates(employees),
     [employees]
   );
+  const selected = eligibleEmployees.find((employee) => String(employee.id) === selectedId);
   const filteredEmployees = eligibleEmployees.filter((employee) =>
     getInventoryResponsibleDisplayName(employee).toLowerCase().includes(query.trim().toLowerCase())
   );

@@ -13,6 +13,7 @@ import { useAuth } from '../../../../contexts/AuthContext';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { mobileInventoryAuditScopeSchema } from '../../../../../../shared-utils/inventoryAuditFormSchemas';
 import {
+  filterInventoryResponsibleCandidates,
   findDefaultInventoryResponsibleId,
   getInventoryResponsibleDisplayName,
 } from '../../../../../../shared-utils/inventoryResponsible';
@@ -159,7 +160,9 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
       name = supplierName ? `Inventário ${supplierName}` : 'Inventário por Fornecedor';
     } else name = 'Inventário Personalizado';
 
-    const selectedEmployee = employees.find((employee) => employee.id === responsibleId);
+    const selectedEmployee = filterInventoryResponsibleCandidates(employees).find(
+      (employee) => employee.id === responsibleId
+    );
     const baseConfiguration = {
       type,
       name,

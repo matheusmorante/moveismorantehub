@@ -28,10 +28,9 @@ describe('responsável elegível do inventário', () => {
     { id: 'employee-5', person_type: 'employees', fullName: 'Ex-colaborador', deleted: true },
   ];
 
-  it('reutiliza a elegibilidade do seletor ERP e ignora registros excluídos', () => {
+  it('exige perfil de acesso concedido e ignora registros excluídos', () => {
     expect(filterInventoryResponsibleCandidates(employees).map(({ id }) => id)).toEqual([
       'employee-1',
-      'employee-3',
       'employee-4',
     ]);
   });

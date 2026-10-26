@@ -2,8 +2,9 @@ export interface InventoryResponsibleCandidate {
   id?: string | number;
   type?: string;
   person_type?: string;
-  role?: string;
-  roles?: string[];
+  role?: unknown;
+  roles?: readonly unknown[] | null;
+  address?: unknown;
   position?: string;
   fullName?: string;
   full_name?: string;
@@ -14,6 +15,45 @@ export interface InventoryResponsibleCandidate {
 }
 
 const getPersonType = (person: InventoryResponsibleCandidate) => person.type ?? person.person_type;
+
+const ACCESS_PROFILE_ROLES = new Set([
+  'administrator',
+  'manager',
+  'stockist',
+  'seller',
+  'deliverer',
+  'accountant',
+]);
+
+const getAssignedAccessProfile = (person: InventoryResponsibleCandidate) => {
+  if (person.address === undefined || person.address === null) return person;
+
+  let address = person.address;
+  if (typeof address === 'string') {
+    try {
+      address = JSON.parse(address);
+    } catch {
+      return {};
+    }
+  }
+
+  return typeof address === 'object' && !Array.isArray(address) && address !== null
+    ? (address as { role?: unknown; roles?: readonly unknown[] | null })
+    : {};
+};
+
+const hasGrantedAccessProfile = (person: InventoryResponsibleCandidate): boolean => {
+  const profile = getAssignedAccessProfile(person);
+  const roleValues = [
+    ...(Array.isArray(profile.roles) ? profile.roles : []),
+    profile.role,
+  ];
+
+  return roleValues.some(
+    (role) =>
+      typeof role === 'string' && ACCESS_PROFILE_ROLES.has(role.trim().toLowerCase())
+  );
+};
 
 export const getInventoryResponsibleDisplayName = (
   person?: InventoryResponsibleCandidate
@@ -27,14 +67,8 @@ export const getInventoryResponsibleDisplayName = (
 
 export const isEligibleInventoryResponsible = (person: InventoryResponsibleCandidate): boolean => {
   if (person.deleted) return false;
-  const type = getPersonType(person);
-  if (type && type !== 'employees') return false;
-
-  const role = person.role || person.roles?.[0] || (type === 'employees' ? 'seller' : undefined);
-  const hasValidSystemRole = Boolean(role && role !== 'pending');
-  const position = person.position?.trim() || '';
-  const hasValidPosition = Boolean(position && position !== 'Sem Acesso');
-  return hasValidSystemRole || hasValidPosition;
+  if (getPersonType(person) !== 'employees') return false;
+  return hasGrantedAccessProfile(person);
 };
 
 export const filterInventoryResponsibleCandidates = <T extends InventoryResponsibleCandidate>(

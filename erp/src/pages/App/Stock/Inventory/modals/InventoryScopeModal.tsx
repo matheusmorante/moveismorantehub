@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { useAuth } from '@/context/AuthContext';
 import { inventoryAuditScopeSchema } from '../../../../../../../shared-utils/inventoryAuditFormSchemas';
+import { filterInventoryResponsibleCandidates } from '../../../../../../../shared-utils/inventoryResponsible';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import type Product from '@/pages/types/product.type';
 import type Person from '@/pages/types/person.type';
@@ -114,7 +115,9 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
         if (latestSnapshot.current.copyError || JSON.stringify(latestSnapshot.current.items) !== JSON.stringify(data.itemsSnapshot)) {
           setError('O catálogo mudou durante a validação. Confira os itens atualizados antes de iniciar.'); return false;
         }
-        if (!options.current.employees.some((employee) => String(employee.id) === data.responsibleId)) {
+        if (!filterInventoryResponsibleCandidates(options.current.employees).some(
+          (employee) => String(employee.id) === data.responsibleId
+        )) {
           setResponsibleError(true);
           setError('O responsável não está mais disponível. Selecione um responsável da lista.');
           return false;
