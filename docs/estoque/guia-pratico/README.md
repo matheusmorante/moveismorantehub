@@ -74,7 +74,7 @@ A página 10 agora explica o que são produto composto, composição e caracter�
 
 A página 10 também esclarece que o pedido de venda inclui automaticamente as peças e quantidades do produto composto. Para conjuntos recebidos em uma única linha da NF-e, explica que a associação das peças é manual e que o rateio do custo é automático, com base nos preços de venda cadastrados e nas quantidades. Mostra como considerar a quantidade de cada peça no custo total e calcular manualmente os preços unitários quando se deseja manter a mesma proporção entre custo e preço total planejado. A tela de cadastro rápido e o modo Composição do vínculo da NF-e apresentam as mesmas distinções entre ações automáticas e dados que a pessoa precisa informar.
 
-A página 21 esclarece que o campo “Responsável pelo Inventário” mostra somente colaboradores com perfil de acesso concedido, exceto Contador. Se a pessoa não aparecer, confira o perfil no cadastro de colaboradores; o cargo informado não substitui a concessão de acesso.
+A página 21 esclarece que o campo “Responsável pelo Inventário” mostra colaboradores com perfil de acesso de Administrador, Gestor ou Estoquista. No app, o colaborador associado ao usuário logado fica pré-selecionado quando elegível; é possível trocar pelo nome de outro colaborador. Se a pessoa não aparecer, confira o perfil de acesso no cadastro de colaboradores.
 
 A página 21 orienta a retomar pela lista uma contagem que já está em andamento, informa que cada contagem recebe um código próprio e aponta os botões de paginação abaixo da lista.
 

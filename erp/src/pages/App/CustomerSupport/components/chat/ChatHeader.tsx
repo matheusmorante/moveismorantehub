@@ -15,13 +15,13 @@ interface ChatHeaderProps {
   currentStatus: string;
   isSearchingInChat: boolean;
   onToggleSearchInChat: () => void;
-  isInfoPanelOpen: boolean;
   onToggleInfoPanel: () => void;
+  composerMode?: 'whatsapp' | 'comment';
+  onToggleInternalComment?: () => void;
   isTimelineOpen: boolean;
   onToggleTimeline?: () => void;
   onBackMobile: () => void;
   onClosePanel?: () => void;
-  onOpenSnippets: () => void;
   onToggleArchive: () => Promise<boolean | void> | boolean | void;
   teamMembers: AssignedProfileSummary[];
   isLoadingAgents?: boolean;
@@ -31,8 +31,6 @@ interface ChatHeaderProps {
   onUpdateStatus?: (status: ConversationStatus) => Promise<boolean | void>;
   currentUserId?: string;
   currentUserName?: string;
-  onRefreshMessages?: () => Promise<void> | void;
-  isRefreshingMessages?: boolean;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -44,13 +42,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   currentStatus,
   isSearchingInChat,
   onToggleSearchInChat,
-  isInfoPanelOpen,
   onToggleInfoPanel,
+  composerMode = 'whatsapp',
+  onToggleInternalComment,
   isTimelineOpen,
   onToggleTimeline,
   onBackMobile,
   onClosePanel,
-  onOpenSnippets,
   onToggleArchive,
   teamMembers,
   isLoadingAgents = false,
@@ -60,8 +58,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onUpdateStatus,
   currentUserId,
   currentUserName,
-  onRefreshMessages,
-  isRefreshingMessages = false,
 }) => {
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -291,27 +287,25 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           <i className="bi bi-three-dots-vertical text-sm"></i>
         </button>
 
-        <div className="w-px h-5 bg-slate-200 dark:bg-slate-800 mx-0.5" />
+        {onToggleInternalComment && (
+          <button
+            type="button"
+            onClick={onToggleInternalComment}
+            title={composerMode === 'comment' ? 'Voltar ao atendimento' : 'Adicionar comentário interno'}
+            aria-label="Comentário interno"
+            aria-pressed={composerMode === 'comment'}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold transition-colors cursor-pointer ${
+              composerMode === 'comment'
+                ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                : 'text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40'
+            }`}
+          >
+            <i className="bi bi-chat-left-dots" />
+            Comentário interno
+          </button>
+        )}
 
-        {/* 6. Botão Painel Comercial do Cliente ([📇]) */}
-        <button
-          type="button"
-          onClick={onToggleInfoPanel}
-          title={
-            isInfoPanelOpen
-              ? 'Ocultar dados do cliente e pedidos'
-              : 'Ver dados do cliente e pedidos (ERP)'
-          }
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-            isInfoPanelOpen
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-          aria-label="Painel de informações do cliente"
-          aria-pressed={isInfoPanelOpen}
-        >
-          <i className="bi bi-person-vcard text-sm"></i>
-        </button>
+        <div className="w-px h-5 bg-slate-200 dark:bg-slate-800 mx-0.5" />
 
         {onClosePanel && (
           <button
@@ -334,24 +328,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             className="absolute right-12 top-11 w-60 rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-100 dark:border-slate-800 py-1.5 z-50 animate-slide-down text-xs"
             onClick={() => setIsMenuOpen(false)}
           >
-            {onRefreshMessages && (
-              <button
-                type="button"
-                onClick={() => void onRefreshMessages()}
-                className="w-full px-4 py-2.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-              >
-                <i className={`bi bi-arrow-clockwise ${isRefreshingMessages ? 'animate-spin text-emerald-500' : 'text-slate-400'}`} />
-                Atualizar mensagens
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onOpenSnippets}
-              className="w-full px-4 py-2.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-            >
-              <i className="bi bi-lightning-charge text-amber-500"></i>
-              Respostas rápidas
-            </button>
             {onToggleTimeline && (
               <button
                 type="button"

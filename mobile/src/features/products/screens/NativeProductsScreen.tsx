@@ -629,7 +629,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
                   ? 'Nenhuma composição encontrada'
                   : productsHook.showTrash
                     ? 'A lixeira está vazia'
-                    : 'Nenhum produto encontrado'}
+                    : 'Nenhum item encontrado'}
               </Text>
               {!productsHook.showTrash && (
                 <Text style={[styles.emptyHint, isDarkMode && styles.emptyHintDark]}>

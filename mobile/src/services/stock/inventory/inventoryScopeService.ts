@@ -1,5 +1,6 @@
 import { supabase } from '../../supabaseClient';
 import { ITEMS_PER_PAGE } from '../stockMovesService';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import {
   clearOfflineInventoryCatalogCache,
   ensureOfflineInventoryCatalogSynced,
@@ -25,12 +26,37 @@ export const fetchInventoryScopeSuppliers = async () => {
     .sort((left, right) => left.full_name.localeCompare(right.full_name));
 };
 
-export const fetchInventoryScopeEmployees = async () => {
+const resolveCurrentInventoryEmployeeId = async (email?: string | null): Promise<string | null> => {
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  try {
+    const result = await withTimeout(
+      Promise.resolve(
+        supabase.from('people').select('id').eq('email', normalizedEmail).maybeSingle()
+      ),
+      3000,
+      null,
+      'inventory:current-responsible'
+    );
+    return !result?.error && result?.data?.id ? String(result.data.id) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const fetchInventoryScopeEmployees = async (currentUserEmail?: string | null) => {
+  const currentEmployeeIdPromise = resolveCurrentInventoryEmployeeId(currentUserEmail);
   await ensureOfflineInventoryCatalogSynced();
   const catalog = await getOfflineInventoryCatalog();
+  const [employees, currentEmployeeId] = await Promise.all([
+    getOfflineInventoryResponsibleOptions(),
+    currentEmployeeIdPromise,
+  ]);
   return {
-    employees: await getOfflineInventoryResponsibleOptions(),
+    employees,
     syncedAt: catalog.employeesSyncedAt || null,
+    currentEmployeeId,
   };
 };
 

@@ -31,14 +31,15 @@ import {
   syncProductVariationTechnicalAttribute,
 } from '../../../../../../../shared-utils/productVariationTechnicalAttributes';
 import {
-  isDoorDependentCharacteristic,
   isDoorQuantityCharacteristic,
-  isDrawerDependentCharacteristic,
   isDrawerQuantityCharacteristic,
   isHasDoorsCharacteristic,
   isHasDrawersCharacteristic,
 } from '@/pages/utils/technicalValues/predicates/furniture';
-import { cleanupDependentCharacteristicsOnZero } from '../tabs/technical/sync/dependentCleanup';
+import {
+  cleanupDependentCharacteristicsOnZero,
+  cleanupDependentVariationAttributesOnQuantityChange,
+} from '../tabs/technical/sync/dependentCleanup';
 import {
   isSofaCategoryName,
   isWardrobeCategoryName,
@@ -360,19 +361,11 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     handleChange('technicalValues', updated);
 
     // Manter sincronizado com formData.attributes para retrocompatibilidade
-    let currentAttrs = [...(formData.attributes || [])];
-    const isDoorQuantity = isDoorQuantityCharacteristic(fieldName);
-    const isDrawerQuantity = isDrawerQuantityCharacteristic(fieldName);
-    const isZero = value === 0 || (typeof value === 'string' && value.trim() === '0');
-    if (isDoorQuantity || isDrawerQuantity) {
-      currentAttrs = currentAttrs.filter((attribute) => {
-        if (isDoorQuantity && isHasDoorsCharacteristic(attribute.name || '')) return false;
-        if (isDrawerQuantity && isHasDrawersCharacteristic(attribute.name || '')) return false;
-        if (isZero && isDoorQuantity && isDoorDependentCharacteristic(attribute.name || '')) return false;
-        if (isZero && isDrawerQuantity && isDrawerDependentCharacteristic(attribute.name || '')) return false;
-        return true;
-      });
-    }
+    const currentAttrs = cleanupDependentVariationAttributesOnQuantityChange(
+      formData.attributes || [],
+      fieldName,
+      value
+    );
     handleChange(
       'attributes',
       syncProductVariationTechnicalAttribute(

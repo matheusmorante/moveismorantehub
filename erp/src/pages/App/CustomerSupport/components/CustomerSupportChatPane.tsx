@@ -81,7 +81,6 @@ export const CustomerSupportChatPane: React.FC<CustomerSupportChatPaneProps> = (
     isLoadingOlderMessages,
     hasOlderMessages,
     loadOlderMessages,
-    isRefreshingMessages,
     messagesError,
     refreshMessages,
   } = useCustomerSupportMessages({
@@ -142,7 +141,6 @@ export const CustomerSupportChatPane: React.FC<CustomerSupportChatPaneProps> = (
         onLoadOlderMessages={loadOlderMessages}
         onBackMobile={onBackMobile}
         onClosePanel={onClosePanel}
-        isInfoPanelOpen={isInfoPanelOpen}
         onToggleInfoPanel={handleToggleInfoPanel}
         isTimelineOpen={isTimelineOpen}
         onToggleTimeline={handleToggleTimeline}
@@ -151,7 +149,6 @@ export const CustomerSupportChatPane: React.FC<CustomerSupportChatPaneProps> = (
         onUpdateStatus={handleUpdateStatus}
         onAddInternalNote={handleAddInternalNote}
         onRefreshMessages={refreshMessages}
-        isRefreshingMessages={isRefreshingMessages}
         onResolveReplyTarget={resolveReplyTarget}
         onJumpToMessage={jumpToMessage}
         jumpToMessageId={jumpToMessageId}

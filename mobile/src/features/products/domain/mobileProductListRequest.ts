@@ -14,7 +14,7 @@ export const resolveMobileProductListRequestIndicators = (pull: boolean) => ({
 export const MOBILE_PRODUCT_LIST_RETRY_DELAY_MS = 1_000;
 
 /** Repeats a failed list read once, matching the ERP query client's retry policy. */
-export const retryMobileProductListReadOnce = async <T>(
+export const retryMobileProductListReadOnce = async <T,>(
   read: () => Promise<T>,
   isCurrent: () => boolean,
   waitBeforeRetry: () => Promise<void> = () =>

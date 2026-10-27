@@ -85,7 +85,7 @@ const fetchInventoryResponsibleRows = async (): Promise<CatalogRow[]> => {
   const rows: CatalogRow[] = [];
   const pageSize = 500;
   const columns =
-    'id, person_type, full_name, social_name, nickname, position, address, active, deleted, updated_at';
+    'id, person_type, full_name, social_name, nickname, position, address, role, roles, active, deleted, updated_at';
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from('people')
@@ -115,12 +115,19 @@ const normalizeInventoryResponsibleRow = (employee: CatalogRow): CatalogRow => {
     typeof accessProfile === 'object' && accessProfile !== null && !Array.isArray(accessProfile)
       ? accessProfile
       : {};
-  const roles = Array.isArray(profile.roles)
+  const storedRoles = Array.isArray(employee.roles)
+    ? employee.roles.filter((role: unknown): role is string => typeof role === 'string')
+    : [];
+  const legacyRoles = Array.isArray(profile.roles)
     ? profile.roles.filter((role: unknown): role is string => typeof role === 'string')
-    : Array.isArray(employee.roles)
-      ? employee.roles.filter((role: unknown): role is string => typeof role === 'string')
-      : undefined;
-  const role = typeof profile.role === 'string' ? profile.role : employee.role;
+    : [];
+  const roles = storedRoles.length > 0 ? storedRoles : legacyRoles;
+  const role =
+    typeof employee.role === 'string' && employee.role.trim()
+      ? employee.role
+      : typeof profile.role === 'string'
+        ? profile.role
+        : undefined;
 
   // `people.address` is TEXT in the operational schema. Parse only the access fields we need;
   // never copy the full address/contact payload into the offline inventory snapshot.

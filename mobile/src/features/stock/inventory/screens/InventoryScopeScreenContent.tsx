@@ -90,15 +90,21 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
       try {
         const [supplierData, responsibleData] = await Promise.all([
           fetchInventoryScopeSuppliers(),
-          fetchInventoryScopeEmployees(),
+          fetchInventoryScopeEmployees(userProfile?.email),
         ]);
         if (active) {
           setSuppliers(supplierData as ScopeSupplier[]);
           setEmployees(responsibleData.employees as ScopeEmployee[]);
           setEmployeesSyncedAt(responsibleData.syncedAt);
           if (!responsibleInitialized.current) {
-            setResponsibleId(findDefaultInventoryResponsibleId(responsibleData.employees, userProfile?.id));
-            responsibleInitialized.current = true;
+            const defaultResponsibleId = findDefaultInventoryResponsibleId(
+              responsibleData.employees,
+              responsibleData.currentEmployeeId || userProfile?.id
+            );
+            if (defaultResponsibleId) {
+              setResponsibleId(defaultResponsibleId);
+              responsibleInitialized.current = true;
+            }
           }
           setCatalogSyncedAt(responsibleData.syncedAt);
         }
@@ -134,7 +140,7 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
     return () => {
       active = false;
     };
-  }, [reloadToken, copiedItems, userProfile?.id]);
+  }, [reloadToken, copiedItems, userProfile?.email, userProfile?.id]);
 
   const retryCatalogSync = () => {
     clearInventoryScopeCache();
@@ -332,6 +338,7 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
               hasError={responsibleError}
               onRetrySync={retryCatalogSync}
               onSelect={(employee) => {
+                responsibleInitialized.current = true;
                 setResponsibleId(employee?.id || '');
                 setResponsibleError(false);
               }}

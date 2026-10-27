@@ -4,9 +4,14 @@ import {
   isTechnicalFieldMultiSelect,
   isWeightCapacityCharacteristic,
   isWeightCharacteristicName,
+  PRODUCT_TECHNICAL_CHOICE_INLINE_OPTION_LIMIT,
+  PRODUCT_TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS,
+  PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS,
 } from '../../../../../shared-utils/productTechnicalFieldRules';
 
-export const MAX_INLINE_CHOICE_OPTIONS = 8;
+export const MAX_INLINE_CHOICE_OPTIONS = PRODUCT_TECHNICAL_CHOICE_INLINE_OPTION_LIMIT;
+export const TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS = PRODUCT_TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS;
+export const TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS = PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS;
 
 export type TechnicalFieldInputMode = 'inline' | 'searchable' | 'text';
 

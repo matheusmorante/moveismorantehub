@@ -57,6 +57,11 @@ import {
 } from '../../../../../../shared-utils/productCharacteristicDependencies';
 import { getDefaultShowNameForVariationOverride } from '../../../../../../shared-utils/productVariationAttributeDefaults';
 import {
+  cleanupDependentCharacteristicsOnZero,
+  cleanupDependentVariationAttributesOnQuantityChange,
+} from '../../../../../../shared-utils/productDependentCharacteristicCleanup';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import {
   fetchMobileProductTechnicalFields,
   type MobileProductTechnicalField,
 } from '../../services/mobileProductTechnicalService';
@@ -90,6 +95,8 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
 }) => {
   const [technicalFields, setTechnicalFields] = useState<MobileProductTechnicalField[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
+  const [technicalFieldsError, setTechnicalFieldsError] = useState<string | null>(null);
+  const [technicalFieldsRefreshKey, setTechnicalFieldsRefreshKey] = useState(0);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
   const [visibleDependencyReason, setVisibleDependencyReason] = useState<string | null>(null);
   const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
@@ -219,12 +226,27 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     let mounted = true;
     const load = async () => {
       setLoadingFields(true);
+      setTechnicalFieldsError(null);
       try {
-        const fields = await fetchMobileProductTechnicalFields();
+        const fields = isVariationEditing
+          ? await withTimeout(
+              fetchMobileProductTechnicalFields(),
+              15_000,
+              null,
+              'variacao:caracteristicas'
+            )
+          : await fetchMobileProductTechnicalFields();
         if (!mounted) return;
+        if (!fields) throw new Error('Consulta de características não confirmada.');
         setTechnicalFields(fields);
       } catch (error) {
+        if (!mounted) return;
         console.warn('[ProductFormTechnicalTab] Falha ao carregar características do ERP:', error);
+        if (isVariationEditing) {
+          setTechnicalFieldsError(
+            'Não foi possível carregar as características. Consulte novamente.'
+          );
+        }
       } finally {
         if (mounted) setLoadingFields(false);
       }
@@ -233,7 +255,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     return () => {
       mounted = false;
     };
-  }, [categoryIds]);
+  }, [categoryIds, isVariationEditing, technicalFieldsRefreshKey]);
 
   const visibleTechnicalFields = useMemo(() => {
     const values = { ...parentTechnicalValues, ...ownTechnicalValues };
@@ -438,10 +460,8 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         currentHasQuantity
       ) return prev;
 
-      const next: any = {
-        ...prev,
-        ...getProductTechnicalRootPatch(name, value),
-        technicalValues: {
+      const technicalValues = cleanupDependentCharacteristicsOnZero(
+        {
           ...Object.fromEntries(
             Object.entries(prev.technicalValues || {}).filter(
               ([fieldName]) => normalizeName(fieldName) !== normalizeName(name)
@@ -449,10 +469,22 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
           ),
           [name]: value,
         },
+        name,
+        value
+      );
+      const next: any = {
+        ...prev,
+        ...getProductTechnicalRootPatch(name, value),
+        technicalValues,
       };
       if (parentData) {
+        const attributes = cleanupDependentVariationAttributesOnQuantityChange(
+          getProductCharacteristicAttributes(prev.attributes),
+          name,
+          value
+        );
         next.attributes = upsertProductCharacteristicAttribute(
-          prev.attributes,
+          attributes,
           name,
           value,
           getDefaultShowNameForVariationOverride(name)
@@ -679,15 +711,39 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
           dark={dark}
         />
       )}
+      {isVariationEditing && technicalFieldsError && (
+        <View style={[styles.technicalLoadError, dark && styles.darkTechnicalLoadError]}>
+          <Text
+            style={[styles.technicalLoadErrorText, dark && styles.darkTechnicalLoadErrorText]}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="assertive"
+          >
+            {technicalFieldsError}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setTechnicalFieldsRefreshKey((key) => key + 1)}
+            disabled={loadingFields}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: loadingFields }}
+            style={styles.technicalLoadRetryButton}
+          >
+            <Text style={styles.technicalLoadRetryButtonText}>
+              Consultar características novamente
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
       {loadingFields ? (
         <ActivityIndicator color="#2563eb" />
       ) : visibleTechnicalFields.length === 0 ? (
         <>
-          <View style={[styles.card, dark && styles.darkCard]}>
-            <Text style={[styles.helper, dark && styles.dimText]}>
-              Selecione uma categoria para ver as características aplicáveis.
-            </Text>
-          </View>
+          {!(isVariationEditing && technicalFieldsError) && (
+            <View style={[styles.card, dark && styles.darkCard]}>
+              <Text style={[styles.helper, dark && styles.dimText]}>
+                Selecione uma categoria para ver as características aplicáveis.
+              </Text>
+            </View>
+          )}
           {characteristicSearchControl}
         </>
       ) : (
@@ -1031,6 +1087,19 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   darkCard: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  technicalLoadError: {
+    gap: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+    borderRadius: 12,
+    backgroundColor: '#fffbeb',
+  },
+  darkTechnicalLoadError: { borderColor: '#92400e', backgroundColor: '#451a03' },
+  technicalLoadErrorText: { color: '#92400e', fontSize: 12, lineHeight: 17, fontWeight: '700' },
+  darkTechnicalLoadErrorText: { color: '#fde68a' },
+  technicalLoadRetryButton: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' },
+  technicalLoadRetryButtonText: { color: '#2563eb', fontSize: 12, fontWeight: '800' },
   cardTitle: { fontSize: 13, fontWeight: '900', color: '#0f172a' },
   groupTitle: {
     fontSize: 10,

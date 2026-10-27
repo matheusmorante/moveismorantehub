@@ -6,6 +6,7 @@ import { getTestArtifactContext } from '../../../../../../shared-utils/testArtif
 import type Product from '../../../types/product.type';
 import './ProductFormModal.css';
 import { getProfileRoles, isStockistOnlyProfile } from '@/pages/utils/accessRoles';
+import { canPerform } from '@/pages/utils/permissionService';
 import { isProductDraft } from '@/pages/utils/productService/productDraftSnapshot';
 import { readTestArtifactIdentity } from '../../../../../../shared-utils/testArtifactPolicy';
 import { ProductFormFooter } from '../components/form/ProductFormFooter';
@@ -52,6 +53,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
   );
 
   const profileRoles = profile ? getProfileRoles(profile) : [];
+  const canManageProducts = canPerform('productConfig', profileRoles);
   const canConfigureProductTaxes = profileRoles.some(
     (role) => role !== 'seller' && role !== 'stockist'
   );
@@ -219,6 +221,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           setFormData={setFormData}
           variations={variations}
           isStockistOnly={isStockistOnly}
+          canPublishToCatalog={canManageProducts && !isStockistOnly}
           canToggleTestArtifact={canToggleTestArtifact}
           isTestArtifact={isTestArtifact}
           setIsTestArtifact={setIsTestArtifact}

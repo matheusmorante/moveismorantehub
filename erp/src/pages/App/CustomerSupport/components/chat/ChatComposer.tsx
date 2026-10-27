@@ -41,6 +41,8 @@ interface ChatComposerProps {
   isChannelConnected?: boolean;
   onSendCustomerMessage?: (input: CustomerSupportSendInput) => Promise<CustomerSupportSendResult>;
   onRefreshMessages?: () => Promise<void> | void;
+  composerMode?: 'whatsapp' | 'comment';
+  onComposerModeChange?: (mode: 'whatsapp' | 'comment') => void;
   insertedSnippet?: InsertedSnippet | null;
   onAddInternalNote?: (text: string) => Promise<boolean | void>;
   onOpenSnippets: () => void;
@@ -177,12 +179,14 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   isChannelConnected = false,
   onSendCustomerMessage,
   onRefreshMessages,
+  composerMode = 'whatsapp',
+  onComposerModeChange,
   insertedSnippet,
   onAddInternalNote,
   onOpenSnippets,
   catalogSpaceRef,
 }) => {
-  const [composerMode, setComposerMode] = useState<'whatsapp' | 'comment'>('whatsapp');
+  const setComposerMode = onComposerModeChange || (() => undefined);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
@@ -942,13 +946,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           {sendError && !isOutcomeUncertain && <p role="alert" className="px-1 text-[11px] text-red-600 dark:text-red-400">{sendError}</p>}
           {sendFeedback && !isOutcomeUncertain && <p role="status" className={`px-1 text-[11px] ${sendFeedback.includes('aceitou') ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}`}>{sendFeedback}</p>}
 
-          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-            <div className="flex items-center gap-3">
-              <button type="button" onClick={() => setComposerMode('comment')} className="inline-flex items-center gap-1.5 py-0.5 text-xs font-bold text-amber-600 transition-colors hover:text-amber-700 dark:text-amber-400"><i className="bi bi-chat-left-dots" />Comentário interno</button>
-              <span className="hidden text-[11px] text-slate-400 sm:inline">Enter envia · Shift + Enter quebra linha</span>
-            </div>
-            <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400"><i className="bi bi-info-circle" />Arquivos até 4 MB · janela de 24 horas</span>
-          </div>
         </div>
       )}
 

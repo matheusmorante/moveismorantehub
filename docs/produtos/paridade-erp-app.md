@@ -4940,3 +4940,71 @@ Continuar a aba Tributário/NF pelo estado Produto normal versus Serviço e comp
 - [x] Não executei testes, typecheck, Playwright ou Maestro; não iniciei servidor, não consultei/escrevi banco remoto, não chamei RPC, não fiz operação externa ou deploy. Nenhum fluxo operacional de Estoque mudou; não há atualização do Guia Prático. Expo Web não foi usado como prova de comportamento nativo.
 
 **Conclusão do recorte:** a edição integral da definição não é oferecida no gerenciador mobile, conforme escolha do usuário e escopo do modal ERP do formulário. Permanece no ERP a rota global de edição completa; a auditoria geral de Produtos continua em andamento.
+
+### Ciclo 517 — falha ao carregar características na edição de variação — 27/10/2026
+
+**Recorte:** estado de falha/timeout ao carregar as definições técnicas dentro do editor de uma variação individual, mantendo o formulário proprietário e os valores já editados.
+
+#### Diferença e correção
+
+- [x] O ERP `VariationTechnicalTab` apresenta alerta quando não confirma a leitura das características, oferece “Consultar características novamente” e limita a espera a 15 s com `withTimeout`. O mobile reutilizava `ProductFormTechnicalTab`, mas a falha só era escrita no console; após o carregamento, a lista sem metadados parecia vazia e não havia recuperação visível.
+- [x] O app agora aplica o mesmo timeout de 15 s à leitura no contexto de edição da variação e mostra mensagem/ação acessíveis para repetir a consulta. Nova tentativa limpa o alerta, mostra o estado de carregamento e preserva valores técnicos, campos manuais e atributos presentes no formulário.
+- [x] A diferença é condicionada a `parentData` (contexto de variação); o estado do formulário pai não recebeu alerta novo. O botão apenas repete a leitura de definições, sem submeter nem salvar dados. RHF, `zodResolver`, schema, payload e regras de Categoria não foram alterados; erro de leitura não bloqueia por si só a gravação, como no ERP.
+- [ ] Este ciclo cobre somente falha/timeout de leitura. A comparação dos demais controles e estados na aba técnica de variação segue aberta.
+
+#### Evidências, regras e limites
+
+- [x] Comparei `VariationTechnicalTab.tsx`, `technicalFieldService.ts`, `TechnicalTabFeedbackState.tsx` e `withTimeout` no ERP com `ProductFormTechnicalTab.tsx`, `ProductFormVariationsTab.tsx` e `mobileProductTechnicalService.ts` no app. O helper de timeout é compartilhado; o layout de alerta e o botão usam primitivas React Native.
+- [x] Consultei `AGENTS.md` §§5, 7, 11, 12 e 14, `docs/geral/USER_RULES.md`, estrutura Produto/Variação, operações mover/merge e `rules/products/product-reconciliation-erp-only.yml`. Não há `AGENTS.md` aninhado nos diretórios alterados. A skill canônica não apareceu nas pastas `.agents/skills` da raiz, ERP, mobile ou usuário; a cópia de cache/build foi lida somente como orientação. A Conciliação ERP-only foi preservada.
+- [x] `git diff --check` foi executado após a restauração do espaço e terminou com código 0; Git emitiu somente avisos CRLF preexistentes/gerais.
+- [ ] Não executei Vitest/RTL, typecheck, Playwright ou Maestro. Sem servidor, acesso remoto/local, Supabase/PostgreSQL/Docker, RPC, migration, operação de estoque, chamada externa ou deploy. A alteração não muda a operação do estoquista; o Guia Prático não é afetado.
+
+**Conclusão do recorte:** a falha/timeout das definições técnicas da variação agora fica visível e pode ser recuperada sem perder valores nem submeter o formulário. A auditoria dos outros estados desta aba e a auditoria geral de Produtos permanecem abertas.
+### Ciclo 518 — limpeza de valores técnicos dependentes — investigação confirmada — 27/10/2026
+
+**Recorte:** verificar a limpeza de características técnicas dependentes ao zerar/inativar uma característica mestre, no formulário do produto pai e na edição individual de variação.
+
+#### Evidência atual
+
+- [x] No ERP, o formulário do pai (`applyTechnicalValueChangeToProduct`) e o editor de variação (`VariationTechnicalTab.handleSetOverride`) aplicam `cleanupDependentCharacteristicsOnZero` antes de gravar `technicalValues`. O utilitário limpa valores dependentes de portas, gavetas, pés e materiais de pia. No editor de variação, a mudança de quantidade de portas/gavetas também remove das `attributes` o toggle mestre antigo e, quando a quantidade zera, os atributos dependentes.
+- [x] No mobile, o setter compartilhado `ProductFormTechnicalTab.setTechnicalValue` é usado pelo pai e pelas variações. Ele atualiza o campo próprio e, no contexto da variação, sincroniza somente o atributo-alvo. Não há chamada a `cleanupDependentCharacteristicsOnZero` em nenhuma das superfícies; a tela desabilita campos dependentes via `getCharacteristicDependencyState`, mas mantém valores dependentes já salvos no estado. O caminho de gravação da variação passa por `setVariationTechnicalData` em `ProductFormVariationsTab`.
+- [x] A comparação confirmou que o cleanup ERP é um utilitário puro e compartilhável, mas a facade atual `shared-utils/productCharacteristicDependencies.ts` ainda aponta para predicados ERP. A sincronização de `attributes` no editor de variação é um passo separado do cleanup: remove aliases do toggle mestre sempre que a quantidade de portas/gavetas muda e remove atributos dependentes quando ela zera; isso ainda não existe no setter mobile. `getEffectiveVariationTechnicalValues` mescla primeiro atributos legados e depois `technicalValues`, portanto valores vazios mantidos em `technicalValues` substituem os legados dependentes; chaves apagadas podem reintroduzir dados de `attributes`, o que exige replicar também a filtragem ERP para portas/gavetas.
+
+**Status:** investigação estática concluída. A implementação correspondente e os limites de validação estão registrados no Ciclo 519.
+
+### Ciclo 519 — limpeza de características técnicas dependentes no pai e nas variações — 27/10/2026
+
+**Recorte:** aplicar ao setter técnico mobile as mesmas limpezas dependentes do ERP sem alterar contratos de submissão.
+
+#### Diferença e correção
+
+- [x] Extraí `cleanupDependentCharacteristicsOnZero` para `shared-utils/productDependentCharacteristicCleanup.ts`, usando a mesma tabela de predicados do ERP. O import histórico `erp/.../dependentCleanup.ts` segue como reexport compatível, e os handlers ERP passam a compartilhar a implementação pura.
+- [x] O setter comum `ProductFormTechnicalTab.setTechnicalValue` aplica a limpeza tanto ao Produto pai quanto à variação: zera dependentes de portas, gavetas e pés quando inativados, e limpa `Concretada`/cuba de inox quando o Material da pia perde elegibilidade. Valores vazios em `technicalValues` continuam vencendo valores legados no cálculo efetivo.
+- [x] No contexto da variação, extraí também `cleanupDependentVariationAttributesOnQuantityChange` e reutilizei-a no ERP e mobile. Ao mudar a quantidade de portas/gavetas, remove aliases do toggle mestre e, quando o valor é zero, atributos dependentes antigos; então sincroniza o atributo editado preservando `showName`.
+- [x] Não alterei schema, RHF/`zodResolver`, submissão, payload, gates de Categoria/Catálogo, persistência, permissões ou regras da Conciliação (que continua ERP-only). O formulário proprietário permanece responsável por salvar.
+
+#### Evidências, regras e limites
+
+- [x] Comparei `applyTechnicalValueChangeToProduct`/`VariationTechnicalTab.handleSetOverride` e `dependentCleanup.ts` no ERP com o setter de `ProductFormTechnicalTab`, a composição em `ProductFormVariationsTab`, `getEffectiveVariationTechnicalValues` e os sincronizadores de atributos mobile. A ordem de merge confirma que valores vazios do override substituem valores legados; para chaves removidas, é necessário também filtrar os aliases antigos de portas/gavetas em `attributes`.
+- [x] Consultei `AGENTS.md` §§5, 7, 11, 12 e 14, `docs/geral/USER_RULES.md`, `docs/negocio/produtos/estrutura-produto-variacao.md`, `docs/negocio/produtos/operacoes-troca-pai-merge.md`, `docs/produtos/auditoria-arquitetura-organizacao-produtos.md` e `rules/products/product-reconciliation-erp-only.yml`. A busca atual não encontrou a skill canônica em `.agents/skills`; a cópia de cache/build, já conferida em ciclo anterior, permanece somente orientação. A Conciliação ERP-only foi preservada.
+- [x] `git diff --check` terminou com código 0; houve apenas avisos do Git sobre CRLF. Não executei Vitest/RTL, typecheck, Playwright ou Maestro. Não iniciei servidor, banco local, Supabase, Docker ou serviço remoto, não fiz RPC/migration/escrita externa e não mudei operação de estoque; o Guia Prático não é afetado.
+
+**Conclusão do recorte:** a regra pura de cleanup agora é compartilhada e o formulário mobile limpa os mesmos valores técnicos e atributos legados que o ERP nos contextos pai e variação. O comportamento foi revisto estaticamente; testes e validação visual/nativa continuam pendentes, assim como o restante da auditoria global de Produtos.
+
+### Ciclo 520 — vazio contextual após falha ao carregar características da variação — 27/10/2026
+
+**Recorte:** mensagem do estado sem campos visíveis após a consulta de definições falhar na aba técnica de uma variação.
+
+#### Diferença e correção
+
+- [x] O Ciclo 517 passou a mostrar mensagem de falha e ação de nova consulta, mas o ramo de lista vazia do app ainda mostrava “Selecione uma categoria para ver as características aplicáveis.” quando `technicalFieldsError` estava presente. Isso atribuía a ausência de campos à Categoria, apesar de a consulta ter falhado.
+- [x] O app agora omite somente esse cartão de orientação enquanto a edição de variação está no estado de erro. Mantém o alerta/retry do Ciclo 517 e o controle de busca; estados vazios normais e o comportamento do formulário pai permanecem iguais.
+- [x] Sem alteração de RHF/`zodResolver`, schema, submissão, payload, dados, permissões, busca ou persistência. A aba continua sob o formulário proprietário.
+
+#### Evidências, regras e limites
+
+- [x] No ERP `VariationTechnicalTab`, o estado vazio “Nenhuma característica cadastrada” é condicionado a `!fieldsError`; após falha, o formulário não apresenta empty state como se a lista tivesse carregado sem itens. No mobile, a renderização da nota de Categoria era condicionada apenas à lista vazia. Comparei os ramos de renderização e o estado `technicalFieldsError` do Ciclo 517.
+- [x] Consultei `AGENTS.md` §§5, 7, 12 e 14, `docs/geral/USER_RULES.md`, estrutura Produto/Variação, operações mover/merge, inventário do módulo, `docs/forms/inventario-mobile-catalogo-2026-10-15.md` e `rules/products/product-reconciliation-erp-only.yml`. A busca não encontrou skill canônica `erp-web-to-mobile-replication` nas pastas `.agents/skills` consultadas; a cópia de cache/build continua somente orientação. Não há `AGENTS.md` aninhado nos diretórios alterados; a exceção da Conciliação foi preservada.
+- [x] `git diff --check` terminou com código 0. Não executei Vitest/RTL, typecheck, Playwright ou Maestro. Não usei servidor, banco local/remoto, Supabase, Docker, RPC, migration, chamada externa ou deploy. A operação do Estoque não mudou; o Guia Prático não requer atualização. Expo Web não foi usado como prova nativa.
+
+**Conclusão do recorte:** a falha de carregamento da variação não é mais acompanhada por uma orientação contraditória de seleção de Categoria. A confirmação visual/nativa e os demais estados desta aba permanecem pendentes.

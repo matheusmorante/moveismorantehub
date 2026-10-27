@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { useZodForm, flattenFormErrors } from '../../../hooks/useZodForm';
 import { createCharacteristicFormSchema } from '../../../../../shared-utils/characteristicFormRules';
+import { normalizeProductAttributeOptionValue } from '../../../../../shared-utils/productAttributeOptionRules';
 import { validateAttributeOption } from '../categories/domain/categoryEnvironmentRules';
 import {
   addMobileAttributeValue,
@@ -55,7 +56,9 @@ const ATTRIBUTE_TYPE_OPTIONS: Array<[MobileAttributeDataType, string]> = [
 ];
 
 const attributeOptionFormSchema = z.object({
-  value: z.string().trim().min(1, 'O valor da opção não pode estar vazio.'),
+  value: z.string()
+    .transform(normalizeProductAttributeOptionValue)
+    .refine((value) => value.length > 0, 'O valor da opção não pode estar vazio.'),
   attributeId: z.string().min(1, 'Característica não encontrada.').optional(),
   existingOptions: z.array(z.object({ id: z.string(), value: z.string() })),
 }).superRefine((values, ctx) => {
@@ -85,7 +88,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     name: newAttrName, dataType: newDataType, unit: newDataType === 'measure' ? newUnit : '',
     decimalPlaces: newDecimalPlaces, active: true,
     options: [...newOptions, ...((newDataType === 'radio' || newDataType === 'multi_select') && newOptionInput.trim() ? [newOptionInput.trim()] : [])]
-      .map((value) => ({ id: '', value })),
+      .map((value) => ({ id: '', value: normalizeProductAttributeOptionValue(value) })),
   };
   const { validateAndRun: validateNewDefinition } = useZodForm(createCharacteristicFormSchema(allCharacteristics), newDefinition);
   const { validateAndRun: validateOptionsUpdate } = useZodForm(
@@ -181,21 +184,32 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   const handleAddValue = async (attrId: string) => {
     if (savingValueId) return;
     const attr = attributes.find((a) => a.id === attrId);
+    if (!attr) return;
     const existingOptions = (attr?.options || []).map((o) => ({ id: o.id, value: o.value }));
     await validateOption({ value: newValText, attributeId: attrId, existingOptions }, async (values) => {
-    setSavingValueId(attrId);
-    try {
-      await addMobileAttributeValue(values.attributeId!, values.value);
-      setNewValText('');
-      await load();
-    } catch (error) {
-      Alert.alert(
-        'Não foi possível adicionar',
-        error instanceof Error ? error.message : 'O valor não foi salvo.'
-      );
-    } finally {
-      setSavingValueId(null);
-    }
+      optionsUpdateAttributeId.current = attrId;
+      await validateOptionsUpdate({
+        ...attr,
+        dataType: attr.dataType ?? 'text_short',
+        unit: attr.unit ?? '',
+        decimalPlaces: attr.decimalPlaces ?? 2,
+        active: attr.active !== false,
+        options: [...attr.options, { id: '', value: values.value }],
+      }, async () => {
+        setSavingValueId(attrId);
+        try {
+          await addMobileAttributeValue(values.attributeId!, values.value);
+          setNewValText('');
+          await load();
+        } catch (error) {
+          Alert.alert(
+            'Não foi possível adicionar',
+            error instanceof Error ? error.message : 'O valor não foi salvo.'
+          );
+        } finally {
+          setSavingValueId(null);
+        }
+      }, showValidationError);
     }, showValidationError);
   };
 

@@ -27,7 +27,6 @@ export interface ChatAreaProps {
   messages: WhatsAppMessage[];
   isLoadingMessages: boolean;
   onBackMobile: () => void;
-  isInfoPanelOpen: boolean;
   onToggleInfoPanel: () => void;
   isTimelineOpen?: boolean;
   onToggleTimeline?: () => void;
@@ -40,7 +39,6 @@ export interface ChatAreaProps {
   isLoadingOlderMessages?: boolean;
   onLoadOlderMessages?: () => Promise<number>;
   onRefreshMessages?: () => Promise<void> | void;
-  isRefreshingMessages?: boolean;
   onClosePanel?: () => void;
   onResolveReplyTarget?: (reference: { conversationId: string; messageId: string | null; apiMessageId: string | null }) => Promise<WhatsAppMessage | null>;
   onJumpToMessage?: (message: WhatsAppMessage) => void;
@@ -60,7 +58,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   messages,
   isLoadingMessages,
   onBackMobile,
-  isInfoPanelOpen,
   onToggleInfoPanel,
   isTimelineOpen = false,
   onToggleTimeline,
@@ -73,7 +70,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   isLoadingOlderMessages = false,
   onLoadOlderMessages,
   onRefreshMessages,
-  isRefreshingMessages = false,
   onClosePanel,
   onResolveReplyTarget,
   onJumpToMessage,
@@ -85,6 +81,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 }) => {
   const { profile, user } = useAuth();
   const [inChatSearch, setInChatSearch] = useState('');
+  const [composerMode, setComposerMode] = useState<'whatsapp' | 'comment'>('whatsapp');
   const [searchRevision, setSearchRevision] = useState(0);
   const [isSearchingInChat, setIsSearchingInChat] = useState(false);
   const [isSnippetsModalOpen, setIsSnippetsModalOpen] = useState(false);
@@ -143,17 +140,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         careWindow={careWindow}
         currentStatus={currentStatus}
         isSearchingInChat={isSearchingInChat}
+        composerMode={composerMode}
+        onToggleInternalComment={() => setComposerMode((mode) => mode === 'comment' ? 'whatsapp' : 'comment')}
         onToggleSearchInChat={() => {
           setIsSearchingInChat((prev) => !prev);
           if (isSearchingInChat) setInChatSearch('');
         }}
-        isInfoPanelOpen={isInfoPanelOpen}
         onToggleInfoPanel={onToggleInfoPanel}
         isTimelineOpen={isTimelineOpen}
         onToggleTimeline={onToggleTimeline}
         onBackMobile={onBackMobile}
         onClosePanel={onClosePanel}
-        onOpenSnippets={() => setIsSnippetsModalOpen(true)}
         onToggleArchive={onToggleArchive}
         teamMembers={teamMembers}
         isLoadingAgents={isLoadingAgents}
@@ -163,11 +160,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         onUpdateStatus={onUpdateStatus}
         currentUserId={profile?.id || user?.id}
         currentUserName={currentUserName}
-        onRefreshMessages={async () => {
-          if (isSearchingInChat) setSearchRevision((revision) => revision + 1);
-          await onRefreshMessages?.();
-        }}
-        isRefreshingMessages={isRefreshingMessages}
       />
 
       {/* 2. Barra de Busca Interna (se ativada) */}
@@ -219,6 +211,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         isChannelConnected={isChannelConnected}
         onSendCustomerMessage={onSendCustomerMessage}
         onRefreshMessages={onRefreshMessages}
+        composerMode={composerMode}
+        onComposerModeChange={setComposerMode}
         insertedSnippet={insertedSnippet}
         onAddInternalNote={onAddInternalNote}
         onOpenSnippets={() => setIsSnippetsModalOpen(true)}

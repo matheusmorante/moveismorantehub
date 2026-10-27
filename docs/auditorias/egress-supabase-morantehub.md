@@ -1,8 +1,8 @@
 # Auditoria de Egress — Supabase MoranteHub
 
-## Estado atual — 26/10/2026, 20:49 BRT
+## Estado atual — 27/10/2026, 08:23 BRT
 
-CLI/plugin autenticados e ref hkoxhourxwlddgsfdgws reconfirmados. Sem medidor oficial Usage/Egress: bytes, quota, excedente, delta e meta de 100 MB/dia não verificáveis. Janela 26/10 20:30–23:30 UTC: gateway 2.311 eventos, REST 2.202. EGR-004: consulta de categorias do painel do catálogo passa a receber somente a contagem, sem linhas. Correção local, economia não medida, sem deploy. Recorrência ACTIVE/3 h preservada.
+CLI/plugin autenticados e ref hkoxhourxwlddgsfdgws reconfirmados. Sem medidor oficial Usage/Egress: bytes, quota, excedente, delta e meta confirmada de 100 MB/dia não verificáveis. Janela 27/10 08:15–11:15 UTC (05:15–08:15 BRT): gateway 491 eventos, todos REST. Nenhuma nova correção de código nesta rodada. EGR-005 já presente: Central com timer de 30 segundos; decisão anterior sobre 6/30 segundos resolvida. Economia em bytes não medida, implantação não verificada. Recorrência ACTIVE/3 h preservada.
 ## Coleta inicial — 25/10/2026, 09:35 BRT (12:35 UTC)
 
 Projeto confirmado: `hkoxhourxwlddgsfdgws` (MoranteHub). Primeira coleta desta auditoria; não havia relatório anterior. Automação existente ACTIVE, intervalo de três horas conferido no arquivo de configuração; agendamento preservado.
@@ -500,3 +500,36 @@ Ante a janela consecutiva anterior de três horas, gateway -1.717 eventos (4.028
 **Correção local:** em erp/src/pages/App/CustomerSupport/hooks/useCustomerSupportConversations.ts:164, intervalo do timer alterado de 6 para 30 segundos. Atualizações por Realtime e foco/visibilidade continuam imediatas. Efeito esperado: até 80% menos chamadas disparadas pelo timer no mesmo período; eventos e páginas adicionais podem alterar o total. Sem medição de bytes ou deploy.
 
 **Observabilidade e validação:** query_logs agregados para 2026-10-26T23:24:03Z–2026-10-27T02:24:03Z retornaram 753 respostas 200 da RPC. Esse agregado não corresponde à métrica de 108 sem a janela/fonte original e não identifica sessões ou clientes. Revisão estática e diff --check; nenhum teste executado. Nenhuma escrita SQL, mudança remota, migration, commit ou deploy.
+
+## Décima terceira execução — 27/10/2026, 08:23 BRT
+
+**Fontes e acesso:** AGENTS vigente, política remota, memória, relatório e skills Supabase/Ponytail consultados. CLI 2.121.0, com ajudas raiz/projects/list/inspect/db/telemetry redescobertas; sem medidor Usage/Egress faturável. CLI e plugin list_projects confirmaram acesso ao MoranteHub/ref hkoxhourxwlddgsfdgws; vínculo local e linked corretos. Saídas de projetos filtradas em memória. Plugin redescoberto sem medidor explícito de bytes. Automação existente ACTIVE, intervalo de três horas, preservada. [Changelog](https://supabase.com/changelog.md) consultado por HTTP após o leitor web recusar text/markdown; aviso TLS já conhecido, sem nova exigência pertinente ao escopo. [Campos oficiais de logs](https://supabase.com/docs/guides/observability/log-field-reference) confirmam source, request.path e response.status_code.
+
+**Janela exata:** 2026-10-27T08:15:00Z–2026-10-27T11:15:00Z (**05:15–08:15 BRT**). Duas query_logs, sem polling: fonte/count e gateway por rota normalizada/status/count. Apenas caminhos completos compatíveis com `^/rest/v1/(rpc/)?[a-z_]+$` aparecem como rota; demais caminhos seriam agrupados por prefixos fixos. Sem mensagens, headers, query strings, corpos, SQL de negócio ou dados individuais. Foram 14 grupos, abaixo do limite de 100; soma 491 confere com edge_logs.
+
+Fontes: postgres_logs **612**, edge_logs **491**, postgrest_logs **122**. Não somar fontes como requests. Gateway: **REST 491**; nenhum evento de Auth, Storage, Realtime ou Functions retornado nesta janela.
+
+| Rota REST | Status | Chamadas |
+| --- | --- | ---: |
+| rpc/claim_return_fiscal_emission_job | 200 | 89 |
+| whatsapp_conversations | 200 | 77 |
+| whatsapp_messages | 200 / 204 | 77 / 18 |
+| people | 200 | 74 |
+| rpc/customer_support_receive_message | 200 | 39 |
+| rpc/customer_support_receive_message_echo | 200 | 38 |
+| warranty_terms | 204 | 18 |
+| whatsapp_dispatches | 204 | 18 |
+| categories | 200 | 14 |
+| store_style_settings | 200 | 14 |
+| products | 200 / 206 | 7 / 1 |
+| category_relationships | 200 | 7 |
+
+Não calcular delta nesta coleta: a janela não é contígua à última coleta de três horas e o registro intermediário EGR-005 apresenta apenas uma rota. **Uso/quota/excedente/delta em bytes e cumprimento dos 100 MB/dia permanecem indisponíveis.** Contagens não identificam versão, cliente, payload ou efeito dos patches.
+
+**Inventário incremental — recebimento WhatsApp:** handlers `api/whatsapp-webhook.ts:52` e `erp/api/whatsapp-webhook.ts:106` executam o bundle `erp/server/customer-support/whatsapp-processor.cjs`, derivado de `erp/src/pages/utils/customerSupport/whatsappWebhookProcessor.ts`. Mensagem recebida: :432–438 consulta somente id por api_message_id/maybeSingle; se nova, :458–464 consulta vínculo da conversa por canal/contato; :467 chama matchCustomerByPhone quando não há cliente e o vínculo não é manual; :481 chama a RPC. Echo segue a mesma estrutura em :93–127. Finalidade: conferir duplicidade/vínculo antes do recebimento transacional; gatilho por evento do webhook, sem timer/cache compartilhado/abort nessas leituras. A RPC continua responsável por confirmar o recebimento, inclusive para mensagens já conhecidas; remover a consulta ou pular a RPC alteraria a proteção atual. Contagens 77/77 e 39/38 são compatíveis com esses chamadores, sem atribuição comprovada.
+
+Matching compartilhado em `customerMatchingService.ts:51–132`: people com projeção explícita (:24), até seis candidatos de telefone, limite de 20 registros (:72), comparação normalizada e deduplicação por id; retorna resumo e lista de ambiguidades. Não reduzir esse limite nem introduzir cache de vínculos sem preservar ambiguidade e atualizações. Bundle conferido estaticamente (:143,246–254,503–514); nenhum loop de rede comprovado nesses caminhos. Nenhuma mudança de código justificada apenas pelas contagens.
+
+**Continuidade EGR-005:** intervalo atual de 30 segundos reconfirmado em `useCustomerSupportConversations.ts:160–175`, com foco/visibilidade e Realtime (:197–200). A decisão histórica de 6/30 segundos foi resolvida na execução anterior; não voltar a apresentá-la como pendente. Memória desta automação ainda terminava em EGR-004 e foi atualizada para registrar essa continuidade. Não inferir implantação ou redução remota.
+
+**Resultado e validação:** somente relatório e memória atualizados. Preservadas cinco entradas iniciais de trabalho local, incluindo migration removida/substituta; nenhum SQL dessa alteração foi executado. Diffs locais pertinentes revisados antes da escrita; integrações inspecionadas sem diff. Revisão estática e git diff --check do relatório; sem testes por instrução explícita, sem dados de negócio, execute_sql, alteração remota, migration, dependência, commit ou deploy. Fluxos fiscais não inspecionados. Nenhuma nova mudança acionável; medição oficial e validação funcional dos patches anteriores permanecem pendentes.

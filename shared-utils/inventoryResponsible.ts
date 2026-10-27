@@ -1,4 +1,13 @@
-import { isEligibleOperationalCollaborator } from './operationalCollaborators';
+const INVENTORY_RESPONSIBLE_ROLES = new Set([
+  'admin',
+  'administrator',
+  'administrador',
+  'manager',
+  'gerente',
+  'gestor',
+  'stockist',
+  'estoquista',
+]);
 
 export interface InventoryResponsibleCandidate {
   id?: string | number;
@@ -27,7 +36,16 @@ export const getInventoryResponsibleDisplayName = (
   'Responsável não informado';
 
 export const isEligibleInventoryResponsible = (person: InventoryResponsibleCandidate): boolean => {
-  return isEligibleOperationalCollaborator(person);
+  const type = String(person.type || person.person_type || '').trim().toLowerCase();
+  if (person.deleted || type !== 'employees') return false;
+
+  const accessRoles = [
+    ...(Array.isArray(person.roles) ? person.roles : []),
+    person.role,
+  ];
+  return accessRoles.some(
+    (role) => typeof role === 'string' && INVENTORY_RESPONSIBLE_ROLES.has(role.trim().toLowerCase())
+  );
 };
 
 export const filterInventoryResponsibleCandidates = <T extends InventoryResponsibleCandidate>(

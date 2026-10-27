@@ -180,7 +180,6 @@ export default function CustomerSupport() {
     isLoadingOlderMessages,
     hasOlderMessages,
     loadOlderMessages,
-    isRefreshingMessages,
     messagesError,
     refreshMessages,
   } = useCustomerSupportMessages({
@@ -495,7 +494,6 @@ export default function CustomerSupport() {
             isLoadingOlderMessages={isLoadingOlderMessages}
             onLoadOlderMessages={loadOlderMessages}
             onBackMobile={() => setSelectedConversation(null)}
-            isInfoPanelOpen={isInfoPanelOpen}
             onToggleInfoPanel={() => {
               setIsInfoPanelOpen((prev) => !prev);
               if (!isInfoPanelOpen) setIsTimelineOpen(false);
@@ -511,7 +509,6 @@ export default function CustomerSupport() {
             onAddInternalNote={handleAddInternalNote}
             onSendCustomerMessage={(input) => sendCustomerSupportMessage(supabase, selectedConversation.id, input)}
             onRefreshMessages={refreshMessages}
-            isRefreshingMessages={isRefreshingMessages}
             onResolveReplyTarget={resolveReplyTarget}
             onJumpToMessage={jumpToMessage}
             jumpToMessageId={jumpToMessageId}

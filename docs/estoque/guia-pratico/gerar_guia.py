@@ -581,9 +581,9 @@ y = note('Conferir Pedido também não dá entrada', 'Essa conferência compara 
 # 18 - Inventário inicial
 y = base('07 / Inventário', 'Defina o que será contado', 'Estoque > Inventário > Novo inventário. Escolha os produtos que entram na contagem antes de começar.')
 y = shot('10-inventario-escopo', y, max_height=180, caption='1 Estoque completo em etapas por fornecedor  •  2 Seleção personalizada de produtos ou variações.')
-y = shot('11-inventario-responsavel', y, max_height=120, caption='O campo lista colaboradores com perfil de acesso concedido, exceto Contador. No app, atualize a lista com internet.')
+y = shot('11-inventario-responsavel', y, max_height=120, caption='No app, o responsável logado já fica pré-selecionado quando elegível; você pode escolher outra pessoa.')
 y = step(1, 'Escolha quais produtos contar', 'Estoque Completo lista produtos convencionais ativos por fornecedor. Produtos Salvados e Usados, e fornecedores exclusivos dessas origens, ficam fora. Seleção Personalizada também aceita apenas itens convencionais.', y)
-y = step(2, 'Escolha quem vai fazer a contagem', 'Digite pelo menos duas letras do nome e escolha um colaborador com perfil de acesso diferente de Contador. No app, atualize a lista com internet usando Tentar sincronizar lista. Se a pessoa não aparecer, peça à equipe responsável para conferir o perfil de acesso no cadastro de colaboradores.', y)
+y = step(2, 'Escolha quem vai fazer a contagem', 'No app, o usuário logado com perfil de Administrador, Gestor ou Estoquista já fica selecionado. Para trocar, digite duas letras e escolha outro colaborador com um desses perfis. Se alguém não aparecer, use Tentar sincronizar lista e confira o perfil de acesso.', y)
 y = step(3, 'Conte um, vários ou todos os fornecedores', 'Abra a etapa de um fornecedor; repita para vários ou percorra todas. Etapas e itens sem contagem ficam como estão. Na Seleção Personalizada, adicione os itens convencionais.', y)
 y = note('Duplicar inventário', 'Cada código identifica uma contagem. Se ela já estiver em andamento, retome-a pela lista antes de criar outra. Ao duplicar, revise os produtos, quantidades e responsável; a contagem e as etiquetas antigas não são copiadas. Os botões para mudar de página ficam abaixo da lista.', y, fill=MINT)
 

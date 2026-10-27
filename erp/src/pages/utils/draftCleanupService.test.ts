@@ -47,7 +47,7 @@ describe('runDraftCleanup', () => {
     });
     expect(peopleQuery?.calls).toContainEqual({
       method: 'or',
-      args: ['address->testArtifact->>is_test.is.null,address->testArtifact->>is_test.neq.true'],
+      args: ['full_address->testArtifact->>is_test.is.null,full_address->testArtifact->>is_test.neq.true'],
     });
   });
 });

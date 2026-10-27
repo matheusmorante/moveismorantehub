@@ -15,8 +15,11 @@ import {
   getTechnicalFieldMaxLength,
   getTechnicalFieldTextPlaceholder,
   resolveTechnicalFieldDataType,
+  TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS,
+  TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS,
 } from '../../domain/technicalFieldInputRules';
 import { isQuantityCharacteristic } from '../../../../../../shared-utils/productCharacteristicDependencies';
+import { normalizeSearchTerm } from '../../../../../../shared-utils/productText';
 import {
   getTechnicalFieldIntegerMaxValue,
   isWeightCapacityCharacteristic,
@@ -92,6 +95,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
       : 2;
   const [pickerVisible, setPickerVisible] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [decimalDraft, setDecimalDraft] = useState(() =>
     type === 'percentage' ? formatPercentage(value) : formatDecimal(value, decimalPlaces)
   );
@@ -99,6 +103,19 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
   const inputMode = getTechnicalFieldInputMode(type, options.length);
   const selectedValues = useMemo(() => getSelectedValues(value), [value]);
   const stringValue = Array.isArray(value) ? value.join(', ') : String(value ?? '');
+  const normalizedSearch = normalizeSearchTerm(search);
+
+  useEffect(() => {
+    if (normalizedSearch.length < TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS) {
+      setDebouncedSearch('');
+      return;
+    }
+    const timeout = setTimeout(
+      () => setDebouncedSearch(normalizedSearch),
+      TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS
+    );
+    return () => clearTimeout(timeout);
+  }, [normalizedSearch]);
 
   useEffect(() => {
     setDecimalDraft(
@@ -233,28 +250,53 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
       options.find((option) => normalizeYesNoValue(option.value) === 'sim')?.value || 'Sim';
     const noValue =
       options.find((option) => normalizeYesNoValue(option.value) === 'nao')?.value || 'Não';
+    const notApplicableValue = isBoolean
+      ? undefined
+      : options.find((option) => normalizeYesNoValue(option.value) === 'nao se aplica')?.value;
     const normalizedValue = normalizeYesNoValue(value);
     const currentValue =
       value === true || value === 1 || ['true', '1', 'sim', 's', 'yes', 'ligado'].includes(normalizedValue)
         ? 'yes'
         : value === false || value === 0 || ['false', '0', 'nao', 'no', 'desligado'].includes(normalizedValue)
           ? 'no'
-          : '';
+          : notApplicableValue !== undefined && String(value ?? '') === notApplicableValue
+            ? 'not_applicable'
+            : '';
+    const yesNoOptions = [
+      { key: 'yes', label: yesValue, outputValue: isBoolean ? true : yesValue },
+      { key: 'no', label: noValue, outputValue: isBoolean ? false : noValue },
+      ...(notApplicableValue
+        ? [
+            {
+              key: 'not_applicable',
+              label: notApplicableValue,
+              outputValue: notApplicableValue,
+            },
+          ]
+        : []),
+    ];
     return (
       <View style={styles.selectionWrap}>
         <View style={[styles.booleanOptions, disabled && styles.disabled]}>
-          {[
-            { key: 'yes', label: yesValue, booleanValue: true },
-            { key: 'no', label: noValue, booleanValue: false },
-          ].map((option) => {
+          {yesNoOptions.map((option) => {
             const selected = currentValue === option.key;
             return (
               <TouchableOpacity
                 key={option.key}
                 disabled={disabled}
-                onPress={() => onChange(isBoolean ? option.booleanValue : option.label)}
+                onPress={() => {
+                  if (selected) {
+                    onChange('');
+                    return;
+                  }
+                  onChange(option.outputValue);
+                }}
                 accessibilityRole="button"
-                accessibilityLabel={`${option.label} para ${field.name}`}
+                accessibilityLabel={
+                  selected
+                    ? `${option.label} para ${field.name}, toque novamente para limpar a seleção`
+                    : `${option.label} para ${field.name}`
+                }
                 accessibilityState={{ selected, disabled }}
                 style={[styles.booleanOption, dark && styles.darkChip, selected && styles.selectedChip]}
               >
@@ -270,20 +312,26 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
   }
 
   if (inputMode === 'inline') {
+    const selectedChoiceValue = Array.isArray(value)
+      ? String(value[0] ?? '')
+      : String(value ?? '');
     return (
       <View style={styles.selectionWrap}>
         <View style={styles.chips}>
           {options.map((option) => {
-            const selected = selectedValues.some(
-              (item) => normalizeValue(item) === normalizeValue(option.value)
-            );
+            const selected = selectedChoiceValue === option.value;
             return (
               <TouchableOpacity
                 key={option.id || option.value}
                 disabled={disabled}
                 accessibilityRole="button"
+                accessibilityLabel={
+                  selected
+                    ? `${option.value} para ${field.name}, toque novamente para limpar a seleção`
+                    : `${option.value} para ${field.name}`
+                }
                 accessibilityState={{ selected, disabled }}
-                onPress={() => onChange(option.value)}
+                onPress={() => onChange(selected ? '' : option.value)}
                 style={[
                   styles.chip,
                   dark && styles.darkChip,
@@ -306,6 +354,14 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
 
   if (inputMode === 'searchable') {
     const multiple = type === 'multi_select';
+    const isSearchActive =
+      normalizedSearch.length >= TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS &&
+      debouncedSearch === normalizedSearch;
+    const visibleOptions = isSearchActive
+      ? options.filter((option) => normalizeSearchTerm(option.value).includes(debouncedSearch))
+      : multiple
+        ? options
+        : [];
     return (
       <View style={styles.selectionWrap}>
         {multiple && selectedValues.length > 0 && (
@@ -351,17 +407,21 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
               <TextInput
                 value={search}
                 onChangeText={setSearch}
-                placeholder="Pesquisar opções"
+                placeholder={
+                  multiple
+                    ? selectedValues.length > 0
+                      ? 'Adicionar mais opções...'
+                      : 'Selecione ou pesquise...'
+                    : `Digite pelo menos ${TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS} caracteres para pesquisar...`
+                }
                 placeholderTextColor="#94a3b8"
                 style={[styles.input, dark && styles.darkInput]}
               />
               <ScrollView keyboardShouldPersistTaps="handled" style={styles.optionList}>
-                {options
-                  .filter((option) => normalizeValue(option.value).includes(normalizeValue(search)))
-                  .map((option) => {
-                    const selected = selectedValues.some(
-                      (item) => normalizeValue(item) === normalizeValue(option.value)
-                    );
+                {visibleOptions.map((option) => {
+                    // Match ERP ChoiceSearch: a stored selection is checked only
+                    // when its value exactly equals the current option label.
+                    const selected = selectedValues.includes(option.value);
                     return (
                       <TouchableOpacity
                         key={option.id || option.value}
@@ -369,9 +429,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
                           if (multiple) {
                             onChange(
                               selected
-                                ? selectedValues.filter(
-                                    (item) => normalizeValue(item) !== normalizeValue(option.value)
-                                  )
+                                ? selectedValues.filter((item) => item !== option.value)
                                 : [...selectedValues, option.value]
                             );
                           } else {
@@ -388,11 +446,11 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
                       </TouchableOpacity>
                     );
                   })}
-                {options.filter((option) =>
-                  normalizeValue(option.value).includes(normalizeValue(search))
-                ).length === 0 && (
+                {visibleOptions.length === 0 && (
                   <Text style={[styles.emptyText, dark && styles.lightText]}>
-                    Nenhuma opção encontrada.
+                    {!multiple && normalizedSearch.length < TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS
+                      ? `Digite pelo menos ${TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS} caracteres para pesquisar.`
+                      : 'Nenhuma opção encontrada.'}
                   </Text>
                 )}
               </ScrollView>

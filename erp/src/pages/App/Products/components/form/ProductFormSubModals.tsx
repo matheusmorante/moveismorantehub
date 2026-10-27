@@ -14,6 +14,7 @@ interface ProductFormSubModalsProps {
     editingVariationId: string | null;
   };
   readonly isStockistOnly: boolean;
+  readonly canPublishToCatalog: boolean;
   readonly canToggleTestArtifact: boolean;
   readonly isTestArtifact: boolean;
   readonly setIsTestArtifact: (enabled: boolean) => void;
@@ -42,6 +43,7 @@ export const ProductFormSubModals: React.FC<ProductFormSubModalsProps> = ({
   setFormData,
   variations,
   isStockistOnly,
+  canPublishToCatalog,
   canToggleTestArtifact,
   isTestArtifact,
   setIsTestArtifact,
@@ -110,7 +112,7 @@ export const ProductFormSubModals: React.FC<ProductFormSubModalsProps> = ({
 
       <ProductSaveResultModal
         saveResult={saveResult}
-        canPublishToCatalog={!isStockistOnly}
+        canPublishToCatalog={canPublishToCatalog}
         onCloseModal={() => setSaveResult(null)}
         onSuccess={
           onSuccess ||

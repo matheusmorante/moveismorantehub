@@ -1,4 +1,8 @@
 /** Predicados canônicos dos campos técnicos reutilizados pelo ERP e app mobile. */
+export const PRODUCT_TECHNICAL_CHOICE_INLINE_OPTION_LIMIT = 8;
+export const PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS = 2;
+export const PRODUCT_TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS = 300;
+
 export {
   isChairWeightCapacityCharacteristic,
   isDimensionCharacteristicName,

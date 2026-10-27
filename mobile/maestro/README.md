@@ -68,4 +68,6 @@ npm run test:mobile:inventory
 npm run test:mobile:maestro
 ```
 
-O `test:mobile:build` compila e instala a development build no celular Wi‑Fi selecionado. `test:mobile:start` inicia o Metro e configura o reverse da porta 8081. Os demais comandos rodam Maestro no mesmo alvo. Relatórios JUnit ficam em `%TEMP%\morante-maestro-results`.
+O `test:mobile:build` compila e instala a development build no celular Wi‑Fi selecionado. `test:mobile:start` inicia o Metro para o dev client nativo e configura o reverse da porta escolhida por `MAESTRO_METRO_PORT` (padrão `8081`). Se essa porta estiver ocupada, defina outra, por exemplo em PowerShell: `$env:MAESTRO_METRO_PORT='8082'; npm run test:mobile:start`. O runner não troca para Expo Web.
+
+Os comandos Maestro gravam relatórios JUnit, screenshots e logs em `%TEMP%\morante-maestro-artifacts`. Quando o volume temporário não tiver espaço, defina `MAESTRO_ARTIFACT_DIR` para uma pasta em outro volume; por exemplo: `$env:MAESTRO_ARTIFACT_DIR='H:\maestro-artifacts'`.

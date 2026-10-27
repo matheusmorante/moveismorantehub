@@ -1,10 +1,15 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import {
+  PRODUCT_TECHNICAL_CHOICE_INLINE_OPTION_LIMIT,
+  PRODUCT_TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS,
+  PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS,
+} from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
 
-export const SIMPLE_CHOICE_DROPDOWN_LIMIT = 8;
-export const MIN_CHOICE_SEARCH_CHARACTERS = 2;
+export const SIMPLE_CHOICE_DROPDOWN_LIMIT = PRODUCT_TECHNICAL_CHOICE_INLINE_OPTION_LIMIT;
+export const MIN_CHOICE_SEARCH_CHARACTERS = PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS;
 export const MAX_CHOICE_SEARCH_RESULTS = 5;
-export const CHOICE_SEARCH_DEBOUNCE_MS = 300;
+export const CHOICE_SEARCH_DEBOUNCE_MS = PRODUCT_TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS;
 
 interface ChoiceSearchProps {
   options?: readonly { id?: string; value: string }[];

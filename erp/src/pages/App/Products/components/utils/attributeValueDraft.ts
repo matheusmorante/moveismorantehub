@@ -1,6 +1,6 @@
-export function normalizeAttributeDraftValue(value: string): string {
-  return value.trim().replace(/,/g, '');
-}
+import { normalizeProductAttributeOptionValue } from '../../../../../../../shared-utils/productAttributeOptionRules';
+
+export const normalizeAttributeDraftValue = normalizeProductAttributeOptionValue;
 
 export function appendAttributeDraftValue(values: string[], input: string): string[] {
   const value = normalizeAttributeDraftValue(input);

@@ -67,6 +67,9 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/whatsapp-media' || pathname === '/api/whatsapp-webhook') {
     routeName = 'whatsapp-webhook';
     supportOperation = pathname === '/api/whatsapp-media' ? 'media' : null;
+  } else if (pathname === '/api/whatsapp-support-send') {
+    routeName = 'whatsapp-webhook';
+    supportOperation = 'support-send';
   } else if (pathname === '/api/whatsapp-dispatch') {
     routeName = 'whatsapp-dispatch';
   } else if (pathname === '/api/testing/test-artifact-operator') {

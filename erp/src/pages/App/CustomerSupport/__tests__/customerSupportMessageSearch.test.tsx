@@ -152,7 +152,7 @@ describe('Formulário de busca de mensagens', () => {
     const { container } = render(<ChatArea
       conversation={{ id: 'conversation-1', contactPhone: '5511999990000', contactName: 'Fixture', tags: [], status } as unknown as WhatsAppConversation}
       messages={latest} teamMembers={[]} isLoadingMessages={false} messagesError="Falha ao carregar mensagens."
-      isInfoPanelOpen={false} onBackMobile={vi.fn()} onToggleInfoPanel={vi.fn()} onToggleArchive={vi.fn()} />);
+      onBackMobile={vi.fn()} onToggleInfoPanel={vi.fn()} onToggleArchive={vi.fn()} />);
 
     expect(screen.getByRole('alert').textContent).toContain('Falha ao carregar mensagens.');
     expect(screen.getByTestId('chat-composer')).toBeTruthy();
@@ -160,19 +160,15 @@ describe('Formulário de busca de mensagens', () => {
     expect(screen.getByRole('region', { name: 'Histórico da conversa' }).classList.contains('min-h-0')).toBe(true);
   });
 
-  it('repete a consulta com o mesmo termo ao submeter novamente ou recarregar a conversa', async () => {
+  it('repete a consulta com o mesmo termo ao submeter novamente', async () => {
     const source = message(20, 'Primeiro resultado agulha');
     const incoming = message(201, 'Novo resultado agulha');
-    const refreshed = message(202, 'Resultado após recarregar agulha');
-    const refreshMessages = vi.fn();
     mocks.fetchMessageSearch
       .mockResolvedValueOnce({ messages: [source], hasMore: false, nextCursor: null })
-      .mockResolvedValueOnce({ messages: [incoming, source], hasMore: false, nextCursor: null })
-      .mockResolvedValueOnce({ messages: [refreshed, incoming, source], hasMore: false, nextCursor: null });
+      .mockResolvedValueOnce({ messages: [incoming, source], hasMore: false, nextCursor: null });
     render(<ChatArea conversation={{ id: 'conversation-1', contactPhone: '5511999990000', contactName: 'Fixture', tags: [], status: 'open' } as unknown as WhatsAppConversation}
-      messages={latest} teamMembers={[]} isLoadingMessages={false} isInfoPanelOpen={false}
-      onBackMobile={vi.fn()} onToggleInfoPanel={vi.fn()} onToggleArchive={vi.fn()}
-      onRefreshMessages={refreshMessages} />);
+      messages={latest} teamMembers={[]} isLoadingMessages={false}
+      onBackMobile={vi.fn()} onToggleInfoPanel={vi.fn()} onToggleArchive={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /^Pesquisar na conversa$/ }));
     fireEvent.change(screen.getByRole('searchbox', { name: 'Pesquisar nesta conversa' }), { target: { value: 'agulha' } });
     fireEvent.click(screen.getByRole('button', { name: /^Buscar$/ }));
@@ -180,11 +176,6 @@ describe('Formulário de busca de mensagens', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Buscar$/ }));
     await screen.findByText(incoming.textContent!);
     expect(mocks.fetchMessageSearch).toHaveBeenCalledTimes(2);
-    fireEvent.click(screen.getByRole('button', { name: 'Mais ações da conversa' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Atualizar mensagens' }));
-    await screen.findByText(refreshed.textContent!);
-    expect(refreshMessages).toHaveBeenCalledTimes(1);
-    expect(mocks.fetchMessageSearch).toHaveBeenCalledTimes(3);
     mocks.fetchMessageSearch.mock.calls.forEach((call) => expect(call.slice(1)).toEqual(['conversation-1', null, 'agulha']));
   });
 

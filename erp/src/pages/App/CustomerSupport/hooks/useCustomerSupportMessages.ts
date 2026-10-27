@@ -29,7 +29,6 @@ export function useCustomerSupportMessages({
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
-  const [isRefreshingMessages, setIsRefreshingMessages] = useState(false);
   const [messagesError, setMessagesError] = useState('');
   const [readError, setReadError] = useState('');
   const activeConvIdRef = useRef<string | null>(null);
@@ -217,7 +216,6 @@ export function useCustomerSupportMessages({
       loadingOlderRef.current = null;
       setIsLoadingOlderMessages(false);
       setIsLoadingMessages(false);
-      setIsRefreshingMessages(false);
       setMessagesError('');
       setReadError('');
       setJumpToMessageId(null);
@@ -319,13 +317,7 @@ export function useCustomerSupportMessages({
   const refreshMessages = useCallback(async () => {
     const currentId = activeConvIdRef.current;
     if (!currentId) return;
-    setIsRefreshingMessages(true);
-    const generation = generationRef.current;
-    try {
-      await Promise.all([loadMessages(currentId, true), readNeedsRetryRef.current ? confirmRead(currentId) : undefined]);
-    } finally {
-      if (generation === generationRef.current) setIsRefreshingMessages(false);
-    }
+    await Promise.all([loadMessages(currentId, true), readNeedsRetryRef.current ? confirmRead(currentId) : undefined]);
   }, [loadMessages, confirmRead]);
 
   return {
@@ -341,7 +333,6 @@ export function useCustomerSupportMessages({
       ? historyConversationIdRef.current === selectedConversation.id && hasOlderMessages
       : false,
     loadOlderMessages,
-    isRefreshingMessages,
     refreshMessages,
     messagesError: messagesError || readError,
   };

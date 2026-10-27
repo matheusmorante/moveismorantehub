@@ -1,0 +1,24 @@
+gradle.beforeProject { project ->
+  if (project.name != 'react-native-worklets') return
+
+  // Windows clang can't read this absolute PCH path from a non-ASCII workspace.
+  // PCH is only a compile-time cache; the native sources still compile normally.
+  project.plugins.withId('com.android.library') {
+    def androidExtension = project.extensions.findByName('android')
+    def cmake = androidExtension?.defaultConfig?.externalNativeBuild?.cmake
+    cmake?.arguments?.add('-DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON')
+  }
+}
+
+gradle.projectsEvaluated {
+  if (!System.getProperty('os.name').toLowerCase().contains('windows')) return
+
+  def bashPath = System.getenv('MORANTE_GIT_BASH_PATH')
+  if (!bashPath) return
+
+  def audioApi = gradle.rootProject.findProject(':react-native-audio-api')
+  def downloadTask = audioApi?.tasks?.findByName('downloadPrebuiltBinaries')
+  if (downloadTask) {
+    downloadTask.commandLine = [bashPath] + downloadTask.commandLine.drop(1)
+  }
+}

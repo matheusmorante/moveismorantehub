@@ -12,11 +12,28 @@ const adbPath = process.env.ADB_PATH || path.join(sdkRoot, 'platform-tools', pro
 const maestroPath = process.env.MAESTRO_CLI
   || path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Maestro', 'maestro', 'bin', process.platform === 'win32' ? 'maestro.bat' : 'maestro');
 const appId = 'com.morante.mobile';
-const resultsDir = path.join(os.tmpdir(), 'morante-maestro-results');
+const metroPort = process.env.MAESTRO_METRO_PORT || '8081';
+const maestroArtifactsDir = process.env.MAESTRO_ARTIFACT_DIR
+  ? path.resolve(process.env.MAESTRO_ARTIFACT_DIR)
+  : path.join(os.tmpdir(), 'morante-maestro-artifacts');
+const resultsDir = path.join(maestroArtifactsDir, 'results');
+const testOutputDir = path.join(maestroArtifactsDir, 'test-output');
+const debugOutputDir = path.join(maestroArtifactsDir, 'debug');
 
 function fail(message, code = 1) {
   console.error(`\n[maestro-runner] ${message}`);
   process.exit(code);
+}
+
+function requireMetroPort() {
+  if (!/^\d+$/.test(metroPort) || Number(metroPort) < 1 || Number(metroPort) > 65535) {
+    fail(`Porta Metro inválida "${metroPort}". Defina MAESTRO_METRO_PORT entre 1 e 65535.`);
+  }
+  return metroPort;
+}
+
+function reverseMetroPort(serial, port) {
+  run(adbPath, ['-s', serial, 'reverse', `tcp:${port}`, `tcp:${port}`]);
 }
 
 function requiresWindowsShell(command) {
@@ -122,6 +139,30 @@ function requireInstalledApp(serial) {
   }
 }
 
+function findGitBash() {
+  const candidates = [
+    process.env.MORANTE_GIT_BASH_PATH,
+    'C:\\Program Files\\Git\\usr\\bin\\bash.exe',
+  ].filter(Boolean);
+
+  if (process.platform === 'win32') {
+    const gitPaths = spawnSync('where.exe', ['git.exe'], {
+      encoding: 'utf8',
+      env: process.env,
+      timeout: 5_000,
+    }).stdout || '';
+    for (const gitPath of gitPaths.split(/\r?\n/).map((value) => value.trim()).filter(Boolean)) {
+      const gitDirectory = path.dirname(gitPath);
+      candidates.push(
+        path.resolve(gitDirectory, '..', 'usr', 'bin', 'bash.exe'),
+        path.resolve(gitDirectory, '..', '..', 'usr', 'bin', 'bash.exe')
+      );
+    }
+  }
+
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
 function runMaestro(serial, flowPath, label) {
   if (!existsSync(maestroPath)) {
     fail(`Maestro CLI não encontrado em ${maestroPath}.`);
@@ -129,6 +170,8 @@ function runMaestro(serial, flowPath, label) {
   if (!existsSync(flowPath)) fail(`Flow não encontrado: ${flowPath}`);
 
   mkdirSync(resultsDir, { recursive: true });
+  mkdirSync(testOutputDir, { recursive: true });
+  mkdirSync(debugOutputDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const reportPath = path.join(resultsDir, `${label}-${timestamp}.xml`);
   console.log(`[maestro-runner] Relatório JUnit: ${reportPath}`);
@@ -140,6 +183,8 @@ function runMaestro(serial, flowPath, label) {
     `--device=${serial}`,
     'test',
     '--no-reinstall-driver',
+    `--test-output-dir=${testOutputDir}`,
+    `--debug-output=${debugOutputDir}`,
     '--format=JUNIT',
     `--output=${relativeOutput}`,
     relativeFlow,
@@ -161,14 +206,59 @@ if (action === 'check') {
   requireDevice();
 } else if (action === 'build') {
   const serial = requireDevice();
-  run(adbPath, ['-s', serial, 'reverse', 'tcp:8081', 'tcp:8081']);
-  const expoCli = path.join(projectRoot, 'node_modules', 'expo', 'bin', 'cli');
-  run(process.execPath, [expoCli, 'run:android', '--device', serial, '--no-bundler']);
+  const port = requireMetroPort();
+  reverseMetroPort(serial, port);
+  const androidRoot = path.join(projectRoot, 'android');
+  const gradleWrapper = path.join(
+    androidRoot,
+    process.platform === 'win32' ? 'gradlew.bat' : 'gradlew'
+  );
+  const debugApk = path.join(androidRoot, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+  if (!existsSync(gradleWrapper)) fail(`Gradle wrapper não encontrado em ${gradleWrapper}.`);
+  const gitBashPath = process.platform === 'win32' ? findGitBash() : undefined;
+  if (process.platform === 'win32' && !gitBashPath) {
+    fail('Git Bash não encontrado. Instale Git for Windows ou defina MORANTE_GIT_BASH_PATH.');
+  }
+
+  // Expo's --device argument matches a friendly device name, not the selected
+  // wireless ADB serial. Build directly, then install through the guarded serial.
+  const gradleInvocation = process.platform === 'win32'
+    ? {
+        command: 'powershell.exe',
+        args: [
+          '-NoLogo',
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `& '${gradleWrapper.replace(/'/g, "''")}' -I maestro-build.init.gradle assembleDebug`,
+        ],
+      }
+    : { command: gradleWrapper, args: ['-I', 'maestro-build.init.gradle', 'assembleDebug'] };
+  const gradleEnv = process.platform === 'win32'
+    ? {
+        ...process.env,
+        MORANTE_GIT_BASH_PATH: gitBashPath,
+        MSYSTEM: 'MINGW64',
+        PATH: [
+          path.resolve(path.dirname(gitBashPath), '..', '..', 'usr', 'bin'),
+          path.resolve(path.dirname(gitBashPath), '..', '..', 'mingw64', 'bin'),
+          process.env.PATH,
+        ].filter(Boolean).join(path.delimiter),
+        JAVA_TOOL_OPTIONS: [process.env.JAVA_TOOL_OPTIONS, '-Dfile.encoding=UTF-8']
+          .filter(Boolean)
+          .join(' '),
+      }
+    : process.env;
+  run(gradleInvocation.command, gradleInvocation.args, { cwd: androidRoot, env: gradleEnv });
+  if (!existsSync(debugApk)) fail(`APK debug não foi gerado em ${debugApk}.`);
+  run(adbPath, ['-s', serial, 'install', '-r', debugApk]);
+  requireInstalledApp(serial);
 } else if (action === 'start') {
   const serial = requireDevice();
-  run(adbPath, ['-s', serial, 'reverse', 'tcp:8081', 'tcp:8081']);
+  const port = requireMetroPort();
+  reverseMetroPort(serial, port);
   const expoCli = path.join(projectRoot, 'node_modules', 'expo', 'bin', 'cli');
-  run(process.execPath, [expoCli, 'start', '--dev-client', '--localhost', '--port', '8081']);
+  run(process.execPath, [expoCli, 'start', '--dev-client', '--localhost', '--port', port]);
 } else if (action === 'smoke') {
   const serial = requireDevice();
   requireInstalledApp(serial);

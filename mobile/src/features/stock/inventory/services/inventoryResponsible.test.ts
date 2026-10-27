@@ -24,14 +24,17 @@ describe('responsável elegível do inventário', () => {
       position: 'Gerente',
     },
     { id: 'supplier-1', type: 'suppliers', fullName: 'Fornecedor', position: 'Vendedor' },
-    { id: 'employee-4', person_type: 'employees', social_name: 'Dani', roles: ['seller'] },
+    { id: 'employee-4', person_type: 'employees', social_name: 'Dani', roles: ['administrator'] },
+    { id: 'employee-6', type: 'employees', full_name: 'Eva', roles: ['manager'] },
+    { id: 'employee-7', type: 'employees', full_name: 'Fábio', roles: ['seller'] },
     { id: 'employee-5', person_type: 'employees', fullName: 'Ex-colaborador', deleted: true },
   ];
 
-  it('exige perfil de acesso concedido e ignora registros excluídos', () => {
+  it('aceita somente administradores, gestores e estoquistas elegíveis', () => {
     expect(filterInventoryResponsibleCandidates(employees).map(({ id }) => id)).toEqual([
       'employee-1',
       'employee-4',
+      'employee-6',
     ]);
   });
 
