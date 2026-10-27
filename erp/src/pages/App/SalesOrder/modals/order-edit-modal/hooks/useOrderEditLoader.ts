@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import type Order from '@/pages/types/order.type';
 import { fetchOrderById } from '@/pages/utils/orderHistoryService';
 import type { useSalesOrderForm } from '../../../hooks/useSalesOrderForm';
+import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 
 interface UseOrderEditLoaderParams {
   readonly order?: Order;
@@ -24,12 +25,19 @@ export function useOrderEditLoader({
 }: UseOrderEditLoaderParams) {
   const { id: paramId } = useParams();
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
 
-  const id = orderId || paramId;
+  const id = orderId || order?.id || paramId;
+  const shouldNavigateOnMissing = !orderId && !order;
   const [loadedOrder, setLoadedOrder] = useState<Order | null>(null);
-  const [isLoadingOrder, setIsLoadingOrder] = useState(!!id && !order);
+  const [loadFailure, setLoadFailure] = useState<{ id: string; message: string } | null>(null);
 
-  const effectiveOrder = order || loadedOrder;
+  const effectiveOrder = id
+    ? loadedOrder?.id === id ? loadedOrder : null
+    : order || loadedOrder;
+  const loadError = loadFailure?.id === id ? loadFailure?.message ?? null : null;
+  const isLoadingOrder = Boolean(id && !effectiveOrder && !loadError);
   const loadedOrderIdRef = useRef<string | null>(null);
 
   const onClose = useCallback(() => {
@@ -54,21 +62,33 @@ export function useOrderEditLoader({
     };
   }, []);
 
-  // Busca o pedido caso tenha sido informado apenas o ID
+  // Recarrega a versão persistida: ações fiscais podem atualizar metadados enquanto a lista está aberta.
   useEffect(() => {
-    if (id && !order) {
-      setIsLoadingOrder(true);
-      fetchOrderById(id).then((ord) => {
-        if (ord) {
+    if (!id) return;
+    let isCurrent = true;
+    setLoadedOrder(null);
+    setLoadFailure(null);
+    void withTimeout(fetchOrderById(id), 15_000, null, 'pedido:atualizar-antes-da-edicao')
+      .then((ord) => {
+        if (!isCurrent) return;
+        if (ord?.id === id) {
           setLoadedOrder(ord);
-        } else {
-          toast.error('Pedido não encontrado.');
-          if (!orderId) navigate('/sales-order');
+          return;
         }
-        setIsLoadingOrder(false);
+        setLoadFailure({ id, message: 'Não foi possível atualizar o pedido antes da edição. Feche e tente novamente.' });
+        toast.error('Pedido não encontrado ou indisponível para edição.');
+        if (shouldNavigateOnMissing) navigateRef.current('/sales-order');
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setLoadFailure({ id, message: 'Não foi possível atualizar o pedido antes da edição. Feche e tente novamente.' });
+          toast.error('Não foi possível carregar a versão atual do pedido.');
+        }
       });
-    }
-  }, [id, order, navigate, orderId]);
+    return () => {
+      isCurrent = false;
+    };
+  }, [id, shouldNavigateOnMissing]);
 
   // Carrega o pedido no formulário e navega para o step inicial
   useEffect(() => {
@@ -84,6 +104,7 @@ export function useOrderEditLoader({
   return {
     effectiveOrder,
     isLoadingOrder,
+    loadError,
     onClose,
     onSaveSuccess,
   };

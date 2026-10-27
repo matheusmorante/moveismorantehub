@@ -121,6 +121,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     setRecipientIeIndicator,
     recipientIeError,
     handleSaveDraft,
+    discardNfeDraft,
     setNumberPreview,
     emissionResult,
     xmlPreview,
@@ -146,6 +147,14 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
     onSuccess?.(result);
     onClose();
   });
+
+  const handleClose = React.useCallback(async () => {
+    if (isSubmitting || emissionResult?.pending || emissionResult?.success) {
+      onClose();
+      return;
+    }
+    if (await discardNfeDraft()) onClose();
+  }, [discardNfeDraft, emissionResult?.pending, emissionResult?.success, isSubmitting, onClose]);
 
   const {
     activeTab,
@@ -247,7 +256,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         order={fiscalEmissionOrder ?? order}
         modelLabel={modelLabel}
         environment={environment}
-        onClose={onClose}
+        onClose={handleClose}
         hasFiscalIssue={hasFiscalIssue}
         fiscalIssueTone={issueCopy?.tone}
         onOpenFiscalIssue={() => setIsFiscalIssueModalOpen(true)}
@@ -298,7 +307,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         handleReconcile={handleReconcile}
         handleAbandonHmlTlsAttempt={handleAbandonHmlTlsAttempt}
         handleStartFreshHmlEmission={handleStartFreshHmlEmission}
-        onClose={onClose}
+        onClose={handleClose}
         customerPersonType={customerPersonType}
         isIdentityOptional={isIdentityOptional}
         recipientTaxId={recipientTaxId}
@@ -350,7 +359,7 @@ export const NfeEmissionModal: React.FC<NfeEmissionModalProps> = ({
         productionConfirmed={productionConfirmed}
         canPreviewXml={canPreviewXml}
         onPreview={() => void handlePreviewXml(productionConfirmed)}
-        onClose={onClose}
+        onClose={handleClose}
         onEmit={(confirmed, retry) => {
           if (isLoadingCustomerType) {
             toast.info('Aguarde a identificação fiscal do cliente antes de emitir.');

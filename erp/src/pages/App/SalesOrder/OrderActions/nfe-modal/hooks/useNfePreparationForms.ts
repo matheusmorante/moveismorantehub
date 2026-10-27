@@ -38,6 +38,19 @@ export function useNfePreparationForms({ order, environment, operatorId, canOper
     ownerRef.current = { order, environment, operatorId, canOperateFiscal, pending: 0, purposes: 0, error: null, blocked: false };
   }
   const owner = ownerRef.current;
+  const environmentKey = environment === 1 ? '1' : '2';
+  const originalDraftRef = useRef({
+    orderId: order?.id,
+    environment,
+    draft: order?.nfeDraft?.[environmentKey],
+  });
+  if (originalDraftRef.current.orderId !== order?.id || originalDraftRef.current.environment !== environment) {
+    originalDraftRef.current = {
+      orderId: order?.id,
+      environment,
+      draft: order?.nfeDraft?.[environmentKey],
+    };
+  }
   const queue = useRef<Promise<void>>(Promise.resolve());
   const [feedback, setFeedback] = useState({ owner, pending: 0, purposes: 0, error: null as string | null, blocked: false });
   useEffect(() => () => { ownerRef.current = { ...ownerRef.current }; }, []);
@@ -89,23 +102,99 @@ export function useNfePreparationForms({ order, environment, operatorId, canOper
     if (!matchesSavedFields(saved, expected)) throw new Error(failureMessage);
     return true;
   };
+  const discardNfeDraft = () => {
+    owner.pending++;
+    publish();
+    const pending = queue.current.then(async () => {
+      if (!isCurrent() || !owner.order?.id) return false;
+      if (owner.blocked) {
+        report('Não foi possível confirmar o rascunho fiscal. Reabra a emissão para conferir o pedido antes de continuar.');
+        return false;
+      }
+
+      const originalDraft = originalDraftRef.current.draft;
+      const localDraft = owner.order.nfeDraft?.[environmentKey];
+      const originalFields = originalDraft as Record<string, unknown> | undefined;
+      const localFields = localDraft as Record<string, unknown> | undefined;
+      const changedFields = [...new Set([
+        ...Object.keys(originalFields || {}),
+        ...Object.keys(localFields || {}),
+      ])].filter((key) =>
+        !matchesSavedFields(localFields?.[key], originalFields?.[key]) ||
+        !matchesSavedFields(originalFields?.[key], localFields?.[key])
+      );
+      if (changedFields.length === 0) {
+        return true;
+      }
+
+      const latest = await withTimeout(
+        fetchOrderById(String(owner.order.id)).catch(() => null),
+        15_000,
+        null,
+        'nfe:recarregar-rascunho-para-descartar'
+      );
+      if (!isCurrent()) return false;
+      if (!latest || latest.id !== owner.order.id || !latest.updatedAt) {
+        throw new Error('Não foi possível atualizar o pedido para desfazer os dados fiscais do modal.');
+      }
+
+      owner.order = latest;
+      const currentDraft = latest.nfeDraft?.[environmentKey];
+      const currentFields = currentDraft as Record<string, unknown> | undefined;
+      const restoredFields = { ...currentFields };
+      let restoredAnyField = false;
+      for (const key of changedFields) {
+        const isStillOurs =
+          matchesSavedFields(currentFields?.[key], localFields?.[key]) &&
+          matchesSavedFields(localFields?.[key], currentFields?.[key]);
+        if (!isStillOurs) continue;
+        if (originalFields && Object.prototype.hasOwnProperty.call(originalFields, key)) {
+          restoredFields[key] = originalFields[key];
+        } else {
+          delete restoredFields[key];
+        }
+        restoredAnyField = true;
+      }
+      if (!restoredAnyField) return true;
+
+      const nfeDraft = { ...latest.nfeDraft };
+      if (Object.keys(restoredFields).length > 0) {
+        nfeDraft[environmentKey] = restoredFields as NonNullable<Order['nfeDraft']>['1'];
+      } else {
+        delete nfeDraft[environmentKey];
+      }
+      const changes = { nfeDraft };
+      return persist(
+        latest,
+        changes,
+        changes,
+        'Não foi possível desfazer os dados fiscais do modal. Reabra a emissão para conferir o pedido.'
+      );
+    }).catch((error: unknown) => {
+      report(error instanceof Error ? error.message : 'Não foi possível desfazer os dados fiscais do modal.');
+      return false;
+    }).finally(() => {
+      owner.pending--;
+      publish();
+    });
+    queue.current = pending.then(() => undefined);
+    return pending;
+  };
   const handleAcquisitionPurposeChange = (purpose: FiscalAcquisitionPurpose) => {
     if (!order?.id) { report('Salve o pedido antes de registrar a finalidade da compra.'); return Promise.resolve(); }
     return enqueue(true, () => purposeForm.validateAndRun({ orderId: String(order.id), purpose }, async (values) => {
       if (!isCurrent() || !owner.order || values.orderId !== String(owner.order.id)) return;
-      const fiscalContext = { ...owner.order.fiscalContext, acquisitionPurpose: values.purpose, finalConsumer: values.purpose !== 'resale' };
-      if (await persist(owner.order, { fiscalContext }, { fiscalContext: { acquisitionPurpose: values.purpose, finalConsumer: values.purpose !== 'resale' } }, 'Não foi possível salvar a finalidade da compra no pedido.')) onPurposeSaved(values.purpose);
+      const changes = buildNfeDraftChanges(owner.order, recipientTaxId, nfeItems, environment, values.purpose);
+      if (await persist(owner.order, changes, { nfeDraft: changes.nfeDraft }, 'Não foi possível salvar a finalidade da compra no rascunho fiscal.')) onPurposeSaved(values.purpose);
     }, (errors) => report(Object.values(flattenFormErrors(errors))[0])));
   };
   const handleSaveDraft = () => {
     if (!order?.id || isLoadingFiscalData) return Promise.resolve();
     return enqueue(false, () => draftForm.validateAndRun({ order: owner.order as Order, environment, recipientTaxId, nfeItems }, async (values) => {
       if (!isCurrent() || values.order.id !== owner.order?.id) return;
-      const changes = buildNfeDraftChanges(values.order, values.recipientTaxId, values.nfeItems, values.environment);
+      const changes = buildNfeDraftChanges(values.order, values.recipientTaxId, values.nfeItems, values.environment, acquisitionPurpose);
       const expected = {
         nfeDraft: changes.nfeDraft,
-        ...(changes.customerData ? { customerData: { cpfCnpj: changes.customerData.cpfCnpj, document: changes.customerData.document } } : {}),
-        ...(changes.items ? { items: changes.items.map(({ fiscal, fiscalSnapshotVersion, fiscalSnapshotProductId, fiscalSnapshotVariationId }) => ({ fiscal, fiscalSnapshotVersion, fiscalSnapshotProductId, fiscalSnapshotVariationId })) } : {}),
       };
       await persist(values.order, changes, expected, 'Não foi possível salvar os dados fiscais do rascunho no pedido.');
     }, (errors) => report(Object.values(flattenFormErrors(errors))[0])));
@@ -113,6 +202,7 @@ export function useNfePreparationForms({ order, environment, operatorId, canOper
   const currentFeedback = feedback.owner === owner ? feedback : { pending: 0, purposes: 0, error: null, blocked: false };
   return {
     handleAcquisitionPurposeChange, handleSaveDraft,
+    discardNfeDraft,
     isSavingAcquisitionPurpose: currentFeedback.purposes > 0,
     isSavingPreparation: currentFeedback.pending > 0,
     preparationSaveError: currentFeedback.error,

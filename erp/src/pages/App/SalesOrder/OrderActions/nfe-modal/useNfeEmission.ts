@@ -34,10 +34,11 @@ export function useNfeEmission(
   const [environment, setEnvironment] = useState<1 | 2>(DEFAULT_NFE_ENVIRONMENT);
   const fiscalOperationLock = useRef(false);
   const issuerUf = getSettings().companyUF || '';
+  const environmentKey = environment === 1 ? '1' : '2';
 
   const [savedAcquisitionPurpose, setSavedAcquisitionPurpose] =
     useState<FiscalAcquisitionPurpose | null>(
-      () => order?.fiscalContext?.acquisitionPurpose ?? null
+      () => order?.nfeDraft?.[environmentKey]?.acquisitionPurpose ?? order?.fiscalContext?.acquisitionPurpose ?? null
     );
 
   const {
@@ -65,7 +66,7 @@ export function useNfeEmission(
     recipientIeIndicator,
     setRecipientIeIndicator,
     recipientIeError,
-  } = useNfeRecipientTaxId({ order, currentModel });
+  } = useNfeRecipientTaxId({ order, currentModel, environment });
 
   // 1. Itens e Enriquecimento Fiscal
   const {
@@ -83,7 +84,7 @@ export function useNfeEmission(
     model: modelDecision?.status === 'ready' ? modelDecision.model : undefined,
   });
   const {
-    handleAcquisitionPurposeChange, handleSaveDraft, isSavingAcquisitionPurpose,
+    handleAcquisitionPurposeChange, handleSaveDraft, discardNfeDraft, isSavingAcquisitionPurpose,
     isSavingPreparation, preparationSaveError, preparationSaveBlocked, canUsePreparation,
   } = useNfePreparationForms({
     order, environment, operatorId: profile?.id, canOperateFiscal,
@@ -106,8 +107,10 @@ export function useNfeEmission(
   } = useNfeTransport({ order, currentModel, deliveryMethod });
 
   useEffect(() => {
-    setSavedAcquisitionPurpose(order?.fiscalContext?.acquisitionPurpose ?? null);
-  }, [order?.id, order?.fiscalContext?.acquisitionPurpose]);
+    setSavedAcquisitionPurpose(
+      order?.nfeDraft?.[environmentKey]?.acquisitionPurpose ?? order?.fiscalContext?.acquisitionPurpose ?? null
+    );
+  }, [order?.id, environment, order?.nfeDraft?.['1']?.acquisitionPurpose, order?.nfeDraft?.['2']?.acquisitionPurpose, order?.fiscalContext?.acquisitionPurpose]);
 
   // 3. Sequência Numérica
   const {
@@ -207,6 +210,7 @@ export function useNfeEmission(
     fiscalFieldError,
     clearFiscalFieldError,
     handleSaveDraft,
+    discardNfeDraft,
     recipientTaxIdError,
     recipientTaxId,
     setRecipientTaxId,

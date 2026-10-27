@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import type Order from '@/pages/types/order.type';
 import { useOrderEditLoader } from '../hooks/useOrderEditLoader';
 import { useOrderEditPersistence } from '../hooks/useOrderEditPersistence';
@@ -9,7 +9,7 @@ import { useOrderEditActions } from '../hooks/useOrderEditActions';
 import { buildUpdatedOrder } from '../utils/orderEditPayload';
 
 import { prepareOrderFiscalSnapshotForEmission } from '@/pages/utils/nfeEmissionSnapshotService';
-import { updateOrder } from '@/pages/utils/orderHistoryService';
+import { fetchOrderById, updateOrder } from '@/pages/utils/orderHistoryService';
 
 // Mocks
 vi.mock('react-router-dom', () => ({
@@ -84,14 +84,17 @@ describe('OrderEditModal Modular Architecture', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(updateOrder).mockResolvedValue({ success: true } as any);
+    vi.mocked(fetchOrderById).mockResolvedValue(mockOrder);
     vi.mocked(prepareOrderFiscalSnapshotForEmission).mockImplementation(async (order) => order);
   });
 
   describe('useOrderEditLoader', () => {
-    it('carrega o pedido diretamente quando passado via prop e gerencia overflow do body', () => {
+    it('recarrega a versão persistida do pedido passado via prop e gerencia overflow do body', async () => {
       const formActions = createMockFormActions();
       const onClose = vi.fn();
       const onSaveSuccess = vi.fn();
+      const freshOrder = { ...mockOrder, updatedAt: '2026-10-27T12:00:00.000Z' };
+      vi.mocked(fetchOrderById).mockResolvedValue(freshOrder);
 
       const { result, unmount } = renderHook(() =>
         useOrderEditLoader({
@@ -103,9 +106,11 @@ describe('OrderEditModal Modular Architecture', () => {
         })
       );
 
-      expect(result.current.effectiveOrder).toBe(mockOrder);
+      expect(result.current.isLoadingOrder).toBe(true);
+      await waitFor(() => expect(result.current.effectiveOrder).toBe(freshOrder));
       expect(result.current.isLoadingOrder).toBe(false);
-      expect(formActions.loadOrderForEditing).toHaveBeenCalledWith(mockOrder);
+      expect(fetchOrderById).toHaveBeenCalledWith(mockOrder.id);
+      expect(formActions.loadOrderForEditing).toHaveBeenCalledWith(freshOrder);
       expect(formActions.jumpToStep).toHaveBeenCalledWith(2);
 
       // Overflow do body

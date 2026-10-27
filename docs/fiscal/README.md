@@ -1,11 +1,12 @@
 # Documentação fiscal: índice e vigência
 
-**Reconciliado com o checkout em 26/10/2026.** A consulta oficial foi restrita às regras e fontes registradas em cada revisão. Use este índice para diferenciar as regras/documentos vigentes dos snapshots históricos. Relatórios datados continuam disponíveis para preservar evidências, mas não substituem o estado atual do código.
+**Reconciliado com o checkout em 27/10/2026.** A consulta oficial foi restrita às regras e fontes registradas em cada revisão. Use este índice para diferenciar as regras/documentos vigentes dos snapshots históricos. Relatórios datados continuam disponíveis para preservar evidências, mas não substituem o estado atual do código.
 
 > **Regra obrigatória do produto: não existe CC-e no MoranteHub.** Não criar nem restaurar carta de correção, inclusive botão, formulário, modal, rota ou tela de histórico. As correções seguem por **cancelamento fiscal ou estorno fiscal direto da NF**, conforme a elegibilidade vigente. A circulação da mercadoria também não autoriza oferecer CC-e; seus critérios de elegibilidade continuam nas regras vigentes. Referências antigas a CC-e são exclusivamente técnicas/de auditoria e não autorizam implementar essa funcionalidade. Ver [política vigente](historico-correcoes-2026-10-16.md#política-de-produto--cc-e-ausente-do-sistema), [reforço de 17/10](historico-correcoes-2026-10-17.md#política-de-produto--reforço-da-proibição-de-cc-e) e [FISCAL-016](invariantes-arquiteturais.md).
 
 ## Referências atuais
 
+- [Edição de pedido após cancelamento da emissão fiscal — 27/10](historico-correcoes-2026-10-27.md#edição-de-pedido-após-cancelamento-da-emissão-fiscal): edição recarrega a versão persistida, e dados preenchidos apenas no modal ficam no rascunho fiscal por ambiente e são restaurados ao fechar sem emissão.
 - [Prévia automática e exportação direta de documentos fiscais — 26/10](historico-correcoes-2026-10-26.md#prévia-automática-e-exportação-direta-de-documentos-fiscais): resumo sempre visível, atualização automática pelos filtros e botão ZIP disponível sem prévia manual.
 - [Histórico de exportações fiscais indisponível — 26/10](historico-correcoes-2026-10-26.md#histórico-de-exportações-fiscais-indisponível): causa confirmada como migration local ausente no Supabase operacional; tabela criada com RLS e acesso exclusivo da API, sem exposição a `anon`/`authenticated`.
 - [Paginação compartilhada e busca automática das notas fiscais — 26/10](historico-correcoes-2026-10-26.md#paginação-compartilhada-e-busca-automática-das-notas-fiscais): paginação responsiva, NF de saída fixa em 15 por página sem seletor e busca automática com mínimo de três caracteres.

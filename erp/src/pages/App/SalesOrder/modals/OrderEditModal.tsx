@@ -38,7 +38,7 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
   const [fiscalReissue, setFiscalReissue] = useState<FiscalReissueState | null>(null);
 
   // Carregamento do pedido e sincronização com formulário
-  const { effectiveOrder, isLoadingOrder, onClose, onSaveSuccess } = useOrderEditLoader({
+  const { effectiveOrder, isLoadingOrder, loadError, onClose, onSaveSuccess } = useOrderEditLoader({
     order,
     orderId,
     propOnClose,
@@ -102,6 +102,19 @@ const OrderEditModal: React.FC<OrderEditModalProps> = ({
     onSaveSuccess,
     onClose,
   });
+
+  if (loadError) {
+    return (
+      <div className="w-full min-h-[60vh] flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <p role="alert" className="max-w-md text-sm font-semibold text-slate-600 dark:text-slate-300">
+          {loadError}
+        </p>
+        <button type="button" onClick={onClose} className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+          Fechar
+        </button>
+      </div>
+    );
+  }
 
   // 1. Estado de Carregamento
   if (isLoadingOrder || !effectiveOrder) {

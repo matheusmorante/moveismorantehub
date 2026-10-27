@@ -12,11 +12,13 @@ import {
 export interface UseNfeRecipientTaxIdProps {
   order: Order | null;
   currentModel: '55' | '65';
+  environment: 1 | 2;
 }
 
-export function useNfeRecipientTaxId({ order, currentModel }: UseNfeRecipientTaxIdProps) {
+export function useNfeRecipientTaxId({ order, currentModel, environment }: UseNfeRecipientTaxIdProps) {
   const [recipientTaxIdError, setRecipientTaxIdError] = useState<string | null>(null);
   const initialTaxId =
+    order?.nfeDraft?.[environment === 1 ? '1' : '2']?.recipientTaxId ||
     order?.customerData?.cpfCnpj ||
     order?.customerData?.document ||
     order?.nfeDraft?.['2']?.recipientTaxId ||

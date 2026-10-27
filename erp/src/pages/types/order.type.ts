@@ -139,6 +139,7 @@ export type Order = {
   /** Fiscal fields edited in the emission modal, kept apart from the sale-item snapshot. */
   nfeDraft?: Partial<Record<'1' | '2', {
     recipientTaxId?: string;
+    acquisitionPurpose?: FiscalAcquisitionPurpose;
     items: Array<{
       orderItemId?: string;
       productId?: string;

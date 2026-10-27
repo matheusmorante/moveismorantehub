@@ -318,8 +318,69 @@ describe('preenchimento dos itens da NF-e', () => {
     act(() => { last = result.current.handleSaveDraft(); });
     await act(async () => { finishFirst(); await Promise.all([first, invalid, last]); });
     expect(mocks.updateOrder).toHaveBeenCalledTimes(2);
-    expect(mocks.updateOrder.mock.calls[1][1].customerData.cpfCnpj).toBe('11144477735');
+    const changes = mocks.updateOrder.mock.calls[1][1];
+    expect(changes.nfeDraft[String(result.current.environment)].recipientTaxId).toBe('11144477735');
+    expect(changes).not.toHaveProperty('customerData');
     expect(mocks.toast).toHaveBeenCalled();
+  });
+
+  it('descarta os dados preenchidos no modal e restaura o rascunho fiscal anterior', async () => {
+    const id = 'discard-outbound-draft';
+    const originalDraft = {
+      recipientTaxId: '12345678909',
+      acquisitionPurpose: 'use_consumption',
+      items: [],
+    };
+    const sourceOrder = { ...order, id, nfeDraft: { '1': originalDraft } };
+    mocks.persistedOrders.set(id, { ...sourceOrder, updatedAt: '2026-10-27T12:00:00.000Z' });
+    const { result } = renderHook(() => useNfeEmission(sourceOrder));
+    await waitFor(() => expect(result.current.isLoadingFiscalData).toBe(false));
+    act(() => result.current.setEnvironment(1));
+    await waitFor(() => expect(result.current.environment).toBe(1));
+    act(() => result.current.setRecipientTaxId('11144477735'));
+
+    await act(async () => { await result.current.handleSaveDraft(); });
+    expect(mocks.persistedOrders.get(id).nfeDraft['1'].recipientTaxId).toBe('11144477735');
+    expect(mocks.persistedOrders.get(id).customerData).toEqual(sourceOrder.customerData);
+
+    await act(async () => { expect(await result.current.discardNfeDraft()).toBe(true); });
+    expect(mocks.persistedOrders.get(id).nfeDraft['1']).toEqual(originalDraft);
+    expect(mocks.updateOrder).toHaveBeenCalledTimes(2);
+  });
+
+  it('desfaz o preenchimento ao fechar pelo botão do rodapé', async () => {
+    const id = 'discard-from-emission-footer';
+    const environmentKey = String(DEFAULT_NFE_ENVIRONMENT);
+    const originalDraft = {
+      recipientTaxId: '12345678909',
+      acquisitionPurpose: 'use_consumption',
+      items: [],
+    };
+    const sourceOrder = {
+      ...order,
+      id,
+      updatedAt: '2026-10-27T12:00:00.000Z',
+      nfeDraft: { [environmentKey]: originalDraft },
+    };
+    mocks.persistedOrders.set(id, sourceOrder);
+    const onClose = vi.fn();
+    render(<NfeEmissionModal isOpen order={sourceOrder as any} onClose={onClose} />);
+    await prepareNfeEmission();
+    fireEvent.click(screen.getByRole('tab', { name: 'Informações do Cliente' }));
+
+    const recipientField = screen.getByLabelText('CPF');
+    fireEvent.change(recipientField, { target: { value: '11144477735' } });
+    fireEvent.blur(recipientField);
+    await waitFor(() => {
+      expect(mocks.persistedOrders.get(id).nfeDraft[environmentKey].recipientTaxId).not.toBe(
+        originalDraft.recipientTaxId
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(mocks.persistedOrders.get(id).nfeDraft[environmentKey]).toEqual(originalDraft);
+    expect(mocks.persistedOrders.get(id).customerData).toEqual(sourceOrder.customerData);
   });
 
   it('descarta o rascunho ainda na fila quando o proprietário muda de pedido', async () => {
@@ -1767,18 +1828,26 @@ describe('preenchimento dos itens da NF-e', () => {
     unspecifiedOrder.shipping = { deliveryMethod: 'delivery', deliveryAddress: { state: 'SC' } };
     unspecifiedOrder.fiscalContext = { finalConsumer: true };
     render(<NfeEmissionModal isOpen order={unspecifiedOrder} onClose={vi.fn()} />);
+    await prepareNfeEmission();
+    fireEvent.click(screen.getByRole('tab', { name: 'Transporte' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Informar entrega ao cliente?' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Informações Gerais' }));
     expect(screen.getByText(/Modelo fiscal a definir/)).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Selecione a finalidade' })).toBeTruthy();
     const purpose = screen.getByLabelText('Finalidade da compra');
     fireEvent.change(purpose, { target: { value: 'use_consumption' } });
     await waitFor(() => expect(mocks.updateOrder).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByText(/NF-e · modelo 55 necessária/)).toBeTruthy());
-    expect(mocks.updateOrder).toHaveBeenCalledWith(unspecifiedOrder.id, {
-      fiscalContext: {
-        acquisitionPurpose: 'use_consumption',
-        finalConsumer: true,
-      },
-    }, expect.objectContaining({ id: unspecifiedOrder.id }), undefined, { metadataOnly: true });
+    const environmentDraft = mocks.updateOrder.mock.calls[0][1].nfeDraft[
+      String(DEFAULT_NFE_ENVIRONMENT)
+    ];
+    expect(environmentDraft).toMatchObject({
+      acquisitionPurpose: 'use_consumption',
+      items: expect.any(Array),
+    });
+    expect(mocks.updateOrder.mock.calls[0][1]).not.toHaveProperty('fiscalContext');
+    expect(mocks.updateOrder.mock.calls[0][2]).toMatchObject({ id: unspecifiedOrder.id });
+    expect(mocks.updateOrder.mock.calls[0][4]).toEqual({ metadataOnly: true });
     expect(screen.getByText(/NF-e · modelo 55 necessária/)).toBeTruthy();
     expect(purpose.className).toContain('border-0');
     expect(purpose.className).toContain('border-b-2');
@@ -1794,6 +1863,7 @@ describe('preenchimento dos itens da NF-e', () => {
     expect(screen.getByText(/NF-e · modelo 55 necessária/)).toBeTruthy();
     expect(screen.getByText(/Mercadoria destinada à revenda/)).toBeTruthy();
     expect(unspecifiedOrder.fiscalContext).toEqual({ finalConsumer: true });
+    expect(unspecifiedOrder.nfeDraft).toBeUndefined();
   });
 
   it('não usa indFinal=true como padrão quando o pedido não tem finalidade persistida', () => {
@@ -1817,7 +1887,7 @@ describe('preenchimento dos itens da NF-e', () => {
     await act(async () => result.current.handlePreviewXml());
     expect(mocks.emit).not.toHaveBeenCalled();
     expect(mocks.toast).toHaveBeenCalledWith(
-      'Não foi possível salvar a finalidade da compra no pedido.'
+      'Não foi possível salvar a finalidade da compra no rascunho fiscal.'
     );
   });
 
@@ -1880,6 +1950,7 @@ describe('preenchimento dos itens da NF-e', () => {
     mocks.emit.mockResolvedValue({ success: false, error: 'TEST_AUT_CONTROLLED' });
     render(<NfeEmissionModal isOpen order={nfceDeliveryOrder} onClose={vi.fn()} />);
     await requestXmlPreview();
+    fireEvent.click(screen.getByRole('tab', { name: 'Informações do Cliente' }));
     fireEvent.click(screen.getByRole('tab', { name: 'Informações do Cliente' }));
     expect(
       screen.getByText(

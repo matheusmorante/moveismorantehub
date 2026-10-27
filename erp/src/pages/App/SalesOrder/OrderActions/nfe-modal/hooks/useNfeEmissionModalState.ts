@@ -90,14 +90,14 @@ export function useNfeEmissionModalState({
 
   React.useEffect(() => {
     if (!isOpen || !emissionOrder?.id || isLoadingCustomerType) return;
-    const prefillKey = `${emissionOrder.id}:${emissionOrder.customerData?.id || ''}`;
+    const prefillKey = `${emissionOrder.id}:${emissionOrder.customerData?.id || ''}:${environment}`;
     if (recipientTaxIdPrefilledOrderId.current === prefillKey) return;
 
     recipientTaxIdPrefilledOrderId.current = prefillKey;
     const directTaxId =
+      (emissionOrder as any).nfeDraft?.[environment === 1 ? '1' : '2']?.recipientTaxId ||
       emissionOrder.customerData?.cpfCnpj ||
       emissionOrder.customerData?.document ||
-      (emissionOrder as any).nfeDraft?.[environment === 1 ? '1' : '2']?.recipientTaxId ||
       (emissionOrder as any).nfeDraft?.['2']?.recipientTaxId ||
       (emissionOrder as any).nfeDraft?.['1']?.recipientTaxId ||
       '';
