@@ -74,10 +74,12 @@ export const generateMobileProductVariations = (
 
   const variableTechnicalFields = Array.from(
     new Set([
-      ...resolveMobileVariableTechnicalFieldNames({
-        ...product,
-        variations: existingVariations,
-      }),
+      ...(product.hasVariations || product.has_variations || existingVariations.length > 1
+        ? resolveMobileVariableTechnicalFieldNames({
+            ...product,
+            variations: existingVariations,
+          })
+        : []),
       ...selected.map((attribute) => attribute.name),
     ])
   );

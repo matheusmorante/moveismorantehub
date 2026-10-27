@@ -85,7 +85,7 @@ const fetchInventoryResponsibleRows = async (): Promise<CatalogRow[]> => {
   const rows: CatalogRow[] = [];
   const pageSize = 500;
   const columns =
-    'id, person_type, full_name, social_name, nickname, position, role:address->>role, roles:address->roles, active, deleted, updated_at';
+    'id, person_type, full_name, social_name, nickname, position, address, active, deleted, updated_at';
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from('people')
@@ -99,6 +99,37 @@ const fetchInventoryResponsibleRows = async (): Promise<CatalogRow[]> => {
     rows.push(...(data || []));
     if (!data || data.length < pageSize) return rows;
   }
+};
+
+const normalizeInventoryResponsibleRow = (employee: CatalogRow): CatalogRow => {
+  let accessProfile = employee.address;
+  if (typeof accessProfile === 'string') {
+    try {
+      accessProfile = JSON.parse(accessProfile);
+    } catch {
+      accessProfile = null;
+    }
+  }
+
+  const profile =
+    typeof accessProfile === 'object' && accessProfile !== null && !Array.isArray(accessProfile)
+      ? accessProfile
+      : {};
+  const roles = Array.isArray(profile.roles)
+    ? profile.roles.filter((role: unknown): role is string => typeof role === 'string')
+    : Array.isArray(employee.roles)
+      ? employee.roles.filter((role: unknown): role is string => typeof role === 'string')
+      : undefined;
+  const role = typeof profile.role === 'string' ? profile.role : employee.role;
+
+  // `people.address` is TEXT in the operational schema. Parse only the access fields we need;
+  // never copy the full address/contact payload into the offline inventory snapshot.
+  const { address: _address, ...safeEmployee } = employee;
+  return {
+    ...safeEmployee,
+    ...(role === undefined ? {} : { role }),
+    ...(roles === undefined ? {} : { roles }),
+  };
 };
 
 export const getOfflineInventoryCatalog = async (): Promise<OfflineInventoryCatalog> => {
@@ -178,7 +209,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
           'inventory:responsibles'
         ),
       ]);
-      const employees = employeesResult || [];
+      const employees = (employeesResult || []).map(normalizeInventoryResponsibleRow);
       const next: OfflineInventoryCatalog = {
         products: fullRefresh ? {} : { ...previous.products },
         variations: fullRefresh ? {} : { ...previous.variations },

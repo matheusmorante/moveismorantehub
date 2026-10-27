@@ -22,7 +22,10 @@ export const ProductListPageSizeSelect: React.FC<ProductListPageSizeSelectProps>
     const selectedValue = event.currentTarget.value;
     const values = await validateValues(
       { itemsPerPage: selectedValue },
-      () => setValidationError('Selecione 10 ou 15 itens por página.')
+      () =>
+        setValidationError(
+          `Escolha uma quantidade permitida por página (${PRODUCT_LIST_PAGE_SIZES.join(', ')}).`
+        )
     );
 
     if (!values) return;

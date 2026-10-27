@@ -21,6 +21,7 @@ const ALWAYS_REQUIRED_CATEGORY_ATTRIBUTE_NAMES = new Set([
   'altura total',
   'largura total',
   'profundidade total',
+  'peso',
   'altura',
   'largura',
   'profundidade',
@@ -38,8 +39,7 @@ const ALWAYS_REQUIRED_CATEGORY_ATTRIBUTE_NAMES = new Set([
 export const isCategoryAttributeAlwaysRequired = (name: string): boolean =>
   ALWAYS_REQUIRED_CATEGORY_ATTRIBUTE_NAMES.has(normalizeAttributeName(name));
 
-export const isCategoryAttributeAlwaysOptional = (name: string): boolean =>
-  normalizeAttributeName(name) === 'peso';
+export const isCategoryAttributeAlwaysOptional = (_name: string): boolean => false;
 
 export const isCategoryAttributeRequirementLocked = (name: string): boolean =>
   isCategoryAttributeAlwaysRequired(name) || isCategoryAttributeAlwaysOptional(name);

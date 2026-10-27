@@ -505,7 +505,7 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       await expect(fetchMobileCategoryProductCounts()).rejects.toBe(queryError);
     });
 
-    it('AT-11: Consulta características vinculadas com estado opcional/obrigatório preservado', async () => {
+    it('AT-11: Consulta características vinculadas e preserva Peso obrigatório', async () => {
       (supabase.from as any).mockImplementation((table: string) => {
         if (table === 'category_attributes') {
           return {
@@ -531,7 +531,7 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
         { id: 'a1', name: 'Cor', isRequired: true },
         { id: 'a2', name: 'Tamanho', isRequired: false },
         { id: 'a3', name: 'Material', isRequired: true },
-        { id: 'a4', name: 'Peso', isRequired: false },
+        { id: 'a4', name: 'Peso', isRequired: true },
         { id: 'a5', name: 'Linha', isRequired: true },
       ]);
     });

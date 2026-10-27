@@ -156,10 +156,10 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
           aria-haspopup="menu"
           aria-expanded={isMenuOpen}
           aria-label="Opções do produto"
-          className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all border shrink-0 cursor-pointer ${
+          className={`w-7 h-7 flex items-center justify-center transition-colors shrink-0 cursor-pointer ${
             isMenuOpen
-              ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 text-indigo-600'
-              : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+              ? 'text-indigo-600 dark:text-indigo-400'
+              : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
           }`}
           title="Opções"
         >

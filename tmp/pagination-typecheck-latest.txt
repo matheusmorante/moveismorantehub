@@ -1,0 +1,691 @@
+../api/nfe/consult.ts(123,11): error TS2783: 'pending' is specified more than once, so this usage will be overwritten.
+../api/nfe/consult.ts(140,11): error TS2783: 'pending' is specified more than once, so this usage will be overwritten.
+../api/nfe/consult.ts(158,11): error TS2783: 'pending' is specified more than once, so this usage will be overwritten.
+../api/nfe/operation-draft/draftPersistence.ts(224,19): error TS2345: Argument of type 'Record<string, unknown>' is not assignable to parameter of type 'RejectExcessProperties<Partial<{ id: string; order_id: string; original_document_id: string; environment: number; reversal_kind: string; status: string; operation_draft_id: string | null; replacement_document_id: string | null; expected_updated_at: string; original_order_data: Record<...>; edited_order_data: Record<...'.
+  Type 'Record<string, unknown>' is not assignable to type '{ [x: string]: never; }'.
+    'string' index signatures are incompatible.
+      Type 'unknown' is not assignable to type 'never'.
+src/AppLayout.tsx(100,11): error TS2322: Type 'unknown' is not assignable to type '{ matchedProductId?: string | undefined; } | undefined'.
+src/components/CurrencyInput.test.tsx(25,21): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/CurrencyInput.test.tsx(28,21): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/CurrencyInput.test.tsx(31,21): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/CurrencyInput.test.tsx(34,21): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/layout/hooks/__tests__/useDesktopNavPermissions.test.ts(5,15): error TS2724: '"../../../../context/AuthContext"' has no exported member named 'UserProfile'. Did you mean 'UserRole'?
+src/components/layout/hooks/useDesktopNavPermissions.ts(2,15): error TS2724: '"../../../context/AuthContext"' has no exported member named 'UserProfile'. Did you mean 'UserRole'?
+src/components/MaskedNumericInput.test.tsx(27,23): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/MaskedNumericInput.test.tsx(29,23): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/MaskedNumericInput.test.tsx(55,23): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/MaskedNumericInput.test.tsx(58,23): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/MaskedNumericInput.test.tsx(88,23): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/MaskedNumericInput.test.tsx(91,23): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/MaskedNumericInput.test.tsx(94,23): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/MaskedNumericInput.test.tsx(112,23): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/MaskedNumericInput.test.tsx(115,23): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/MaskedNumericInput.test.tsx(118,23): error TS2339: Property 'type' does not exist on type 'typeof import("C:/Users/mathe/OneDrive/\u00C1rea de Trabalho/projetos/morantehub/erp/node_modules/@testing-library/user-event/dist/index")'.
+src/components/ProductAutocomplete.tsx(156,15): error TS2322: Type 'FocusEventHandler<HTMLInputElement> | undefined' is not assignable to type 'FocusEventHandler<HTMLTextAreaElement> | undefined'.
+  Type 'FocusEventHandler<HTMLInputElement>' is not assignable to type 'FocusEventHandler<HTMLTextAreaElement>'.
+    Type 'HTMLInputElement' is missing the following properties from type 'HTMLTextAreaElement': cols, rows, textLength, wrap
+src/components/ProductImage.tsx(7,18): error TS2430: Interface 'ProductImageProps' incorrectly extends interface 'ImgHTMLAttributes<HTMLImageElement>'.
+  Types of property 'src' are incompatible.
+    Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+      Type 'null' is not assignable to type 'string | undefined'.
+src/components/supplier-autocomplete/SupplierSuggestionsList.tsx(46,27): error TS2339: Property 'document' does not exist on type 'Person'.
+src/components/supplier-autocomplete/SupplierSuggestionsList.tsx(48,36): error TS2339: Property 'document' does not exist on type 'Person'.
+src/components/supplier-autocomplete/useSupplierAutocomplete.test.ts(12,5): error TS2353: Object literal may only specify known properties, and 'document' does not exist in type 'Person'.
+src/components/supplier-autocomplete/useSupplierAutocomplete.test.ts(19,5): error TS2353: Object literal may only specify known properties, and 'document' does not exist in type 'Person'.
+src/components/supplier-autocomplete/useSupplierAutocomplete.test.ts(26,5): error TS2353: Object literal may only specify known properties, and 'document' does not exist in type 'Person'.
+src/pages/App/CustomerSupport/components/ChatArea.tsx(95,3): error TS2304: Cannot find name 'useEffect'.
+src/pages/App/Dashboard/components/RegionalHeatmap.tsx(192,9): error TS2322: Type '{ type: string; features: any[]; }' is not assignable to type 'string | GeoJSON<Geometry, GeoJsonProperties>'.
+  Type '{ type: string; features: any[]; }' is not assignable to type 'Point | MultiPoint | LineString | MultiLineString | Polygon | MultiPolygon | GeometryCollection<Geometry> | Feature<...> | FeatureCollection<...>'.
+    Type '{ type: string; features: any[]; }' is not assignable to type 'FeatureCollection<Geometry, GeoJsonProperties>'.
+      Types of property 'type' are incompatible.
+        Type 'string' is not assignable to type '"FeatureCollection"'.
+src/pages/App/Dashboard/components/RegionalHeatmap.tsx(251,32): error TS2345: Argument of type '{ type: string; features: any[]; }' is not assignable to parameter of type 'string | GeoJSON<Geometry, GeoJsonProperties>'.
+  Type '{ type: string; features: any[]; }' is not assignable to type 'Point | MultiPoint | LineString | MultiLineString | Polygon | MultiPolygon | GeometryCollection<Geometry> | Feature<...> | FeatureCollection<...>'.
+    Type '{ type: string; features: any[]; }' is not assignable to type 'FeatureCollection<Geometry, GeoJsonProperties>'.
+      Types of property 'type' are incompatible.
+        Type 'string' is not assignable to type '"FeatureCollection"'.
+src/pages/App/DeliverySchedule/TimelineView/Index.tsx(166,24): error TS2304: Cannot find name 'formatDate'.
+src/pages/App/FiscalDocuments/__tests__/fiscalPendencies.test.tsx(100,10): error TS2741: Property 'canOperateFiscal' is missing in type '{ pendencies: never[]; loading: false; onOpenAction: Mock<Procedure>; onViewDetails: Mock<Procedure>; }' but required in type 'FiscalPendenciesTableProps'.
+src/pages/App/FiscalDocuments/__tests__/fiscalPendencies.test.tsx(119,10): error TS2741: Property 'canOperateFiscal' is missing in type '{ pendencies: FiscalPendencyItem[]; loading: false; onOpenAction: Mock<Procedure>; onViewDetails: Mock<Procedure>; }' but required in type 'FiscalPendenciesTableProps'.
+src/pages/App/FiscalDocuments/__tests__/fiscalPendencies.test.tsx(181,10): error TS2741: Property 'canOperateFiscal' is missing in type '{ state: any; onOpenPendencyAction: Mock<Procedure>; onViewPendencyDetails: Mock<Procedure>; }' but required in type 'FiscalPendenciesViewProps'.
+src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentAuthorizationDate.test.tsx(15,7): error TS2322: Type 'string' is not assignable to type '"autorizada" | "homologada" | "cancelada" | "pendente" | "erro" | "rejeitada" | "denegada" | "processando" | "abandoned"'.
+src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentAuthorizationDate.test.tsx(16,7): error TS2322: Type 'null' is not assignable to type 'string | undefined'.
+src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentDetailsModal.test.tsx(51,3): error TS2739: Type '{ general: { natureOperation: string; issueDate: string; model: string; series: string; number: string; operationType: string; destination: string; finalConsumer: string; presence: string; total: string; additionalInfo: string; }; ... 4 more ...; payments: { ...; }[]; }' is missing the following properties from type 'ParsedFiscalDetails': issuer, summary
+src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentDetailsModal.test.tsx(179,65): error TS2345: Argument of type '{ document: { document_type: "return" | "estorno"; id: string; order_id: string | null; numero_nfe: number; serie: string; chave_acesso: string; modelo: "55" | "65"; ambiente: 1 | 2; ... 13 more ...; orderNumber?: number; }; ... 5 more ...; fiscalSituation?: OrderFiscalSituation; }' is not assignable to parameter of type 'FiscalDocumentDetails'.
+  Types of property 'operationDrafts' are incompatible.
+    Type '{ id: string; operation_kind: "return" | "estorno"; environment: number; status: string; created_at: string; }[]' is not assignable to type 'FiscalOperationDraftSummary[]'.
+      Type '{ id: string; operation_kind: "return" | "estorno"; environment: number; status: string; created_at: string; }' is not assignable to type 'FiscalOperationDraftSummary'.
+        Types of property 'environment' are incompatible.
+          Type 'number' is not assignable to type '2 | 1'.
+src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentDetailsModal.test.tsx(416,7): error TS2739: Type '{ general: { natureOperation: string; issueDate: string; model: string; series: string; number: string; purpose: string; referencedKey: string; exitDate: string; operationType: string; destination: string; finalConsumer: string; presence: string; total: string; additionalInfo: string; }; ... 6 more ...; changeValue:...' is missing the following properties from type 'ParsedFiscalDetails': issuer, summary
+src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentDetailsModal.test.tsx(648,7): error TS2322: Type '{ id: string; numero_nfe: number; serie: string; chave_acesso: string; modelo: "55"; ambiente: 2; status: "pendente"; motivo_status: string; numero_protocolo: null; created_at: string; updated_at: string; document_type: string; xml_nfe: string | null; xml_protocolo: null; valor_total: number; }' is not assignable to type 'NfeDocumentRecord & { xml_nfe: string | null; xml_protocolo: string | null; }'.
+  Property 'order_id' is missing in type '{ id: string; numero_nfe: number; serie: string; chave_acesso: string; modelo: "55"; ambiente: 2; status: "pendente"; motivo_status: string; numero_protocolo: null; created_at: string; updated_at: string; document_type: string; xml_nfe: string | null; xml_protocolo: null; valor_total: number; }' but required in type 'NfeDocumentRecord'.
+src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentDetailsModal.test.tsx(744,9): error TS2353: Object literal may only specify known properties, and 'title' does not exist in type 'OrderFiscalSituation'.
+src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentEventsTab.test.tsx(19,11): error TS2739: Type '{ id: string; event_type: string; status: string; justification: string; protocol_number: string; requested_at: string; }' is missing the following properties from type 'FiscalDocumentEventSummary': attempt_number, cstat, xmotivo, requested_by
+src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentEventsTab.test.tsx(36,7): error TS2739: Type '{ id: string; event_type: string; status: string; protocol_number: string; requested_at: string; }' is missing the following properties from type 'FiscalDocumentEventSummary': attempt_number, cstat, xmotivo, requested_by, justification
+src/pages/App/FiscalDocuments/__tests__/issuedFiscalDocumentEventsTab.test.tsx(43,7): error TS2739: Type '{ id: string; event_type: string; status: string; justification: string; protocol_number: string; requested_at: string; }' is missing the following properties from type 'FiscalDocumentEventSummary': attempt_number, cstat, xmotivo, requested_by
+src/pages/App/FiscalDocuments/modals/issued-details-modal/__tests__/issuedDetailsModalSubmodules.test.tsx(58,11): error TS2739: Type '{ id: string; order_id: string; numero_nfe: number; serie: string; ambiente: 2; status: "homologada"; document_type: string; created_at: string; }' is missing the following properties from type 'NfeDocumentRecord': chave_acesso, modelo, updated_at
+src/pages/App/FiscalDocuments/modals/issued-details-modal/__tests__/issuedDetailsModalSubmodules.test.tsx(90,10): error TS2739: Type '{ storedXml: string; hasDetailsOrDocument: true; hasXmlAvailable: true; isLoading: false; shareFile: File; onReviewDraft: Mock<Procedure>; onShowXml: Mock<Procedure>; onPrintDanfe: Mock<...>; onDownloadXml: Mock<...>; onShareDanfe: Mock<...>; onClose: Mock<...>; }' is missing the following properties from type 'IssuedFiscalDocumentDetailsFooterProps': model, onPrintNfceCupom
+src/pages/App/Marketing/Posts/components/CampaignElementsPanel.tsx(6,8): error TS2307: Cannot find module '../../types/postSpecification.type' or its corresponding type declarations.
+src/pages/App/Marketing/Posts/components/GeneratedPostPreview/GeneratedPostCanvas.tsx(338,26): error TS2339: Property 'name' does not exist on type 'ProductVariationImageReference'.
+src/pages/App/Marketing/Posts/components/GeneratedPostPreview/GeneratedPostCanvas.tsx(343,26): error TS2339: Property 'name' does not exist on type 'ProductVariationImageReference'.
+src/pages/App/Marketing/Posts/components/GeneratedPostPreview/GeneratedPostPreview.tsx(71,21): error TS2304: Cannot find name 'WHITE_STUDIO_THEME_STYLE'.
+src/pages/App/Marketing/Posts/components/GeneratedPostPreview/GeneratedPostPreview.tsx(200,48): error TS2304: Cannot find name 'WHITE_STUDIO_THEME_STYLE'.
+src/pages/App/Marketing/Posts/components/PromptPreview/ChatGptProjectModal.tsx(6,8): error TS2307: Cannot find module '../../services/chatGptProjectInstructions' or its corresponding type declarations.
+src/pages/App/Marketing/Posts/components/PromptPreview/PromptImagesStrip.tsx(260,35): error TS2345: Argument of type '{ type: "OPEN_VIEW"; title: "Trocar Imagem Secundária"; }' is not assignable to parameter of type 'SetStateAction<PickerTarget | null>'.
+  Types of property 'title' are incompatible.
+    Type '"Trocar Imagem Secundária"' is not assignable to type '"Trocar Foto do Produto Aberto / Interno (OPEN_VIEW)"'.
+src/pages/App/Marketing/Posts/components/PromptPreview/PromptPreview.tsx(167,9): error TS2353: Object literal may only specify known properties, and 'campaign' does not exist in type 'GenerateZipOptions'.
+src/pages/App/Marketing/Posts/services/postArtDirectionGuidelines.test.ts(12,5): error TS2353: Object literal may only specify known properties, and 'aspectRatio' does not exist in type 'PostCampaign'.
+src/pages/App/Marketing/Posts/services/postCreatorResponsiveUi.test.ts(11,5): error TS2353: Object literal may only specify known properties, and 'prompt' does not exist in type 'PostCampaign'.
+src/pages/App/Marketing/Posts/services/postCreatorResponsiveUi.test.ts(41,49): error TS2345: Argument of type '{ campaign: PostCampaign; product: any; activeModels: never[]; }' is not assignable to parameter of type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; elementModels?: ElementModel[] | undefined; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }'.
+  Type '{ campaign: PostCampaign; product: any; activeModels: never[]; }' is missing the following properties from type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; elementModels?: ElementModel[] | undefined; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }': productCatalogUrl, globalRules
+src/pages/App/Marketing/Posts/services/postCreatorResponsiveUi.test.ts(61,11): error TS2739: Type '{ id: string; elementType: "BADGE"; name: string; opportunityId: string; generatedAssetUrl: string; createdAt: string; updatedAt: string; }' is missing the following properties from type 'ElementModel': contentKind, prompt, referenceFiles, generationVersion, status
+src/pages/App/Marketing/Posts/services/postCreatorResponsiveUi.test.ts(72,55): error TS2345: Argument of type '{ campaign: PostCampaign; product: any; activeModels: ElementModel[]; }' is not assignable to parameter of type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; elementModels?: ElementModel[] | undefined; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }'.
+  Type '{ campaign: PostCampaign; product: any; activeModels: ElementModel[]; }' is missing the following properties from type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; elementModels?: ElementModel[] | undefined; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }': productCatalogUrl, globalRules
+src/pages/App/Marketing/Posts/services/postCreatorResponsiveUi.test.ts(84,55): error TS2345: Argument of type '{ campaign: PostCampaign; product: any; activeModels: ElementModel[]; }' is not assignable to parameter of type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; elementModels?: ElementModel[] | undefined; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }'.
+  Type '{ campaign: PostCampaign; product: any; activeModels: ElementModel[]; }' is missing the following properties from type '{ productCatalogUrl: string; campaign: PostCampaign; activeModels: ElementModel[]; elementModels?: ElementModel[] | undefined; globalRules: string; product?: any; selectedVariationId?: string | undefined; manualOverrides?: { ...; } | ... 1 more ... | undefined; }': productCatalogUrl, globalRules
+src/pages/App/Marketing/Posts/services/postOfficialAssets.test.ts(233,7): error TS2353: Object literal may only specify known properties, and 'campaignId' does not exist in type 'ElementModel'.
+src/pages/App/Marketing/Posts/services/postOfficialAssets.test.ts(295,11): error TS2739: Type '{ id: string; name: string; elementType: "BADGE"; opportunityId: string; prompt: string; generatedAssetUrl: string; status: "UPDATED"; }' is missing the following properties from type 'ElementModel': contentKind, referenceFiles, generationVersion, createdAt, updatedAt
+src/pages/App/Marketing/Posts/services/postTemplateDraft.ts(14,3): error TS2322: Type '{ id: string; name: string; description: string; imagePrompt: string; formats: ("4:5" | "9:16")[]; aspectRatio: "4:5" | "9:16"; assets: PostModelAsset[]; extras: PostModelExtra[]; ... 13 more ...; promptNodes?: PromptNode[]; }' is not assignable to type 'PostTemplate'.
+  Types of property 'slug' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Marketing/Posts/services/productPostsService.ts(145,150): error TS2339: Property 'statusCode' does not exist on type 'never'.
+src/pages/App/Products/components/modals/product/ProductMigrationModal.tsx(57,38): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/components/tabs/technical/TechnicalCharacteristicSearch.test.tsx(49,7): error TS2739: Type '{ id: string; name: string; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/TechnicalCharacteristicSearch.test.tsx(50,7): error TS2739: Type '{ id: string; name: string; unit: string; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/TechnicalFieldInput.test.tsx(271,11): error TS2741: Property 'options' is missing in type '{ id: string; name: string; dataType: "boolean"; }' but required in type 'TechnicalFieldDefinition'.
+src/pages/App/Products/components/tabs/technical/technicalSearchUtils.test.ts(11,5): error TS2739: Type '{ id: string; name: string; isRequired: true; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalSearchUtils.test.ts(12,5): error TS2739: Type '{ id: string; name: string; isRequired: true; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalSearchUtils.test.ts(13,5): error TS2739: Type '{ id: string; name: string; isRequired: false; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalSearchUtils.test.ts(14,5): error TS2739: Type '{ id: string; name: string; isRequired: false; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalSearchUtils.test.ts(15,5): error TS2739: Type '{ id: string; name: string; isRequired: false; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalSearchUtils.test.ts(16,5): error TS2739: Type '{ id: string; name: string; isRequired: false; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts(47,7): error TS2739: Type '{ id: string; name: string; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts(48,7): error TS2739: Type '{ id: string; name: string; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts(49,7): error TS2739: Type '{ id: string; name: string; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts(50,7): error TS2739: Type '{ id: string; name: string; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts(80,11): error TS2739: Type '{ id: string; name: string; isRequired: true; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts(86,11): error TS2739: Type '{ id: string; name: string; isRequired: false; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts(92,11): error TS2739: Type '{ id: string; name: string; isRequired: false; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts(147,13): error TS2739: Type '{ id: string; name: string; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts(155,13): error TS2739: Type '{ id: string; name: string; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts(162,13): error TS2739: Type '{ id: string; name: string; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/technicalTabUtils.test.ts(181,11): error TS2739: Type '{ id: string; name: string; isRequired: false; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/App/Products/components/tabs/technical/YesNoPowerToggle.test.tsx(13,9): error TS2741: Property 'dataType' is missing in type '{ id: string; name: string; options: { id: string; value: string; }[]; }' but required in type 'TechnicalFieldDefinition'.
+src/pages/App/Products/components/variationModal/VariationModalHeader.tsx(4,15): error TS2305: Module '"../../domain/productLegibilityRules"' has no exported member 'LegibilityStatus'.
+src/pages/App/Products/components/variationTabs/VariationIdentificationTab.test.tsx(17,23): error TS2352: Conversion of type '{ name: string; description: string; categoryIds: never[]; }' to type 'Product' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ name: string; description: string; categoryIds: never[]; }' is missing the following properties from type 'Product': unitPrice, unit, active, itemType
+src/pages/App/Products/components/variationTabs/VariationIdentificationTab.test.tsx(37,26): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/components/variationTabs/VariationIdentificationTab.test.tsx(44,9): error TS2322: Type 'Dispatch<SetStateAction<Variation>>' is not assignable to type 'Dispatch<SetStateAction<Variation | null>>'.
+  Type 'SetStateAction<Variation | null>' is not assignable to type 'SetStateAction<Variation>'.
+    Type 'null' is not assignable to type 'SetStateAction<Variation>'.
+src/pages/App/Products/components/variationTabs/VariationTechnicalTab.test.tsx(81,7): error TS2739: Type '{ id: string; name: string; unitPrice: number; unit: string; categoryIds: string[]; technicalValues: { Cor: string; 'Profundidade total': string; 'Quantidade de portas': string; }; variableTechnicalFields: string[]; variations: never[]; }' is missing the following properties from type 'Product': description, active, itemType
+src/pages/App/Products/components/variationTabs/VariationTechnicalTab.test.tsx(102,7): error TS2741: Property 'active' is missing in type '{ id: string; name: string; sku: string; stock: number; unitPrice: number; technicalValues: {}; attributes: never[]; }' but required in type 'Variation'.
+src/pages/App/Products/domain/variationGenerationRules.test.ts(9,26): error TS2307: Cannot find module '../../../../types/product.type' or its corresponding type declarations.
+src/pages/App/Products/domain/variationGenerationRules.test.ts(10,32): error TS2307: Cannot find module '../../../../types/product.type' or its corresponding type declarations.
+src/pages/App/Products/domain/variationGenerationRules.ts(1,26): error TS2307: Cannot find module '../../../../types/product.type' or its corresponding type declarations.
+src/pages/App/Products/domain/variationGenerationRules.ts(2,32): error TS2307: Cannot find module '../../../../types/product.type' or its corresponding type declarations.
+src/pages/App/Products/hooks/form/productFormValidation.test.ts(291,23): error TS2352: Conversion of type '{ name: string; itemType: "composition"; productKind: "normal"; active: true; hasVariations: false; unitPrice: number; categoryIds: string[]; mainSupplierId: string; images: string[]; variations: { ...; }[]; }' to type 'Partial<Product>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'variations' are incompatible.
+    Type '{ id: string; name: string; sku: string; unitPrice: number; active: true; attributes: never[]; images: string[]; comboItems: never[]; }[]' is not comparable to type 'Variation[]'.
+      Property 'stock' is missing in type '{ id: string; name: string; sku: string; unitPrice: number; active: true; attributes: never[]; images: string[]; comboItems: never[]; }' but required in type 'Variation'.
+src/pages/App/Products/hooks/form/useProductFormSubmit.test.tsx(266,7): error TS2739: Type '{ name: string; requiredCategoryIds: string[]; }' is missing the following properties from type 'TechnicalFieldDefinition': id, dataType, options
+src/pages/App/Products/hooks/form/useProductFormSubmit.test.tsx(294,7): error TS2739: Type '{ name: string; requiredCategoryIds: string[]; }' is missing the following properties from type 'TechnicalFieldDefinition': id, dataType, options
+src/pages/App/Products/hooks/form/useProductFormSubmit.test.tsx(381,20): error TS2739: Type '{ productId: string; description: string; quantity: number; }' is missing the following properties from type 'ComboItem': unitPrice, stock
+src/pages/App/Products/hooks/useProductsModals.ts(3,36): error TS2307: Cannot find module '../../types/product.type' or its corresponding type declarations.
+src/pages/App/Products/hooks/useProductsModals.ts(88,52): error TS7006: Parameter 'variation' implicitly has an 'any' type.
+src/pages/App/Products/hooks/useProductsModals.ts(88,63): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/pages/App/Products/MetaCatalog/services/metaCatalogBatchSync.test.ts(157,65): error TS2493: Tuple type '[]' of length '0' has no element at index '1'.
+src/pages/App/Products/modals/characteristicsAi/__tests__/characteristicsAiUtils.test.ts(10,56): error TS2307: Cannot find module '../../../../../../../shared-utils/productAiFormSchemas' or its corresponding type declarations.
+src/pages/App/Products/modals/characteristicsAi/CharacteristicsDiffTable.tsx(3,56): error TS2307: Cannot find module '../../../../../../shared-utils/productAiFormSchemas' or its corresponding type declarations.
+src/pages/App/Products/modals/characteristicsAi/CharacteristicsDiffTable.tsx(236,29): error TS7006: Parameter 'source' implicitly has an 'any' type.
+src/pages/App/Products/modals/characteristicsAi/CharacteristicsDiffTable.tsx(236,37): error TS7006: Parameter 'idx' implicitly has an 'any' type.
+src/pages/App/Products/modals/characteristicsAi/ProductAiReviewPhase.tsx(2,30): error TS2307: Cannot find module '../../../../../types/product.type' or its corresponding type declarations.
+src/pages/App/Products/modals/characteristicsAi/useProductAiCharacteristicsModal.ts(5,30): error TS2307: Cannot find module '../../../../../types/product.type' or its corresponding type declarations.
+src/pages/App/Products/modals/characteristicsAi/useProductAiCharacteristicsModal.ts(84,5): error TS2322: Type 'Resolver<{ additionalInfo?: string | undefined; }, any, { additionalInfo: string; }>' is not assignable to type 'Resolver<{ additionalInfo: string; }, any, { additionalInfo: string; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ additionalInfo: string; }>' is not assignable to type 'ResolverOptions<{ additionalInfo?: string | undefined; }>'.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/modals/characteristicsAi/useProductAiCharacteristicsModal.ts(92,5): error TS2322: Type 'Resolver<{ descriptiveText: string; additionalInfo?: string | undefined; }, any, { descriptiveText: string; additionalInfo: string; }>' is not assignable to type 'Resolver<{ descriptiveText: string; additionalInfo: string; }, any, { descriptiveText: string; additionalInfo: string; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ descriptiveText: string; additionalInfo: string; }>' is not assignable to type 'ResolverOptions<{ descriptiveText: string; additionalInfo?: string | undefined; }>'.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/modals/characteristicsAi/useProductAiCharacteristicsModal.ts(125,9): error TS2322: Type '{ id: string; name: string; dataType: "number" | "boolean" | "text" | "list" | "radio" | "percentage" | "weight" | "integer" | "decimal" | "text_short" | "text_long" | "multi_select" | "measure"; options: { ...; }[]; }[]' is not assignable to type '{ id: string; name: string; dataType?: string | undefined; options?: string[] | undefined; }[]'.
+  Type '{ id: string; name: string; dataType: "number" | "boolean" | "text" | "list" | "radio" | "percentage" | "weight" | "integer" | "decimal" | "text_short" | "text_long" | "multi_select" | "measure"; options: { ...; }[]; }' is not assignable to type '{ id: string; name: string; dataType?: string | undefined; options?: string[] | undefined; }'.
+    Types of property 'options' are incompatible.
+      Type '{ id: string; value: string; }[]' is not assignable to type 'string[]'.
+        Type '{ id: string; value: string; }' is not assignable to type 'string'.
+src/pages/App/Products/modals/characteristicsAi/useProductAiCharacteristicsModal.ts(166,9): error TS2322: Type '{ id: string; name: string; dataType: "number" | "boolean" | "text" | "list" | "radio" | "percentage" | "weight" | "integer" | "decimal" | "text_short" | "text_long" | "multi_select" | "measure"; options: { ...; }[]; }[]' is not assignable to type '{ id: string; name: string; dataType?: string | undefined; options?: string[] | undefined; }[]'.
+  Type '{ id: string; name: string; dataType: "number" | "boolean" | "text" | "list" | "radio" | "percentage" | "weight" | "integer" | "decimal" | "text_short" | "text_long" | "multi_select" | "measure"; options: { ...; }[]; }' is not assignable to type '{ id: string; name: string; dataType?: string | undefined; options?: string[] | undefined; }'.
+    Types of property 'options' are incompatible.
+      Type '{ id: string; value: string; }[]' is not assignable to type 'string[]'.
+        Type '{ id: string; value: string; }' is not assignable to type 'string'.
+src/pages/App/Products/modals/characteristicsAi/useProductAiCharacteristicsModal.ts(212,18): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/pages/App/Products/modals/characteristicsAi/utils/productAiApplyHelpers.ts(2,56): error TS2307: Cannot find module '../../../../../../../shared-utils/productAiFormSchemas' or its corresponding type declarations.
+src/pages/App/Products/modals/characteristicsAi/utils/productAiSelectionRules.ts(2,56): error TS2307: Cannot find module '../../../../../../../shared-utils/productAiFormSchemas' or its corresponding type declarations.
+src/pages/App/Products/modals/descriptionAi/ProductDescriptionInformativeModal.tsx(36,5): error TS2322: Type 'Resolver<{ descriptiveText: string; additionalInfo?: string | undefined; }, any, { descriptiveText: string; additionalInfo: string; }>' is not assignable to type 'Resolver<{ descriptiveText: string; additionalInfo: string; }, any, { descriptiveText: string; additionalInfo: string; }>'.
+  Types of parameters 'options' and 'options' are incompatible.
+    Type 'ResolverOptions<{ descriptiveText: string; additionalInfo: string; }>' is not assignable to type 'ResolverOptions<{ descriptiveText: string; additionalInfo?: string | undefined; }>'.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Products/modals/descriptionAi/ProductDescriptionInformativeModal.tsx(232,40): error TS2345: Argument of type '(values: ProductAiDescriptiveTextFormValues) => Promise<void>' is not assignable to parameter of type 'SubmitHandler<TFieldValues, Promise<void>>'.
+  Types of parameters 'values' and 'data' are incompatible.
+    Type 'TFieldValues' is not assignable to type '{ descriptiveText: string; additionalInfo: string; }'.
+      Type 'FieldValues' is missing the following properties from type '{ descriptiveText: string; additionalInfo: string; }': descriptiveText, additionalInfo
+src/pages/App/Products/modals/ProductAiCharacteristicsModal.test.tsx(60,9): error TS2322: Type '{ id: string; name: string; dataType: string; options: string[]; }[]' is not assignable to type 'readonly TechnicalFieldDefinition[]'.
+  Type '{ id: string; name: string; dataType: string; options: string[]; }' is not assignable to type 'TechnicalFieldDefinition'.
+    Types of property 'dataType' are incompatible.
+      Type 'string' is not assignable to type '"number" | "boolean" | "text" | "list" | "radio" | "percentage" | "weight" | "integer" | "decimal" | "text_short" | "text_long" | "multi_select" | "measure"'.
+src/pages/App/Products/modals/ProductAiCharacteristicsModal.test.tsx(82,9): error TS2322: Type '{ id: string; name: string; dataType: string; options: string[]; }[]' is not assignable to type 'readonly TechnicalFieldDefinition[]'.
+  Type '{ id: string; name: string; dataType: string; options: string[]; }' is not assignable to type 'TechnicalFieldDefinition'.
+    Types of property 'dataType' are incompatible.
+      Type 'string' is not assignable to type '"number" | "boolean" | "text" | "list" | "radio" | "percentage" | "weight" | "integer" | "decimal" | "text_short" | "text_long" | "multi_select" | "measure"'.
+src/pages/App/Products/modals/ProductAiCharacteristicsModal.test.tsx(116,9): error TS2322: Type '{ id: string; name: string; dataType: string; options: string[]; }[]' is not assignable to type 'readonly TechnicalFieldDefinition[]'.
+  Type '{ id: string; name: string; dataType: string; options: string[]; }' is not assignable to type 'TechnicalFieldDefinition'.
+    Types of property 'dataType' are incompatible.
+      Type 'string' is not assignable to type '"number" | "boolean" | "text" | "list" | "radio" | "percentage" | "weight" | "integer" | "decimal" | "text_short" | "text_long" | "multi_select" | "measure"'.
+src/pages/App/Products/modals/ProductAiCharacteristicsModal.test.tsx(149,9): error TS2322: Type '{ id: string; name: string; dataType: string; options: string[]; }[]' is not assignable to type 'readonly TechnicalFieldDefinition[]'.
+  Type '{ id: string; name: string; dataType: string; options: string[]; }' is not assignable to type 'TechnicalFieldDefinition'.
+    Types of property 'dataType' are incompatible.
+      Type 'string' is not assignable to type '"number" | "boolean" | "text" | "list" | "radio" | "percentage" | "weight" | "integer" | "decimal" | "text_short" | "text_long" | "multi_select" | "measure"'.
+src/pages/App/Products/modals/ProductAiCharacteristicsModal.test.tsx(211,9): error TS2322: Type '{ id: string; name: string; dataType: string; options: string[]; }[]' is not assignable to type 'readonly TechnicalFieldDefinition[]'.
+  Type '{ id: string; name: string; dataType: string; options: string[]; }' is not assignable to type 'TechnicalFieldDefinition'.
+    Types of property 'dataType' are incompatible.
+      Type 'string' is not assignable to type '"number" | "boolean" | "text" | "list" | "radio" | "percentage" | "weight" | "integer" | "decimal" | "text_short" | "text_long" | "multi_select" | "measure"'.
+src/pages/App/Products/modals/ProductAiCharacteristicsModal.test.tsx(261,9): error TS2322: Type '{ id: string; name: string; dataType: string; options: string[]; }[]' is not assignable to type 'readonly TechnicalFieldDefinition[]'.
+  Type '{ id: string; name: string; dataType: string; options: string[]; }' is not assignable to type 'TechnicalFieldDefinition'.
+    Types of property 'dataType' are incompatible.
+      Type 'string' is not assignable to type '"number" | "boolean" | "text" | "list" | "radio" | "percentage" | "weight" | "integer" | "decimal" | "text_short" | "text_long" | "multi_select" | "measure"'.
+src/pages/App/Products/modals/ProductAiCharacteristicsModal.tsx(2,30): error TS2307: Cannot find module '../../../../types/product.type' or its corresponding type declarations.
+src/pages/App/Products/modals/ProductAiCharacteristicsModal.tsx(36,5): error TS2339: Property 'isMinuteLimitReached' does not exist on type '{ activeMode: "web_search" | "descriptive_text"; setActiveMode: Dispatch<SetStateAction<"web_search" | "descriptive_text">>; phase: "input" | "preview"; ... 29 more ...; handleReturnToModeSelection: () => void; }'.
+src/pages/App/Products/modals/ProductAiCharacteristicsModal.tsx(101,15): error TS2322: Type 'UseFormReturn<{ additionalInfo: string; }, any, TFieldValues>' is not assignable to type 'UseFormReturn<{ additionalInfo: string; }>'.
+  Types of property 'handleSubmit' are incompatible.
+    Type 'UseFormHandleSubmit<{ additionalInfo: string; }, TFieldValues>' is not assignable to type 'UseFormHandleSubmit<{ additionalInfo: string; }, { additionalInfo: string; }>'.
+      Types of parameters 'onValid' and 'onValid' are incompatible.
+        Types of parameters 'data' and 'data' are incompatible.
+          Type 'TFieldValues' is not assignable to type '{ additionalInfo: string; }'.
+            Property 'additionalInfo' is missing in type 'FieldValues' but required in type '{ additionalInfo: string; }'.
+src/pages/App/Products/modals/ProductAiCharacteristicsModal.tsx(120,15): error TS2322: Type 'UseFormReturn<{ descriptiveText: string; additionalInfo: string; }, any, TFieldValues>' is not assignable to type 'UseFormReturn<{ descriptiveText: string; additionalInfo: string; }>'.
+  Types of property 'handleSubmit' are incompatible.
+    Type 'UseFormHandleSubmit<{ descriptiveText: string; additionalInfo: string; }, TFieldValues>' is not assignable to type 'UseFormHandleSubmit<{ descriptiveText: string; additionalInfo: string; }, { descriptiveText: string; additionalInfo: string; }>'.
+      Types of parameters 'onValid' and 'onValid' are incompatible.
+        Types of parameters 'data' and 'data' are incompatible.
+          Type 'TFieldValues' is not assignable to type '{ descriptiveText: string; additionalInfo: string; }'.
+            Type 'FieldValues' is missing the following properties from type '{ descriptiveText: string; additionalInfo: string; }': descriptiveText, additionalInfo
+src/pages/App/Products/ProductList/components/Card/ProductCardHeader.test.tsx(41,9): error TS2739: Type '{ id: string; name: string; description: string; productKind: "normal"; active: true; isDraft: false; itemType: "product"; }' is missing the following properties from type 'Product': unitPrice, unit
+src/pages/App/Products/ProductList/components/Card/ProductCardHeader.test.tsx(141,9): error TS2739: Type '{ id: string; name: string; description: string; productKind: "normal"; active: true; isDraft: false; itemType: "product"; }' is missing the following properties from type 'Product': unitPrice, unit
+src/pages/App/Products/ProductList/components/Shared/MergedBadge.tsx(21,10): error TS2339: Property 'catch' does not exist on type 'PromiseLike<void>'.
+src/pages/App/Products/ProductList/components/Table/ProductRowDescriptionCell.test.tsx(17,9): error TS2739: Type '{ id: string; name: string; description: string; productKind: "normal"; active: true; isDraft: false; itemType: "product"; }' is missing the following properties from type 'Product': unitPrice, unit
+src/pages/App/Products/ProductList/components/Table/ProductRowDescriptionCell.test.tsx(141,9): error TS2739: Type '{ id: string; name: string; description: string; productKind: "normal"; active: true; isDraft: false; itemType: "product"; }' is missing the following properties from type 'Product': unitPrice, unit
+src/pages/App/Products/ProductList/components/Table/ProductRowDescriptionCell.tsx(188,33): error TS2339: Property 'mergedToVariationId' does not exist on type 'Product & { readonly is_draft?: boolean | undefined; readonly allVariations?: readonly unknown[] | undefined; readonly variationId?: string | undefined; }'.
+src/pages/App/Products/ProductList/components/Table/ProductRowDescriptionCell.tsx(191,69): error TS2339: Property 'mergedToVariationId' does not exist on type 'Product & { readonly is_draft?: boolean | undefined; readonly allVariations?: readonly unknown[] | undefined; readonly variationId?: string | undefined; }'.
+src/pages/App/Products/ProductList/modals/MoveProductToTrashModal.test.tsx(10,7): error TS2741: Property 'itemType' is missing in type '{ id: string; code: string; name: string; unitPrice: number; unit: string; categoryIds: string[]; description: string; active: true; isDraft: false; }' but required in type 'Product'.
+src/pages/App/Products/ProductList/utils/activation/productActivationState.test.ts(29,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/activation/productActivationState.test.ts(30,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/activation/productActivationState.test.ts(48,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/activation/productActivationState.test.ts(49,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/activation/productActivationState.test.ts(88,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/activation/productActivationState.test.ts(89,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/catalog/productCatalogState.test.ts(20,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/catalog/productCatalogState.test.ts(21,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/catalog/productCatalogState.test.ts(41,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/catalog/productCatalogState.test.ts(58,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/catalog/productCatalogState.test.ts(80,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/catalog/productCatalogState.test.ts(87,12): error TS2532: Object is possibly 'undefined'.
+src/pages/App/Products/ProductList/utils/catalog/productListTransformers.ts(147,5): error TS2353: Object literal may only specify known properties, and 'image_url' does not exist in type 'ProductListRow'.
+src/pages/App/Registrations/shared/modals/personForm/usePersonSubmit.ts(6,29): error TS2305: Module '"@/hooks/useZodForm"' has no exported member 'UseZodFormReturn'.
+src/pages/App/Registrations/shared/modals/personForm/usePersonSubmit.ts(88,8): error TS7006: Parameter 'errors' implicitly has an 'any' type.
+src/pages/App/SalesOrder/__tests__/salesOrderItemHandlingOptions.test.tsx(227,13): error TS2322: Type '{ item: Item; idx: number; deliveryMethod: "delivery"; settings: AppSettings; pricing: any; onChange: Mock<Procedure>; onBatchChange: Mock<Procedure>; ... 10 more ...; serviceProductLink: null; }' is not assignable to type 'IntrinsicAttributes & BodyRowViewProps'.
+  Property 'isTemporaryProduct' does not exist on type 'IntrinsicAttributes & BodyRowViewProps'.
+src/pages/App/SalesOrder/__tests__/salesOrderItemHandlingOptions.test.tsx(259,9): error TS2322: Type '{ item: Item; idx: number; deliveryMethod: "delivery"; settings: AppSettings; pricing: any; onChange: Mock<Procedure>; onBatchChange: Mock<Procedure>; ... 10 more ...; serviceProductLink: null; }' is not assignable to type 'IntrinsicAttributes & BodyRowViewProps'.
+  Property 'isTemporaryProduct' does not exist on type 'IntrinsicAttributes & BodyRowViewProps'.
+src/pages/App/SalesOrder/__tests__/servicePrintingAndWhatsapp.test.tsx(46,7): error TS2739: Type '{ street: string; number: string; neighborhood: string; city: string; }' is missing the following properties from type 'FullAddress': cep, complement, observation
+src/pages/App/SalesOrder/__tests__/servicePrintingAndWhatsapp.test.tsx(83,7): error TS2739: Type '{ date: string; }' is missing the following properties from type '{ date: string; endDate?: string | undefined; dateType?: "fixed" | "range" | undefined; time: string; startTime?: string | undefined; endTime?: string | undefined; type: "fixed" | "range"; ... 4 more ...; scheduleMode?: "defined" | ... 1 more ... | undefined; }': time, type
+src/pages/App/SalesOrder/__tests__/servicePrintingAndWhatsapp.test.tsx(90,9): error TS2353: Object literal may only specify known properties, and 'value' does not exist in type 'Payment'.
+src/pages/App/SalesOrder/__tests__/servicePrintingAndWhatsapp.test.tsx(144,50): error TS2345: Argument of type '{ shipping: { useCustomerAddress: boolean; deliveryAddress: { street: string; number: string; complement: string; observation: string; neighborhood: string; city: string; state: string; }; value: number; ... 15 more ...; deliveryResponsibleName?: string; }; ... 62 more ...; nfeDraft?: Partial<Record<"1" | "2", { rec...' is not assignable to parameter of type 'Order'.
+  The types of 'shipping.deliveryAddress' are incompatible between these types.
+    Property 'cep' is missing in type '{ street: string; number: string; complement: string; observation: string; neighborhood: string; city: string; state: string; }' but required in type 'FullAddress'.
+src/pages/App/SalesOrder/__tests__/servicePrintingAndWhatsapp.test.tsx(145,48): error TS2345: Argument of type '{ shipping: { useCustomerAddress: boolean; deliveryAddress: { street: string; number: string; complement: string; observation: string; neighborhood: string; city: string; state: string; }; value: number; ... 15 more ...; deliveryResponsibleName?: string; }; ... 62 more ...; nfeDraft?: Partial<Record<"1" | "2", { rec...' is not assignable to parameter of type 'Order'.
+  The types of 'shipping.deliveryAddress' are incompatible between these types.
+    Property 'cep' is missing in type '{ street: string; number: string; complement: string; observation: string; neighborhood: string; city: string; state: string; }' but required in type 'FullAddress'.
+src/pages/App/SalesOrder/__tests__/servicePrintingAndWhatsapp.test.tsx(146,42): error TS2345: Argument of type '{ shipping: { useCustomerAddress: boolean; deliveryAddress: { street: string; number: string; complement: string; observation: string; neighborhood: string; city: string; state: string; }; value: number; ... 15 more ...; deliveryResponsibleName?: string; }; ... 62 more ...; nfeDraft?: Partial<Record<"1" | "2", { rec...' is not assignable to parameter of type 'Order'.
+  The types of 'shipping.deliveryAddress' are incompatible between these types.
+    Property 'cep' is missing in type '{ street: string; number: string; complement: string; observation: string; neighborhood: string; city: string; state: string; }' but required in type 'FullAddress'.
+src/pages/App/SalesOrder/__tests__/shippingAndSchedulingCleanUi.test.tsx(90,9): error TS2322: Type '{ shipping: Shipping; setShipping: Mock<Procedure>; onChangeShippingValue: Mock<Procedure>; onChangeScheduling: Mock<Procedure>; ... 5 more ...; customerData: any; }' is not assignable to type 'IntrinsicAttributes & Props'.
+  Property 'onChangeShippingValue' does not exist on type 'IntrinsicAttributes & Props'.
+src/pages/App/SalesOrder/Assistance/services/assistanceOrderService.ts(138,9): error TS2322: Type 'string' is not assignable to type '"delivery" | "pickup"'.
+src/pages/App/SalesOrder/components/steps/LogisticsStepSection.tsx(31,5): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/App/SalesOrder/components/steps/PaymentsStepSection.tsx(25,5): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/pages/App/SalesOrder/hooks/__tests__/test_prod_eq.ts(7,10): error TS2305: Module '"../../../../utils/productService/productQueryService"' has no exported member 'getProductSelectableById'.
+src/pages/App/SalesOrder/hooks/__tests__/test_prod_eq.ts(8,10): error TS2305: Module '"../../../../utils/compositionService"' has no exported member 'getCompositionSelectableById'.
+src/pages/App/SalesOrder/hooks/productSearchDeepFetch.ts(97,44): error TS2551: Property 'calculated_price' does not exist on type 'Composition'. Did you mean 'calculatedPrice'?
+src/pages/App/SalesOrder/hooks/useOrderFormSubmission.ts(131,13): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/App/SalesOrder/hooks/useOrderFormSubmission.ts(132,13): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/App/SalesOrder/hooks/useOrderFormSubmission.ts(217,13): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/App/SalesOrder/hooks/useOrderFormSubmission.ts(218,13): error TS2322: Type 'string' is not assignable to type 'number'.
+src/pages/App/SalesOrder/hooks/useSalesOrderForm.test.tsx(365,43): error TS2739: Type '{ method: string; amount: number; status: string; }' is missing the following properties from type 'Payment': fee, feeType
+src/pages/App/SalesOrder/hooks/useSalesOrderForm.ts(172,9): error TS2345: Argument of type 'number | null' is not assignable to parameter of type 'string | null | undefined'.
+  Type 'number' is not assignable to type 'string'.
+src/pages/App/SalesOrder/hooks/useSalesOrderForm.ts(208,5): error TS2322: Type '() => Promise<number | null>' is not assignable to type '() => Promise<string | null>'.
+  Type 'Promise<number | null>' is not assignable to type 'Promise<string | null>'.
+    Type 'number | null' is not assignable to type 'string | null'.
+      Type 'number' is not assignable to type 'string'.
+src/pages/App/SalesOrder/hooks/useSalesOrderForm.ts(475,16): error TS2345: Argument of type '(Item | { handlingType: string; assemblyResponsible: string; orderItemId?: string | undefined; originalOrderItemIndex?: number | undefined; linkedProductOrderItemIds?: string[] | undefined; ... 30 more ...; originalTotalValue?: number | undefined; })[]' is not assignable to parameter of type 'SetStateAction<Item[]>'.
+  Type '(Item | { handlingType: string; assemblyResponsible: string; orderItemId?: string | undefined; originalOrderItemIndex?: number | undefined; linkedProductOrderItemIds?: string[] | undefined; ... 30 more ...; originalTotalValue?: number | undefined; })[]' is not assignable to type 'Item[]'.
+    Type 'Item | { handlingType: string; assemblyResponsible: string; orderItemId?: string | undefined; originalOrderItemIndex?: number | undefined; linkedProductOrderItemIds?: string[] | undefined; ... 30 more ...; originalTotalValue?: number | undefined; }' is not assignable to type 'Item'.
+      Type '{ handlingType: string; assemblyResponsible: string; orderItemId?: string; originalOrderItemIndex?: number; linkedProductOrderItemIds?: string[]; linkedProductOrderItemId?: string; ... 29 more ...; originalTotalValue?: number; }' is not assignable to type 'Item'.
+        Types of property 'assemblyResponsible' are incompatible.
+          Type 'string' is not assignable to type '"" | "Nossa equipe" | "Montador terceirizado" | undefined'.
+src/pages/App/SalesOrder/modals/CustomerSearchModal.tsx(150,36): error TS18048: 'o.date' is possibly 'undefined'.
+src/pages/App/SalesOrder/modals/order-edit-modal/__tests__/orderEditModalModules.test.ts(52,5): error TS2739: Type '{ fullName: string; }' is missing the following properties from type 'CustomerData': phone, fullAddress
+src/pages/App/SalesOrder/modals/order-edit-modal/__tests__/orderEditModalModules.test.ts(54,7): error TS2739: Type '{ orderItemId: string; productId: string; description: string; quantity: number; unitPrice: number; }' is missing the following properties from type 'Item': unitDiscount, discountType, handlingType
+src/pages/App/SalesOrder/modals/order-edit-modal/__tests__/orderEditModalModules.test.ts(63,5): error TS2739: Type '{ deliveryMethod: "delivery"; }' is missing the following properties from type 'Shipping': value, orderType, scheduling
+src/pages/App/SalesOrder/modals/order-edit-modal/__tests__/orderEditModalModules.test.ts(187,9): error TS2345: Argument of type '{ id: string; orderId: string; environment: 2; action: "estorno"; status: "ready_to_reissue"; reversalConfirmed: boolean; reversalDocumentId: string; replacementDocumentId: null; createdAt: string; completedAt: null; }[]' is not assignable to parameter of type 'FiscalOrderEditReplacement[]'.
+  Type '{ id: string; orderId: string; environment: 2; action: "estorno"; status: "ready_to_reissue"; reversalConfirmed: boolean; reversalDocumentId: string; replacementDocumentId: null; createdAt: string; completedAt: null; }' is missing the following properties from type 'FiscalOrderEditReplacement': draftId, sourceDocument
+src/pages/App/SalesOrder/modals/order-edit-modal/__tests__/orderEditModalModules.test.ts(267,11): error TS2739: Type '{ orderItemId: string; productId: string; isTemporaryProduct: true; description: string; quantity: number; unitPrice: number; }' is missing the following properties from type 'Item': unitDiscount, discountType, handlingType
+src/pages/App/SalesOrder/modals/order-edit-modal/components/OrderEditModalContent.tsx(137,17): error TS2322: Type '(e?: MouseEvent<Element, MouseEvent> | undefined) => Promise<string | false>' is not assignable to type '(e?: React.MouseEvent) => Promise<false | { id: string; status: "draft" | "fulfilled" | "scheduled" | "quoted"; syntheticFixture?: { scenarioKey: string; version: 1; payloadHash?: string; }; ... 60 more ...; nfeDraft?: Partial<Record<"1" | "2", { recipientTaxId?: string; items: Array<{ orderItemId?: string; productI...'.
+  Type 'Promise<string | false>' is not assignable to type 'Promise<false | { id: string; status: "draft" | "fulfilled" | "scheduled" | "quoted"; syntheticFixture?: { scenarioKey: string; version: 1; payloadHash?: string | undefined; } | undefined; ... 60 more ...; nfeDraft?: Partial<...> | undefined; }>'.
+    Type 'string | false' is not assignable to type 'false | { id: string; status: "draft" | "fulfilled" | "scheduled" | "quoted"; syntheticFixture?: { scenarioKey: string; version: 1; payloadHash?: string | undefined; } | undefined; is_test?: boolean | undefined; ... 59 more ...; nfeDraft?: Partial<...> | undefined; }'.
+      Type 'string' is not assignable to type 'false | { id: string; status: "draft" | "fulfilled" | "scheduled" | "quoted"; syntheticFixture?: { scenarioKey: string; version: 1; payloadHash?: string | undefined; } | undefined; is_test?: boolean | undefined; ... 59 more ...; nfeDraft?: Partial<...> | undefined; }'.
+src/pages/App/SalesOrder/modals/order-edit-modal/hooks/useOrderEditActions.ts(33,9): error TS2322: Type '{ items: Item[]; shipping: Shipping; payments: Payment[]; customerData: CustomerData; observation: string; seller: string; sellerId: string | undefined; ... 18 more ...; schedulingSessionRef: React.MutableRefObject<...>; }' is not assignable to type '{ items: any[]; shipping: any; currentOrder: Order; schedulingSessionRef?: { current?: { dateMode?: string | undefined; } | null | undefined; } | undefined; }'.
+  The types of 'schedulingSessionRef.current' are incompatible between these types.
+    Type 'SchedulingSessionMemory | null' is not assignable to type '{ dateMode?: string | undefined; } | null | undefined'.
+      Type 'SchedulingSessionMemory' is not assignable to type '{ dateMode?: string | undefined; }'.
+        Types of property 'dateMode' are incompatible.
+          Type 'DateScheduleMode' is not assignable to type 'string | undefined'.
+            Type 'null' is not assignable to type 'string | undefined'.
+src/pages/App/SalesOrder/modals/order-edit-modal/useOrderEditFiscalFlow.ts(127,57): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'FieldErrors'.
+  Type 'unknown' is not assignable to type 'Partial<FieldErrorsImpl<{ [x: string]: any; }>>'.
+src/pages/App/SalesOrder/modals/OrderEditModal.tsx(75,5): error TS2322: Type '<TResult>(nextValues: { [x: string]: unknown; date: string; seller: string; orderType?: "sale" | "assistance" | "showroom" | "budget" | "return" | undefined; status?: "draft" | "fulfilled" | "cancelled" | "scheduled" | "quoted" | undefined; customerData?: { ...; } | undefined; items?: { ...; }[] | undefined; shippin...' is not assignable to type '(data: unknown, onValid: (validatedData: unknown) => Promise<string | false>, onInvalid: (errors: unknown) => void) => Promise<string | false>'.
+  Types of parameters 'nextValues' and 'data' are incompatible.
+    Type 'unknown' is not assignable to type '{ [x: string]: unknown; date: string; seller: string; orderType?: "sale" | "assistance" | "showroom" | "budget" | "return" | undefined; status?: "draft" | "fulfilled" | "cancelled" | "scheduled" | "quoted" | undefined; customerData?: { ...; } | undefined; items?: { ...; }[] | undefined; shipping?: { ...; } | undefin...'.
+src/pages/App/SalesOrder/modals/SalesOrderModalsContainer.tsx(5,26): error TS5097: An import path can only end with a '.tsx' extension when 'allowImportingTsExtensions' is enabled.
+src/pages/App/SalesOrder/modals/UnlinkedReturnOrderModal.tsx(69,89): error TS2322: Type 'string' is not assignable to type '"Estorno de crédito" | "Pix" | "Dinheiro"'.
+src/pages/App/SalesOrder/modals/UnlinkedReturnOrderModal.tsx(81,79): error TS2322: Type 'string' is not assignable to type '"Estorno de crédito" | "Pix" | "Dinheiro"'.
+src/pages/App/SalesOrder/OrderActions/__tests__/DeliveryInfoModal.test.tsx(44,8): error TS2741: Property 'staleButtons' is missing in type '{ order: Order; isOpen: true; onClose: Mock<Procedure>; clickedButtons: {}; onExecuteAction: Mock<Procedure>; }' but required in type 'DeliveryInfoModalProps'.
+src/pages/App/SalesOrder/OrderActions/__tests__/DeliveryInfoModal.test.tsx(57,8): error TS2741: Property 'staleButtons' is missing in type '{ order: Order; isOpen: false; onClose: Mock<Procedure>; clickedButtons: {}; onExecuteAction: Mock<Procedure>; }' but required in type 'DeliveryInfoModalProps'.
+src/pages/App/SalesOrder/OrderActions/__tests__/DeliveryInfoModal.test.tsx(75,8): error TS2741: Property 'staleButtons' is missing in type '{ order: Order; isOpen: true; onClose: Mock<Procedure>; clickedButtons: {}; onExecuteAction: Mock<Procedure>; }' but required in type 'DeliveryInfoModalProps'.
+src/pages/App/SalesOrder/OrderActions/nfe-modal/__tests__/harness/emissionTestHarness.ts(4,15): error TS2614: Module '"@/pages/types/order.type"' has no exported member 'OrderItem'. Did you mean to use 'import OrderItem from "@/pages/types/order.type"' instead?
+src/pages/App/SalesOrder/OrderActions/nfe-modal/__tests__/nfeValidationService.test.ts(20,7): error TS2561: Object literal may only specify known properties, but 'address' does not exist in type 'CustomerData'. Did you mean to write 'noAddress'?
+src/pages/App/SalesOrder/OrderActions/nfe-modal/__tests__/nfeValidationService.test.ts(77,7): error TS2353: Object literal may only specify known properties, and 'isLoadingNfeNumber' does not exist in type 'ValidationParams'.
+src/pages/App/SalesOrder/OrderActions/nfe-modal/__tests__/nfeValidationService.test.ts(128,9): error TS2739: Type '{ fullName: string; personType: undefined; cpfCnpj: undefined; }' is missing the following properties from type 'CustomerData': phone, fullAddress
+src/pages/App/SalesOrder/OrderActions/nfe-modal/__tests__/nfeValidationService.test.ts(167,7): error TS2353: Object literal may only specify known properties, and 'isLoadingNfeNumber' does not exist in type 'ValidationParams'.
+src/pages/App/SalesOrder/OrderActions/nfe-modal/__tests__/nfeValidationService.test.ts(200,7): error TS2353: Object literal may only specify known properties, and 'isLoadingNfeNumber' does not exist in type 'ValidationParams'.
+src/pages/App/SalesOrder/OrderActions/nfe-modal/components/NfeFiscalIssueModal.tsx(151,50): error TS2339: Property 'status' does not exist on type 'NfeEmissionResult'.
+src/pages/App/SalesOrder/OrderActions/nfe-modal/components/NfeFiscalIssueModal.tsx(151,75): error TS2551: Property 'state' does not exist on type 'NfeEmissionResult'. Did you mean 'cStat'?
+src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/item-enrichment/__tests__/itemEnrichmentModules.test.ts(10,15): error TS2614: Module '"@/pages/types/order.type"' has no exported member 'OrderItem'. Did you mean to use 'import OrderItem from "@/pages/types/order.type"' instead?
+src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/item-enrichment/__tests__/itemEnrichmentModules.test.ts(11,40): error TS2307: Cannot find module '../../NfeItemsSection' or its corresponding type declarations.
+src/pages/App/SalesOrder/OrderActions/nfe-modal/hooks/useNfeItemEnrichment.test.tsx(415,43): error TS2448: Block-scoped variable 'query' used before its declaration.
+src/pages/App/SalesOrder/OrderActions/nfe-modal/NfeCustomerTab.test.tsx(26,5): error TS2739: Type '{ street: string; number: string; neighborhood: string; city: string; state: string; cep: string; }' is missing the following properties from type 'FullAddress': complement, observation
+src/pages/App/SalesOrder/OrderActions/nfe-modal/NfeEnvironmentChoiceModal.tsx(86,82): error TS2345: Argument of type 'OrderFiscalBadgeStatuses | null' is not assignable to parameter of type 'OrderFiscalBadgeStatuses | undefined'.
+  Type 'null' is not assignable to type 'OrderFiscalBadgeStatuses | undefined'.
+src/pages/App/SalesOrder/OrderActions/nfe-modal/NfeItemRow.test.tsx(62,50): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/pages/App/SalesOrder/OrderActions/nfe-modal/NfeItemRow.test.tsx(84,50): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/pages/App/SalesOrder/OrderActions/return-order-modal/useReturnOrderForm.ts(17,36): error TS2307: Cannot find module '../components/ReturnFormTabs' or its corresponding type declarations.
+src/pages/App/SalesOrder/OrderHistoryList/InventoryMovementBadge.tsx(104,5): error TS2322: Type 'number' is not assignable to type 'Timeout'.
+src/pages/App/SalesOrder/OrderHistoryList/InventoryMovementBadge.tsx(115,5): error TS2322: Type 'number' is not assignable to type 'Timeout'.
+src/pages/App/SalesOrder/OrderHistoryList/OrderCardAndMenuActions.test.tsx(32,76): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/pages/App/SalesOrder/OrderHistoryList/OrderCardAndMenuActions.test.tsx(49,69): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement | null', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement | null', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/pages/App/SalesOrder/OrderHistoryList/OrderHistoryCard/index.ts(1,25): error TS2307: Cannot find module './OrderHistoryCard' or its corresponding type declarations.
+src/pages/App/SalesOrder/OrderHistoryList/undoFulfillmentRules.test.ts(80,13): error TS2353: Object literal may only specify known properties, and 'unattendedAt' does not exist in type '{ autoFulfilledAfter12h?: boolean | null | undefined; deliveryStatus?: string | null | undefined; shipping?: { deliveryStatus?: string | null | undefined; deliveryStartedAt?: string | null | undefined; deliveryArrivedAt?: string | ... 1 more ... | undefined; deliveryFinishedAt?: string | ... 1 more ... | undefined; ...'.
+src/pages/App/SalesOrder/OrderHistoryList/undoFulfillmentRules.test.ts(95,55): error TS2353: Object literal may only specify known properties, and 'unattendedAt' does not exist in type '{ autoFulfilledAfter12h?: boolean | null | undefined; deliveryStatus?: string | null | undefined; shipping?: { deliveryStatus?: string | null | undefined; deliveryStartedAt?: string | null | undefined; deliveryArrivedAt?: string | ... 1 more ... | undefined; deliveryFinishedAt?: string | ... 1 more ... | undefined; ...'.
+src/pages/App/SalesOrder/pages/NewSaleOrder.ts(2,25): error TS5097: An import path can only end with a '.tsx' extension when 'allowImportingTsExtensions' is enabled.
+src/pages/App/SalesOrder/Reports/hooks/useSalesReport.test.tsx(56,72): error TS2345: Argument of type '"unsupported"' is not assignable to parameter of type '"erp" | "csv"'.
+src/pages/App/SalesOrder/ShippingComponents/__tests__/Agendamento.test.tsx(66,9): error TS2322: Type '(key: keyof Shipping["scheduling"], value: string | Date | boolean) => void' is not assignable to type '(key: "type" | "date" | "time" | "alternatives" | "pendingScheduling" | "dateType" | "endDate" | "startTime" | "endTime" | "notInformed" | "immediatePickup" | "scheduleMode", value: string | ... 2 more ... | { ...; }[]) => void'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'string | boolean | Date | { id: string; date: string; endDate?: string | undefined; dateType?: "fixed" | "range" | undefined; time: string; startTime?: string | undefined; endTime?: string | undefined; type: "fixed" | "range"; }[]' is not assignable to type 'string | boolean | Date'.
+      Type '{ id: string; date: string; endDate?: string | undefined; dateType?: "fixed" | "range" | undefined; time: string; startTime?: string | undefined; endTime?: string | undefined; type: "fixed" | "range"; }[]' is not assignable to type 'string | boolean | Date'.
+        Type '{ id: string; date: string; endDate?: string | undefined; dateType?: "fixed" | "range" | undefined; time: string; startTime?: string | undefined; endTime?: string | undefined; type: "fixed" | "range"; }[]' is missing the following properties from type 'Date': toDateString, toTimeString, toLocaleDateString, toLocaleTimeString, and 37 more.
+src/pages/App/SalesOrder/ShippingComponents/__tests__/Agendamento.test.tsx(371,7): error TS2554: Expected 2-3 arguments, but got 1.
+src/pages/App/SalesOrder/ShippingComponents/__tests__/Agendamento.test.tsx(378,7): error TS2554: Expected 2-3 arguments, but got 1.
+src/pages/App/SalesOrder/ShippingComponents/__tests__/Agendamento.test.tsx(385,7): error TS2554: Expected 2-3 arguments, but got 1.
+src/pages/App/SalesOrder/ShippingComponents/__tests__/Agendamento.test.tsx(396,7): error TS2554: Expected 2-3 arguments, but got 1.
+src/pages/App/SalesOrder/ShippingComponents/__tests__/Agendamento.test.tsx(407,7): error TS2554: Expected 2-3 arguments, but got 1.
+src/pages/App/SalesOrder/ShippingComponents/__tests__/Agendamento.test.tsx(419,7): error TS2554: Expected 2-3 arguments, but got 1.
+src/pages/App/shared/components/FiscalIssueCard.tsx(118,9): error TS2322: Type '(string | undefined)[][]' is not assignable to type '[string, string | number | undefined][]'.
+  Type '(string | undefined)[]' is not assignable to type '[string, string | number | undefined]'.
+    Target requires 2 element(s) but source may have fewer.
+src/pages/App/shared/components/FiscalIssueCard.tsx(208,26): error TS2677: A type predicate's type must be assignable to its parameter's type.
+  Type '[string, string | number]' is not assignable to type '(string | undefined)[]'.
+    Type 'string | number' is not assignable to type 'string | undefined'.
+      Type 'number' is not assignable to type 'string'.
+src/pages/App/shared/components/FiscalIssueCard.tsx(223,66): error TS2345: Argument of type 'string | number | undefined' is not assignable to parameter of type 'string | number'.
+  Type 'undefined' is not assignable to type 'string | number'.
+src/pages/App/Stock/components/purchase-items/PurchaseItemsMobileList.tsx(208,24): error TS2304: Cannot find name 'handleAddNewItemRow'.
+src/pages/App/Stock/components/purchase-items/PurchaseItemsTable.tsx(193,32): error TS2304: Cannot find name 'handleAddNewItemRow'.
+src/pages/App/Stock/InboundInvoices/screens/InboundInvoicesScreen.pagination.test.tsx(36,59): error TS2345: Argument of type '{ invoices: any[]; totalCount: number; totalPages: number; page: number; }' is not assignable to parameter of type 'FetchInboundInvoicesResult'.
+  Property 'pageSize' is missing in type '{ invoices: any[]; totalCount: number; totalPages: number; page: number; }' but required in type 'FetchInboundInvoicesResult'.
+src/pages/App/Stock/InboundInvoices/screens/InboundInvoicesScreen.pagination.test.tsx(48,30): error TS2345: Argument of type '{ invoices: any[]; totalCount: number; totalPages: number; page: number; }' is not assignable to parameter of type 'FetchInboundInvoicesResult'.
+  Property 'pageSize' is missing in type '{ invoices: any[]; totalCount: number; totalPages: number; page: number; }' but required in type 'FetchInboundInvoicesResult'.
+src/pages/App/Stock/InboundInvoices/screens/InboundInvoicesScreen.pagination.test.tsx(49,64): error TS2322: Type '(value: FetchInboundInvoicesResult | PromiseLike<FetchInboundInvoicesResult>) => void' is not assignable to type '(value: { invoices: any[]; totalCount: number; totalPages: number; page: number; }) => void'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type '{ invoices: any[]; totalCount: number; totalPages: number; page: number; }' is not assignable to type 'FetchInboundInvoicesResult | PromiseLike<FetchInboundInvoicesResult>'.
+      Property 'pageSize' is missing in type '{ invoices: any[]; totalCount: number; totalPages: number; page: number; }' but required in type 'FetchInboundInvoicesResult'.
+src/pages/App/Stock/InboundInvoices/screens/InboundInvoicesScreen.pagination.test.tsx(50,30): error TS2345: Argument of type '{ invoices: any[]; totalCount: number; totalPages: number; page: number; }' is not assignable to parameter of type 'FetchInboundInvoicesResult'.
+  Property 'pageSize' is missing in type '{ invoices: any[]; totalCount: number; totalPages: number; page: number; }' but required in type 'FetchInboundInvoicesResult'.
+src/pages/App/Stock/LabelPrinting/hooks/useLabelQueue.ts(190,11): error TS2322: Type '{ name: string; extraFields: any; printingMode: "advanced"; instances: string[] | undefined; price?: string | undefined; promoPrice?: string | undefined; sku?: string | undefined; barcode?: string | undefined; code?: string | undefined; quantity?: number | undefined; ... 14 more ...; variationId?: string | undefined...' is not assignable to type 'LabelItemConfig'.
+  Types of property 'price' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/LabelGridModelDesignCanvas.tsx(409,21): error TS2322: Type '(id: string | null) => void' is not assignable to type 'Dispatch<SetStateAction<string | null>>'.
+  Types of parameters 'id' and 'value' are incompatible.
+    Type 'SetStateAction<string | null>' is not assignable to type 'string | null'.
+      Type '(prevState: string | null) => string | null' is not assignable to type 'string'.
+src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/LabelGridModelDesignCanvas.tsx(410,21): error TS2322: Type '(id: string | null) => void' is not assignable to type 'Dispatch<SetStateAction<string | null>>'.
+  Types of parameters 'id' and 'value' are incompatible.
+    Type 'SetStateAction<string | null>' is not assignable to type 'string | null'.
+      Type '(prevState: string | null) => string | null' is not assignable to type 'string'.
+src/pages/App/Stock/LabelPrinting/modals/label-grid-model-editor/LabelGridModelDesignCanvas.tsx(411,21): error TS2322: Type '(id: string | null) => void' is not assignable to type 'Dispatch<SetStateAction<string | null>>'.
+  Types of parameters 'id' and 'value' are incompatible.
+    Type 'SetStateAction<string | null>' is not assignable to type 'string | null'.
+      Type '(prevState: string | null) => string | null' is not assignable to type 'string'.
+src/pages/App/Stock/LabelPrinting/modals/price-label-editor/PriceLabelArtEditorPreview.tsx(334,11): error TS2322: Type 'RefObject<HTMLDivElement | null>' is not assignable to type 'RefObject<HTMLDivElement>'.
+  Type 'HTMLDivElement | null' is not assignable to type 'HTMLDivElement'.
+    Type 'null' is not assignable to type 'HTMLDivElement'.
+src/pages/App/Stock/LabelPrinting/modals/PriceLabelArtEditorModal.tsx(881,11): error TS2322: Type '{ selectedElement: PriceLabelLayerKey; selectedElements: Set<PriceLabelLayerKey>; onClearSelection: () => void; priceLabelLayers: PriceLabelLayerDefinition[]; ... 57 more ...; setShowSizeDropdown: Dispatch<...>; }' is not assignable to type 'IntrinsicAttributes & PriceLabelSelectedElementToolbarProps'.
+  Property 'normalPriceFontSizeHundreds' does not exist on type 'IntrinsicAttributes & PriceLabelSelectedElementToolbarProps'. Did you mean 'setNormalPriceFontSizeHundreds'?
+src/pages/App/Stock/LabelPrinting/sections/QueueSection.test.tsx(18,82): error TS2741: Property 'handleReplaceProduct' is missing in type '{ selectedCategory: "precos"; printingMode: "simple"; config: LabelConfig; products: never[]; selectedProductToAdd: null; setSelectedProductToAdd: Mock<Procedure>; ... 7 more ...; isDownloading: false; }' but required in type 'QueueSectionProps'.
+src/pages/App/Stock/Movements/modals/__tests__/InventoryMoveEditModal.test.tsx(26,9): error TS2741: Property 'productDescription' is missing in type '{ id: string; productId: string; type: "entry"; quantity: number; date: string; observation: string; }' but required in type 'InventoryMove'.
+src/pages/App/Stock/Purchases/hooks/usePurchaseModalForm.ts(205,13): error TS4104: The type 'readonly PurchaseItem[]' is 'readonly' and cannot be assigned to the mutable type 'PurchaseItem[]'.
+src/pages/App/Stock/Purchases/hooks/usePurchaseModalForm.ts(244,11): error TS4104: The type 'readonly PurchaseItem[]' is 'readonly' and cannot be assigned to the mutable type 'PurchaseItem[]'.
+src/pages/App/Stock/Purchases/hooks/usePurchaseModalForm.ts(305,9): error TS4104: The type 'readonly PurchaseItem[]' is 'readonly' and cannot be assigned to the mutable type 'PurchaseItem[]'.
+src/pages/App/Stock/Receipts/hooks/useReceiptForm.ts(404,34): error TS2345: Argument of type '{ isDraft?: boolean | undefined; status?: "draft" | "received" | undefined; id: string | undefined; receiptIndex: number | undefined; purchaseId: string | undefined; supplierId: any; ... 20 more ...; fiscalOtherExpenses: any; }' is not assignable to parameter of type 'GoodsReceipt'.
+  Types of property 'id' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/pages/OrderPage/OrderPrintDocument.tsx(40,33): error TS2339: Property 'street' does not exist on type '{}'.
+src/pages/OrderPage/OrderPrintDocument.tsx(40,48): error TS2339: Property 'neighborhood' does not exist on type '{}'.
+src/pages/OrderPage/OrderPrintDocument.tsx(40,69): error TS2339: Property 'city' does not exist on type '{}'.
+src/pages/OrderPage/OrderPrintDocument.tsx(54,9): error TS2322: Type '{ fullAddress: {}; id?: string; personType?: "PF" | "PJ"; fullName: string; phone: string; email?: string; cpfCnpj?: string; document?: string; ie?: string; rgIe?: string; ieIndicator?: "1" | "2" | "9"; noPhone?: boolean; noAddress?: boolean; additionalContacts?: { name: string; phone: string; }[]; observations?: st...' is not assignable to type 'CustomerData'.
+  Types of property 'fullAddress' are incompatible.
+    Type '{}' is missing the following properties from type 'FullAddress': cep, street, number, complement, and 3 more.
+src/pages/ReceiptPage/ReceiptPrintDocument.tsx(29,9): error TS2322: Type '{ fullAddress: {}; id?: string; personType?: "PF" | "PJ"; fullName: string; phone: string; email?: string; cpfCnpj?: string; document?: string; ie?: string; rgIe?: string; ieIndicator?: "1" | "2" | "9"; noPhone?: boolean; noAddress?: boolean; additionalContacts?: { name: string; phone: string; }[]; observations?: st...' is not assignable to type 'CustomerData'.
+  Types of property 'fullAddress' are incompatible.
+    Type '{}' is missing the following properties from type 'FullAddress': cep, street, number, complement, and 3 more.
+src/pages/utils/__tests__/categoryDeletionRules.test.ts(164,19): error TS2339: Property 'eq' does not exist on type 'Mock<Procedure>'.
+src/pages/utils/__tests__/categoryDeletionRules.test.ts(168,19): error TS2339: Property 'eq' does not exist on type 'Mock<Procedure>'.
+src/pages/utils/__tests__/commercialAssistanceRules.test.ts(19,7): error TS2739: Type '{ cep: string; street: string; number: string; neighborhood: string; city: string; state: string; }' is missing the following properties from type 'FullAddress': complement, observation
+src/pages/utils/__tests__/commercialAssistanceRules.test.ts(30,7): error TS2741: Property 'time' is missing in type '{ date: string; startTime: string; endTime: string; type: "range"; }' but required in type '{ date: string; endDate?: string | undefined; dateType?: "fixed" | "range" | undefined; time: string; startTime?: string | undefined; endTime?: string | undefined; type: "fixed" | "range"; ... 4 more ...; scheduleMode?: "defined" | ... 1 more ... | undefined; }'.
+src/pages/utils/__tests__/commercialSchedulingRules.test.ts(26,19): error TS2339: Property 'period' does not exist on type 'Partial<{ date: string; endDate?: string | undefined; dateType?: "fixed" | "range" | undefined; time: string; startTime?: string | undefined; endTime?: string | undefined; type: "fixed" | "range"; ... 4 more ...; scheduleMode?: "defined" | ... 1 more ... | undefined; }>'.
+src/pages/utils/__tests__/commercialSchedulingRules.test.ts(44,19): error TS2339: Property 'period' does not exist on type 'Partial<{ date: string; endDate?: string | undefined; dateType?: "fixed" | "range" | undefined; time: string; startTime?: string | undefined; endTime?: string | undefined; type: "fixed" | "range"; ... 4 more ...; scheduleMode?: "defined" | ... 1 more ... | undefined; }>'.
+src/pages/utils/__tests__/complementaryFinancialAssistant.test.ts(10,8): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/complementaryFinancialAssistant.test.ts(11,41): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/complementaryFinancialAssistant.test.ts(12,40): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/continuousVoiceStress.test.ts(8,8): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/continuousVoiceStress.test.ts(9,35): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/continuousVoiceStress.test.ts(10,41): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/conversationalAssistant.test.ts(35,8): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/conversationalAssistant.test.ts(36,35): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/deepMultiTurnSessions.test.ts(31,39): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/deliveryRouteFormSchema.test.ts(92,43): error TS2345: Argument of type '{ id: string; order_number: number; seller_id: string; status: string; created_at: string; order_data: { deliveryResponsibleId: string; deliveryResponsibleName: string; deliveryResponsibles: { ...; }[]; }; }' is not assignable to parameter of type 'OrderDatabaseRow'.
+  Types of property 'order_number' are incompatible.
+    Type 'number' is not assignable to type 'string'.
+src/pages/utils/__tests__/draftAnalysisChips.test.ts(3,10): error TS2459: Module '"../draftAnalysisChips"' declares 'ParsedFinancialIntent' locally, but it is not exported.
+src/pages/utils/__tests__/e2eAuditRunner.test.ts(36,8): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/e2eAuditRunner.test.ts(37,35): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/financialAiLayersAudit.test.ts(34,8): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/financialAiLayersAudit.test.ts(35,70): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/financialAiLayersAudit.test.ts(36,35): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/financialAiLayersAudit.test.ts(37,41): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/financialAiLayersAudit.test.ts(138,37): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/pages/utils/__tests__/financialAiLayersAudit.test.ts(139,31): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pages/utils/__tests__/financialAiLayersAudit.test.ts(140,31): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pages/utils/__tests__/financialAiLayersAudit.test.ts(143,12): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/pages/utils/__tests__/financialAiLayersAudit.test.ts(180,42): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/pages/utils/__tests__/humanLanguageBattery.test.ts(31,70): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/humanLanguageBattery.test.ts(32,36): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/incrementalVoiceAssistant.test.ts(36,8): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/incrementalVoiceAssistant.test.ts(37,35): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/latestRulesBattery.test.ts(38,44): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/latestRulesBattery.test.ts(39,73): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/latestRulesBattery.test.ts(40,38): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/latestRulesBattery.test.ts(41,40): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/latestRulesBattery.test.ts(42,41): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/latestRulesBattery.test.ts(773,35): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/pages/utils/__tests__/latestRulesBattery.test.ts(794,35): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/pages/utils/__tests__/longConversationState.test.ts(35,8): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/multiFactParsing.test.ts(35,8): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(31,68): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(32,41): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(46,29): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(52,34): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(94,30): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(95,35): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(155,30): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(156,35): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(169,35): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(181,24): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(182,24): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(183,24): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(197,29): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(198,34): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(215,24): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(216,24): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(217,24): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(234,24): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/multiFactPipelineGroupedQuestions.test.ts(235,24): error TS7006: Parameter 'd' implicitly has an 'any' type.
+src/pages/utils/__tests__/orderFiscalSnapshotService.test.ts(143,39): error TS2352: Conversion of type '{ id: string; productId: string; variationId: string; fiscalSnapshotProductId: string; fiscalSnapshotVariationId: string; code: string; description: string; itemType: "product"; quantity: number; unitPrice: number; fiscalSnapshotVersion: 1; fiscal: { ...; }; }' to type 'Item' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; productId: string; variationId: string; fiscalSnapshotProductId: string; fiscalSnapshotVariationId: string; code: string; description: string; itemType: "product"; quantity: number; unitPrice: number; fiscalSnapshotVersion: 1; fiscal: { ...; }; }' is missing the following properties from type 'Item': unitDiscount, discountType, handlingType
+src/pages/utils/__tests__/productSupplierCodesService.removal.test.ts(2,43): error TS2307: Cannot find module '../../' or its corresponding type declarations.
+src/pages/utils/__tests__/PromissoryNoteDocument.test.tsx(27,9): error TS2741: Property 'itemsSummary' is missing in type '{ id: string; orderIndex: number; orderType: "sale"; status: string; date: string; seller: string; customerData: { fullName: string; phone: string; fullAddress: any; }; payments: ({ method: string; amount: number; fee: number; feeType: "fixed"; status: string; } | { ...; })[]; paymentsSummary: { ...; }; items: never...' but required in type 'Order'.
+src/pages/utils/__tests__/promissoryNoteService.test.ts(135,13): error TS2741: Property 'itemsSummary' is missing in type '{ orderIndex: number; orderType: "sale"; status: string; date: string; customerData: { fullName: string; phone: string; fullAddress: any; }; payments: ({ method: string; amount: number; fee: number; feeType: "fixed"; status: string; } | { ...; })[]; ... 4 more ...; observation: string; }' but required in type 'Order'.
+src/pages/utils/__tests__/promissoryNoteService.test.ts(189,13): error TS2741: Property 'itemsSummary' is missing in type '{ orderIndex: number; orderType: "sale"; status: string; date: string; customerData: { fullName: string; phone: string; cpfCnpj: string; fullAddress: any; }; payments: { method: string; amount: number; fee: number; feeType: "fixed"; status: string; dueDate: string; }[]; ... 4 more ...; observation: string; }' but required in type 'Order'.
+src/pages/utils/__tests__/settingsFiscalSecrets.test.ts(38,23): error TS2532: Object is possibly 'undefined'.
+src/pages/utils/__tests__/settingsFiscalSecrets.test.ts(38,44): error TS2493: Tuple type '[]' of length '0' has no element at index '0'.
+src/pages/utils/__tests__/technicalValues/furniture.test.ts(92,29): error TS2345: Argument of type '{ id: string; name: string; dataType: "boolean"; }' is not assignable to parameter of type 'TechnicalFieldDefinition'.
+  Property 'options' is missing in type '{ id: string; name: string; dataType: "boolean"; }' but required in type 'TechnicalFieldDefinition'.
+src/pages/utils/__tests__/technicalValues/furniture.test.ts(103,19): error TS2741: Property 'id' is missing in type '{ value: string; }' but required in type '{ id: string; value: string; }'.
+src/pages/utils/__tests__/technicalValues/furniture.test.ts(103,37): error TS2741: Property 'id' is missing in type '{ value: string; }' but required in type '{ id: string; value: string; }'.
+src/pages/utils/__tests__/technicalValues/furniture.test.ts(111,19): error TS2741: Property 'id' is missing in type '{ value: string; }' but required in type '{ id: string; value: string; }'.
+src/pages/utils/__tests__/technicalValues/furniture.test.ts(111,39): error TS2741: Property 'id' is missing in type '{ value: string; }' but required in type '{ id: string; value: string; }'.
+src/pages/utils/__tests__/technicalValues/sink.test.ts(195,7): error TS2739: Type '{ id: string; name: string; categoryIds: string[]; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/utils/__tests__/technicalValues/sink.test.ts(196,7): error TS2739: Type '{ id: string; name: string; categoryIds: string[]; isRequired: true; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/utils/__tests__/technicalValues/sink.test.ts(197,7): error TS2739: Type '{ id: string; name: string; categoryIds: string[]; isRequired: true; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/utils/__tests__/technicalValues/sink.test.ts(198,7): error TS2739: Type '{ id: string; name: string; categoryIds: string[]; isRequired: false; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/utils/__tests__/technicalValues/sink.test.ts(199,7): error TS2739: Type '{ id: string; name: string; categoryIds: string[]; isRequired: false; }' is missing the following properties from type 'TechnicalFieldDefinition': dataType, options
+src/pages/utils/__tests__/technicalValues/sink.test.ts(223,19): error TS2741: Property 'id' is missing in type '{ value: string; }' but required in type '{ id: string; value: string; }'.
+src/pages/utils/__tests__/technicalValues/sink.test.ts(223,37): error TS2741: Property 'id' is missing in type '{ value: string; }' but required in type '{ id: string; value: string; }'.
+src/pages/utils/__tests__/technicalValues/sink.test.ts(231,19): error TS2741: Property 'id' is missing in type '{ value: string; }' but required in type '{ id: string; value: string; }'.
+src/pages/utils/__tests__/technicalValues/sink.test.ts(231,37): error TS2741: Property 'id' is missing in type '{ value: string; }' but required in type '{ id: string; value: string; }'.
+src/pages/utils/__tests__/unrealizedFactsAndBinding.test.ts(31,70): error TS2307: Cannot find module '../../orderMapper' or its corresponding type declarations.
+src/pages/utils/__tests__/voicePreAnalysisDebounce.test.ts(2,38): error TS2307: Cannot find module '../../orderMapper' or its corresponding type declarations.
+src/pages/utils/__tests__/voicePreAnalysisDebounce.test.ts(3,36): error TS2307: Cannot find module '../../orderMapper' or its corresponding type declarations.
+src/pages/utils/__tests__/whatsappMetaApiSend.test.ts(234,11): error TS2322: Type 'string[] | undefined' is not assignable to type 'string[]'.
+  Type 'undefined' is not assignable to type 'string[]'.
+src/pages/utils/aiService/aiProductCatalogService.ts(171,76): error TS2339: Property 'trim' does not exist on type 'never'.
+src/pages/utils/aiService/aiProductCatalogService.ts(172,29): error TS2339: Property 'trim' does not exist on type 'never'.
+src/pages/utils/aiService/aiProductCharacteristicsService.test.ts(13,47): error TS2345: Argument of type '{ productName: string; brand: string; model: string; categoryName: string; description: string; additionalInfo: string; availableAttributes: { id: string; name: string; dataType: string; options: string[]; }[]; }' is not assignable to parameter of type '{ productName: string; brand: string; model: string; categoryName: string; description: string; additionalInfo: string; images: string[]; availableAttributes: { id: string; name: string; dataType?: string | undefined; options?: string[] | undefined; }[]; }'.
+  Property 'images' is missing in type '{ productName: string; brand: string; model: string; categoryName: string; description: string; additionalInfo: string; availableAttributes: { id: string; name: string; dataType: string; options: string[]; }[]; }' but required in type '{ productName: string; brand: string; model: string; categoryName: string; description: string; additionalInfo: string; images: string[]; availableAttributes: { id: string; name: string; dataType?: string | undefined; options?: string[] | undefined; }[]; }'.
+src/pages/utils/aiService/aiProductCharacteristicsService.test.ts(95,47): error TS2345: Argument of type '{ descriptiveText: string; categoryName: string; additionalInfo: string; availableAttributes: { id: string; name: string; dataType: string; options: string[]; }[]; }' is not assignable to parameter of type '{ descriptiveText: string; currentName: string; currentBrand: string; currentModel: string; categoryName: string; additionalInfo: string; availableAttributes: { id: string; name: string; dataType?: string | undefined; options?: string[] | undefined; }[]; }'.
+  Type '{ descriptiveText: string; categoryName: string; additionalInfo: string; availableAttributes: { id: string; name: string; dataType: string; options: string[]; }[]; }' is missing the following properties from type '{ descriptiveText: string; currentName: string; currentBrand: string; currentModel: string; categoryName: string; additionalInfo: string; availableAttributes: { id: string; name: string; dataType?: string | undefined; options?: string[] | undefined; }[]; }': currentName, currentBrand, currentModel
+src/pages/utils/aiService/aiProductCharacteristicsService.test.ts(111,85): error TS2345: Argument of type '{ success: true; data: string; }' is not assignable to parameter of type 'AiResponse<string>'.
+  Type '{ success: true; data: string; }' is missing the following properties from type 'AiResponse<string>': category, modelUsed
+src/pages/utils/aiService/aiProductCharacteristicsService.test.ts(135,94): error TS2345: Argument of type '{ productName: string; brand: string; model: string; categoryName: string; }' is not assignable to parameter of type '{ productName: string; brand: string; model: string; categoryName: string; description: string; additionalInfo: string; images: string[]; availableAttributes: { id: string; name: string; dataType?: string | undefined; options?: string[] | undefined; }[]; }'.
+  Type '{ productName: string; brand: string; model: string; categoryName: string; }' is missing the following properties from type '{ productName: string; brand: string; model: string; categoryName: string; description: string; additionalInfo: string; images: string[]; availableAttributes: { id: string; name: string; dataType?: string | undefined; options?: string[] | undefined; }[]; }': description, additionalInfo, images, availableAttributes
+src/pages/utils/goodsReceiptCode.ts(7,56): error TS2304: Cannot find name 'MAX_RECEIPT_CODE'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(22,5): error TS2322: Type 'InventoryStockVariation[] | undefined' is not assignable to type 'Variation[] | undefined'.
+  Type 'InventoryStockVariation[]' is not assignable to type 'Variation[]'.
+    Type 'InventoryStockVariation' is missing the following properties from type 'Variation': sku, name, unitPrice, active, attributes
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(44,11): error TS2304: Cannot find name 'isEntryType'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(45,16): error TS2304: Cannot find name 'isExitType'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(46,16): error TS2304: Cannot find name 'isAdjustmentType'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(54,9): error TS2304: Cannot find name 'isEntryType'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(55,14): error TS2304: Cannot find name 'isExitType'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(56,14): error TS2304: Cannot find name 'isAdjustmentType'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(83,11): error TS2304: Cannot find name 'isEntryType'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(84,16): error TS2304: Cannot find name 'isExitType'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(85,16): error TS2304: Cannot find name 'isAdjustmentType'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(93,9): error TS2304: Cannot find name 'isEntryType'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(94,14): error TS2304: Cannot find name 'isExitType'.
+src/pages/utils/inventoryService/inventoryStockCalculator.ts(95,14): error TS2304: Cannot find name 'isAdjustmentType'.
+src/pages/utils/nfe/__tests__/authorizedNfeXml.test.ts(18,12): error TS18047: 'parsed.documentElement' is possibly 'null'.
+src/pages/utils/nfe/__tests__/automaticInboundXmlQueue.test.ts(20,76): error TS2345: Argument of type '{ access_key: string; environment: number; }[]' is not assignable to parameter of type 'InboundXmlConsultAttempt[]'.
+  Property 'consulted_at' is missing in type '{ access_key: string; environment: number; }' but required in type 'InboundXmlConsultAttempt'.
+src/pages/utils/nfe/__tests__/automaticReturnFiscalWorker.test.ts(76,63): error TS2345: Argument of type 'Mock<() => { reviewedLines: { cfop: string; draft_line_id: string; product_xml: string; taxes_xml: string; }[]; review: { nature_of_operation: string; }; error: null; notice: string; }>' is not assignable to parameter of type '(data: DraftPayload) => FiscalOperationDraftReviewState'.
+  Call signature return types '{ reviewedLines: { cfop: string; draft_line_id: string; product_xml: string; taxes_xml: string; }[]; review: { nature_of_operation: string; }; error: null; notice: string; }' and 'FiscalOperationDraftReviewState' are incompatible.
+    The types of 'review' are incompatible between these types.
+      Type '{ nature_of_operation: string; }' is missing the following properties from type 'ReviewData': reason, recipient_xml, totals_xml, transport_xml, and 5 more.
+src/pages/utils/nfe/__tests__/automaticReturnFiscalWorker.test.ts(165,63): error TS2345: Argument of type '() => { reviewedLines: { cfop: string; draft_line_id: string; product_xml: string; taxes_xml: string; }[]; review: { nature_of_operation: string; }; error: null; notice: string; }' is not assignable to parameter of type '(data: DraftPayload) => FiscalOperationDraftReviewState'.
+  Call signature return types '{ reviewedLines: { cfop: string; draft_line_id: string; product_xml: string; taxes_xml: string; }[]; review: { nature_of_operation: string; }; error: null; notice: string; }' and 'FiscalOperationDraftReviewState' are incompatible.
+    The types of 'review' are incompatible between these types.
+      Type '{ nature_of_operation: string; }' is missing the following properties from type 'ReviewData': reason, recipient_xml, totals_xml, transport_xml, and 5 more.
+src/pages/utils/nfe/__tests__/cancelEndpoint.test.ts(319,148): error TS2345: Argument of type '{ data: null; error: null; }' is not assignable to parameter of type '{ data: null; error: { code: string; }; } | { data: { eventId: string; status?: undefined; }; error: null; } | { data: { eventId: any; status: any; }; error: null; }'.
+  Types of property 'error' are incompatible.
+    Type 'null' is not assignable to type '{ code: string; }'.
+src/pages/utils/nfe/__tests__/danfeAlphanumeric.test.ts(8,36): error TS2352: Conversion of type '{ order: { id: string; items: never[]; customerData: {}; payments: never[]; shipping: {}; itemsSummary: {}; paymentsSummary: {}; }; settings: { companyName: string; companyCnpj: string; }; model: "55" | "65"; ... 6 more ...; protocolDate: string; }' to type 'DanfeData' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'order' are incompatible.
+    Type '{ id: string; items: never[]; customerData: {}; payments: never[]; shipping: {}; itemsSummary: {}; paymentsSummary: {}; }' is missing the following properties from type 'Order': seller, observation, date
+src/pages/utils/nfe/__tests__/danfeGeneratorModules.test.ts(385,38): error TS2345: Argument of type '{ model: "65"; accessKey: string; environment: number; nfeNumber: number; series: string; printFormat: "a4"; settings: { companyDanfeLogoUrl: string; showManualFulfillmentPrompt: boolean; autoSaveOnlyWhenDirty: boolean; ... 58 more ...; scannerConfig: { delay: number; enableBeep: boolean; vibrate: boolean; }; }; ......' is not assignable to parameter of type 'DanfeData'.
+  Types of property 'environment' are incompatible.
+    Type 'number' is not assignable to type '2 | 1'.
+src/pages/utils/nfe/__tests__/danfeGeneratorModules.test.ts(430,46): error TS2345: Argument of type '{ model: "65"; accessKey: string; environment: number; nfeNumber: number; series: string; fiscalDetails: ParsedFiscalDetails; order: Order; settings: AppSettings; protocolNumber: string; protocolDate: string; status: "autorizada" | "homologada" | "pendente"; natOp?: string; printFormat?: "thermal_80mm" | "a4"; }' is not assignable to parameter of type 'DanfeData'.
+  Types of property 'environment' are incompatible.
+    Type 'number' is not assignable to type '2 | 1'.
+src/pages/utils/nfe/__tests__/danfeGeneratorModules.test.ts(431,46): error TS2345: Argument of type '{ accessKey: string; model: "65"; environment: number; nfeNumber: number; series: string; fiscalDetails: ParsedFiscalDetails; order: Order; settings: AppSettings; protocolNumber: string; protocolDate: string; status: "autorizada" | "homologada" | "pendente"; natOp?: string; printFormat?: "thermal_80mm" | "a4"; }' is not assignable to parameter of type 'DanfeData'.
+  Types of property 'environment' are incompatible.
+    Type 'number' is not assignable to type '2 | 1'.
+src/pages/utils/nfe/__tests__/danfeGeneratorModules.test.ts(432,46): error TS2345: Argument of type '{ fiscalDetails: { issuer: { stateRegistration: string; name: string; taxId: string; stateRegistrationSubstitute: string; street: string; number: string; complement: string; district: string; municipality: string; state: string; postalCode: string; phone: string; }; ... 9 more ...; changeValue?: string; }; ... 11 mo...' is not assignable to parameter of type 'DanfeData'.
+  Types of property 'environment' are incompatible.
+    Type 'number' is not assignable to type '2 | 1'.
+src/pages/utils/nfe/__tests__/danfeGeneratorModules.test.ts(436,38): error TS2345: Argument of type '{ printFormat: "a4"; accessKey: string; model: "65"; environment: number; nfeNumber: number; series: string; fiscalDetails: ParsedFiscalDetails; order: Order; settings: AppSettings; protocolNumber: string; protocolDate: string; status: "autorizada" | "homologada" | "pendente"; natOp?: string; }' is not assignable to parameter of type 'DanfeData'.
+  Types of property 'environment' are incompatible.
+    Type 'number' is not assignable to type '2 | 1'.
+src/pages/utils/nfe/__tests__/danfeGeneratorModules.test.ts(465,46): error TS2345: Argument of type '{ model: "65"; accessKey: string; environment: number; nfeNumber: number; series: string; fiscalDetails: ParsedFiscalDetails; order: Order; settings: AppSettings; protocolNumber: string; protocolDate: string; status: "autorizada" | "homologada" | "pendente"; natOp?: string; printFormat?: "thermal_80mm" | "a4"; }' is not assignable to parameter of type 'DanfeData'.
+  Types of property 'environment' are incompatible.
+    Type 'number' is not assignable to type '2 | 1'.
+src/pages/utils/nfe/__tests__/danfeGeneratorModules.test.ts(467,38): error TS18048: 'fiscalDetails.general.qrCode' is possibly 'undefined'.
+src/pages/utils/nfe/__tests__/danfeGeneratorModules.test.ts(468,38): error TS2345: Argument of type '{ printFormat: "a4"; model: "65"; accessKey: string; environment: number; nfeNumber: number; series: string; fiscalDetails: ParsedFiscalDetails; order: Order; settings: AppSettings; protocolNumber: string; protocolDate: string; status: "autorizada" | "homologada" | "pendente"; natOp?: string; }' is not assignable to parameter of type 'DanfeData'.
+  Types of property 'environment' are incompatible.
+    Type 'number' is not assignable to type '2 | 1'.
+src/pages/utils/nfe/__tests__/danfePrintRouting.test.ts(13,32): error TS2307: Cannot find module '../danfe.types' or its corresponding type declarations.
+src/pages/utils/nfe/__tests__/fiscalCoreSerializer.test.ts(219,5): error TS2542: Index signature in type 'Readonly<Record<string, string | number | boolean>>' only permits reading.
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(93,9): error TS2561: Object literal may only specify known properties, but 'address' does not exist in type 'CustomerData'. Did you mean to write 'noAddress'?
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(105,7): error TS2739: Type '{ totalOrderValue: number; }' is missing the following properties from type 'PaymentsSummary': totalPaymentsFee, totalAmountPaid, amountRemaining
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(117,11): error TS2561: Object literal may only specify known properties, but 'address' does not exist in type 'CustomerData'. Did you mean to write 'noAddress'?
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(142,11): error TS2561: Object literal may only specify known properties, but 'address' does not exist in type 'CustomerData'. Did you mean to write 'noAddress'?
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(165,11): error TS2561: Object literal may only specify known properties, but 'address' does not exist in type 'CustomerData'. Did you mean to write 'noAddress'?
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(189,11): error TS2561: Object literal may only specify known properties, but 'address' does not exist in type 'CustomerData'. Did you mean to write 'noAddress'?
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(214,11): error TS2561: Object literal may only specify known properties, but 'address' does not exist in type 'CustomerData'. Did you mean to write 'noAddress'?
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(239,11): error TS2561: Object literal may only specify known properties, but 'address' does not exist in type 'CustomerData'. Did you mean to write 'noAddress'?
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(271,9): error TS2353: Object literal may only specify known properties, and 'orderId' does not exist in type '{ id: string; environment: 2 | 1; itemCsosnOverrides?: Record<string, string> | undefined; itemFiscalSelections?: FiscalItemSelections | undefined; ... 11 more ...; freightContractResponsible?: "THIRD_PARTY" | ... 2 more ... | undefined; }'.
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(278,7): error TS2739: Type '{ id: string; type: string; status: string; deleted: false; data: { items: { productId: string; name: string; quantity: number; unitPrice: number; fiscal: { ncm: string; cfop: string; origin: string; }; }[]; shipping: { ...; }; payments: { ...; }[]; }; }' is missing the following properties from type '{ id: string; type: string; status: string; deleted?: boolean | undefined; version: number; updatedAt: string; data: Record<string, FiscalJsonValue>; }': version, updatedAt
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(389,15): error TS2739: Type '{ decisionId: string; ruleSetVersion: string; approver: string; reason: string; effectiveAt: string; }' is missing the following properties from type 'FiscalDecisionTrace': inputFacts, result
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(427,13): error TS2739: Type '{ decisionId: string; ruleSetVersion: string; approver: string; reason: string; effectiveAt: string; }' is missing the following properties from type 'FiscalDecisionTrace': inputFacts, result
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(437,11): error TS2739: Type '{ decisionId: string; ruleSetVersion: string; approver: string; reason: string; effectiveAt: string; }' is missing the following properties from type 'FiscalDecisionTrace': inputFacts, result
+src/pages/utils/nfe/__tests__/fiscalRecipientIe.test.ts(451,7): error TS2353: Object literal may only specify known properties, and 'environment' does not exist in type 'ApprovedFiscalRuleSet'.
+src/pages/utils/nfe/__tests__/fiscalXmlAudit.test.ts(89,3): error TS2322: Type '{ itemNumber: number; product: { code: string; description: string; gtin: string; quantity: number; unitValue: number; gross: number; discount: number; freight: number; insurance: number; otherExpenses: number; }; classification: { ...; }; taxes: ({ ...; } | ... 1 more ... | { ...; })[]; decisions: never[]; }[]' is not assignable to type 'readonly DeterminedFiscalItem[]'.
+  Type '{ itemNumber: number; product: { code: string; description: string; gtin: string; quantity: number; unitValue: number; gross: number; discount: number; freight: number; insurance: number; otherExpenses: number; }; classification: { ...; }; taxes: ({ ...; } | ... 1 more ... | { ...; })[]; decisions: never[]; }' is not assignable to type 'DeterminedFiscalItem'.
+    Types of property 'taxes' are incompatible.
+      Type '({ group: "ICMS"; codeSystem: "CSOSN"; code: string; values: { vICMS: number; vPIS?: undefined; vCOFINS?: undefined; }; decisionId: string; } | { group: "PIS"; codeSystem: "CST"; code: string; values: { ...; }; decisionId: string; } | { ...; })[]' is not assignable to type 'readonly DeterminedTaxGroup[]'.
+        Type '{ group: "ICMS"; codeSystem: "CSOSN"; code: string; values: { vICMS: number; vPIS?: undefined; vCOFINS?: undefined; }; decisionId: string; } | { group: "PIS"; codeSystem: "CST"; code: string; values: { ...; }; decisionId: string; } | { ...; }' is not assignable to type 'DeterminedTaxGroup'.
+          Type '{ group: "ICMS"; codeSystem: "CSOSN"; code: string; values: { vICMS: number; vPIS?: undefined; vCOFINS?: undefined; }; decisionId: string; }' is not assignable to type 'DeterminedTaxGroup'.
+            Type '{ group: "ICMS"; codeSystem: "CSOSN"; code: string; values: { vICMS: number; vPIS?: undefined; vCOFINS?: undefined; }; decisionId: string; }' is not assignable to type '{ group: "ICMS"; codeSystem: "CSOSN"; code: string; values: Readonly<Record<string, string | number | boolean>>; decisionId: string; }'.
+              Types of property 'values' are incompatible.
+                Type '{ vICMS: number; vPIS?: undefined; vCOFINS?: undefined; }' is not assignable to type 'Readonly<Record<string, string | number | boolean>>'.
+                  Property 'vPIS' is incompatible with index signature.
+                    Type 'undefined' is not assignable to type 'string | number | boolean'.
+src/pages/utils/nfe/__tests__/harness/normalOutboundTestHarness.ts(259,51): error TS18048: 'a' is possibly 'undefined'.
+src/pages/utils/nfe/__tests__/harness/normalOutboundTestHarness.ts(343,23): error TS2322: Type 'unknown' is not assignable to type 'FiscalPreviewProof | undefined'.
+src/pages/utils/nfe/__tests__/orderEditFiscalAudit.test.ts(152,7): error TS2353: Object literal may only specify known properties, and 'requestedModel' does not exist in type '{ id: string; environment: 2 | 1; itemCsosnOverrides?: Record<string, string> | undefined; itemFiscalSelections?: FiscalItemSelections | undefined; ... 11 more ...; freightContractResponsible?: "THIRD_PARTY" | ... 2 more ... | undefined; }'.
+src/pages/utils/nfe/__tests__/orderEditFiscalAudit.test.ts(240,5): error TS18047: 'snapshot.order.data.items' is possibly 'null'.
+src/pages/utils/nfe/__tests__/orderEditFiscalAudit.test.ts(240,5): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'string | number | boolean | FiscalJsonValue[] | { [key: string]: FiscalJsonValue; }'.
+  Property '0' does not exist on type 'string | number | boolean | FiscalJsonValue[] | { [key: string]: FiscalJsonValue; }'.
+src/pages/utils/nfe/xml/__tests__/xmlDestBlock.test.ts(20,9): error TS2353: Object literal may only specify known properties, and 'cityCode' does not exist in type 'FullAddress'.
+src/pages/utils/nfe/xml/__tests__/xmlDestBlock.test.ts(25,5): error TS2739: Type '{ deliveryMethod: "delivery"; freightMode: "9"; }' is missing the following properties from type 'Shipping': value, orderType, scheduling
+src/pages/utils/orderMutation/__tests__/orderCreationAtomicity.test.ts(245,44): error TS2322: Type '{ fiscal: { ncm: string; commercialUnit: string; taxableUnit: string; }; productId: string; quantity: number; fiscalSnapshotVersion: number; }[]' is not assignable to type 'Item[]'.
+  Type '{ fiscal: { ncm: string; commercialUnit: string; taxableUnit: string; }; productId: string; quantity: number; fiscalSnapshotVersion: number; }' is missing the following properties from type 'Item': description, unitPrice, unitDiscount, discountType, handlingType
+src/pages/utils/orderMutation/__tests__/orderCreationAtomicity.test.ts(662,67): error TS2345: Argument of type '() => Promise<any>' is not assignable to parameter of type 'Order'.
+src/pages/utils/orderMutation/__tests__/orderMutationModules.test.ts(28,48): error TS2345: Argument of type '{ id: string; fullName: string; }' is not assignable to parameter of type 'CustomerData'.
+  Type '{ id: string; fullName: string; }' is missing the following properties from type 'CustomerData': phone, fullAddress
+src/pages/utils/orderMutation/__tests__/orderMutationModules.test.ts(33,48): error TS2345: Argument of type '{ fullName: string; }' is not assignable to parameter of type 'CustomerData'.
+  Type '{ fullName: string; }' is missing the following properties from type 'CustomerData': phone, fullAddress
+src/pages/utils/personService/__tests__/personMapper.test.ts(15,9): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'Person'.
+src/pages/utils/personService/__tests__/personMapper.test.ts(43,9): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'Person'.
+src/pages/utils/personService/__tests__/personMapper.test.ts(51,9): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'Person'.
+src/pages/utils/personService/__tests__/personMapper.test.ts(61,9): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'Person'.
+src/pages/utils/personService/__tests__/personMapper.test.ts(68,9): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'Person'.
+src/pages/utils/personService/__tests__/personMapper.test.ts(97,22): error TS2551: Property 'address' does not exist on type 'Person'. Did you mean 'noAddress'?
+src/pages/utils/printing/__tests__/printService.test.ts(51,5): error TS2741: Property 'fullAddress' is missing in type '{ fullName: string; phone: string; cpfCnpj: string; }' but required in type 'CustomerData'.
+src/pages/utils/printing/__tests__/printService.test.ts(64,5): error TS2739: Type '{ deliveryMethod: "delivery"; value: number; }' is missing the following properties from type 'Shipping': orderType, scheduling
+src/pages/utils/printing/__tests__/printService.test.ts(68,5): error TS2739: Type '{ totalOrderValue: number; }' is missing the following properties from type 'PaymentsSummary': totalPaymentsFee, totalAmountPaid, amountRemaining
+src/pages/utils/printing/__tests__/printService.test.ts(125,7): error TS2322: Type 'number' is not assignable to type 'string'.
+src/pages/utils/printing/__tests__/printService.test.ts(151,9): error TS2322: Type 'number' is not assignable to type 'string'.
+src/pages/utils/productService/productFilterBuilder.test.ts(173,10): error TS7006: Parameter 'callOrder' implicitly has an 'any' type.
+src/pages/utils/productService/productModeMapping.test.ts(96,20): error TS2739: Type '{ id: string; attributes: never[]; technicalValues: { Cor: string; }; }' is missing the following properties from type 'Variation': sku, name, stock, unitPrice, active
+src/pages/utils/productService/productVariationQuickRegistration.test.ts(15,32): error TS2352: Conversion of type '{ id: string; name: string; code: string; unitPrice: number; stock: number; costPrice: number; technicalSpecs: { preservar: string; }; variations: { id: string; sku: string; stock: number; }[]; }' to type 'Product' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ id: string; name: string; code: string; unitPrice: number; stock: number; costPrice: number; technicalSpecs: { preservar: string; }; variations: { id: string; sku: string; stock: number; }[]; }' is missing the following properties from type 'Product': description, unit, active, itemType
+src/pages/utils/serviceService.ts(44,26): error TS18048: 'treatment.validationReference' is possibly 'undefined'.
+src/pages/utils/serviceService.ts(94,65): error TS2345: Argument of type '{ nfeComposition?: "not_reviewed" | "include_with_merchandise" | "separate_document" | undefined; incorporationConfirmed?: boolean | undefined; validationReference?: string | undefined; validatedAt?: string | undefined; validatedBy?: string | undefined; } | undefined' is not assignable to parameter of type 'ServiceFiscalTreatment | undefined'.
+  Type '{ nfeComposition?: "not_reviewed" | "include_with_merchandise" | "separate_document" | undefined; incorporationConfirmed?: boolean | undefined; validationReference?: string | undefined; validatedAt?: string | undefined; validatedBy?: string | undefined; }' is not assignable to type 'ServiceFiscalTreatment'.
+    Types of property 'nfeComposition' are incompatible.
+      Type '"not_reviewed" | "include_with_merchandise" | "separate_document" | undefined' is not assignable to type 'ServiceNfeComposition'.
+        Type 'undefined' is not assignable to type 'ServiceNfeComposition'.
+src/pages/utils/serviceService.ts(131,7): error TS2345: Argument of type '{ nfeComposition?: "not_reviewed" | "include_with_merchandise" | "separate_document" | undefined; incorporationConfirmed?: boolean | undefined; validationReference?: string | undefined; validatedAt?: string | undefined; validatedBy?: string | undefined; } | undefined' is not assignable to parameter of type 'ServiceFiscalTreatment | undefined'.
+  Type '{ nfeComposition?: "not_reviewed" | "include_with_merchandise" | "separate_document" | undefined; incorporationConfirmed?: boolean | undefined; validationReference?: string | undefined; validatedAt?: string | undefined; validatedBy?: string | undefined; }' is not assignable to type 'ServiceFiscalTreatment'.
+    Types of property 'nfeComposition' are incompatible.
+      Type '"not_reviewed" | "include_with_merchandise" | "separate_document" | undefined' is not assignable to type 'ServiceNfeComposition'.
+        Type 'undefined' is not assignable to type 'ServiceNfeComposition'.
+src/pages/utils/serviceService.ts(134,37): error TS2345: Argument of type '{ nfeComposition?: "not_reviewed" | "include_with_merchandise" | "separate_document" | undefined; incorporationConfirmed?: boolean | undefined; validationReference?: string | undefined; validatedAt?: string | undefined; validatedBy?: string | undefined; } | undefined' is not assignable to parameter of type 'ServiceFiscalTreatment | undefined'.
+  Type '{ nfeComposition?: "not_reviewed" | "include_with_merchandise" | "separate_document" | undefined; incorporationConfirmed?: boolean | undefined; validationReference?: string | undefined; validatedAt?: string | undefined; validatedBy?: string | undefined; }' is not assignable to type 'ServiceFiscalTreatment'.
+    Types of property 'nfeComposition' are incompatible.
+      Type '"not_reviewed" | "include_with_merchandise" | "separate_document" | undefined' is not assignable to type 'ServiceNfeComposition'.
+        Type 'undefined' is not assignable to type 'ServiceNfeComposition'.
+src/pages/utils/settings/__tests__/settingsConfirmed.test.tsx(47,43): error TS2352: Conversion of type '{ [k: string]: string | number | boolean | [number, number] | { draft: string; scheduled: string; fulfilled: string; cancelled: string; } | OrderStatusConfig[] | { delivery: string; pickup: string; assistance: string; budget: string; return: string; } | ... 22 more ... | { ...; }; }' to type 'AppSettings' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ [k: string]: string | number | boolean | [number, number] | { draft: string; scheduled: string; fulfilled: string; cancelled: string; } | OrderStatusConfig[] | { delivery: string; pickup: string; assistance: string; budget: string; return: string; } | ... 22 more ... | { ...; }; }' is missing the following properties from type 'AppSettings': showManualFulfillmentPrompt, autoSaveOnlyWhenDirty, orderStatuses, orderTypeLabels, and 30 more.
+src/Router.tsx(57,26): error TS1261: Already included file name 'C:/Users/mathe/OneDrive/Área de Trabalho/projetos/morantehub/erp/src/pages/App/SalesOrder/pages/NewSaleOrder.ts' differs from file name 'C:/Users/mathe/OneDrive/Área de Trabalho/projetos/morantehub/erp/src/pages/App/SalesOrder/pages/newSaleOrder.ts' only in casing.
+  The file is in the program because:
+    Imported via './pages/App/SalesOrder/pages/NewSaleOrder' from file 'C:/Users/mathe/OneDrive/Área de Trabalho/projetos/morantehub/erp/src/Router.tsx'
+    Imported via '../pages/NewSaleOrder' from file 'C:/Users/mathe/OneDrive/Área de Trabalho/projetos/morantehub/erp/src/pages/App/SalesOrder/__tests__/orderModalBehavior.test.tsx'
+    Matched by include pattern 'src' in 'tsconfig.json'
+src/services/aiAgent/__tests__/mobileAiAgent.test.ts(24,37): error TS2339: Property 'getApiKey' does not exist on type 'typeof MobileAgentClient'.
+src/services/aiGateway/__tests__/AiQuotaManager.test.ts(197,7): error TS2322: Type 'Promise<{ data: null; error: { message: string; }; }>' is not assignable to type 'Promise<{ data: null; error: null; }>'.
+  Type '{ data: null; error: { message: string; }; }' is not assignable to type '{ data: null; error: null; }'.
+    Types of property 'error' are incompatible.
+      Type '{ message: string; }' is not assignable to type 'null'.
+tests/e2e/fiscal/fiscalXmlAssertions.ts(245,30): error TS2345: Argument of type 'Document' is not assignable to parameter of type 'Document | Element'.
+  Type 'Document' is missing the following properties from type 'Document': URL, alinkColor, all, anchors, and 193 more.
+tests/e2e/fiscal/fiscalXmlAssertions.ts(396,34): error TS2345: Argument of type 'Document' is not assignable to parameter of type 'Document | Element'.
+  Type 'Document' is missing the following properties from type 'Document': URL, alinkColor, all, anchors, and 193 more.
+tests/e2e/fiscal/fiscalXmlAssertions.ts(397,30): error TS2345: Argument of type 'Document' is not assignable to parameter of type 'Document | Element'.
+  Type 'Document' is missing the following properties from type 'Document': URL, alinkColor, all, anchors, and 193 more.
+../mobile/src/services/financialAiAssistantService.ts(350,18): error TS2741: Property 'role' is missing in type '{ parts: { text: string; }[]; }' but required in type 'GeminiContent'.
+../shared-utils/commercialScheduling/resolutionEngine.ts(312,24): error TS2339: Property 'period' does not exist on type 'Partial<{ date: string; endDate?: string | undefined; dateType?: "fixed" | "range" | undefined; time: string; startTime?: string | undefined; endTime?: string | undefined; type: "fixed" | "range"; ... 4 more ...; scheduleMode?: "defined" | ... 1 more ... | undefined; }>'.
+../shared-utils/commercialScheduling/types.ts(1,27): error TS2307: Cannot find module '../erp/src/pages/types/Shipping.type' or its corresponding type declarations.
+../shared-utils/fiscalPrintSchemas.ts(8,13): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(values: readonly ["thermal_80mm", "a4"], params?: string | { error?: string | $ZodErrorMap<$ZodIssueInvalidValue<unknown>> | undefined; message?: string | undefined; } | undefined): ZodEnum<...>', gave the following error.
+    Object literal may only specify known properties, and 'required_error' does not exist in type '{ error?: string | $ZodErrorMap<$ZodIssueInvalidValue<unknown>> | undefined; message?: string | undefined; }'.
+  Overload 2 of 2, '(entries: Readonly<Record<string, EnumValue>>, params?: string | { error?: string | $ZodErrorMap<$ZodIssueInvalidValue<unknown>> | undefined; message?: string | undefined; } | undefined): ZodEnum<...>', gave the following error.
+    Argument of type 'readonly ["thermal_80mm", "a4"]' is not assignable to parameter of type 'Readonly<Record<string, EnumValue>>'.
+      Index signature for type 'string' is missing in type 'readonly ["thermal_80mm", "a4"]'.
+../shared-utils/productDraftSnapshot.ts(28,7): error TS2862: Type 'T & UnknownRecord' is generic and can only be indexed for reading.
+../shared-utils/productListCategoryFilters.ts(39,7): error TS18046: 'categoryResult' is of type 'unknown'.
+../shared-utils/productListCategoryFilters.ts(39,35): error TS18046: 'categoryResult' is of type 'unknown'.
+../shared-utils/productListCategoryFilters.ts(40,7): error TS18046: 'categoryLinksResult' is of type 'unknown'.
+../shared-utils/productListCategoryFilters.ts(40,40): error TS18046: 'categoryLinksResult' is of type 'unknown'.
+../shared-utils/productListCategoryFilters.ts(42,29): error TS18046: 'categoryLinksResult' is of type 'unknown'.
+../shared-utils/productListCategoryFilters.ts(46,53): error TS18046: 'categoryResult' is of type 'unknown'.

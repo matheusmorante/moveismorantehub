@@ -19,12 +19,16 @@ function fail(message, code = 1) {
   process.exit(code);
 }
 
+function requiresWindowsShell(command) {
+  return process.platform === 'win32' && /\.(?:bat|cmd)$/i.test(command);
+}
+
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
     cwd: projectRoot,
     stdio: 'inherit',
     env: process.env,
-    shell: process.platform === 'win32',
+    shell: requiresWindowsShell(command),
     ...options,
   });
   if (result.error) fail(`Não foi possível iniciar ${command}: ${result.error.message}`);
@@ -36,7 +40,7 @@ function capture(command, args, options = {}) {
     cwd: projectRoot,
     encoding: 'utf8',
     env: process.env,
-    shell: process.platform === 'win32',
+    shell: requiresWindowsShell(command),
     timeout: 20_000,
     ...options,
   });
@@ -135,6 +139,7 @@ function runMaestro(serial, flowPath, label) {
   const result = spawnSync(maestroPath, [
     `--device=${serial}`,
     'test',
+    '--no-reinstall-driver',
     '--format=JUNIT',
     `--output=${relativeOutput}`,
     relativeFlow,
@@ -142,7 +147,7 @@ function runMaestro(serial, flowPath, label) {
     cwd: projectRoot,
     stdio: 'inherit',
     env: process.env,
-    shell: true,
+    shell: requiresWindowsShell(maestroPath),
   });
 
   if (result.error) fail(`Falha ao executar Maestro: ${result.error.message}`);

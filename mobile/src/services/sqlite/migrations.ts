@@ -144,6 +144,7 @@ const applyMigrations = async (driver: DatabaseDriver): Promise<void> => {
   await driver.execAsync(`
     CREATE TABLE IF NOT EXISTS inventory_drafts_local (
       id TEXT PRIMARY KEY,
+      user_id TEXT,
       code TEXT NOT NULL,
       scope_type TEXT,
       name TEXT NOT NULL,
@@ -156,6 +157,15 @@ const applyMigrations = async (driver: DatabaseDriver): Promise<void> => {
   `);
   await driver.execAsync(
     `CREATE INDEX IF NOT EXISTS idx_inventory_drafts_local_updated ON inventory_drafts_local(updated_at);`
+  );
+  const inventoryDraftColumns = await driver.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(inventory_drafts_local);'
+  );
+  if (!inventoryDraftColumns.some((column) => column.name === 'user_id')) {
+    await driver.execAsync('ALTER TABLE inventory_drafts_local ADD COLUMN user_id TEXT;');
+  }
+  await driver.execAsync(
+    `CREATE INDEX IF NOT EXISTS idx_inventory_drafts_local_user_updated ON inventory_drafts_local(user_id, status, updated_at);`
   );
 
   await driver.execAsync(`
@@ -209,5 +219,10 @@ const applyMigrations = async (driver: DatabaseDriver): Promise<void> => {
     `INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)
      ON CONFLICT(version) DO NOTHING;`,
     [4, 'inventory_draft_responsible_name', new Date().toISOString()]
+  );
+  await driver.runAsync(
+    `INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)
+     ON CONFLICT(version) DO NOTHING;`,
+    [5, 'inventory_draft_user_ownership', new Date().toISOString()]
   );
 };

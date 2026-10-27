@@ -87,10 +87,7 @@ vi.mock('../services/mobileProductVariationActionsService', () => ({
 
 import { MobileProductCard } from './MobileProductCard';
 
-const renderCard = (
-  exitedVariationIds: ReadonlySet<string>,
-  variation = { id: 'variation-1', sku: 'SKU-1' }
-) =>
+const renderCard = (variation = { id: 'variation-1', sku: 'SKU-1' }) =>
   renderToStaticMarkup(
     <MobileProductCard
       product={{
@@ -99,7 +96,6 @@ const renderCard = (
         itemType: 'product',
         allVariations: [variation],
       }}
-      exitedVariationIds={exitedVariationIds}
       dark={false}
       onEdit={() => undefined}
       onToggleCatalog={() => undefined}
@@ -108,23 +104,17 @@ const renderCard = (
     />
   );
 
-describe('MobileProductCard — indicador de saída da variação única', () => {
-  it('mostra o selo acessível quando a variação persistida tem saída vinculada', () => {
-    const html = renderCard(new Set(['variation-1']));
-    expect(html).toContain('Saída Lançada');
-    expect(html).toContain('aria-label="Saída Lançada"');
+describe('MobileProductCard — indicador de saída', () => {
+  it('não mostra selo de saída para variação persistida', () => {
+    expect(renderCard()).not.toContain('Saída Lançada');
   });
 
-  it('não mostra o selo para uma variação virtual', () => {
-    const html = renderCard(new Set(['virtual-variation']), {
+  it('não mostra selo de saída para variação virtual', () => {
+    const html = renderCard({
       id: 'virtual-variation',
       sku: 'SKU-1',
       isVirtual: true,
     });
     expect(html).not.toContain('Saída Lançada');
-  });
-
-  it('não mostra o selo quando não há saída vinculada', () => {
-    expect(renderCard(new Set())).not.toContain('Saída Lançada');
   });
 });

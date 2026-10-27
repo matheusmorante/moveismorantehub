@@ -18,6 +18,8 @@ import { isTechnicalFieldVariable } from '@/pages/utils/technicalValuesService';
 
 export interface TechnicalFieldGroupSectionProps {
   readonly group: CharacteristicGroup<TechnicalFieldDefinition>;
+  readonly headingAccessory?: React.ReactNode;
+  readonly allDisplayedFields?: readonly TechnicalFieldDefinition[];
   readonly formData: Partial<Product>;
   readonly manualFieldNames: string[];
   readonly validationErrors?: Record<string, boolean>;
@@ -68,11 +70,12 @@ const DEFAULT_POSSUI_PES: TechnicalFieldDefinition = {
 };
 
 /**
- * Renderiza uma seção temática de características técnicas em grid responsivo.
- * Mantém os campos dependentes visíveis e os habilita quando o campo mestre é válido.
+ * Renderiza uma seção temática e evita repetir o controle booleano quando a quantidade já é exibida.
  */
 export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProps> = ({
   group,
+  headingAccessory,
+  allDisplayedFields = [],
   formData,
   manualFieldNames,
   validationErrors,
@@ -95,10 +98,10 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
       : isTechnicalFieldVariable(fieldName, variableTechnicalFieldNames);
 
   const effectiveFields = [...group.fields];
-  const hasDoorQuantityField = effectiveFields.some((field) =>
+  const hasDoorQuantityField = [...effectiveFields, ...allDisplayedFields].some((field) =>
     isDoorQuantityCharacteristic(field.name)
   );
-  const hasDrawerQuantityField = effectiveFields.some((field) =>
+  const hasDrawerQuantityField = [...effectiveFields, ...allDisplayedFields].some((field) =>
     isDrawerQuantityCharacteristic(field.name)
   );
 
@@ -121,16 +124,12 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
   }
 
   const displayedFields = effectiveFields.filter((field) => {
-    if (isPortasGroup) {
-      if (isHasDoorsCharacteristic(field.name)) return !hasDoorQuantityField;
-      if (isDoorQuantityCharacteristic(field.name)) return true;
-      return true;
-    }
-    if (isGavetasGroup) {
-      if (isHasDrawersCharacteristic(field.name)) return !hasDrawerQuantityField;
-      if (isDrawerQuantityCharacteristic(field.name)) return true;
-      return true;
-    }
+    // O formulário pode agrupar opcionais em uma seção genérica; ainda assim,
+    // a presença da quantidade torna redundante o controle booleano mestre.
+    if (isHasDoorsCharacteristic(field.name)) return !hasDoorQuantityField;
+    if (isDoorQuantityCharacteristic(field.name)) return true;
+    if (isHasDrawersCharacteristic(field.name)) return !hasDrawerQuantityField;
+    if (isDrawerQuantityCharacteristic(field.name)) return true;
     if (isPesGroup) {
       if (isHasFeetCharacteristic(field.name)) return true;
       return true;
@@ -163,15 +162,27 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
     </div>
   );
 
+  const headingTextClassName =
+    'flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300';
   const headingClassName =
-    'flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2';
+    `${headingTextClassName} border-b border-slate-200 dark:border-slate-800 pb-2`;
+  const heading = headingAccessory ? (
+    <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 border-b border-slate-200 pb-2 dark:border-slate-800">
+      <h4 id={`technical-group-${group.title}`} className={headingTextClassName}>
+        {group.title}
+      </h4>
+      <div className="w-full max-w-xl flex-[1_0_18rem]">{headingAccessory}</div>
+    </div>
+  ) : (
+    <h4 id={`technical-group-${group.title}`} className={headingClassName}>
+      {group.title}
+    </h4>
+  );
 
   if (isDimensionsGroup) {
     return (
       <section aria-labelledby={`technical-group-${group.title}`} className="flex flex-col gap-3">
-        <h4 id={`technical-group-${group.title}`} className={headingClassName}>
-          {group.title}
-        </h4>
+        {heading}
         {fieldGrid}
       </section>
     );
@@ -183,9 +194,7 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
 
   return (
     <section aria-labelledby={`technical-group-${group.title}`} className="flex flex-col gap-3">
-      <h4 id={`technical-group-${group.title}`} className={headingClassName}>
-        {group.title}
-      </h4>
+      {heading}
       {fieldGrid}
     </section>
   );

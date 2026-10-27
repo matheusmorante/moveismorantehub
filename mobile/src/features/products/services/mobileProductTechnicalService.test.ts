@@ -118,6 +118,47 @@ describe('mobileProductTechnicalService', () => {
     ]);
   });
 
+  it('projeta dimensões legadas como medidas numéricas com unidade cm', async () => {
+    const names = ['Altura', 'Largura', 'Profundidade aberto', 'Espessura do colchão'];
+    const attributesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: names.map((name, index) => ({
+          id: `measure-${index}`,
+          name,
+          active: true,
+          data_type: 'list',
+          unit: null,
+          is_custom: false,
+          decimal_places: null,
+        })),
+        error: null,
+      }),
+    };
+    const valuesQuery = {
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }),
+    };
+    const categoryLinksQuery = {
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }),
+    };
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return attributesQuery;
+      if (table === 'attribute_values') return valuesQuery;
+      if (table === 'category_attributes') return categoryLinksQuery;
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const fields = await fetchMobileProductTechnicalFields();
+
+    expect(fields).toMatchObject(
+      names.map((name) => ({ name, data_type: 'measure', unit: 'cm' }))
+    );
+  });
+
   it('filtra características reclinável e ordena opções de firmeza por macio, médio, firme', async () => {
     const attributesQuery = {
       select: vi.fn().mockReturnThis(),

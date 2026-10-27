@@ -1,12 +1,13 @@
 // @vitest-environment happy-dom
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { FiscalDocumentStatusBadge } from '../components/FiscalDocumentStatusBadge';
 import { FiscalDocumentsHeader } from '../components/FiscalDocumentsHeader';
 import { FiscalDocumentsPagination } from '../components/FiscalDocumentsPagination';
+import { FiscalDocumentsFilterBar } from '../components/FiscalDocumentsFilterBar';
 import { FiscalCancelModal } from '../modals/FiscalCancelModal';
 import type { NfeDocumentRecord } from '../types/fiscalDocuments.types';
 
@@ -45,13 +46,39 @@ describe('FiscalDocuments - Components', () => {
       />
     );
 
-    expect(screen.getByText('75')).toBeDefined();
+    expect(screen.getByText('1–15 de 75 notas fiscais')).toBeDefined();
+    expect(screen.queryByRole('combobox', { name: 'Registros por página' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Página 1, atual' }).getAttribute('aria-current')).toBe(
       'page'
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Página 2' }));
     expect(onPageChange).toHaveBeenCalledWith(1);
+  });
+
+  it('permite digitar a pesquisa fiscal sem botão de submissão', () => {
+    const onSearchInputChange = vi.fn();
+    render(
+      <FiscalDocumentsFilterBar
+        filters={{ search: '', model: 'all', status: 'all', environment: '1', documentType: 'all', dateFrom: '', dateTo: '' }}
+        accountantView={false}
+        searchInput=""
+        onSearchInputChange={onSearchInputChange}
+        onModelChange={vi.fn()}
+        onDocumentTypeChange={vi.fn()}
+        onStatusChange={vi.fn()}
+        onEnvironmentChange={vi.fn()}
+        period="last_30_days"
+        onPeriodChange={vi.fn()}
+        customDateFrom=""
+        customDateTo=""
+        onCustomDateFromChange={vi.fn()}
+        onCustomDateToChange={vi.fn()}
+      />
+    );
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Buscar notas fiscais' }), { target: { value: '719' } });
+    expect(onSearchInputChange).toHaveBeenCalledWith('719');
+    expect(screen.queryByRole('button', { name: /^Buscar$/i })).toBeNull();
   });
 
   it('renderiza FiscalCancelModal e exibe dados fiscais', () => {

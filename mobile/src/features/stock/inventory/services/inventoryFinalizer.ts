@@ -51,6 +51,10 @@ export const executeInventoryFinalization = async ({
   userProfile,
   onClose,
 }: FinalizeParams): Promise<boolean> => {
+  if (!userProfile?.id) {
+    Alert.alert('Sessão indisponível', 'Entre novamente para concluir este inventário.');
+    return false;
+  }
   const auditId = draftRef.current.id;
   const code = draftRef.current.code;
 
@@ -61,7 +65,7 @@ export const executeInventoryFinalization = async ({
 
   let existingSubmission;
   try {
-    existingSubmission = await getInventorySubmission(auditId);
+    existingSubmission = await getInventorySubmission(auditId, userProfile.id);
   } catch {
     Alert.alert(
       'Falha ao recuperar',
@@ -111,7 +115,7 @@ export const executeInventoryFinalization = async ({
     connectivityService.connected &&
     (typeof navigator === 'undefined' || navigator.onLine !== false);
   if (!isOnline) {
-    await markLocalDraftPendingSync(auditId).catch(() => {});
+    await markLocalDraftPendingSync(auditId, userProfile.id).catch(() => {});
     Alert.alert(
       'Conclusão salva no aparelho',
       'A submissão ficou congelada para envio. Conecte-se à internet e retome este inventário para sincronizar o estoque.',
@@ -154,8 +158,8 @@ export const executeInventoryFinalization = async ({
     }
 
     try {
-      await deleteLocalInventoryDraft(auditId);
-      await deleteInventorySubmission(auditId);
+      await deleteLocalInventoryDraft(auditId, userProfile.id);
+      await deleteInventorySubmission(auditId, userProfile.id);
     } catch (e) {
       console.warn('[SQLite] Erro ao remover rascunho local após finalização:', e);
     }
@@ -181,7 +185,7 @@ export const executeInventoryFinalization = async ({
     return true;
   } catch (error: any) {
     console.error('[Finalize] Erro ao finalizar inventário no Supabase:', error);
-    await recordInventorySubmissionFailure(auditId, error).catch((e) =>
+    await recordInventorySubmissionFailure(auditId, error, userProfile.id).catch((e) =>
       console.warn('[SQLite] Falha ao registrar tentativa:', e)
     );
     const timedOut = error?.message === INVENTORY_FINALIZATION_RPC_TIMEOUT_ERROR;
@@ -193,7 +197,7 @@ export const executeInventoryFinalization = async ({
       !connectivityService.connected;
 
     if (isNetworkError) {
-      await markLocalDraftPendingSync(auditId).catch(() => {});
+      await markLocalDraftPendingSync(auditId, userProfile.id).catch(() => {});
       Alert.alert(
         timedOut ? 'Confirmação pendente' : 'Falha de conexão',
         timedOut

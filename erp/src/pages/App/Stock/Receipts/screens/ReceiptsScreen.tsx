@@ -140,7 +140,7 @@ export default function ReceiptsPage() {
 
   const selectedSupplier = suppliers.find((p) => p.id === selectedSupplierId);
 
-  const ITEMS_PER_PAGE = 15;
+  const [itemsPerPage, setItemsPerPage] = useState(15);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Reinicia página ao mudar filtro de período ou fornecedor
@@ -149,12 +149,12 @@ export default function ReceiptsPage() {
   }, [period, selectedSupplierId, customStartDate, customEndDate]);
 
   const totalItems = filteredReceipts.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
 
   const paginatedReceipts = React.useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredReceipts.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredReceipts, currentPage]);
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredReceipts.slice(start, start + itemsPerPage);
+  }, [filteredReceipts, currentPage, itemsPerPage]);
 
   return (
     <div className="flex flex-col">
@@ -241,8 +241,12 @@ export default function ReceiptsPage() {
               currentPage={currentPage}
               totalPages={totalPages}
               totalItems={totalItems}
-              itemsPerPage={ITEMS_PER_PAGE}
+              itemsPerPage={itemsPerPage}
               onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setCurrentPage(1);
+                setItemsPerPage(size);
+              }}
               bare
             />
           </>

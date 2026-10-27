@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { endOfMonth, format, startOfMonth, startOfYear, subDays, subMonths } from 'date-fns';
 import { useSearchParams } from 'react-router-dom';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { fiscalDocumentsListFormSchema } from '../../../../../../shared-utils/listingFormSchemas';
+import { fiscalDocumentsListFormSchema, fiscalDocumentsSearchFormSchema } from '../../../../../../shared-utils/listingFormSchemas';
 import type { z } from 'zod';
 import type {
   FiscalDocumentFilters,
@@ -37,6 +37,25 @@ export function useFiscalDocumentsList(
   // Filtros
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const searchRef = useRef(search);
+  searchRef.current = search;
+  const { validateValues: validateSearch } = useZodForm(fiscalDocumentsSearchFormSchema, { search: searchInput });
+
+  useEffect(() => {
+    if (!canViewFiscal) return;
+    let current = true;
+    const timer = window.setTimeout(() => {
+      void validateSearch({ search: searchInput }).then((values) => {
+        if (!current || !values || values.search === searchRef.current) return;
+        setPageIndex(0);
+        setSearch(values.search);
+      });
+    }, 350);
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
+  }, [canViewFiscal, searchInput, validateSearch]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [modelFilter, setModelFilter] = useState('all');
   const [documentTypeFilter, setDocumentTypeFilter] = useState<'all' | 'outbound' | 'estorno'>('all');
@@ -169,17 +188,6 @@ export function useFiscalDocumentsList(
     await queryClient.invalidateQueries({ queryKey: ['fiscal-documents'] });
   }, [queryClient]);
 
-  const handleSearchSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!canViewFiscal) return;
-    if (pageIndex === 0 && search === searchInput) {
-      void fiscalDocumentsQuery.refetch();
-      return;
-    }
-    setPageIndex(0);
-    setSearch(searchInput);
-  };
-
   return {
     documents,
     loading,
@@ -200,7 +208,6 @@ export function useFiscalDocumentsList(
     filters,
     searchInput,
     setSearchInput,
-    handleSearchSubmit,
     setStatusFilter: (status: string) => {
       setPageIndex(0);
       setStatusFilter(status);

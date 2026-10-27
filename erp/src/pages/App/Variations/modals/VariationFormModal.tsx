@@ -26,6 +26,8 @@ export const VariationFormModal = ({
     optionSearch,
     setOptionSearch,
     setOptionPage,
+    optionPageSize,
+    setOptionPageSize,
     editingOptionId,
     editingOptionValue,
     saveStatus,
@@ -224,6 +226,11 @@ export const VariationFormModal = ({
                 onStartOptionEdit={startOptionEdit}
                 onRemoveOption={removeOption}
                 visiblePage={visiblePage}
+                optionPageSize={optionPageSize}
+                onPageSizeChange={(size) => {
+                  setOptionPage(0);
+                  setOptionPageSize(size);
+                }}
                 totalOptionPages={totalOptionPages}
                 firstVisibleOption={firstVisibleOption}
                 lastVisibleOption={lastVisibleOption}

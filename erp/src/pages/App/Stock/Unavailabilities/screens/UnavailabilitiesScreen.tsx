@@ -1,8 +1,8 @@
 ﻿import { CheckCircle2, FilterX, Plus } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 import {
@@ -25,6 +25,7 @@ export default function UnavailabilitiesPage() {
   const [unavailabilities, setUnavailabilities] = useState<StockUnavailability[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(STOCK_UNAVAILABILITIES_PAGE_SIZE);
   const [statusFilter, setStatusFilter] = useState<UnavailabilityStatusFilter>('all');
   const [productKindFilter, setProductKindFilter] =
     useState<UnavailabilityProductKindFilter>('all');
@@ -32,16 +33,20 @@ export default function UnavailabilitiesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [labelItem, setLabelItem] = useState<StockUnavailability | null>(null);
   const [selectedPhotosItem, setSelectedPhotosItem] = useState<StockUnavailability | null>(null);
+  const requestRevision = useRef(0);
 
   const fetchPage = useCallback(async () => {
+    const revision = ++requestRevision.current;
     setIsLoading(true);
     try {
       const result = await fetchStockUnavailabilities({
         page: currentPage,
+        pageSize: itemsPerPage,
         status: statusFilter,
         productKind: productKindFilter,
         id: id && id !== 'undefined' && id.trim() !== '' ? id : undefined,
       });
+      if (revision !== requestRevision.current) return;
       setUnavailabilities(result.data);
       setTotalCount(result.totalCount);
 
@@ -51,15 +56,17 @@ export default function UnavailabilitiesPage() {
         else toast.error('Indisponibilidade não encontrada.');
       }
     } catch (error) {
+      if (revision !== requestRevision.current) return;
       console.error('Erro ao buscar indisponibilidades:', error);
       toast.error('Erro ao carregar indisponibilidades.');
     } finally {
-      setIsLoading(false);
+      if (revision === requestRevision.current) setIsLoading(false);
     }
-  }, [currentPage, id, productKindFilter, statusFilter]);
+  }, [currentPage, itemsPerPage, id, productKindFilter, statusFilter]);
 
   useEffect(() => {
     void fetchPage();
+    return () => { requestRevision.current += 1; };
   }, [fetchPage]);
 
   const handleUndo = async (unavailabilityId: string) => {
@@ -72,9 +79,6 @@ export default function UnavailabilitiesPage() {
       toast.error(error instanceof Error ? error.message : 'Erro ao desfazer indisponibilidade.');
     }
   };
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / STOCK_UNAVAILABILITIES_PAGE_SIZE));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
 
   return (
     <div className="p-4 max-w-7xl mx-auto">
@@ -276,24 +280,21 @@ export default function UnavailabilitiesPage() {
         </div>
       )}
 
-      {!isLoading && totalCount > 0 && (
-        <nav
-          aria-label="Paginação de indisponibilidades"
-          className="flex flex-col items-center justify-between gap-3 py-4 text-sm text-gray-600 sm:flex-row"
-        >
-          <span>
-            Exibindo {totalCount > 0 ? (safeCurrentPage - 1) * STOCK_UNAVAILABILITIES_PAGE_SIZE + 1 : 0}–
-            {Math.min(safeCurrentPage * STOCK_UNAVAILABILITIES_PAGE_SIZE, totalCount)} de {totalCount}
-          </span>
-          <FixedPageSlots
-            ariaLabel="Paginação de indisponibilidades"
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-            loading={isLoading}
-          />
-        </nav>
-      )}
+      <ERPListPagination
+        ariaLabel="Paginação de indisponibilidades"
+        page={currentPage}
+        pageSize={itemsPerPage}
+        totalItems={totalCount}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(size) => {
+          setCurrentPage(1);
+          setItemsPerPage(size);
+        }}
+        preferenceKey="stock-unavailabilities"
+        itemLabel="indisponibilidades"
+        loading={isLoading}
+        className="my-4"
+      />
 
       <UnavailabilityFormModal
         isOpen={isModalOpen}

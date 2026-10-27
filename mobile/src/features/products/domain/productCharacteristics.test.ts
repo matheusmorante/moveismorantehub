@@ -14,6 +14,8 @@ import {
   getEffectiveVariationTechnicalValues,
   getMissingRequiredCharacteristics,
   getMissingRequiredDimensions,
+  getDisplayedOptionalProductTechnicalFields,
+  isDependentProductTechnicalFieldActive,
   getPersistableProductTechnicalValues,
   getProductCharacteristicAttributes,
   getMobileVariationColorSummary,
@@ -21,6 +23,7 @@ import {
   hasTechnicalValue,
   getTechnicalValue,
   isMobileVariableTechnicalField,
+  isMobileProductFormTechnicalFieldVariable,
   isExcludedProductTechnicalField,
   isProductTechnicalFieldRequired,
   isProductTechnicalFieldRequiredForCatalog,
@@ -37,6 +40,92 @@ import {
 } from './productCharacteristics';
 
 describe('productCharacteristics', () => {
+  it('faz características dependentes variarem somente junto com a mestre', () => {
+    expect(
+      isMobileProductFormTechnicalFieldVariable('Material das portas', ['Material das portas'])
+    ).toBe(false);
+    expect(
+      isMobileProductFormTechnicalFieldVariable('Material das portas', ['Quantidade de portas'])
+    ).toBe(true);
+    expect(isMobileProductFormTechnicalFieldVariable('Cor', ['Cor'])).toBe(true);
+  });
+
+  it('exibe opcionais dependentes somente com mestre selecionada, ativa ou variável', () => {
+    const fields = [
+      { name: 'Quantidade de portas' },
+      { name: 'Tipo de portas' },
+      { name: 'Marca' },
+    ];
+    const optionalFields = [fields[1], fields[2]];
+    const staleValues = {
+      'Quantidade de portas': 0,
+      'Tipo de portas': 'De correr',
+      Marca: 'Morante',
+    };
+
+    expect(
+      getDisplayedOptionalProductTechnicalFields(optionalFields, fields, staleValues).map(
+        ({ name }) => name
+      )
+    ).toEqual(['Marca']);
+    expect(
+      getDisplayedOptionalProductTechnicalFields(optionalFields, fields, {
+        'Quantidade de portas': 2,
+      }).map(({ name }) => name)
+    ).toEqual(['Tipo de portas']);
+    expect(
+      getDisplayedOptionalProductTechnicalFields(
+        optionalFields,
+        fields,
+        {},
+        {},
+        ['Quantidade de portas']
+      ).map(({ name }) => name)
+    ).toEqual(['Tipo de portas']);
+    expect(
+      getDisplayedOptionalProductTechnicalFields(
+        optionalFields,
+        fields,
+        staleValues,
+        staleValues,
+        [],
+        ['Tipo de portas']
+      ).map(({ name }) => name)
+    ).toEqual(['Tipo de portas', 'Marca']);
+  });
+
+  it('oculta dependentes inativas e mantém as que têm mestre ativa ou variável', () => {
+    const fields = [
+      { name: 'Quantidade de portas' },
+      { name: 'Tipo de portas' },
+    ];
+
+    expect(
+      isDependentProductTechnicalFieldActive('Tipo de portas', fields, {
+        'Quantidade de portas': 0,
+        'Tipo de portas': 'De correr',
+      })
+    ).toBe(false);
+    expect(
+      isDependentProductTechnicalFieldActive('Tipo de portas', fields, {
+        'Quantidade de portas': 2,
+      })
+    ).toBe(true);
+    expect(
+      isDependentProductTechnicalFieldActive(
+        'Tipo de portas',
+        fields,
+        {},
+        ['Quantidade de portas']
+      )
+    ).toBe(true);
+    expect(
+      isDependentProductTechnicalFieldActive('Tipo de portas', [{ name: 'Tipo de portas' }], {
+        'Quantidade de portas': 2,
+      })
+    ).toBe(false);
+  });
+
   it('define o mesmo default showName de overrides de variação do ERP', () => {
     expect(getDefaultShowNameForVariationOverride('Cor')).toBe(false);
     expect(getDefaultShowNameForVariationOverride(' cor ')).toBe(false);
@@ -68,18 +157,19 @@ describe('productCharacteristics', () => {
     ).toEqual([]);
     expect(getMissingRequiredCharacteristics({ Cor: 'Azul' })).toEqual(['Modelo', 'Marca']);
     expect(
-      getMissingRequiredDimensions({ Altura: '180', Largura: '80', Profundidade: '50' })
+      getMissingRequiredDimensions({ Altura: '180', Largura: '80', Profundidade: '50', Peso: '20' })
     ).toEqual([]);
     expect(
-      getMissingRequiredDimensions({ Altura: '180', Largura: '80', Comprimento: '50' })
+      getMissingRequiredDimensions({ Altura: '180', Largura: '80', Comprimento: '50', Peso: '20' })
     ).toEqual([]);
     expect(getMissingRequiredDimensions({ Altura: '180' })).toEqual([
       'Largura total',
       'Profundidade total',
+      'Peso',
     ]);
   });
 
-  it('mantém Peso opcional mesmo quando uma categoria ainda o marca como obrigatório', () => {
+  it('mantém Peso obrigatório independentemente das configurações legadas da categoria', () => {
     const weightField = {
       name: 'Peso',
       isRequired: true,
@@ -88,14 +178,14 @@ describe('productCharacteristics', () => {
     };
 
     expect(isWeightCharacteristicName(' peso ')).toBe(true);
-    expect(isProductTechnicalFieldRequired(weightField, ['cat-chair'])).toBe(false);
+    expect(isProductTechnicalFieldRequired(weightField, ['cat-chair'])).toBe(true);
     expect(
       getApplicableProductTechnicalFields([weightField]).map((field) => ({
         name: field.name,
         isRequired: field.isRequired,
         decimal_places: field.decimal_places,
       }))
-    ).toEqual([{ name: 'Peso', isRequired: false, decimal_places: 1 }]);
+    ).toEqual([{ name: 'Peso', isRequired: true, decimal_places: 1 }]);
   });
 
   it('marca uma característica da categoria só como requisito do catálogo, sem torná-la obrigatória para salvar', () => {
@@ -261,6 +351,26 @@ describe('productCharacteristics', () => {
         false
       )
     ).toEqual([{ name: 'Cor', value: 'Verde', showName: true }]);
+  });
+
+  it('serializa opções múltiplas no campo de compatibilidade e permite limpar a seleção', () => {
+    const selectedValues = ['Metal', 'Nylon'];
+    const updated = upsertProductCharacteristicAttribute(
+      [],
+      'Materiais das corrediças',
+      selectedValues,
+      false
+    );
+
+    expect(updated).toEqual([
+      { name: 'Materiais das corrediças', value: 'Metal,Nylon', showName: false },
+    ]);
+    expect(getProductCharacteristicAttributes(JSON.stringify(updated))).toEqual([
+      { name: 'Materiais das corrediças', value: 'Metal,Nylon', showName: false },
+    ]);
+    expect(
+      upsertProductCharacteristicAttribute(updated, 'Materiais das corrediças', [])
+    ).toEqual([]);
   });
 
   it('exibe características obrigatórias, já preenchidas e ligadas à categoria atual', () => {

@@ -43,7 +43,7 @@ export const getMissingRequiredCharacteristics = (values: TechnicalValuesMap = {
 
 export const getMissingRequiredDimensions = (
   values: TechnicalValuesMap = {},
-  directDimensions?: { width?: number; height?: number; depth?: number },
+  directDimensions?: { width?: number; height?: number; depth?: number; weight?: number },
   options?: { isMattress?: boolean }
 ): string[] => {
   const valuesByName = new Map<string, unknown>();
@@ -94,6 +94,9 @@ export const getMissingRequiredDimensions = (
     !isPositive(valuesByName.get('comprimento'))
   ) {
     missing.push('Profundidade total');
+  }
+  if (!isPositive(directDimensions?.weight) && !isPositive(valuesByName.get('peso'))) {
+    missing.push('Peso');
   }
   return missing;
 };

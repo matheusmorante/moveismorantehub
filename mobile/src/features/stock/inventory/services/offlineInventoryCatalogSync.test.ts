@@ -4,6 +4,7 @@ const state = vi.hoisted(() => ({
   snapshot: null as any,
   readFailures: 0,
   requests: [] as string[],
+  selections: [] as Array<{ table: string; columns: string }>,
   hangingTables: [] as string[],
   filters: [] as Array<{ table: string; column: string; value: unknown; operator: string }>,
   deletionDenied: true,
@@ -42,8 +43,7 @@ const state = vi.hoisted(() => ({
         person_type: 'employees',
         full_name: 'Ana Souza',
         position: 'Estoquista',
-        role: 'stockist',
-        roles: ['stockist'],
+        address: JSON.stringify({ role: 'stockist', roles: ['stockist'] }),
         deleted: false,
         updated_at: '2026-09-25T12:00:00Z',
       },
@@ -52,8 +52,7 @@ const state = vi.hoisted(() => ({
         person_type: 'employees',
         full_name: 'Sem acesso',
         position: 'Sem Acesso',
-        role: 'pending',
-        roles: ['pending'],
+        address: JSON.stringify({ role: 'pending', roles: ['pending'] }),
         deleted: false,
         updated_at: '2026-09-25T12:00:00Z',
       },
@@ -68,7 +67,10 @@ vi.mock('../../../../services/supabaseClient', () => ({
       const filters: Array<{ column: string; value: unknown; operator: string }> = [];
       const orFilters: string[] = [];
       const query: any = {};
-      query.select = () => query;
+      query.select = (columns: string) => {
+        state.selections.push({ table, columns });
+        return query;
+      };
       query.order = () => query;
       query.or = (filter: string) => {
         orFilters.push(filter);
@@ -141,6 +143,7 @@ beforeEach(() => {
   state.snapshot = null;
   state.readFailures = 0;
   state.requests = [];
+  state.selections = [];
   state.hangingTables = [];
   state.filters = [];
   state.deletionDenied = true;
@@ -179,8 +182,7 @@ beforeEach(() => {
         person_type: 'employees',
         full_name: 'Ana Souza',
         position: 'Estoquista',
-        role: 'stockist',
-        roles: ['stockist'],
+        address: JSON.stringify({ role: 'stockist', roles: ['stockist'] }),
         deleted: false,
         updated_at: '2026-09-25T12:00:00Z',
       },
@@ -189,8 +191,7 @@ beforeEach(() => {
         person_type: 'employees',
         full_name: 'Sem acesso',
         position: 'Sem Acesso',
-        role: 'pending',
-        roles: ['pending'],
+        address: JSON.stringify({ role: 'pending', roles: ['pending'] }),
         deleted: false,
         updated_at: '2026-09-25T12:00:00Z',
       },
@@ -212,7 +213,9 @@ describe('sincronização do catálogo local de inventário', () => {
       full_name: 'Ana Souza',
       position: 'Estoquista',
       role: 'stockist',
+      roles: ['stockist'],
     });
+    expect(state.snapshot.employees['employee-new']).not.toHaveProperty('address');
     expect(state.snapshot.employees['employee-ineligible']).toBeDefined();
     expect(state.snapshot.employees['supplier-new']).toBeUndefined();
     expect(state.snapshot.employees['customer-1']).toBeUndefined();
@@ -238,6 +241,14 @@ describe('sincronização do catálogo local de inventário', () => {
       value: 'suppliers',
       operator: 'eq',
     });
+    expect(state.selections).toContainEqual({
+      table: 'people',
+      columns:
+        'id, person_type, full_name, social_name, nickname, position, address, active, deleted, updated_at',
+    });
+    expect(state.selections.some(({ table, columns }) => table === 'people' && columns.includes('->'))).toBe(
+      false
+    );
   });
 
   it('permite nova tentativa após erro inicial ao ler o SQLite', async () => {

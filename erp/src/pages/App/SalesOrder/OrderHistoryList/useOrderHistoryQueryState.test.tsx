@@ -263,6 +263,29 @@ describe('useOrderHistory query state', () => {
     ).toBe(true);
   });
 
+  it('resets the page and loads fiscal badges in supported batches when the page size grows', async () => {
+    const orders = Array.from({ length: 65 }, (_, index) => ({ id: `order-${index + 1}` }));
+    mocks.fetchOrdersPage.mockImplementation(async (_page: number, size: number) => ({
+      orders: orders.slice(0, size),
+      total: orders.length,
+    }));
+    mocks.fetchOrderFiscalBadgeStatuses.mockResolvedValue({});
+    mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
+
+    const { result } = renderHook(() => useOrderHistory(), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.orders).toHaveLength(15));
+    act(() => result.current.setCurrentPage(2));
+    await waitFor(() => expect(result.current.currentPage).toBe(2));
+    mocks.fetchOrderFiscalBadgeStatuses.mockClear();
+
+    act(() => result.current.setItemsPerPage(100));
+    await waitFor(() => expect(result.current.orders).toHaveLength(65));
+
+    expect(result.current.currentPage).toBe(1);
+    expect(mocks.fetchOrdersPage).toHaveBeenLastCalledWith(1, 100, undefined, expect.anything());
+    expect(mocks.fetchOrderFiscalBadgeStatuses.mock.calls.map(([ids]) => ids.length)).toEqual([30, 30, 5]);
+  });
+
   it('reuses globally filtered candidate orders when changing pages', async () => {
     const candidates = Array.from({ length: 30 }, (_, index) => ({
       id: `filtered-order-${index + 1}`,

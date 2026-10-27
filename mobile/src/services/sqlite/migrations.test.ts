@@ -29,6 +29,9 @@ describe('migrações SQLite do inventário', () => {
 
     const schema = statements.join('\n');
     expect(schema).toContain('CREATE TABLE IF NOT EXISTS inventory_drafts_local');
+    expect(schema).toContain('user_id TEXT');
+    expect(schema).toContain('ALTER TABLE inventory_drafts_local ADD COLUMN user_id TEXT');
+    expect(schema).toContain('idx_inventory_drafts_local_user_updated');
     expect(schema).toContain('CREATE TABLE IF NOT EXISTS inventory_catalog_local');
     expect(schema).toContain('CREATE TABLE IF NOT EXISTS inventory_outbox_local');
     expect(schema).toContain('CREATE TABLE IF NOT EXISTS inventory_draft_scope_local');
@@ -46,6 +49,10 @@ describe('migrações SQLite do inventário', () => {
     expect(driver.runAsync).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO schema_migrations'),
       expect.arrayContaining([4, 'inventory_draft_responsible_name'])
+    );
+    expect(driver.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO schema_migrations'),
+      expect.arrayContaining([5, 'inventory_draft_user_ownership'])
     );
   });
 

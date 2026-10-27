@@ -36,7 +36,7 @@ export function useInventoryMovesHistory({
 
   // Pagination
   const [page, setPage] = useState(1);
-  const ITEMS_PER_PAGE = 15;
+  const [itemsPerPage, setItemsPerPage] = useState(15);
 
   const { formatOrderLabel, formatReversalReason } = useInventoryOrdersLookup();
 
@@ -44,6 +44,10 @@ export function useInventoryMovesHistory({
     externalSelectedProduct !== undefined ? externalSelectedProduct : internalProduct;
   const selectedVariation =
     externalSelectedVariation !== undefined ? externalSelectedVariation : internalVariation;
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedProduct?.id, selectedVariation?.id, period, customStartDate, customEndDate]);
 
   const isInventoryAuditMarker = (move: InventoryMove) =>
     move.label?.startsWith('Inventário #') && Number(move.quantity || 0) === 0;
@@ -162,11 +166,11 @@ export function useInventoryMovesHistory({
   }, [moves, selectedProduct, selectedVariation, period, customStartDate, customEndDate]);
 
   const paginatedFiltered = useMemo(() => {
-    const startIndex = (page - 1) * ITEMS_PER_PAGE;
-    return filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filtered, page]);
+    const startIndex = (page - 1) * itemsPerPage;
+    return filtered.slice(startIndex, startIndex + itemsPerPage);
+  }, [filtered, page, itemsPerPage]);
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
   const isPurchaseEntry = (move: InventoryMove) =>
     move.relatedEntityType === 'purchase_order' ||
@@ -285,7 +289,8 @@ export function useInventoryMovesHistory({
     setPage,
     totalPages,
     paginatedFiltered,
-    ITEMS_PER_PAGE,
+    itemsPerPage,
+    setItemsPerPage,
     totalItems: filtered.length,
   };
 }

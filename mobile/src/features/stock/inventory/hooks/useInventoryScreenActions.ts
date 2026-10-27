@@ -9,7 +9,10 @@ import {
   fetchInventorySessionDetails,
 } from '../../../../services/stockService';
 
-export function useInventoryScreenActions(onReload: () => void | Promise<void>) {
+export function useInventoryScreenActions(
+  onReload: () => void | Promise<void>,
+  userProfileId?: string | null
+) {
   const [showCount, setShowCount] = useState(false);
   const [editingSession, setEditingSession] = useState<InventorySession | null>(null);
   const [copiedItems, setCopiedItems] = useState<InventoryScopeCopySource[] | null>(null);
@@ -43,7 +46,7 @@ export function useInventoryScreenActions(onReload: () => void | Promise<void>) 
   const handleDuplicateInventory = async (session: InventorySession) => {
     setSelectedSession(null);
     try {
-      const details = await fetchInventorySessionDetails(session.id);
+      const details = await fetchInventorySessionDetails(session.id, userProfileId);
       const items = (details?.items || []) as InventoryScopeCopySource[];
       if (!items.length) {
         Alert.alert('Aviso', 'Este inventário não possui itens para duplicar.');
@@ -131,7 +134,7 @@ export function useInventoryScreenActions(onReload: () => void | Promise<void>) 
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteInventoryDraft(session.id);
+              await deleteInventoryDraft(session.id, userProfileId);
               Alert.alert('Sucesso', 'Contagem em andamento excluída.');
               void onReload();
             } catch (error) {

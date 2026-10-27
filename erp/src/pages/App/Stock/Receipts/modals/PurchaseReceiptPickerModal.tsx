@@ -5,15 +5,13 @@ import { subscribeToPurchases } from '@/pages/utils/purchaseService';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
-import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 export interface PurchaseReceiptPickerModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly onSelect: (purchase: Purchase) => void;
 }
-
-const ITEMS_PER_PAGE = 15;
 
 /**
  * Modal para vincular e importar itens a partir de um Pedido de Compra existente.
@@ -27,6 +25,7 @@ export const PurchaseReceiptPickerModal: React.FC<PurchaseReceiptPickerModalProp
   const [suppliers, setSuppliers] = useState<Person[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -64,11 +63,11 @@ export const PurchaseReceiptPickerModal: React.FC<PurchaseReceiptPickerModalProp
     return purchase.supplierId === selectedSupplierId;
   });
 
-  const totalPages = Math.max(1, Math.ceil(availablePurchases.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(availablePurchases.length / itemsPerPage));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedPurchases = availablePurchases.slice(
-    (safeCurrentPage - 1) * ITEMS_PER_PAGE,
-    safeCurrentPage * ITEMS_PER_PAGE
+    (safeCurrentPage - 1) * itemsPerPage,
+    safeCurrentPage * itemsPerPage
   );
 
   return (
@@ -165,15 +164,19 @@ export const PurchaseReceiptPickerModal: React.FC<PurchaseReceiptPickerModalProp
         </div>
 
         {selectedSupplierId && (
-          <footer className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-955/30 sm:flex-row">
-            <span className="text-xs font-bold text-slate-500">
-              Exibindo {availablePurchases.length} pedidos disponíveis
-            </span>
-            <FixedPageSlots
+          <footer className="border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-955/30">
+            <ERPListPagination
               ariaLabel="Paginação dos pedidos de compra disponíveis"
-              currentPage={currentPage}
-              totalPages={totalPages}
+              page={currentPage}
+              pageSize={itemsPerPage}
+              totalItems={availablePurchases.length}
               onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setCurrentPage(1);
+                setItemsPerPage(size);
+              }}
+              preferenceKey="receipt-purchase-picker"
+              itemLabel="pedidos"
             />
           </footer>
         )}

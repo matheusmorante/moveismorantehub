@@ -166,10 +166,23 @@ export const FiscalExportModal: React.FC<FiscalExportModalProps> = ({
   const liveFilters = buildFilters(currentValues);
   const liveKey = JSON.stringify(liveFilters);
   const hasCurrentPreview = Boolean(preview && previewKey === liveKey);
+  const visiblePreview = hasCurrentPreview ? preview : null;
   const accountingPurpose = currentValues.purpose === 'accounting';
   const environmentStatuses: FiscalExportStatus[] = currentValues.environment === '1'
     ? ['autorizada', 'cancelada', 'denegada', 'rejeitada']
     : ['homologada', 'cancelada', 'denegada', 'rejeitada'];
+  const previewRequestRef = React.useRef<{ key: string; promise: Promise<FiscalExportPreview> } | null>(null);
+  const requestPreview = React.useCallback((filters: FiscalExportFilters, key: string) => {
+    const currentRequest = previewRequestRef.current;
+    if (currentRequest?.key === key) return currentRequest.promise;
+    const request = { key, promise: previewFiscalExport(filters) };
+    previewRequestRef.current = request;
+    void request.promise.then(
+      () => { if (previewRequestRef.current === request) previewRequestRef.current = null; },
+      () => { if (previewRequestRef.current === request) previewRequestRef.current = null; },
+    );
+    return request.promise;
+  }, []);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -190,6 +203,27 @@ export const FiscalExportModal: React.FC<FiscalExportModalProps> = ({
 
   React.useEffect(() => {
     if (!isOpen) return;
+    let active = true;
+    const filters = JSON.parse(liveKey) as FiscalExportFilters;
+    setPreview(null);
+    setPreviewKey('');
+    setMessage(null);
+    setIsPreviewing(true);
+    void requestPreview(filters, liveKey)
+      .then((result) => {
+        if (!active) return;
+        setPreview(result);
+        setPreviewKey(liveKey);
+      })
+      .catch((error: unknown) => {
+        if (active) setMessage(error instanceof Error ? error.message : 'Não foi possível consultar os documentos fiscais.');
+      })
+      .finally(() => { if (active) setIsPreviewing(false); });
+    return () => { active = false; };
+  }, [isOpen, liveKey, requestPreview]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape' && !isExporting) onClose(); };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
@@ -204,7 +238,6 @@ export const FiscalExportModal: React.FC<FiscalExportModalProps> = ({
       setValue('periodStart', bounds.start, { shouldValidate: true });
       setValue('periodEnd', bounds.end, { shouldValidate: true });
     }
-    setPreview(null);
   };
 
   const handlePurposeChange = (purpose: FiscalExportFormValues['purpose']) => {
@@ -215,43 +248,30 @@ export const FiscalExportModal: React.FC<FiscalExportModalProps> = ({
       setValue('statuses', ['autorizada', 'cancelada'], { shouldValidate: true });
       setValue('includeEvents', true, { shouldValidate: true });
     }
-    setPreview(null);
   };
 
   const handleEnvironmentChange = (environment: '1' | '2') => {
     setValue('environment', environment, { shouldValidate: true });
     setValue('statuses', environment === '1' ? ['autorizada', 'cancelada'] : ['homologada', 'cancelada'], { shouldValidate: true });
-    setPreview(null);
-  };
-
-  const handlePreview = async (formValues: FiscalExportFormValues) => {
-    const filters = buildFilters(formValues);
-    setMessage(null);
-    setPreview(null);
-    setPreviewKey('');
-    setIsPreviewing(true);
-    try {
-      const result = await previewFiscalExport(filters);
-      setPreview(result);
-      setPreviewKey(JSON.stringify(filters));
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Não foi possível consultar os documentos fiscais.');
-    } finally {
-      setIsPreviewing(false);
-    }
   };
 
   const handleExport = async (formValues: FiscalExportFormValues) => {
     const filters = buildFilters(formValues);
     const filtersKey = JSON.stringify(filters);
-    if (!preview || previewKey !== filtersKey || preview.totalCount === 0) {
-      setMessage('Faça uma prévia atualizada e confirme que há documentos para exportar.');
-      return;
-    }
-    setMessage('Iniciando a preparação do arquivo…');
+    setMessage(null);
     setIsExporting(true);
     try {
-      const generatedPackage = await generateFiscalExportPackage(filters, preview, setMessage);
+      const currentPreview = hasCurrentPreview && preview
+        ? preview
+        : await requestPreview(filters, filtersKey);
+      setPreview(currentPreview);
+      setPreviewKey(filtersKey);
+      if (!currentPreview.totalCount) {
+        setMessage('Nenhum documento corresponde aos filtros.');
+        return;
+      }
+      setMessage('Iniciando a preparação do arquivo…');
+      const generatedPackage = await generateFiscalExportPackage(filters, currentPreview, setMessage);
       await recordFiscalExport({
         exportId: generatedPackage.exportId,
         archiveName: generatedPackage.archiveName,
@@ -286,7 +306,7 @@ export const FiscalExportModal: React.FC<FiscalExportModalProps> = ({
           </button>
         </header>
 
-        <form onSubmit={handleSubmit(handlePreview)} className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+        <form onSubmit={handleSubmit(handleExport)} className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
           <div className="grid gap-4 md:grid-cols-2">
             <section className="space-y-2">
               <label htmlFor="fiscal-export-purpose" className="block text-xs font-semibold text-slate-700 dark:text-slate-200">Finalidade da exportação</label>
@@ -398,35 +418,30 @@ export const FiscalExportModal: React.FC<FiscalExportModalProps> = ({
           </section>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button type="submit" disabled={isPreviewing || isExporting} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
-              {isPreviewing ? <i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" /> : <i className="bi bi-search" aria-hidden="true" />}
-              Pré-visualizar documentos
-            </button>
-            <button type="button" onClick={handleSubmit(handleExport)} disabled={isPreviewing || isExporting || !hasCurrentPreview || !preview?.totalCount} className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="submit" disabled={isExporting} className="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">
               {isExporting ? <i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" /> : <i className="bi bi-file-earmark-zip" aria-hidden="true" />}
               {isExporting ? 'Gerando ZIP…' : 'Exportar ZIP'}
             </button>
           </div>
           {Object.values(errors).length > 0 && <p role="alert" className="mt-2 text-[11px] text-red-600">Corrija os filtros indicados antes de continuar.</p>}
 
-          {preview && hasCurrentPreview && (
-            <section aria-live="polite" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/50">
-              <div className="grid gap-2 text-xs sm:grid-cols-4">
-                <div><span className="text-slate-500">Documentos</span><strong className="block text-slate-900 dark:text-white">{preview.totalCount}</strong></div>
-                {preview.inboundCount > 0 && <div><span className="text-slate-500">Entradas importadas</span><strong className="block text-slate-900 dark:text-white">{preview.inboundCount}</strong></div>}
-                <div><span className="text-slate-500">Valor total</span><strong className="block text-slate-900 dark:text-white">{formatCurrency(preview.totalValue)}</strong></div>
-                <div><span className="text-slate-500">Eventos fiscais registrados</span><strong className="block text-slate-900 dark:text-white">{preview.eventCount}</strong></div>
+          <section aria-live="polite" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950/50">
+            <div className="grid gap-2 text-xs sm:grid-cols-4">
+              <div><span className="text-slate-500">Documentos</span><strong className="block text-slate-900 dark:text-white">{visiblePreview?.totalCount ?? '—'}</strong></div>
+              <div><span className="text-slate-500">Entradas importadas</span><strong className="block text-slate-900 dark:text-white">{visiblePreview?.inboundCount ?? '—'}</strong></div>
+              <div><span className="text-slate-500">Valor total</span><strong className="block text-slate-900 dark:text-white">{visiblePreview ? formatCurrency(visiblePreview.totalValue) : '—'}</strong></div>
+              <div><span className="text-slate-500">Eventos fiscais registrados</span><strong className="block text-slate-900 dark:text-white">{visiblePreview?.eventCount ?? '—'}</strong></div>
+            </div>
+            {isPreviewing && <p className="mt-2 text-xs text-slate-500">Consultando documentos fiscais…</p>}
+            {visiblePreview && visiblePreview.groups.length > 0 ? (
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[380px] text-left text-[11px]">
+                  <thead className="text-slate-500"><tr><th className="py-1 pr-2">Tipo</th><th className="py-1 pr-2">Situação</th><th className="py-1 pr-2">Qtd.</th><th className="py-1">Total</th></tr></thead>
+                  <tbody>{visiblePreview.groups.map((group) => <tr key={`${group.documentType}-${group.status}`} className="border-t border-slate-200 dark:border-slate-800"><td className="py-1.5 pr-2">{documentTypeLabel(group.documentType)}</td><td className="py-1.5 pr-2">{statusLabel(group.status)}</td><td className="py-1.5 pr-2">{group.count}</td><td className="py-1.5">{formatCurrency(group.total)}</td></tr>)}</tbody>
+                </table>
               </div>
-              {preview.groups.length > 0 ? (
-                <div className="mt-3 overflow-x-auto">
-                  <table className="w-full min-w-[380px] text-left text-[11px]">
-                    <thead className="text-slate-500"><tr><th className="py-1 pr-2">Tipo</th><th className="py-1 pr-2">Situação</th><th className="py-1 pr-2">Qtd.</th><th className="py-1">Total</th></tr></thead>
-                    <tbody>{preview.groups.map((group) => <tr key={`${group.documentType}-${group.status}`} className="border-t border-slate-200 dark:border-slate-800"><td className="py-1.5 pr-2">{documentTypeLabel(group.documentType)}</td><td className="py-1.5 pr-2">{statusLabel(group.status)}</td><td className="py-1.5 pr-2">{group.count}</td><td className="py-1.5">{formatCurrency(group.total)}</td></tr>)}</tbody>
-                  </table>
-                </div>
-              ) : <p className="mt-2 text-xs text-slate-500">Nenhum documento corresponde aos filtros.</p>}
-            </section>
-          )}
+            ) : visiblePreview && <p className="mt-2 text-xs text-slate-500">Nenhum documento corresponde aos filtros.</p>}
+          </section>
 
           {message && <p role="status" aria-live="polite" className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">{message}</p>}
           {isExporting && <div className="mt-3 h-1.5 overflow-hidden rounded bg-slate-200 dark:bg-slate-800"><div className="h-full w-1/3 animate-pulse rounded bg-blue-600" /></div>}

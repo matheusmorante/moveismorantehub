@@ -64,7 +64,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isRefreshingMessages = false,
 }) => {
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
-  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const commandLock = useRef(false);
   const { reset, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<SupportConversationCommand>({
@@ -92,7 +91,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     }
   };
   const assign = (assigneeId: string | null) => void submitCommand({ intent: 'assign', conversationId: conversation.id, assigneeId });
-  const changeStatus = (status: ConversationStatus) => void submitCommand({ intent: 'status', conversationId: conversation.id, status });
 
   const assignedName = conversation.assignedProfile?.fullName || 'Não atribuído';
   const assignedInitials = assignedName
@@ -292,63 +290,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         >
           <i className="bi bi-three-dots-vertical text-sm"></i>
         </button>
-
-        {/* 5. Botão de Status (Close / Reopen) */}
-        <div className="relative">
-          {currentStatus === 'closed' ? (
-            <button
-              type="button"
-              onClick={() => changeStatus('open')}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <i className="bi bi-arrow-repeat text-slate-400"></i>
-              Reabrir
-            </button>
-          ) : (
-            <div className="inline-flex rounded-xl shadow-xs border border-emerald-600/30 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => changeStatus('closed')}
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <i className="bi bi-check2"></i>
-                <span>Fechar</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
-                className="px-1.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-l border-emerald-500/60 cursor-pointer"
-                title="Mais opções de status"
-              >
-                <i className="bi bi-chevron-down text-[9px]"></i>
-              </button>
-            </div>
-          )}
-
-          {isStatusDropdownOpen && (
-            <div
-              className="absolute right-0 top-10 w-44 rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 py-1.5 z-50 animate-slide-down text-xs"
-              onClick={() => setIsStatusDropdownOpen(false)}
-            >
-              <button
-                type="button"
-                onClick={() => changeStatus('closed')}
-                className="w-full px-3.5 py-2 text-left text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2 font-bold cursor-pointer"
-              >
-                <i className="bi bi-check-circle-fill"></i>
-                Fechar atendimento
-              </button>
-              <button
-                type="button"
-                onClick={() => changeStatus('snoozed')}
-                className="w-full px-3.5 py-2 text-left text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center gap-2 font-bold cursor-pointer"
-              >
-                <i className="bi bi-alarm-fill"></i>
-                Adiar atendimento
-              </button>
-            </div>
-          )}
-        </div>
 
         <div className="w-px h-5 bg-slate-200 dark:bg-slate-800 mx-0.5" />
 

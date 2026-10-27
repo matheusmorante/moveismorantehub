@@ -5,6 +5,7 @@ import type { AuditItem } from '../../features/stock/inventory/hooks/useInventor
 
 export interface LocalInventoryDraft {
   id: string;
+  userId: string | null;
   code: string;
   scopeType?: string | null;
   supplierId?: string;
@@ -19,6 +20,7 @@ export interface LocalInventoryDraft {
 
 interface LocalInventoryDraftRow {
   id: string;
+  user_id: string | null;
   code: string;
   scope_type: string | null;
   name: string;
@@ -36,6 +38,7 @@ interface LocalInventoryDraftRow {
  */
 export const saveLocalInventoryDraft = async (draft: {
   id: string;
+  userId: string;
   code: string;
   scopeType?: string | null;
   supplierId?: string;
@@ -46,9 +49,11 @@ export const saveLocalInventoryDraft = async (draft: {
   status?: 'in_progress' | 'pending_sync' | 'completed';
   items: AuditItem[];
 }): Promise<void> => {
+  const userId = draft.userId.trim();
+  if (!userId) throw new Error('Não é possível salvar um inventário sem o usuário autenticado.');
   const db = await getSQLiteDatabase();
   await runMigrations(db);
-  if (await getInventorySubmission(draft.id)) {
+  if (await getInventorySubmission(draft.id, userId)) {
     throw new Error(
       'Este inventário já possui submissão congelada. A contagem não pode ser editada durante o envio.'
     );
@@ -58,15 +63,17 @@ export const saveLocalInventoryDraft = async (draft: {
   const hasStagesInt = draft.hasStages ? 1 : 0;
   const status = draft.status || 'in_progress';
 
-  await db.runAsync(
-    `INSERT INTO inventory_drafts_local (id, code, scope_type, name, responsible_id, has_stages, status, items_json, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const write = await db.runAsync(
+    `INSERT INTO inventory_drafts_local (id, user_id, code, scope_type, name, responsible_id, has_stages, status, items_json, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
-       code = excluded.code, scope_type = excluded.scope_type, name = excluded.name,
+       user_id = excluded.user_id, code = excluded.code, scope_type = excluded.scope_type, name = excluded.name,
        responsible_id = excluded.responsible_id, has_stages = excluded.has_stages,
-       status = excluded.status, items_json = excluded.items_json, updated_at = excluded.updated_at;`,
+       status = excluded.status, items_json = excluded.items_json, updated_at = excluded.updated_at
+     WHERE inventory_drafts_local.user_id = excluded.user_id;`,
     [
       draft.id,
+      userId,
       draft.code,
       draft.scopeType || 'custom',
       draft.name,
@@ -77,6 +84,9 @@ export const saveLocalInventoryDraft = async (draft: {
       updatedAt,
     ]
   );
+  if (write.changes === 0) {
+    throw new Error('Este inventário local pertence a outro usuário e não pode ser alterado.');
+  }
   await db.runAsync(
     `INSERT INTO inventory_draft_scope_local (id, supplier_id, responsible_name, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET supplier_id = excluded.supplier_id,
@@ -88,19 +98,24 @@ export const saveLocalInventoryDraft = async (draft: {
 /**
  * Busca o rascunho de inventário local mais recente ou por ID específico.
  */
-export const getLocalInventoryDraft = async (id?: string): Promise<LocalInventoryDraft | null> => {
+export const getLocalInventoryDraft = async (
+  id?: string,
+  userId?: string | null
+): Promise<LocalInventoryDraft | null> => {
+  if (!userId) return null;
   const db = await getSQLiteDatabase();
   await runMigrations(db);
   let row: LocalInventoryDraftRow | null = null;
 
   if (id) {
     row = await db.getFirstAsync<LocalInventoryDraftRow>(
-      `SELECT * FROM inventory_drafts_local WHERE id = ? LIMIT 1;`,
-      [id]
+      `SELECT * FROM inventory_drafts_local WHERE id = ? AND user_id = ? LIMIT 1;`,
+      [id, userId]
     );
   } else {
     row = await db.getFirstAsync<LocalInventoryDraftRow>(
-      `SELECT * FROM inventory_drafts_local ORDER BY updated_at DESC LIMIT 1;`
+      `SELECT * FROM inventory_drafts_local WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1;`,
+      [userId]
     );
   }
 
@@ -117,6 +132,7 @@ export const getLocalInventoryDraft = async (id?: string): Promise<LocalInventor
     const items: AuditItem[] = JSON.parse(row.items_json || '[]');
     return {
       id: row.id,
+      userId: row.user_id,
       code: row.code,
       scopeType: row.scope_type,
       supplierId: scope?.supplier_id || undefined,
@@ -137,11 +153,15 @@ export const getLocalInventoryDraft = async (id?: string): Promise<LocalInventor
 /**
  * Lista todos os rascunhos de inventário locais ainda não finalizados no backend.
  */
-export const listLocalInventoryDrafts = async (): Promise<LocalInventoryDraft[]> => {
+export const listLocalInventoryDrafts = async (
+  userId?: string | null
+): Promise<LocalInventoryDraft[]> => {
+  if (!userId) return [];
   const db = await getSQLiteDatabase();
   await runMigrations(db);
   const rows = await db.getAllAsync<LocalInventoryDraftRow>(
-    `SELECT * FROM inventory_drafts_local WHERE status != 'completed' ORDER BY updated_at DESC;`
+    `SELECT * FROM inventory_drafts_local WHERE user_id = ? AND status != 'completed' ORDER BY updated_at DESC;`,
+    [userId]
   );
 
   const scopes = await db.getAllAsync<{
@@ -161,6 +181,7 @@ export const listLocalInventoryDrafts = async (): Promise<LocalInventoryDraft[]>
 
     return {
       id: row.id,
+      userId: row.user_id,
       code: row.code,
       scopeType: row.scope_type,
       supplierId: scope?.supplier_id || undefined,
@@ -178,22 +199,34 @@ export const listLocalInventoryDrafts = async (): Promise<LocalInventoryDraft[]>
 /**
  * Marca um rascunho local como pendente de sincronização (ex: tentativa de envio offline).
  */
-export const markLocalDraftPendingSync = async (id: string): Promise<void> => {
+export const markLocalDraftPendingSync = async (
+  id: string,
+  userId?: string | null
+): Promise<void> => {
+  if (!userId) return;
   const db = await getSQLiteDatabase();
   await runMigrations(db);
   await db.runAsync(
-    `UPDATE inventory_drafts_local SET status = 'pending_sync', updated_at = ? WHERE id = ?;`,
-    [new Date().toISOString(), id]
+    `UPDATE inventory_drafts_local SET status = 'pending_sync', updated_at = ? WHERE id = ? AND user_id = ?;`,
+    [new Date().toISOString(), id, userId]
   );
 };
 
 /**
  * Remove um rascunho local específico (ex: quando o inventário é confirmado pelo Supabase).
  */
-export const deleteLocalInventoryDraft = async (id: string): Promise<void> => {
+export const deleteLocalInventoryDraft = async (
+  id: string,
+  userId?: string | null
+): Promise<void> => {
+  if (!userId) return;
   const db = await getSQLiteDatabase();
   await runMigrations(db);
-  await db.runAsync(`DELETE FROM inventory_drafts_local WHERE id = ?;`, [id]);
+  const removed = await db.runAsync(
+    `DELETE FROM inventory_drafts_local WHERE id = ? AND user_id = ?;`,
+    [id, userId]
+  );
+  if (removed.changes === 0) return;
   await db.runAsync(`DELETE FROM inventory_draft_scope_local WHERE id = ?;`, [id]);
 };
 

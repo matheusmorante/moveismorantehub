@@ -14,6 +14,7 @@ import PurchaseDetailsModal from './modals/PurchaseDetailsModal';
 import PurchaseReceiptCheckModal from './modals/PurchaseReceiptCheckModal';
 import PurchaseSupplierFilter from './components/PurchaseSupplierFilter';
 import PurchaseTable from './components/PurchaseTable';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 /**
  * Página principal do módulo de compras do estoque com filtragem por fornecedor e gerenciamento de status.
@@ -24,6 +25,8 @@ export const PurchasesPage: React.FC = () => {
   const [purchases, setPurchases] = useState<readonly Purchase[]>([]);
   const [suppliers, setSuppliers] = useState<readonly Person[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -57,6 +60,8 @@ export const PurchasesPage: React.FC = () => {
         : purchases,
     [purchases, selectedSupplierId]
   );
+  const safePage = Math.min(page, Math.max(1, Math.ceil(filteredPurchases.length / pageSize)));
+  const visiblePurchases = filteredPurchases.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const handleStatusChange = async (purchase: Purchase, status: Purchase['status']) => {
     if (!purchase.id || status === purchase.status) return;
@@ -105,12 +110,15 @@ export const PurchasesPage: React.FC = () => {
             <PurchaseSupplierFilter
               suppliers={suppliers}
               selectedSupplierId={selectedSupplierId}
-              onSelect={setSelectedSupplierId}
+              onSelect={(supplierId) => {
+                setSelectedSupplierId(supplierId);
+                setPage(1);
+              }}
             />
           </div>
 
           <PurchaseTable
-            purchases={filteredPurchases}
+            purchases={visiblePurchases}
             onOpen={(purchase) => {
               setSelectedPurchase(purchase);
               setIsDetailsModalOpen(true);
@@ -130,6 +138,21 @@ export const PurchasesPage: React.FC = () => {
                 : 'Nenhum pedido de compra cadastrado'}
             </div>
           )}
+          <ERPListPagination
+            ariaLabel="Paginação de pedidos de compra"
+            page={page}
+            pageSize={pageSize}
+            totalItems={filteredPurchases.length}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPage(1);
+              setPageSize(size);
+            }}
+            preferenceKey="stock-purchases"
+            itemLabel="pedidos de compra"
+            loading={loading}
+            className="px-4 py-3"
+          />
         </section>
       </div>
 

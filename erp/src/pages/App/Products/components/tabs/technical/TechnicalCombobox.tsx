@@ -132,7 +132,7 @@ export const TechnicalCombobox: React.FC<TechnicalComboboxProps> = ({
           onChange={disabled ? undefined : handleInputChange}
           onKeyDown={disabled ? undefined : handleKeyDown}
           placeholder={placeholder || `Busque e selecione ${fieldName}...`}
-          className={`w-full pl-6 pr-6 py-2 border-b-2 border-t-0 border-x-0 rounded-none text-xs outline-none transition-all ${
+          className={`w-full pl-6 pr-2 py-2 border-b-2 border-t-0 border-x-0 rounded-none text-xs outline-none transition-all ${
             disabled || isNotApplicable
               ? 'bg-slate-100 dark:bg-slate-800/60 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold cursor-not-allowed'
               : isInvalid
@@ -141,21 +141,6 @@ export const TechnicalCombobox: React.FC<TechnicalComboboxProps> = ({
           } ${!disabled && !isNotApplicable && hasSelectedValue ? 'font-bold' : ''}`}
         />
 
-        {!disabled && searchTerm && (
-          <button
-            type="button"
-            onClick={() => {
-              setSearchTerm('');
-              onChange('');
-              setIsOpen(true);
-              inputRef.current?.focus();
-            }}
-            aria-label="Limpar campo"
-            className="absolute right-0.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer text-xs transition-colors"
-          >
-            <i className="bi bi-x-circle-fill" />
-          </button>
-        )}
       </div>
 
       {/* Painel de Resultados logo abaixo do input */}

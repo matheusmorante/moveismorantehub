@@ -6,6 +6,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '../mobile/src'),
+      '@hookform/resolvers/zod': path.resolve(
+        __dirname,
+        'node_modules/@hookform/resolvers/zod/dist/zod.mjs'
+      ),
     },
   },
   esbuild: {

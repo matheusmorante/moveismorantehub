@@ -3,6 +3,7 @@ import { financeService } from '@/pages/services/financeService';
 import { AccountPayable } from '../../../types/finance.type';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import PayableModal from './PayableModal';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -23,6 +24,8 @@ export default function Payables() {
   const [selectedPayable, setSelectedPayable] = useState<AccountPayable | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   const fetchPayables = useCallback(async () => {
     const currentRequestId = ++requestId.current;
@@ -100,6 +103,8 @@ export default function Payables() {
       normalizeSearchTerm(p.description || '').includes(normSearch) ||
       normalizeSearchTerm(p.supplier_name || '').includes(normSearch)
   );
+  const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
+  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
@@ -138,7 +143,7 @@ export default function Payables() {
                 type="text"
                 placeholder="Buscar por descrição ou credor..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border-none rounded-2xl text-sm outline-none focus:ring-2 focus:ring-rose-500 transition-all dark:text-slate-200"
               />
             </div>
@@ -151,7 +156,7 @@ export default function Payables() {
               ].map((filter) => (
                 <button
                   key={filter.id}
-                  onClick={() => setStatusFilter(filter.id)}
+                  onClick={() => { setStatusFilter(filter.id); setPage(1); }}
                   className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                     statusFilter === filter.id
                       ? 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-sm'
@@ -189,7 +194,7 @@ export default function Payables() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                {filtered.map((payable) => (
+                {visible.map((payable) => (
                   <tr
                     key={payable.id}
                     className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group"
@@ -234,6 +239,10 @@ export default function Payables() {
               </tbody>
             </table>
           </div>
+
+          <ERPListPagination ariaLabel="Paginação de contas a pagar" page={page} pageSize={pageSize}
+            totalItems={filtered.length} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }}
+            preferenceKey="finance-payables" itemLabel="contas" loading={loading} className="px-4 py-3" />
 
           {loadError && (
             <div

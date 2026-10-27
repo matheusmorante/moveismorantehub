@@ -10,6 +10,7 @@ export type UnavailabilityProductKindFilter = 'all' | 'normal' | 'salvado' | 'us
 
 export interface StockUnavailabilityFilters {
   page: number;
+  pageSize?: number;
   status: UnavailabilityStatusFilter;
   productKind: UnavailabilityProductKindFilter;
   id?: string;
@@ -69,7 +70,11 @@ const UNAVAILABILITY_COLUMNS = [
 ].join(',');
 
 export async function fetchStockUnavailabilities(filters: StockUnavailabilityFilters) {
-  const from = (filters.page - 1) * STOCK_UNAVAILABILITIES_PAGE_SIZE;
+  const pageSize = filters.pageSize ?? STOCK_UNAVAILABILITIES_PAGE_SIZE;
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+    throw new Error('Quantidade por página inválida.');
+  }
+  const from = (filters.page - 1) * pageSize;
   let query = (supabase.from('stock_unavailabilities' as any) as any)
     .select(UNAVAILABILITY_COLUMNS, { count: 'exact' })
     .order('created_at', { ascending: false })
@@ -81,7 +86,7 @@ export async function fetchStockUnavailabilities(filters: StockUnavailabilityFil
 
   const { data, count, error } = await query.range(
     from,
-    from + STOCK_UNAVAILABILITIES_PAGE_SIZE - 1
+    from + pageSize - 1
   );
   if (error) throw error;
 

@@ -1,5 +1,6 @@
 appId: com.morante.mobile
 ---
-- launchApp
+- launchApp:
+    stopApp: false
 - assertVisible:
     id: app-root

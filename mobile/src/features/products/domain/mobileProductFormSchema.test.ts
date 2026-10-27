@@ -47,6 +47,30 @@ describe('mobileProductFormSchema - single variation error routing', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('aceita o valor serializado de opções múltiplas nos atributos de uma variação', () => {
+    const schema = createMobileProductFormSchema({
+      draft: false,
+      isStockistOnly: false,
+      published: false,
+    });
+    const parsed = schema.safeParse({
+      ...baseValidProduct,
+      variations: [
+        {
+          ...baseValidProduct.variations[0],
+          attributes: [
+            { name: 'Materiais das corrediças', value: 'Metal,Nylon', showName: false },
+          ],
+        },
+      ],
+    });
+
+    expect(parsed.success).toBe(true);
+    expect(parsed.data?.variations?.[0].attributes).toEqual([
+      { name: 'Materiais das corrediças', value: 'Metal,Nylon', showName: false },
+    ]);
+  });
+
   it('exige categoria com o caminho e a mensagem de domínio do ERP', () => {
     const schema = createMobileProductFormSchema({
       draft: false,

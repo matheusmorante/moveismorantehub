@@ -211,11 +211,16 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
       comboItems: [],
     };
 
-    setFormData((prev) => ({
-      ...prev,
-      hasVariations: true,
-      variations: [...(prev.variations || []), v],
-    }));
+    setFormData((prev) => {
+      const isConvertingSimpleProduct =
+        !prev.hasVariations && (prev.variations?.length || 0) <= 1;
+      return {
+        ...prev,
+        hasVariations: true,
+        variations: [...(prev.variations || []), v],
+        ...(isConvertingSimpleProduct ? { variableTechnicalFields: [] } : {}),
+      };
+    });
     setOpenReadiness(null);
     setExpanded(variations.length);
     setActiveVariationTab('identificacao');
@@ -510,7 +515,9 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
           { id: 'fotos' as const, label: 'Fotos vinculadas', Icon: Images },
         ]
       : []),
-    { id: 'tecnico' as const, label: 'Características', Icon: Settings },
+    ...(!isStockistOnly
+      ? [{ id: 'tecnico' as const, label: 'Características', Icon: Settings }]
+      : []),
     ...(!isStockistOnly
       ? [{ id: 'descricao' as const, label: 'Descrição', Icon: FileText }]
       : []),

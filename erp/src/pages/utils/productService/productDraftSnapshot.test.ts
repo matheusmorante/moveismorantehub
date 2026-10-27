@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type Product from '../../types/product.type';
-import { createProductDraftSnapshot, restoreProductDraft } from './productDraftSnapshot';
+import { createProductDraftSnapshot, isProductDraft, restoreProductDraft } from './productDraftSnapshot';
 import { mapFromDB, mapToDB } from './productMapper';
 
 const product: Product = {
@@ -19,6 +19,18 @@ const product: Product = {
 };
 
 describe('persistência completa do rascunho', () => {
+  it.each([
+    { isDraft: true },
+    { is_draft: true },
+    { status: 'draft' },
+  ])('reconhece rascunho pela marcação persistida: %o', (draftState) => {
+    expect(isProductDraft(draftState)).toBe(true);
+  });
+
+  it('não classifica produto oculto como rascunho', () => {
+    expect(isProductDraft({ status: 'hidden', isDraft: false, is_draft: false })).toBe(false);
+  });
+
   it('mantém o status individual de uma variação concluída dentro do pai ainda rascunho', () => {
     const snapshot = createProductDraftSnapshot({ ...product,
       variations: [{ ...product.variations![0], status: 'hidden' }] });
@@ -72,6 +84,25 @@ describe('persistência completa do rascunho', () => {
     expect(snapshot).not.toHaveProperty('discountPercent');
     expect(snapshot).not.toHaveProperty('discountFixed');
     expect(snapshot).toMatchObject({ unitPrice: 500, promoPrice: 400 });
+  });
+
+  it('omite variationId nulo nos itens de composição do pai e das variações no snapshot', () => {
+    const productComponent = { productId: 'component-product', variationId: null, quantity: 1 };
+    const variationComponent = {
+      productId: 'component-variation-product',
+      variationId: null,
+      quantity: 2,
+    };
+    const snapshot = createProductDraftSnapshot({
+      ...product,
+      comboItems: [productComponent],
+      variations: [{ ...product.variations![0], comboItems: [variationComponent] }],
+    });
+
+    expect(snapshot.comboItems).toEqual([{ productId: 'component-product', quantity: 1 }]);
+    expect(snapshot.variations?.[0].comboItems).toEqual([
+      { productId: 'component-variation-product', quantity: 2 },
+    ]);
   });
 
   it('saldo confirmado prevalece sobre a cópia do rascunho', () => {

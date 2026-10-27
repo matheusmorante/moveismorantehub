@@ -1,12 +1,10 @@
 import React, { forwardRef, useImperativeHandle } from 'react';
 import ProductTable from './components/Table/ProductTable';
 import { useProducts } from './hooks/data/useProducts';
-import { useVariationExitFlags } from './hooks/data/useVariationExitFlags';
 import Product, { ProductVisibilitySettings } from '../../../types/product.type';
 import type { ProductCategoryTree, ProductListFilters } from './types';
-import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { MoveProductToTrashModal } from './modals/MoveProductToTrashModal';
-import ProductListPageSizeSelect from './components/Shared/ProductListPageSizeSelect';
 
 interface ProductListProps {
   mode?: 'standard' | 'composition';
@@ -68,12 +66,10 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
       hasTestProducts,
       loading,
       error,
-      isServerPagination,
       canDeleteProducts,
       totalItems,
       currentPage,
       itemsPerPage,
-      totalPages,
       setCurrentPage,
       handleItemsPerPageChange,
       handleDelete,
@@ -99,8 +95,6 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
       onTestDataAvailabilityChange?.(!loading && hasTestProducts);
     }, [hasTestProducts, loading, onTestDataAvailabilityChange]);
 
-    const { exitedVariationIds } = useVariationExitFlags();
-
     // Auto-scroll to top when page changes
     React.useEffect(() => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -114,13 +108,31 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
       refresh,
     }));
 
+    const pagination = (
+      <ERPListPagination
+        ariaLabel="Paginação de produtos"
+        page={currentPage}
+        pageSize={itemsPerPage}
+        totalItems={totalItems}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(size) => handleItemsPerPageChange(size as Parameters<typeof handleItemsPerPageChange>[0])}
+        preferenceKey={`products:${mode}`}
+        itemLabel="itens"
+        loading={loading}
+        className="mt-4"
+      />
+    );
+
     if (loading) {
       return (
-        <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">
-            Sincronizando catálogo...
-          </p>
+        <div className="flex flex-col">
+          <div className="flex min-h-80 flex-col items-center justify-center gap-4 py-20">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">
+              Sincronizando catálogo...
+            </p>
+          </div>
+          {pagination}
         </div>
       );
     }
@@ -238,39 +250,9 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
               onRefresh?.();
             }}
             onDuplicate={onDuplicate}
-            exitedVariationIds={exitedVariationIds}
           />
 
-          {/* Pagination */}
-          <div className="mt-8 flex items-center justify-between flex-wrap gap-4 border-t border-slate-50 dark:border-slate-800 pt-6">
-            <div className="flex items-center gap-4">
-              <span className="text-xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest flex items-center gap-2">
-                {isServerPagination ? (
-                  <>
-                    {loading && (
-                      <span className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                    )}
-                    Total de {totalItems} itens no catálogo
-                  </>
-                ) : (
-                  `Exibindo ${paginatedProducts.length} de ${totalItems} itens`
-                )}
-              </span>
-              <div className="flex items-center gap-2">
-                <ProductListPageSizeSelect
-                  itemsPerPage={itemsPerPage}
-                  onChange={handleItemsPerPageChange}
-                />
-              </div>
-            </div>
-            <FixedPageSlots
-              ariaLabel="Paginação de produtos"
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              loading={loading}
-            />
-          </div>
+          {pagination}
         </div>
 
         <MoveProductToTrashModal

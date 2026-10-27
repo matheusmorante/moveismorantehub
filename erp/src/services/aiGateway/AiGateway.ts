@@ -11,6 +11,7 @@ import { AiLatencyTracker } from './core/AiLatencyTracker';
 import { ApiUsageTracker } from '../apiMonitoring/apiUsageTracker';
 import { inferModuleFromOperation } from '../apiMonitoring/apiModuleMapper';
 import { clearModelAiQuotaAlert } from './aiQuotaNotifier';
+import { withTimeout } from '../../../../shared-utils/withTimeout';
 
 export class AiGateway {
   /**
@@ -265,38 +266,36 @@ export class AiGateway {
 
     const startFetch = Date.now();
     let responseHttpStatus: number | null = null;
+    const controller = new AbortController();
+    const expired = Symbol('expired');
 
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (sessionError || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
-      const res = await fetch('/api/gemini-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ model, action, payload: requestBody }),
-      });
-      responseHttpStatus = res.status;
-
-      const durationMs = Date.now() - startFetch;
-
-      if (!res.ok) {
-        const errText = await res.text();
-        AiLatencyTracker.endCall(callId, false, 0, `HTTP ${res.status}: ${errText}`);
-        void ApiUsageTracker.record({
-          provider: 'gemini',
-          service: serviceId,
-          operation: `${operation} [${model}]`,
-          units: 0,
-          status: res.status === 429 ? 'RATE_LIMITED' : 'ERROR',
-          http_status: res.status,
-          module_source: resolvedModule,
-          error_message: `HTTP ${res.status}: ${errText}`,
-          response_time_ms: durationMs,
+      const request = async () => {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (controller.signal.aborted) throw new Error('Consulta Gemini encerrada.');
+        const accessToken = sessionData.session?.access_token;
+        if (sessionError || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
+        const res = await fetch('/api/gemini-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ model, action, payload: requestBody }),
+          signal: controller.signal,
         });
-        throw new Error(`Erro na API Gemini (${res.status}): ${errText}`);
-      }
-
-      const json = await res.json();
+        responseHttpStatus = res.status;
+        if (!res.ok) throw new Error(`Erro na API Gemini (HTTP ${res.status}).`);
+        return await res.json().catch(() => {
+          throw new Error('A API Gemini retornou uma resposta inválida.');
+        });
+      };
+      // Margem sobre os 45 s do proxy, incluindo sessão e leitura do corpo.
+      const json = await withTimeout(
+        request(),
+        60_000,
+        expired,
+        'gateway:transporte Gemini',
+      );
+      if (json === expired) throw new Error('A consulta Gemini excedeu o tempo de espera.');
+      const durationMs = Date.now() - startFetch;
       const parsed = parseGeminiResponse(json, category) as T;
       const respSize =
         typeof parsed === 'string' ? parsed.length : JSON.stringify(parsed || {}).length;
@@ -344,7 +343,7 @@ export class AiGateway {
         operation: `${operation} [${model}]`,
         units,
         status: 'SUCCESS',
-        http_status: res.status,
+        http_status: responseHttpStatus ?? 0,
         module_source: resolvedModule,
         response_time_ms: durationMs,
       });
@@ -352,25 +351,25 @@ export class AiGateway {
       return parsed;
     } catch (fetchErr: any) {
       const durationMs = Date.now() - startFetch;
-      AiLatencyTracker.endCall(callId, false, 0, fetchErr?.message || 'Network fetch failure');
-      if (!fetchErr?.message?.includes('Erro na API Gemini')) {
-        void ApiUsageTracker.record({
-          provider: 'gemini',
-          service: serviceId,
-          operation,
-          units: 0,
-          status: 'ERROR',
-          // 0 indica que a conexão falhou antes de receber uma resposta HTTP.
-          http_status: responseHttpStatus ?? 0,
-          module_source: resolvedModule,
-          error_message:
-            responseHttpStatus === null
-              ? `Falha antes de receber resposta HTTP: ${fetchErr?.message || 'Network fetch failure'}`
-              : fetchErr?.message || 'Falha ao processar resposta da API Gemini',
-          response_time_ms: durationMs,
-        });
-      }
+      const safeMessage = responseHttpStatus === null
+        ? 'Consulta Gemini interrompida ou indisponível.'
+        : `Falha na consulta Gemini (HTTP ${responseHttpStatus}).`;
+      AiLatencyTracker.endCall(callId, false, 0, safeMessage);
+      void ApiUsageTracker.record({
+        provider: 'gemini',
+        service: serviceId,
+        operation,
+        units: 0,
+        status: responseHttpStatus === 429 ? 'RATE_LIMITED' : 'ERROR',
+        // 0 indica que a conexão falhou antes de receber uma resposta HTTP.
+        http_status: responseHttpStatus ?? 0,
+        module_source: resolvedModule,
+        error_message: safeMessage,
+        response_time_ms: durationMs,
+      });
       throw fetchErr;
+    } finally {
+      controller.abort();
     }
   }
 }

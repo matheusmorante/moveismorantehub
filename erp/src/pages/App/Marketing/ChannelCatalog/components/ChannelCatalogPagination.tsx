@@ -1,30 +1,36 @@
 import React from 'react';
-import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 interface ChannelCatalogPaginationProps {
   currentPage: number;
   totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
   loading: boolean;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }
 
 export const ChannelCatalogPagination: React.FC<ChannelCatalogPaginationProps> = ({
   currentPage,
-  totalPages,
+  totalItems,
+  itemsPerPage,
   loading,
   onPageChange,
+  onPageSizeChange,
 }) => {
-  const safeTotalPages = Math.max(1, totalPages);
-
   return (
-    <div className="mt-6 flex flex-col items-center justify-center gap-2">
-      <FixedPageSlots
-        ariaLabel="Paginação do catálogo de canais"
-        currentPage={currentPage}
-        totalPages={safeTotalPages}
-        onPageChange={onPageChange}
-        loading={loading}
-      />
-    </div>
+    <ERPListPagination
+      ariaLabel="Paginação do catálogo de canais"
+      page={currentPage}
+      pageSize={itemsPerPage}
+      totalItems={totalItems}
+      onPageChange={onPageChange}
+      onPageSizeChange={onPageSizeChange}
+      preferenceKey="channel-catalog"
+      itemLabel="itens"
+      loading={loading}
+      className="mt-4"
+    />
   );
 };

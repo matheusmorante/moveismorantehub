@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { getSettings } from '@/pages/utils/settingsService';
@@ -10,8 +10,6 @@ import {
   persistVariationSync,
 } from '../services/channelCatalogService';
 
-const ITEMS_PER_PAGE = 30;
-
 export function useChannelCatalog() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -22,8 +20,10 @@ export function useChannelCatalog() {
   const [apiError, setApiError] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(30);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const requestRevision = useRef(0);
 
   const [catalogCollections, setCatalogCollections] = useState<CatalogCollectionItem[]>([]);
 
@@ -33,6 +33,7 @@ export function useChannelCatalog() {
 
   const fetchData = useCallback(
     async (page = 1) => {
+      const revision = ++requestRevision.current;
       setLoading(true);
       setApiError(null);
       try {
@@ -45,23 +46,24 @@ export function useChannelCatalog() {
 
         const result = await fetchPaginatedChannelProducts({
           page,
-          itemsPerPage: ITEMS_PER_PAGE,
+          itemsPerPage,
           search,
           filterChannel,
           filterCollection,
         });
 
+        if (revision !== requestRevision.current) return;
         setRows(result.rows);
         setTotalCount(result.totalCount);
         setCurrentPage(page);
-        setTotalPages(Math.max(1, Math.ceil(result.totalCount / ITEMS_PER_PAGE)));
+        setTotalPages(Math.max(1, Math.ceil(result.totalCount / itemsPerPage)));
       } catch (error: any) {
-        toast.error('Erro ao carregar catálogo: ' + error.message);
+        if (revision === requestRevision.current) toast.error('Erro ao carregar catálogo: ' + error.message);
       } finally {
-        setLoading(false);
+        if (revision === requestRevision.current) setLoading(false);
       }
     },
-    [search, filterChannel, filterCollection]
+    [search, filterChannel, filterCollection, itemsPerPage]
   );
 
   useEffect(() => {
@@ -158,6 +160,7 @@ export function useChannelCatalog() {
       filterCollection,
       apiError,
       currentPage,
+      itemsPerPage,
       totalPages,
       totalCount,
       catalogCollections,
@@ -166,6 +169,10 @@ export function useChannelCatalog() {
       setSearch,
       setFilterChannel,
       setFilterCollection,
+      setItemsPerPage: (size: number) => {
+        setCurrentPage(1);
+        setItemsPerPage(size);
+      },
       fetchData,
       handleToggleWhatsAppSync,
       handleToggleAutoSync,

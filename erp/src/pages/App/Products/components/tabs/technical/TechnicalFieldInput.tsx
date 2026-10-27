@@ -63,11 +63,15 @@ export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
       value === false ||
       value === 0 ||
       ['false', '0', 'não', 'nao', 'no', 'desligado'].includes(normalizedValue);
+    const yesOptionValue =
+      options.find((option) => /^sim$/i.test(option.value.trim()))?.value || 'Sim';
+    const noOptionValue =
+      options.find((option) => /^n[aã]o$/i.test(option.value.trim()))?.value || 'Não';
     const selectedValue = isBoolean
       ? isAffirmative
-        ? 'true'
+        ? yesOptionValue
         : isNegative
-          ? 'false'
+          ? noOptionValue
           : ''
       : isAffirmative
         ? options.find((option) => /^sim$/i.test(option.value.trim()))?.value || 'Sim'
@@ -80,7 +84,13 @@ export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
         options={options}
         value={selectedValue}
         disabled={disabled}
-        onChange={(nextValue) => onChange(isBoolean && nextValue ? nextValue === 'true' : nextValue)}
+        onChange={(nextValue) => {
+          if (!isBoolean || !nextValue) {
+            onChange(nextValue);
+            return;
+          }
+          onChange(/^sim$/i.test(nextValue.trim()));
+        }}
       />
     );
   }
@@ -118,6 +128,7 @@ export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
         decimalPlaces={decimalPlaces as 1 | 2 | 3}
         disabled={disabled}
         preventClearing={isQuantityCharacteristic(field.name)}
+        placeholder={isDimension || isWeight ? '' : undefined}
         onChange={onChange}
       />
     );

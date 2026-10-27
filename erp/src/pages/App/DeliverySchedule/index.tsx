@@ -7,6 +7,7 @@ import ShowroomAssemblyModal from './ShowroomAssemblyModal';
 import OrderEditModal from '../SalesOrder/modals/OrderEditModal';
 import AssistanceOrderModal from '../SalesOrder/modals/AssistanceOrderModal';
 import PickupIcon from '@/components/shared/PickupIcon';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 const DeliverySchedule = () => {
   const navigate = useNavigate();
@@ -32,11 +33,33 @@ const DeliverySchedule = () => {
 
   const [showShowroomModal, setShowShowroomModal] = useState(false);
   const [orderToEdit, setOrderToEdit] = useState<any>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const hasInitialScrolledCard = React.useRef(false);
   const location = useLocation();
 
   const isStandalone =
     location.pathname.includes('/schedule') && !location.pathname.includes('/delivery-schedule');
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, scheduleType, typeFilter, startDate, endDate]);
+
+  const scheduledItems = React.useMemo(
+    () => Object.entries(schedule).flatMap(([date, orders]) => orders.map((order) => ({ date, order }))),
+    [schedule]
+  );
+  const visibleSchedule = React.useMemo(() => {
+    if (isStandalone) return schedule;
+    const safePage = Math.min(page, Math.max(1, Math.ceil(scheduledItems.length / pageSize)));
+    return scheduledItems.slice((safePage - 1) * pageSize, safePage * pageSize).reduce<typeof schedule>(
+      (groups, { date, order }) => {
+        (groups[date] ||= []).push(order);
+        return groups;
+      },
+      {}
+    );
+  }, [isStandalone, page, pageSize, schedule, scheduledItems]);
 
   const isMobileAppView =
     isStandalone ||
@@ -347,7 +370,7 @@ const DeliverySchedule = () => {
       );
     }
 
-    if (Object.keys(schedule).length === 0) {
+    if (Object.keys(schedule).length === 0 && pendingOrders.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-40 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[3rem] bg-slate-50/30 dark:bg-slate-950/30 mx-4 transition-colors duration-300">
           <div className="bg-white dark:bg-slate-900 p-10 rounded-full shadow-2xl shadow-slate-100 dark:shadow-none mb-8 border border-slate-50 dark:border-slate-800">
@@ -372,7 +395,7 @@ const DeliverySchedule = () => {
     return (
       <div className="transition-all duration-500 ease-in-out">
         <ScheduleCardView
-          schedule={schedule}
+          schedule={visibleSchedule}
           onOrderClick={openOrderDetails}
           isReadOnly={isStandalone}
           hasInitialScrolled={hasInitialScrolledCard}
@@ -388,7 +411,26 @@ const DeliverySchedule = () => {
     >
       {renderHeader()}
 
-      <div className="relative">{renderContent()}</div>
+      <div className="relative">
+        {renderContent()}
+        {!isStandalone && (
+          <ERPListPagination
+            ariaLabel="Paginação da agenda de entregas"
+            page={page}
+            pageSize={pageSize}
+            totalItems={scheduledItems.length}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPage(1);
+              setPageSize(size);
+            }}
+            preferenceKey="delivery-schedule"
+            itemLabel="agendamentos com data"
+            loading={loading}
+            className="mt-4"
+          />
+        )}
+      </div>
 
       {/* Mobile filter sidebar */}
       {sidebarOpen && <FilterSidebar />}

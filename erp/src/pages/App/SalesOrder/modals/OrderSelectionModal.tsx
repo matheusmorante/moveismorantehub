@@ -19,8 +19,6 @@ export interface OrderSelectionModalProps {
   fetchPage?: (options: FetchFulfilledOrdersOptions) => Promise<{ orders: Order[]; total: number }>;
 }
 
-const PAGE_SIZE = 15;
-
 const isFulfilledSalesOrder = (o: Order) => {
   if (o.deleted) return false;
   const type = String(o.orderType || '').toLowerCase();
@@ -55,6 +53,7 @@ const OrderSelectionModal: React.FC<OrderSelectionModalProps> = ({
   const [sortField, setSortField] = useState<'id' | 'date' | 'customer'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
   const [pagedOrders, setPagedOrders] = useState<Order[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -96,8 +95,8 @@ const OrderSelectionModal: React.FC<OrderSelectionModalProps> = ({
         });
 
       setTotalItems(filtered.length);
-      const startIndex = (currentPage - 1) * PAGE_SIZE;
-      setPagedOrders(filtered.slice(startIndex, startIndex + PAGE_SIZE));
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      setPagedOrders(filtered.slice(startIndex, startIndex + itemsPerPage));
       setLoading(false);
       return;
     }
@@ -108,7 +107,7 @@ const OrderSelectionModal: React.FC<OrderSelectionModalProps> = ({
 
     fetchPage({
       page: currentPage,
-      pageSize: PAGE_SIZE,
+      pageSize: itemsPerPage,
       searchTerm: debouncedSearch,
       sortBy: sortField,
       sortOrder,
@@ -133,7 +132,7 @@ const OrderSelectionModal: React.FC<OrderSelectionModalProps> = ({
     return () => {
       isCurrent = false;
     };
-  }, [staticOrders, currentPage, debouncedSearch, sortField, sortOrder, fetchPage]);
+  }, [staticOrders, currentPage, itemsPerPage, debouncedSearch, sortField, sortOrder, fetchPage]);
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -145,7 +144,7 @@ const OrderSelectionModal: React.FC<OrderSelectionModalProps> = ({
     setCurrentPage(1);
   };
 
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
   return (
     <div
@@ -311,8 +310,13 @@ const OrderSelectionModal: React.FC<OrderSelectionModalProps> = ({
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={totalItems}
-            itemsPerPage={PAGE_SIZE}
+            itemsPerPage={itemsPerPage}
             onPageChange={(page) => setCurrentPage(page)}
+            onPageSizeChange={(size) => {
+              setCurrentPage(1);
+              setItemsPerPage(size);
+            }}
+            preferenceKey="order-selection"
             loading={loading}
             ariaLabel="Paginação de seleção de pedido atendido"
             className="my-0"

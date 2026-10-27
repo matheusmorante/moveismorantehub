@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
@@ -50,9 +50,11 @@ export default function InboundInvoicesPage() {
   }));
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const requestRevision = useRef(0);
 
   const [selectedInvoice, setSelectedInvoice] = useState<InboundInvoice | null>(null);
   const [selectedMappingInvoice, setSelectedMappingInvoice] = useState<InboundInvoice | null>(null);
@@ -68,31 +70,35 @@ export default function InboundInvoicesPage() {
 
   const loadInvoices = useCallback(
     async (pageToLoad = 1) => {
+      const revision = ++requestRevision.current;
       setIsLoading(true);
       try {
         const res = await fetchInboundInvoicesPage({
           page: pageToLoad,
-          pageSize: 15,
+          pageSize: itemsPerPage,
           searchTerm,
           dateFilter,
         });
+        if (revision !== requestRevision.current) return;
         setInvoices(res.invoices);
         setTotalCount(res.totalCount);
         setTotalPages(res.totalPages);
         setCurrentPage(res.page);
       } catch (err) {
+        if (revision !== requestRevision.current) return;
         console.error('Erro ao carregar notas fiscais de entrada:', err);
         toast.error('Erro ao carregar lista de notas fiscais.');
       } finally {
-        setIsLoading(false);
+        if (revision === requestRevision.current) setIsLoading(false);
       }
     },
-    [searchTerm, dateFilter]
+    [searchTerm, dateFilter, itemsPerPage]
   );
 
   useEffect(() => {
     setCurrentPage(1);
     void loadInvoices(1);
+    return () => { requestRevision.current += 1; };
   }, [searchTerm, dateFilter, loadInvoices]);
 
   const handlePageChange = (newPage: number) => {
@@ -233,8 +239,12 @@ export default function InboundInvoicesPage() {
         currentPage={currentPage}
         totalPages={totalPages}
         totalItems={totalCount}
-        itemsPerPage={15}
+        itemsPerPage={itemsPerPage}
         onPageChange={handlePageChange}
+        onPageSizeChange={(size) => {
+          setCurrentPage(1);
+          setItemsPerPage(size);
+        }}
         loading={isLoading}
       />
 

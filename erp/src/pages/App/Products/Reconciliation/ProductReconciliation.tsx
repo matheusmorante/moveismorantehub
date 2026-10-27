@@ -26,7 +26,7 @@ import { ApplySupplierModal } from './modals/ApplySupplierModal';
 import { ApplyCategoryModal } from './modals/ApplyCategoryModal';
 import { ApplyNcmModal } from './modals/ApplyNcmModal';
 import { ApplyAttributeModal } from './modals/ApplyAttributeModal';
-import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import {
   areAllProductReconciliationPageItemsSelected,
   updateProductReconciliationPageSelection,
@@ -38,7 +38,7 @@ export const ProductReconciliation: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
-  const pageSize = 15;
+  const [pageSize, setPageSize] = useState(15);
 
   const [filters, setFilters] = useState<ReconciliationFilterState>({ pendencyType: 'all' });
   const [summary, setSummary] = useState<ReconciliationSummary>({
@@ -316,24 +316,20 @@ export const ProductReconciliation: React.FC = () => {
         )}
 
         {/* Paginação Server-Side */}
-        {totalCount > 0 && (
-          <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <span className="text-xs font-bold text-slate-500">
-              Mostrando {(page - 1) * pageSize + 1} até {Math.min(page * pageSize, totalCount)} de{' '}
-              {totalCount} produtos
-            </span>
-
-            <div className="flex flex-col items-center gap-2 self-end sm:self-center">
-              <FixedPageSlots
-                ariaLabel="Paginação da conciliação de produtos"
-                currentPage={page}
-                totalPages={Math.max(1, Math.ceil(totalCount / pageSize))}
-                onPageChange={setPage}
-                loading={isLoading}
-              />
-            </div>
-          </div>
-        )}
+        <ERPListPagination
+          ariaLabel="Paginação da conciliação de produtos"
+          page={page}
+          pageSize={pageSize}
+          totalItems={totalCount}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPage(1);
+            setPageSize(size);
+          }}
+          preferenceKey="product-reconciliation"
+          itemLabel="produtos"
+          loading={isLoading}
+        />
       </div>
 
       {/* Modais de Ações em Lote */}

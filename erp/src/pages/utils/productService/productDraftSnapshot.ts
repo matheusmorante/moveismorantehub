@@ -2,14 +2,12 @@ import type Product from '../../types/product.type';
 import type { Variation } from '../../types/product.type';
 import {
   createProductDraftSnapshot,
+  isProductDraft,
   removeInitialStockFields,
   restoreProductDraftSnapshot,
 } from '../../../../../shared-utils/productDraftSnapshot';
 
-export { createProductDraftSnapshot, removeInitialStockFields };
-
-export const isProductDraft = (product: Partial<Product>): boolean =>
-  Boolean(product.isDraft) || Boolean((product as any).is_draft) || product.status === 'draft';
+export { createProductDraftSnapshot, isProductDraft, removeInitialStockFields };
 
 export function restoreProductDraft(product: Product): Product {
   return restoreProductDraftSnapshot(product);

@@ -33,7 +33,6 @@ export interface ProductRowProps {
   readonly categoryTree?: unknown;
   readonly onRefresh?: () => void;
   readonly onDuplicate?: (product: Product) => void;
-  readonly exitedVariationIds?: ReadonlySet<string>;
   readonly hasVariations?: boolean;
   readonly isExpanded?: boolean;
   readonly onToggleExpand?: () => void;
@@ -62,7 +61,6 @@ export const ProductRow: React.FC<ProductRowProps> = ({
   orderedColumnKeys,
   categoryTree,
   onDuplicate,
-  exitedVariationIds,
   hasVariations,
   isExpanded,
   onToggleExpand,
@@ -149,7 +147,6 @@ export const ProductRow: React.FC<ProductRowProps> = ({
           variationsCount={variationsCount}
           oppName={oppName}
           supplierNames={supplierNames}
-          exitedVariationIds={exitedVariationIds}
         />
       );
     }

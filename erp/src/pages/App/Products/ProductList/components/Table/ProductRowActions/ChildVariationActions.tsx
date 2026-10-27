@@ -85,7 +85,7 @@ export const ChildVariationActions: React.FC<ChildVariationActionsProps> = ({
         }}
         aria-label="Mais opções da variação"
         aria-expanded={isMenuOpen}
-        className="w-8 h-8 inline-flex items-center justify-center rounded-xl border border-slate-200/80 bg-slate-100 text-slate-700 transition-all hover:bg-blue-50 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 cursor-pointer"
+        className="w-8 h-8 inline-flex items-center justify-center text-slate-700 transition-colors hover:text-blue-600 dark:text-slate-200 dark:hover:text-blue-400 cursor-pointer active:scale-95"
         title="Mais opções do produto"
       >
         <i className="bi bi-three-dots text-xs font-bold" />

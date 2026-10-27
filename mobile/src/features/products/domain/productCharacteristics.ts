@@ -19,6 +19,8 @@ import {
   isStructureMaterialCharacteristic,
 } from '../../../../../shared-utils/productSinkCategoryRules';
 import {
+  getCharacteristicDependencyState,
+  isDependentCharacteristicVisible,
   isCharacteristicDependent,
   isCharacteristicDependentOnVariableField,
 } from '../../../../../shared-utils/productCharacteristicDependencies';
@@ -36,7 +38,6 @@ import {
 } from '../../../../../shared-utils/productCategoryRequiredAttributes';
 import {
   isChairWeightCapacityCharacteristic,
-  isSofaCategoryName,
   isShelfWeightCapacityCharacteristic,
   isWeightCharacteristicName,
   isWeightCapacityCharacteristic,
@@ -94,6 +95,7 @@ export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Modelo', 'Marca'] as const
 export const GLOBAL_REQUIRED_ATTRIBUTE_NAMES = [
   ...REQUIRED_CHARACTERISTIC_NAMES,
   ...REQUIRED_DIMENSION_NAMES,
+  'Peso',
 ] as const;
 
 export const MATTRESS_CATEGORY_ID = '3b616449-7d0c-40fc-9917-70a20836f3b8';
@@ -297,10 +299,10 @@ export const isRequiredCharacteristicName = (name: string): boolean => {
 export const isProductTechnicalFieldRequired = (
   field: ProductTechnicalField,
   categoryIds: readonly string[] = [],
-  categoryName = ''
+  _categoryName = ''
 ): boolean => {
-  if (isWeightCharacteristicName(field.name) || isWeightCapacityCharacteristic(field.name)) return false;
-  if (isSofaCategoryName(categoryName) && isDepthCharacteristic(field.name)) return false;
+  if (isWeightCapacityCharacteristic(field.name)) return false;
+  if (isWeightCharacteristicName(field.name)) return true;
   const isMattress = isMattressCategory(categoryIds);
 
   if (isMattress && isHeightCharacteristic(field.name)) return false;
@@ -315,10 +317,8 @@ export const isProductTechnicalFieldRequired = (
 export const isProductTechnicalFieldRequiredForCatalog = (
   field: ProductTechnicalField,
   categoryIds: readonly string[] = [],
-  categoryName = ''
+  _categoryName = ''
 ): boolean =>
-  !(isSofaCategoryName(categoryName) && isDepthCharacteristic(field.name)) &&
-  !isWeightCharacteristicName(field.name) &&
   !isWeightCapacityCharacteristic(field.name) &&
   (field.requiredForCategory === true ||
     isProductTechnicalAttributeRequiredByCategories(field.requiredCategoryIds, categoryIds));
@@ -468,6 +468,15 @@ export const isMobileVariableTechnicalField = (
   );
 };
 
+/** Dependentes variam junto da mestre, como no formulário ERP de variação. */
+export const isMobileProductFormTechnicalFieldVariable = (
+  fieldName: string,
+  variableFieldNames: readonly string[] = []
+): boolean =>
+  isCharacteristicDependent(fieldName)
+    ? isCharacteristicDependentOnVariableField(fieldName, variableFieldNames)
+    : isMobileVariableTechnicalField(fieldName, variableFieldNames);
+
 /** Uses the persisted scope list, or infers legacy variability from child overrides. */
 export const resolveMobileVariableTechnicalFieldNames = (product: any = {}): string[] => {
   const configured =
@@ -586,6 +595,61 @@ export const hasTechnicalValue = (values: Record<string, unknown> = {}, name: st
   );
   return Object.keys(values).some((key) => candidates.has(normalizeName(key)));
 };
+
+/** Visibilidade de uma característica dependente opcional, equivalente ao ERP. */
+export const isDependentProductTechnicalFieldActive = (
+  fieldName: string,
+  allFields: readonly Pick<ProductTechnicalField, 'name'>[],
+  technicalValues: Record<string, unknown>,
+  variableFieldNames: readonly string[] = []
+): boolean => {
+  const dependency = getCharacteristicDependencyState(fieldName, technicalValues);
+  if (!dependency.isDependent || !dependency.masterFieldLabel) return false;
+
+  const normalizedMasterName = normalizeName(dependency.masterFieldLabel);
+  const masterField = allFields.find(
+    (field) => normalizeName(field.name) === normalizedMasterName
+  );
+  const masterValue = masterField
+    ? getTechnicalValue(technicalValues, masterField.name)
+    : undefined;
+
+  return isDependentCharacteristicVisible(dependency, {
+    masterFieldExists: Boolean(masterField),
+    masterIsVariable: masterField
+      ? isMobileVariableTechnicalField(masterField.name, variableFieldNames)
+      : false,
+    masterIsSelected: masterValue !== undefined && masterValue !== null,
+  });
+};
+
+export const getDisplayedOptionalProductTechnicalFields = (
+  optionalFields: readonly ProductTechnicalField[],
+  allFields: readonly Pick<ProductTechnicalField, 'name'>[],
+  technicalValues: Record<string, unknown>,
+  dependencyValues: Record<string, unknown> = technicalValues,
+  variableFieldNames: readonly string[] = [],
+  manualFieldNames: readonly string[] = []
+): ProductTechnicalField[] =>
+  optionalFields.filter((field) => {
+    if (manualFieldNames.some((name) => normalizeName(name) === normalizeName(field.name))) {
+      return true;
+    }
+    if (isCharacteristicDependent(field.name)) {
+      return isDependentProductTechnicalFieldActive(
+        field.name,
+        allFields,
+        dependencyValues,
+        variableFieldNames
+      );
+    }
+
+    if (!hasTechnicalValue(technicalValues, field.name)) return false;
+    const value = String(getTechnicalValue(technicalValues, field.name) ?? '')
+      .trim()
+      .toLocaleLowerCase('pt-BR');
+    return !['não se aplica', 'nao se aplica', 'n/a'].includes(value);
+  });
 
 // ============================================================================
 // 5. APPLICABLE FIELDS & DEPTH/LENGTH RESOLUTION
@@ -817,7 +881,7 @@ export const getMissingRequiredCharacteristics = (values: Record<string, unknown
 
 export const getMissingRequiredDimensions = (
   values: Record<string, unknown> = {},
-  directDimensions?: { width?: number; height?: number; depth?: number },
+  directDimensions?: { width?: number; height?: number; depth?: number; weight?: number },
   options?: { isMattress?: boolean }
 ) => {
   const isPositive = (val: unknown): boolean => {
@@ -863,6 +927,9 @@ export const getMissingRequiredDimensions = (
     !isPositive(getTechnicalValue(values, 'comprimento'))
   ) {
     missing.push('Profundidade total');
+  }
+  if (!isPositive(directDimensions?.weight) && !isPositive(getTechnicalValue(values, 'peso'))) {
+    missing.push('Peso');
   }
   return missing;
 };

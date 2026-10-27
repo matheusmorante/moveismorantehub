@@ -61,6 +61,8 @@ A página 22 explica que a contagem começa vazia, que zero é uma contagem expl
 
 A página 23 reforça que somente itens com contagem numérica entram nos ajustes; etapas não abertas e itens sem contagem permanecem sem alteração, inclusive quando outros itens do mesmo fornecedor foram contados.
 
+A página 23 também orienta que uma contagem offline em andamento só pode ser retomada no aparelho em que foi iniciada e pela mesma conta conectada.
+
 A página 16 esclarece que “Etiqueta de Preço” na lista Produtos exige permissão para editar Produtos; perfis somente consulta devem solicitar a impressão a alguém autorizado. A permissão separada para etiquetas de identificação continua distinta.
 
 A página 9 identifica o atalho na linha do item da NF-e pelo nome atual do botão, “Cadastro rápido”.
@@ -75,5 +77,7 @@ A página 10 também esclarece que o pedido de venda inclui automaticamente as p
 A página 21 esclarece que o campo “Responsável pelo Inventário” mostra somente colaboradores com perfil de acesso concedido, exceto Contador. Se a pessoa não aparecer, confira o perfil no cadastro de colaboradores; o cargo informado não substitui a concessão de acesso.
 
 A página 21 orienta a retomar pela lista uma contagem que já está em andamento, informa que cada contagem recebe um código próprio e aponta os botões de paginação abaixo da lista.
+
+A página 24 explica como escolher a quantidade de registros e navegar pelas listas paginadas do ERP, além de indicar que a mudança de filtros retorna à primeira página e que o app usa os números da lista.
 
 A página 18 diferencia uma nova linha de busca de uma etiqueta em branco: “Adicionar” abre espaço para buscar outro produto, a seleção fica marcada em verde com check e, sem produto selecionado, a etiqueta continua em branco. Também informa que a etiqueta de identificação mostra nome, SKU e QR, sem foto do produto.

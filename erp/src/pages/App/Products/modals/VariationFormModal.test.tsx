@@ -212,7 +212,11 @@ describe('composição real do formulário de variações', () => {
   });
   it('atributos/fotos sem resposta deixam de carregar em 10s e ignoram fotos tardias', async () => {
     vi.useFakeTimers(); let finish!: (value: unknown) => void;
-    mocks.response.mockImplementation((table: string) => new Promise((resolve) => { if (table === 'product_images') finish = resolve; })); mount();
+    mocks.response.mockImplementation((table: string) => new Promise((resolve) => { if (table === 'product_images') finish = resolve; }));
+    mount(variation, { ...parent, images: undefined });
+    await act(async () => {});
+    expect(mocks.response.mock.calls.map(([table]) => table)).toContain('product_images');
+    expect(finish).toBeTypeOf('function');
     await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
     expect(screen.queryByText('Carregando características e fotos do produto pai...')).toBeNull(); expect(screen.getByRole('button', { name: 'Consultar novamente' })).toHaveProperty('disabled', false);
     await act(async () => { finish({ data: [{ image_url: 'https://img.test/tardia.jpg' }], error: null }); });
@@ -221,8 +225,10 @@ describe('composição real do formulário de variações', () => {
   it('fotos do pai anterior não entram na sessão de outro produto', async () => {
     let finish!: (value: unknown) => void;
     mocks.response.mockImplementation((table: string) => table === 'product_images' ? new Promise((resolve) => { finish = resolve; }) : { data: [], error: null });
-    const view = mount();
+    const view = mount(variation, { ...parent, images: undefined });
     await act(async () => {});
+    expect(mocks.response.mock.calls.map(([table]) => table)).toContain('product_images');
+    expect(finish).toBeTypeOf('function');
     mocks.response.mockImplementation((table: string) => ({ data: table === 'product_images' ? [{ image_url: 'https://img.test/nova.jpg' }] : [], error: null }));
     view.rerender(<VariationFormModal {...view.props} parentProduct={{ ...parent, id: 'novo-pai', images: ['https://img.test/nova.jpg'] }} />);
     await act(async () => { finish({ data: [{ image_url: 'https://img.test/antiga.jpg' }], error: null }); });

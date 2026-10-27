@@ -55,11 +55,16 @@ export function useProductFormVariations(
     const existing = formData.variations || [];
     const newVar = createDefaultNewVariation(formData, existing);
 
-    setFormData((prev: Partial<Product>) => ({
-      ...prev,
-      variations: [...(prev.variations || []), newVar],
-      hasVariations: true,
-    }));
+    setFormData((prev: Partial<Product>) => {
+      const isConvertingSimpleProduct =
+        !prev.hasVariations && (prev.variations?.length || 0) <= 1;
+      return {
+        ...prev,
+        variations: [...(prev.variations || []), newVar],
+        hasVariations: true,
+        ...(isConvertingSimpleProduct ? { variableTechnicalFields: [] } : {}),
+      };
+    });
     pendingNewVariationIdRef.current = newVar.id;
     setEditingVariationId(newVar.id);
   }, [formData, setFormData]);
@@ -80,7 +85,14 @@ export function useProductFormVariations(
           : isReturningExistingProductToSimple
             ? [{ ...current[0], images: [...(prev.images || [])] }]
             : current;
-        return { ...prev, hasVariations, variations };
+        const isConvertingSimpleProduct =
+          hasVariations && !prev.hasVariations && current.length <= 1;
+        return {
+          ...prev,
+          hasVariations,
+          variations,
+          ...(isConvertingSimpleProduct ? { variableTechnicalFields: [] } : {}),
+        };
       });
       if (!hasVariations && !isExistingProduct) setEditingVariationId(null);
     },
@@ -129,7 +141,9 @@ export function useProductFormVariations(
         variations: [...(prev.variations || []), ...deduplicatedNewVars],
         hasVariations: true,
         variableTechnicalFields: Array.from(new Set([
-          ...resolveVariableTechnicalFieldNames(prev.variableTechnicalFields, prev.variations || []),
+          ...(!prev.hasVariations && (prev.variations?.length || 0) <= 1
+            ? []
+            : resolveVariableTechnicalFieldNames(prev.variableTechnicalFields, prev.variations || [])),
           ...options.map((option) => option.name),
         ])),
       }));

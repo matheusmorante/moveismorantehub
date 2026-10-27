@@ -69,6 +69,7 @@ export const ProductConversionModal: React.FC<ProductConversionModalProps> = ({
         const updatedData: Partial<Product> = {
           ...product,
           hasVariations: true,
+          variableTechnicalFields: [validated.name],
           variations: [newVariation],
           // Limpa código e estoque do pai, que foram transferidos para a primeira variação
           code: '',

@@ -98,19 +98,6 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
             >
               <span>{item}</span>
-              {!disabled && (
-                <button
-                  type="button"
-                  aria-label={`Remover ${item}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onChange(selected.filter((s) => s !== item));
-                  }}
-                  className="hover:text-red-600 transition-colors cursor-pointer"
-                >
-                  <i className="bi bi-x" />
-                </button>
-              )}
             </span>
           ))}
         </div>

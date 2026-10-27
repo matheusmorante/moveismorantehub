@@ -3,6 +3,7 @@ import { financeService } from '@/pages/services/financeService';
 import { AccountReceivable } from '../../../types/finance.type';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import ReceivableModal from './ReceivableModal';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -23,6 +24,8 @@ export default function Receivables() {
   const [selectedReceivable, setSelectedReceivable] = useState<AccountReceivable | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   const fetchReceivables = useCallback(async () => {
     const currentRequestId = ++requestId.current;
@@ -100,6 +103,8 @@ export default function Receivables() {
       normalizeSearchTerm(r.description || '').includes(normSearch) ||
       normalizeSearchTerm(r.customer_name || '').includes(normSearch)
   );
+  const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
+  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
@@ -138,7 +143,7 @@ export default function Receivables() {
                 type="text"
                 placeholder="Buscar por descrição ou cliente..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border-none rounded-2xl text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all dark:text-slate-200"
               />
             </div>
@@ -151,7 +156,7 @@ export default function Receivables() {
               ].map((filter) => (
                 <button
                   key={filter.id}
-                  onClick={() => setStatusFilter(filter.id)}
+                  onClick={() => { setStatusFilter(filter.id); setPage(1); }}
                   className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                     statusFilter === filter.id
                       ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm'
@@ -189,7 +194,7 @@ export default function Receivables() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                {filtered.map((receivable) => (
+                {visible.map((receivable) => (
                   <tr
                     key={receivable.id}
                     className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group"
@@ -234,6 +239,10 @@ export default function Receivables() {
               </tbody>
             </table>
           </div>
+
+          <ERPListPagination ariaLabel="Paginação de contas a receber" page={page} pageSize={pageSize}
+            totalItems={filtered.length} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }}
+            preferenceKey="finance-receivables" itemLabel="contas" loading={loading} className="px-4 py-3" />
 
           {loadError && (
             <div

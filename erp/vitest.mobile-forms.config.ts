@@ -6,6 +6,7 @@ export default {
     { find: /^expo-document-picker$/, replacement: path.resolve(__dirname, '../mobile/node_modules/expo-document-picker/build/index.js') },
     { find: /^react-native-safe-area-context$/, replacement: path.resolve(__dirname, '../mobile/node_modules/react-native-safe-area-context/lib/module/index.js') },
     { find: /^vitest$/, replacement: path.resolve(__dirname, './node_modules/vitest/dist/index.js') },
+    { find: /^@hookform\/resolvers\/zod$/, replacement: path.resolve(__dirname, './node_modules/@hookform/resolvers/zod/dist/zod.mjs') },
     { find: /^react-hook-form$/, replacement: path.resolve(__dirname, './node_modules/react-hook-form/dist/index.esm.mjs') },
     { find: /^react-native$/, replacement: path.resolve(__dirname, '../mobile/node_modules/react-native/index.js') },
     { find: /^lucide-react-native$/, replacement: path.resolve(__dirname, '../mobile/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js') },

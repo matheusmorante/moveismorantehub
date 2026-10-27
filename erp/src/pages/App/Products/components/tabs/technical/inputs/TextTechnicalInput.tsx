@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
+import { getTechnicalFieldTextPlaceholder } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
 
 interface TextTechnicalInputProps {
   field: TechnicalFieldDefinition;
@@ -30,19 +31,7 @@ export const TextTechnicalInput: React.FC<TextTechnicalInputProps> = ({
     );
   }
 
-  const isMarca = /^marca$/i.test(field.name.trim());
-  const isModelo = /^modelo$/i.test(field.name.trim());
-  const isModeloLinha = /^(modelo\s*\/\s*linha|linha\s*\/\s*modelo)$/i.test(field.name.trim());
-  const isLinha = /^linha$/i.test(field.name.trim());
-  const placeholder = isMarca
-    ? 'Digite a marca'
-    : isModelo
-      ? 'Digite o modelo'
-      : isModeloLinha
-        ? 'Digite o modelo / linha'
-        : isLinha
-          ? 'Digite a linha'
-          : undefined;
+  const placeholder = getTechnicalFieldTextPlaceholder(field.name);
 
   return (
     <input

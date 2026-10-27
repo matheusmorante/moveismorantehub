@@ -1,5 +1,3 @@
-import { ZodForm } from '@/components/forms/ZodForm';
-import { searchFormSchema } from '../../../../../../shared-utils/lookupFormSchemas';
 import React, { useEffect, useRef, useState } from 'react';
 import type {
   FiscalDocumentFilters,
@@ -11,7 +9,6 @@ interface FiscalDocumentsFilterBarProps {
   accountantView: boolean;
   searchInput: string;
   onSearchInputChange: (value: string) => void;
-  onSearchSubmit: (e?: React.FormEvent) => void;
   onModelChange: (model: string) => void;
   onDocumentTypeChange: (documentType: NonNullable<FiscalDocumentFilters['documentType']>) => void;
   onStatusChange: (status: string) => void;
@@ -60,6 +57,9 @@ const PERIOD_OPTIONS: { label: string; value: FiscalDocumentPeriod }[] = [
   { label: 'Período personalizado', value: 'custom' },
 ];
 
+const FILTER_CONTROL_CLASS_NAME =
+  'min-h-11 w-full min-w-0 border-x-0 border-t-0 border-b-2 border-slate-200 bg-transparent px-1 py-2 text-sm text-slate-800 outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-transparent dark:text-slate-100';
+
 interface FiscalDocumentPeriodSelectorProps {
   period: FiscalDocumentPeriod;
   onChange: (period: FiscalDocumentPeriod) => void;
@@ -79,7 +79,7 @@ const FiscalDocumentPeriodSelector: React.FC<FiscalDocumentPeriodSelectorProps> 
       aria-label="Período de emissão"
       value={period}
       onChange={(event) => onChange(event.target.value as FiscalDocumentPeriod)}
-      className="min-h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950"
+      className={FILTER_CONTROL_CLASS_NAME}
     >
       {PERIOD_OPTIONS.map((option) => (
         <option key={option.value} value={option.value}>
@@ -156,7 +156,6 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
   accountantView,
   searchInput,
   onSearchInputChange,
-  onSearchSubmit,
   onModelChange,
   onDocumentTypeChange,
   onStatusChange,
@@ -189,12 +188,9 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
   }, [isMoreFiltersOpen]);
 
   return (
-    <ZodForm schema={searchFormSchema} values={{ search: searchInput }}
-      onSubmit={onSearchSubmit}
-      className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900/70"
-    >
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-[minmax(0,1fr)_auto_auto] lg:grid-cols-[minmax(0,1fr)_9rem_10rem_10rem_auto_auto] 2xl:flex 2xl:flex-nowrap 2xl:items-end">
-        <label className="col-span-2 min-w-0 md:col-span-1 lg:flex-1 2xl:min-w-[190px]">
+    <div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 lg:grid-cols-[minmax(0,1fr)_9rem_10rem_10rem_auto] 2xl:flex 2xl:flex-nowrap 2xl:items-end">
+        <label className="min-w-0 lg:flex-1 2xl:min-w-[190px]">
           <span className="sr-only">Buscar notas fiscais</span>
           <span className="relative block">
             <i
@@ -203,10 +199,10 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
             />
             <input
               type="search"
-              placeholder="NF, chave, cliente, CPF/CNPJ ou pedido…"
+              placeholder="NF, chave, cliente, CPF/CNPJ ou pedido (mín. 3 caracteres)…"
               value={searchInput}
               onChange={(event) => onSearchInputChange(event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-slate-800 dark:bg-slate-950"
+              className={`${FILTER_CONTROL_CLASS_NAME} pl-9 pr-3`}
             />
           </span>
         </label>
@@ -215,7 +211,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
           aria-label="Modelo fiscal"
           value={filters.model}
           onChange={(event) => onModelChange(event.target.value)}
-          className="hidden min-h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950 lg:block lg:w-36 lg:min-w-36 2xl:w-auto 2xl:flex-none"
+          className={`${FILTER_CONTROL_CLASS_NAME} hidden lg:block lg:w-36 lg:min-w-36 2xl:w-auto 2xl:flex-none`}
         >
           <option value="all">Todos os modelos</option>
           <option value="55">NF-e 55</option>
@@ -226,7 +222,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
           aria-label="Tipo de documento"
           value={filters.documentType}
           onChange={(event) => onDocumentTypeChange(event.target.value as NonNullable<FiscalDocumentFilters['documentType']>)}
-          className="hidden min-h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950 lg:block lg:w-40 lg:min-w-40 2xl:w-auto 2xl:flex-none"
+          className={`${FILTER_CONTROL_CLASS_NAME} hidden lg:block lg:w-40 lg:min-w-40 2xl:w-auto 2xl:flex-none`}
         >
           {DOCUMENT_TYPE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
@@ -237,7 +233,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
           aria-label={accountantView ? 'Situação fiscal' : 'Status fiscal'}
           value={filters.status}
           onChange={(event) => onStatusChange(event.target.value)}
-          className="hidden min-h-11 w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-950 lg:block lg:w-40 lg:min-w-40 2xl:w-auto 2xl:flex-none"
+          className={`${FILTER_CONTROL_CLASS_NAME} hidden lg:block lg:w-40 lg:min-w-40 2xl:w-auto 2xl:flex-none`}
         >
           {statusOptions.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
@@ -257,16 +253,9 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
         />
 
         <button
-          type="submit"
-          className="col-span-1 inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 md:col-auto"
-        >
-          Buscar
-        </button>
-
-        <button
           type="button"
           onClick={() => setIsMoreFiltersOpen(true)}
-          className="col-span-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 md:col-auto 2xl:hidden"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 2xl:hidden"
         >
           <i className="bi bi-sliders" aria-hidden="true" />
           Mais filtros
@@ -309,7 +298,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
               aria-label="Modelo fiscal"
               value={filters.model}
               onChange={(event) => onModelChange(event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+              className={FILTER_CONTROL_CLASS_NAME}
             >
               <option value="all">Todos os modelos</option>
               <option value="55">NF-e 55</option>
@@ -323,7 +312,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
               aria-label="Tipo de documento"
               value={filters.documentType}
               onChange={(event) => onDocumentTypeChange(event.target.value as NonNullable<FiscalDocumentFilters['documentType']>)}
-              className="min-h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+              className={FILTER_CONTROL_CLASS_NAME}
             >
               {DOCUMENT_TYPE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -337,7 +326,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
               aria-label={accountantView ? 'Situação fiscal' : 'Status fiscal'}
               value={filters.status}
               onChange={(event) => onStatusChange(event.target.value)}
-              className="min-h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+              className={FILTER_CONTROL_CLASS_NAME}
             >
               {statusOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -367,7 +356,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
                   value={customDateFrom}
                   max={customDateTo || undefined}
                   onChange={(event) => onCustomDateFromChange(event.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                  className={FILTER_CONTROL_CLASS_NAME}
                 />
               </label>
 
@@ -379,7 +368,7 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
                   value={customDateTo}
                   min={customDateFrom || undefined}
                   onChange={(event) => onCustomDateToChange(event.target.value)}
-                  className="min-h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                  className={FILTER_CONTROL_CLASS_NAME}
                 />
               </label>
             </>
@@ -396,6 +385,6 @@ export const FiscalDocumentsFilterBar: React.FC<FiscalDocumentsFilterBarProps> =
           </button>
         </footer>
       </dialog>
-    </ZodForm>
+    </div>
   );
 };

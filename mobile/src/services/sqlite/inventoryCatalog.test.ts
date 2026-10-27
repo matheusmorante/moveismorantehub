@@ -35,9 +35,10 @@ describe('persistência local do catálogo de inventário', () => {
   });
 
   it('reconstrói o índice sem tocar nas contagens e na submissão congelada', async () => {
-    await deleteInventorySubmission('audit-cache');
+    await deleteInventorySubmission('audit-cache', 'operator-1');
     await saveLocalInventoryDraft({
       id: 'audit-cache',
+      userId: 'operator-1',
       code: 'LOCAL-1',
       name: 'Contagem',
       supplierId: 'supplier-1',
@@ -63,6 +64,7 @@ describe('persistência local do catálogo de inventário', () => {
       observation: { status: 'completed' },
       items: [{ physicalCount: 3 }],
       responsibleName: 'Operador',
+      userId: 'operator-1',
     });
     await saveLocalInventoryCatalogSnapshot({
       products: {},
@@ -73,9 +75,9 @@ describe('persistência local do catálogo de inventário', () => {
       syncedAt: '2026-09-25T13:00:00Z',
       formatVersion: 2,
     });
-    expect((await getLocalInventoryDraft('audit-cache'))?.items[0].physicalCount).toBe(3);
-    expect((await getLocalInventoryDraft('audit-cache'))?.supplierId).toBe('supplier-1');
-    expect((await getInventorySubmission('audit-cache'))?.items[0].physicalCount).toBe(3);
+    expect((await getLocalInventoryDraft('audit-cache', 'operator-1'))?.items[0].physicalCount).toBe(3);
+    expect((await getLocalInventoryDraft('audit-cache', 'operator-1'))?.supplierId).toBe('supplier-1');
+    expect((await getInventorySubmission('audit-cache', 'operator-1'))?.items[0].physicalCount).toBe(3);
   });
 
   it('preserva e recupera o índice antigo quando o novo estiver inválido', async () => {

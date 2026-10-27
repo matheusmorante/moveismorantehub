@@ -22,22 +22,14 @@ import {
 import type { AuditItem } from '../types/inventoryWorkflow.types';
 
 export const syncPendingInventorySubmissions = async (
-  _activeUserId?: string | null
+  activeUserId?: string | null
 ): Promise<number> => {
   const isOnline =
     connectivityService.connected &&
     (typeof navigator === 'undefined' || navigator.onLine !== false);
   if (!isOnline) return 0;
 
-  let submissions = [];
-  try {
-    submissions = await listInventorySubmissions();
-  } catch {
-    return 0;
-  }
-  if (submissions.length === 0) return 0;
-
-  let currentUserId: string | null = null;
+  let sessionUserId: string | null = null;
   try {
     const auth = (supabase as any)?.auth;
     if (typeof auth?.getSession === 'function') {
@@ -47,10 +39,18 @@ export const syncPendingInventorySubmissions = async (
         null,
         'inventario:outbox-auth-session'
       );
-      currentUserId = sessionResult?.data?.session?.user?.id || null;
+      sessionUserId = sessionResult?.data?.session?.user?.id || null;
     }
   } catch {}
-  if (!currentUserId) return 0;
+  if (!sessionUserId || (activeUserId && activeUserId !== sessionUserId)) return 0;
+
+  let submissions = [];
+  try {
+    submissions = await listInventorySubmissions(sessionUserId);
+  } catch {
+    return 0;
+  }
+  if (submissions.length === 0) return 0;
 
   let catalog = null;
   try {
@@ -60,6 +60,10 @@ export const syncPendingInventorySubmissions = async (
   let syncedCount = 0;
   for (const submission of submissions) {
     if (!connectivityService.connected) break;
+    // Offline submissions belong to the authenticated actor, not necessarily the
+    // selected inventory responsible. Never submit an unowned row or another
+    // user's row under the current session.
+    if (!submission.userId || submission.userId !== sessionUserId) continue;
 
     try {
       // Verifica se alguma variação da submissão sofreu mesclagem/exclusão concorrente no catálogo
@@ -72,7 +76,8 @@ export const syncPendingInventorySubmissions = async (
           if (conflicts.length > 0) {
             await recordInventorySubmissionFailure(
               submission.auditId,
-              new Error(`CONFLICT_VARIATION_CHANGED:${conflicts.length}`)
+              new Error(`CONFLICT_VARIATION_CHANGED:${conflicts.length}`),
+              sessionUserId
             ).catch(() => {});
             continue;
           }
@@ -108,17 +113,18 @@ export const syncPendingInventorySubmissions = async (
         data?.auditId === submission.auditId &&
         ['processed', 'already_processed'].includes(data?.status)
       ) {
-        await deleteLocalInventoryDraft(submission.auditId).catch(() => {});
-        await deleteInventorySubmission(submission.auditId).catch(() => {});
+        await deleteLocalInventoryDraft(submission.auditId, sessionUserId).catch(() => {});
+        await deleteInventorySubmission(submission.auditId, sessionUserId).catch(() => {});
         syncedCount++;
       } else {
         await recordInventorySubmissionFailure(
           submission.auditId,
-          new Error(data?.status || 'UNEXPECTED_SERVER_RESPONSE')
+          new Error(data?.status || 'UNEXPECTED_SERVER_RESPONSE'),
+          sessionUserId
         ).catch(() => {});
       }
     } catch (error) {
-      await recordInventorySubmissionFailure(submission.auditId, error).catch(() => {});
+      await recordInventorySubmissionFailure(submission.auditId, error, sessionUserId).catch(() => {});
     }
   }
   return syncedCount;

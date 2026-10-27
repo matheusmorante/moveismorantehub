@@ -150,7 +150,7 @@ describe('VariationTechnicalTab', () => {
     expect(screen.queryByTitle(/Sincronizado com o pai|Manual — clique para sincronizar/)).toBeNull();
   });
 
-  it('mantém característica obrigatória do catálogo visível e oculta dependentes sem quantidade própria', async () => {
+  it('mantém a característica obrigatória visível e desabilita dependentes sem quantidade própria', async () => {
     render(<TestHarness />);
 
     await waitFor(() => {
@@ -158,7 +158,7 @@ describe('VariationTechnicalTab', () => {
     });
 
     expect((screen.getByTestId('input-Quantidade de portas') as HTMLInputElement).value).toBe('');
-    expect(screen.queryByTestId('input-Material das portas')).toBeNull();
+    expect(screen.getByTestId('input-Material das portas')).toBeDisabled();
   });
 
   it('preserva zero na característica e limpa dependentes ao zerar a quantidade por variação', async () => {
@@ -175,7 +175,7 @@ describe('VariationTechnicalTab', () => {
     await waitFor(() => expect(screen.getByTestId('input-Material das portas')).toBeInTheDocument());
     fireEvent.change(screen.getByTestId('input-Quantidade de portas'), { target: { value: '0' } });
 
-    await waitFor(() => expect(screen.queryByTestId('input-Material das portas')).toBeNull());
+    await waitFor(() => expect(screen.getByTestId('input-Material das portas')).toBeDisabled());
     const updated = JSON.parse(screen.getByTestId('variation-data').textContent || '{}') as Variation;
     expect(updated.technicalValues).toMatchObject({
       'Quantidade de portas': '0',
@@ -275,6 +275,27 @@ describe('VariationTechnicalTab', () => {
 
     await waitFor(() => expect(screen.getByText('Características específicas')).toBeInTheDocument());
     expect(screen.queryByText('Cor')).toBeNull();
+  });
+
+  it('não trata campo dependente como variável quando só ele está marcado, sem a mestre', async () => {
+    const parentProduct = {
+      ...mockParentProduct,
+      variableTechnicalFields: ['Material das portas'],
+    };
+
+    render(
+      <VariationTechnicalTab
+        formData={mockVariation}
+        parentProduct={parentProduct}
+        handleChange={vi.fn()}
+        initialTechnicalFields={mockFields}
+      />
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText('Características específicas')).toBeInTheDocument()
+    );
+    expect(screen.queryByTestId('input-Material das portas')).toBeNull();
   });
 
   it('permite alternar entre Profundidade total e Comprimento total', async () => {

@@ -4,9 +4,18 @@ import { PRODUCT_LIST_SEARCH_MIN_LENGTH } from './productListSearch';
 export const orderListFormSchema = z.object({ page: z.number().int().positive(), search: z.string(), status: z.string() });
 export const purchaseListFormSchema = z.object({ page: z.number().int().nonnegative(), search: z.string().optional(), supplierId: z.string().optional() });
 export const supplierListFormSchema = z.object({ page: z.number().int().nonnegative(), search: z.string(), sortBy: z.enum(['full_name', 'created_at']), sortOrder: z.enum(['asc', 'desc']), activeOnly: z.boolean().optional() });
-export const PRODUCT_LIST_PAGE_SIZES = [10, 15] as const;
+export const ERP_LIST_PAGE_SIZES = [15, 30, 50, 100] as const;
+export const erpListPageSizeFormSchema = z.object({
+  pageSize: z.preprocess(
+    (value) => (typeof value === 'string' ? Number(value) : value),
+    z.number().int().positive().max(100)
+  ),
+});
+export const PRODUCT_LIST_PAGE_SIZES = ERP_LIST_PAGE_SIZES;
 export type ProductListPageSize = (typeof PRODUCT_LIST_PAGE_SIZES)[number];
-export const productListPageSizeSchema = z.union([z.literal(10), z.literal(15)]);
+export const productListPageSizeSchema = z.union([
+  z.literal(15), z.literal(30), z.literal(50), z.literal(100),
+]);
 export const productListPageSizeFormSchema = z.object({
   itemsPerPage: z.preprocess(
     (value) => (typeof value === 'string' ? Number(value) : value),
@@ -49,6 +58,10 @@ export const invoiceDateFilterFormSchema = z.object({
   if (values.mode === 'custom_range' && (!month(values.startMonth) || !month(values.endMonth) || values.startMonth > values.endMonth)) ctx.addIssue({ code: 'custom', path: ['endMonth'], message: 'Informe um intervalo de meses válido.' });
 });
 export const invoiceListFormSchema = z.object({ page: z.number().int().nonnegative(), searchTerm: z.string(), dateFilter: invoiceDateFilterFormSchema });
+export const fiscalDocumentsSearchFormSchema = z.object({ search: z.string() }).transform(({ search }) => {
+  const term = search.trim();
+  return { search: term.length >= 3 ? term : '' };
+});
 export const fiscalDocumentsListFormSchema = z.object({
   pageIndex: z.number().int().nonnegative(), targetDocumentId: z.string().uuid('Identificação da nota inválida.').nullish(),
   filters: z.object({

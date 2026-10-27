@@ -36,7 +36,7 @@ export const DecimalTechnicalInput: React.FC<DecimalTechnicalInputProps> = ({
       disabled={disabled}
       preventClearing={preventClearing}
       showBadge={false}
-      placeholder={placeholder || formatDecimal(0, decimalPlaces)}
+      placeholder={placeholder ?? formatDecimal(0, decimalPlaces)}
       testID={testID}
       className={
         className ||

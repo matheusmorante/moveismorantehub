@@ -1,6 +1,5 @@
 import React from 'react';
 import ShowTestDataToggle from '@/components/shared/ShowTestDataToggle';
-import ShowMergedProductsToggle from '@/components/shared/ShowMergedProductsToggle';
 
 export interface ProductsTopToolbarProps {
   mode: 'standard' | 'composition';
@@ -66,7 +65,7 @@ export const ProductsTopToolbar: React.FC<ProductsTopToolbarProps> = ({
             value={searchInput}
             onChange={(e) => onSearchChange(e.target.value)}
             onKeyDown={onSearchKeyDown}
-            className="w-full pl-12 pr-10 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all text-sm font-medium dark:text-slate-200 shadow-sm placeholder:text-slate-400 dark:placeholder:text-slate-600"
+            className="w-full pl-12 pr-10 py-1.5 bg-transparent border-x-0 border-t-0 border-b-2 border-slate-200 dark:border-slate-800 rounded-none focus:ring-0 focus:border-blue-500 outline-none transition-colors text-sm font-medium dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600"
           />
           {searchInput && (
             <button
@@ -90,22 +89,15 @@ export const ProductsTopToolbar: React.FC<ProductsTopToolbarProps> = ({
           />
         )}
 
-        <ShowMergedProductsToggle
-          checked={showMergedProducts}
-          onChange={onShowMergedProductsChange}
-          compact
-        />
-
         {/* Actions Dropdown Menu */}
-        {canManageProducts && (
-          <div className="flex gap-2 ml-auto shrink-0 items-center" ref={menuRef}>
+        <div className="flex gap-2 ml-auto shrink-0 items-center" ref={menuRef}>
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsActionsMenuOpen((prev) => !prev)}
                 aria-label="Ações de produtos"
                 aria-expanded={isActionsMenuOpen}
-                className="w-11 h-11 xl:w-8 xl:h-8 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl transition-all shadow-sm active:scale-95"
+                className="w-11 h-11 xl:w-8 xl:h-8 flex items-center justify-center !bg-transparent !border-0 !rounded-none !shadow-none text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors active:scale-95"
                 title="Opções"
               >
                 <i className="bi bi-three-dots-vertical text-lg" />
@@ -113,78 +105,107 @@ export const ProductsTopToolbar: React.FC<ProductsTopToolbarProps> = ({
 
               {isActionsMenuOpen && (
                 <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 py-2 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onNewProduct();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors group"
-                  >
-                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <i className="bi bi-plus-lg" />
-                    </div>
-                    {mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}
-                  </button>
+                  {canManageProducts && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onNewProduct();
+                          setIsActionsMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors group"
+                      >
+                        <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <i className="bi bi-plus-lg" />
+                        </div>
+                        {mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}
+                      </button>
 
-                  {mode === 'standard' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onNewComposition();
-                        setIsActionsMenuOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2.5 text-sm font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-3 transition-colors group"
-                    >
-                      <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <i className="bi bi-boxes" />
-                      </div>
-                      Novo Produto Composto
-                    </button>
+                      {mode === 'standard' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onNewComposition();
+                            setIsActionsMenuOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-3 transition-colors group"
+                        >
+                          <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i className="bi bi-boxes" />
+                          </div>
+                          Novo Produto Composto
+                        </button>
+                      )}
+                    </>
                   )}
 
                   <button
                     type="button"
+                    aria-pressed={showMergedProducts}
                     onClick={() => {
-                      onOpenFilters();
-                      setIsActionsMenuOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors group"
-                  >
-                    <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <i className="bi bi-funnel" />
-                    </div>
-                    Filtros
-                  </button>
-
-                  <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-4" />
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onToggleActiveOnly();
+                      onShowMergedProductsChange(!showMergedProducts);
                       setIsActionsMenuOpen(false);
                     }}
                     className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors group"
                   >
                     <div
                       className={`w-8 h-8 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${
-                        activeOnly === false
-                          ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                        showMergedProducts
+                          ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
                           : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                       }`}
                     >
-                      <i
-                        className={`bi ${activeOnly === false ? 'bi-eye' : 'bi-eye-slash'}`}
-                      />
+                      <i className="bi bi-bezier2" />
                     </div>
-                    {activeOnly === false ? 'Ocultar Inativos' : 'Mostrar Inativos'}
+                    {showMergedProducts ? 'Ocultar Mesclados' : 'Mostrar Mesclados'}
                   </button>
+
+                  {canManageProducts && mode === 'composition' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenFilters();
+                        setIsActionsMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors group"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <i className="bi bi-funnel" />
+                      </div>
+                      Filtros
+                    </button>
+                  )}
+
+                  {canManageProducts && (
+                    <>
+                      <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-4" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onToggleActiveOnly();
+                          setIsActionsMenuOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-3 transition-colors group"
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform ${
+                            activeOnly === false
+                              ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                          }`}
+                        >
+                          <i
+                            className={`bi ${activeOnly === false ? 'bi-eye' : 'bi-eye-slash'}`}
+                          />
+                        </div>
+                        {activeOnly === false ? 'Ocultar Inativos' : 'Mostrar Inativos'}
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

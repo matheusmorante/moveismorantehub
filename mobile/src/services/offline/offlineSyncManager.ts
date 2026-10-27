@@ -217,21 +217,17 @@ class OfflineSyncManager {
     let extraPending = 0;
     try {
       const [invOutbox, calPending, recPending] = await Promise.all([
-        listInventorySubmissions().catch(() => []),
+        activeUserId ? listInventorySubmissions(activeUserId).catch(() => []) : Promise.resolve([]),
         getPendingLocalCalendarEvents().catch(() => []),
         getPendingGoodsReceiptChecks().catch(() => []),
       ]);
-      const userInv = invOutbox.filter((s) => {
-        const owner = s.userId || (s.observation?.responsibleId as string | undefined);
-        return !owner || !activeUserId || owner === activeUserId;
-      });
       const userCal = calPending.filter(
         (e) => !e.created_by || !activeUserId || e.created_by === activeUserId
       );
       const userRec = recPending.filter(
         (r) => !r.userId || !activeUserId || r.userId === activeUserId
       );
-      extraPending = userInv.length + userCal.length + userRec.length;
+      extraPending = invOutbox.length + userCal.length + userRec.length;
     } catch {}
 
     return {

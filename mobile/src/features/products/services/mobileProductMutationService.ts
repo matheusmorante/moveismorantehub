@@ -25,6 +25,7 @@ import {
   type RequiredProductCategoryAttribute,
 } from '../../../../../shared-utils/productCategoryRequiredAttributes';
 import { createProductDraftSnapshot } from '../../../../../shared-utils/productDraftSnapshot';
+import { omitAbsentCompositionVariationId } from '../../../../../shared-utils/productCompositionSerialization';
 
 const normalizeVariationSku = (sku?: string) =>
   String(sku || '')
@@ -33,12 +34,14 @@ const normalizeVariationSku = (sku?: string) =>
 
 const normalizeComboItems = (items: unknown) =>
   (Array.isArray(items) ? items : []).map((item: any) => ({
-    productId: item.productId ?? item.product_id,
-    variationId: item.variationId ?? item.variation_id ?? null,
-    quantity: Math.max(1, parseLocalizedPrice(item.quantity || 1)),
-    description: item.description || item.productName || item.name || '',
-    unitPrice: parseLocalizedPrice(item.unitPrice ?? item.unit_price ?? 0),
-    stock: parseLocalizedPrice(item.stock ?? item.currentStock ?? 0),
+    ...omitAbsentCompositionVariationId({
+      productId: item.productId ?? item.product_id,
+      variationId: item.variationId ?? item.variation_id ?? null,
+      quantity: Math.max(1, parseLocalizedPrice(item.quantity || 1)),
+      description: item.description || item.productName || item.name || '',
+      unitPrice: parseLocalizedPrice(item.unitPrice ?? item.unit_price ?? 0),
+      stock: parseLocalizedPrice(item.stock ?? item.currentStock ?? 0),
+    }),
   }));
 
 const createOperationId = () =>
@@ -125,7 +128,7 @@ export const toggleMobileProductCatalog = async (
     const productResult = await withMobileMutationTimeout(
       supabase
         .from('products')
-        .select('id, code, sku, name, title, observations, is_test')
+        .select('id, code, sku, name, title, observations, technical_specs')
         .eq('id', productId)
         .maybeSingle(),
       'mobile:validar-publicacao-produto'

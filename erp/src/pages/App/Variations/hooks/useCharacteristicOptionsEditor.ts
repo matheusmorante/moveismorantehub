@@ -14,7 +14,7 @@ import {
 
 const FORM_AUTOSAVE_DEBOUNCE_MS = 500;
 const OPTION_SEARCH_DEBOUNCE_MS = 300;
-export const CHARACTERISTIC_OPTIONS_PAGE_SIZE = 10;
+export const CHARACTERISTIC_OPTIONS_PAGE_SIZE = 15;
 
 interface UseCharacteristicOptionsEditorParams {
   readonly isOpen: boolean;
@@ -49,6 +49,7 @@ export const useCharacteristicOptionsEditor = ({
   const [optionSearch, setOptionSearch] = useState('');
   const [debouncedOptionSearch, setDebouncedOptionSearch] = useState('');
   const [optionPage, setOptionPage] = useState(0);
+  const [optionPageSize, setOptionPageSize] = useState(CHARACTERISTIC_OPTIONS_PAGE_SIZE);
   const [editingOptionId, setEditingOptionId] = useState<string | null>(null);
   const [editingOptionValue, setEditingOptionValue] = useState('');
   const [optionIdsOutOfSync, setOptionIdsOutOfSync] = useState(false);
@@ -99,17 +100,17 @@ export const useCharacteristicOptionsEditor = ({
 
   const totalOptionPages = Math.max(
     1,
-    Math.ceil(filteredOptions.length / CHARACTERISTIC_OPTIONS_PAGE_SIZE)
+    Math.ceil(filteredOptions.length / optionPageSize)
   );
   const visiblePage = Math.min(optionPage, totalOptionPages - 1);
   const visibleOptions = filteredOptions.slice(
-    visiblePage * CHARACTERISTIC_OPTIONS_PAGE_SIZE,
-    (visiblePage + 1) * CHARACTERISTIC_OPTIONS_PAGE_SIZE
+    visiblePage * optionPageSize,
+    (visiblePage + 1) * optionPageSize
   );
   const firstVisibleOption =
-    filteredOptions.length === 0 ? 0 : visiblePage * CHARACTERISTIC_OPTIONS_PAGE_SIZE + 1;
+    filteredOptions.length === 0 ? 0 : visiblePage * optionPageSize + 1;
   const lastVisibleOption = Math.min(
-    (visiblePage + 1) * CHARACTERISTIC_OPTIONS_PAGE_SIZE,
+    (visiblePage + 1) * optionPageSize,
     filteredOptions.length
   );
 
@@ -158,7 +159,7 @@ export const useCharacteristicOptionsEditor = ({
       setOptionIdsOutOfSync(false);
       setOptionSearch('');
       setOptionPage(
-        Math.floor((synced.options.length - 1) / CHARACTERISTIC_OPTIONS_PAGE_SIZE)
+        Math.floor((synced.options.length - 1) / optionPageSize)
       );
     } catch (error: unknown) {
       setOptionIdsOutOfSync(true);
@@ -280,6 +281,8 @@ export const useCharacteristicOptionsEditor = ({
     setOptionSearch,
     optionPage,
     setOptionPage,
+    optionPageSize,
+    setOptionPageSize,
     editingOptionId,
     editingOptionValue,
     optionIdsOutOfSync,

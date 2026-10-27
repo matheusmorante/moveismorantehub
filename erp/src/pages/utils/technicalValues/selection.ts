@@ -81,12 +81,8 @@ export const getApplicableTechnicalFields = (
   const isSink = isSinkCategory(productCategoryIds, safeFields);
 
   const isRequiredForProduct = (field: TechnicalFieldDefinition): boolean => {
-    if (
-      isWeightCharacteristicName(field.name) ||
-      isWeightCapacityCharacteristic(field.name)
-    ) {
-      return false;
-    }
+    if (isWeightCapacityCharacteristic(field.name)) return false;
+    if (isWeightCharacteristicName(field.name)) return true;
     const normalizedName = normalizeCharacteristicName(field.name);
 
     // Para colchões, a altura não é obrigatória nem solicitada; usa-se espessura do colchão

@@ -53,7 +53,7 @@ describe('Cópia de telefone no cabeçalho', () => {
     const input = props();
     render(<ChatHeader {...input} conversation={{ ...input.conversation, contactPhone: '5500000000000' }} />);
     fireEvent.click(screen.getByTitle('Mais opções da conversa'));
-    fireEvent.click(screen.getByRole('button', { name: 'Copiar telefone' }));
+    fireEvent.click(screen.getByRole('button', { name: /Copiar telefone/ }));
     return input;
   };
 
@@ -93,12 +93,13 @@ describe('Cópia de telefone no cabeçalho', () => {
 });
 
 describe('Resolver das ações do cabeçalho', () => {
-  it('valida contexto antes de atualizar status', async () => {
+  it('valida contexto antes de arquivar', async () => {
     const input = props();
     render(<ChatHeader {...input} conversation={{ ...input.conversation, id: 'inválido' }} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByTitle('Mais opções da conversa'));
+    fireEvent.click(screen.getByRole('button', { name: /Arquivar conversa/ }));
     await screen.findByRole('alert');
-    expect(input.onUpdateStatus).not.toHaveBeenCalled();
+    expect(input.onToggleArchive).not.toHaveBeenCalled();
   });
 
   it('valida atendente antes de atribuir', async () => {
@@ -120,24 +121,26 @@ describe('Resolver das ações do cabeçalho', () => {
 
   it('mostra falha do comando sem informar sucesso', async () => {
     const input = props();
-    input.onUpdateStatus.mockResolvedValue(false);
+    input.onToggleArchive.mockResolvedValue(false);
     render(<ChatHeader {...input} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByTitle('Mais opções da conversa'));
+    fireEvent.click(screen.getByRole('button', { name: /Arquivar conversa/ }));
     expect((await screen.findByRole('alert')).textContent).toContain('Não foi possível salvar');
-    expect(input.onUpdateStatus).toHaveBeenCalledWith('closed');
+    expect(input.onToggleArchive).toHaveBeenCalled();
   });
 
   it('trava repetição durante o comando e exibe progresso', async () => {
     const input = props();
     let resolve!: (value: boolean) => void;
-    input.onUpdateStatus.mockReturnValue(new Promise<boolean>((callback) => { resolve = callback; }));
+    input.onToggleArchive.mockReturnValue(new Promise<boolean>((callback) => { resolve = callback; }));
     render(<ChatHeader {...input} />);
-    const close = screen.getByRole('button', { name: 'Close' });
-    fireEvent.click(close);
-    fireEvent.click(close);
+    fireEvent.click(screen.getByTitle('Mais opções da conversa'));
+    const archive = screen.getByRole('button', { name: /Arquivar conversa/ });
+    fireEvent.click(archive);
+    fireEvent.click(archive);
     await screen.findByRole('status');
-    expect(input.onUpdateStatus).toHaveBeenCalledTimes(1);
-    expect((close.closest('fieldset') as HTMLFieldSetElement).disabled).toBe(true);
+    expect(input.onToggleArchive).toHaveBeenCalledTimes(1);
+    expect((screen.getByRole('group') as HTMLFieldSetElement).disabled).toBe(true);
     await act(async () => resolve(true));
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
   });
@@ -146,7 +149,7 @@ describe('Resolver das ações do cabeçalho', () => {
     const input = props();
     render(<ChatHeader {...input} conversation={{ ...input.conversation, id: '' }} />);
     fireEvent.click(screen.getByTitle('Mais opções da conversa'));
-    fireEvent.click(screen.getByRole('button', { name: 'Arquivar conversa' }));
+    fireEvent.click(screen.getByRole('button', { name: /Arquivar conversa/ }));
     await screen.findByRole('alert');
     expect(input.onToggleArchive).not.toHaveBeenCalled();
   });

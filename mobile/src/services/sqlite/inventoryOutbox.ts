@@ -19,9 +19,7 @@ interface OutboxRow {
   last_error: string | null;
 }
 
-export const getInventorySubmission = async (
-  auditId: string
-): Promise<InventorySubmission | null> => {
+const readInventorySubmission = async (auditId: string): Promise<InventorySubmission | null> => {
   const db = await getSQLiteDatabase();
   await runMigrations(db);
   const row = await db.getFirstAsync<OutboxRow>(
@@ -35,28 +33,45 @@ export const getInventorySubmission = async (
   return payload;
 };
 
+export const getInventorySubmission = async (
+  auditId: string,
+  userId?: string | null
+): Promise<InventorySubmission | null> => {
+  if (!userId) return null;
+  const submission = await readInventorySubmission(auditId);
+  return submission?.userId === userId ? submission : null;
+};
+
 export const freezeInventorySubmission = async (
   submission: InventorySubmission
 ): Promise<InventorySubmission> => {
+  if (!submission.userId?.trim()) {
+    throw new Error('Não é possível congelar um inventário sem o usuário autenticado.');
+  }
   const db = await getSQLiteDatabase();
   await runMigrations(db);
-  const existing = await getInventorySubmission(submission.auditId);
-  if (existing) return existing;
+  const existing = await readInventorySubmission(submission.auditId);
+  if (existing) {
+    if (existing.userId === submission.userId) return existing;
+    throw new Error('Este inventário local pertence a outro usuário.');
+  }
   const now = new Date().toISOString();
   await db.runAsync(
     `INSERT INTO inventory_outbox_local (id, payload_json, status, retry_count, last_error, created_at, updated_at)
      VALUES (?, ?, 'pending', 0, NULL, ?, ?) ON CONFLICT(id) DO NOTHING;`,
     [submission.auditId, JSON.stringify(submission), now, now]
   );
-  const stored = await getInventorySubmission(submission.auditId);
+  const stored = await getInventorySubmission(submission.auditId, submission.userId);
   if (!stored) throw new Error('Não foi possível confirmar a submissão local do inventário.');
   return stored;
 };
 
 export const recordInventorySubmissionFailure = async (
   auditId: string,
-  error: unknown
+  error: unknown,
+  userId?: string | null
 ): Promise<void> => {
+  if (!userId || !(await getInventorySubmission(auditId, userId))) return;
   const db = await getSQLiteDatabase();
   await db.runAsync(
     `UPDATE inventory_outbox_local SET retry_count = retry_count + 1, last_error = ?, updated_at = ? WHERE id = ?;`,
@@ -68,12 +83,19 @@ export const recordInventorySubmissionFailure = async (
   );
 };
 
-export const deleteInventorySubmission = async (auditId: string): Promise<void> => {
+export const deleteInventorySubmission = async (
+  auditId: string,
+  userId?: string | null
+): Promise<void> => {
+  if (!userId || !(await getInventorySubmission(auditId, userId))) return;
   const db = await getSQLiteDatabase();
   await db.runAsync('DELETE FROM inventory_outbox_local WHERE id = ?;', [auditId]);
 };
 
-export const listInventorySubmissions = async (): Promise<InventorySubmission[]> => {
+export const listInventorySubmissions = async (
+  userId: string | null
+): Promise<InventorySubmission[]> => {
+  if (!userId) return [];
   const db = await getSQLiteDatabase();
   await runMigrations(db);
   const rows = await db.getAllAsync<OutboxRow>(
@@ -84,7 +106,7 @@ export const listInventorySubmissions = async (): Promise<InventorySubmission[]>
     try {
       const payload = JSON.parse(row.payload_json) as InventorySubmission;
       if ([1, 2].includes(payload.contractVersion) && payload.auditId === row.id) {
-        submissions.push(payload);
+        if (payload.userId === userId) submissions.push(payload);
       }
     } catch {
       // ignora linhas corrompidas

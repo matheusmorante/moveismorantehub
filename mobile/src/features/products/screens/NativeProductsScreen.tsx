@@ -30,7 +30,6 @@ import { MobileProductPagination } from '../components/MobileProductPagination';
 import { ProductsHeader } from '../components/ProductsHeader';
 import type { ProductListMode } from '../components/header/ProductsHeaderModeSelector';
 import { useMobileProducts } from '../hooks/useMobileProducts';
-import { useMobileVariationExitFlags } from '../hooks/useMobileVariationExitFlags';
 import { canShowMobileProductCategoryFilter } from '../domain/mobileProductListFilters';
 import {
   getMobileCompositionEmptyHint,
@@ -68,7 +67,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const [screenMode, setScreenMode] = useState<ProductListMode>(mode ?? 'standard');
   const [selectedMode, setSelectedMode] = useState<ProductListMode | null>(mode ?? null);
   const [showMetaCatalog, setShowMetaCatalog] = useState(false);
-  const { canUseProductPermission, canUsePermission, isAdmin, userProfile } = useAuth();
+  const { canUseProductPermission, canUsePermission, isAdmin, userProfile, loadingProfile } = useAuth();
   const isStockistOnly = isStockistOnlyProductProfile(userProfile);
   const canViewCatalog = canUseProductPermission('viewProducts');
   const canEditProducts = canUseProductPermission('productConfig');
@@ -132,11 +131,9 @@ export const NativeProductsScreen: React.FC<Props> = ({
     activeMode === 'composition' ? 'composition' : 'standard',
     isProductListEnabled,
     canViewCompositions,
-    isAdmin
-  );
-  const exitedVariationIds = useMobileVariationExitFlags(
-    productsHook.products,
-    isProductListEnabled
+    isAdmin,
+    userProfile?.id ?? null,
+    !loadingProfile,
   );
   const canViewLinkedProductOrders = canShowMobileLinkedProductOrders({
     canEditProducts,
@@ -647,7 +644,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
               <MobileProductCard
                 key={product.id}
                 product={product}
-                exitedVariationIds={exitedVariationIds}
                 dark={isDarkMode}
                 showTrash={productsHook.showTrash}
                 onRestore={productsHook.showTrash ? handleRestoreProductFromTrash : undefined}

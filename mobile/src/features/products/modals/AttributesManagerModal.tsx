@@ -1,8 +1,6 @@
 import {
-  Check,
   ChevronDown,
   ChevronRight,
-  Edit2,
   Plus,
   Sliders,
   Tag,
@@ -10,14 +8,13 @@ import {
   X,
 } from 'lucide-react-native';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Modal,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -72,7 +69,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [newDataType, setNewDataType] = useState<MobileAttributeDataType>('text_short');
+  const [newDataType, setNewDataType] = useState<MobileAttributeDataType>('radio');
   const [newUnit, setNewUnit] = useState('cm');
   const [newDecimalPlaces, setNewDecimalPlaces] = useState<1 | 2 | 3>(2);
   const [isSavingNew, setIsSavingNew] = useState(false);
@@ -81,16 +78,8 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   const [newOptions, setNewOptions] = useState<string[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newValText, setNewValText] = useState('');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editDataType, setEditDataType] = useState<MobileAttributeDataType>('text_short');
-  const [editUnit, setEditUnit] = useState('cm');
-  const [editDecimalPlaces, setEditDecimalPlaces] = useState<1 | 2 | 3>(2);
-  const [editActive, setEditActive] = useState(true);
-  const [editOptions, setEditOptions] = useState<MobileAttribute['options']>([]);
-  const [editOptionInput, setEditOptionInput] = useState('');
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [savingValueId, setSavingValueId] = useState<string | null>(null);
+  const optionsUpdateAttributeId = useRef<string | undefined>(undefined);
   const allCharacteristics = attributes.map((attribute) => ({ ...attribute, active: attribute.active !== false }));
   const newDefinition = {
     name: newAttrName, dataType: newDataType, unit: newDataType === 'measure' ? newUnit : '',
@@ -98,12 +87,11 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     options: [...newOptions, ...((newDataType === 'radio' || newDataType === 'multi_select') && newOptionInput.trim() ? [newOptionInput.trim()] : [])]
       .map((value) => ({ id: '', value })),
   };
-  const editDefinition = {
-    name: editName, dataType: editDataType, unit: editDataType === 'measure' ? editUnit : '',
-    decimalPlaces: editDecimalPlaces, active: editActive, options: editOptions.map((option) => ({ ...option })),
-  };
   const { validateAndRun: validateNewDefinition } = useZodForm(createCharacteristicFormSchema(allCharacteristics), newDefinition);
-  const { validateAndRun: validateEditDefinition } = useZodForm(createCharacteristicFormSchema(allCharacteristics, editingId || undefined), editDefinition);
+  const { validateAndRun: validateOptionsUpdate } = useZodForm(
+    createCharacteristicFormSchema(allCharacteristics, () => optionsUpdateAttributeId.current),
+    newDefinition
+  );
   const { validateAndRun: validateOption } = useZodForm(attributeOptionFormSchema, { value: newOptionInput, existingOptions: [] });
   const showValidationError = (errors: Parameters<typeof flattenFormErrors>[0]) => {
     Alert.alert('Atenção', Object.values(flattenFormErrors(errors))[0] || 'Revise os campos informados.');
@@ -142,6 +130,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
         options: isChoiceType ? values.options : [],
       });
       setNewAttrName('');
+      setNewDataType('radio');
       setNewUnit('cm');
       setNewDecimalPlaces(2);
       setNewOptionInput('');
@@ -210,22 +199,34 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     }, showValidationError);
   };
 
-  const handleDeleteValue = (attributeName: string, valId: string, value: string) => {
-    Alert.alert('Remover valor', `Deseja remover "${value}" de "${attributeName}"?`, [
+  const handleDeleteValue = (attribute: MobileAttribute, valId: string, value: string) => {
+    Alert.alert('Remover valor', `Deseja remover "${value}" de "${attribute.name}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Remover',
         style: 'destructive',
         onPress: async () => {
-          try {
-            await deleteMobileAttributeValue(valId);
-            void load();
-          } catch (error) {
-            Alert.alert(
-              'Não foi possível remover',
-              error instanceof Error ? error.message : 'O valor não foi removido.'
-            );
-          }
+          optionsUpdateAttributeId.current = attribute.id;
+          await validateOptionsUpdate({
+            ...attribute,
+            dataType: attribute.dataType ?? 'text_short',
+            unit: attribute.unit ?? '',
+            decimalPlaces: attribute.decimalPlaces ?? 2,
+            active: attribute.active !== false,
+            options: attribute.options.filter((option) => option.id !== valId),
+          }, async () => {
+            try {
+              await deleteMobileAttributeValue(valId);
+              void load();
+              return true;
+            } catch (error) {
+              Alert.alert(
+                'Não foi possível remover',
+                error instanceof Error ? error.message : 'O valor não foi removido.'
+              );
+              return false;
+            }
+          }, showValidationError);
         },
       },
     ]);
@@ -235,73 +236,6 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
     await validateOption({ value: newOptionInput, existingOptions: newOptions.map((value, index) => ({ id: String(index), value })) }, (values) => {
       setNewOptions((previous) => [...previous, values.value]);
       setNewOptionInput('');
-    }, showValidationError);
-  };
-
-  const handleSaveEdit = async (id: string) => {
-    if (isSavingEdit || editingId !== id) return;
-    await validateEditDefinition(editDefinition, async (values) => {
-    const current = attributes.find((attribute) => attribute.id === id);
-    const isChoiceType = values.dataType === 'radio' || values.dataType === 'multi_select';
-
-    setIsSavingEdit(true);
-    try {
-      await saveMobileAttributeDefinition({
-        id,
-        name: values.name,
-        dataType: values.dataType,
-        unit: values.unit,
-        decimalPlaces: values.dataType === 'decimal' ? values.decimalPlaces : undefined,
-        active: values.active,
-        isGloballyRequired: current?.isGloballyRequired ?? false,
-        isCustom: current?.isCustom ?? true,
-        options: isChoiceType
-          ? values.options.map((option, index) => ({
-              id: option.id,
-              value: option.value,
-              sortOrder: index,
-            }))
-          : [],
-      });
-      setEditingId(null);
-      setEditName('');
-      setEditOptionInput('');
-      await load();
-    } catch (error) {
-      Alert.alert(
-        'Não foi possível salvar',
-        error instanceof Error ? error.message : 'A característica não foi atualizada.'
-      );
-    } finally {
-      setIsSavingEdit(false);
-    }
-    }, showValidationError);
-  };
-
-  const startEditing = (attribute: MobileAttribute) => {
-    setExpandedId(attribute.id);
-    setEditingId(attribute.id);
-    setEditName(attribute.name);
-    setEditDataType(attribute.dataType || 'text_short');
-    setEditUnit(attribute.unit || 'cm');
-    setEditDecimalPlaces(attribute.decimalPlaces ?? 2);
-    setEditActive(attribute.active !== false);
-    setEditOptions(attribute.options.map((option) => ({ ...option })));
-    setEditOptionInput('');
-  };
-
-  const addEditedOption = async (attributeId: string) => {
-    await validateOption({ value: editOptionInput, attributeId, existingOptions: editOptions }, (values) => {
-    setEditOptions((previous) => [
-      ...previous,
-      {
-        id: '',
-        value: values.value,
-        attribute_id: values.attributeId!,
-        sortOrder: previous.length,
-      },
-    ]);
-    setEditOptionInput('');
     }, showValidationError);
   };
 
@@ -485,15 +419,10 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                     )
                     .map((attr) => {
                       const isExp = expandedId === attr.id;
-                      const isEditing = editingId === attr.id;
-                      const isEditingChoiceType =
-                        editDataType === 'radio' || editDataType === 'multi_select';
                       return (
                         <View key={attr.id} style={[styles.attrCard, dark && styles.darkItem]}>
                           <TouchableOpacity
-                            onPress={() => {
-                              if (!isEditing) setExpandedId(isExp ? null : attr.id);
-                            }}
+                            onPress={() => setExpandedId(isExp ? null : attr.id)}
                             style={styles.attrHeader}
                           >
                             <View style={styles.attrTitleRow}>
@@ -502,55 +431,15 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                               ) : (
                                 <ChevronRight size={16} color="#94a3b8" />
                               )}
-                              {editingId === attr.id ? (
-                                <TextInput
-                                  value={editName}
-                                  onChangeText={setEditName}
-                                  autoFocus
-                                  style={[
-                                    styles.editInput,
-                                    dark && styles.darkInput,
-                                    dark && styles.light,
-                                  ]}
-                                />
-                              ) : (
-                                <Text style={[styles.attrName, dark && styles.light]}>
-                                  {attr.name}
-                                </Text>
-                              )}
+                              <Text style={[styles.attrName, dark && styles.light]}>
+                                {attr.name}
+                              </Text>
                               <Text style={styles.valCount}>
                                 ({attr.options.length} opções · {attr.dataType || 'text_short'}
                                 {attr.active === false ? ' · inativa' : ''})
                               </Text>
                             </View>
                             <View style={styles.attrActions}>
-                              {editingId === attr.id ? (
-                                <>
-                                  <TouchableOpacity
-                                    disabled={isSavingEdit}
-                                    onPress={() => void handleSaveEdit(attr.id)}
-                                    style={styles.trashBtn}
-                                    accessibilityLabel="Salvar característica"
-                                  >
-                                    <Check size={15} color={isSavingEdit ? '#94a3b8' : '#059669'} />
-                                  </TouchableOpacity>
-                                  <TouchableOpacity
-                                    disabled={isSavingEdit}
-                                    onPress={() => setEditingId(null)}
-                                    style={styles.trashBtn}
-                                    accessibilityLabel="Cancelar edição"
-                                  >
-                                    <X size={15} color="#64748b" />
-                                  </TouchableOpacity>
-                                </>
-                              ) : (
-                                <TouchableOpacity
-                                  onPress={() => startEditing(attr)}
-                                  style={styles.trashBtn}
-                                >
-                                  <Edit2 size={15} color="#2563eb" />
-                                </TouchableOpacity>
-                              )}
                               <TouchableOpacity
                                 onPress={() => handleDeleteAttr(attr.id, attr.name)}
                                 style={styles.trashBtn}
@@ -560,209 +449,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                             </View>
                           </TouchableOpacity>
 
-                          {isExp && isEditing && (
-                            <View style={[styles.valuesArea, styles.editorArea]}>
-                              <Text style={[styles.newValuesLabel, dark && styles.light]}>
-                                Tipo de preenchimento
-                              </Text>
-                              <View style={styles.typeRow}>
-                                {ATTRIBUTE_TYPE_OPTIONS.map(([value, label]) => (
-                                  <TouchableOpacity
-                                    key={value}
-                                    onPress={() => setEditDataType(value)}
-                                    style={[
-                                      styles.typeBtn,
-                                      editDataType === value && styles.typeBtnActive,
-                                    ]}
-                                    accessibilityRole="button"
-                                    accessibilityState={{ selected: editDataType === value }}
-                                  >
-                                    <Text
-                                      style={[
-                                        styles.typeText,
-                                        editDataType === value && styles.typeTextActive,
-                                      ]}
-                                    >
-                                      {label}
-                                    </Text>
-                                  </TouchableOpacity>
-                                ))}
-                              </View>
-
-                              {editDataType === 'measure' && (
-                                <View style={styles.measureInputRow}>
-                                  {(['cm', 'mm', 'm'] as const).map((unit) => (
-                                    <TouchableOpacity
-                                      key={unit}
-                                      onPress={() => setEditUnit(unit)}
-                                      style={[
-                                        styles.typeBtn,
-                                        editUnit === unit && styles.typeBtnActive,
-                                      ]}
-                                      accessibilityRole="button"
-                                      accessibilityState={{ selected: editUnit === unit }}
-                                    >
-                                      <Text
-                                        style={[
-                                          styles.typeText,
-                                          editUnit === unit && styles.typeTextActive,
-                                        ]}
-                                      >
-                                        {unit}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  ))}
-                                </View>
-                              )}
-
-                              {editDataType === 'decimal' && (
-                                <View style={styles.precisionRow}>
-                                  <Text style={[styles.newValuesLabel, dark && styles.light]}>
-                                    Casas decimais
-                                  </Text>
-                                  {([1, 2, 3] as const).map((places) => (
-                                    <TouchableOpacity
-                                      key={places}
-                                      onPress={() => setEditDecimalPlaces(places)}
-                                      style={[
-                                        styles.typeBtn,
-                                        editDecimalPlaces === places && styles.typeBtnActive,
-                                      ]}
-                                      accessibilityRole="button"
-                                      accessibilityState={{
-                                        selected: editDecimalPlaces === places,
-                                      }}
-                                    >
-                                      <Text
-                                        style={[
-                                          styles.typeText,
-                                          editDecimalPlaces === places && styles.typeTextActive,
-                                        ]}
-                                      >
-                                        {places} {places === 1 ? 'casa' : 'casas'}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  ))}
-                                </View>
-                              )}
-
-                              <View style={styles.activeRow}>
-                                <Text style={[styles.newValuesLabel, dark && styles.light]}>
-                                  Característica ativa para novos produtos
-                                </Text>
-                                <Switch
-                                  value={editActive}
-                                  onValueChange={setEditActive}
-                                  trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
-                                  accessibilityLabel="Característica ativa para novos produtos"
-                                />
-                              </View>
-
-                              {isEditingChoiceType && (
-                                <View style={styles.editorOptions}>
-                                  <Text style={[styles.newValuesLabel, dark && styles.light]}>
-                                    Opções disponíveis
-                                  </Text>
-                                  {editOptions.map((option, index) => (
-                                    <View
-                                      key={option.id || `new-${index}`}
-                                      style={styles.editOptionRow}
-                                    >
-                                      <TextInput
-                                        value={option.value}
-                                        onChangeText={(value) =>
-                                          setEditOptions((previous) =>
-                                            previous.map((item, itemIndex) =>
-                                              itemIndex === index ? { ...item, value } : item
-                                            )
-                                          )
-                                        }
-                                        placeholder={`Opção ${index + 1}`}
-                                        placeholderTextColor="#94a3b8"
-                                        style={[
-                                          styles.valInput,
-                                          styles.editOptionInput,
-                                          dark && styles.darkInput,
-                                          dark && styles.light,
-                                        ]}
-                                        accessibilityLabel={`Opção ${index + 1}`}
-                                      />
-                                      <TouchableOpacity
-                                        disabled={index === 0}
-                                        onPress={() =>
-                                          setEditOptions((previous) => {
-                                            const next = [...previous];
-                                            [next[index - 1], next[index]] = [
-                                              next[index],
-                                              next[index - 1],
-                                            ];
-                                            return next;
-                                          })
-                                        }
-                                        style={styles.reorderBtn}
-                                        accessibilityLabel={`Mover opção ${option.value} para cima`}
-                                      >
-                                        <Text style={styles.reorderText}>↑</Text>
-                                      </TouchableOpacity>
-                                      <TouchableOpacity
-                                        disabled={index === editOptions.length - 1}
-                                        onPress={() =>
-                                          setEditOptions((previous) => {
-                                            const next = [...previous];
-                                            [next[index], next[index + 1]] = [
-                                              next[index + 1],
-                                              next[index],
-                                            ];
-                                            return next;
-                                          })
-                                        }
-                                        style={styles.reorderBtn}
-                                        accessibilityLabel={`Mover opção ${option.value} para baixo`}
-                                      >
-                                        <Text style={styles.reorderText}>↓</Text>
-                                      </TouchableOpacity>
-                                      <TouchableOpacity
-                                        onPress={() =>
-                                          setEditOptions((previous) =>
-                                            previous.filter((_, itemIndex) => itemIndex !== index)
-                                          )
-                                        }
-                                        style={styles.removeOptionBtn}
-                                        accessibilityRole="button"
-                                        accessibilityLabel={`Remover opção ${option.value}`}
-                                      >
-                                        <X size={14} color="#ef4444" />
-                                      </TouchableOpacity>
-                                    </View>
-                                  ))}
-                                  <View style={styles.addValRow}>
-                                    <TextInput
-                                      value={editOptionInput}
-                                      onChangeText={setEditOptionInput}
-                                      onSubmitEditing={() => addEditedOption(attr.id)}
-                                      placeholder="Adicionar opção..."
-                                      placeholderTextColor="#94a3b8"
-                                      style={[
-                                        styles.valInput,
-                                        dark && styles.darkInput,
-                                        dark && styles.light,
-                                      ]}
-                                      returnKeyType="done"
-                                    />
-                                    <TouchableOpacity
-                                      onPress={() => addEditedOption(attr.id)}
-                                      style={styles.addValBtn}
-                                      accessibilityLabel="Adicionar opção"
-                                    >
-                                      <Plus size={14} color="#ffffff" />
-                                    </TouchableOpacity>
-                                  </View>
-                                </View>
-                              )}
-                            </View>
-                          )}
-
-                          {isExp && !isEditing && (
+                          {isExp && (
                             <View style={styles.valuesArea}>
                               <View style={styles.valuesList}>
                                 {attr.options.map((opt) => (
@@ -776,7 +463,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                                     </Text>
                                     <TouchableOpacity
                                       onPress={() =>
-                                        handleDeleteValue(attr.name, opt.id, opt.value)
+                                        handleDeleteValue(attr, opt.id, opt.value)
                                       }
                                       style={styles.valueRemoveButton}
                                       accessibilityRole="button"
@@ -914,15 +601,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   attrActions: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editInput: {
-    minWidth: 120,
-    height: 32,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    fontSize: 13,
-  },
   valuesArea: {
     paddingHorizontal: 12,
     paddingBottom: 12,
@@ -932,32 +610,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#e2e8f0',
   },
   disabledControl: { opacity: 0.55 },
-  editorArea: { paddingTop: 12 },
-  activeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
   precisionRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  editorOptions: { gap: 8 },
-  editOptionRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editOptionInput: { minWidth: 0 },
-  reorderBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
-  },
-  reorderText: { color: '#475569', fontSize: 17, fontWeight: '900' },
-  removeOptionBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   valuesList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   valBadge: {
     maxWidth: '100%',

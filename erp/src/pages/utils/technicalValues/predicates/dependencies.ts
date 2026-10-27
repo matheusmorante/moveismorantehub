@@ -29,6 +29,26 @@ export interface CharacteristicDependencyState {
   masterQuantity?: number | null;
 }
 
+export interface DependentCharacteristicVisibilityContext {
+  masterFieldExists: boolean;
+  masterIsVariable: boolean;
+  masterIsSelected: boolean;
+}
+
+/**
+ * Aplica o mesmo critério nos dois formulários: dependentes opcionais só ficam
+ * visíveis quando a mestre existe e está selecionada/ativa ou varia por filho.
+ */
+export const isDependentCharacteristicVisible = (
+  dependency: CharacteristicDependencyState,
+  context: DependentCharacteristicVisibilityContext
+): boolean => Boolean(
+  dependency.isDependent &&
+  dependency.masterFieldLabel &&
+  context.masterFieldExists &&
+  (context.masterIsVariable || (context.masterIsSelected && !dependency.isDisabled))
+);
+
 export const getCharacteristicDependencyState = (
   fieldName: string,
   technicalValues: Record<string, any> = {}

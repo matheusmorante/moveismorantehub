@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { WhatsAppConversation, WhatsAppMessage, ConversationStatus, AssignedProfileSummary } from '../types';
 import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
 import { whatsappSupportGuard } from '@/pages/utils/customerSupport/whatsappSupportGuard';

@@ -4,13 +4,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type Product from '@/pages/types/product.type';
 import { HML_FISCAL_TEST_ORDER_MARKER } from '@/pages/utils/hmlTestData';
 import { useProductFormSubmit } from './useProductFormSubmit';
+import Swal from 'sweetalert2';
 import { toast } from 'react-toastify';
 import { useRef, useState } from 'react';
 import { useProductFormDraft } from './useProductFormDraft';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
 
-const mocks = vi.hoisted(() => ({ saveProduct: vi.fn(async (product: Product) => product.id) }));
+const mocks = vi.hoisted(() => ({
+  saveProduct: vi.fn(async (product: Product) => product.id),
+  swalFire: vi.fn(),
+}));
 vi.mock('@/pages/utils/productService', () => mocks);
+vi.mock('sweetalert2', () => ({ default: { fire: mocks.swalFire } }));
 vi.mock('react-toastify', () => ({ toast: { error: vi.fn(), warn: vi.fn(), success: vi.fn() } }));
 vi.mock('../../services/technicalFieldService', () => ({
   fetchTechnicalFieldDefinitions: vi.fn().mockResolvedValue([]),
@@ -246,6 +251,59 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     expect(vi.mocked(toast.error)).toHaveBeenCalledWith(
       'Não foi possível verificar as características obrigatórias da categoria. O produto publicado não foi alterado.'
     );
+  });
+  it('não salva produto publicado se o operador cancelar salvar e ocultar do Catálogo', async () => {
+    const publishedProduct: Product = {
+      ...complete,
+      isDraft: false,
+      status: 'published',
+      active: true,
+      title: 'Armário publicado',
+      ecommerceDescription: 'Armário de madeira.',
+      technicalValues: { ...complete.technicalValues, 'Material da estrutura': '' },
+    };
+    vi.mocked(fetchTechnicalFieldDefinitions).mockResolvedValueOnce([
+      { name: 'Material da estrutura', requiredCategoryIds: ['categoria'] },
+    ]);
+    mocks.swalFire.mockResolvedValueOnce({ isConfirmed: false });
+    const { result } = renderSubmit(publishedProduct, true);
+
+    await act(async () => {
+      expect(await result.current.handleSubmit(false)).toBe(false);
+    });
+
+    expect(Swal.fire).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Ocultar produto do Catálogo Digital?',
+      confirmButtonText: 'Salvar e ocultar',
+      cancelButtonText: 'Continuar editando',
+      showCancelButton: true,
+    }));
+    expect(mocks.saveProduct).not.toHaveBeenCalled();
+  });
+  it('salva pai e variações ocultos depois da confirmação do Catálogo', async () => {
+    const publishedProduct: Product = {
+      ...complete,
+      isDraft: false,
+      status: 'published',
+      active: true,
+      title: 'Armário publicado',
+      ecommerceDescription: 'Armário de madeira.',
+      technicalValues: { ...complete.technicalValues, 'Material da estrutura': '' },
+    };
+    vi.mocked(fetchTechnicalFieldDefinitions).mockResolvedValueOnce([
+      { name: 'Material da estrutura', requiredCategoryIds: ['categoria'] },
+    ]);
+    mocks.swalFire.mockResolvedValueOnce({ isConfirmed: true });
+    const { result } = renderSubmit(publishedProduct, true);
+
+    await act(async () => {
+      expect(await result.current.handleSubmit(false)).toBe(true);
+    });
+
+    expect(mocks.saveProduct).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'hidden',
+      variations: [expect.objectContaining({ status: 'hidden' })],
+    }));
   });
   it('persiste as dimensões técnicas da variação que validou durante a conclusão do pai', async () => {
     const { result } = renderSubmit({ ...complete, width: 0, height: 0, depth: 0,

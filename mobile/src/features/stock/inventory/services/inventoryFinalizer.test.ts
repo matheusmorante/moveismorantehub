@@ -79,7 +79,7 @@ describe('conclusão do inventário mobile', () => {
     vi.clearAllMocks();
     withTimeout.mockImplementation((promise) => Promise.resolve(promise));
     delete process.env.EXPO_PUBLIC_INVENTORY_RPC_V2;
-    await deleteInventorySubmission('audit-1');
+    await deleteInventorySubmission('audit-1', 'operator-1');
     connected.connected = true;
     getSession.mockResolvedValue({ data: { session: { user: { id: 'operator-1' } } } });
     removeDraft.mockResolvedValue(undefined);
@@ -98,7 +98,7 @@ describe('conclusão do inventário mobile', () => {
       { productId: 'p1', variationId: 'v1', name: 'Produto', physicalCount: 3, previousStock: 4 },
     ]);
     expect(rpc.mock.invocationCallOrder[0]).toBeLessThan(removeDraft.mock.invocationCallOrder[0]);
-    expect(removeDraft).toHaveBeenCalledWith('audit-1');
+    expect(removeDraft).toHaveBeenCalledWith('audit-1', 'operator-1');
   });
 
   it('envia o colaborador escolhido no escopo sem trocar o ator autenticado', async () => {
@@ -133,7 +133,7 @@ describe('conclusão do inventário mobile', () => {
     const params = makeParams();
     expect(await executeInventoryFinalization(params)).toBe(false);
     expect(removeDraft).not.toHaveBeenCalled();
-    expect((await getInventorySubmission('audit-1'))?.items[0].physicalCount).toBe(3);
+    expect((await getInventorySubmission('audit-1', 'operator-1'))?.items[0].physicalCount).toBe(3);
     params.itemsWithAdjustment[0].physicalCount = 99;
     expect(await executeInventoryFinalization(params)).toBe(true);
     expect(rpc).toHaveBeenCalledTimes(4);
@@ -150,7 +150,8 @@ describe('conclusão do inventário mobile', () => {
     expect(await executeInventoryFinalization(makeParams())).toBe(false);
     expect(rpc).not.toHaveBeenCalled();
     expect(removeDraft).not.toHaveBeenCalled();
-    expect(markPending).toHaveBeenCalledWith('audit-1');
+    expect(markPending).toHaveBeenCalledWith('audit-1', 'operator-1');
+    expect((await getInventorySubmission('audit-1', 'operator-1'))?.userId).toBe('operator-1');
   });
 
   it('limita o commit e o retry da outbox sem descartar a submissão não confirmada', async () => {
@@ -165,7 +166,7 @@ describe('conclusão do inventário mobile', () => {
       'Confirmação pendente',
       expect.stringContaining('mesmo inventário')
     );
-    expect(markPending).toHaveBeenCalledWith('audit-1');
+    expect(markPending).toHaveBeenCalledWith('audit-1', 'operator-1');
     expect(removeDraft).not.toHaveBeenCalled();
 
     withTimeout.mockImplementationOnce((_promise, _timeoutMs, fallback) => Promise.resolve(fallback));

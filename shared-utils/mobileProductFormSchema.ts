@@ -1,10 +1,7 @@
 import { z } from 'zod';
 import { parseLocalizedNumber } from '../mobile/src/features/products/domain/productNumbers';
 import { getMobileVariationRegistrationIssue, isMobileEcommerceLegible } from '../mobile/src/features/products/domain/productRegistrationRules';
-import {
-  getProductCharacteristicAttributes,
-  isMobileVariableTechnicalField,
-} from '../mobile/src/features/products/domain/productCharacteristics';
+import { getProductCharacteristicAttributes } from '../mobile/src/features/products/domain/productCharacteristics';
 import { bulkNcmFormSchema } from './catalogFormSchemas';
 import {
   getCompleteVariationName,
@@ -195,32 +192,6 @@ export const createMobileProductFormSchema = (options: {
       } else {
         firstIndexByName.set(completeName, index);
       }
-    });
-  }
-  const variableFields = Array.isArray(data.variableTechnicalFields) ? data.variableTechnicalFields : [];
-  if (variableFields.length > 0 && variations.length > 1) {
-    variations.forEach((variation, index) => {
-      const storedValues: Array<[string, unknown]> = [];
-      getProductCharacteristicAttributes(variation.attributes).forEach(({ name, value }) =>
-        storedValues.push([name, value])
-      );
-      Object.entries((variation as any).technicalValues || {}).forEach(([name, value]) =>
-        storedValues.push([name, value])
-      );
-      const missing = variableFields.filter((name) => {
-        const matchingValue = storedValues.find(([storedName]) =>
-          isMobileVariableTechnicalField(storedName, [name])
-        )?.[1];
-        if (matchingValue === undefined || matchingValue === null) return true;
-        if (typeof matchingValue !== 'string') return false;
-        const normalized = matchingValue
-          .trim()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLocaleLowerCase('pt-BR');
-        return ['', 'n/a', 'nao se aplica'].includes(normalized);
-      });
-      if (missing.length) issue('variacoes', `Informe em cada variação: ${missing.join(', ')}.`);
     });
   }
   if (data.itemType !== 'service' && !hasRequiredProductCategory(data.categoryIds, data.categoryId)) {

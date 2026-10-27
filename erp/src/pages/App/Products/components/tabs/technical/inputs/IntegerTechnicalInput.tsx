@@ -1,5 +1,9 @@
 import React from 'react';
 import {
+  getTechnicalFieldIntegerMaxValue,
+  isTechnicalFieldPlacesCount,
+} from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
+import {
   isQuantityCharacteristic,
   type TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
@@ -17,8 +21,9 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
   disabled,
   onChange,
 }) => {
-  const isLugares = /lugar(es)?/i.test(field.name);
+  const isLugares = isTechnicalFieldPlacesCount(field.name);
   const isQuantity = isQuantityCharacteristic(field.name);
+  const maxValue = getTechnicalFieldIntegerMaxValue(field.name);
   const numericDisplayValue = (() => {
     if (typeof value === 'number' && Number.isFinite(value)) return value;
     if (typeof value === 'string' && value.trim()) {
@@ -66,12 +71,7 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
           onChange('');
           return;
         }
-        let val = Math.max(0, parsed);
-        if (isLugares) {
-          if (val > 100) val = 100;
-        } else if (val > 50) {
-          val = 50;
-        }
+        const val = Math.max(0, Math.min(maxValue, parsed));
         onChange(val);
       }}
       className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600 dark:text-slate-100 placeholder:text-slate-400 placeholder:font-normal"

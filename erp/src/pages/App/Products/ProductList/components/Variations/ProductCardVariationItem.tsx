@@ -32,7 +32,6 @@ interface ProductCardVariationItemProps {
   readonly index: number;
   readonly canManageCatalog: boolean;
   readonly isDraft: boolean;
-  readonly exitedVariationIds?: ReadonlySet<string>;
   readonly activeVarMenuId: string | null;
   readonly checkingUsageId: string | null;
   readonly usageCache: Record<string, boolean>;
@@ -57,7 +56,6 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
   index,
   canManageCatalog,
   isDraft,
-  exitedVariationIds,
   activeVarMenuId,
   checkingUsageId,
   usageCache,
@@ -128,12 +126,6 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
             <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
               {varName}
             </span>
-            {exitedVariationIds?.has(String(v.variationId || v.id)) && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/20 dark:text-orange-400 dark:border-orange-900/30 select-none shrink-0">
-                <i className="bi bi-box-arrow-right text-orange-500 dark:text-orange-400" />
-                Saída Lançada
-              </span>
-            )}
             <ChannelStatusBadges
               active={v.active !== false && product.active !== false}
               catalogStatus={v.status}
@@ -225,7 +217,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
               const id = v.id || String(index);
               onSetActiveVarMenuId(isMenuOpen ? null : id);
             }}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
             aria-label="Ações da variação"
           >
             <i className="bi bi-three-dots-vertical text-xs" />

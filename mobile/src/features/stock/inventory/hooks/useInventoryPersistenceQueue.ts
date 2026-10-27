@@ -3,7 +3,9 @@ import { useZodForm } from '../../../../hooks/useZodForm';
 import { inventoryAuditDraftSchema } from '../../../../../../shared-utils/inventoryAuditFormSchemas';
 import { z } from 'zod';
 
-const mobileInventoryDraftSchema = inventoryAuditDraftSchema.omit({ date: true, updatedAt: true }).extend({ responsibleId: z.string().optional() });
+const mobileInventoryDraftSchema = inventoryAuditDraftSchema
+  .omit({ date: true, updatedAt: true })
+  .extend({ responsibleId: z.string().optional(), userId: z.string().min(1) });
 import { saveLocalInventoryDraft } from '../../../../services/sqlite/inventoryDrafts';
 import type { AuditItem, AuditDraftState } from '../types/inventoryWorkflow.types';
 
@@ -27,7 +29,15 @@ export const useInventoryPersistenceQueue = (
 ) => {
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const lastErrorRef = useRef<unknown>(null);
-  const { validateAndRun: validateDraft } = useZodForm(mobileInventoryDraftSchema, { id: '', code: '', name: '', hasStages: false, status: 'in_progress', items: [] });
+  const { validateAndRun: validateDraft } = useZodForm(mobileInventoryDraftSchema, {
+    id: '',
+    userId: '',
+    code: '',
+    name: '',
+    hasStages: false,
+    status: 'in_progress',
+    items: [],
+  });
 
   const persistToSQLite = useCallback(
     (itemsToPersist: AuditItem[], scopeOverride?: ScopeConfigSnapshot): Promise<void> => {
@@ -38,18 +48,30 @@ export const useInventoryPersistenceQueue = (
       const savedScope = scopeOverride || scopeConfig;
 
       const write = saveQueueRef.current.then(async () => {
-        const saved = await validateDraft({
-          id: auditId,
-          code,
-          scopeType: savedScope?.scopeType,
-          supplierId: savedScope?.supplierId,
-          name: savedScope?.name || `Inventário #${code}`,
-          responsibleId: savedScope?.responsibleId || userProfileId,
-          responsibleName: savedScope?.responsibleName,
-          hasStages: savedScope?.hasStages ?? false,
-          status: 'in_progress',
-          items: itemsToPersist.map((item) => ({ ...item })),
-        }, async (values) => { await saveLocalInventoryDraft(values); return true; });
+        const saved = await validateDraft(
+          {
+            id: auditId,
+            userId: userProfileId || '',
+            code,
+            scopeType: savedScope?.scopeType,
+            supplierId: savedScope?.supplierId,
+            name: savedScope?.name || `Inventário #${code}`,
+            responsibleId: savedScope?.responsibleId || userProfileId,
+            responsibleName: savedScope?.responsibleName,
+            hasStages: savedScope?.hasStages ?? false,
+            status: 'in_progress',
+            items: itemsToPersist.map((item) => ({ ...item })),
+          },
+          async (values) => {
+            const items = values.items.map((item, index): AuditItem => ({
+              ...itemsToPersist[index],
+              ...item,
+              physicalCount: item.physicalCount ?? itemsToPersist[index].physicalCount,
+            }));
+            await saveLocalInventoryDraft({ ...values, items });
+            return true;
+          }
+        );
         if (!saved) throw new Error('Revise as quantidades e os dados do inventário local.');
       });
       saveQueueRef.current = write.then(

@@ -21,7 +21,7 @@ export default function DigitalCatalogPanel() {
             .from('products')
             .select('id, status, observations, product_variations(id, status)')
             .is('deleted_at', null),
-          supabase.from('categories').select('id', { count: 'exact' }),
+          supabase.from('categories').select('id', { count: 'exact', head: true }),
           supabase
             .from('product_analytics')
             .select('id, product_id, visitor_id, created_at')

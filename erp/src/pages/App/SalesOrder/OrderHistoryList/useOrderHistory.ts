@@ -34,7 +34,6 @@ import {
   getAutomaticReturnFiscalEmissionNotice,
 } from '../../FiscalDocuments/services/automaticReturnFiscalEmissionService';
 
-const PAGE_SIZE = 15;
 const CARD_VIEW_BREAKPOINT = 1024;
 const EMPTY_ORDERS: Order[] = [];
 
@@ -56,7 +55,13 @@ export const useOrderHistory = (filters?: any) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPageState] = useState(15);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const setItemsPerPage = useCallback((size: number) => {
+    setItemsPerPageState(size);
+    setCurrentPage(1);
+    setSelectedOrders([]);
+  }, []);
   const [ordersSnapshotQueryKey, setOrdersSnapshotQueryKey] = useState<string | null>(null);
   const [totalDatabaseItems, setTotalDatabaseItems] = useState(0);
   const [pendingReturnFulfillment, setPendingReturnFulfillment] = useState<Order | null>(null);
@@ -127,7 +132,7 @@ export const useOrderHistory = (filters?: any) => {
     isLoading: queryLoading,
     error: queryError,
   } = useQuery({
-    queryKey: ['orders', filters, currentPage],
+    queryKey: ['orders', filters, currentPage, itemsPerPage],
     queryFn: async () => {
       let result: { orders: Order[]; total: number };
       if (requiresGlobalOrderFiltering(filters)) {
@@ -143,19 +148,27 @@ export const useOrderHistory = (filters?: any) => {
           ),
           filters,
           currentPage,
-          PAGE_SIZE
+          itemsPerPage
         );
       } else {
-        result = await fetchOrdersPage(currentPage, PAGE_SIZE, filters, { throwOnError: true });
+        result = await fetchOrdersPage(currentPage, itemsPerPage, filters, { throwOnError: true });
       }
       const { orders: pageOrders, total } = result;
       const orderIds = pageOrders
         .map((order) => order.id)
         .filter((id): id is string => Boolean(id));
-      let fiscalStatuses: Record<string, OrderFiscalBadgeStatuses> = {};
-      try {
-        fiscalStatuses = await fetchOrderFiscalBadgeStatuses(orderIds);
-      } catch {
+      const fiscalStatuses: Record<string, OrderFiscalBadgeStatuses> = {};
+      const badgeBatches = Array.from(
+        { length: Math.ceil(orderIds.length / 30) },
+        (_, index) => orderIds.slice(index * 30, (index + 1) * 30)
+      );
+      const badgeResults = await Promise.allSettled(
+        badgeBatches.map((ids) => fetchOrderFiscalBadgeStatuses(ids))
+      );
+      badgeResults.forEach((result) => {
+        if (result.status === 'fulfilled') Object.assign(fiscalStatuses, result.value);
+      });
+      if (badgeResults.some((result) => result.status === 'rejected')) {
         console.error(
           '[useOrderHistory] Não foi possível carregar o status fiscal dos pedidos.'
         );
@@ -166,7 +179,7 @@ export const useOrderHistory = (filters?: any) => {
     staleTime: 30 * 1000, // 30 segundos em memória
     gcTime: 5 * 60 * 1000,
   });
-  const currentOrdersQueryKey = JSON.stringify([filters ?? null, currentPage]);
+  const currentOrdersQueryKey = JSON.stringify([filters ?? null, currentPage, itemsPerPage]);
   const failedWithoutCurrentData = shouldClearQueryListSnapshot(pageOrdersData, queryError);
   const snapshotMatchesCurrentQuery = ordersSnapshotQueryKey === currentOrdersQueryKey;
   const loadingCurrentQuery =
@@ -224,7 +237,7 @@ export const useOrderHistory = (filters?: any) => {
   }, [ordersForCurrentQuery, filters]);
 
   const totalItems = failedWithoutCurrentData ? 0 : totalDatabaseItems || filteredOrders.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
   const handleAutomaticallyFulfilledOrder = useCallback(
     async (order: Order) => {
@@ -499,9 +512,10 @@ export const useOrderHistory = (filters?: any) => {
     fiscalBadgeLoadingByOrderId,
     totalItems,
     currentPage,
-    itemsPerPage: PAGE_SIZE,
+    itemsPerPage,
     totalPages,
     setCurrentPage,
+    setItemsPerPage,
     isMobile,
     isCardView,
     loading: loading || loadingCurrentQuery,

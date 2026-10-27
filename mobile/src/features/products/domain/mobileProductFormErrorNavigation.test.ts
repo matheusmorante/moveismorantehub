@@ -209,6 +209,27 @@ describe('mobileProductFormErrorNavigation', () => {
     });
   });
 
+  it('leva erro de composição à variação e ao painel Produtos Componentes', () => {
+    const errors = flattenFormErrors({
+      variacoes: [
+        {},
+        {
+          comboItems: [
+            { quantity: { type: 'custom', message: 'A quantidade deve ser maior que zero.' } },
+          ],
+        },
+      ],
+    } as never);
+    const fieldPath = Object.keys(errors)[0];
+
+    expect(fieldPath).toBe('variacoes_1_comboItems_0_quantity');
+    expect(resolveMobileProductFormErrorNavigation(fieldPath)).toEqual({
+      tab: 'variacoes',
+      variationIndex: 1,
+      variationPanel: 'compostos',
+    });
+  });
+
   it('mantém o roteamento de erros registrados diretamente em uma aba', () => {
     expect(resolveMobileProductFormErrorNavigation('fiscal')).toEqual({ tab: 'fiscal' });
   });

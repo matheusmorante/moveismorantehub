@@ -16,9 +16,12 @@ import {
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
   getProductCharacteristicAttributes,
+  getDisplayedOptionalProductTechnicalFields,
   getTechnicalValue,
   groupProductTechnicalFields,
   hasTechnicalValue,
+  isDependentProductTechnicalFieldActive,
+  isMobileProductFormTechnicalFieldVariable,
   isExcludedProductTechnicalField,
   isMobileVariableTechnicalField,
   isProductTechnicalFieldRequired,
@@ -137,8 +140,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   );
   const isVariableField = useCallback(
     (fieldName: string) =>
-      isMobileVariableTechnicalField(fieldName, variableTechnicalFieldNames) ||
-      isCharacteristicDependentOnVariableField(fieldName, variableTechnicalFieldNames),
+      isMobileProductFormTechnicalFieldVariable(fieldName, variableTechnicalFieldNames),
     [variableTechnicalFieldNames]
   );
   const isVariationEditing = Boolean(parentData);
@@ -273,7 +275,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
             selectedCategoryName
           )
         ) return;
-        if (!isMobileVariableTechnicalField(field.name, variableTechnicalFieldNames)) return;
+        if (!isVariableField(field.name)) return;
         const key = normalizeSearchTerm(field.name);
         if (!fieldsByName.has(key)) fieldsByName.set(key, field);
       });
@@ -294,6 +296,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     requiredFieldsOnly,
     parentData,
     variableTechnicalFieldNames,
+    isVariableField,
   ]);
 
   const isFieldRequired = useCallback(
@@ -305,67 +308,73 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   const requiredFieldGroups = useMemo(
     () => {
       const productRequired = visibleTechnicalFields.filter((field) => isFieldRequired(field));
-      const catalogRequired = parentData
-        ? []
-        : visibleTechnicalFields.filter(
-            (field) =>
-              !isFieldRequired(field) &&
-              isProductTechnicalFieldRequiredForCatalog(
-                field,
-                categoryIds,
-                selectedCategoryName
-              )
-          );
+      const catalogRequired = visibleTechnicalFields.filter(
+        (field) =>
+          !isFieldRequired(field) &&
+          isProductTechnicalFieldRequiredForCatalog(
+            field,
+            categoryIds,
+            selectedCategoryName
+          )
+      );
       return groupProductTechnicalFields([...productRequired, ...catalogRequired]);
     },
-    [visibleTechnicalFields, categoryIds, isFieldRequired, parentData]
+    [visibleTechnicalFields, categoryIds, selectedCategoryName, isFieldRequired]
   );
   const optionalTechnicalFields = useMemo(
     () =>
       visibleTechnicalFields.filter(
         (field) =>
           !isFieldRequired(field) &&
-          (Boolean(parentData) ||
-            !isProductTechnicalFieldRequiredForCatalog(
-              field,
-              categoryIds,
-              selectedCategoryName
-            ))
+          !isProductTechnicalFieldRequiredForCatalog(
+            field,
+            categoryIds,
+            selectedCategoryName
+          )
       ),
-    [visibleTechnicalFields, categoryIds, selectedCategoryName, isFieldRequired, parentData]
+    [visibleTechnicalFields, categoryIds, selectedCategoryName, isFieldRequired]
   );
   const selectedOptionalFields = useMemo(() => {
+    if (!parentData) {
+      return getDisplayedOptionalProductTechnicalFields(
+        optionalTechnicalFields,
+        technicalFields,
+        ownTechnicalValues,
+        dependencyValues,
+        variableTechnicalFieldNames,
+        manualFieldNames
+      );
+    }
+
     return optionalTechnicalFields.filter((field) => {
-      if (parentData) {
-        const parentValue = String(getTechnicalValue(parentTechnicalValues, field.name) ?? '')
-          .trim();
-        const ownValue = String(getTechnicalValue(ownTechnicalValues, field.name) ?? '')
-          .trim();
-        const normalizedOwnValue = normalizeSearchTerm(ownValue);
-        const hasSelectedParentValue =
-          hasTechnicalValue(parentTechnicalValues, field.name) &&
-          !['nao se aplica', 'n/a'].includes(normalizeSearchTerm(parentValue));
-        const hasSelectedOwnValue =
-          hasTechnicalValue(ownTechnicalValues, field.name) &&
-          !['nao se aplica', 'n/a', 'nao informar'].includes(normalizedOwnValue);
-        return (
-          manualFieldNames.some((name) => normalizeName(name) === normalizeName(field.name)) ||
-          hasSelectedOwnValue ||
-          hasSelectedParentValue ||
-          isCharacteristicDependent(field.name)
-        );
-      }
-      const hasConfiguredValue = hasTechnicalValue(ownTechnicalValues, field.name);
-      const value = String(getTechnicalValue(ownTechnicalValues, field.name) ?? '')
-        .trim()
-        .toLocaleLowerCase('pt-BR');
+      const parentValue = String(getTechnicalValue(parentTechnicalValues, field.name) ?? '')
+        .trim();
+      const ownValue = String(getTechnicalValue(ownTechnicalValues, field.name) ?? '')
+        .trim();
+      const normalizedOwnValue = normalizeSearchTerm(ownValue);
+      const hasSelectedParentValue =
+        hasTechnicalValue(parentTechnicalValues, field.name) &&
+        !['nao se aplica', 'n/a'].includes(normalizeSearchTerm(parentValue));
+      const hasSelectedOwnValue =
+        hasTechnicalValue(ownTechnicalValues, field.name) &&
+        !['nao se aplica', 'n/a', 'nao informar'].includes(normalizedOwnValue);
       return (
         manualFieldNames.some((name) => normalizeName(name) === normalizeName(field.name)) ||
-        (hasConfiguredValue && !['não se aplica', 'nao se aplica', 'n/a'].includes(value)) ||
+        hasSelectedOwnValue ||
+        hasSelectedParentValue ||
         isCharacteristicDependent(field.name)
       );
     });
-  }, [parentData, optionalTechnicalFields, ownTechnicalValues, parentTechnicalValues, manualFieldNames]);
+  }, [
+    parentData,
+    optionalTechnicalFields,
+    ownTechnicalValues,
+    parentTechnicalValues,
+    dependencyValues,
+    technicalFields,
+    variableTechnicalFieldNames,
+    manualFieldNames,
+  ]);
   const searchableOptionalFields = useMemo(() => {
     const selectedNames = new Set(selectedOptionalFields.map((field) => normalizeName(field.name)));
     return technicalFields.filter(
@@ -373,12 +382,11 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         field.active !== false &&
         (!parentData || isVariableField(field.name)) &&
         !isProductTechnicalFieldRequired(field, categoryIds, selectedCategoryName) &&
-        (Boolean(parentData) ||
-          !isProductTechnicalFieldRequiredForCatalog(
-            field,
-            categoryIds,
-            selectedCategoryName
-          )) &&
+        !isProductTechnicalFieldRequiredForCatalog(
+          field,
+          categoryIds,
+          selectedCategoryName
+        ) &&
         !isExcludedProductTechnicalField(field.name) &&
         !selectedNames.has(normalizeName(field.name))
     );

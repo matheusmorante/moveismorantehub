@@ -161,7 +161,7 @@ export function useCustomerSupportConversations({
       if (typeof document === 'undefined' || document.visibilityState === 'visible') {
         void loadConversations(true);
       }
-    }, 6000);
+    }, 30000);
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') void loadConversations(true);
     };

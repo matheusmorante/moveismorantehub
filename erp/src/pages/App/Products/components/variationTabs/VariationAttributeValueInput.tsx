@@ -3,7 +3,10 @@ import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { bulkAttributeFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import { saveAttributeValue } from '@/pages/utils/variationService';
-import { isWeightCharacteristicName } from '@/pages/utils/technicalValuesService';
+import {
+  isDimensionCharacteristicName,
+  isWeightCharacteristicName,
+} from '@/pages/utils/technicalValuesService';
 import { formatAttributeDecimalValue, limitAttributeIntegerInput, maskAttributeDecimalInput } from '../../../../../../../shared-utils/attributeInputFormatting';
 import type { DbAttributeValueItem } from './VariationIdentificationTab';
 
@@ -112,6 +115,8 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
     if (dataType === 'integer' || dataType === 'decimal' || dataType === 'measure') {
       const isDecimal = dataType === 'decimal' || dataType === 'measure';
       const isWeight = isWeightCharacteristicName(attributeName || '');
+      const isDimension =
+        dataType === 'measure' || isDimensionCharacteristicName(attributeName || '');
       const decimalPlaces = isWeight ? 1 : 2;
       return (
         <div className="relative flex items-center">
@@ -120,13 +125,15 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
             inputMode="numeric"
             step={dataType === 'integer' ? '1' : isWeight ? '0.1' : '0.01'}
             placeholder={
-              isDecimal
-                ? decimalPlaces === 1
-                  ? '0,0'
-                  : '0,00'
-                : /porta|gaveta/i.test(attributeName || '')
-                  ? 'Insira a quantidade de portas'
-                  : 'Insira um número inteiro'
+              isDecimal && (isWeight || isDimension)
+                ? ''
+                : isDecimal
+                  ? decimalPlaces === 1
+                    ? '0,0'
+                    : '0,00'
+                  : /porta|gaveta/i.test(attributeName || '')
+                    ? 'Insira a quantidade de portas'
+                    : 'Insira um número inteiro'
             }
             value={isDecimal ? formatAttributeDecimalValue(value, decimalPlaces) : value}
             onChange={(e) => {

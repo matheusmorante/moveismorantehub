@@ -3,7 +3,7 @@ import PersonTable from './PersonTable';
 import { usePeople } from '../hooks/usePeople';
 import Person, { PersonVisibilitySettings } from '../../../../types/person.type';
 import ConfirmModal from '@/components/shared/ConfirmModal';
-import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import type { CustomerOrderCountRow } from '../customerOrderCounts';
 import {
@@ -66,7 +66,6 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
       totalItems,
       currentPage,
       itemsPerPage,
-      totalPages,
       setCurrentPage,
       setItemsPerPage,
       handleDelete: onDelete,
@@ -288,32 +287,17 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
             customerOrderCounts={customerOrderCounts}
           />
 
-          <div className="mt-8 flex items-center justify-between flex-wrap gap-4 border-t border-slate-50 dark:border-slate-800 pt-6">
-              <div className="flex items-center gap-4">
-                <span className="text-xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
-                  Mostrando {people.length} de {totalItems} registros
-                </span>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-600 dark:text-slate-400 focus:outline-none cursor-pointer"
-                  >
-                    {[10, 15, 25, 50].map((size) => (
-                      <option key={size} value={size}>
-                        {size} por pág.
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <FixedPageSlots
-                ariaLabel="Paginação de cadastros"
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-          </div>
+          <ERPListPagination
+            ariaLabel="Paginação de cadastros"
+            page={currentPage}
+            pageSize={itemsPerPage}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setItemsPerPage}
+            preferenceKey={`people:${collectionName}`}
+            loading={loading}
+            className="mt-4"
+          />
         </div>
 
         <ConfirmModal

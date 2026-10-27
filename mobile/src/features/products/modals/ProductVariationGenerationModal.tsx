@@ -109,7 +109,7 @@ export const ProductVariationGenerationModal: React.FC<Props> = ({
       { attributes: selectedOptions },
       (values) => {
         onGenerate(values.attributes);
-        onClose();
+        setSelectedOptions([]);
       },
       (errors) =>
         Alert.alert(

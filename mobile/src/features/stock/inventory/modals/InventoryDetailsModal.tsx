@@ -18,10 +18,16 @@ import { ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react-native';
 interface Props {
   session: InventorySession;
   isDarkMode: boolean;
+  userProfileId?: string | null;
   onClose: () => void;
 }
 
-export const InventoryDetailsModal: React.FC<Props> = ({ session, isDarkMode, onClose }) => {
+export const InventoryDetailsModal: React.FC<Props> = ({
+  session,
+  isDarkMode,
+  userProfileId,
+  onClose,
+}) => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(
     insets.top,
@@ -34,7 +40,7 @@ export const InventoryDetailsModal: React.FC<Props> = ({ session, isDarkMode, on
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await fetchInventorySessionDetails(session.id);
+        const data = await fetchInventorySessionDetails(session.id, userProfileId);
         setDetails(data);
       } catch (err) {
         console.error(err);
@@ -43,7 +49,7 @@ export const InventoryDetailsModal: React.FC<Props> = ({ session, isDarkMode, on
       }
     };
     load();
-  }, [session.id]);
+  }, [session.id, userProfileId]);
 
   const items = details?.items || [];
   const countedItems = items.filter(

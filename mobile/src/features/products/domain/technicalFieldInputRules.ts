@@ -1,4 +1,7 @@
 import {
+  getTechnicalFieldTextPlaceholder as getSharedTechnicalFieldTextPlaceholder,
+  isDimensionCharacteristicName,
+  isTechnicalFieldMultiSelect,
   isWeightCapacityCharacteristic,
   isWeightCharacteristicName,
 } from '../../../../../shared-utils/productTechnicalFieldRules';
@@ -14,6 +17,9 @@ export const resolveTechnicalFieldDataType = (name: string, dataType?: string | 
   if (/quantidade\s+de\s+\S+/i.test(name) || /lugar(es)?/i.test(name)) {
     return 'integer';
   }
+  if (isTechnicalFieldMultiSelect(name)) {
+    return 'multi_select';
+  }
   if (
     isWeightCharacteristicName(name) ||
     isWeightCapacityCharacteristic(name) ||
@@ -21,19 +27,13 @@ export const resolveTechnicalFieldDataType = (name: string, dataType?: string | 
   ) {
     return 'decimal';
   }
+  if (dataType === 'measure' || isDimensionCharacteristicName(name)) {
+    return 'measure';
+  }
   return dataType || 'list';
 };
 
-export const getTechnicalFieldTextPlaceholder = (name: string) => {
-  const normalizedName = name.trim().toLocaleLowerCase('pt-BR');
-  if (normalizedName === 'marca') return 'Digite a marca';
-  if (normalizedName === 'modelo') return 'Digite o modelo';
-  if (normalizedName === 'modelo/linha' || normalizedName === 'linha/modelo') {
-    return 'Digite o modelo / linha';
-  }
-  if (normalizedName === 'linha') return 'Digite a linha';
-  return undefined;
-};
+export const getTechnicalFieldTextPlaceholder = getSharedTechnicalFieldTextPlaceholder;
 
 export const getTechnicalFieldMaxLength = (dataType: string) => {
   if (dataType === 'text_long') return 4000;

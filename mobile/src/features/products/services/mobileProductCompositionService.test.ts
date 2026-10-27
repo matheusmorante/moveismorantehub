@@ -47,8 +47,11 @@ describe('searchMobileProductCompositionCandidates', () => {
       ],
     });
 
-    await expect(searchMobileProductCompositionCandidates('Mesa Aurora', '123e4567-e89b-42d3-a456-426614174000'))
-      .resolves.toEqual([
+    const candidates = await searchMobileProductCompositionCandidates(
+      'Mesa Aurora',
+      '123e4567-e89b-42d3-a456-426614174000'
+    );
+    expect(candidates).toEqual([
         expect.objectContaining({
           id: 'product-1',
           name: 'Mesa Aurora',
@@ -61,6 +64,7 @@ describe('searchMobileProductCompositionCandidates', () => {
         }),
         expect.objectContaining({ id: 'legacy-simple', code: 'BAN-1', stock: 8, price: 50, promoPrice: 45 }),
       ]);
+    expect(candidates[1]).not.toHaveProperty('variationId');
 
     expect(fetchProductsPage).toHaveBeenCalledWith(1, 25, {
       search: 'Mesa Aurora',

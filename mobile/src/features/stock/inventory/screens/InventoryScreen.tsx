@@ -29,7 +29,7 @@ export const InventoryScreen: React.FC<Props> = ({
   userProfile,
   renderHeader,
 }) => {
-  const { sessions, loading, loadingMore, loadMore, reload } = useInventory();
+  const { sessions, loading, loadingMore, loadMore, reload } = useInventory(userProfile?.id);
   const listRef = useRef<FlatList<any>>(null);
   const [periodDays, setPeriodDays] = useState(30);
   const [currentPage, setCurrentPage] = useState(1);
@@ -51,7 +51,7 @@ export const InventoryScreen: React.FC<Props> = ({
     handleReverseInventory,
     handleApplyAdjustments,
     handleDeleteDraft,
-  } = useInventoryScreenActions(reload);
+  } = useInventoryScreenActions(reload, userProfile?.id);
 
   const filteredSessions = sessions.filter(
     (session) =>
@@ -179,6 +179,7 @@ export const InventoryScreen: React.FC<Props> = ({
         <InventoryDetailsModal
           session={viewDetailsSession}
           isDarkMode={isDarkMode}
+          userProfileId={userProfile?.id}
           onClose={() => setViewDetailsSession(null)}
         />
       )}

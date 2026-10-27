@@ -72,6 +72,7 @@ classDiagram
 - A regra está em `shared-utils/productActivationValidation.ts`; a tela do ERP e o serviço de mutação mobile usam a mesma validação.
 - Para composição simples, ERP e app expõem a aba **Composição** no formulário do produto. Ao carregar, os dois preferem os componentes da variação principal quando ela os tem e recorrem aos componentes do produto quando não tem; ao editar, atualizam o produto e sua variação principal. Essa compatibilidade mantém a edição simples sincronizada com o payload existente.
 - Em famílias compostas com várias variações, a edição permanece na composição de cada variação; a aba de composição simples não é exibida. A exigência de dois componentes para ativação é aplicada ao produto simples ou a cada variação ativa da família correspondente.
+- Em `combo_items`, `variationId` identifica somente uma linha real de `product_variations`. Quando o componente usa o fallback visual/de estoque do produto pai por não ter linha real, omita essa chave no JSON; não persista o ID sintético da variação virtual nem `null` em seu lugar.
 
 ### Disponibilidade calculada e estoque físico de composições
 

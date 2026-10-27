@@ -49,9 +49,9 @@ export const MobileProductPagination: React.FC<Props> = ({
             return (
               <Pressable
                 key={size}
-                accessibilityRole="button"
-                accessibilityLabel={`${size} itens por página`}
-                accessibilityState={{ selected }}
+                accessibilityRole="radio"
+                accessibilityLabel={`Itens por página: ${size}`}
+                accessibilityState={{ checked: selected }}
                 onPress={() => void onItemsPerPageChange(size)}
                 style={[
                   styles.pageSizeButton,

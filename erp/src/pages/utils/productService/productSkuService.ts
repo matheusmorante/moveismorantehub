@@ -2,6 +2,9 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { normalizeVariationSku } from '../productVariationDefaults';
 import { getLocalProducts } from './productLocalCache';
 import { getNextSequentialProductCodeFromValues } from '../../../../../shared-utils/productSequentialCode';
+import { generateVariationSku } from '../../../../../shared-utils/productVariationSku';
+
+export { generateVariationSku };
 
 export const TABLE_NAME = 'products';
 
@@ -124,65 +127,6 @@ export const calculateNextVariationSku = (parentCode: string, existingSkus: stri
 
   const nextSuffix = String(candidate).padStart(2, '0');
   return `${cleanParent}-${nextSuffix}`;
-};
-
-/**
- * Gera o SKU da variação no formato {CodigoPai}-{01|02|03}
- * Reutiliza o menor código sequencial disponível (ex: -01, -02) caso haja lacunas na sequência,
- * evitando sempre pular para códigos posteriores ao último utilizado.
- */
-export const generateVariationSku = (
-  parentCode: string,
-  indexOrVariations: number | any[],
-  offset: number = 0
-): string => {
-  const cleanParent = parentCode ? parentCode.trim() : '000000';
-
-  if (typeof indexOrVariations === 'number') {
-    const suffix = String(indexOrVariations + 1 + offset).padStart(2, '0');
-    return `${cleanParent}-${suffix}`;
-  }
-
-  const variations = Array.isArray(indexOrVariations) ? indexOrVariations : [];
-  const usedSuffixes = new Set<number>();
-  const prefixPattern = cleanParent
-    ? new RegExp(`^${cleanParent.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-(\\d+)$`, 'i')
-    : null;
-
-  variations.forEach((v) => {
-    if (!v?.sku) return;
-    const skuStr = String(v.sku).trim();
-    let num: number | null = null;
-    if (prefixPattern) {
-      const matchPrefix = skuStr.match(prefixPattern);
-      if (matchPrefix?.[1]) {
-        num = Number.parseInt(matchPrefix[1], 10);
-      }
-    }
-    if (num === null) {
-      const match = skuStr.match(/-(\d+)$/);
-      if (match?.[1]) {
-        num = Number.parseInt(match[1], 10);
-      }
-    }
-    if (num !== null && !Number.isNaN(num) && num > 0) {
-      usedSuffixes.add(num);
-    }
-  });
-
-  const targetOffset = Math.max(0, offset || 0);
-  let availableCount = 0;
-  let candidate = 1;
-  while (true) {
-    if (!usedSuffixes.has(candidate)) {
-      if (availableCount === targetOffset) {
-        const suffix = String(candidate).padStart(2, '0');
-        return `${cleanParent}-${suffix}`;
-      }
-      availableCount++;
-    }
-    candidate++;
-  }
 };
 
 /**

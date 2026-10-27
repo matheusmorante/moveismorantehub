@@ -6,6 +6,7 @@ import { parseCoordinatesFromMapsUrl } from '../mapCoordinates';
 import { getSettings } from '../settingsService';
 import { geocodeAddress } from './addressGeocoding';
 import { loadGoogleMapsApi } from './googleMapsLoader';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export interface RouteResult {
   distanceKm: number;
@@ -18,6 +19,7 @@ type GoogleRouteResult = { distanceKm: number; durationMinutes: number; geometry
 const routeRequests = new Map<string, Promise<GoogleRouteResult | null>>();
 const routeCache = new Map<string, { result: GoogleRouteResult; timestamp: number }>();
 const ROUTE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas de cache em memória
+const ROUTE_REQUEST_TIMEOUT_MS = 15_000;
 
 export const clearRouteCache = () => {
   routeRequests.clear();
@@ -57,8 +59,10 @@ export const calculateRouteViaGoogleMaps = async (
   const existingRequest = routeRequests.get(routeKey);
   if (existingRequest) return existingRequest;
 
-  const request = (async () => {
+  let active = true;
+  const run = async (): Promise<GoogleRouteResult | null> => {
     const guard = await ApiUsageGuard.check('google_routes');
+    if (!active) return null;
     if (!guard.allowed) {
       console.warn(`[ApiUsageGuard] Cálculo de rota bloqueado: ${guard.reason}`);
       onFailure?.(`O cálculo da rota foi bloqueado: ${guard.reason}`);
@@ -68,8 +72,10 @@ export const calculateRouteViaGoogleMaps = async (
     const startTime = Date.now();
     try {
       await loadGoogleMapsApi();
+      if (!active) return null;
       const googleMaps = (window as any).google.maps;
       const { Route } = await googleMaps.importLibrary('routes');
+      if (!active) return null;
       const routeRequest = {
         origin: { lat: origin[1], lng: origin[0] },
         destination: { lat: destination[1], lng: destination[0] },
@@ -78,6 +84,7 @@ export const calculateRouteViaGoogleMaps = async (
         fields: ['distanceMeters', 'durationMillis', 'path'],
       };
       const { routes } = await Route.computeRoutes(routeRequest);
+      if (!active) return null;
 
       if (routes?.length) {
         const route = routes[0];
@@ -117,6 +124,7 @@ export const calculateRouteViaGoogleMaps = async (
       }
       throw new Error('Google Routes API não encontrou uma rota dirigível.');
     } catch (e) {
+      if (!active) return null;
       onFailure?.(`O Google Routes API recusou ou não encontrou uma rota dirigível: ${String(e)}`);
       console.error(
         'Google Routes API error. Verifique se Routes API está habilitada, se a chave permite este domínio e se o faturamento do projeto está ativo:',
@@ -134,7 +142,21 @@ export const calculateRouteViaGoogleMaps = async (
       });
     }
     return null;
-  })();
+  };
+
+  // O SDK não oferece aborto neste contrato; impedir etapas e cache após o prazo.
+  const request = withTimeout<GoogleRouteResult | null | undefined>(
+    run(),
+    ROUTE_REQUEST_TIMEOUT_MS,
+    undefined,
+    'maps:calcular-rota',
+  ).then((result) => {
+    active = false;
+    if (result === undefined) onFailure?.('O cálculo da rota excedeu o tempo de espera.');
+    return result ?? null;
+  }).finally(() => {
+    active = false;
+  });
 
   routeRequests.set(routeKey, request);
   try {

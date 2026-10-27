@@ -84,7 +84,6 @@ export default function FiscalDocumentsPage() {
     filters,
     searchInput,
     setSearchInput,
-    handleSearchSubmit,
     setStatusFilter,
     setModelFilter,
     setDocumentTypeFilter,
@@ -249,7 +248,6 @@ export default function FiscalDocumentsPage() {
             accountantView={accountantView}
             searchInput={searchInput}
             onSearchInputChange={setSearchInput}
-            onSearchSubmit={handleSearchSubmit}
             onModelChange={setModelFilter}
             onDocumentTypeChange={setDocumentTypeFilter}
             onStatusChange={setStatusFilter}
@@ -316,7 +314,7 @@ export default function FiscalDocumentsPage() {
                 onRetryHml={sefaz.handleRetryHmlDocument}
               />
 
-              {documentCount > 0 && (
+              {(loading || documentCount > 0) && (
                 <FiscalDocumentsPagination
                   documentCount={documentCount}
                   pageIndex={pageIndex}

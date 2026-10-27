@@ -5,55 +5,12 @@ import { toTitleCase } from './textUtils';
 import { sortAttributeValuesNaturally } from './attributeValueSorting';
 import { queryClient } from '@/lib/queryClient';
 import { isWeightCharacteristicName } from './technicalValuesService';
-import { normalizeAttributeDataType } from './attributeDataType';
+import { inferAttributeDataType, normalizeAttributeDataType } from './attributeDataType';
 import { variationFamilyAttributeSchema, VariationFamilyUnconfirmedError } from '../../../../shared-utils/variationFamilyFormSchemas';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import { saveAttributeValueWithClient } from '../../../../shared-utils/productAttributeValueService';
 
 export { normalizeAttributeDataType };
-
-// Compatibilidade para instalações onde a coluna data_type ainda não existe
-// ou perdeu os valores durante uma sincronização antiga.
-const inferAttributeDataType = (name: string, value?: VariationType['dataType']) => {
-  if (value) return normalizeAttributeDataType(value);
-
-  const normalizedName = name.trim().toLocaleLowerCase('pt-BR');
-  if (['altura', 'largura', 'peso', 'profundidade'].includes(normalizedName))
-    return 'measure' as const;
-  if (
-    [
-      'densidade da espuma',
-      'tecido',
-      'espelho',
-      'contém espelho',
-      'tipo de porta',
-      'tipo de portas',
-      'sistema de deslizamento da gaveta',
-      'tipo de pés',
-      'material de pés',
-      'material dos pés',
-      'material dos puxadores',
-      'acabamento',
-      'cor',
-      'estrutura',
-      'material da estrutura',
-    ].includes(normalizedName)
-  )
-    return 'radio' as const;
-  if (['tipo de puxador', 'tipo(s) de puxador'].includes(normalizedName))
-    return 'multi_select' as const;
-  if (
-    [
-      'quantidade de gavetas',
-      'quantidade de gaveta',
-      'quantidade de portas',
-      'quantidade de porta',
-    ].includes(normalizedName)
-  )
-    return 'integer' as const;
-
-  return normalizeAttributeDataType(value);
-};
 
 const capitalize = (str: string): string => {
   return toTitleCase(str);
@@ -253,7 +210,7 @@ export const fetchVariations = async (
           ? attr.decimal_places
           : undefined,
       isGloballyRequired:
-        Boolean(attr.is_globally_required) && !isWeightCharacteristicName(attr.name),
+        Boolean(attr.is_globally_required) || isWeightCharacteristicName(attr.name),
       isCustom: Boolean(attr.is_custom),
       options: (() => {
         const values = (valData || [])
@@ -275,7 +232,7 @@ export const fetchVariations = async (
         .filter((ca: any) => ca.attribute_id === attr.id)
         .map((ca: any) => ({
           categoryId: ca.category_id,
-          isRequired: Boolean(ca.is_required) && !isWeightCharacteristicName(attr.name),
+          isRequired: Boolean(ca.is_required) || isWeightCharacteristicName(attr.name),
         })),
       deleted: false, // Exclusões sem uso são físicas; itens usados ficam ativos=false.
     }));

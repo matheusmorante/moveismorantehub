@@ -73,6 +73,47 @@ describe('technicalFieldService no fluxo de publicação', () => {
     expect(fields.find(({ name }) => name === 'Modelo/Linha')?.id).toBe('attr-5');
   });
 
+  it('projeta dimensões legadas como medidas numéricas com unidade cm', async () => {
+    const names = ['Altura', 'Largura', 'Profundidade aberto', 'Espessura do colchão'];
+    const attributesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: names.map((name, index) => ({
+          id: `measure-${index}`,
+          name,
+          active: true,
+          data_type: 'list',
+          unit: null,
+          is_custom: false,
+          decimal_places: null,
+        })),
+        error: null,
+      }),
+    };
+    const valuesQuery = {
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }),
+    };
+    const categoryLinksQuery = {
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }),
+    };
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return attributesQuery;
+      if (table === 'attribute_values') return valuesQuery;
+      if (table === 'category_attributes') return categoryLinksQuery;
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const fields = await fetchTechnicalFieldDefinitions('product-form', { forceRefresh: true });
+
+    expect(fields).toMatchObject(
+      names.map((name) => ({ name, dataType: 'measure', unit: 'cm' }))
+    );
+  });
+
   it('does not reuse an unverified category-link cache for catalog publication', async () => {
     let categoryQueryCount = 0;
     const attributesQuery = {

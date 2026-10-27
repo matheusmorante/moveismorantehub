@@ -29,12 +29,6 @@ export const TechnicalCharacteristicSearch: React.FC<TechnicalCharacteristicSear
 
   return (
     <div className="w-full max-w-xl space-y-1.5">
-      <label
-        htmlFor="technical-characteristic-search"
-        className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400"
-      >
-        Pesquisar característica
-      </label>
       <div className="flex items-center gap-2 border-x-0 border-t-0 border-b-2 border-slate-200 bg-transparent px-1 py-2 focus-within:border-blue-500 dark:border-slate-700 dark:bg-transparent dark:focus-within:border-blue-400">
         <i className="bi bi-search text-slate-400" aria-hidden="true" />
         <input
@@ -43,6 +37,7 @@ export const TechnicalCharacteristicSearch: React.FC<TechnicalCharacteristicSear
           value={searchTerm}
           onChange={(event) => onSearchTermChange(event.target.value)}
           placeholder="Digite pelo menos 3 caracteres (ex: portas, gavetas...)"
+          aria-label="Pesquisar característica"
           aria-describedby="technical-characteristic-search-hint"
           className="w-full bg-transparent text-xs text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-100"
         />

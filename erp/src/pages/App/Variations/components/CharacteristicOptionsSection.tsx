@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import type { VariationOption } from '../../../types/variation.type';
 import type { CharacteristicSaveStatus } from '../domain/characteristicFormRules';
 
@@ -21,6 +21,8 @@ interface CharacteristicOptionsSectionProps {
   readonly onStartOptionEdit: (option: VariationOption) => void;
   readonly onRemoveOption: (option: VariationOption) => Promise<void>;
   readonly visiblePage: number;
+  readonly optionPageSize: number;
+  readonly onPageSizeChange: (size: number) => void;
   readonly totalOptionPages: number;
   readonly firstVisibleOption: number;
   readonly lastVisibleOption: number;
@@ -48,9 +50,8 @@ export function CharacteristicOptionsSection({
   onStartOptionEdit,
   onRemoveOption,
   visiblePage,
-  totalOptionPages,
-  firstVisibleOption,
-  lastVisibleOption,
+  optionPageSize,
+  onPageSizeChange,
   onPageChange,
   isClosing,
   saveStatus,
@@ -174,19 +175,17 @@ export function CharacteristicOptionsSection({
           ))
         )}
       </div>
-      <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">
-          {firstVisibleOption}–{lastVisibleOption} de {filteredOptionsCount} opções
-        </p>
-        <FixedPageSlots
-          ariaLabel="Paginação de opções da característica"
-          currentPage={visiblePage + 1}
-          totalPages={totalOptionPages}
-          onPageChange={(page) => onPageChange(page - 1)}
-          loading={editingOptionId !== null}
-          className="w-full sm:max-w-md"
-        />
-      </div>
+      <ERPListPagination
+        ariaLabel="Paginação de opções da característica"
+        page={visiblePage + 1}
+        pageSize={optionPageSize}
+        totalItems={filteredOptionsCount}
+        onPageChange={(page) => onPageChange(page - 1)}
+        onPageSizeChange={onPageSizeChange}
+        preferenceKey="characteristic-options"
+        itemLabel="opções"
+        loading={isBusy || editingOptionId !== null}
+      />
     </section>
   );
 }

@@ -9,6 +9,7 @@ import { financialTransactionFormSchema, financialToday } from '../../../../../.
 import type { z } from 'zod';
 import { useFinancialOperation } from '../useFinancialOperation';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -27,6 +28,8 @@ export default function Transactions() {
   const requestId = useRef(0);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   // Modal Nova Transação Manual
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -94,6 +97,8 @@ export default function Transactions() {
     const matchesType = typeFilter === 'all' || t.type === typeFilter;
     return matchesSearch && matchesType;
   });
+  const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
+  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   // Calcula Totais
   const totalEntradas = filtered
@@ -195,7 +200,7 @@ export default function Transactions() {
                 type="text"
                 placeholder="Buscar no histórico..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border-none rounded-2xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all dark:text-slate-200"
               />
             </div>
@@ -207,7 +212,7 @@ export default function Transactions() {
               ].map((filter) => (
                 <button
                   key={filter.id}
-                  onClick={() => setTypeFilter(filter.id as any)}
+                  onClick={() => { setTypeFilter(filter.id as any); setPage(1); }}
                   className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                     typeFilter === filter.id
                       ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
@@ -262,7 +267,7 @@ export default function Transactions() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                {filtered.map((transaction) => {
+                {visible.map((transaction) => {
                   const isIncome = transaction.type === 'income';
                   return (
                     <tr
@@ -308,6 +313,10 @@ export default function Transactions() {
               </tbody>
             </table>
           </div>
+
+          <ERPListPagination ariaLabel="Paginação de movimentações financeiras" page={page} pageSize={pageSize}
+            totalItems={filtered.length} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }}
+            preferenceKey="finance-transactions" itemLabel="movimentações" loading={loading} className="px-4 py-3" />
 
           {loading && (
             <div className="p-20 flex flex-col items-center justify-center flex-1">

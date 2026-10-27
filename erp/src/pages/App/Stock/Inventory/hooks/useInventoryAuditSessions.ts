@@ -34,6 +34,7 @@ export const useInventoryAuditSessions = () => {
   } | null>(null);
   const [periodDays, setPeriodDays] = useState(30);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const repairingDraftCodes = useRef(false);
 
   useEffect(() => {
@@ -330,7 +331,6 @@ export const useInventoryAuditSessions = () => {
     return allSessions.filter((session) => new Date(session.date).getTime() >= cutoff);
   }, [allSessions, periodDays]);
 
-  const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(filteredSessions.length / pageSize));
   const sessions = filteredSessions.slice((page - 1) * pageSize, page * pageSize);
 
@@ -347,6 +347,7 @@ export const useInventoryAuditSessions = () => {
     pageCount,
     totalItems: filteredSessions.length,
     itemsPerPage: pageSize,
+    setItemsPerPage: setPageSize,
     loading,
     activeSession,
     menuPos,

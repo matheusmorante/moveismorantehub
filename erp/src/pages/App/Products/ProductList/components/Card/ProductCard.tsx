@@ -32,7 +32,6 @@ interface ProductCardProps {
   readonly categoryTree?: ProductCategoryTree;
   readonly onRefresh?: () => void;
   readonly onDuplicate?: (product: Product) => void;
-  readonly exitedVariationIds?: ReadonlySet<string>;
   readonly onMoveToAnotherFamily?: (variation: any) => void;
   readonly onMergeWithAnotherVariation?: (variation: any) => void;
 }
@@ -55,7 +54,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
   isSelected,
   categoryTree,
   onDuplicate,
-  exitedVariationIds,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
   onRefresh,
@@ -273,7 +271,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
           showVariations={showVariations}
           canManageCatalog={canManageCatalog}
           isDraft={isDraft}
-          exitedVariationIds={exitedVariationIds}
           onEdit={onEdit}
           onToggleActive={onToggleActive}
           onDeactivateCatalog={onDeactivateCatalog}

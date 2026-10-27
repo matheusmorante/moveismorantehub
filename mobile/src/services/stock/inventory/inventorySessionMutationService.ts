@@ -1,7 +1,7 @@
 import { supabase } from '../../supabaseClient';
 import { connectivityService } from '../../offline/connectivityService';
 import { deleteLocalInventoryDraft, getLocalInventoryDraft } from '../../sqlite/inventoryDrafts';
-import { deleteInventorySubmission } from '../../sqlite/inventoryOutbox';
+import { deleteInventorySubmission, getInventorySubmission } from '../../sqlite/inventoryOutbox';
 import { deleteLocalInventoryScans } from '../../sqlite/inventoryScans';
 
 const isEffectiveInventoryMove = (move: any) => {
@@ -192,15 +192,22 @@ export const unreverseInventorySession = async (session: {
   }
 };
 
-export const deleteInventoryDraft = async (markerMoveId: string): Promise<void> => {
-  const localDraft = await getLocalInventoryDraft(markerMoveId).catch(() => null);
+export const deleteInventoryDraft = async (
+  markerMoveId: string,
+  userId?: string | null
+): Promise<void> => {
+  if (!userId) throw new Error('Entre novamente para excluir este inventário.');
+  const localDraft = await getLocalInventoryDraft(markerMoveId, userId).catch(() => null);
+  const localSubmission = await getInventorySubmission(markerMoveId, userId).catch(() => null);
 
   // 1. Remove sempre do armazenamento SQLite local (rascunho, outbox e leituras de etiquetas)
-  await deleteLocalInventoryDraft(markerMoveId).catch(() => {});
-  await deleteInventorySubmission(markerMoveId).catch(() => {});
-  await deleteLocalInventoryScans(markerMoveId).catch(() => {});
+  await deleteLocalInventoryDraft(markerMoveId, userId).catch(() => {});
+  await deleteInventorySubmission(markerMoveId, userId).catch(() => {});
+  if (localDraft || localSubmission) {
+    await deleteLocalInventoryScans(markerMoveId).catch(() => {});
+  }
 
-  if (!connectivityService.connected || localDraft?.code.startsWith('LOCAL-')) {
+  if (!connectivityService.connected || localDraft?.code.startsWith('LOCAL-') || localSubmission) {
     return;
   }
 

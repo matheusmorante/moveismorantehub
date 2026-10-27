@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { Routes, Route, BrowserRouter, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ERPListPaginationPreferenceContext } from './components/shared/ERPListPaginationPreferenceContext';
 import { PasswordSetupPrompt } from './components/auth/PasswordSetupPrompt';
 import SalesOrder from './pages/App/SalesOrder';
 import Dashboard from './pages/App/Dashboard/Index';
@@ -187,9 +188,19 @@ const DashboardRoute = () => {
   return <Dashboard />;
 };
 
+const PaginationPreferenceScope: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  return (
+    <ERPListPaginationPreferenceContext.Provider value={user?.id}>
+      {children}
+    </ERPListPaginationPreferenceContext.Provider>
+  );
+};
+
 function Router() {
   return (
     <AuthProvider>
+      <PaginationPreferenceScope>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -545,6 +556,7 @@ function Router() {
         </Routes>
         <PasswordSetupPrompt />
       </BrowserRouter>
+      </PaginationPreferenceScope>
     </AuthProvider>
   );
 }

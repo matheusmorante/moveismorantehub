@@ -74,10 +74,10 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   const fieldGroups = [
     ...requiredFieldGroups,
     ...(!requiredFieldsOnly
-      ? [{ title: 'Características secundárias adicionadas', fields: displayedOptionalFields }]
+      ? [{ title: 'Adicionar características secundárias', fields: displayedOptionalFields }]
       : []),
   ];
-  const searchInsertionIndex = requiredFieldGroups.length;
+  const allDisplayedFields = fieldGroups.flatMap((group) => group.fields);
   const mainGroup = fieldGroups.find((group) => group.title === 'Características principais');
   const dimensionsGroup = fieldGroups.find((group) => group.title === 'Dimensões e Peso');
   const mainGroupIndex = fieldGroups.findIndex(
@@ -90,9 +90,15 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     .filter((index) => index >= 0)
     .reduce((earliest, index) => Math.min(earliest, index), fieldGroups.length);
 
-  const renderGroup = (group: (typeof fieldGroups)[number], hideHeading = false) => (
+  const renderGroup = (
+    group: (typeof fieldGroups)[number],
+    hideHeading = false,
+    headingAccessory?: React.ReactNode
+  ) => (
     <TechnicalFieldGroupSection
       group={group}
+      headingAccessory={headingAccessory}
+      allDisplayedFields={allDisplayedFields}
       formData={formData}
       manualFieldNames={manualFieldNames}
       validationErrors={validationErrors}
@@ -135,7 +141,7 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
                     >
                       <h4
                         id="technical-group-Características principais"
-                        className="flex items-center gap-1.5 border-b border-slate-200 pb-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:border-slate-800 dark:text-slate-400"
+                        className="flex items-center gap-1.5 border-b border-slate-200 pb-2 text-sm font-bold uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:text-slate-300"
                       >
                         Características principais
                       </h4>
@@ -148,12 +154,16 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
 
               return (
                 <React.Fragment key={group.title}>
-                  {index === searchInsertionIndex && searchControl}
-                  {renderGroup(group)}
+                  {renderGroup(
+                    group,
+                    false,
+                    group.title === 'Adicionar características secundárias'
+                      ? searchControl
+                      : undefined
+                  )}
                 </React.Fragment>
               );
             })}
-            {fieldGroups.length > 0 && searchInsertionIndex >= fieldGroups.length && searchControl}
           </div>
         )}
       </div>

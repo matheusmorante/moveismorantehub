@@ -12,7 +12,6 @@ import AttributeAutocomplete from '@/components/AttributeAutocomplete';
 import type { CategoryAttributeSelection } from '@/pages/utils/categoryService';
 import {
   getDefaultCategoryAttributeIsRequired,
-  isCategoryAttributeAlwaysOptional,
   isCategoryAttributeAlwaysRequired,
   isCategoryAttributeRequirementLocked,
   resolveCategoryAttributeIsRequired,
@@ -209,13 +208,11 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
                         aria-checked={isAttributeRequired(attr)}
                         aria-label={`Característica ${attr.name} ${isAttributeRequired(attr) ? 'obrigatória' : 'opcional'} para o Catálogo Digital`}
                         title={
-                          isCategoryAttributeAlwaysOptional(attr.name)
-                            ? 'Peso é sempre opcional para o Catálogo Digital'
-                            : isCategoryAttributeAlwaysRequired(attr.name)
-                              ? `${attr.name} é obrigatória para o Catálogo Digital em todas as categorias`
-                              : attr.isRequired
-                                ? 'Obrigatória para o Catálogo Digital — clique para tornar opcional'
-                                : 'Opcional para o Catálogo Digital — clique para tornar obrigatória'
+                          isCategoryAttributeAlwaysRequired(attr.name)
+                            ? `${attr.name} é obrigatória para o Catálogo Digital em todas as categorias`
+                            : attr.isRequired
+                              ? 'Obrigatória para o Catálogo Digital — clique para tornar opcional'
+                              : 'Opcional para o Catálogo Digital — clique para tornar obrigatória'
                         }
                         onClick={() =>
                           setSelectedAttributes((prev) =>

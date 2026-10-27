@@ -19,9 +19,9 @@ describe('technicalValues - Validação de Campos Obrigatórios', () => {
     expect(isRequiredCharacteristicName('Altura')).toBe(true);
     expect(isRequiredCharacteristicName('Largura')).toBe(true);
     expect(isRequiredCharacteristicName('Profundidade')).toBe(true);
+    expect(isRequiredCharacteristicName('Peso')).toBe(true);
 
     expect(isRequiredCharacteristicName('Acabamento')).toBe(false);
-    expect(isRequiredCharacteristicName('Peso')).toBe(false);
   });
 
   it('detecta características obrigatórias ausentes respeitando preenchimento de Modelo ou Linha', () => {

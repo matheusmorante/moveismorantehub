@@ -102,8 +102,10 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       refresh,
       markFiscalDocumentAuthorized,
       currentPage,
+      itemsPerPage,
       totalPages,
       setCurrentPage,
+      setItemsPerPage,
     } = useOrderHistory(filters);
 
     const {
@@ -222,8 +224,9 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={totalItems}
-            itemsPerPage={15}
+            itemsPerPage={itemsPerPage}
             onPageChange={setCurrentPage}
+            onPageSizeChange={setItemsPerPage}
             loading={loading}
           />
         </div>

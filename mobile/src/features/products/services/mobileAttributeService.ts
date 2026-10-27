@@ -1,5 +1,6 @@
 import { toTitleCase } from '../../../../../shared-utils/productText';
 import { withCatalogAttributesLoadTimeout } from '../../../../../shared-utils/catalogAttributesLoadTimeout';
+import { inferAttributeDataType, normalizeAttributeDataType } from '../../../../../shared-utils/attributeDataType';
 import { supabase } from '../../../services/supabaseClient';
 import { isWeightCharacteristicName } from '../domain/productCharacteristics';
 
@@ -48,50 +49,70 @@ export type MobileAttributeDefinition = Omit<MobileAttribute, 'id' | 'options'> 
   options: Array<Pick<MobileAttributeValue, 'id' | 'value'> & { sortOrder?: number }>;
 };
 
-const normalizeDataType = (dataType?: MobileAttributeDataType): MobileAttributeDataType => {
-  if (dataType === 'text') return 'text_short';
-  if (dataType === 'number') return 'integer';
-  if (dataType === 'list') return 'radio';
-  return dataType || 'text_short';
-};
-
 const isMissingColumn = (error: { code?: string; message?: string } | null, column: string) =>
   Boolean(error && (error.code === '42703' || error.message?.includes(column)));
 
+const ATTRIBUTE_FETCH_PAGE_SIZE = 1000;
+
+const fetchAllAttributeRows = async (queryPage: (firstRow: number, lastRow: number) => any) => {
+  const allRows: any[] = [];
+
+  for (let firstRow = 0; ; firstRow += ATTRIBUTE_FETCH_PAGE_SIZE) {
+    const { data, error } = await queryPage(
+      firstRow,
+      firstRow + ATTRIBUTE_FETCH_PAGE_SIZE - 1
+    );
+    if (error) return { data: null, error };
+
+    const page = data ?? [];
+    allRows.push(...page);
+    if (page.length < ATTRIBUTE_FETCH_PAGE_SIZE) return { data: allRows, error: null };
+  }
+};
+
 const fetchAttributeRows = async () => {
-  let query: any = await supabase
-    .from('attributes')
-    .select('id, name, active, data_type, unit, is_custom, decimal_places, is_globally_required')
-    .order('name', { ascending: true });
-  if (isMissingColumn(query.error, 'decimal_places')) {
-    query = await supabase
+  const fetchWithColumns = (columns: string) => fetchAllAttributeRows((firstRow, lastRow) =>
+    supabase
       .from('attributes')
-      .select('id, name, active, data_type, unit, is_custom, is_globally_required')
-      .order('name', { ascending: true });
+      .select(columns)
+      .order('name', { ascending: true })
+      .order('id', { ascending: true })
+      .range(firstRow, lastRow)
+  );
+
+  let query = await fetchWithColumns(
+    'id, name, active, data_type, unit, is_custom, decimal_places, is_globally_required'
+  );
+  if (isMissingColumn(query.error, 'decimal_places')) {
+    query = await fetchWithColumns(
+      'id, name, active, data_type, unit, is_custom, is_globally_required'
+    );
   }
   if (isMissingColumn(query.error, 'is_custom')) {
-    query = await supabase
-      .from('attributes')
-      .select('id, name, active, data_type, unit, is_globally_required')
-      .order('name', { ascending: true });
+    query = await fetchWithColumns('id, name, active, data_type, unit, is_globally_required');
   }
   if (isMissingColumn(query.error, 'is_globally_required')) {
-    query = await supabase
-      .from('attributes')
-      .select('id, name, active, data_type, unit')
-      .order('name', { ascending: true });
+    query = await fetchWithColumns('id, name, active, data_type, unit');
   }
   if (query.error) throw query.error;
-  return query.data ?? [];
+  return query.data;
 };
 
 const fetchAttributeValues = async () => {
-  let query: any = await supabase.from('attribute_values').select('id, attribute_id, value, sort_order');
+  const fetchWithColumns = (columns: string) => fetchAllAttributeRows((firstRow, lastRow) =>
+    supabase
+      .from('attribute_values')
+      .select(columns)
+      .order('id', { ascending: true })
+      .range(firstRow, lastRow)
+  );
+
+  let query = await fetchWithColumns('id, attribute_id, value, sort_order');
   if (isMissingColumn(query.error, 'sort_order')) {
-    query = await supabase.from('attribute_values').select('id, attribute_id, value');
+    query = await fetchWithColumns('id, attribute_id, value');
   }
   if (query.error) throw query.error;
-  return query.data ?? [];
+  return query.data;
 };
 
 export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
@@ -99,7 +120,14 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
     Promise.all([
       fetchAttributeRows(),
       fetchAttributeValues(),
-      supabase.from('category_attributes').select('attribute_id, category_id, is_required'),
+      fetchAllAttributeRows((firstRow, lastRow) =>
+        supabase
+          .from('category_attributes')
+          .select('attribute_id, category_id, is_required')
+          .order('attribute_id', { ascending: true })
+          .order('category_id', { ascending: true })
+          .range(firstRow, lastRow)
+      ),
     ]),
     'mobile:product-attributes:catalog',
   );
@@ -137,7 +165,7 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
       id: String(attribute.id),
       name: attribute.name,
       active: attribute.active ?? true,
-      dataType: normalizeDataType(attribute.data_type || attribute.dataType),
+      dataType: inferAttributeDataType(attribute.name, attribute.data_type || attribute.dataType),
       decimalPlaces:
         isWeightCharacteristicName(attribute.name) || attribute.data_type === 'weight'
           ? 1
@@ -147,7 +175,7 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
             ? attribute.decimal_places
             : undefined,
       isGloballyRequired:
-        !isWeightCharacteristicName(attribute.name) &&
+        isWeightCharacteristicName(attribute.name) ||
         Boolean(attribute.is_globally_required ?? attribute.isGloballyRequired),
       isCustom: Boolean(attribute.is_custom ?? attribute.isCustom),
       unit: attribute.unit || '',
@@ -158,8 +186,7 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
             .filter((link) => String(link.attribute_id) === String(attribute.id))
             .map((link) => ({
               categoryId: String(link.category_id),
-              isRequired:
-                !isWeightCharacteristicName(attribute.name) && Boolean(link.is_required),
+              isRequired: isWeightCharacteristicName(attribute.name) || Boolean(link.is_required),
             })),
     };
   });
@@ -180,7 +207,7 @@ export const saveMobileAttributeDefinition = async (
     ...(definition.id ? { id: definition.id } : {}),
     name,
     active: definition.active ?? true,
-    dataType: normalizeDataType(definition.dataType),
+    dataType: normalizeAttributeDataType(definition.dataType),
     unit:
       definition.dataType === 'weight'
         ? 'kg'
@@ -194,7 +221,7 @@ export const saveMobileAttributeDefinition = async (
           ? 1
           : undefined,
     isGloballyRequired:
-      !isWeightCharacteristicName(name) && (definition.isGloballyRequired ?? false),
+      isWeightCharacteristicName(name) || (definition.isGloballyRequired ?? false),
     isCustom: definition.isCustom ?? true,
     options: definition.options.map((option, index) => ({
       ...(option.id ? { id: option.id } : {}),
@@ -205,7 +232,7 @@ export const saveMobileAttributeDefinition = async (
   if (definition.categoryAttributes) {
     payload.categoryAttributes = definition.categoryAttributes.map((link) => ({
       categoryId: link.categoryId,
-      isRequired: !isWeightCharacteristicName(name) && link.isRequired,
+      isRequired: isWeightCharacteristicName(name) || link.isRequired,
     }));
   }
 

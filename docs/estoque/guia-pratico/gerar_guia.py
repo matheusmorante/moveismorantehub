@@ -609,7 +609,7 @@ y = step(1, 'Reconte o que estiver diferente', 'Confira se o produto está em ou
 y = step(2, 'Volte à contagem se precisar corrigir', 'Use Voltar para contagem quando encontrar erro. Não conclua um ajuste apenas para eliminar a pendência da tela.', y)
 y = step(3, 'Conclua depois da revisão', 'Só pessoas autorizadas podem finalizar inventários. Se o botão estiver indisponível, peça ajuda a um Gestor ou Estoquista autorizado. Use a conta com que iniciou a confirmação; ela pode ser diferente da pessoa responsável pela contagem. Aguarde a mensagem de sucesso e confira o status.', y)
 y = table(['Status ou ação', 'O que significa na rotina'], [
-    ['Em andamento / Continuar inventário', 'A contagem pode ser retomada. Se fechar a tela, continue o mesmo inventário no aparelho.'],
+    ['Em andamento / Continuar inventário', 'No aparelho em que começou, entre com a mesma conta para continuar. A contagem offline em andamento aparece somente para essa conta.'],
     ['Aguardando envio / Retomar envio', 'Retome o mesmo inventário usando a conta com que iniciou a confirmação. Se não tiver acesso a essa conta, peça ajuda a um Gestor. Não comece outra contagem.'],
     ['Concluído / Ver detalhes', 'Consulte o resultado. Se precisar desfazer algo, peça ajuda a uma pessoa autorizada.'],
 ], y, widths=[190, TW - 190], size=10)
@@ -625,6 +625,7 @@ y = table(['Tipo', 'Como interpretar'], [
     ['Ajuste', 'Corrige a quantidade do estoque, por exemplo, após uma contagem.'],
 ], y, widths=[110, TW - 110], size=10.6)
 y = note('Confira onde a mudança começou', 'Se a mudança veio de um recebimento, abra esse recebimento. Se veio de inventário ou indisponibilidade, abra esse registro. A lista de Produtos não serve para corrigir o estoque diretamente. Em produto composto, confira também os produtos que formam o conjunto.', y, fill=MINT)
+y = para('<b>Listas paginadas:</b> no ERP, escolha a quantidade por página e use as setas ou números. Ao mudar filtros, a lista volta à primeira página. No app, use os números abaixo da lista.', y, size=9.7, leading=13.5, gap=0)
 
 # 24 - Avarias e indisponibilidades
 y = base('09 / Indisponibilidades', 'Registre só o que sai do estoque', 'Avaria, por si só, não é indisponibilidade. Use o registro quando separar a unidade e ela deixar de estar disponível para venda ou uso.')

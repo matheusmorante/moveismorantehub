@@ -1,1 +1,1 @@
-export { normalizeAttributeDataType } from '../../../../shared-utils/attributeDataType';
+export { inferAttributeDataType, normalizeAttributeDataType } from '../../../../shared-utils/attributeDataType';

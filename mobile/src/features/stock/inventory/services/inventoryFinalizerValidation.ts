@@ -142,6 +142,7 @@ export const buildInventorySubmissionDraft = ({
     contractVersion: (useV2 ? 2 : 1) as 1 | 2,
     auditId,
     code,
+    userId: userProfile?.id,
     observation: auditObservation,
     items: payloadItems,
     responsibleName,

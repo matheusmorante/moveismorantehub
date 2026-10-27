@@ -57,6 +57,12 @@ vi.mock('../../supabaseClient', () => ({
       if (state.rpcError) {
         return { data: null, error: state.rpcError };
       }
+      if (fnName === 'claim_inventory_audit_submission') {
+        return {
+          data: { auditId: args.p_audit_id, status: 'claimed' },
+          error: null,
+        };
+      }
       if (fnName === 'sync_entity_operation') {
         const orderId = args.p_entity_id;
         const current = state.ordersById[orderId] || {
@@ -227,6 +233,16 @@ vi.mock('../../supabaseClient', () => ({
           })),
           select: vi.fn(() => query),
           eq: vi.fn(() => query),
+          ilike: vi.fn(() => query),
+          order: vi.fn(() => query),
+          range: vi.fn(async () =>
+            state.connected
+              ? { data: [], error: null }
+              : { data: null, error: new Error('Offline') }
+          ),
+          gte: vi.fn(() => query),
+          lte: vi.fn(() => query),
+          in: vi.fn(() => query),
           single: vi.fn(async () => {
             if (!state.connected) {
               throw new Error('Offline');
@@ -279,15 +295,19 @@ import {
 import {
   freezeInventorySubmission,
   getInventorySubmission,
-  deleteInventorySubmission,
 } from '../../sqlite/inventoryOutbox';
 import { saveLocalInventoryCatalogSnapshot } from '../../sqlite/inventoryCatalog';
 import { clearOfflineInventoryCatalogCache } from '../../../features/stock/inventory/services/offlineInventoryCatalog';
 import { syncPendingInventorySubmissions } from '../../../features/stock/inventory/services/inventoryFinalizer';
 import {
   deleteInventoryDraft,
+  fetchInventorySessions,
   fetchInventorySessionDetails,
 } from '../../stock/stockInventoryService';
+import {
+  INVENTORY_SESSION_DETAILS_CACHE_KEY,
+  INVENTORY_SESSIONS_CACHE_KEY,
+} from '../../stock/inventory/inventorySessionQueryService';
 import {
   completeGoodsReceiptCheck,
   fetchReceipts,
@@ -323,6 +343,7 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
     await db.runAsync('DELETE FROM sync_queue');
     await db.runAsync('DELETE FROM orders_local');
     await clearAllLocalInventoryDrafts();
+    await db.runAsync('DELETE FROM inventory_outbox_local');
     await offlineStorageService.cacheWorkingSet('schedule_calendar_events_pending_v1', []);
     await offlineStorageService.cacheWorkingSet('schedule_calendar_events_v1', []);
     await offlineStorageService.cacheWorkingSet(GOODS_RECEIPTS_PENDING_SYNC_KEY, []);
@@ -520,6 +541,7 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
 
     await saveLocalInventoryDraft({
       id: conflictAuditId,
+      userId: 'user-driver-1',
       code: 'INV-CONF-01',
       name: 'Inventário com Variação Mesclada',
       hasStages: false,
@@ -552,14 +574,15 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
     state.connected = true;
     const syncedConflictCount = await syncPendingInventorySubmissions('user-driver-1');
     expect(syncedConflictCount).toBe(0);
-    expect(await getInventorySubmission(conflictAuditId)).not.toBeNull();
-    await deleteInventoryDraft(conflictAuditId);
+    expect(await getInventorySubmission(conflictAuditId, 'user-driver-1')).not.toBeNull();
+    await deleteInventoryDraft(conflictAuditId, 'user-driver-1');
 
     // Agora testa submissão íntegra sem conflitos
     const validAuditId = 'audit-valid-1';
     state.connected = false;
     await saveLocalInventoryDraft({
       id: validAuditId,
+      userId: 'user-driver-1',
       code: 'INV-OK-01',
       name: 'Inventário Galpão Íntegro',
       hasStages: false,
@@ -580,13 +603,13 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
       userId: 'user-driver-1',
     });
 
-    const detailsOffline = await fetchInventorySessionDetails(validAuditId);
+    const detailsOffline = await fetchInventorySessionDetails(validAuditId, 'user-driver-1');
     expect(detailsOffline.inventoryCode).toBe('INV-OK-01');
 
     state.connected = true;
     expect(await syncPendingInventorySubmissions('user-driver-1')).toBe(1);
-    expect(await getLocalInventoryDraft(validAuditId)).toBeNull();
-    expect(await getInventorySubmission(validAuditId)).toBeNull();
+    expect(await getLocalInventoryDraft(validAuditId, 'user-driver-1')).toBeNull();
+    expect(await getInventorySubmission(validAuditId, 'user-driver-1')).toBeNull();
   });
 
   it('6. Recebimentos: salva rascunho de conferência de volumes, conclui offline, sincroniza ao reconectar e respeita estorno no servidor', async () => {
@@ -700,15 +723,20 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
 
     // Usuário A faz logout e Usuário B faz login no mesmo aparelho; internet volta
     state.activeSessionUserId = 'user-operator-B';
-    offlineSyncManager.setCurrentUserId('user-operator-B');
     state.connected = true;
+
+    // Uma chamada atrasada com o ID antigo não pode sincronizar sob a sessão nova.
+    expect(await syncPendingInventorySubmissions('user-operator-A')).toBe(0);
+    expect(await getInventorySubmission('inv-user-A', 'user-operator-A')).not.toBeNull();
+
+    offlineSyncManager.setCurrentUserId('user-operator-B');
 
     await offlineSyncManager.processQueue();
 
     // NENHUMA operação do Usuário A pode ter sido enviada na sessão do Usuário B
     expect(state.ordersById[orderId].order_data.deliveryStatus).toBeUndefined();
     expect(state.calendarInserted).toHaveLength(0);
-    expect(await getInventorySubmission('inv-user-A')).not.toBeNull();
+    expect(await getInventorySubmission('inv-user-A', 'user-operator-A')).not.toBeNull();
     expect(await getPendingGoodsReceiptChecks()).toHaveLength(1);
 
     // Quando o Usuário A volta a logar no aparelho, todas as suas operações pendentes são sincronizadas
@@ -719,8 +747,30 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
 
     expect(state.ordersById[orderId].order_data.deliveryStatus).toBe('in_progress');
     expect(state.calendarInserted).toHaveLength(1);
-    expect(await getInventorySubmission('inv-user-A')).toBeNull();
+    expect(await getInventorySubmission('inv-user-A', 'user-operator-A')).toBeNull();
     expect(await getPendingGoodsReceiptChecks()).toHaveLength(0);
+  });
+
+  it('isola listas e detalhes de inventários em cache quando outra conta usa o mesmo aparelho', async () => {
+    const inventoryId = 'inventory-cache-user-A';
+    const cachedDetails = { inventoryAudit: true, inventoryCode: 'INV-A', items: [] };
+    const cachedSessions = [{ id: inventoryId, status: 'completed', inventoryCode: 'INV-A' }];
+    await offlineStorageService.cacheWorkingSet(
+      `${INVENTORY_SESSION_DETAILS_CACHE_KEY}:user-operator-A`,
+      { [inventoryId]: cachedDetails }
+    );
+    await offlineStorageService.cacheWorkingSet(
+      `${INVENTORY_SESSIONS_CACHE_KEY}:user-operator-A`,
+      cachedSessions
+    );
+
+    state.connected = false;
+    await expect(fetchInventorySessionDetails(inventoryId, 'user-operator-B')).rejects.toThrow(
+      'Não foi possível carregar os detalhes'
+    );
+    expect(await fetchInventorySessions(0, undefined, undefined, 'user-operator-B')).toEqual([]);
+    expect(await fetchInventorySessionDetails(inventoryId, 'user-operator-A')).toEqual(cachedDetails);
+    expect(await fetchInventorySessions(0, undefined, undefined, 'user-operator-A')).toEqual(cachedSessions);
   });
 
   it('restaura o perfil aprovado em cache quando o app abre offline sem rebaixar para pending', async () => {

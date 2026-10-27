@@ -302,6 +302,8 @@ export const ProductFormBasicTab: React.FC<Props> = ({
     }
     setFormData((previous) => {
       const currentVariations = Array.isArray(previous.variations) ? previous.variations : [];
+      const isConvertingSimpleProduct =
+        hasVariations && !previous.hasVariations && currentVariations.length <= 1;
       const shouldInheritSimpleFields =
         !isExistingProduct &&
         !hasVariations &&
@@ -311,6 +313,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
       return {
         ...previous,
         hasVariations,
+        ...(isConvertingSimpleProduct ? { variableTechnicalFields: [] } : {}),
         ...(shouldLinkSimpleGallery
           ? {
               variations: [

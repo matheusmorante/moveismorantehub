@@ -45,6 +45,7 @@ export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Modelo', 'Marca'] as const
 export const GLOBAL_REQUIRED_ATTRIBUTE_NAMES = [
   ...REQUIRED_CHARACTERISTIC_NAMES,
   ...REQUIRED_DIMENSION_NAMES,
+  'Peso',
 ] as const;
 
 export const PRIMARY_CHARACTERISTIC_NAMES = [

@@ -1,9 +1,17 @@
+import { omitAbsentCompositionVariationIds } from './productCompositionSerialization';
+
 type UnknownRecord = Record<string, any>;
 
 const asRecord = (value: unknown): UnknownRecord | null =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as UnknownRecord)
     : null;
+
+/** Shared product lifecycle predicate used by ERP and mobile save paths. */
+export const isProductDraft = (product: unknown): boolean => {
+  const record = asRecord(product);
+  return Boolean(record?.isDraft) || Boolean(record?.is_draft) || record?.status === 'draft';
+};
 
 export const removeInitialStockFields = <T extends object>(data: T): T => {
   const result = { ...data } as T & Record<string, unknown>;
@@ -13,9 +21,19 @@ export const removeInitialStockFields = <T extends object>(data: T): T => {
   return result;
 };
 
+const normalizeCompositionSnapshot = <T extends UnknownRecord>(data: T): T => {
+  const result = { ...data } as T & UnknownRecord;
+  for (const field of ['comboItems', 'combo_items']) {
+    if (Array.isArray(result[field])) {
+      result[field] = omitAbsentCompositionVariationIds(result[field]);
+    }
+  }
+  return result;
+};
+
 /** Creates the editable draft snapshot shared by the ERP and mobile clients. */
 export function createProductDraftSnapshot<T extends UnknownRecord>(product: T): T {
-  const snapshot = removeInitialStockFields(product) as T & Record<string, any>;
+  const snapshot = normalizeCompositionSnapshot(removeInitialStockFields(product)) as T & Record<string, any>;
   delete snapshot.technicalSpecs;
   delete snapshot.technical_specs;
   // Parent discounts are derived from unitPrice/promoPrice and live outside
@@ -30,7 +48,7 @@ export function createProductDraftSnapshot<T extends UnknownRecord>(product: T):
     status: 'draft',
     variations: Array.isArray(product.variations)
       ? product.variations.map((variation: UnknownRecord) => ({
-          ...removeInitialStockFields(variation),
+          ...normalizeCompositionSnapshot(removeInitialStockFields(variation)),
           active: false,
           status: 'hidden',
         }))

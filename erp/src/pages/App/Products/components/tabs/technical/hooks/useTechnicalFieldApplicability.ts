@@ -6,11 +6,17 @@ import {
   mergeCharacteristicGroups,
   isYesNoValueActive,
   isChairWeightCapacityCharacteristic,
+  isDoorQuantityCharacteristic,
+  isDrawerQuantityCharacteristic,
   getCharacteristicDependencyState,
   isTechnicalFieldVariable,
   resolveVariableTechnicalFieldNames,
 } from '@/pages/utils/technicalValuesService';
-import { isSofaCategoryName } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
+import { isDependentCharacteristicVisible } from '../../../../../../../../../shared-utils/productCharacteristicDependencies';
+import {
+  isSofaCategoryName,
+  isWardrobeCategoryName,
+} from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
 import {
   normalizeSearchTerm,
   isOptionalFieldSelected,
@@ -48,6 +54,7 @@ export const useTechnicalFieldApplicability = ({
   debouncedCharacteristicSearchTerm,
 }: UseTechnicalFieldApplicabilityParams) => {
   const isSofaCategorySelected = isSofaCategoryName(categoryName);
+  const isWardrobeCategorySelected = isWardrobeCategoryName(categoryName);
   const isChairCategorySelected = /(?:^|[^a-z0-9])cadeiras?(?=$|[^a-z0-9])/i.test(
     normalizeSearchTerm(categoryName)
   );
@@ -105,6 +112,23 @@ export const useTechnicalFieldApplicability = ({
     )
   );
 
+  if (isWardrobeCategorySelected) {
+    sofaTechnicalFields
+      .filter(
+        (field) =>
+          isDoorQuantityCharacteristic(field.name) ||
+          isDrawerQuantityCharacteristic(field.name)
+      )
+      .forEach((field) => {
+        const key = normalizeSearchTerm(field.name);
+        applicableFieldsByName.set(key, {
+          ...field,
+          ...applicableFieldsByName.get(key),
+          isRequired: true,
+        });
+      });
+  }
+
   if (isSofaCategorySelected) {
     applicableFieldsByName.set(normalizeSearchTerm(retractableField.name), {
       ...retractableField,
@@ -129,11 +153,7 @@ export const useTechnicalFieldApplicability = ({
   }
 
   const applicableFields = Array.from(applicableFieldsByName.values()).map((field) => {
-    const normalizedName = normalizeSearchTerm(field.name);
     if (!isSofaCategorySelected) return field;
-    if (normalizedName === 'profundidade' || normalizedName === 'profundidade total') {
-      return { ...field, isRequired: false, isRequiredForCatalog: false };
-    }
     if (isOpenClosedSofaDepth(field.name)) {
       return { ...field, isRequired: isSofaRetractableActive };
     }
@@ -164,14 +184,27 @@ export const useTechnicalFieldApplicability = ({
     formData.variableTechnicalFields,
     formData.variations || []
   );
+  const isMultiVariationProduct =
+    Boolean(formData.hasVariations) || (formData.variations || []).length > 1;
   const technicalValues = formData.technicalValues || {};
-  const hasExplicitValue = (field: TechnicalFieldDefinition) =>
-    Object.entries(technicalValues).some(
-      ([name, value]) =>
-        normalizeSearchTerm(name) === normalizeSearchTerm(field.name) &&
-        value !== undefined &&
-        value !== null
+  const hasExplicitValue = (field: TechnicalFieldDefinition) => {
+    const entry = Object.entries(technicalValues).find(
+      ([name]) => normalizeSearchTerm(name) === normalizeSearchTerm(field.name)
     );
+    if (!entry) return false;
+
+    const value = entry[1];
+    if (typeof value === 'string') {
+      const normalizedValue = normalizeSearchTerm(value);
+      if (!normalizedValue) {
+        // Campo opcional vazio é o marcador persistido do botão Global ligado.
+        return !field.isRequired && !field.isRequiredForCatalog;
+      }
+      return !['nao se aplica', 'n/a', 'nao informar'].includes(normalizedValue);
+    }
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== undefined && value !== null;
+  };
   const isGloballySelected = (field: TechnicalFieldDefinition) =>
     hasExplicitValue(field) || isOptionalFieldSelected(field, formData, []);
 
@@ -180,26 +213,25 @@ export const useTechnicalFieldApplicability = ({
     if (!dependency.isDependent) {
       return (
         isGloballySelected(field) ||
-        isTechnicalFieldVariable(field.name, variableTechnicalFieldNames)
+        (isMultiVariationProduct &&
+          isTechnicalFieldVariable(field.name, variableTechnicalFieldNames))
       );
     }
 
-    if (!dependency.masterFieldLabel) return false;
-    const masterField = allTechnicalFields.find(
-      (candidate) =>
-        normalizeSearchTerm(candidate.name) ===
-        normalizeSearchTerm(dependency.masterFieldLabel!)
-    );
-    if (!masterField) return false;
-
-    const masterIsVariable = isTechnicalFieldVariable(
-      masterField.name,
-      variableTechnicalFieldNames
-    );
-    return (
-      masterIsVariable ||
-      (isGloballySelected(masterField) && !dependency.isDisabled)
-    );
+    const masterField = dependency.masterFieldLabel
+      ? allTechnicalFields.find(
+          (candidate) =>
+            normalizeSearchTerm(candidate.name) ===
+            normalizeSearchTerm(dependency.masterFieldLabel!)
+        )
+      : undefined;
+    return isDependentCharacteristicVisible(dependency, {
+      masterFieldExists: Boolean(masterField),
+      masterIsVariable: isMultiVariationProduct && masterField
+        ? isTechnicalFieldVariable(masterField.name, variableTechnicalFieldNames)
+        : false,
+      masterIsSelected: masterField ? isGloballySelected(masterField) : false,
+    });
   };
 
   const filledOrManualOptionalFields = optionalFields.filter(

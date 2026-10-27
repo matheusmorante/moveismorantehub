@@ -70,6 +70,10 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
             </TouchableOpacity>
           </View>
 
+          <ScrollView
+            style={styles.filterOptionsScroll}
+            contentContainerStyle={styles.filterOptionsContent}
+          >
           {!showTrash && <Text style={[styles.filterLabel, dark && styles.light]}>Situação no ERP</Text>}
           {!showTrash && <View style={styles.choiceRow}>
             {(
@@ -82,6 +86,9 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
             ).map(([value, label]) => (
               <TouchableOpacity
                 key={value}
+                accessibilityRole="radio"
+                accessibilityLabel={`Situação no ERP: ${label}`}
+                accessibilityState={{ checked: statusFilter === value }}
                 onPress={() => onStatusFilterChange(value)}
                 style={[styles.choice, statusFilter === value && styles.choiceActive]}
               >
@@ -107,6 +114,9 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
                 ).map(([value, label]) => (
                   <TouchableOpacity
                     key={value}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`Tipo geral: ${label}`}
+                    accessibilityState={{ checked: generalTypeFilter === value }}
                     onPress={() => onGeneralTypeFilterChange?.(value)}
                     style={[styles.choice, generalTypeFilter === value && styles.choiceActive]}
                   >
@@ -163,6 +173,9 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
             ).map(([value, label]) => (
               <TouchableOpacity
                 key={value}
+                accessibilityRole="radio"
+                accessibilityLabel={`Catálogo digital: ${label}`}
+                accessibilityState={{ checked: catalogStatusFilter === value }}
                 onPress={() => onCatalogStatusFilterChange(value)}
                 style={[styles.choice, catalogStatusFilter === value && styles.choiceActive]}
               >
@@ -187,6 +200,9 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
                 contentContainerStyle={styles.choiceRow}
               >
                 <TouchableOpacity
+                  accessibilityRole="radio"
+                  accessibilityLabel="Categoria: Todas as Categorias"
+                  accessibilityState={{ checked: !categoryFilter }}
                   onPress={() => onCategoryFilterChange('')}
                   style={[styles.choice, !categoryFilter && styles.choiceActive]}
                 >
@@ -197,6 +213,9 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
                 {categories.map((category) => (
                   <TouchableOpacity
                     key={category.id}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`Categoria: ${category.name}`}
+                    accessibilityState={{ checked: categoryFilter === String(category.id) }}
                     onPress={() => onCategoryFilterChange(String(category.id))}
                     style={[
                       styles.choice,
@@ -216,6 +235,7 @@ export const ProductsHeaderFiltersSheet: React.FC<ProductsHeaderFiltersSheetProp
               </ScrollView>
             </>
           )}
+          </ScrollView>
 
           <View style={styles.filterActions}>
             {onResetFilters && (

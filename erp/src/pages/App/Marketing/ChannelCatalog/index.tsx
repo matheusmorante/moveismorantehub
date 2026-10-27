@@ -142,8 +142,11 @@ export function ChannelCatalog() {
           <ChannelCatalogPagination
             currentPage={state.currentPage}
             totalPages={state.totalPages}
+            totalItems={state.totalCount}
+            itemsPerPage={state.itemsPerPage}
             loading={state.loading}
             onPageChange={(page) => actions.fetchData(page)}
+            onPageSizeChange={actions.setItemsPerPage}
           />
         </div>
       )}

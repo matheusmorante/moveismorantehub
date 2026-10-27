@@ -1,5 +1,6 @@
 export {
   getCharacteristicDependencyState,
+  isDependentCharacteristicVisible,
   isCharacteristicDependent,
   isCharacteristicDependentOnVariableField,
   isDoorDependentCharacteristic,
@@ -12,4 +13,5 @@ export {
   isHasDrawersCharacteristic,
   isQuantityCharacteristic,
   type CharacteristicDependencyState,
+  type DependentCharacteristicVisibilityContext,
 } from '../erp/src/pages/utils/technicalValuesService';

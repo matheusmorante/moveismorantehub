@@ -55,7 +55,7 @@ describe('ProductTechnicalTab Component', () => {
       await screen.findByRole('heading', { name: 'Características principais' })
     ).toBeDefined();
     const dimensionsHeading = screen.getByText('Dimensões e Peso');
-    expect(dimensionsHeading.closest('details')).not.toBeNull();
+    expect(dimensionsHeading.closest('section')).not.toBeNull();
     expect(
       screen
         .getByRole('heading', { name: 'Características principais' })

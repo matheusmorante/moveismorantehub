@@ -274,19 +274,19 @@ describe('useProducts query snapshot', () => {
     await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(2));
 
     mocks.fetchProductsPage.mockClear();
-    act(() => result.current.handleItemsPerPageChange(10));
+    act(() => result.current.handleItemsPerPageChange(30));
 
     await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
     expect(mocks.fetchProductsPage).toHaveBeenCalledWith(
       1,
-      10,
+      30,
       expect.any(Object),
       { throwOnError: true }
     );
     expect(result.current.currentPage).toBe(1);
-    expect(result.current.itemsPerPage).toBe(10);
+    expect(result.current.itemsPerPage).toBe(30);
     expect(result.current.totalItems).toBe(40);
-    expect(result.current.totalPages).toBe(4);
+    expect(result.current.totalPages).toBe(2);
   });
 
   it('includes test-product visibility in the query key and server filter', async () => {

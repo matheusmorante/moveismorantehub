@@ -68,7 +68,15 @@ export const applyDepthLengthToggleToProduct = (
   actualNewName: string
 ): Partial<Product> => {
   const tv = { ...(prev.technicalValues || {}) };
-  const currentValue = tv[oldName];
+  const sourceValue = tv[oldName];
+  const targetValue = tv[actualNewName];
+  const hasValue = (value: unknown) =>
+    value !== undefined && value !== null && String(value).trim() !== '';
+  const currentValue = hasValue(sourceValue)
+    ? sourceValue
+    : hasValue(targetValue)
+      ? targetValue
+      : sourceValue ?? targetValue ?? '';
 
   if (currentValue !== undefined) {
     tv[actualNewName] = currentValue;
@@ -80,7 +88,7 @@ export const applyDepthLengthToggleToProduct = (
   const next: Partial<Product> = {
     ...prev,
     technicalValues: tv,
-    depth: parseNumericDimension(currentValue),
+    depth: parseProductTechnicalDimension(currentValue),
   };
 
   return syncProductWithVariations(next);

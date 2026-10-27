@@ -8,6 +8,9 @@ import { withTimeout } from '../../../../../shared-utils/withTimeout';
 export const INVENTORY_SESSIONS_CACHE_KEY = 'inventory_sessions_cache_v1';
 export const INVENTORY_SESSION_DETAILS_CACHE_KEY = 'inventory_session_details_cache_v1';
 
+const getUserScopedCacheKey = (baseKey: string, userId?: string | null) =>
+  userId ? `${baseKey}:${userId}` : null;
+
 const extractSessionCodesFromMarkers = (markerMoves: any[]): string[] =>
   markerMoves
     .map((m) => {
@@ -93,11 +96,14 @@ const mapInventorySessionMarker = (
 export const fetchInventorySessions = async (
   page: number,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  userId?: string | null
 ) => {
   const from = page * ITEMS_PER_PAGE;
   const to = from + ITEMS_PER_PAGE - 1;
   const period = getStockPeriod(startDate, endDate);
+  const sessionsCacheKey = getUserScopedCacheKey(INVENTORY_SESSIONS_CACHE_KEY, userId);
+  const detailsCacheKey = getUserScopedCacheKey(INVENTORY_SESSION_DETAILS_CACHE_KEY, userId);
 
   try {
     let query = supabase
@@ -120,21 +126,23 @@ export const fetchInventorySessions = async (
 
     // Cachear detalhes (observation) das sessões remotas para consulta/duplicação offline
     try {
-      const existingDetails =
-        (
-          await offlineStorageService.getWorkingSet<Record<string, any>>(
-            INVENTORY_SESSION_DETAILS_CACHE_KEY
-          )
-        )?.data || {};
-      const nextDetails: Record<string, any> = { ...existingDetails };
-      for (const m of markerMoves) {
-        if (m.id && m.observation) {
-          try {
-            nextDetails[m.id] = JSON.parse(m.observation);
-          } catch {}
+      if (detailsCacheKey) {
+        const existingDetails =
+          (
+            await offlineStorageService.getWorkingSet<Record<string, any>>(
+              detailsCacheKey
+            )
+          )?.data || {};
+        const nextDetails: Record<string, any> = { ...existingDetails };
+        for (const m of markerMoves) {
+          if (m.id && m.observation) {
+            try {
+              nextDetails[m.id] = JSON.parse(m.observation);
+            } catch {}
+          }
         }
+        await offlineStorageService.cacheWorkingSet(detailsCacheKey, nextDetails);
       }
-      await offlineStorageService.cacheWorkingSet(INVENTORY_SESSION_DETAILS_CACHE_KEY, nextDetails);
     } catch {}
 
     const sessionCodes = extractSessionCodesFromMarkers(markerMoves);
@@ -160,19 +168,19 @@ export const fetchInventorySessions = async (
       .map((m) => mapInventorySessionMarker(m, adjustmentsBySession))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    if (page === 0) {
+    if (page === 0 && sessionsCacheKey) {
       await offlineStorageService
-        .cacheWorkingSet(INVENTORY_SESSIONS_CACHE_KEY, mappedSessions)
+        .cacheWorkingSet(sessionsCacheKey, mappedSessions)
         .catch(() => {});
     }
 
     return mappedSessions;
   } catch (error) {
     console.warn('Erro ao buscar auditorias de inventário (usando fallback offline):', error);
-    if (page === 0) {
+    if (page === 0 && sessionsCacheKey) {
       try {
         const cached = await offlineStorageService.getWorkingSet<any[]>(
-          INVENTORY_SESSIONS_CACHE_KEY
+          sessionsCacheKey
         );
         if (Array.isArray(cached?.data)) {
           return cached.data;
@@ -204,10 +212,14 @@ export const getNextInventoryCode = async (
   return data;
 };
 
-export const fetchInventorySessionDetails = async (sessionId: string) => {
+export const fetchInventorySessionDetails = async (
+  sessionId: string,
+  userId?: string | null
+) => {
+  const detailsCacheKey = getUserScopedCacheKey(INVENTORY_SESSION_DETAILS_CACHE_KEY, userId);
   // 1. Verificar primeiro se é um rascunho ou submissão congelada no SQLite local
   try {
-    const localDraft = await getLocalInventoryDraft(sessionId);
+    const localDraft = await getLocalInventoryDraft(sessionId, userId);
     if (localDraft) {
       return {
         inventoryAudit: true,
@@ -224,7 +236,7 @@ export const fetchInventorySessionDetails = async (sessionId: string) => {
   } catch {}
 
   try {
-    const localSubmission = await getInventorySubmission(sessionId);
+    const localSubmission = await getInventorySubmission(sessionId, userId);
     if (localSubmission?.observation) {
       return localSubmission.observation;
     }
@@ -248,11 +260,13 @@ export const fetchInventorySessionDetails = async (sessionId: string) => {
 
   // 3. Fallback no cache local de sessões sincronizadas
   try {
-    const cachedDetails = await offlineStorageService.getWorkingSet<Record<string, any>>(
-      INVENTORY_SESSION_DETAILS_CACHE_KEY
-    );
-    if (cachedDetails?.data?.[sessionId]) {
-      return cachedDetails.data[sessionId];
+    if (detailsCacheKey) {
+      const cachedDetails = await offlineStorageService.getWorkingSet<Record<string, any>>(
+        detailsCacheKey
+      );
+      if (cachedDetails?.data?.[sessionId]) {
+        return cachedDetails.data[sessionId];
+      }
     }
   } catch {}
 

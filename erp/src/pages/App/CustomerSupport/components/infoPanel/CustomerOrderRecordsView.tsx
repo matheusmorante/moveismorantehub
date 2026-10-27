@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { supportCustomerRecordFiltersSchema, type SupportCustomerRecordFiltersInput } from '../../../../../../../shared-utils/customerSupportFormSchemas';
 import {
   formatBRL,
@@ -13,7 +13,7 @@ import {
 } from '@/pages/utils/customerSupport/supportOrdersService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 
-const PAGE_SIZE = 20;
+const CUSTOMER_RECORD_PAGE_SIZES = [15, 30, 50] as const;
 const STATUS_OPTIONS: Record<SupportCustomerOrderGroup, Array<{ value: string; label: string }>> = {
   sales: [
     { value: 'draft', label: 'Rascunho' },
@@ -189,6 +189,7 @@ export const CustomerOrderRecordsView: React.FC<CustomerOrderRecordsViewProps> =
   onShareBudget,
 }) => {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const [appliedFilters, setAppliedFilters] = useState<SupportCustomerRecordFiltersInput>({ search: '', status: '' });
   const [records, setRecords] = useState<SupportOrderSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -208,7 +209,7 @@ export const CustomerOrderRecordsView: React.FC<CustomerOrderRecordsViewProps> =
     try {
       const result = await getCustomerOrderRecordsPage(supabase, customerId, orderGroup, {
         page: requestPage,
-        pageSize: PAGE_SIZE,
+        pageSize,
         search: filters.search,
         status: filters.status,
       });
@@ -222,7 +223,7 @@ export const CustomerOrderRecordsView: React.FC<CustomerOrderRecordsViewProps> =
     } finally {
       if (generation === generationRef.current) setIsLoading(false);
     }
-  }, [canViewCommercial, customerId, isLinked, orderGroup]);
+  }, [canViewCommercial, customerId, isLinked, orderGroup, pageSize]);
 
   useEffect(() => {
     const generation = ++generationRef.current;
@@ -250,9 +251,6 @@ export const CustomerOrderRecordsView: React.FC<CustomerOrderRecordsViewProps> =
   }
   if (selectedRecord) return <OrderRecordDetails record={selectedRecord} canShareBudget={canShareBudget} onShareBudget={onShareBudget} />;
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const firstRecord = total === 0 ? 0 : ((page - 1) * PAGE_SIZE) + 1;
-  const lastRecord = Math.min(page * PAGE_SIZE, total);
   const isBudgetList = orderGroup === 'budgets';
 
   return (
@@ -324,19 +322,20 @@ export const CustomerOrderRecordsView: React.FC<CustomerOrderRecordsViewProps> =
         })}
       </div>
 
-      {total > 0 && (
-        <div className="flex flex-col gap-3 border-t border-slate-200 pt-3 text-[10px] text-slate-500 dark:border-slate-800">
-          <span>Exibindo {firstRecord}–{lastRecord} de {total}</span>
-          <FixedPageSlots
-            ariaLabel="Paginação de registros do cliente"
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            loading={isLoading}
-            className="w-full"
-          />
-        </div>
-      )}
+      <ERPListPagination
+        ariaLabel="Paginação de registros do cliente"
+        page={page}
+        pageSize={pageSize}
+        totalItems={total}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPage(1);
+          setPageSize(size);
+        }}
+        pageSizeOptions={CUSTOMER_RECORD_PAGE_SIZES}
+        preferenceKey={`customer-records:${orderGroup}`}
+        loading={isLoading}
+      />
     </div>
   );
 };

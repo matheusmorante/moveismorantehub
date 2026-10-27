@@ -9,7 +9,10 @@ import {
   resolveSubmittedMobileProductSearch,
   shouldExcludeMobileDraftsDuringSearch,
 } from './mobileProductListFilters';
-import { productListFormSchema } from '../../../../../shared-utils/listingFormSchemas';
+import {
+  PRODUCT_LIST_PAGE_SIZES,
+  productListFormSchema,
+} from '../../../../../shared-utils/listingFormSchemas';
 
 describe('mobileProductListFilters', () => {
   it('usa os padrões do ERP ao limpar filtros', () => {
@@ -119,5 +122,24 @@ describe('mobileProductListFilters', () => {
     expect(productListFormSchema.safeParse({ ...filters, showMergedProducts: false }).success).toBe(true);
     expect(productListFormSchema.safeParse({ ...filters, showMergedProducts: true }).success).toBe(true);
     expect(productListFormSchema.safeParse({ ...filters, showMergedProducts: 'true' }).success).toBe(false);
+  });
+
+  it.each(PRODUCT_LIST_PAGE_SIZES)('accepts the ERP page size %i in the mobile product-list schema', (itemsPerPage) => {
+    const filters = {
+      page: 1,
+      itemsPerPage,
+      search: '',
+      statusFilter: 'all',
+      category: '',
+      catalogStatus: 'all',
+      itemType: 'standard',
+      generalType: 'all',
+      includeDeactivated: true,
+      showTrash: false,
+      showTestProducts: false,
+      showMergedProducts: false,
+    };
+
+    expect(productListFormSchema.safeParse(filters).success).toBe(true);
   });
 });

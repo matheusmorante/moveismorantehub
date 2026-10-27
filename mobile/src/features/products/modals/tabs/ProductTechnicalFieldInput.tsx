@@ -18,6 +18,7 @@ import {
 } from '../../domain/technicalFieldInputRules';
 import { isQuantityCharacteristic } from '../../../../../../shared-utils/productCharacteristicDependencies';
 import {
+  getTechnicalFieldIntegerMaxValue,
   isWeightCapacityCharacteristic,
   isWeightCharacteristicName,
 } from '../../../../../../shared-utils/productTechnicalFieldRules';
@@ -98,17 +99,6 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
   const inputMode = getTechnicalFieldInputMode(type, options.length);
   const selectedValues = useMemo(() => getSelectedValues(value), [value]);
   const stringValue = Array.isArray(value) ? value.join(', ') : String(value ?? '');
-  const renderClearSelection = () => (
-    <TouchableOpacity
-      disabled={disabled}
-      onPress={() => onChange('')}
-      accessibilityRole="button"
-      accessibilityLabel={`Limpar ${field.name}`}
-      style={[styles.clearSelectionButton, disabled && styles.disabled]}
-    >
-      <Text style={[styles.clearSelectionText, dark && styles.lightText]}>Limpar seleção</Text>
-    </TouchableOpacity>
-  );
 
   useEffect(() => {
     setDecimalDraft(
@@ -130,6 +120,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
   }
 
   if (type === 'integer' || type === 'number') {
+    const maxValue = getTechnicalFieldIntegerMaxValue(field.name);
     return (
       <TextInput
         editable={!disabled}
@@ -149,7 +140,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
           if (!/^\d+$/.test(text)) return;
           const numeric = Number(text);
           if (!Number.isSafeInteger(numeric)) return;
-          onChange(numeric);
+          onChange(Math.min(maxValue, numeric));
         }}
         keyboardType="number-pad"
         placeholder={getTechnicalFieldIntegerPlaceholder(field.name)}
@@ -274,7 +265,6 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
             );
           })}
         </View>
-        {currentValue !== '' && renderClearSelection()}
       </View>
     );
   }
@@ -310,7 +300,6 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
             );
           })}
         </View>
-        {type !== 'multi_select' && selectedValues.length > 0 && renderClearSelection()}
       </View>
     );
   }
@@ -322,20 +311,12 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
         {multiple && selectedValues.length > 0 && (
           <View style={styles.chips}>
             {selectedValues.map((selected) => (
-              <TouchableOpacity
+              <View
                 key={selected}
-                disabled={disabled}
-                onPress={() =>
-                  onChange(
-                    selectedValues.filter(
-                      (item) => normalizeValue(item) !== normalizeValue(selected)
-                    )
-                  )
-                }
                 style={[styles.chip, styles.selectedChip, disabled && styles.disabled]}
               >
-                <Text style={[styles.chipText, styles.selectedText]}>{selected} ×</Text>
-              </TouchableOpacity>
+                <Text style={[styles.chipText, styles.selectedText]}>{selected}</Text>
+              </View>
             ))}
           </View>
         )}
@@ -462,13 +443,6 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   booleanOptions: { flexDirection: 'row', gap: 8 },
-  clearSelectionButton: {
-    alignSelf: 'flex-start',
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  clearSelectionText: { color: '#2563eb', fontSize: 12 },
   booleanOption: {
     flex: 1,
     minHeight: 44,

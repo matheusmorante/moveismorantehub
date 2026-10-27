@@ -68,6 +68,12 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
           if (trimmed.toUpperCase().includes('ON CONFLICT') && existingIndex >= 0) {
             if (trimmed.toUpperCase().includes('DO NOTHING'))
               return { changes: 0, lastInsertRowId: 0 };
+            if (
+              trimmed.includes('WHERE inventory_drafts_local.user_id = excluded.user_id') &&
+              this.tables[tableName][existingIndex].user_id !== row.user_id
+            ) {
+              return { changes: 0, lastInsertRowId: 0 };
+            }
             this.tables[tableName][existingIndex] = {
               ...this.tables[tableName][existingIndex],
               ...row,
@@ -83,10 +89,11 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
       if (match && match[1]) {
         const tableName = match[1];
         const rows = this.tables[tableName] || [];
-        const targetId = params[params.length - 1];
+        const ownerScoped = /WHERE\s+id\s*=\s*\?\s+AND\s+user_id\s*=\s*\?/i.test(trimmed);
+        const targetId = ownerScoped ? params[params.length - 2] : params[params.length - 1];
         let changes = 0;
         rows.forEach((r) => {
-          if (r.id === targetId) {
+          if (r.id === targetId && (!ownerScoped || r.user_id === params[params.length - 1])) {
             changes++;
             if (trimmed.includes("status = 'pending_sync'")) {
               r.status = 'pending_sync';
@@ -134,8 +141,11 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
               (r) => r.inventory_id !== params[0]
             );
           } else {
+            const ownerScoped = /WHERE\s+id\s*=\s*\?\s+AND\s+user_id\s*=\s*\?/i.test(trimmed);
             this.tables[tableName] = (this.tables[tableName] || []).filter(
-              (r) => r.id !== params[0]
+              (r) =>
+                r.id !== params[0] ||
+                (ownerScoped && r.user_id !== params[1])
             );
           }
           return { changes: initial - this.tables[tableName].length, lastInsertRowId: 0 };
@@ -152,8 +162,17 @@ class InMemoryDatabaseDriver implements DatabaseDriver {
     if (match && match[1]) {
       const tableName = match[1];
       const rows = this.tables[tableName] || [];
+      if (/WHERE\s+id\s*=\s*\?\s+AND\s+user_id\s*=\s*\?/i.test(sql) && params.length >= 2) {
+        return rows.filter((r) => r.id === params[0] && r.user_id === params[1]) as T[];
+      }
       if (sql.includes('WHERE id =') && params.length > 0) {
         return rows.filter((r) => r.id === params[0]) as T[];
+      }
+      if (/WHERE\s+user_id\s*=\s*\?/i.test(sql) && params.length > 0) {
+        const ownedRows = rows.filter((r) => r.user_id === params[0]);
+        return sql.includes("status != 'completed'")
+          ? (ownedRows.filter((r) => r.status !== 'completed') as T[])
+          : (ownedRows as T[]);
       }
       if (sql.includes('WHERE audit_id = ? AND label_id = ?') && params.length >= 2) {
         return rows.filter((r) => r.audit_id === params[0] && r.label_id === params[1]) as T[];

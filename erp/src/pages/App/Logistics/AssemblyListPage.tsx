@@ -7,6 +7,7 @@ import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { useAssemblyListQuery } from './hooks/useAssemblyListQuery';
 import AssemblyCard from './components/AssemblyCard';
 import OrderDetailsModal from '../DeliverySchedule/OrderDetailsModal';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 const getLocalDateKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -20,6 +21,8 @@ const formatUpcomingDate = (dateKey: string) => {
 
 const AssemblyListPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const isStandalone = window.location.pathname.includes('/assembly-schedule');
   const hasInitialScrolled = useRef(false);
@@ -123,7 +126,7 @@ const AssemblyListPage = () => {
             type="text"
             placeholder="Buscar..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
             className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm font-bold shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all w-full md:w-60 outline-none"
           />
         </div>
@@ -184,7 +187,14 @@ const AssemblyListPage = () => {
       return true;
     });
 
-    const grouped = scopedAssemblies.reduce(
+    const sortedAssemblies = [...scopedAssemblies].sort((a, b) => a.date.localeCompare(b.date));
+    const safePage = Math.min(page, Math.max(1, Math.ceil(sortedAssemblies.length / pageSize)));
+    const visibleAssemblies = sortedAssemblies.slice((safePage - 1) * pageSize, safePage * pageSize);
+    const dateCounts = sortedAssemblies.reduce((counts, item) => {
+      counts[item.date] = (counts[item.date] || 0) + 1;
+      return counts;
+    }, {} as Record<string, number>);
+    const grouped = visibleAssemblies.reduce(
       (groups, item) => {
         groups[item.date] ||= [];
         groups[item.date].push(item);
@@ -197,9 +207,9 @@ const AssemblyListPage = () => {
       key: dateKey,
       title:
         dateKey === todayKey
-          ? `PARA HOJE · ${grouped[dateKey].length}`
+          ? `PARA HOJE · ${dateCounts[dateKey]}`
           : formatUpcomingDate(dateKey),
-      count: grouped[dateKey].length,
+      count: dateCounts[dateKey],
       items: grouped[dateKey],
     }));
 
@@ -332,6 +342,17 @@ const AssemblyListPage = () => {
             })}
           </div>
         )}
+        <ERPListPagination
+          ariaLabel="Paginação de montagens"
+          page={page}
+          pageSize={pageSize}
+          totalItems={sortedAssemblies.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => { setPage(1); setPageSize(size); }}
+          preferenceKey="assembly-list"
+          itemLabel="montagens"
+          loading={loading}
+        />
       </div>
     );
   };

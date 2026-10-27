@@ -159,6 +159,8 @@ export const styles = StyleSheet.create({
     gap: 12,
     maxHeight: '82%',
   },
+  filterOptionsScroll: { flexShrink: 1, minHeight: 0 },
+  filterOptionsContent: { gap: 12, paddingBottom: 4 },
   filterHeader: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -11,6 +11,7 @@ import {
   isSinkMaterialCharacteristic,
   isConcretadaCharacteristic,
   isHasInoxBowlCharacteristic,
+  resolveVariableTechnicalFieldNames,
 } from '@/pages/utils/technicalValuesService';
 import {
   SYNCED_FIELDS,
@@ -120,7 +121,29 @@ export const useTechnicalFieldActions = ({
     const oldName = currentField.name;
     const actualNewName = target.name;
 
-    setFormData((prev) => applyDepthLengthToggleToProduct(prev, oldName, actualNewName));
+    setFormData((prev) => {
+      const variableFieldNames = resolveVariableTechnicalFieldNames(
+        prev.variableTechnicalFields,
+        prev.variations || []
+      );
+      const normalizedOldName = normalizeTechnicalName(oldName);
+      const wasVariable = variableFieldNames.some(
+        (name) => normalizeTechnicalName(name) === normalizedOldName
+      );
+      const toggledNames = new Set(
+        [oldName, actualNewName].map(normalizeTechnicalName)
+      );
+      const nextVariableTechnicalFields = variableFieldNames.filter(
+        (name) => !toggledNames.has(normalizeTechnicalName(name))
+      );
+      if (wasVariable) nextVariableTechnicalFields.push(actualNewName);
+
+      return applyDepthLengthToggleToProduct(
+        { ...prev, variableTechnicalFields: nextVariableTechnicalFields },
+        oldName,
+        actualNewName
+      );
+    });
     setManualFieldNames((prev) => {
       const filtered = prev.filter((n) => n !== oldName && n !== actualNewName);
       return [...filtered, actualNewName];

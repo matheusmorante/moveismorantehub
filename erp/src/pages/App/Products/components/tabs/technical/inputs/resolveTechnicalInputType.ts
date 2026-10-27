@@ -3,6 +3,7 @@ import {
   isWeightCharacteristicName,
   TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
+import { isTechnicalFieldMultiSelect } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
 
 export function resolveTechnicalInputType(field: TechnicalFieldDefinition): string {
   let type = field.dataType || 'list';
@@ -13,11 +14,7 @@ export function resolveTechnicalInputType(field: TechnicalFieldDefinition): stri
     /lugar(es)?/i.test(field.name)
   ) {
     type = 'integer';
-  } else if (
-    /corredi[çc]a/i.test(field.name) ||
-    /tipo.*de.*porta/i.test(field.name) ||
-    /tipo.*porta/i.test(field.name)
-  ) {
+  } else if (isTechnicalFieldMultiSelect(field.name)) {
     type = 'multi_select';
   } else if (type === 'weight' || isWeightCharacteristicName(field.name)) {
     type = 'decimal';

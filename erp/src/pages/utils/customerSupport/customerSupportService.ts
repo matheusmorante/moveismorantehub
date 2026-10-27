@@ -7,10 +7,8 @@ import {
   AssignedProfileSummary,
   QuickSnippet,
 } from '@/pages/App/CustomerSupport/types';
-import {
-  CustomerSummary,
-  mapPersonToSummary,
-} from './customerMatchingService';
+import { mapPersonToSummary } from './customerMatchingService';
+import type { CustomerLinkStatus, CustomerSummary } from './customerMatchingService';
 import { SupportOrderSummary } from './supportOrdersService';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import type { ProductCatalogSendSelection } from '../../../../../shared-utils/productCatalogFormSchemas';
@@ -197,7 +195,7 @@ export async function fetchConversations(
     throw new Error('Não foi possível carregar as conversas. Tente atualizar a lista.');
   }
 
-  const rawConversations: Array<WhatsAppConversation & { assignedProfile: AssignedProfileSummary | null }> =
+  const listedConversations: Array<WhatsAppConversation & { assignedProfile: AssignedProfileSummary | null }> =
     (data as Array<Record<string, any>>).map((row) => ({
     ...mapRowToConversation(row),
     assignedProfile: row.assigned_to
@@ -208,6 +206,45 @@ export async function fetchConversations(
         }
       : null,
     }));
+
+  const identityByConversationId = new Map<string, {
+    customerId: string;
+    customerLinkStatus: CustomerLinkStatus;
+    fullName: string;
+  }>();
+  if (canViewCommercialInfo && listedConversations.length > 0) {
+    const identityResponse = await withTimeout<any>(supabase.rpc('customer_support_auto_link_conversations', {
+      p_conversation_ids: listedConversations.map((conversation) => conversation.id),
+    }), 15_000, null, 'central:vinculo-erp-por-telefone');
+    const identityRows = identityResponse?.data;
+    if (identityResponse?.error || !Array.isArray(identityRows)) {
+      console.warn('[CustomerSupport] Não foi possível conferir os cadastros do ERP pelo telefone nesta atualização.');
+    } else {
+      for (const row of identityRows) {
+        const customerId = String(row.customer_id || '').trim();
+        const fullName = String(row.customer_full_name || '').trim() || 'Cliente Sem Nome';
+        const customerLinkStatus = row.customer_link_status as CustomerLinkStatus;
+        if (!row.conversation_id || !customerId || !fullName
+          || !['unlinked', 'auto_matched', 'manually_linked', 'ambiguous'].includes(customerLinkStatus)) continue;
+        identityByConversationId.set(String(row.conversation_id), {
+          customerId,
+          customerLinkStatus,
+          fullName,
+        });
+      }
+    }
+  }
+
+  const rawConversations = listedConversations.map((conversation) => {
+    const identity = identityByConversationId.get(conversation.id);
+    if (!identity) return conversation;
+    return {
+      ...conversation,
+      customerId: identity.customerId,
+      customerLinkStatus: identity.customerLinkStatus,
+      customer: { id: identity.customerId, fullName: identity.fullName },
+    };
+  });
 
   // Dados comerciais só são hidratados quando a permissão específica foi comprovada.
   const customerIds = Array.from(
@@ -250,7 +287,7 @@ export async function fetchConversations(
 
     return {
       ...c,
-      customer: cust,
+      customer: cust || c.customer || null,
       orders: ordersCount > 0 ? (Array(ordersCount).fill({}) as SupportOrderSummary[]) : [],
     };
   });

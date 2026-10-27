@@ -6,6 +6,7 @@ import {
 } from '../domain/productCharacteristics';
 import { isWeightCapacityCharacteristic } from '../../../../../shared-utils/productTechnicalFieldRules';
 import { deduplicateProductTechnicalValueAliasFields } from '../../../../../shared-utils/productTechnicalValueAliases';
+import { isProductMeasureCharacteristic } from '../../../../../shared-utils/productAiAttributeTypes';
 
 export interface MobileTechnicalFieldOption {
   readonly id: string;
@@ -92,6 +93,7 @@ export const fetchMobileProductTechnicalFields = async (
         isWeightCharacteristicName(attribute.name) ||
         isWeightCapacityCharacteristic(attribute.name) ||
         attribute.data_type === 'weight';
+      const isMeasure = isProductMeasureCharacteristic(attribute.name);
       const isFirmnessField = normalizedName === 'nível de firmeza do estofamento';
       const links = (categoryLinks ?? []).filter((link) => link.attribute_id === attribute.id);
       const values = (options ?? [])
@@ -138,10 +140,12 @@ export const fetchMobileProductTechnicalFields = async (
                 attribute.decimal_places === 3
               ? attribute.decimal_places
               : null,
-        data_type: isWeightCapacityCharacteristic(attribute.name)
-          ? 'weight'
-          : attribute.data_type,
-        unit: attribute.unit || (isWeight ? 'kg' : null),
+        data_type: isMeasure
+          ? 'measure'
+          : isWeightCapacityCharacteristic(attribute.name)
+            ? 'weight'
+            : attribute.data_type,
+        unit: attribute.unit || (isMeasure ? 'cm' : isWeight ? 'kg' : null),
         isRequired: isRequiredCharacteristicName(attribute.name),
         isRequiredForProduct: isRequiredCharacteristicName(attribute.name),
         isCustom: Boolean(attribute.is_custom),

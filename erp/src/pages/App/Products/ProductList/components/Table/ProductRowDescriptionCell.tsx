@@ -22,7 +22,6 @@ export interface ProductRowDescriptionCellProps {
   readonly variationsCount?: number;
   readonly oppName: string | null;
   readonly supplierNames: readonly string[];
-  readonly exitedVariationIds?: ReadonlySet<string>;
 }
 
 /**
@@ -40,7 +39,6 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
   variationsCount,
   oppName,
   supplierNames,
-  exitedVariationIds,
 }) => {
   const [imageError, setImageError] = useState(false);
   const isDraft =
@@ -194,15 +192,6 @@ export const ProductRowDescriptionCell: React.FC<ProductRowDescriptionCellProps>
                   }
                   size="xs"
                 />
-              )}
-
-              {(singleVariation || isChildVariation) &&
-                exitedVariationIds?.has(
-                  String(singleVariation?.variationId || singleVariation?.id || product.variationId)
-                ) && (
-                <span className="flex items-center gap-1 bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-orange-200 dark:border-orange-900/30 select-none">
-                  <i className="bi bi-box-arrow-right" /> Saída Lançada
-                </span>
               )}
 
               {isDraft && (

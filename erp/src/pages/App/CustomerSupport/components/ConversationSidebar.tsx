@@ -149,7 +149,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         onJumpToMessage={onJumpToMessage}
       />
 
-      <div className={isGlobalMessageSearchOpen ? 'hidden' : 'flex min-h-0 flex-1 flex-col'}>
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* 2. Header Row 2: ordenação e filtros avançados */}
         <div className="px-3.5 py-2 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white/70 dark:bg-slate-900/70">
           <ConversationSortMenu

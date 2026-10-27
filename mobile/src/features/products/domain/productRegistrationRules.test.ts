@@ -22,6 +22,7 @@ const parent = {
   width: 80,
   height: 180,
   depth: 50,
+  weight: 20,
   technicalValues: {
     Cor: 'Azul',
     Modelo: 'Padrão',
@@ -382,7 +383,7 @@ describe('productRegistrationRules', () => {
       variations: [variation],
       hasVariations: true,
     };
-    expect(isMobileEcommerceLegible(catalogProduct)).toBe(true);
+    expect(isMobileEcommerceLegible(catalogProduct)).toBe(false);
     expect(isMobileEcommerceLegible({ ...catalogProduct, images: [] })).toBe(false);
     expect(
       isMobileEcommerceLegible({

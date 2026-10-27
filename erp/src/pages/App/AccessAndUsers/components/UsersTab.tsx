@@ -5,7 +5,7 @@ import { roleLabel } from '@/pages/utils/accessRoles';
 import PersonFormModal from '../../Registrations/shared/modals/PersonFormModal';
 import { updatePerson } from '@/pages/utils/personService';
 import { toast } from 'react-toastify';
-import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 interface Props {
   people: Person[];
@@ -60,7 +60,7 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
   // Pagination states
   const [pageWithRole, setPageWithRole] = useState(1);
   const [pageWithoutRole, setPageWithoutRole] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(15);
 
   // Reset pagination on filter change
   useEffect(() => {
@@ -119,8 +119,7 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
   ) => {
     if (data.length === 0) return null;
 
-    const totalPages = Math.max(1, Math.ceil(data.length / ITEMS_PER_PAGE));
-    const paginatedData = data.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+    const paginatedData = data.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
     return (
       <div className="mb-6 overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
@@ -245,11 +244,20 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
         </div>
         {/* Paginação */}
         <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950/50 sm:flex-row">
-          <FixedPageSlots
+          <ERPListPagination
             ariaLabel="Paginação de usuários"
-            currentPage={page}
-            totalPages={totalPages}
+            page={page}
+            pageSize={itemsPerPage}
+            totalItems={data.length}
             onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageWithRole(1);
+              setPageWithoutRole(1);
+              setItemsPerPage(size);
+            }}
+            preferenceKey="access-users"
+            itemLabel="usuários"
+            loading={loading}
           />
         </div>
       </div>

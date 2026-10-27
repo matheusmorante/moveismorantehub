@@ -4,7 +4,6 @@ import { MobileProductVariationCard } from './MobileProductVariationCard';
 
 interface Props {
   variations: any[];
-  exitedVariationIds?: ReadonlySet<string>;
   opportunityName?: string;
   dark: boolean;
   parentImage?: string | null;
@@ -27,7 +26,6 @@ interface Props {
 
 export const MobileProductVariationList: React.FC<Props> = ({
   variations,
-  exitedVariationIds,
   opportunityName,
   dark,
   parentImage,
@@ -55,7 +53,6 @@ export const MobileProductVariationList: React.FC<Props> = ({
         <MobileProductVariationCard
           key={v.id || index}
           variation={v}
-          exitedVariationIds={exitedVariationIds}
           opportunityName={opportunityName}
           index={index}
           dark={dark}

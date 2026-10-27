@@ -56,7 +56,7 @@ export const GlobalMessageSearch: React.FC<GlobalMessageSearchProps> = ({
   const showResults = trimmedSearch.length >= 3;
 
   return (
-    <div className={isVisible ? 'min-h-0 flex-1 flex-col bg-white dark:bg-slate-900 flex' : 'hidden'}>
+    <div className={isVisible ? 'shrink-0 flex flex-col bg-white dark:bg-slate-900' : 'hidden'}>
       <form onSubmit={handleSubmit(handleSearchSubmit)} className="shrink-0 border-b border-slate-200/80 p-3 dark:border-slate-800">
         <label htmlFor="customer-support-global-search" className="mb-2 block text-xs font-semibold text-slate-700 dark:text-slate-200">
           Pesquisar mensagens
@@ -84,13 +84,8 @@ export const GlobalMessageSearch: React.FC<GlobalMessageSearchProps> = ({
         </p>
       </form>
 
-      <div role="region" aria-label="Resultados da busca global" className="min-h-0 flex-1 overflow-y-auto">
-        {!showResults ? (
-          <div className="px-5 py-10 text-center text-xs text-slate-400">
-            <i className="bi bi-search mb-2 block text-2xl opacity-50" aria-hidden="true" />
-            Digite ao menos 3 caracteres para pesquisar.
-          </div>
-        ) : (
+      {showResults && (
+        <div role="region" aria-label="Resultados da busca global" className="max-h-56 shrink-0 overflow-y-auto">
           <div className="space-y-4 p-2">
             <section aria-labelledby="global-message-results-heading">
               <div className="flex items-center justify-between px-2 py-1.5">
@@ -199,8 +194,8 @@ export const GlobalMessageSearch: React.FC<GlobalMessageSearchProps> = ({
               )}
             </section>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

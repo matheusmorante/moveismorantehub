@@ -13,7 +13,11 @@ import {
   resolveVariableTechnicalFieldNames,
 } from '@/pages/utils/technicalValuesService';
 import { applyTechnicalValueChangeToProduct } from './technicalSyncUtils';
-import { hasCharacteristicValue } from './technicalTabUtils';
+import {
+  getToggledDepthLengthTarget,
+  hasCharacteristicValue,
+  normalizeTechnicalName,
+} from './technicalTabUtils';
 
 export interface UseProductTechnicalTabParams {
   readonly formData: Partial<Product>;
@@ -127,8 +131,33 @@ export const useProductTechnicalTab = ({
         );
         const isVariable = isTechnicalFieldVariable(fieldName, variableFields);
         const nextScope = scope || (isVariable ? 'global' : 'variation');
-        const nextVariableFields =
-          nextScope === 'variation'
+        const normalizedFieldName = normalizeTechnicalName(fieldName);
+        const isDepthLengthField = [
+          'profundidade',
+          'comprimento',
+          'profundidade total',
+          'comprimento total',
+        ].includes(normalizedFieldName);
+        const counterpart = isDepthLengthField
+          ? getToggledDepthLengthTarget(fieldName, allTechnicalFields)?.name
+          : undefined;
+        const depthLengthNames = new Set(
+          [fieldName, counterpart]
+            .filter((name): name is string => Boolean(name))
+            .map(normalizeTechnicalName)
+        );
+        const nextVariableFields = isDepthLengthField
+          ? nextScope === 'variation'
+            ? [
+                ...variableFields.filter(
+                  (name) => !depthLengthNames.has(normalizeTechnicalName(name))
+                ),
+                fieldName,
+              ]
+            : variableFields.filter(
+                (name) => !depthLengthNames.has(normalizeTechnicalName(name))
+              )
+          : nextScope === 'variation'
             ? isVariable
               ? variableFields
               : [...variableFields, fieldName]
@@ -185,6 +214,7 @@ export const useProductTechnicalTab = ({
       });
     },
     [
+      allTechnicalFields,
       applicability.visibleFields,
       setFormData,
       setManualFieldNames,
@@ -200,6 +230,7 @@ export const useProductTechnicalTab = ({
   return {
     loadingFields,
     visibleFields: applicability.visibleFields,
+    displayedOptionalFields: applicability.displayedOptionalFields,
     fieldGroups: applicability.fieldGroups,
     requiredFieldGroups: applicability.requiredFieldGroups,
     manualFieldNames,

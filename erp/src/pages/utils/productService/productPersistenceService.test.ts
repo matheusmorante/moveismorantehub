@@ -181,4 +181,37 @@ describe('syncProductToSupabase', () => {
     expect(state.upsert.mock.calls[0][0]).toHaveProperty('stock', 12);
     expect(state.upsert.mock.calls[1][0][0]).toHaveProperty('stock', 12);
   });
+
+  it('preserva a serialização multi-select ao gravar atributos das variações', async () => {
+    await syncProductToSupabase({
+      id: '123e4567-e89b-42d3-a456-426614174000',
+      name: 'Produto com seleção múltipla',
+      itemType: 'product',
+      hasVariations: true,
+      variations: [
+        {
+          id: '223e4567-e89b-42d3-a456-426614174000',
+          name: 'Produto com seleção múltipla - Metal e Nylon',
+          sku: 'MULTI-SELECT-01',
+          attributes: [
+            {
+              name: 'Materiais das corrediças',
+              value: 'Metal,Nylon',
+              showName: false,
+            },
+          ],
+        },
+      ],
+      isDraft: false,
+      status: 'hidden',
+    } as any);
+
+    expect(state.upsert.mock.calls[1][0][0].attributes).toEqual([
+      {
+        name: 'Materiais das corrediças',
+        value: 'Metal,Nylon',
+        showName: false,
+      },
+    ]);
+  });
 });

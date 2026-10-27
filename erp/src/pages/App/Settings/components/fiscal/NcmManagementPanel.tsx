@@ -5,7 +5,7 @@ import { searchFormSchema } from '../../../../../../../shared-utils/lookupFormSc
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 import { useAuth } from '@/context/AuthContext';
-import { FixedPageSlots } from '@/components/shared/FixedPageSlots';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 type NcmFilter =
   | 'all'
@@ -78,6 +78,7 @@ interface NcmPreviewChange {
 }
 
 const PAGE_SIZE = 30;
+const NCM_PAGE_SIZES = [15, 30] as const;
 const filterOptions: Array<{ id: NcmFilter; label: string }> = [
   { id: 'all', label: 'Todos' },
   { id: 'vigentes', label: 'Vigentes' },
@@ -112,6 +113,9 @@ export function NcmManagementPanel() {
   const [searchDraft, setSearchDraft] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const [previewPageSize, setPreviewPageSize] = useState(PAGE_SIZE);
+  const [productPageSize, setProductPageSize] = useState(PAGE_SIZE);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [preview, setPreview] = useState<NcmPreview | null>(null);
@@ -172,8 +176,8 @@ export function NcmManagementPanel() {
           p_search: values.search,
           p_store_filter: values.storeFilter,
           p_filter: values.filter,
-          p_limit: PAGE_SIZE,
-          p_offset: values.page * PAGE_SIZE,
+          p_limit: pageSize,
+          p_offset: values.page * pageSize,
         }),
       ]);
       const { data: storeSummaryData, error: storeSummaryError } = await supabase.rpc(
@@ -192,7 +196,7 @@ export function NcmManagementPanel() {
     } finally {
       setIsLoading(false);
     }
-  }, [filter, page, search, storeFilter, validateCatalog]);
+  }, [filter, page, pageSize, search, storeFilter, validateCatalog]);
 
   const toggleStoreActivation = async (row: NcmRow) => {
     return activationForm.validateAndRun({ code: row.code, active: !row.is_active }, async (values) => {
@@ -249,7 +253,7 @@ export function NcmManagementPanel() {
     setCorrelationVersion('');
     setProductPage(0);
     const [productResult, eventResult, correlationResult] = await Promise.all([
-      supabase.rpc('list_ncm_products', { p_code: row.code, p_limit: PAGE_SIZE, p_offset: 0 }),
+      supabase.rpc('list_ncm_products', { p_code: row.code, p_limit: productPageSize, p_offset: 0 }),
       supabase
         .from('ncm_change_events')
         .select('id, event_type, old_data, new_data, occurred_at')
@@ -275,12 +279,12 @@ export function NcmManagementPanel() {
     if (!correlationResult.error) setCorrelations(correlationResult.data || []);
   };
 
-  const changeProductPage = async (nextPage: number) => {
-    if (!selectedRow || nextPage < 0 || nextPage * PAGE_SIZE >= productsTotal) return;
+  const changeProductPage = async (nextPage: number, size = productPageSize) => {
+    if (!selectedRow || nextPage < 0 || nextPage * size >= productsTotal) return;
     const { data, error } = await supabase.rpc('list_ncm_products', {
       p_code: selectedRow.code,
-      p_limit: PAGE_SIZE,
-      p_offset: nextPage * PAGE_SIZE,
+      p_limit: size,
+      p_offset: nextPage * size,
     });
     if (error) {
       setErrorMessage(error.message);
@@ -312,14 +316,14 @@ export function NcmManagementPanel() {
     }
   };
 
-  const loadPreviewChanges = async (runId: string, nextPage: number) => {
+  const loadPreviewChanges = async (runId: string, nextPage: number, size = previewPageSize) => {
     setIsLoadingPreviewChanges(true);
     setErrorMessage('');
     try {
       const { data, error } = await supabase.rpc('list_ncm_sync_changes', {
         p_sync_run_id: runId,
-        p_limit: PAGE_SIZE,
-        p_offset: nextPage * PAGE_SIZE,
+        p_limit: size,
+        p_offset: nextPage * size,
       });
       if (error) throw error;
       const result = data as { items?: NcmPreviewChange[]; total?: number };
@@ -443,7 +447,6 @@ export function NcmManagementPanel() {
     }
   };
 
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const detailStatus = useMemo(() => (selectedRow ? getNcmStatus(selectedRow) : ''), [selectedRow]);
 
   return (
@@ -610,16 +613,22 @@ export function NcmManagementPanel() {
                   ))}
                 </div>
               )}
-              <div className="mt-3 flex flex-col gap-2 text-xs text-amber-900 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
-                <span>{previewChangesTotal.toLocaleString('pt-BR')} mudanças</span>
-                <FixedPageSlots
-                  ariaLabel="Paginação das mudanças da sincronização NCM"
-                  currentPage={previewChangesPage + 1}
-                  totalPages={Math.max(1, Math.ceil(previewChangesTotal / PAGE_SIZE))}
-                  onPageChange={(nextPage) => void loadPreviewChanges(preview.sync_run_id, nextPage - 1)}
-                  loading={isLoadingPreviewChanges}
-                />
-              </div>
+              <ERPListPagination
+                ariaLabel="Paginação das mudanças da sincronização NCM"
+                page={previewChangesPage + 1}
+                pageSize={previewPageSize}
+                totalItems={previewChangesTotal}
+                onPageChange={(nextPage) => void loadPreviewChanges(preview.sync_run_id, nextPage - 1)}
+                onPageSizeChange={(size) => {
+                  setPreviewPageSize(size);
+                  void loadPreviewChanges(preview.sync_run_id, 0, size);
+                }}
+                pageSizeOptions={NCM_PAGE_SIZES}
+                preferenceKey="ncm-preview"
+                itemLabel="mudanças"
+                loading={isLoadingPreviewChanges}
+                className="mt-3"
+              />
             </div>
           )}
         </div>
@@ -820,18 +829,22 @@ export function NcmManagementPanel() {
             </tbody>
           </table>
         </div>
-          <div className="mt-3 flex flex-col items-center justify-between gap-2 text-xs text-slate-500 sm:flex-row">
-            <span>{total.toLocaleString('pt-BR')} resultados</span>
-            <div className="flex flex-col items-center gap-2 sm:flex-row">
-              <FixedPageSlots
-                ariaLabel="Paginação da tabela NCM"
-                currentPage={page + 1}
-                totalPages={pageCount}
-                onPageChange={(nextPage) => setPage(nextPage - 1)}
-                loading={isLoading}
-              />
-            </div>
-        </div>
+          <ERPListPagination
+            ariaLabel="Paginação da tabela NCM"
+            page={page + 1}
+            pageSize={pageSize}
+            totalItems={total}
+            onPageChange={(nextPage) => setPage(nextPage - 1)}
+            onPageSizeChange={(size) => {
+              setPage(0);
+              setPageSize(size);
+            }}
+            pageSizeOptions={NCM_PAGE_SIZES}
+            preferenceKey="ncm-catalog"
+            itemLabel="resultados"
+            loading={isLoading}
+            className="mt-3"
+          />
       </div>
 
       {selectedRow && (
@@ -896,7 +909,7 @@ export function NcmManagementPanel() {
                       Produtos vinculados ({productsTotal})
                     </h5>
                     <span className="text-[10px] text-slate-400">
-                      A página mostra até {PAGE_SIZE} produtos
+                      A página mostra até {productPageSize} produtos
                     </span>
                   </div>
                   {products.length === 0 ? (
@@ -935,11 +948,19 @@ export function NcmManagementPanel() {
                         </label>
                       ))}
                       <div className="flex flex-col gap-2 border-t border-slate-100 px-3 py-2 text-[10px] text-slate-500 dark:border-slate-800">
-                        <FixedPageSlots
+                        <ERPListPagination
                           ariaLabel="Paginação de produtos vinculados ao NCM"
-                          currentPage={productPage + 1}
-                          totalPages={Math.max(1, Math.ceil(productsTotal / PAGE_SIZE))}
+                          page={productPage + 1}
+                          pageSize={productPageSize}
+                          totalItems={productsTotal}
                           onPageChange={(nextPage) => void changeProductPage(nextPage - 1)}
+                          onPageSizeChange={(size) => {
+                            setProductPageSize(size);
+                            void changeProductPage(0, size);
+                          }}
+                          pageSizeOptions={NCM_PAGE_SIZES}
+                          preferenceKey="ncm-products"
+                          itemLabel="produtos"
                         />
                       </div>
                     </div>

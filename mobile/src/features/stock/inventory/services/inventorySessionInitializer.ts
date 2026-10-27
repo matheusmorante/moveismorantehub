@@ -43,7 +43,7 @@ export const restoreInventorySession = async (
   userProfileId?: string
 ): Promise<InitializedInventoryData | null> => {
   // 1. Tenta carregar do SQLite local primeiro
-  const localDraft = await getLocalInventoryDraft(initialSession.id);
+  const localDraft = await getLocalInventoryDraft(initialSession.id, userProfileId);
   if (localDraft) {
     return {
       draft: {
@@ -65,7 +65,7 @@ export const restoreInventorySession = async (
   }
 
   // 2. Fallback remoto
-  const details = await fetchInventorySessionDetails(initialSession.id);
+  const details = await fetchInventorySessionDetails(initialSession.id, userProfileId);
   const code = initialSession.inventoryCode || initialSession.id.split('-')[0];
 
   const restoredItems: AuditItem[] = (details?.items || []).map((it: any) => ({

@@ -1,8 +1,8 @@
 # Auditoria de Egress — Supabase MoranteHub
 
-## Estado atual — 26/10/2026, 14:49 BRT
+## Estado atual — 26/10/2026, 20:49 BRT
 
-CLI/plugin autenticados e ref hkoxhourxwlddgsfdgws reconfirmados. Sem medidor oficial Usage/Egress: bytes, quota, excedente, delta e meta de 100 MB/dia não verificáveis. Janela 26/10 14:30–17:30 UTC: gateway 4.370 eventos, REST 4.240; leituras de produtos 879 e pedidos 656. Sem nova causa comprovada para correção local nesta rodada; EGR-003 permanece com projeção explícita. Recorrência ACTIVE/3 h preservada; decisão anterior da Central permanece pendente.
+CLI/plugin autenticados e ref hkoxhourxwlddgsfdgws reconfirmados. Sem medidor oficial Usage/Egress: bytes, quota, excedente, delta e meta de 100 MB/dia não verificáveis. Janela 26/10 20:30–23:30 UTC: gateway 2.311 eventos, REST 2.202. EGR-004: consulta de categorias do painel do catálogo passa a receber somente a contagem, sem linhas. Correção local, economia não medida, sem deploy. Recorrência ACTIVE/3 h preservada.
 ## Coleta inicial — 25/10/2026, 09:35 BRT (12:35 UTC)
 
 Projeto confirmado: `hkoxhourxwlddgsfdgws` (MoranteHub). Primeira coleta desta auditoria; não havia relatório anterior. Automação existente ACTIVE, intervalo de três horas conferido no arquivo de configuração; agendamento preservado.
@@ -437,3 +437,66 @@ Ante a janela consecutiva anterior de três horas, gateway +2.743 eventos (1.627
 | ERP: histórico da Rede | Finance/Settings/index.tsx:36–53 → financeService.ts:384–392 | Montagem ou botão Tentar novamente; limite 5, projeção de quatro campos, timeout 15 s e descarte de resposta obsoleta; sem polling/cache/abort nesta carga | EGR-003 preservada, sem diff contra HEAD; 159 respostas 200 não provam implantação/efeito da correção ou loop |
 
 **Resultado:** sem nova causa comprovada corrigível nesta rodada. Somente relatório e memória atualizados; preservadas 14 entradas iniciais de trabalho local, inclusive arquivos novos e mudanças concorrentes nos produtos. Diffs pertinentes conferidos antes de escrever. Nenhum código alterado, teste adicionado/executado, dado de negócio consultado, execute_sql, mudança remota, migration, dependência, commit ou deploy. Fluxos fiscais não inspecionados. Decisão anterior da Central (6 s / 30 s / reconciliação) continua pendente, sem repetir o achado. Revisão estática; validação funcional e medição oficial permanecem pendentes.
+
+## Décima execução — 26/10/2026, 17:50 BRT
+
+**Acesso e fontes:** AGENTS vigente, política remota, memória, relatório e skill Supabase consultados. CLI 2.121.0; ajudas raiz/projects/list/inspect/db/traffic-profile/telemetry redescobertas, sem Usage/Egress faturável. traffic-profile mede I/O de blocos, não Egress; somente ajuda consultada. CLI e plugin list_projects confirmaram acesso a MoranteHub/ref hkoxhourxwlddgsfdgws; linked e vínculo local corretos, saída CLI filtrada em memória. Plugin sem medidor explícito. Automação ACTIVE/3 h conferida e preservada. Changelog Markdown e documentação atual de [campos](https://supabase.com/docs/guides/observability/log-field-reference), [agregações](https://supabase.com/docs/guides/observability/detecting) e [Egress](https://supabase.com/docs/guides/platform/manage-your-usage/egress) consultados; nenhuma mudança pertinente comprovada.
+
+**Janela exata:** 2026-10-26T17:30:00Z–2026-10-26T20:30:00Z (**14:30–17:30 BRT**). Duas query_logs, sem polling; somente source/count e gateway por serviço/rota normalizada/status/count. Campos documentados source, request.path e response.status_code; mesma regex REST das coletas anteriores, demais serviços por prefixos fixos. Sem mensagens, headers, parâmetros, corpos, SQL de negócio ou dados individuais. Retornaram 78 grupos, abaixo do limite de 80; soma do gateway confere com edge_logs.
+
+Fontes: edge_logs 4.028; postgres_logs 626; postgrest_logs 318; auth_logs 89; pgbouncer_logs 36; auth_audit_logs 29; realtime_logs 19; storage_logs 5. Não somar fontes como requests. Gateway: **REST 3.918; Auth 80 (77x200, 2x302, 1x400); Realtime 18 (101); Storage 12 (6x400, 5x200, 1x304)**.
+
+| Rota REST de destaque | Status | Chamadas |
+| --- | --- | ---: |
+| products | 200 / 206 / 204 / 400 / 201 | 540 / 32 / 16 / 4 / 2 |
+| people | 200 / 400 / 201 / 204 | 433 / 4 / 2 / 1 |
+| orders | 200 / 206 | 387 / 41 |
+| profiles | 200 | 340 |
+| rpc/current_user_has_password | 200 | 274 |
+| rede_transactions | 200 | 221 |
+| rpc/flush_supabase_telemetry | 204 / 200 / 401 | 196 / 13 / 2 |
+| store_style_settings | 200 | 170 |
+| product_variations | 200 / 204 / 201 | 111 / 5 / 4 |
+
+Ante a janela consecutiva anterior de três horas, gateway -342 eventos (4.370→4.028), REST -322 (4.240→3.918), leituras de produtos -307 (879→572), pedidos -228 (656→428), Rede +62 (159→221). São contagens, sem atribuição a cliente, versão ou patch; não são delta de Egress. Status de erro isolados não comprovam loop. Uso/quota/excedente/delta em bytes e cumprimento de 100 MB/dia continuam indisponíveis.
+
+**Inventário/revisão estática:** sessão/perfil ERP reconfirmados em erp/src/context/auth/useAuthSession.ts:72–180 → profileService.ts:53–89 (deduplicação inicial e guarda simultânea, projeção explícita/id/maybeSingle/timeout, retry condicionado a erro Auth). Mobile: mobile/src/contexts/AuthContext.tsx:108–148,177–247 → resolveMobileUserProfile e refreshPasswordCredentialStatus; getSession/INITIAL_SESSION compartilham guarda inicial, authSyncId descarta resultados obsoletos e perfil tem timeout. Política shared-utils/authSessionPolicy.ts:2–3 pula manutenção de senha em TOKEN_REFRESHED. RPC compartilhada também pelo ERP; 274 chamadas não identificam plataforma nem demonstram duplicação. Nenhum cache de segurança introduzido.
+
+Telemetria reconfirmada em erp/src/services/monitoring/queryGuard.ts:43–60,84–121,192: envio a cada cinco minutos com buffer/sessão, backoff 5–60 min e exclusão da própria rota do tracking; 211 chamadas agregadas, sem atribuição por instância. Não há evidência suficiente para alterar frequência. EGR-003 permanece em financeService.ts:384–392 com projeção de quatro campos. Inventários anteriores continuam aplicáveis; decisão da Central preservada, sem repetir o achado como novo.
+
+**Resultado:** nenhuma nova causa comprovada corrigível nesta rodada; apenas relatório e memória atualizados. Nove entradas iniciais de trabalho local preexistente preservadas; diffs relevantes conferidos antes da escrita, integrações revisadas sem diff. Nenhum código alterado, teste adicionado/executado, dado de negócio consultado, execute_sql, mudança remota, migration, dependência, commit ou deploy. Fluxos fiscais não inspecionados. Revisão estática; validações funcionais anteriores e medição oficial continuam pendentes.
+
+## Décima primeira execução — 26/10/2026, 20:49 BRT
+
+**Acesso e fontes:** AGENTS vigente, política remota, memória, relatório e skills Supabase/Ponytail/Surgical Patch consultados. CLI 2.121.0; ajudas raiz/projects/list/inspect/db/telemetry redescobertas, sem medidor Usage/Egress. CLI e plugin list_projects autenticados no MoranteHub/ref hkoxhourxwlddgsfdgws; linked e vínculo local corretos. Saída de projetos filtrada em memória, sem identidade/segredos. Plugin sem medidor oficial de bytes; nenhuma inspeção SQL do banco executada. Changelog atual consultado, inclusive aviso TLS já conhecido; documentação oficial de logs e select consultada. Automação ACTIVE/3 h preservada.
+
+**Janela exata:** 2026-10-26T20:30:00Z–2026-10-26T23:30:00Z (**17:30–20:30 BRT**). Duas query_logs, somente agregados source/count e gateway por serviço/rota/status/count, sem polling. Campos documentados source, request.path e response.status_code. Nesta coleta, apenas caminhos completos correspondentes a `^/rest/v1/(rpc/)?[a-z_]+$` aparecem como rota; demais caminhos são reduzidos a prefixos de serviço. Nenhum parâmetro, ID, header, corpo, mensagem ou SQL de negócio foi consultado. Retornaram 60 grupos, abaixo do limite de 100; soma 2.311 confere com edge_logs.
+
+Fontes: edge_logs 2.311; postgres_logs 620; postgrest_logs 216; auth_logs 101; pgbouncer_logs 31; auth_audit_logs 10; realtime_logs 4; storage_logs 2. Não somar fontes como requests. Gateway: **REST 2.202, Auth 98 (200), Realtime 4 (101), Storage 7 (4x400, 3x200)**.
+
+| Rota REST de destaque | Status | Chamadas |
+| --- | --- | ---: |
+| products | 200 / 206 / 204 / 201 | 292 / 40 / 8 / 1 |
+| orders | 200 / 206 | 252 / 32 |
+| people | 200 | 176 |
+| profiles | 200 | 132 |
+| rede_transactions | 200 | 90 |
+| categories | 200 | 85 |
+| rpc/flush_supabase_telemetry | 204 / 200 | 65 / 5 |
+| store_style_settings | 200 | 42 |
+
+Ante a janela consecutiva anterior de três horas, gateway -1.717 eventos (4.028→2.311), REST -1.716 (3.918→2.202), leituras de produtos -240 (572→332), pedidos -144 (428→284). São deltas de contagens, sem atribuição a cliente, versão ou patch; não medem Egress. Uso/quota/excedente/delta em bytes e meta 100 MB/dia continuam indisponíveis.
+
+**EGR-004 — linhas de categorias descartadas pelo painel:** `erp/src/pages/App/Dashboard/Index.tsx:144` monta DigitalCatalogPanel. Seu efeito de montagem em `erp/src/pages/App/Dashboard/components/DigitalCatalogPanel.tsx:15–73` consulta categories em :24 com select de IDs e count exact, mas o único consumo de categoriesRes é `.count` em :59. Causa local comprovada: solicitar linhas que o componente descarta. Alterada somente :24 para `{ count: 'exact', head: true }`, preservando contagem exata, filtros, carga paralela e consumidores. A [documentação oficial de select](https://supabase.com/docs/reference/javascript/select) confirma esse modo de consulta de contagem. A rota categories teve 85 respostas 200, sem prova de que partiram deste painel. Economia esperada: eliminar o corpo das linhas nessa chamada quando executada; magnitude em bytes e efeito remoto não medidos.
+
+**Inventário incremental:** integração ERP/painel do catálogo → DigitalCatalogPanel:24 → categories, finalidade contar categorias; gatilho montagem, sem polling/cache/deduplicação/abort próprios; agora HEAD/count exact. Outros chamadores incluem CategoryAutocomplete:45 (id/name, montagem e foco), productCategoryOptionsService:11–15 (id/name/type) e mobileCategoryService; isso impede atribuir o agregado ao painel. Sem alterar frescor, frequência ou regras de produto. EGR-003 reconfirmada em financeService.ts:384–392 e Finance/Settings:36–53, sem diff prévio; EGR-001/EGR-002 e decisão anterior da Central preservadas.
+
+**Validação e limites:** diff prévio do painel vazio; mudança de uma linha revisada com todos os usos de categoriesRes. Trabalho local amplo preexistente preservado (175 entradas no status intermediário, antes do patch). Revisão estática e git diff --check dos arquivos alterados; nenhum teste adicionado/executado por instrução da automação. Prova funcional e medição oficial de bytes pendentes. Nenhuma consulta a dados de negócio, execute_sql, alteração remota, migration, dependência, commit ou deploy; fluxos fiscais não inspecionados. Mudança interna sem efeito na operação do estoquista.
+
+## Décima segunda execução — 26/10/2026, 23:24 BRT
+
+**EGR-005 — intervalo de atualização da Central:** a lista agenda uma atualização silenciosa a cada 6 segundos enquanto visível; cada atualização recarrega todas as páginas abertas, com 50 conversas por página. Eventos Realtime e foco/retorno à tela também atualizam a lista. O relatório informado de 108 chamadas × 50 linhas = 5.400 ocorrências é compatível com o tamanho de página do cliente, mas não permite concluir que sejam conversas únicas nem que tenham sido gravadas. A RPC consulta whatsapp_conversations; não é uma tabela chamada customer_support_list_conversations.
+
+**Correção local:** em erp/src/pages/App/CustomerSupport/hooks/useCustomerSupportConversations.ts:164, intervalo do timer alterado de 6 para 30 segundos. Atualizações por Realtime e foco/visibilidade continuam imediatas. Efeito esperado: até 80% menos chamadas disparadas pelo timer no mesmo período; eventos e páginas adicionais podem alterar o total. Sem medição de bytes ou deploy.
+
+**Observabilidade e validação:** query_logs agregados para 2026-10-26T23:24:03Z–2026-10-27T02:24:03Z retornaram 753 respostas 200 da RPC. Esse agregado não corresponde à métrica de 108 sem a janela/fonte original e não identifica sessões ou clientes. Revisão estática e diff --check; nenhum teste executado. Nenhuma escrita SQL, mudança remota, migration, commit ou deploy.

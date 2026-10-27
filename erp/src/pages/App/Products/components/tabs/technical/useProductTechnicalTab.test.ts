@@ -103,7 +103,7 @@ describe('useProductTechnicalTab', () => {
     });
 
     expect(result.current.manualFieldNames).toContain('Material da estrutura');
-    expect(currentProduct.technicalValues?.['Material da estrutura']).toBe('');
+    expect(currentProduct.technicalValues?.['Material da estrutura']).toBeUndefined();
 
     act(() => {
       result.current.handleRemoveManualField('Material da estrutura');
@@ -232,6 +232,39 @@ describe('useProductTechnicalTab', () => {
       g.fields.map((f) => f.name)
     );
     expect(allFieldNamesAfterClear).toContain('Material da estrutura');
+  });
+
+  it('oculta dependentes opcionais quando a mestre está desativada', async () => {
+    const setFormData = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ formData }: { formData: Partial<Product> }) =>
+        useProductTechnicalTab({ formData, setFormData }),
+      {
+        initialProps: {
+          formData: {
+            technicalValues: {
+              'Quantidade de portas': 0,
+              'Tipo de portas': 'De correr',
+            },
+          } as Partial<Product>,
+        },
+      }
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const namesWithDisabledMaster = result.current.fieldGroups.flatMap((group) =>
+      group.fields.map((field) => field.name)
+    );
+    expect(namesWithDisabledMaster).not.toContain('Tipo de portas');
+
+    rerender({ formData: { technicalValues: { 'Quantidade de portas': 2 } } });
+    const namesWithActiveMaster = result.current.fieldGroups.flatMap((group) =>
+      group.fields.map((field) => field.name)
+    );
+    expect(namesWithActiveMaster).toContain('Tipo de portas');
   });
 
   it('pesquisa "portas" e adiciona o grupo completo via handleAddTopicGroup', async () => {

@@ -50,6 +50,22 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     expect(onChange).toHaveBeenCalledWith('Retrátil Florença');
   });
 
+  it.each(['Modelo / Linha', 'Linha / Modelo'])(
+    'usa o placeholder do ERP para a característica %s com espaços',
+    (name) => {
+      const field: TechnicalFieldDefinition = {
+        id: 'attr-modelo-linha',
+        name,
+        dataType: 'text',
+        options: [],
+      };
+
+      render(<TechnicalFieldInput field={field} value="" onChange={vi.fn()} />);
+
+      expect(screen.getByPlaceholderText('Digite o modelo / linha')).toBeDefined();
+    }
+  );
+
   it('renderiza Quantidade de lugares como número inteiro com placeholder "Digite o número de quantidades"', () => {
     const field: TechnicalFieldDefinition = {
       id: 'attr-lugares',
@@ -71,7 +87,7 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     expect(onChange).toHaveBeenCalledWith(4);
   });
 
-  it('ignora decimais ou caracteres inválidos em Quantidade de lugares convertendo para inteiro', () => {
+  it('impede limpar Quantidade de lugares quando já existe um valor', () => {
     const field: TechnicalFieldDefinition = {
       id: 'attr-lugares',
       name: 'Quantidade de lugares',
@@ -85,12 +101,11 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     const input = screen.getByPlaceholderText('Digite o número de quantidades') as HTMLInputElement;
     expect(input.value).toBe('3');
 
-    // Ao limpar
     fireEvent.change(input, { target: { value: '' } });
-    expect(onChange).toHaveBeenCalledWith('');
+    expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('renderiza Peso como campo decimal com 1 dígito após a vírgula, placeholder "0,0" e digitação RTL', () => {
+  it('renderiza Peso sem placeholder numérico e preserva a digitação RTL com 1 casa decimal', () => {
     const field: TechnicalFieldDefinition = {
       id: 'attr-peso',
       name: 'Peso',
@@ -101,7 +116,8 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
 
     render(<TechnicalFieldInput field={field} value="" onChange={onChange} />);
 
-    const input = screen.getByPlaceholderText('0,0') as HTMLInputElement;
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    expect(input.placeholder).toBe('');
     expect(input).toBeDefined();
     expect(input.type).toBe('text');
     expect(input.inputMode).toBe('decimal');
@@ -128,7 +144,8 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
 
     render(<TechnicalFieldInput field={field} value={15} onChange={onChange} />);
 
-    const input = screen.getByPlaceholderText('0,0') as HTMLInputElement;
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    expect(input.placeholder).toBe('');
     expect(input.value).toBe('15,0');
 
     // Paste de valor inteiro "20"
@@ -137,7 +154,7 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     expect(input.value).toBe('20,0');
   });
 
-  it('renderiza Altura e dimensões com 2 casas decimais, placeholder "0,00" e digitação RTL empurrando para a esquerda', () => {
+  it('renderiza Altura e dimensões sem placeholder numérico e preserva a digitação RTL com 2 casas decimais', () => {
     const field: TechnicalFieldDefinition = {
       id: 'attr-altura',
       name: 'Altura',
@@ -148,7 +165,8 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
 
     render(<TechnicalFieldInput field={field} value="" onChange={onChange} />);
 
-    const input = screen.getByPlaceholderText('0,00') as HTMLInputElement;
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    expect(input.placeholder).toBe('');
     expect(input).toBeDefined();
     expect(input.type).toBe('text');
     expect(input.inputMode).toBe('decimal');
@@ -193,7 +211,7 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     expect(screen.getByPlaceholderText('Insira a quantidade de gavetas')).toBeDefined();
   });
 
-  it('força comportamento multi_select para Materiais das corrediças permitindo seleção múltipla', () => {
+  it('força multi_select para Materiais das corrediças e permite alternar opções pela lista', () => {
     const fieldCorredicas: TechnicalFieldDefinition = {
       id: 'c-1',
       name: 'Materiais das corrediças',
@@ -218,17 +236,37 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     expect(screen.getByText('Telescópica')).toBeDefined();
     expect(screen.getByText('Metálica simples')).toBeDefined();
 
-    // Botão de remover chip
-    const removeBtn = screen.getByRole('button', { name: /remover telescópica/i });
-    fireEvent.click(removeBtn);
-    expect(onChange).toHaveBeenCalledWith(['Metálica simples']);
+    // A remoção ocorre desmarcando a opção na lista, não no chip exibido.
+    fireEvent.click(screen.getByPlaceholderText('Adicionar mais opções...'));
+    const selectedOption = screen.getByRole('checkbox', { name: 'Telescópica' });
+    expect((selectedOption as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(selectedOption);
+    expect(onChange).toHaveBeenLastCalledWith(['Metálica simples']);
 
     // Com lista vazia, exibe placeholder de seleção
     rerender(<TechnicalFieldInput field={fieldCorredicas} value={[]} onChange={onChange} />);
     expect(screen.getByPlaceholderText('Selecione ou pesquise...')).toBeDefined();
   });
 
-  it('renderiza botão com ícone de ligar/desligar (Power switch) para campos com opções Sim ou Não', () => {
+  it('reabre seleções múltiplas persistidas com delimitador legado de vírgula', () => {
+    const field: TechnicalFieldDefinition = {
+      id: 'c-2',
+      name: 'Materiais das corrediças',
+      dataType: 'multi_select',
+      options: [
+        { id: '1', value: 'Metal' },
+        { id: '2', value: 'Nylon' },
+      ],
+    };
+
+    render(<TechnicalFieldInput field={field} value="Metal, Nylon" onChange={vi.fn()} />);
+
+    fireEvent.click(screen.getByPlaceholderText('Adicionar mais opções...'));
+    expect((screen.getByRole('checkbox', { name: 'Metal' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('checkbox', { name: 'Nylon' }) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('renderiza as opções Sim/Não configuradas para um campo radio', () => {
     const fieldPossuiPes: TechnicalFieldDefinition = {
       id: 'attr-pes',
       name: 'Possui pés',
@@ -242,29 +280,20 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
       <TechnicalFieldInput field={fieldPossuiPes} value="Sim" onChange={onChange} />
     );
 
-    const switchBtn = screen.getByRole('switch', { name: /Possui pés: Ligado/i });
-    expect(switchBtn).toBeDefined();
-    expect(switchBtn.getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByText('Ligado')).toBeDefined();
-    expect(screen.getByText('Sim')).toBeDefined();
+    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    expect(select.value).toBe('Sim');
 
-    // Clica para desligar -> deve emitir "Não"
-    fireEvent.click(switchBtn);
+    fireEvent.change(select, { target: { value: 'Não' } });
     expect(onChange).toHaveBeenCalledWith('Não');
 
-    // Re-renderiza com "Não" (Desligado)
     rerender(<TechnicalFieldInput field={fieldPossuiPes} value="Não" onChange={onChange} />);
-    const switchOff = screen.getByRole('switch', { name: /Possui pés: Desligado/i });
-    expect(switchOff.getAttribute('aria-checked')).toBe('false');
-    expect(screen.getByText('Desligado')).toBeDefined();
-    expect(screen.getByText('Não')).toBeDefined();
+    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('Não');
 
-    // Clica para ligar -> deve emitir "Sim"
-    fireEvent.click(switchOff);
-    expect(onChange).toHaveBeenCalledWith('Sim');
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+    expect(onChange).toHaveBeenLastCalledWith('');
   });
 
-  it('renderiza botão de ligar/desligar para campo do tipo boolean e emite booleanos', () => {
+  it('mapeia as opções Sim/Não do seletor para booleanos verdadeiros e falsos', () => {
     const fieldBoolean: TechnicalFieldDefinition = {
       id: 'attr-bool',
       name: 'Possui iluminação',
@@ -276,18 +305,19 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
       <TechnicalFieldInput field={fieldBoolean} value={false} onChange={onChange} />
     );
 
-    const switchBtn = screen.getByRole('switch');
-    expect(switchBtn.getAttribute('aria-checked')).toBe('false');
+    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    expect(select.value).toBe('Não');
 
-    // Ao ligar campo boolean puro, emite true
-    fireEvent.click(switchBtn);
-    expect(onChange).toHaveBeenCalledWith(true);
+    fireEvent.change(select, { target: { value: 'Sim' } });
+    expect(onChange).toHaveBeenLastCalledWith(true);
 
-    // Quando ligado, ao clicar emite false
     rerender(<TechnicalFieldInput field={fieldBoolean} value={true} onChange={onChange} />);
-    const switchOn = screen.getByRole('switch');
-    expect(switchOn.getAttribute('aria-checked')).toBe('true');
-    fireEvent.click(switchOn);
-    expect(onChange).toHaveBeenCalledWith(false);
+    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('Sim');
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Não' } });
+    expect(onChange).toHaveBeenLastCalledWith(false);
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+    expect(onChange).toHaveBeenLastCalledWith('');
   });
 });

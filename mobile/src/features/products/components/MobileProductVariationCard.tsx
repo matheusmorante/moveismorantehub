@@ -20,7 +20,6 @@ import { getMobileProductVariationCardName } from '../domain/mobileProductCardDi
 
 interface MobileProductVariationCardProps {
   variation: any;
-  exitedVariationIds?: ReadonlySet<string>;
   opportunityName?: string;
   index: number;
   dark: boolean;
@@ -44,7 +43,6 @@ interface MobileProductVariationCardProps {
 
 export const MobileProductVariationCard: React.FC<MobileProductVariationCardProps> = ({
   variation: v,
-  exitedVariationIds,
   opportunityName,
   index,
   dark,
@@ -67,7 +65,6 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
 }) => {
   const [menuVisible, setMenuVisible] = React.useState(false);
   const varName = getMobileProductVariationCardName(parentProduct, v, index);
-  const isExitLaunched = exitedVariationIds?.has(String(v.variationId || v.id));
 
   const isPublished = v.status === 'published';
   const isActive = v.active !== false;
@@ -149,14 +146,6 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
             <Text style={[styles.name, dark && styles.lightText]} numberOfLines={1}>
               {varName}
             </Text>
-            {isExitLaunched && (
-              <Text
-                style={[styles.exitLaunchedBadge, dark && styles.darkExitLaunchedBadge]}
-                accessibilityLabel="Saída Lançada"
-              >
-                Saída Lançada
-              </Text>
-            )}
           </View>
 
           <Text style={styles.sku}>
@@ -346,24 +335,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#0f172a',
-  },
-  exitLaunchedBadge: {
-    flexShrink: 0,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#fed7aa',
-    borderRadius: 999,
-    backgroundColor: '#fff7ed',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    color: '#c2410c',
-    fontSize: 8,
-    fontWeight: '800',
-  },
-  darkExitLaunchedBadge: {
-    borderColor: '#7c2d12',
-    backgroundColor: '#431407',
-    color: '#fb923c',
   },
   sku: {
     fontSize: 10,

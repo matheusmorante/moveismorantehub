@@ -105,10 +105,8 @@ describe('OrderSelectionModal', () => {
     expect(screen.queryByText('Cliente Deletado')).not.toBeInTheDocument();
 
     // Contagem da paginação
-    expect(screen.getByText(/Exibindo/)).toBeInTheDocument();
-    expect(screen.getByText('1-4')).toBeInTheDocument();
-    expect(screen.getByText('4', { selector: 'span.font-extrabold' })).toBeInTheDocument();
-    expect(screen.getByText(/\(15 por página\)/)).toBeInTheDocument();
+    expect(screen.getByText('1–4 de 4 pedidos')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Registros por página' })).toHaveValue('15');
   });
 
   it('paginação exibe exatamente 15 itens por página e permite navegar pelas páginas', () => {
@@ -127,9 +125,8 @@ describe('OrderSelectionModal', () => {
     );
 
     // Página 1: Exibindo 1-15 de 35 pedidos
-    expect(screen.getByText('1-15')).toBeInTheDocument();
-    expect(screen.getByText('35')).toBeInTheDocument();
-    expect(screen.getByText('(15 por página)')).toBeInTheDocument();
+    expect(screen.getByText('1–15 de 35 pedidos')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Registros por página' })).toHaveValue('15');
 
     // Botão da página 2 deve existir
     const page2Button = screen.getByRole('button', { name: 'Página 2' });
@@ -139,7 +136,7 @@ describe('OrderSelectionModal', () => {
     fireEvent.click(page2Button);
 
     // Página 2: Exibindo 16-30 de 35 pedidos
-    expect(screen.getByText('16-30')).toBeInTheDocument();
+    expect(screen.getByText('16–30 de 35 pedidos')).toBeInTheDocument();
 
     // Botão da página 3 deve existir
     const page3Button = screen.getByRole('button', { name: 'Página 3' });
@@ -149,7 +146,7 @@ describe('OrderSelectionModal', () => {
     fireEvent.click(page3Button);
 
     // Página 3: Exibindo 31-35 de 35 pedidos
-    expect(screen.getByText('31-35')).toBeInTheDocument();
+    expect(screen.getByText('31–35 de 35 pedidos')).toBeInTheDocument();
   });
 
   it('filtra por busca de código e nome do cliente com debounce', async () => {

@@ -1,8 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleWhatsAppMedia } from '../src/pages/utils/customerSupport/whatsappMediaProxy.js';
-import { createWhatsAppTestDispatchHandler, MAX_WHATSAPP_TEST_REQUEST_BYTES } from '../../api/whatsapp-dispatch.js';
-import { createWhatsAppSupportSendHandler } from '../../api/whatsapp-support-send.js';
 import processor from '../server/customer-support/whatsapp-processor.cjs';
 
 const {
@@ -17,8 +14,28 @@ export const config = { api: { bodyParser: false } };
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN?.trim() || '';
 const APP_SECRET = process.env.WHATSAPP_APP_SECRET?.trim() || '';
-const handleTestDispatch = createWhatsAppTestDispatchHandler();
-const handleCustomerSupportSend = createWhatsAppSupportSendHandler();
+const MAX_WHATSAPP_TEST_REQUEST_BYTES = 16_000;
+type SharedRequestHandler = (req: VercelRequest, res: VercelResponse) => unknown;
+
+function resolveSharedHandler(moduleValue: unknown, factoryName: string): SharedRequestHandler {
+  const record = moduleValue && typeof moduleValue === 'object'
+    ? moduleValue as Record<string, unknown>
+    : {};
+  const defaultExport = record.default;
+  if (typeof defaultExport === 'function') return defaultExport as SharedRequestHandler;
+  if (defaultExport && typeof defaultExport === 'object') {
+    const nested = defaultExport as Record<string, unknown>;
+    if (typeof nested.default === 'function') return nested.default as SharedRequestHandler;
+    if (typeof nested[factoryName] === 'function') {
+      return (nested[factoryName] as () => SharedRequestHandler)();
+    }
+  }
+  if (typeof record[factoryName] === 'function') {
+    return (record[factoryName] as () => SharedRequestHandler)();
+  }
+  throw new TypeError(`Handler compartilhado indisponível: ${factoryName}`);
+}
+
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://hkoxhourxwlddgsfdgws.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_KEY || '';
 
@@ -30,6 +47,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const operation = req.query.operation as string | undefined;
   if (operation === 'dispatch') {
+    const dispatchModule = await import('../../api/whatsapp-dispatch.js');
+    const handleTestDispatch = resolveSharedHandler(dispatchModule, 'createWhatsAppTestDispatchHandler');
     if (req.method === 'POST' && req.body === undefined) {
       // This shared route disables Vercel's JSON parser to preserve webhook HMAC bytes.
       const rawBody = await readRawWebhookBody(req);
@@ -46,10 +65,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (operation === 'support-send') {
+    const supportSendModule = await import('../../api/whatsapp-support-send.js');
+    const handleCustomerSupportSend = resolveSharedHandler(supportSendModule, 'createWhatsAppSupportSendHandler');
     return handleCustomerSupportSend(req, res);
   }
 
   if (operation === 'media') {
+    const { handleWhatsAppMedia } = await import('../src/pages/utils/customerSupport/whatsappMediaProxy.js');
     return handleWhatsAppMedia(req, res, {
       supabaseUrl,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',

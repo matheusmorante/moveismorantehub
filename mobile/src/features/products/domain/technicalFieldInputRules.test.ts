@@ -44,10 +44,21 @@ describe('technical field overrides from ERP', () => {
     );
   });
 
+  it.each([
+    'Tipo/Material das corrediças',
+    'Materiais das corrediças',
+    'Tipo de portas',
+    'Tipo de porta',
+  ])('keeps %s multi-select when a legacy definition says list', (name) => {
+    expect(resolveTechnicalFieldDataType(name, 'list')).toBe('multi_select');
+  });
+
   it('uses ERP placeholders for short text characteristics', () => {
     expect(getTechnicalFieldTextPlaceholder('Marca')).toBe('Digite a marca');
     expect(getTechnicalFieldTextPlaceholder('Modelo')).toBe('Digite o modelo');
     expect(getTechnicalFieldTextPlaceholder('Linha')).toBe('Digite a linha');
+    expect(getTechnicalFieldTextPlaceholder('Modelo / Linha')).toBe('Digite o modelo / linha');
+    expect(getTechnicalFieldTextPlaceholder('Linha / Modelo')).toBe('Digite o modelo / linha');
     expect(getTechnicalFieldTextPlaceholder('Acabamento')).toBeUndefined();
     expect(getTechnicalFieldMaxLength('text_short')).toBe(120);
     expect(getTechnicalFieldMaxLength('text_long')).toBe(4000);
@@ -61,4 +72,11 @@ describe('technical field overrides from ERP', () => {
     expect(resolveTechnicalFieldDataType('Peso suportado')).toBe('decimal');
     expect(resolveTechnicalFieldDataType('Peso suportado por cadeiras', 'list')).toBe('decimal');
   });
+
+  it.each(['Altura', 'Largura', 'Profundidade aberto', 'Altura do braço'])(
+    'uses numeric measure input for %s when a legacy definition says list',
+    (name) => {
+      expect(resolveTechnicalFieldDataType(name, 'list')).toBe('measure');
+    }
+  );
 });

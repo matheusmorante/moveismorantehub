@@ -127,7 +127,7 @@ const TABS: Tab[] = [
     id: 'technical',
     label: 'Características',
     Icon: Info,
-    condition: (formData) => formData.itemType !== 'service',
+    condition: (formData, isStockistOnly) => formData.itemType !== 'service' && !isStockistOnly,
   },
   {
     id: 'description',

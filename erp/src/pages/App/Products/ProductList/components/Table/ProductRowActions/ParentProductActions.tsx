@@ -160,7 +160,7 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
             aria-label="Mais opções"
             aria-haspopup="menu"
             aria-expanded={isMenuOpen}
-            className="w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-xl transition-all border border-slate-200/80 dark:border-slate-700 shadow-2xs cursor-pointer active:scale-95"
+            className="w-8 h-8 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer active:scale-95"
             title="Mais opções"
           >
             <i className="bi bi-three-dots text-xs font-bold" />

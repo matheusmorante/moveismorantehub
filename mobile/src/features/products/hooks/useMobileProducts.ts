@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { isProductDraft } from '../../../../../shared-utils/productDraftSnapshot';
 import {
+  PRODUCT_LIST_PAGE_SIZES,
   productListFormSchema,
   type ProductListPageSize,
 } from '../../../../../shared-utils/listingFormSchemas';
@@ -31,6 +33,11 @@ import {
   resolveMobileProductListRequestPage,
   shouldClearMobileProductListSnapshot,
 } from '../domain/mobileProductListRequest';
+import {
+  getMobileProductPageSizePreferenceKey,
+  readMobileProductPageSizePreference,
+  writeMobileProductPageSizePreference,
+} from '../domain/mobileProductPageSizePreference';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
   fetchMobileProductTechnicalFields,
@@ -52,7 +59,9 @@ export function useMobileProducts(
   mode: 'standard' | 'composition' = 'standard',
   enabled = true,
   canViewCompositions = false,
-  isAdministrator = false
+  isAdministrator = false,
+  userId?: string | null,
+  userIdentityReady = true,
 ) {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(enabled);
@@ -84,6 +93,13 @@ export function useMobileProducts(
   );
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<ProductListPageSize>(DEFAULT_ITEMS_PER_PAGE);
+  const pageSizePreferenceKey = getMobileProductPageSizePreferenceKey(userId, mode);
+  const [loadedPageSizePreferenceKey, setLoadedPageSizePreferenceKey] = useState<string | null>(null);
+  const pageSizePreferenceReady =
+    userIdentityReady && loadedPageSizePreferenceKey === pageSizePreferenceKey;
+  const pageSizePreferenceKeyRef = useRef(pageSizePreferenceKey);
+  pageSizePreferenceKeyRef.current = pageSizePreferenceKey;
+  const pageSizePreferenceWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [totalItems, setTotalItems] = useState(0);
   const loadRequestGuardRef = useRef(createMobileProductListRequestGuard());
   const successfulSnapshotKeyRef = useRef<string | null>(null);
@@ -97,6 +113,7 @@ export function useMobileProducts(
     includeDeactivated: showDeactivated,
     includeMerged: showMergedProducts,
     itemType: mode,
+    pageSizePreferenceKey,
     canViewCompositions,
     showTrash,
     showTestProducts: canShowTestProducts,
@@ -123,6 +140,31 @@ export function useMobileProducts(
     showTestProducts: canShowTestProducts,
     showMergedProducts,
   });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!pageSizePreferenceKey) {
+      setItemsPerPage(DEFAULT_ITEMS_PER_PAGE);
+      setCurrentPage(1);
+      setLoadedPageSizePreferenceKey(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void readMobileProductPageSizePreference(pageSizePreferenceKey).then((savedSize) => {
+      if (cancelled) return;
+      setItemsPerPage(savedSize ?? DEFAULT_ITEMS_PER_PAGE);
+      setCurrentPage(1);
+      setLoadedPageSizePreferenceKey(pageSizePreferenceKey);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pageSizePreferenceKey]);
+
   useEffect(() => {
     const trimmedSearch = searchTerm.trim();
     const nextSearch = resolveAppliedMobileProductSearch(searchTerm);
@@ -158,12 +200,12 @@ export function useMobileProducts(
     async (pull = false, page = 1) => {
       const requestId = loadRequestGuardRef.current.begin();
       const requestedSnapshotKey = JSON.stringify([requestFiltersKey, page]);
-      if (!enabled) {
+      if (!enabled || !pageSizePreferenceReady) {
         setProducts([]);
         setTotalItems(0);
         successfulSnapshotKeyRef.current = null;
         setLoadError(null);
-        setLoading(false);
+        setLoading(enabled && !pageSizePreferenceReady);
         setRefreshing(false);
         return;
       }
@@ -274,6 +316,7 @@ export function useMobileProducts(
       mode,
       canViewCompositions,
       enabled,
+      pageSizePreferenceReady,
       requestFiltersKey,
       canShowTestProducts,
       itemsPerPage,
@@ -292,7 +335,7 @@ export function useMobileProducts(
       setCurrentPage(1);
     }
 
-    if (enabled) {
+    if (enabled && pageSizePreferenceReady) {
       loadProducts(false, requestPage);
     } else {
       loadRequestGuardRef.current.invalidate();
@@ -300,12 +343,13 @@ export function useMobileProducts(
       setTotalItems(0);
       successfulSnapshotKeyRef.current = null;
       setLoadError(null);
-      setLoading(false);
+      setLoading(enabled && !pageSizePreferenceReady);
+      setRefreshing(false);
     }
     return () => {
       loadRequestGuardRef.current.invalidate();
     };
-  }, [enabled, loadProducts, requestFiltersKey, requestPage]);
+  }, [enabled, loadProducts, pageSizePreferenceReady, requestFiltersKey, requestPage]);
 
   const resetFilters = useCallback(() => {
     const resetState = resolveMobileProductListResetState({
@@ -326,7 +370,8 @@ export function useMobileProducts(
 
   const handleItemsPerPageChange = useCallback(
     async (nextItemsPerPage: ProductListPageSize) => {
-      if (nextItemsPerPage === itemsPerPage) return;
+      if (!pageSizePreferenceReady || nextItemsPerPage === itemsPerPage) return;
+      const preferenceKeyForSelection = pageSizePreferenceKeyRef.current;
       const values = await validateList(
         {
           page: 1,
@@ -344,13 +389,21 @@ export function useMobileProducts(
         },
         (errors) => {
           setLoadError(
-            Object.values(flattenFormErrors(errors))[0] || 'Selecione 10 ou 15 itens por página.'
+            Object.values(flattenFormErrors(errors))[0] ||
+              `Escolha uma quantidade permitida por página (${PRODUCT_LIST_PAGE_SIZES.join(', ')}).`
           );
         }
       );
-      if (!values) return;
+      if (!values || pageSizePreferenceKeyRef.current !== preferenceKeyForSelection) return;
       setItemsPerPage(values.itemsPerPage);
       setCurrentPage(1);
+      if (preferenceKeyForSelection) {
+        pageSizePreferenceWriteQueueRef.current = pageSizePreferenceWriteQueueRef.current
+          .then(() => writeMobileProductPageSizePreference(
+            preferenceKeyForSelection,
+            values.itemsPerPage,
+          ));
+      }
     },
     [
       appliedSearchTerm,
@@ -360,6 +413,8 @@ export function useMobileProducts(
       generalTypeFilter,
       itemsPerPage,
       mode,
+      pageSizePreferenceKey,
+      pageSizePreferenceReady,
       showDeactivated,
       showMergedProducts,
       showTrash,
@@ -604,7 +659,9 @@ export function useMobileProducts(
 
   const handleSave = useCallback(async (productData: any) => {
     const productId = await saveMobileProduct(productData);
-    triggerMobileProductMetaCatalogSync(productId);
+    if (!isProductDraft(productData)) {
+      triggerMobileProductMetaCatalogSync(productId);
+    }
     // A confirmed write succeeds independently from the list read, as in the ERP:
     // preserve the saved result and refresh the current page in the background.
     void loadProducts(true, currentPage);
@@ -640,8 +697,8 @@ export function useMobileProducts(
   }, [currentPage, pageAfterCurrentResult]);
 
   return {
-    products,
-    loading,
+    products: pageSizePreferenceReady ? products : [],
+    loading: loading || (enabled && !pageSizePreferenceReady),
     loadError,
     refreshing,
     searchTerm,
@@ -654,7 +711,7 @@ export function useMobileProducts(
     showMergedProducts,
     showTestProducts: canShowTestProducts,
     currentPage,
-    totalItems,
+    totalItems: pageSizePreferenceReady ? totalItems : 0,
     totalPages,
     itemsPerPage,
     onItemsPerPageChange: handleItemsPerPageChange,

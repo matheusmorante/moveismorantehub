@@ -20,10 +20,11 @@ describe('contrato de atributos de categoria ERP/mobile', () => {
     },
   );
 
-  it('mantém Peso sempre opcional, mesmo com um valor legado isRequired=true', () => {
-    expect(isCategoryAttributeAlwaysOptional(' peso ')).toBe(true);
-    expect(getDefaultCategoryAttributeIsRequired('Peso')).toBe(false);
-    expect(resolveCategoryAttributeIsRequired({ name: 'Peso', isRequired: true })).toBe(false);
+  it('mantém Peso sempre obrigatório, mesmo com um valor legado isRequired=false', () => {
+    expect(isCategoryAttributeAlwaysRequired(' peso ')).toBe(true);
+    expect(isCategoryAttributeAlwaysOptional('Peso')).toBe(false);
+    expect(getDefaultCategoryAttributeIsRequired('Peso')).toBe(true);
+    expect(resolveCategoryAttributeIsRequired({ name: 'Peso', isRequired: false })).toBe(true);
     expect(isCategoryAttributeRequirementLocked('Peso')).toBe(true);
   });
 
@@ -43,10 +44,10 @@ describe('contrato de atributos de categoria ERP/mobile', () => {
     expect(setCategoryAttributeRequirement(attributes, 'material', true)).toEqual([
       { id: 'material', name: 'Material', isRequired: true },
       attributes[1],
-      attributes[2],
+      { id: 'peso', name: 'Peso', isRequired: true },
     ]);
     expect(setCategoryAttributeRequirement(attributes, 'cor', false)[1].isRequired).toBe(true);
-    expect(setCategoryAttributeRequirement(attributes, 'peso', true)[2].isRequired).toBe(false);
+    expect(setCategoryAttributeRequirement(attributes, 'peso', false)[2].isRequired).toBe(true);
   });
 
   it('exige ID, nome e isRequired no payload de edição', () => {

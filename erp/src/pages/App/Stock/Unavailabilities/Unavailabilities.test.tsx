@@ -1,7 +1,7 @@
 ﻿// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import type { Product, Variation } from '@/pages/types/product.type';
@@ -264,6 +264,21 @@ describe('UnavailabilitiesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Desfazer' }));
     await waitFor(() => expect(undoStockUnavailability).toHaveBeenCalledWith('unavailability-1'));
     expect(toast.success).toHaveBeenCalledWith('Indisponibilidade desfeita.');
+  });
+
+  it('keeps the latest filtered page when an older request finishes later', async () => {
+    let finishOld!: (value: { data: StockUnavailability[]; totalCount: number }) => void;
+    vi.mocked(fetchStockUnavailabilities)
+      .mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve; }))
+      .mockResolvedValueOnce({ data: [activeRecord], totalCount: 1 });
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText('Filtrar por status'), { target: { value: 'active' } });
+    expect(await screen.findByText(/Variação azul/)).toBeInTheDocument();
+    await act(async () => finishOld({ data: [], totalCount: 0 }));
+
+    expect(screen.getByText(/Variação azul/)).toBeInTheDocument();
+    expect(screen.queryByText('Nenhum registro encontrado para os filtros selecionados.')).not.toBeInTheDocument();
   });
 
   it('shows error toast when undoStockUnavailability fails', async () => {

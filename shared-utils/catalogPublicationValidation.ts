@@ -44,6 +44,9 @@ const getCharacteristicNameAliases = (name: string) => {
   if (['modelo', 'linha', 'modelolinha', 'linhamodelo'].includes(normalized)) {
     return ['modelo', 'linha', 'modelolinha', 'linhamodelo'];
   }
+  if (['profundidadetotal', 'comprimentototal'].includes(normalized)) {
+    return ['profundidadetotal', 'comprimentototal'];
+  }
   return [normalized];
 };
 
@@ -134,8 +137,35 @@ const hasCatalogQuantityValue = (value: unknown): boolean => {
   return Boolean(match && Number.isSafeInteger(Number(match[1])));
 };
 
-const hasRequiredCatalogValue = (name: string, value: unknown): boolean =>
-  isQuantityCharacteristic(name) ? hasCatalogQuantityValue(value) : hasCatalogValue(value);
+const hasPositiveCatalogValue = (value: unknown): boolean => {
+  if (Array.isArray(value)) return value.some(hasPositiveCatalogValue);
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'object') {
+    const structured = value as { value?: unknown; val?: unknown };
+    if (structured.value !== undefined || structured.val !== undefined) {
+      return hasPositiveCatalogValue(structured.value ?? structured.val);
+    }
+    return false;
+  }
+
+  const normalized = typeof value === 'string' ? value.trim().replace(',', '.') : value;
+  const number = Number(normalized);
+  return Number.isFinite(number) && number > 0;
+};
+
+const POSITIVE_REQUIRED_CATALOG_CHARACTERISTICS = new Set([
+  'peso',
+  'profundidadetotal',
+  'comprimentototal',
+]);
+
+const hasRequiredCatalogValue = (name: string, value: unknown): boolean => {
+  if (isQuantityCharacteristic(name)) return hasCatalogQuantityValue(value);
+  if (POSITIVE_REQUIRED_CATALOG_CHARACTERISTICS.has(normalizeCharacteristicKey(name))) {
+    return hasPositiveCatalogValue(value);
+  }
+  return hasCatalogValue(value);
+};
 
 const getProductCategoryIds = (data: Readonly<Record<string, any>>): string[] => {
   const ids = Array.isArray(data.categoryIds)
@@ -146,30 +176,29 @@ const getProductCategoryIds = (data: Readonly<Record<string, any>>): string[] =>
   return ids.map((id: unknown) => String(id));
 };
 
-const isSofaProduct = (data: Readonly<Record<string, any>>): boolean =>
-  [data.categoryName, data.category_name, data.category].some((name) =>
-    /(?:^|[^a-z0-9])sofas?(?=$|[^a-z0-9])/.test(normalizeCharacteristicName(name))
-  );
-
 /** Returns category-required characteristics that have no usable value on the product or its variants. */
 export const getMissingCategoryRequiredCharacteristics = (
   data: Readonly<Record<string, any>>,
   requirements: readonly CatalogCharacteristicRequirement[]
 ): string[] => {
   const activeCategories = new Set(getProductCategoryIds(data));
-  const isSofa = isSofaProduct(data);
-  const requiredNames = requirements
+  const isService = data.itemType === 'service' || data.item_type === 'service';
+  const globalRequiredNames = isService ? [] : ['Profundidade total', 'Peso'];
+  const categoryRequiredNames = requirements
     .filter(
       (requirement) =>
         requirement.requiredForCategory === true ||
         requirement.requiredCategoryIds?.some((id) => activeCategories.has(String(id)))
     )
-    .map((requirement) => requirement.name.trim())
-    .filter(
-      (name) =>
-        Boolean(name) &&
-        !(isSofa && ['profundidade', 'profundidade total'].includes(normalizeCharacteristicName(name)))
-    );
+    .map((requirement) => requirement.name.trim());
+  const seenRequirements = new Set<string>();
+  const requiredNames = [...globalRequiredNames, ...categoryRequiredNames].filter((name) => {
+    if (!name) return false;
+    const key = getCharacteristicNameAliases(name).sort().join('|');
+    if (seenRequirements.has(key)) return false;
+    seenRequirements.add(key);
+    return true;
+  });
 
   const variations = [data.variations, data.product_variations, data.allVariations]
     .find((items) => Array.isArray(items) && items.length > 0) || [];
@@ -332,7 +361,12 @@ export function checkEcomLegibility(
   const dimensionStates = [
     getDimensionState('width', ['Largura']),
     getDimensionState('height', ['Altura']),
-    getDimensionState('depth', ['Profundidade', 'Comprimento']),
+    getDimensionState('depth', [
+      'Profundidade',
+      'Profundidade total',
+      'Comprimento',
+      'Comprimento total',
+    ]),
   ];
   const hasValidDimensions =
     isService ||

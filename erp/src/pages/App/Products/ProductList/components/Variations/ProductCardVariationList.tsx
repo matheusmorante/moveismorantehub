@@ -35,7 +35,6 @@ export interface ProductCardVariationListProps {
   readonly showVariations: boolean;
   readonly canManageCatalog: boolean;
   readonly isDraft: boolean;
-  readonly exitedVariationIds?: ReadonlySet<string>;
   readonly onEdit: (product: Product) => void;
   readonly onToggleActive: (id: string, currentStatus: boolean) => void;
   readonly onDeactivateCatalog: (id: string) => void;
@@ -59,7 +58,6 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
   showVariations,
   canManageCatalog,
   isDraft,
-  exitedVariationIds,
   onEdit,
   onToggleActive,
   onDeactivateCatalog,
@@ -93,7 +91,6 @@ export const ProductCardVariationList: React.FC<ProductCardVariationListProps> =
           index={index}
           canManageCatalog={canManageCatalog}
           isDraft={isDraft}
-          exitedVariationIds={exitedVariationIds}
           activeVarMenuId={activeVarMenuId}
           checkingUsageId={checkingUsageId}
           usageCache={usageCache}

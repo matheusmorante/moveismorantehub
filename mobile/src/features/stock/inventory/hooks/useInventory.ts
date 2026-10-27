@@ -8,7 +8,7 @@ import {
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import { syncPendingInventorySubmissions } from '../services/inventoryFinalizer';
 
-export const useInventory = () => {
+export const useInventory = (userProfileId?: string | null) => {
   const [sessions, setSessions] = useState<InventorySession[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -26,15 +26,15 @@ export const useInventory = () => {
     }
 
     // 0. Se estiver online, sincroniza automaticamente submissões congeladas na outbox local
-    if (pageNum === 0 && connectivityService.connected) {
-      await syncPendingInventorySubmissions().catch(() => 0);
+    if (pageNum === 0 && connectivityService.connected && userProfileId) {
+      await syncPendingInventorySubmissions(userProfileId).catch(() => 0);
     }
 
     // 1. Carrega rascunhos locais do SQLite (disponíveis 100% offline)
     let localDraftSessions: InventorySession[] = [];
     if (pageNum === 0) {
       try {
-        const localDrafts = await listLocalInventoryDrafts();
+        const localDrafts = await listLocalInventoryDrafts(userProfileId);
         const reservedCodes = new Set(
           localDrafts
             .filter((draft) => draft.status === 'pending_sync')
@@ -63,7 +63,8 @@ export const useInventory = () => {
             while (reservedCodes.has(nextCode)) nextCode += 'X';
           }
 
-          await saveLocalInventoryDraft({ ...draft, code: nextCode });
+          if (!draft.userId || draft.userId !== userProfileId) continue;
+          await saveLocalInventoryDraft({ ...draft, userId: draft.userId, code: nextCode });
           draft.code = nextCode;
           reservedCodes.add(nextCode);
         }
@@ -89,7 +90,12 @@ export const useInventory = () => {
     }
 
     try {
-      const data = await stockService.fetchInventorySessions(pageNum);
+      const data = await stockService.fetchInventorySessions(
+        pageNum,
+        undefined,
+        undefined,
+        userProfileId
+      );
 
       const formattedData = (data || []).map((session: any) => ({
         id: session.id,
@@ -134,7 +140,7 @@ export const useInventory = () => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [userProfileId]);
 
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading) {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import Product from '@/pages/types/product.type';
 import {
   computeVariationName,
@@ -21,6 +21,8 @@ interface UseProductFormSyncParams {
  * 3. Agregação dos valores das variações filhas de volta para o produto pai (estoque total e custo médio).
  */
 export function useProductFormSync({ formData, setFormData, isExistingProduct = false }: UseProductFormSyncParams): void {
+  const previousParentNameRef = useRef<{ productId: string; name: string } | null>(null);
+
   // 1. Cálculo do preço final de compra
   useEffect(() => {
     const final = calculateProductFinalPurchasePrice(
@@ -46,6 +48,13 @@ export function useProductFormSync({ formData, setFormData, isExistingProduct = 
   // 2. Propagação de campos herdados (Pai -> Variações)
   useEffect(() => {
     if (!formData.variations?.length) return;
+
+    const productId = String(formData.id || formData.code || '');
+    const parentName = String(formData.name || formData.description || '').trim();
+    const previousParent = previousParentNameRef.current;
+    const previousParentName = previousParent?.productId === productId ? previousParent.name : '';
+    const parentNameChanged = Boolean(previousParentName && previousParentName !== parentName);
+    previousParentNameRef.current = { productId, name: parentName };
 
     const nextVariations = formData.variations.map((v) => {
       let updated = false;
@@ -75,18 +84,23 @@ export function useProductFormSync({ formData, setFormData, isExistingProduct = 
         updated = true;
       }
 
-      const parentName = formData.name || formData.description || '';
       const variationNameAttributes = getVariationNameAttributes(
         v.attributes || []
       );
-      const variationName = computeVariationName(parentName, variationNameAttributes);
+      const currentName = String(newV.name || '').trim();
+      const inheritsPreviousParentName =
+        parentNameChanged &&
+        currentName
+          .toLocaleLowerCase('pt-BR')
+          .startsWith(previousParentName.toLocaleLowerCase('pt-BR'));
+      const currentNameSuffix = inheritsPreviousParentName
+        ? currentName.slice(previousParentName.length).replace(/^[\s\-–—_:]+/u, '').trim()
+        : '';
+      const variationName = inheritsPreviousParentName
+        ? [parentName, currentNameSuffix].filter(Boolean).join(' ')
+        : computeVariationName(parentName, variationNameAttributes);
       const defaultName = computeVariationName(parentName, []);
       const nameFromVariationAttributes = computeVariationName(parentName, v.attributes || []);
-      const currentNameSuffix = newV.name
-        .toLocaleLowerCase('pt-BR')
-        .startsWith(parentName.toLocaleLowerCase('pt-BR'))
-          ? newV.name.slice(parentName.length).replace(/^[\s\-–—_:]+/u, '').trim()
-          : newV.name.trim();
       const attributeNameSuffix = getVariationAttributeValuesInNameOrder(
         v.attributes || []
       ).join(' ');
@@ -97,6 +111,7 @@ export function useProductFormSync({ formData, setFormData, isExistingProduct = 
           .replace(/[\u0300-\u036f]/g, '')
           .toLocaleLowerCase('pt-BR');
       const nameIsGenerated =
+        inheritsPreviousParentName ||
         !newV.name ||
         newV.name === 'Variação' ||
         newV.name === defaultName ||

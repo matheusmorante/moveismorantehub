@@ -104,7 +104,7 @@ export const useInventoryAuditWorkflow = (
           const data = await restoreInventorySession(initialSession, userProfile?.id);
           if (data && isMounted) {
             const isFrozen = Boolean(
-              data.draft.id && (await getInventorySubmission(data.draft.id))
+              data.draft.id && (await getInventorySubmission(data.draft.id, userProfile?.id))
             );
             frozenSubmissionRef.current = isFrozen;
             draftRef.current = data.draft;
@@ -157,7 +157,7 @@ export const useInventoryAuditWorkflow = (
         const auditId = draftRef.current.id || generateInventoryUUID();
         draftRef.current.id = auditId;
         try {
-          const localDrafts = await listLocalInventoryDrafts();
+          const localDrafts = await listLocalInventoryDrafts(userProfile?.id);
           const reservedCodes = localDrafts
             .filter((draft) => draft.id !== auditId)
             .map((draft) => draft.code.trim())

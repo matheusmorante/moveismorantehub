@@ -46,7 +46,6 @@ interface ProductTableProps {
   readonly categoryTree?: ProductCategoryTree;
   readonly onRefresh?: () => void;
   readonly onDuplicate?: (product: Product) => void;
-  readonly exitedVariationIds?: ReadonlySet<string>;
 }
 
 const ProductTable = ({
@@ -77,7 +76,6 @@ const ProductTable = ({
   categoryTree,
   onRefresh,
   onDuplicate,
-  exitedVariationIds,
 }: ProductTableProps) => {
   const { profile } = useAuth();
   const showCatalogControl = !shouldHideCatalogPublicationStatus(profile);
@@ -339,7 +337,6 @@ const ProductTable = ({
                   categoryTree={categoryTree}
                   onRefresh={onRefresh}
                   onDuplicate={() => onDuplicate && onDuplicate(product)}
-                  exitedVariationIds={exitedVariationIds}
                   hasVariations={hasVars}
                   isExpanded={isExp}
                   onToggleExpand={() => toggleExpandParent(product.id!)}
@@ -388,7 +385,6 @@ const ProductTable = ({
                 categoryTree={categoryTree}
                 onRefresh={onRefresh}
                 onDuplicate={onDuplicate}
-                exitedVariationIds={exitedVariationIds}
                 onMoveToAnotherFamily={setVariationToMove}
                 onMergeWithAnotherVariation={setVariationToMerge}
               />

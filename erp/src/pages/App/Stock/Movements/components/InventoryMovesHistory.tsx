@@ -58,7 +58,8 @@ export const InventoryMovesHistory = ({
     setPage,
     totalPages,
     paginatedFiltered,
-    ITEMS_PER_PAGE,
+    itemsPerPage,
+    setItemsPerPage,
     totalItems,
   } = useInventoryMovesHistory({
     externalSelectedProduct,
@@ -195,8 +196,13 @@ export const InventoryMovesHistory = ({
             currentPage={page}
             totalPages={totalPages}
             totalItems={totalItems}
-            itemsPerPage={ITEMS_PER_PAGE}
+            itemsPerPage={itemsPerPage}
             onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPage(1);
+              setItemsPerPage(size);
+            }}
+            preferenceKey="stock-movements"
             itemName="movimentações"
           />
         </div>

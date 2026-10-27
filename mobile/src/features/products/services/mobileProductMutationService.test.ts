@@ -416,6 +416,47 @@ describe('saveMobileProduct', () => {
     });
   });
 
+  it('serializa opções múltiplas para compatibilidade e mantém o array técnico no snapshot', async () => {
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174000',
+      operationId: '123e4567-e89b-42d3-a456-426614174001',
+      code: 'MULTI-SELECT',
+      name: 'Produto com seleção múltipla',
+      itemType: 'product',
+      productKind: 'normal',
+      hasVariations: true,
+      technicalValues: { 'Materiais das corrediças': ['Metal', 'Nylon'] },
+      variations: [
+        {
+          name: 'Produto com seleção múltipla - Metal e Nylon',
+          sku: 'MULTI-SELECT-01',
+          technicalValues: { 'Materiais das corrediças': ['Metal', 'Nylon'] },
+          attributes: [
+            {
+              name: 'Materiais das corrediças',
+              value: ['Metal', 'Nylon'],
+              showName: false,
+            },
+          ],
+          comboItems: [],
+        },
+      ],
+      images: [],
+    });
+
+    const [, parameters] = mocks.rpc.mock.calls[0];
+    expect(parameters.p_variations[0].attributes).toEqual([
+      {
+        name: 'Materiais das corrediças',
+        value: 'Metal,Nylon',
+        showName: false,
+      },
+    ]);
+    expect(parameters.p_product.technical_specs.variationDetails[0].technicalValues).toEqual({
+      'Materiais das corrediças': ['Metal', 'Nylon'],
+    });
+  });
+
   it('não mascara alias próprio legado de attributes com Modelo/Linha herdado do pai', async () => {
     vi.mocked(fetchRequiredProductCategoryAttributes).mockResolvedValue([
       {
@@ -1488,6 +1529,46 @@ describe('saveMobileProduct', () => {
     expect(parameters.p_variations[0].combo_items).toEqual([normalizedComponent]);
   });
 
+  it('omite variationId nulo no payload de composição como no ERP', async () => {
+    const component = {
+      productId: '123e4567-e89b-42d3-a456-426614174050',
+      variationId: null,
+      quantity: 1,
+      unitPrice: 12,
+      stock: 5,
+      description: 'Mesa sem variação própria',
+    };
+
+    await saveMobileProduct({
+      clientProductId: '123e4567-e89b-42d3-a456-426614174051',
+      operationId: '123e4567-e89b-42d3-a456-426614174052',
+      code: 'KIT-BASE',
+      name: 'Kit base',
+      itemType: 'composition',
+      productKind: 'normal',
+      comboItems: [component],
+      variations: [{
+        id: '123e4567-e89b-42d3-a456-426614174053',
+        name: 'Kit base',
+        sku: 'KIT-BASE-01',
+        comboItems: [component],
+      }],
+      images: [],
+      categoryIds: [],
+    });
+
+    const [, parameters] = mocks.rpc.mock.calls[0];
+    const normalizedComponent = {
+      productId: component.productId,
+      quantity: 1,
+      unitPrice: 12,
+      stock: 5,
+      description: component.description,
+    };
+    expect(parameters.p_product.combo_items).toEqual([normalizedComponent]);
+    expect(parameters.p_variations[0].combo_items).toEqual([normalizedComponent]);
+  });
+
   it('mantém ingredientes exclusivos da variação fora do cadastro pai', async () => {
     const variationComponent = {
       productId: '123e4567-e89b-42d3-a456-426614174030',
@@ -1600,15 +1681,23 @@ describe('toggleMobileProductCatalog', () => {
     mocks.from.mockReturnValue(query);
   });
 
-  it('bloqueia publicação de produto de teste no catálogo', async () => {
+  it('bloqueia publicação de artefato de teste marcado em technical_specs', async () => {
     query.maybeSingle.mockResolvedValueOnce({
-      data: { id: 'prod-test-1', code: 'TEST_AUT_01', name: 'Teste' },
+      data: {
+        id: 'prod-test-1',
+        code: 'SKU-1',
+        name: 'Teste',
+        technical_specs: { testArtifact: { is_test: true } },
+      },
       error: null,
     });
 
     await expect(
       toggleMobileProductCatalog('prod-test-1', 'hidden')
     ).rejects.toThrow('Produtos identificados como teste não podem ser publicados no Catálogo Digital.');
+    expect(query.select).toHaveBeenCalledWith(
+      'id, code, sku, name, title, observations, technical_specs'
+    );
   });
 
   it('permite ocultar produto mesmo sendo produto de teste', async () => {
