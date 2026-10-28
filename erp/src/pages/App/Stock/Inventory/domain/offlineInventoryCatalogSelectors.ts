@@ -121,6 +121,6 @@ export const selectOfflineInventoryCatalogSuppliers = (
       nickname: supplier.nickname,
       stockOrigins: Array.isArray(supplier.stock_origins)
         ? supplier.stock_origins
-        : ['normal'],
+        : [],
       type: 'suppliers',
     }));

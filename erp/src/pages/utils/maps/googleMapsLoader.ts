@@ -27,13 +27,16 @@ export const loadGoogleMapsApi = async (): Promise<void> => {
   }
   if ((window as any).__googleMapsPromise) return (window as any).__googleMapsPromise;
 
-  (window as any).__googleMapsPromise = new Promise<void>((resolve, reject) => {
+  let script: HTMLScriptElement;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let loaded = false;
+  const request = new Promise<void>((resolve, reject) => {
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existingScript) {
       existingScript.remove();
     }
 
-    const script = document.createElement('script');
+    script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${keyToUse}&libraries=places&language=pt-BR&region=BR`;
     script.async = true;
     script.defer = true;
@@ -44,25 +47,35 @@ export const loadGoogleMapsApi = async (): Promise<void> => {
         googleMaps?.Geocoder &&
         typeof googleMaps?.importLibrary === 'function'
       ) {
+        loaded = true;
         resolve();
         return;
       }
 
-      (window as any).__googleMapsPromise = null;
-      script.remove();
       reject(
         new Error(
           'A API do Google Maps carregou sem os serviços necessários. Verifique as APIs habilitadas para esta chave.'
         )
       );
     };
-    script.onerror = (err) => {
-      (window as any).__googleMapsPromise = null;
-      script.remove();
-      console.error('[loadGoogleMapsApi] Falha ao carregar script do Google Maps:', err);
+    script.onerror = () => {
       reject(new Error('Failed to load Google Maps script'));
     };
+    timer = setTimeout(() => {
+      reject(new Error('O carregamento do Google Maps excedeu o tempo de espera.'));
+    }, 15_000);
     document.head.appendChild(script);
+  }).finally(() => {
+    if (timer) clearTimeout(timer);
+    if (script) {
+      script.onload = null;
+      script.onerror = null;
+      if (!loaded) script.remove();
+    }
+    if (!loaded && (window as any).__googleMapsPromise === request) {
+      (window as any).__googleMapsPromise = null;
+    }
   });
+  (window as any).__googleMapsPromise = request;
   return (window as any).__googleMapsPromise;
 };

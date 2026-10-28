@@ -71,7 +71,7 @@ export class MobileAgentClient {
       body.toolConfig = payload.toolConfig;
     }
 
-    const apiBase = (process.env.EXPO_PUBLIC_ERP_API_URL || 'https://morantehub.com').replace(/\/$/, '');
+    const apiBase = (process.env.EXPO_PUBLIC_ERP_API_URL || 'https://morantehub.vercel.app').replace(/\/$/, '');
     const response = await fetch(`${apiBase}/api/gemini-proxy`, {
       method: 'POST',
       headers: {

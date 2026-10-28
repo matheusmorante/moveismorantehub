@@ -50,6 +50,7 @@ const getCharacteristicText = (value: unknown): string => {
         (value as { val?: unknown }).val ??
         '')
       : value;
+  if (typeof rawValue === 'boolean') return rawValue ? 'Sim' : 'Não';
   return String(rawValue ?? '').trim();
 };
 
@@ -129,24 +130,25 @@ export const applyProductCharacteristicToVariationNames = <
 ): T[] => {
   let changed = false;
   const normalizedName = characteristicName.trim().toLocaleLowerCase('pt-BR');
-  const normalizedFallback = getCharacteristicText(fallbackValue);
   const nextVariations = variations.map((variation) => {
     const attributes = getProductCharacteristicAttributes(variation.attributes);
     const attributeIndex = attributes.findIndex(
       ({ name }) => name.trim().toLocaleLowerCase('pt-BR') === normalizedName
     );
     const existingAttribute = attributeIndex >= 0 ? attributes[attributeIndex] : undefined;
-    const value =
-      getCharacteristicText(existingAttribute?.value) ||
-      getCharacteristicText(
-        getTechnicalValue(getEffectiveVariationTechnicalValues({}, variation), characteristicName)
-      ) ||
-      normalizedFallback;
+    const variationTechnicalValues = getEffectiveVariationTechnicalValues({}, variation);
+    const variationTechnicalValue = getTechnicalValue(variationTechnicalValues, characteristicName);
+    const rawValue = existingAttribute
+      ? existingAttribute.value
+      : variationTechnicalValue !== undefined
+        ? variationTechnicalValue
+        : fallbackValue;
+    const value = getCharacteristicText(rawValue);
     if (!value) return variation;
 
     const nextAttribute = {
       name: existingAttribute?.name || characteristicName,
-      value,
+      value: typeof rawValue === 'boolean' ? rawValue : value,
       showName: true,
     };
     if (attributeIndex >= 0) attributes[attributeIndex] = nextAttribute;
@@ -163,7 +165,7 @@ export const applyProductCharacteristicToVariationNames = <
     const nextName = [parentName.trim(), nextComplement.trim()].filter(Boolean).join(' ');
     const attributeChanged =
       !existingAttribute ||
-      existingAttribute.value !== value ||
+      existingAttribute.value !== nextAttribute.value ||
       existingAttribute.showName === false;
     const nameChanged = nextName !== currentName;
     if (!attributeChanged && !nameChanged) return variation;

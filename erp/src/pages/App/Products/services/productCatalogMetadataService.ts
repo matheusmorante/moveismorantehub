@@ -99,7 +99,7 @@ export const deleteProductMaterialIfUnused = async (material: ProductCatalogMeta
 export const fetchProductTypes = async (): Promise<ProductCatalogMetadataOption[]> => {
   const { data, error } = await supabase
     .from('product_types')
-    .select('id, name, created_at')
+    .select('id, name')
     .order('name', { ascending: true });
   if (error) throw error;
   return data ?? [];

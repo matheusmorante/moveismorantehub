@@ -1,6 +1,7 @@
 import React from 'react';
 import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { getTechnicalFieldTextPlaceholder } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
+import { getCharacteristicTextLimits } from '../../../../../../../../../shared-utils/characteristicTextLimits';
 
 interface TextTechnicalInputProps {
   field: TechnicalFieldDefinition;
@@ -17,11 +18,14 @@ export const TextTechnicalInput: React.FC<TextTechnicalInputProps> = ({
   disabled,
   onChange,
 }) => {
+  const textLimits = getCharacteristicTextLimits(type);
+
   if (type === 'text_long') {
     return (
       <textarea
         value={value ?? ''}
-        maxLength={4000}
+        minLength={textLimits?.minLength}
+        maxLength={textLimits?.maxLength}
         rows={4}
         placeholder="Digite a descrição detalhada"
         disabled={disabled}
@@ -37,7 +41,8 @@ export const TextTechnicalInput: React.FC<TextTechnicalInputProps> = ({
     <input
       type="text"
       value={value ?? ''}
-      maxLength={120}
+      minLength={textLimits?.minLength}
+      maxLength={textLimits?.maxLength}
       placeholder={placeholder}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}

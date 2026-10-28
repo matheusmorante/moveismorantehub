@@ -75,7 +75,7 @@ O arquivo-base local ainda declara políticas permissivas para `authenticated, a
 * `conversation_id` (UUID, FK): Vínculo com a conversa.
 * `api_message_id` (TEXT, UNIQUE): Identificador oficial da Meta (`wamid`) para deduplicação.
 * `direction` (TEXT): `'inbound'` ou `'outbound'`.
-* `message_type` (TEXT): `'text'`, `'image'`, `'document'`, `'audio'`, `'video'`, `'interactive'`, `'sticker'`, `'unsupported'`.
+* `message_type` (TEXT): `'text'`, `'image'`, `'document'`, `'audio'`, `'video'`, `'interactive'`, `'sticker'`, `'unsupported'`, `'deleted'`.
 * `text_content` (TEXT): Conteúdo textual.
 * `media_id`, `media_mime_type`, `media_filename`, `media_caption` (TEXT): Metadados de mídias.
 * `reply_to_wamid` (TEXT): Citação/resposta à mensagem anterior.
@@ -126,7 +126,7 @@ Seguindo as diretrizes de prevenção contra Egress excessivo do Supabase (`efic
 A Central de Atendimento escuta eventos através de canais dedicados:
 * `whatsapp-conversations-realtime`: Eventos disparam novas consultas das páginas de conversas abertas; há também polling de seis segundos.
 * `whatsapp-messages-realtime`: Eventos disparam atualização do histórico carregado da conversa aberta, com deduplicação; isso não é prova de entrega instantânea nem de comportamento sob reconexão.
-* Ao abrir uma conversa, o contador de não lidas é atualizado para zero (`unread_count: 0`).
+* Abrir uma conversa não altera o contador de não lidas. O atendente alterna manualmente `unread_count` entre zero e um pelo ícone de olho/olho riscado no cabeçalho; esse estado é interno da Central e não envia confirmação de leitura ao WhatsApp.
 
 ---
 
@@ -160,7 +160,7 @@ A [operação limitada autorizada](central-de-atendimento-fixtures-proposta-2026
 
 A migration `20261021041610_customer_support_internal_commands.sql` foi aplicada. O frontend usa RPCs para atribuição, status, comentário, notas e tags; autor/horário e estado atual são derivados no servidor. As funções mantêm alteração/evento na mesma transação e não criam evento ao repetir atribuição/status já persistidos. Notas têm comparação do texto-base; tags não sobrescrevem notas nem snapshots de status. Rascunhos em edição são preservados.
 
-**Transição de compatibilidade concluída:** o deployment com as cinco RPCs precedeu a migration `20261021162004_customer_support_internal_commands_contract`, confirmada no histórico do Supabase operacional. A consulta de catálogo em 23/10 confirmou que `authenticated` não pode inserir/atualizar mensagens nem alterar campos de comando em conversas; a única atualização direta de conversa mantida é `unread_count` para confirmação de leitura. A policy `whatsapp_messages_insert` também rejeita `authenticated`, e `anon` não possui as permissões verificadas. Atribuição, status, comentário, notas e tags continuam pelas RPCs que derivam usuário/estado do servidor. [Objetos, efeitos, retenção e próximos gates](central-de-atendimento-comandos-2026-10-21.md).
+**Transição de compatibilidade concluída:** o deployment com as cinco RPCs precedeu a migration `20261021162004_customer_support_internal_commands_contract`, confirmada no histórico do Supabase operacional. A consulta de catálogo em 23/10 confirmou que `authenticated` não pode inserir/atualizar mensagens nem alterar campos de comando em conversas; a única atualização direta de conversa mantida é `unread_count`, para o controle manual de lido/não lido na Central. A policy `whatsapp_messages_insert` também rejeita `authenticated`, e `anon` não possui as permissões verificadas. Atribuição, status, comentário, notas e tags continuam pelas RPCs que derivam usuário/estado do servidor. [Objetos, efeitos, retenção e próximos gates](central-de-atendimento-comandos-2026-10-21.md).
 
 ---
 
@@ -337,9 +337,11 @@ Continuam pendentes uma entrega legítima originada pela Meta e a leitura de mí
 
 ## Mensagens enviadas pelo WhatsApp Business no celular — Production, 24/10/2026
 
-Em números conectados à Cloud API pelo modo Coexistence, a Meta entrega mensagens enviadas pelo WhatsApp Business no campo separado `smb_message_echoes`. O webhook reconhece `value.message_echoes`, identifica o destinatário em `to` e persiste a mensagem como saída na conversa compartilhada. O `wamid` torna o recebimento idempotente; a gravação não aumenta não lidas nem altera a janela de atendimento, atribuição, status, arquivamento ou notas. A origem aparece como “WhatsApp Business (celular)”. Referência: [documentação Meta do evento `smb_message_echoes`](https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/reference/smb_message_echoes).
+Em números conectados à Cloud API pelo modo Coexistence, a Meta entrega mensagens enviadas pelo WhatsApp Business no campo separado `smb_message_echoes`. O webhook reconhece `value.message_echoes`, identifica o destinatário em `to` e persiste a mensagem como saída na conversa compartilhada. O `wamid` torna o recebimento idempotente; a gravação não aumenta não lidas nem altera a janela de atendimento, atribuição, status, arquivamento ou notas. A origem aparece como “WhatsApp Business (celular)”. Revogações atualizam a linha da mensagem original, removem texto e referências de mídia e exibem o marcador `Esta mensagem foi apagada`, sem criar um balão separado para o evento nem incrementar não lidas. Referência: [documentação Meta do evento `smb_message_echoes`](https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/reference/smb_message_echoes).
 
 A migration local `supabase/migrations/20261024170000_customer_support_whatsapp_app_echoes.sql` foi aplicada ao Supabase operacional `hkoxhourxwlddgsfdgws`, registrada remotamente na versão `20261024195230`. Ela adiciona uma RPC `SECURITY INVOKER`, executável somente por `service_role`, que cria a conversa se o eco for a primeira atividade e atualiza a prévia sem substituir vínculos já existentes. O rollback remove somente a RPC e preserva os registros.
+
+A migration `supabase/migrations/20261027184402_customer_support_message_revocation.sql` foi aplicada ao mesmo projeto na versão remota `20261027184402`. A RPC `customer_support_revoke_message` só pode ser executada por `service_role`, valida conversa, direção e ID original, limpa o texto e as mídias da mensagem revogada e mantém um marcador idempotente no histórico.
 
 O novo endpoint protegido `ensure_smb_message_echoes_subscription` exige `manageSettings`, lê a inscrição atual do app e só a atualiza se o campo estiver ausente, preservando callback, `messages`, os demais campos e `include_values`. O App Secret e o token de verificação ficam no runtime. A consulta de Production encontrou `smb_message_echoes` já inscrito; portanto, retornou `changed=false` e não alterou a configuração Meta. A verificação separada confirmou `valid=true`, `subscribed=true` para o WABA.
 
@@ -350,3 +352,31 @@ A seleção de cinco arquivos focados passou em **50 testes** e `npm run build -
 ### Autorização permanente para migrations — 24/10/2026
 
 O operador autorizou o agente a aplicar migrations de schema necessárias a tarefas explicitamente solicitadas no Supabase operacional, sem confirmação repetida por migration. Cada execução continua exigindo revisão do SQL, confirmação do project ref, leitura do histórico e validação do resultado. Esta autorização não cobre fixtures, dados sintéticos, limpeza de dados ou envio de mensagens; esses efeitos seguem os gates de [`docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`](../testing/SUPABASE_REMOTE_TEST_POLICY.md).
+
+## Mensagens não suportadas pela Cloud API — 28/10/2026
+
+Quando o webhook informa `type=unsupported` ou `type=unknown` com o erro 131051, a Central salva o ID da mensagem, o contato e o horário recebidos no evento, além do código, da descrição e do objeto de erro original da Meta. O histórico exibe “Mensagem não suportada pela API do WhatsApp”; código, descrição e ID ficam em “Detalhes técnicos”. Como a API não entrega o conteúdo original nesses eventos, a Central não tenta baixar mídia, reconstruir cartões ou botões nem reenviar a mensagem. Referência: [exemplo oficial da Meta para mensagens desconhecidas](https://www.postman.com/meta/whatsapp-business-platform/request/yuuxr2c/received-unknown-messages).
+
+A migration local `supabase/migrations/20261028135544_customer_support_unsupported_messages.sql` foi aplicada ao projeto operacional `hkoxhourxwlddgsfdgws` e consta no histórico remoto na versão `20261028135544`. Ela preserva a validação, a idempotência e a permissão exclusiva de execução por `service_role`, passando a gravar os campos de erro já existentes em `whatsapp_messages`. O webhook e a interface atualizados no workspace ainda não foram publicados.
+
+Na coexistência com o WhatsApp Business app, o webhook também envia ecos de saída (`smb_message_echoes`). A RPC desses ecos registrava a mensagem como enviada, mas descartava `error_code`, `failure_reason` e os detalhes do erro em `raw_payload`; por isso, um eco `unsupported` podia aparecer apenas como o texto de erro sem os detalhes técnicos. A migration `supabase/migrations/20261028171004_customer_support_echo_unsupported_details.sql` atualiza essa RPC para persistir os mesmos metadados, mantendo o `wamid` idempotente, a origem `whatsapp_business_app` e a execução exclusiva por `service_role`. O eco continua com status `sent`: ele confirma uma mensagem enviada pelo app, enquanto `unsupported` descreve apenas o que a Cloud API consegue representar. Essa situação não deve disparar reenvio automático. Para registros antigos que já contêm a frase e o código explícito, a interface reconhece `131051` ao mapear o histórico, sem editar os dados gravados e sem inventar o detalhe original ausente.
+
+### Cobertura dos formatos recebidos — 28/10/2026
+
+O parser e os balões da Central também reconhecem as respostas `interactive.button_reply`, `interactive.list_reply` e `interactive.nfm_reply`. Respostas de botões/listas mostram título, descrição e identificador; respostas de WhatsApp Flows mostram os campos devolvidos em `response_json` e o nome do fluxo, removendo `flow_token` da exibição e dos metadados persistidos.
+
+Cartões de contato exibem nome, telefones e tipos, e-mail, endereços, URLs, organização e aniversário. Localizações exibem nome, coordenadas, endereço e URL; o balão oferece “Abrir localização” somente quando o endereço é HTTP(S) válido. Pedidos do catálogo mostram itens, quantidades, preços, mensagem do cliente e ID do catálogo. Mensagens com produto consultado ou origem de anúncio mostram esses metadados junto ao texto.
+
+Reações ficam ligadas ao `wamid` da mensagem reagida, são apresentadas como emojis na mensagem original e desaparecem quando chega uma remoção. O contexto `forwarded`/`frequently_forwarded` aparece no balão para qualquer tipo de mensagem. Dados de identidade e origem de anúncio recebidos junto a mídia são preservados e exibidos como metadados; o hash de identidade não é persistido nem mostrado, e URLs de mídia de anúncio não são carregadas automaticamente. Figurinhas recebidas em WebP podem ser encaminhadas como figurinha; o envio valida o contêiner e as dimensões de 512 × 512 pixels, limita estáticas a 100 KB e animadas a 500 KB, e não adiciona legenda. O MIME determina o ícone de documento (PDF ou arquivo genérico). Eventos `unsupported` e `unknown` com erro 131051 continuam sendo exibidos como não suportados com detalhes técnicos; nenhum conteúdo ausente é reconstruído.
+
+Validação anterior do candidato no workspace: `customerSupport.test.ts`, `customerSupportInbound.test.ts`, `customerSupportMedia.test.tsx` e `customerSupportForwarding.test.ts` passaram em **98 testes**; a cobertura inclui extratores dos formatos, persistência inbound do erro 131051, proteção do token de Flow, localização, encaminhamento, metadados, reações, MIME de documentos, limites WebP e avisos de mensagem não suportada. A regressão dos ecos do WhatsApp Business e a leitura de registros antigos foram cobertas por `customerSupportInbound.test.ts` (22 testes focados), e a migration específica atualiza apenas a RPC de eco; nenhuma mensagem foi enviada à Meta durante a validação.
+
+## Identidade do WhatsApp e Pedidos por Snapshot de Telefone — 28/10/2026
+
+Por especificação de produto:
+1. **Preservação do nome do WhatsApp:** Na Central de Atendimento (`ConversationItem`, `ChatArea` e cabeçalho do `CustomerInfoPanel`), o nome exibido para o contato é rigorosamente o nome cadastrado no perfil do WhatsApp pelo próprio usuário (`conversation.contactName`), com fallback para o telefone formatado. O nome **nunca** é sobrescrito pelo nome do cliente cadastrado no ERP (`customer.fullName`) nem pelo nome contido no snapshot de pedidos. As iniciais do avatar derivam do nome de perfil do WhatsApp.
+2. **Histórico e Pedidos por Telefone:** Se o número da conversa estiver associado a algum pedido pelo snapshot (`order_data -> customerData -> phone` ou `additionalContacts`), esses pedidos aparecem na listagem de pedidos do perfil do contato na Central de Atendimento, mesmo se a conversa não estiver formalmente vinculada a um registro na tabela `people` (`customer_id` nulo ou `isLinked = false`).
+3. **RPCs e Migrations:**
+   * `customer_support_list_customer_records_page`: aceita tanto UUID de cliente quanto telefone de contato com variações de DDI/DDD e nono dígito, buscando em `order_data #>> '{customerData,phone}'` e `additionalContacts`, e retorna `customer_name` do snapshot.
+   * `customer_support_count_customer_orders`: conta pedidos por telefone e cliente, alimentando os badges da Inbox e o filtro de conversas com pedidos (`with_orders`).
+   * Migration aplicada: `supabase/migrations/20261028154127_customer_support_orders_snapshot_phone_lookup.sql` e `20261028160000_customer_support_count_orders_additional_contacts.sql` no projeto Supabase operacional `hkoxhourxwlddgsfdgws`.

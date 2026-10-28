@@ -24,7 +24,7 @@ import { ProductSpecifications } from '../sections/ProductSpecifications';
 import { useProductViewTracking } from '../hooks/useProductViewTracking';
 import {
   useProductPageDisplayState,
-  TechnicalSpecification,
+  type TechnicalSpecification,
 } from '../hooks/useProductPageDisplayState';
 import { useProductShare } from '../hooks/useProductShare';
 

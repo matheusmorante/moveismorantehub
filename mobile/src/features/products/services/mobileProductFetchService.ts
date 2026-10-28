@@ -38,7 +38,6 @@ export interface MobileProductFilterOptions {
   statusFilter?: 'all' | 'active' | 'disabled' | 'draft';
   catalogStatus?: 'all' | 'published' | 'hidden';
   includeDeactivated?: boolean;
-  excludeDraftsDuringSearch?: boolean;
   includeMerged?: boolean;
   showTrash?: boolean;
   showTestProducts?: boolean;
@@ -60,7 +59,7 @@ const mapMobileVariationAttributes = (rawAttributes: unknown) =>
     (attribute) => ({
       ...attribute,
       name: toTitleCase(attribute.name),
-      value: toTitleCase(attribute.value),
+      value: typeof attribute.value === 'string' ? toTitleCase(attribute.value) : attribute.value,
     })
   );
 
@@ -287,10 +286,6 @@ export const fetchMobileProductsPage = async (
         .not('is_draft', 'is', true)
         .filter('status', 'isdistinct', 'draft')
         .eq('active', false);
-    } else if (!options?.showTrash && options?.excludeDraftsDuringSearch) {
-      query = query
-        .not('is_draft', 'is', true)
-        .filter('status', 'isdistinct', 'draft');
     } else if (!options?.showTrash && options?.includeDeactivated === false) {
       // Rascunhos seguem acessíveis para conclusão do cadastro; somente os
       // produtos de fato desativados ficam ocultos na visão padrão.

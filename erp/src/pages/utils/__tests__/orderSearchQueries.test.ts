@@ -18,6 +18,7 @@ const queryResult = (result: { data: unknown[] | null; error: unknown | null }) 
     eq: vi.fn(() => query),
     in: vi.fn(() => query),
     neq: vi.fn(() => query),
+    or: vi.fn(() => query),
     order: vi.fn(() => query),
     then: (resolve: (value: typeof result) => unknown) => Promise.resolve(result).then(resolve),
   };

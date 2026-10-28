@@ -1196,14 +1196,21 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                     return { ...prev, variations: vars };
                                   });
                                 }}
+                                disabled={isSingleVariation}
                                 style={[
                                   styles.inheritButton,
+                                  isSingleVariation && { opacity: 0.7 },
                                   effectivePricing.hasMixedInheritance
                                     ? styles.inheritButtonPartial
                                     : effectivePricing.inheritsUnitPrice &&
                                         styles.inheritButtonActive,
                                 ]}
                                 accessibilityRole="switch"
+                                accessibilityHint={
+                                  isSingleVariation
+                                    ? 'A única variação herda os dados do produto.'
+                                    : undefined
+                                }
                                 accessibilityLabel={
                                   effectivePricing.hasMixedInheritance
                                     ? effectivePricing.inheritsUnitPrice
@@ -1214,6 +1221,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                       : 'Preço personalizado'
                                 }
                                 accessibilityState={{
+                                  disabled: isSingleVariation,
                                   checked: effectivePricing.hasMixedInheritance
                                     ? 'mixed'
                                     : effectivePricing.inheritsUnitPrice,
@@ -1255,6 +1263,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                     dark && styles.lightText,
                                     effectivePricing.inheritsUnitPrice && styles.inheritedInput,
                                   ]}
+                                  accessibilityLabel="Preço de venda da variação"
                                 />
                               </View>
                               <View style={styles.flex1}>
@@ -1273,6 +1282,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                     dark && styles.lightText,
                                     effectivePricing.inheritsPromoPrice && styles.inheritedInput,
                                   ]}
+                                  accessibilityLabel="Desconto em percentual da variação"
                                 />
                               </View>
                               <View style={styles.flex1}>
@@ -1291,6 +1301,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                     dark && styles.lightText,
                                     effectivePricing.inheritsPromoPrice && styles.inheritedInput,
                                   ]}
+                                  accessibilityLabel="Desconto fixo em reais da variação"
                                 />
                               </View>
                               <View style={styles.flex1}>
@@ -1311,6 +1322,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                     dark && styles.lightText,
                                     effectivePricing.inheritsPromoPrice && styles.inheritedInput,
                                   ]}
+                                  accessibilityLabel="Preço promocional da variação"
                                 />
                               </View>
                             </View>

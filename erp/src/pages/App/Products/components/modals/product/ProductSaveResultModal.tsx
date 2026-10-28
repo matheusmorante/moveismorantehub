@@ -11,6 +11,7 @@ import {
   type EcomLegibilityResult,
 } from '../../../../../../../../shared-utils/catalogPublicationValidation';
 import { fetchTechnicalFieldDefinitions } from '../../../services/technicalFieldService';
+import { fetchCharacteristicGroups } from '@/pages/utils/characteristicGroupService';
 
 export interface ProductErpChecks {
   readonly origin?: boolean;
@@ -89,17 +90,28 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
     setCatalogReadiness({ productId, status: 'checking' });
     void (async () => {
       try {
-        const requirements = await withTimeout(
-          fetchTechnicalFieldDefinitions('product-form', {
-            forceRefresh: true,
-            requireCategoryLinks: true,
-          }),
-          15000,
-          null,
-          'produto:verificar-requisitos-do-catalogo'
-        );
+        const [requirements, groupData] = await Promise.all([
+          withTimeout(
+            fetchTechnicalFieldDefinitions('product-form', {
+              forceRefresh: true,
+              requireCategoryLinks: true,
+            }),
+            15000,
+            null,
+            'produto:verificar-requisitos-do-catalogo'
+          ),
+          withTimeout(
+            fetchCharacteristicGroups(),
+            15000,
+            null,
+            'produto:verificar-grupos-de-características'
+          ),
+        ]);
         if (!requirements) throw new Error('Requisitos de categoria indisponíveis.');
-        const result = checkEcomLegibility(product as any, requirements);
+        if (!groupData) throw new Error('Aplicações dos grupos indisponíveis.');
+        const result = checkEcomLegibility(product as any, requirements, {
+          characteristicGroups: groupData.groups,
+        });
         if (!cancelled) setCatalogReadiness({ productId, status: 'ready', result });
       } catch {
         if (!cancelled) setCatalogReadiness({ productId, status: 'error' });

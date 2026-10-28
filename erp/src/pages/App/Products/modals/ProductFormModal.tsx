@@ -2,6 +2,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
+import ConfirmModal from '@/components/shared/ConfirmModal';
 import { getTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
 import type Product from '../../../types/product.type';
 import './ProductFormModal.css';
@@ -13,6 +14,7 @@ import { ProductFormFooter } from '../components/form/ProductFormFooter';
 import { ProductFormHeader } from '../components/form/ProductFormHeader';
 import { ProductFormTabContent } from '../components/form/ProductFormTabContent';
 import { ProductFormSubModals } from '../components/form/ProductFormSubModals';
+import { ProductSaveResultModal } from '../components/modals/product/ProductSaveResultModal';
 import { useProductDraftCapture } from '../hooks/form/useProductDraftCapture';
 import { useProductFormModal } from '../hooks/form/useProductFormModal';
 
@@ -74,6 +76,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     availableCategories,
     isConversionModalOpen,
     setIsConversionModalOpen,
+    isDiscardChangesConfirmOpen,
+    cancelDiscardChanges,
+    confirmDiscardChanges,
     formData,
     setFormData,
     isTestArtifact,
@@ -130,7 +135,26 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
     }
   }, [activeTab, formData.categoryIds, setActiveTab]);
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    if (!saveResult) return null;
+    // Mantém o resumo dos canais disponível depois de fechar o editor.
+    return createPortal(
+      <ProductSaveResultModal
+        saveResult={saveResult}
+        canPublishToCatalog={canManageProducts && !isStockistOnly}
+        onCloseModal={() => setSaveResult(null)}
+        onSuccess={
+          onSuccess ||
+          (props.onSave
+            ? (savedProduct) => props.onSave?.(savedProduct)
+            : undefined)
+        }
+        onCloseForm={onClose}
+        setFormData={setFormData}
+      />,
+      document.body
+    );
+  }
 
   return createPortal(
     <div
@@ -245,6 +269,17 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
           aiCharacteristicsInitialMode={aiCharacteristicsInitialMode}
         />
       </div>
+
+      <ConfirmModal
+        isOpen={isDiscardChangesConfirmOpen}
+        onClose={cancelDiscardChanges}
+        onConfirm={confirmDiscardChanges}
+        title="Descartar alterações?"
+        message="Você tem alterações não salvas. Se sair agora, elas serão descartadas."
+        confirmLabel="Sair e descartar"
+        cancelLabel="Continuar editando"
+        type="warning"
+      />
     </div>,
     document.body
   );

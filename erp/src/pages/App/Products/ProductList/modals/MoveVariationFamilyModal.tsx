@@ -55,7 +55,7 @@ const MoveVariationFamilySession: React.FC<MoveVariationFamilyModalProps & { ope
   if (!variation) return null;
 
   const validAttributes = attributes.filter(
-    (attribute) => attribute.name.trim() && attribute.value.trim()
+    (attribute) => attribute.name.trim() && String(attribute.value ?? '').trim()
   );
   const hasValidAttributes = validAttributes.length > 0;
 

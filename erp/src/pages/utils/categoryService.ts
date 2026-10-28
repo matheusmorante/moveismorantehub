@@ -255,7 +255,6 @@ export const fetchCategoryAttributes = async (
     supabase
       .from('category_attributes')
       .select(`
-            attribute_id,
             is_required,
             attributes (
                 id,
@@ -270,7 +269,6 @@ export const fetchCategoryAttributes = async (
 
   type AttributeRelation = { id: string; name: string };
   type CategoryAttributeRow = {
-    attribute_id: string;
     is_required: boolean | null;
     attributes: AttributeRelation | AttributeRelation[] | null;
   };

@@ -26,7 +26,7 @@ export const getMissingRequiredCharacteristics = (values: TechnicalValuesMap = {
 
   return REQUIRED_CHARACTERISTIC_NAMES.filter((name) => {
     let rawValue = valuesByName.get(normalizeCharacteristicName(name));
-    if (name === 'Modelo' && !rawValue) {
+    if (name === 'Modelo' && (rawValue === undefined || rawValue === null || rawValue === '')) {
       rawValue =
         valuesByName.get('modelo/linha') ??
         valuesByName.get('modelo / linha') ??
@@ -34,6 +34,7 @@ export const getMissingRequiredCharacteristics = (values: TechnicalValuesMap = {
         valuesByName.get('modelo ou linha') ??
         valuesByName.get('linha');
     }
+    if (typeof rawValue === 'boolean') return false;
     const value = String(rawValue ?? '')
       .trim()
       .toLocaleLowerCase('pt-BR');
@@ -44,7 +45,7 @@ export const getMissingRequiredCharacteristics = (values: TechnicalValuesMap = {
 export const getMissingRequiredDimensions = (
   values: TechnicalValuesMap = {},
   directDimensions?: { width?: number; height?: number; depth?: number; weight?: number },
-  options?: { isMattress?: boolean }
+  options?: { isMattress?: boolean; isHeightRequired?: boolean }
 ): string[] => {
   const valuesByName = new Map<string, unknown>();
   Object.entries(values).forEach(([name, value]) => {
@@ -61,22 +62,13 @@ export const getMissingRequiredDimensions = (
   };
 
   const missing: string[] = [];
-  if (!options?.isMattress) {
+  if (options?.isHeightRequired !== false) {
     if (
       !isPositive(directDimensions?.height) &&
       !isPositive(valuesByName.get('altura total')) &&
       !isPositive(valuesByName.get('altura'))
     ) {
       missing.push('Altura total');
-    }
-  } else {
-    // Para colchões, a altura não é solicitada; exige-se a espessura do colchão
-    if (
-      !isPositive(directDimensions?.height) &&
-      !isPositive(valuesByName.get('espessura do colchão')) &&
-      !isPositive(valuesByName.get('espessura'))
-    ) {
-      missing.push('Espessura do colchão');
     }
   }
   if (
@@ -89,9 +81,7 @@ export const getMissingRequiredDimensions = (
   if (
     !isPositive(directDimensions?.depth) &&
     !isPositive(valuesByName.get('profundidade total')) &&
-    !isPositive(valuesByName.get('profundidade')) &&
-    !isPositive(valuesByName.get('comprimento total')) &&
-    !isPositive(valuesByName.get('comprimento'))
+    !isPositive(valuesByName.get('profundidade'))
   ) {
     missing.push('Profundidade total');
   }
@@ -113,18 +103,18 @@ export const getMissingRequiredTechnicalFields = (
     return !String(values[name] ?? '').trim();
   });
 
-  if (isHasDoorsActive(values)) {
+  if (requiredFieldNames.some(isDoorQuantityCharacteristic) || isHasDoorsActive(values)) {
     const doorQty = parseDoorQuantityValue(values);
-    if (doorQty === null || doorQty <= 0) {
+    if (doorQty === null || doorQty < 0) {
       if (!missing.some((m) => isDoorQuantityCharacteristic(m))) {
         missing.push('Quantidade de portas');
       }
     }
   }
 
-  if (isHasDrawersActive(values)) {
+  if (requiredFieldNames.some(isDrawerQuantityCharacteristic) || isHasDrawersActive(values)) {
     const drawerQty = parseDrawerQuantityValue(values);
-    if (drawerQty === null || drawerQty <= 0) {
+    if (drawerQty === null || drawerQty < 0) {
       if (!missing.some((m) => isDrawerQuantityCharacteristic(m))) {
         missing.push('Quantidade de gavetas');
       }

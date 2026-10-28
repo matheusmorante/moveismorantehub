@@ -33,6 +33,7 @@ export interface VariationFormModalProps {
   readonly parentId?: string;
   readonly parentProduct: Product;
   readonly variation: Variation | null;
+  readonly initialValidationError?: { fieldKey: string; message: string };
   readonly onSuccess?: () => void;
   readonly onSave?: (updatedVariation: Variation) => void | boolean | Promise<void | boolean>;
   readonly canMarkTestArtifact?: boolean;
@@ -86,6 +87,8 @@ const VariationFormSession: React.FC<
   const {
     loading,
     error,
+    validationErrors,
+    clearValidationError,
     blocked,
     referenceErrors,
     referenceLoading,
@@ -222,6 +225,8 @@ const VariationFormSession: React.FC<
                   getDefaultVariationTitle={getDefaultVariationTitle}
                   fetchDbAttributes={fetchDbAttributes}
                   isSingleVariation={isSingleVariation}
+                  validationErrors={validationErrors}
+                  onClearValidationError={clearValidationError}
                 />
               )}
 

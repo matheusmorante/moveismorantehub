@@ -26,7 +26,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
       />
     );
@@ -52,7 +51,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={onOpenModal}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
       />
     );
@@ -81,7 +79,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={onValueChange}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
       />
     );
@@ -107,7 +104,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
         onToggleVariable={onToggleVariable}
       />
@@ -131,7 +127,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
         isVariable
         onToggleVariable={onToggleVariable}
@@ -141,7 +136,41 @@ describe('TechnicalFieldRow', () => {
       name: 'Escopo da característica Material da estrutura: Por variação',
     });
     expect(selectedVariableButton.querySelectorAll('svg')).toHaveLength(2);
-    expect(container.querySelector('input, select, textarea')).toBeNull();
+    expect(screen.getByPlaceholderText('Defina na variação...')).toBeDefined();
+  });
+
+  it('permite escolher o escopo próprio de uma característica dependente em produto com variações', () => {
+    const field: TechnicalFieldDefinition = {
+      id: 'dependent-opening',
+      name: 'Tipo de portas',
+      dataType: 'radio',
+      options: [{ id: 'sliding', value: 'Correr' }],
+      dependency: {
+        referenceAttributeId: 'door-quantity',
+        operator: 'greater_than',
+        value: '0',
+      },
+    };
+    const onToggleVariable = vi.fn();
+
+    render(
+      <TechnicalFieldRow
+        field={field}
+        formData={{ technicalValues: { 'Quantidade de portas': 2, 'Tipo de portas': 'Correr' } }}
+        manualFieldNames={[]}
+        isDependencyVariable
+        onToggleVariable={onToggleVariable}
+        onValueChange={vi.fn()}
+        onOpenAttributeModal={vi.fn()}
+        onRemoveManualField={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', {
+      name: 'Escopo da característica Tipo de portas: Global',
+    }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Por variação' }));
+    expect(onToggleVariable).toHaveBeenCalledWith('Tipo de portas', 'variation');
   });
 
   it('esconde o seletor do produto pai quando a característica é variável', () => {
@@ -160,7 +189,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
         onToggleVariable={vi.fn()}
       />
@@ -175,7 +203,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
         isVariable
         onToggleVariable={vi.fn()}
@@ -205,7 +232,6 @@ describe('TechnicalFieldRow', () => {
         onToggleVariable={onToggleVariable}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
       />
     );
@@ -222,7 +248,6 @@ describe('TechnicalFieldRow', () => {
         onToggleVariable={onToggleVariable}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
       />
     );
@@ -233,7 +258,7 @@ describe('TechnicalFieldRow', () => {
     fireEvent.click(scopeButton);
     expect(screen.getAllByRole('menuitemradio')).toHaveLength(2);
     expect(screen.queryByRole('menuitemradio', { name: /não informar/i })).toBeNull();
-    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.getByPlaceholderText('Defina na variação...')).toBeDefined();
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'Global' }));
     expect(onToggleVariable).toHaveBeenCalledWith('Acabamento', 'global');
   });
@@ -254,7 +279,6 @@ describe('TechnicalFieldRow', () => {
       onToggleVariable,
       onValueChange: vi.fn(),
       onOpenAttributeModal: vi.fn(),
-      onToggleDepthLength: vi.fn(),
       onRemoveManualField: vi.fn(),
     };
 
@@ -270,7 +294,7 @@ describe('TechnicalFieldRow', () => {
     fireEvent.click(scopeButton);
     expect(screen.getAllByRole('menuitemradio')).toHaveLength(2);
     expect(screen.queryByRole('menuitemradio', { name: /não informar/i })).toBeNull();
-    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.getByPlaceholderText('Defina na variação...')).toBeDefined();
   });
 
   it('exibe botão de exclusão para campos manuais e aciona remoção', () => {
@@ -290,7 +314,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={['Garantia']}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={onRemoveManualField}
       />
     );
@@ -298,33 +321,6 @@ describe('TechnicalFieldRow', () => {
     const deleteBtn = screen.getByRole('button', { name: /remover campo garantia/i });
     fireEvent.click(deleteBtn);
     expect(onRemoveManualField).toHaveBeenCalledWith('Garantia');
-  });
-
-  it('exibe botão de alternância entre profundidade e comprimento', () => {
-    const field: TechnicalFieldDefinition = {
-      id: 'f5',
-      name: 'Profundidade',
-      dataType: 'text',
-      options: [],
-      isRequired: true,
-    };
-    const onToggleDepthLength = vi.fn();
-
-    render(
-      <TechnicalFieldRow
-        field={field}
-        formData={{ depth: 45, technicalValues: { Profundidade: '45' } }}
-        manualFieldNames={[]}
-        onValueChange={vi.fn()}
-        onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={onToggleDepthLength}
-        onRemoveManualField={vi.fn()}
-      />
-    );
-
-    const swapBtn = screen.getByRole('button', { name: /alternar para comprimento/i });
-    fireEvent.click(swapBtn);
-    expect(onToggleDepthLength).toHaveBeenCalledWith(field);
   });
 
   it('desativa campo dependente de portas quando a quantidade de portas for 0 ou vazia, ocultando asterisco e exibindo tooltip explicativo', () => {
@@ -343,7 +339,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
       />
     );
@@ -391,7 +386,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
       />
     );
@@ -422,7 +416,6 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
-        onToggleDepthLength={vi.fn()}
         onRemoveManualField={vi.fn()}
       />
     );

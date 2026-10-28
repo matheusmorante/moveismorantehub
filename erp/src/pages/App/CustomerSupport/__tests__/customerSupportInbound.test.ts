@@ -63,6 +63,49 @@ describe('Recebimento/reabertura — contrato unitário, sem PostgreSQL', () => 
     expect(result).toMatchObject({ processedMessages: 0, duplicatesIgnored: 1, errors: [] });
   });
 
+  it('persiste o erro 131051 como mensagem não suportada, sem tentar buscar mídia', async () => {
+    const supabase = client();
+    const result = await processWhatsAppWebhookPayload(supabase as never, {
+      entry: [{ changes: [{ value: {
+        metadata: { phone_number_id: 'channel-unit' },
+        contacts: [{ wa_id: '5511999990000', profile: { name: 'Contato unitário' } }],
+        messages: [{
+          id: 'wamid.unsupported',
+          from: '5511999990000',
+          timestamp: '1792580010',
+          type: 'unsupported',
+          errors: [{
+            code: 131051,
+            title: 'Unsupported message type',
+            details: 'Message type is not currently supported',
+          }],
+        }],
+      } }] }],
+    });
+
+    expect(result).toMatchObject({ processedMessages: 1, errors: [] });
+    expect(supabase.rpc).toHaveBeenCalledWith('customer_support_receive_message', expect.objectContaining({
+      p_message: expect.objectContaining({
+        api_message_id: 'wamid.unsupported',
+        message_type: 'unsupported',
+        text_content: 'A API do WhatsApp informou que este tipo de mensagem não é suportado. (código 131051)',
+        error_code: '131051',
+        failure_reason: 'Unsupported message type — Message type is not currently supported',
+        raw_payload: {
+          provider_message_type: 'unsupported',
+          provider_errors: [{
+            code: 131051,
+            title: 'Unsupported message type',
+            details: 'Message type is not currently supported',
+          }],
+        },
+      }),
+    }));
+    expect(supabase.from.mock.calls.map(([table]) => table)).toEqual([
+      'whatsapp_messages', 'whatsapp_conversations',
+    ]);
+  });
+
   it('confirma a identidade na RPC mesmo quando a consulta rápida encontrou o ID, sem repetir matching', async () => {
     const supabase = client({ existingMessage: true, inserted: false });
     const result = await processWhatsAppWebhookPayload(supabase as never, payload);
@@ -102,6 +145,21 @@ describe('Recebimento/reabertura — contrato unitário, sem PostgreSQL', () => 
 });
 
 describe('Mensagens enviadas pelo WhatsApp Business app — eco de Coexistence', () => {
+  it('normaliza registros antigos de 131051 sem reescrever o histórico', () => {
+    const message = mapRowToMessage({
+      id: 'msg-unit-legacy-unsupported',
+      message_type: 'unsupported',
+      text_content: 'A API do WhatsApp informou que este tipo de mensagem não é suportado. (código 131051)',
+      error_code: null,
+    });
+
+    expect(message).toMatchObject({
+      messageType: 'unsupported',
+      textContent: 'A API do WhatsApp informou que este tipo de mensagem não é suportado. (código 131051)',
+      errorCode: '131051',
+    });
+  });
+
   it('persiste smb_message_echoes como saída na conversa do destinatário', async () => {
     const supabase = client();
     const result = await processWhatsAppWebhookPayload(supabase as never, appEchoPayload);
@@ -117,6 +175,36 @@ describe('Mensagens enviadas pelo WhatsApp Business app — eco de Coexistence',
     expect(supabase.from.mock.calls.map(([table]) => table)).toEqual(['whatsapp_messages', 'whatsapp_conversations']);
   });
 
+  it('preserva o código e os detalhes de mensagens unsupported ecoadas pelo WhatsApp Business', async () => {
+    const supabase = client();
+    const result = await processWhatsAppWebhookPayload(supabase as never, {
+      entry: [{ changes: [{ field: 'smb_message_echoes', value: {
+        metadata: { phone_number_id: 'channel-unit' },
+        contacts: [{ wa_id: '5511999990000', profile: { name: 'Contato unitário' } }],
+        message_echoes: [{
+          id: 'wamid.unit-app-echo-unsupported', from: '551166665555', to: '+5511999990000', timestamp: '1792580002',
+          type: 'unsupported',
+          errors: [{ code: 131051, title: 'Unsupported message type', details: 'Message type is not currently supported' }],
+        }],
+      } }] }],
+    });
+
+    expect(result).toMatchObject({ processedMessages: 1, duplicatesIgnored: 0, errors: [] });
+    expect(supabase.rpc).toHaveBeenCalledWith('customer_support_receive_message_echo', expect.objectContaining({
+      p_message: expect.objectContaining({
+        api_message_id: 'wamid.unit-app-echo-unsupported',
+        message_type: 'unsupported',
+        text_content: 'A API do WhatsApp informou que este tipo de mensagem não é suportado. (código 131051)',
+        error_code: '131051',
+        failure_reason: 'Unsupported message type — Message type is not currently supported',
+        raw_payload: {
+          provider_message_type: 'unsupported',
+          provider_errors: [{ code: 131051, title: 'Unsupported message type', details: 'Message type is not currently supported' }],
+        },
+      }),
+    }));
+  });
+
   it('contabiliza replay como duplicata e ignora mudança de outro campo', async () => {
     const duplicate = await processWhatsAppWebhookPayload(client({ inserted: false }) as never, appEchoPayload);
     const unrelated = await processWhatsAppWebhookPayload(client() as never, {
@@ -128,6 +216,7 @@ describe('Mensagens enviadas pelo WhatsApp Business app — eco de Coexistence',
 
   it('expõe a origem no balão e mantém a RPC fechada a clientes/anon', () => {
     const echoMigration = readFileSync(new URL('../../../../../../supabase/migrations/20261024170000_customer_support_whatsapp_app_echoes.sql', import.meta.url), 'utf8');
+    const echoUnsupportedMigration = readFileSync(new URL('../../../../../../supabase/migrations/20261028171004_customer_support_echo_unsupported_details.sql', import.meta.url), 'utf8');
     const message = mapRowToMessage({ direction: 'outbound', raw_payload: {
       source: 'whatsapp_business_app', author_name: 'WhatsApp Business (celular)',
     } });
@@ -139,6 +228,11 @@ describe('Mensagens enviadas pelo WhatsApp Business app — eco de Coexistence',
     expect(echoMigration).toContain("'source', 'whatsapp_business_app'");
     expect(echoMigration).not.toMatch(/unread_count\s*=|last_customer_message_at\s*=|is_archived\s*=|tags\s*=/);
     expect(echoMigration).not.toMatch(/whatsapp_dispatches|net\.http|customer_support_receive_message\(/);
+    expect(echoUnsupportedMigration).toContain('error_code, failure_reason, status, raw_payload, timestamp');
+    expect(echoUnsupportedMigration).toContain("nullif(btrim(p_message->>'error_code'), '')");
+    expect(echoUnsupportedMigration).toContain("FROM PUBLIC, anon, authenticated;");
+    expect(echoUnsupportedMigration).toContain('TO service_role;');
+    expect(echoUnsupportedMigration).toContain('ON CONFLICT (api_message_id) DO NOTHING');
   });
 });
 

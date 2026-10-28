@@ -27,6 +27,7 @@ interface ProductsHeaderMenuDropdownProps {
   canViewMetaCatalog: boolean;
   canViewWhatsAppMarketplace: boolean;
   showDeactivated: boolean;
+  showDeactivatedToggle: boolean;
   showMergedProducts: boolean;
   showTrash: boolean;
   canViewTrash: boolean;
@@ -58,6 +59,7 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
   canViewMetaCatalog,
   canViewWhatsAppMarketplace,
   showDeactivated,
+  showDeactivatedToggle,
   showMergedProducts,
   showTrash,
   canViewTrash,
@@ -184,24 +186,27 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
               </TouchableOpacity>
             )}
 
-            {!showTrash && mode !== 'categories' && (canCreateProduct || canCreateComposition) && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  onClose();
-                  onToggleDeactivated();
-                }}
-              >
-                {showDeactivated ? (
-                  <EyeOff size={18} color="#64748b" />
-                ) : (
-                  <Eye size={18} color="#64748b" />
-                )}
-                <Text style={[styles.menuItemText, dark && styles.light]}>
-                  {showDeactivated ? 'Ocultar Inativos' : 'Mostrar Inativos'}
-                </Text>
-              </TouchableOpacity>
-            )}
+            {showDeactivatedToggle &&
+              !showTrash &&
+              mode !== 'categories' &&
+              (canCreateProduct || canCreateComposition) && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    onClose();
+                    onToggleDeactivated();
+                  }}
+                >
+                  {showDeactivated ? (
+                    <EyeOff size={18} color="#64748b" />
+                  ) : (
+                    <Eye size={18} color="#64748b" />
+                  )}
+                  <Text style={[styles.menuItemText, dark && styles.light]}>
+                    {showDeactivated ? 'Ocultar Inativos' : 'Mostrar Inativos'}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
             {!showTrash && mode !== 'categories' && onToggleMergedProducts && (
               <TouchableOpacity
@@ -235,16 +240,18 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                onClose();
-                onOpenFilters();
-              }}
-            >
-              <Settings size={18} color="#2563eb" />
-              <Text style={[styles.menuItemText, dark && styles.light]}>Filtros avançados</Text>
-            </TouchableOpacity>
+            {mode !== 'categories' && (canCreateProduct || canCreateComposition) && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  onClose();
+                  onOpenFilters();
+                }}
+              >
+                <Settings size={18} color="#2563eb" />
+                <Text style={[styles.menuItemText, dark && styles.light]}>Filtros avançados</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </TouchableOpacity>

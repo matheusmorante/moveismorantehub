@@ -10,10 +10,13 @@ vi.mock('../../../../services/sqlite/inventoryCatalog', () => ({
 }));
 
 import { resolveOfflineInventoryMatch, type OfflineInventoryCatalog } from './offlineInventoryCatalog';
+import { buildScopeProductsFromCatalog } from './catalog/offlineInventoryCatalogMatcher';
+import { OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION } from './catalog/offlineInventoryCatalogTypes';
 
 const labelId = '11111111-1111-4111-8111-111111111111';
 const legacyUnlinkedLabelId = '33333333-3333-4333-8333-333333333333';
 const catalog: OfflineInventoryCatalog = {
+  formatVersion: OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
   products: {
     'product-old': { id: 'product-old', item_type: 'product', deleted: true, active: false },
     'product-current': {
@@ -125,5 +128,68 @@ describe('índice offline de inventário mobile', () => {
       },
     };
     expect(resolveOfflineInventoryMatch(cyclic, labelId)).toBeNull();
+  });
+
+  it('exclui do inventário e do scanner o produto ligado somente a fornecedor Salvados', () => {
+    const salvadosOnly: OfflineInventoryCatalog = {
+      ...catalog,
+      suppliers: {
+        ...catalog.suppliers,
+        'supplier-salvados': {
+          id: 'supplier-salvados',
+          full_name: 'Multiloja Salvados',
+          stock_origins: ['salvados'],
+        },
+      },
+      products: {
+        ...catalog.products,
+        'product-current': {
+          ...catalog.products['product-current'],
+          main_supplier_id: 'supplier-salvados',
+          supplier_id: null,
+          supplier_ids: [],
+        },
+      },
+    };
+
+    expect(buildScopeProductsFromCatalog(salvadosOnly)).toEqual([]);
+    expect(resolveOfflineInventoryMatch(salvadosOnly, 'SKU-ATUAL')).toBeNull();
+  });
+
+  it('mantém item de fornecedor misto e projeta somente fornecedores convencionais', () => {
+    const mixedOrigins: OfflineInventoryCatalog = {
+      ...catalog,
+      suppliers: {
+        ...catalog.suppliers,
+        'supplier-salvados': {
+          id: 'supplier-salvados',
+          full_name: 'Multiloja Salvados',
+          stock_origins: ['salvados'],
+        },
+      },
+      products: {
+        ...catalog.products,
+        'product-current': {
+          ...catalog.products['product-current'],
+          main_supplier_id: 'supplier-salvados',
+          supplier_id: 'supplier-1',
+          supplier_ids: ['supplier-salvados', 'supplier-1'],
+        },
+      },
+    };
+
+    expect(buildScopeProductsFromCatalog(mixedOrigins)).toMatchObject([
+      {
+        id: 'product-current',
+        main_supplier_id: undefined,
+        supplier_id: 'supplier-1',
+        supplier_ids: ['supplier-1'],
+      },
+    ]);
+    expect(resolveOfflineInventoryMatch(mixedOrigins, 'SKU-ATUAL')).toMatchObject({
+      supplierIds: ['supplier-1'],
+      supplierNames: ['Fornecedor 1'],
+      assignedSupplier: 'Fornecedor 1',
+    });
   });
 });

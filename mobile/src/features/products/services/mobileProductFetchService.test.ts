@@ -5,10 +5,7 @@ const { supabaseMock } = vi.hoisted(() => ({ supabaseMock: { from: vi.fn() } }))
 vi.mock('../../../services/supabaseClient', () => ({ supabase: supabaseMock }));
 
 import { fetchMobileProductsPage } from './mobileProductFetchService';
-import {
-  resolveMobileProductStatusFilter,
-  shouldExcludeMobileDraftsDuringSearch,
-} from '../domain/mobileProductListFilters';
+import { resolveMobileProductStatusFilter } from '../domain/mobileProductListFilters';
 import {
   PRODUCT_LIST_PRODUCT_AND_LEGACY_ITEM_TYPE_FILTER,
   PRODUCT_LIST_PRODUCT_ITEM_TYPE_FILTER,
@@ -267,7 +264,7 @@ describe('fetchMobileProductsPage', () => {
   });
 
   it.each(['active', 'disabled'] as const)(
-    'suspende o filtro %s durante busca de composição, mantendo não-rascunho e Catálogo',
+    'suspende o filtro %s durante busca de composição e mantém o filtro do Catálogo',
     async (selectedStatus) => {
       const query: any = {};
       for (const method of ['select', 'or', 'eq', 'not', 'filter', 'order']) {
@@ -290,7 +287,6 @@ describe('fetchMobileProductsPage', () => {
       const result = await fetchMobileProductsPage(1, 10, {
         search,
         statusFilter: resolveMobileProductStatusFilter(selectedStatus, search),
-        excludeDraftsDuringSearch: shouldExcludeMobileDraftsDuringSearch(selectedStatus, search),
         catalogStatus: 'hidden',
         itemType: 'composition',
         canViewCompositions: true,
@@ -299,8 +295,8 @@ describe('fetchMobileProductsPage', () => {
 
       expect(query.select).toHaveBeenCalledWith(expect.any(String), { count: 'exact' });
       expect(query.eq).toHaveBeenCalledWith('item_type', 'composition');
-      expect(query.not).toHaveBeenCalledWith('is_draft', 'is', true);
-      expect(query.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
+      expect(query.not).not.toHaveBeenCalledWith('is_draft', 'is', true);
+      expect(query.filter).not.toHaveBeenCalledWith('status', 'isdistinct', 'draft');
       expect(query.eq).toHaveBeenCalledWith('status', 'hidden');
       expect(query.eq).not.toHaveBeenCalledWith('active', true);
       expect(query.eq).not.toHaveBeenCalledWith('active', false);
@@ -333,7 +329,6 @@ describe('fetchMobileProductsPage', () => {
     const result = await fetchMobileProductsPage(1, 10, {
       search,
       statusFilter: resolveMobileProductStatusFilter(selectedStatus, search),
-      excludeDraftsDuringSearch: shouldExcludeMobileDraftsDuringSearch(selectedStatus, search),
       catalogStatus: 'hidden',
       itemType: 'composition',
       canViewCompositions: true,
@@ -782,7 +777,7 @@ describe('fetchMobileProductsPage', () => {
     expect(query.or).toHaveBeenCalledWith(PRODUCT_LIST_DRAFT_FILTER);
   });
 
-  it('exclui rascunhos quando a busca suspende Ativos/Desativados para todos os estados', async () => {
+  it('não exclui rascunhos quando a busca suspende Ativos/Desativados para todos os estados', async () => {
     const productQuery: any = {};
     for (const method of ['select', 'or', 'eq', 'not', 'filter', 'order']) {
       productQuery[method] = vi.fn(() => productQuery);
@@ -802,11 +797,10 @@ describe('fetchMobileProductsPage', () => {
       search: 'mesa',
       statusFilter: 'all',
       includeDeactivated: true,
-      excludeDraftsDuringSearch: true,
     });
 
-    expect(productQuery.not).toHaveBeenCalledWith('is_draft', 'is', true);
-    expect(productQuery.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
+    expect(productQuery.not).not.toHaveBeenCalledWith('is_draft', 'is', true);
+    expect(productQuery.filter).not.toHaveBeenCalledWith('status', 'isdistinct', 'draft');
     expect(productQuery.eq).not.toHaveBeenCalledWith('active', expect.anything());
   });
 

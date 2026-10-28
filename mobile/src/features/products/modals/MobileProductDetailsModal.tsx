@@ -22,12 +22,24 @@ interface Props {
 const formatCurrency = (value: unknown) =>
   Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+const toDisplayValue = (value: unknown) =>
+  typeof value === 'boolean' ? (value ? 'Sim' : 'Não') : String(value ?? '');
+
 const toAttributes = (value: unknown): Array<{ name?: string; value?: string; showName?: boolean }> => {
-  if (Array.isArray(value)) return value;
+  if (Array.isArray(value)) {
+    return value.map((attribute: any) => ({
+      ...attribute,
+      value: toDisplayValue(
+        Object.prototype.hasOwnProperty.call(attribute ?? {}, 'value')
+          ? attribute.value
+          : attribute?.val
+      ),
+    }));
+  }
   if (!value || typeof value !== 'object') return [];
   return Object.entries(value).map(([name, attributeValue]) => ({
     name,
-    value: String(attributeValue ?? ''),
+    value: toDisplayValue(attributeValue),
   }));
 };
 
@@ -100,7 +112,13 @@ export const MobileProductDetailsModal: React.FC<Props> = ({
             <View style={styles.productOverview}>
               <View style={[styles.imageFrame, dark && styles.imageFrameDark]}>
                 {image ? (
-                  <Image source={{ uri: image }} style={styles.image} resizeMode="contain" />
+                  <Image
+                    source={{ uri: image }}
+                    style={styles.image}
+                    resizeMode="contain"
+                    accessible
+                    accessibilityLabel={title}
+                  />
                 ) : (
                   <Text style={[styles.noImage, dark && styles.mutedDark]}>Sem imagem</Text>
                 )}

@@ -601,7 +601,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
           {productsHook.loading && !productsHook.refreshing ? (
             <View style={styles.loadingContent}>
               <ActivityIndicator size="large" color="#2563eb" />
-              <Text style={styles.loading}>Carregando produtos...</Text>
+              <Text style={styles.loading}>Sincronizando catálogo...</Text>
             </View>
           ) : productsHook.loadError && productsHook.products.length === 0 ? (
             <View style={styles.empty}>

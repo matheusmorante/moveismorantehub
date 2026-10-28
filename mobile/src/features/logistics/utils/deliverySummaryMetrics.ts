@@ -1,8 +1,13 @@
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
-import { getLocalDateString, parseOrderDateStr, isCancelledOrder } from '../../../utils/orderUtils';
+import {
+  addDaysToLocalDateString,
+  getLocalDateString,
+  parseOrderDateStr,
+  isCancelledOrder,
+} from '../../../utils/orderUtils';
 import { getOperationActivityType } from '../../schedule/utils/operationActivity';
 
-export type DeliveryPeriodFilter = 'today' | 'next_days';
+export type DeliveryPeriodFilter = 'today' | 'tomorrow' | 'next_days';
 
 export interface DeliverySummaryMetrics {
   filteredOrders: any[];
@@ -24,6 +29,7 @@ export function calculateDeliverySummaryMetrics(
   referenceDateStr?: string
 ): DeliverySummaryMetrics {
   const todayStr = referenceDateStr || getLocalDateString(new Date());
+  const tomorrowStr = addDaysToLocalDateString(todayStr, 1);
 
   // 1. Filtrar pedidos conforme o período selecionado
   const filteredOrders = (orders || []).filter((order) => {
@@ -74,10 +80,11 @@ export function calculateDeliverySummaryMetrics(
 
     if (periodFilter === 'today') {
       return cleanDate === todayStr;
-    } else {
-      // Dias Seguintes: todas as entregas agendadas para datas futuras (> hoje)
-      return cleanDate > todayStr;
     }
+    if (periodFilter === 'tomorrow') return cleanDate === tomorrowStr;
+
+    // Dias Seguintes começa depois de amanhã.
+    return cleanDate > tomorrowStr;
   });
 
   // 2. Métricas por turno (Manhã: 08:00-12:00, Tarde: 13:00-18:00)
@@ -167,7 +174,9 @@ export function calculateDeliverySummaryMetrics(
     defaultSummaryText =
       periodFilter === 'today'
         ? 'Nenhuma atividade operacional programada para o dia de hoje.'
-        : 'Nenhuma atividade operacional agendada para os próximos dias.';
+        : periodFilter === 'tomorrow'
+          ? 'Nenhuma atividade operacional programada para amanhã.'
+          : 'Nenhuma atividade operacional agendada para os próximos dias.';
   } else {
     const morningPart =
       morningClients.length > 0 ? `Manhã: ${morningClients.join(', ')}.` : 'Manhã: sem atividades.';

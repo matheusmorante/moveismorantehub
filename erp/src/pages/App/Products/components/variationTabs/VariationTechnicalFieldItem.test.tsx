@@ -116,7 +116,6 @@ describe('VariationTechnicalFieldItem', () => {
     it('renderiza campo variável sem herdar o pai, mas editável e sem botão individual de fixar', () => {
       const onSetOverride = vi.fn();
       const onRemoveManualField = vi.fn();
-      const onToggleDepthLength = vi.fn();
       const onOpenAttributeModal = vi.fn();
 
       render(
@@ -129,7 +128,6 @@ describe('VariationTechnicalFieldItem', () => {
           isVariable
           onSetOverride={onSetOverride}
           onRemoveManualField={onRemoveManualField}
-          onToggleDepthLength={onToggleDepthLength}
           onOpenAttributeModal={onOpenAttributeModal}
         />
       );
@@ -161,7 +159,6 @@ describe('VariationTechnicalFieldItem', () => {
           isManual={false}
           onSetOverride={vi.fn()}
           onRemoveManualField={vi.fn()}
-          onToggleDepthLength={vi.fn()}
           onOpenAttributeModal={onOpenModal}
         />
       );
@@ -172,32 +169,5 @@ describe('VariationTechnicalFieldItem', () => {
       expect(onOpenModal).toHaveBeenCalledTimes(1);
     });
 
-    it('exibe botão de alternar para Profundidade / Comprimento', () => {
-      const profField: TechnicalFieldDefinition = {
-        id: 'prof-id',
-        name: 'Profundidade total',
-        dataType: 'measure',
-        options: [],
-      };
-      const onToggle = vi.fn();
-
-      render(
-        <VariationTechnicalFieldItem
-          field={profField}
-          parentNormalizedValues={{ 'Profundidade total': '90' }}
-          variationAttributeValues={{}}
-          isManual={false}
-          onSetOverride={vi.fn()}
-          onRemoveManualField={vi.fn()}
-          onToggleDepthLength={onToggle}
-          onOpenAttributeModal={vi.fn()}
-        />
-      );
-
-      const toggleBtn = screen.getByTitle('Alternar para Comprimento total');
-      expect(toggleBtn).toBeInTheDocument();
-      fireEvent.click(toggleBtn);
-      expect(onToggle).toHaveBeenCalledWith(profField);
-    });
   });
 });

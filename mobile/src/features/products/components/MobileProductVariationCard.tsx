@@ -68,6 +68,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
 
   const isPublished = v.status === 'published';
   const isActive = v.active !== false;
+  const effectiveErpActive = isActive && parentProduct?.active !== false;
   const isMerged = Boolean(v.merged_to_variation_id || v.mergedToVariationId);
   const canShowActionsMenu = canShowProductVariationActionsMenu({
     isIdentificationLabelOnlyProfile: isLabelOnlyProfile,
@@ -218,8 +219,8 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
         onClose={() => setMenuVisible(false)}
         onPrintLabel={canPrintLabel && !isMerged ? handlePrintLabel : undefined}
         onEdit={
-          onEdit && !isMerged
-            ? () => onEdit({ ...(parentProduct || {}), selectedVariationId: v.id })
+          onEdit && parentProduct && !isMerged
+            ? () => onEdit(parentProduct)
             : undefined
         }
         onMoveToAnotherFamily={
@@ -260,7 +261,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
           dark={dark}
           isSalvado={isSalvado}
           isNonConventional={isNonConventional}
-          isActive={isActive && !isParentDraft}
+          isActive={effectiveErpActive && !isParentDraft}
           isPublished={isPublished && !isParentDraft}
           isDraft={isParentDraft}
           disabled={isMerged}

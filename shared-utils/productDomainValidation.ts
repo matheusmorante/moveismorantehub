@@ -24,6 +24,10 @@ const productNumericFields = productVariationDraftSchema.pick({
   width: true, height: true, depth: true, weight: true, pkgWidth: true, pkgHeight: true, pkgDepth: true,
 }).partial().shape;
 
+const productFormVariationSchema = productVariationDraftSchema.partial().extend({
+  stock: z.number().finite('Informe um valor finito.').optional(),
+});
+
 export interface ProductFormValidationOptions {
   isStockistOnly: boolean;
   saveAsDraft: boolean;
@@ -37,6 +41,7 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
   return z
     .object({
       ...productNumericFields,
+      stock: z.number().finite('Informe um valor finito.').optional(),
       initialStock: productVariationDraftSchema.shape.stock.optional(),
       name: z.string().optional().nullable(),
       title: z.string().optional().nullable(),
@@ -58,7 +63,7 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
       isOwnProduction: z.boolean().optional().nullable(),
       mainSupplierId: z.string().optional().nullable(),
       supplierId: z.string().optional().nullable(),
-      variations: z.array(productVariationDraftSchema.partial()).optional().nullable(),
+      variations: z.array(productFormVariationSchema).optional().nullable(),
     })
     .passthrough()
     .superRefine((data, ctx) => {

@@ -10,9 +10,7 @@ export const getProductTechnicalDimensionField = (
   if (normalizedName === 'largura' || normalizedName === 'largura total') return 'width';
   if (
     normalizedName === 'profundidade' ||
-    normalizedName === 'profundidade total' ||
-    normalizedName === 'comprimento' ||
-    normalizedName === 'comprimento total'
+    normalizedName === 'profundidade total'
   ) {
     return 'depth';
   }

@@ -49,7 +49,7 @@ export const normalizeProductForSave = (
       ...formData,
       width: parseTech(['Largura'], formData.width),
       height: parseTech(['Altura'], formData.height),
-      depth: parseTech(['Profundidade', 'Comprimento'], formData.depth),
+      depth: parseTech(['Profundidade total', 'Profundidade'], formData.depth),
       weight: parseTech(['Peso'], formData.weight),
       name: effectiveName,
       title: effectiveName,

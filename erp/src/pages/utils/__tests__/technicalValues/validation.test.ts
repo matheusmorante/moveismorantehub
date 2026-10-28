@@ -40,7 +40,7 @@ describe('technicalValues - Validação de Campos Obrigatórios', () => {
     expect(hasModeloLinha).not.toContain('Modelo');
   });
 
-  it('detecta dimensões obrigatórias ausentes considerando exclusividade Profundidade/Comprimento', () => {
+  it('valida Profundidade independentemente de Comprimento', () => {
     const missingAll = getMissingRequiredDimensions({});
     expect(missingAll).toContain('Altura total');
     expect(missingAll).toContain('Largura total');
@@ -50,7 +50,7 @@ describe('technicalValues - Validação de Campos Obrigatórios', () => {
     expect(hasDepth).not.toContain('Profundidade total');
 
     const hasLength = getMissingRequiredDimensions({ Altura: '100', Largura: '100', Comprimento: '200' });
-    expect(hasLength).not.toContain('Profundidade total');
+    expect(hasLength).toContain('Profundidade total');
   });
 
   it('exige quantidade preenchida mesmo sem componente, aceitando zero como Não possui', () => {
@@ -68,6 +68,13 @@ describe('technicalValues - Validação de Campos Obrigatórios', () => {
       Cor: 'Branco',
     });
     expect(zeroQuantity).toEqual([]);
+
+    expect(getMissingRequiredTechnicalFields(['Quantidade de gavetas'], {
+      'Quantidade de gavetas': 0,
+    })).toEqual([]);
+    expect(getMissingRequiredTechnicalFields(['Quantidade de portas'], {
+      'Quantidade de portas': '-1',
+    })).toContain('Quantidade de portas');
   });
 
   it('exige material dependente apenas quando a quantidade de portas for maior que zero', () => {

@@ -1,5 +1,6 @@
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import {
+  addDaysToLocalDateString,
   getLocationMapsUrl,
   parseCoordinatesFromMapsUrl,
   isCancelledOrder,
@@ -51,14 +52,15 @@ export interface DeliveryRouteItem {
   activityBackgroundColor: string;
 }
 
-export type DeliveryRouteDateScope = 'today' | 'next_days';
+export type DeliveryRouteDateScope = 'today' | 'tomorrow' | 'next_days';
 
-export const buildDeliveryRouteItems = (
+const filterOrdersByDateScope = (
   orders: any[],
   dateScope: DeliveryRouteDateScope,
   todayStr: string
-): DeliveryRouteItem[] => {
-  const scopedOrders = orders.filter((o) => {
+): any[] => {
+  const tomorrowStr = addDaysToLocalDateString(todayStr, 1);
+  return orders.filter((o) => {
     const oData = o.order_data || {};
     if (oData.deleted || o.deleted || isCancelledOrder(o)) return false;
     const orderStatus = (o.status || oData.status || '').toLowerCase();
@@ -71,10 +73,24 @@ export const buildDeliveryRouteItems = (
     if (classifyDeliveryService(o).isPickup || isLegacyPickup) return false;
 
     const rawSchedDate = getOperationalScheduleDate(o);
-    return dateScope === 'today'
-      ? rawSchedDate === todayStr
-      : Boolean(rawSchedDate && rawSchedDate > todayStr);
+    if (dateScope === 'today') return rawSchedDate === todayStr;
+    if (dateScope === 'tomorrow') return rawSchedDate === tomorrowStr;
+    return Boolean(rawSchedDate && rawSchedDate > tomorrowStr);
   });
+};
+
+export const countDeliveryRouteOrders = (
+  orders: any[],
+  dateScope: DeliveryRouteDateScope,
+  todayStr: string
+): number => filterOrdersByDateScope(orders, dateScope, todayStr).length;
+
+export const buildDeliveryRouteItems = (
+  orders: any[],
+  dateScope: DeliveryRouteDateScope,
+  todayStr: string
+): DeliveryRouteItem[] => {
+  const scopedOrders = filterOrdersByDateScope(orders, dateScope, todayStr);
 
   const sorted = [...scopedOrders].sort((a, b) => {
     const seqA = a.order_data?.routeSequence ?? 9999;

@@ -39,8 +39,9 @@ export const syncProductVariationTechnicalAttribute = <
   value: unknown,
   defaultShowName = true
 ): T[] => {
+  const isBooleanAnswer = typeof value === 'boolean';
   const stringValue = String(value ?? '');
-  if (!stringValue.trim() || isNotApplicableValue(value)) {
+  if ((!isBooleanAnswer && value !== null && !stringValue.trim()) || isNotApplicableValue(value)) {
     return removeProductVariationTechnicalAttribute(attributes, name);
   }
 
@@ -49,11 +50,13 @@ export const syncProductVariationTechnicalAttribute = <
     candidates.has(normalizeName(attribute.name)) ? [index] : []
   );
   if (matchingIndexes.length === 0) {
-    return [...attributes, { name, value: stringValue, showName: defaultShowName } as T];
+    return [...attributes, { name, value: value === null ? null : isBooleanAnswer ? value : stringValue, showName: defaultShowName } as T];
   }
 
   const matchingIndexSet = new Set(matchingIndexes);
   return attributes.map((attribute, index) =>
-    matchingIndexSet.has(index) ? ({ ...attribute, value: stringValue } as T) : attribute
+    matchingIndexSet.has(index)
+      ? ({ ...attribute, value: value === null ? null : isBooleanAnswer ? value : stringValue } as T)
+      : attribute
   );
 };

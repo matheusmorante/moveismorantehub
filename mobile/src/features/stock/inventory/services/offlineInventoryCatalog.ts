@@ -8,6 +8,7 @@ import {
   type CatalogRow,
   type OfflineInventoryCatalog,
   type OfflineInventoryMatch,
+  OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
   compactCatalogSnapshot,
   emptyCatalog,
   maxTimestamp,
@@ -19,6 +20,7 @@ import {
 import {
   filterInventoryResponsibleCandidates,
   getInventoryResponsibleDisplayName,
+  isEligibleInventoryResponsible,
 } from '../../../../../../shared-utils/inventoryResponsible';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
@@ -85,7 +87,7 @@ const fetchInventoryResponsibleRows = async (): Promise<CatalogRow[]> => {
   const rows: CatalogRow[] = [];
   const pageSize = 500;
   const columns =
-    'id, person_type, full_name, social_name, nickname, position, address, role, roles, active, deleted, updated_at';
+    'id, person_type, full_name, social_name, nickname, email, position, address, active, deleted, updated_at';
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from('people')
@@ -101,7 +103,7 @@ const fetchInventoryResponsibleRows = async (): Promise<CatalogRow[]> => {
   }
 };
 
-const normalizeInventoryResponsibleRow = (employee: CatalogRow): CatalogRow => {
+export const normalizeInventoryResponsibleRow = (employee: CatalogRow): CatalogRow => {
   let accessProfile = employee.address;
   if (typeof accessProfile === 'string') {
     try {
@@ -115,19 +117,11 @@ const normalizeInventoryResponsibleRow = (employee: CatalogRow): CatalogRow => {
     typeof accessProfile === 'object' && accessProfile !== null && !Array.isArray(accessProfile)
       ? accessProfile
       : {};
-  const storedRoles = Array.isArray(employee.roles)
-    ? employee.roles.filter((role: unknown): role is string => typeof role === 'string')
-    : [];
-  const legacyRoles = Array.isArray(profile.roles)
+  const roles = Array.isArray(profile.roles)
     ? profile.roles.filter((role: unknown): role is string => typeof role === 'string')
-    : [];
-  const roles = storedRoles.length > 0 ? storedRoles : legacyRoles;
+    : undefined;
   const role =
-    typeof employee.role === 'string' && employee.role.trim()
-      ? employee.role
-      : typeof profile.role === 'string'
-        ? profile.role
-        : undefined;
+    typeof profile.role === 'string' && profile.role.trim() ? profile.role : undefined;
 
   // `people.address` is TEXT in the operational schema. Parse only the access fields we need;
   // never copy the full address/contact payload into the offline inventory snapshot.
@@ -173,7 +167,11 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
         if (previous.syncedAt) throw error;
         deletions = null;
       }
-      const fullRefresh = deletions === null;
+      // Version 3 adds supplier stock origins to the offline projection. Force
+      // a bootstrap so older cached suppliers do not default to conventional.
+      const fullRefresh =
+        deletions === null ||
+        previous.formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION;
       const [products, variations, labels, suppliers, employeesResult] = await Promise.all([
         awaitCatalogQuery(
           fetchChangedRows(
@@ -203,7 +201,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
         awaitCatalogQuery(
           fetchChangedRows(
             'people',
-            'id, person_type, full_name, social_name, nickname, active, deleted, updated_at',
+            'id, person_type, full_name, social_name, nickname, stock_origins, active, deleted, updated_at',
             fullRefresh ? undefined : previous.cursors.suppliers,
             ['person_type', 'suppliers']
           ),
@@ -216,7 +214,16 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
           'inventory:responsibles'
         ),
       ]);
-      const employees = (employeesResult || []).map(normalizeInventoryResponsibleRow);
+      const fetchedEmployees = (employeesResult || []).map(normalizeInventoryResponsibleRow);
+      const uniqueEligibleIds = new Set(
+        filterInventoryResponsibleCandidates(fetchedEmployees).map((employee) =>
+          String(employee.id)
+        )
+      );
+      const employees = fetchedEmployees.filter(
+        (employee) =>
+          !isEligibleInventoryResponsible(employee) || uniqueEligibleIds.has(String(employee.id))
+      );
       const next: OfflineInventoryCatalog = {
         products: fullRefresh ? {} : { ...previous.products },
         variations: fullRefresh ? {} : { ...previous.variations },

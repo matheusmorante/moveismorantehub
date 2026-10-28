@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import type Product from '@/pages/types/product.type';
+import type { CharacteristicGroup as PersistedCharacteristicGroup } from '@/pages/types/variation.type';
 import { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../../services/technicalFieldService';
+import { fetchCharacteristicGroups } from '@/pages/utils/characteristicGroupService';
+import {
+  getSavedCharacteristicIds,
+} from './productCharacteristicGroupRules';
 import { populateInitialTechnicalValues } from './technicalSyncUtils';
 import { useSofaDescriptionSync } from './hooks/useSofaDescriptionSync';
 import { useTechnicalFieldApplicability } from './hooks/useTechnicalFieldApplicability';
@@ -13,8 +18,8 @@ import {
   resolveVariableTechnicalFieldNames,
 } from '@/pages/utils/technicalValuesService';
 import { applyTechnicalValueChangeToProduct } from './technicalSyncUtils';
+import { getCharacteristicDependencies } from '../../../../../../../../shared-utils/characteristicDependencyRules';
 import {
-  getToggledDepthLengthTarget,
   hasCharacteristicValue,
   normalizeTechnicalName,
 } from './technicalTabUtils';
@@ -35,6 +40,7 @@ export const useProductTechnicalTab = ({
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAttributeModalOpen, setIsAttributeModalOpen] = useState(false);
   const [allTechnicalFields, setAllTechnicalFields] = useState<TechnicalFieldDefinition[]>([]);
+  const [characteristicGroups, setCharacteristicGroups] = useState<PersistedCharacteristicGroup[]>([]);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
   const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
@@ -56,11 +62,29 @@ export const useProductTechnicalTab = ({
     const loadFields = async () => {
       setLoadingFields(true);
       try {
-        const mapped = await fetchTechnicalFieldDefinitions('product-form');
+        const [mapped, groupData] = await Promise.all([
+          fetchTechnicalFieldDefinitions('product-form'),
+          fetchCharacteristicGroups(),
+        ]);
         if (!isMounted) return;
 
-        setAllTechnicalFields(mapped);
-        setFormData((prev) => populateInitialTechnicalValues(prev, mapped));
+        const fieldsWithGroupNames = mapped.map((field) => ({
+          ...field,
+          groupName: groupData.groups.find((group) => group.id === field.groupId)?.name,
+        }));
+        setCharacteristicGroups(groupData.groups);
+        setAllTechnicalFields(fieldsWithGroupNames);
+        setFormData((prev) => {
+          const populated = populateInitialTechnicalValues(prev, fieldsWithGroupNames);
+          const inferredCharacteristicIds = getSavedCharacteristicIds(fieldsWithGroupNames, populated);
+          return {
+            ...populated,
+            selectedCharacteristicIds:
+              populated.selectedCharacteristicIds ?? inferredCharacteristicIds,
+            activeCharacteristicIds:
+              populated.activeCharacteristicIds ?? populated.selectedCharacteristicIds ?? inferredCharacteristicIds,
+          };
+        });
       } catch (err) {
         console.error('Erro ao carregar Características:', err);
       } finally {
@@ -78,8 +102,11 @@ export const useProductTechnicalTab = ({
   // Sub-hook: Resolução de campos aplicáveis, visibilidade e agrupamento
   const applicability = useTechnicalFieldApplicability({
     allTechnicalFields,
+    characteristicGroups,
     formData,
     categoryName,
+    selectedCharacteristicIds: formData.selectedCharacteristicIds,
+    activeCharacteristicIds: formData.activeCharacteristicIds,
     manualFieldNames,
     requiredFieldsOnly,
     characteristicSearchTerm,
@@ -94,7 +121,7 @@ export const useProductTechnicalTab = ({
     allTechnicalFields,
   });
 
-  // Sub-hook: Manipuladores de ação (mudança de valores, adição/remoção manual, toggle de dimensões)
+  // Sub-hook: Manipuladores de valor e adição/remoção manual de características.
   const actions = useTechnicalFieldActions({
     allTechnicalFields,
     manualFieldNames,
@@ -102,6 +129,139 @@ export const useProductTechnicalTab = ({
     setManualFieldNames,
     setCharacteristicSearchTerm,
   });
+
+  const handleAddCharacteristicGroup = useCallback(
+    (groupId: string, characteristicName?: string) => {
+      if (!characteristicName) return;
+      const groupFields = applicability.sofaTechnicalFields.filter(
+        (field) => field.groupId === groupId && field.active !== false
+      );
+      const selectedFields = new Map<string, TechnicalFieldDefinition>();
+      const visit = (field: TechnicalFieldDefinition) => {
+        if (selectedFields.has(field.id)) return;
+        selectedFields.set(field.id, field);
+        const references = getCharacteristicDependencies(field).map((dependency) =>
+          applicability.sofaTechnicalFields.find((candidate) => candidate.id === dependency.referenceAttributeId)
+        ).filter((candidate): candidate is TechnicalFieldDefinition => Boolean(candidate));
+        const reference = references.find((candidate) => candidate.isRequired ||
+          (formData.activeCharacteristicIds ?? formData.selectedCharacteristicIds ?? []).includes(candidate.id)) ?? references[0];
+        if (reference) visit(reference);
+      };
+      groupFields
+        .filter((field) => !characteristicName || field.name === characteristicName)
+        .forEach(visit);
+
+      setFormData((prev) => {
+        const selectedCharacteristicIds = new Set(prev.selectedCharacteristicIds || []);
+        const activeCharacteristicIds = new Set(prev.activeCharacteristicIds ?? prev.selectedCharacteristicIds ?? []);
+        const technicalValues = { ...(prev.technicalValues || {}) };
+        for (const field of selectedFields.values()) {
+          selectedCharacteristicIds.add(field.id);
+          activeCharacteristicIds.add(field.id);
+          if (!Object.prototype.hasOwnProperty.call(technicalValues, field.name)) {
+            technicalValues[field.name] = field.dataType === 'boolean' ? null : '';
+          }
+        }
+        return {
+          ...prev,
+          selectedCharacteristicIds: Array.from(selectedCharacteristicIds),
+          activeCharacteristicIds: Array.from(activeCharacteristicIds),
+          technicalValues,
+        };
+      });
+      setCharacteristicSearchTerm('');
+    },
+    [applicability.sofaTechnicalFields, formData.activeCharacteristicIds, formData.selectedCharacteristicIds, setFormData]
+  );
+
+  const handleToggleCharacteristic = useCallback(
+    (field: TechnicalFieldDefinition) => {
+      if (field.characteristicToggleDisabled) return;
+      setFormData((prev) => {
+        const selectedIds = new Set(prev.selectedCharacteristicIds || []);
+        const activeIds = new Set(prev.activeCharacteristicIds ?? prev.selectedCharacteristicIds ?? []);
+        const technicalValues = { ...(prev.technicalValues || {}) };
+        const isActive = activeIds.has(field.id);
+        if (isActive) {
+          selectedIds.delete(field.id);
+          activeIds.delete(field.id);
+        } else {
+          selectedIds.add(field.id);
+          activeIds.add(field.id);
+          if (
+            field.dataType === 'boolean' &&
+            (technicalValues[field.name] === undefined || technicalValues[field.name] === null || technicalValues[field.name] === '')
+          ) {
+            technicalValues[field.name] = null;
+          }
+        }
+        return {
+          ...prev,
+          selectedCharacteristicIds: Array.from(selectedIds),
+          activeCharacteristicIds: Array.from(activeIds),
+          technicalValues,
+        };
+      });
+    },
+    [setFormData]
+  );
+
+  const handleAddCharacteristicFromSearch = useCallback(
+    (field: TechnicalFieldDefinition) => {
+      if (!field.groupId && !field.dependency) {
+        actions.handleAddManualField(field);
+        return;
+      }
+
+      const selectedFields = new Map<string, TechnicalFieldDefinition>();
+      const visit = (candidate: TechnicalFieldDefinition) => {
+        if (selectedFields.has(candidate.id)) return;
+        selectedFields.set(candidate.id, candidate);
+        const references = getCharacteristicDependencies(candidate).map((dependency) =>
+          applicability.sofaTechnicalFields.find((item) => item.id === dependency.referenceAttributeId)
+        ).filter((item): item is TechnicalFieldDefinition => Boolean(item));
+        const reference = references.find((item) => item.isRequired ||
+          (formData.activeCharacteristicIds ?? formData.selectedCharacteristicIds ?? []).includes(item.id)) ?? references[0];
+        if (reference) visit(reference);
+      };
+      visit(field);
+
+      setFormData((prev) => {
+        const selectedCharacteristicIds = new Set(prev.selectedCharacteristicIds || []);
+        const activeCharacteristicIds = new Set(prev.activeCharacteristicIds ?? prev.selectedCharacteristicIds ?? []);
+        const technicalValues = { ...(prev.technicalValues || {}) };
+        for (const selected of selectedFields.values()) {
+          selectedCharacteristicIds.add(selected.id);
+          activeCharacteristicIds.add(selected.id);
+          if (!Object.prototype.hasOwnProperty.call(technicalValues, selected.name)) {
+            technicalValues[selected.name] = selected.dataType === 'boolean' ? null : '';
+          }
+        }
+        return {
+          ...prev,
+          selectedCharacteristicIds: Array.from(selectedCharacteristicIds),
+          activeCharacteristicIds: Array.from(activeCharacteristicIds),
+          technicalValues,
+        };
+      });
+      const legacyDependencyNames = Array.from(selectedFields.values())
+        .filter((selected) => !selected.groupId)
+        .map((selected) => selected.name);
+      if (legacyDependencyNames.length > 0) {
+        setManualFieldNames((previous) => Array.from(new Set([...previous, ...legacyDependencyNames])));
+      }
+      setCharacteristicSearchTerm('');
+    },
+    [
+      actions,
+      applicability.sofaTechnicalFields,
+      formData.activeCharacteristicIds,
+      formData.selectedCharacteristicIds,
+      setFormData,
+      setManualFieldNames,
+      setCharacteristicSearchTerm,
+    ]
+  );
 
   const handleToggleVariableField = useCallback(
     (
@@ -131,38 +291,36 @@ export const useProductTechnicalTab = ({
         );
         const isVariable = isTechnicalFieldVariable(fieldName, variableFields);
         const nextScope = scope || (isVariable ? 'global' : 'variation');
-        const normalizedFieldName = normalizeTechnicalName(fieldName);
-        const isDepthLengthField = [
-          'profundidade',
-          'comprimento',
-          'profundidade total',
-          'comprimento total',
-        ].includes(normalizedFieldName);
-        const counterpart = isDepthLengthField
-          ? getToggledDepthLengthTarget(fieldName, allTechnicalFields)?.name
-          : undefined;
-        const depthLengthNames = new Set(
-          [fieldName, counterpart]
-            .filter((name): name is string => Boolean(name))
-            .map(normalizeTechnicalName)
-        );
-        const nextVariableFields = isDepthLengthField
-          ? nextScope === 'variation'
-            ? [
-                ...variableFields.filter(
-                  (name) => !depthLengthNames.has(normalizeTechnicalName(name))
-                ),
-                fieldName,
-              ]
-            : variableFields.filter(
-                (name) => !depthLengthNames.has(normalizeTechnicalName(name))
-              )
-          : nextScope === 'variation'
-            ? isVariable
-              ? variableFields
-              : [...variableFields, fieldName]
-            : variableFields.filter((name) => !isTechnicalFieldVariable(fieldName, [name]));
+        const nextVariableFields = nextScope === 'variation'
+          ? isVariable
+            ? variableFields
+            : [...variableFields, fieldName]
+          : variableFields.filter((name) => !isTechnicalFieldVariable(fieldName, [name]));
         const next = { ...prev, variableTechnicalFields: nextVariableFields };
+        const selectedCharacteristicIds = new Set(prev.selectedCharacteristicIds || []);
+        const activeCharacteristicIds = new Set(
+          prev.activeCharacteristicIds ?? prev.selectedCharacteristicIds ?? []
+        );
+        const characteristic = allTechnicalFields.find((field) =>
+          field.name.trim().toLocaleLowerCase('pt-BR') ===
+          fieldName.trim().toLocaleLowerCase('pt-BR')
+        );
+        if (characteristic) {
+          if (nextScope === 'not_inform') {
+            selectedCharacteristicIds.delete(characteristic.id);
+            activeCharacteristicIds.delete(characteristic.id);
+          } else {
+            selectedCharacteristicIds.add(characteristic.id);
+            activeCharacteristicIds.add(characteristic.id);
+          }
+        }
+        const nextWithCharacteristicState = characteristic
+          ? {
+              ...next,
+              selectedCharacteristicIds: Array.from(selectedCharacteristicIds),
+              activeCharacteristicIds: Array.from(activeCharacteristicIds),
+            }
+          : next;
 
         if (nextScope === 'not_inform') {
           const isRequired = Boolean(isRequiredForCatalog || applicableField?.isRequired);
@@ -176,14 +334,14 @@ export const useProductTechnicalTab = ({
             !dependency.isDisabled
           ) {
             return {
-              ...next,
+              ...nextWithCharacteristicState,
               technicalValues: {
                 ...(prev.technicalValues || {}),
                 [fieldName]: 'Não se aplica',
               },
             };
           }
-          return applyTechnicalValueChangeToProduct(next, fieldName, undefined);
+          return applyTechnicalValueChangeToProduct(nextWithCharacteristicState, fieldName, 'Não informar');
         }
 
         if (nextScope === 'global') {
@@ -201,16 +359,20 @@ export const useProductTechnicalTab = ({
               prev
             );
           return hasConfiguredValue
-            ? next
+            ? nextWithCharacteristicState
             : isQuantityCharacteristic(fieldName)
               ? {
-                  ...next,
+                  ...nextWithCharacteristicState,
                   technicalValues: { ...(next.technicalValues || {}), [fieldName]: '' },
                 }
-              : applyTechnicalValueChangeToProduct(next, fieldName, '');
+                : applyTechnicalValueChangeToProduct(
+                    nextWithCharacteristicState,
+                    fieldName,
+                    applicableField?.dataType === 'boolean' ? null : ''
+                  );
         }
 
-        return next;
+        return nextWithCharacteristicState;
       });
     },
     [
@@ -219,6 +381,20 @@ export const useProductTechnicalTab = ({
       setFormData,
       setManualFieldNames,
     ]
+  );
+
+  const handleSetCharacteristicScope = useCallback(
+    (field: TechnicalFieldDefinition, scope: 'not_inform' | 'global' | 'variation') => {
+      if (scope === 'not_inform') {
+        handleToggleVariableField(field.name, scope);
+        return;
+      }
+
+      if (field.groupId) handleAddCharacteristicGroup(field.groupId, field.name);
+      else actions.handleAddManualField(field);
+      handleToggleVariableField(field.name, scope);
+    },
+    [actions, handleAddCharacteristicGroup, handleToggleVariableField]
   );
 
   const openAttributeModal = () => setIsAttributeModalOpen(true);
@@ -240,6 +416,10 @@ export const useProductTechnicalTab = ({
     normalizedDebouncedSearchTerm: applicability.normalizedDebouncedSearchTerm,
     matchingOptionalFields: applicability.matchingOptionalFields,
     matchingGroups: applicability.matchingGroups,
+    productGroupSections: applicability.productGroupSections,
+    matchingProductGroups: applicability.matchingProductGroups,
+    matchingProductGroupFields: applicability.matchingProductGroupFields,
+    characteristicGroups,
     isAttributeModalOpen,
     setCharacteristicSearchTerm,
     handleFieldChange: actions.handleFieldChange,
@@ -247,8 +427,11 @@ export const useProductTechnicalTab = ({
     handleToggleVariableField,
     handleAddManualField: actions.handleAddManualField,
     handleAddGroup: actions.handleAddGroup,
+    handleAddCharacteristicGroup,
+    handleToggleCharacteristic,
+    handleSetCharacteristicScope,
+    handleAddCharacteristicFromSearch,
     handleRemoveManualField: actions.handleRemoveManualField,
-    handleToggleDepthLength: actions.handleToggleDepthLength,
     openAttributeModal,
     closeAttributeModal,
   };

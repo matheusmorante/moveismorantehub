@@ -83,6 +83,8 @@ export const inheritSimpleProductVariationFromParent = <TVariation extends objec
 		minStock: Number(parentFields.minStock || 0),
 		attributes,
 		images: Array.isArray(parentFields.images) ? [...parentFields.images] : [],
+		syncName: true,
+		use_parent_name: true,
 		syncUnitPrice: true,
 		syncPromoPrice: true,
 		syncCostPrice: true,

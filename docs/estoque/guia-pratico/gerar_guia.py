@@ -93,7 +93,7 @@ def base(section, title, subtitle=''):
     c.line(M, 36, W - M, 36)
     c.setFillColor(MUTED)
     c.setFont('Segoe', 8)
-    c.drawString(M, 23, 'Operação do ERP  |  Edição ilustrada  |  26/10/2026')
+    c.drawString(M, 23, 'Operação do ERP  |  Edição ilustrada  |  27/10/2026')
     c.setFont('SegoeBold', 9)
     c.setFillColor(NAVY)
     c.drawRightString(W - M, 22, str(n).zfill(2))
@@ -411,7 +411,7 @@ y = shot('04-gerenciar-vinculos', y, max_height=290, caption='Visão geral: 1 fo
 y = shot('04b-fornecedor', y, max_height=65, caption='Ampliação do campo de fornecedor. Digite pelo menos duas letras para pesquisar.')
 y = step(1, 'Associe o fornecedor correto', 'Escolha o cadastro com o mesmo nome da empresa que emitiu a nota. Se não existir, use Novo fornecedor e confira os dados antes de criar.', y)
 y = step(2, 'Encontre o produto antes de criar outro', 'Pesquise pelo nome ou código. Um produto ou variação já vinculado a outra linha desta NF-e não aparece na busca. Confira modelo, cor e medida antes de criar outro cadastro.', y)
-y = step(3, 'Aguarde a confirmação do salvamento', 'Os dados são salvos automaticamente. Aguarde “Salvando e confirmando vínculos...” e resolva qualquer aviso antes de continuar.', y)
+y = step(3, 'Aguarde a confirmação do salvamento', 'Os dados são salvos automaticamente. Aguarde “Salvando e confirmando vínculos...” e resolva qualquer aviso antes de continuar. Se uma tentativa ficar sem confirmação, feche e reabra Gerenciar vínculos para consultar a nota antes de tentar novamente.', y)
 
 # 08 - Cadastro rápido
 y = base('03 / Vínculos', 'Cadastro rápido: escolha o tipo certo', 'Abra Cadastro rápido na linha do item em Gerenciar vínculos quando não encontrar um produto correspondente. Pesquise primeiro para evitar outro cadastro igual.')
@@ -581,10 +581,10 @@ y = note('Conferir Pedido também não dá entrada', 'Essa conferência compara 
 # 18 - Inventário inicial
 y = base('07 / Inventário', 'Defina o que será contado', 'Estoque > Inventário > Novo inventário. Escolha os produtos que entram na contagem antes de começar.')
 y = shot('10-inventario-escopo', y, max_height=180, caption='1 Estoque completo em etapas por fornecedor  •  2 Seleção personalizada de produtos ou variações.')
-y = shot('11-inventario-responsavel', y, max_height=120, caption='No app, o responsável logado já fica pré-selecionado quando elegível; você pode escolher outra pessoa.')
-y = step(1, 'Escolha quais produtos contar', 'Estoque Completo lista produtos convencionais ativos por fornecedor. Produtos Salvados e Usados, e fornecedores exclusivos dessas origens, ficam fora. Seleção Personalizada também aceita apenas itens convencionais.', y)
+y = shot('11-inventario-responsavel', y, max_height=120, caption='O nome e o check aparecem quando há responsável selecionado. No app, a pessoa elegível já fica pré-selecionada.')
+y = step(1, 'Escolha quais produtos contar', 'Só fornecedores marcados com origem Convencional aparecem no seletor; sem origem cadastrada e exclusivos de Salvados/Usados ficam fora. Estoque Completo conta produtos convencionais ativos; Seleção Personalizada também aceita só esses itens.', y)
 y = step(2, 'Escolha quem vai fazer a contagem', 'No app, o usuário logado com perfil de Administrador, Gestor ou Estoquista já fica selecionado. Para trocar, digite duas letras e escolha outro colaborador com um desses perfis. Se alguém não aparecer, use Tentar sincronizar lista e confira o perfil de acesso.', y)
-y = step(3, 'Conte um, vários ou todos os fornecedores', 'Abra a etapa de um fornecedor; repita para vários ou percorra todas. Etapas e itens sem contagem ficam como estão. Na Seleção Personalizada, adicione os itens convencionais.', y)
+y = step(3, 'Conte um, vários ou todos os fornecedores', 'Abra as etapas desejadas; a lista mostra o progresso geral. No app, o título da etapa aberta mostra só o nome do fornecedor e o progresso conta apenas os itens dele. Itens não contados não são ajustados.', y)
 y = note('Duplicar inventário', 'Cada código identifica uma contagem. Se ela já estiver em andamento, retome-a pela lista antes de criar outra. Ao duplicar, revise os produtos, quantidades e responsável; a contagem e as etiquetas antigas não são copiadas. Os botões para mudar de página ficam abaixo da lista.', y, fill=MINT)
 
 # 19 - Contagem
@@ -595,7 +595,7 @@ y = table(['Campo Contado', 'Significado'], [
     ['<b>0</b>', 'Você contou e não encontrou nenhuma unidade. Pode gerar ajuste para zero após a revisão.'],
     ['<b>Vazio</b>', 'Este item ainda não foi contado. Não equivale a zero e o saldo não deve ser zerado por isso.'],
 ], y, widths=[130, TW - 130], size=10.2)
-y = note('Scanners do inventário geral', 'Na tela geral, o scanner aceita produtos de qualquer fornecedor incluído no inventário; produtos sem fornecedor ficam fora das etapas. Dentro da etapa, o scanner aceita somente produtos daquele fornecedor. Se ler item de outro fornecedor, aparece um alerta vermelho e a quantidade não muda: volte, escolha a etapa correta ou use o scanner geral. Cada etiqueta QR acrescenta uma unidade. Leituras seguidas são processadas em sequência, com um bipe por unidade; o visor mostra até as duas últimas leituras. Não repita a mesma etiqueta e use uma por móvel, não por caixa.', y, fill=MINT)
+y = note('Scanners do inventário geral', 'Use Escanear inventário completo para aceitar todos os itens. Na etapa, Escanear este fornecedor aceita somente os produtos daquele fornecedor; ao ler outro, volte à etapa correta ou use o scanner geral. O QR pode ser lido em qualquer ponto da imagem. Cada QR contabilizado soma uma unidade e toca um bipe de cerca de 80 ms. Em leituras simultâneas, os beeps começam com pelo menos 20 ms entre si e podem se sobrepor. A contagem não espera o áudio nem outras gravações. QR duplicado, ignorado ou fora do escopo não toca. Produtos sem fornecedor ficam fora das etapas; o visor mostra o total e as duas últimas leituras.', y, fill=MINT)
 
 # 20 - Revisão inventário
 y = base('07 / Inventário', 'Revise as diferenças antes de concluir', 'Compare Esperado (saldo no sistema), Contado (quantidade encontrada) e Ajuste (diferença que será aplicada). Reconte o que parecer errado.')

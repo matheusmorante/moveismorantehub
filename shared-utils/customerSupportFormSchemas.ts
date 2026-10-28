@@ -47,6 +47,8 @@ export type SupportChatComposerAttachment = SupportChatComposerDraft['attachment
 export const supportCustomerSendSchema = z.object({
   conversationId: z.string().uuid('Conversa inválida.'),
   message: z.string().max(4096, 'A mensagem deve ter no máximo 4096 caracteres.'),
+  replyToWamid: z.string().trim().min(1).max(255).optional(),
+  forwarded: z.boolean().optional(),
   attachmentType: z.enum(['text', 'file', 'contact', 'catalog']),
   fileName: z.string().trim().min(1).max(255).optional(),
   fileMimeType: z.string().trim().max(120).optional(),
@@ -108,6 +110,12 @@ export const supportCustomerRecordFiltersSchema = z.object({
 export type SupportCustomerRecordFiltersInput = z.infer<typeof supportCustomerRecordFiltersSchema>;
 export const supportMessageSearchSchema = z.object({
   search: z.string().trim().min(3, 'Informe pelo menos 3 caracteres para pesquisar.').max(100, 'A busca deve ter no máximo 100 caracteres.'),
+});
+export const supportForwardConversationSearchSchema = z.object({
+  search: z.string().trim().min(3, 'Informe pelo menos 3 caracteres para localizar uma conversa.').max(100, 'A busca deve ter no máximo 100 caracteres.'),
+});
+export const supportForwardMessageSchema = z.object({
+  recipientConversationId: z.string().uuid('Selecione uma conversa válida.'),
 });
 export const supportGlobalMessageSearchSchema = z.object({
   search: z.string().trim().min(3, 'Informe pelo menos 3 caracteres para pesquisar mensagens.').max(100, 'A busca deve ter no máximo 100 caracteres.'),

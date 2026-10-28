@@ -13,18 +13,23 @@ export const isDoorQuantityCharacteristic = (name: string): boolean =>
   /quantidade\s+de\s+portas?/i.test(name.trim());
 
 export const isDoorDependentCharacteristic = (name: string): boolean =>
-  /porta/i.test(name) && !isHasDoorsCharacteristic(name) && !isDoorQuantityCharacteristic(name);
+  /(?:^|[^a-z0-9])portas?(?=$|[^a-z0-9])/i.test(name.trim()) &&
+  !isHasDoorsCharacteristic(name) &&
+  !isDoorQuantityCharacteristic(name);
 
 export const parseDoorQuantityValue = (values: Record<string, any> = {}): number | null => {
   for (const [key, val] of Object.entries(values)) {
     if (isDoorQuantityCharacteristic(key)) {
       if (val === undefined || val === null || val === '') return null;
-      if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+      if (typeof val === 'number') {
+        return Number.isSafeInteger(val) && val >= 0 ? val : null;
+      }
       const str = String(val).trim();
       if (!str) return null;
-      const match = str.match(/\d+/);
+      const match = str.match(/^(\d+)(?:[.,]0+)?(?:\s+.*)?$/);
       if (match) {
-        return parseInt(match[0], 10);
+        const quantity = Number(match[1]);
+        return Number.isSafeInteger(quantity) ? quantity : null;
       }
       return null;
     }
@@ -65,12 +70,15 @@ export const parseDrawerQuantityValue = (values: Record<string, any> = {}): numb
   for (const [key, val] of Object.entries(values)) {
     if (isDrawerQuantityCharacteristic(key)) {
       if (val === undefined || val === null || val === '') return null;
-      if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+      if (typeof val === 'number') {
+        return Number.isSafeInteger(val) && val >= 0 ? val : null;
+      }
       const str = String(val).trim();
       if (!str) return null;
-      const match = str.match(/\d+/);
+      const match = str.match(/^(\d+)(?:[.,]0+)?(?:\s+.*)?$/);
       if (match) {
-        return parseInt(match[0], 10);
+        const quantity = Number(match[1]);
+        return Number.isSafeInteger(quantity) ? quantity : null;
       }
       return null;
     }

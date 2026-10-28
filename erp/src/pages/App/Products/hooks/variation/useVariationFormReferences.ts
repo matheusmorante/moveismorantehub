@@ -38,8 +38,8 @@ export function useVariationFormReferences({
     try {
       const result = await withTimeout(
         Promise.all([
-          supabase.from('attributes').select('*').order('name'),
-          supabase.from('attribute_values').select('*').order('value'),
+          supabase.from('attributes').select('id, name').order('name'),
+          supabase.from('attribute_values').select('id, attribute_id, value').order('value'),
         ]),
         10000,
         null,

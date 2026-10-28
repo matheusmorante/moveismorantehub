@@ -7,6 +7,32 @@ import type {
   OfflineInventoryCatalog,
   OfflineInventoryMatch,
 } from './offlineInventoryCatalogTypes';
+import { OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION } from './offlineInventoryCatalogTypes';
+import { isStockInventorySupplierEligible } from '../../../../../../../shared-utils/inventorySupplierEligibility';
+
+const productSupplierIds = (product: CatalogRow): string[] =>
+  [
+    ...new Set(
+      [product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])]
+        .filter(Boolean)
+        .map(String)
+    ),
+  ];
+
+const eligibleInventorySupplierIds = (
+  catalog: OfflineInventoryCatalog,
+  supplierIds: readonly string[]
+): string[] =>
+  supplierIds.filter((id) => {
+    const supplier = catalog.suppliers[id];
+    return Boolean(supplier && isStockInventorySupplierEligible(supplier));
+  });
+
+const hasEligibleInventorySupplier = (
+  catalog: OfflineInventoryCatalog,
+  supplierIds: readonly string[]
+): boolean =>
+  supplierIds.length === 0 || eligibleInventorySupplierIds(catalog, supplierIds).length > 0;
 
 export const supplierNames = (catalog: OfflineInventoryCatalog, ids: string[]) =>
   ids
@@ -30,6 +56,8 @@ export const canonicalVariation = (catalog: OfflineInventoryCatalog, initialId: 
 export const buildScopeProductsFromCatalog = (
   catalog: OfflineInventoryCatalog
 ): Array<Record<string, any>> => {
+  if (catalog.formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION) return [];
+
   const rows: Array<Record<string, any>> = [];
   const labelsByVariation = new Map<string, CatalogRow[]>();
   for (const label of Object.values(catalog.labels)) {
@@ -50,13 +78,9 @@ export const buildScopeProductsFromCatalog = (
       product.product_kind === 'usado'
     )
       continue;
-    const supplierIds = [
-      ...new Set(
-        [product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])]
-          .filter(Boolean)
-          .map(String)
-      ),
-    ];
+    const supplierIds = productSupplierIds(product);
+    if (!hasEligibleInventorySupplier(catalog, supplierIds)) continue;
+    const eligibleSupplierIds = eligibleInventorySupplierIds(catalog, supplierIds);
     const labels = labelsByVariation.get(String(variation.id)) || [];
     rows.push({
       id: String(product.id),
@@ -68,9 +92,13 @@ export const buildScopeProductsFromCatalog = (
       sku: variation.sku || product.code || '',
       code: product.code || '',
       barcode: labels.find((label) => label.barcode)?.barcode || '',
-      main_supplier_id: product.main_supplier_id,
-      supplier_id: product.supplier_id,
-      supplier_ids: supplierIds,
+      main_supplier_id: eligibleSupplierIds.includes(String(product.main_supplier_id || ''))
+        ? product.main_supplier_id
+        : undefined,
+      supplier_id: eligibleSupplierIds.includes(String(product.supplier_id || ''))
+        ? product.supplier_id
+        : undefined,
+      supplier_ids: eligibleSupplierIds,
       active:
         product.active !== false &&
         variation.active !== false &&
@@ -84,6 +112,8 @@ export const resolveOfflineInventoryMatch = (
   catalog: OfflineInventoryCatalog,
   rawCode: string
 ): OfflineInventoryMatch | null => {
+  if (catalog.formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION) return null;
+
   const { labelId } = extractLabelIdentity(rawCode);
   const label = labelId ? catalog.labels[labelId] : undefined;
   const candidates = new Set<string>();
@@ -162,13 +192,9 @@ export const resolveOfflineInventoryMatch = (
     variation.deleted
   )
     return null;
-  const ids = [
-    ...new Set(
-      [product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])]
-        .filter(Boolean)
-        .map(String)
-    ),
-  ];
+  const productIds = productSupplierIds(product);
+  if (!hasEligibleInventorySupplier(catalog, productIds)) return null;
+  const ids = eligibleInventorySupplierIds(catalog, productIds);
   const names = supplierNames(catalog, ids);
   const matchedLabel =
     label ||

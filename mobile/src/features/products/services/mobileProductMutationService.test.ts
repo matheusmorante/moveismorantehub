@@ -875,6 +875,8 @@ describe('saveMobileProduct', () => {
           id: 'new_PROD-SIMPLES-01',
           name: 'Produto simples',
           sku: 'PROD-SIMPLES-01',
+          syncName: false,
+          use_parent_name: false,
           images: [],
           imageUrl: 'https://images.test/legacy.webp',
           comboItems: [],
@@ -888,6 +890,7 @@ describe('saveMobileProduct', () => {
 
     expect(parameters.p_product.images).toEqual(parentImages);
     expect(parameters.p_product.technical_specs.variationDetails[0].images).toEqual(parentImages);
+    expect(parameters.p_variations[0].use_parent_name).toBe(true);
     expect(parameters.p_variations[0].image_url).toBe(parentImages.join(','));
   });
 

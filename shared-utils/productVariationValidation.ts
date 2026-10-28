@@ -31,7 +31,7 @@ export const productVariationDraftSchema = z.object({
   pkgDepth: nonnegative.optional(),
   attributes: z.array(z.object({
     name: z.string(),
-    value: z.string(),
+    value: z.union([z.string(), z.boolean(), z.null()]),
     showName: z.boolean().optional(),
   }).passthrough()),
   comboItems: z.array(z.object({
@@ -44,12 +44,18 @@ export const productVariationDraftSchema = z.object({
   }).passthrough()).optional(),
 }).passthrough();
 
+// The variation editor does not expose stock. Keep persisted negative balances
+// intact while still rejecting non-finite stock values in that form.
+const productVariationFormSchema = productVariationDraftSchema.extend({
+  stock: z.number().finite('Informe um valor finito.'),
+});
+
 /** Completion retains the existing dynamic characteristics and parent rules. */
 export const createProductVariationFormSchema = (parent: Partial<Product>, isSingleVariation = false) =>
-  productVariationDraftSchema.superRefine((values, context) => {
+  productVariationFormSchema.superRefine((values, context) => {
     const attributes = new Set<string>();
     values.attributes.forEach((attribute, index) => {
-      if (!attribute.name.trim() || !attribute.value.trim()) context.addIssue({ code: 'custom', path: ['attributes', index], message: 'Complete o nome e o valor de cada característica ou remova a linha.' });
+      if (!attribute.name.trim() || (typeof attribute.value === 'string' && !attribute.value.trim())) context.addIssue({ code: 'custom', path: ['attributes', index], message: 'Complete o nome e o valor de cada característica ou remova a linha.' });
       const key = attribute.name.trim().toLocaleLowerCase('pt-BR');
       if (attributes.has(key)) context.addIssue({ code: 'custom', path: ['attributes', index], message: 'Não repita a mesma característica na variação.' });
       attributes.add(key);
@@ -62,7 +68,7 @@ export const createProductVariationFormSchema = (parent: Partial<Product>, isSin
     const parentName = String(parent.name || parent.description || '').trim();
     const normalizedName = normalizeCompleteVariationName(getCompleteVariationName(variation, parentName));
     const duplicateName = (parent.variations || []).some((sibling) =>
-      sibling.id !== variation.id &&
+      String(sibling.id) !== String(variation.id) &&
       normalizeCompleteVariationName(getCompleteVariationName(sibling as Variation, parentName)) === normalizedName
     );
     if (!normalizedName || duplicateName) {

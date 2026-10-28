@@ -11,9 +11,16 @@ export const normalizeCompleteVariationName = (value: string): string =>
 export const getVariationNameAttributeValues = (
   attributes: readonly { value?: unknown; showName?: boolean | null }[]
 ): string[] =>
-  attributes
-    .filter((attribute) => attribute?.showName !== false && String(attribute?.value || '').trim())
-    .map((attribute) => String(attribute?.value || '').trim());
+  attributes.flatMap((attribute) => {
+    if (attribute?.showName === false || attribute?.value === undefined || attribute?.value === null) {
+      return [];
+    }
+    const value =
+      typeof attribute.value === 'boolean'
+        ? attribute.value ? 'Sim' : 'Não'
+        : String(attribute.value).trim();
+    return value ? [value] : [];
+  });
 
 /** Preserves the ERP display rule that removes a dash after a repeated parent name. */
 export const normalizeProductVariationName = (

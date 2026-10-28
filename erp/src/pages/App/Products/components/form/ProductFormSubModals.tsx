@@ -12,6 +12,7 @@ interface ProductFormSubModalsProps {
   readonly setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
   readonly variations: {
     editingVariationId: string | null;
+    editingVariationIssue?: { fieldKey: string; message: string } | null;
   };
   readonly isStockistOnly: boolean;
   readonly canPublishToCatalog: boolean;
@@ -83,6 +84,7 @@ export const ProductFormSubModals: React.FC<ProductFormSubModalsProps> = ({
           parentId={formData.id}
           parentProduct={formData as any}
           variation={currentEditingVariation}
+          initialValidationError={variations.editingVariationIssue || undefined}
           onSave={handleSaveVariation}
           onReplaceImageGlobal={handleReplaceImageGlobal}
           canMarkTestArtifact={canToggleTestArtifact}

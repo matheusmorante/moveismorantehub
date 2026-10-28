@@ -4,12 +4,8 @@
 
 import {
   normalizeCharacteristicName,
-  isDepthCharacteristic,
-  isLengthCharacteristic,
-  isHeightCharacteristic,
   isWeightCharacteristicName,
   isExcludedCharacteristic,
-  isMattressCategory,
   isSinkCategory,
   isStructureMaterialCharacteristic,
   isSinkMaterialCharacteristic,
@@ -22,41 +18,8 @@ import {
 import type { TechnicalFieldDefinition, TechnicalValuesMap } from './types';
 import { deduplicateProductTechnicalValueAliasFields } from '../../../../../shared-utils/productTechnicalValueAliases';
 import { isProductTechnicalAttributeRequiredByCategories } from '../../../../../shared-utils/productCategoryRequiredAttributes';
-
-/**
- * Resolve a exclusividade mútua entre Profundidade (total) e Comprimento (total).
- * Determina qual das duas características deve permanecer ativa no formulário.
- */
-export const resolveActiveDepthOrLengthField = (
-  depthField: TechnicalFieldDefinition,
-  lengthField: TechnicalFieldDefinition,
-  technicalValues: TechnicalValuesMap,
-  manualSet: ReadonlySet<string>
-): string => {
-  const valDepth = String(technicalValues[depthField.name] ?? '').trim();
-  const valLength = String(technicalValues[lengthField.name] ?? '').trim();
-
-  if (manualSet.has(lengthField.name) && !manualSet.has(depthField.name)) {
-    return lengthField.name;
-  }
-  if (manualSet.has(depthField.name) && !manualSet.has(lengthField.name)) {
-    return depthField.name;
-  }
-  if (valLength && !valDepth) {
-    return lengthField.name;
-  }
-  if (valDepth && !valLength) {
-    return depthField.name;
-  }
-  if (
-    Object.prototype.hasOwnProperty.call(technicalValues, lengthField.name) &&
-    !Object.prototype.hasOwnProperty.call(technicalValues, depthField.name)
-  ) {
-    return lengthField.name;
-  }
-
-  return depthField.name;
-};
+import { isTechnicalFieldAllowedForCategories } from '../../../../../shared-utils/productTechnicalFieldScope';
+import { resolveProductCharacteristicApplication } from '../../../../../shared-utils/productCharacteristicApplications';
 
 /**
  * Determina a lista de campos técnicos que devem ser exibidos no formulário do produto.
@@ -72,46 +35,62 @@ export const getApplicableTechnicalFields = (
   allFields: readonly TechnicalFieldDefinition[] = [],
   productCategoryIds: readonly string[] = [],
   productTechnicalValues: TechnicalValuesMap = {},
-  manuallyAddedFieldNames: readonly string[] = []
+  manuallyAddedFieldNames: readonly string[] = [],
+  productCategoryNames: readonly string[] = []
 ): TechnicalFieldDefinition[] => {
-  const safeFields = Array.isArray(allFields) ? allFields : [];
+  const safeFields: readonly TechnicalFieldDefinition[] = Array.isArray(allFields) ? allFields : [];
   const activeCategorySet = new Set(productCategoryIds);
   const manualSet = new Set(manuallyAddedFieldNames);
-  const isMattress = isMattressCategory(productCategoryIds, safeFields);
   const isSink = isSinkCategory(productCategoryIds, safeFields);
+  const hasCategoryApplication = (field: TechnicalFieldDefinition) =>
+    field.categoryApplications?.some((application) =>
+      activeCategorySet.has(String(application.categoryId))
+    ) ?? false;
 
   const isRequiredForProduct = (field: TechnicalFieldDefinition): boolean => {
+    if (Array.isArray(field.categoryApplications)) {
+      return resolveProductCharacteristicApplication(field, productCategoryIds) === 'required';
+    }
     if (isWeightCapacityCharacteristic(field.name)) return false;
     if (isWeightCharacteristicName(field.name)) return true;
-    const normalizedName = normalizeCharacteristicName(field.name);
-
-    // Para colchões, a altura não é obrigatória nem solicitada; usa-se espessura do colchão
-    if (isMattress && isHeightCharacteristic(field.name)) {
-      return false;
-    }
-    if (isMattress && normalizedName === 'espessura do colchão') {
-      return true;
-    }
-    return Boolean(field.isRequired);
+    return Boolean(field.isRequired) || Boolean(
+      field.requiredProductCategoryIds?.some((categoryId) => activeCategorySet.has(String(categoryId)))
+    );
   };
 
   const isRequiredForCatalog = (field: TechnicalFieldDefinition): boolean =>
     isProductTechnicalAttributeRequiredByCategories(
       field.requiredCategoryIds,
-      productCategoryIds
+      productCategoryIds.filter((categoryId) =>
+        !field.categoryApplications?.some(
+          (application) => String(application.categoryId) === String(categoryId)
+        )
+      )
     );
 
-  let applicable = safeFields.filter((field) => {
+  const applicable = safeFields.filter((field) => {
+    const configuredApplications = field.categoryApplications?.filter((application) =>
+      activeCategorySet.has(String(application.categoryId))
+    ) ?? [];
+    if (
+      Array.isArray(field.categoryApplications) &&
+      configuredApplications.length > 0 &&
+      configuredApplications.every((application) => application.application === 'unavailable')
+    ) return false;
+
+    if (!isTechnicalFieldAllowedForCategories(
+      field.name, productCategoryNames, field.categoryApplications, productCategoryIds
+    )) return false;
     if (isExcludedCharacteristic(field.name)) return false;
 
     // Para a categoria Pias, "Material da estrutura" não se aplica (usa-se estritamente "Material da pia")
-    if (isSink && isStructureMaterialCharacteristic(field.name)) {
+    if (!hasCategoryApplication(field) && isSink && isStructureMaterialCharacteristic(field.name)) {
       return false;
     }
 
     // "Material da pia", "Concretada?" e "Possui cuba de inox?" são exclusivos da categoria Pias
     if (
-      !isSink &&
+      !hasCategoryApplication(field) && !isSink &&
       (isSinkMaterialCharacteristic(field.name) ||
         isConcretadaCharacteristic(field.name) ||
         isHasInoxBowlCharacteristic(field.name))
@@ -132,11 +111,6 @@ export const getApplicableTechnicalFields = (
 
     // A característica precisa continuar disponível quando a categoria a exige para publicação.
     if (isRequiredForCatalog(field)) return true;
-
-    // Se for colchão, "Altura / Altura total" não deve ser oferecida automaticamente (apenas Espessura do colchão)
-    if (isMattress && isHeightCharacteristic(field.name)) {
-      return hasExistingValue || manualSet.has(field.name);
-    }
 
     // O peso por prateleira pode ser informado sem depender da quantidade de prateleiras.
     if (isShelfWeightCapacityCharacteristic(field.name)) return true;
@@ -176,26 +150,6 @@ export const getApplicableTechnicalFields = (
     return false;
   });
 
-  // Exclusividade Profundidade vs Comprimento
-  const depthField = applicable.find((f) => isDepthCharacteristic(f.name));
-  const lengthField = applicable.find((f) => isLengthCharacteristic(f.name));
-
-  if (depthField && lengthField) {
-    const activeName = resolveActiveDepthOrLengthField(
-      depthField,
-      lengthField,
-      productTechnicalValues,
-      manualSet
-    );
-
-    applicable = applicable.filter((f) => {
-      if (isDepthCharacteristic(f.name) || isLengthCharacteristic(f.name)) {
-        return f.name === activeName;
-      }
-      return true;
-    });
-  }
-
   return deduplicateProductTechnicalValueAliasFields(applicable.map((field) => {
     const isWeight =
       isWeightCharacteristicName(field.name) ||
@@ -216,14 +170,30 @@ export const getApplicableTechnicalFields = (
  */
 export const getAvailableAdditionalFields = (
   allFields: readonly TechnicalFieldDefinition[] = [],
-  currentlyVisibleFields: readonly TechnicalFieldDefinition[] = []
+  currentlyVisibleFields: readonly TechnicalFieldDefinition[] = [],
+  productCategoryNames: readonly string[] = [],
+  productCategoryIds: readonly string[] = []
 ): TechnicalFieldDefinition[] => {
-  const safeAll = Array.isArray(allFields) ? allFields : [];
-  const safeVisible = Array.isArray(currentlyVisibleFields) ? currentlyVisibleFields : [];
+  const safeAll: readonly TechnicalFieldDefinition[] = Array.isArray(allFields) ? allFields : [];
+  const safeVisible: readonly TechnicalFieldDefinition[] = Array.isArray(currentlyVisibleFields)
+    ? currentlyVisibleFields
+    : [];
   const visibleNames = new Set(safeVisible.map((f) => f.name.toLowerCase().trim()));
+  const isAvailableForSelectedCategories = (field: TechnicalFieldDefinition): boolean => {
+    if (!Array.isArray(field.categoryApplications)) return true;
+    if (productCategoryIds.length === 0) return false;
+    const applications = field.categoryApplications.filter((application) =>
+      productCategoryIds.includes(String(application.categoryId))
+    );
+    return applications.length === 0 || applications.some((application) => application.application !== 'unavailable');
+  };
   return safeAll.filter(
     (f) =>
       f.active !== false &&
+      isTechnicalFieldAllowedForCategories(
+        f.name, productCategoryNames, f.categoryApplications, productCategoryIds
+      ) &&
+      isAvailableForSelectedCategories(f) &&
       !visibleNames.has(f.name.toLowerCase().trim()) &&
       !isExcludedCharacteristic(f.name)
   );

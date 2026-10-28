@@ -211,6 +211,40 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     expect(screen.getByPlaceholderText('Insira a quantidade de gavetas')).toBeDefined();
   });
 
+  it('mantém quantidades vazias no início e permite zero para portas e gavetas', () => {
+    const fieldPortas: TechnicalFieldDefinition = {
+      id: 'p-2',
+      name: 'Quantidade de portas',
+      dataType: 'integer',
+      options: [],
+    };
+    const fieldGavetas: TechnicalFieldDefinition = {
+      id: 'g-2',
+      name: 'Quantidade de gavetas',
+      dataType: 'integer',
+      options: [],
+    };
+    const onChange = vi.fn();
+
+    const { rerender } = render(
+      <TechnicalFieldInput field={fieldPortas} value="" onChange={onChange} />
+    );
+    const doorsInput = screen.getByRole('spinbutton') as HTMLInputElement;
+    expect(doorsInput.min).toBe('0');
+    expect(doorsInput.value).toBe('');
+    fireEvent.change(doorsInput, { target: { value: '0' } });
+    expect(onChange).toHaveBeenLastCalledWith(0);
+
+    rerender(<TechnicalFieldInput field={fieldPortas} value={2} onChange={onChange} />);
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '' } });
+    expect(onChange).toHaveBeenLastCalledWith('');
+
+    rerender(<TechnicalFieldInput field={fieldGavetas} value="0" onChange={onChange} />);
+    const drawersInput = screen.getByRole('spinbutton') as HTMLInputElement;
+    expect(drawersInput.min).toBe('0');
+    expect(drawersInput.value).toBe('0');
+  });
+
   it('força multi_select para Materiais das corrediças e permite alternar opções pela lista', () => {
     const fieldCorredicas: TechnicalFieldDefinition = {
       id: 'c-1',
@@ -293,11 +327,12 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     expect(onChange).toHaveBeenLastCalledWith('');
   });
 
-  it('mapeia as opções Sim/Não do seletor para booleanos verdadeiros e falsos', () => {
+  it('renderiza booleano como interruptor e grava valores true/false', () => {
     const fieldBoolean: TechnicalFieldDefinition = {
       id: 'attr-bool',
       name: 'Possui iluminação',
       dataType: 'boolean',
+      options: [{ id: 'yes', value: 'Sim' }, { id: 'no', value: 'Não' }],
     };
     const onChange = vi.fn();
 
@@ -305,19 +340,17 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
       <TechnicalFieldInput field={fieldBoolean} value={false} onChange={onChange} />
     );
 
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    expect(select.value).toBe('Não');
+    const toggle = screen.getByRole('switch');
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
 
-    fireEvent.change(select, { target: { value: 'Sim' } });
+    fireEvent.click(toggle);
     expect(onChange).toHaveBeenLastCalledWith(true);
 
     rerender(<TechnicalFieldInput field={fieldBoolean} value={true} onChange={onChange} />);
-    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('Sim');
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Não' } });
+    fireEvent.click(screen.getByRole('switch'));
     expect(onChange).toHaveBeenLastCalledWith(false);
-
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
-    expect(onChange).toHaveBeenLastCalledWith('');
+    expect(screen.queryByRole('combobox')).toBeNull();
   });
 });

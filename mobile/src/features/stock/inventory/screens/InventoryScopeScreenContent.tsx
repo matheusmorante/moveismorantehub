@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { connectivityService } from '../../../../services/offline/connectivityService';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { mobileInventoryAuditScopeSchema } from '../../../../../../shared-utils/inventoryAuditFormSchemas';
 import {
@@ -55,6 +56,7 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
   copiedItems,
 }) => {
   const { userProfile } = useAuth();
+  const [isOnline, setIsOnline] = useState(connectivityService.connected);
   const [suppliers, setSuppliers] = useState<ScopeSupplier[]>([]);
   const [employees, setEmployees] = useState<ScopeEmployee[]>([]);
   const [responsibleId, setResponsibleId] = useState('');
@@ -79,6 +81,8 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
     responsibleName: '',
     itemsSnapshot: [],
   });
+
+  useEffect(() => connectivityService.subscribe(setIsOnline), []);
 
   useEffect(() => {
     let active = true;
@@ -295,14 +299,13 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
       >
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: textPrimary }]}>Novo Inventário</Text>
-          <Text style={[styles.headerSubtitle, { color: muted }]}>
-            O que você deseja inventariar?
-          </Text>
-          <Text style={[styles.syncStatus, { color: muted }]}>
-            {catalogSyncedAt
-              ? `Índice offline atualizado em ${new Date(catalogSyncedAt).toLocaleString('pt-BR')}`
-              : 'Índice offline ainda não sincronizado neste dispositivo'}
-          </Text>
+          {!isOnline && (
+            <Text style={[styles.syncStatus, { color: muted }]}>
+              {catalogSyncedAt
+                ? `Índice offline atualizado em ${new Date(catalogSyncedAt).toLocaleString('pt-BR')}`
+                : 'Índice offline ainda não sincronizado neste dispositivo'}
+            </Text>
+          )}
         </View>
         <TouchableOpacity onPress={onCancel} style={styles.closeBtn}>
           <X size={24} color={muted} />
@@ -394,7 +397,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerTitle: { fontSize: 20, fontWeight: '800' },
-  headerSubtitle: { fontSize: 13, marginTop: 2 },
   syncStatus: { fontSize: 11, marginTop: 5 },
   closeBtn: { padding: 4 },
   errorBox: { borderWidth: 1, borderRadius: 16, padding: 20, alignItems: 'center', gap: 12 },

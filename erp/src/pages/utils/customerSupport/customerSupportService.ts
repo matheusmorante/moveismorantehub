@@ -109,12 +109,19 @@ export function mapRowToConversation(row: any): WhatsAppConversation {
 }
 
 export function mapRowToMessage(row: any): WhatsAppMessage {
+  const isLegacyRevocation = row.message_type === 'unsupported'
+    && typeof row.text_content === 'string'
+    && /a central ainda não consegue exibir este tipo de mensagem\s*\(\s*revoke\s*\)\./i.test(row.text_content);
   const legacyUnsupportedText = row.direction === 'inbound'
     && row.message_type === 'unsupported'
     && (row.text_content === 'Formato de mensagem não suportado diretamente pela central.'
       || row.text_content === '[Mensagem tipo unsupported]')
     ? 'Mensagem sem prévia: a integração não salvou o tipo nem o conteúdo original. Peça ao cliente para reenviar como texto, imagem, áudio ou documento.'
     : row.text_content;
+  const legacyUnsupportedCode = row.message_type === 'unsupported'
+    && typeof row.text_content === 'string'
+    ? /^A API do WhatsApp informou que este tipo de mensagem não é suportado\.\s*\(código\s+(131051)\)$/i.exec(row.text_content)?.[1]
+    : null;
   const authorName =
     row.raw_payload?.author_name || (row.direction === 'outbound' ? 'Atendente' : null);
   const authorAvatar = row.raw_payload?.author_avatar || null;
@@ -125,8 +132,8 @@ export function mapRowToMessage(row: any): WhatsAppMessage {
     conversationId: row.conversation_id,
     apiMessageId: row.api_message_id,
     direction: row.direction,
-    messageType: row.message_type || 'text',
-    textContent: legacyUnsupportedText,
+    messageType: isLegacyRevocation ? 'deleted' : row.message_type || 'text',
+    textContent: isLegacyRevocation ? 'Esta mensagem foi apagada' : legacyUnsupportedText,
     mediaId: row.media_id,
     mediaMimeType: row.media_mime_type,
     mediaUrl: row.media_url,
@@ -135,7 +142,7 @@ export function mapRowToMessage(row: any): WhatsAppMessage {
     replyToMessageId: row.reply_to_message_id,
     replyToWamid: row.reply_to_wamid,
     status: row.status || 'received',
-    errorCode: row.error_code,
+    errorCode: row.error_code || legacyUnsupportedCode,
     failureReason: row.failure_reason,
     timestamp: row.timestamp || row.created_at,
     createdAt: row.created_at,
@@ -250,6 +257,9 @@ export async function fetchConversations(
   const customerIds = Array.from(
     new Set(rawConversations.map((c) => c.customerId).filter(Boolean) as string[])
   );
+  const contactPhones = Array.from(
+    new Set(rawConversations.map((c) => c.contactPhone).filter(Boolean) as string[])
+  );
 
   const customersMap = new Map<string, CustomerSummary>();
   const customerOrdersCountMap = new Map<string, number>();
@@ -266,9 +276,12 @@ export async function fetchConversations(
     for (const c of customersData) {
       customersMap.set(String(c.id), mapPersonToSummary(c));
     }
+  }
 
+  if (canViewCommercialInfo && (customerIds.length > 0 || contactPhones.length > 0)) {
+    const targetKeys = Array.from(new Set([...customerIds, ...contactPhones]));
     const ordersResponse = await withTimeout<any>(supabase.rpc('customer_support_count_customer_orders', {
-      p_customer_ids: customerIds,
+      p_customer_ids: targetKeys,
     }), 15_000, null, 'central:contagem-pedidos');
     const ordersData = ordersResponse?.data;
 
@@ -276,14 +289,16 @@ export async function fetchConversations(
       throw new Error('Não foi possível carregar os dados comerciais das conversas. Tente atualizar a lista.');
     }
     for (const row of ordersData) {
-      if (row.customer_id) customerOrdersCountMap.set(row.customer_id, Number(row.order_count) || 0);
+      if (row.customer_id) customerOrdersCountMap.set(String(row.customer_id), Number(row.order_count) || 0);
     }
   }
 
   // Hidrata conversas com clientes, pedidos e atendentes
   const hydrated = rawConversations.map((c) => {
     const cust = c.customerId ? customersMap.get(c.customerId) || null : null;
-    const ordersCount = c.customerId ? customerOrdersCountMap.get(c.customerId) || 0 : 0;
+    const ordersCountByCust = c.customerId ? customerOrdersCountMap.get(c.customerId) || 0 : 0;
+    const ordersCountByPhone = c.contactPhone ? customerOrdersCountMap.get(c.contactPhone) || 0 : 0;
+    const ordersCount = Math.max(ordersCountByCust, ordersCountByPhone);
 
     return {
       ...c,
@@ -758,9 +773,7 @@ export async function fetchConversationReplyTarget(
   return reference.apiMessageId ? find('api_message_id', reference.apiMessageId) : null;
 }
 
-/**
- * Zera contador de não lidas ao abrir a conversa
- */
+/** Marca a conversa como lida somente na central de atendimento. */
 export async function markConversationAsRead(
   supabase: SupabaseClient,
   conversationId: string
@@ -771,7 +784,25 @@ export async function markConversationAsRead(
       .update({ unread_count: 0 })
       .eq('id', conversationId);
     const pending = typeof (query as any).gt === 'function' ? (query as any).gt('unread_count', 0) : query;
-    const response = await withTimeout<any>(pending, 10_000, null, 'central:confirmar-leitura');
+    const response = await withTimeout<any>(pending, 10_000, null, 'central:marcar-como-lida');
+    return Boolean(response && !response.error);
+  } catch {
+    return false;
+  }
+}
+
+/** Marca manualmente a conversa como não lida somente na central de atendimento. */
+export async function markConversationAsUnread(
+  supabase: SupabaseClient,
+  conversationId: string
+): Promise<boolean> {
+  try {
+    const response = await withTimeout<any>(
+      supabase.from('whatsapp_conversations').update({ unread_count: 1 }).eq('id', conversationId),
+      10_000,
+      null,
+      'central:marcar-como-nao-lida'
+    );
     return Boolean(response && !response.error);
   } catch {
     return false;
@@ -919,6 +950,8 @@ export interface CustomerSupportSendInput {
   file?: File;
   contact?: { name: string; phone: string };
   catalogSelection?: ProductCatalogSendSelection;
+  replyToWamid?: string;
+  forwarded?: boolean;
 }
 
 export interface CustomerSupportSendResult {
@@ -939,6 +972,8 @@ export async function sendCustomerSupportMessage(
     conversationId,
     message: input.message,
     attachmentType,
+    ...(input.replyToWamid ? { replyToWamid: input.replyToWamid } : {}),
+    ...(input.forwarded ? { forwarded: true } : {}),
     ...(input.file ? {
       fileName: input.file.name,
       fileMimeType: input.file.type || 'application/octet-stream',
@@ -971,6 +1006,8 @@ export async function sendCustomerSupportMessage(
       const formData = new FormData();
       formData.set('conversationId', parsed.data.conversationId);
       formData.set('message', parsed.data.message);
+      if (parsed.data.replyToWamid) formData.set('replyToWamid', parsed.data.replyToWamid);
+      if (parsed.data.forwarded) formData.set('forwarded', 'true');
       formData.set('file', input.file, input.file.name);
       body = formData;
     } else {
@@ -978,6 +1015,8 @@ export async function sendCustomerSupportMessage(
       body = JSON.stringify({
         conversationId: parsed.data.conversationId,
         message: parsed.data.message,
+        ...(parsed.data.replyToWamid ? { replyToWamid: parsed.data.replyToWamid } : {}),
+        ...(parsed.data.forwarded ? { forwarded: true } : {}),
         ...(input.contact ? { contact: input.contact } : {}),
         ...(parsed.data.catalogSelection ? { catalogSelection: parsed.data.catalogSelection } : {}),
       });
@@ -1015,6 +1054,50 @@ export async function sendCustomerSupportMessage(
       );
     }
     throw new CustomerSupportSendError(error instanceof Error ? error.message : 'Não foi possível enviar a mensagem.');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function downloadCustomerSupportForwardFile(
+  supabase: SupabaseClient,
+  message: WhatsAppMessage
+): Promise<File> {
+  if (!message.mediaId || !['image', 'document', 'audio', 'video', 'sticker'].includes(message.messageType)) {
+    throw new CustomerSupportSendError('Esta mensagem não possui uma mídia que possa ser encaminhada.');
+  }
+  const sessionResponse = await withTimeout<any>(supabase.auth.getSession(), 10_000, null, 'central:encaminhar-sessao');
+  const accessToken = sessionResponse?.data?.session?.access_token;
+  if (sessionResponse?.error || !accessToken) throw new CustomerSupportSendError('Sessão inválida. Entre novamente.');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const response = await fetch(`/api/whatsapp-media?id=${encodeURIComponent(message.mediaId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new CustomerSupportSendError(typeof data.error === 'string' ? data.error : 'Não foi possível carregar a mídia para encaminhar.');
+    }
+    const blob = await response.blob();
+    const maxBytes = message.messageType === 'sticker' ? 500 * 1024 : 4 * 1024 * 1024;
+    if (!blob.size || blob.size > maxBytes) {
+      throw new CustomerSupportSendError(message.messageType === 'sticker'
+        ? 'A figurinha precisa ter até 500 KB para ser encaminhada pela Central.'
+        : 'A mídia precisa ter até 4 MB para ser encaminhada pela Central.');
+    }
+    const extensionByType: Record<string, string> = { image: 'jpg', video: 'mp4', audio: 'ogg', document: 'pdf', sticker: 'webp' };
+    const filename = (message.mediaFilename || `mensagem.${extensionByType[message.messageType]}`)
+      .replace(/[\\/]/g, '_').slice(0, 255);
+    return new File([blob], filename, { type: message.mediaMimeType || blob.type || 'application/octet-stream' });
+  } catch (error) {
+    if (error instanceof CustomerSupportSendError) throw error;
+    throw new CustomerSupportSendError(controller.signal.aborted
+      ? 'A consulta da mídia demorou demais. Tente encaminhar novamente.'
+      : error instanceof Error ? error.message : 'Não foi possível carregar a mídia para encaminhar.');
   } finally {
     clearTimeout(timeout);
   }

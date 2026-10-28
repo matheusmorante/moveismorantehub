@@ -1,16 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { fromMock } = vi.hoisted(() => ({
+const { fromMock, rpcMock } = vi.hoisted(() => ({
   fromMock: vi.fn(),
+  rpcMock: vi.fn(),
 }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
   ecommerceSupabase: {
     from: fromMock,
+    rpc: rpcMock,
   },
 }));
 
-import { fetchVariations, subscribeToVariations } from '../variationService';
+import { fetchVariations, saveVariation, subscribeToVariations } from '../variationService';
 
 const pagedQuery = (result: (from: number, to: number) => unknown) => {
   const chain: any = {
@@ -24,6 +26,18 @@ const pagedQuery = (result: (from: number, to: number) => unknown) => {
 describe('subscribeToVariations', () => {
   beforeEach(() => {
     fromMock.mockReset();
+    rpcMock.mockReset();
+  });
+
+  it('salva condições alternativas pela operação atômica de características', async () => {
+    rpcMock.mockResolvedValue({ data: 'attr-1', error: null });
+    const dependency = { referenceAttributeId: 'doors', operator: 'greater_than' as const, value: '0' };
+    const alternative = { referenceAttributeId: 'drawers', operator: 'greater_than' as const, value: '0' };
+    await saveVariation({ id: 'attr-1', name: 'Puxador', active: true, options: [],
+      dependency, dependencyAlternatives: [alternative] }, { invalidate: false });
+    expect(rpcMock).toHaveBeenCalledWith('save_product_characteristic_definition_v3', {
+      p_definition: expect.objectContaining({ dependency, dependencyAlternatives: [alternative] }),
+    });
   });
 
   it('preserva a lista quando category_attributes ainda não está disponível', async () => {
@@ -33,6 +47,7 @@ describe('subscribeToVariations', () => {
     };
 
     fromMock.mockImplementation((table: string) => {
+      if (table === 'attribute_dependency_alternatives') return pagedQuery(() => ({ data: [], error: null }));
       if (table === 'attributes') {
         return pagedQuery((from) => ({
           data: from === 0 ? [{ id: 'attr-1', name: 'Cor', active: true }] : [],
@@ -56,6 +71,17 @@ describe('subscribeToVariations', () => {
       if (table === 'category_attributes') {
         return pagedQuery(() => ({ data: null, error: categoryTableError }));
       }
+      if (table === 'attribute_category_applications') {
+        return pagedQuery((from) => ({
+          data: from === 0
+            ? [
+                { attribute_id: 'attr-1', category_id: 'cat-pending', application: 'optional', is_configured: false },
+                { attribute_id: 'attr-1', category_id: 'cat-2', application: 'required', is_configured: true },
+              ]
+            : [],
+          error: null,
+        }));
+      }
 
       throw new Error(`Tabela inesperada no teste: ${table}`);
     });
@@ -76,18 +102,26 @@ describe('subscribeToVariations', () => {
         dataType: 'radio',
         unit: '',
         decimalPlaces: undefined,
+        groupId: undefined,
+        configuration: {},
+        dependency: null,
+        dependencyAlternatives: [],
         isCustom: false,
         options: [
-          { id: 'value-1', value: 'Azul 2', sortOrder: undefined },
-          { id: 'value-2', value: 'Azul 10', sortOrder: undefined },
+          { id: 'value-1', value: 'Azul 2', sortOrder: undefined, active: true },
+          { id: 'value-2', value: 'Azul 10', sortOrder: undefined, active: true },
         ],
         categoryAttributes: [],
+        categoryApplications: [
+          { categoryId: 'cat-pending', application: 'optional' },
+          { categoryId: 'cat-2', application: 'required' },
+        ],
         isGloballyRequired: false,
         deleted: false,
       },
     ]);
     expect(warningSpy).toHaveBeenCalledWith(
-      'Aviso ao buscar vínculos de categorias dos atributos:',
+      'Aviso ao buscar vínculos de categorias das características:',
       categoryTableError
     );
   });
@@ -101,6 +135,7 @@ describe('subscribeToVariations', () => {
     const requestedRanges: number[][] = [];
 
     fromMock.mockImplementation((table: string) => {
+      if (table === 'attribute_dependency_alternatives') return pagedQuery(() => ({ data: [], error: null }));
       if (table === 'attributes') {
         return pagedQuery((from) => ({
           data: from === 0 ? [{ id: 'attr-1', name: 'Cor', active: true }] : [],
@@ -120,6 +155,9 @@ describe('subscribeToVariations', () => {
         });
       }
       if (table === 'category_attributes') {
+        return pagedQuery(() => ({ data: [], error: null }));
+      }
+      if (table === 'attribute_category_applications') {
         return pagedQuery(() => ({ data: [], error: null }));
       }
       throw new Error(`Tabela inesperada no teste: ${table}`);

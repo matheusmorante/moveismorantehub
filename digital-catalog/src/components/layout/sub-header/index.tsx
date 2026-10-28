@@ -98,7 +98,7 @@ export function SubHeader() {
           <Link
             href="/"
             aria-current={isHomeActive ? 'page' : undefined}
-            className={`flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-1.5 leading-tight rounded-none text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs ${isHomeActive ? 'bg-white/15 text-white ring-1 ring-white/70' : 'text-white/90 hover:text-white hover:bg-white/10'}`}
+            className={`flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-1.5 leading-tight rounded-none border-b-2 text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs ${isHomeActive ? 'bg-white/15 text-white border-accent' : 'border-transparent text-white/90 hover:text-white hover:bg-white/10 hover:border-white/40'}`}
           >
             <Home className="h-3.5 w-3.5 shrink-0" />
             Início
@@ -110,10 +110,10 @@ export function SubHeader() {
             const isSalvadosActive = activeType === 'salvados' || activeType === SALVADOS_OPP_ID;
             const salvadosClass = [
               'flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-1.5 leading-tight rounded-none',
-              'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs',
+              'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs border-b-2',
               isSalvadosActive
-                ? 'bg-orange-500 text-white ring-2 ring-white/80 shadow-sm'
-                : 'bg-orange-500 hover:bg-orange-400 text-white',
+                ? 'bg-orange-500 text-white border-accent shadow-sm'
+                : 'bg-orange-500 hover:bg-orange-400 text-white border-transparent',
             ].join(' ');
 
             return (
@@ -128,10 +128,10 @@ export function SubHeader() {
             const isMegaLiquidacaoActive = activeType === 'liquidacao';
             const liquidacaoClass = [
               'flex items-center gap-1.5 px-3 py-1 sm:py-1.5 my-1 mr-2 leading-tight rounded-none',
-              'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs',
+              'text-xs sm:text-sm font-black uppercase tracking-wide whitespace-nowrap transition-all shadow-xs border-b-2',
               isMegaLiquidacaoActive
-                ? 'bg-amber-400 text-black'
-                : 'bg-amber-400 hover:bg-amber-300 text-black',
+                ? 'bg-amber-400 text-black border-accent'
+                : 'bg-amber-400 hover:bg-amber-300 text-black border-transparent',
             ].join(' ');
 
             return (

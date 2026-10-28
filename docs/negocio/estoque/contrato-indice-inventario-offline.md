@@ -4,7 +4,7 @@
 
 | Responsabilidade | Mobile | ERP Web | Situação |
 | --- | --- | --- | --- |
-| Índice de identificação | `inventory_catalog_local.snapshot_json` no SQLite | Store `catalog` do IndexedDB `morante-inventory` | No mobile, os quatro mapas anteriores continuam e há um mapa mínimo adicional de colaboradores elegíveis para selecionar o responsável. |
+| Índice de identificação | `inventory_catalog_local.snapshot_json` no SQLite | Store `catalog` do IndexedDB `morante-inventory` | No mobile, os quatro mapas anteriores continuam e há um mapa mínimo adicional de colaboradores elegíveis para selecionar o responsável; o mapa de fornecedores também preserva `stock_origins` para filtrar o Inventário Geral offline. |
 | Rascunho de contagem | `inventory_drafts_local.items_json` no SQLite | Store `drafts` do mesmo IndexedDB | Separado do índice; preserva itens, quantidades, fornecedor, responsável e nome do responsável; novas contagens registram o horário. |
 | Submissão congelada | `inventory_outbox_local` no SQLite | Store `outbox` do IndexedDB `morante-inventory` | Separada do rascunho e imutável após o primeiro freeze; retry usa o mesmo payload, versão e `audit_id`. |
 | Estoque final | RPC `finalize_inventory_transaction` (v1) e `finalize_inventory_transaction_v2` | Mesmas RPCs | Migration pública `20261026151716_inventory_audit_submission_claims_public.sql` aplicada ao remoto; instala gate `finalizeStockInventory`, claim autenticado por owner/versão/hash e v2 com rebase por `countedAt`. ACL/RLS conferidas por catálogo; nenhuma RPC ou fixture foi executada. O saldo v1 continua definido pela contagem e não recompõe movimentos posteriores; a v2 ainda não foi habilitada nos clientes nem validada com fixture. |
@@ -28,7 +28,7 @@ O inventário offline **não replica o módulo de Produtos**. O índice técnico
 - Produto: `id`, nome curto, `code`, `unit`, indicadores de atividade/rascunho/exclusão, vínculo com fornecedores e `updated_at`.
 - Variação: `id`, `product_id`, nome curto, `sku`, estado, `merged_to_variation_id` e `updated_at`.
 - Etiqueta: `id`, `variation_id`, `product_id` para etiquetas antigas sem variação, `sku`, `barcode`, estado e `updated_at`.
-- Fornecedor: `id`, nome de exibição, estado e `updated_at`.
+- Fornecedor: `id`, nomes de exibição, `stock_origins`, estado e `updated_at`. O formato v3 exige que `stock_origins` inclua explicitamente `normal` para listar um fornecedor no Inventário Geral; origem ausente/nula, fornecedor não encontrado no índice e cache anterior sem bootstrap completo são inelegíveis, e uma falha de sincronização não pode presumir a origem Convencional.
 - Colaborador responsável: `id`, tipo, nomes de exibição, cargo/função, situação e `updated_at`. O cache não armazena e-mail, telefone, endereço ou documentos pessoais. A lista é sincronizada separadamente, com filtro no servidor equivalente ao seletor do ERP.
 - Cursores de sincronização e versão do formato do índice. O cursor de exclusões acompanha remoções físicas.
 

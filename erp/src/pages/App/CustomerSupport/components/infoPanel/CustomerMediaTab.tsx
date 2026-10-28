@@ -14,7 +14,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 
 type AttachmentSearch = z.infer<typeof supportAttachmentSearchSchema>;
 const ATTACHMENT_LABELS: Partial<Record<WhatsAppMessage['messageType'], string>> = {
-  image: 'Foto', document: 'Documento', audio: 'Áudio', video: 'Vídeo', sticker: 'Figurinha',
+  image: 'Foto', document: 'Documento', audio: 'Áudio', video: 'Vídeo', sticker: 'Figurinha', template: 'Mídia de template',
 };
 
 interface CustomerMediaTabProps {
@@ -30,7 +30,8 @@ function CustomerMediaItem({
   onJumpToMessage: (message: WhatsAppMessage) => void;
 }) {
   const { mediaUrl, isLoadingMedia, mediaError, retryMedia } = useCustomerSupportMedia(message.mediaId);
-  const isImage = message.messageType === 'image';
+  const isImage = message.messageType === 'image'
+    || (message.messageType === 'template' && message.rawPayload?.template_preview?.header?.type === 'image');
   const label = message.mediaFilename || ATTACHMENT_LABELS[message.messageType] || 'Anexo';
 
   return (
@@ -138,8 +139,9 @@ export const CustomerMediaTab: React.FC<CustomerMediaTabProps> = ({ conversation
     void loadPage(cursorRef.current, searchText, requestGenerationRef.current, false);
   };
 
-  const imageMessages = attachments.filter((message) => message.messageType === 'image');
-  const otherMessages = attachments.filter((message) => message.messageType !== 'image');
+  const imageMessages = attachments.filter((message) => message.messageType === 'image'
+    || (message.messageType === 'template' && message.rawPayload?.template_preview?.header?.type === 'image'));
+  const otherMessages = attachments.filter((message) => !imageMessages.some((image) => image.id === message.id));
 
   return (
     <div className="space-y-4 animate-fade-in">

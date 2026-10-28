@@ -15,6 +15,7 @@ import {
   isCancelledOrder,
   isDateInPeriod,
   formatGroupDateLabel,
+  getLocalDateString,
 } from '../../../utils/orderUtils';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { TodayDeliveriesScreen } from './TodayDeliveriesScreen';
@@ -83,7 +84,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     return isDateInPeriod(rawSchedDate || o.created_at, selectedPeriod);
   });
 
-  const todayStr = new Date().toLocaleDateString('en-CA');
+  const todayStr = getLocalDateString(new Date());
   const rawGrouped = groupOrdersByDate(deliveryOrders);
 
   const getDatesInPeriod = (period: string): string[] => {
@@ -91,12 +92,12 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     const now = new Date();
 
     if (period === 'today') {
-      dates.push(now.toLocaleDateString('en-CA'));
+      dates.push(getLocalDateString(now));
     } else if (period === 'today_and_following') {
       for (let i = 0; i <= 7; i++) {
         const d = new Date(now);
         d.setDate(now.getDate() + i);
-        dates.push(d.toLocaleDateString('en-CA'));
+        dates.push(getLocalDateString(d));
       }
     } else if (period === 'this_week') {
       const day = now.getDay();
@@ -107,7 +108,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
       for (let i = 0; i < 7; i++) {
         const d = new Date(monday);
         d.setDate(monday.getDate() + i);
-        dates.push(d.toLocaleDateString('en-CA'));
+        dates.push(getLocalDateString(d));
       }
     } else if (period === 'this_month') {
       const year = now.getFullYear();
@@ -116,13 +117,13 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
 
       for (let i = 1; i <= daysInMonth; i++) {
         const d = new Date(year, month, i);
-        dates.push(d.toLocaleDateString('en-CA'));
+        dates.push(getLocalDateString(d));
       }
     } else if (period === 'last_30_days') {
       for (let i = 29; i >= 0; i--) {
         const d = new Date(now);
         d.setDate(now.getDate() - i);
-        dates.push(d.toLocaleDateString('en-CA'));
+        dates.push(getLocalDateString(d));
       }
     }
 

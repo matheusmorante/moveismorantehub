@@ -3,8 +3,6 @@ import {
   TechnicalFieldDefinition,
   getEffectiveTechnicalValue,
   hasVariationOverride,
-  isDepthCharacteristic,
-  isLengthCharacteristic,
   getCharacteristicDependencyState,
   isShelfWeightCapacityCharacteristic,
   isQuantityCharacteristic,
@@ -14,6 +12,7 @@ import {
   DisabledFieldWrapper,
   DisabledFieldInfoButton,
 } from '../tabs/technical/DisabledFieldWrapper';
+import { getTechnicalFieldDisplayName } from '../../../../../../../shared-utils/productTechnicalFieldScope';
 
 export interface ResolvedVariationFieldState {
   isOverridden: boolean;
@@ -95,7 +94,6 @@ export interface VariationTechnicalFieldItemProps {
   readonly isSingleVariation?: boolean;
   readonly onSetOverride: (fieldName: string, value: any) => void;
   readonly onRemoveManualField: (fieldName: string) => void;
-  readonly onToggleDepthLength: (field: TechnicalFieldDefinition) => void;
   readonly onOpenAttributeModal: () => void;
 }
 
@@ -109,7 +107,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
   isSingleVariation = false,
   onSetOverride,
   onRemoveManualField,
-  onToggleDepthLength,
   onOpenAttributeModal,
 }) => {
   const [showTooltip, setShowTooltip] = React.useState(false);
@@ -129,7 +126,7 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
   };
   const effectiveDependencyValues = dependencyValues || combinedValues;
   const dep = getCharacteristicDependencyState(field.name, effectiveDependencyValues);
-  const isDependencyDisabled = dep.isDisabled;
+  const isDependencyDisabled = field.dependency ? false : dep.isDisabled;
   const isExplicitlyNotApplicable = [
     'não se aplica',
     'nao se aplica',
@@ -138,20 +135,9 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
   ].includes(normalizedEffectiveValue);
   const isActuallyDisabled = isSingleVariation || isDependencyDisabled;
   const isQuantityField = isQuantityCharacteristic(field.name);
-  const isDepthOrLength =
-    isDepthCharacteristic(field.name) || isLengthCharacteristic(field.name);
-  const isDepth = isDepthCharacteristic(field.name);
-  const isTotal = field.name.toLowerCase().includes('total');
   const displayName = isShelfWeightCapacityCharacteristic(field.name)
     ? 'Peso suportado por prateleira'
-    : field.name;
-  const alternateLabel = isDepth
-    ? isTotal
-      ? 'Comprimento total'
-      : 'Comprimento'
-    : isTotal
-      ? 'Profundidade total'
-      : 'Profundidade';
+    : getTechnicalFieldDisplayName(field.name);
 
   return (
     <div
@@ -169,6 +155,9 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
           title={displayName}
         >
           {displayName}
+          {(field.isRequired || field.isRequiredForCatalog) && (
+            <span aria-label="Obrigatória" className="ml-1 text-red-500">*</span>
+          )}
           {isDependencyDisabled && (
             <DisabledFieldInfoButton
               disabledReason={dep.disabledReason}
@@ -185,17 +174,6 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
               className="ml-1.5 inline-flex shrink-0 items-center rounded-lg px-1.5 py-0.5 text-[10px] font-black normal-case tracking-normal text-blue-600 transition-colors hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-955/40 cursor-pointer"
             >
               Gerenciar
-            </button>
-          )}
-          {isDepthOrLength && (
-            <button
-              type="button"
-              disabled={isSingleVariation}
-              title={`Alternar para ${alternateLabel}`}
-              onClick={() => onToggleDepthLength(field)}
-              className="text-slate-400 hover:text-blue-600 transition-colors ml-1 disabled:opacity-50 cursor-pointer"
-            >
-              <i className="bi bi-arrow-left-right" />
             </button>
           )}
         </label>

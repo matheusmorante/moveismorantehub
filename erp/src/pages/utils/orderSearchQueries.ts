@@ -3,6 +3,8 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { capitalizeOrder } from './formatters';
 import { splitNoticeTags } from './noticeTags';
 import { mapOrderFromDatabase } from './orderMapper';
+import { excludeTestOrders } from '../../../../shared-utils/testArtifactQueries';
+import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
 
 const TABLE_NAME = 'orders';
 
@@ -45,36 +47,47 @@ export const getNoticeFrequency = async (): Promise<Record<string, number>> => {
  */
 export const getOrdersByProductId = async (
   productId: string,
-  variationId?: string
+  variationId?: string,
+  signal?: AbortSignal,
 ): Promise<Order[]> => {
-  try {
-    let orderIds: string[] = [];
+  let orderIds: string[] = [];
 
-    // order_items é a única fonte operacional de vínculo entre pedido e produto.
-    if (variationId) {
-      const { data: itemRows, error } = await supabase
+  // order_items é a única fonte operacional de vínculo entre pedido e produto.
+  if (variationId) {
+    const { data: itemRows, error } = await withAbortTimeout(
+      supabase
         .from('order_items')
         .select('order_id')
-        .eq('variation_id', String(variationId));
-      if (error) throw error;
-      if (itemRows) {
-        orderIds = itemRows.map((r: any) => String(r.order_id));
-      }
-    } else if (productId) {
-      const { data: itemRows, error } = await supabase
-        .from('order_items')
-        .select('order_id')
-        .eq('product_id', String(productId));
-      if (error) throw error;
-      if (itemRows) {
-        orderIds = itemRows.map((r: any) => String(r.order_id));
-      }
+        .eq('variation_id', String(variationId)),
+      'produtos:pedidos-vinculados-itens-variacao',
+      15_000,
+      signal,
+    );
+    if (error) throw error;
+    if (itemRows) {
+      orderIds = itemRows.map((r: any) => String(r.order_id));
     }
+  } else if (productId) {
+    const { data: itemRows, error } = await withAbortTimeout(
+      supabase
+        .from('order_items')
+        .select('order_id')
+        .eq('product_id', String(productId)),
+      'produtos:pedidos-vinculados-produto',
+      15_000,
+      signal,
+    );
+    if (error) throw error;
+    if (itemRows) {
+      orderIds = itemRows.map((r: any) => String(r.order_id));
+    }
+  }
 
-    if (orderIds.length === 0) return [];
+  if (orderIds.length === 0) return [];
 
-    const uniqueIds = Array.from(new Set(orderIds));
-    const { data: ordersData, error } = await supabase
+  const uniqueIds = Array.from(new Set(orderIds));
+  const ordersQuery = excludeTestOrders(
+    supabase
       .from(TABLE_NAME)
       .select(`
                 id, order_number, order_index, status, order_type,
@@ -102,14 +115,18 @@ export const getOrdersByProductId = async (
       .in('id', uniqueIds)
       .eq('deleted', false)
       .neq('order_type', 'budget')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+  );
 
-    if (error) throw error;
-    return ordersData?.map((row: any) => mapOrderFromDatabase(row)) || [];
-  } catch (error) {
-    console.error('Erro ao buscar pedidos por produto:', error);
-    return [];
-  }
+  const { data: ordersData, error } = await withAbortTimeout(
+    ordersQuery,
+    'produtos:pedidos-vinculados-detalhes',
+    15_000,
+    signal,
+  );
+
+  if (error) throw error;
+  return ordersData?.map((row: any) => mapOrderFromDatabase(row)) || [];
 };
 
 /**

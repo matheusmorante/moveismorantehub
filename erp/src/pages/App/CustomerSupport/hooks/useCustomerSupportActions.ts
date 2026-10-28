@@ -3,6 +3,8 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { WhatsAppConversation, WhatsAppMessage, ConversationStatus } from '../types';
 import {
   assignConversation,
+  markConversationAsRead,
+  markConversationAsUnread,
   updateConversationStatus,
   createInternalNoteMessage,
   toggleArchiveConversation,
@@ -49,6 +51,21 @@ export function useCustomerSupportActions({
         ? { ...row, isArchived: nextArchived, status,
           tags: [...row.tags.filter((tag) => !tag.startsWith('status:')), ...(nextArchived ? ['status:closed'] : [])] }
         : row;
+      setSelectedConversation((prev) => prev ? apply(prev) : prev);
+      setConversations((prev) => prev.map(apply));
+    }
+    return ok;
+  };
+
+  const handleToggleReadStatus = async () => {
+    if (!selectedConversation) return false;
+    const isUnread = selectedConversation.unreadCount > 0;
+    const ok = isUnread
+      ? await markConversationAsRead(supabase, selectedConversation.id)
+      : await markConversationAsUnread(supabase, selectedConversation.id);
+    if (ok && isCurrent()) {
+      const unreadCount = isUnread ? 0 : 1;
+      const apply = (row: WhatsAppConversation) => row.id === selectedConversation.id ? { ...row, unreadCount } : row;
       setSelectedConversation((prev) => prev ? apply(prev) : prev);
       setConversations((prev) => prev.map(apply));
     }
@@ -131,6 +148,7 @@ export function useCustomerSupportActions({
 
   return {
     handleToggleArchive,
+    handleToggleReadStatus,
     handleConversationUpdated,
     handleAssignConversation,
     handleUpdateStatus,

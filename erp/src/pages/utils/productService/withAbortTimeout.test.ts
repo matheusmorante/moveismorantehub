@@ -23,6 +23,33 @@ describe('withAbortTimeout', () => {
     expect(receivedSignal?.aborted).toBe(true);
   });
 
+  it('encaminha o cancelamento do chamador ao sinal da requisição PostgREST', async () => {
+    let rejectRequest: (reason?: unknown) => void = () => undefined;
+    let receivedSignal: AbortSignal | undefined;
+    const requestPromise = new Promise<string>((_resolve, reject) => {
+      rejectRequest = reject;
+    });
+    const request = Object.assign(requestPromise, {
+      abortSignal: (signal: AbortSignal) => {
+        receivedSignal = signal;
+        signal.addEventListener(
+          'abort',
+          () => rejectRequest(Object.assign(new Error('Consulta cancelada'), { name: 'AbortError' })),
+          { once: true },
+        );
+        return requestPromise;
+      },
+    });
+    const caller = new AbortController();
+    const pending = withAbortTimeout(request, 'orders:linked', 5_000, caller.signal);
+    const assertion = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+
+    caller.abort();
+    await assertion;
+
+    expect(receivedSignal?.aborted).toBe(true);
+  });
+
   it('retorna resposta concluída antes do prazo', async () => {
     const request = Promise.resolve({ data: [] });
 

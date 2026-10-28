@@ -13,7 +13,7 @@ const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const CARE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type ContentType = 'image' | 'video' | 'audio' | 'document';
+type ContentType = 'image' | 'video' | 'audio' | 'document' | 'sticker';
 type ResolvedCatalogMessage = {
   text: string;
   nativeProducts?: Array<{ retailerId: string; name: string }>;
@@ -21,6 +21,8 @@ type ResolvedCatalogMessage = {
 type SendPayload = {
   conversationId: string;
   message: string;
+  replyToWamid?: string;
+  forwarded?: boolean;
   contact?: { name: string; phone: string };
   file?: { bytes: Buffer; name: string; mimeType: string };
   catalogSelection?: ProductCatalogSendSelection;
@@ -256,12 +258,66 @@ function parseMultipart(body: Buffer, contentTypeHeader: string): SendPayload {
 
   const conversationId = fields.get('conversationId')?.trim() || '';
   const message = fields.get('message') || '';
+  const replyToWamid = fields.get('replyToWamid')?.trim() || '';
+  const forwarded = fields.get('forwarded') === 'true';
   if (!UUID_PATTERN.test(conversationId)) throw new RequestBodyError('Conversa inválida.', 400);
+  if (replyToWamid.length > 255) throw new RequestBodyError('Mensagem citada inválida.', 400);
   if (!file) throw new RequestBodyError('Selecione um arquivo para enviar.', 400);
-  return { conversationId, message, file };
+  return { conversationId, message, file, ...(replyToWamid ? { replyToWamid } : {}), ...(forwarded ? { forwarded: true } : {}) };
 }
 
-function classifyFile(file: NonNullable<SendPayload['file']>): { type: ContentType; mimeType: string } {
+function inspectWebP(bytes: Buffer): { animated: boolean } | null {
+  if (bytes.length < 20 || bytes.toString('ascii', 0, 4) !== 'RIFF' || bytes.toString('ascii', 8, 12) !== 'WEBP'
+    || bytes.readUInt32LE(4) + 8 !== bytes.length) return null;
+
+  let cursor = 12;
+  let hasImageChunk = false;
+  let hasAnimationFlag = false;
+  let hasAnimationChunk = false;
+  let hasAnimationFrame = false;
+  let dimensions: { width: number; height: number } | null = null;
+  const readUInt24LE = (offset: number) => bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16);
+  while (cursor + 8 <= bytes.length) {
+    const type = bytes.toString('ascii', cursor, cursor + 4);
+    const size = bytes.readUInt32LE(cursor + 4);
+    const dataOffset = cursor + 8;
+    const chunkEnd = cursor + 8 + size;
+    const paddedChunkEnd = chunkEnd + (size % 2);
+    if (paddedChunkEnd > bytes.length) return null;
+    if (type === 'VP8X') {
+      if (size !== 10) return null;
+      hasAnimationFlag = (bytes[dataOffset] & 0x02) !== 0;
+      dimensions = { width: 1 + readUInt24LE(dataOffset + 4), height: 1 + readUInt24LE(dataOffset + 7) };
+    } else if (type === 'VP8 ') {
+      if (size < 10 || bytes[dataOffset + 3] !== 0x9d || bytes[dataOffset + 4] !== 0x01 || bytes[dataOffset + 5] !== 0x2a) return null;
+      hasImageChunk = true;
+      dimensions ||= {
+        width: bytes.readUInt16LE(dataOffset + 6) & 0x3fff,
+        height: bytes.readUInt16LE(dataOffset + 8) & 0x3fff,
+      };
+    } else if (type === 'VP8L') {
+      if (size < 5 || bytes[dataOffset] !== 0x2f) return null;
+      hasImageChunk = true;
+      dimensions ||= {
+        width: 1 + bytes[dataOffset + 1] + ((bytes[dataOffset + 2] & 0x3f) << 8),
+        height: 1 + (bytes[dataOffset + 2] >> 6) + (bytes[dataOffset + 3] << 2) + ((bytes[dataOffset + 4] & 0x0f) << 10),
+      };
+    } else if (type === 'ANIM') {
+      hasAnimationChunk = true;
+    } else if (type === 'ANMF') {
+      if (size < 16) return null;
+      hasAnimationFrame = true;
+    }
+    cursor = paddedChunkEnd;
+  }
+  if (cursor !== bytes.length || !dimensions || dimensions.width !== 512 || dimensions.height !== 512) return null;
+  if (hasAnimationFlag || hasAnimationChunk || hasAnimationFrame) {
+    return hasAnimationFlag && hasAnimationChunk && hasAnimationFrame ? { animated: true } : null;
+  }
+  return hasImageChunk ? { animated: false } : null;
+}
+
+export function classifyWhatsAppSupportFile(file: NonNullable<SendPayload['file']>): { type: ContentType; mimeType: string } {
   const normalizedMime = file.mimeType.split(';')[0].trim();
   const extension = file.name.split('.').pop()?.toLowerCase() || '';
   const imageTypes = new Set(['image/jpeg', 'image/png']);
@@ -287,16 +343,28 @@ function classifyFile(file: NonNullable<SendPayload['file']>): { type: ContentTy
     xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     ppt: 'application/vnd.ms-powerpoint',
     pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    webp: 'image/webp',
   };
   const mimeType = normalizedMime === 'application/octet-stream' || !normalizedMime
     ? mimeByExtension[extension] || ''
     : normalizedMime;
 
   if (imageTypes.has(mimeType)) return { type: 'image', mimeType };
+  if (mimeType === 'image/webp') {
+    const webp = inspectWebP(file.bytes);
+    if (!webp) throw new RequestBodyError('Figurinha inválida: o WebP precisa ser válido e ter 512 × 512 pixels.', 415);
+    const maxBytes = webp.animated ? 500 * 1024 : 100 * 1024;
+    if (file.bytes.byteLength > maxBytes) {
+      throw new RequestBodyError(webp.animated
+        ? 'Figurinhas animadas devem ter até 500 KB.'
+        : 'Figurinhas estáticas devem ter até 100 KB.', 413);
+    }
+    return { type: 'sticker', mimeType };
+  }
   if (videoTypes.has(mimeType)) return { type: 'video', mimeType };
   if (audioTypes.has(mimeType)) return { type: 'audio', mimeType };
   if (documentTypes.has(mimeType)) return { type: 'document', mimeType };
-  throw new RequestBodyError('Formato não aceito pelo WhatsApp. Use JPG, PNG, MP4, áudio OGG/MP3/M4A, PDF, DOCX, XLSX ou TXT.', 415);
+  throw new RequestBodyError('Formato não aceito pelo WhatsApp. Use JPG, PNG, WebP de figurinha, MP4, áudio OGG/MP3/M4A, PDF, DOCX, XLSX ou TXT.', 415);
 }
 
 function metaErrorMessage(data: Record<string, any>): string {
@@ -331,6 +399,8 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new RequestBodyError('Solicitação inválida.', 400);
         const conversationId = typeof parsed.conversationId === 'string' ? parsed.conversationId.trim() : '';
         const message = typeof parsed.message === 'string' ? parsed.message : '';
+        const replyToWamid = typeof parsed.replyToWamid === 'string' ? parsed.replyToWamid.trim() : '';
+        const forwarded = parsed.forwarded === true;
         const contact = parsed.contact && typeof parsed.contact === 'object' && !Array.isArray(parsed.contact)
           ? parsed.contact as { name?: unknown; phone?: unknown }
           : undefined;
@@ -348,6 +418,8 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
         const sendInput = supportCustomerSendSchema.safeParse({
           conversationId,
           message,
+          ...(replyToWamid ? { replyToWamid } : {}),
+          ...(forwarded ? { forwarded: true } : {}),
           attachmentType: normalizedContact ? 'contact' : catalogSelection ? 'catalog' : 'text',
           ...(normalizedContact ? { contactName: normalizedContact.name, contactPhone: normalizedContact.phone } : {}),
           ...(catalogSelection !== undefined ? { catalogSelection } : {}),
@@ -356,6 +428,8 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
         payload = {
           conversationId: sendInput.data.conversationId,
           message: sendInput.data.message,
+          ...(sendInput.data.replyToWamid ? { replyToWamid: sendInput.data.replyToWamid } : {}),
+          ...(sendInput.data.forwarded ? { forwarded: true } : {}),
           ...(normalizedContact ? { contact: normalizedContact } : {}),
           ...(sendInput.data.catalogSelection ? { catalogSelection: sendInput.data.catalogSelection } : {}),
         };
@@ -398,6 +472,25 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
       const conversation = conversationResult.data;
       if (!conversation) return responseJson(res, 404, { error: 'Conversa não encontrada.' });
       if (conversation.is_archived) return responseJson(res, 409, { error: 'Reabra o atendimento antes de enviar uma mensagem.' });
+
+      let replyToMessageId: string | null = null;
+      if (payload.replyToWamid) {
+        const replyTargetResult = await withTimeout<any>(context.userDb.from('whatsapp_messages')
+          .select('id,message_type,text_content,raw_payload')
+          .eq('conversation_id', payload.conversationId)
+          .eq('api_message_id', payload.replyToWamid)
+          .maybeSingle(), 12_000);
+        if (replyTargetResult.error) return responseJson(res, 503, { error: 'Não foi possível validar a mensagem citada.' });
+        const isLegacyRevocation = typeof replyTargetResult.data?.text_content === 'string'
+          && /a central ainda não consegue exibir este tipo de mensagem\s*\(\s*revoke\s*\)\./i.test(replyTargetResult.data.text_content);
+        const providerMessageType = replyTargetResult.data?.raw_payload?.provider_message_type;
+        const isNonReplyableProviderEvent = ['reaction', 'system', 'request_welcome'].includes(providerMessageType);
+        if (!replyTargetResult.data || ['internal_note', 'system_event', 'deleted'].includes(replyTargetResult.data.message_type)
+          || isLegacyRevocation || isNonReplyableProviderEvent) {
+          return responseJson(res, 400, { error: 'A mensagem selecionada não pode ser respondida nesta conversa.' });
+        }
+        replyToMessageId = String(replyTargetResult.data.id);
+      }
 
       const lastCustomerMessageAt = Date.parse(String(conversation.last_customer_message_at || ''));
       const elapsed = Date.now() - lastCustomerMessageAt;
@@ -466,7 +559,7 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
         };
         storedText = `Contato compartilhado: ${payload.contact.name} (+${payload.contact.phone})`;
       } else if (payload.file) {
-        const classified = classifyFile(payload.file);
+        const classified = classifyWhatsAppSupportFile(payload.file);
         const uploadForm = new FormData();
         uploadForm.set('messaging_product', 'whatsapp');
         uploadForm.set('type', classified.mimeType);
@@ -506,10 +599,10 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
           [mediaKey]: {
             id: mediaId,
             ...(classified.type === 'document' ? { filename: mediaFilename } : {}),
-            ...(message ? { caption: message } : {}),
+            ...(classified.type !== 'sticker' && message ? { caption: message } : {}),
           },
         };
-        storedText = message || mediaFilename || `[${classified.type === 'image' ? 'Imagem' : classified.type === 'video' ? 'Vídeo' : classified.type === 'audio' ? 'Áudio' : 'Documento'}]`;
+        storedText = classified.type === 'sticker' ? '[Figurinha]' : message || mediaFilename || `[${classified.type === 'image' ? 'Imagem' : classified.type === 'video' ? 'Vídeo' : classified.type === 'audio' ? 'Áudio' : 'Documento'}]`;
       } else if (nativeProducts) {
         if (!/^\d{1,32}$/.test(catalogId)) {
           return responseJson(res, 503, { error: 'Configure um catálogo da Meta vinculado ao WhatsApp antes de enviar cards nativos.' });
@@ -536,6 +629,8 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
           text: { body: message },
         };
       }
+
+      if (payload.replyToWamid) graphPayload.context = { message_id: payload.replyToWamid };
 
       const sendController = new AbortController();
       const sendTimeout = setTimeout(() => sendController.abort(), 25_000);
@@ -584,8 +679,15 @@ export function createWhatsAppSupportSendHandler(dependencies: { fetchMeta?: typ
           media_mime_type: mediaMimeType,
           media_filename: mediaFilename,
           media_caption: payload.file ? message || null : null,
+          reply_to_message_id: replyToMessageId,
+          reply_to_wamid: payload.replyToWamid || null,
           status: 'sent',
-          raw_payload: { author_id: context.userId, author_name: authorName, origin: 'customer_support_composer' },
+          raw_payload: {
+            author_id: context.userId,
+            author_name: authorName,
+            origin: payload.forwarded ? 'customer_support_forward' : 'customer_support_composer',
+            ...(payload.forwarded ? { forwarded: true } : {}),
+          },
           timestamp: sendAt,
         }), 12_000);
         if (insertResult.error) throw new Error('insert failed');

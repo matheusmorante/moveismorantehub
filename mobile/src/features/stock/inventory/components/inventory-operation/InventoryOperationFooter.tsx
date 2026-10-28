@@ -41,8 +41,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    paddingBottom: 28,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 18,
     borderTopWidth: 1,
   },
   backBtn: {

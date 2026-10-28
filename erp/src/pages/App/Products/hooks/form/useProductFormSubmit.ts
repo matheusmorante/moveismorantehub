@@ -18,7 +18,10 @@ import type { useProductFormDraft } from './useProductFormDraft';
 import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productSupplierRequirement';
 import { PRODUCT_COMPOSITION_PRODUCT_COMPONENTS_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productCompositionRequirements';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
+import { fetchCharacteristicGroups } from '@/pages/utils/characteristicGroupService';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+
+const PRODUCT_FORM_ERROR_TOAST_OPTIONS = { autoClose: 8000 } as const;
 
 interface SubmitProps {
   formData: Partial<Product>;
@@ -33,9 +36,11 @@ interface SubmitProps {
   setLoading: (loading: boolean) => void;
   setSaveResult: (result: any) => void;
   hasChanged: React.MutableRefObject<boolean>;
+  initialFormDataRef: React.MutableRefObject<string>;
   onSuccess?: (product: Product) => void | boolean | Promise<void | boolean>;
   onSave?: (product?: Product) => void | Promise<void>;
   onClose: () => void;
+  closeAfterSuccessfulRegistration?: boolean;
   isTestArtifact?: boolean;
 }
 
@@ -52,13 +57,16 @@ export const useProductFormSubmit = ({
   setLoading,
   setSaveResult,
   hasChanged,
+  initialFormDataRef,
   onSuccess,
   onSave,
   onClose,
+  closeAfterSuccessfulRegistration = false,
   isTestArtifact = false,
 }: SubmitProps) => {
-  const { validateAndRun: validateFinalProduct } = useZodForm(createProductFormSchema({ isStockistOnly, saveAsDraft: false }), formData);
-  const { validateAndRun: validateDraftProduct } = useZodForm(createProductFormSchema({ isStockistOnly, saveAsDraft: true }), formData);
+  const validationOptions = { isStockistOnly };
+  const { validateAndRun: validateFinalProduct } = useZodForm(createProductFormSchema({ ...validationOptions, saveAsDraft: false }), formData);
+  const { validateAndRun: validateDraftProduct } = useZodForm(createProductFormSchema({ ...validationOptions, saveAsDraft: true }), formData);
   const submissionInFlight = useRef(false);
   const handleSubmit = useCallback(
     async (_showResult = true, saveAsDraft = false): Promise<boolean> => {
@@ -77,7 +85,7 @@ export const useProductFormSubmit = ({
         const reportValidation = () => {
           if (!actualSaveAsDraft) {
             const validationResult = validateProductFormSubmission(submissionData, {
-              isStockistOnly,
+              ...validationOptions,
               saveAsDraft: actualSaveAsDraft,
             });
             const { errors, invalidVariation, singleVariationParentIssue } = validationResult;
@@ -108,46 +116,55 @@ export const useProductFormSubmit = ({
               if (singleVariationParentIssue) {
                 if (errors.unitPrice) {
                   toast.warn(
-                    'Por favor, informe o Preço de Venda do produto na aba Estoque e Precificação.'
+                    'Por favor, informe o Preço de Venda do produto na aba Estoque e Precificação.',
+                    PRODUCT_FORM_ERROR_TOAST_OPTIONS
                   );
                 } else {
-                  toast.error(singleVariationParentIssue.message);
+                  toast.error(singleVariationParentIssue.message, PRODUCT_FORM_ERROR_TOAST_OPTIONS);
                 }
               } else if (errors.unitPrice) {
                 toast.warn(
-                  'Por favor, informe o Preço de Venda do produto na aba Estoque e Precificação.'
+                  'Por favor, informe o Preço de Venda do produto na aba Estoque e Precificação.',
+                  PRODUCT_FORM_ERROR_TOAST_OPTIONS
                 );
               } else if (errors.productKind) {
-                toast.error('Selecione a origem do estoque do produto.');
+                toast.error('Selecione a origem do estoque do produto.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);
               } else if (errors.opportunityId) {
-                toast.error('Selecione uma oportunidade.');
+                toast.error('Selecione uma oportunidade.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);
               } else if (errors.ncm) {
-                toast.error('Informe um NCM válido com 8 dígitos na aba Tributário / NF.');
+                toast.error('Informe um NCM válido com 8 dígitos na aba Tributário / NF.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);
               } else if (errors.dimensions || errors.technicalValues) {
-                toast.error('Preencha os campos obrigatórios na aba Características.');
-              } else if (errors.variationRegistration && invalidVariation?.issue) {
+                toast.error('Preencha os campos obrigatórios na aba Características.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);
+              } else if ((errors.variations || errors.variationRegistration) && invalidVariation?.issue) {
+                variations.setEditingVariationIssue?.({
+                  fieldKey: invalidVariation.issue.fieldKey || '',
+                  message: invalidVariation.issue.message,
+                });
                 variations.setEditingVariationId(invalidVariation.variation.id);
-                toast.error(invalidVariation.issue.message);
+                toast.error(invalidVariation.issue.message, PRODUCT_FORM_ERROR_TOAST_OPTIONS);
               } else if (errors.composicao) {
-                toast.error(PRODUCT_COMPOSITION_PRODUCT_COMPONENTS_REQUIRED_MESSAGE);
+                toast.error(PRODUCT_COMPOSITION_PRODUCT_COMPONENTS_REQUIRED_MESSAGE, PRODUCT_FORM_ERROR_TOAST_OPTIONS);
               } else if (errors.variations) {
-                toast.error(validationResult.errorMessage || 'Adicione pelo menos uma variação ao produto.');
+                toast.error(validationResult.errorMessage || 'Adicione pelo menos uma variação ao produto.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);
               } else if (errors.mainSupplierId) {
-                toast.error(PRODUCT_SUPPLIER_REQUIRED_MESSAGE);
+                toast.error(PRODUCT_SUPPLIER_REQUIRED_MESSAGE, PRODUCT_FORM_ERROR_TOAST_OPTIONS);
               } else {
-                toast.error('Preencha todos os campos obrigatórios.');
+                toast.error(
+                  validationResult.errorMessage || 'Preencha todos os campos obrigatórios.',
+                  PRODUCT_FORM_ERROR_TOAST_OPTIONS
+                );
               }
               return false;
             }
             setValidationErrors({});
           } else {
             const validationResult = validateProductFormSubmission(submissionData, {
-              isStockistOnly,
+              ...validationOptions,
               saveAsDraft: actualSaveAsDraft,
             });
             if (Object.keys(validationResult.errors).length > 0) {
               setValidationErrors(validationResult.errors);
-              toast.error(validationResult.errorMessage || 'Confira os valores informados para o rascunho.');
+              toast.error(validationResult.errorMessage || 'Confira os valores informados para o rascunho.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);
               return false;
             }
           }
@@ -167,25 +184,36 @@ export const useProductFormSubmit = ({
           );
           if (validatePublishedCatalogEdit) {
             try {
-              const categoryRequirements = await withTimeout(
-                fetchTechnicalFieldDefinitions('product-form', {
-                  forceRefresh: true,
-                  requireCategoryLinks: true,
-                }),
-                15000,
-                null,
-                'produto:verificar-requisitos-do-catalogo'
-              );
+              const [categoryRequirements, groupData] = await Promise.all([
+                withTimeout(
+                  fetchTechnicalFieldDefinitions('product-form', {
+                    forceRefresh: true,
+                    requireCategoryLinks: true,
+                  }),
+                  15000,
+                  null,
+                  'produto:verificar-requisitos-do-catalogo'
+                ),
+                withTimeout(
+                  fetchCharacteristicGroups(),
+                  15000,
+                  null,
+                  'produto:verificar-grupos-de-características'
+                ),
+              ]);
               if (!categoryRequirements) throw new Error('Requisitos de categoria indisponíveis.');
-              ecomVal = checkEcomLegibility(validatedData as any, categoryRequirements);
+              if (!groupData) throw new Error('Grupos de características indisponíveis.');
+              ecomVal = checkEcomLegibility(validatedData as any, categoryRequirements, {
+                characteristicGroups: groupData.groups,
+              });
             } catch {
-              toast.error('Não foi possível verificar as características obrigatórias da categoria. O produto publicado não foi alterado.');
+              toast.error('Não foi possível verificar as características obrigatórias da categoria. O produto publicado não foi alterado.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);
               return false;
             }
           }
           if (validatePublishedCatalogEdit && !ecomVal.isLegible) {
             if (ecomVal.missingCategoryCharacteristics.length === 0) {
-              toast.error('O produto publicado ainda precisa atender aos requisitos do Catálogo Digital.');
+              toast.error('O produto publicado ainda precisa atender aos requisitos do Catálogo Digital.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);
               return false;
             }
 
@@ -271,6 +299,7 @@ export const useProductFormSubmit = ({
                 product: normalizedData,
               });
               toast.success('Produto cadastrado com sucesso! 🚀');
+              if (closeAfterSuccessfulRegistration) onClose();
             } else {
               toast.success('Produto salvo com sucesso!');
               if (onSuccess && await onSuccess(normalizedData) === false) return false;
@@ -299,7 +328,7 @@ export const useProductFormSubmit = ({
                 'Já existe um produto ou variação cadastrado com este código ou SKU. Um novo código foi sugerido.';
             }
 
-            toast.warn(friendlyMsg);
+            toast.warn(friendlyMsg, PRODUCT_FORM_ERROR_TOAST_OPTIONS);
             console.error('[useProductFormSubmit] Falha ao salvar produto:', error);
             return false;
           } finally {
@@ -309,12 +338,12 @@ export const useProductFormSubmit = ({
           if (errors.variations && submissionData.variations?.length) {
             setValidationErrors({ variations: true });
             setActiveTab('variacoes');
-            toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados das variações.');
+            toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados das variações.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);
             return;
           }
           if (!actualSaveAsDraft && !reportValidation()) return;
           setValidationErrors(Object.fromEntries(Object.keys(errors).map((key) => [key, true])));
-          toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira os campos do produto.');
+          toast.error(Object.values(flattenFormErrors(errors))[0] || 'Confira os campos do produto.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);
         });
       } finally {
         draft.endManualSave?.(savedProduct);
@@ -340,6 +369,7 @@ export const useProductFormSubmit = ({
       onSuccess,
       onSave,
       onClose,
+      closeAfterSuccessfulRegistration,
       isTestArtifact,
     ]
   );

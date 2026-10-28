@@ -3,6 +3,7 @@ import { syncProductWithVariations } from './variationSync';
 import { cleanupDependentCharacteristicsOnZero } from './dependentCleanup';
 import { normalizeTechnicalName } from '../technicalTabUtils';
 import { getProductTechnicalRootPatch } from '../../../../../../../../../shared-utils/productTechnicalRootPatch';
+import { getProductTechnicalValueCandidateKeys } from '../../../../../../../../../shared-utils/productTechnicalValueAliases';
 import {
   getProductTechnicalDimensionField,
   parseProductTechnicalDimension,
@@ -18,12 +19,14 @@ export const applyTechnicalValueChangeToProduct = (
   value: unknown
 ): Partial<Product> => {
   const currentTech = { ...(prev.technicalValues || {}) };
+  const characteristicAliases = new Set(
+    getProductTechnicalValueCandidateKeys(fieldName).map(normalizeTechnicalName)
+  );
+  Object.keys(currentTech).forEach((name) => {
+    if (characteristicAliases.has(normalizeTechnicalName(name))) delete currentTech[name];
+  });
 
-  if (value === undefined || value === null) {
-    delete currentTech[fieldName];
-  } else {
-    currentTech[fieldName] = value;
-  }
+  if (value !== undefined) currentTech[fieldName] = value;
 
   const cleanedTech = cleanupDependentCharacteristicsOnZero(currentTech, fieldName, value);
 
@@ -46,7 +49,10 @@ export const applyTechnicalValueChangeToProduct = (
 
   const dimensionField = getProductTechnicalDimensionField(fieldName);
   if (dimensionField) {
-    Object.assign(next, { [dimensionField]: parseProductTechnicalDimension(value) });
+    Object.assign(next, {
+      [dimensionField]: parseProductTechnicalDimension(value),
+      ...(dimensionField === 'depth' ? { depthUseLength: false } : {}),
+    });
     return syncProductWithVariations(next);
   }
 
@@ -56,40 +62,4 @@ export const applyTechnicalValueChangeToProduct = (
   }
 
   return next;
-};
-
-/**
- * Alterna a dimensão entre Profundidade e Comprimento, migrando o valor
- * e sincronizando as variações.
- */
-export const applyDepthLengthToggleToProduct = (
-  prev: Partial<Product>,
-  oldName: string,
-  actualNewName: string
-): Partial<Product> => {
-  const tv = { ...(prev.technicalValues || {}) };
-  const sourceValue = tv[oldName];
-  const targetValue = tv[actualNewName];
-  const hasValue = (value: unknown) =>
-    value !== undefined && value !== null && String(value).trim() !== '';
-  const currentValue = hasValue(sourceValue)
-    ? sourceValue
-    : hasValue(targetValue)
-      ? targetValue
-      : sourceValue ?? targetValue ?? '';
-
-  if (currentValue !== undefined) {
-    tv[actualNewName] = currentValue;
-  } else {
-    tv[actualNewName] = '';
-  }
-  delete tv[oldName];
-
-  const next: Partial<Product> = {
-    ...prev,
-    technicalValues: tv,
-    depth: parseProductTechnicalDimension(currentValue),
-  };
-
-  return syncProductWithVariations(next);
 };

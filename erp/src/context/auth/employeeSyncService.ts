@@ -10,11 +10,30 @@ export interface SyncEmployeeParams {
   supabaseClient?: typeof supabase;
 }
 
+const employeeSyncsInFlight = new Map<string, Promise<void>>();
+
 /**
  * Garante que o usuário autenticado sincronize seu registro de colaborador
  * na tabela people (1 registro por e-mail), sem duplicidades.
  */
-export async function syncEmployeeRecord({
+export async function syncEmployeeRecord(params: SyncEmployeeParams): Promise<void> {
+  const normalizedEmail = params.userEmail.trim().toLowerCase();
+  if (!normalizedEmail || !params.profileData) return;
+
+  const inFlight = employeeSyncsInFlight.get(normalizedEmail);
+  if (inFlight) return inFlight;
+
+  const sync = syncEmployeeRecordOnce({ ...params, userEmail: normalizedEmail });
+  employeeSyncsInFlight.set(normalizedEmail, sync);
+  try {
+    await sync;
+  } finally {
+    if (employeeSyncsInFlight.get(normalizedEmail) === sync)
+      employeeSyncsInFlight.delete(normalizedEmail);
+  }
+}
+
+async function syncEmployeeRecordOnce({
   userEmail,
   googleName,
   profileData,
@@ -24,18 +43,27 @@ export async function syncEmployeeRecord({
   if (!userEmail || !profileData) return;
 
   try {
-    const { data: existingEmps } = await withTimeout(
+    const lookup = await withTimeout(
       supabaseClient
         .from('people')
         .select('id,email,full_name')
         .eq('person_type', 'employees')
-        .eq('deleted', false)
+        .or('deleted.eq.false,deleted.is.null')
         .ilike('email', userEmail)
+        .order('updated_at', { ascending: false })
+        .order('id', { ascending: true })
         .limit(1),
       4000,
-      { data: null, error: null } as any,
+      null,
       'people.select'
     );
+    if (!lookup || lookup.error) {
+      console.warn(
+        '[Auth] Não foi possível confirmar se o colaborador já existe; sincronização ignorada.'
+      );
+      return;
+    }
+    const existingEmps = lookup.data;
 
     const empName =
       googleName ||

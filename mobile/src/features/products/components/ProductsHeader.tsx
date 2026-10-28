@@ -201,6 +201,7 @@ export function ProductsHeader({
         canViewMetaCatalog={canViewMetaCatalog}
         canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
         showDeactivated={showDeactivated}
+        showDeactivatedToggle={search.trim().length === 0 && statusFilter === 'all'}
         showMergedProducts={showMergedProducts}
         showTrash={showTrash}
         canViewTrash={canViewTrash}

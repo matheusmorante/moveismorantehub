@@ -56,9 +56,13 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const processingScanRef = useRef(false);
-  const lastScanTimeRef = useRef<number>(0); // Para controlar o delay de 500ms
-  const lastScanTextRef = useRef<string>('');
+  const scanSessionRef = useRef(0);
+  const scanQueueRef = useRef<string[]>([]);
+  const pendingScansRef = useRef(new Set<string>());
+  const soundBatchPlayedRef = useRef(false);
+  const soundBatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountPointId = 'barcode-scanner-v7';
+  const soundBatchQuietMs = 500;
 
   // Função para gerar o som de "Bip" (Pibe) usando Web Audio API
   const playBeep = () => {
@@ -77,12 +81,27 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
       oscillator.start();
       gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1);
       oscillator.stop(audioCtx.currentTime + 0.1);
+      oscillator.addEventListener('ended', () => void audioCtx.close(), { once: true });
     } catch (e) {
       console.warn('Audio Context falhou (esperado se não houver interação prévia).');
     }
   };
 
+  const playSoundForScanBatch = () => {
+    if (soundBatchPlayedRef.current) return;
+    soundBatchPlayedRef.current = true;
+    playBeep();
+  };
+
   const stopScanner = useCallback(async () => {
+    scanSessionRef.current += 1;
+    scanQueueRef.current = [];
+    pendingScansRef.current.clear();
+    processingScanRef.current = false;
+    setIsProcessingScan(false);
+    if (soundBatchTimerRef.current) clearTimeout(soundBatchTimerRef.current);
+    soundBatchTimerRef.current = null;
+    soundBatchPlayedRef.current = false;
     if (scannerRef.current) {
       try {
         if (scannerRef.current.isScanning) {
@@ -107,7 +126,9 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
 
     try {
       await stopScanner();
+      const scanSession = scanSessionRef.current;
       await new Promise((r) => setTimeout(r, 600));
+      if (scanSession !== scanSessionRef.current) return;
 
       const mount = document.getElementById(mountPointId);
       if (!mount) throw new Error('Recipiente de vídeo não encontrado no DOM.');
@@ -126,10 +147,13 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
 
       const config = {
         fps: 25,
-        qrbox: (w: number, h: number) =>
-          qrCodeOnly
-            ? { width: Math.floor(Math.min(w, h) * 0.7), height: Math.floor(Math.min(w, h) * 0.7) }
-            : { width: Math.floor(w * 0.95), height: Math.floor(h * 0.3) },
+        // QR mode scans the full preview; its square remains visual guidance only.
+        qrbox: qrCodeOnly
+          ? undefined
+          : (w: number, h: number) => ({
+              width: Math.floor(w * 0.95),
+              height: Math.floor(h * 0.3),
+            }),
         aspectRatio: 1.7777778,
         experimentalFeatures: {
           useBarCodeDetectorIfSupported: true,
@@ -159,9 +183,14 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
       if (cameras.length > 0) {
         const backCamera =
           cameras.find((c) => /back|rear|traseir|extern/i.test(c.label)) || cameras[0];
-        await scanner.start(backCamera.id, config, onSuccess, () => {});
+        await scanner.start(backCamera.id, config, (text) => onSuccess(text, scanSession), () => {});
       } else {
-        await scanner.start({ facingMode: 'environment' }, config, onSuccess, () => {});
+        await scanner.start(
+          { facingMode: 'environment' },
+          config,
+          (text) => onSuccess(text, scanSession),
+          () => {},
+        );
       }
 
       setStep('Aguardando Detecção...');
@@ -174,43 +203,65 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
     }
   }, [isOpen, qrCodeOnly]);
 
-  const onSuccess = async (text: string) => {
-    if (processingScanRef.current) return;
-    const now = Date.now();
-    const scanDelay = configSettings?.delay || 1500;
-
-    // Delay configurável para evitar dupla leitura
-    if (text === lastScanTextRef.current && now - lastScanTimeRef.current < scanDelay) return;
-
-    lastScanTimeRef.current = now;
-    lastScanTextRef.current = text;
-    processingScanRef.current = true;
-    setIsProcessingScan(true);
-
-    // Bip de sucesso (Pibe!) se habilitado
-    if (feedbackOnDetection && configSettings?.enableBeep !== false) {
-      playBeep();
-    }
-
-    // Vibração (Feedback háptico) se habilitado
-    if (feedbackOnDetection && configSettings?.vibrate !== false && navigator.vibrate) {
-      try {
-        navigator.vibrate(80);
-      } catch (e) {
-        /* no-op: intencionalmente silencioso */
-      }
-    }
-
-    console.log('[Scanner v7] Código detectado:', text);
+  const processScan = async (text: string, scanSession: number) => {
     try {
+      // Um único bipe confirma o lote sem atrasar a próxima leitura.
+      if (feedbackOnDetection && configSettings?.enableBeep !== false) {
+        playSoundForScanBatch();
+      }
+
+      // Vibração (Feedback háptico) se habilitado
+      if (feedbackOnDetection && configSettings?.vibrate !== false && navigator.vibrate) {
+        try {
+          navigator.vibrate(80);
+        } catch (e) {
+          /* no-op: intencionalmente silencioso */
+        }
+      }
+
+      console.log('[Scanner v7] Código detectado:', text);
       await parentOnScan(text);
       if (closeOnScan) await handleClose();
     } catch (error) {
       console.error('[Scanner] Falha ao processar leitura:', error);
     } finally {
-      processingScanRef.current = false;
-      setIsProcessingScan(false);
+      pendingScansRef.current.delete(text);
+      if (scanSession === scanSessionRef.current) {
+        const nextText = closeOnScan || qrCodeOnly ? undefined : scanQueueRef.current.shift();
+        if (nextText !== undefined) {
+          void processScan(nextText, scanSession);
+        } else {
+          processingScanRef.current = pendingScansRef.current.size > 0;
+          if (!processingScanRef.current) setIsProcessingScan(false);
+          if (!pendingScansRef.current.size && soundBatchPlayedRef.current) {
+            soundBatchTimerRef.current = setTimeout(() => {
+              soundBatchPlayedRef.current = false;
+              soundBatchTimerRef.current = null;
+            }, soundBatchQuietMs);
+          }
+        }
+      }
     }
+  };
+
+  const onSuccess = (text: string, scanSession: number) => {
+    if (scanSession !== scanSessionRef.current || pendingScansRef.current.has(text)) return;
+    if (closeOnScan && processingScanRef.current) return;
+
+    if (soundBatchTimerRef.current) {
+      clearTimeout(soundBatchTimerRef.current);
+      soundBatchTimerRef.current = null;
+    }
+    const queueSequentially = !closeOnScan && !qrCodeOnly && processingScanRef.current;
+    pendingScansRef.current.add(text);
+    if (queueSequentially) {
+      scanQueueRef.current.push(text);
+      return;
+    }
+
+    processingScanRef.current = true;
+    setIsProcessingScan(true);
+    void processScan(text, scanSession);
   };
 
   const recognizeAccessKey = async () => {

@@ -213,7 +213,13 @@ export function QuickRegisterVariationModal({
     ? resolveVariableTechnicalFieldNames(parentProduct.variableTechnicalFields, parentProduct.variations || [])
     : [], [parentProduct]);
   const applicableTechnicalFields = useMemo(() => parentProduct
-    ? getApplicableTechnicalFields(technicalDefinitions, parentProduct.categoryIds || [], parentProduct.technicalValues || {})
+    ? getApplicableTechnicalFields(
+        technicalDefinitions,
+        parentProduct.categoryIds || [],
+        parentProduct.technicalValues || {},
+        [],
+        [parentProduct.category || '']
+      )
     : [], [parentProduct, technicalDefinitions]);
   const variationFields = useMemo(() => variableFieldNames.map((fieldName) => {
     const definition = technicalDefinitions.find((field) => field.name.toLocaleLowerCase('pt-BR') === fieldName.toLocaleLowerCase('pt-BR'));

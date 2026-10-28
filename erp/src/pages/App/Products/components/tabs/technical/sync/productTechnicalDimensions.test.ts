@@ -13,8 +13,6 @@ describe('productTechnicalDimensions', () => {
     ['Largura total', 'width'],
     ['Profundidade', 'depth'],
     ['Profundidade total', 'depth'],
-    ['Comprimento', 'depth'],
-    ['Comprimento total', 'depth'],
     ['Peso', 'weight'],
   ])('mapeia %s para %s', (name, field) => {
     expect(getProductTechnicalDimensionField(name)).toBe(field);

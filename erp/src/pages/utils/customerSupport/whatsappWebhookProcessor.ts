@@ -80,15 +80,48 @@ export async function readRawWebhookBody(request: AsyncIterable<Buffer | string>
   return Buffer.concat(chunks);
 }
 
+async function processRevokedMessage(
+  supabase: SupabaseClient,
+  businessPhoneNumberId: string,
+  contactWaId: string,
+  message: any,
+  direction: 'inbound' | 'outbound',
+): Promise<boolean | null> {
+  const originalMessageId = String(message?.revoke?.original_message_id || '').trim();
+  if (!originalMessageId) throw new Error('Revogação do WhatsApp sem o ID da mensagem original.');
+
+  const timestamp = message.timestamp
+    ? new Date(Number(message.timestamp) * 1000).toISOString()
+    : new Date().toISOString();
+  const { data, error } = await supabase.rpc('customer_support_revoke_message', {
+    p_business_phone_number_id: businessPhoneNumberId,
+    p_contact_wa_id: contactWaId,
+    p_original_message_id: originalMessageId,
+    p_direction: direction,
+    p_timestamp: timestamp,
+  });
+  if (error) throw error;
+  if (!data || data.handled !== true || typeof data.found !== 'boolean' || typeof data.changed !== 'boolean') {
+    throw new Error('Revogação da mensagem não confirmada pelo servidor.');
+  }
+  if (!data.found) return null;
+  return data.changed;
+}
+
 async function processBusinessAppEcho(
   supabase: SupabaseClient,
   businessPhoneNumberId: string,
   value: any,
   message: any,
 ): Promise<boolean | null> {
-  const wamid = String(message?.id || '');
   const contactWaId = extractDigits(String(message?.to || ''));
-  if (!wamid || contactWaId.length < 8 || contactWaId.length > 15) return null;
+  if (contactWaId.length < 8 || contactWaId.length > 15) return null;
+  if (message?.type === 'revoke') {
+    return processRevokedMessage(supabase, businessPhoneNumberId, contactWaId, message, 'outbound');
+  }
+
+  const wamid = String(message?.id || '');
+  if (!wamid) return null;
 
   const { data: existingMessage, error: duplicateError } = await supabase
     .from('whatsapp_messages')
@@ -140,6 +173,9 @@ async function processBusinessAppEcho(
       media_filename: extracted.mediaFilename ?? null,
       media_caption: extracted.mediaCaption ?? null,
       reply_to_wamid: extracted.replyToWamid ?? null,
+      ...(extracted.errorCode ? { error_code: extracted.errorCode } : {}),
+      ...(extracted.failureReason ? { failure_reason: extracted.failureReason } : {}),
+      ...(extracted.rawPayload ? { raw_payload: extracted.rawPayload } : {}),
       timestamp,
     },
   });
@@ -153,7 +189,140 @@ async function processBusinessAppEcho(
 /**
  * Extrai resumo e metadados de uma mensagem da Meta
  */
-export function extractMessageContent(msg: any): {
+function formatReceivedValue(value: unknown): string {
+  if (Array.isArray(value)) return value.map(formatReceivedValue).filter(Boolean).join(', ');
+  if (value && typeof value === 'object') {
+    return Object.entries(value).map(([key, item]) => key.replace(/[_-]+/g, ' ') + ': ' + formatReceivedValue(item)).join('; ');
+  }
+  return String(value ?? '');
+}
+
+function removeFlowToken(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(removeFlowToken);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => key.toLowerCase() !== 'flow_token')
+        .map(([key, item]) => [key, removeFlowToken(item)]),
+    );
+  }
+  return value;
+}
+
+type TemplatePreview = {
+  name?: string;
+  header?: { type: 'text' | 'image' | 'video' | 'document'; text?: string; filename?: string };
+  body?: string;
+  footer?: string;
+  buttons: Array<{ type: 'url' | 'quick_reply' | 'phone_number' | 'flow'; text: string; url?: string; phoneNumber?: string }>;
+};
+
+function asRecord(value: unknown): Record<string, any> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : null;
+}
+
+function templateParameterText(parameter: any): string {
+  switch (String(parameter?.type || '').toLowerCase()) {
+    case 'text':
+      return typeof parameter.text === 'string' ? parameter.text.trim().slice(0, 4096) : '';
+    case 'currency':
+      return typeof parameter.currency?.fallback_value === 'string'
+        ? parameter.currency.fallback_value.trim().slice(0, 256)
+        : '';
+    case 'date_time':
+      return typeof parameter.date_time?.fallback_value === 'string'
+        ? parameter.date_time.fallback_value.trim().slice(0, 256)
+        : '';
+    default:
+      return '';
+  }
+}
+
+function templateComponentText(component: any): string {
+  if (typeof component?.text === 'string') {
+    const parameters = Array.isArray(component.parameters) ? component.parameters : [];
+    return component.text.slice(0, 4096).replace(/\{\{\s*(\d+)\s*\}\}/g, (placeholder, rawIndex) => {
+      const value = templateParameterText(parameters[Number(rawIndex) - 1]);
+      return value || placeholder;
+    });
+  }
+  return Array.isArray(component?.parameters)
+    ? component.parameters.map(templateParameterText).filter(Boolean).join(' ').slice(0, 4096)
+    : '';
+}
+
+function templateButton(component: any): TemplatePreview['buttons'][number] | null {
+  const rawType = String(component?.sub_type || component?.type || '').toLowerCase();
+  const type = rawType.includes('quick') ? 'quick_reply'
+    : rawType === 'url' || rawType.includes('call_to_action') ? 'url'
+      : rawType.includes('phone') ? 'phone_number'
+        : rawType.includes('flow') ? 'flow'
+          : null;
+  if (!type) return null;
+  const text = [component?.text, component?.title, component?.label]
+    .find((value) => typeof value === 'string' && value.trim());
+  const button: TemplatePreview['buttons'][number] = {
+    type,
+    text: (text || (type === 'url' ? 'Abrir link' : type === 'phone_number' ? 'Ligar' : type === 'flow' ? 'Abrir formulário' : 'Responder'))
+      .trim().slice(0, 120),
+  };
+  if (type === 'url' && typeof component?.url === 'string') button.url = component.url.trim().slice(0, 2048);
+  const phone = component?.phone_number || component?.phoneNumber;
+  if (type === 'phone_number' && typeof phone === 'string') button.phoneNumber = phone.trim().slice(0, 40);
+  return button;
+}
+
+function extractTemplatePreview(message: any): { preview: TemplatePreview; mediaId?: string; mediaMimeType?: string; mediaFilename?: string } | null {
+  const template = asRecord(message?.template) || asRecord(message?.template_preview) || message;
+  const components = Array.isArray(template.components) ? template.components : [];
+  const componentOf = (name: string) => components.find((component: any) => String(component?.type || '').toLowerCase() === name) || null;
+  const headerComponent = componentOf('header') || asRecord(template.header);
+  const bodyComponent = componentOf('body') || (typeof template.body === 'string' ? { text: template.body } : null);
+  const footerComponent = componentOf('footer') || (typeof template.footer === 'string' ? { text: template.footer } : null);
+  const headerParameters = Array.isArray(headerComponent?.parameters) ? headerComponent.parameters : [];
+  const mediaParameter = headerParameters.find((parameter: any) => ['image', 'video', 'document'].includes(String(parameter?.type || '').toLowerCase()));
+  const mediaType = mediaParameter ? String(mediaParameter.type).toLowerCase() as 'image' | 'video' | 'document' : null;
+  const media = mediaParameter && asRecord(mediaParameter[mediaType as string]);
+  const headerFormat = String(headerComponent?.format || headerComponent?.type || '').toLowerCase();
+  const headerText = templateComponentText(headerComponent) ||
+    (typeof headerComponent?.text === 'string' ? headerComponent.text.trim().slice(0, 4096) : '');
+  const headerType = mediaType || (headerFormat.includes('video') ? 'video'
+    : headerFormat.includes('document') ? 'document'
+      : headerFormat.includes('image') ? 'image'
+        : headerText ? 'text' : null);
+  const header = headerType ? {
+    type: headerType as NonNullable<TemplatePreview['header']>['type'],
+    ...(headerText ? { text: headerText } : {}),
+    ...(typeof media?.filename === 'string' ? { filename: media.filename.trim().slice(0, 255) } : {}),
+  } : undefined;
+  const rawButtons = [
+    ...components.flatMap((component: any) => String(component?.type || '').toLowerCase() === 'buttons'
+      ? Array.isArray(component.buttons) ? component.buttons : []
+      : String(component?.type || '').toLowerCase() === 'button' ? [component] : []),
+    ...(Array.isArray(template.buttons) ? template.buttons : []),
+  ];
+  const buttons = rawButtons.map(templateButton).filter((button: any): button is TemplatePreview['buttons'][number] => Boolean(button)).slice(0, 10);
+  const name = typeof template.name === 'string' ? template.name.trim().slice(0, 255) : '';
+  const body = templateComponentText(bodyComponent);
+  const footer = templateComponentText(footerComponent);
+  if (!name && !header && !body && !footer && buttons.length === 0) return null;
+  const preview: TemplatePreview = {
+    ...(name ? { name } : {}),
+    ...(header ? { header } : {}),
+    ...(body ? { body } : {}),
+    ...(footer ? { footer } : {}),
+    buttons,
+  };
+  return {
+    preview,
+    ...(typeof media?.id === 'string' && media.id.trim() ? { mediaId: media.id.trim() } : {}),
+    ...(typeof media?.mime_type === 'string' && media.mime_type.trim() ? { mediaMimeType: media.mime_type.trim() } :
+      mediaType === 'image' ? { mediaMimeType: 'image/jpeg' } : mediaType === 'video' ? { mediaMimeType: 'video/mp4' } : {}),
+    ...(typeof media?.filename === 'string' && media.filename.trim() ? { mediaFilename: media.filename.trim().slice(0, 255) } : {}),
+  };
+}
+
+function extractMessageContentBase(msg: any): {
   type: string;
   text: string;
   mediaId?: string;
@@ -161,17 +330,47 @@ export function extractMessageContent(msg: any): {
   mediaFilename?: string;
   mediaCaption?: string;
   replyToWamid?: string;
+  errorCode?: string;
+  failureReason?: string;
+  rawPayload?: Record<string, unknown>;
 } {
   const type = msg.type || 'unknown';
   const replyToWamid = msg.context?.id || msg.reaction?.message_id;
 
   switch (type) {
-    case 'text':
+    case 'text': {
+      const product = msg.context?.referred_product;
+      const referral = msg.referral;
+      const extraText = [
+        product && (product.product_retailer_id || product.catalog_id)
+          ? `🛍️ Produto consultado: ${product.product_retailer_id || 'Produto do catálogo'}${product.catalog_id ? ` (catálogo ${product.catalog_id})` : ''}`
+          : '',
+        referral && [
+          referral.headline, referral.body, referral.source_id, referral.source_type, referral.source_url,
+        ].some(Boolean)
+          ? [
+              '📣 Origem da conversa',
+              referral.headline,
+              referral.body,
+              referral.source_type ? 'Origem: ' + referral.source_type : '',
+              referral.source_id ? 'Referência: ' + referral.source_id : '',
+              referral.source_url ? 'Link de origem: ' + referral.source_url : '',
+            ].filter(Boolean).join('\n')
+          : '',
+      ].filter(Boolean);
       return {
         type: 'text',
-        text: msg.text?.body || '',
+        text: [msg.text?.body || '', ...extraText].filter(Boolean).join('\n'),
         replyToWamid,
+        ...(product || referral ? {
+          rawPayload: {
+            provider_message_type: type,
+            ...(product ? { referred_product: product } : {}),
+            ...(referral ? { referral } : {}),
+          },
+        } : {}),
       };
+    }
 
     case 'image':
       return {
@@ -188,8 +387,8 @@ export function extractMessageContent(msg: any): {
         type: 'document',
         text: msg.document?.filename || msg.document?.caption || '[Documento]',
         mediaId: msg.document?.id,
-        mediaMimeType: msg.document?.mime_type || 'application/pdf',
-        mediaFilename: msg.document?.filename || 'documento.pdf',
+        mediaMimeType: msg.document?.mime_type || 'application/octet-stream',
+        mediaFilename: msg.document?.filename || 'documento',
         mediaCaption: msg.document?.caption,
         replyToWamid,
       };
@@ -213,24 +412,86 @@ export function extractMessageContent(msg: any): {
         replyToWamid,
       };
 
+    case 'template': {
+      const extracted = extractTemplatePreview(msg);
+      if (!extracted) {
+        return {
+          type: 'unsupported',
+          text: 'A Meta informou uma mensagem de modelo sem prévia do conteúdo.',
+          replyToWamid,
+          rawPayload: { provider_message_type: type },
+        };
+      }
+      const { preview } = extracted;
+      return {
+        type: 'template',
+        text: [preview.name ? `Modelo: ${preview.name}` : '', preview.body || '', preview.footer || ''].filter(Boolean).join('\n\n') || 'Mensagem de modelo do WhatsApp',
+        mediaId: extracted.mediaId,
+        mediaMimeType: extracted.mediaMimeType,
+        mediaFilename: extracted.mediaFilename,
+        replyToWamid,
+        rawPayload: { provider_message_type: type, template_preview: preview },
+      };
+    }
+
     case 'interactive': {
-      const buttonTitle =
-        msg.interactive?.button_reply?.title ||
-        msg.interactive?.list_reply?.title ||
-        'Resposta interativa';
+      const flowReply = msg.interactive?.nfm_reply;
+      if (flowReply) {
+        const responseJson = typeof flowReply.response_json === 'string' ? flowReply.response_json : '';
+        let response: Record<string, unknown> = {};
+        let parsedResponse = false;
+        try {
+          const parsed = responseJson ? JSON.parse(responseJson) : flowReply.response_json;
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            response = parsed;
+            parsedResponse = true;
+          }
+        } catch {
+          // Show a safe fallback rather than exposing an opaque Flow token or payload.
+        }
+        const safeResponse = removeFlowToken(response) as Record<string, unknown>;
+        const responseLines = Object.entries(safeResponse)
+          .map(([key, value]) => key.replace(/[_-]+/g, ' ') + ': ' + formatReceivedValue(value));
+        const flowName = typeof flowReply.name === 'string' ? flowReply.name.trim() : '';
+        const fallbackLine = !parsedResponse && responseJson ? 'Resposta recebida em formato não reconhecido.' : '';
+        return {
+          type: 'interactive',
+          text: ['📋 Resposta do formulário', flowName ? 'Fluxo: ' + flowName : '', ...responseLines, fallbackLine]
+            .filter(Boolean).join('\n'),
+          replyToWamid,
+          rawPayload: {
+            provider_message_type: type,
+            interactive: {
+              type: 'nfm_reply',
+              nfm_reply: { ...(flowName ? { name: flowName } : {}), response: safeResponse },
+            },
+          },
+        };
+      }
+
+      const selection = msg.interactive?.button_reply || msg.interactive?.list_reply;
+      const buttonTitle = selection?.title || 'Resposta interativa';
+      const description = typeof selection?.description === 'string' ? selection.description.trim() : '';
+      const selectionId = typeof selection?.id === 'string' ? selection.id.trim() : '';
       return {
         type: 'interactive',
-        text: `🔘 ${buttonTitle}`,
+        text: [`🔘 ${buttonTitle}`, description,
+          selectionId ? `Identificador: ${selectionId}` : ''].filter(Boolean).join('\n'),
         replyToWamid,
+        rawPayload: { provider_message_type: type, interactive: msg.interactive || {} },
       };
     }
 
     case 'button': {
       const buttonLabel = msg.button?.text || msg.button?.payload || 'Resposta de botão';
+      const buttonPayload = msg.button?.payload && msg.button.payload !== buttonLabel
+        ? `Identificador: ${msg.button.payload}`
+        : '';
       return {
         type: 'interactive',
-        text: `🔘 ${buttonLabel}`,
+        text: [`🔘 ${buttonLabel}`, buttonPayload].filter(Boolean).join('\n'),
         replyToWamid,
+        rawPayload: { provider_message_type: type, button: msg.button || {} },
       };
     }
 
@@ -240,6 +501,7 @@ export function extractMessageContent(msg: any): {
         type: 'interactive',
         text: emoji ? `Reação ${emoji} a uma mensagem` : 'Reação removida de uma mensagem',
         replyToWamid,
+        rawPayload: { provider_message_type: type, reaction: msg.reaction || {} },
       };
     }
 
@@ -266,14 +528,17 @@ export function extractMessageContent(msg: any): {
         return `• ${quantity} × ${product}${unitPrice ? ` — ${unitPrice} cada` : ''}`;
       });
       const customerText = typeof order.text === 'string' ? order.text.trim() : '';
+      const catalogId = typeof order.catalog_id === 'string' ? order.catalog_id.trim() : '';
       return {
         type: 'interactive',
         text: [
           '🛒 Pedido recebido pelo catálogo',
+          ...(catalogId ? [`Catálogo: ${catalogId}`] : []),
           ...itemSummaries,
           ...(customerText ? [`Mensagem: ${customerText}`] : []),
         ].join('\n'),
         replyToWamid,
+        rawPayload: { provider_message_type: type, order },
       };
     }
 
@@ -286,6 +551,7 @@ export function extractMessageContent(msg: any): {
         type: 'interactive',
         text: systemBody || (systemType ? `Aviso do WhatsApp: ${systemType}` : 'Aviso do sistema do WhatsApp'),
         replyToWamid,
+        rawPayload: { provider_message_type: type, system: msg.system || {} },
       };
     }
 
@@ -294,6 +560,7 @@ export function extractMessageContent(msg: any): {
         type: 'interactive',
         text: '👋 Cliente solicitou iniciar o atendimento',
         replyToWamid,
+        rawPayload: { provider_message_type: type },
       };
 
     case 'sticker':
@@ -306,11 +573,20 @@ export function extractMessageContent(msg: any): {
       };
 
     case 'location': {
-      const loc = msg.location;
-      const text = loc
-        ? `📍 Localização: ${loc.name ? `${loc.name} - ` : ''}${loc.latitude}, ${loc.longitude}`
-        : '📍 Localização compartilhada';
-      return { type: 'location', text, replyToWamid };
+      const loc = msg.location || {};
+      const hasCoordinates = loc.latitude != null && loc.longitude != null;
+      const text = [
+        loc.name ? `📍 ${loc.name}` : '📍 Localização compartilhada',
+        hasCoordinates ? `${loc.latitude}, ${loc.longitude}` : '',
+        typeof loc.address === 'string' && loc.address.trim() ? loc.address.trim() : '',
+        typeof loc.url === 'string' && loc.url.trim() ? `Link: ${loc.url.trim()}` : '',
+      ].filter(Boolean).join('\n');
+      return {
+        type: 'location',
+        text,
+        replyToWamid,
+        rawPayload: { provider_message_type: type, location: loc },
+      };
     }
 
     case 'contacts': {
@@ -323,41 +599,120 @@ export function extractMessageContent(msg: any): {
         ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0).join(' ');
         const phones = Array.isArray(contact?.phones)
           ? contact.phones
-            .map((phone: any) => phone?.phone || phone?.wa_id)
+            .map((phone: any) => {
+              const value = phone?.phone || phone?.wa_id;
+              return value ? `${phone?.type ? `${phone.type}: ` : ''}${value}` : '';
+            })
             .filter((phone: unknown): phone is string => typeof phone === 'string' && phone.trim().length > 0)
           : [];
-        return [name, ...phones].filter((detail): detail is string => typeof detail === 'string' && detail.trim().length > 0).join(' — ');
+        const emails = Array.isArray(contact?.emails)
+          ? contact.emails.map((item: any) => item?.email
+            ? `E-mail${item.type ? ` (${item.type})` : ''}: ${item.email}` : '').filter(Boolean)
+          : [];
+        const addresses = Array.isArray(contact?.addresses)
+          ? contact.addresses.map((item: any) => {
+              const value = [item?.street, item?.city, item?.state, item?.zip, item?.country].filter(Boolean).join(', ');
+              return value ? `Endereço${item.type ? ` (${item.type})` : ''}: ${value}` : '';
+            }).filter(Boolean)
+          : [];
+        const urls = Array.isArray(contact?.urls)
+          ? contact.urls.map((item: any) => item?.url
+            ? `URL${item.type ? ` (${item.type})` : ''}: ${item.url}` : '').filter(Boolean)
+          : [];
+        const organization = contact?.org
+          ? [contact.org.company, contact.org.department, contact.org.title].filter(Boolean).join(' — ')
+          : '';
+        const otherDetails = [
+          ...emails,
+          ...addresses,
+          ...urls,
+          organization ? `Organização: ${organization}` : '',
+          contact?.birthday ? `Aniversário: ${contact.birthday}` : '',
+        ];
+        const vcard = typeof contact?.vcard === 'string' ? contact.vcard.trim() : '';
+        return [name, ...phones, ...otherDetails,
+          ...(!name && phones.length === 0 && otherDetails.length === 0 && vcard ? [`vCard:\n${vcard}`] : [])]
+          .filter((detail): detail is string => typeof detail === 'string' && detail.trim().length > 0)
+          .join(' — ');
       }).filter((summary: string) => summary.length > 0);
       const title = summaries.length === 1 ? '👤 Contato compartilhado' : '👤 Contatos compartilhados';
       return {
         type: 'contacts',
         text: summaries.length > 0 ? `${title}:\n${summaries.join('\n')}` : '👤 Contato compartilhado',
         replyToWamid,
+        rawPayload: { provider_message_type: type, contacts },
       };
     }
 
     default:
-      if (type === 'unsupported') {
+      if (
+        type === 'unsupported' ||
+        (type === 'unknown' && Array.isArray(msg.errors) && msg.errors.length > 0)
+      ) {
         const providerError = Array.isArray(msg.errors) ? msg.errors[0] : null;
         const errorCode = providerError?.code != null ? String(providerError.code) : '';
+        const providerTitle = typeof providerError?.title === 'string'
+          ? providerError.title.trim()
+          : '';
         const providerDetails = typeof providerError?.details === 'string'
           ? providerError.details.trim()
+          : typeof providerError?.error_data?.details === 'string'
+            ? providerError.error_data.details.trim()
+            : '';
+        const providerMessage = typeof providerError?.message === 'string'
+          ? providerError.message.trim()
           : '';
         const explanation = errorCode === '131051'
           ? 'A API do WhatsApp informou que este tipo de mensagem não é suportado.'
-          : providerDetails || 'A Meta não disponibilizou uma prévia compatível.';
+          : providerDetails || providerTitle || providerMessage || 'A Meta não disponibilizou uma prévia compatível.';
+        const rawPayload: Record<string, unknown> = { provider_message_type: type };
+        if (Array.isArray(msg.errors)) rawPayload.provider_errors = msg.errors;
         return {
           type: 'unsupported',
-          text: `${explanation}${errorCode ? ` (código ${errorCode})` : ''}`,
+          text: explanation + (errorCode ? ' (código ' + errorCode + ')' : ''),
           replyToWamid,
+          errorCode: errorCode || undefined,
+          failureReason: [providerTitle, providerDetails, providerMessage].filter(Boolean).join(' — ') || undefined,
+          rawPayload,
         };
       }
       return {
         type: 'unsupported',
         text: `A central ainda não consegue exibir este tipo de mensagem (${String(type).replace(/[^a-z0-9_-]/gi, '').slice(0, 40) || 'não identificado'}).`,
         replyToWamid,
+        rawPayload: { provider_message_type: type },
       };
   }
+}
+
+export function extractMessageContent(msg: any) {
+  const extracted = extractMessageContentBase(msg);
+  const forwarded = msg?.context?.forwarded === true;
+  const frequentlyForwarded = msg?.context?.frequently_forwarded === true;
+  const referredProduct = msg?.context?.referred_product;
+  const referral = msg?.referral && typeof msg.referral === 'object' && !Array.isArray(msg.referral) ? msg.referral : null;
+  const identity = msg?.identity && typeof msg.identity === 'object' && !Array.isArray(msg.identity) ? msg.identity : null;
+  if (!forwarded && !frequentlyForwarded && !referredProduct && !referral && !identity) return extracted;
+
+  const safeIdentity = identity ? {
+    ...(typeof identity.acknowledged === 'boolean' ? { acknowledged: identity.acknowledged } : {}),
+    ...(typeof identity.created_timestamp === 'string' || (typeof identity.created_timestamp === 'number' && Number.isFinite(identity.created_timestamp))
+      ? { created_timestamp: identity.created_timestamp }
+      : {}),
+  } : null;
+
+  return {
+    ...extracted,
+    rawPayload: {
+      ...(extracted.rawPayload || {}),
+      provider_message_type: extracted.rawPayload?.provider_message_type || msg?.type || 'unknown',
+      ...(forwarded ? { forwarded: true } : {}),
+      ...(frequentlyForwarded ? { frequently_forwarded: true } : {}),
+      ...(referredProduct ? { referred_product: referredProduct } : {}),
+      ...(referral ? { referral } : {}),
+      ...(safeIdentity ? { identity: safeIdentity } : {}),
+    },
+  };
 }
 
 /**
@@ -407,9 +762,23 @@ export async function processWhatsAppWebhookPayload(
       if (value.messages && Array.isArray(value.messages)) {
         for (const message of value.messages) {
           try {
-            const wamid = message.id;
             const from = String(message.from || '');
-            if (!wamid || !from) continue;
+            if (!from) continue;
+            if (message.type === 'revoke') {
+              const changed = await processRevokedMessage(
+                supabase,
+                businessPhoneNumberId,
+                from,
+                message,
+                'inbound',
+              );
+              if (changed) result.processedMessages++;
+              else if (changed === false) result.duplicatesIgnored++;
+              continue;
+            }
+
+            const wamid = message.id;
+            if (!wamid) continue;
 
             // PRESERVAÇÃO: Confirmação de Entrega por botão interativo
             if (message.type === 'interactive' && message.interactive?.button_reply) {
@@ -494,6 +863,9 @@ export async function processWhatsAppWebhookPayload(
                 media_filename: extracted.mediaFilename ?? null,
                 media_caption: extracted.mediaCaption ?? null,
                 reply_to_wamid: extracted.replyToWamid ?? null,
+                ...(extracted.errorCode ? { error_code: extracted.errorCode } : {}),
+                ...(extracted.failureReason ? { failure_reason: extracted.failureReason } : {}),
+                ...(extracted.rawPayload ? { raw_payload: extracted.rawPayload } : {}),
                 timestamp: messageTimestamp,
               },
             });

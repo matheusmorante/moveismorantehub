@@ -1,6 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '../../../../../../hooks/useZodForm';
-import { mobileInboundMappingsFormSchema } from '../../../../../../../../shared-utils/inboundProductLinkFormSchemas';
+import {
+  createInboundCreatedProductLinkSchema,
+  mobileInboundMappingsFormSchema,
+} from '../../../../../../../../shared-utils/inboundProductLinkFormSchemas';
+import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import * as stockService from '../../../../../../services/stockService';
 import type { Invoice } from '../../../../types/stock.types';
 import {
@@ -38,12 +42,23 @@ export const useInboundInvoiceMappings = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
   const [supplierFormVisible, setSupplierFormVisible] = useState(false);
+  const uncertainSupplierCodeOperation = useRef('');
 
   const mappingForm = useZodForm(mobileInboundMappingsFormSchema, {
     invoiceId: '',
     supplierId,
     items,
   });
+  const supplierCodeForm = useZodForm(
+    createInboundCreatedProductLinkSchema(items.map((item) => item.itemNumber)),
+    {
+      itemNumber: 0,
+      productId: '',
+      supplierId: '',
+      supplierProductCode: '',
+      supplierDescription: '',
+    }
+  );
 
   const searchState = useInboundMappingSearches({ visible, supplierId });
   const suggestionState = useInboundMappingSuggestions({ visible, supplierId, items });
@@ -51,6 +66,7 @@ export const useInboundInvoiceMappings = ({
   useEffect(() => {
     if (!visible || !invoice) return;
     let active = true;
+    uncertainSupplierCodeOperation.current = '';
     setLoading(true);
     setErrorMessage('');
     void stockService
@@ -98,33 +114,49 @@ export const useInboundInvoiceMappings = ({
     };
   }, [visible, invoice?.id]);
 
-  const persist = async (nextItems: MappingItem[], nextSupplierId = supplierId) => {
+  type MappingValues = {
+    invoiceId: string;
+    supplierId: string;
+    items: MappingItem[];
+  };
+
+  const saveValidatedMappings = async (values: MappingValues) => {
+    try {
+      await stockService.updateInboundInvoiceMappings(
+        values.invoiceId,
+        values.supplierId || null,
+        values.items
+      );
+      setItems(values.items);
+      setSupplierId(values.supplierId);
+      onSaved();
+      return true;
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Não foi possível salvar os vínculos.');
+      return false;
+    }
+  };
+
+  const validateMappings = async (nextItems: MappingItem[], nextSupplierId = supplierId) => {
     if (!details) return false;
-    const saved = await mappingForm.validateAndRun(
+    return mappingForm.validateAndRun(
       { invoiceId: String(details.id), supplierId: nextSupplierId, items: nextItems },
-      async (values) => {
-        setSaving(true);
-        setErrorMessage('');
-        try {
-          await stockService.updateInboundInvoiceMappings(
-            values.invoiceId,
-            values.supplierId || null,
-            values.items
-          );
-          setItems(values.items);
-          setSupplierId(values.supplierId);
-          onSaved();
-          return true;
-        } catch (error: any) {
-          setErrorMessage(error?.message || 'Não foi possível salvar os vínculos.');
-          return false;
-        } finally {
-          setSaving(false);
-        }
-      },
-      (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0])
+      (values) => values as MappingValues,
+      (errors) =>
+        setErrorMessage(Object.values(flattenFormErrors(errors))[0] || 'Confira os vínculos.')
     );
-    return saved || false;
+  };
+
+  const persist = async (nextItems: MappingItem[], nextSupplierId = supplierId) => {
+    const values = await validateMappings(nextItems, nextSupplierId);
+    if (!values) return false;
+    setSaving(true);
+    setErrorMessage('');
+    try {
+      return await saveValidatedMappings(values);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const chooseSupplier = async (supplier: Supplier) => {
@@ -147,27 +179,98 @@ export const useInboundInvoiceMappings = ({
 
   const linkProduct = async (item: MappingItem, product: Product) => {
     const nextItems = applyProductLinkToMappingItems(items, item, product);
-    if (await persist(nextItems)) {
-      if (item.linkMode !== 'composition') {
-        try {
-          await stockService.saveInboundSupplierProductCode(
-            supplierId,
-            item.productCode,
-            product.productId,
-            item.productDescription,
-            product.variationId
-          );
-        } catch (error) {
-          setErrorMessage(
-            `Vínculo salvo, mas não foi possível memorizar o código ${item.productCode} para este fornecedor. Tente vincular novamente.`
-          );
-          console.warn('[InboundInvoiceMappings] supplier product code could not be saved', error);
-        }
+    if (item.linkMode === 'composition') {
+      const saved = await persist(nextItems);
+      if (saved) searchState.setQueries((current) => ({ ...current, [item.itemNumber]: '' }));
+      return saved;
+    }
+
+    if (uncertainSupplierCodeOperation.current) {
+      setErrorMessage(uncertainSupplierCodeOperation.current);
+      return false;
+    }
+
+    const link = await supplierCodeForm.validateAndRun(
+      {
+        itemNumber: item.itemNumber,
+        productId: product.productId,
+        variationId: product.variationId,
+        supplierId,
+        supplierProductCode: item.productCode,
+        supplierDescription: item.productDescription,
+      },
+      (values) => values,
+      (errors) =>
+        setErrorMessage(
+          Object.values(flattenFormErrors(errors))[0] ||
+            'Confira o código do fornecedor e o produto.'
+        )
+    );
+    if (!link) return false;
+
+    // Validate the invoice owner before writing the supplier-code memory.
+    const validatedMappings = await validateMappings(nextItems);
+    if (!validatedMappings) return false;
+
+    setSaving(true);
+    setErrorMessage('');
+    try {
+      const savedCode = await withTimeout(
+        stockService
+          .saveInboundSupplierProductCode(
+            link.supplierId,
+            link.supplierProductCode,
+            link.productId,
+            link.supplierDescription,
+            link.variationId
+          )
+          .then(() => true),
+        20_000,
+        false,
+        'entrada:salvar-codigo-fornecedor'
+      );
+      if (!savedCode) {
+        throw new Error('A gravação do código do fornecedor não foi confirmada no prazo.');
+      }
+
+      const mappings = await withTimeout(
+        stockService.findInboundSupplierProductCodes(link.supplierId, [link.supplierProductCode]),
+        15_000,
+        null,
+        'entrada:confirmar-codigo-fornecedor'
+      );
+      const confirmed = mappings?.get(
+        link.supplierProductCode.trim().toLocaleUpperCase('pt-BR')
+      );
+      if (
+        !confirmed ||
+        confirmed.productId !== link.productId ||
+        (confirmed.variationId || undefined) !== (link.variationId || undefined)
+      ) {
+        throw new Error('A memória do código do fornecedor não corresponde ao produto escolhido.');
+      }
+
+      const savedInvoiceLink = await saveValidatedMappings(validatedMappings);
+      if (!savedInvoiceLink) {
+        uncertainSupplierCodeOperation.current =
+          'O código foi salvo, mas a alteração da nota não foi confirmada. Feche e reabra Gerenciar vínculos para conferir antes de tentar novamente.';
+        setErrorMessage(uncertainSupplierCodeOperation.current);
+        return false;
       }
       searchState.setQueries((current) => ({ ...current, [item.itemNumber]: '' }));
       return true;
+    } catch (error: any) {
+      uncertainSupplierCodeOperation.current =
+        'Não foi possível confirmar a memória do código do fornecedor. Feche e reabra Gerenciar vínculos para conferir a nota antes de tentar novamente.';
+      setErrorMessage(uncertainSupplierCodeOperation.current);
+      console.warn(
+        '[InboundInvoiceMappings] supplier product code could not be confirmed',
+        error
+      );
+      return false;
+    } finally {
+      setSaving(false);
     }
-    return false;
   };
 
   const registrationState = useInboundQuickRegistration({
@@ -210,16 +313,79 @@ export const useInboundInvoiceMappings = ({
   };
 
   const removeLink = async (item: MappingItem) => {
-    try {
-      await stockService.deleteInboundSupplierProductCode(supplierId, item.productCode);
-    } catch (error) {
-      setErrorMessage(
-        'Não foi possível remover a memória do código do fornecedor. O vínculo permanece intacto. Tente novamente.'
-      );
-      console.warn('[InboundInvoiceMappings] supplier product code could not be removed', error);
-      return;
+    if (uncertainSupplierCodeOperation.current) {
+      setErrorMessage(uncertainSupplierCodeOperation.current);
+      return false;
     }
-    await persist(clearSingleItemLinkFromItems(items, item));
+
+    const nextItems = clearSingleItemLinkFromItems(items, item);
+    const validatedMappings = await validateMappings(nextItems);
+    if (!validatedMappings) return false;
+
+    const link = await supplierCodeForm.validateAndRun(
+      {
+        itemNumber: item.itemNumber,
+        productId: item.matchedProductId || '',
+        variationId: item.matchedVariationId,
+        supplierId,
+        supplierProductCode: item.productCode,
+        supplierDescription: item.productDescription,
+      },
+      (values) => values,
+      (errors) =>
+        setErrorMessage(
+          Object.values(flattenFormErrors(errors))[0] ||
+            'Confira o código do fornecedor e o vínculo.'
+        )
+    );
+    if (!link) return false;
+
+    setSaving(true);
+    setErrorMessage('');
+    try {
+      const deleted = await withTimeout(
+        stockService
+          .deleteInboundSupplierProductCode(link.supplierId, link.supplierProductCode)
+          .then(() => true),
+        20_000,
+        false,
+        'entrada:remover-codigo-fornecedor'
+      );
+      if (!deleted) throw new Error('A remoção do código do fornecedor não foi confirmada no prazo.');
+
+      const mappings = await withTimeout(
+        stockService.findInboundSupplierProductCodes(link.supplierId, [link.supplierProductCode]),
+        15_000,
+        null,
+        'entrada:confirmar-remocao-codigo-fornecedor'
+      );
+      if (
+        !mappings ||
+        mappings.has(link.supplierProductCode.trim().toLocaleUpperCase('pt-BR'))
+      ) {
+        throw new Error('A remoção da memória do código do fornecedor não foi confirmada.');
+      }
+
+      const savedInvoiceLink = await saveValidatedMappings(validatedMappings);
+      if (!savedInvoiceLink) {
+        uncertainSupplierCodeOperation.current =
+          'A memória do código foi removida, mas a alteração da nota não foi confirmada. Feche e reabra Gerenciar vínculos para conferir antes de tentar novamente.';
+        setErrorMessage(uncertainSupplierCodeOperation.current);
+        return false;
+      }
+      return true;
+    } catch (error: any) {
+      uncertainSupplierCodeOperation.current =
+        'Não foi possível confirmar a remoção da memória do código do fornecedor. Feche e reabra Gerenciar vínculos para conferir a nota antes de tentar novamente.';
+      setErrorMessage(uncertainSupplierCodeOperation.current);
+      console.warn(
+        '[InboundInvoiceMappings] supplier product code removal could not be confirmed',
+        error
+      );
+      return false;
+    } finally {
+      setSaving(false);
+    }
   };
 
   return {

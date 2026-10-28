@@ -41,8 +41,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
   onSelect,
 }) => {
   const displayName =
-    conversation.customer?.fullName ||
-    conversation.contactName ||
+    conversation.contactName?.trim() ||
     formatPhoneForDisplay(conversation.contactPhone);
 
   const timeFormatted = formatTimeAgo(conversation.lastMessageAt);
@@ -52,12 +51,15 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
   const currentStatus = conversation.status || (conversation.isArchived ? 'closed' : 'open');
 
   // Iniciais para o avatar do contato
-  const initials = displayName
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
+  const initials = conversation.contactName?.trim()
+    ? conversation.contactName
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0].toUpperCase())
+        .join('')
+    : null;
 
   // Atendente atribuído (avatar no canto inferior direito do item como no print)
   const assignedName = conversation.assignedProfile?.fullName;

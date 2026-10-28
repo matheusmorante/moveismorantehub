@@ -22,7 +22,7 @@ export const isDefined = (val: unknown): boolean => {
 };
 
 export const isExcludedCharacteristic = (name: string): boolean =>
-  /^(reclin[aá]vel|linha|modelo)$/i.test(name.trim());
+  /^(linha|modelo)$/i.test(name.trim());
 
 export const isModelCharacteristic = (name: string): boolean => {
   const norm = normalizeCharacteristicName(name);

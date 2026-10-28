@@ -83,9 +83,18 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
   const isLinked = Boolean(conversation.customerId && customer);
 
   const displayName =
-    customer?.fullName ||
-    conversation.contactName ||
+    conversation.contactName?.trim() ||
     formatPhoneForDisplay(conversation.contactPhone);
+
+  const initials = conversation.contactName?.trim()
+    ? conversation.contactName
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0].toUpperCase())
+        .join('')
+    : null;
 
   useEffect(() => {
     setTags(conversation.tags || []);
@@ -215,7 +224,7 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
 
         <div className="flex shrink-0 items-center gap-3 border-b border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800/80 dark:bg-slate-800/30">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200/60 bg-gradient-to-tr from-slate-200 to-slate-100 text-sm font-bold text-slate-700 shadow-xs dark:border-slate-700 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200">
-            {displayName.slice(0, 2).toUpperCase()}
+            {initials || <i className="bi bi-person text-base text-slate-400" />}
           </div>
           <div className="min-w-0 flex-1">
             <h4 className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{displayName}</h4>
@@ -229,7 +238,7 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
           {activeView === 'profile' && !selectedOrder && (
             <div className="space-y-4 animate-fade-in">
-              {isLinked && canViewCommercial && (
+              {canViewCommercial && (
                 <section aria-label="Atalhos principais" className="space-y-4">
                   <div className="grid grid-cols-2 gap-2">
                   {([
@@ -277,7 +286,7 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
           {activeOrderGroup && (
             <CustomerOrderRecordsView
               key={activeView}
-              customerId={conversation.customerId}
+              contactPhone={conversation.contactPhone}
               orderGroup={activeOrderGroup}
               isLinked={isLinked}
               canViewCommercial={canViewCommercial}

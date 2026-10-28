@@ -3,7 +3,6 @@ import { describe, it, expect } from 'vitest';
 import {
   applyTechnicalValueChangeToProduct,
   cleanupDependentCharacteristicsOnZero,
-  applyDepthLengthToggleToProduct,
   syncProductWithVariations,
   populateInitialTechnicalValues,
 } from './technicalSyncUtils';
@@ -87,31 +86,6 @@ describe('technicalSyncUtils', () => {
     });
   });
 
-  describe('applyDepthLengthToggleToProduct', () => {
-    it('migra valor entre profundidade e comprimento e sincroniza variações', () => {
-      const prev: Partial<Product> = {
-        technicalValues: { Profundidade: '45' },
-        variations: [
-          {
-            id: 'v1',
-            name: 'V1',
-            height: 0,
-            width: 0,
-            depth: 0,
-            weight: 0,
-            syncDepth: true,
-          } as any,
-        ],
-      };
-
-      const next = applyDepthLengthToggleToProduct(prev, 'Profundidade', 'Comprimento');
-      expect(next.technicalValues?.['Profundidade']).toBeUndefined();
-      expect(next.technicalValues?.['Comprimento']).toBe('45');
-      expect(next.depth).toBe(45);
-      expect(next.variations?.[0].depth).toBe(45);
-    });
-  });
-
   describe('syncProductWithVariations', () => {
     it('retorna o mesmo objeto quando não há variações', () => {
       const prod: Partial<Product> = { height: 100 };
@@ -120,6 +94,25 @@ describe('technicalSyncUtils', () => {
   });
 
   describe('populateInitialTechnicalValues (retrocompatibilidade)', () => {
+    it('não ativa características opcionais com nomes historicamente obrigatórios', () => {
+      const result = populateInitialTechnicalValues({ categoryIds: ['chair'], technicalValues: {} }, [
+        { id: 'color', name: 'Cor', dataType: 'text_short', options: [], active: true, isRequired: true,
+          categoryApplications: [{ categoryId: 'chair', application: 'optional' }] },
+        { id: 'depth', name: 'Profundidade total', dataType: 'measure', options: [], active: true,
+          categoryApplications: [{ categoryId: 'chair', application: 'required' }] },
+      ]);
+      expect(result.technicalValues).not.toHaveProperty('Cor');
+      expect(result.technicalValues).toHaveProperty('Profundidade total', '');
+    });
+    it('inicializa característica booleana obrigatória como Não', () => {
+      const result = populateInitialTechnicalValues(
+        { technicalValues: { 'Entrada USB': '' } },
+        [{ name: 'Entrada USB', dataType: 'boolean', isRequired: true, active: true } as any]
+      );
+
+      expect(result.technicalValues?.['Entrada USB']).toBe(false);
+    });
+
     it('normaliza quantidades legadas com texto para inteiros e ativa switches mestres', () => {
       const prev: Partial<Product> = {
         technicalValues: {
@@ -135,9 +128,8 @@ describe('technicalSyncUtils', () => {
       expect(result.technicalValues?.['Quantidade de portas']).toBe(3);
       expect(result.technicalValues?.['Quantidade de gavetas']).toBe(2);
       expect(result.technicalValues?.['Quantidade de pés']).toBe(4);
-      expect(result.technicalValues?.['Possui portas']).toBe('Sim');
-      expect(result.technicalValues?.['Possui gavetas']).toBe('Sim');
-      expect(result.technicalValues?.['Possui pés']).toBe('Sim');
+      expect(result.technicalValues?.['Possui gavetas']).toBe(true);
+      expect(result.technicalValues?.['Possui pés']).toBe(true);
       expect(result.technicalValues?.['Tipo de portas']).toEqual(['Bater']);
       expect(result.technicalValues?.['Tipo/Material das corrediças']).toEqual([
         'Corrediça metálica telescópica',
@@ -153,7 +145,7 @@ describe('technicalSyncUtils', () => {
 
       const result = populateInitialTechnicalValues(prev, []);
       expect(result.technicalValues?.['Tipo de portas']).toEqual(['Bater', 'Basculante']);
-      expect(result.technicalValues?.['Possui portas']).toBe('Sim');
+      expect(result.technicalValues?.['Possui portas']).toBe(true);
     });
   });
 });

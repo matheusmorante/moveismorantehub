@@ -300,6 +300,14 @@ export const getLocalDateString = (d: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+export const addDaysToLocalDateString = (dateString: string, days: number): string => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString);
+  if (!match || !Number.isInteger(days)) return '';
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + days, 12);
+  return getLocalDateString(date);
+};
+
 export const parseOrderDateStr = (rawDate: any): string => {
   if (!rawDate) return '';
   const str = String(rawDate).trim();

@@ -64,12 +64,6 @@ export const CustomerSupportChatPane: React.FC<CustomerSupportChatPaneProps> = (
     if (next) onConversationChanged(next);
   }, [conversation, onConversationChanged]);
 
-  const handleClearUnread = useCallback((conversationId: string) => {
-    const current = chatConversationRef.current;
-    if (current.id !== conversationId || current.unreadCount === 0) return;
-    setSelectedChatConversation({ ...current, unreadCount: 0 });
-  }, [setSelectedChatConversation]);
-
   const {
     messages,
     setMessages,
@@ -85,11 +79,11 @@ export const CustomerSupportChatPane: React.FC<CustomerSupportChatPaneProps> = (
     refreshMessages,
   } = useCustomerSupportMessages({
     selectedConversation: chatConversation,
-    onClearUnread: handleClearUnread,
   });
 
   const {
     handleToggleArchive,
+    handleToggleReadStatus,
     handleConversationUpdated,
     handleAssignConversation,
     handleUpdateStatus,
@@ -145,6 +139,7 @@ export const CustomerSupportChatPane: React.FC<CustomerSupportChatPaneProps> = (
         isTimelineOpen={isTimelineOpen}
         onToggleTimeline={handleToggleTimeline}
         onToggleArchive={handleToggleArchive}
+        onToggleReadStatus={handleToggleReadStatus}
         onAssign={handleAssignConversation}
         onUpdateStatus={handleUpdateStatus}
         onAddInternalNote={handleAddInternalNote}

@@ -20,7 +20,11 @@ interface UseProductFormSyncParams {
  * 2. Propagação de campos herdados do produto pai para as variações (preço, descrição, dimensões, fiscal).
  * 3. Agregação dos valores das variações filhas de volta para o produto pai (estoque total e custo médio).
  */
-export function useProductFormSync({ formData, setFormData, isExistingProduct = false }: UseProductFormSyncParams): void {
+export function useProductFormSync({
+  formData,
+  setFormData,
+  isExistingProduct = false,
+}: UseProductFormSyncParams): void {
   const previousParentNameRef = useRef<{ productId: string; name: string } | null>(null);
 
   // 1. Cálculo do preço final de compra
@@ -88,16 +92,21 @@ export function useProductFormSync({ formData, setFormData, isExistingProduct = 
         v.attributes || []
       );
       const currentName = String(newV.name || '').trim();
+      const currentNameSuffix = currentName
+        .toLocaleLowerCase('pt-BR')
+        .startsWith(parentName.toLocaleLowerCase('pt-BR'))
+        ? currentName.slice(parentName.length).replace(/^[\s\-–—_:]+/u, '').trim()
+        : '';
       const inheritsPreviousParentName =
         parentNameChanged &&
         currentName
           .toLocaleLowerCase('pt-BR')
           .startsWith(previousParentName.toLocaleLowerCase('pt-BR'));
-      const currentNameSuffix = inheritsPreviousParentName
+      const previousParentNameSuffix = inheritsPreviousParentName
         ? currentName.slice(previousParentName.length).replace(/^[\s\-–—_:]+/u, '').trim()
-        : '';
+        : currentNameSuffix;
       const variationName = inheritsPreviousParentName
-        ? [parentName, currentNameSuffix].filter(Boolean).join(' ')
+        ? [parentName, previousParentNameSuffix].filter(Boolean).join(' ')
         : computeVariationName(parentName, variationNameAttributes);
       const defaultName = computeVariationName(parentName, []);
       const nameFromVariationAttributes = computeVariationName(parentName, v.attributes || []);

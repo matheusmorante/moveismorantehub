@@ -10,12 +10,9 @@ export const SOFA_ONLY_DIMENSION_NAMES = new Set([
 
 export const SOFA_RETRACTABLE_FIELD: TechnicalFieldDefinition = {
   id: 'sofa-retractable-characteristic',
-  name: 'Retrátil?',
-  dataType: 'radio',
-  options: [
-    { id: 'nao', value: 'Não' },
-    { id: 'sim', value: 'Sim' },
-  ],
+  name: 'É retrátil?',
+  dataType: 'boolean',
+  options: [],
   isRequired: true,
   active: true,
 };

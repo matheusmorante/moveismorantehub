@@ -11,6 +11,7 @@ export type ProductFormValidationResult = {
     issue: {
       message: string;
       tab: string;
+      fieldKey?: string;
     };
   };
   singleVariationParentIssue?: {
@@ -18,6 +19,87 @@ export type ProductFormValidationResult = {
     fieldKey: string;
     message: string;
   };
+};
+
+const variationFieldLabels: Record<string, string> = {
+  active: 'Status',
+  attributes: 'Características',
+  avgMonthlySales: 'Média de vendas mensais',
+  comboItems: 'Componentes',
+  costPrice: 'Custo unitário',
+  depth: 'Profundidade',
+  description: 'Descrição do componente',
+  finalPurchasePrice: 'Preço final de compra',
+  freightCost: 'Frete',
+  height: 'Altura',
+  images: 'Fotos da variação',
+  ipiPercent: 'IPI',
+  leadTime: 'Prazo de reposição',
+  minStock: 'Estoque mínimo',
+  name: 'Nome da variação',
+  pkgDepth: 'Profundidade da embalagem',
+  pkgHeight: 'Altura da embalagem',
+  pkgWidth: 'Largura da embalagem',
+  productId: 'Produto componente',
+  promoPrice: 'Preço promocional',
+  quantity: 'Quantidade do componente',
+  sku: 'SKU',
+  stock: 'Estoque',
+  unitPrice: 'Preço de venda',
+  variationId: 'Variação do componente',
+  weight: 'Peso',
+  width: 'Largura',
+};
+
+const productFieldLabels: Record<string, string> = {
+  avgMonthlySales: 'Média de vendas mensais',
+  categoryIds: 'Categoria(s)',
+  costPrice: 'Custo unitário',
+  depth: 'Profundidade',
+  finalPurchasePrice: 'Preço final de compra',
+  freightCost: 'Frete',
+  height: 'Altura',
+  initialStock: 'Estoque inicial',
+  ipiPercent: 'IPI',
+  leadTime: 'Prazo de reposição',
+  mainSupplierId: 'Fornecedor',
+  minStock: 'Estoque mínimo',
+  name: 'Nome do produto',
+  ncm: 'NCM',
+  opportunityId: 'Oportunidade',
+  pkgDepth: 'Profundidade da embalagem',
+  pkgHeight: 'Altura da embalagem',
+  pkgWidth: 'Largura da embalagem',
+  productKind: 'Origem do estoque',
+  promoPrice: 'Preço promocional',
+  stock: 'Estoque',
+  unitPrice: 'Preço de venda',
+  weight: 'Peso',
+  width: 'Largura',
+};
+
+const formatProductSchemaIssue = (issue: { path: (string | number)[]; message: string }) => {
+  const field = [...issue.path].reverse().find((part): part is string => typeof part === 'string');
+  const label = field ? productFieldLabels[field] : undefined;
+  return label ? `Campo "${label}": ${issue.message}` : issue.message;
+};
+
+const getVariationIssueDetails = (path: (string | number)[]) => {
+  const field = [...path].reverse().find((part): part is string => typeof part === 'string');
+  const fieldLabel = field
+    ? variationFieldLabels[field] || field.replace(/([a-z])([A-Z])/g, '$1 $2')
+    : 'dados da variação';
+  const tab = path.includes('images')
+    ? 'fotos'
+    : path.includes('technicalValues') || ['width', 'height', 'depth', 'weight', 'pkgWidth', 'pkgHeight', 'pkgDepth'].some((key) => path.includes(key))
+      ? 'tecnico'
+      : path.includes('comboItems')
+        ? 'compostos'
+        : path.includes('attributes') || path.includes('name') || path.includes('sku')
+          ? 'identificacao'
+          : 'estoque';
+
+  return { fieldLabel, tab, fieldKey: field };
 };
 
 export function mapSingleVariationIssueToParent(
@@ -139,7 +221,8 @@ export const validateProductFormSubmission = (
   let schemaErrorMessage: string | undefined;
 
   if (!result.success) {
-    schemaErrorMessage = result.error.issues[0]?.message;
+    const firstIssue = result.error.issues[0];
+    schemaErrorMessage = firstIssue ? formatProductSchemaIssue(firstIssue) : undefined;
     for (const issue of result.error.issues) {
       const field = issue.path[0];
       if (field) {
@@ -157,8 +240,28 @@ export const validateProductFormSubmission = (
   const isSingleVariation = variations.length === 1 && !isMultiVariationMode;
   const parentImages = Array.isArray(formData.images) ? formData.images.filter(Boolean) : [];
 
+  const schemaVariationIssues = result.success
+    ? []
+    : result.error.issues.flatMap((issue) => {
+        const [root, index, ...path] = issue.path;
+        if (root !== 'variations' || typeof index !== 'number' || !variations[index]) return [];
+        const { fieldLabel, tab, fieldKey } = getVariationIssueDetails(path);
+        const variation = variations[index];
+        const variationLabel = variation.name || variation.sku || `Variação ${index + 1}`;
+        return [{
+          index,
+          source: 'schema' as const,
+          variation,
+          issue: {
+            message: `A variação "${variationLabel}" tem um erro no campo "${fieldLabel}": ${issue.message}`,
+            tab,
+            fieldKey,
+          },
+        }];
+      });
+
   // Validação de conformidade: cada variação deve ter pelo menos 1 foto vinculada para concluir o cadastro
-  const variationMissingImage = variations.find((v) => {
+  const variationMissingImageIndex = variations.findIndex((v) => {
     if (!v || typeof v !== 'object') return false;
     const imgs = Array.isArray(v.images)
       ? v.images.filter(Boolean)
@@ -168,33 +271,43 @@ export const validateProductFormSubmission = (
     return imgs.length === 0 && (isMultiVariationMode || parentImages.length === 0);
   });
 
-  if (variationMissingImage) {
-    errors.variations = true;
-    errors.variationRegistration = true;
-    const message = `A variação "${variationMissingImage.name || variationMissingImage.sku || 'sem nome'}" deve ter pelo menos 1 foto vinculada para concluir o cadastro.`;
-    return {
-      errors,
-      errorMessage: message,
-      invalidVariation: {
-        variation: variationMissingImage,
-        issue: {
-          message,
-          tab: 'fotos',
-        },
-      },
-    };
-  }
-
-  const invalidEntry = variations
-    .map((variation) => ({ variation, issue: getVariationRegistrationIssue(formData, variation) }))
-    .find((entry) => entry.issue !== null);
-  const invalidVariation = invalidEntry?.issue
-    ? { variation: invalidEntry.variation, issue: invalidEntry.issue }
+  const imageVariationIssue = variationMissingImageIndex >= 0
+    ? (() => {
+        const variation = variations[variationMissingImageIndex];
+        const message = `A variação "${variation.name || variation.sku || 'sem nome'}" deve ter pelo menos 1 foto vinculada para concluir o cadastro.`;
+        return {
+          index: variationMissingImageIndex,
+          source: 'image' as const,
+          variation,
+        issue: { message, tab: 'fotos', fieldKey: 'images' },
+        };
+      })()
     : undefined;
+  const registrationVariationIssue = variations.flatMap((variation, index) => {
+    const issue = getVariationRegistrationIssue(formData, variation);
+    return issue
+      ? [{
+          index,
+          source: 'registration' as const,
+          variation,
+          issue: { ...issue, fieldKey: issue.tab === 'identificacao' ? 'attributes' : undefined },
+        }]
+      : [];
+  })[0];
 
-  if (invalidVariation) {
-    if (isSingleVariation) {
-      const parentIssue = mapSingleVariationIssueToParent(invalidVariation.issue);
+  const issueSourcePriority = { schema: 0, image: 1, registration: 2 };
+  const invalidCandidate = [
+    ...schemaVariationIssues,
+    ...(imageVariationIssue ? [imageVariationIssue] : []),
+    ...(registrationVariationIssue ? [registrationVariationIssue] : []),
+  ].sort((left, right) =>
+    left.index - right.index || issueSourcePriority[left.source] - issueSourcePriority[right.source]
+  )[0];
+
+  if (invalidCandidate) {
+    const invalidVariation = { variation: invalidCandidate.variation, issue: invalidCandidate.issue };
+    if (invalidCandidate.source === 'registration' && isSingleVariation) {
+      const parentIssue = mapSingleVariationIssueToParent(invalidCandidate.issue);
       for (const key of parentIssue.errorKeys) {
         errors[key] = true;
       }
@@ -209,8 +322,10 @@ export const validateProductFormSubmission = (
       };
     }
 
+    errors.variations = true;
     errors.variationRegistration = true;
+    return { errors, invalidVariation, errorMessage: invalidVariation.issue.message };
   }
 
-  return { errors, invalidVariation, errorMessage: schemaErrorMessage };
+  return { errors, errorMessage: schemaErrorMessage };
 };

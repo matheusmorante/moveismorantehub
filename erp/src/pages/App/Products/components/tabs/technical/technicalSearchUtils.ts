@@ -3,11 +3,17 @@ import {
   getAvailableAdditionalFields,
   CHARACTERISTIC_TOPIC_GROUPS,
   CharacteristicTopicGroupDefinition,
+  isDrawerQuantityCharacteristic,
+  isDoorQuantityCharacteristic,
+  isHasDrawersCharacteristic,
+  isHasDoorsCharacteristic,
+  getCharacteristicDependencyState,
 } from '@/pages/utils/technicalValuesService';
 import {
   normalizeTechnicalName,
   normalizeSearchTerm,
 } from './technicalTabUtils';
+import { getTechnicalFieldDisplayName } from '../../../../../../../../shared-utils/productTechnicalFieldScope';
 
 export interface GetDisplayedOptionalFieldsParams {
   readonly requiredFieldsOnly: boolean;
@@ -45,7 +51,10 @@ export const getMatchingOptionalFields = (
   requiredFieldsOnly: boolean,
   normalizedSearchTerm: string,
   normalizedDebouncedSearchTerm: string,
-  limit = 3
+  limit = 3,
+  technicalValues: Record<string, unknown> = {},
+  productCategoryNames: readonly string[] = [],
+  productCategoryIds: readonly string[] = []
 ): TechnicalFieldDefinition[] => {
   if (
     requiredFieldsOnly ||
@@ -58,16 +67,38 @@ export const getMatchingOptionalFields = (
   const requiredFieldNames = new Set(
     requiredFields.map((field) => normalizeTechnicalName(field.name))
   );
-
+  const fieldsAlreadyDisplayed = [...requiredFields, ...displayedOptionalFields];
+  const hasVisibleDoorQuantity = fieldsAlreadyDisplayed.some((field) =>
+    isDoorQuantityCharacteristic(field.name)
+  );
+  const hasVisibleDrawerQuantity = fieldsAlreadyDisplayed.some((field) =>
+    isDrawerQuantityCharacteristic(field.name)
+  );
   const searchableOptionalFields = getAvailableAdditionalFields(allTechnicalFields, [
     ...requiredFields,
     ...displayedOptionalFields,
-  ]).filter((field) => !requiredFieldNames.has(normalizeTechnicalName(field.name)));
+  ], productCategoryNames, productCategoryIds).filter((field) => {
+    if (requiredFieldNames.has(normalizeTechnicalName(field.name))) return false;
+    // Do not suggest dependent fields until their current master value enables them.
+    const dependency = getCharacteristicDependencyState(field.name, technicalValues);
+    if (dependency.isDependent && dependency.isDisabled) return false;
+    // These master toggles are deliberately hidden once their quantity field is shown.
+    // Do not offer a search result that disappears immediately after the user adds it.
+    if (hasVisibleDoorQuantity && isHasDoorsCharacteristic(field.name)) return false;
+    if (hasVisibleDrawerQuantity && isHasDrawersCharacteristic(field.name)) return false;
+    return true;
+  });
+  const searchTokens = normalizedDebouncedSearchTerm.split(/\s+/).filter(Boolean);
 
   return searchableOptionalFields
-    .filter((field) =>
-      normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm)
-    )
+    .filter((field) => {
+      const fieldTokens = normalizeSearchTerm(getTechnicalFieldDisplayName(field.name))
+        .split(/\s+/)
+        .filter(Boolean);
+      return searchTokens.every((searchToken) =>
+        fieldTokens.some((fieldToken) => fieldToken.startsWith(searchToken))
+      );
+    })
     .slice(0, limit);
 };
 

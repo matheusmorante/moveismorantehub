@@ -58,11 +58,14 @@ classDiagram
 ## Atributos obrigatórios por Categoria
 
 - `attributes` e `attribute_values` são o cadastro global de atributos e opções. A criação e administração desses registros permanece no fluxo próprio de gerenciamento de atributos.
-- `category_attributes` é a fonte de verdade para definir quais atributos são obrigatórios em cada Categoria. O vínculo pertence à Categoria e não é multiplicado pelos Ambientes aos quais ela está associada.
+- `attribute_category_applications` define, para cada característica e Categoria, se ela está `unavailable`, `optional` ou `required` no formulário do Produto. `required` marca o campo como requisito de entrada; `optional` permite adicioná-lo sem exigir preenchimento; `unavailable` não oferece o campo nessa Categoria.
+- `category_attributes.is_required` permanece separado e define exigência de publicação no Catálogo Digital. Um atributo obrigatório para o Catálogo não se torna, por isso, obrigatório para salvar o Produto. O vínculo pertence à Categoria e não é multiplicado pelos Ambientes aos quais ela está associada.
+- Dependências de características são definições do atributo: `dependency_attribute_id`, `dependency_operator` e `dependency_value` formam a condição principal; `attribute_dependency_alternatives` acrescenta condições alternativas (OR). No formulário de Produto simples, a característica dependente só aparece quando uma condição é satisfeita; adicionar uma dependente também disponibiliza suas referências para preenchimento. O app avalia as condições pelo helper compartilhado com o ERP e mantém o salvamento sob o formulário proprietário RHF/Zod.
+- `attributes.group_id` referencia `attribute_groups` e organiza visualmente os campos da aba Técnica; o agrupamento não altera aplicação por Categoria, obrigatoriedade nem persistência. ERP e app usam a mesma ordem canônica dos grupos. Quando um schema antigo não fornece esse vínculo ou nome, o app conserva o agrupamento legado por tópicos; falhas de consulta das definições são mostradas com ação de tentar novamente.
 - O valor efetivo continua armazenado em `product_variations.attributes`, inclusive para o produto simples, que possui sua variação principal única.
 - O cadastro de novas opções de características de escolha remove vírgulas dos rótulos, pois a projeção de compatibilidade em `product_variations.attributes` usa vírgula como delimitador de valores. Valores legados existentes não são reescritos por essa normalização.
-- Associar um Produto a uma Categoria ou adicionar uma nova obrigatoriedade não inventa nem preenche valores. Variações sem valor passam a ter uma pendência na Central de Conciliação.
-- Remover uma linha de obrigatoriedade em `category_attributes` não remove nem altera valores já existentes em `product_variations.attributes`.
+- Associar um Produto a uma Categoria ou adicionar uma exigência de entrada/publicação não inventa nem preenche valores. Variações sem valor continuam sujeitas às validações correspondentes e podem gerar pendência na Central de Conciliação do ERP.
+- Remover uma exigência de `category_attributes` ou alterar a aplicação por Categoria não remove nem altera valores já existentes em `product_variations.attributes`.
 
 ## Ativação de produtos e variações
 

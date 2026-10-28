@@ -1,6 +1,6 @@
 export interface ProductVariationAttribute {
   name: string;
-  value: string;
+  value: string | boolean | null;
   showName: boolean;
 }
 
@@ -35,10 +35,12 @@ export const parseProductVariationAttributes = (
             rawAttribute?.key ||
             ''
         ).trim(),
-        value: String(rawAttribute?.value || rawAttribute?.option || rawAttribute?.val || ''),
+        value: Object.prototype.hasOwnProperty.call(rawAttribute ?? {}, 'value')
+          ? rawAttribute.value
+          : rawAttribute?.option ?? rawAttribute?.val ?? '',
         showName: rawAttribute?.showName ?? true,
       }))
-      .filter((attribute) => attribute.name && attribute.value);
+      .filter((attribute) => attribute.name && (attribute.value === null || typeof attribute.value === 'boolean' || Boolean(attribute.value)));
   }
 
   if (!attributes || typeof attributes !== 'object') return [];
@@ -48,13 +50,12 @@ export const parseProductVariationAttributes = (
       const isStructuredObject = Boolean(rawValue) && typeof rawValue === 'object';
       const structured = isStructuredObject ? (rawValue as Record<string, unknown>) : null;
       const value = structured
-        ? String(
-            structured.value ||
-              structured.val ||
-              structured.name ||
-              JSON.stringify(rawValue)
-          )
-        : String(rawValue);
+        ? Object.prototype.hasOwnProperty.call(structured, 'value')
+          ? structured.value
+          : Object.prototype.hasOwnProperty.call(structured, 'val')
+            ? structured.val
+            : structured.name ?? JSON.stringify(rawValue)
+        : rawValue;
 
       return {
         name: name.trim(),
@@ -65,5 +66,5 @@ export const parseProductVariationAttributes = (
             : true,
       };
     })
-    .filter((attribute) => attribute.name && attribute.value);
+    .filter((attribute) => attribute.name && (attribute.value === null || typeof attribute.value === 'boolean' || Boolean(attribute.value)));
 };

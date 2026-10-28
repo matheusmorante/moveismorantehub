@@ -36,7 +36,13 @@ export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> =
 
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 space-y-5 shadow-sm">
+      <div
+        className={`space-y-5 ${
+          scopeType === 'supplier'
+            ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm'
+            : ''
+        }`}
+      >
         {scopeType === 'supplier' && (
           <div className="space-y-4 relative z-20">
             <div>
@@ -58,7 +64,7 @@ export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> =
           </div>
         )}
 
-        <div className="relative z-10 pt-2">
+        <div className={`relative z-10 ${scopeType === 'supplier' ? 'pt-2' : ''}`}>
           <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">
             Responsável pelo Inventário
           </label>

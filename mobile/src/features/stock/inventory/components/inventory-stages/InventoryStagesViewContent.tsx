@@ -26,7 +26,7 @@ export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode,
   const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
-  const { stages, totalItems, totalCounted, progressPercent } = useMemo(() => {
+  const stages = useMemo(() => {
     const stageMap = new Map<string, Stage>();
 
     for (const item of items) {
@@ -46,11 +46,7 @@ export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode,
       }
     }
 
-    let counted = 0;
-    let total = items.length;
-
     const stagesArray = Array.from(stageMap.values()).map((stage) => {
-      counted += stage.counted;
       if (stage.counted === 0) stage.status = 'not_started';
       else if (stage.counted === stage.total) stage.status = 'completed';
       else stage.status = 'in_progress';
@@ -61,34 +57,11 @@ export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode,
     const filteredStagesArray = stagesArray.filter((stage) => stage.supplierName !== 'Sem fornecedor');
     filteredStagesArray.sort((a, b) => a.supplierName.localeCompare(b.supplierName));
 
-    const progress = total > 0 ? Math.round((counted / total) * 100) : 0;
-
-    return {
-      stages: filteredStagesArray,
-      totalItems: total,
-      totalCounted: counted,
-      progressPercent: progress,
-    };
+    return filteredStagesArray;
   }, [items]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* General Progress Card */}
-      <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: textPrimary }]}>Progresso Geral</Text>
-            <Text style={[styles.subtitle, { color: muted }]}>
-              <Text style={{ fontWeight: '800', color: textPrimary }}>{totalCounted}</Text> de {totalItems} itens contados
-            </Text>
-          </View>
-          <Text style={[styles.percent, { color: '#10b981' }]}>{progressPercent}%</Text>
-        </View>
-        <View style={[styles.barBg, { backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9' }]}>
-          <View style={[styles.barFill, { width: `${progressPercent}%`, backgroundColor: '#10b981' }]} />
-        </View>
-      </View>
-
       <Text style={[styles.sectionTitle, { color: textPrimary }]}>Etapas por Fornecedor ({stages.length})</Text>
 
       {/* Stages List */}
@@ -189,21 +162,6 @@ export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode,
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16 },
-  card: {
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 16,
-    marginBottom: 24,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  title: { fontSize: 18, fontWeight: '800' },
-  subtitle: { fontSize: 13, marginTop: 4 },
-  percent: { fontSize: 24, fontWeight: '900' },
   barBg: { height: 8, borderRadius: 4, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 4 },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12, paddingHorizontal: 4 },

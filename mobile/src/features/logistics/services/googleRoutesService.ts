@@ -111,7 +111,7 @@ async function requestRoute(
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   if (signal.aborted || sessionError || !accessToken) return null;
-  const apiBase = (process.env.EXPO_PUBLIC_ERP_API_URL || 'https://morantehub.com').replace(/\/$/, '');
+  const apiBase = (process.env.EXPO_PUBLIC_ERP_API_URL || 'https://morantehub.vercel.app').replace(/\/$/, '');
 
   try {
     const response = await fetch(`${apiBase}/api/google-routes`, {

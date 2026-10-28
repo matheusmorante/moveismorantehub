@@ -71,9 +71,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 interface CustomerOrderRecordsViewProps {
-  customerId: string | null;
+  contactPhone: string;
   orderGroup: SupportCustomerOrderGroup;
-  isLinked: boolean;
+  isLinked?: boolean;
   canViewCommercial: boolean;
   canCreateBudget?: boolean;
   canShareBudget?: boolean;
@@ -116,6 +116,12 @@ function OrderRecordDetails({ record, canShareBudget, onShareBudget }: {
           </span>
         </div>
         <dl className="mt-4 space-y-2 text-xs">
+          {record.customerName && (
+            <div className="flex justify-between gap-3">
+              <dt className="text-slate-500">Cliente no pedido</dt>
+              <dd className="font-semibold text-slate-800 dark:text-slate-200">{record.customerName}</dd>
+            </div>
+          )}
           <div className="flex justify-between gap-3"><dt className="text-slate-500">Data</dt><dd className="font-medium text-slate-800 dark:text-slate-200">{formatDate(record.createdAt)}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-slate-500">Valor total</dt><dd className="font-bold text-slate-900 dark:text-slate-100">{formatBRL(record.totalAmount)}</dd></div>
           {record.paymentMethod && <div className="flex justify-between gap-3"><dt className="text-slate-500">Pagamento</dt><dd className="text-right text-slate-800 dark:text-slate-200">{record.paymentMethod}</dd></div>}
@@ -178,7 +184,7 @@ function OrderRecordDetails({ record, canShareBudget, onShareBudget }: {
 }
 
 export const CustomerOrderRecordsView: React.FC<CustomerOrderRecordsViewProps> = ({
-  customerId,
+  contactPhone,
   orderGroup,
   isLinked,
   canViewCommercial,
@@ -203,11 +209,11 @@ export const CustomerOrderRecordsView: React.FC<CustomerOrderRecordsViewProps> =
   });
 
   const loadRecords = useCallback(async (requestPage: number, filters: SupportCustomerRecordFiltersInput, generation: number) => {
-    if (!customerId || !isLinked || !canViewCommercial) return;
+    if (!contactPhone || !canViewCommercial) return;
     setIsLoading(true);
     setError('');
     try {
-      const result = await getCustomerOrderRecordsPage(supabase, customerId, orderGroup, {
+      const result = await getCustomerOrderRecordsPage(supabase, contactPhone, orderGroup, {
         page: requestPage,
         pageSize,
         search: filters.search,
@@ -223,14 +229,14 @@ export const CustomerOrderRecordsView: React.FC<CustomerOrderRecordsViewProps> =
     } finally {
       if (generation === generationRef.current) setIsLoading(false);
     }
-  }, [canViewCommercial, customerId, isLinked, orderGroup, pageSize]);
+  }, [canViewCommercial, contactPhone, orderGroup, pageSize]);
 
   useEffect(() => {
     const generation = ++generationRef.current;
     setRecords([]);
     setTotal(0);
     setError('');
-    if (!customerId || !isLinked || !canViewCommercial) {
+    if (!contactPhone || !canViewCommercial) {
       setIsLoading(false);
       return () => { generationRef.current += 1; };
     }
@@ -246,8 +252,8 @@ export const CustomerOrderRecordsView: React.FC<CustomerOrderRecordsViewProps> =
   if (!canViewCommercial) {
     return <p className="rounded-xl bg-amber-50 p-4 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">Seu perfil não tem permissão para consultar informações comerciais deste cliente.</p>;
   }
-  if (!isLinked || !customerId) {
-    return <p className="rounded-xl bg-amber-50 p-4 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">Vincule um cliente à conversa para consultar estes registros.</p>;
+  if (!contactPhone) {
+    return <p className="rounded-xl bg-amber-50 p-4 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">Esta conversa não tem um telefone de contato para localizar os pedidos.</p>;
   }
   if (selectedRecord) return <OrderRecordDetails record={selectedRecord} canShareBudget={canShareBudget} onShareBudget={onShareBudget} />;
 
@@ -313,6 +319,11 @@ export const CustomerOrderRecordsView: React.FC<CustomerOrderRecordsViewProps> =
                 <span className="min-w-0 truncate text-xs font-bold text-slate-900 dark:text-slate-100">{isBudgetList ? 'Orçamento' : orderGroup === 'delivery' ? 'Pedido' : ''} #{record.orderNumber}</span>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${statusClass(record)}`}>{STATUS_LABELS[status.toLowerCase()] || status}</span>
               </span>
+              {record.customerName && (
+                <span className="mt-1 block truncate text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                  {record.customerName}
+                </span>
+              )}
               <span className="mt-2 flex items-center justify-between gap-2 text-[11px] text-slate-500">
                 <span>{scheduleDate ? `${formatDate(scheduleDate)}${scheduleTime ? ` · ${scheduleTime}` : ''}` : formatDate(record.createdAt)}</span><span className="font-bold text-slate-800 dark:text-slate-200">{isBudgetList || orderGroup === 'delivery' ? formatBRL(record.totalAmount) : `${record.itemsCount} itens`}</span>
               </span>

@@ -39,6 +39,13 @@ const state = vi.hoisted(() => ({
         updated_at: '2026-09-25T12:00:00Z',
       },
       {
+        id: 'supplier-salvados',
+        person_type: 'suppliers',
+        full_name: 'Multiloja Salvados',
+        stock_origins: ['salvados'],
+        updated_at: '2026-09-25T12:00:00Z',
+      },
+      {
         id: 'employee-new',
         person_type: 'employees',
         full_name: 'Ana Souza',
@@ -178,6 +185,13 @@ beforeEach(() => {
         updated_at: '2026-09-25T12:00:00Z',
       },
       {
+        id: 'supplier-salvados',
+        person_type: 'suppliers',
+        full_name: 'Multiloja Salvados',
+        stock_origins: ['salvados'],
+        updated_at: '2026-09-25T12:00:00Z',
+      },
+      {
         id: 'employee-new',
         person_type: 'employees',
         full_name: 'Ana Souza',
@@ -219,6 +233,9 @@ describe('sincronização do catálogo local de inventário', () => {
     expect(state.snapshot.employees['employee-ineligible']).toBeDefined();
     expect(state.snapshot.employees['supplier-new']).toBeUndefined();
     expect(state.snapshot.employees['customer-1']).toBeUndefined();
+    expect(state.snapshot.suppliers['supplier-salvados']).toMatchObject({
+      stock_origins: ['salvados'],
+    });
     expect(await fetchInventoryScopeSuppliers()).toEqual([
       { id: 'supplier-new', full_name: 'Fábrica Nova' },
     ]);
@@ -244,7 +261,12 @@ describe('sincronização do catálogo local de inventário', () => {
     expect(state.selections).toContainEqual({
       table: 'people',
       columns:
-        'id, person_type, full_name, social_name, nickname, position, address, active, deleted, updated_at',
+        'id, person_type, full_name, social_name, nickname, email, position, address, active, deleted, updated_at',
+    });
+    expect(state.selections).toContainEqual({
+      table: 'people',
+      columns:
+        'id, person_type, full_name, social_name, nickname, stock_origins, active, deleted, updated_at',
     });
     expect(state.selections.some(({ table, columns }) => table === 'people' && columns.includes('->'))).toBe(
       false
@@ -258,6 +280,88 @@ describe('sincronização do catálogo local de inventário', () => {
     expect((await syncOfflineInventoryCatalog()).success).toBe(false);
     expect((await syncOfflineInventoryCatalog()).success).toBe(true);
     expect(await getOfflineInventoryScopeProducts()).toHaveLength(1);
+  });
+
+  it('reconstrói o catálogo antigo para trazer origens de fornecedor antes de liberar o inventário', async () => {
+    state.deletionDenied = false;
+    state.snapshot = {
+      formatVersion: 2,
+      products: { stale: { id: 'stale', item_type: 'product', name: 'Obsoleto' } },
+      variations: {},
+      labels: {},
+      suppliers: {
+        'supplier-salvados': {
+          id: 'supplier-salvados',
+          person_type: 'suppliers',
+          full_name: 'Multiloja Salvados',
+        },
+      },
+      employees: {},
+      cursors: {
+        products: '2026-09-24T12:00:00Z',
+        variations: '2026-09-24T12:00:00Z',
+        labels: '2026-09-24T12:00:00Z',
+        suppliers: '2026-09-24T12:00:00Z',
+      },
+      syncedAt: '2026-09-24T12:00:00Z',
+      deletionCursor: 0,
+    };
+    state.rows.products.push({
+      id: 'product-salvados', item_type: 'product', name: 'Mesa Salvados',
+      supplier_id: 'supplier-salvados', updated_at: '2026-09-20T12:00:00Z',
+    });
+    state.rows.product_variations.push({
+      id: 'variation-salvados', product_id: 'product-salvados',
+      name: 'Mesa Salvados', sku: 'SKU-SALVADOS', updated_at: '2026-09-20T12:00:00Z',
+    });
+
+    expect((await syncOfflineInventoryCatalog()).success).toBe(true);
+    expect(state.snapshot.formatVersion).toBe(3);
+    expect(state.snapshot.products.stale).toBeUndefined();
+    expect(state.snapshot.suppliers['supplier-salvados'].stock_origins).toEqual(['salvados']);
+    expect(
+      state.filters.some(
+        (filter) => filter.table === 'people' && filter.column === 'updated_at' && filter.operator === 'gte'
+      )
+    ).toBe(false);
+    expect(await fetchInventoryScopeSuppliers()).toEqual([
+      { id: 'supplier-new', full_name: 'Fábrica Nova' },
+    ]);
+    expect(await getOfflineInventoryScopeProducts()).toEqual([
+      expect.objectContaining({ id: 'product-new', variation_id: 'variation-new' }),
+    ]);
+  });
+
+  it('não usa catálogo antigo quando a sincronização não consegue atualizar as origens', async () => {
+    state.snapshot = {
+      formatVersion: 2,
+      products: {}, variations: {}, labels: {}, suppliers: {}, employees: {},
+      cursors: {}, syncedAt: '2026-09-24T12:00:00Z', deletionCursor: 0,
+    };
+
+    await expect(fetchInventoryScopeSuppliers()).rejects.toThrow(
+      'O catálogo local precisa ser atualizado para conferir as origens dos fornecedores.'
+    );
+    expect(await getOfflineInventoryScopeProducts()).toEqual([]);
+  });
+
+  it('aplica a mudança incremental de origem do fornecedor às etapas do inventário', async () => {
+    state.deletionDenied = false;
+    expect((await syncOfflineInventoryCatalog()).success).toBe(true);
+    expect(await fetchInventoryScopeSuppliers()).toEqual([
+      { id: 'supplier-new', full_name: 'Fábrica Nova' },
+    ]);
+
+    state.rows.people = state.rows.people.map((person) =>
+      person.id === 'supplier-new'
+        ? { ...person, stock_origins: ['salvados'], updated_at: '2026-09-26T12:00:00Z' }
+        : person
+    );
+
+    expect((await syncOfflineInventoryCatalog()).success).toBe(true);
+    expect(state.snapshot.suppliers['supplier-new'].stock_origins).toEqual(['salvados']);
+    expect(await fetchInventoryScopeSuppliers()).toEqual([]);
+    expect(await getOfflineInventoryScopeProducts()).toEqual([]);
   });
 
   it('aplica exclusões e novos registros por cursor sem baixar o catálogo inteiro novamente', async () => {

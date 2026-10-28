@@ -11,7 +11,7 @@ import {
 } from '../../../../../../../shared-utils/customerSupportFormSchemas';
 import type { ProductCatalogPrepareInput } from '../../../../../../../shared-utils/productCatalogFormSchemas';
 import type { ProductCatalogSendSelection } from '../../../../../../../shared-utils/productCatalogFormSchemas';
-import type { WhatsAppConversation } from '../../types';
+import type { WhatsAppConversation, WhatsAppMessage } from '../../types';
 import { ProductCatalogPanel } from '@/components/catalog/ProductCatalogPanel';
 import { getSettings } from '@/pages/utils/settingsService';
 import { supabase } from '@/pages/utils/supabaseConfig';
@@ -41,6 +41,8 @@ interface ChatComposerProps {
   isChannelConnected?: boolean;
   onSendCustomerMessage?: (input: CustomerSupportSendInput) => Promise<CustomerSupportSendResult>;
   onRefreshMessages?: () => Promise<void> | void;
+  replyTarget?: WhatsAppMessage | null;
+  onClearReplyTarget?: () => void;
   composerMode?: 'whatsapp' | 'comment';
   onComposerModeChange?: (mode: 'whatsapp' | 'comment') => void;
   insertedSnippet?: InsertedSnippet | null;
@@ -179,6 +181,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   isChannelConnected = false,
   onSendCustomerMessage,
   onRefreshMessages,
+  replyTarget = null,
+  onClearReplyTarget,
   composerMode = 'whatsapp',
   onComposerModeChange,
   insertedSnippet,
@@ -236,6 +240,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const message = watchDraft('message');
   const attachments = watchDraft('attachments');
   const sendAllowed = canSend && careWindowOpen && isChannelConnected && Boolean(onSendCustomerMessage) && !isOutcomeUncertain;
+
+  useEffect(() => {
+    if (replyTarget && composerMode === 'whatsapp') requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [replyTarget?.id, composerMode]);
 
   const {
     register: registerComment,
@@ -702,6 +710,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     setSendError('');
     setSendFeedback('Enviando…');
     let pendingText = draft.message.trim();
+    let pendingReplyToWamid = replyTarget?.apiMessageId || undefined;
+    let replyWasSent = false;
     let hadWarning = false;
     const acceptResult = (result: CustomerSupportSendResult) => {
       if (!result.persisted || result.warning) {
@@ -709,9 +719,20 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         setSendFeedback(result.warning || 'A Meta aceitou a mensagem. Atualize o histórico para conferir o registro.');
       }
     };
-    const sendText = async (text: string) => {
-      const result = await onSendCustomerMessage({ message: text });
+    const sendMessage = async (input: CustomerSupportSendInput) => {
+      const result = await onSendCustomerMessage({
+        ...input,
+        ...(pendingReplyToWamid ? { replyToWamid: pendingReplyToWamid } : {}),
+      });
       acceptResult(result);
+      if (pendingReplyToWamid) {
+        pendingReplyToWamid = undefined;
+        replyWasSent = true;
+      }
+      return result;
+    };
+    const sendText = async (text: string) => {
+      await sendMessage({ message: text });
       pendingText = '';
       setDraftValue('message', '', { shouldDirty: true, shouldValidate: false });
     };
@@ -722,11 +743,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       } else {
         for (const attachment of draft.attachments) {
           if (attachment.kind === 'catalog') {
-            const result = await onSendCustomerMessage({
+            await sendMessage({
               message: pendingText,
               catalogSelection: toCatalogSendSelection(attachment.selection),
             });
-            acceptResult(result);
             pendingText = '';
             setDraftValue('message', '', { shouldDirty: true, shouldValidate: false });
             removeAttachment(attachment.id);
@@ -735,11 +755,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
           if (attachment.kind === 'contact') {
             if (pendingText) await sendText(pendingText);
-            const result = await onSendCustomerMessage({
+            await sendMessage({
               message: '',
               contact: { name: attachment.contactName || attachment.label, phone: attachment.contactPhone || '' },
             });
-            acceptResult(result);
             removeAttachment(attachment.id);
             continue;
           }
@@ -753,11 +772,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           }
           const supportsCaption = fileInfo.label !== 'Áudio';
           if (!supportsCaption && pendingText) await sendText(pendingText);
-          const result = await onSendCustomerMessage({
+          await sendMessage({
             message: supportsCaption ? pendingText : '',
             file,
           });
-          acceptResult(result);
           if (supportsCaption) {
             pendingText = '';
             setDraftValue('message', '', { shouldDirty: true, shouldValidate: false });
@@ -767,6 +785,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         if (pendingText) await sendText(pendingText);
       }
       setSendError('');
+      if (replyWasSent) onClearReplyTarget?.();
       if (!hadWarning) setSendFeedback('Mensagem enviada.');
       try {
         await onRefreshMessages?.();
@@ -825,6 +844,22 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         </form>
       ) : (
         <div className="flex flex-col gap-2">
+          {replyTarget && (
+            <div className="flex items-center gap-3 rounded-xl border-l-4 border-emerald-600 bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                  Respondendo a {replyTarget.direction === 'inbound' ? displayName : replyTarget.authorName || 'Atendente'}
+                </p>
+                <p className="truncate text-xs text-slate-600 dark:text-slate-300">
+                  {replyTarget.textContent || replyTarget.mediaCaption || replyTarget.mediaFilename ||
+                    (replyTarget.messageType === 'image' ? 'Foto' : replyTarget.messageType === 'video' ? 'Vídeo' : replyTarget.messageType === 'audio' ? 'Áudio' : replyTarget.messageType === 'document' ? 'Documento' : 'Mensagem')}
+                </p>
+              </div>
+              <button type="button" onClick={onClearReplyTarget} aria-label="Cancelar resposta" title="Cancelar resposta" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-white hover:text-slate-800 dark:hover:bg-slate-800 dark:hover:text-white">
+                <i className="bi bi-x-lg text-xs" />
+              </button>
+            </div>
+          )}
           <form onSubmit={(event) => { event.preventDefault(); void handleSendDraft(); }} className={`relative flex items-end gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm dark:border-slate-700 dark:bg-slate-850 ${isRecording ? 'hidden' : ''}`}>
             <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,video/mp4,video/3gpp,.jpg,.jpeg,.png,.mp4,.3gp" multiple className="hidden" onChange={(event) => addFiles(event.target.files || [], 'media')} />
             <input ref={documentInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.aac,.m4a,.mp3,.amr,.ogg,application/pdf,text/plain,audio/aac,audio/mp4,audio/mpeg,audio/amr,audio/ogg" multiple className="hidden" onChange={(event) => addFiles(event.target.files || [], 'document')} />

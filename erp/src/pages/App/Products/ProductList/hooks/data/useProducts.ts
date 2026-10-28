@@ -17,6 +17,7 @@ import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
 import { fetchTechnicalFieldDefinitions } from '@/pages/App/Products/services/technicalFieldService';
+import { fetchCharacteristicGroups } from '@/pages/utils/characteristicGroupService';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import { getProductCatalogMutationFailureNotice } from '../../../../../../../../shared-utils/productCatalogPermission';
 import {
@@ -101,10 +102,14 @@ export const useProducts = (filters?: ProductListFilters) => {
     queryFilters,
   );
 
-  const previousQueryFilters = useRef(queryFilters);
-  const queryFiltersChanged = previousQueryFilters.current !== queryFilters;
-  const queryPage = queryFiltersChanged ? 1 : currentPage;
   const queryFiltersKey = JSON.stringify(queryFilters);
+  const pageResetFiltersKey = JSON.stringify([
+    queryFiltersKey,
+    filters?.includeMergedVariations === true,
+  ]);
+  const previousPageResetFiltersKey = useRef(pageResetFiltersKey);
+  const listFiltersChanged = previousPageResetFiltersKey.current !== pageResetFiltersKey;
+  const queryPage = listFiltersChanged ? 1 : currentPage;
   const querySnapshotKey = JSON.stringify([queryFilters, queryPage, itemsPerPage]);
 
   const { data: queryResult, isLoading: serverLoading, error: queryError } = useQuery({
@@ -164,23 +169,10 @@ export const useProducts = (filters?: ProductListFilters) => {
 
   // Reset pagination and selection when filters change
   useEffect(() => {
-    previousQueryFilters.current = queryFilters;
+    previousPageResetFiltersKey.current = pageResetFiltersKey;
     setCurrentPage(1);
     setSelectedProducts([]);
-  }, [
-    filters?.search,
-    filters?.category,
-    filters?.activeOnly,
-    filters?.status,
-    filters?.isDraft,
-    filters?.includeDeactivated,
-    filters?.includeMergedVariations,
-    filters?.itemType,
-    filters?.excludeItemType,
-    filters?.showTrash,
-    filters?.showTestProducts,
-    queryFilters,
-  ]);
+  }, [pageResetFiltersKey]);
 
   const serverTransformed = useMemo(
     () =>
@@ -378,19 +370,31 @@ export const useProducts = (filters?: ProductListFilters) => {
 
       if (newStatus === 'published') {
         let categoryRequirements: Awaited<ReturnType<typeof fetchTechnicalFieldDefinitions>> | null;
+        let characteristicGroups: Awaited<ReturnType<typeof fetchCharacteristicGroups>>['groups'];
         try {
-          categoryRequirements = await withTimeout(
-            fetchTechnicalFieldDefinitions('product-form', {
-              forceRefresh: true,
-              requireCategoryLinks: true,
-            }),
-            15000,
-            null,
-            'produto:verificar-requisitos-do-catalogo'
-          );
+          const [requirementsResult, groupsResult] = await Promise.all([
+            withTimeout(
+              fetchTechnicalFieldDefinitions('product-form', {
+                forceRefresh: true,
+                requireCategoryLinks: true,
+              }),
+              15000,
+              null,
+              'produto:verificar-requisitos-do-catalogo'
+            ),
+            withTimeout(
+              fetchCharacteristicGroups(),
+              15000,
+              null,
+              'produto:verificar-grupos-de-características'
+            ),
+          ]);
+          categoryRequirements = requirementsResult;
           if (!categoryRequirements) throw new Error('Requisitos de categoria indisponíveis.');
+          if (!groupsResult) throw new Error('Grupos de características indisponíveis.');
+          characteristicGroups = groupsResult.groups;
         } catch {
-          toast.error('Não foi possível verificar as características obrigatórias da categoria. O produto não foi publicado.');
+          toast.error('Não foi possível verificar as características e grupos ativos do produto. O produto não foi publicado.');
           return;
         }
 
@@ -398,7 +402,8 @@ export const useProducts = (filters?: ProductListFilters) => {
           parentProduct,
           variation,
           isVariation,
-          categoryRequirements
+          categoryRequirements,
+          { characteristicGroups }
         );
         if (!validation.isValid) {
           const toastOptions = {

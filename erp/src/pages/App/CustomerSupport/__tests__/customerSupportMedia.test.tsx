@@ -57,6 +57,56 @@ describe('Mídias da Central no navegador', () => {
     expect(container.textContent).toContain('WB');
   });
 
+  it('identifica mensagens encaminhadas frequentemente', () => {
+    render(<MessageBubble message={message({
+      messageType: 'text',
+      mediaId: null,
+      textContent: 'Confira esta informação',
+      rawPayload: { provider_message_type: 'text', frequently_forwarded: true },
+    })} />);
+
+    expect(screen.getByText('Encaminhada muitas vezes')).toBeTruthy();
+  });
+
+  it('exibe metadados de segurança e referência recebidos com mídia', () => {
+    render(<MessageBubble message={message({
+      rawPayload: {
+        provider_message_type: 'image',
+        identity: { acknowledged: true, created_timestamp: 1_603_232_300_000 },
+        referral: { headline: 'Oferta do almoço', body: 'Cardápio de hoje', source_type: 'ad', source_id: 'ad-42' },
+      },
+    })} />);
+
+    expect(screen.getByRole('note', { name: 'Aviso de segurança do WhatsApp' }).textContent).toContain('notificação de segurança');
+    expect(screen.getByRole('note', { name: 'Contexto da mensagem' }).textContent).toContain('Oferta do almoço');
+    expect(screen.getByRole('note', { name: 'Contexto da mensagem' }).textContent).toContain('ad-42');
+  });
+
+  it('permite encaminhar uma figurinha recebida', () => {
+    const onForwardMessage = vi.fn();
+    const sticker = message({ messageType: 'sticker', mediaMimeType: 'image/webp' });
+    render(<MessageBubble message={sticker} onForwardMessage={onForwardMessage} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Encaminhar mensagem' }));
+    expect(onForwardMessage).toHaveBeenCalledWith(sticker);
+  });
+
+  it.each(['system', 'request_welcome'] as const)('não oferece responder ou encaminhar para eventos %s', (providerMessageType) => {
+    render(<MessageBubble
+      message={message({
+        messageType: 'interactive',
+        mediaId: null,
+        textContent: 'Aviso do WhatsApp',
+        rawPayload: { provider_message_type: providerMessageType },
+      })}
+      onReplyMessage={vi.fn()}
+      onForwardMessage={vi.fn()}
+    />);
+
+    expect(screen.queryByRole('button', { name: 'Responder esta mensagem' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Encaminhar mensagem' })).toBeNull();
+  });
+
   it('envia o JWT somente no header e revoga a URL ao desmontar', async () => {
     const { result, unmount } = renderHook(() => useCustomerSupportMedia('12345'));
     await waitFor(() => expect(result.current.mediaUrl).toBe('blob:private-media'));
@@ -127,6 +177,19 @@ describe('Mídias da Central no navegador', () => {
     });
     expect(element.getAttribute(messageType === 'document' ? 'href' : 'src')).toBe('blob:private-media');
     expect(container.innerHTML).not.toMatch(/private-jwt|untrusted.example|\/api\/whatsapp-media/);
+  });
+
+  it('usa ícone genérico para documentos sem MIME PDF', () => {
+    const { container } = render(<MessageBubble message={message({
+      messageType: 'document',
+      mediaId: null,
+      mediaMimeType: 'application/zip',
+      mediaFilename: 'anexos.zip',
+    })} />);
+
+    expect(container.querySelector('.bi-file-earmark-pdf-fill')).toBeNull();
+    expect(container.querySelector('.bi-file-earmark')).toBeTruthy();
+    expect(screen.getByText('ZIP')).toBeTruthy();
   });
 
   it('reproduz áudio com controles no estilo WhatsApp, busca e velocidade sem controles nativos', async () => {
@@ -228,5 +291,87 @@ describe('Mídias da Central no navegador', () => {
     render(<MessageBubble message={message({ messageType, mediaId: null, textContent: 'Conteúdo compartilhado' })} />);
     expect(screen.getByText('Conteúdo compartilhado')).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('oferece link seguro para abrir a localização compartilhada', () => {
+    render(<MessageBubble message={message({
+      messageType: 'location',
+      mediaId: null,
+      textContent: '📍 Loja Centro\n-23.55, -46.63',
+      rawPayload: { location: { url: 'https://maps.example/loja' } },
+    })} />);
+
+    expect(screen.getByRole('link', { name: 'Abrir localização' }).getAttribute('href')).toBe('https://maps.example/loja');
+  });
+
+  it('não cria links de navegação para protocolos externos inseguros', () => {
+    render(<MessageBubble message={message({
+      messageType: 'location',
+      mediaId: null,
+      rawPayload: { location: { url: 'javascript:alert(1)' } },
+    })} />);
+
+    expect(screen.queryByRole('link', { name: 'Abrir localização' })).toBeNull();
+  });
+
+  it('exibe erro 131051 como aviso e mantém o código nos detalhes técnicos', () => {
+    const { container } = render(<MessageBubble message={message({
+      messageType: 'unsupported',
+      mediaId: null,
+      textContent: 'A API do WhatsApp informou que este tipo de mensagem não é suportado. (código 131051)',
+      errorCode: '131051',
+      failureReason: 'Unsupported message type — Message type is not currently supported',
+    })} />);
+
+    expect(screen.getByText('Mensagem não suportada pela API do WhatsApp.')).toBeTruthy();
+    const details = container.querySelector('details');
+    expect(details?.textContent).toContain('131051');
+    expect(details?.textContent).toContain('Message type is not currently supported');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('renderiza template com imagem, texto e ações dentro do balão recebido', async () => {
+    render(<MessageBubble message={message({
+      messageType: 'template',
+      mediaId: 'template-image',
+      mediaMimeType: 'image/jpeg',
+      textContent: 'Modelo: atualizacao_almoco\n\nATUALIZAÇÃO DO ALMOÇO',
+      rawPayload: {
+        template_preview: {
+          name: 'atualizacao_almoco',
+          header: { type: 'image' },
+          body: 'ATUALIZAÇÃO DO ALMOÇO\nPassando para informar as opções disponíveis hoje.',
+          footer: 'Consulte o cardápio de hoje.',
+          buttons: [
+            { type: 'url', text: 'Acessar Cardápio', url: 'https://example.com/cardapio' },
+            { type: 'quick_reply', text: 'Desativar mensagens' },
+          ],
+        },
+      },
+    })} />);
+
+    expect(await screen.findByAltText('Imagem do template do WhatsApp')).toBeTruthy();
+    expect(screen.getByText(/ATUALIZAÇÃO DO ALMOÇO/)).toBeTruthy();
+    expect(screen.getByText('Consulte o cardápio de hoje.')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Acessar Cardápio' }).getAttribute('href')).toBe('https://example.com/cardapio');
+    expect(screen.getByText('Desativar mensagens')).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith('/api/whatsapp-media?id=template-image', expect.any(Object));
+  });
+
+  it('mostra URL insegura de template sem criar um link executável', () => {
+    render(<MessageBubble message={message({
+      messageType: 'template',
+      mediaId: null,
+      textContent: 'Modelo com ação insegura',
+      rawPayload: {
+        template_preview: {
+          body: 'Modelo com ação insegura',
+          buttons: [{ type: 'url', text: 'Abrir oferta', url: 'javascript:alert(1)' }],
+        },
+      },
+    })} />);
+
+    expect(screen.getByText('Abrir oferta')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Abrir oferta' })).toBeNull();
   });
 });

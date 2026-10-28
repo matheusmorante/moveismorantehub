@@ -249,7 +249,8 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     });
     expect(mocks.saveProduct).not.toHaveBeenCalled();
     expect(vi.mocked(toast.error)).toHaveBeenCalledWith(
-      'Não foi possível verificar as características obrigatórias da categoria. O produto publicado não foi alterado.'
+      'Não foi possível verificar as características obrigatórias da categoria. O produto publicado não foi alterado.',
+      { autoClose: 8000 }
     );
   });
   it('não salva produto publicado se o operador cancelar salvar e ocultar do Catálogo', async () => {
@@ -393,7 +394,8 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     expect(mocks.saveProduct).not.toHaveBeenCalled();
     expect(setActiveTab).toHaveBeenCalledWith('composicao');
     expect(toast.error).toHaveBeenCalledWith(
-      'Vincule pelo menos 2 produtos componentes para manter ativa esta composição.'
+      'Vincule pelo menos 2 produtos componentes para manter ativa esta composição.',
+      { autoClose: 8000 }
     );
   });
 
@@ -412,7 +414,8 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     expect(variations.setEditingVariationId).toHaveBeenCalledWith('v1');
     expect(setActiveTab).toHaveBeenCalledWith('variacoes');
     expect(toast.error).toHaveBeenCalledWith(
-      expect.stringContaining('deve ter pelo menos 1 foto vinculada para concluir o cadastro')
+      expect.stringContaining('deve ter pelo menos 1 foto vinculada para concluir o cadastro'),
+      { autoClose: 8000 }
     );
   });
 });

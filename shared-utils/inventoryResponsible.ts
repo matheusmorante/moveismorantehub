@@ -11,6 +11,9 @@ const INVENTORY_RESPONSIBLE_ROLES = new Set([
 
 export interface InventoryResponsibleCandidate {
   id?: string | number;
+  email?: string | null;
+  updatedAt?: string | null;
+  updated_at?: string | null;
   type?: string;
   person_type?: string;
   role?: unknown;
@@ -50,7 +53,32 @@ export const isEligibleInventoryResponsible = (person: InventoryResponsibleCandi
 
 export const filterInventoryResponsibleCandidates = <T extends InventoryResponsibleCandidate>(
   candidates: readonly T[]
-): T[] => candidates.filter(isEligibleInventoryResponsible);
+): T[] => {
+  const eligible = candidates.filter(isEligibleInventoryResponsible);
+  const uniqueByIdentity = new Map<string, T>();
+
+  eligible.forEach((candidate, index) => {
+    const email = typeof candidate.email === 'string' ? candidate.email.trim().toLowerCase() : '';
+    const identity = email
+      ? `email:${email}`
+      : candidate.id == null
+        ? `row:${index}`
+        : `id:${String(candidate.id)}`;
+    const existing = uniqueByIdentity.get(identity);
+    if (!existing || getUpdatedAt(candidate) > getUpdatedAt(existing)) {
+      uniqueByIdentity.set(identity, candidate);
+    }
+  });
+
+  return Array.from(uniqueByIdentity.values());
+};
+
+const getUpdatedAt = (candidate: InventoryResponsibleCandidate): number => {
+  const value = candidate.updated_at || candidate.updatedAt;
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
+};
 
 export const findDefaultInventoryResponsibleId = (
   candidates: readonly InventoryResponsibleCandidate[],

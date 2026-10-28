@@ -5,6 +5,7 @@ import { isProductDraft } from '../../../../../shared-utils/productDraftSnapshot
 import {
   PRODUCT_LIST_PAGE_SIZES,
   productListFormSchema,
+  productListSearchFormSchema,
   type ProductListPageSize,
 } from '../../../../../shared-utils/listingFormSchemas';
 import { validateCatalogPublication } from '../../../../../shared-utils/catalogPublicationValidation';
@@ -22,8 +23,6 @@ import {
   resolveAppliedMobileProductSearch,
   resolveMobileProductListResetState,
   resolveMobileProductStatusFilter,
-  resolveSubmittedMobileProductSearch,
-  shouldExcludeMobileDraftsDuringSearch,
 } from '../domain/mobileProductListFilters';
 import {
   createMobileProductListRequestGuard,
@@ -70,6 +69,7 @@ export function useMobileProducts(
   const [searchTerm, setSearchTerm] = useState(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.searchTerm);
   const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
   const searchDebounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchValidationSequenceRef = useRef(0);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'draft'>(
     DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.statusFilter
   );
@@ -140,6 +140,24 @@ export function useMobileProducts(
     showTestProducts: canShowTestProducts,
     showMergedProducts,
   });
+  const { validateValues: validateProductSearch } = useZodForm(
+    productListSearchFormSchema,
+    { input: '', intent: 'debounced' },
+  );
+
+  const applyValidatedProductSearch = useCallback(async (
+    input: string,
+    intent: 'debounced' | 'submitted',
+    sequence: number,
+  ) => {
+    const parsed = await validateProductSearch({ input, intent });
+    if (
+      parsed === false ||
+      sequence !== searchValidationSequenceRef.current ||
+      parsed.search === null
+    ) return;
+    setAppliedSearchTerm(parsed.search);
+  }, [validateProductSearch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,11 +186,12 @@ export function useMobileProducts(
   useEffect(() => {
     const trimmedSearch = searchTerm.trim();
     const nextSearch = resolveAppliedMobileProductSearch(searchTerm);
+    const sequence = ++searchValidationSequenceRef.current;
     if (nextSearch === appliedSearchTerm) return;
 
     if (trimmedSearch.length > 0) {
       const timeout = setTimeout(
-        () => setAppliedSearchTerm(nextSearch),
+        () => void applyValidatedProductSearch(searchTerm, 'debounced', sequence),
         PRODUCT_LIST_SEARCH_DEBOUNCE_MS
       );
       searchDebounceTimeoutRef.current = timeout;
@@ -184,17 +203,22 @@ export function useMobileProducts(
       };
     }
 
-    setAppliedSearchTerm(nextSearch);
-  }, [searchTerm, appliedSearchTerm]);
+    void applyValidatedProductSearch(searchTerm, 'debounced', sequence);
+  }, [searchTerm, appliedSearchTerm, applyValidatedProductSearch]);
+
+  const handleSearchTermChange = useCallback((value: string) => {
+    searchValidationSequenceRef.current += 1;
+    setSearchTerm(value);
+  }, []);
 
   const submitSearchTerm = useCallback(() => {
     if (searchDebounceTimeoutRef.current) {
       clearTimeout(searchDebounceTimeoutRef.current);
       searchDebounceTimeoutRef.current = null;
     }
-    const submittedSearch = resolveSubmittedMobileProductSearch(searchTerm);
-    if (submittedSearch !== null) setAppliedSearchTerm(submittedSearch);
-  }, [searchTerm]);
+    const sequence = ++searchValidationSequenceRef.current;
+    void applyValidatedProductSearch(searchTerm, 'submitted', sequence);
+  }, [applyValidatedProductSearch, searchTerm]);
 
   const loadProducts = useCallback(
     async (pull = false, page = 1) => {
@@ -252,13 +276,8 @@ export function useMobileProducts(
           () => fetchMobileProductsPage(values.page, values.itemsPerPage, {
             search: values.search,
             statusFilter: resolveMobileProductStatusFilter(values.statusFilter, values.search),
-            // O ERP suspende o filtro de ativo durante uma busca para permitir
-            // localizar também itens desativados pelo nome/código/SKU.
-            // Ao partir de Ativos/Desativados, mantém isDraft=false e exclui rascunhos.
-            excludeDraftsDuringSearch: shouldExcludeMobileDraftsDuringSearch(
-              values.statusFilter,
-              values.search
-            ),
+            // O ERP suspende ativo/desativado na busca e não adiciona um filtro
+            // de rascunhos, exceto quando Rascunhos foi selecionado explicitamente.
             includeDeactivated:
               values.includeDeactivated || values.statusFilter === 'disabled' || Boolean(values.search),
             // Itens mesclados ficam ocultos por padrão, a menos que o usuário ative showMergedProducts
@@ -356,6 +375,7 @@ export function useMobileProducts(
       showTestProducts,
       showMergedProducts,
     });
+    searchValidationSequenceRef.current += 1;
     setSearchTerm(resetState.searchTerm);
     setAppliedSearchTerm(resetState.searchTerm);
     setStatusFilter(resetState.statusFilter);
@@ -715,7 +735,7 @@ export function useMobileProducts(
     totalPages,
     itemsPerPage,
     onItemsPerPageChange: handleItemsPerPageChange,
-    setSearchTerm,
+    setSearchTerm: handleSearchTermChange,
     submitSearchTerm,
     resetFilters,
     setStatusFilter,

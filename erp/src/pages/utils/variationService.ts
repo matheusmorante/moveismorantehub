@@ -148,7 +148,7 @@ export const fetchVariations = async (
     let attrData: any[] | null = null;
     const primaryQuery = await fetchAllVariationRows(
       'attributes',
-      'id, name, active, data_type, unit, is_globally_required, is_custom, decimal_places',
+      'id, name, active, data_type, unit, is_globally_required, is_custom, decimal_places, group_id, configuration',
       ['name', 'id']
     );
 
@@ -187,15 +187,27 @@ export const fetchVariations = async (
     );
     if (valErr) throw valErr;
 
-    // 2.5 Enriquecer com vínculos de categoria quando a migration já estiver disponível.
-    // A ausência dessa tabela não pode ocultar as características globais existentes.
-    const { data: catAttrData, error: catAttrErr } = await fetchAllVariationRows(
-      'category_attributes',
-      'attribute_id, category_id, is_required',
-      ['attribute_id', 'category_id']
-    );
+    // Aplicação da característica e obrigatoriedade do catálogo têm finalidades distintas.
+    const [catalogLinks, categoryApplications] = await Promise.all([
+      fetchAllVariationRows(
+        'category_attributes',
+        'attribute_id, category_id, is_required',
+        ['attribute_id', 'category_id']
+      ),
+      fetchAllVariationRows(
+        'attribute_category_applications',
+        'attribute_id, category_id, application, is_configured',
+        ['attribute_id', 'category_id']
+      ),
+    ]);
+    const { data: catAttrData, error: catAttrErr } = catalogLinks;
+    const { data: categoryApplicationData, error: categoryApplicationErr } = categoryApplications;
     if (catAttrErr) {
       console.warn('Aviso ao buscar vínculos de categorias das características:', catAttrErr);
+    }
+    if (categoryApplicationErr) {
+      console.warn('Aviso ao buscar aplicações das características por categoria:', categoryApplicationErr);
+      throw categoryApplicationErr;
     }
 
     // 3. Mapear para a estrutura VariationType usada no ERP
@@ -209,6 +221,11 @@ export const fetchVariations = async (
         attr.decimal_places === 1 || attr.decimal_places === 2 || attr.decimal_places === 3
           ? attr.decimal_places
           : undefined,
+      groupId: typeof attr.group_id === 'string' ? attr.group_id : undefined,
+      configuration:
+        attr.configuration && typeof attr.configuration === 'object' && !Array.isArray(attr.configuration)
+          ? attr.configuration
+          : {},
       isGloballyRequired:
         Boolean(attr.is_globally_required) || isWeightCharacteristicName(attr.name),
       isCustom: Boolean(attr.is_custom),
@@ -219,6 +236,7 @@ export const fetchVariations = async (
             id: String(val.id),
             value: val.value,
             sortOrder: Number.isInteger(val.sort_order) ? val.sort_order : undefined,
+            active: val.active !== false,
           }));
         return values.some((value: VariationOption) => value.sortOrder !== undefined)
           ? values.sort(
@@ -233,6 +251,13 @@ export const fetchVariations = async (
         .map((ca: any) => ({
           categoryId: ca.category_id,
           isRequired: Boolean(ca.is_required) || isWeightCharacteristicName(attr.name),
+        })),
+      categoryApplications: (categoryApplicationErr ? [] : categoryApplicationData || [])
+        // Unconfigured rows carry the optional default and must still reach product forms.
+        .filter((application: any) => application.attribute_id === attr.id)
+        .map((application: any) => ({
+          categoryId: String(application.category_id),
+          application: application.application,
         })),
       deleted: false, // Exclusões sem uso são físicas; itens usados ficam ativos=false.
     }));
@@ -313,17 +338,37 @@ const persistVariationDefinition = async (
   const definition: Record<string, unknown> = { ...variation };
   if (variation.dataType) definition.dataType = normalizeAttributeDataType(variation.dataType);
   if (variation.name !== undefined) definition.name = capitalize(variation.name.trim());
+  if (variation.groupId !== undefined) definition.groupId = variation.groupId;
+  if (variation.configuration !== undefined) {
+    const configuration = { ...variation.configuration };
+    delete configuration.dependencyLogic;
+    definition.configuration = configuration;
+  }
+  if (variation.dependency !== undefined) definition.dependency = variation.dependency;
   if (variation.options !== undefined) {
     definition.options = variation.options.map((option, index) => ({
       ...option,
       value: capitalize(option.value.trim()),
+      active: option.active !== false,
       sortOrder: index,
     }));
   }
 
-  const { data, error } = await supabase.rpc('save_product_characteristic_definition', {
+  const usesExtendedDefinition =
+    variation.groupId !== undefined ||
+    variation.configuration !== undefined ||
+    variation.dependency !== undefined ||
+    variation.categoryApplications !== undefined;
+  const { data, error } = await supabase.rpc(
+    variation.dependencyAlternatives !== undefined
+      ? 'save_product_characteristic_definition_v3'
+      : usesExtendedDefinition
+      ? 'save_product_characteristic_definition_v2'
+      : 'save_product_characteristic_definition',
+    {
     p_definition: definition,
-  });
+    }
+  );
   if (error) throw error;
   if (typeof data !== 'string' || !data) {
     throw new Error('O banco não retornou o identificador da característica salva.');

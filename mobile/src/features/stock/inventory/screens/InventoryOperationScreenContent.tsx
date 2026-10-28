@@ -42,6 +42,8 @@ interface Props {
   onCancel?: () => void;
 }
 
+const SCAN_ERROR_FEEDBACK_COOLDOWN_MS = 10_000;
+
 export const InventoryOperationScreenContent: React.FC<Props> = ({
   isDarkMode,
   inventoryId,
@@ -59,6 +61,7 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
   const [showScanner, setShowScanner] = useState(false);
   const [activeStage, setActiveStage] = useState<string | null>(null);
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
+  const recentErrorFeedbackAtRef = React.useRef(new Map<string, number>());
 
   const activeItems = React.useMemo(() => {
     if (scopeType !== 'full') return items;
@@ -73,12 +76,33 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
-  const countedItems = activeItems.filter((i) => i.physicalCount !== null);
-  const progressPercent =
-    activeItems.length > 0 ? Math.round((countedItems.length / activeItems.length) * 100) : 0;
   const isShowingStages = scopeType === 'full' && !activeStage;
+  const progressItems = isShowingStages ? items : activeItems;
+  const countedItems = progressItems.filter((i) => i.physicalCount !== null);
+  const progressPercent =
+    progressItems.length > 0 ? Math.round((countedItems.length / progressItems.length) * 100) : 0;
 
-  const handleScan = async (data: string): Promise<InventoryScanFeedback> => {
+  const withErrorFeedbackCooldown = (
+    data: string,
+    feedback: InventoryScanFeedback
+  ): InventoryScanFeedback | undefined => {
+    if (feedback.kind === 'success') return feedback;
+
+    const feedbackKey = getPhysicalInventoryScanId(data) || data.trim();
+    const now = Date.now();
+    const lastShownAt = recentErrorFeedbackAtRef.current.get(feedbackKey);
+    if (lastShownAt !== undefined && now - lastShownAt < SCAN_ERROR_FEEDBACK_COOLDOWN_MS)
+      return undefined;
+
+    for (const [key, shownAt] of recentErrorFeedbackAtRef.current) {
+      if (now - shownAt >= SCAN_ERROR_FEEDBACK_COOLDOWN_MS)
+        recentErrorFeedbackAtRef.current.delete(key);
+    }
+    recentErrorFeedbackAtRef.current.set(feedbackKey, now);
+    return feedback;
+  };
+
+  const handleScan = async (data: string): Promise<InventoryScanFeedback | undefined> => {
     const findDirect = (source: AuditItem[]) =>
       source.find((i) => matchScannedProductItem(i, data));
     let item = findDirect(scannerItems);
@@ -106,20 +130,27 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
 
     if (!item) {
       if (otherSupplierItem)
-        return {
+        return withErrorFeedbackCooldown(data, {
           kind: 'error',
           title: 'Produto de outro fornecedor',
           message: `Produto: ${otherSupplierItem.name}\nFornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}\nNenhuma quantidade foi alterada. Volte à lista, escolha esse fornecedor ou use o scanner geral.`,
-        };
-      return { kind: 'error', title: 'Produto não pertence a este inventário' };
+        });
+      return withErrorFeedbackCooldown(data, {
+        kind: 'error',
+        title: 'Produto não pertence a este inventário',
+      });
     }
 
     try {
       const physicalLabelId = getPhysicalInventoryScanId(data);
       const nextCount = await onIncrementScannedItem(item.id, physicalLabelId);
       if (nextCount === null)
-        return { kind: 'warning', title: 'Unidade física já contabilizada', message: item.name };
-      return {
+        return withErrorFeedbackCooldown(data, {
+          kind: 'warning',
+          title: 'Unidade física já contabilizada',
+          message: item.name,
+        });
+      return withErrorFeedbackCooldown(data, {
         kind: 'success',
         title: item.name,
         sku: item.sku || item.code || item.barcode || '—',
@@ -130,14 +161,14 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
           item.isActive === false
             ? `Produto desativado — ${nextCount} ${nextCount === 1 ? 'unidade encontrada' : 'unidades encontradas'}`
             : undefined,
-      };
+      });
     } catch (error) {
       console.error('[Inventory] Falha ao salvar leitura:', error);
-      return {
+      return withErrorFeedbackCooldown(data, {
         kind: 'error',
         title: 'Falha ao salvar a contagem local',
         message: 'Verifique o armazenamento do aparelho antes de continuar.',
-      };
+      });
     }
   };
 
@@ -148,9 +179,9 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
     >
       <InventoryOperationHeader
         isDarkMode={isDarkMode}
-        title={activeStage ? `${inventoryName} - ${activeStage}` : inventoryName}
+        title={activeStage || inventoryName}
         countedCount={countedItems.length}
-        totalCount={activeItems.length}
+        totalCount={progressItems.length}
         progressPercent={progressPercent}
         onBack={activeStage ? () => setActiveStage(null) : onCancel || (() => {})}
         onOpenScanner={() => setShowScanner(true)}
@@ -222,6 +253,9 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
       >
         <InventoryScannerScreen
           isDarkMode={isDarkMode}
+          countedCount={countedItems.length}
+          totalCount={progressItems.length}
+          progressPercent={progressPercent}
           onClose={() => {
             void onFlushLocalWrites()
               .then(() => setShowScanner(false))
@@ -232,7 +266,7 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
           onScan={handleScan}
           continuous
           title=""
-          restrictToScannerFrame
+          inventoryLayout
           description={
             scopeType === 'full'
               ? activeStage

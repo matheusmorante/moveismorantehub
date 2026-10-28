@@ -226,6 +226,44 @@ describe('useProducts query snapshot', () => {
     expect(result.current.currentPage).toBe(1);
   });
 
+  it('não mantém os itens da página antiga no render que habilita variações mescladas', async () => {
+    mocks.fetchProductsPage.mockImplementation(async (page: number) => ({
+      data: [{ id: `page-${page}`, variations: [] }],
+      total: 40,
+    }));
+    const observedRenders: Array<{
+      includeMergedVariations: boolean;
+      currentPage: number;
+      productIds: string[];
+    }> = [];
+    const { result, rerender } = renderHook(
+      ({ includeMergedVariations }: { includeMergedVariations: boolean }) => {
+        const state = useProducts({ includeMergedVariations });
+        observedRenders.push({
+          includeMergedVariations,
+          currentPage: state.currentPage,
+          productIds: state.products.map((product) => String(product.id)),
+        });
+        return state;
+      },
+      { initialProps: { includeMergedVariations: false }, wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.products.map((product) => product.id)).toEqual(['page-1']));
+    act(() => result.current.setCurrentPage(3));
+    await waitFor(() => expect(result.current.products.map((product) => product.id)).toEqual(['page-3']));
+
+    observedRenders.length = 0;
+    rerender({ includeMergedVariations: true });
+
+    await waitFor(() => expect(result.current.currentPage).toBe(1));
+    expect(
+      observedRenders.some(
+        (render) => render.includeMergedVariations && render.productIds.includes('page-3'),
+      ),
+    ).toBe(false);
+  });
+
   it('preserva composição, exclusão de rascunhos e Catálogo ao buscar a partir de desativados', async () => {
     mocks.fetchProductsPage.mockResolvedValue({ data: [], total: 40 });
     const filters: ProductListFilters = {

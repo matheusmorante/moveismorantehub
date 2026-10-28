@@ -4,7 +4,6 @@ import {
   normalizeTechnicalName,
   normalizeSearchTerm,
   parseNumericDimension,
-  getToggledDepthLengthTarget,
   computeTechnicalFieldItemState,
   isOptionalFieldSelected,
   hasCharacteristicValue,
@@ -39,40 +38,6 @@ describe('technicalTabUtils', () => {
       expect(parseNumericDimension('abc')).toBeUndefined();
       expect(parseNumericDimension(null)).toBeUndefined();
       expect(parseNumericDimension(undefined)).toBeUndefined();
-    });
-  });
-
-  describe('getToggledDepthLengthTarget', () => {
-    const definitions: TechnicalFieldDefinition[] = [
-      { id: '1', name: 'Profundidade' },
-      { id: '2', name: 'Comprimento' },
-      { id: '3', name: 'Profundidade total' },
-      { id: '4', name: 'Comprimento total' },
-    ];
-
-    it('alterna Profundidade para Comprimento', () => {
-      const target = getToggledDepthLengthTarget('Profundidade', definitions);
-      expect(target?.name).toBe('Comprimento');
-    });
-
-    it('alterna Comprimento para Profundidade', () => {
-      const target = getToggledDepthLengthTarget('Comprimento', definitions);
-      expect(target?.name).toBe('Profundidade');
-    });
-
-    it('alterna Profundidade total para Comprimento total', () => {
-      const target = getToggledDepthLengthTarget('Profundidade total', definitions);
-      expect(target?.name).toBe('Comprimento total');
-    });
-
-    it('alterna Comprimento total para Profundidade total', () => {
-      const target = getToggledDepthLengthTarget('Comprimento total', definitions);
-      expect(target?.name).toBe('Profundidade total');
-    });
-
-    it('retorna undefined caso não encontre campo compatível', () => {
-      const target = getToggledDepthLengthTarget('Profundidade', []);
-      expect(target).toBeUndefined();
     });
   });
 

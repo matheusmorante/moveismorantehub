@@ -20,6 +20,8 @@ import {
 } from '../../domain/technicalFieldInputRules';
 import { isQuantityCharacteristic } from '../../../../../../shared-utils/productCharacteristicDependencies';
 import { normalizeSearchTerm } from '../../../../../../shared-utils/productText';
+import { isProductTechnicalFieldYesNo } from '../../../../../../shared-utils/productTechnicalFieldYesNo';
+import { parseProductBooleanCharacteristicValue } from '../../../../../../shared-utils/productBooleanCharacteristicValue';
 import {
   getTechnicalFieldIntegerMaxValue,
   isWeightCapacityCharacteristic,
@@ -49,15 +51,6 @@ const normalizeValue = (value: unknown) =>
 
 const normalizeYesNoValue = (value: unknown) =>
   normalizeValue(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-const isYesNoField = (field: Props['field']) => {
-  if (field.data_type === 'boolean') return true;
-  const options = (field.options || []).map((option) => normalizeYesNoValue(option.value));
-  const allowed = new Set(['sim', 'nao', 'nao se aplica', '']);
-  const optionsAreYesNo =
-    options.length > 0 && options.length <= 3 && options.every((option) => allowed.has(option));
-  return optionsAreYesNo || (/^possui\s+/i.test(field.name.trim()) && options.length <= 2);
-};
 
 const formatDecimal = (value: unknown, decimalPlaces: 1 | 2 | 3) => {
   if (value === '' || value === null || value === undefined) return '';
@@ -122,6 +115,58 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
       type === 'percentage' ? formatPercentage(value) : formatDecimal(value, decimalPlaces)
     );
   }, [value, decimalPlaces, type]);
+
+  if (type === 'boolean' || field.data_type === 'boolean') {
+    const answer = parseProductBooleanCharacteristicValue(value);
+    const label = answer === null ? 'Não informado' : answer ? 'Sim' : 'Não';
+    return (
+      <View style={styles.booleanSwitchRow}>
+        <Text style={[styles.booleanSwitchLabel, dark && styles.lightText]}>{label}</Text>
+        <View
+          style={[
+            styles.booleanSwitchTrack,
+            {
+              backgroundColor:
+                answer === true
+                  ? dark ? '#059669' : '#10b981'
+                  : answer === false
+                    ? dark ? '#475569' : '#94a3b8'
+                    : dark ? '#334155' : '#cbd5e1',
+            },
+            disabled && styles.disabled,
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.booleanSwitchSide}
+            disabled={disabled}
+            onPress={() => onChange(answer === false ? null : false)}
+            accessibilityRole="radio"
+            accessibilityLabel={`${field.name}: Não`}
+            accessibilityState={{ selected: answer === false, disabled }}
+          />
+          <TouchableOpacity
+            style={styles.booleanSwitchSide}
+            disabled={disabled}
+            onPress={() => onChange(answer === true ? null : true)}
+            accessibilityRole="radio"
+            accessibilityLabel={`${field.name}: Sim`}
+            accessibilityState={{ selected: answer === true, disabled }}
+          />
+          <View
+            pointerEvents="none"
+            style={[
+              styles.booleanSwitchThumb,
+              answer === true
+                ? styles.booleanSwitchThumbOn
+                : answer === null
+                  ? styles.booleanSwitchThumbUnanswered
+                  : undefined,
+            ]}
+          />
+        </View>
+      </View>
+    );
+  }
 
   if (disabled && placeholder) {
     return (
@@ -244,15 +289,16 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
     );
   }
 
-  if (type === 'boolean' || isYesNoField(field)) {
-    const isBoolean = type === 'boolean' || field.data_type === 'boolean';
+  if (isProductTechnicalFieldYesNo({
+      name: field.name,
+      dataType: field.data_type,
+      options: field.options,
+    })) {
     const yesValue =
       options.find((option) => normalizeYesNoValue(option.value) === 'sim')?.value || 'Sim';
     const noValue =
       options.find((option) => normalizeYesNoValue(option.value) === 'nao')?.value || 'Não';
-    const notApplicableValue = isBoolean
-      ? undefined
-      : options.find((option) => normalizeYesNoValue(option.value) === 'nao se aplica')?.value;
+    const notApplicableValue = options.find((option) => normalizeYesNoValue(option.value) === 'nao se aplica')?.value;
     const normalizedValue = normalizeYesNoValue(value);
     const currentValue =
       value === true || value === 1 || ['true', '1', 'sim', 's', 'yes', 'ligado'].includes(normalizedValue)
@@ -263,8 +309,8 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
             ? 'not_applicable'
             : '';
     const yesNoOptions = [
-      { key: 'yes', label: yesValue, outputValue: isBoolean ? true : yesValue },
-      { key: 'no', label: noValue, outputValue: isBoolean ? false : noValue },
+      { key: 'yes', label: yesValue, outputValue: yesValue },
+      { key: 'no', label: noValue, outputValue: noValue },
       ...(notApplicableValue
         ? [
             {
@@ -501,6 +547,29 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   booleanOptions: { flexDirection: 'row', gap: 8 },
+  booleanSwitchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
+  booleanSwitchLabel: { color: '#475569', fontSize: 12, fontWeight: '600' },
+  booleanSwitchTrack: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    flexDirection: 'row',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  booleanSwitchSide: { width: 24, height: 28, zIndex: 1 },
+  booleanSwitchThumb: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#fff',
+    elevation: 2,
+  },
+  booleanSwitchThumbOn: { left: 23 },
+  booleanSwitchThumbUnanswered: { left: 13 },
   booleanOption: {
     flex: 1,
     minHeight: 44,

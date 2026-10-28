@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Product from '@/pages/types/product.type';
 import Order from '@/pages/types/order.type';
@@ -29,6 +29,10 @@ export interface ProductSalesModalProps {
 export const ProductSalesModal: React.FC<ProductSalesModalProps> = ({ product, onClose }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const target = product as ProductSalesTargetLike;
   const variationId = target.variationId || (product.isVariation ? product.id : undefined);
@@ -36,18 +40,27 @@ export const ProductSalesModal: React.FC<ProductSalesModalProps> = ({ product, o
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
     const fetchOrders = async () => {
       setLoading(true);
+      setLoadError(false);
       try {
         const data = await getOrdersByProductId(
           productId,
-          variationId ? String(variationId) : undefined
+          variationId ? String(variationId) : undefined,
+          controller.signal,
         );
         if (isMounted) {
           setOrders(data);
         }
       } catch (error: unknown) {
-        console.error('Falha ao carregar pedidos vinculados ao produto:', error);
+        if (!controller.signal.aborted) {
+          console.error('Falha ao carregar pedidos vinculados ao produto:', error);
+        }
+        if (isMounted && !controller.signal.aborted) {
+          setOrders([]);
+          setLoadError(true);
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -59,16 +72,17 @@ export const ProductSalesModal: React.FC<ProductSalesModalProps> = ({ product, o
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       isMounted = false;
+      controller.abort();
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [productId, variationId, onClose]);
+  }, [productId, variationId, retryKey]);
 
   const getQuantityInOrder = (order: Order) => {
     const normalItems = (order.items || [])
@@ -140,6 +154,23 @@ export const ProductSalesModal: React.FC<ProductSalesModalProps> = ({ product, o
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                 Buscando pedidos...
               </span>
+            </div>
+          ) : loadError ? (
+            <div
+              role="alert"
+              className="flex flex-col items-center justify-center py-20 gap-4 text-center"
+            >
+              <h3 className="text-lg font-black text-slate-800 dark:text-slate-200">
+                Não foi possível carregar os pedidos
+              </h3>
+              <button
+                type="button"
+                onClick={() => setRetryKey((current) => current + 1)}
+                aria-label="Tentar carregar pedidos vinculados novamente"
+                className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-widest"
+              >
+                Tentar novamente
+              </button>
             </div>
           ) : orders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center bg-slate-50/50 dark:bg-slate-800/10 rounded-[3rem] border-2 border-dashed border-slate-100 dark:border-slate-800">

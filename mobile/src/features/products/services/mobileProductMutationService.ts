@@ -734,15 +734,22 @@ export async function saveMobileProduct(
       const v = variationsToSave[vIdx];
       const variationAttributes = Array.isArray(v.attributes)
         ? v.attributes
-            .filter((attribute: any) => attribute?.name && attribute?.value)
+            .filter((attribute: any) =>
+              attribute?.name &&
+              attribute.value !== undefined &&
+              (typeof attribute.value !== 'string' || attribute.value.trim() !== '')
+            )
             .map((attribute: any) => ({
               name: attribute.name,
-              value: String(attribute.value),
+              value: attribute.value,
               showName: attribute.showName ?? true,
             }))
         : Object.entries(v.attributes || {})
-            .filter(([, value]) => value !== null && value !== undefined && String(value).trim())
-            .map(([name, value]) => ({ name, value: String(value), showName: true }));
+            .filter(([, value]) =>
+              value !== undefined &&
+              (value === null || typeof value !== 'string' || value.trim() !== '')
+            )
+            .map(([name, value]) => ({ name, value, showName: true }));
       const rawSku = normalizeVariationSku(v.sku);
       const defaultSku = generateVariationSku(parentCode, vIdx);
       let resolvedSku = rawSku || defaultSku;
@@ -801,6 +808,7 @@ export async function saveMobileProduct(
         use_parent_promo_price: v.syncPromoPrice !== false,
         use_parent_dimensions: v.syncWidth !== false,
         use_parent_description: v.syncDescription !== false,
+        use_parent_name: true,
         status: productData.isDraft ? 'draft' : v.status || payload.status || 'hidden',
         active: productData.isDraft ? false : (v.active ?? productData.active ?? true),
         attributes: variationAttributes,

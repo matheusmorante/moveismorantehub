@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
+import type { CharacteristicGroup } from '@/pages/types/variation.type';
 import {
   TechnicalFieldDefinition,
   getAvailableAdditionalFields,
   getApplicableTechnicalFields,
-  getEffectiveTechnicalValue,
+  getCharacteristicDependencyState,
   isCharacteristicDependent,
   isCharacteristicDependentOnVariableField,
   isQuantityCharacteristic,
@@ -20,6 +21,7 @@ import {
   isChairWeightCapacityCharacteristic,
 } from '@/pages/utils/technicalValuesService';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
+import { fetchCharacteristicGroups } from '@/pages/utils/characteristicGroupService';
 import { AttributeManagementModal } from '../modals/attributes/AttributeManagementModal';
 import { VariationTechnicalFieldItem } from './VariationTechnicalFieldItem';
 import { VariationTechnicalSearchControl } from './VariationTechnicalSearchControl';
@@ -42,8 +44,18 @@ import {
 } from '../tabs/technical/sync/dependentCleanup';
 import {
   isSofaCategoryName,
-  isWardrobeCategoryName,
 } from '../../../../../../../shared-utils/productTechnicalFieldRules';
+import {
+  getTechnicalFieldDisplayName,
+  areTechnicalCharacteristicNamesEquivalent,
+  isTechnicalFieldAllowedForCategories,
+} from '../../../../../../../shared-utils/productTechnicalFieldScope';
+import {
+  evaluateCharacteristicDependencies,
+  evaluateCharacteristicDependency,
+  getCharacteristicDependencies,
+} from '../../../../../../../shared-utils/characteristicDependencyRules';
+import { resolveProductCharacteristicApplication } from '../tabs/technical/productCharacteristicGroupRules';
 
 export interface VariationTechnicalTabProps {
   readonly formData: Variation & { readonly material?: string | null };
@@ -80,9 +92,12 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   const [allTechnicalFields, setAllTechnicalFields] = useState<TechnicalFieldDefinition[]>(
     initialTechnicalFields || []
   );
+  const [characteristicGroups, setCharacteristicGroups] = useState<CharacteristicGroup[]>([]);
   const [manualFieldNames, setManualFieldNames] = useState<string[]>([]);
   const [loadingFields, setLoadingFields] = useState(false);
+  const [loadingGroups, setLoadingGroups] = useState(true);
   const [fieldsError, setFieldsError] = useState('');
+  const [groupsError, setGroupsError] = useState('');
   const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
   const [debouncedCharacteristicSearchTerm, setDebouncedCharacteristicSearchTerm] = useState('');
 
@@ -125,11 +140,42 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     };
   }, [refreshKey, initialTechnicalFields]);
 
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingGroups(true);
+    setGroupsError('');
+
+    const loadGroups = async () => {
+      try {
+        const result = await withTimeout(
+          fetchCharacteristicGroups(),
+          15000,
+          null,
+          'variacao:aplicacoes-dos-grupos-de-caracteristicas'
+        );
+        if (!result) throw new Error('Consulta de grupos não confirmada.');
+        if (isMounted) setCharacteristicGroups(result.groups);
+      } catch {
+        if (isMounted) {
+          setCharacteristicGroups([]);
+          setGroupsError('Não foi possível verificar os grupos de características. Consulte novamente.');
+        }
+      } finally {
+        if (isMounted) setLoadingGroups(false);
+      }
+    };
+
+    void loadGroups();
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshKey]);
+
   // Características definidas na própria variação (ex: Cor, Material, Tamanho)
   const variationAttributeValues = useMemo(() => {
     const map: Record<string, any> = {};
     (formData?.attributes || []).forEach((attr) => {
-      if (attr.name && attr.value !== undefined && attr.value !== null && attr.value !== '') {
+      if (attr.name && attr.value !== undefined && attr.value !== '') {
         map[attr.name] = attr.value;
         map[attr.name.trim().toLowerCase()] = attr.value;
       }
@@ -205,27 +251,125 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   ]);
 
   // Todas as especificações técnicas ativas cadastradas aparecem na variação
+  const fieldsWithGroupNames = useMemo(() => {
+    const groupNameById = new Map(
+      characteristicGroups.map((group) => [group.id, group.name] as const)
+    );
+    return allTechnicalFields.map((field) => ({
+      ...field,
+      groupName: field.groupId ? groupNameById.get(field.groupId) : undefined,
+    }));
+  }, [allTechnicalFields, characteristicGroups]);
+
   const applicableFields = useMemo(
     () =>
       getApplicableTechnicalFields(
-        allTechnicalFields,
+        fieldsWithGroupNames,
         parentProduct.categoryIds || [],
         combinedValues,
-        manualFieldNames
+        manualFieldNames,
+        [parentProduct.category || '']
       ),
-    [allTechnicalFields, parentProduct.categoryIds, combinedValues, manualFieldNames]
+    [fieldsWithGroupNames, parentProduct.category, parentProduct.categoryIds, combinedValues, manualFieldNames]
   );
 
   const isChairCategorySelected = /(?:^|[^a-z0-9])cadeiras?(?=$|[^a-z0-9])/i.test(
     normalizeSearchTerm(parentProduct.category || '')
   );
   const isSofaCategorySelected = isSofaCategoryName(parentProduct.category || '');
-  const isWardrobeCategorySelected = isWardrobeCategoryName(parentProduct.category || '');
 
   const visibleFields = useMemo(() => {
     const fieldsByName = new Map<string, TechnicalFieldDefinition>();
     const selectedCategoryIds = new Set(parentProduct.categoryIds || []);
-    [...applicableFields, ...allTechnicalFields].forEach((field) => {
+    const selectedFieldIds = new Set(parentProduct.selectedCharacteristicIds || []);
+    const activeFieldIds = new Set(
+      parentProduct.activeCharacteristicIds ?? parentProduct.selectedCharacteristicIds ?? []
+    );
+    const hasExplicitActiveFieldIds = Array.isArray(parentProduct.activeCharacteristicIds);
+    const isRequiredInCategory = (field: TechnicalFieldDefinition) => {
+      const application = resolveProductCharacteristicApplication(field, parentProduct.categoryIds || []);
+      const hasCategoryApplication = field.categoryApplications?.some((item) =>
+        selectedCategoryIds.has(String(item.categoryId))
+      ) ?? false;
+      if (hasCategoryApplication) return application === 'required';
+      return application === 'required' || Boolean(
+        field.isRequiredForCatalog ||
+        field.requiredCategoryIds?.some((id) => selectedCategoryIds.has(String(id)))
+      );
+    };
+    const getGroupFieldState = (field: TechnicalFieldDefinition) => {
+      const application = resolveProductCharacteristicApplication(field, parentProduct.categoryIds || []);
+      if (application === 'unavailable') return { visible: false, required: false };
+      const required = isRequiredInCategory(field);
+      const hasStoredValue =
+        hasVariationOverride(parentProduct.technicalValues, field.name) ||
+        (parentProduct.variations || []).some((variation) =>
+          hasVariationOverride(variation.technicalValues, field.name) ||
+          variation.attributes?.some((attribute) =>
+            normalizeSearchTerm(attribute.name) === normalizeSearchTerm(field.name)
+          )
+        );
+
+      const isInSelectedScope = isVariableField(field.name);
+      const fieldSelected = required || selectedFieldIds.has(field.id) ||
+        (!Array.isArray(parentProduct.selectedCharacteristicIds) && (hasStoredValue || isInSelectedScope));
+      const fieldActive = required || activeFieldIds.has(field.id) ||
+        (!hasExplicitActiveFieldIds && (hasStoredValue || isInSelectedScope));
+      return {
+        visible: fieldSelected && fieldActive && (field.active !== false || hasStoredValue || isInSelectedScope),
+        required,
+      };
+    };
+
+    const readValue = (values: Record<string, unknown> | undefined, name: string) =>
+      Object.entries(values || {}).find(([candidate]) =>
+        areTechnicalCharacteristicNamesEquivalent(candidate, name)
+      )?.[1];
+    const readVariationValue = (name: string) => {
+      const technicalEntry = Object.entries(formData.technicalValues || {}).find(([candidate]) =>
+        areTechnicalCharacteristicNamesEquivalent(candidate, name)
+      );
+      return technicalEntry
+        ? technicalEntry[1]
+        : readValue(variationAttributeValues, name);
+    };
+    const isDependencySatisfied = (
+      field: TechnicalFieldDefinition,
+      visited = new Set<string>()
+    ): boolean => {
+      if (visited.has(field.id)) return false;
+      const nextVisited = new Set(visited).add(field.id);
+      if (field.dependency) {
+        return evaluateCharacteristicDependencies(
+          getCharacteristicDependencies(field),
+          field.dependencyLogic,
+          (dependency) => {
+            const reference = allTechnicalFields.find((candidate) => candidate.id === dependency.referenceAttributeId);
+            if (!reference || !getGroupFieldState(reference).visible || !isDependencySatisfied(reference, nextVisited)) return false;
+            const referenceValue = isVariableField(reference.name)
+              ? readVariationValue(reference.name)
+              : readValue(parentNormalizedValues, reference.name);
+            return evaluateCharacteristicDependency(dependency, reference.dataType, referenceValue);
+          }
+        );
+      }
+
+      const legacyDependency = getCharacteristicDependencyState(field.name, dependencyValues);
+      return !legacyDependency.isDependent || !legacyDependency.isDisabled;
+    };
+
+    [...applicableFields, ...fieldsWithGroupNames].forEach((field) => {
+      if (!isTechnicalFieldAllowedForCategories(
+        field.name,
+        [parentProduct.category || ''],
+        field.categoryApplications,
+        parentProduct.categoryIds || []
+      )) {
+        return;
+      }
+      const groupState = getGroupFieldState(field);
+      if (!groupState.visible) return;
+      if (!isDependencySatisfied(field)) return;
       if (
         isChairWeightCapacityCharacteristic(field.name) &&
         !isChairCategorySelected &&
@@ -236,31 +380,38 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       if (!isVariableField(field.name)) return;
       const key = normalizeSearchTerm(field.name);
       if (!fieldsByName.has(key)) {
-        const isWardrobeRequiredQuantity =
-          isWardrobeCategorySelected &&
-          (isDoorQuantityCharacteristic(field.name) ||
-            isDrawerQuantityCharacteristic(field.name));
         const visibleField =
           isSofaCategorySelected && isDepthCharacteristic(field.name)
             ? { ...field, isRequired: false, isRequiredForCatalog: false }
-            : isWardrobeRequiredQuantity
-              ? { ...field, isRequired: true }
-              : field;
+            : field;
+        const requiredField = groupState.required
+          ? { ...visibleField, isRequired: true }
+          : visibleField;
         fieldsByName.set(
           key,
-          visibleField
+          requiredField
         );
       }
     });
     return [...fieldsByName.values()];
   }, [
     allTechnicalFields,
+    fieldsWithGroupNames,
+    characteristicGroups,
     applicableFields,
     isChairCategorySelected,
     isSofaCategorySelected,
-    isWardrobeCategorySelected,
     isVariableField,
+    parentProduct.category,
     parentProduct.categoryIds,
+    parentProduct.selectedCharacteristicIds,
+    parentProduct.activeCharacteristicIds,
+    parentProduct.technicalValues,
+    parentProduct.variations,
+    formData.technicalValues,
+    variationAttributeValues,
+    parentNormalizedValues,
+    dependencyValues,
   ]);
 
   const requiredFields = useMemo(
@@ -297,8 +448,25 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   };
 
   const selectedOptionalFields = useMemo(
-    () => optionalFields.filter(isOptionalFieldSelected),
-    [optionalFields, variationAttributeValues, parentNormalizedValues, manualFieldNames, formData.technicalValues]
+    () => {
+      const selectedFieldIds = new Set(parentProduct.selectedCharacteristicIds || []);
+      const activeFieldIds = new Set(
+        parentProduct.activeCharacteristicIds ?? parentProduct.selectedCharacteristicIds ?? []
+      );
+      return optionalFields.filter((field) =>
+        (selectedFieldIds.has(field.id) && activeFieldIds.has(field.id)) ||
+        isOptionalFieldSelected(field)
+      );
+    },
+    [
+      optionalFields,
+      variationAttributeValues,
+      parentNormalizedValues,
+      manualFieldNames,
+      formData.technicalValues,
+      parentProduct.selectedCharacteristicIds,
+      parentProduct.activeCharacteristicIds,
+    ]
   );
 
   const requiredFieldNames = useMemo(
@@ -311,13 +479,16 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       getAvailableAdditionalFields(allTechnicalFields, [
         ...requiredFields,
         ...selectedOptionalFields,
-      ]).filter(
+      ], [parentProduct.category || ''], parentProduct.categoryIds || []).filter(
         (field) =>
+          !field.groupId &&
           !requiredFieldNames.has(normalizeSearchTerm(field.name)) &&
           isVariableField(field.name)
       ),
     [
       allTechnicalFields,
+      parentProduct.category,
+      parentProduct.categoryIds,
       requiredFields,
       selectedOptionalFields,
       requiredFieldNames,
@@ -337,7 +508,11 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       return [];
     }
     return searchableOptionalFields
-      .filter((field) => normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm))
+      .filter((field) =>
+        normalizeSearchTerm(getTechnicalFieldDisplayName(field.name)).includes(
+          normalizedDebouncedSearchTerm
+        )
+      )
       .slice(0, 3);
   }, [requiredFieldsOnly, normalizedSearchTerm, normalizedDebouncedSearchTerm, searchableOptionalFields]);
 
@@ -401,62 +576,6 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     handleRemoveOverride(fieldName);
   };
 
-  const handleToggleDepthLength = (currentField: TechnicalFieldDefinition) => {
-    const isProfundidade = isDepthCharacteristic(currentField.name);
-    const isTotal = currentField.name.toLowerCase().includes('total');
-    const targetName = isProfundidade
-      ? (isTotal ? 'Comprimento total' : 'Comprimento')
-      : (isTotal ? 'Profundidade total' : 'Profundidade');
-    const oldName = currentField.name;
-
-    const newFieldDef =
-      allTechnicalFields.find((f) => f.name.toLowerCase() === targetName.toLowerCase()) ||
-      allTechnicalFields.find((f) =>
-        isProfundidade
-          ? f.name.toLowerCase().includes('comprimento')
-          : f.name.toLowerCase().includes('profundidade')
-      );
-    if (!newFieldDef) {
-      console.warn(`Campo '${targetName}' não encontrado no cadastro global de características.`);
-      return;
-    }
-    const actualNewName = newFieldDef.name;
-
-    const currentValue = getEffectiveTechnicalValue(
-      parentProduct?.technicalValues || {},
-      { ...variationAttributeValues, ...(formData.technicalValues || {}) },
-      oldName
-    );
-
-    // Atualiza technicalValues de forma atômica para evitar stale closure
-    const currentOverrides = formData.technicalValues || {};
-    let nextOverrides = setVariationOverride(currentOverrides, actualNewName, currentValue || '');
-    nextOverrides = removeVariationOverride(nextOverrides, oldName);
-    handleChange('technicalValues', nextOverrides);
-
-    // Atualiza attributes de forma atômica
-    const nextAttrs = [...(formData.attributes || [])];
-    const oldIdx = nextAttrs.findIndex(
-      (a) => a.name?.trim().toLowerCase() === oldName.trim().toLowerCase()
-    );
-    if (oldIdx >= 0) {
-      nextAttrs.splice(oldIdx, 1);
-    }
-    if (currentValue) {
-      nextAttrs.push({
-        name: actualNewName,
-        value: String(currentValue),
-        showName: true,
-      });
-    }
-    handleChange('attributes', nextAttrs);
-
-    setManualFieldNames((prev) => {
-      const filtered = prev.filter((n) => n !== oldName && n !== actualNewName);
-      return [...filtered, actualNewName];
-    });
-  };
-
   const searchControl = !requiredFieldsOnly ? (
     <VariationTechnicalSearchControl
       searchTerm={characteristicSearchTerm}
@@ -477,9 +596,9 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
           Os campos fixos vêm do produto pai; esta aba mostra somente os campos variáveis.
         </p>
       </div>
-      {fieldsError && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{fieldsError} <button type="button" onClick={() => setRefreshKey((value) => value + 1)} disabled={loadingFields}>Consultar características novamente</button></p>}
+      {(fieldsError || groupsError) && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{fieldsError || groupsError} <button type="button" onClick={() => setRefreshKey((value) => value + 1)} disabled={loadingFields || loadingGroups}>Consultar características novamente</button></p>}
       <div className="flex flex-col gap-4">
-        {loadingFields ? (
+        {loadingFields || loadingGroups ? (
           <div role="status" className="py-6 text-center text-slate-400 text-xs font-bold animate-pulse">
             <i className="bi bi-arrow-clockwise animate-spin mr-2" />
             Carregando especificações técnicas...
@@ -517,7 +636,6 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
                         isSingleVariation={isSingleVariation}
                         onSetOverride={handleSetOverride}
                         onRemoveManualField={handleRemoveManualField}
-                        onToggleDepthLength={handleToggleDepthLength}
                         onOpenAttributeModal={() => setIsAttributeModalOpen(true)}
                       />
                     ))}

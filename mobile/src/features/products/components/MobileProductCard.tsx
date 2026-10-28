@@ -5,6 +5,7 @@ import {
   MoreVertical,
   Package,
   Pencil,
+  Play,
   RotateCcw,
   Truck,
 } from 'lucide-react-native';
@@ -269,11 +270,17 @@ export const MobileProductCard: React.FC<Props> = ({
                 onEdit(product);
               }}
               accessibilityRole="button"
-              accessibilityLabel={`Editar ${product.name || 'produto'}`}
+              accessibilityLabel={
+                isDraft ? 'Retomar cadastro' : `Editar ${product.name || 'produto'}`
+              }
               style={[styles.actionIconBtn, dark && styles.darkBtn]}
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             >
-              <Pencil size={14} color={dark ? '#cbd5e1' : '#64748b'} />
+              {isDraft ? (
+                <Play size={14} color={dark ? '#60a5fa' : '#2563eb'} />
+              ) : (
+                <Pencil size={14} color={dark ? '#cbd5e1' : '#64748b'} />
+              )}
             </TouchableOpacity>
           )}
 

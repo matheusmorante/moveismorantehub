@@ -142,6 +142,36 @@ export const deduplicateProductTechnicalValueAliasFields = <
 };
 
 export const getProductTechnicalValueCandidateKeys = (key: string): string[] => {
+  const questionName = normalizeTechnicalValueFieldName(key)
+    .replace(/[?¿!.,:;]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (questionName === 'espessura do tampo' || questionName === 'espessura') {
+    const tabletopThicknessAliases = ['Espessura do tampo', 'Espessura'];
+    return [key, ...tabletopThicknessAliases.filter((candidate) =>
+      normalizeTechnicalValueFieldName(candidate) !== questionName
+    )];
+  }
+  if (questionName === 'espessura das chapas' || questionName === 'espessura do mdf/mdp') {
+    const sheetThicknessAliases = ['Espessura das Chapas', 'Espessura do MDF/MDP'];
+    return [key, ...sheetThicknessAliases.filter((candidate) =>
+      normalizeTechnicalValueFieldName(candidate) !== questionName
+    )];
+  }
+  const retractableAliases = ['É retrátil?', 'Retrátil', 'Retrátil?', 'Possui retrátil'];
+  if (['retratil', 'e retratil', 'possui retratil'].includes(questionName)) {
+    return [key, ...retractableAliases.filter((candidate) =>
+      normalizeTechnicalValueFieldName(candidate).replace(/[?¿!.,:;]/g, '').replace(/\s+/g, ' ').trim() !== questionName
+    )];
+  }
+
+  const recliningAliases = ['É reclinável?', 'Reclinável', 'Reclinável?', 'Possui reclinável'];
+  if (['reclinavel', 'e reclinavel', 'possui reclinavel'].includes(questionName)) {
+    return [key, ...recliningAliases.filter((candidate) =>
+      normalizeTechnicalValueFieldName(candidate).replace(/[?¿!.,:;]/g, '').replace(/\s+/g, ' ').trim() !== questionName
+    )];
+  }
+
   const normalized = key.trim().toLocaleLowerCase('pt-BR');
   if (
     normalized === 'modelo/linha' ||
@@ -190,15 +220,34 @@ export const getProductTechnicalValueCandidateKeys = (key: string): string[] => 
   return [key];
 };
 
+/** Removes a field and its legacy aliases from a technical-value map. */
+export const removeProductTechnicalValueAliases = <T extends Record<string, unknown>>(
+  values: T,
+  key: string
+): T => {
+  const updated = { ...values };
+  const candidateNames = new Set(
+    getProductTechnicalValueCandidateKeys(key).map((candidate) =>
+      normalizeTechnicalValueFieldName(candidate)
+    )
+  );
+  Object.keys(updated).forEach((existingName) => {
+    if (candidateNames.has(normalizeTechnicalValueFieldName(existingName))) {
+      delete updated[existingName];
+    }
+  });
+  return updated;
+};
+
 export const findProductTechnicalValueEntry = (
   values: Readonly<Record<string, unknown>>,
   key: string
 ): { key: string; value: unknown } | undefined => {
   const entries = Object.entries(values);
   for (const candidate of getProductTechnicalValueCandidateKeys(key)) {
-    const normalizedCandidate = candidate.trim().toLocaleLowerCase('pt-BR');
+    const normalizedCandidate = normalizeTechnicalValueFieldName(candidate);
     const matchingEntry = entries.find(
-      ([entryKey]) => entryKey.trim().toLocaleLowerCase('pt-BR') === normalizedCandidate
+      ([entryKey]) => normalizeTechnicalValueFieldName(entryKey) === normalizedCandidate
     );
     if (
       matchingEntry &&

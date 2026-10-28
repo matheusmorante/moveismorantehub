@@ -156,19 +156,6 @@ export default function CustomerSupport() {
   });
 
   // 2. Gerenciamento de mensagens da conversa selecionada e canal Realtime
-  const handleClearUnread = useCallback(
-    (convId: string) => {
-      setConversations((prev) => {
-        const target = prev.find((c) => c.id === convId);
-        if (!target || target.unreadCount === 0) return prev;
-        return prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c));
-      });
-      setSelectedConversation((prev) => prev?.id === convId && prev.unreadCount > 0
-        ? { ...prev, unreadCount: 0 } : prev);
-    },
-    [setConversations, setSelectedConversation]
-  );
-
   const {
     messages,
     setMessages,
@@ -184,13 +171,13 @@ export default function CustomerSupport() {
     refreshMessages,
   } = useCustomerSupportMessages({
     selectedConversation,
-    onClearUnread: handleClearUnread,
   });
 
   // 3. Operações e ações de atendimento (status, atribuição, notas internas)
   const currentUserName = profile?.full_name || user?.email || 'Atendente';
   const {
     handleToggleArchive,
+    handleToggleReadStatus,
     handleConversationUpdated,
     handleAssignConversation,
     handleUpdateStatus,
@@ -504,12 +491,14 @@ export default function CustomerSupport() {
               if (!isTimelineOpen) setIsInfoPanelOpen(false);
             }}
             onToggleArchive={handleToggleArchive}
+            onToggleReadStatus={handleToggleReadStatus}
             onAssign={handleAssignConversation}
             onUpdateStatus={handleUpdateStatus}
             onAddInternalNote={handleAddInternalNote}
             onSendCustomerMessage={(input) => sendCustomerSupportMessage(supabase, selectedConversation.id, input)}
             onRefreshMessages={refreshMessages}
             onResolveReplyTarget={resolveReplyTarget}
+            onSelectConversation={handleSelectConversation}
             onJumpToMessage={jumpToMessage}
             jumpToMessageId={jumpToMessageId}
             onJumpComplete={clearJumpToMessage}

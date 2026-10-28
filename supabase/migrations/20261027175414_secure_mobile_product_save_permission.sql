@@ -1,14 +1,50 @@
--- Enforce the same productConfig gate used by ERP and native product forms at
--- the database boundary for product/variation create and save RPCs.
--- save_mobile_product_transaction always writes products.name on insert/update;
--- a column-specific trigger protects that contract without replacing the RPC.
--- Rollback: drop both triggers and this trigger function; no data is rewritten.
+-- Enforce the productConfig permission at the database boundary for product
+-- and variation create/save operations. Both supported writers include name
+-- in product persistence; the separate status trigger still governs catalog
+-- publication independently.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 SET LOCAL idle_in_transaction_session_timeout = '60s';
 
-CREATE OR REPLACE FUNCTION public.enforce_product_config_for_save()
+DO $preflight$
+BEGIN
+  IF pg_catalog.to_regclass('public.products') IS NULL
+     OR pg_catalog.to_regclass('public.product_variations') IS NULL
+     OR pg_catalog.to_regclass('public.profiles') IS NULL
+     OR pg_catalog.to_regclass('public.settings') IS NULL THEN
+    RAISE EXCEPTION 'Precondição ausente para proteger o salvamento de Produtos.';
+  END IF;
+
+  IF pg_catalog.to_regprocedure('auth.uid()') IS NULL
+     OR pg_catalog.to_regprocedure(
+       'public.inventory_batch_can_configure(text[],text,jsonb)'
+     ) IS NULL THEN
+    RAISE EXCEPTION 'Resolvedores de autenticação/permissão necessários não estão disponíveis.';
+  END IF;
+
+  IF pg_catalog.to_regprocedure(
+       'public.enforce_product_config_for_save()'
+     ) IS NOT NULL THEN
+    RAISE EXCEPTION 'A função de proteção de salvamento já existe; migration interrompida sem alterar estado.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM pg_catalog.pg_trigger AS existing_trigger
+     WHERE existing_trigger.tgrelid IN (
+       pg_catalog.to_regclass('public.products'),
+       pg_catalog.to_regclass('public.product_variations')
+     )
+       AND existing_trigger.tgname = 'require_product_config_for_save'
+       AND NOT existing_trigger.tgisinternal
+  ) THEN
+    RAISE EXCEPTION 'O nome do gatilho de salvamento já está ocupado; migration interrompida sem alterar estado.';
+  END IF;
+END;
+$preflight$;
+
+CREATE FUNCTION public.enforce_product_config_for_save()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -73,9 +109,8 @@ BEGIN
     v_settings := '{}'::jsonb;
   END IF;
 
-  -- The shared permission resolver accepts legacy role aliases on both sides.
-  -- Normalize only a well-shaped array; malformed settings remain fail-closed
-  -- in inventory_batch_can_configure.
+  -- Match the shared permission resolver's legacy role aliases. Malformed
+  -- explicit settings remain fail-closed in inventory_batch_can_configure.
   IF pg_catalog.jsonb_typeof(v_settings -> 'rolePermissions') = 'object'
      AND pg_catalog.jsonb_typeof(v_settings #> '{rolePermissions,productConfig}') = 'array'
      AND NOT EXISTS (
@@ -129,13 +164,11 @@ BEGIN
 END;
 $function$;
 
-DROP TRIGGER IF EXISTS require_product_config_for_save ON public.products;
 CREATE TRIGGER require_product_config_for_save
   BEFORE INSERT OR UPDATE OF name ON public.products
   FOR EACH ROW
   EXECUTE FUNCTION public.enforce_product_config_for_save();
 
-DROP TRIGGER IF EXISTS require_product_config_for_save ON public.product_variations;
 CREATE TRIGGER require_product_config_for_save
   BEFORE INSERT OR UPDATE OF name ON public.product_variations
   FOR EACH ROW

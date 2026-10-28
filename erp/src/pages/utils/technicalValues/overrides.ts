@@ -6,7 +6,10 @@ import type { Variation } from '../../types/product.type';
 import { isDefined } from './predicates';
 import { normalizeCharacteristicName } from './predicates/normalization';
 import type { TechnicalFieldDefinition, TechnicalValuesMap } from './types';
-import { getProductTechnicalValueCandidateKeys } from '../../../../../shared-utils/productTechnicalValueAliases';
+import {
+  getProductTechnicalValueCandidateKeys,
+  removeProductTechnicalValueAliases,
+} from '../../../../../shared-utils/productTechnicalValueAliases';
 
 export const getEffectiveVariationTechnicalValues = (
   parentValues: TechnicalValuesMap = {},
@@ -17,9 +20,12 @@ export const getEffectiveVariationTechnicalValues = (
     variableFieldNames === undefined || isTechnicalFieldVariable(name, variableFieldNames);
   const legacyCharacteristicValues = (variation?.attributes || []).reduce<TechnicalValuesMap>(
     (values, characteristic) => {
+      const hasValue =
+        typeof characteristic.value === 'boolean' ||
+        (typeof characteristic.value === 'string' && Boolean(characteristic.value.trim()));
       if (
         characteristic.name?.trim() &&
-        characteristic.value?.trim() &&
+        (hasValue || characteristic.value === null) &&
         shouldApplyOverride(characteristic.name)
       ) {
         values[characteristic.name] = characteristic.value;
@@ -30,7 +36,7 @@ export const getEffectiveVariationTechnicalValues = (
   );
   const variationCharacteristicValues = Object.fromEntries(
     Object.entries(variation?.technicalValues || {}).filter(
-      ([name, value]) => value !== undefined && value !== null && shouldApplyOverride(name)
+      ([name, value]) => value !== undefined && shouldApplyOverride(name)
     )
   );
 
@@ -58,10 +64,7 @@ export const getEffectiveTechnicalValue = (
   // 1. Tentar override direto na variação
   for (const key of candidateKeys) {
     if (Object.prototype.hasOwnProperty.call(variationOverrides, key)) {
-      const overrideVal = variationOverrides[key];
-      if (isDefined(overrideVal)) {
-        return overrideVal;
-      }
+      return variationOverrides[key];
     }
   }
 
@@ -88,8 +91,7 @@ export const hasVariationOverride = (
   const candidateKeys = getProductTechnicalValueCandidateKeys(fieldKeyOrName);
   return candidateKeys.some(
     (key) =>
-      Object.prototype.hasOwnProperty.call(variationOverrides, key) &&
-      isDefined(variationOverrides[key])
+      Object.prototype.hasOwnProperty.call(variationOverrides, key)
   );
 };
 
@@ -99,14 +101,8 @@ export const hasVariationOverride = (
 export const removeVariationOverride = (
   variationOverrides: TechnicalValuesMap = {},
   fieldKeyOrName: string
-): TechnicalValuesMap => {
-  const updated = { ...variationOverrides };
-  const candidateKeys = getProductTechnicalValueCandidateKeys(fieldKeyOrName);
-  candidateKeys.forEach((key) => {
-    delete updated[key];
-  });
-  return updated;
-};
+): TechnicalValuesMap =>
+  removeProductTechnicalValueAliases(variationOverrides, fieldKeyOrName);
 
 /**
  * Define um override específico na variação.
@@ -145,10 +141,13 @@ export const getLegacyVariableTechnicalFieldNames = (
 
   variations.forEach((variation) => {
     (variation.attributes || []).forEach((attribute) => {
-      if (attribute.name?.trim() && String(attribute.value ?? '').trim()) addName(attribute.name);
+      if (
+        attribute.name?.trim() &&
+        (attribute.value === null || String(attribute.value ?? '').trim())
+      ) addName(attribute.name);
     });
     Object.entries(variation.technicalValues || {}).forEach(([name, value]) => {
-      if (isDefined(value)) addName(name);
+      if (value !== undefined) addName(name);
     });
   });
 

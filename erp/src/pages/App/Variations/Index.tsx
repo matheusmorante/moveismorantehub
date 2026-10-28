@@ -1,10 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type VariationType from '../../types/variation.type';
-import { groupTechnicalFields } from '../../utils/technicalValuesService';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { toast } from 'react-toastify';
+import type { default as VariationType, CharacteristicGroup } from '../../types/variation.type';
 import { normalizeSearchTerm } from '../../utils/textUtils';
+import { getVariationErrorMessage } from '../../utils/variationService';
+import {
+  CHARACTERISTIC_GROUPS_QUERY_KEY,
+  deleteCharacteristicGroup,
+  fetchCharacteristicGroups,
+} from '../../utils/characteristicGroupService';
 import { AttributeCard } from './components/AttributeCard';
 import { useVariations } from './hooks/useVariations';
 import { VariationFormModal } from './modals/VariationFormModal';
+import { CharacteristicGroupFormPanel } from './modals/CharacteristicGroupFormPanel';
+import { getCharacteristicSubtitle } from './domain/characteristicFormRules';
+
+type EditorState =
+  | { type: 'group'; groupId?: string }
+  | {
+      type: 'characteristic';
+      characteristic?: VariationType | null;
+      defaultGroupId?: string;
+      returnToGroupId?: string;
+    };
 
 interface VariationsProps {
   readonly focusAttributeName?: string;
@@ -13,166 +31,240 @@ interface VariationsProps {
 }
 
 const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: VariationsProps) => {
-  const { variations, loading, error, refresh } = useVariations();
+  const { variations, loading: attributesLoading, error: attributesError, refresh, handleDelete } = useVariations();
+  const {
+    data: groupData,
+    isLoading: groupsLoading,
+    error: groupsError,
+    refetch: refetchGroups,
+  } = useQuery({
+    queryKey: CHARACTERISTIC_GROUPS_QUERY_KEY,
+    queryFn: fetchCharacteristicGroups,
+    staleTime: 60_000,
+  });
+  const groups = groupData?.groups ?? [];
+  const categories = groupData?.categories ?? [];
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingAttribute, setEditingAttribute] = useState<VariationType | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const characteristicsListRef = useRef<HTMLElement>(null);
-  const hasFocusedInitialAttribute = useRef(false);
+  const [editor, setEditor] = useState<EditorState | null>(null);
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
+  const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
 
-  const filteredVariations = useMemo(() => {
-    const search = normalizeSearchTerm(searchTerm);
-    return variations
-      .filter(
-        (attribute) =>
-          normalizeSearchTerm(attribute.name).includes(search) ||
-          Boolean(attribute.id && normalizeSearchTerm(attribute.id).includes(search))
-      )
-      .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }));
-  }, [searchTerm, variations]);
-  const groupedVariations = useMemo(
-    () => groupTechnicalFields(filteredVariations),
-    [filteredVariations]
-  );
+  const search = normalizeSearchTerm(searchTerm);
+  const visibleGroups = useMemo(() => groups
+    .map((group) => {
+      const groupCharacteristics = variations
+        .filter((item) => item.groupId === group.id)
+        .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }));
+      const groupMatches = !search || normalizeSearchTerm(group.name).includes(search) || normalizeSearchTerm(group.description ?? '').includes(search);
+      const matchingCharacteristics = groupMatches || !search
+        ? groupCharacteristics
+        : groupCharacteristics.filter((item) => {
+            return normalizeSearchTerm(`${item.name} ${getCharacteristicSubtitle(item)}`).includes(search);
+          });
+      return {
+        group,
+        allCharacteristics: groupCharacteristics,
+        characteristics: matchingCharacteristics,
+        matches: groupMatches || matchingCharacteristics.length > 0,
+        expanded: Boolean(search) || expandedGroups.has(group.id),
+      };
+    })
+    .filter((item) => item.matches)
+    .sort((left, right) => left.group.name.localeCompare(right.group.name, 'pt-BR', { sensitivity: 'base' })),
+  [expandedGroups, groups, search, variations]);
 
-  useEffect(() => {
-    const targetName = normalizeSearchTerm(autoOpenAttributeName ?? focusAttributeName ?? '');
-    if (!targetName || loading || hasFocusedInitialAttribute.current) return;
-
-    const matchedAttribute = variations.find(
-      (attribute) => normalizeSearchTerm(attribute.name) === targetName
-    );
-
-    if (matchedAttribute) {
-      setEditingAttribute(matchedAttribute);
-      setFormOpen(true);
-    }
-
-    const targetCard = Array.from(
-      characteristicsListRef.current?.querySelectorAll<HTMLElement>('[data-attribute-name]') ?? []
-    ).find((card) => card.dataset.attributeName === targetName);
-
-    if (targetCard) {
-      targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    hasFocusedInitialAttribute.current = true;
-  }, [autoOpenAttributeName, focusAttributeName, loading, variations]);
-
-  const openForm = (attribute: VariationType) => {
-    setEditingAttribute(attribute);
-    setFormOpen(true);
+  const startGroupEditor = (group?: CharacteristicGroup | null) => {
+    setNewMenuOpen(false);
+    setOpenActionsFor(null);
+    setEditor({ type: 'group', groupId: group?.id });
   };
 
-  return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50/50 dark:bg-slate-900 overflow-hidden relative">
-      <header className="shrink-0 bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 px-4 py-3 sm:px-6 md:px-8 shadow-sm relative z-20">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <i
-              className="bi bi-sliders2 text-xl sm:text-2xl text-blue-600 shrink-0"
-              aria-hidden="true"
-            />
-            <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight truncate">
-              Características
-            </h1>
-          </div>
+  const startCharacteristicEditor = (
+    characteristic?: VariationType | null,
+    defaultGroupId?: string,
+    returnToGroupId?: string
+  ) => {
+    setNewMenuOpen(false);
+    setOpenActionsFor(null);
+    setEditor({ type: 'characteristic', characteristic, defaultGroupId, returnToGroupId });
+  };
 
-          <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64 lg:w-72 min-w-0">
-              <i
-                className="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"
-                aria-hidden="true"
-              />
+  const closeCharacteristicEditor = (returnToGroupId?: string) => {
+    setEditor(returnToGroupId ? { type: 'group', groupId: returnToGroupId } : null);
+  };
+
+  const handleDeleteGroup = async (group: CharacteristicGroup) => {
+    if (!window.confirm(`Excluir o grupo "${group.name}"?`)) return;
+    try {
+      await deleteCharacteristicGroup(group.id);
+      await refetchGroups();
+      toast.success('Grupo excluído.');
+    } catch (error: unknown) {
+      toast.error(getVariationErrorMessage(error, 'Não foi possível excluir o grupo.'));
+    }
+  };
+
+  const retry = () => {
+    void refresh();
+    void refetchGroups();
+  };
+
+  const editorGroup = editor?.type === 'group'
+    ? groups.find((group) => group.id === editor.groupId) ?? null
+    : null;
+
+  return (
+    <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-slate-950">
+      <header className="z-20 shrink-0 border-b border-slate-200 px-4 py-3 dark:border-slate-800 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-3">
+            <i className="bi bi-sliders2 text-lg text-blue-700 dark:text-blue-300" aria-hidden="true" />
+            <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Características</h1>
+          </div>
+          <div className="flex w-full items-center gap-3 sm:w-auto">
+            <label className="relative min-w-0 flex-1 sm:w-72" aria-label="Pesquisar grupos e características">
+              <i className="bi bi-search absolute left-0 top-1/2 -translate-y-1/2 text-xs text-slate-400" aria-hidden="true" />
               <input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar características..."
-                className="w-full pl-9 pr-3 py-2 sm:py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500/20 dark:text-slate-200"
+                placeholder="Buscar grupos e características"
+                className="w-full bg-transparent border-0 border-b border-slate-300 py-2 pl-5 pr-1 text-sm outline-none focus:border-blue-600 focus:ring-0 dark:border-slate-700 dark:text-slate-100"
               />
-            </div>
-            {onClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                title="Fechar gerenciamento de características"
-                aria-label="Fechar gerenciamento de características"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition-colors hover:bg-slate-100 hover:text-red-600 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                <i className="bi bi-x-lg" aria-hidden="true" />
+            </label>
+            {onClose && <button type="button" onClick={onClose} aria-label="Fechar gerenciamento de características" className="px-2 py-2 text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white"><i className="bi bi-x-lg" aria-hidden="true" /></button>}
+            <div className="relative shrink-0">
+              <button type="button" onClick={() => setNewMenuOpen((open) => !open)} aria-expanded={newMenuOpen} className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800">
+                Novo <i className="bi bi-chevron-down text-[10px]" aria-hidden="true" />
               </button>
-            )}
+              {newMenuOpen && (
+                <div className="absolute right-0 top-full z-30 mt-1 w-48 bg-white py-1 shadow-xl dark:bg-slate-900">
+                  <button type="button" onClick={() => startCharacteristicEditor()} className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">Característica</button>
+                  <button type="button" onClick={() => startGroupEditor()} className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">Grupo</button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
-      <main
-        ref={characteristicsListRef}
-        className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5 md:p-8 custom-scrollbar"
-      >
-        <div className="max-w-7xl mx-auto space-y-4">
-          {loading ? (
-            <div className="bg-white dark:bg-slate-950 rounded-3xl border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm">
-              <i
-                className="bi bi-arrow-clockwise animate-spin text-3xl text-blue-600"
-                aria-hidden="true"
-              />
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400 mt-3">
-                Carregando características...
-              </p>
-            </div>
-          ) : error && filteredVariations.length === 0 ? (
-            <div
-              role="alert"
-              className="rounded-3xl border border-red-200 bg-white p-12 text-center text-red-600 shadow-sm"
-            >
-              <p className="font-bold">Não foi possível carregar as características.</p>
-              <button
-                type="button"
-                onClick={refresh}
-                className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white"
-              >
-                Tentar novamente
-              </button>
-            </div>
-          ) : filteredVariations.length === 0 ? (
-            <div className="bg-white dark:bg-slate-950 rounded-3xl border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm text-slate-400 font-bold">
-              Nenhuma característica encontrada.
-            </div>
-          ) : (
-            groupedVariations.map((group) => (
-              <section
-                key={group.title}
-                className="space-y-3"
-                aria-labelledby={`characteristic-topic-${group.title}`}
-              >
-                <h2
-                  id={`characteristic-topic-${group.title}`}
-                  className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
-                >
-                  {group.title}
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
-                  {group.fields.map((attribute) => (
-                    <AttributeCard
-                      key={attribute.id}
-                      attribute={attribute}
-                      onEdit={openForm}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))
-          )}
-        </div>
-      </main>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+          <div className="mx-auto max-w-7xl">
+            {attributesLoading || groupsLoading ? (
+              <div className="py-12 text-center text-sm text-slate-500"><i className="bi bi-arrow-clockwise mr-2 animate-spin" aria-hidden="true" />Carregando grupos e características…</div>
+            ) : attributesError || groupsError ? (
+              <div role="alert" className="py-10 text-center text-sm text-red-700 dark:text-red-300">
+                <p>Não foi possível carregar grupos e características.</p>
+                <button type="button" onClick={retry} className="mt-3 text-sm font-semibold underline">Tentar novamente</button>
+              </div>
+            ) : groups.length === 0 ? (
+              <div className="py-12 text-center text-sm text-slate-500">Nenhum grupo cadastrado. Use <strong>Novo</strong> para criar um grupo.</div>
+            ) : visibleGroups.length === 0 ? (
+              <div className="py-12 text-center text-sm text-slate-500">Nenhum grupo ou característica encontrado.</div>
+            ) : (
+              <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                {visibleGroups.map(({ group, allCharacteristics, characteristics, expanded }) => {
+                  return (
+                    <section key={group.id} aria-labelledby={`characteristic-group-${group.id}`}>
+                      <div className="flex min-h-12 items-center gap-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedGroups((current) => {
+                            const next = new Set(current);
+                            if (next.has(group.id)) next.delete(group.id); else next.add(group.id);
+                            return next;
+                          })}
+                          aria-expanded={expanded}
+                          aria-controls={`characteristics-in-group-${group.id}`}
+                          aria-label={`${expanded ? 'Recolher' : 'Expandir'} grupo ${group.name}`}
+                          className="shrink-0 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                        >
+                          <i className={`bi ${expanded ? 'bi-chevron-down' : 'bi-chevron-right'} text-xs text-slate-400`} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startGroupEditor(group)}
+                          className="min-w-0 truncate text-left text-sm font-semibold text-slate-900 hover:text-blue-700 dark:text-slate-100 dark:hover:text-blue-300"
+                        >
+                          <span id={`characteristic-group-${group.id}`} className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{group.name}</span>
+                        </button>
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <span className="shrink-0 text-xs text-slate-500">{allCharacteristics.length} {allCharacteristics.length === 1 ? 'característica' : 'características'}</span>
+                        </div>
+                        <div className="relative shrink-0">
+                          <button type="button" onClick={() => setOpenActionsFor((current) => current === group.id ? null : group.id)} aria-expanded={openActionsFor === group.id} aria-label={`Abrir ações do grupo ${group.name}`} className="px-2 py-1 text-slate-500 hover:text-slate-900 dark:hover:text-white"><i className="bi bi-three-dots-vertical" aria-hidden="true" /></button>
+                          {openActionsFor === group.id && (
+                            <div className="absolute right-0 top-full z-30 w-52 bg-white py-1 shadow-xl dark:bg-slate-900">
+                              <button type="button" onClick={() => startGroupEditor(group)} className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">Editar grupo</button>
+                              <button type="button" onClick={() => startCharacteristicEditor(null, group.id, group.id)} className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">Adicionar característica</button>
+                              <button type="button" onClick={() => { setOpenActionsFor(null); void handleDeleteGroup(group); }} disabled={group.isDefault || allCharacteristics.length > 0} title={group.isDefault ? 'Grupo usado por cadastros legados.' : allCharacteristics.length ? 'Mova ou exclua as características vinculadas antes.' : 'Excluir grupo'} className="w-full px-3 py-2 text-left text-xs text-red-700 hover:bg-red-50 disabled:opacity-40 dark:text-red-300 dark:hover:bg-red-950/30">Excluir grupo</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {expanded && (
+                        <div id={`characteristics-in-group-${group.id}`} className="mb-3 ml-4 border-l border-slate-200 pl-4 dark:border-slate-800">
+                          {characteristics.length === 0 ? (
+                            <p className="py-3 text-xs text-slate-400">Este grupo ainda não tem características.</p>
+                          ) : characteristics.map((attribute) => (
+                            <AttributeCard
+                              key={attribute.id}
+                              attribute={attribute}
+                              onEdit={(item) => startCharacteristicEditor(item, undefined, group.id)}
+                              onDelete={(item) => { if (item.id) void handleDelete(item.id); }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </main>
 
-      <VariationFormModal
-        isOpen={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSuccess={refresh}
-        variation={editingAttribute}
-        allVariations={variations}
-      />
+        {editor?.type === 'characteristic' && (
+          <VariationFormModal
+            key={`characteristic-${editor.characteristic?.id ?? 'new'}`}
+            onClose={() => closeCharacteristicEditor(editor.returnToGroupId)}
+            onSuccess={async () => {
+              await refresh();
+              if (editor.returnToGroupId) {
+                setExpandedGroups((current) => new Set(current).add(editor.returnToGroupId!));
+                setEditor({ type: 'group', groupId: editor.returnToGroupId });
+              } else setEditor(null);
+            }}
+            variation={editor.characteristic}
+            allVariations={variations}
+            groups={groups}
+            categories={categories}
+            defaultGroupId={editor.defaultGroupId}
+          />
+        )}
+        {editor?.type === 'group' && (
+          <CharacteristicGroupFormPanel
+            key={`group-${editor.groupId ?? 'new'}`}
+            group={editorGroup}
+            characteristics={variations}
+            groups={groups}
+            onClose={() => setEditor(null)}
+            onSaved={async (groupId) => {
+              await refetchGroups();
+              await refresh();
+              setExpandedGroups((current) => new Set(current).add(groupId));
+              setEditor({ type: 'group', groupId });
+            }}
+            onAddCharacteristic={(groupId) => startCharacteristicEditor(null, groupId, groupId)}
+            onEditCharacteristic={(characteristic) => startCharacteristicEditor(characteristic, undefined, editor.groupId)}
+            onDeleted={async () => {
+              await refetchGroups();
+              setEditor(null);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 };

@@ -15,6 +15,8 @@ import {
   getMissingRequiredCharacteristics,
   getMissingRequiredDimensions,
   getDisplayedOptionalProductTechnicalFields,
+  getProductTechnicalDependencyChain,
+  isConfiguredProductTechnicalDependencySatisfied,
   isDependentProductTechnicalFieldActive,
   getPersistableProductTechnicalValues,
   getProductCharacteristicAttributes,
@@ -40,17 +42,74 @@ import {
 } from './productCharacteristics';
 
 describe('productCharacteristics', () => {
-  it('faz características dependentes variarem somente junto com a mestre', () => {
+  it('avalia dependências configuradas e permite condições alternativas', () => {
+    const quantity = {
+      id: 'doors',
+      name: 'Quantidade de portas',
+      data_type: 'integer',
+    };
+    const finish = {
+      id: 'finish',
+      name: 'Acabamento das portas',
+      data_type: 'text',
+      dependency: {
+        referenceAttributeId: 'doors',
+        operator: 'greater_than' as const,
+        value: '0',
+      },
+      dependencyAlternatives: [
+        {
+          referenceAttributeId: 'drawers',
+          operator: 'greater_than' as const,
+          value: '0',
+        },
+      ],
+    };
+    const drawers = {
+      id: 'drawers',
+      name: 'Quantidade de gavetas',
+      data_type: 'integer',
+    };
+    const fields = [quantity, finish, drawers];
+
+    expect(isConfiguredProductTechnicalDependencySatisfied(finish, fields, { 'Quantidade de portas': '2' })).toBe(true);
+    expect(isConfiguredProductTechnicalDependencySatisfied(finish, fields, { 'Quantidade de portas': '0', 'Quantidade de gavetas': '1' })).toBe(true);
+    expect(isConfiguredProductTechnicalDependencySatisfied(finish, fields, { 'Quantidade de portas': '0', 'Quantidade de gavetas': '0' })).toBe(false);
+  });
+
+  it('falha fechado para referência ausente/cíclica e retorna a cadeia dependente', () => {
+    const first = {
+      id: 'first',
+      name: 'Primeiro',
+      dependency: { referenceAttributeId: 'second', operator: 'equals' as const, value: 'sim' },
+    };
+    const second = {
+      id: 'second',
+      name: 'Segundo',
+      dependency: { referenceAttributeId: 'first', operator: 'equals' as const, value: 'sim' },
+    };
+    const dependent = {
+      id: 'dependent',
+      name: 'Dependente',
+      dependency: { referenceAttributeId: 'missing', operator: 'equals' as const, value: 'sim' },
+    };
+
+    expect(isConfiguredProductTechnicalDependencySatisfied(first, [first, second], { Primeiro: 'sim', Segundo: 'sim' })).toBe(false);
+    expect(isConfiguredProductTechnicalDependencySatisfied(dependent, [dependent], {})).toBe(false);
+    expect(getProductTechnicalDependencyChain(first, [first, second])).toEqual([first, second]);
+  });
+
+  it('não infere variabilidade por nomes legados de dependência', () => {
     expect(
       isMobileProductFormTechnicalFieldVariable('Material das portas', ['Material das portas'])
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isMobileProductFormTechnicalFieldVariable('Material das portas', ['Quantidade de portas'])
-    ).toBe(true);
+    ).toBe(false);
     expect(isMobileProductFormTechnicalFieldVariable('Cor', ['Cor'])).toBe(true);
   });
 
-  it('exibe opcionais dependentes somente com mestre selecionada, ativa ou variável', () => {
+  it('preserva opcionais salvos sem inferir dependências pelo nome legado', () => {
     const fields = [
       { name: 'Quantidade de portas' },
       { name: 'Tipo de portas' },
@@ -67,12 +126,12 @@ describe('productCharacteristics', () => {
       getDisplayedOptionalProductTechnicalFields(optionalFields, fields, staleValues).map(
         ({ name }) => name
       )
-    ).toEqual(['Marca']);
+    ).toEqual(['Tipo de portas', 'Marca']);
     expect(
       getDisplayedOptionalProductTechnicalFields(optionalFields, fields, {
         'Quantidade de portas': 2,
       }).map(({ name }) => name)
-    ).toEqual(['Tipo de portas']);
+    ).toEqual([]);
     expect(
       getDisplayedOptionalProductTechnicalFields(
         optionalFields,
@@ -81,7 +140,7 @@ describe('productCharacteristics', () => {
         {},
         ['Quantidade de portas']
       ).map(({ name }) => name)
-    ).toEqual(['Tipo de portas']);
+    ).toEqual([]);
     expect(
       getDisplayedOptionalProductTechnicalFields(
         optionalFields,
@@ -94,7 +153,7 @@ describe('productCharacteristics', () => {
     ).toEqual(['Tipo de portas', 'Marca']);
   });
 
-  it('oculta dependentes inativas e mantém as que têm mestre ativa ou variável', () => {
+  it('não calcula estado de dependência a partir de nomes legados', () => {
     const fields = [
       { name: 'Quantidade de portas' },
       { name: 'Tipo de portas' },
@@ -110,7 +169,7 @@ describe('productCharacteristics', () => {
       isDependentProductTechnicalFieldActive('Tipo de portas', fields, {
         'Quantidade de portas': 2,
       })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isDependentProductTechnicalFieldActive(
         'Tipo de portas',
@@ -118,7 +177,7 @@ describe('productCharacteristics', () => {
         {},
         ['Quantidade de portas']
       )
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isDependentProductTechnicalFieldActive('Tipo de portas', [{ name: 'Tipo de portas' }], {
         'Quantidade de portas': 2,
@@ -203,6 +262,37 @@ describe('productCharacteristics', () => {
       isRequiredForProduct: false,
       isRequiredForCatalog: true,
     });
+  });
+
+  it('segue a aplicação por categoria do ERP e não mostra uma característica indisponível', () => {
+    const fields = [
+      {
+        name: 'Acabamento opcional',
+        categoryIds: ['cat-optional'],
+        categoryApplications: [{ categoryId: 'cat-optional', application: 'optional' as const }],
+      },
+      {
+        name: 'Acabamento obrigatório',
+        categoryIds: ['cat-required'],
+        categoryApplications: [{ categoryId: 'cat-required', application: 'required' as const }],
+      },
+      {
+        name: 'Acabamento indisponível',
+        requiredCategoryIds: ['cat-unavailable'],
+        categoryApplications: [{ categoryId: 'cat-unavailable', application: 'unavailable' as const }],
+      },
+    ];
+
+    expect(getApplicableProductTechnicalFields(fields, ['cat-optional']).map(({ name }) => name)).toEqual([
+      'Acabamento opcional',
+    ]);
+    expect(isProductTechnicalFieldRequired(fields[0], ['cat-optional'])).toBe(false);
+    expect(getApplicableProductTechnicalFields(fields, ['cat-required']).map(({ name }) => name)).toEqual([
+      'Acabamento obrigatório',
+    ]);
+    expect(isProductTechnicalFieldRequired(fields[1], ['cat-required'])).toBe(true);
+    expect(isProductTechnicalFieldRequiredForCatalog(fields[2], ['cat-unavailable'])).toBe(true);
+    expect(getApplicableProductTechnicalFields(fields, ['cat-unavailable'])).toEqual([]);
   });
 
   it('mantém capacidade por prateleira visível, opcional e no grupo Prateleiras', () => {
@@ -674,6 +764,23 @@ describe('productCharacteristics', () => {
       'Comprimento',
       'Peso',
     ]);
+  });
+
+  it('exibe grupos persistidos com nomes e ordem canônica do ERP', () => {
+    const fields = [
+      { id: 'custom', name: 'Acessório exclusivo', groupId: 'custom', groupName: 'Grupo Z' },
+      { id: 'weight', name: 'Peso suportado', groupId: 'weight', groupName: 'Peso e capacidade' },
+      { id: 'dimensions', name: 'Medidas', groupId: 'dimensions', groupName: 'Dimensões' },
+      { id: 'identity', name: 'Cor', groupId: 'identity', groupName: 'Identificação e aparência' },
+    ];
+
+    expect(groupProductTechnicalFields(fields).map(({ title }) => title)).toEqual([
+      'Identificação e aparência',
+      'Dimensões',
+      'Peso e capacidade',
+      'Grupo Z',
+    ]);
+    expect(groupProductTechnicalFields(fields)[0].fields).toEqual([fields[3]]);
   });
 
   it('identifica corretamente predicados de domínio e ordenação de medidas', () => {

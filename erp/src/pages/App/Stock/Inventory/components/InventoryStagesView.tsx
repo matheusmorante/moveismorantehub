@@ -19,7 +19,7 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
   onSelectStage,
   onCancel,
 }) => {
-  const { stages, totalItems, totalCounted, progressPercent } = useMemo(() => {
+  const stages = useMemo(() => {
     const stageMap = new Map<string, Stage>();
 
     for (const item of items) {
@@ -39,11 +39,7 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
       }
     }
 
-    let counted = 0;
-    const total = items.length;
-
     const stagesArray = Array.from(stageMap.values()).map((stage) => {
-      counted += stage.counted;
       if (stage.counted === 0) stage.status = 'not_started';
       else if (stage.counted === stage.total) stage.status = 'completed';
       else stage.status = 'in_progress';
@@ -58,14 +54,7 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
       return a.supplierName.localeCompare(b.supplierName);
     });
 
-    const progress = total > 0 ? Math.round((counted / total) * 100) : 0;
-
-    return {
-      stages: filteredStagesArray,
-      totalItems: total,
-      totalCounted: counted,
-      progressPercent: progress,
-    };
+    return filteredStagesArray;
   }, [items]);
 
   return (
@@ -81,31 +70,6 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
           </button>
         </div>
       )}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-black text-slate-800 dark:text-slate-100">
-              Progresso Geral
-            </h2>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
-              <strong className="text-slate-700 dark:text-slate-300">{totalCounted}</strong> de{' '}
-              {totalItems} itens contados
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
-              {progressPercent}%
-            </div>
-          </div>
-        </div>
-        <div className="w-full bg-slate-100 dark:bg-slate-900 rounded-full h-3 overflow-hidden">
-          <div
-            className="bg-emerald-500 h-3 rounded-full transition-all duration-500 ease-out"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-      </div>
-
       <div className="space-y-4">
         <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2">
           Etapas por Fornecedor ({stages.length})

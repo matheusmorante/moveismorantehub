@@ -16,6 +16,29 @@ import {
 } from '@/pages/utils/hmlTestData';
 
 describe('Validação de Publicação no Catálogo Digital', () => {
+  it('exige a característica condicional quando qualquer uma das alternativas é verdadeira', () => {
+    const product: Partial<Product> = {
+      id: 'prod-alternatives', name: 'Cômoda', description: 'Cômoda', status: 'hidden',
+      unitPrice: 100, images: ['https://example.com/foto.jpg'], categoryIds: ['cat'],
+      width: 50, height: 50, depth: 50,
+      selectedCharacteristicIds: ['doors', 'drawers', 'handle'],
+      activeCharacteristicIds: ['doors', 'drawers', 'handle'],
+      technicalValues: { 'Quantidade de portas': 0, 'Quantidade de gavetas': 2, 'Tipo(s) de puxador': '' },
+    };
+    const requirements = [
+      { id: 'doors', name: 'Quantidade de portas', dataType: 'integer', categoryIds: ['cat'] },
+      { id: 'drawers', name: 'Quantidade de gavetas', dataType: 'integer', categoryIds: ['cat'] },
+      { id: 'handle', name: 'Tipo(s) de puxador', dataType: 'radio', categoryIds: ['cat'],
+        dependency: { referenceAttributeId: 'doors', operator: 'greater_than', value: '0' },
+        dependencyAlternatives: [{ referenceAttributeId: 'drawers', operator: 'greater_than', value: '0' }] },
+    ];
+    const visible = validateCatalogPublication(product, undefined, false, requirements);
+    expect(visible.errorMessage).toContain('Tipo(s) de puxador');
+    const hidden = validateCatalogPublication({ ...product, technicalValues: {
+      'Quantidade de portas': 0, 'Quantidade de gavetas': 0, 'Tipo(s) de puxador': '',
+    } }, undefined, false, requirements);
+    expect(hidden.errorMessage ?? '').not.toContain('Tipo(s) de puxador');
+  });
   it('bloqueia publicação de produto em rascunho', () => {
     const draftProduct: Partial<Product> = {
       id: 'prod-draft',
@@ -55,7 +78,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
     expect(result.errorMessage).toContain('Não foi possível publicar no Catálogo Digital.');
     expect(result.errorMessage).toContain('Campos obrigatórios pendentes:');
     expect(result.errorMessage).toContain('• Pelo menos uma foto deve ser adicionada.');
-    expect(result.errorMessage).toContain('• Ative pelo menos uma dimensão física (altura, largura ou profundidade/comprimento)');
+    expect(result.errorMessage).toContain('• Ative pelo menos uma dimensão física (altura, largura, profundidade ou comprimento)');
   });
 
   it('aprova publicação quando produto atende a todos os requisitos do catálogo', () => {
@@ -72,11 +95,35 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       width: 160,
       height: 80,
       depth: 90,
+      weight: 30,
     };
 
     const result = validateCatalogPublication(validProduct as Product);
     expect(result.isValid).toBe(true);
     expect(result.errorMessage).toBeUndefined();
+  });
+
+  it('respeita aplicações opcionais de dimensões e peso de uma categoria', () => {
+    const product: Partial<Product> = {
+      id: 'kit-optional',
+      name: 'Conjunto',
+      description: 'Conjunto de móveis',
+      status: 'hidden',
+      unitPrice: 100,
+      images: ['https://example.com/conjunto.jpg'],
+      categoryIds: ['cat-kit'],
+      technicalValues: {},
+      selectedCharacteristicIds: [],
+      activeCharacteristicIds: [],
+    };
+    const requirements = [
+      { id: 'depth', name: 'Profundidade total', groupId: 'dimensions', categoryApplications: [{ categoryId: 'cat-kit', application: 'optional' as const }] },
+      { id: 'weight', name: 'Peso', groupId: 'weight', categoryApplications: [{ categoryId: 'cat-kit', application: 'optional' as const }] },
+    ];
+    expect(validateCatalogPublication(product, undefined, false, requirements).isValid).toBe(true);
+    const requiredDepth = [{ ...requirements[0], categoryApplications: [{ categoryId: 'cat-kit', application: 'required' as const }] }, requirements[1]];
+    expect(validateCatalogPublication(product, undefined, false, requiredDepth).errorMessage)
+      .toContain('Profundidade total');
   });
 
   it('aplica a obrigatoriedade de categoria somente à publicação no Catálogo Digital', () => {
@@ -91,10 +138,11 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       width: 160,
       height: 80,
       depth: 90,
+      weight: 30,
       technicalValues: {},
     };
     const requirements = [
-      { name: 'Acabamento', requiredCategoryIds: ['cat-mesas'] },
+      { name: 'Acabamento', categoryApplications: [], requiredCategoryIds: ['cat-mesas'] },
     ];
 
     const result = validateCatalogPublication(product as Product, undefined, false, requirements);
@@ -110,6 +158,189 @@ describe('Validação de Publicação no Catálogo Digital', () => {
     expect(completedResult.isValid).toBe(true);
   });
 
+  it('cobra características opcionais ativadas e ignora dependências ocultas', () => {
+    const product: Partial<Product> = {
+      id: 'prod-optional-group',
+      name: 'Cômoda',
+      description: 'Cômoda de madeira',
+      status: 'hidden',
+      unitPrice: 1200,
+      images: ['https://example.com/comoda.jpg'],
+      categoryIds: ['cat-comodas'],
+      width: 80,
+      height: 90,
+      depth: 45,
+      weight: 30,
+      selectedCharacteristicIds: ['drawer-quantity', 'drawer-runner'],
+      activeCharacteristicIds: ['drawer-quantity', 'drawer-runner'],
+      technicalValues: {
+        'Quantidade de gavetas': 2,
+        'Tipo de corrediça': '',
+      },
+    };
+    const requirements = [
+      {
+        id: 'drawer-quantity', name: 'Quantidade de gavetas', groupId: 'drawers', dataType: 'integer',
+        categoryIds: ['cat-comodas'],
+      },
+      {
+        id: 'drawer-runner',
+        name: 'Tipo de corrediça',
+        groupId: 'drawers',
+        dataType: 'radio',
+        categoryIds: ['cat-comodas'],
+        dependency: {
+          referenceAttributeId: 'drawer-quantity',
+          operator: 'greater_than',
+          value: '1',
+        },
+      },
+      {
+        id: 'drawer-material', name: 'Material das gavetas', groupId: 'drawers', dataType: 'radio',
+        categoryIds: ['cat-comodas'],
+      },
+    ];
+    const characteristicGroups = [{ id: 'drawers' }];
+
+    const inactiveGroup = validateCatalogPublication(
+      {
+        ...product,
+        selectedCharacteristicIds: [],
+        activeCharacteristicIds: [],
+        technicalValues: {},
+      } as Product,
+      undefined,
+      false,
+      requirements,
+      { characteristicGroups }
+    );
+    expect(inactiveGroup.isValid).toBe(true);
+
+    const missing = validateCatalogPublication(
+      product as Product,
+      undefined,
+      false,
+      requirements,
+      { characteristicGroups }
+    );
+    expect(missing.isValid).toBe(false);
+    expect(missing.errorMessage).toContain('Tipo de corrediça');
+    expect(missing.errorMessage).not.toContain('Material das gavetas');
+
+    const dependencyHidden = validateCatalogPublication(
+      {
+        ...product,
+        technicalValues: {
+          'Quantidade de gavetas': 1,
+          'Tipo de corrediça': '',
+        },
+      } as Product,
+      undefined,
+      false,
+      requirements,
+      { characteristicGroups }
+    );
+    expect(dependencyHidden.isValid).toBe(true);
+
+    const notInform = validateCatalogPublication(
+      {
+        ...product,
+        technicalValues: {
+          'Quantidade de gavetas': 2,
+          'Tipo de corrediça': 'Não informar',
+        },
+      } as Product,
+      undefined,
+      false,
+      requirements,
+      { characteristicGroups }
+    );
+    expect(notInform.isValid).toBe(false);
+    expect(notInform.errorMessage).toContain('Tipo de corrediça');
+
+    const otherOptionalCharacteristicsRemainOff = validateCatalogPublication(
+      {
+        ...product,
+        selectedCharacteristicIds: [],
+        activeCharacteristicIds: [],
+        technicalValues: {
+          'Quantidade de gavetas': 2,
+          'Tipo de corrediça': 'Correr',
+          'Material das gavetas': '',
+        },
+      } as Product,
+      undefined,
+      false,
+      requirements,
+      { characteristicGroups }
+    );
+    expect(otherOptionalCharacteristicsRemainOff.isValid).toBe(true);
+
+    const requiredCharacteristicDoesNotRequireItsWholeGroup = validateCatalogPublication(
+      {
+        ...product,
+        selectedCharacteristicIds: [],
+        activeCharacteristicIds: [],
+        technicalValues: {
+          'Quantidade de gavetas': 2,
+          'Tipo de corrediça': 'Correr',
+          'Material das gavetas': '',
+        },
+      } as Product,
+      undefined,
+      false,
+      [
+        { ...requirements[0], requiredProductCategoryIds: ['cat-comodas'] },
+        requirements[1],
+        requirements[2],
+      ],
+      { characteristicGroups }
+    );
+    expect(requiredCharacteristicDoesNotRequireItsWholeGroup.isValid).toBe(true);
+
+    const requiredCharacteristicMissing = validateCatalogPublication(
+      {
+        ...product,
+        selectedCharacteristicIds: [],
+        activeCharacteristicIds: [],
+        technicalValues: { 'Quantidade de gavetas': '', 'Tipo de corrediça': '', 'Material das gavetas': '' },
+      } as Product,
+      undefined,
+      false,
+      [
+        { ...requirements[0], requiredProductCategoryIds: ['cat-comodas'] },
+        requirements[1],
+        requirements[2],
+      ],
+      { characteristicGroups }
+    );
+    expect(requiredCharacteristicMissing.isValid).toBe(false);
+    expect(requiredCharacteristicMissing.errorMessage).toContain('Quantidade de gavetas');
+    expect(requiredCharacteristicMissing.errorMessage).not.toContain('Material das gavetas');
+
+    const zeroDoorDrawerQuantity = validateCatalogPublication(
+      {
+        ...product,
+        selectedCharacteristicIds: [],
+        activeCharacteristicIds: [],
+        technicalValues: {
+          'Quantidade de gavetas': 0,
+          'Tipo de corrediça': '',
+          'Material das gavetas': '',
+        },
+      } as Product,
+      undefined,
+      false,
+      [
+        { ...requirements[0], requiredProductCategoryIds: ['cat-comodas'] },
+        requirements[1],
+        requirements[2],
+      ],
+      { characteristicGroups }
+    );
+    expect(zeroDoorDrawerQuantity.isValid).toBe(true);
+  });
+
   it('valida a característica variável da categoria em cada variação publicada', () => {
     const product: Partial<Product> = {
       id: 'prod-variation-required',
@@ -123,6 +354,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       width: 160,
       height: 80,
       depth: 90,
+      weight: 30,
       variableTechnicalFields: ['Modelo/Linha'],
       technicalValues: { 'Modelo/Linha': 'Matriz' },
       variations: [

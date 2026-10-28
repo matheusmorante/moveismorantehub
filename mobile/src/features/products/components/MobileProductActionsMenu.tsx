@@ -60,6 +60,7 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
     productId: String(product?.id ?? ''),
     confirmed: false,
   });
+  const editActionLabel = isDraft ? 'Retomar cadastro' : 'Editar Produto';
 
   const handleEdit = () => {
     onClose();
@@ -75,7 +76,7 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
     onClose();
     Alert.alert(
       'Descartar Rascunho',
-      'Deseja realmente descartar este rascunho permanentemente?\n\nEsta ação não poderá ser desfeita.',
+      'Deseja descartar este rascunho permanentemente?\n\nEsta ação não poderá ser desfeita.',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -140,11 +141,11 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                   style={styles.menuItem}
                   onPress={handleEdit}
                   accessibilityRole="button"
-                  accessibilityLabel="Editar Produto"
+                  accessibilityLabel={editActionLabel}
                 >
                   <Pencil size={16} color="#2563eb" />
                   <Text style={[styles.menuItemText, dark && styles.lightText]}>
-                    Editar Produto
+                    {editActionLabel}
                   </Text>
                 </TouchableOpacity>
               )}

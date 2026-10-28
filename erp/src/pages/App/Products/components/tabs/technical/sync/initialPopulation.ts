@@ -3,9 +3,10 @@ import {
   parseDoorQuantityValue,
   parseDrawerQuantityValue,
   parseFeetQuantityValue,
-  isMattressCategory,
+  isDoorQuantityCharacteristic,
   TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
+import { getProductTechnicalValueCandidateKeys } from '../../../../../../../../../shared-utils/productTechnicalValueAliases';
 import { normalizeTechnicalName } from '../technicalTabUtils';
 
 /**
@@ -18,29 +19,67 @@ export const populateInitialTechnicalValues = (
 ): Partial<Product> => {
   const technicalValues = { ...(prev.technicalValues || {}) };
   let changed = false;
-  const isMattress = isMattressCategory(prev.categoryIds, fieldDefinitions);
+
+  fieldDefinitions.forEach((field) => {
+    const candidates = getProductTechnicalValueCandidateKeys(field.name);
+    const normalizedCandidates = new Set(candidates.map(normalizeTechnicalName));
+    const matchingEntries = Object.entries(technicalValues).filter(([name]) =>
+      normalizedCandidates.has(normalizeTechnicalName(name))
+    );
+    const preferredCandidate = candidates.find((candidate) =>
+      matchingEntries.some(([name, value]) =>
+        value !== undefined && normalizeTechnicalName(name) === normalizeTechnicalName(candidate)
+      )
+    );
+    const preferredEntry = preferredCandidate
+      ? matchingEntries.find(([name, value]) =>
+          value !== undefined && normalizeTechnicalName(name) === normalizeTechnicalName(preferredCandidate)
+        )
+      : undefined;
+
+    if (preferredEntry && (!Object.prototype.hasOwnProperty.call(technicalValues, field.name) ||
+        technicalValues[field.name] === undefined)) {
+      technicalValues[field.name] = preferredEntry[1];
+      changed = true;
+    }
+
+    matchingEntries.forEach(([name]) => {
+      if (name !== field.name) {
+        delete technicalValues[name];
+        changed = true;
+      }
+    });
+  });
 
   fieldDefinitions
     .filter((field) => {
-      if (isMattress && normalizeTechnicalName(field.name) === 'altura') return false;
-      const isReq =
-        field.isRequired ||
-        (isMattress && normalizeTechnicalName(field.name) === 'espessura do colchão');
+      const categoryApplications = field.categoryApplications?.filter((application) =>
+        (prev.categoryIds || []).includes(application.categoryId)
+      ) ?? [];
+      const isReq = categoryApplications.length > 0
+        ? categoryApplications.some((application) => application.application === 'required')
+        : field.isRequired;
       return isReq && field.active !== false;
     })
     .forEach((field) => {
-      if (!Object.prototype.hasOwnProperty.call(technicalValues, field.name)) {
+      const currentValue = technicalValues[field.name];
+      if (
+        !Object.prototype.hasOwnProperty.call(technicalValues, field.name) ||
+        (field.dataType === 'boolean' && (currentValue === undefined || currentValue === null || currentValue === ''))
+      ) {
         const norm = normalizeTechnicalName(field.name);
-        if (norm === 'altura' && prev.height) {
-          technicalValues[field.name] = prev.height;
-        } else if (norm === 'espessura do colchão' && prev.height) {
+        if ((norm === 'altura' || norm === 'altura total') && prev.height) {
           technicalValues[field.name] = prev.height;
         } else if (norm === 'largura' && prev.width) {
           technicalValues[field.name] = prev.width;
-        } else if ((norm === 'profundidade' || norm === 'comprimento') && prev.depth) {
+        } else if (
+          (norm === 'profundidade' || norm === 'profundidade total') &&
+          !prev.depthUseLength &&
+          prev.depth
+        ) {
           technicalValues[field.name] = prev.depth;
         } else {
-          technicalValues[field.name] = '';
+          technicalValues[field.name] = field.dataType === 'boolean' ? null : '';
         }
         changed = true;
       }
@@ -102,13 +141,12 @@ export const populateInitialTechnicalValues = (
 
   // Inferência automática e compatibilidade de switches mestres
   if (!Object.prototype.hasOwnProperty.call(technicalValues, 'Possui portas')) {
-    const doorQty = parseDoorQuantityValue(technicalValues);
+    const hasDoorQuantityField = Object.keys(technicalValues).some(isDoorQuantityCharacteristic);
     if (
-      (doorQty !== null && doorQty > 0) ||
-      technicalValues['Tipo de portas'] ||
-      technicalValues['Material das portas']
+      !hasDoorQuantityField &&
+      (technicalValues['Tipo de portas'] || technicalValues['Material das portas'])
     ) {
-      technicalValues['Possui portas'] = 'Sim';
+      technicalValues['Possui portas'] = true;
       changed = true;
     }
   }
@@ -121,7 +159,7 @@ export const populateInitialTechnicalValues = (
       technicalValues['Materiais das corrediças'] ||
       technicalValues['Material das gavetas']
     ) {
-      technicalValues['Possui gavetas'] = 'Sim';
+      technicalValues['Possui gavetas'] = true;
       changed = true;
     }
   }
@@ -133,7 +171,7 @@ export const populateInitialTechnicalValues = (
       technicalValues['Material dos pés'] ||
       technicalValues['Pés reguláveis']
     ) {
-      technicalValues['Possui pés'] = 'Sim';
+      technicalValues['Possui pés'] = true;
       changed = true;
     }
   }

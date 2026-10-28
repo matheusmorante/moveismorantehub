@@ -141,9 +141,14 @@ export const mapToDB = (product: Partial<Product>) => {
         : 'Profundidade total';
     measureParts.push(`${label}: ${product.depth}cm`);
   }
+  const tabletopThickness =
+    product.technicalValues?.['Espessura do tampo'] ||
+    product.technicalValues?.['Espessura'];
+  if (tabletopThickness) {
+    measureParts.push(`Espessura do tampo: ${String(tabletopThickness).replace(/\s*mm$/i, '')}mm`);
+  }
   const thickness =
     product.technicalValues?.['Espessura do colchão'] ||
-    product.technicalValues?.['Espessura'] ||
     (product as any).thickness;
   if (thickness) measureParts.push(`Espessura: ${String(thickness).replace(/\s*cm$/i, '')}cm`);
   if (measureParts.length > 0) {
@@ -201,6 +206,10 @@ export const mapToDB = (product: Partial<Product>) => {
   // Persistência de Especificações Técnicas na coluna jsonb 'technical_specs'
   if (
     product.technicalValues !== undefined ||
+    product.selectedCharacteristicGroupIds !== undefined ||
+    product.activeCharacteristicGroupIds !== undefined ||
+    product.selectedCharacteristicIds !== undefined ||
+    product.activeCharacteristicIds !== undefined ||
     product.variableTechnicalFields !== undefined ||
     product.technicalSpecs ||
     product.variations ||
@@ -210,6 +219,18 @@ export const mapToDB = (product: Partial<Product>) => {
     data.technical_specs = {
       ...existingSpecs,
       ...(product.technicalValues !== undefined ? { technicalValues: product.technicalValues } : {}),
+      ...(product.selectedCharacteristicGroupIds !== undefined
+        ? { selectedCharacteristicGroupIds: product.selectedCharacteristicGroupIds }
+        : {}),
+      ...(product.activeCharacteristicGroupIds !== undefined
+        ? { activeCharacteristicGroupIds: product.activeCharacteristicGroupIds }
+        : {}),
+      ...(product.selectedCharacteristicIds !== undefined
+        ? { selectedCharacteristicIds: product.selectedCharacteristicIds }
+        : {}),
+      ...(product.activeCharacteristicIds !== undefined
+        ? { activeCharacteristicIds: product.activeCharacteristicIds }
+        : {}),
       ...(product.variableTechnicalFields !== undefined
         ? { variableTechnicalFields: product.variableTechnicalFields }
         : {}),

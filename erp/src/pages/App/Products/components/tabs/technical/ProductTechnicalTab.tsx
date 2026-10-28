@@ -1,11 +1,21 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Product } from '../../../../../types/product.type';
 import { AttributeManagementModal } from '../../modals/attributes/AttributeManagementModal';
 import { useProductTechnicalTab } from './useProductTechnicalTab';
 import { TechnicalCharacteristicSearch } from './TechnicalCharacteristicSearch';
 import { TechnicalFieldGroupSection } from './TechnicalFieldGroupSection';
 import { TechnicalTabFeedbackState } from './TechnicalTabFeedbackState';
-import { resolveVariableTechnicalFieldNames } from '@/pages/utils/technicalValuesService';
+import {
+  resolveVariableTechnicalFieldNames,
+  isTechnicalFieldVariable,
+  isDoorQuantityCharacteristic,
+  isDrawerQuantityCharacteristic,
+  parseDoorQuantityValue,
+  parseDrawerQuantityValue,
+  groupTechnicalFields,
+  mergeCharacteristicGroups,
+} from '@/pages/utils/technicalValuesService';
+import { areTechnicalCharacteristicNamesEquivalent } from '../../../../../../../../shared-utils/productTechnicalFieldScope';
 
 export interface ProductTechnicalTabProps {
   readonly formData: Partial<Product>;
@@ -24,6 +34,8 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   requiredFieldsOnly = false,
   validationErrors,
 }) => {
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(() => new Set());
+  const [highlightedFieldName, setHighlightedFieldName] = useState<string | null>(null);
   const {
     loadingFields,
     visibleFields,
@@ -35,14 +47,19 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     normalizedDebouncedSearchTerm,
     matchingOptionalFields,
     matchingGroups,
+    matchingProductGroups,
+    matchingProductGroupFields,
+    productGroupSections,
     isAttributeModalOpen,
     setCharacteristicSearchTerm,
     handleTechnicalValueChange,
     handleToggleVariableField,
-    handleAddManualField,
     handleAddGroup,
+    handleAddCharacteristicGroup,
+    handleToggleCharacteristic,
+    handleSetCharacteristicScope,
+    handleAddCharacteristicFromSearch,
     handleRemoveManualField,
-    handleToggleDepthLength,
     openAttributeModal,
     closeAttributeModal,
   } = useProductTechnicalTab({
@@ -58,6 +75,55 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
   const isSimpleProduct =
     !formData.hasVariations && (formData.variations || []).length <= 1;
 
+  const locateGroup = (groupId: string) => {
+    const group = productGroupSections.find((candidate) => candidate.id === groupId);
+    if (!group) return;
+    setCollapsedGroupIds((current) => {
+      const next = new Set(current);
+      next.delete(group.id);
+      return next;
+    });
+    setCharacteristicSearchTerm('');
+    setHighlightedFieldName(null);
+    document.getElementById(`technical-group-${group.name}`)?.scrollIntoView?.({
+      behavior: 'smooth',
+      block: 'center',
+    });
+  };
+
+  const locateCharacteristic = (field: (typeof visibleFields)[number]) => {
+    const group = field.groupId
+      ? productGroupSections.find((candidate) => candidate.id === field.groupId)
+      : undefined;
+    if (group) {
+      setCollapsedGroupIds((current) => {
+        const next = new Set(current);
+        next.delete(group.id);
+        return next;
+      });
+    }
+    setCharacteristicSearchTerm('');
+    setHighlightedFieldName(field.name);
+  };
+
+  const addSearchGroup = (groupId: string, characteristicName?: string) => {
+    handleAddCharacteristicGroup(groupId, characteristicName);
+    setCollapsedGroupIds((current) => {
+      const next = new Set(current);
+      next.delete(groupId);
+      return next;
+    });
+    setHighlightedFieldName(characteristicName ?? null);
+  };
+
+  useEffect(() => {
+    if (!highlightedFieldName) return;
+    const target = document.getElementById(`technical-field-${highlightedFieldName}`);
+    target?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    const timeoutId = window.setTimeout(() => setHighlightedFieldName(null), 1800);
+    return () => window.clearTimeout(timeoutId);
+  }, [highlightedFieldName]);
+
   const searchControl = !requiredFieldsOnly ? (
     <TechnicalCharacteristicSearch
       searchTerm={characteristicSearchTerm}
@@ -66,54 +132,147 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
       normalizedDebouncedSearchTerm={normalizedDebouncedSearchTerm}
       matchingFields={matchingOptionalFields}
       matchingGroups={matchingGroups}
-      onAddField={handleAddManualField}
+      matchingProductGroups={matchingProductGroups}
+      matchingProductGroupFields={matchingProductGroupFields}
+      isSimpleProduct={isSimpleProduct}
+      onAddField={(field) => {
+        const existingField = visibleFields.find((candidate) =>
+          areTechnicalCharacteristicNamesEquivalent(candidate.name, field.name)
+        );
+        if (existingField) locateCharacteristic(existingField);
+        else handleAddCharacteristicFromSearch(field);
+      }}
       onAddGroup={handleAddGroup}
+      onAddCharacteristicGroup={addSearchGroup}
+      onToggleCharacteristic={(field) => {
+        if (field.characteristicActive) handleToggleCharacteristic(field);
+        else if (field.groupId) handleAddCharacteristicGroup(field.groupId, field.name);
+        else handleAddCharacteristicFromSearch(field);
+      }}
+      onSetCharacteristicScope={handleSetCharacteristicScope}
+      onLocateCharacteristic={locateCharacteristic}
+      onLocateGroup={locateGroup}
     />
   ) : null;
 
-  const fieldGroups = [
+  const legacyOptionalGroups = !requiredFieldsOnly
+    ? groupTechnicalFields(displayedOptionalFields)
+    : [];
+  const legacyFieldGroups = mergeCharacteristicGroups([
     ...requiredFieldGroups,
-    ...(!requiredFieldsOnly
-      ? [{ title: 'Adicionar características secundárias', fields: displayedOptionalFields }]
-      : []),
-  ];
+    ...legacyOptionalGroups,
+  ]);
+  const requiredProductGroups = productGroupSections.filter(
+    (group) => group.fields.some((field) =>
+      field.isRequired || field.isRequiredForCatalog ||
+      (requiredFieldsOnly && field.isRequiredForProductEntry)
+    )
+  );
+  const optionalProductGroups = productGroupSections.filter(
+    (group) => !requiredProductGroups.includes(group)
+  );
+  const allProductGroups = productGroupSections.map((group) => ({
+    title: group.name,
+    fields: group.fields,
+  }));
+  const fieldGroups = [...legacyFieldGroups, ...allProductGroups];
   const allDisplayedFields = fieldGroups.flatMap((group) => group.fields);
-  const mainGroup = fieldGroups.find((group) => group.title === 'Características principais');
-  const dimensionsGroup = fieldGroups.find((group) => group.title === 'Dimensões e Peso');
-  const mainGroupIndex = fieldGroups.findIndex(
-    (group) => group.title === 'Características principais'
+
+  const toggleGroupExpanded = (groupId: string) => {
+    setCollapsedGroupIds((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  const requiredProductFields = [
+    ...productGroupSections.flatMap((group) => group.fields),
+    ...requiredFieldGroups.flatMap((group) => group.fields),
+  ].filter((field, index, fields) =>
+    (field.isRequiredForProductEntry || field.isRequired || field.isRequiredForCatalog) &&
+    fields.findIndex((candidate) => candidate.id === field.id) === index
   );
-  const dimensionsGroupIndex = fieldGroups.findIndex(
-    (group) => group.title === 'Dimensões e Peso'
+  const isMultiVariation =
+    Boolean(formData.hasVariations) || (formData.variations || []).length > 1;
+  const activeVariations = (formData.variations || []).filter(
+    (variation) => variation.active !== false
   );
-  const mainGroupRenderIndex = [mainGroupIndex, dimensionsGroupIndex]
-    .filter((index) => index >= 0)
-    .reduce((earliest, index) => Math.min(earliest, index), fieldGroups.length);
+  const valueFrom = (values: Record<string, unknown> | undefined, name: string) =>
+    Object.entries(values || {}).find(([key]) =>
+      areTechnicalCharacteristicNamesEquivalent(key, name)
+    )?.[1];
+  const hasEnteredValue = (value: unknown) => {
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLocaleLowerCase('pt-BR');
+      return normalized.length > 0 && !['não informar', 'nao informar', 'não se aplica', 'nao se aplica', 'n/a'].includes(normalized);
+    }
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== undefined && value !== null;
+  };
+  const hasRequiredFieldValue = (
+    field: (typeof requiredProductFields)[number],
+    value: unknown
+  ) => {
+    if (isDoorQuantityCharacteristic(field.name)) {
+      const quantity = parseDoorQuantityValue({ [field.name]: value });
+      return quantity !== null && quantity >= 0;
+    }
+    if (isDrawerQuantityCharacteristic(field.name)) {
+      const quantity = parseDrawerQuantityValue({ [field.name]: value });
+      return quantity !== null && quantity >= 0;
+    }
+    return hasEnteredValue(value);
+  };
+  const isRequiredFieldFilled = (field: (typeof requiredProductFields)[number]) => {
+    if (isMultiVariation && isTechnicalFieldVariable(field.name, variableTechnicalFieldNames)) {
+      return activeVariations.length > 0 && activeVariations.every((variation) => {
+        const value = valueFrom(variation.technicalValues, field.name) ??
+          variation.attributes?.find((attribute) =>
+            areTechnicalCharacteristicNamesEquivalent(attribute.name, field.name)
+          )?.value;
+        return hasRequiredFieldValue(field, value);
+      });
+    }
+    return hasRequiredFieldValue(field, valueFrom(formData.technicalValues, field.name));
+  };
+  const filledRequiredCount = requiredProductFields.filter(isRequiredFieldFilled).length;
 
   const renderGroup = (
     group: (typeof fieldGroups)[number],
     hideHeading = false,
-    headingAccessory?: React.ReactNode
+    headingAccessory?: React.ReactNode,
+    productGroup?: (typeof productGroupSections)[number]
   ) => (
     <TechnicalFieldGroupSection
+      key={productGroup?.id ?? group.title}
       group={group}
       headingAccessory={headingAccessory}
+      collapsible={Boolean(productGroup)}
+      expanded={productGroup ? !collapsedGroupIds.has(productGroup.id) : true}
+      onToggleExpanded={productGroup ? () => toggleGroupExpanded(productGroup.id) : undefined}
       allDisplayedFields={allDisplayedFields}
       formData={formData}
       manualFieldNames={manualFieldNames}
       validationErrors={validationErrors}
+      highlightedFieldName={highlightedFieldName}
       variableTechnicalFieldNames={variableTechnicalFieldNames}
       isSimpleProduct={isSimpleProduct}
+      suppressImplicitFields={Boolean(productGroup)}
+      hideSimpleFieldToggles={false}
       hideHeading={hideHeading}
       onToggleVariableField={handleToggleVariableField}
+      onToggleCharacteristic={productGroup && isSimpleProduct ? handleToggleCharacteristic : undefined}
       onValueChange={handleTechnicalValueChange}
       onOpenAttributeModal={openAttributeModal}
-      onToggleDepthLength={handleToggleDepthLength}
       onRemoveManualField={handleRemoveManualField}
     />
   );
 
-  const showEmptyMessage = requiredFieldsOnly && visibleFields.length === 0;
+  const hasVisibleProductGroupFields = productGroupSections.some((group) => group.fields.length > 0);
+  const showEmptyMessage =
+    requiredFieldsOnly && visibleFields.length === 0 && !hasVisibleProductGroupFields;
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -125,45 +284,66 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
           />
         ) : (
           <div className="flex flex-col gap-6 pt-2">
-            {fieldGroups.length === 0 && searchControl}
-            {fieldGroups.map((group, index) => {
-              const isMainCharacteristicsGroup =
-                group.title === 'Características principais' || group.title === 'Dimensões e Peso';
-
-              if (isMainCharacteristicsGroup) {
-                if (index !== mainGroupRenderIndex) return null;
-
-                return (
-                  <React.Fragment key="Características principais">
-                    <section
-                      aria-labelledby="technical-group-Características principais"
-                      className="flex flex-col gap-3"
-                    >
-                      <h4
-                        id="technical-group-Características principais"
-                        className="flex items-center gap-1.5 border-b border-slate-200 pb-2 text-sm font-bold uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:text-slate-300"
-                      >
-                        Características principais
-                      </h4>
-                      {mainGroup && renderGroup(mainGroup, true)}
-                      {dimensionsGroup && renderGroup(dimensionsGroup)}
-                    </section>
-                  </React.Fragment>
-                );
-              }
-
-              return (
-                <React.Fragment key={group.title}>
-                  {renderGroup(
-                    group,
+            <div className="flex flex-wrap items-end justify-between gap-2 border-b border-slate-200 pb-2 dark:border-slate-800">
+              <div className="flex min-w-0 flex-col gap-1">
+                <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Características</h3>
+                {categoryName.trim() && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Categoria: {categoryName.trim()}</span>
+                )}
+              </div>
+              {requiredProductFields.length > 0 && (
+                <span className="pb-0.5 text-xs font-medium text-slate-700 dark:text-slate-200">
+                  {filledRequiredCount} de {requiredProductFields.length} preenchidas
+                </span>
+              )}
+            </div>
+            {searchControl}
+            {(requiredFieldGroups.length > 0 || requiredProductGroups.length > 0) && (
+              <section aria-labelledby="technical-required-groups" className="flex flex-col gap-3">
+      <h4 id="technical-required-groups" className="flex items-center justify-between border-b border-slate-200 pb-2 text-sm font-bold uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                  <span>Obrigatórias</span>
+                  <span className="text-[10px] font-semibold normal-case tracking-normal text-slate-400">
+                    {requiredProductGroups.length + requiredFieldGroups.length}{' '}
+                    {requiredProductGroups.length + requiredFieldGroups.length === 1 ? 'grupo' : 'grupos'}
+                  </span>
+                </h4>
+                {requiredProductGroups.map((productGroup) =>
+                  renderGroup(
+                    { title: productGroup.name, fields: productGroup.fields },
                     false,
-                    group.title === 'Adicionar características secundárias'
-                      ? searchControl
-                      : undefined
-                  )}
-                </React.Fragment>
-              );
-            })}
+                    undefined,
+                    productGroup
+                  )
+                )}
+                {requiredFieldGroups.map((group) => (
+                  <React.Fragment key={`legacy-required-${group.title}`}>
+                    {renderGroup(group)}
+                  </React.Fragment>
+                ))}
+              </section>
+            )}
+
+            {!requiredFieldsOnly && (legacyOptionalGroups.length > 0 || optionalProductGroups.length > 0) && (
+              <section aria-labelledby="technical-optional-groups" className="flex flex-col gap-3">
+                <h4 id="technical-optional-groups" className="border-b border-slate-200 pb-2 text-sm font-bold uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:text-slate-300">
+                  Características opcionais adicionadas
+                </h4>
+                {optionalProductGroups.map((productGroup) =>
+                  renderGroup(
+                    { title: productGroup.name, fields: productGroup.fields },
+                    false,
+                    undefined,
+                    productGroup
+                  )
+                )}
+                {legacyOptionalGroups.map((group) => (
+                  <React.Fragment key={`legacy-optional-${group.title}`}>
+                    {renderGroup(group)}
+                  </React.Fragment>
+                ))}
+              </section>
+            )}
+
           </div>
         )}
       </div>

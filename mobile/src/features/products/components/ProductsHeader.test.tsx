@@ -23,7 +23,11 @@ vi.mock('lucide-react-native', () => ({
 }));
 
 vi.mock('./header/ProductsHeaderMenuDropdown', () => ({
-  ProductsHeaderMenuDropdown: () => null,
+  ProductsHeaderMenuDropdown: (props: { showDeactivatedToggle: boolean }) =>
+    React.createElement('div', {
+      'data-testid': 'products-header-menu-dropdown',
+      'data-show-deactivated-toggle': String(props.showDeactivatedToggle),
+    }),
 }));
 
 vi.mock('./header/ProductsHeaderFiltersSheet', () => ({
@@ -65,5 +69,21 @@ describe('ProductsHeader', () => {
     );
 
     expect(markup).toContain('<span>15</span>');
+  });
+
+  it('oculta o atalho de inativos durante busca ou filtro de situação', () => {
+    const unfilteredMarkup = renderToStaticMarkup(
+      <ProductsHeader {...createProps({ search: '   ', statusFilter: 'all' })} />,
+    );
+    const searchMarkup = renderToStaticMarkup(
+      <ProductsHeader {...createProps({ search: ' mesa ', statusFilter: 'all' })} />,
+    );
+    const statusMarkup = renderToStaticMarkup(
+      <ProductsHeader {...createProps({ search: '', statusFilter: 'disabled' })} />,
+    );
+
+    expect(unfilteredMarkup).toContain('data-show-deactivated-toggle="true"');
+    expect(searchMarkup).toContain('data-show-deactivated-toggle="false"');
+    expect(statusMarkup).toContain('data-show-deactivated-toggle="false"');
   });
 });

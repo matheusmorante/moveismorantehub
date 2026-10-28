@@ -10,6 +10,18 @@ vi.mock('../../../services/supabaseClient', () => ({ supabase: supabaseMock }));
 
 import { fetchMobileProductTechnicalFields } from './mobileProductTechnicalService';
 
+const missingCategoryApplicationsQuery = () => ({
+  select: () => ({
+    limit: async () => ({
+      data: null,
+      error: {
+        code: 'PGRST205',
+        message: 'Could not find table attribute_category_applications',
+      },
+    }),
+  }),
+});
+
 describe('mobileProductTechnicalService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -54,6 +66,7 @@ describe('mobileProductTechnicalService', () => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values') return valuesQuery;
       if (table === 'category_attributes') return categoryLinksQuery;
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
       throw new Error(`Unexpected table ${table}`);
     });
 
@@ -64,6 +77,235 @@ describe('mobileProductTechnicalService', () => {
       'Modelo/Linha',
     ]);
     expect(fields.find(({ name }) => name === 'Modelo/Linha')?.id).toBe('attr-5');
+  });
+
+  it('carrega dependências configuradas e alternativas usando o contrato do ERP', async () => {
+    const attributesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: [
+          { id: 'doors', name: 'Quantidade de portas', active: true, data_type: 'integer', unit: null },
+          {
+            id: 'finish', name: 'Acabamento das portas', active: true, data_type: 'text', unit: null,
+            dependency_attribute_id: 'doors', dependency_operator: 'greater_than', dependency_value: '0',
+          },
+          { id: 'drawers', name: 'Quantidade de gavetas', active: true, data_type: 'integer', unit: null },
+        ],
+        error: null,
+      }),
+    };
+    const queryWith = (data: unknown, error: unknown = null) => ({
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data, error }),
+      }),
+    });
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return attributesQuery;
+      if (table === 'attribute_values' || table === 'category_attributes') return queryWith([]);
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
+      if (table === 'attribute_dependency_alternatives') {
+        return queryWith([
+          { attribute_id: 'finish', reference_attribute_id: 'drawers', operator: 'greater_than', value: '0' },
+        ]);
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const fields = await fetchMobileProductTechnicalFields();
+    const finish = fields.find(({ id }) => id === 'finish');
+
+    expect(finish?.dependency).toEqual({
+      referenceAttributeId: 'doors', operator: 'greater_than', value: '0',
+    });
+    expect(finish?.dependencyAlternatives).toEqual([
+      { referenceAttributeId: 'drawers', operator: 'greater_than', value: '0' },
+    ]);
+  });
+
+  it('mapeia grupo persistido e ordenação compartilhada para a aba técnica', async () => {
+    const attributesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: [{
+          id: 'finish',
+          name: 'Acabamento das portas',
+          active: true,
+          data_type: 'text',
+          unit: null,
+          group_id: 'group-doors',
+          dependency_attribute_id: 'doors',
+          dependency_operator: 'greater_than',
+          dependency_value: '0',
+        }],
+        error: null,
+      }),
+    };
+    const queryWith = (data: unknown, error: unknown = null) => ({
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data, error }),
+      }),
+    });
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return attributesQuery;
+      if (table === 'attribute_values' || table === 'category_attributes') return queryWith([]);
+      if (table === 'attribute_category_applications') return queryWith([]);
+      if (table === 'attribute_dependency_alternatives') {
+        return queryWith([
+          { attribute_id: 'finish', reference_attribute_id: 'drawers', operator: 'greater_than', value: '0' },
+        ]);
+      }
+      if (table === 'attribute_groups') {
+        return queryWith([
+          { id: 'group-custom', name: 'Grupo Z' },
+          { id: 'group-weight', name: 'Peso e capacidade' },
+          { id: 'group-doors', name: 'Portas, gavetas e ferragens' },
+        ]);
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const [field] = await fetchMobileProductTechnicalFields();
+
+    expect(field).toMatchObject({
+      groupId: 'group-doors',
+      groupName: 'Portas, gavetas e ferragens',
+      dependency: { referenceAttributeId: 'doors', operator: 'greater_than', value: '0' },
+      dependencyAlternatives: [
+        { referenceAttributeId: 'drawers', operator: 'greater_than', value: '0' },
+      ],
+    });
+  });
+
+  it('propaga erro de permissão nas condições alternativas, sem tratar como tabela ausente', async () => {
+    const attributesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: [{
+          id: 'finish', name: 'Acabamento', active: true, data_type: 'text', unit: null,
+          dependency_attribute_id: 'doors', dependency_operator: 'greater_than', dependency_value: '0',
+        }],
+        error: null,
+      }),
+    };
+    const queryWith = (data: unknown, error: unknown = null) => ({
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data, error }),
+      }),
+    });
+    const accessError = { code: '42501', message: 'permission denied for table attribute_dependency_alternatives' };
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return attributesQuery;
+      if (table === 'attribute_values' || table === 'category_attributes') return queryWith([]);
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
+      if (table === 'attribute_dependency_alternatives') return queryWith(null, accessError);
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    await expect(fetchMobileProductTechnicalFields()).rejects.toMatchObject(accessError);
+  });
+
+  it('preserva a condição principal quando a relação de alternativas ainda não existe', async () => {
+    const attributesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: [{
+          id: 'finish', name: 'Acabamento', active: true, data_type: 'text', unit: null,
+          dependency_attribute_id: 'doors', dependency_operator: 'greater_than', dependency_value: '0',
+        }],
+        error: null,
+      }),
+    };
+    const queryWith = (data: unknown, error: unknown = null) => ({
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data, error }),
+      }),
+    });
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return attributesQuery;
+      if (table === 'attribute_values' || table === 'category_attributes') return queryWith([]);
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
+      if (table === 'attribute_dependency_alternatives') {
+        return queryWith(null, {
+          code: 'PGRST205',
+          message: 'Could not find table attribute_dependency_alternatives',
+        });
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const [field] = await fetchMobileProductTechnicalFields();
+
+    expect(field.dependency).toEqual({
+      referenceAttributeId: 'doors', operator: 'greater_than', value: '0',
+    });
+    expect(field.dependencyAlternatives).toEqual([]);
+  });
+
+  it('mapeia aplicação de Produto e exigência de Catálogo como vínculos independentes do ERP', async () => {
+    const attributesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: [{ id: 'attr-finish', name: 'Acabamento', active: true, data_type: 'text', unit: null }],
+        error: null,
+      }),
+    };
+    const queryWith = (data: unknown) => ({
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data, error: null }),
+      }),
+    });
+    const valuesQuery = queryWith([]);
+    const categoryLinksQuery = queryWith([
+      { attribute_id: 'attr-finish', category_id: 'cat-unavailable', is_required: true },
+    ]);
+    const categoryApplicationsQuery = queryWith([
+      { attribute_id: 'attr-finish', category_id: 'cat-optional', application: 'optional' },
+      { attribute_id: 'attr-finish', category_id: 'cat-required', application: 'required' },
+      { attribute_id: 'attr-finish', category_id: 'cat-unavailable', application: 'unavailable' },
+    ]);
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return attributesQuery;
+      if (table === 'attribute_values') return valuesQuery;
+      if (table === 'category_attributes') return categoryLinksQuery;
+      if (table === 'attribute_category_applications') return categoryApplicationsQuery;
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const [field] = await fetchMobileProductTechnicalFields({ requireCategoryLinks: true });
+
+    expect(field).toMatchObject({
+      categoryIds: ['cat-optional', 'cat-required'],
+      categoryApplications: [
+        { categoryId: 'cat-optional', application: 'optional' },
+        { categoryId: 'cat-required', application: 'required' },
+        { categoryId: 'cat-unavailable', application: 'unavailable' },
+      ],
+      requiredCategoryIds: ['cat-unavailable'],
+    });
+  });
+
+  it('propaga falha de permissão da tabela de aplicações sem ativar fallback legado', async () => {
+    const queryWith = (data: unknown, error: unknown = null) => ({
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({ data, error }),
+      }),
+    });
+    const attributesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    const accessError = {
+      code: '42501',
+      message: 'permission denied for table attribute_category_applications',
+    };
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return attributesQuery;
+      if (table === 'attribute_values' || table === 'category_attributes') return queryWith([]);
+      if (table === 'attribute_category_applications') return queryWith(null, accessError);
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    await expect(fetchMobileProductTechnicalFields()).rejects.toMatchObject(accessError);
   });
 
   it('projeta capacidades de peso como medidas opcionais com unidade kg', async () => {
@@ -105,6 +347,7 @@ describe('mobileProductTechnicalService', () => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values') return valuesQuery;
       if (table === 'category_attributes') return categoryLinksQuery;
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
       throw new Error(`Unexpected table ${table}`);
     });
 
@@ -149,6 +392,7 @@ describe('mobileProductTechnicalService', () => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values') return valuesQuery;
       if (table === 'category_attributes') return categoryLinksQuery;
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
       throw new Error(`Unexpected table ${table}`);
     });
 
@@ -222,6 +466,7 @@ describe('mobileProductTechnicalService', () => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values') return valuesQuery;
       if (table === 'category_attributes') return categoryLinksQuery;
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
       throw new Error(`Unexpected table ${table}`);
     });
 
@@ -281,6 +526,7 @@ describe('mobileProductTechnicalService', () => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values') return valuesQuery;
       if (table === 'category_attributes') return categoryLinksQuery;
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
       throw new Error(`Unexpected table ${table}`);
     });
 
@@ -308,6 +554,7 @@ describe('mobileProductTechnicalService', () => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values') return valuesQuery;
       if (table === 'category_attributes') return categoryLinksQuery;
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
       throw new Error(`Unexpected table ${table}`);
     });
 
@@ -352,6 +599,7 @@ describe('mobileProductTechnicalService', () => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values') return valuesQuery;
       if (table === 'category_attributes') return categoryLinksQuery;
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
       throw new Error(`Unexpected table ${table}`);
     });
 
@@ -398,15 +646,16 @@ describe('mobileProductTechnicalService', () => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values') return valuesQuery;
       if (table === 'category_attributes') return categoryLinksQuery;
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
       throw new Error(`Unexpected table ${table}`);
     });
 
     const fields = await fetchMobileProductTechnicalFields({ requireCategoryLinks: true });
 
     expect(attributesQuery.select.mock.calls).toEqual([
-      ['id, name, active, data_type, unit, is_custom, decimal_places'],
-      ['id, name, active, data_type, unit, is_custom'],
-      ['id, name, active, data_type, unit'],
+      ['id, name, active, data_type, unit, configuration, is_custom, decimal_places, group_id, dependency_attribute_id, dependency_operator, dependency_value'],
+      ['id, name, active, data_type, unit, configuration, is_custom, group_id, dependency_attribute_id, dependency_operator, dependency_value'],
+      ['id, name, active, data_type, unit, configuration, group_id, dependency_attribute_id, dependency_operator, dependency_value'],
     ]);
     expect(valuesQuery.select.mock.calls).toEqual([
       ['id, attribute_id, value, sort_order'],
@@ -457,6 +706,7 @@ describe('mobileProductTechnicalService', () => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values') return valuesQuery;
       if (table === 'category_attributes') return categoryLinksQuery;
+      if (table === 'attribute_category_applications') return missingCategoryApplicationsQuery();
       throw new Error(`Unexpected table ${table}`);
     });
 

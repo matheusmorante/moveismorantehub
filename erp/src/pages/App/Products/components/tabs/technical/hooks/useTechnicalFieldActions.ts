@@ -5,23 +5,15 @@ import {
   CharacteristicTopicGroupDefinition,
   isQuantityCharacteristic,
   isDoorQuantityCharacteristic,
-  isDoorDependentCharacteristic,
   isDrawerQuantityCharacteristic,
-  isDrawerDependentCharacteristic,
-  isSinkMaterialCharacteristic,
-  isConcretadaCharacteristic,
-  isHasInoxBowlCharacteristic,
-  resolveVariableTechnicalFieldNames,
 } from '@/pages/utils/technicalValuesService';
 import {
   SYNCED_FIELDS,
   normalizeTechnicalName,
-  getToggledDepthLengthTarget,
 } from '../technicalTabUtils';
 import {
   syncProductWithVariations,
   applyTechnicalValueChangeToProduct,
-  applyDepthLengthToggleToProduct,
 } from '../technicalSyncUtils';
 
 export interface UseTechnicalFieldActionsParams {
@@ -54,15 +46,21 @@ export const useTechnicalFieldActions = ({
         currentValue !== null &&
         String(currentValue).trim() !== '' &&
         Number.isFinite(Number(String(currentValue).replace(',', '.')));
+      const isDoorOrDrawerQuantity =
+        isDoorQuantityCharacteristic(fieldName) || isDrawerQuantityCharacteristic(fieldName);
       if (
         isQuantityCharacteristic(fieldName) &&
         (value === '' || value === undefined || value === null) &&
-        hasCurrentQuantity
+        hasCurrentQuantity &&
+        !isDoorOrDrawerQuantity
       ) return current;
       if (isQuantityCharacteristic(fieldName) && value === null && !hasCurrentQuantity) {
         return {
           ...current,
-          technicalValues: { ...(current.technicalValues || {}), [fieldName]: null },
+          technicalValues: {
+            ...(current.technicalValues || {}),
+            [fieldName]: isDoorOrDrawerQuantity ? '' : null,
+          },
         };
       }
       return applyTechnicalValueChangeToProduct(current, fieldName, value);
@@ -75,6 +73,20 @@ export const useTechnicalFieldActions = ({
   const addTechnicalFieldNames = (names: string[]) => {
     if (names.length === 0) return;
     setManualFieldNames((prev) => Array.from(new Set([...prev, ...names])));
+    const normalizedNames = new Set(names.map(normalizeTechnicalName));
+    const booleanFields = allTechnicalFields.filter(
+      (field) => field.dataType === 'boolean' && normalizedNames.has(normalizeTechnicalName(field.name))
+    );
+    if (booleanFields.length > 0) {
+      setFormData((current) => {
+        const technicalValues = { ...(current.technicalValues || {}) };
+        booleanFields.forEach((field) => {
+          const value = technicalValues[field.name];
+          if (value === undefined || value === null || value === '') technicalValues[field.name] = null;
+        });
+        return { ...current, technicalValues };
+      });
+    }
     setCharacteristicSearchTerm('');
   };
 
@@ -86,68 +98,12 @@ export const useTechnicalFieldActions = ({
   };
 
   const handleAddManualField = (field: TechnicalFieldDefinition) => {
-    const extraNames: string[] = [];
-    if (isDoorDependentCharacteristic(field.name)) {
-      const master = allTechnicalFields.find((f) => isDoorQuantityCharacteristic(f.name));
-      if (master && !manualFieldNames.includes(master.name)) {
-        extraNames.push(master.name);
-      }
-    } else if (isDrawerDependentCharacteristic(field.name)) {
-      const master = allTechnicalFields.find((f) => isDrawerQuantityCharacteristic(f.name));
-      if (master && !manualFieldNames.includes(master.name)) {
-        extraNames.push(master.name);
-      }
-    } else if (isConcretadaCharacteristic(field.name) || isHasInoxBowlCharacteristic(field.name)) {
-      const master = allTechnicalFields.find((f) => isSinkMaterialCharacteristic(f.name));
-      if (master && !manualFieldNames.includes(master.name)) {
-        extraNames.push(master.name);
-      }
-    }
-    addTechnicalFieldNames(Array.from(new Set([field.name, ...extraNames])));
+    addTechnicalFieldNames([field.name]);
   };
 
   const handleRemoveManualField = (fieldName: string) => {
     setManualFieldNames((prev) => prev.filter((name) => name !== fieldName));
     handleTechnicalValueChange(fieldName, undefined);
-  };
-
-  const handleToggleDepthLength = (currentField: TechnicalFieldDefinition) => {
-    const target = getToggledDepthLengthTarget(currentField.name, allTechnicalFields);
-    if (!target) {
-      console.warn('Campo compatível não encontrado no cadastro global de características.');
-      return;
-    }
-
-    const oldName = currentField.name;
-    const actualNewName = target.name;
-
-    setFormData((prev) => {
-      const variableFieldNames = resolveVariableTechnicalFieldNames(
-        prev.variableTechnicalFields,
-        prev.variations || []
-      );
-      const normalizedOldName = normalizeTechnicalName(oldName);
-      const wasVariable = variableFieldNames.some(
-        (name) => normalizeTechnicalName(name) === normalizedOldName
-      );
-      const toggledNames = new Set(
-        [oldName, actualNewName].map(normalizeTechnicalName)
-      );
-      const nextVariableTechnicalFields = variableFieldNames.filter(
-        (name) => !toggledNames.has(normalizeTechnicalName(name))
-      );
-      if (wasVariable) nextVariableTechnicalFields.push(actualNewName);
-
-      return applyDepthLengthToggleToProduct(
-        { ...prev, variableTechnicalFields: nextVariableTechnicalFields },
-        oldName,
-        actualNewName
-      );
-    });
-    setManualFieldNames((prev) => {
-      const filtered = prev.filter((n) => n !== oldName && n !== actualNewName);
-      return [...filtered, actualNewName];
-    });
   };
 
   return {
@@ -156,6 +112,5 @@ export const useTechnicalFieldActions = ({
     handleAddGroup,
     handleAddManualField,
     handleRemoveManualField,
-    handleToggleDepthLength,
   };
 };

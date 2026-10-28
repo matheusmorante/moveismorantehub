@@ -6,7 +6,6 @@ import {
   fetchConversationMessageContext,
   fetchPreviousConversationMessages,
   fetchConversationReplyTarget,
-  markConversationAsRead,
   mapRowToMessage,
 } from '@/pages/utils/customerSupport/customerSupportService';
 
@@ -15,12 +14,10 @@ const OLDER_MESSAGE_PAGE_SIZE = 50;
 
 interface UseCustomerSupportMessagesParams {
   selectedConversation: WhatsAppConversation | null;
-  onClearUnread: (conversationId: string) => void;
 }
 
 export function useCustomerSupportMessages({
   selectedConversation,
-  onClearUnread,
 }: UseCustomerSupportMessagesParams) {
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const messagesRef = useRef<WhatsAppMessage[]>([]);
@@ -30,7 +27,6 @@ export function useCustomerSupportMessages({
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
   const [messagesError, setMessagesError] = useState('');
-  const [readError, setReadError] = useState('');
   const activeConvIdRef = useRef<string | null>(null);
   const generationRef = useRef(0);
   const nextConvId = selectedConversation?.id || null;
@@ -38,8 +34,6 @@ export function useCustomerSupportMessages({
     activeConvIdRef.current = nextConvId;
     generationRef.current += 1;
   }
-  const onClearUnreadRef = useRef(onClearUnread);
-  onClearUnreadRef.current = onClearUnread;
   const loadingOlderRef = useRef<number | null>(null);
   const latestRequestRef = useRef(0);
   const pendingLatestRef = useRef<number | null>(null);
@@ -47,8 +41,6 @@ export function useCustomerSupportMessages({
   // A quoted message can sit outside the contiguous history already fetched.
   const historyCursorRef = useRef<{ timestamp: string; id: string } | null>(null);
   const historyConversationIdRef = useRef<string | null>(null);
-  const readRequestRef = useRef(0);
-  const readNeedsRetryRef = useRef(false);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   const resolveReplyTarget = useCallback(async (reference: {
@@ -62,16 +54,6 @@ export function useCustomerSupportMessages({
   }, []);
 
   const clearJumpToMessage = useCallback(() => setJumpToMessageId(null), []);
-  const confirmRead = useCallback(async (convId: string) => {
-    const generation = generationRef.current;
-    const request = ++readRequestRef.current;
-    const confirmed = await markConversationAsRead(supabase, convId);
-    if (generation !== generationRef.current || request !== readRequestRef.current) return;
-    readNeedsRetryRef.current = !confirmed;
-    setReadError(confirmed ? '' : 'Não foi possível confirmar a leitura. Atualize a conversa para tentar novamente.');
-    if (confirmed) onClearUnreadRef.current(convId);
-  }, []);
-
   const loadMessages = useCallback(async (convId: string, isSilent = false) => {
     if (!convId) return;
     const generation = generationRef.current;
@@ -210,18 +192,15 @@ export function useCustomerSupportMessages({
   const lastLoadedConvIdRef = useRef<string | null>(null);
   useEffect(() => {
     const convId = selectedConversation?.id || null;
-    const unreadCount = selectedConversation?.unreadCount || 0;
     if (convId !== lastLoadedConvIdRef.current) {
       lastLoadedConvIdRef.current = convId;
       loadingOlderRef.current = null;
       setIsLoadingOlderMessages(false);
       setIsLoadingMessages(false);
       setMessagesError('');
-      setReadError('');
       setJumpToMessageId(null);
       messagesRef.current = [];
       historyCursorRef.current = null;
-      readNeedsRetryRef.current = false;
       if (convId) {
         setMessages([]);
         setHasOlderMessages(false);
@@ -238,9 +217,7 @@ export function useCustomerSupportMessages({
         setHasOlderMessages(false);
       }
     }
-    // A lista também recupera mensagens cujo evento Realtime não chegou.
-    if (convId && unreadCount > 0) void confirmRead(convId);
-  }, [selectedConversation?.id, selectedConversation?.unreadCount, loadMessages, loadMessageContext, confirmRead]);
+  }, [selectedConversation?.id, loadMessages, loadMessageContext]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -277,9 +254,6 @@ export function useCustomerSupportMessages({
           if (payload.eventType === 'INSERT') {
             const newMessage = mapRowToMessage(payload.new);
             if (activeConvIdRef.current !== newMessage.conversationId) return;
-            if (newMessage.direction === 'inbound') {
-              void confirmRead(newMessage.conversationId);
-            }
             setMessages((current) => {
               if (current.some((message) => message.id === newMessage.id || (
                 message.apiMessageId && message.apiMessageId === newMessage.apiMessageId
@@ -312,13 +286,13 @@ export function useCustomerSupportMessages({
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [confirmRead]);
+  }, []);
 
   const refreshMessages = useCallback(async () => {
     const currentId = activeConvIdRef.current;
     if (!currentId) return;
-    await Promise.all([loadMessages(currentId, true), readNeedsRetryRef.current ? confirmRead(currentId) : undefined]);
-  }, [loadMessages, confirmRead]);
+    await loadMessages(currentId, true);
+  }, [loadMessages]);
 
   return {
     messages,
@@ -334,6 +308,6 @@ export function useCustomerSupportMessages({
       : false,
     loadOlderMessages,
     refreshMessages,
-    messagesError: messagesError || readError,
+    messagesError,
   };
 }

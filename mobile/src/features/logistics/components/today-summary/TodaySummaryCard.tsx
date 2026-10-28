@@ -12,7 +12,10 @@ import {
   generateDeliveryAISummary,
   subscribeSummaryQuota,
 } from '../../../../services/aiSummaryService';
-import { getLocalDateString } from '../../../../utils/orderUtils';
+import {
+  addDaysToLocalDateString,
+  getLocalDateString,
+} from '../../../../utils/orderUtils';
 import {
   calculateDeliverySummaryMetrics,
   type DeliveryPeriodFilter,
@@ -287,12 +290,21 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
           </View>
           <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={[styles.headerTitle, isDarkMode && styles.headerTitleDark]}>
-              {periodFilter === 'today' ? 'Visão geral de hoje' : 'Visão geral dos próximos dias'}
+              {periodFilter === 'today'
+                ? 'Visão geral de hoje'
+                : periodFilter === 'tomorrow'
+                  ? 'Visão geral de amanhã'
+                  : 'Visão geral dos próximos dias'}
             </Text>
             <Text style={[styles.headerSubtitle, isDarkMode && styles.headerSubtitleDark]}>
-              {periodFilter === 'today'
-                ? formatSummaryDate(getLocalDateString(new Date()))
-                : 'Entregas, serviços e montagens agendadas'}
+              {periodFilter === 'next_days'
+                ? 'Entregas, serviços e montagens agendadas'
+                : formatSummaryDate(
+                    addDaysToLocalDateString(
+                      getLocalDateString(new Date()),
+                      periodFilter === 'tomorrow' ? 1 : 0
+                    )
+                  )}
             </Text>
           </View>
         </View>
@@ -309,7 +321,11 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
             <View style={styles.progressHeader}>
               <View>
                 <Text style={[styles.progressTitle, isDarkMode && styles.textLight]}>
-                  {periodFilter === 'today' ? 'Progresso do dia' : 'Progresso das atividades'}
+                  {periodFilter === 'today'
+                    ? 'Progresso do dia'
+                    : periodFilter === 'tomorrow'
+                      ? 'Progresso de amanhã'
+                      : 'Progresso das atividades'}
                 </Text>
                 <Text style={[styles.progressSubtitle, isDarkMode && styles.textMuted]}>
                   Entregas e serviços concluídos
@@ -392,7 +408,11 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
             <View style={{ flex: 1, marginLeft: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={styles.resumoTitle}>
-                  {periodFilter === 'today' ? 'Resumo do dia' : 'Resumo dos próximos dias'}
+                  {periodFilter === 'today'
+                    ? 'Resumo do dia'
+                    : periodFilter === 'tomorrow'
+                      ? 'Resumo de amanhã'
+                      : 'Resumo dos próximos dias'}
                 </Text>
                 {isGeminiQuotaExceeded && (
                   <Text
@@ -581,7 +601,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
                       style={[styles.activitySchedule, isDarkMode && styles.activityScheduleDark]}
                     >
                       {[
-                        periodFilter === 'next_days' ? formatActivityDate(activityDate) : '',
+                        periodFilter !== 'today' ? formatActivityDate(activityDate) : '',
                         timeLabel,
                       ]
                         .filter(Boolean)

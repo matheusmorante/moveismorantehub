@@ -1,5 +1,6 @@
 import type Person from '@/pages/types/person.type';
 import type Product from '@/pages/types/product.type';
+import { isStockInventorySupplierEligible } from '../../../../../../../shared-utils/inventorySupplierEligibility';
 
 const getProductSupplierIds = (product: Product): string[] =>
   [
@@ -10,23 +11,8 @@ const getProductSupplierIds = (product: Product): string[] =>
     ),
   ];
 
-const normalizeSupplierLabel = (value: string): string =>
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pt-BR');
-
-export const isInventorySupplierEligible = (supplier: Person): boolean => {
-  const labels = [supplier.tradeName, supplier.fullName, supplier.nickname]
-    .filter(Boolean)
-    .map((label) => normalizeSupplierLabel(String(label)));
-  const isSalvadosEUsadosSupplier = labels.some(
-    (label) => /\bsalvados?\b/.test(label) && /\busados?\b/.test(label)
-  );
-
-  return !isSalvadosEUsadosSupplier &&
-    (supplier.stockOrigins == null || supplier.stockOrigins.includes('normal'));
-};
+export const isInventorySupplierEligible = (supplier: Person): boolean =>
+  isStockInventorySupplierEligible(supplier);
 
 export const getInventorySupplierIds = (
   product: Product,
@@ -34,7 +20,7 @@ export const getInventorySupplierIds = (
 ): string[] =>
   getProductSupplierIds(product).filter((supplierId) => {
     const supplier = suppliers.find((person) => String(person.id) === supplierId);
-    return !supplier || isInventorySupplierEligible(supplier);
+    return Boolean(supplier && isInventorySupplierEligible(supplier));
   });
 
 export const isInventoryProductEligible = (

@@ -25,6 +25,10 @@ export function useProductFormVariations(
 ) {
   const [editingVariationComboId, setEditingVariationComboId] = useState<string | null>(null);
   const [editingVariationId, setEditingVariationId] = useState<string | null>(null);
+  const [editingVariationIssue, setEditingVariationIssue] = useState<{
+    fieldKey: string;
+    message: string;
+  } | null>(null);
   const pendingNewVariationIdRef = useRef<string | null>(null);
 
   const inheritSimpleVariation = useCallback(
@@ -166,6 +170,8 @@ export function useProductFormVariations(
     setEditingVariationComboId,
     editingVariationId,
     setEditingVariationId,
+    editingVariationIssue,
+    setEditingVariationIssue,
     setProductMode,
     pendingNewVariationIdRef,
     updateVariation,

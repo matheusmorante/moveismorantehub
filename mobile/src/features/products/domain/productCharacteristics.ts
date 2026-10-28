@@ -25,10 +25,16 @@ import {
   isCharacteristicDependentOnVariableField,
 } from '../../../../../shared-utils/productCharacteristicDependencies';
 import {
+  evaluateCharacteristicDependency,
+  evaluateCharacteristicDependencies,
+  getCharacteristicDependencies,
+} from '../../../../../shared-utils/characteristicDependencyRules';
+import {
   findProductTechnicalValueEntry,
   deduplicateProductTechnicalValueAliasFields,
   getProductTechnicalValueCandidateKeys,
 } from '../../../../../shared-utils/productTechnicalValueAliases';
+import { getTechnicalFieldDisplayName } from '../../../../../shared-utils/productTechnicalFieldScope';
 import {
   removeProductVariationTechnicalAttribute,
   syncProductVariationTechnicalAttribute,
@@ -42,6 +48,8 @@ import {
   isWeightCharacteristicName,
   isWeightCapacityCharacteristic,
 } from '../../../../../shared-utils/productTechnicalFieldRules';
+import { resolveProductCharacteristicApplication } from '../../../../../shared-utils/productCharacteristicApplications';
+import { sortProductCharacteristicGroups } from '../../../../../shared-utils/productCharacteristicGroupOrder';
 export { isWeightCharacteristicName } from '../../../../../shared-utils/productTechnicalFieldRules';
 
 // ============================================================================
@@ -54,7 +62,22 @@ export interface ProductCharacteristicAttribute {
   showName: boolean;
 }
 
+export interface ProductTechnicalCharacteristicDependency {
+  referenceAttributeId: string;
+  operator:
+    | 'contains'
+    | 'not_contains'
+    | 'equals'
+    | 'not_equals'
+    | 'greater_than'
+    | 'greater_or_equal'
+    | 'less_than'
+    | 'less_or_equal';
+  value: string;
+}
+
 export interface ProductTechnicalField {
+  id?: string;
   name: string;
   active?: boolean | null;
   isRequired?: boolean;
@@ -66,8 +89,17 @@ export interface ProductTechnicalField {
   isCustom?: boolean;
   is_custom?: boolean;
   categoryIds?: readonly string[];
+  groupId?: string;
+  groupName?: string;
+  categoryApplications?: readonly {
+    categoryId: string;
+    application: 'unavailable' | 'optional' | 'required';
+  }[];
   decimal_places?: 1 | 2 | 3 | null;
   data_type?: string | null;
+  dependency?: ProductTechnicalCharacteristicDependency | null;
+  dependencyAlternatives?: readonly ProductTechnicalCharacteristicDependency[];
+  dependencyLogic?: 'all' | 'any';
 }
 
 export interface ProductTechnicalFieldGroup<
@@ -133,6 +165,7 @@ export const DIMENSIONS_SORT_ORDER: Readonly<Record<string, number>> = {
   altura: 1,
   espessura: 2,
   'espessura do colchão': 2,
+  'espessura do tampo': 2,
   'largura total': 3,
   largura: 3,
   'profundidade total': 4,
@@ -234,11 +267,13 @@ export const isWidthCharacteristic = (name: string): boolean => {
 
 export const isThicknessCharacteristic = (name: string): boolean => {
   const norm = normalizeName(name);
-  return norm === 'espessura' || norm === 'espessura do colchão';
+  return norm === 'espessura' || norm === 'espessura do colchão' || norm === 'espessura do tampo';
 };
 
 export const getProductTechnicalFieldDisplayName = (name: string): string =>
-  isShelfWeightCapacityCharacteristic(name) ? 'Peso suportado por prateleira' : name;
+  isShelfWeightCapacityCharacteristic(name)
+    ? 'Peso suportado por prateleira'
+    : getTechnicalFieldDisplayName(name);
 
 const isChairCategoryName = (name: string): boolean => {
   const normalized = String(name || '')
@@ -301,12 +336,11 @@ export const isProductTechnicalFieldRequired = (
   categoryIds: readonly string[] = [],
   _categoryName = ''
 ): boolean => {
+  if (Array.isArray(field.categoryApplications)) {
+    return resolveProductCharacteristicApplication(field, categoryIds) === 'required';
+  }
   if (isWeightCapacityCharacteristic(field.name)) return false;
   if (isWeightCharacteristicName(field.name)) return true;
-  const isMattress = isMattressCategory(categoryIds);
-
-  if (isMattress && isHeightCharacteristic(field.name)) return false;
-  if (isMattress && normalizeName(field.name) === 'espessura do colchão') return true;
 
   return (
     (field.isRequiredForProduct ?? field.isRequired) === true ||
@@ -344,7 +378,8 @@ const parseJson = (value: unknown): unknown => {
 const readStructuredValue = (value: unknown) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
   const structured = value as { value?: unknown; val?: unknown };
-  return structured.value ?? structured.val;
+  if (Object.prototype.hasOwnProperty.call(structured, 'value')) return structured.value;
+  return structured.val;
 };
 
 const toTechnicalValuesMap = (source: unknown): Record<string, unknown> => {
@@ -359,7 +394,7 @@ const toTechnicalValuesMap = (source: unknown): Record<string, unknown> => {
 const normalizeValues = (values: Record<string, unknown>) =>
   Object.fromEntries(
     Object.entries(values)
-      .filter(([name, value]) => normalizeName(name) && value !== undefined && value !== null)
+      .filter(([name, value]) => normalizeName(name) && value !== undefined)
       .map(([name, value]) => [normalizeName(name), value])
   );
 
@@ -373,11 +408,13 @@ export const getProductCharacteristicAttributes = (
     return attributes
       .map((attribute: any) => ({
         name: String(attribute?.name || attribute?.attribute || attribute?.key || '').trim(),
-        value: attribute?.value ?? attribute?.val,
+        value: Object.prototype.hasOwnProperty.call(attribute ?? {}, 'value')
+          ? attribute.value
+          : attribute?.val,
         showName: attribute?.showName !== false,
       }))
       .filter(
-        (attribute) => attribute.name && attribute.value !== undefined && attribute.value !== null
+        (attribute) => attribute.name && attribute.value !== undefined
       );
   }
 
@@ -395,7 +432,7 @@ export const getProductCharacteristicAttributes = (
         };
       })
       .filter(
-        (attribute) => attribute.name && attribute.value !== undefined && attribute.value !== null
+        (attribute) => attribute.name && attribute.value !== undefined
       );
   }
 
@@ -589,6 +626,63 @@ export const getTechnicalValue = (values: Record<string, unknown> = {}, name: st
   return findProductTechnicalValueEntry(values, name)?.value;
 };
 
+/** Avalia as condições configuradas no cadastro de Características do ERP. */
+export const isConfiguredProductTechnicalDependencySatisfied = (
+  field: ProductTechnicalField,
+  allFields: readonly ProductTechnicalField[],
+  technicalValues: Record<string, unknown>,
+  visited = new Set<string>()
+): boolean => {
+  const fieldKey = field.id || normalizeName(field.name);
+  if (visited.has(fieldKey)) return false;
+  const nextVisited = new Set(visited).add(fieldKey);
+  const dependencies = getCharacteristicDependencies(field);
+  if (!dependencies.length) return true;
+
+  return evaluateCharacteristicDependencies(dependencies, field.dependencyLogic, (dependency) => {
+    const reference = allFields.find(
+      (candidate) => candidate.id === dependency.referenceAttributeId
+    );
+    const referenceKey = reference?.id || (reference ? normalizeName(reference.name) : '');
+    if (!reference || !referenceKey || nextVisited.has(referenceKey)) return false;
+    if (
+      !isConfiguredProductTechnicalDependencySatisfied(
+        reference,
+        allFields,
+        technicalValues,
+        nextVisited
+      )
+    ) return false;
+
+    return evaluateCharacteristicDependency(
+      dependency,
+      reference.data_type as Parameters<typeof evaluateCharacteristicDependency>[1],
+      getTechnicalValue(technicalValues, reference.name)
+    );
+  });
+};
+
+/** Retorna o campo e a cadeia de referências que o formulário deve ativar junto dele. */
+export const getProductTechnicalDependencyChain = <T extends ProductTechnicalField>(
+  field: T,
+  allFields: readonly T[]
+): T[] => {
+  const chain = new Map<string, T>();
+  const visit = (candidate: T) => {
+    const key = candidate.id || normalizeName(candidate.name);
+    if (chain.has(key)) return;
+    chain.set(key, candidate);
+    getCharacteristicDependencies(candidate).forEach((dependency) => {
+      const reference = allFields.find(
+        (item) => item.id === dependency.referenceAttributeId
+      );
+      if (reference) visit(reference);
+    });
+  };
+  visit(field);
+  return [...chain.values()];
+};
+
 export const hasTechnicalValue = (values: Record<string, unknown> = {}, name: string) => {
   const candidates = new Set(
     getProductTechnicalValueCandidateKeys(name).map((candidate) => normalizeName(candidate))
@@ -706,12 +800,15 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
   const safeFields = Array.isArray(allFields) ? allFields : [];
   const activeCategories = new Set(categoryIds.map(String));
   const manualNames = new Set(manuallyAddedFieldNames.map(normalizeName));
-  const isMattress = isMattressCategory(categoryIds, safeFields);
   const isSink = isSinkCategory(categoryIds, safeFields);
 
   let applicable = safeFields.filter((field) => {
     if (isExcludedProductTechnicalField(field.name)) return false;
     if (!isProductTechnicalFieldApplicableByCategory(field, categoryIds, categoryName)) return false;
+    if (
+      Array.isArray(field.categoryApplications) &&
+      resolveProductCharacteristicApplication(field, categoryIds) === 'unavailable'
+    ) return false;
     if (isSink && isStructureMaterialCharacteristic(field.name)) return false;
     if (
       !isSink &&
@@ -731,9 +828,6 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
       isShelfWeightCapacityCharacteristic(field.name)
     ) return true;
     if (isProductTechnicalFieldRequiredForCatalog(field, categoryIds, categoryName)) return true;
-    if (isMattress && isHeightCharacteristic(field.name)) {
-      return hasExistingValue || manualNames.has(norm);
-    }
     if (field.active === false) {
       return hasExistingValue || manualNames.has(norm);
     }
@@ -786,11 +880,20 @@ export const groupProductTechnicalFields = <T extends ProductTechnicalField>(
   fields: readonly T[]
 ): ProductTechnicalFieldGroup<T>[] => {
   const groups = new Map<string, T[]>();
+  const persistedGroups = new Map<string, { title: string; fields: T[] }>();
   const otherFields: T[] = [];
   const isStructuralWeightCapacity = (name: string) =>
     isChairWeightCapacityCharacteristic(name);
 
   fields.forEach((field) => {
+    const persistedGroupName = String(field.groupName ?? '').trim();
+    if (persistedGroupName) {
+      const key = field.groupId || normalizeName(persistedGroupName);
+      const existingGroup = persistedGroups.get(key);
+      if (existingGroup) existingGroup.fields.push(field);
+      else persistedGroups.set(key, { title: persistedGroupName, fields: [field] });
+      return;
+    }
     if (
       (field.isCustom === true || field.is_custom === true) &&
       !isStructuralWeightCapacity(field.name) &&
@@ -809,7 +912,7 @@ export const groupProductTechnicalFields = <T extends ProductTechnicalField>(
     groups.set(topic.title, [...(groups.get(topic.title) || []), field]);
   });
 
-  return [
+  const legacyGroups = [
     ...CHARACTERISTIC_TOPICS.flatMap(({ title }) => {
       const groupedFields = groups.get(title);
       if (!groupedFields?.length) return [];
@@ -855,6 +958,11 @@ export const groupProductTechnicalFields = <T extends ProductTechnicalField>(
     }),
     ...(otherFields.length ? [{ title: 'Outras características', fields: otherFields }] : []),
   ];
+  const orderedPersistedGroups = sortProductCharacteristicGroups(
+    [...persistedGroups.entries()].map(([id, group]) => ({ id, name: group.title, ...group })),
+  ).map(({ title, fields: groupedFields }) => ({ title, fields: groupedFields }));
+
+  return [...legacyGroups, ...orderedPersistedGroups];
 };
 
 // ============================================================================
@@ -882,7 +990,7 @@ export const getMissingRequiredCharacteristics = (values: Record<string, unknown
 export const getMissingRequiredDimensions = (
   values: Record<string, unknown> = {},
   directDimensions?: { width?: number; height?: number; depth?: number; weight?: number },
-  options?: { isMattress?: boolean }
+  options?: { isMattress?: boolean; isHeightRequired?: boolean }
 ) => {
   const isPositive = (val: unknown): boolean => {
     if (typeof val === 'number') return Number.isFinite(val) && val > 0;
@@ -894,22 +1002,13 @@ export const getMissingRequiredDimensions = (
   };
 
   const missing: string[] = [];
-  if (!options?.isMattress) {
+  if (options?.isHeightRequired !== false) {
     if (
       !isPositive(directDimensions?.height) &&
       !isPositive(getTechnicalValue(values, 'altura total')) &&
       !isPositive(getTechnicalValue(values, 'altura'))
     ) {
       missing.push('Altura total');
-    }
-  } else {
-    // Para colchões, a altura não é exigida; exige-se a espessura do colchão
-    if (
-      !isPositive(directDimensions?.height) &&
-      !isPositive(getTechnicalValue(values, 'espessura do colchão')) &&
-      !isPositive(getTechnicalValue(values, 'espessura'))
-    ) {
-      missing.push('Espessura do colchão');
     }
   }
   if (

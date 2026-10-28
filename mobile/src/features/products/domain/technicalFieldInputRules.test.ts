@@ -60,8 +60,8 @@ describe('technical field overrides from ERP', () => {
     expect(getTechnicalFieldTextPlaceholder('Modelo / Linha')).toBe('Digite o modelo / linha');
     expect(getTechnicalFieldTextPlaceholder('Linha / Modelo')).toBe('Digite o modelo / linha');
     expect(getTechnicalFieldTextPlaceholder('Acabamento')).toBeUndefined();
-    expect(getTechnicalFieldMaxLength('text_short')).toBe(120);
-    expect(getTechnicalFieldMaxLength('text_long')).toBe(4000);
+    expect(getTechnicalFieldMaxLength('text_short')).toBe(30);
+    expect(getTechnicalFieldMaxLength('text_long')).toBe(255);
     expect(getTechnicalFieldMaxLength('integer')).toBeUndefined();
   });
 

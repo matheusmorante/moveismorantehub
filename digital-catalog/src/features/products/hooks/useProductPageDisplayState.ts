@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { getTechnicalFieldDisplayName } from '../../../../../shared-utils/productTechnicalFieldScope';
 
 export type TechnicalSpecification = { name: string; slug: string };
 
@@ -122,6 +123,14 @@ export function useProductPageDisplayState({
 
   const totalImages = displayImages.length;
 
+  const productTechnicalValues = readTechnicalValues(product);
+  const activeVariationTechnicalValues = readTechnicalValues(activeVariation);
+  const effectiveTechnicalValues = {
+    ...productTechnicalValues,
+    ...activeVariationTechnicalValues,
+  };
+  const isCharacteristicVisible = (_name: string): boolean => true;
+
   // Sincroniza imagem ativa quando muda a variação ativa ou imagens
   useEffect(() => {
     if (displayImages.length > 0) {
@@ -172,8 +181,8 @@ export function useProductPageDisplayState({
   const technicalSpecs = useMemo(() => {
     if (technicalSpecifications && technicalSpecifications.length > 0 && specsMap) {
       return technicalSpecifications
-        .map((specification) => [specification.name, specsMap[specification.slug]])
-        .filter(([, value]) => value);
+        .map((specification) => [getTechnicalFieldDisplayName(specification.name), specsMap[specification.slug]])
+        .filter(([name, value]) => value && isCharacteristicVisible(String(name)));
     }
 
     const DIMENSION_KEYS = new Set([
@@ -190,17 +199,13 @@ export function useProductPageDisplayState({
       'espessura do colchao',
     ]);
 
-    const tValues =
-      activeVariation?.technical_specs?.technicalValues ||
-      activeVariation?.technicalValues ||
-      product?.technical_specs?.technicalValues ||
-      product?.technicalValues ||
-      {};
+    const tValues = effectiveTechnicalValues;
 
     if (tValues && typeof tValues === 'object') {
       return Object.entries(tValues)
         .filter(([key, val]) => {
-          if (!val) return false;
+          if (val === undefined || val === null || val === '') return false;
+          if (!isCharacteristicVisible(key)) return false;
           if (DIMENSION_KEYS.has(key.toLowerCase().trim())) return false;
           if (
             ['draftproduct', 'variationdetails', 'testartifact', 'is_test', 'istest'].includes(
@@ -211,11 +216,11 @@ export function useProductPageDisplayState({
           }
           return true;
         })
-        .map(([key, val]) => [key, String(val)]);
+        .map(([key, val]) => [getTechnicalFieldDisplayName(key), String(val)]);
     }
 
     return [];
-  }, [technicalSpecifications, specsMap, activeVariation, product]);
+  }, [technicalSpecifications, specsMap, effectiveTechnicalValues, isCharacteristicVisible, activeVariation, product]);
 
   return {
     activeVarId,
@@ -240,3 +245,9 @@ export function useProductPageDisplayState({
     technicalSpecs,
   };
 }
+
+const readTechnicalValues = (source: any): Record<string, unknown> => {
+  if (!source || typeof source !== 'object') return {};
+  const values = source.technical_specs?.technicalValues || source.technicalValues || {};
+  return values && typeof values === 'object' && !Array.isArray(values) ? values : {};
+};

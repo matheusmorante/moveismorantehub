@@ -26,7 +26,7 @@ export const isWidthCharacteristic = (name: string): boolean => {
 
 export const isThicknessCharacteristic = (name: string): boolean => {
   const norm = normalizeCharacteristicName(name);
-  return norm === 'espessura' || norm === 'espessura do colchão';
+  return norm === 'espessura' || norm === 'espessura do colchão' || norm === 'espessura do tampo';
 };
 
 export const isWeightCharacteristicName = (name: string): boolean =>

@@ -20,6 +20,11 @@ interface TechnicalAttributeRow {
   readonly unit: string | null;
   readonly is_custom?: boolean | null;
   readonly decimal_places?: number | null;
+  readonly group_id?: string | null;
+  readonly configuration?: Record<string, unknown> | null;
+  readonly dependency_attribute_id?: string | null;
+  readonly dependency_operator?: string | null;
+  readonly dependency_value?: string | null;
 }
 
 let cachedDefinitions: {
@@ -33,6 +38,57 @@ let inFlightDefinitions: {
 } = {};
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos de cache em memória
+const APPLICATION_PAGE_SIZE = 1000;
+
+const fetchAllCategoryApplications = async () => {
+  const rows: Array<{
+    attribute_id: string;
+    category_id: string;
+    application: string;
+    is_configured: boolean;
+  }> = [];
+
+  for (let start = 0; ; start += APPLICATION_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('attribute_category_applications')
+      .select('attribute_id, category_id, application, is_configured')
+      .order('attribute_id', { ascending: true })
+      .order('category_id', { ascending: true })
+      .range(start, start + APPLICATION_PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < APPLICATION_PAGE_SIZE) return { data: rows, error: null };
+  }
+};
+
+const fetchAllDependencyAlternatives = async () => {
+  const rows: Array<{
+    attribute_id: string;
+    reference_attribute_id: string;
+    operator: NonNullable<TechnicalFieldDefinition['dependency']>['operator'];
+    value: string;
+  }> = [];
+
+  for (let start = 0; ; start += APPLICATION_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('attribute_dependency_alternatives')
+      .select('attribute_id, reference_attribute_id, operator, value')
+      .order('attribute_id', { ascending: true })
+      .order('reference_attribute_id', { ascending: true })
+      .range(start, start + APPLICATION_PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < APPLICATION_PAGE_SIZE) return { data: rows, error: null };
+  }
+};
+
+const isMissingDependencyAlternativesRelation = (error: { code?: string | null; message?: string | null }) =>
+  error.code === '42P01' ||
+  error.code === 'PGRST205' ||
+  (String(error.message ?? '').includes('attribute_dependency_alternatives') &&
+    /(could not find|does not exist|not found)/i.test(String(error.message ?? '')));
 
 export const invalidateTechnicalFieldDefinitionsCache = () => {
   cachedDefinitions = {};
@@ -67,7 +123,7 @@ export const fetchTechnicalFieldDefinitions = async (
     try {
       const initialAttributeQuery = await supabase
         .from('attributes')
-        .select('id, name, active, data_type, unit, is_custom, decimal_places')
+        .select('id, name, active, data_type, unit, is_custom, decimal_places, group_id, configuration, dependency_attribute_id, dependency_operator, dependency_value')
         .order('name');
       let attributes: TechnicalAttributeRow[] | null = initialAttributeQuery.data;
       let error = initialAttributeQuery.error;
@@ -92,28 +148,62 @@ export const fetchTechnicalFieldDefinitions = async (
 
       if (error) throw error;
 
-      const [valuesResult, { data: categoryLinks, error: categoryLinksError }] = await Promise.all([
+      const hasPrimaryDependencies = (attributes ?? []).some(
+        (attribute) => attribute.dependency_attribute_id && attribute.dependency_operator && attribute.dependency_value != null,
+      );
+      const [
+        valuesResult,
+        { data: categoryLinks, error: categoryLinksError },
+        { data: applicationLinks, error: applicationLinksError },
+        dependencyAlternativesResult,
+      ] = await Promise.all([
         supabase
           .from('attribute_values')
-          .select('id, attribute_id, value, sort_order')
+          .select('id, attribute_id, value, sort_order, active')
           .limit(10000),
         supabase
           .from('category_attributes')
           .select('attribute_id, category_id, is_required')
           .limit(10000),
+        fetchAllCategoryApplications(),
+        hasPrimaryDependencies
+          ? fetchAllDependencyAlternatives()
+          : Promise.resolve({ data: [], error: null }),
       ]);
       const valueResult =
         valuesResult.error &&
-        (valuesResult.error.message?.includes('sort_order') || valuesResult.error.code === '42703')
+        (valuesResult.error.message?.includes('sort_order') ||
+          valuesResult.error.message?.includes('active') ||
+          valuesResult.error.code === '42703')
           ? await supabase.from('attribute_values').select('id, attribute_id, value').limit(10000)
           : valuesResult;
       if (valueResult.error) throw valueResult.error;
-      const values = valueResult.data;
+      const values: Array<{
+        id: string;
+        attribute_id: string;
+        value: string;
+        sort_order?: number | null;
+        active?: boolean | null;
+      }> = valueResult.data ?? [];
 
       if (categoryLinksError) {
         console.warn('Aviso ao buscar category_attributes:', categoryLinksError);
         if (options?.requireCategoryLinks) throw categoryLinksError;
       }
+      if (applicationLinksError) {
+        console.warn('Aviso ao buscar aplicações das características por categoria:', applicationLinksError);
+        if (options?.requireCategoryLinks) throw applicationLinksError;
+      }
+      const dependencyAlternativesTableMissing = Boolean(
+        dependencyAlternativesResult.error &&
+          isMissingDependencyAlternativesRelation(dependencyAlternativesResult.error),
+      );
+      if (dependencyAlternativesResult.error && !dependencyAlternativesTableMissing) {
+        throw dependencyAlternativesResult.error;
+      }
+      const dependencyAlternatives = dependencyAlternativesTableMissing
+        ? []
+        : dependencyAlternativesResult.data ?? [];
 
       const mappedFields: TechnicalFieldDefinition[] = (attributes ?? [])
         .filter((attribute) => !isExcludedCharacteristic(String(attribute.name)))
@@ -124,7 +214,7 @@ export const fetchTechnicalFieldDefinitions = async (
           // viram comboboxes e Ctrl+V só filtra opções, sem atualizar o valor da característica.
           const isMeasureCharacteristic = isProductMeasureCharacteristic(attribute.name);
           const options = (values ?? [])
-            .filter((value) => value.attribute_id === attribute.id)
+            .filter((value) => value.attribute_id === attribute.id && value.active !== false)
             .map((value) => ({
               id: value.id,
               value: value.value,
@@ -149,11 +239,21 @@ export const fetchTechnicalFieldDefinitions = async (
                 sensitivity: 'base',
               });
             });
-          const categoryIds = categoryLinksError
+          const categoryApplications = applicationLinksError
             ? []
-            : (categoryLinks ?? [])
-                .filter((link) => link.attribute_id === attribute.id)
-                .map((link) => link.category_id);
+            : (applicationLinks ?? []).filter(
+                (link) => link.attribute_id === attribute.id
+              );
+          const mappedCategoryApplications = categoryApplications.map((link) => ({
+            categoryId: String(link.category_id),
+            application: link.application as 'unavailable' | 'optional' | 'required',
+          }));
+          const categoryIds = categoryApplications
+            .filter((link) => link.application === 'optional' || link.application === 'required')
+            .map((link) => link.category_id);
+          const requiredProductCategoryIds = categoryApplications
+            .filter((link) => link.application === 'required')
+            .map((link) => link.category_id);
           const requiredCategoryIds = categoryLinksError
             ? []
             : (categoryLinks ?? [])
@@ -165,6 +265,9 @@ export const fetchTechnicalFieldDefinitions = async (
                     !isWeightCapacityCharacteristic(attribute.name)
                 )
                 .map((link) => link.category_id);
+          const unavailableCategoryIds = categoryApplications
+            .filter((link) => link.application === 'unavailable')
+            .map((link) => link.category_id);
           const isWeight =
             isWeightCharacteristicName(attribute.name) ||
             isWeightCapacityCharacteristic(attribute.name) ||
@@ -190,9 +293,39 @@ export const fetchTechnicalFieldDefinitions = async (
                 : undefined,
             isRequired: isRequiredCharacteristicName(attribute.name),
             isCustom: Boolean(attribute.is_custom),
+            groupId: typeof attribute.group_id === 'string' ? attribute.group_id : undefined,
+            configuration:
+              attribute.configuration && typeof attribute.configuration === 'object'
+                ? attribute.configuration as TechnicalFieldDefinition['configuration']
+                : {},
+            dependency:
+              attribute.dependency_attribute_id &&
+              attribute.dependency_operator &&
+              attribute.dependency_value != null
+                ? {
+                    referenceAttributeId: String(attribute.dependency_attribute_id),
+                    operator: attribute.dependency_operator as NonNullable<TechnicalFieldDefinition['dependency']>['operator'],
+                    value: String(attribute.dependency_value),
+                  }
+                : null,
+            dependencyAlternatives: dependencyAlternatives
+              .filter((dependency) => dependency.attribute_id === attribute.id)
+              .map((dependency) => ({
+                referenceAttributeId: String(dependency.reference_attribute_id),
+                operator: dependency.operator,
+                value: String(dependency.value),
+              })),
+            dependencyLogic:
+              attribute.configuration?.dependencyLogic === 'all' ||
+              attribute.configuration?.dependencyLogic === 'any'
+                ? attribute.configuration.dependencyLogic
+                : undefined,
             options,
             categoryIds,
+            unavailableCategoryIds,
+            categoryApplications: mappedCategoryApplications,
             requiredCategoryIds,
+            requiredProductCategoryIds,
           };
         });
       const result = deduplicateProductTechnicalValueAliasFields<TechnicalFieldDefinition>(mappedFields);
@@ -200,7 +333,7 @@ export const fetchTechnicalFieldDefinitions = async (
       cachedDefinitions[unitPolicy] = {
         data: result,
         timestamp: Date.now(),
-        categoryLinksVerified: !categoryLinksError,
+        categoryLinksVerified: !categoryLinksError && !applicationLinksError,
       };
       return result;
     } finally {

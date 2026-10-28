@@ -14,6 +14,7 @@ import { ChatHeader } from './chat/ChatHeader';
 import { ChatInChatSearch } from './chat/ChatInChatSearch';
 import { ChatMessageTimeline, groupMessagesByDate } from './chat/ChatMessageTimeline';
 import { ChatComposer } from './chat/ChatComposer';
+import { ForwardMessageDialog } from './chat/ForwardMessageDialog';
 
 // Re-exporta groupMessagesByDate para manter compatibilidade com testes e outros módulos
 export { groupMessagesByDate };
@@ -31,6 +32,7 @@ export interface ChatAreaProps {
   isTimelineOpen?: boolean;
   onToggleTimeline?: () => void;
   onToggleArchive: () => Promise<boolean | void> | boolean | void;
+  onToggleReadStatus?: () => Promise<boolean | void>;
   onAssign?: (profileId: string | null, profileName?: string) => Promise<boolean | void>;
   onUpdateStatus?: (status: ConversationStatus) => Promise<boolean | void>;
   onAddInternalNote?: (text: string) => Promise<boolean | void>;
@@ -41,6 +43,7 @@ export interface ChatAreaProps {
   onRefreshMessages?: () => Promise<void> | void;
   onClosePanel?: () => void;
   onResolveReplyTarget?: (reference: { conversationId: string; messageId: string | null; apiMessageId: string | null }) => Promise<WhatsAppMessage | null>;
+  onSelectConversation?: (conversation: WhatsAppConversation) => void;
   onJumpToMessage?: (message: WhatsAppMessage) => void;
   jumpToMessageId?: string | null;
   onJumpComplete?: () => void;
@@ -62,6 +65,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   isTimelineOpen = false,
   onToggleTimeline,
   onToggleArchive,
+  onToggleReadStatus,
   onAssign,
   onUpdateStatus,
   onAddInternalNote,
@@ -72,6 +76,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onRefreshMessages,
   onClosePanel,
   onResolveReplyTarget,
+  onSelectConversation,
   onJumpToMessage,
   jumpToMessageId,
   onJumpComplete,
@@ -85,6 +90,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [searchRevision, setSearchRevision] = useState(0);
   const [isSearchingInChat, setIsSearchingInChat] = useState(false);
   const [isSnippetsModalOpen, setIsSnippetsModalOpen] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<WhatsAppMessage | null>(null);
+  const [forwardMessage, setForwardMessage] = useState<WhatsAppMessage | null>(null);
   const [insertedSnippet, setInsertedSnippet] = useState<{ id: number; text: string } | null>(null);
   const snippetRevision = useRef(0);
   const catalogSpaceRef = useRef<HTMLDivElement>(null);
@@ -96,8 +103,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   }, [jumpToMessageId]);
 
   const displayName =
-    conversation.customer?.fullName ||
-    conversation.contactName ||
+    conversation.contactName?.trim() ||
     formatPhoneForDisplay(conversation.contactPhone);
 
   const formattedPhone = formatPhoneForDisplay(conversation.contactPhone);
@@ -116,12 +122,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     setIsSnippetsModalOpen(false);
   };
 
-  const initials = displayName
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
+  const initials = conversation.contactName?.trim()
+    ? conversation.contactName
+        .trim()
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0].toUpperCase())
+        .join('')
+    : '';
 
   const currentStatus = conversation.status || (conversation.isArchived ? 'closed' : 'open');
   const currentUserName = profile?.full_name || user?.email || 'Atendente';
@@ -141,7 +150,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         currentStatus={currentStatus}
         isSearchingInChat={isSearchingInChat}
         composerMode={composerMode}
-        onToggleInternalComment={() => setComposerMode((mode) => mode === 'comment' ? 'whatsapp' : 'comment')}
+        onToggleInternalComment={() => setComposerMode((mode) => {
+          if (mode === 'whatsapp') setReplyTarget(null);
+          return mode === 'comment' ? 'whatsapp' : 'comment';
+        })}
         onToggleSearchInChat={() => {
           setIsSearchingInChat((prev) => !prev);
           if (isSearchingInChat) setInChatSearch('');
@@ -152,6 +164,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         onBackMobile={onBackMobile}
         onClosePanel={onClosePanel}
         onToggleArchive={onToggleArchive}
+        onToggleReadStatus={onToggleReadStatus}
         teamMembers={teamMembers}
         isLoadingAgents={isLoadingAgents}
         agentsError={agentsError}
@@ -191,6 +204,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         hasOlderMessages={hasOlderMessages}
         isLoadingOlderMessages={isLoadingOlderMessages}
         onLoadOlderMessages={onLoadOlderMessages}
+        onReplyMessage={canSend ? (message) => { setComposerMode('whatsapp'); setReplyTarget(message); } : undefined}
+        onForwardMessage={canSend ? setForwardMessage : undefined}
         onResolveReplyTarget={onResolveReplyTarget}
         onJumpToMessage={onJumpToMessage}
         jumpToMessageId={jumpToMessageId}
@@ -211,6 +226,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         isChannelConnected={isChannelConnected}
         onSendCustomerMessage={onSendCustomerMessage}
         onRefreshMessages={onRefreshMessages}
+        replyTarget={replyTarget}
+        onClearReplyTarget={() => setReplyTarget(null)}
         composerMode={composerMode}
         onComposerModeChange={setComposerMode}
         insertedSnippet={insertedSnippet}
@@ -225,6 +242,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         onClose={() => setIsSnippetsModalOpen(false)}
         onSelect={handleInsertSnippet}
       />
+
+      {forwardMessage && (
+        <ForwardMessageDialog
+          message={forwardMessage}
+          canSend={canSend}
+          onClose={() => setForwardMessage(null)}
+          onSelectConversation={(target) => {
+            onSelectConversation?.(target);
+            setForwardMessage(null);
+          }}
+        />
+      )}
     </div>
   );
 };

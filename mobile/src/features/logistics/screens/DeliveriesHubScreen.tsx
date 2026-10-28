@@ -24,7 +24,7 @@ import { DeliveryTimelineView } from '../components/schedule/DeliveryTimelineVie
 import { NativeAssembliesScreen } from '../../assemblies/screens/NativeAssembliesScreen';
 import { getAssemblyTasks } from '../../assemblies/assemblyTasks';
 import type { AssemblyHandlingOption } from '../../../utils/aiSummaryHelper';
-import { getLocalDateString } from '../../../utils/orderUtils';
+import { addDaysToLocalDateString, getLocalDateString } from '../../../utils/orderUtils';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { supabase } from '../../../services/supabaseClient';
@@ -108,6 +108,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
   const {
     orders,
     routeItems,
+    dateScopeCounts,
     currentDelivery,
     nextDelivery,
     stats,
@@ -116,6 +117,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     onRefresh,
   } = useDeliveryRoute(scheduleDateScope);
   const todayDate = getLocalDateString(new Date());
+  const tomorrowDate = addDaysToLocalDateString(todayDate, 1);
   const assemblyTasks = useMemo(
     () => getAssemblyTasks(orders, handlingOptions),
     [orders, handlingOptions]
@@ -124,14 +126,18 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     () =>
       assemblyTasks
         .filter((task) =>
-          scheduleDateScope === 'today' ? task.dateKey === todayDate : task.dateKey > todayDate
+          scheduleDateScope === 'today'
+            ? task.dateKey === todayDate
+            : scheduleDateScope === 'tomorrow'
+              ? task.dateKey === tomorrowDate
+              : task.dateKey > tomorrowDate
         )
         .sort(
           (a, b) =>
             a.dateKey.localeCompare(b.dateKey) ||
             (a.scheduledTime || '').localeCompare(b.scheduledTime || '')
         ),
-    [assemblyTasks, scheduleDateScope, todayDate]
+    [assemblyTasks, scheduleDateScope, todayDate, tomorrowDate]
   );
   const mapDates = useMemo(
     () =>
@@ -242,7 +248,29 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                   scheduleDateScope === 'today' && styles.dateScopeBtnTextActive,
                 ]}
               >
-                Hoje
+                Hoje ({dateScopeCounts.today})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.dateScopeBtn,
+                scheduleDateScope === 'tomorrow' && styles.dateScopeBtnActive,
+              ]}
+              onPress={() => setScheduleDateScope('tomorrow')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: scheduleDateScope === 'tomorrow' }}
+              hitSlop={{ top: 5, bottom: 5 }}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.dateScopeBtnText,
+                  isDarkMode && styles.dateScopeBtnTextDark,
+                  scheduleDateScope === 'tomorrow' && styles.dateScopeBtnTextActive,
+                ]}
+              >
+                Amanhã ({dateScopeCounts.tomorrow})
               </Text>
             </TouchableOpacity>
 
@@ -264,7 +292,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                   scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive,
                 ]}
               >
-                Dias Seguintes
+                Dias Seguintes ({dateScopeCounts.next_days})
               </Text>
             </TouchableOpacity>
           </View>

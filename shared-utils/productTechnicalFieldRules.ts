@@ -42,6 +42,17 @@ export const isSofaCategoryName = (name: string): boolean => {
   return /(?:^|[^a-z0-9])sofas?(?=$|[^a-z0-9])/.test(normalized);
 };
 
+export {
+  areTechnicalCharacteristicNamesEquivalent,
+  getTechnicalFieldDisplayName,
+  isCountertopIncludedCharacteristic,
+  isCountertopMaterialCharacteristic,
+  isKitchenCountertopCategoryName,
+  isSofaRetractableCharacteristic,
+  isSofaRetractableDependentCharacteristic,
+  isTechnicalFieldAllowedForCategories,
+} from './productTechnicalFieldScope';
+
 export const isWardrobeCategoryName = (name: string): boolean => {
   const normalized = String(name || '')
     .normalize('NFD')

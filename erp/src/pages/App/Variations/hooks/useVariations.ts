@@ -1,4 +1,3 @@
-import type React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import {
@@ -27,9 +26,7 @@ export const useVariations = () => {
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: VARIATIONS_QUERY_KEY });
 
-  const handleDelete = async (id: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-
+  const handleDelete = async (id: string) => {
     const variation = variations.find((candidate) => candidate.id === id);
     if (!variation) return;
 

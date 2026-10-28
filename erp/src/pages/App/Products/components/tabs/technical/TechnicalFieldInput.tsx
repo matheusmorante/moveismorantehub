@@ -17,6 +17,7 @@ import {
   ChoiceSearch,
   SIMPLE_CHOICE_DROPDOWN_LIMIT,
 } from './inputs';
+import { YesNoPowerToggle } from './YesNoPowerToggle';
 
 export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
   field,
@@ -26,6 +27,19 @@ export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
   isInvalid,
   onChange,
 }) => {
+  if (field.dataType === 'boolean') {
+    return (
+      <YesNoPowerToggle
+        field={field}
+        value={value}
+        disabled={disabled}
+        isInvalid={isInvalid}
+        compact
+        onChange={onChange}
+      />
+    );
+  }
+
   if (disabled && placeholder) {
     return (
       <input
@@ -42,18 +56,12 @@ export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
   const type = resolveTechnicalInputType(field);
 
   if (isYesNoCharacteristic(field)) {
-    const isBoolean = field.dataType === 'boolean';
-    const options = isBoolean
-      ? [
-          { id: 'true', value: 'Sim' },
-          { id: 'false', value: 'Não' },
-        ]
-      : field.options?.length
-        ? field.options
-        : [
-            { id: 'sim', value: 'Sim' },
-            { id: 'nao', value: 'Não' },
-          ];
+    const options = field.options?.length
+      ? field.options
+      : [
+          { id: 'sim', value: 'Sim' },
+          { id: 'nao', value: 'Não' },
+        ];
     const normalizedValue = String(value ?? '').trim().toLocaleLowerCase('pt-BR');
     const isAffirmative =
       value === true ||
@@ -67,30 +75,18 @@ export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
       options.find((option) => /^sim$/i.test(option.value.trim()))?.value || 'Sim';
     const noOptionValue =
       options.find((option) => /^n[aã]o$/i.test(option.value.trim()))?.value || 'Não';
-    const selectedValue = isBoolean
-      ? isAffirmative
-        ? yesOptionValue
-        : isNegative
-          ? noOptionValue
-          : ''
-      : isAffirmative
-        ? options.find((option) => /^sim$/i.test(option.value.trim()))?.value || 'Sim'
-        : isNegative
-          ? options.find((option) => /^n[aã]o$/i.test(option.value.trim()))?.value || 'Não'
-          : String(value ?? '');
+    const selectedValue = isAffirmative
+      ? yesOptionValue
+      : isNegative
+        ? noOptionValue
+        : String(value ?? '');
 
     return (
       <ChoiceDropdown
         options={options}
         value={selectedValue}
         disabled={disabled}
-        onChange={(nextValue) => {
-          if (!isBoolean || !nextValue) {
-            onChange(nextValue);
-            return;
-          }
-          onChange(/^sim$/i.test(nextValue.trim()));
-        }}
+        onChange={onChange}
       />
     );
   }

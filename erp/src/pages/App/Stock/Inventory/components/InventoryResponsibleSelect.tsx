@@ -31,6 +31,8 @@ export const InventoryResponsibleSelect: React.FC<InventoryResponsibleSelectProp
     () => filterInventoryResponsibleCandidates(employees),
     [employees]
   );
+  const selectedEmployee = validEmployees.find((employee) => String(employee.id) === value);
+  const selectedName = selectedEmployee ? getEmployeeDisplayName(selectedEmployee) : '';
 
   useEffect(() => {
     const selected = validEmployees.find((e) => String(e.id) === value);
@@ -66,36 +68,36 @@ export const InventoryResponsibleSelect: React.FC<InventoryResponsibleSelectProp
       <div className="relative">
         <input
           type="text"
-          value={query}
+          value={query || selectedName}
           onChange={(e) => {
-            setQuery(e.target.value);
+            const nextQuery = e.target.value;
+            setQuery(nextQuery);
             setIsOpen(true);
-            if (value && e.target.value === '') {
+            if (selectedEmployee && nextQuery !== selectedName) {
               onChange('');
             }
           }}
-          onFocus={() => setIsOpen(true)}
+          onFocus={(e) => {
+            setIsOpen(true);
+            setQuery('');
+            if (selectedEmployee) e.currentTarget.select();
+          }}
           placeholder="Buscar responsável (digite 2+ letras)"
-          className={`w-full bg-white dark:bg-slate-900 border-0 border-b-2 p-2 outline-none text-sm font-bold transition-all focus:ring-0 rounded-none ${
+          className={`w-full bg-white dark:bg-slate-900 border-0 border-b-2 p-2 pr-10 outline-none text-sm font-bold transition-all focus:ring-0 rounded-none ${
             hasError
               ? 'border-rose-400 focus:border-rose-500 text-rose-900 dark:text-rose-100'
-              : value
+              : selectedEmployee
                 ? 'border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-100 focus:border-blue-600'
                 : 'border-slate-200 dark:border-slate-700 focus:border-blue-600 text-slate-700 dark:text-slate-200'
           }`}
         />
-        {value && (
-          <button
-            type="button"
-            onClick={() => {
-              onChange('');
-              setQuery('');
-              setIsOpen(true);
-            }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500 transition-colors flex items-center justify-center"
+        {selectedEmployee && !hasError && (
+          <span
+            aria-label="Responsável selecionado"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-500"
           >
-            <i className="bi bi-x-lg text-xs" />
-          </button>
+            <i className="bi bi-check2 text-lg" />
+          </span>
         )}
       </div>
 

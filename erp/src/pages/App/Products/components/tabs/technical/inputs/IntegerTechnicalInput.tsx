@@ -5,6 +5,8 @@ import {
 } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
 import {
   isQuantityCharacteristic,
+  isDoorQuantityCharacteristic,
+  isDrawerQuantityCharacteristic,
   type TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
 
@@ -23,12 +25,20 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
 }) => {
   const isLugares = isTechnicalFieldPlacesCount(field.name);
   const isQuantity = isQuantityCharacteristic(field.name);
+  const isDoorOrDrawerQuantity =
+    isDoorQuantityCharacteristic(field.name) || isDrawerQuantityCharacteristic(field.name);
+  const minimumValue = 0;
   const maxValue = getTechnicalFieldIntegerMaxValue(field.name);
   const numericDisplayValue = (() => {
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return isDoorOrDrawerQuantity && value < minimumValue ? '' : value;
+    }
     if (typeof value === 'string' && value.trim()) {
       const match = value.match(/\d+/);
-      if (match) return parseInt(match[0], 10);
+      if (match) {
+        const parsed = parseInt(match[0], 10);
+        return isDoorOrDrawerQuantity && parsed < minimumValue ? '' : parsed;
+      }
     }
     return '';
   })();
@@ -45,7 +55,7 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
     <input
       type="number"
       step="1"
-      min="0"
+      min={minimumValue}
       placeholder={placeholder}
       value={numericDisplayValue}
       disabled={disabled}
@@ -53,17 +63,19 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
         if (e.target.value === '') {
           if (
             isQuantity &&
+            !isDoorOrDrawerQuantity &&
             value !== undefined &&
             value !== null &&
             String(value).trim() !== ''
           ) return;
-          onChange(isQuantity ? null : '');
+          onChange(isQuantity && !isDoorOrDrawerQuantity ? null : '');
           return;
         }
         const parsed = parseInt(e.target.value, 10);
         if (Number.isNaN(parsed)) {
           if (
             isQuantity &&
+            !isDoorOrDrawerQuantity &&
             value !== undefined &&
             value !== null &&
             String(value).trim() !== ''
@@ -71,7 +83,7 @@ export const IntegerTechnicalInput: React.FC<IntegerTechnicalInputProps> = ({
           onChange('');
           return;
         }
-        const val = Math.max(0, Math.min(maxValue, parsed));
+        const val = Math.max(minimumValue, Math.min(maxValue, parsed));
         onChange(val);
       }}
       className="w-full border-b-2 border-slate-300 bg-transparent py-2 text-xs outline-none focus:border-blue-600 dark:text-slate-100 placeholder:text-slate-400 placeholder:font-normal"

@@ -7,18 +7,31 @@ import {
   getOfflineInventoryCatalog,
   getOfflineInventoryScopeProducts,
   getOfflineInventoryResponsibleOptions,
+  normalizeInventoryResponsibleRow,
 } from '../../../features/stock/inventory/services/offlineInventoryCatalog';
+import { filterInventoryResponsibleCandidates } from '../../../../../shared-utils/inventoryResponsible';
+import { isStockInventorySupplierEligible } from '../../../../../shared-utils/inventorySupplierEligibility';
+import { OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION } from '../../../features/stock/inventory/services/catalog/offlineInventoryCatalogTypes';
+
+const assertInventoryCatalogCurrent = (formatVersion?: number) => {
+  if (formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION) {
+    throw new Error(
+      'O catálogo local precisa ser atualizado para conferir as origens dos fornecedores. Conecte-se à internet e tente novamente.'
+    );
+  }
+};
 
 export const fetchInventoryScopeSuppliers = async () => {
   await ensureOfflineInventoryCatalogSynced();
   const catalog = await getOfflineInventoryCatalog();
+  assertInventoryCatalogCurrent(catalog.formatVersion);
   if (!catalog.syncedAt && Object.keys(catalog.suppliers).length === 0) {
     throw new Error(
       'O catálogo local ainda não foi sincronizado. Conecte-se à internet e tente novamente.'
     );
   }
   return Object.values(catalog.suppliers)
-    .filter((supplier) => !supplier.deleted)
+    .filter((supplier) => !supplier.deleted && isStockInventorySupplierEligible(supplier))
     .map((supplier) => ({
       id: supplier.id,
       full_name: supplier.social_name || supplier.full_name || supplier.nickname || '',
@@ -33,13 +46,25 @@ const resolveCurrentInventoryEmployeeId = async (email?: string | null): Promise
   try {
     const result = await withTimeout(
       Promise.resolve(
-        supabase.from('people').select('id').eq('email', normalizedEmail).maybeSingle()
+        supabase
+          .from('people')
+          .select('id, person_type, email, position, address, deleted, updated_at')
+          .eq('person_type', 'employees')
+          .ilike('email', normalizedEmail)
+          .or('deleted.eq.false,deleted.is.null')
+          .order('updated_at', { ascending: false })
+          .order('id', { ascending: true })
+          .limit(500)
       ),
       3000,
       null,
       'inventory:current-responsible'
     );
-    return !result?.error && result?.data?.id ? String(result.data.id) : null;
+    if (result?.error || !result?.data) return null;
+    const currentEmployee = filterInventoryResponsibleCandidates(
+      result.data.map(normalizeInventoryResponsibleRow)
+    )[0];
+    return currentEmployee?.id ? String(currentEmployee.id) : null;
   } catch {
     return null;
   }
@@ -65,6 +90,8 @@ export const fetchInventoryScopeProducts = async (
   _supplierId?: string
 ) => {
   await ensureOfflineInventoryCatalogSynced();
+  const catalog = await getOfflineInventoryCatalog();
+  assertInventoryCatalogCurrent(catalog.formatVersion);
   const products = await getOfflineInventoryScopeProducts();
   if (products.length === 0) {
     throw new Error(

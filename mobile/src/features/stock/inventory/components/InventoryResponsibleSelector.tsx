@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { X } from 'lucide-react-native';
+import { Check } from 'lucide-react-native';
 import type { ScopeEmployee } from '../hooks/useInventoryScopeBuilder';
 import {
   filterInventoryResponsibleCandidates,
@@ -28,7 +28,6 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const surface = isDarkMode ? '#1e293b' : '#ffffff';
   const border = hasError ? '#f43f5e' : isDarkMode ? '#475569' : '#cbd5e1';
   const text = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
@@ -37,18 +36,22 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
     [employees]
   );
   const selected = eligibleEmployees.find((employee) => String(employee.id) === selectedId);
+  const selectedName = selected ? getInventoryResponsibleDisplayName(selected) : '';
+  const selectionGreen = isDarkMode ? '#4ade80' : '#16a34a';
+  const inputColor = hasError ? '#f43f5e' : selected ? selectionGreen : text;
   const filteredEmployees = eligibleEmployees.filter((employee) =>
     getInventoryResponsibleDisplayName(employee).toLowerCase().includes(query.trim().toLowerCase())
   );
 
   return (
-    <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
+    <View style={styles.fieldContainer}>
       <Text style={[styles.label, { color: text }]}>Responsável pelo Inventário</Text>
       <View style={styles.inputRow}>
         <TextInput
           accessibilityLabel="Buscar responsável pelo inventário"
           testID="inventory-responsible-search"
-          value={isOpen ? query : selected ? getInventoryResponsibleDisplayName(selected) : ''}
+          value={isOpen ? query || selectedName : selectedName || query}
+          selectTextOnFocus={Boolean(selected)}
           onFocus={() => {
             setIsOpen(true);
             setQuery('');
@@ -56,34 +59,23 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
           onChangeText={(value) => {
             setIsOpen(true);
             setQuery(value);
+            if (selected && value !== selectedName) onSelect(null);
           }}
           placeholder="Buscar responsável (digite 2+ letras)"
           placeholderTextColor={muted}
           autoCapitalize="none"
-          style={[styles.input, { color: text, borderBottomColor: border }]}
+          style={[styles.input, { color: inputColor, borderBottomColor: inputColor === text ? border : inputColor }]}
         />
-        {selectedId ? (
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Limpar responsável selecionado"
-            testID="inventory-responsible-clear"
-            style={styles.clearButton}
-            onPress={() => {
-              onSelect(null);
-              setQuery('');
-              setIsOpen(true);
-            }}
+        {selected && !hasError ? (
+          <View
+            accessibilityRole="image"
+            accessibilityLabel="Responsável selecionado"
+            style={styles.selectionIcon}
           >
-            <X size={18} color={muted} />
-          </TouchableOpacity>
+            <Check size={18} color={selectionGreen} strokeWidth={3} />
+          </View>
         ) : null}
       </View>
-      {selected ? (
-        <Text style={[styles.selected, { color: muted }]}>
-          Selecionado: {getInventoryResponsibleDisplayName(selected)}
-          {selected.position ? ` · ${selected.position}` : ''}
-        </Text>
-      ) : null}
       {hasError ? (
         <Text accessibilityRole="alert" style={styles.error}>
           Selecione um responsável pelo inventário.
@@ -129,9 +121,6 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
                 <Text style={[styles.optionName, { color: text }]}>
                   {getInventoryResponsibleDisplayName(employee)}
                 </Text>
-                {employee.position ? (
-                  <Text style={[styles.optionMeta, { color: muted }]}>{employee.position}</Text>
-                ) : null}
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -144,12 +133,11 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 12 },
+  fieldContainer: { marginBottom: 12 },
   label: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
   inputRow: { flexDirection: 'row', alignItems: 'center' },
   input: { flex: 1, minHeight: 46, borderBottomWidth: 2, paddingVertical: 8, fontSize: 14 },
-  clearButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  selected: { fontSize: 12, marginTop: 8 },
+  selectionIcon: { minWidth: 32, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   status: { fontSize: 12, marginTop: 8 },
   retryButton: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, marginTop: 10 },
   retryText: { fontSize: 13, fontWeight: '700' },
@@ -157,5 +145,4 @@ const styles = StyleSheet.create({
   options: { maxHeight: 220, marginTop: 8, borderWidth: 1, borderColor: '#94a3b8', borderRadius: 10 },
   option: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1 },
   optionName: { fontSize: 14, fontWeight: '600' },
-  optionMeta: { fontSize: 12, marginTop: 2 },
 });

@@ -3,6 +3,7 @@
  */
 
 export { SINK_CATEGORY_ID } from '../../../../../shared-utils/productSinkCategoryRules';
+export { CHARACTERISTIC_GROUP_ORDER } from '../../../../../shared-utils/productCharacteristicGroupOrder';
 
 export const REQUIRED_CHARACTERISTICS_TOPIC = 'Características principais';
 
@@ -63,6 +64,7 @@ export const DIMENSIONS_SORT_ORDER: Readonly<Record<string, number>> = {
   altura: 1,
   espessura: 2,
   'espessura do colchão': 2,
+  'espessura do tampo': 2,
   'largura total': 3,
   largura: 3,
   'profundidade total': 4,

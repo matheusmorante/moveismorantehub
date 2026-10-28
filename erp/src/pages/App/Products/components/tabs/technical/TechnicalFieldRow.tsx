@@ -15,6 +15,7 @@ import {
   computeTechnicalFieldItemState,
   normalizeTechnicalName,
 } from './technicalTabUtils';
+import { getTechnicalFieldDisplayName } from '../../../../../../../../shared-utils/productTechnicalFieldScope';
 
 const TECHNICAL_FIELD_SCOPES = [
   { value: 'global', label: 'Global', Icon: Globe },
@@ -30,16 +31,18 @@ export interface TechnicalFieldRowProps {
   readonly formData: Partial<Product>;
   readonly manualFieldNames: string[];
   readonly validationErrors?: Record<string, boolean>;
+  readonly isHighlighted?: boolean;
   readonly isVariable?: boolean;
   readonly isDependencyVariable?: boolean;
   readonly isSimpleProduct?: boolean;
+  readonly showSimpleFieldToggle?: boolean;
   readonly onToggleVariable?: (
     fieldName: string,
     scope?: 'not_inform' | 'global' | 'variation'
   ) => void;
+  readonly onToggleCharacteristic?: (field: TechnicalFieldDefinition) => void;
   readonly onValueChange: (fieldName: string, value: unknown) => void;
   readonly onOpenAttributeModal: () => void;
-  readonly onToggleDepthLength: (field: TechnicalFieldDefinition) => void;
   readonly onRemoveManualField: (fieldName: string) => void;
 }
 
@@ -48,13 +51,16 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   formData,
   manualFieldNames,
   validationErrors,
+  isHighlighted = false,
   isVariable = false,
   isDependencyVariable = false,
   isSimpleProduct = false,
+  showSimpleFieldToggle = true,
   onToggleVariable,
+  onToggleCharacteristic,
   onValueChange,
   onOpenAttributeModal,
-  onToggleDepthLength,
+  onRemoveManualField,
 }) => {
   const [showTooltip, setShowTooltip] = React.useState(false);
   const [isScopeMenuOpen, setIsScopeMenuOpen] = React.useState(false);
@@ -67,53 +73,44 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
     rawValue,
     isFieldInvalid,
     isColorField,
-    isDepthOrLengthField,
     isFieldDisabled,
     disabledReason,
     hasConfiguredValue,
   } = computeTechnicalFieldItemState(field, formData, manualFieldNames, validationErrors);
 
-  const normName = normalizeTechnicalName(field.name);
   const displayName = isShelfWeightCapacityCharacteristic(field.name)
     ? 'Peso suportado por prateleira'
-    : /^retr[aá]til\??$/i.test(field.name.trim())
-      ? 'É Retrátil?'
-      : field.name;
-  const isMandatory = Boolean(field.isRequired || field.isRequiredForCatalog);
-  const isDependentCharacteristic = isCharacteristicDependent(field.name);
+    : getTechnicalFieldDisplayName(field.name);
+  const isCategoryMandatory = Boolean(field.isRequired || field.isRequiredForCatalog);
+  const isMandatory = Boolean(field.isRequiredForProductEntry ?? isCategoryMandatory);
+  const hasCharacteristicActivation = Boolean(
+    onToggleCharacteristic &&
+    field.characteristicActive !== undefined &&
+    !field.characteristicToggleDisabled
+  );
+  const isCharacteristicInactive = hasCharacteristicActivation && !field.characteristicActive;
+  const isDependentCharacteristic = Boolean(field.dependency) || isCharacteristicDependent(field.name);
   const isDependencySatisfied = isDependentCharacteristic && !isFieldDisabled;
   const isExplicitlyNotApplicable = ['não se aplica', 'nao se aplica', 'n/a', 'não informar'].includes(
     normalizeTechnicalName(String(rawValue ?? ''))
   );
-  const isOpenClosedSofaDepth =
-    normName === 'profundidade aberto' || normName === 'profundidade fechado';
   const effectiveIsVariable = isVariable && !isSimpleProduct;
   const shouldDefaultToGlobal =
+    field.characteristicActive === true ||
     hasConfiguredValue ||
     isMandatory ||
     isDependencySatisfied;
-  const scope = isDependentCharacteristic
-    ? effectiveIsVariable
-      ? 'variation'
-      : 'global'
-    : effectiveIsVariable
-      ? 'variation'
-      : isExplicitlyNotApplicable
-        ? 'not_inform'
-        : shouldDefaultToGlobal
-          ? 'global'
-          : 'not_inform';
-  const availableScopeOptions = isMandatory
+  const scope = effectiveIsVariable
+    ? 'variation'
+    : isExplicitlyNotApplicable
+      ? 'not_inform'
+      : shouldDefaultToGlobal
+        ? 'global'
+        : 'not_inform';
+  const availableScopeOptions = isCategoryMandatory || hasCharacteristicActivation
     ? REQUIRED_TECHNICAL_FIELD_SCOPES
     : TECHNICAL_FIELD_SCOPES;
   const selectedScope = TECHNICAL_FIELD_SCOPES.find((option) => option.value === scope)!;
-  const toggleDepthLengthTooltip = normName.includes('profundidade')
-    ? normName.includes('total')
-      ? 'Alternar para Comprimento total'
-      : 'Alternar para Comprimento'
-    : normName.includes('total')
-      ? 'Alternar para Profundidade total'
-      : 'Alternar para Profundidade';
 
   React.useEffect(() => {
     if (isFieldDisabled) setIsScopeMenuOpen(false);
@@ -167,7 +164,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
       id={`technical-field-${field.name}`}
       className={`flex w-[280px] max-w-full flex-col gap-1.5 p-1 transition-all ${
         isFieldDisabled ? 'opacity-70' : ''
-      }`}
+      } ${isHighlighted ? 'bg-amber-50/80 outline outline-2 outline-amber-300 dark:bg-amber-950/30 dark:outline-amber-700' : ''}`}
     >
       <div className="flex w-full flex-col gap-2">
         <div
@@ -188,6 +185,9 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               {displayName}
               {field.unit ? ` (${field.unit})` : ''}
             </span>
+            {isMandatory && (
+              <span aria-label="Obrigatória" className="shrink-0 text-red-500">*</span>
+            )}
             {isFieldDisabled && (
               <DisabledFieldInfoButton
                 disabledReason={disabledReason}
@@ -195,17 +195,6 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               />
             )}
           </label>
-          {isDepthOrLengthField && !isOpenClosedSofaDepth && (
-            <button
-              type="button"
-              title={toggleDepthLengthTooltip}
-              aria-label={toggleDepthLengthTooltip}
-              onClick={() => onToggleDepthLength(field)}
-              className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-blue-600"
-            >
-              <i className="bi bi-arrow-left-right" />
-            </button>
-          )}
           {isColorField && (
             <span className="inline-flex h-5 shrink-0 rounded-lg border border-blue-200 bg-blue-50 p-0.5 dark:border-blue-900 dark:bg-blue-950/40">
               <button
@@ -219,8 +208,28 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               </button>
             </span>
           )}
+          {hasCharacteristicActivation && (
+            <button
+              type="button"
+              role="switch"
+              aria-label={`Ativar característica ${field.name}`}
+              aria-checked={Boolean(field.characteristicActive)}
+              disabled={isFieldDisabled || field.characteristicToggleDisabled}
+              title={field.characteristicToggleDisabled ? 'Característica obrigatória' : isFieldDisabled ? disabledReason : undefined}
+              onClick={() => onToggleCharacteristic?.(field)}
+              className={`relative inline-flex h-[22px] w-10 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:focus-visible:ring-offset-slate-900 ${
+                field.characteristicActive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
+              }`}
+            >
+              <span className={`absolute left-[2px] h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200 ${
+                field.characteristicActive ? 'translate-x-[18px]' : 'translate-x-0'
+              }`} />
+            </button>
+          )}
           {onToggleVariable &&
             isSimpleProduct &&
+            showSimpleFieldToggle &&
+            !hasCharacteristicActivation &&
             !isMandatory &&
             !isDependencyVariable &&
             !isDependentCharacteristic && (
@@ -247,8 +256,8 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
           )}
           {onToggleVariable &&
             !isSimpleProduct &&
-            !isDependencyVariable &&
-            !isDependentCharacteristic && (
+            !isCharacteristicInactive &&
+            (
             <div ref={scopeControlRef} className="relative shrink-0">
               <button
                 ref={scopeTriggerRef}
@@ -313,11 +322,22 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               </div>
             </div>
           )}
+          {manualFieldNames.includes(field.name) && (
+            <button
+              type="button"
+              aria-label={`Remover campo ${field.name}`}
+              title="Remover característica deste produto"
+              onClick={() => onRemoveManualField(field.name)}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-red-600 dark:hover:text-red-400"
+            >
+              <CircleMinus aria-hidden="true" className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
       </div>
 
-      {(scope === 'global' || scope === 'variation' || isDependentCharacteristic) && (
+      {(scope === 'global' || scope === 'variation') && !isCharacteristicInactive && (
         <div className="w-full">
           <DisabledFieldWrapper
             isDisabled={

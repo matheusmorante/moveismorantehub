@@ -6,12 +6,11 @@ import {
   resolveAppliedMobileProductSearch,
   resolveMobileProductListResetState,
   resolveMobileProductStatusFilter,
-  resolveSubmittedMobileProductSearch,
-  shouldExcludeMobileDraftsDuringSearch,
 } from './mobileProductListFilters';
 import {
   PRODUCT_LIST_PAGE_SIZES,
   productListFormSchema,
+  productListSearchFormSchema,
 } from '../../../../../shared-utils/listingFormSchemas';
 
 describe('mobileProductListFilters', () => {
@@ -47,10 +46,16 @@ describe('mobileProductListFilters', () => {
     expect(resolveAppliedMobileProductSearch('  ')).toBe('');
   });
 
-  it('matches ERP Enter submission for valid, empty, and too-short search terms', () => {
-    expect(resolveSubmittedMobileProductSearch(' cadeira ')).toBe('cadeira');
-    expect(resolveSubmittedMobileProductSearch('  ')).toBe('');
-    expect(resolveSubmittedMobileProductSearch('ca')).toBeNull();
+  it('uses the shared ERP search schema for submitted valid, empty, and too-short terms', () => {
+    expect(productListSearchFormSchema.parse({ input: ' cadeira ', intent: 'submitted' })).toEqual({
+      search: 'cadeira',
+    });
+    expect(productListSearchFormSchema.parse({ input: '  ', intent: 'submitted' })).toEqual({
+      search: '',
+    });
+    expect(productListSearchFormSchema.parse({ input: 'ca', intent: 'submitted' })).toEqual({
+      search: null,
+    });
   });
 
   it('preserves status filters without a search and keeps draft searches scoped to drafts', () => {
@@ -62,14 +67,6 @@ describe('mobileProductListFilters', () => {
     expect(resolveMobileProductStatusFilter('active', '  cadeira  ')).toBe('all');
     expect(resolveMobileProductStatusFilter('disabled', 'mesa')).toBe('all');
     expect(resolveMobileProductStatusFilter('all', 'mesa')).toBe('all');
-  });
-
-  it('preserves the non-draft constraint only for active/deactivated searches', () => {
-    expect(shouldExcludeMobileDraftsDuringSearch('active', 'cadeira')).toBe(true);
-    expect(shouldExcludeMobileDraftsDuringSearch('disabled', 'mesa')).toBe(true);
-    expect(shouldExcludeMobileDraftsDuringSearch('all', 'mesa')).toBe(false);
-    expect(shouldExcludeMobileDraftsDuringSearch('draft', 'mesa')).toBe(false);
-    expect(shouldExcludeMobileDraftsDuringSearch('active', '   ')).toBe(false);
   });
 
   it('allows the test-data toggle only for administrators', () => {

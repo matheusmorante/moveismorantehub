@@ -247,7 +247,7 @@ export const syncProductToSupabase = async (
 
         const recordsToSave = variationsWithUuid.map(({ variation: v, originalIndex: index }) => {
           const attributesToSave = (v.attributes || [])
-            .filter((attr: any) => attr.name && attr.value)
+            .filter((attr: any) => attr.name && (attr.value === null || typeof attr.value === 'boolean' || (typeof attr.value === 'string' && attr.value.trim())))
             .map((attr: any) => ({
               name: attr.name,
               value: attr.value,

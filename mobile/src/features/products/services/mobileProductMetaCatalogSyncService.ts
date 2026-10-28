@@ -31,7 +31,7 @@ const getMetaProxyUrl = (): string | null => {
   const configuredBase = process.env.EXPO_PUBLIC_ERP_API_URL?.trim();
   const apiBase =
     configuredBase ||
-    (process.env.NODE_ENV === 'production' ? 'https://morantehub.com' : '');
+    (process.env.NODE_ENV === 'production' ? 'https://morantehub.vercel.app' : '');
   return apiBase ? `${apiBase.replace(/\/+$/, '')}/api/meta-graph` : null;
 };
 

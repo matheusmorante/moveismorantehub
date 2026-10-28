@@ -60,13 +60,13 @@ const getAttributeRecord = (value: unknown) => {
   return [];
 };
 
-const toAttributeValue = (value: unknown): string | undefined => {
+const toAttributeValue = (value: unknown): string | boolean | undefined => {
   if (value === null || value === undefined) return undefined;
   if (Array.isArray(value)) {
     const values = value
       .map(toAttributeValue)
-      .filter((item): item is string => Boolean(item));
-    return values.length ? values.join(', ') : undefined;
+      .filter((item): item is string | boolean => item !== undefined && item !== '');
+    return values.length ? values.map(String).join(', ') : undefined;
   }
   if (typeof value === 'string') {
     const trimmed = value.trim();
@@ -79,7 +79,7 @@ const toAttributeValue = (value: unknown): string | undefined => {
       : trimmed;
   }
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : undefined;
-  if (typeof value === 'boolean') return String(value);
+  if (typeof value === 'boolean') return value;
   if (typeof value === 'object') {
     const record = value as Record<string, unknown>;
     if ('value' in record) return toAttributeValue(record.value);
@@ -289,24 +289,32 @@ export const projectRequiredCategoryAttributesToVariations = <
     for (const fieldName of requiredAttributes.values()) {
       const existingIndex = findExistingAttributeIndex(attributes, fieldName);
       const variationValue = readVariationValue(attributes, variation.technicalValues, fieldName);
-      let filledValue: string | undefined;
+      let filledValue: string | boolean | undefined;
 
-      if (variationValue.found && variationValue.value !== undefined && variationValue.value !== null) {
+      if (variationValue.found && variationValue.value !== undefined) {
         // An explicit empty variation override must not be replaced by the parent value.
         filledValue = toAttributeValue(variationValue.value);
-        if (!filledValue) {
-          attributes = removeProductVariationTechnicalAttribute(attributes, fieldName);
+        if (filledValue === undefined) {
+          if (variationValue.value === null) {
+            if (existingIndex >= 0) {
+              attributes[existingIndex] = { ...attributes[existingIndex], value: null };
+            } else {
+              attributes.push({ name: fieldName, value: null, showName: false });
+            }
+          } else {
+            attributes = removeProductVariationTechnicalAttribute(attributes, fieldName);
+          }
           continue;
         }
       } else if (existingIndex >= 0) {
         filledValue = toAttributeValue(attributes[existingIndex].value);
       }
 
-      if (!filledValue) {
+      if (filledValue === undefined) {
         const parentValue = readNamedValue(options.parentTechnicalValues, fieldName);
         filledValue = parentValue.found ? toAttributeValue(parentValue.value) : undefined;
       }
-      if (!filledValue) continue;
+      if (filledValue === undefined) continue;
 
       if (existingIndex >= 0) {
         const matchingIndexes =

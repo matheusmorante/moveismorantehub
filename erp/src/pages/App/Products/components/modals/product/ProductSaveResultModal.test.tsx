@@ -5,6 +5,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { ProductSaveResultModal } from './ProductSaveResultModal';
 import type Product from '@/pages/types/product.type';
 import * as productService from '@/pages/utils/productService';
+import * as characteristicGroupService from '@/pages/utils/characteristicGroupService';
 import * as technicalFieldService from '@/pages/App/Products/services/technicalFieldService';
 
 vi.mock('@/pages/utils/productService', () => ({
@@ -13,9 +14,13 @@ vi.mock('@/pages/utils/productService', () => ({
 vi.mock('@/pages/App/Products/services/technicalFieldService', () => ({
   fetchTechnicalFieldDefinitions: vi.fn().mockResolvedValue([]),
 }));
+vi.mock('@/pages/utils/characteristicGroupService', () => ({
+  fetchCharacteristicGroups: vi.fn().mockResolvedValue({ groups: [], categories: [] }),
+}));
 beforeEach(() => {
   vi.mocked(productService.saveProduct).mockReset().mockImplementation(async (product) => product.id!);
   vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockReset().mockResolvedValue([]);
+  vi.mocked(characteristicGroupService.fetchCharacteristicGroups).mockReset().mockResolvedValue({ groups: [], categories: [] });
 });
 
 afterEach(() => {
@@ -192,6 +197,7 @@ describe('ProductSaveResultModal - Regra de Origem de Estoque Salvados e Usados'
           id: 'product-1', name: 'Mesa', description: 'Mesa de madeira', active: true,
           status: 'hidden', unitPrice: 500, categoryIds: ['cat-1'],
           images: ['https://example.test/mesa.jpg'], width: 80, height: 90, depth: 50,
+          weight: 20,
           variations: [],
         } as unknown as Product
       : { id: 'product-1', name: 'Mesa', active: true, status: 'hidden', unitPrice: 0, variations: [] } as unknown as Product;
@@ -216,6 +222,7 @@ describe('ProductSaveResultModal - Regra de Origem de Estoque Salvados e Usados'
       id: 'category-product', name: 'Mesa', description: 'Mesa de madeira', active: true,
       status: 'hidden', unitPrice: 500, categoryIds: ['cat-1'],
       images: ['https://example.test/mesa.jpg'], width: 80, height: 90, depth: 50,
+      weight: 20,
       technicalValues: {}, variations: [],
     } as unknown as Product;
     const onSuccess = vi.fn().mockResolvedValue(true);
@@ -240,6 +247,41 @@ describe('ProductSaveResultModal - Regra de Origem de Estoque Salvados e Usados'
     fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
     await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('bloqueia publicação quando uma característica obrigatória do grupo fica vazia', async () => {
+    vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockResolvedValueOnce([
+      {
+        id: 'door-quantity', name: 'Quantidade de portas', dataType: 'integer', options: [],
+        groupId: 'doors', categoryIds: ['cat-1'], requiredProductCategoryIds: ['cat-1'], isRequired: false,
+      },
+    ]);
+    vi.mocked(characteristicGroupService.fetchCharacteristicGroups).mockResolvedValueOnce({
+      groups: [{
+        id: 'doors', name: 'Portas', description: '', isDefault: false,
+      }],
+      categories: [{ id: 'cat-1', name: 'Guarda-roupas' }],
+    } as any);
+    const product = {
+      id: 'active-group-product', name: 'Guarda-roupa', description: 'Guarda-roupa', active: true,
+      status: 'hidden', unitPrice: 500, categoryIds: ['cat-1'],
+      images: ['https://example.test/guarda-roupa.jpg'], width: 80, height: 180, depth: 50,
+      weight: 60,
+      selectedCharacteristicGroupIds: ['doors'], activeCharacteristicGroupIds: ['doors'],
+      selectedCharacteristicIds: [], technicalValues: {}, variations: [],
+    } as unknown as Product;
+
+    render(
+      <ProductSaveResultModal
+        saveResult={{ ...defaultChecks, product }}
+        onCloseModal={vi.fn()}
+        onCloseForm={vi.fn()}
+        setFormData={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText('Características obrigatórias: Quantidade de portas')).toBeDefined();
+    expect((screen.getByRole('button', { name: 'Publicar no Catálogo' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('bloqueia somente a publicação quando não consegue consultar os requisitos da categoria', async () => {

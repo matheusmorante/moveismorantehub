@@ -27,7 +27,7 @@ export function resolveVariationDimensions(parent: Partial<Product>, variation: 
   return {
     width: dimension('width', variation.syncWidth, ['Largura']),
     height: dimension('height', variation.syncHeight, ['Altura']),
-    depth: dimension('depth', variation.syncDepth, ['Profundidade', 'Comprimento']),
+    depth: dimension('depth', variation.syncDepth, ['Profundidade', 'Profundidade total']),
   };
 }
 

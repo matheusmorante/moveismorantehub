@@ -14,6 +14,8 @@ interface ChatMessageTimelineProps {
   hasOlderMessages?: boolean;
   isLoadingOlderMessages?: boolean;
   onLoadOlderMessages?: () => Promise<number>;
+  onReplyMessage?: (message: WhatsAppMessage) => void;
+  onForwardMessage?: (message: WhatsAppMessage) => void;
   onResolveReplyTarget?: (reference: { conversationId: string; messageId: string | null; apiMessageId: string | null }) => Promise<WhatsAppMessage | null>;
   onJumpToMessage?: (message: WhatsAppMessage) => void;
   jumpToMessageId?: string | null;
@@ -63,6 +65,46 @@ export function groupMessagesByDate(
   });
 }
 
+export function projectVisibleMessageReactions(
+  messages: WhatsAppMessage[],
+  visibleMessages: WhatsAppMessage[],
+): { reactionsByWamid: Map<string, string[]>; embeddedEventIds: Set<string> } {
+  const visibleWamids = new Set(visibleMessages.map((message) => message.apiMessageId).filter(Boolean));
+  const uniqueMessages = [...new Map(messages.map((message) => [message.id, message])).values()];
+  const reactionEvents = uniqueMessages.filter((message) => {
+    const text = message.textContent || '';
+    return message.rawPayload?.provider_message_type === 'reaction'
+      || /^Reação .+ a uma mensagem$/u.test(text)
+      || text === 'Reação removida de uma mensagem';
+  }).sort((left, right) =>
+    left.timestamp.localeCompare(right.timestamp)
+      || left.createdAt.localeCompare(right.createdAt)
+      || left.id.localeCompare(right.id)
+  );
+  const currentByWamid = new Map<string, Map<WhatsAppMessage['direction'], string>>();
+  const embeddedEventIds = new Set<string>();
+
+  for (const event of reactionEvents) {
+    const targetWamid = event.replyToWamid || event.rawPayload?.reaction?.message_id;
+    if (typeof targetWamid !== 'string' || !visibleWamids.has(targetWamid)) continue;
+    embeddedEventIds.add(event.id);
+
+    const emoji = typeof event.rawPayload?.reaction?.emoji === 'string'
+      ? event.rawPayload.reaction.emoji
+      : event.textContent?.match(/^Reação (.+) a uma mensagem$/u)?.[1] || '';
+    const current = currentByWamid.get(targetWamid) || new Map<WhatsAppMessage['direction'], string>();
+    if (emoji) current.set(event.direction, emoji);
+    else current.delete(event.direction);
+    if (current.size > 0) currentByWamid.set(targetWamid, current);
+    else currentByWamid.delete(targetWamid);
+  }
+
+  return {
+    reactionsByWamid: new Map([...currentByWamid].map(([wamid, reactions]) => [wamid, [...reactions.values()]])),
+    embeddedEventIds,
+  };
+}
+
 export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   messages,
   displayName,
@@ -75,6 +117,8 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   isLoadingOlderMessages = false,
   error = '',
   onLoadOlderMessages,
+  onReplyMessage,
+  onForwardMessage,
   onResolveReplyTarget,
   onJumpToMessage,
   jumpToMessageId = null,
@@ -140,6 +184,8 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   const contextMessages = [...messages, ...search.messages];
   const messagesById = new Map(contextMessages.map((message) => [message.id, message]));
   const messagesByApiId = new Map(contextMessages.filter((message) => message.apiMessageId).map((message) => [message.apiMessageId as string, message]));
+  const reactionProjection = projectVisibleMessageReactions(contextMessages, filteredMessages);
+  const visibleTimelineMessages = filteredMessages.filter((message) => !reactionProjection.embeddedEventIds.has(message.id));
 
   useEffect(() => {
     if (!jumpToMessageId || !timelineRef.current) return;
@@ -162,7 +208,7 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
     if (jumpCompleteTimerRef.current) clearTimeout(jumpCompleteTimerRef.current);
   }, []);
 
-  const grouped = groupMessagesByDate(filteredMessages);
+  const grouped = groupMessagesByDate(visibleTimelineMessages);
 
   return (
     <div ref={timelineRef} role="region" aria-label="Histórico da conversa" onScroll={handleTimelineScroll} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 z-0">
@@ -178,7 +224,7 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
           <div className="w-7 h-7 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
           <span role="status" className="text-xs text-slate-400">{isSearching ? 'Pesquisando mensagens…' : 'Carregando mensagens...'}</span>
         </div>
-      ) : filteredMessages.length === 0 && !timelineError ? (
+      ) : visibleTimelineMessages.length === 0 && !timelineError ? (
         <div className="py-16 text-center text-slate-400 text-xs flex flex-col items-center justify-center">
           <i className="bi bi-chat-square-text text-3xl block mb-2 opacity-40"></i>
           {inChatSearch
@@ -201,8 +247,11 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
                 <MessageBubble
                   message={msg}
                   contactName={displayName}
+                  reactions={msg.apiMessageId ? reactionProjection.reactionsByWamid.get(msg.apiMessageId) : undefined}
                   quotedMessage={(msg.replyToMessageId ? messagesById.get(msg.replyToMessageId) : undefined)
                     || (msg.replyToWamid ? messagesByApiId.get(msg.replyToWamid) : undefined)}
+                  onReplyMessage={onReplyMessage}
+                  onForwardMessage={onForwardMessage}
                   onResolveReplyTarget={onResolveReplyTarget}
                   onJumpToMessage={onJumpToMessage}
                 />

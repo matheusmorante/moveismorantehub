@@ -12,19 +12,18 @@ import {
 import { CameraView, Camera, type BarcodeScanningResult } from 'expo-camera';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { playInventoryCountSound } from '../../../../services/inventoryCountSound';
+import {
+  playInventoryCountSound,
+  prepareInventoryCountSound,
+} from '../../../../services/inventoryCountSound';
 import {
   frameSize as defaultFrameSize,
   styles,
 } from './inventory-scanner/inventoryScanner.styles';
 import { recognizeAccessKeyFromCamera } from './inventory-scanner/inventoryScannerOcr';
 import { InventoryScannerFeedbackView } from './inventory-scanner/InventoryScannerFeedbackView';
-import {
-  getScannerFrameRect,
-  isBarcodeWithinScannerFrame,
-} from './inventory-scanner/scannerFrameGeometry';
+import { getScannerFrameRect } from './inventory-scanner/scannerFrameGeometry';
 
-const RECENT_SCAN_WINDOW_MS = 1500;
 const MAX_RECENT_FEEDBACKS = 2;
 
 interface Props {
@@ -36,7 +35,10 @@ interface Props {
   description?: string;
   accessKeyMode?: boolean;
   continuous?: boolean;
-  restrictToScannerFrame?: boolean;
+  inventoryLayout?: boolean;
+  countedCount?: number;
+  totalCount?: number;
+  progressPercent?: number;
 }
 
 export interface InventoryScanFeedback {
@@ -58,7 +60,10 @@ export const InventoryScannerScreen: React.FC<Props> = ({
   description = 'Aponte a câmera para o QR Code ou Código de Barras do produto.',
   accessKeyMode = false,
   continuous = false,
-  restrictToScannerFrame = false,
+  inventoryLayout = false,
+  countedCount,
+  totalCount,
+  progressPercent,
 }) => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(
@@ -77,19 +82,18 @@ export const InventoryScannerScreen: React.FC<Props> = ({
   >('idle');
   const [scannerAreaLayout, setScannerAreaLayout] = useState<LayoutRectangle | null>(null);
   const processingRef = useRef(false);
-  const scanQueueRef = useRef<string[]>([]);
   const pendingScansRef = useRef(new Set<string>());
-  const recentScansRef = useRef(new Map<string, number>());
   const cameraRef = useRef<CameraView>(null);
   const frameBorderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scannerFrame = scannerAreaLayout ? getScannerFrameRect(scannerAreaLayout) : null;
   const frameSize = accessKeyMode
     ? undefined
-    : restrictToScannerFrame
+    : inventoryLayout
       ? scannerFrame?.width
       : defaultFrameSize;
 
   useEffect(() => {
+    void prepareInventoryCountSound();
     const getCameraPermissions = async () => {
       const { status } = await Camera.requestCameraPermissionsAsync();
       setHasPermission(status === 'granted');
@@ -144,7 +148,8 @@ export const InventoryScannerScreen: React.FC<Props> = ({
           triggerFrameBorder('success');
           setUnitsRead((count) => count + 1);
           if (result.itemId) setProductsRead((previous) => new Set(previous).add(result.itemId!));
-          await playInventoryCountSound();
+          // Cada contagem confirmada recebe seu bipe; a fila de áudio não bloqueia leituras.
+          playInventoryCountSound();
         }
       }
     } catch (error) {
@@ -158,27 +163,16 @@ export const InventoryScannerScreen: React.FC<Props> = ({
       setRecentFeedbacks((current) => [feedback, ...current].slice(0, MAX_RECENT_FEEDBACKS));
     } finally {
       if (continuous) {
-        recentScansRef.current.set(data, Date.now());
         pendingScansRef.current.delete(data);
-        const nextScan = scanQueueRef.current.shift();
-        if (nextScan !== undefined) {
-          void processScannedData(nextScan);
-        } else {
-          processingRef.current = false;
-          setScanned(false);
-        }
+        processingRef.current = pendingScansRef.current.size > 0;
+        setScanned(processingRef.current);
       }
     }
   };
 
   const handleBarCodeScanned = (result: BarcodeScanningResult) => {
     const { data } = result;
-    if (
-      restrictToScannerFrame &&
-      (!scannerFrame || !isBarcodeWithinScannerFrame(result, scannerFrame))
-    ) {
-      return;
-    }
+    // The square is a visual guide; camera detections are accepted anywhere in the preview.
     if (!continuous) {
       if (processingRef.current || scanned) return;
       processingRef.current = true;
@@ -186,24 +180,9 @@ export const InventoryScannerScreen: React.FC<Props> = ({
       return;
     }
 
-    const now = Date.now();
-    for (const [recentData, scannedAt] of recentScansRef.current) {
-      if (now - scannedAt >= RECENT_SCAN_WINDOW_MS) recentScansRef.current.delete(recentData);
-    }
-    const recentScanAt = recentScansRef.current.get(data);
-    if (
-      pendingScansRef.current.has(data) ||
-      (recentScanAt !== undefined && now - recentScanAt < RECENT_SCAN_WINDOW_MS)
-    ) {
-      return;
-    }
+    if (pendingScansRef.current.has(data)) return;
 
     pendingScansRef.current.add(data);
-    if (processingRef.current) {
-      scanQueueRef.current.push(data);
-      return;
-    }
-
     processingRef.current = true;
     void processScannedData(data);
   };
@@ -269,7 +248,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
 
       {/* Overlay */}
       <View style={styles.overlay}>
-        {restrictToScannerFrame ? (
+        {inventoryLayout ? (
           <View style={[styles.header, { paddingTop: topInset + 8 }]}>
             <View style={styles.headerContent}>
               {title ? <Text style={styles.headerTitle}>{title}</Text> : null}
@@ -305,7 +284,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
         <View
           style={styles.scannerArea}
           onLayout={
-            restrictToScannerFrame
+            inventoryLayout
               ? ({ nativeEvent }) => setScannerAreaLayout(nativeEvent.layout)
               : undefined
           }
@@ -315,7 +294,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
               styles.scannerFrame,
               frameSize !== undefined && { width: frameSize, height: frameSize },
               accessKeyMode && styles.scannerFrameAccessKey,
-              restrictToScannerFrame && styles.scannerFrameSquare,
+              inventoryLayout && styles.scannerFrameSquare,
               frameBorderState === 'success' && styles.scannerFrameSuccess,
               frameBorderState === 'error' && styles.scannerFrameError,
               frameBorderState === 'warning' && styles.scannerFrameWarning,
@@ -325,7 +304,7 @@ export const InventoryScannerScreen: React.FC<Props> = ({
 
         <View
           style={
-            restrictToScannerFrame
+            inventoryLayout
               ? [styles.footer, { paddingBottom: bottomInset + 12 }]
               : styles.legacyFooter
           }
@@ -336,13 +315,16 @@ export const InventoryScannerScreen: React.FC<Props> = ({
               feedbacks={recentFeedbacks}
               unitsRead={unitsRead}
               productsReadCount={productsRead.size}
+              countedCount={countedCount}
+              totalCount={totalCount}
+              progressPercent={progressPercent}
               scanned={scanned}
               onClose={onClose}
             />
           )}
           {!continuous && (
             <Text
-              style={[styles.footerText, restrictToScannerFrame && styles.footerTextInventory]}
+              style={[styles.footerText, inventoryLayout && styles.footerTextInventory]}
             >
               {description}
             </Text>

@@ -4,10 +4,12 @@ import { offlineStorageService } from '../../../services/offline/offlineStorageS
 import { offlineSyncManager } from '../../../services/offline/offlineSyncManager';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
+import { getLocalDateString } from '../../../utils/orderUtils';
 import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
 import {
   buildDeliveryRouteItems,
+  countDeliveryRouteOrders,
   computeDeliveryRouteStats,
   type DeliveryRouteDateScope,
   type DeliveryRouteItem,
@@ -23,7 +25,7 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
   const lastSyncAtRef = useRef<string | undefined>(undefined);
   const hasLoadedOnceRef = useRef(false);
 
-  const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
+  const todayStr = useMemo(() => getLocalDateString(new Date()), []);
 
   const loadFromLocalCache = useCallback(async () => {
     try {
@@ -91,6 +93,14 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
     () => buildDeliveryRouteItems(orders, dateScope, todayStr),
     [dateScope, orders, todayStr]
   );
+  const dateScopeCounts = useMemo(
+    () => ({
+      today: countDeliveryRouteOrders(orders, 'today', todayStr),
+      tomorrow: countDeliveryRouteOrders(orders, 'tomorrow', todayStr),
+      next_days: countDeliveryRouteOrders(orders, 'next_days', todayStr),
+    }),
+    [orders, todayStr]
+  );
 
   const currentDelivery = useMemo(
     () => routeItems.find((item) => item.isCurrent) || null,
@@ -112,6 +122,7 @@ export function useDeliveryRoute(dateScope: DeliveryRouteDateScope = 'today') {
   return {
     orders,
     routeItems,
+    dateScopeCounts,
     currentDelivery,
     nextDelivery,
     stats,

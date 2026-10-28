@@ -41,26 +41,6 @@ export const parseNumericDimension = (val: unknown): number | undefined => {
   return undefined;
 };
 
-export const getToggledDepthLengthTarget = (
-  currentFieldName: string,
-  allTechnicalFields: readonly TechnicalFieldDefinition[]
-): TechnicalFieldDefinition | undefined => {
-  const isProfundidade = currentFieldName.toLowerCase().includes('profundidade');
-  const isTotal = currentFieldName.toLowerCase().includes('total');
-  const targetName = isProfundidade
-    ? (isTotal ? 'Comprimento total' : 'Comprimento')
-    : (isTotal ? 'Profundidade total' : 'Profundidade');
-
-  return (
-    allTechnicalFields.find((f) => f.name.toLowerCase() === targetName.toLowerCase()) ||
-    allTechnicalFields.find((f) =>
-      isProfundidade
-        ? f.name.toLowerCase().includes('comprimento')
-        : f.name.toLowerCase().includes('profundidade')
-    )
-  );
-};
-
 export interface TechnicalFieldItemState {
   rawValue: unknown;
   hasConfiguredValue: boolean;
@@ -71,7 +51,6 @@ export interface TechnicalFieldItemState {
   isApplicable: boolean;
   isFieldInvalid: boolean;
   isColorField: boolean;
-  isDepthOrLengthField: boolean;
   isFieldDisabled: boolean;
   disabledReason?: string;
 }
@@ -98,10 +77,8 @@ export const computeTechnicalFieldItemState = (
     } else if ((norm === 'largura' || norm === 'largura total') && formData.width) {
       rawValue = formData.width;
     } else if (
-      (norm === 'profundidade' ||
-        norm === 'profundidade total' ||
-        norm === 'comprimento' ||
-        norm === 'comprimento total') &&
+      (norm === 'profundidade' || norm === 'profundidade total') &&
+      !formData.depthUseLength &&
       formData.depth
     ) {
       rawValue = formData.depth;
@@ -122,10 +99,8 @@ export const computeTechnicalFieldItemState = (
     ((norm === 'altura' || norm === 'altura total') && Boolean(formData.height)) ||
     (norm === 'peso' && Boolean(getProductTechnicalRootFallbackValue(field.name, formData))) ||
     ((norm === 'largura' || norm === 'largura total') && Boolean(formData.width)) ||
-    ((norm === 'profundidade' ||
-      norm === 'profundidade total' ||
-      norm === 'comprimento' ||
-      norm === 'comprimento total') &&
+    ((norm === 'profundidade' || norm === 'profundidade total') &&
+      !formData.depthUseLength &&
       Boolean(formData.depth)) ||
     ((norm === 'modelo/linha' || norm === 'linha/modelo') &&
       Boolean(
@@ -149,19 +124,21 @@ export const computeTechnicalFieldItemState = (
   const isApplicable = isAlwaysApplicable || hasSelectedValue;
 
   const dep = getCharacteristicDependencyState(field.name, formData.technicalValues || {});
-  const isFieldDisabled = dep.isDisabled;
+  const isFieldDisabled = field.dependency ? field.dependencySatisfied === false : dep.isDisabled;
 
-  const isDoorQtyReq = isDoorQuantityCharacteristic(field.name) && isHasDoorsActive(formData.technicalValues || {});
-  const isDrawerQtyReq = isDrawerQuantityCharacteristic(field.name) && isHasDrawersActive(formData.technicalValues || {});
+  const isDoorQtyReq = isDoorQuantityCharacteristic(field.name) &&
+    (field.isRequired || isHasDoorsActive(formData.technicalValues || {}));
+  const isDrawerQtyReq = isDrawerQuantityCharacteristic(field.name) &&
+    (field.isRequired || isHasDrawersActive(formData.technicalValues || {}));
   const isFeetQtyReq = isFeetQuantityCharacteristic(field.name) && isHasFeetActive(formData.technicalValues || {});
 
   let isInvalidQty = false;
   if (isDoorQtyReq) {
     const qty = parseDoorQuantityValue({ [field.name]: rawValue });
-    isInvalidQty = qty === null || qty <= 0;
+    isInvalidQty = qty === null || qty < 0;
   } else if (isDrawerQtyReq) {
     const qty = parseDrawerQuantityValue({ [field.name]: rawValue });
-    isInvalidQty = qty === null || qty <= 0;
+    isInvalidQty = qty === null || qty < 0;
   } else if (isFeetQtyReq) {
     const qty = parseFeetQuantityValue({ [field.name]: rawValue });
     isInvalidQty = qty === null || qty <= 0;
@@ -173,8 +150,6 @@ export const computeTechnicalFieldItemState = (
       validationErrors?.technicalValues
   );
   const isColorField = norm === 'cor';
-  const isDepthOrLengthField = norm.includes('profundidade') || norm.includes('comprimento');
-
   return {
     rawValue,
     hasConfiguredValue,
@@ -185,9 +160,8 @@ export const computeTechnicalFieldItemState = (
     isApplicable,
     isFieldInvalid,
     isColorField,
-    isDepthOrLengthField,
     isFieldDisabled,
-    disabledReason: dep.disabledReason,
+    disabledReason: field.dependency ? undefined : dep.disabledReason,
   };
 };
 
@@ -217,10 +191,8 @@ export const hasCharacteristicValue = (
     return true;
   }
   if (
-    (norm === 'profundidade' ||
-      norm === 'profundidade total' ||
-      norm === 'comprimento' ||
-      norm === 'comprimento total') &&
+    (norm === 'profundidade' || norm === 'profundidade total') &&
+    !formData.depthUseLength &&
     formData.depth !== undefined &&
     formData.depth !== null &&
     formData.depth > 0

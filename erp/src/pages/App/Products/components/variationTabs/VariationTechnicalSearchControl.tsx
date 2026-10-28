@@ -1,5 +1,6 @@
 import React from 'react';
 import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
+import { getTechnicalFieldDisplayName } from '../../../../../../../shared-utils/productTechnicalFieldScope';
 
 export interface VariationTechnicalSearchControlProps {
   readonly searchTerm: string;
@@ -59,16 +60,12 @@ export const VariationTechnicalSearchControl: React.FC<VariationTechnicalSearchC
               key={field.id}
               type="button"
               onClick={() => onAddField(field)}
-              aria-label={`Adicionar característica ${field.name}`}
-              className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left text-xs text-slate-700 transition-colors last:border-b-0 hover:bg-blue-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+              aria-label={`Selecionar característica ${getTechnicalFieldDisplayName(field.name)}`}
+              className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-2 text-left text-xs text-slate-700 transition-colors last:border-b-0 hover:bg-blue-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 cursor-pointer"
             >
               <span className="truncate">
-                {field.name}
+                {getTechnicalFieldDisplayName(field.name)}
                 {field.unit ? ` (${field.unit})` : ''}
-              </span>
-              <span className="inline-flex shrink-0 items-center gap-1 font-bold text-blue-600 dark:text-blue-400">
-                <i className="bi bi-plus-circle" aria-hidden="true" />
-                Adicionar
               </span>
             </button>
           ))}

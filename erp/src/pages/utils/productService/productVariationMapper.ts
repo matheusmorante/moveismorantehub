@@ -45,7 +45,7 @@ export const mapDbVariations = (
     const attributesList = parseVariationAttributes(v.attributes).map((attribute) => ({
       ...attribute,
       name: toTitleCase(attribute.name),
-      value: toTitleCase(attribute.value),
+      value: typeof attribute.value === 'string' ? toTitleCase(attribute.value) : attribute.value,
     }));
     const syncWidth = details.syncWidth ?? v.use_parent_dimensions !== false;
     const syncHeight = details.syncHeight ?? v.use_parent_dimensions !== false;

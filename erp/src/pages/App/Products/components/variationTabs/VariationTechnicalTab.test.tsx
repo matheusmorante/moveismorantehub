@@ -6,6 +6,7 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import { VariationTechnicalTab } from './VariationTechnicalTab';
+import * as characteristicGroupService from '@/pages/utils/characteristicGroupService';
 
 vi.mock('react-toastify', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -62,6 +63,10 @@ vi.mock('../../services/technicalFieldService', () => ({
   fetchTechnicalFieldDefinitions: vi.fn().mockImplementation(() => Promise.resolve(mockFields)),
 }));
 
+vi.mock('@/pages/utils/characteristicGroupService', () => ({
+  fetchCharacteristicGroups: vi.fn().mockResolvedValue({ groups: [], categories: [] }),
+}));
+
 vi.mock('../tabs/technical/TechnicalFieldInput', () => ({
   TechnicalFieldInput: ({ field, value, onChange, disabled }: any) => (
     <input
@@ -81,6 +86,9 @@ vi.mock('../modals/attributes/AttributeManagementModal', () => ({
 const mockParentProduct: Product = {
   id: 'p-1',
   name: 'Guarda-Roupa Master',
+  description: '',
+  active: true,
+  itemType: 'product',
   unitPrice: 2000,
   unit: 'UN',
   categoryIds: ['cat-1'],
@@ -105,11 +113,15 @@ const mockVariation: Variation = {
   sku: 'GRM-BR',
   stock: 5,
   unitPrice: 2000,
+  active: true,
   technicalValues: {},
   attributes: [],
 };
 
-const TestHarness: React.FC<{ initialVariation?: Variation }> = ({ initialVariation = mockVariation }) => {
+const TestHarness: React.FC<{
+  initialVariation?: Variation;
+  initialParentProduct?: Product;
+}> = ({ initialVariation = mockVariation, initialParentProduct = mockParentProduct }) => {
   const [formData, setFormData] = useState<Variation>(initialVariation);
 
   const handleChange = <K extends keyof Variation>(field: K, value: Variation[K]) => {
@@ -120,7 +132,7 @@ const TestHarness: React.FC<{ initialVariation?: Variation }> = ({ initialVariat
     <>
       <VariationTechnicalTab
         formData={formData}
-        parentProduct={mockParentProduct}
+        parentProduct={initialParentProduct}
         handleChange={handleChange}
         initialTechnicalFields={mockFields}
       />
@@ -150,7 +162,7 @@ describe('VariationTechnicalTab', () => {
     expect(screen.queryByTitle(/Sincronizado com o pai|Manual — clique para sincronizar/)).toBeNull();
   });
 
-  it('mantém a característica obrigatória visível e desabilita dependentes sem quantidade própria', async () => {
+  it('mantém a característica obrigatória visível e oculta dependentes sem quantidade própria', async () => {
     render(<TestHarness />);
 
     await waitFor(() => {
@@ -158,7 +170,74 @@ describe('VariationTechnicalTab', () => {
     });
 
     expect((screen.getByTestId('input-Quantidade de portas') as HTMLInputElement).value).toBe('');
-    expect(screen.getByTestId('input-Material das portas')).toBeDisabled();
+    expect(screen.queryByTestId('input-Material das portas')).toBeNull();
+  });
+
+  it('mostra a característica opcional ativada individualmente sem depender do estado do grupo', async () => {
+    const groupField = {
+      id: 'door-quantity',
+      name: 'Quantidade de portas',
+      dataType: 'integer' as const,
+      groupId: 'doors',
+      categoryIds: ['cat-1'],
+      options: [],
+    };
+    vi.mocked(characteristicGroupService.fetchCharacteristicGroups).mockResolvedValueOnce({
+      groups: [{
+        id: 'doors',
+        name: 'Portas',
+      }],
+      categories: [{ id: 'cat-1', name: 'Guarda-roupas' }],
+    });
+    render(
+      <TestHarness
+        initialParentProduct={{
+          ...mockParentProduct,
+          selectedCharacteristicIds: ['door-quantity'],
+          activeCharacteristicIds: ['door-quantity'],
+          variableTechnicalFields: ['Quantidade de portas'],
+        }}
+      />
+    );
+
+    expect(await screen.findByTestId('input-Quantidade de portas')).toBeInTheDocument();
+    expect(screen.getByTestId('input-Quantidade de portas')).toBeEnabled();
+  });
+
+  it('marca somente a característica individualmente obrigatória dentro do grupo', async () => {
+    const groupField = {
+      id: 'door-quantity',
+      name: 'Quantidade de portas',
+      dataType: 'integer' as const,
+      groupId: 'doors',
+      categoryIds: ['cat-1'],
+      requiredProductCategoryIds: ['cat-1'],
+      options: [],
+    };
+    vi.mocked(characteristicGroupService.fetchCharacteristicGroups).mockResolvedValueOnce({
+      groups: [{
+        id: 'doors',
+        name: 'Portas',
+      }],
+      categories: [{ id: 'cat-1', name: 'Guarda-roupas' }],
+    });
+    render(
+      <VariationTechnicalTab
+        formData={mockVariation}
+        parentProduct={{
+          ...mockParentProduct,
+          selectedCharacteristicIds: [],
+          activeCharacteristicIds: [],
+          variableTechnicalFields: ['Quantidade de portas'],
+        }}
+        handleChange={vi.fn()}
+        initialTechnicalFields={[groupField]}
+      />
+    );
+
+    expect(await screen.findByTestId('input-Quantidade de portas')).toBeDefined();
+    expect(screen.getByText('Quantidade de portas').closest('label')?.querySelector('[aria-label="Obrigatória"]')).not.toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Exibir característica Quantidade de portas' })).toBeNull();
   });
 
   it('preserva zero na característica e limpa dependentes ao zerar a quantidade por variação', async () => {
@@ -175,7 +254,7 @@ describe('VariationTechnicalTab', () => {
     await waitFor(() => expect(screen.getByTestId('input-Material das portas')).toBeInTheDocument());
     fireEvent.change(screen.getByTestId('input-Quantidade de portas'), { target: { value: '0' } });
 
-    await waitFor(() => expect(screen.getByTestId('input-Material das portas')).toBeDisabled());
+    await waitFor(() => expect(screen.queryByTestId('input-Material das portas')).toBeNull());
     const updated = JSON.parse(screen.getByTestId('variation-data').textContent || '{}') as Variation;
     expect(updated.technicalValues).toMatchObject({
       'Quantidade de portas': '0',
@@ -187,6 +266,52 @@ describe('VariationTechnicalTab', () => {
     expect(updated.attributes).not.toContainEqual(
       expect.objectContaining({ name: 'Material das portas' })
     );
+  });
+
+  it('avalia condição configurada usando a quantidade variável da própria variação', async () => {
+    const quantity = {
+      id: 'door-quantity',
+      name: 'Quantidade de portas',
+      dataType: 'integer' as const,
+      groupId: 'doors',
+      categoryIds: ['cat-1'],
+      options: [],
+    };
+    const opening = {
+      id: 'door-opening',
+      name: 'Tipo de abertura',
+      dataType: 'radio' as const,
+      groupId: 'doors',
+      categoryIds: ['cat-1'],
+      options: [{ id: 'sliding', value: 'Correr' }],
+      dependency: {
+        referenceAttributeId: quantity.id,
+        operator: 'greater_than' as const,
+        value: '1',
+      },
+    };
+    const parentProduct = {
+      ...mockParentProduct,
+      selectedCharacteristicIds: [quantity.id, opening.id],
+      activeCharacteristicIds: [quantity.id, opening.id],
+      variableTechnicalFields: [quantity.name, opening.name],
+      technicalValues: { ...mockParentProduct.technicalValues, [quantity.name]: '' },
+    };
+    const variation: Variation = {
+      ...mockVariation,
+      technicalValues: { [quantity.name]: '1' },
+    };
+    render(
+      <VariationTechnicalTab
+        formData={variation}
+        parentProduct={parentProduct}
+        handleChange={vi.fn()}
+        initialTechnicalFields={[quantity, opening]}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByTestId(`input-${quantity.name}`)).toBeInTheDocument());
+    expect(screen.queryByTestId(`input-${opening.name}`)).toBeNull();
   });
 
   it('cria override de Cor sem incluir o valor no nome automático', async () => {
@@ -296,21 +421,6 @@ describe('VariationTechnicalTab', () => {
       expect(screen.getByText('Características específicas')).toBeInTheDocument()
     );
     expect(screen.queryByTestId('input-Material das portas')).toBeNull();
-  });
-
-  it('permite alternar entre Profundidade total e Comprimento total', async () => {
-    render(<TestHarness />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Profundidade total')).toBeInTheDocument();
-    });
-
-    const toggleBtn = screen.getByTitle('Alternar para Comprimento total');
-    fireEvent.click(toggleBtn);
-
-    await waitFor(() => {
-      expect(screen.getByText('Comprimento total')).toBeInTheDocument();
-    });
   });
 
   it('abre o modal de gerenciamento de cor ao clicar em Gerenciar', async () => {

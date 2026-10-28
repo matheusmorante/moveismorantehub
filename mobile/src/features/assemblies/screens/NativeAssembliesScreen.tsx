@@ -16,7 +16,7 @@ import { offlineStorageService } from '../../../services/offline/offlineStorageS
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
 import type { AssemblyHandlingOption } from '../../../utils/aiSummaryHelper';
-import { getLocalDateString } from '../../../utils/orderUtils';
+import { addDaysToLocalDateString, getLocalDateString } from '../../../utils/orderUtils';
 import type { AssemblyTask } from '../assemblyTasks';
 import { AssemblyOrderCard } from '../components/AssemblyOrderCard';
 import { getAssemblyTasks } from '../assemblyTasks';
@@ -28,7 +28,7 @@ interface Props {
   isDarkMode: boolean;
   initialSubTab?: 'all' | 'internal' | 'outside';
   onSelectOrder?: (order: any) => void;
-  dateScope?: 'today' | 'next_days';
+  dateScope?: 'today' | 'tomorrow' | 'next_days';
   handlingOptions?: AssemblyHandlingOption[];
 }
 
@@ -234,15 +234,18 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
     [orders, handlingOptions]
   );
   const todayKey = getLocalDateString(new Date());
+  const tomorrowKey = addDaysToLocalDateString(todayKey, 1);
   const periodTasks = useMemo(
     () =>
       allTasks
         .filter((task) =>
           dateScope === 'today'
             ? task.dateKey === todayKey
-            : dateScope === 'next_days'
-              ? task.dateKey > todayKey
-              : true
+            : dateScope === 'tomorrow'
+              ? task.dateKey === tomorrowKey
+              : dateScope === 'next_days'
+                ? task.dateKey > tomorrowKey
+                : true
         )
         .sort(
           (a, b) =>
@@ -251,7 +254,7 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
               getScheduledTimeKey(b.scheduledTime)
             )
         ),
-    [allTasks, dateScope, todayKey]
+    [allTasks, dateScope, todayKey, tomorrowKey]
   );
   const locationCounts = {
     all: periodTasks.length,
@@ -274,7 +277,8 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
     }, new Map<string, AssemblyTask[]>()),
     ([dateKey, data]) => ({ key: dateKey, title: formatUpcomingDate(dateKey), data })
   );
-  const defaultExpandedSectionKey = dateScope === 'next_days' ? upcomingSections[0]?.key : 'today';
+  const defaultExpandedSectionKey =
+    dateScope === 'tomorrow' || dateScope === 'next_days' ? upcomingSections[0]?.key : 'today';
   const sections = [
     ...(todayTasks.length
       ? [{ key: 'today', title: 'Hoje', data: todayTasks }]
@@ -296,9 +300,11 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
       ? 'Nenhuma montagem para este local no período.'
       : dateScope === 'today'
         ? 'Nenhuma montagem agendada para hoje.'
-        : dateScope === 'next_days'
-          ? 'Nenhuma montagem agendada para os próximos dias.'
-          : 'Nenhuma montagem para hoje ou próximos dias.';
+        : dateScope === 'tomorrow'
+          ? 'Nenhuma montagem agendada para amanhã.'
+          : dateScope === 'next_days'
+            ? 'Nenhuma montagem agendada para os próximos dias.'
+            : 'Nenhuma montagem para hoje ou próximos dias.';
   const filterSummary =
     locationFilter === 'all'
       ? 'Exibindo todas as montagens'

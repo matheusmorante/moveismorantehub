@@ -197,6 +197,18 @@ export const mapFromDB = (data: any, index?: number): Product => {
     whatsappAutoSync: data.whatsapp_auto_sync ?? false,
     lastWhatsappSync: data.last_whatsapp_sync,
     technicalValues: data.technical_specs?.technicalValues || {},
+    selectedCharacteristicGroupIds: Array.isArray(data.technical_specs?.selectedCharacteristicGroupIds)
+      ? data.technical_specs.selectedCharacteristicGroupIds
+      : undefined,
+    activeCharacteristicGroupIds: Array.isArray(data.technical_specs?.activeCharacteristicGroupIds)
+      ? data.technical_specs.activeCharacteristicGroupIds
+      : undefined,
+    selectedCharacteristicIds: Array.isArray(data.technical_specs?.selectedCharacteristicIds)
+      ? data.technical_specs.selectedCharacteristicIds
+      : undefined,
+    activeCharacteristicIds: Array.isArray(data.technical_specs?.activeCharacteristicIds)
+      ? data.technical_specs.activeCharacteristicIds
+      : undefined,
     technicalSpecs: data.technical_specs || {},
     variableTechnicalFields,
   };

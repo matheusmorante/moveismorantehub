@@ -14,6 +14,7 @@ export interface SupportCustomerOrderPage {
 export interface SupportOrderSummary {
   id: string;
   orderNumber: string;
+  customerName?: string | null;
   status: string; // 'completed', 'active', 'canceled'/'cancelled', etc.
   totalAmount: number;
   paymentMethod?: string | null;
@@ -118,6 +119,7 @@ function mapOrderToSupportRecordSummary(row: any): SupportOrderSummary {
     : Array.isArray(row.assistance_items) ? row.assistance_items : [];
   return {
     ...summary,
+    customerName: row.customer_name || row.customerName || null,
     lineItems: sourceItems.map((item: any) => ({
       name: String(item.name || item.product_name || item.description || item.productName || 'Item'),
       quantity: Math.max(1, Number(item.quantity || item.qty || 1) || 1),
@@ -170,11 +172,11 @@ export async function getCustomerOrders(
 /** Consult customer sale, assistance or return records using permission-checked server paging. */
 export async function getCustomerOrderRecordsPage(
   supabase: SupabaseClient,
-  customerId: string,
+  contactPhone: string,
   orderGroup: SupportCustomerOrderGroup,
   options: { page?: number; pageSize?: number; search?: string; status?: string } = {}
 ): Promise<SupportCustomerOrderPage> {
-  if (!customerId) return { records: [], page: 1, pageSize: 20, total: 0 };
+  if (!contactPhone) return { records: [], page: 1, pageSize: 20, total: 0 };
   const filters = supportCustomerRecordFiltersSchema.safeParse({
     search: options.search || '',
     status: options.status || '',
@@ -186,7 +188,8 @@ export async function getCustomerOrderRecordsPage(
   let response;
   try {
     response = await withTimeout<any>(supabase.rpc('customer_support_list_customer_records_page', {
-      p_customer_id: customerId,
+      // The SQL RPC keeps this legacy argument name; it now receives the conversation phone.
+      p_customer_id: contactPhone,
       p_order_group: orderGroup,
       p_page: page,
       p_page_size: pageSize,

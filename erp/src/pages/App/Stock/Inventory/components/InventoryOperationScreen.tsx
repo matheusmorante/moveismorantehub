@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import type { AuditItem } from '../types/inventoryAudit.types';
@@ -15,6 +15,57 @@ import {
   findOfflineInventoryMatch,
 } from '../services/offlineInventoryCatalog';
 import type { OfflineInventoryMatch } from '../types/offlineInventoryCatalog.types';
+
+type InventoryAudioWindow = Window & { webkitAudioContext?: typeof AudioContext };
+let inventoryAudioContext: AudioContext | null = null;
+let nextInventoryBeepStart = 0;
+const INVENTORY_BEEP_INTERVAL_SECONDS = 0.02;
+const INVENTORY_BEEP_DURATION_SECONDS = 0.08;
+const SCAN_ERROR_FEEDBACK_COOLDOWN_MS = 10_000;
+
+const prepareInventoryAudio = (): AudioContext | null => {
+  try {
+    const AudioContextConstructor =
+      window.AudioContext || (window as InventoryAudioWindow).webkitAudioContext;
+    if (!AudioContextConstructor) return null;
+
+    inventoryAudioContext ||= new AudioContextConstructor();
+    const context = inventoryAudioContext;
+    if (context.state === 'suspended') void context.resume().catch(() => {});
+    return context;
+  } catch {
+    return null;
+  }
+};
+
+const playInventoryCountBeep = (): void => {
+  try {
+    const context = prepareInventoryAudio();
+    if (!context) return;
+
+    const startAt = Math.max(context.currentTime, nextInventoryBeepStart);
+    const endAt = startAt + INVENTORY_BEEP_DURATION_SECONDS;
+    nextInventoryBeepStart = startAt + INVENTORY_BEEP_INTERVAL_SECONDS;
+
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.frequency.setValueAtTime(880, startAt);
+    gain.gain.setValueAtTime(0.0001, startAt);
+    gain.gain.linearRampToValueAtTime(0.14, startAt + 0.005);
+    gain.gain.setValueAtTime(0.14, endAt - 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, endAt);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.onended = () => {
+      oscillator.disconnect();
+      gain.disconnect();
+    };
+    oscillator.start(startAt);
+    oscillator.stop(endAt);
+  } catch {
+    // O áudio confirma a contagem; falhas de áudio não podem atrasá-la.
+  }
+};
 
 interface InventoryOperationScreenProps {
   readonly items: AuditItem[];
@@ -41,12 +92,9 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
   onReview,
   onClose,
 }) => {
-  const [mode, setMode] = useState<'scanner' | 'manual'>('manual');
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
   const [isScanProcessing, setIsScanProcessing] = useState(false);
   const [activeStage, setActiveStage] = useState<string | null>(null);
-  const [sessionUnitsRead, setSessionUnitsRead] = useState(0);
-  const [scannedProductIds, setScannedProductIds] = useState<Set<string>>(new Set());
   const [lastRead, setLastRead] = useState<{ item: AuditItem; quantity: number } | null>(null);
   const [scanFeedback, setScanFeedback] = useState<{
     type: 'error';
@@ -64,27 +112,51 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     () => items.filter((item) => (item.assignedSupplier || 'Sem fornecedor') !== 'Sem fornecedor'),
     [items]
   );
-  const scannerItems = hasStages ? (activeStage ? activeItems : supplierItems) : items;
+  const scannerItems = activeStage ? activeItems : items;
 
   const { filter, setFilter, search, setSearch, filteredItems } =
     useInventoryOperation(activeItems);
 
   const isShowingStages = hasStages && !activeStage;
+  const progressItems = isShowingStages ? items : scannerItems;
+  const countedProgressItems = progressItems.filter((item) => item.physicalCount !== null);
+  const progressPercent =
+    progressItems.length > 0
+      ? Math.round((countedProgressItems.length / progressItems.length) * 100)
+      : 0;
   const isCustom = scopeType === 'custom';
 
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recentErrorFeedbackAtRef = useRef(new Map<string, number>());
+  const activeScansRef = useRef(0);
   const isSupplierScanner = Boolean(hasStages && activeStage);
 
+  useEffect(
+    () => () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    },
+    []
+  );
+
   const openScanner = () => {
-    setSessionUnitsRead(0);
-    setScannedProductIds(new Set());
     setLastRead(null);
     setScanFeedback(null);
-    setIsScanProcessing(false);
+    prepareInventoryAudio();
     setIsQrScannerOpen(true);
   };
 
-  const showErrorFeedback = (title: string, detail?: string) => {
+  const showErrorFeedback = (rawCode: string, title: string, detail?: string) => {
+    const feedbackKey = getPhysicalInventoryScanId(rawCode) || rawCode.trim();
+    const now = Date.now();
+    const lastShownAt = recentErrorFeedbackAtRef.current.get(feedbackKey);
+    if (lastShownAt !== undefined && now - lastShownAt < SCAN_ERROR_FEEDBACK_COOLDOWN_MS)
+      return;
+
+    for (const [key, shownAt] of recentErrorFeedbackAtRef.current) {
+      if (now - shownAt >= SCAN_ERROR_FEEDBACK_COOLDOWN_MS)
+        recentErrorFeedbackAtRef.current.delete(key);
+    }
+    recentErrorFeedbackAtRef.current.set(feedbackKey, now);
     setLastRead(null);
     setScanFeedback({ type: 'error', title, detail });
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
@@ -126,12 +198,14 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
       const otherSupplierItem = directOtherItem;
       if (otherSupplierItem) {
         showErrorFeedback(
+          rawCode,
           'Produto de outro fornecedor',
           `Produto: ${otherSupplierItem.name} · Fornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}. Nenhuma quantidade foi alterada. Volte à lista, escolha esse fornecedor ou use o scanner geral.`
         );
         return;
       }
       showErrorFeedback(
+        rawCode,
         hasStages
           ? 'Produto não pertence às etapas deste inventário'
           : 'Produto não pertence a este inventário'
@@ -143,21 +217,16 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
       const physicalLabelId = getPhysicalInventoryScanId(rawCode);
       const nextCount = await onIncrementScannedItem(scopedItem.id, physicalLabelId);
       if (nextCount === null) {
-        showErrorFeedback('Unidade física já contabilizada', scopedItem.name);
+        showErrorFeedback(rawCode, 'Unidade física já contabilizada', scopedItem.name);
         return;
       }
-      if (typeof Audio !== 'undefined') {
-        const countSound = new Audio('/inventory_count.mp3');
-        countSound.volume = 1;
-        void countSound.play().catch(() => {});
-      }
-      setSessionUnitsRead((count) => count + 1);
-      setScannedProductIds((previous) => new Set(previous).add(scopedItem.id));
+      playInventoryCountBeep();
       setLastRead({ item: scopedItem, quantity: nextCount });
       setScanFeedback(null);
       if (navigator.vibrate) navigator.vibrate(80);
     } catch {
       showErrorFeedback(
+        rawCode,
         'Falha ao salvar a contagem local',
         'Verifique o armazenamento do navegador antes de continuar.'
       );
@@ -166,19 +235,39 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900">
-      {
-        <InventoryOperationHeader
-          inventoryName={hasStages ? `${inventoryName} - ${activeStage}` : inventoryName}
-          items={scannerItems}
-          mode={mode}
-          setMode={setMode}
-          onOpenQrScanner={openScanner}
-          onClose={onClose}
-        />
-      }
+      <InventoryOperationHeader items={progressItems} />
 
       <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="max-w-5xl mx-auto space-y-6 h-full">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="min-w-0 truncate text-lg font-black text-slate-800 dark:text-slate-100">
+              {activeStage ? `${inventoryName} - ${activeStage}` : inventoryName}
+            </h3>
+            <div className="flex shrink-0 items-center justify-end gap-2">
+              {!activeStage && onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  Voltar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={openScanner}
+                className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700 active:scale-95"
+                title={activeStage ? `Escanear produtos de ${activeStage}` : 'Escanear o inventário'}
+                aria-label={
+                  activeStage ? 'Escanear fornecedor atual' : 'Escanear inventário completo'
+                }
+              >
+                <i className="bi bi-qr-code-scan text-lg" aria-hidden="true" />
+                {activeStage ? 'Escanear este fornecedor' : 'Escanear inventário completo'}
+              </button>
+            </div>
+          </div>
+
           {/* Botão "Adicionar Item" acima da lista — apenas para inventário personalizado */}
           {isCustom && !isShowingStages && (
             <div className="flex justify-end">
@@ -193,11 +282,10 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
             </div>
           )}
 
-          {isShowingStages && mode === 'manual' ? (
+          {isShowingStages ? (
             <InventoryStagesView
               items={items}
               onSelectStage={(supplierName) => setActiveStage(supplierName)}
-              onCancel={onClose}
             />
           ) : (
             <InventoryManualMode
@@ -215,7 +303,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
       </div>
 
       {/* Bottom Bar: Revisar ou Voltar */}
-      <div className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 p-4 shrink-0">
+      <div className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 py-2 shrink-0">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             {activeStage && (
@@ -231,7 +319,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
 
           <button
             onClick={onReview}
-            className="bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-black shadow-sm transition-colors flex items-center gap-2"
+            className="bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-8 py-2 rounded-xl font-black shadow-sm transition-colors flex items-center gap-2"
           >
             Revisar e Concluir
             <i className="bi bi-arrow-right"></i>
@@ -243,8 +331,12 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
         isOpen={isQrScannerOpen}
         onClose={() => setIsQrScannerOpen(false)}
         onScan={(code) => {
+          activeScansRef.current += 1;
           setIsScanProcessing(true);
-          return handleQrScan(code).finally(() => setIsScanProcessing(false));
+          return handleQrScan(code).finally(() => {
+            activeScansRef.current = Math.max(0, activeScansRef.current - 1);
+            setIsScanProcessing(activeScansRef.current > 0);
+          });
         }}
         title={isSupplierScanner ? `Contagem — ${activeStage}` : 'Contagem geral'}
         subtitle={
@@ -296,8 +388,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
               </div>
             ) : null}
             <p className="text-center text-xs font-semibold text-slate-600 dark:text-slate-300">
-              {sessionUnitsRead} {sessionUnitsRead === 1 ? 'unidade lida' : 'unidades lidas'} ·{' '}
-              {scannedProductIds.size} {scannedProductIds.size === 1 ? 'produto' : 'produtos'}
+              {countedProgressItems.length} / {progressItems.length} produtos contados · {progressPercent}%
             </p>
             <button
               type="button"

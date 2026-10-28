@@ -8,6 +8,7 @@ import {
   PRODUCT_TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS,
   PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS,
 } from '../../../../../shared-utils/productTechnicalFieldRules';
+import { getCharacteristicTextLimits } from '../../../../../shared-utils/characteristicTextLimits';
 
 export const MAX_INLINE_CHOICE_OPTIONS = PRODUCT_TECHNICAL_CHOICE_INLINE_OPTION_LIMIT;
 export const TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS = PRODUCT_TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS;
@@ -41,8 +42,7 @@ export const resolveTechnicalFieldDataType = (name: string, dataType?: string | 
 export const getTechnicalFieldTextPlaceholder = getSharedTechnicalFieldTextPlaceholder;
 
 export const getTechnicalFieldMaxLength = (dataType: string) => {
-  if (dataType === 'text_long') return 4000;
-  return dataType === 'text_short' || dataType === 'text' ? 120 : undefined;
+  return getCharacteristicTextLimits(dataType)?.maxLength;
 };
 
 export const getTechnicalFieldIntegerPlaceholder = (name: string) => {

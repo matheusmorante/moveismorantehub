@@ -4,6 +4,7 @@
 
 import {
   CHARACTERISTIC_TOPICS,
+  CHARACTERISTIC_GROUP_ORDER,
   REQUIRED_CHARACTERISTICS_TOPIC,
   DIMENSIONS_SORT_ORDER,
   DOORS_SORT_ORDER,
@@ -25,9 +26,14 @@ export const getDimensionSortRank = (name: string): number => {
   return DIMENSIONS_SORT_ORDER[norm] ?? 99;
 };
 
+const getCanonicalGroupRank = (title: string): number =>
+  CHARACTERISTIC_GROUP_ORDER.indexOf(
+    title as (typeof CHARACTERISTIC_GROUP_ORDER)[number]
+  );
+
 /** Organiza características por tópicos de apresentação, sem alterar valores ou identificadores persistidos. */
 export const groupCharacteristicsByTopic = <
-  T extends { name: string; isCustom?: boolean; isRequired?: boolean },
+  T extends { name: string; groupName?: string; isCustom?: boolean; isRequired?: boolean },
 >(
   fields: readonly T[]
 ): CharacteristicGroup<T>[] => {
@@ -39,6 +45,14 @@ export const groupCharacteristicsByTopic = <
     /\bpeso\b(?!.*\b(?:prateleira|gaveta)\b).*\bsuportad[oa]\b/i.test(name);
 
   fields.forEach((field) => {
+    const persistedGroupName = field.groupName?.trim();
+    if (persistedGroupName) {
+      const groupedFields = groups.get(persistedGroupName) || [];
+      groupedFields.push(field);
+      groups.set(persistedGroupName, groupedFields);
+      return;
+    }
+
     if (
       field.isCustom &&
       !isStructuralWeightCapacity(field.name) &&
@@ -70,41 +84,58 @@ export const groupCharacteristicsByTopic = <
     ...(requiredCharacteristicFields.length > 0
       ? [{ title: REQUIRED_CHARACTERISTICS_TOPIC, fields: requiredCharacteristicFields }]
       : []),
-    ...CHARACTERISTIC_TOPICS.flatMap((topic) => {
-      const groupedFields = groups.get(topic.title);
-      if (!groupedFields?.length) return [];
+    ...Array.from(groups.entries())
+      .sort(([left], [right]) => {
+        const leftCanonicalRank = getCanonicalGroupRank(left);
+        const rightCanonicalRank = getCanonicalGroupRank(right);
+        if (leftCanonicalRank >= 0 || rightCanonicalRank >= 0) {
+          if (leftCanonicalRank < 0) return 1;
+          if (rightCanonicalRank < 0) return -1;
+          return leftCanonicalRank - rightCanonicalRank;
+        }
+        const leftLegacyRank = CHARACTERISTIC_TOPICS.findIndex((topic) => topic.title === left);
+        const rightLegacyRank = CHARACTERISTIC_TOPICS.findIndex((topic) => topic.title === right);
+        if (leftLegacyRank >= 0 || rightLegacyRank >= 0) {
+          if (leftLegacyRank < 0) return 1;
+          if (rightLegacyRank < 0) return -1;
+          return leftLegacyRank - rightLegacyRank;
+        }
+        return left.localeCompare(right, 'pt-BR');
+      })
+      .flatMap(([title, groupedFields]) => {
+      if (!groupedFields.length) return [];
 
-      if (topic.title === 'Dimensões e Peso') {
+      if (title === 'Dimensões' || title === 'Dimensões e Peso') {
         groupedFields.sort((a, b) => getDimensionSortRank(a.name) - getDimensionSortRank(b.name));
-      } else if (topic.title === 'Portas') {
+      } else if (title === 'Portas' || title === 'Portas, gavetas e ferragens') {
         groupedFields.sort((a, b) => {
           const rankA = DOORS_SORT_ORDER[a.name.trim().toLowerCase()] ?? 99;
           const rankB = DOORS_SORT_ORDER[b.name.trim().toLowerCase()] ?? 99;
           if (rankA !== rankB) return rankA - rankB;
           return a.name.localeCompare(b.name, 'pt-BR');
         });
-      } else if (topic.title === 'Gavetas') {
+      } else if (title === 'Gavetas') {
         groupedFields.sort((a, b) => {
           const rankA = DRAWERS_SORT_ORDER[a.name.trim().toLowerCase()] ?? 99;
           const rankB = DRAWERS_SORT_ORDER[b.name.trim().toLowerCase()] ?? 99;
           if (rankA !== rankB) return rankA - rankB;
           return a.name.localeCompare(b.name, 'pt-BR');
         });
-      } else if (topic.title === 'Prateleiras') {
+      } else if (title === 'Prateleiras' || title === 'Compartimentos e organização') {
         groupedFields.sort((a, b) => {
           const rankA = SHELVES_SORT_ORDER[a.name.trim().toLowerCase()] ?? 99;
           const rankB = SHELVES_SORT_ORDER[b.name.trim().toLowerCase()] ?? 99;
           if (rankA !== rankB) return rankA - rankB;
           return a.name.localeCompare(b.name, 'pt-BR');
         });
-      } else if (topic.title === 'Pés') {
+      } else if (title === 'Pés' || title === 'Pés e mobilidade') {
         groupedFields.sort((a, b) => {
           const rankA = FEET_SORT_ORDER[a.name.trim().toLowerCase()] ?? 99;
           const rankB = FEET_SORT_ORDER[b.name.trim().toLowerCase()] ?? 99;
           if (rankA !== rankB) return rankA - rankB;
           return a.name.localeCompare(b.name, 'pt-BR');
         });
-      } else if (topic.title === 'Acessórios') {
+      } else if (title === 'Acessórios') {
         groupedFields.sort((a, b) => {
           const rankA = ACCESSORIES_SORT_ORDER[a.name.trim().toLowerCase()] ?? 99;
           const rankB = ACCESSORIES_SORT_ORDER[b.name.trim().toLowerCase()] ?? 99;
@@ -113,7 +144,7 @@ export const groupCharacteristicsByTopic = <
         });
       }
 
-      return [{ title: topic.title, fields: groupedFields }];
+      return [{ title, fields: groupedFields }];
     }),
     ...(otherFields.length > 0 ? [{ title: 'Outras características', fields: otherFields }] : []),
   ];
@@ -162,7 +193,7 @@ export const mergeCharacteristicGroups = <T extends { name: string }>(
 };
 
 /** Agrupa as características para manter a mesma organização no pai e nas variações. */
-export const groupTechnicalFields = <T extends { name: string; isCustom?: boolean }>(
+export const groupTechnicalFields = <T extends { name: string; groupName?: string; isCustom?: boolean }>(
   fields: readonly T[]
 ): CharacteristicGroup<T>[] => groupCharacteristicsByTopic(fields);
 

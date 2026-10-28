@@ -1,7 +1,8 @@
 export type CatalogRow = Record<string, any>;
+export const OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION = 3 as const;
 
 export interface OfflineInventoryCatalog {
-  formatVersion?: 2;
+  formatVersion?: 2 | typeof OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION;
   products: Record<string, CatalogRow>;
   variations: Record<string, CatalogRow>;
   labels: Record<string, CatalogRow>;
@@ -30,6 +31,7 @@ export interface OfflineInventoryMatch {
 }
 
 export const emptyCatalog = (): OfflineInventoryCatalog => ({
+  formatVersion: OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
   products: {},
   variations: {},
   labels: {},
@@ -62,7 +64,7 @@ export const maxTimestamp = (rows: CatalogRow[], previous?: string) =>
 
 export const compactCatalogSnapshot = (next: OfflineInventoryCatalog): OfflineInventoryCatalog => ({
   ...next,
-  formatVersion: 2,
+  formatVersion: OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
   products: compactRows(next.products, [
     'id',
     'name',
@@ -106,6 +108,7 @@ export const compactCatalogSnapshot = (next: OfflineInventoryCatalog): OfflineIn
     'full_name',
     'social_name',
     'nickname',
+    'stock_origins',
     'active',
     'deleted',
     'updated_at',

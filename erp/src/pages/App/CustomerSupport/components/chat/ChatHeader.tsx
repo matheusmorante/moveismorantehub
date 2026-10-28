@@ -29,6 +29,7 @@ interface ChatHeaderProps {
   onReloadAgents?: () => void;
   onAssign?: (profileId: string | null, profileName?: string) => Promise<boolean | void>;
   onUpdateStatus?: (status: ConversationStatus) => Promise<boolean | void>;
+  onToggleReadStatus?: () => Promise<boolean | void>;
   currentUserId?: string;
   currentUserName?: string;
 }
@@ -56,11 +57,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onReloadAgents,
   onAssign,
   onUpdateStatus,
+  onToggleReadStatus,
   currentUserId,
   currentUserName,
 }) => {
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isUpdatingReadStatus, setIsUpdatingReadStatus] = useState(false);
   const commandLock = useRef(false);
   const { reset, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<SupportConversationCommand>({
     resolver: zodResolver(supportConversationCommandSchema),
@@ -87,6 +90,18 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     }
   };
   const assign = (assigneeId: string | null) => void submitCommand({ intent: 'assign', conversationId: conversation.id, assigneeId });
+  const isUnread = conversation.unreadCount > 0;
+  const toggleReadStatus = async () => {
+    if (!onToggleReadStatus || isUpdatingReadStatus) return;
+    setIsUpdatingReadStatus(true);
+    try {
+      if (await onToggleReadStatus() === false) toast.error('Não foi possível atualizar a leitura interna da conversa.');
+    } catch {
+      toast.error('Não foi possível atualizar a leitura interna da conversa.');
+    } finally {
+      setIsUpdatingReadStatus(false);
+    }
+  };
 
   const assignedName = conversation.assignedProfile?.fullName || 'Não atribuído';
   const assignedInitials = assignedName
@@ -273,6 +288,19 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           aria-label="Pesquisar na conversa"
         >
           <i className="bi bi-search text-sm"></i>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => void toggleReadStatus()}
+          title={`${isUnread ? 'Marcar como lida' : 'Marcar como não lida'} somente na central`}
+          aria-label={`${isUnread ? 'Marcar como lida' : 'Marcar como não lida'} somente na central`}
+          aria-pressed={!isUnread}
+          aria-busy={isUpdatingReadStatus}
+          disabled={isUpdatingReadStatus || !onToggleReadStatus}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+        >
+          <i className={`bi ${isUnread ? 'bi-eye-slash' : 'bi-eye'} text-sm`} aria-hidden="true"></i>
         </button>
 
         {/* 4. Menu de Três Pontos (•••) */}

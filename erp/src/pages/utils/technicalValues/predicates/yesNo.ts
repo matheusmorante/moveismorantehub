@@ -4,52 +4,17 @@
 
 import { normalizeCharacteristicName } from './normalization';
 import type { TechnicalFieldDefinition } from '../types';
+import { isProductTechnicalFieldYesNo } from '../../../../../../shared-utils/productTechnicalFieldYesNo';
 
 /**
  * Determina se a característica representa uma escolha binária Sim / Não (booleano ou rádio Sim/Não).
  */
-export const isYesNoCharacteristic = (field: TechnicalFieldDefinition): boolean => {
-  if (field.dataType === 'boolean') {
-    return true;
-  }
-  const options = field.options || [];
-  if (options.length >= 1 && options.length <= 3) {
-    const normalizedOptions = options.map((opt) =>
-      normalizeCharacteristicName(opt.value || '').trim()
-    );
-    const hasSim = normalizedOptions.includes('sim');
-    const hasNao = normalizedOptions.includes('nao') || normalizedOptions.includes('não');
-    const allAreYesNoOrNA = normalizedOptions.every(
-      (opt) =>
-        opt === 'sim' ||
-        opt === 'nao' ||
-        opt === 'não' ||
-        opt === 'não se aplica' ||
-        opt === 'nao se aplica' ||
-        opt === ''
-    );
-    if ((hasSim || hasNao) && allAreYesNoOrNA) {
-      return true;
-    }
-  }
-
-  // Atributos binários clássicos com opções vazias ou não carregadas
-  if (/^possui\s+/i.test(field.name.trim()) && options.length <= 2) {
-    if (options.length === 0) return true;
-    const normalizedOptions = options.map((opt) =>
-      normalizeCharacteristicName(opt.value || '').trim()
-    );
-    if (
-      normalizedOptions.every(
-        (opt) => opt === 'sim' || opt === 'nao' || opt === 'não' || opt === ''
-      )
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-};
+export const isYesNoCharacteristic = (field: TechnicalFieldDefinition): boolean =>
+  isProductTechnicalFieldYesNo({
+    name: field.name,
+    dataType: field.dataType,
+    options: field.options,
+  });
 
 /**
  * Normaliza e identifica se o valor atual de uma característica Sim/Não está no estado ativo/ligado.

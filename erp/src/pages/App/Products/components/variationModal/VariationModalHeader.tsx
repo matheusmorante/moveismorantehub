@@ -36,6 +36,11 @@ export const VariationModalHeader: React.FC<VariationModalHeaderProps> = ({
             <span className="text-slate-400 text-xs font-normal truncate max-w-[200px] sm:max-w-none">
               | {parentProduct.name || parentProduct.description || 'Produto Pai'}
             </span>
+            {variation?.sku && (
+              <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                SKU {variation.sku}
+              </span>
+            )}
           </h2>
           <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-0.5">
             Configure os dados específicos desta variação.

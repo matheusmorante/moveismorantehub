@@ -27,15 +27,22 @@ export const ProductLinkedOrdersModal: React.FC<Props> = ({ visible, dark, produ
   const [orders, setOrders] = useState<LinkedProductOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const productId = product?.parentId || product?.id;
   const variationId = product?.variationId || (product?.isVariation ? product?.id : undefined);
 
   useEffect(() => {
     if (!visible || !productId) return;
     let alive = true;
+    const controller = new AbortController();
     setLoading(true);
     setError(false);
-    fetchLinkedProductOrders(String(productId), variationId ? String(variationId) : undefined)
+    setOrders([]);
+    fetchLinkedProductOrders(
+      String(productId),
+      variationId ? String(variationId) : undefined,
+      controller.signal,
+    )
       .then((rows) => {
         if (alive) setOrders(rows);
       })
@@ -45,8 +52,9 @@ export const ProductLinkedOrdersModal: React.FC<Props> = ({ visible, dark, produ
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
+      controller.abort();
     };
-  }, [visible, productId, variationId]);
+  }, [visible, productId, variationId, retryKey]);
 
   const totalQuantity = orders.reduce((sum, order) => sum + order.quantity, 0);
   const unit = product?.unit || 'un';
@@ -90,9 +98,22 @@ export const ProductLinkedOrdersModal: React.FC<Props> = ({ visible, dark, produ
             </TouchableOpacity>
           </View>
           {loading ? (
-            <ActivityIndicator color="#2563eb" style={styles.state} />
+            <View style={styles.loadingState} accessibilityRole="progressbar">
+              <ActivityIndicator color="#2563eb" />
+              <Text style={styles.state}>Buscando pedidos vinculados...</Text>
+            </View>
           ) : error ? (
-            <Text style={styles.state}>Não foi possível carregar os pedidos.</Text>
+            <View style={styles.errorState} accessibilityRole="alert">
+              <Text style={styles.state}>Não foi possível carregar os pedidos.</Text>
+              <TouchableOpacity
+                onPress={() => setRetryKey((current) => current + 1)}
+                style={styles.retryButton}
+                accessibilityRole="button"
+                accessibilityLabel="Tentar carregar pedidos vinculados novamente"
+              >
+                <Text style={styles.retryButtonText}>Tentar novamente</Text>
+              </TouchableOpacity>
+            </View>
           ) : orders.length === 0 ? (
             <Text style={styles.state}>Nenhum pedido vinculado encontrado.</Text>
           ) : (
@@ -159,6 +180,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   state: { textAlign: 'center', color: '#64748b', padding: 30 },
+  loadingState: { alignItems: 'center', gap: 4 },
+  errorState: { alignItems: 'center', gap: 8 },
+  retryButton: {
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    backgroundColor: '#2563eb',
+  },
+  retryButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

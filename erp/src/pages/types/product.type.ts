@@ -26,7 +26,7 @@ export type Variation = {
   active: boolean;
   status?: 'draft' | 'published' | 'hidden';
   condition?: 'novo' | 'usado' | 'salvado' | '';
-  attributes: { name: string; value: string; showName?: boolean }[];
+  attributes: { name: string; value: string | boolean | null; showName?: boolean }[];
   technicalValues?: Record<string, any>;
   syncWithParent?: boolean; // Legacy/Global
   syncUnitPrice?: boolean;
@@ -197,6 +197,10 @@ export type Product = {
   // Additional Fields (Dynamic blocks)
   extraFields?: { id: string; label: string; value: string; includeInTitle?: boolean }[];
   technicalValues?: Record<string, any>;
+  selectedCharacteristicGroupIds?: string[];
+  activeCharacteristicGroupIds?: string[];
+  selectedCharacteristicIds?: string[];
+  activeCharacteristicIds?: string[];
 
   technicalSpecs?: Record<string, unknown>;
 

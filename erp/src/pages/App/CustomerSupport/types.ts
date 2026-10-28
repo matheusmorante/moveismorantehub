@@ -65,9 +65,11 @@ export type WhatsAppMessageType =
   | 'audio'
   | 'video'
   | 'interactive'
+  | 'template'
   | 'sticker'
   | 'location'
   | 'contacts'
+  | 'deleted'
   | 'internal_note'
   | 'system_event'
   | 'unsupported';

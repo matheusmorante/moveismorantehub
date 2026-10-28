@@ -31,6 +31,8 @@ interface VariationIdentificationTabProps {
   readonly getDefaultVariationTitle?: (attributes?: Variation['attributes']) => string;
   readonly fetchDbAttributes?: () => Promise<void>;
   readonly isSingleVariation?: boolean;
+  readonly validationErrors?: Record<string, string>;
+  readonly onClearValidationError?: (fieldKey: string) => void;
 }
 
 export const VariationIdentificationTab: React.FC<VariationIdentificationTabProps> = ({
@@ -38,7 +40,10 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
   setFormData,
   parentProduct,
   isSingleVariation = false,
+  validationErrors = {},
+  onClearValidationError,
 }) => {
+  const nameError = validationErrors.name;
   return (
     <div className="space-y-6 animate-in fade-in duration-350 min-w-0">
       {/* Nome da Variação */}
@@ -47,7 +52,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
         <div className="space-y-1.5 min-w-0">
           <label
             htmlFor="variation-name-suffix-input"
-            className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-500 tracking-widest flex items-center gap-1.5 h-6"
+            className={`text-[10px] uppercase font-black tracking-widest flex items-center gap-1.5 h-6 ${nameError ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'}`}
           >
             <span>Nome da variação</span>
             <span className="text-red-500 ml-0.5">*</span>
@@ -81,7 +86,7 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
 
             return (
               <div
-                className="w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 border-b-2 border-slate-200 dark:border-slate-800 focus-within:border-blue-600 dark:focus-within:border-blue-400 transition-colors py-1.5 min-w-0"
+                className={`w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 border-b-2 ${nameError ? 'border-red-500 focus-within:border-red-600' : 'border-slate-200 dark:border-slate-800 focus-within:border-blue-600 dark:focus-within:border-blue-400'} transition-colors py-1.5 min-w-0`}
                 title="O nome do produto pai é imutável no início. Você pode editar livremente o que vem após o nome do pai."
               >
                 <span
@@ -95,13 +100,23 @@ export const VariationIdentificationTab: React.FC<VariationIdentificationTabProp
                   type="text"
                   placeholder="Ex.: Branco 6 Portas"
                   value={currentSuffix}
-                  onChange={(e) => handleSuffixChange(e.target.value)}
-                  className="w-full min-w-0 flex-1 bg-transparent border-none outline-none text-xs font-bold text-slate-800 dark:text-slate-100 font-mono focus:ring-0 p-0 disabled:cursor-not-allowed disabled:opacity-70"
+                  onChange={(e) => {
+                    onClearValidationError?.('name');
+                    handleSuffixChange(e.target.value);
+                  }}
+                  aria-invalid={Boolean(nameError)}
+                  aria-describedby={nameError ? 'variation-name-error' : undefined}
+                  className={`w-full min-w-0 flex-1 bg-transparent border-none outline-none text-xs font-bold font-mono focus:ring-0 p-0 disabled:cursor-not-allowed disabled:opacity-70 ${nameError ? 'text-red-700 dark:text-red-400' : 'text-slate-800 dark:text-slate-100'}`}
                   aria-label="Nome da variação"
                 />
               </div>
             );
           })()}
+          {nameError && (
+            <p id="variation-name-error" role="alert" className="text-xs font-semibold text-red-600 dark:text-red-400">
+              {nameError}
+            </p>
+          )}
         </div>
       </div>
     </div>

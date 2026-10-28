@@ -10,24 +10,36 @@ export const withAbortTimeout = async <T,>(
   request: PromiseLike<T>,
   label: string,
   timeoutMs = PRODUCT_LIST_QUERY_TIMEOUT_MS,
+  signal?: AbortSignal,
 ): Promise<T> => {
   const controller = new AbortController();
-  const abortableRequest = request as AbortablePromiseLike<T>;
-  const boundedRequest = typeof abortableRequest.abortSignal === 'function'
-    ? abortableRequest.abortSignal(controller.signal)
-    : request;
-  const timeoutMarker = Symbol('request-timeout');
-  const result = await withTimeout<T | typeof timeoutMarker>(
-    boundedRequest,
-    timeoutMs,
-    timeoutMarker,
-    label,
-  );
-
-  if (result === timeoutMarker) {
-    controller.abort();
-    throw new Error(`A consulta ultrapassou o limite de ${timeoutMs} ms.`);
+  const abortRequest = () => controller.abort();
+  if (signal?.aborted) {
+    abortRequest();
+  } else {
+    signal?.addEventListener('abort', abortRequest, { once: true });
   }
 
-  return result;
+  try {
+    const abortableRequest = request as AbortablePromiseLike<T>;
+    const boundedRequest = typeof abortableRequest.abortSignal === 'function'
+      ? abortableRequest.abortSignal(controller.signal)
+      : request;
+    const timeoutMarker = Symbol('request-timeout');
+    const result = await withTimeout<T | typeof timeoutMarker>(
+      boundedRequest,
+      timeoutMs,
+      timeoutMarker,
+      label,
+    );
+
+    if (result === timeoutMarker) {
+      controller.abort();
+      throw new Error(`A consulta ultrapassou o limite de ${timeoutMs} ms.`);
+    }
+
+    return result;
+  } finally {
+    signal?.removeEventListener('abort', abortRequest);
+  }
 };

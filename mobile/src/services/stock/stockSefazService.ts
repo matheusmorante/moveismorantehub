@@ -7,7 +7,7 @@ export const processNextAutomaticInboundScience = async () => {
     return { data: null, error: { message: 'Faça login novamente para processar a Ciência automática.' } };
   }
 
-  const apiBase = (process.env.EXPO_PUBLIC_ERP_API_URL || 'https://morantehub.com').replace(/\/$/, '');
+  const apiBase = (process.env.EXPO_PUBLIC_ERP_API_URL || 'https://morantehub.vercel.app').replace(/\/$/, '');
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30_000);
   try {

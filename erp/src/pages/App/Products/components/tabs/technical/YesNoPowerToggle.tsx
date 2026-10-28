@@ -1,6 +1,7 @@
 import React from 'react';
 import type { TechnicalFieldDefinition } from '@/pages/utils/technicalValuesService';
 import { isYesNoValueActive } from '@/pages/utils/technicalValuesService';
+import { parseProductBooleanCharacteristicValue } from '../../../../../../../../shared-utils/productBooleanCharacteristicValue';
 
 export interface YesNoPowerToggleProps {
   readonly field: TechnicalFieldDefinition;
@@ -23,11 +24,71 @@ export const YesNoPowerToggle: React.FC<YesNoPowerToggleProps> = ({
   compact = false,
   onChange,
 }) => {
+  if (field.dataType === 'boolean') {
+    const answer = parseProductBooleanCharacteristicValue(value);
+    const label = answer === null ? 'Não informado' : answer ? 'Sim' : 'Não';
+
+    return (
+      <div className={`flex items-center ${compact ? 'gap-2' : 'gap-3'}`}>
+        <span
+          className={`${compact ? 'text-[10px]' : 'text-xs'} font-semibold ${
+            isInvalid
+              ? 'text-red-600 dark:text-red-400'
+              : 'text-slate-600 dark:text-slate-300'
+          }`}
+        >
+          {label}
+        </span>
+        <div role="group" aria-label={`${field.name}: Sim ou Não`}>
+          <div
+            className={`relative h-6 w-11 overflow-hidden rounded-full transition-colors duration-200 ${
+              answer === true
+                ? 'bg-emerald-500 dark:bg-emerald-600'
+                : answer === false
+                  ? 'bg-slate-400 dark:bg-slate-600'
+                  : 'bg-slate-300 dark:bg-slate-700'
+            } ${isInvalid ? 'ring-2 ring-red-500' : ''} ${disabled ? 'opacity-60' : ''}`}
+          >
+            <div className="absolute inset-0 z-10 flex">
+              <button
+                type="button"
+                aria-label={`${field.name}: Não`}
+                aria-pressed={answer === false}
+                title={answer === false ? 'Toque novamente para limpar a resposta' : 'Não'}
+                disabled={disabled}
+                onClick={() => onChange(answer === false ? null : false)}
+                className="h-full w-1/2 cursor-pointer disabled:cursor-not-allowed"
+              />
+              <button
+                type="button"
+                aria-label={`${field.name}: Sim`}
+                aria-pressed={answer === true}
+                title={answer === true ? 'Toque novamente para limpar a resposta' : 'Sim'}
+                disabled={disabled}
+                onClick={() => onChange(answer === true ? null : true)}
+                className="h-full w-1/2 cursor-pointer disabled:cursor-not-allowed"
+              />
+            </div>
+            <div
+              aria-hidden="true"
+              className={`pointer-events-none absolute left-0.5 top-0.5 z-20 flex h-5 w-5 items-center justify-center rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out ${
+                answer === true
+                  ? 'translate-x-5'
+                  : answer === false
+                    ? 'translate-x-0'
+                    : 'translate-x-2.5'
+              }`}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const isOn = isYesNoValueActive(value);
 
   const handleToggle = () => {
     if (disabled) return;
-
     if (isOn) {
       // Desligar -> Emite "Não" (ou false para tipo boolean puro)
       const naoOption = field.options?.find((o) =>
@@ -36,8 +97,6 @@ export const YesNoPowerToggle: React.FC<YesNoPowerToggleProps> = ({
 
       if (naoOption) {
         onChange(naoOption);
-      } else if (field.dataType === 'boolean') {
-        onChange(false);
       } else {
         onChange('Não');
       }
@@ -49,8 +108,6 @@ export const YesNoPowerToggle: React.FC<YesNoPowerToggleProps> = ({
 
       if (simOption) {
         onChange(simOption);
-      } else if (field.dataType === 'boolean') {
-        onChange(true);
       } else {
         onChange('Sim');
       }
@@ -110,15 +167,15 @@ export const YesNoPowerToggle: React.FC<YesNoPowerToggleProps> = ({
 
         {/* Indicador visual de chave/switch deslizante */}
         <div
-          className={`${compact ? 'w-8 h-4' : 'w-10 h-5'} rounded-full p-0.5 transition-colors duration-200 ease-in-out shrink-0 relative ${
+          className={`${compact ? 'w-11 h-6' : 'w-10 h-5'} rounded-full p-0.5 transition-colors duration-200 ease-in-out shrink-0 relative ${
             isOn
               ? 'bg-emerald-500 dark:bg-emerald-600'
               : 'bg-slate-300 dark:bg-slate-700'
           }`}
         >
           <div
-            className={`${compact ? 'w-3 h-3' : 'w-4 h-4'} rounded-full bg-white shadow-md transform transition-transform duration-200 ease-in-out flex items-center justify-center ${
-              isOn ? (compact ? 'translate-x-4' : 'translate-x-5') : 'translate-x-0'
+            className={`${compact ? 'w-5 h-5' : 'w-4 h-4'} rounded-full bg-white shadow-md transform transition-transform duration-200 ease-in-out flex items-center justify-center ${
+              isOn ? 'translate-x-5' : 'translate-x-0'
             }`}
           >
             <i

@@ -39,6 +39,52 @@ describe('technicalValues - Seleção e Aplicabilidade de Campos', () => {
     expect(field).toMatchObject({ isRequired: false, isRequiredForCatalog: true });
   });
 
+  it('usa a aplicação configurada para permitir ou ocultar características por categoria', () => {
+    const fields: TechnicalFieldDefinition[] = [
+      {
+        id: 'top', name: 'Material do Tampo', dataType: 'radio', options: [], active: true,
+        categoryApplications: [
+          { categoryId: 'tables', application: 'required' },
+          { categoryId: 'beds', application: 'unavailable' },
+        ],
+      },
+      {
+        id: 'finish', name: 'Acabamento', dataType: 'text', options: [], active: true,
+        requiredCategoryIds: ['tables'],
+        categoryApplications: [{ categoryId: 'tables', application: 'optional' }],
+      },
+    ];
+    const tableFields = getApplicableTechnicalFields(fields, ['tables'], {}, ['Acabamento'], ['Tampos']);
+    expect(tableFields.find((field) => field.id === 'top')?.isRequired).toBe(true);
+    expect(tableFields.find((field) => field.id === 'finish')).toMatchObject({
+      isRequired: false,
+      isRequiredForCatalog: false,
+    });
+    expect(getApplicableTechnicalFields(fields, ['beds'], {}, [], ['Camas']).map((field) => field.id))
+      .not.toContain('top');
+  });
+
+  it('preserva uma exigência do catálogo enquanto a aplicação da característica está pendente', () => {
+    const [pendingField] = getApplicableTechnicalFields(
+      [{
+        id: 'pending-catalog-field', name: 'Acabamento', dataType: 'text', options: [],
+        categoryApplications: [], requiredCategoryIds: ['cat-a'], active: true,
+      }],
+      ['cat-a']
+    );
+    const unavailableFields = getApplicableTechnicalFields(
+      [{
+        id: 'unavailable-catalog-field', name: 'Acabamento', dataType: 'text', options: [],
+        categoryApplications: [{ categoryId: 'cat-a', application: 'unavailable' }],
+        requiredCategoryIds: ['cat-a'], active: true,
+      }],
+      ['cat-a']
+    );
+
+    expect(pendingField).toMatchObject({ isRequired: false, isRequiredForCatalog: true });
+    expect(unavailableFields).toEqual([]);
+  });
+
   it('agrupa requisitos da mesma característica Modelo/Linha apesar de IDs e aliases distintos', () => {
     const definitions: TechnicalFieldDefinition[] = [
       {
@@ -129,14 +175,12 @@ describe('technicalValues - Seleção e Aplicabilidade de Campos', () => {
     expect(names).not.toContain('Inativo Sem Valor');
   });
 
-  it('resolve exclusividade entre Profundidade e Comprimento mantendo o que possui valor ou manual', () => {
-    // Caso padrão sem valores: prefere Profundidade
+  it('mantém Profundidade e Comprimento como características independentes', () => {
     const defaultRes = getApplicableTechnicalFields(sampleFields, ['cat-a']);
     const defaultNames = defaultRes.map((f) => f.name);
     expect(defaultNames).toContain('Profundidade');
-    expect(defaultNames).not.toContain('Comprimento');
+    expect(defaultNames).toContain('Comprimento');
 
-    // Quando Comprimento possui valor, mantém Comprimento
     const lengthValRes = getApplicableTechnicalFields(
       sampleFields,
       ['cat-a'],
@@ -144,7 +188,7 @@ describe('technicalValues - Seleção e Aplicabilidade de Campos', () => {
     );
     const lengthNames = lengthValRes.map((f) => f.name);
     expect(lengthNames).toContain('Comprimento');
-    expect(lengthNames).not.toContain('Profundidade');
+    expect(lengthNames).toContain('Profundidade');
   });
 
   it('retorna especificações adicionais disponíveis que ainda não estão visíveis', () => {

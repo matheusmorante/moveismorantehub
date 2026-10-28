@@ -38,6 +38,7 @@ export interface UseVariationFormOptions {
   variation: Variation | null;
   onSuccess?: () => void;
   onSave?: (updatedVariation: Variation) => void | boolean | Promise<void | boolean>;
+  initialValidationError?: { fieldKey: string; message: string };
   isStockistOnly?: boolean;
   onReplaceImageGlobal?: (oldUrl: string, newUrl: string) => void | boolean | Promise<void | boolean>;
   operationGuard?: VariationFormOperationGuard;
@@ -59,12 +60,18 @@ export function useVariationForm({
   variation,
   onSuccess,
   onSave,
+  initialValidationError,
   isStockistOnly = false,
   onReplaceImageGlobal,
   operationGuard,
 }: UseVariationFormOptions) {
   const [formData, setFormData] = useState<Variation | null>(null);
   const [activeTab, setActiveTab] = useState<VariationTabId>('identificacao');
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>(() =>
+    initialValidationError?.fieldKey
+      ? { [initialValidationError.fieldKey]: initialValidationError.message }
+      : {}
+  );
 
   const identity = useMemo(
     () =>
@@ -264,7 +271,17 @@ export function useVariationForm({
   }, [isStockistOnly, activeTab]);
 
   const handleChange = <K extends keyof Variation>(field: K, value: Variation[K]) => {
+    clearValidationError(String(field));
     updateFormData((prev) => (prev ? { ...prev, [field]: value } : null));
+  };
+
+  const clearValidationError = (fieldKey: string) => {
+    setValidationErrors((previous) => {
+      if (!(fieldKey in previous)) return previous;
+      const next = { ...previous };
+      delete next[fieldKey];
+      return next;
+    });
   };
 
   const updateCost = (fields: Partial<Variation>) => {
@@ -315,6 +332,7 @@ export function useVariationForm({
         { variation: finalVariation, discountPercent: varDiscountPercent, discountFixed: varDiscountFixed },
         async (values) => {
           if (!stillCurrent()) return;
+          setValidationErrors({});
           guard.pending = session.token;
           const result = await withTimeout(
             Promise.resolve().then(async () => {
@@ -357,8 +375,14 @@ export function useVariationForm({
           if (!session.active) return;
           const flattened = flattenFormErrors(errors);
           const message = Object.values(flattened)[0] || 'Confira os dados da variação.';
+          setValidationErrors(Object.fromEntries(
+            Object.entries(flattened).map(([fieldKey, fieldMessage]) => [
+              fieldKey.replace(/^variation_/, ''),
+              fieldMessage,
+            ])
+          ));
           setError(message);
-          toast.error(message);
+          toast.error(message, { autoClose: 8000 });
           const fields = Object.keys(flattened).map((field) => field.replace(/^variation_/, ''));
           const availableTabs = isStockistOnly
             ? ['identificacao', 'estoque', 'compostos']
@@ -384,7 +408,7 @@ export function useVariationForm({
       if (session.active) {
         const message = guard.error || 'Erro ao salvar a variação.';
         setError(message);
-        toast.error(message);
+        toast.error(message, { autoClose: 8000 });
       }
     } finally {
       accepting = false;
@@ -466,6 +490,8 @@ export function useVariationForm({
     handleClose,
     loading,
     error,
+    validationErrors,
+    clearValidationError,
     blocked,
     referenceErrors,
     referenceLoading,

@@ -158,7 +158,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
                 periodFilter === 'all' && styles.periodPillTextActive,
               ]}
             >
-              Todas ({items.length})
+              Todas
             </Text>
           </TouchableOpacity>
 
@@ -268,7 +268,12 @@ export const DeliveryTimelineView: React.FC<Props> = ({
         {filteredItems.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, isDarkMode && styles.textMuted]}>
-              Nenhuma atividade agendada para {dateScope === 'today' ? 'hoje' : 'os próximos dias'}.
+              Nenhuma atividade agendada para{' '}
+              {dateScope === 'today'
+                ? 'hoje'
+                : dateScope === 'tomorrow'
+                  ? 'amanhã'
+                  : 'os próximos dias'}.
             </Text>
           </View>
         ) : (

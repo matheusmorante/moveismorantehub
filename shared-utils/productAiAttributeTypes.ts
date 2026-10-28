@@ -9,6 +9,7 @@ const MEASURE_ATTRIBUTE_NAMES = new Set([
   'comprimento total',
   'espessura',
   'espessura do colchão',
+  'espessura do tampo',
   'profundidade fechado',
   'profundidade aberto',
   'altura do assento ao chão',

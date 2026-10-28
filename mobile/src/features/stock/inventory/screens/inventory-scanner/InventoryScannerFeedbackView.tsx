@@ -8,6 +8,9 @@ interface InventoryScannerFeedbackViewProps {
   feedbacks: InventoryScanFeedback[];
   unitsRead: number;
   productsReadCount: number;
+  countedCount?: number;
+  totalCount?: number;
+  progressPercent?: number;
   scanned: boolean;
   onClose: () => void;
 }
@@ -17,6 +20,9 @@ export const InventoryScannerFeedbackView: React.FC<InventoryScannerFeedbackView
   feedbacks,
   unitsRead,
   productsReadCount,
+  countedCount,
+  totalCount,
+  progressPercent,
   scanned,
   onClose,
 }) => {
@@ -61,15 +67,24 @@ export const InventoryScannerFeedbackView: React.FC<InventoryScannerFeedbackView
         </View>
       ))}
       <Text style={[styles.footerText, styles.footerTextInventory]}>{description}</Text>
-      <View style={styles.sessionStatsRow}>
-        <Text style={styles.sessionStat}>
-          {unitsRead} {unitsRead === 1 ? 'unidade contada' : 'unidades contadas'}
-        </Text>
-        <Text style={styles.sessionStat}>
-          {productsReadCount}{' '}
-          {productsReadCount === 1 ? 'produto contado' : 'produtos contados'}
-        </Text>
-      </View>
+      {countedCount !== undefined && totalCount !== undefined && progressPercent !== undefined ? (
+        <View style={styles.sessionStatsRow}>
+          <Text style={styles.sessionStat}>
+            {countedCount} / {totalCount} produtos contados
+          </Text>
+          <Text style={styles.sessionStat}>{progressPercent}%</Text>
+        </View>
+      ) : (
+        <View style={styles.sessionStatsRow}>
+          <Text style={styles.sessionStat}>
+            {unitsRead} {unitsRead === 1 ? 'unidade contada' : 'unidades contadas'}
+          </Text>
+          <Text style={styles.sessionStat}>
+            {productsReadCount}{' '}
+            {productsReadCount === 1 ? 'produto contado' : 'produtos contados'}
+          </Text>
+        </View>
+      )}
       <TouchableOpacity style={styles.finishButton} onPress={onClose} disabled={scanned}>
         <Text style={styles.finishButtonText}>Finalizar leitura</Text>
       </TouchableOpacity>
