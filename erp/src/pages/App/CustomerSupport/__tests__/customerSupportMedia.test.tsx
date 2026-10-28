@@ -324,6 +324,7 @@ describe('Mídias da Central no navegador', () => {
     })} />);
 
     expect(screen.getByText('Mensagem não suportada pela API do WhatsApp.')).toBeTruthy();
+    expect(screen.getByText('O aviso chegou sem o conteúdo original. A central não consegue recuperar a imagem, o texto nem os botões.')).toBeTruthy();
     const details = container.querySelector('details');
     expect(details?.textContent).toContain('131051');
     expect(details?.textContent).toContain('Message type is not currently supported');

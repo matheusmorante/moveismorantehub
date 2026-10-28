@@ -281,6 +281,11 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
           <i className="bi bi-info-circle-fill mt-0.5 text-amber-500" aria-hidden="true"></i>
           <span>{displayText}</span>
         </p>
+        {message.errorCode === '131051' && (
+          <p className="ml-5 mt-1 text-[10px] text-amber-700 dark:text-amber-300">
+            O aviso chegou sem o conteúdo original. A central não consegue recuperar a imagem, o texto nem os botões.
+          </p>
+        )}
         {hasTechnicalDetails && (
           <details className="ml-5 mt-1">
             <summary className="cursor-pointer select-none text-[10px] text-amber-700 dark:text-amber-300">
