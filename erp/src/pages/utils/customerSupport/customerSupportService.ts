@@ -1063,7 +1063,11 @@ export async function downloadCustomerSupportForwardFile(
   supabase: SupabaseClient,
   message: WhatsAppMessage
 ): Promise<File> {
-  if (!message.mediaId || !['image', 'document', 'audio', 'video', 'sticker'].includes(message.messageType)) {
+  const templateHeaderType = message.messageType === 'template'
+    ? message.rawPayload?.template_preview?.header?.type
+    : null;
+  const mediaType = message.messageType === 'template' ? templateHeaderType : message.messageType;
+  if (!message.mediaId || !['image', 'document', 'audio', 'video', 'sticker'].includes(mediaType)) {
     throw new CustomerSupportSendError('Esta mensagem não possui uma mídia que possa ser encaminhada.');
   }
   const sessionResponse = await withTimeout<any>(supabase.auth.getSession(), 10_000, null, 'central:encaminhar-sessao');
@@ -1083,14 +1087,14 @@ export async function downloadCustomerSupportForwardFile(
       throw new CustomerSupportSendError(typeof data.error === 'string' ? data.error : 'Não foi possível carregar a mídia para encaminhar.');
     }
     const blob = await response.blob();
-    const maxBytes = message.messageType === 'sticker' ? 500 * 1024 : 4 * 1024 * 1024;
+    const maxBytes = mediaType === 'sticker' ? 500 * 1024 : 4 * 1024 * 1024;
     if (!blob.size || blob.size > maxBytes) {
-      throw new CustomerSupportSendError(message.messageType === 'sticker'
+      throw new CustomerSupportSendError(mediaType === 'sticker'
         ? 'A figurinha precisa ter até 500 KB para ser encaminhada pela Central.'
         : 'A mídia precisa ter até 4 MB para ser encaminhada pela Central.');
     }
     const extensionByType: Record<string, string> = { image: 'jpg', video: 'mp4', audio: 'ogg', document: 'pdf', sticker: 'webp' };
-    const filename = (message.mediaFilename || `mensagem.${extensionByType[message.messageType]}`)
+    const filename = (message.mediaFilename || `mensagem.${extensionByType[mediaType]}`)
       .replace(/[\\/]/g, '_').slice(0, 255);
     return new File([blob], filename, { type: message.mediaMimeType || blob.type || 'application/octet-stream' });
   } catch (error) {

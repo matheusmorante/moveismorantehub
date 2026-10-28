@@ -1,6 +1,6 @@
 # Central de Atendimento WhatsApp — MoranteHub ERP
 
-> Estado conferido em 24/10/2026 BRT: o deployment Production `dpl_B1qZgVLZRjEjMvzVdDooHhTEQpmM` está `READY` nos aliases `morantehub.com` e `morantehub.vercel.app`. A leitura autenticada da Meta confirmou credenciais válidas, inscrição do WABA e os campos `messages` e `smb_message_echoes` no app. A migration de ecos está aplicada. Ainda não entrou mensagem real enviada pelo celular após a ativação; o contador de ecos no banco segue em zero. O envio comercial e em Production continua bloqueado; o Development permanece limitado ao sandbox Meta. O build e `test:unit` executam `build:support`, que gera a fronteira CJS do processador compartilhado; o adaptador local usa o mesmo produtor. Ver [diagnóstico de runtime](central-de-atendimento-runtime-esm-2026-10-21.md).
+> Estado revisto em 28/10/2026 BRT: antes dos ajustes descritos no fim deste documento, Production estava no deployment `dpl_EytB8Eo2JocQjs4PHVgPtjFpbTx6` (`READY`) nos aliases `morantehub.com` e `morantehub.vercel.app`. Uma consulta agregada, somente leitura, encontrou mensagens inbound recentes, incluindo eventos `131051` e registros com mídia. Isso confirma eventos persistidos na Central, mas não comprova o download de cada binário privado da Meta. O envio comercial e em Production continua bloqueado; o Development permanece limitado ao sandbox Meta. O build e `test:unit` executam `build:support`, que gera a fronteira CJS do processador compartilhado; o adaptador local usa o mesmo produtor. Ver [diagnóstico de runtime](central-de-atendimento-runtime-esm-2026-10-21.md).
 
 ## Confirmação de Production e do WABA — 23/10/2026 BRT
 
@@ -12,8 +12,8 @@ Nenhuma migration, fixture, gravação no banco, alteração de configuração M
 
 > **Módulo:** Central de Atendimento (`/atendimento`)  
 > **Integração:** WhatsApp Cloud API Oficial da Meta (Graph API)  
-> **Status:** Inbox publicada em produção; credenciais Meta, inscrição WABA e validação HMAC confirmadas no deployment atual; leitura de áudio confirmada em Development; envio comercial e em Production bloqueado; envio sandbox limitado ao Development e sem conversa elegível encontrada
-> **Data:** 24/10/2026 (BRT)
+> **Status:** Inbox publicada em Production; eventos inbound recentes persistidos, incluindo 131051 e mensagens com mídia; leitura de áudio confirmada em Development; download de binário privado recente em Production não comprovado; envio comercial e em Production bloqueado
+> **Data:** 28/10/2026 (BRT)
 
 ---
 
@@ -132,13 +132,13 @@ A Central de Atendimento escuta eventos através de canais dedicados:
 
 ## 7. Rastreamento e Mídias
 
-* **Proxy de Mídias:** `/api/whatsapp-media?id={media_id}` e a operação consolidada usam `whatsappMediaProxy.ts`. Exigem Bearer validado por `auth.getUser`, permissão `customer_support_can_view()` e mensagem visível sob RLS com aquele `media_id`, antes de consultar a Meta. Respostas usam `Cache-Control: private, no-store`. Tokens não são colocados na URL.
+* **Proxy de Mídias:** `/api/whatsapp-media?id={media_id}` e a operação consolidada usam `whatsappMediaProxy.ts`. Exigem Bearer validado por `auth.getUser`, permissão `customer_support_can_view()` e mensagem visível sob RLS com aquele `media_id`, antes de consultar a Meta. Respostas usam `Cache-Control: private, no-store`. Tokens não são colocados na URL. O proxy lê a resposta em blocos e limita o arquivo a 4 MiB; acima disso cancela o download e responde HTTP 413 com explicação, mantendo margem abaixo do limite de 4,5 MB documentado para respostas de Functions da Vercel.
 
 * O frontend busca o binário autenticado e fornece URLs locais `blob:` para imagem, figurinha, áudio, vídeo, documento e galeria. Cancela consultas antigas e revoga URLs ao trocar contexto ou sair. Há progresso, erro e repetição. URLs arbitrárias persistidas não são abertas diretamente; a consulta agregada encontrou 54 registros com ID e nenhum dependente somente de URL.
 * O proxy de mídia usa `WHATSAPP_ACCESS_TOKEN` exclusivamente do ambiente server-side e falha fechado se estiver ausente; não há fallback para `settings/app`. O handler verifica JWT, permissão, mensagem visível pela RLS e correspondência do canal antes de consultar a Meta. A presença da variável foi conferida sem ler seu valor; não comprova acesso válido à Meta nem download de binário real.
 * O fallback HTTP de desenvolvimento agora reconhece as três rotas WhatsApp, preservando os bytes do webhook para HMAC. A API continua na porta 3000, atrás do frontend na porta 5173.
 
-**Limite:** o deploy de produção está concluído, mas binários privados de clientes reais não foram usados como fixture e os sucessos de transporte/MIME com permissão são provas isoladas, sem comprovar RLS autenticada de uma fixture real. O webhook legítimo ainda não foi exercitado com uma assinatura da Meta; as verificações públicas cobrem somente recusas sem assinatura ou com assinatura forjada.
+**Limite:** registros inbound recentes foram encontrados no banco operacional, mas binários privados de clientes não foram baixados para esta validação. Isso não substitui a prova de mídia em Production; os sucessos anteriores de transporte/MIME com permissão são provas isoladas. O webhook legítimo ainda não foi exercitado aqui com uma assinatura capturada da Meta; as verificações públicas cobrem recusas sem assinatura ou com assinatura forjada.
 
 ### Achado de segurança em configurações compartilhadas
 
@@ -357,7 +357,7 @@ O operador autorizou o agente a aplicar migrations de schema necessárias a tare
 
 Quando o webhook informa `type=unsupported` ou `type=unknown` com o erro 131051, a Central salva o ID da mensagem, o contato e o horário recebidos no evento, além do código, da descrição e do objeto de erro original da Meta. O histórico exibe “Mensagem não suportada pela API do WhatsApp”; código, descrição e ID ficam em “Detalhes técnicos”. Como a API não entrega o conteúdo original nesses eventos, a Central não tenta baixar mídia, reconstruir cartões ou botões nem reenviar a mensagem. Referência: [exemplo oficial da Meta para mensagens desconhecidas](https://www.postman.com/meta/whatsapp-business-platform/request/yuuxr2c/received-unknown-messages).
 
-A migration local `supabase/migrations/20261028135544_customer_support_unsupported_messages.sql` foi aplicada ao projeto operacional `hkoxhourxwlddgsfdgws` e consta no histórico remoto na versão `20261028135544`. Ela preserva a validação, a idempotência e a permissão exclusiva de execução por `service_role`, passando a gravar os campos de erro já existentes em `whatsapp_messages`. O webhook e a interface atualizados no workspace ainda não foram publicados.
+A migration local `supabase/migrations/20261028135544_customer_support_unsupported_messages.sql` foi aplicada ao projeto operacional `hkoxhourxwlddgsfdgws` e consta no histórico remoto na versão `20261028135544`. Ela preserva a validação, a idempotência e a permissão exclusiva de execução por `service_role`, passando a gravar os campos de erro já existentes em `whatsapp_messages`. O webhook e a interface foram publicados posteriormente no deployment Production `dpl_EytB8Eo2JocQjs4PHVgPtjFpbTx6` (`READY` nos dois aliases); o evento real `131051` consta na consulta agregada recente.
 
 Na coexistência com o WhatsApp Business app, o webhook também envia ecos de saída (`smb_message_echoes`). A RPC desses ecos registrava a mensagem como enviada, mas descartava `error_code`, `failure_reason` e os detalhes do erro em `raw_payload`; por isso, um eco `unsupported` podia aparecer apenas como o texto de erro sem os detalhes técnicos. A migration `supabase/migrations/20261028171004_customer_support_echo_unsupported_details.sql` atualiza essa RPC para persistir os mesmos metadados, mantendo o `wamid` idempotente, a origem `whatsapp_business_app` e a execução exclusiva por `service_role`. O eco continua com status `sent`: ele confirma uma mensagem enviada pelo app, enquanto `unsupported` descreve apenas o que a Cloud API consegue representar. Essa situação não deve disparar reenvio automático. Para registros antigos que já contêm a frase e o código explícito, a interface reconhece `131051` ao mapear o histórico, sem editar os dados gravados e sem inventar o detalhe original ausente.
 
@@ -370,6 +370,12 @@ Cartões de contato exibem nome, telefones e tipos, e-mail, endereços, URLs, or
 Reações ficam ligadas ao `wamid` da mensagem reagida, são apresentadas como emojis na mensagem original e desaparecem quando chega uma remoção. O contexto `forwarded`/`frequently_forwarded` aparece no balão para qualquer tipo de mensagem. Dados de identidade e origem de anúncio recebidos junto a mídia são preservados e exibidos como metadados; o hash de identidade não é persistido nem mostrado, e URLs de mídia de anúncio não são carregadas automaticamente. Figurinhas recebidas em WebP podem ser encaminhadas como figurinha; o envio valida o contêiner e as dimensões de 512 × 512 pixels, limita estáticas a 100 KB e animadas a 500 KB, e não adiciona legenda. O MIME determina o ícone de documento (PDF ou arquivo genérico). Eventos `unsupported` e `unknown` com erro 131051 continuam sendo exibidos como não suportados com detalhes técnicos; nenhum conteúdo ausente é reconstruído.
 
 Validação anterior do candidato no workspace: `customerSupport.test.ts`, `customerSupportInbound.test.ts`, `customerSupportMedia.test.tsx` e `customerSupportForwarding.test.ts` passaram em **98 testes**; a cobertura inclui extratores dos formatos, persistência inbound do erro 131051, proteção do token de Flow, localização, encaminhamento, metadados, reações, MIME de documentos, limites WebP e avisos de mensagem não suportada. A regressão dos ecos do WhatsApp Business e a leitura de registros antigos foram cobertas por `customerSupportInbound.test.ts` (22 testes focados), e a migration específica atualiza apenas a RPC de eco; nenhuma mensagem foi enviada à Meta durante a validação.
+
+### Encaminhamento de templates e limite de mídia — 28/10/2026
+
+Templates agora podem ser encaminhados pela Central. O encaminhamento compõe cabeçalho textual, corpo, rodapé e ações disponíveis; quando o cabeçalho tem imagem, vídeo ou documento acessível, inclui também o arquivo. Ações seguem como texto — rótulos e destinos HTTP(S)/telefone válidos — porque o envio da Central não reproduz botões interativos de um template. Sem mídia disponível, o conteúdo textual ainda pode ser encaminhado.
+
+O proxy da Meta passou a limitar a leitura a 4 MiB por arquivo, verificando `Content-Length` quando presente e interrompendo o stream se o corpo exceder o limite. Assim a Central apresenta um erro claro em vez de alocar um corpo sem limite; o teto deixa margem para o limite de 4,5 MB das [respostas de Vercel Functions](https://vercel.com/docs/errors/function_response_payload_too_large). O build local do ERP passou. A consulta agregada de produção encontrou eventos inbound recentes de mídia e `131051`, mas nenhum binário de cliente foi baixado ou usado como fixture; esse caminho real de mídia continua sem validação nesta revisão.
 
 ## Identidade do WhatsApp e Pedidos por Snapshot de Telefone — 28/10/2026
 

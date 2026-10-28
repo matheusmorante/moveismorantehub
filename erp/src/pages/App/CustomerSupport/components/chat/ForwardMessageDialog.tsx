@@ -40,6 +40,40 @@ function messagePreview(message: WhatsAppMessage): string {
     (message.messageType === 'image' ? 'Foto' : message.messageType === 'video' ? 'Vídeo' : message.messageType === 'audio' ? 'Áudio' : 'Documento');
 }
 
+function templateForwardContent(message: WhatsAppMessage): string {
+  const preview = message.rawPayload?.template_preview;
+  if (!preview || typeof preview !== 'object') return message.textContent || 'Mensagem de modelo do WhatsApp';
+
+  const header = preview.header && typeof preview.header === 'object' ? preview.header : null;
+  const lines = [
+    header?.type === 'text' && typeof header.text === 'string' ? header.text.trim() : '',
+    typeof preview.body === 'string' ? preview.body.trim() : '',
+    typeof preview.footer === 'string' ? preview.footer.trim() : '',
+  ].filter(Boolean);
+  const buttons = Array.isArray(preview.buttons) ? preview.buttons.map((button: any) => {
+    const label = typeof button?.text === 'string' ? button.text.trim() : '';
+    if (!label) return '';
+    if (button.type === 'url' && typeof button.url === 'string') {
+      try {
+        const url = new URL(button.url.trim());
+        if (url.protocol === 'http:' || url.protocol === 'https:') return `${label}: ${url.href}`;
+      } catch {
+        // Keep the visible button label and discard an invalid destination.
+      }
+    }
+    if (button.type === 'phone_number' && typeof button.phoneNumber === 'string') return `${label}: ${button.phoneNumber}`;
+    return label;
+  }).filter(Boolean) : [];
+
+  return [...lines, ...(buttons.length ? ['Opções:', ...buttons.map((label) => `• ${label}`)] : [])].join('\n\n')
+    || message.textContent || 'Mensagem de modelo do WhatsApp';
+}
+
+function hasTemplateMedia(message: WhatsAppMessage): boolean {
+  const type = message.rawPayload?.template_preview?.header?.type;
+  return Boolean(message.mediaId && ['image', 'video', 'document'].includes(type));
+}
+
 export const ForwardMessageDialog: React.FC<ForwardMessageDialogProps> = ({
   message,
   canSend,
@@ -102,13 +136,16 @@ export const ForwardMessageDialog: React.FC<ForwardMessageDialogProps> = ({
 
     setSendError('');
     try {
-      const isTextForward = ['text', 'interactive', 'location', 'contacts'].includes(message.messageType);
+      const isTemplate = message.messageType === 'template';
+      const isTextForward = ['text', 'interactive', 'location', 'contacts'].includes(message.messageType)
+        || (isTemplate && !hasTemplateMedia(message));
+      const forwardedText = isTemplate ? templateForwardContent(message) : message.textContent || '';
       const file = isTextForward
         ? undefined
         : await downloadCustomerSupportForwardFile(supabase, message);
       const result = await sendCustomerSupportMessage(supabase, recipient.id, {
-        message: isTextForward
-          ? message.textContent || ''
+        message: isTextForward || isTemplate
+          ? forwardedText
           : message.messageType === 'sticker' ? '' : message.mediaCaption || '',
         ...(file ? { file } : {}),
         forwarded: true,
@@ -139,6 +176,7 @@ export const ForwardMessageDialog: React.FC<ForwardMessageDialogProps> = ({
           <div>
             <h2 id="support-forward-title" className="text-sm font-bold">Encaminhar mensagem</h2>
             <p className="mt-1 max-w-sm truncate text-xs text-slate-500">{messagePreview(message)}</p>
+            {message.messageType === 'template' && <p className="mt-1 text-[10px] text-slate-400">O template será encaminhado com o conteúdo e a mídia disponíveis; os botões seguem como texto.</p>}
             {['interactive', 'location', 'contacts'].includes(message.messageType) && <p className="mt-1 text-[10px] text-slate-400">Este conteúdo será encaminhado como texto.</p>}
           </div>
           <button type="button" onClick={onClose} aria-label="Fechar encaminhamento" className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><i className="bi bi-x-lg" /></button>

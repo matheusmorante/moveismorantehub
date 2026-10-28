@@ -7,6 +7,7 @@ interface MediaProxyConfiguration {
 }
 
 const WHATSAPP_MEDIA_GRAPH_VERSION = 'v26.0';
+const MAX_MEDIA_RESPONSE_BYTES = 4 * 1024 * 1024;
 
 /** Shared by the standalone endpoint and the consolidated ERP webhook route. */
 export async function handleWhatsAppMedia(
@@ -77,7 +78,31 @@ export async function handleWhatsAppMedia(
     if (downloadUrl.protocol !== 'https:') throw new Error('Invalid media download protocol');
     const file = await boundedFetch(downloadUrl, { headers: { Authorization: `Bearer ${metaToken}` } });
     if (!file.ok) return res.status(502).json({ error: 'Não foi possível baixar o arquivo da Meta.' });
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const contentLength = file.headers.get('content-length');
+    if (contentLength && Number(contentLength) > MAX_MEDIA_RESPONSE_BYTES) {
+      await file.body?.cancel().catch(() => undefined);
+      return res.status(413).json({ error: 'A mídia excede 4 MB e não pode ser carregada pela Central.' });
+    }
+    const reader = file.body?.getReader();
+    if (!reader) return res.status(502).json({ error: 'A Meta não retornou o conteúdo da mídia.' });
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > MAX_MEDIA_RESPONSE_BYTES) {
+          await reader.cancel().catch(() => undefined);
+          return res.status(413).json({ error: 'A mídia excede 4 MB e não pode ser carregada pela Central.' });
+        }
+        chunks.push(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    if (!size) return res.status(502).json({ error: 'A Meta retornou um arquivo vazio.' });
+    const buffer = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)), size);
     res.setHeader('Content-Type', metadata.mime_type || 'application/octet-stream');
     res.setHeader('Content-Length', buffer.length.toString());
     return res.status(200).send(buffer);

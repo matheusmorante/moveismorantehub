@@ -71,7 +71,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const canReply = Boolean(message.apiMessageId) && message.messageType !== 'deleted' && !isReactionMessage && !isNonChatEvent;
   const canForward = !isReactionMessage && !isNonChatEvent && (['text', 'interactive', 'location', 'contacts'].includes(message.messageType)
     ? Boolean(message.textContent?.trim())
-    : ['image', 'document', 'audio', 'video', 'sticker'].includes(message.messageType) && Boolean(message.mediaId));
+    : message.messageType === 'template'
+      ? Boolean(message.textContent?.trim() || message.mediaId)
+      : ['image', 'document', 'audio', 'video', 'sticker'].includes(message.messageType) && Boolean(message.mediaId));
   const handleQuotedMessage = async () => {
     setQuoteError('');
     if (quote) {

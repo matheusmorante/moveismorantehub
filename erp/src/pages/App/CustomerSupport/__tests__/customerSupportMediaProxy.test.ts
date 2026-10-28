@@ -10,6 +10,19 @@ function response() {
   return { setHeader: vi.fn(), status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis(), send: vi.fn().mockReturnThis(), end: vi.fn() };
 }
 
+function mediaResponse(bytes = new Uint8Array([1, 2, 3])) {
+  return {
+    ok: true,
+    headers: { get: (name: string) => name.toLowerCase() === 'content-length' ? String(bytes.byteLength) : null },
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
+      },
+    }),
+  };
+}
+
 describe.each([['standalone', mediaHandler], ['webhook consolidado', webhookHandler]] as const)('Mídia autenticada — %s', (_name, handler) => {
   let db: any;
   let graph: ReturnType<typeof vi.fn>;
@@ -35,7 +48,7 @@ describe.each([['standalone', mediaHandler], ['webhook consolidado', webhookHand
     };
     createClient.mockReturnValue(db);
     graph = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ url: 'https://lookaside.fbsbx.com/file', mime_type: 'image/jpeg' }) })
-      .mockResolvedValueOnce({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
+      .mockResolvedValueOnce(mediaResponse());
     vi.stubGlobal('fetch', graph);
   });
   afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
@@ -126,7 +139,7 @@ describe.each([['standalone', mediaHandler], ['webhook consolidado', webhookHand
 
   it.each(['image/jpeg', 'image/webp', 'audio/ogg', 'video/mp4', 'application/pdf'])('preserva o binário %s e separa JWT do token Meta', async (mime) => {
     graph.mockReset().mockResolvedValueOnce({ ok: true, json: async () => ({ url: 'https://lookaside.fbsbx.com/file', mime_type: mime }) })
-      .mockResolvedValueOnce({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
+      .mockResolvedValueOnce(mediaResponse());
     const res = await request();
     expect(db.auth.getUser).toHaveBeenCalledWith('user-jwt');
     expect(createClient).toHaveBeenCalledWith(expect.any(String), expect.any(String), expect.objectContaining({
