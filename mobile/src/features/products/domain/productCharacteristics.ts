@@ -183,6 +183,8 @@ export const DIMENSIONS_SORT_ORDER: Readonly<Record<string, number>> = {
 export const DOORS_SORT_ORDER: Readonly<Record<string, number>> = {
   'possui portas': 1,
   'possui porta': 1,
+  'possui portas?': 1,
+  'possui porta?': 1,
   'quantidade de portas': 2,
   'quantidade de porta': 2,
   'tipo de portas': 3,
@@ -195,6 +197,8 @@ export const DOORS_SORT_ORDER: Readonly<Record<string, number>> = {
 export const DRAWERS_SORT_ORDER: Readonly<Record<string, number>> = {
   'possui gavetas': 1,
   'possui gaveta': 1,
+  'possui gavetas?': 1,
+  'possui gaveta?': 1,
   'quantidade de gavetas': 2,
   'quantidade de gaveta': 2,
   'materiais das corrediças': 3,
@@ -222,10 +226,13 @@ export const SHELVES_SORT_ORDER: Readonly<Record<string, number>> = {
 /** Sequência canônica de exibição dos pés */
 export const FEET_SORT_ORDER: Readonly<Record<string, number>> = {
   'possui pés': 1,
+  'possui pés?': 1,
   'quantidade de pés': 2,
   'material dos pés': 3,
   'pés reguláveis': 4,
+  'os pés são reguláveis?': 4,
   rodízios: 5,
+  'possui rodízios?': 5,
 };
 
 /** Sequência canônica de exibição dos acessórios */
@@ -243,6 +250,13 @@ export const ACCESSORIES_SORT_ORDER: Readonly<Record<string, number>> = {
 export const normalizeName = (name: string): string =>
   String(name || '')
     .trim()
+    .toLocaleLowerCase('pt-BR');
+
+const normalizeTechnicalSearchText = (value: unknown) =>
+  String(value ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('pt-BR');
 
 export const isDepthCharacteristic = (name: string): boolean => {
@@ -964,6 +978,39 @@ export const groupProductTechnicalFields = <T extends ProductTechnicalField>(
 
   return [...legacyGroups, ...orderedPersistedGroups];
 };
+
+/**
+ * Keeps the legacy three-result limit for ungrouped fields, while matching a
+ * persisted group name returns every addable field from that group, as in ERP.
+ */
+export function getMobileProductTechnicalSearchMatches<T extends ProductTechnicalField>(
+  fields: readonly T[],
+  searchTerm: string,
+  legacyResultLimit = 3,
+): T[] {
+  const normalizedTerm = normalizeTechnicalSearchText(searchTerm);
+  if (!normalizedTerm) return [];
+
+  const matchingGroupKeys = new Set(
+    fields
+      .filter((field) => normalizeTechnicalSearchText(field.groupName).includes(normalizedTerm))
+      .map((field) => field.groupId || normalizeTechnicalSearchText(field.groupName))
+      .filter(Boolean),
+  );
+
+  const matchingPersistedFields = fields.filter((field) => {
+    if (!field.groupName?.trim()) return false;
+    const groupKey = field.groupId || normalizeTechnicalSearchText(field.groupName);
+    return matchingGroupKeys.has(groupKey) ||
+      normalizeTechnicalSearchText(field.name).includes(normalizedTerm);
+  });
+  const matchingLegacyFields = fields
+    .filter((field) => !field.groupName?.trim())
+    .filter((field) => normalizeTechnicalSearchText(field.name).includes(normalizedTerm))
+    .slice(0, legacyResultLimit);
+
+  return [...matchingPersistedFields, ...matchingLegacyFields];
+}
 
 // ============================================================================
 // 7. VALIDATION & MISSING FIELDS HELPERS

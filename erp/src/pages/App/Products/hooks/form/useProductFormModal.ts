@@ -517,7 +517,7 @@ export function useProductFormModal({
       });
     }
     variations.setEditingVariationId(null);
-    variations.setEditingVariationIssue(null);
+    variations.setEditingVariationIssue?.(null);
   }, [variations, setFormData]);
 
   const handleSaveVariation = useCallback(
@@ -571,7 +571,7 @@ export function useProductFormModal({
           }
           pendingNewVariationIdRef.current = null;
           setEditingVariationId(null);
-          setEditingVariationIssue(null);
+          setEditingVariationIssue?.(null);
           return true;
         } catch (error) {
           toast.error(error instanceof Error ? error.message : 'Erro ao salvar a variação.', PRODUCT_FORM_ERROR_TOAST_OPTIONS);

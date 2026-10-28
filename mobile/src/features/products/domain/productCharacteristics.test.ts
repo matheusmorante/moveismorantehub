@@ -15,6 +15,7 @@ import {
   getMissingRequiredCharacteristics,
   getMissingRequiredDimensions,
   getDisplayedOptionalProductTechnicalFields,
+  getMobileProductTechnicalSearchMatches,
   getProductTechnicalDependencyChain,
   isConfiguredProductTechnicalDependencySatisfied,
   isDependentProductTechnicalFieldActive,
@@ -781,6 +782,27 @@ describe('productCharacteristics', () => {
       'Grupo Z',
     ]);
     expect(groupProductTechnicalFields(fields)[0].fields).toEqual([fields[3]]);
+  });
+
+  it('retorna todos os campos ao pesquisar um grupo persistido e preserva o limite legado', () => {
+    const persistedGroupFields = [
+      { id: 'door-1', name: 'Material', groupId: 'doors', groupName: 'Portas e gavetas' },
+      { id: 'door-2', name: 'Acabamento', groupId: 'doors', groupName: 'Portas e gavetas' },
+      { id: 'door-3', name: 'Modelo', groupId: 'doors', groupName: 'Portas e gavetas' },
+      { id: 'door-4', name: 'Quantidade', groupId: 'doors', groupName: 'Portas e gavetas' },
+    ];
+    const legacyFields = [
+      { id: 'legacy-1', name: 'Cor interna' },
+      { id: 'legacy-2', name: 'Cor externa' },
+      { id: 'legacy-3', name: 'Cor da base' },
+      { id: 'legacy-4', name: 'Cor do puxador' },
+    ];
+
+    expect(
+      getMobileProductTechnicalSearchMatches(persistedGroupFields, 'portas')
+        .map(({ id }) => id),
+    ).toEqual(['door-1', 'door-2', 'door-3', 'door-4']);
+    expect(getMobileProductTechnicalSearchMatches(legacyFields, 'cor')).toHaveLength(3);
   });
 
   it('identifica corretamente predicados de domínio e ordenação de medidas', () => {

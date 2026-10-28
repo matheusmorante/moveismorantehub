@@ -140,18 +140,18 @@ export const populateInitialTechnicalValues = (
   }
 
   // Inferência automática e compatibilidade de switches mestres
-  if (!Object.prototype.hasOwnProperty.call(technicalValues, 'Possui portas')) {
+  if (!Object.prototype.hasOwnProperty.call(technicalValues, 'Possui portas?')) {
     const hasDoorQuantityField = Object.keys(technicalValues).some(isDoorQuantityCharacteristic);
     if (
       !hasDoorQuantityField &&
       (technicalValues['Tipo de portas'] || technicalValues['Material das portas'])
     ) {
-      technicalValues['Possui portas'] = true;
+      technicalValues['Possui portas?'] = true;
       changed = true;
     }
   }
 
-  if (!Object.prototype.hasOwnProperty.call(technicalValues, 'Possui gavetas')) {
+  if (!Object.prototype.hasOwnProperty.call(technicalValues, 'Possui gavetas?')) {
     const drawerQty = parseDrawerQuantityValue(technicalValues);
     if (
       (drawerQty !== null && drawerQty > 0) ||
@@ -159,19 +159,19 @@ export const populateInitialTechnicalValues = (
       technicalValues['Materiais das corrediças'] ||
       technicalValues['Material das gavetas']
     ) {
-      technicalValues['Possui gavetas'] = true;
+      technicalValues['Possui gavetas?'] = true;
       changed = true;
     }
   }
 
-  if (!Object.prototype.hasOwnProperty.call(technicalValues, 'Possui pés')) {
+  if (!Object.prototype.hasOwnProperty.call(technicalValues, 'Possui pés?')) {
     const feetQty = parseFeetQuantityValue(technicalValues);
     if (
       (feetQty !== null && feetQty > 0) ||
       technicalValues['Material dos pés'] ||
-      technicalValues['Pés reguláveis']
+      technicalValues['Os pés são reguláveis?']
     ) {
-      technicalValues['Possui pés'] = true;
+      technicalValues['Possui pés?'] = true;
       changed = true;
     }
   }

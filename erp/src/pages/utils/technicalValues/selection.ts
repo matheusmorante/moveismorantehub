@@ -88,7 +88,7 @@ export const getApplicableTechnicalFields = (
       return false;
     }
 
-    // "Material da pia", "Concretada?" e "Possui cuba de inox?" são exclusivos da categoria Pias
+    // "Material da pia", "É concretada?" e "Possui cuba de inox?" são exclusivos da categoria Pias
     if (
       !hasCategoryApplication(field) && !isSink &&
       (isSinkMaterialCharacteristic(field.name) ||

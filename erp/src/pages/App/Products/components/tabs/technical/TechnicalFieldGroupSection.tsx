@@ -44,34 +44,25 @@ export interface TechnicalFieldGroupSectionProps {
 
 const DEFAULT_POSSUI_PORTAS: TechnicalFieldDefinition = {
   id: 'e3f1a001-1111-4000-8000-000000000001',
-  name: 'Possui portas',
-  dataType: 'radio',
-  options: [
-    { id: 'nao', value: 'Não' },
-    { id: 'sim', value: 'Sim' },
-  ],
+  name: 'Possui portas?',
+  dataType: 'boolean',
+  options: [],
   isRequired: false,
 };
 
 const DEFAULT_POSSUI_GAVETAS: TechnicalFieldDefinition = {
   id: 'e3f1a002-2222-4000-8000-000000000002',
-  name: 'Possui gavetas',
-  dataType: 'radio',
-  options: [
-    { id: 'nao', value: 'Não' },
-    { id: 'sim', value: 'Sim' },
-  ],
+  name: 'Possui gavetas?',
+  dataType: 'boolean',
+  options: [],
   isRequired: false,
 };
 
 const DEFAULT_POSSUI_PES: TechnicalFieldDefinition = {
   id: 'a1f3e792-0790-4554-b269-e3b0b707896e',
-  name: 'Possui pés',
-  dataType: 'radio',
-  options: [
-    { id: 'nao', value: 'Não' },
-    { id: 'sim', value: 'Sim' },
-  ],
+  name: 'Possui pés?',
+  dataType: 'boolean',
+  options: [],
   isRequired: false,
 };
 

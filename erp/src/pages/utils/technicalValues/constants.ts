@@ -83,6 +83,8 @@ export const DIMENSIONS_SORT_ORDER: Readonly<Record<string, number>> = {
 export const DOORS_SORT_ORDER: Readonly<Record<string, number>> = {
   'possui portas': 1,
   'possui porta': 1,
+  'possui portas?': 1,
+  'possui porta?': 1,
   'quantidade de portas': 2,
   'quantidade de porta': 2,
   'tipo de portas': 3,
@@ -97,6 +99,8 @@ export const DOORS_SORT_ORDER: Readonly<Record<string, number>> = {
 export const DRAWERS_SORT_ORDER: Readonly<Record<string, number>> = {
   'possui gavetas': 1,
   'possui gaveta': 1,
+  'possui gavetas?': 1,
+  'possui gaveta?': 1,
   'quantidade de gavetas': 2,
   'quantidade de gaveta': 2,
   'tipo/material das corrediças': 3,
@@ -158,17 +162,17 @@ export const CHARACTERISTIC_TOPIC_GROUPS: ReadonlyArray<CharacteristicTopicGroup
     id: 'pes',
     title: 'Pés',
     searchKeywords: ['pe', 'pes', 'rodizio', 'rodizios'],
-    masterField: 'Possui pés',
+    masterField: 'Possui pés?',
     fieldNames: [
-      'Possui pés',
+      'Possui pés?',
       'Quantidade de pés',
       'Quantidade de pé',
       'Material dos pés',
       'Material do pé',
-      'Pés reguláveis',
-      'Rodízios',
+      'Os pés são reguláveis?',
+      'Possui rodízios?',
     ],
-    description: 'Possui pés, Quantidade de pés e Material dos pés',
+    description: 'Possui pés?, Quantidade de pés e Material dos pés',
   },
 ];
 
@@ -184,12 +188,16 @@ export const SHELVES_SORT_ORDER: Readonly<Record<string, number>> = {
 export const FEET_SORT_ORDER: Readonly<Record<string, number>> = {
   'possui pés': 1,
   'possui pé': 1,
+  'possui pés?': 1,
+  'possui pé?': 1,
   'quantidade de pés': 2,
   'quantidade de pé': 2,
   'material dos pés': 3,
   'material do pé': 3,
   'pés reguláveis': 4,
+  'os pés são reguláveis?': 4,
   rodízios: 5,
+  'possui rodízios?': 5,
 };
 
 /** Sequência canônica de exibição dos acessórios */

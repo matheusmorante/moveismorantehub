@@ -7,7 +7,7 @@ import { isYesNoValueActive } from './yesNo';
 // --- Portas ---
 
 export const isHasDoorsCharacteristic = (name: string): boolean =>
-  /^possui\s+portas?$/i.test(name.trim());
+  /^possui\s+portas?\??$/i.test(name.trim());
 
 export const isDoorQuantityCharacteristic = (name: string): boolean =>
   /quantidade\s+de\s+portas?/i.test(name.trim());
@@ -54,7 +54,7 @@ export const isHasDoorsActive = (values: Record<string, any> = {}): boolean => {
 // --- Gavetas ---
 
 export const isHasDrawersCharacteristic = (name: string): boolean =>
-  /^possui\s+gavetas?$/i.test(name.trim());
+  /^possui\s+gavetas?\??$/i.test(name.trim());
 
 export const isDrawerQuantityCharacteristic = (name: string): boolean =>
   /quantidade\s+de\s+gavetas?/i.test(name.trim());
@@ -103,7 +103,7 @@ export const isHasDrawersActive = (values: Record<string, any> = {}): boolean =>
 // --- Pés ---
 
 export const isHasFeetCharacteristic = (name: string): boolean =>
-  /^possui\s+p[eé]s?$/i.test(name.trim());
+  /^possui\s+p[eé]s?\??$/i.test(name.trim());
 
 export const isFeetQuantityCharacteristic = (name: string): boolean =>
   /quantidade\s+de\s+p[eé]s?/i.test(name.trim());

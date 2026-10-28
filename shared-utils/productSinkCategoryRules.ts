@@ -15,7 +15,9 @@ export const isSinkMaterialCharacteristic = (name: string): boolean =>
   normalizeCharacteristicName(name) === 'material da pia';
 
 export const isConcretadaCharacteristic = (name: string): boolean =>
-  normalizeCharacteristicName(name).replace(/\?/g, '').trim() === 'concretada';
+  ['concretada', 'é concretada'].includes(
+    normalizeCharacteristicName(name).replace(/\?/g, '').trim()
+  );
 
 export const isHasInoxBowlCharacteristic = (name: string): boolean => {
   const normalized = normalizeCharacteristicName(name).replace(/\?/g, '').trim();

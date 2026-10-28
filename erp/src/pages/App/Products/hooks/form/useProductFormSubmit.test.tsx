@@ -9,6 +9,7 @@ import { toast } from 'react-toastify';
 import { useRef, useState } from 'react';
 import { useProductFormDraft } from './useProductFormDraft';
 import { fetchTechnicalFieldDefinitions } from '../../services/technicalFieldService';
+import { fetchCharacteristicGroups } from '@/pages/utils/characteristicGroupService';
 
 const mocks = vi.hoisted(() => ({
   saveProduct: vi.fn(async (product: Product) => product.id),
@@ -20,8 +21,14 @@ vi.mock('react-toastify', () => ({ toast: { error: vi.fn(), warn: vi.fn(), succe
 vi.mock('../../services/technicalFieldService', () => ({
   fetchTechnicalFieldDefinitions: vi.fn().mockResolvedValue([]),
 }));
+vi.mock('@/pages/utils/characteristicGroupService', () => ({
+  fetchCharacteristicGroups: vi.fn().mockResolvedValue({ groups: [], categories: [] }),
+}));
 afterEach(cleanup);
-beforeEach(() => vi.mocked(fetchTechnicalFieldDefinitions).mockResolvedValue([]));
+beforeEach(() => {
+  vi.mocked(fetchTechnicalFieldDefinitions).mockResolvedValue([]);
+  vi.mocked(fetchCharacteristicGroups).mockResolvedValue({ groups: [], categories: [] });
+});
 
 const complete: Product = {
   id: 'parent', name: 'Armário', description: '', unitPrice: 150, unit: 'UN', itemType: 'product',

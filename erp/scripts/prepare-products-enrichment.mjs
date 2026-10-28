@@ -747,7 +747,8 @@ for (const p of products) {
   const structure = override.estrutura || (currentTv['Material da estrutura'] && currentTv['Material da estrutura'] !== 'Não se aplica' ? currentTv['Material da estrutura'] : null) || extractStructure(p);
   const doorType = override.tipoPortas || (currentTv['Tipo de portas'] && currentTv['Tipo de portas'] !== 'Não se aplica' ? currentTv['Tipo de portas'] : null) || extractDoorType(p);
   const slideType = override.corredica || (currentTv['Tipo/material da corrediça'] && currentTv['Tipo/material da corrediça'] !== 'Não se aplica' ? currentTv['Tipo/material da corrediça'] : null) || extractSlideType(p);
-  const mirror = override.espelho || (currentTv['Possui espelho'] && currentTv['Possui espelho'] !== 'Não se aplica' ? currentTv['Possui espelho'] : null) || (
+  const existingMirror = currentTv['Possui espelho?'] ?? currentTv['Possui espelho'];
+  const mirror = override.espelho || (existingMirror && existingMirror !== 'Não se aplica' ? existingMirror : null) || (
     p.categoryNames.includes('Guarda-Roupas') || p.categoryNames.includes('Cômodas') ? extractMirror(p) : null
   );
 
@@ -770,7 +771,7 @@ for (const p of products) {
     'Tipo/material da corrediça': drawers === '0 gavetas' ? null : slideType,
   };
 
-  if (mirror) newTv['Possui espelho'] = mirror;
+  if (mirror) newTv['Possui espelho?'] = mirror;
   if (override.peso || (currentTv['Peso'] && currentTv['Peso'] !== 0)) newTv['Peso'] = override.peso || currentTv['Peso'];
   if (override.espessura || currentTv['Espessura do MDF/MDP']) newTv['Espessura do MDF/MDP'] = override.espessura || currentTv['Espessura do MDF/MDP'];
   if (override.cabideiro || currentTv['Material do cabideiro']) newTv['Material do cabideiro'] = override.cabideiro || currentTv['Material do cabideiro'];

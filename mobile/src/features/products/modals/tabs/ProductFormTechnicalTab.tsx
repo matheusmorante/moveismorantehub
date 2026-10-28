@@ -14,6 +14,7 @@ import {
   getApplicableProductTechnicalFields,
   getProductTechnicalDependencyChain,
   getProductTechnicalFieldDisplayName,
+  getMobileProductTechnicalSearchMatches,
   getEffectiveProductTechnicalValues,
   getEffectiveVariationTechnicalValues,
   getProductCharacteristicAttributes,
@@ -500,13 +501,16 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     !requiredFieldsOnly &&
     normalizedSearchTerm.length >= 3 &&
     normalizedSearchTerm === normalizedDebouncedSearchTerm
-      ? searchableOptionalFields
-          .filter((field) =>
-            normalizeSearchTerm(field.name).includes(normalizedDebouncedSearchTerm) ||
-            normalizeSearchTerm(field.groupName ?? '').includes(normalizedDebouncedSearchTerm)
-          )
-          .slice(0, 3)
+      ? getMobileProductTechnicalSearchMatches(
+          searchableOptionalFields,
+          normalizedDebouncedSearchTerm,
+        )
       : [];
+  const isPersistedGroupNameSearch = matchingOptionalFields.some(
+    (field) =>
+      field.groupName &&
+      normalizeSearchTerm(field.groupName).includes(normalizedDebouncedSearchTerm)
+  );
   const addSearchResultField = (field: MobileProductTechnicalField) => {
     const fieldsToActivate = isSimpleProduct
       ? getProductTechnicalDependencyChain(field, visibleTechnicalFields)
@@ -784,7 +788,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
               ? 'Buscando características...'
               : matchingOptionalFields.length === 0
                 ? 'Nenhuma característica encontrada.'
-                : 'Exibindo até 3 características correspondentes.'}
+                : isPersistedGroupNameSearch
+                  ? 'Exibindo as características disponíveis do grupo.'
+                  : 'Exibindo características correspondentes.'}
         </Text>
         {matchingOptionalFields.length > 0 && (
           <View style={[styles.searchResults, dark && styles.darkCard]}>

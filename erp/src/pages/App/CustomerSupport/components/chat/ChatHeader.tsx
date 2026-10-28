@@ -112,7 +112,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     .join('');
 
   return (
-    <div className="relative min-h-16 px-4 py-2 border-b border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex flex-col gap-2 @3xl/chat:h-16 @3xl/chat:flex-row @3xl/chat:items-center @3xl/chat:justify-between @3xl/chat:py-0 shrink-0 z-10 shadow-xs">
+    <div className="relative min-h-16 px-4 py-2 border-b border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex flex-col gap-2 @3xl/chat:h-16 @3xl/chat:flex-row @3xl/chat:items-center @3xl/chat:justify-between @3xl/chat:py-0 shrink-0 z-30 shadow-xs">
       <fieldset disabled={isSubmitting} className="contents" aria-busy={isSubmitting}>
       {errors.root?.command && <p role="alert" className="absolute top-full right-2 z-50 p-2 rounded-lg bg-red-50 dark:bg-red-950 text-xs text-red-700 dark:text-red-300 shadow-sm">{errors.root.command.message}</p>}
       {isSubmitting && <span role="status" className="absolute top-full right-2 z-50 p-2 rounded-lg bg-white dark:bg-slate-900 text-xs text-emerald-700 animate-pulse">Salvando alteração…</span>}
@@ -195,7 +195,65 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
       {/* Direita: Controles de Atendimento alinhados com a referência */}
       <div className="flex flex-wrap @3xl/chat:flex-nowrap items-center gap-1.5 sm:gap-2 shrink-0 relative">
-        {/* 1. Seletor de Atendente Responsável (Assignee Dropdown "Ben ▾") */}
+        {/* Busca na conversa */}
+        <button
+          type="button"
+          onClick={onToggleSearchInChat}
+          title="Pesquisar nesta conversa"
+          className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+            isSearchingInChat
+              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300'
+              : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+          aria-label="Pesquisar na conversa"
+        >
+          <i className="bi bi-search text-sm"></i>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => void toggleReadStatus()}
+          title={`${isUnread ? 'Marcar como lida' : 'Marcar como não lida'} somente na central`}
+          aria-label={`${isUnread ? 'Marcar como lida' : 'Marcar como não lida'} somente na central`}
+          aria-pressed={!isUnread}
+          aria-busy={isUpdatingReadStatus}
+          disabled={isUpdatingReadStatus || !onToggleReadStatus}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+        >
+          <i className={`bi ${isUnread ? 'bi-eye-slash' : 'bi-eye'} text-sm`} aria-hidden="true"></i>
+        </button>
+
+        {/* 4. Menu de Três Pontos (•••) */}
+        <button
+          type="button"
+          onClick={() => setIsMenuOpen((prev) => !prev)}
+          title="Mais opções da conversa"
+          aria-label="Mais ações da conversa"
+          aria-expanded={isMenuOpen}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+        >
+          <i className="bi bi-three-dots-vertical text-sm"></i>
+        </button>
+
+        {onToggleInternalComment && (
+          <button
+            type="button"
+            onClick={onToggleInternalComment}
+            title={composerMode === 'comment' ? 'Voltar ao atendimento' : 'Adicionar comentário interno'}
+            aria-label="Comentário interno"
+            aria-pressed={composerMode === 'comment'}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold transition-colors cursor-pointer ${
+              composerMode === 'comment'
+                ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                : 'text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40'
+            }`}
+          >
+            <i className="bi bi-chat-left-dots" />
+            Comentário interno
+          </button>
+        )}
+
+        {/* Seletor de Atendente Responsável */}
         <div className="relative">
           <button
             type="button"
@@ -274,64 +332,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             </div>
           )}
         </div>
-
-        {/* Busca na conversa */}
-        <button
-          type="button"
-          onClick={onToggleSearchInChat}
-          title="Pesquisar nesta conversa"
-          className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
-            isSearchingInChat
-              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300'
-              : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-          aria-label="Pesquisar na conversa"
-        >
-          <i className="bi bi-search text-sm"></i>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => void toggleReadStatus()}
-          title={`${isUnread ? 'Marcar como lida' : 'Marcar como não lida'} somente na central`}
-          aria-label={`${isUnread ? 'Marcar como lida' : 'Marcar como não lida'} somente na central`}
-          aria-pressed={!isUnread}
-          aria-busy={isUpdatingReadStatus}
-          disabled={isUpdatingReadStatus || !onToggleReadStatus}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-wait"
-        >
-          <i className={`bi ${isUnread ? 'bi-eye-slash' : 'bi-eye'} text-sm`} aria-hidden="true"></i>
-        </button>
-
-        {/* 4. Menu de Três Pontos (•••) */}
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen((prev) => !prev)}
-          title="Mais opções da conversa"
-          aria-label="Mais ações da conversa"
-          aria-expanded={isMenuOpen}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-        >
-          <i className="bi bi-three-dots-vertical text-sm"></i>
-        </button>
-
-        {onToggleInternalComment && (
-          <button
-            type="button"
-            onClick={onToggleInternalComment}
-            title={composerMode === 'comment' ? 'Voltar ao atendimento' : 'Adicionar comentário interno'}
-            aria-label="Comentário interno"
-            aria-pressed={composerMode === 'comment'}
-            className={`inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold transition-colors cursor-pointer ${
-              composerMode === 'comment'
-                ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
-                : 'text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40'
-            }`}
-          >
-            <i className="bi bi-chat-left-dots" />
-            Comentário interno
-          </button>
-        )}
 
         <div className="w-px h-5 bg-slate-200 dark:bg-slate-800 mx-0.5" />
 
