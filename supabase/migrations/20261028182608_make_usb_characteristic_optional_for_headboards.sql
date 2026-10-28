@@ -17,10 +17,17 @@ BEGIN
   FROM public.categories
   WHERE type = 'category';
 
-  SELECT count(*), min(id) INTO v_headboards_count, v_headboards_category_id
+  SELECT count(*) INTO v_headboards_count
   FROM public.categories
   WHERE type = 'category'
     AND regexp_replace(lower(public.unaccent(btrim(name))), '[^a-z0-9]+', '', 'g') = 'cabeceiras';
+
+  IF v_headboards_count = 1 THEN
+    SELECT id INTO v_headboards_category_id
+    FROM public.categories
+    WHERE type = 'category'
+      AND regexp_replace(lower(public.unaccent(btrim(name))), '[^a-z0-9]+', '', 'g') = 'cabeceiras';
+  END IF;
 
   SELECT count(*) INTO v_attribute_count
   FROM public.attributes
