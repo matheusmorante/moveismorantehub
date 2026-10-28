@@ -25,7 +25,6 @@ import type {
   CustomerSupportSendInput,
   CustomerSupportSendResult,
 } from '@/pages/utils/customerSupport/customerSupportService';
-import { normalizeWhatsAppText } from './bubble/bubbleUtils';
 
 type SupportChatComposerAttachment = z.input<typeof supportChatComposerDraftSchema>['attachments'][number];
 type AttachmentKind = SupportChatComposerAttachment['kind'];
@@ -57,7 +56,14 @@ const WHATSAPP_FORMATS = [
   { label: 'B', name: 'Negrito', prefix: '*', suffix: '*', title: 'Negrito · *texto*', className: 'font-extrabold' },
   { label: 'I', name: 'Itálico', prefix: '_', suffix: '_', title: 'Itálico · _texto_', className: 'italic' },
   { label: 'S', name: 'Tachado', prefix: '~', suffix: '~', title: 'Tachado · ~texto~', className: 'line-through' },
+  { label: '`', name: 'Código inline', prefix: '`', suffix: '`', title: 'Código inline · `texto`', className: 'font-mono' },
   { label: '</>', name: 'Monoespaçado', prefix: '```', suffix: '```', title: 'Monoespaçado · ```texto```', className: 'font-mono text-[10px]' },
+];
+
+const WHATSAPP_LINE_FORMATS = [
+  { label: '•', name: 'Lista com marcadores', kind: 'bullet' as const, title: 'Lista com marcadores · * texto' },
+  { label: '1.', name: 'Lista numerada', kind: 'numbered' as const, title: 'Lista numerada · 1. texto' },
+  { label: '❞', name: 'Citação', kind: 'quote' as const, title: 'Citação · > texto' },
 ];
 const MAX_ATTACHMENTS = 50;
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
@@ -552,6 +558,35 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     });
   };
 
+  const applyMessageLineFormatting = (kind: typeof WHATSAPP_LINE_FORMATS[number]['kind']) => {
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart ?? message.length;
+    const end = textarea?.selectionEnd ?? message.length;
+    const hasSelection = start !== end;
+    const lineStart = message.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+    const selectedEnd = hasSelection ? Math.max(start, end - 1) : start;
+    const nextBreak = hasSelection && message[end - 1] === '\n'
+      ? end - 1
+      : message.indexOf('\n', selectedEnd);
+    const lineEnd = nextBreak < 0 ? message.length : nextBreak;
+    const selectedLines = message.slice(lineStart, lineEnd).split('\n');
+    const markerAt = (index: number) => kind === 'numbered' ? `${index + 1}. ` : kind === 'quote' ? '> ' : '* ';
+    const linePattern = kind === 'numbered' ? /^\d+\. /u : kind === 'quote' ? /^> /u : /^\* /u;
+    const remove = selectedLines.every((line) => linePattern.test(line));
+    const formattedLines = selectedLines.map((line, index) => remove ? line.replace(linePattern, '') : `${markerAt(index)}${line}`);
+    const replacement = formattedLines.join('\n');
+    const nextMessage = `${message.slice(0, lineStart)}${replacement}${message.slice(lineEnd)}`;
+    const existingMarkerLength = selectedLines[0].match(linePattern)?.[0].length || 0;
+    const cursorOffset = Math.max(0, start - lineStart + (remove ? -existingMarkerLength : markerAt(0).length));
+    const cursor = lineStart + Math.min(replacement.length, cursorOffset);
+
+    setDraftValue('message', nextMessage, { shouldDirty: true, shouldValidate: true });
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(hasSelection ? lineStart : cursor, hasSelection ? lineStart + replacement.length : cursor);
+    });
+  };
+
   const stopRecordingStream = () => {
     recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
     recordingStreamRef.current = null;
@@ -698,7 +733,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     if (startCount > 10 && !window.confirm(`Você está prestes a enviar conteúdo sobre ${startCount} itens. Deseja continuar?`)) return;
 
     // Valida o lote inteiro antes da primeira chamada externa para evitar envios parciais previsíveis.
-    let plannedText = normalizeWhatsAppText(draft.message.trim());
+    let plannedText = draft.message.trim();
     for (const attachment of draft.attachments) {
       if (attachment.kind === 'catalog') {
         if (attachment.selection.deliveryMode === 'native' && plannedText.length > 1024) {
@@ -737,7 +772,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     setIsSending(true);
     setSendError('');
     setSendFeedback('Enviando…');
-    let pendingText = normalizeWhatsAppText(draft.message.trim());
+    let pendingText = draft.message.trim();
     let pendingReplyToWamid = replyTarget?.apiMessageId || undefined;
     let replyWasSent = false;
     let hadWarning = false;
@@ -966,7 +1001,21 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                     {format.label}
                   </button>
                 ))}
-                <span className="ml-1 hidden truncate text-[10px] text-slate-400 sm:inline">*negrito* · _itálico_ · ~tachado~ · ```código```</span>
+                {WHATSAPP_LINE_FORMATS.map((format) => (
+                  <button
+                    key={format.name}
+                    type="button"
+                    aria-label={`Aplicar ${format.name.toLowerCase()}`}
+                    title={format.title}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => applyMessageLineFormatting(format.kind)}
+                    disabled={!canSend || !careWindowOpen || !isChannelConnected || isOutcomeUncertain}
+                    className="flex h-6 min-w-7 items-center justify-center rounded-md px-1.5 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                  >
+                    {format.label}
+                  </button>
+                ))}
+                <span title="Combine negrito, itálico e tachado envolvendo o mesmo texto, por exemplo *_~texto~_*." className="ml-1 hidden truncate text-[10px] text-slate-400 sm:inline">*negrito* · _itálico_ · ~tachado~ · *_combina_* · `código` · ```monoespaçado```</span>
               </div>
 
               <textarea

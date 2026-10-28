@@ -379,7 +379,9 @@ O proxy da Meta passou a limitar a leitura a 4 MiB por arquivo, verificando `Con
 
 ## Formatação de texto na Central — 28/10/2026
 
-O compositor oferece ações de negrito, itálico, tachado e monoespaçado para a seleção atual; sem seleção, insere os marcadores e deixa o cursor entre eles. O histórico renderiza `*texto*`, `_texto_`, `~texto~`, `` `texto` `` e blocos com três crases sem exibir os delimitadores. Também aceita `**texto**` no rascunho e converte para `*texto*` ao enviar, que é a sintaxe oficial do WhatsApp para negrito. Referência: [guia de formatação do WhatsApp](https://faq.whatsapp.com/539178204879377/?cms_platform=web&locale=pt_BR).
+O compositor oferece ações para negrito (`*texto*`), itálico (`_texto_`), tachado (`~texto~`), código inline (`` `texto` ``) e monoespaçado (três crases). Os estilos em negrito, itálico e tachado podem ser combinados com marcadores diferentes, como `*_texto_*`; o histórico renderiza esses estilos aninhados. Ações adicionais formatam linhas como lista com marcadores (`* texto`), lista numerada (`1. texto`) e citação (`> texto`).
+
+O envio preserva os marcadores digitados. `**texto**` e `***texto***` não são convertidos para `*texto*`; o guia oficial define um asterisco em cada lado para negrito, e não documenta asteriscos repetidos como estilo separado. A referência oficial também apresenta listas, citação, código inline e monoespaçado: [guia de formatação do WhatsApp](https://faq.whatsapp.com/539178204879377/?cms_platform=web&locale=pt_BR).
 
 ## Identidade do WhatsApp e Pedidos por Snapshot de Telefone — 28/10/2026
 
