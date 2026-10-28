@@ -2,6 +2,11 @@ import { isTestProduct } from './isTestProduct';
 import {
   isQuantityCharacteristic,
 } from './productCharacteristicDependencies';
+import {
+  evaluateCharacteristicDependencies,
+  evaluateCharacteristicDependency,
+  getCharacteristicDependencies,
+} from './characteristicDependencyRules';
 
 export const TEST_PRODUCT_CATALOG_PUBLICATION_ERROR =
   'Produtos identificados como teste não podem ser publicados no Catálogo Digital.';
@@ -79,6 +84,18 @@ const getCharacteristicNameAliases = (name: string) => {
   }
   if (['modelo', 'linha', 'modelolinha', 'linhamodelo'].includes(normalized)) {
     return ['modelo', 'linha', 'modelolinha', 'linhamodelo'];
+  }
+  if (['altura', 'alturatotal'].includes(normalized)) {
+    return ['altura', 'alturatotal'];
+  }
+  if (['largura', 'larguratotal'].includes(normalized)) {
+    return ['largura', 'larguratotal'];
+  }
+  if (['profundidade', 'profundidadetotal'].includes(normalized)) {
+    return ['profundidade', 'profundidadetotal'];
+  }
+  if (['comprimento', 'comprimentototal'].includes(normalized)) {
+    return ['comprimento', 'comprimentototal'];
   }
   return [normalized];
 };
@@ -160,7 +177,15 @@ const readCharacteristicValue = (record: Record<string, any>, name: string): unk
     directFields = directFieldByName[normalized] || [];
   }
   for (const key of directFields) {
-    if (record[key] !== undefined && record[key] !== null) return record[key];
+    const candidate = record[key];
+    if (
+      candidate !== undefined &&
+      candidate !== null &&
+      !isBlankCharacteristicValue(candidate) &&
+      !(typeof candidate === 'number' && candidate <= 0)
+    ) {
+      return candidate;
+    }
   }
 
   return undefined;
@@ -401,8 +426,57 @@ export const getMissingCategoryRequiredCharacteristics = (
   const isCharacteristicRequired = (field: CatalogCharacteristicRequirement) =>
     getCharacteristicApplication(field) !== 'unavailable' &&
     isRequiredForCategory(field);
-  const isCharacteristicActive = (field: CatalogCharacteristicRequirement) => {
+  const isDependencySatisfied = (
+    field: CatalogCharacteristicRequirement,
+    record: Readonly<Record<string, any>> = data,
+    visited: Set<string> = new Set()
+  ): boolean => {
+    const dependencies = getCharacteristicDependencies(field as any);
+    if (dependencies.length === 0) return true;
+    const visitKey = field.id || normalizeCharacteristicKey(field.name);
+    if (visited.has(visitKey)) return false;
+    const nextVisited = new Set(visited);
+    nextVisited.add(visitKey);
+
+    return evaluateCharacteristicDependencies(
+      dependencies,
+      field.dependencyLogic,
+      (dependency) => {
+        const referenceField = requirements.find(
+          (candidate) =>
+            candidate.id === dependency.referenceAttributeId ||
+            normalizeCharacteristicKey(candidate.name) ===
+              normalizeCharacteristicKey(dependency.referenceAttributeId)
+        );
+        if (!referenceField) return false;
+        if (!isCharacteristicActive(referenceField, nextVisited)) return false;
+        const evaluateForRecord = (target: Readonly<Record<string, any>>) => {
+          const refValue =
+            readCharacteristicValue(target, referenceField.name) ??
+            (target !== data ? readCharacteristicValue(data, referenceField.name) : undefined);
+          return evaluateCharacteristicDependency(
+            dependency as any,
+            (referenceField.dataType ?? referenceField.data_type) as any,
+            refValue
+          );
+        };
+        if (record !== data) {
+          return evaluateForRecord(record);
+        }
+        if (evaluateForRecord(data)) return true;
+        if (activeVariations.length > 0 && isVariableField(referenceField)) {
+          return activeVariations.some((variation: any) => evaluateForRecord(variation));
+        }
+        return false;
+      }
+    );
+  };
+  const isCharacteristicActive = (
+    field: CatalogCharacteristicRequirement,
+    visited: Set<string> = new Set()
+  ): boolean => {
     if (getCharacteristicApplication(field) === 'unavailable') return false;
+    if (!isDependencySatisfied(field, data, visited)) return false;
     if (isCharacteristicRequired(field)) return true;
     if (field.id && selectedFieldIds.has(field.id) && activeFieldIds.has(field.id)) return true;
     if (hasExplicitCharacteristicSelection || hasExplicitCharacteristicActivation) return false;
@@ -436,11 +510,12 @@ export const getMissingCategoryRequiredCharacteristics = (
     return hasMatchingTechnicalValue(data) || activeVariations.some(hasMatchingTechnicalValue);
   };
   const missingRequired = [...new Set(requiredNames)].filter((name) => {
+    const requirement = findRequirement(name);
+    if (requirement && !isDependencySatisfied(requirement)) return false;
     const aliases = getCharacteristicNameAliases(name);
     const isDeclaredVariable = Boolean(declaredVariableNames?.some((fieldName) => aliases.includes(fieldName)));
     if (activeVariations.length === 0) {
       if (isDeclaredVariable) return true;
-      const requirement = findRequirement(name);
       return !hasRequiredCatalogValue(name, readCharacteristicValue(data, name), requirement?.dataType ?? requirement?.data_type);
     }
 
@@ -448,11 +523,10 @@ export const getMissingCategoryRequiredCharacteristics = (
       declaredVariableNames === null &&
       activeVariations.some((variation: any) =>
         hasStoredCharacteristicEntry(variation, name) ||
-        hasRequiredCatalogValue(name, readCharacteristicValue(variation, name), findRequirement(name)?.dataType ?? findRequirement(name)?.data_type)
+        hasRequiredCatalogValue(name, readCharacteristicValue(variation, name), requirement?.dataType ?? requirement?.data_type)
       );
     const isPerVariation = isDeclaredVariable || isLegacyVariable;
 
-    const requirement = findRequirement(name);
     const dataType = requirement?.dataType ?? requirement?.data_type;
     if (!isPerVariation && hasRequiredCatalogValue(name, readCharacteristicValue(data, name), dataType)) {
       return false;
@@ -580,22 +654,19 @@ export function checkEcomLegibility(
     const configuredNames = names.filter((name) =>
       Object.prototype.hasOwnProperty.call(values, name)
     );
-    const configuredValues = configuredNames.filter((name) =>
-      !isBlankCharacteristicValue(values[name])
-    );
-    if (configuredValues.length > 0) {
-      const enabledNames = configuredValues.filter((name) => {
+    if (configuredNames.length > 0) {
+      const enabledNames = configuredNames.filter((name) => {
         const raw = values[name];
         const valStr =
           typeof raw === 'object' && raw !== null ? (raw.value ?? raw.val ?? '') : raw;
         const value = String(valStr ?? '').trim().toLocaleLowerCase('pt-BR');
-        return !['não se aplica', 'nao se aplica', 'n/a'].includes(value);
+        return !['não se aplica', 'nao se aplica', 'n/a', 'não informar', 'nao informar'].includes(value);
       });
       return {
         enabled: enabledNames.length > 0,
         hasPositiveValue:
           enabledNames.length > 0 &&
-          enabledNames.every((name) => {
+          enabledNames.some((name) => {
             const raw = values[name];
             const valStr =
               typeof raw === 'object' && raw !== null ? (raw.value ?? raw.val ?? '') : raw;
@@ -636,8 +707,8 @@ export function checkEcomLegibility(
 
   const depthUsesLegacyLength = data.depthUseLength === true || data.depth_use_length === true;
   const dimensionStates = [
-    getDimensionState('width', ['Largura']),
-    getDimensionState('height', ['Altura']),
+    getDimensionState('width', ['Largura', 'Largura total']),
+    getDimensionState('height', ['Altura', 'Altura total']),
     getDimensionState(
       'depth',
       ['Profundidade', 'Profundidade total'],

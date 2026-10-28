@@ -1,6 +1,7 @@
 import React from 'react';
 import { WhatsAppMessage } from '../../../types';
 import { MessageAudioPlayer } from './MessageAudioPlayer';
+import { renderFormattedText } from './bubbleUtils';
 
 interface MessageBubbleMediaProps {
   message: WhatsAppMessage;
@@ -36,7 +37,7 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
     return (
       <div className="mb-1 space-y-2">
         {header?.type === 'text' && typeof header.text === 'string' && (
-          <p className="whitespace-pre-wrap break-words text-[13px] font-semibold">{header.text}</p>
+          <p className="whitespace-pre-wrap break-words text-[13px] font-semibold">{renderFormattedText(header.text)}</p>
         )}
         {header?.type === 'image' && (
           <div className="overflow-hidden rounded-xl border border-slate-200/60 bg-slate-100 dark:border-slate-700 dark:bg-slate-900">
@@ -71,10 +72,10 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
             : <p className="text-[11px] text-slate-500">Documento do template indisponível pela API</p>
         )}
         {typeof preview?.body === 'string' && preview.body.trim() && (
-          <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed">{preview.body}</p>
+          <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed">{renderFormattedText(preview.body)}</p>
         )}
         {typeof preview?.footer === 'string' && preview.footer.trim() && (
-          <p className="whitespace-pre-wrap break-words text-[11px] text-slate-500 dark:text-slate-400">{preview.footer}</p>
+          <p className="whitespace-pre-wrap break-words text-[11px] text-slate-500 dark:text-slate-400">{renderFormattedText(preview.footer)}</p>
         )}
         {buttons.length > 0 && (
           <div className="overflow-hidden rounded-xl border border-slate-200/70 dark:border-slate-700/70">
@@ -106,7 +107,7 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
           </div>
         )}
         {!header && !preview?.body && !preview?.footer && buttons.length === 0 && (
-          <p className="whitespace-pre-wrap break-words text-[13px]">{message.textContent || `Modelo: ${preview?.name || 'WhatsApp'}`}</p>
+          <p className="whitespace-pre-wrap break-words text-[13px]">{renderFormattedText(message.textContent || `Modelo: ${preview?.name || 'WhatsApp'}`)}</p>
         )}
       </div>
     );
@@ -132,7 +133,7 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
         )}
         {message.mediaCaption && (
           <p className="p-2 text-xs text-slate-800 dark:text-slate-200 font-medium whitespace-pre-wrap">
-            {message.mediaCaption}
+            {renderFormattedText(message.mediaCaption)}
           </p>
         )}
       </div>
@@ -203,7 +204,7 @@ export const MessageBubbleMedia: React.FC<MessageBubbleMediaProps> = ({
         )}
         {message.mediaCaption && (
           <p className="p-2 text-xs text-slate-800 dark:text-slate-200 font-medium">
-            {message.mediaCaption}
+            {renderFormattedText(message.mediaCaption)}
           </p>
         )}
       </div>

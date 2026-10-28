@@ -222,6 +222,7 @@ export const useProductFormSubmit = ({
               ecomVal.missingCategoryCharacteristics.length === 1
                 ? `O campo obrigatório "${characteristicLabel}" está desativado ou sem valor.`
                 : `Os campos obrigatórios (${characteristicLabel}) estão desativados ou sem valor.`;
+            setLoading(false);
             const confirmation = await Swal.fire({
               title: 'Ocultar produto do Catálogo Digital?',
               text: `${characteristicMessage} Se confirmar, as alterações serão salvas e o produto será ocultado do Catálogo Digital.`,

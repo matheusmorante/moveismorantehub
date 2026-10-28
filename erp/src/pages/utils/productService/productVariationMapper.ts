@@ -112,7 +112,7 @@ export const mapDbVariations = (
         width: syncWidth ? Number(data.width || 0) : (v.width ? Number(v.width) : undefined),
         depth: syncDepth ? Number(data.depth || 0) : (v.depth ? Number(v.depth) : undefined),
         height: syncHeight ? Number(data.height || 0) : (v.height ? Number(v.height) : undefined),
-        weight: syncWeight ? Number(data.weight || 0) : (v.weight ? Number(v.weight) : details.weight),
+        weight: syncWeight ? (data.weight ? Number(data.weight) : undefined) : (v.weight ? Number(v.weight) : details.weight),
       };
     }
     return {

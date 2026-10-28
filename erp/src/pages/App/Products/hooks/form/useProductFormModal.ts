@@ -427,6 +427,9 @@ export function useProductFormModal({
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (typeof document !== 'undefined' && document.querySelector('.swal2-container')) {
+          return;
+        }
         if (isDiscardChangesConfirmOpen) {
           cancelDiscardChanges();
           return;

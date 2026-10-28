@@ -377,6 +377,10 @@ Templates agora podem ser encaminhados pela Central. O encaminhamento compõe ca
 
 O proxy da Meta passou a limitar a leitura a 4 MiB por arquivo, verificando `Content-Length` quando presente e interrompendo o stream se o corpo exceder o limite. Assim a Central apresenta um erro claro em vez de alocar um corpo sem limite; o teto deixa margem para o limite de 4,5 MB das [respostas de Vercel Functions](https://vercel.com/docs/errors/function_response_payload_too_large). O build local do ERP passou. A consulta agregada de produção encontrou eventos inbound recentes de mídia e `131051`, mas nenhum binário de cliente foi baixado ou usado como fixture; esse caminho real de mídia continua sem validação nesta revisão.
 
+## Formatação de texto na Central — 28/10/2026
+
+O compositor oferece ações de negrito, itálico, tachado e monoespaçado para a seleção atual; sem seleção, insere os marcadores e deixa o cursor entre eles. O histórico renderiza `*texto*`, `_texto_`, `~texto~`, `` `texto` `` e blocos com três crases sem exibir os delimitadores. Também aceita `**texto**` no rascunho e converte para `*texto*` ao enviar, que é a sintaxe oficial do WhatsApp para negrito. Referência: [guia de formatação do WhatsApp](https://faq.whatsapp.com/539178204879377/?cms_platform=web&locale=pt_BR).
+
 ## Identidade do WhatsApp e Pedidos por Snapshot de Telefone — 28/10/2026
 
 Por especificação de produto:

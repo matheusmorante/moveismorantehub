@@ -25,6 +25,7 @@ import type {
   CustomerSupportSendInput,
   CustomerSupportSendResult,
 } from '@/pages/utils/customerSupport/customerSupportService';
+import { normalizeWhatsAppText } from './bubble/bubbleUtils';
 
 type SupportChatComposerAttachment = z.input<typeof supportChatComposerDraftSchema>['attachments'][number];
 type AttachmentKind = SupportChatComposerAttachment['kind'];
@@ -52,6 +53,12 @@ interface ChatComposerProps {
 }
 
 const EMOJIS = ['😀', '😊', '😍', '👍', '🙏', '❤️', '✨', '😉', '🎉', '👋', '😄', '🛋️'];
+const WHATSAPP_FORMATS = [
+  { label: 'B', name: 'Negrito', prefix: '*', suffix: '*', title: 'Negrito · *texto*', className: 'font-extrabold' },
+  { label: 'I', name: 'Itálico', prefix: '_', suffix: '_', title: 'Itálico · _texto_', className: 'italic' },
+  { label: 'S', name: 'Tachado', prefix: '~', suffix: '~', title: 'Tachado · ~texto~', className: 'line-through' },
+  { label: '</>', name: 'Monoespaçado', prefix: '```', suffix: '```', title: 'Monoespaçado · ```texto```', className: 'font-mono text-[10px]' },
+];
 const MAX_ATTACHMENTS = 50;
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const FILE_TYPES: Record<string, { mimeType: string; label: string }> = {
@@ -524,6 +531,27 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     });
   };
 
+  const applyMessageFormatting = (prefix: string, suffix: string) => {
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart ?? message.length;
+    const end = textarea?.selectionEnd ?? message.length;
+    const selected = message.slice(start, end);
+    const isWrapped = Boolean(selected)
+      && message.slice(Math.max(0, start - prefix.length), start) === prefix
+      && message.slice(end, end + suffix.length) === suffix;
+    const nextMessage = isWrapped
+      ? `${message.slice(0, start - prefix.length)}${selected}${message.slice(end + suffix.length)}`
+      : `${message.slice(0, start)}${prefix}${selected}${suffix}${message.slice(end)}`;
+    const selectionStart = isWrapped ? start - prefix.length : start + prefix.length;
+    const selectionEnd = selectionStart + selected.length;
+
+    setDraftValue('message', nextMessage, { shouldDirty: true, shouldValidate: true });
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(selectionStart, selectionEnd);
+    });
+  };
+
   const stopRecordingStream = () => {
     recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
     recordingStreamRef.current = null;
@@ -670,7 +698,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     if (startCount > 10 && !window.confirm(`Você está prestes a enviar conteúdo sobre ${startCount} itens. Deseja continuar?`)) return;
 
     // Valida o lote inteiro antes da primeira chamada externa para evitar envios parciais previsíveis.
-    let plannedText = draft.message.trim();
+    let plannedText = normalizeWhatsAppText(draft.message.trim());
     for (const attachment of draft.attachments) {
       if (attachment.kind === 'catalog') {
         if (attachment.selection.deliveryMode === 'native' && plannedText.length > 1024) {
@@ -709,7 +737,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     setIsSending(true);
     setSendError('');
     setSendFeedback('Enviando…');
-    let pendingText = draft.message.trim();
+    let pendingText = normalizeWhatsAppText(draft.message.trim());
     let pendingReplyToWamid = replyTarget?.apiMessageId || undefined;
     let replyWasSent = false;
     let hadWarning = false;
@@ -922,6 +950,24 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                   <button type="button" onClick={cancelRecording} aria-label="Descartar áudio gravado" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-white hover:text-red-600 dark:hover:bg-slate-700"><i className="bi bi-trash3" /></button>
                 </div>
               )}
+
+              <div role="toolbar" aria-label="Formatação de texto do WhatsApp" className="mb-1 flex items-center gap-0.5 px-1">
+                {WHATSAPP_FORMATS.map((format) => (
+                  <button
+                    key={format.name}
+                    type="button"
+                    aria-label={`Aplicar ${format.name.toLowerCase()}`}
+                    title={format.title}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => applyMessageFormatting(format.prefix, format.suffix)}
+                    disabled={!canSend || !careWindowOpen || !isChannelConnected || isOutcomeUncertain}
+                    className={`flex h-6 min-w-7 items-center justify-center rounded-md px-1.5 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 ${format.className}`}
+                  >
+                    {format.label}
+                  </button>
+                ))}
+                <span className="ml-1 hidden truncate text-[10px] text-slate-400 sm:inline">*negrito* · _itálico_ · ~tachado~ · ```código```</span>
+              </div>
 
               <textarea
                 {...messageField}

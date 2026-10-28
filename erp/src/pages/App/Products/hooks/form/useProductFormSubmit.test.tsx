@@ -425,4 +425,71 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
       { autoClose: 8000 }
     );
   });
+
+  it('salva produto publicado sem abrir Swal quando características opcionais possuem apenas defaults vazios (brand="", line="", weight=0) e dimensões legadas', async () => {
+    const publishedLegacyProduct: Product = {
+      ...complete,
+      isDraft: false,
+      status: 'published',
+      active: true,
+      title: 'Roupeiro 6 Portas',
+      ecommerceDescription: 'Roupeiro amplo em MDP',
+      brand: '',
+      line: '',
+      width: 200,
+      height: 200,
+      depth: 0,
+      weight: undefined,
+      images: ['https://example.com/roupeiro.jpg'],
+      technicalValues: {
+        Cor: 'Castanho',
+        Altura: '200',
+        Largura: '200',
+        Profundidade: '46',
+        Peso: '92.5',
+      },
+      variations: [
+        {
+          ...complete.variations![0],
+          status: 'published',
+          active: true,
+          weight: undefined,
+        },
+      ],
+    };
+    vi.mocked(fetchTechnicalFieldDefinitions).mockResolvedValueOnce([
+      {
+        id: 'attr-brand',
+        name: 'Marca',
+        categoryApplications: [{ categoryId: 'categoria', application: 'optional' }],
+      },
+      {
+        id: 'attr-model',
+        name: 'Modelo/Linha',
+        categoryApplications: [{ categoryId: 'categoria', application: 'optional' }],
+      },
+      {
+        id: 'attr-depth',
+        name: 'Profundidade total',
+        categoryApplications: [{ categoryId: 'categoria', application: 'required' }],
+      },
+      {
+        id: 'attr-weight',
+        name: 'Peso',
+        categoryApplications: [{ categoryId: 'categoria', application: 'optional' }],
+      },
+    ] as any);
+    const { result } = renderSubmit(publishedLegacyProduct, true);
+
+    await act(async () => {
+      expect(await result.current.handleSubmit(false)).toBe(true);
+    });
+
+    expect(Swal.fire).not.toHaveBeenCalled();
+    expect(mocks.saveProduct).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'published',
+      })
+    );
+  });
 });
