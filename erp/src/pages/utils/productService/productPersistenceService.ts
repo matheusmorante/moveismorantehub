@@ -124,47 +124,50 @@ export const syncProductToSupabase = async (
     }
     if (productError) throw productError;
 
-    // Atualizar category_id primário e sincronizar tabela product_categories
-    if (product.id && Array.isArray(product.categoryIds)) {
-      try {
-        // Sincronizar na tabela intermediária N:N product_categories
-        await supabase.from('product_categories').delete().eq('product_id', product.id);
-        if (product.categoryIds.length > 0) {
-          const categoryRecords = product.categoryIds.map((catId) => ({
-            product_id: product.id,
-            category_id: catId,
-          }));
-          const { error: catInsertErr } = await supabase
-            .from('product_categories')
-            .insert(categoryRecords);
-          if (catInsertErr) {
-            console.warn('[ProductService] Aviso ao inserir product_categories:', catInsertErr);
+    // Sincronizar categorias e imagens em paralelo
+    await Promise.all([
+      (async () => {
+        if (product.id && Array.isArray(product.categoryIds)) {
+          try {
+            await supabase.from('product_categories').delete().eq('product_id', product.id);
+            if (product.categoryIds.length > 0) {
+              const categoryRecords = product.categoryIds.map((catId) => ({
+                product_id: product.id,
+                category_id: catId,
+              }));
+              const { error: catInsertErr } = await supabase
+                .from('product_categories')
+                .insert(categoryRecords);
+              if (catInsertErr) {
+                console.warn('[ProductService] Aviso ao inserir product_categories:', catInsertErr);
+              }
+            }
+          } catch (catErr) {
+            console.error('[ProductService] Erro ao sincronizar product_categories:', catErr);
           }
         }
-      } catch (catErr) {
-        console.error('[ProductService] Erro ao sincronizar product_categories:', catErr);
-      }
-    }
-
-    // Sincronizar imagens na tabela product_images
-    if (product.id && Array.isArray(product.images)) {
-      const imageRecords = product.images.map((url, idx) => ({
-        product_id: product.id,
-        image_url: url,
-        is_main: idx === 0,
-      }));
-      const { error: deleteImagesError } = await supabase
-        .from('product_images')
-        .delete()
-        .eq('product_id', product.id);
-      if (deleteImagesError) throw deleteImagesError;
-      if (imageRecords.length > 0) {
-        const { error: insertImagesError } = await supabase
-          .from('product_images')
-          .insert(imageRecords);
-        if (insertImagesError) throw insertImagesError;
-      }
-    }
+      })(),
+      (async () => {
+        if (product.id && Array.isArray(product.images)) {
+          const imageRecords = product.images.map((url, idx) => ({
+            product_id: product.id,
+            image_url: url,
+            is_main: idx === 0,
+          }));
+          const { error: deleteImagesError } = await supabase
+            .from('product_images')
+            .delete()
+            .eq('product_id', product.id);
+          if (deleteImagesError) throw deleteImagesError;
+          if (imageRecords.length > 0) {
+            const { error: insertImagesError } = await supabase
+              .from('product_images')
+              .insert(imageRecords);
+            if (insertImagesError) throw insertImagesError;
+          }
+        }
+      })(),
+    ]);
 
     // Sincronizar variações na tabela product_variations
     if (product.id) {
@@ -187,21 +190,6 @@ export const syncProductToSupabase = async (
             },
           }
         );
-        let generatedDefaultId: string | undefined;
-        if (!isNonConventionalProduct(product)) {
-          const { data: currentParentVariations, error: currentParentVariationsError } =
-            await supabase
-              .from('product_variations')
-              .select('id, sku')
-              .eq('product_id', product.id);
-          if (currentParentVariationsError) throw currentParentVariationsError;
-          const requestedIds = new Set(variationsToPersist.map((item) => item.id));
-          const generatedDefault = (currentParentVariations || []).find(
-            (item: any) =>
-              String(item.sku || '').startsWith('DEFAULT-') && !requestedIds.has(item.id)
-          );
-          generatedDefaultId = generatedDefault?.id;
-        }
         // Foto é requisito de publicação no catálogo, não requisito operacional.
         const isUuid = (value?: string) =>
           Boolean(
@@ -230,20 +218,40 @@ export const syncProductToSupabase = async (
           })
           .filter(Boolean);
 
-        let usedSkus = new Set<string>();
-        if (candidateSkus.length > 0) {
-          const { data: existingVariations, error: existingVariationsError } = await supabase
-            .from('product_variations')
-            .select('sku')
-            .in('sku', candidateSkus)
-            .neq('product_id', product.id);
-          if (existingVariationsError) throw existingVariationsError;
-          usedSkus = new Set(
-            (existingVariations || [])
-              .map((variation: any) => String(variation.sku || ''))
-              .filter(Boolean)
+        const [currentParentVariationsResult, existingVariationsResult] = await Promise.all([
+          !isNonConventionalProduct(product)
+            ? supabase
+                .from('product_variations')
+                .select('id, sku')
+                .eq('product_id', product.id)
+            : Promise.resolve({ data: null, error: null }),
+          candidateSkus.length > 0
+            ? supabase
+                .from('product_variations')
+                .select('sku')
+                .in('sku', candidateSkus)
+                .neq('product_id', product.id)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
+
+        if (currentParentVariationsResult.error) throw currentParentVariationsResult.error;
+        if (existingVariationsResult.error) throw existingVariationsResult.error;
+
+        let generatedDefaultId: string | undefined;
+        if (!isNonConventionalProduct(product)) {
+          const requestedIds = new Set(variationsToPersist.map((item) => item.id));
+          const generatedDefault = (currentParentVariationsResult.data || []).find(
+            (item: any) =>
+              String(item.sku || '').startsWith('DEFAULT-') && !requestedIds.has(item.id)
           );
+          generatedDefaultId = generatedDefault?.id;
         }
+
+        let usedSkus = new Set(
+          (existingVariationsResult.data || [])
+            .map((variation: any) => String(variation.sku || ''))
+            .filter(Boolean)
+        );
 
         const recordsToSave = variationsWithUuid.map(({ variation: v, originalIndex: index }) => {
           const attributesToSave = (v.attributes || [])

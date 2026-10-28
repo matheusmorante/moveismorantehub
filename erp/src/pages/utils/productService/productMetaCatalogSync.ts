@@ -20,6 +20,25 @@ import { buildProductMetaCatalogSyncItems } from '../../../../../shared-utils/pr
  */
 const pendingSyncs = new Map<string, ReturnType<typeof setTimeout>>();
 
+let cachedOpportunities: { timestamp: number; data: MetaCatalogOpportunitySource[] } | null = null;
+const OPP_CACHE_TTL_MS = 5 * 60 * 1000;
+
+export function clearMetaCatalogOpportunitiesCache(): void {
+  cachedOpportunities = null;
+}
+
+async function fetchCachedOpportunities(): Promise<{ data: MetaCatalogOpportunitySource[] | null; error: any }> {
+  const now = Date.now();
+  if (cachedOpportunities && now - cachedOpportunities.timestamp < OPP_CACHE_TTL_MS) {
+    return { data: cachedOpportunities.data, error: null };
+  }
+  const result = await supabase.from('opportunities').select('id, name, observations');
+  if (!result.error && result.data) {
+    cachedOpportunities = { timestamp: now, data: result.data as MetaCatalogOpportunitySource[] };
+  }
+  return result;
+}
+
 /**
  * Executa a sincronização de todos os produtos do sistema com a Meta Catalog API.
  * Usado pelo botão manual nos 3 pontinhos e na tela de Catálogo Meta.
@@ -74,7 +93,7 @@ export async function syncProductToMetaCatalog(
           'id, product_id, status, active, name, sku, image_url, price, promo_price, stock, attributes, description, use_parent_price, use_parent_promo_price, use_parent_name, use_parent_description'
         )
         .eq('product_id', productId),
-      supabase.from('opportunities').select('id, name, observations'),
+      fetchCachedOpportunities(),
     ]);
 
     if (prodErr || !product) {

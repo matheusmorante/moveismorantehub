@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  clearMetaCatalogOpportunitiesCache,
   syncAllProductsToMetaCatalog,
   syncProductToMetaCatalog,
   triggerProductMetaCatalogSync,
@@ -39,6 +40,7 @@ vi.mock('@/pages/App/Products/MetaCatalog/services/metaCatalogPayload', () => ({
 describe('productMetaCatalogSync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearMetaCatalogOpportunitiesCache();
     vi.useFakeTimers();
   });
 

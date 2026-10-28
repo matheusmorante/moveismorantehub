@@ -10,11 +10,26 @@ export type ProductCategoryOption = { id: string; name: string };
 
 export const CHARACTERISTIC_GROUPS_QUERY_KEY = ['characteristic-groups'] as const;
 const CHARACTERISTIC_GROUP_REQUEST_TIMEOUT_MS = 20_000;
+const CACHE_TTL_MS = 60_000;
 
-export const fetchCharacteristicGroups = async (): Promise<{
+let cachedCharacteristicGroups: {
+  timestamp: number;
+  data: { groups: CharacteristicGroup[]; categories: ProductCategoryOption[] };
+} | null = null;
+
+export const clearCharacteristicGroupCache = () => {
+  cachedCharacteristicGroups = null;
+};
+
+export const fetchCharacteristicGroups = async (options?: { forceRefresh?: boolean }): Promise<{
   groups: CharacteristicGroup[];
   categories: ProductCategoryOption[];
 }> => {
+  const now = Date.now();
+  if (!options?.forceRefresh && cachedCharacteristicGroups && now - cachedCharacteristicGroups.timestamp < CACHE_TTL_MS) {
+    return cachedCharacteristicGroups.data;
+  }
+
   const results = await withTimeout(
     Promise.all([
       supabase.from('attribute_groups').select('id, name, description, is_default').order('name'),
@@ -42,7 +57,12 @@ export const fetchCharacteristicGroups = async (): Promise<{
   }));
   const sortedGroups = sortProductCharacteristicGroups(groups);
 
-  return { groups: sortedGroups, categories };
+  cachedCharacteristicGroups = {
+    timestamp: now,
+    data: { groups: sortedGroups, categories },
+  };
+
+  return cachedCharacteristicGroups.data;
 };
 
 export const saveCharacteristicGroup = async (
@@ -67,6 +87,7 @@ export const saveCharacteristicGroup = async (
   if (typeof data !== 'string' || !data) {
     throw new Error('O banco não retornou o identificador do grupo salvo.');
   }
+  clearCharacteristicGroupCache();
   return data;
 };
 
@@ -80,5 +101,6 @@ export const deleteCharacteristicGroup = async (groupId: string): Promise<void> 
   if (!result) throw new Error('Tempo esgotado ao excluir o grupo de características.');
   const { error } = result;
   if (error) throw error;
+  clearCharacteristicGroupCache();
 };
 

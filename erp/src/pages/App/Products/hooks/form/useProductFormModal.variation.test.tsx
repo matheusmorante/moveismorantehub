@@ -51,8 +51,8 @@ describe('proprietário que recebe a variação concluída', () => {
   });
   it('rejeita SKU já utilizado por outra variação', async () => {
     const { result } = mount();
-    await act(async () => { expect(await result.current.handleSaveVariation({ ...variation, id: 'other', sku: ' sku-1 ' })).toBe(false); });
-    expect(mocks.saveVariation).not.toHaveBeenCalled(); expect(mocks.draft).not.toHaveBeenCalled(); expect(mocks.error).toHaveBeenCalledWith(expect.stringContaining('já está em uso'));
+    await act(async () => { expect(await result.current.handleSaveVariation({ ...variation, id: 'other', name: 'Armário vermelho', sku: ' sku-1 ' })).toBe(false); });
+    expect(mocks.saveVariation).not.toHaveBeenCalled(); expect(mocks.draft).not.toHaveBeenCalled(); expect(mocks.error).toHaveBeenCalledWith(expect.stringContaining('já está em uso'), expect.anything());
   });
   it.each([false, true])('protege a operação pendente e permite retomar após falha; rascunho=%s', async (draft) => {
     vi.spyOn(console, 'error').mockImplementation(() => {});

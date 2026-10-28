@@ -21,14 +21,21 @@ export const metaHttpClient = {
     const { data, error } = await supabase.auth.getSession();
     const accessToken = data.session?.access_token;
     if (error || !accessToken) throw new Error('Sessão inválida. Entre novamente.');
-    return fetch('/api/meta-graph', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ ...payload, operation }),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20_000);
+    try {
+      return await fetch('/api/meta-graph', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...payload, operation }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
   },
 
   /**
