@@ -4,6 +4,11 @@ import { z } from 'zod';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { catalogNameFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import { categoryAttributeSelectionsSchema } from '../../../../../../../shared-utils/categoryAttributeSelection';
+import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
+import {
+  characteristicCategoryApplicationsSchema,
+  type CharacteristicCategoryApplication,
+} from '../../../../../../../shared-utils/categoryCharacteristicApplication';
 import {
   fetchEnvironments,
   fetchCategories,
@@ -16,7 +21,10 @@ import {
   deleteCategory,
   unlinkCategoryFromEnvironment,
   fetchCategoryAttributes,
+  fetchActiveCharacteristics,
+  fetchCharacteristicCategoryApplications,
   type CategoryAttributeSelection,
+  type ActiveCharacteristic,
 } from '@/pages/utils/categoryService';
 import {
   EnvironmentNode,
@@ -48,12 +56,65 @@ export function useCategoriesAndEnvironments() {
   const [initialAttributeIds, setInitialAttributeIds] = useState<string[]>([]);
   const [isLoadingAttributes, setIsLoadingAttributes] = useState<boolean>(false);
   const [attributeLoadFailed, setAttributeLoadFailed] = useState<boolean>(false);
+  const [activeCharacteristics, setActiveCharacteristics] = useState<ActiveCharacteristic[]>([]);
+  const [selectedCharacteristicApplications, setSelectedCharacteristicApplications] = useState<CharacteristicCategoryApplication[]>([]);
+  const [isLoadingCharacteristicApplications, setIsLoadingCharacteristicApplications] = useState<boolean>(false);
+  const [characteristicApplicationsLoadFailed, setCharacteristicApplicationsLoadFailed] = useState<boolean>(false);
   const categorySchema = catalogNameFormSchema.extend({
     name: catalogNameFormSchema.shape.name.transform((value) => value.trim().toUpperCase()),
     linkedIds: z.array(z.string().min(1)),
     attributes: categoryAttributeSelectionsSchema,
+    characteristicApplications: characteristicCategoryApplicationsSchema,
+  }).superRefine((values, context) => {
+    if (showModal !== 'categoria') return;
+    const submittedIds = new Set(values.characteristicApplications.map((item) => item.attributeId));
+    if (
+      submittedIds.size !== activeCharacteristics.length ||
+      activeCharacteristics.some((attribute) => !submittedIds.has(attribute.id))
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['characteristicApplications'],
+        message: 'Defina a aplicação de todas as características da categoria.',
+      });
+    }
   });
-  const { validateAndRun: validateCategory } = useZodForm(categorySchema, { name: nameInput, linkedIds: selectedLinks, attributes: selectedAttributes.map((attribute) => ({ ...attribute })) });
+  const { validateAndRun: validateCategory } = useZodForm(categorySchema, {
+    name: nameInput,
+    linkedIds: selectedLinks,
+    attributes: selectedAttributes.map((attribute) => ({ ...attribute })),
+    characteristicApplications: selectedCharacteristicApplications.map((application) => ({ ...application })),
+  });
+
+  const loadCharacteristicApplications = useCallback(async (categoryId?: string) => {
+    setIsLoadingCharacteristicApplications(true);
+    setCharacteristicApplicationsLoadFailed(false);
+    setActiveCharacteristics([]);
+    setSelectedCharacteristicApplications([]);
+    try {
+      const [characteristics, savedApplications] = await Promise.all([
+        fetchActiveCharacteristics(),
+        categoryId ? fetchCharacteristicCategoryApplications(categoryId) : Promise.resolve([]),
+      ]);
+      const applicationsByAttributeId = new Map(
+        savedApplications.map((application) => [application.attributeId, application.application])
+      );
+      setActiveCharacteristics(characteristics);
+      setSelectedCharacteristicApplications(characteristics.map((attribute) => ({
+        attributeId: attribute.id,
+        name: attribute.name,
+        application: isCatalogNeverRequiredCharacteristicName(attribute.name)
+          ? 'optional'
+          : applicationsByAttributeId.get(attribute.id) ?? 'optional',
+      })));
+    } catch (error) {
+      console.error('[useCategoriesAndEnvironments] Erro ao carregar aplicações das características:', error);
+      setCharacteristicApplicationsLoadFailed(true);
+      toast.error('Não foi possível carregar as aplicações das características desta categoria.');
+    } finally {
+      setIsLoadingCharacteristicApplications(false);
+    }
+  }, []);
 
   const loadData = useCallback(async (silent: boolean = false) => {
     if (!silent) setLoading(true);
@@ -99,21 +160,41 @@ export function useCategoriesAndEnvironments() {
     setInitialAttributeIds([]);
     setIsLoadingAttributes(false);
     setAttributeLoadFailed(false);
+    setActiveCharacteristics([]);
+    setSelectedCharacteristicApplications([]);
+    setIsLoadingCharacteristicApplications(false);
+    setCharacteristicApplicationsLoadFailed(false);
   }, []);
 
   const handleSave = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      return validateCategory({ name: nameInput, linkedIds: selectedLinks, attributes: selectedAttributes.map((attribute) => ({ ...attribute })) }, async (values) => {
+      return validateCategory({
+        name: nameInput,
+        linkedIds: selectedLinks,
+        attributes: selectedAttributes.map((attribute) => ({ ...attribute })),
+        characteristicApplications: selectedCharacteristicApplications.map((application) => ({ ...application })),
+      }, async (values) => {
       const name = values.name;
+      const characteristicApplications = values.characteristicApplications.map((application) => ({
+        ...application,
+        application: isCatalogNeverRequiredCharacteristicName(application.name)
+          ? 'optional' as const
+          : application.application,
+      }));
       if (!name) {
         toast.error('O nome não pode estar vazio.');
         return;
       }
 
       const isEnv = showModal === 'ambiente';
-      if (!isEnv && (isLoadingAttributes || attributeLoadFailed)) {
-        toast.error('Aguarde o carregamento das características obrigatórias antes de salvar.');
+      if (!isEnv && (
+        isLoadingAttributes ||
+        attributeLoadFailed ||
+        isLoadingCharacteristicApplications ||
+        characteristicApplicationsLoadFailed
+      )) {
+        toast.error('Aguarde o carregamento das características antes de salvar.');
         return;
       }
 
@@ -132,7 +213,14 @@ export function useCategoriesAndEnvironments() {
           if (isEnv) {
             await updateEnvironment(editingNode.id, name, values.linkedIds);
           } else {
-            await updateCategory(editingNode.id, name, values.linkedIds, values.attributes);
+            await updateCategory(
+              editingNode.id,
+              name,
+              values.linkedIds,
+              values.attributes,
+              undefined,
+              characteristicApplications
+            );
           }
           toast.success(isEnv ? 'Ambiente atualizado!' : 'Categoria atualizada!');
         } else {
@@ -141,7 +229,7 @@ export function useCategoriesAndEnvironments() {
           } else {
             await createCategory(name, values.linkedIds, values.attributes, {
               meta_title: `${name} | Móveis Morante`,
-            });
+            }, characteristicApplications);
           }
           toast.success(isEnv ? 'Ambiente criado!' : 'Categoria criada!');
         }
@@ -163,8 +251,11 @@ export function useCategoriesAndEnvironments() {
       editingNode,
       selectedLinks,
       selectedAttributes,
+      selectedCharacteristicApplications,
       isLoadingAttributes,
       attributeLoadFailed,
+      isLoadingCharacteristicApplications,
+      characteristicApplicationsLoadFailed,
       closeForm,
       loadData,
       validateCategory,
@@ -224,6 +315,7 @@ export function useCategoriesAndEnvironments() {
     setAttributeLoadFailed(false);
     setIsLoadingAttributes(true);
     setShowModal('categoria');
+    void loadCharacteristicApplications(cat.id);
 
     try {
       const attrs = await fetchCategoryAttributes(cat.id);
@@ -236,12 +328,14 @@ export function useCategoriesAndEnvironments() {
     } finally {
       setIsLoadingAttributes(false);
     }
-  }, []);
+  }, [loadCharacteristicApplications]);
 
   const openNewEnvironment = useCallback(() => {
     setEditingNode(null);
     setNameInput('');
     setSelectedLinks([]);
+    setSelectedAttributes([]);
+    setSelectedCharacteristicApplications([]);
     setShowModal('ambiente');
   }, []);
 
@@ -254,7 +348,8 @@ export function useCategoriesAndEnvironments() {
     setAttributeLoadFailed(false);
     setIsLoadingAttributes(false);
     setShowModal('categoria');
-  }, []);
+    void loadCharacteristicApplications();
+  }, [loadCharacteristicApplications]);
 
   const toggleLink = useCallback((id: string) => {
     setSelectedLinks((prev) =>
@@ -292,6 +387,10 @@ export function useCategoriesAndEnvironments() {
     selectedLinks,
     selectedAttributes,
     setSelectedAttributes,
+    selectedCharacteristicApplications,
+    setSelectedCharacteristicApplications,
+    isLoadingCharacteristicApplications,
+    characteristicApplicationsLoadFailed,
     isLoadingAttributes,
     attributeLoadFailed,
     hasAddedRequiredAttributes,

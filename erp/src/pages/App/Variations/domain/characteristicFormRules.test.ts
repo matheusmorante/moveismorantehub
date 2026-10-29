@@ -21,7 +21,6 @@ const validForm = {
   configuration: {},
   dependency: null,
   dependencyAlternatives: [],
-  categoryApplications: [{ categoryId: 'cat-1', application: 'optional' as const }],
 };
 
 describe('characteristicFormRules', () => {
@@ -45,43 +44,17 @@ describe('characteristicFormRules', () => {
     expect(formData.options[0]?.sortOrder).toBe(0);
   });
 
-  it('guarda aplicação por característica com obrigatória, opcional e indisponível', () => {
-    const schema = createManagedCharacteristicFormSchema([], undefined, [group], ['cat-1', 'cat-2']);
-    const categoryApplications = [
-      { categoryId: 'cat-1', application: 'required' },
-      { categoryId: 'cat-2', application: 'unavailable' },
-    ];
-    expect(schema.safeParse({ ...validForm, categoryApplications }).success).toBe(true);
-    expect(schema.safeParse({
-      ...validForm,
-      categoryApplications: categoryApplications.slice(0, 1),
-    }).success).toBe(false);
-  });
-
-  it('inicia cada aplicação por categoria como opcional', () => {
-    const categories = [{ id: 'cat-1', name: 'Guarda-roupas' }];
-    const initial = getInitialCharacteristicFormData(null, group.id, categories);
-    expect(initial.categoryApplications).toEqual([{ categoryId: 'cat-1', application: 'optional' }]);
-
-    const schema = createManagedCharacteristicFormSchema([], undefined, [group], ['cat-1']);
-    expect(schema.safeParse({ ...validForm, categoryApplications: initial.categoryApplications }).success).toBe(true);
-    expect(schema.safeParse({
-      ...validForm,
-      categoryApplications: [{ categoryId: 'cat-1', application: 'unavailable' }],
-    }).success).toBe(true);
-  });
-
   it('requer grupo válido e nome exclusivo no formulário de gerenciamento', () => {
     const schema = createManagedCharacteristicFormSchema([
       { id: 'attr-1', name: 'Cor', dataType: 'radio', active: true, options: [] },
-    ], undefined, [group], ['cat-1']);
+    ], undefined, [group]);
     expect(schema.safeParse({ ...validForm, groupId: '' }).success).toBe(false);
     expect(schema.safeParse({ ...validForm, groupId: 'missing' }).success).toBe(false);
     expect(schema.safeParse({ ...validForm, name: ' cor ' }).success).toBe(false);
   });
 
   it('valida opções ativas e configuração por tipo', () => {
-    const schema = createManagedCharacteristicFormSchema([], undefined, [group], ['cat-1']);
+    const schema = createManagedCharacteristicFormSchema([], undefined, [group]);
     expect(schema.safeParse({ ...validForm, options: [] }).success).toBe(false);
     expect(schema.safeParse({ ...validForm, options: [{ id: 'o1', value: 'Azul', active: false }] }).success).toBe(false);
     expect(schema.safeParse({ ...validForm, options: [{ id: 'o1', value: 'Azul' }, { id: 'o2', value: ' azul ' }] }).success).toBe(false);
@@ -165,6 +138,23 @@ describe('characteristicFormRules', () => {
     expect(schema.safeParse({ ...legacy, options: [] }).success).toBe(false);
   });
 
+  it('valida limites de preenchimento no schema legado usado pelo gerenciamento mobile', () => {
+    const schema = createCharacteristicFormSchema();
+    const base = {
+      name: 'Largura', unit: '', decimalPlaces: 2, active: true, options: [],
+    };
+
+    expect(schema.safeParse({ ...base, dataType: 'integer', configuration: { minValue: 1.5 } }).success)
+      .toBe(false);
+    expect(schema.safeParse({ ...base, dataType: 'integer', configuration: { minValue: 1, maxValue: 8 } }).success)
+      .toBe(true);
+    expect(schema.safeParse({ ...base, dataType: 'multi_select', configuration: { minSelections: 3, maxSelections: 2 } }).success)
+      .toBe(false);
+    expect(schema.safeParse({ ...base, dataType: 'text_short', configuration: { minLength: 3, maxLength: 31 } }).success)
+      .toBe(false);
+    expect(schema.safeParse({ ...base, dataType: 'text_short' }).success).toBe(true);
+  });
+
   it('formata o subtítulo com tipo e opções ativas', () => {
     expect(getCharacteristicSubtitle({
       id: '1', name: 'Cor', dataType: 'radio', active: true,
@@ -175,6 +165,6 @@ describe('characteristicFormRules', () => {
     })).toContain('Número decimal • cm');
     expect(getCharacteristicSubtitle({
       id: '3', name: 'Entrada USB', dataType: 'boolean', active: true, options: [],
-    })).toBe('Booleano · Sim/Não');
+    })).toBe('Sim/Não');
   });
 });

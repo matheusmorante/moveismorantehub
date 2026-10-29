@@ -1,10 +1,10 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { type FormEvent } from 'react';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import type {
   default as VariationType,
   CharacteristicFillConfiguration,
   CharacteristicGroup,
 } from '../../../types/variation.type';
-import type { ProductCategoryOption } from '../../../utils/characteristicGroupService';
 import { CharacteristicOptionsSection } from '../components/CharacteristicOptionsSection';
 import type { CharacteristicFormData } from '../domain/characteristicFormRules';
 import {
@@ -20,7 +20,6 @@ export interface VariationFormModalProps {
   readonly variation?: VariationType | null;
   readonly allVariations?: readonly VariationType[];
   readonly groups: readonly CharacteristicGroup[];
-  readonly categories?: readonly ProductCategoryOption[];
   readonly defaultGroupId?: string;
 }
 
@@ -29,22 +28,16 @@ const underlineInput =
 const sectionTitle = 'text-sm font-semibold text-slate-800 dark:text-slate-100';
 
 const numberValue = (value: string): number | undefined => value.trim() === '' ? undefined : Number(value);
-const normalizeCategorySearch = (value: string) => value
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .toLocaleLowerCase('pt-BR')
-  .trim();
-
 export const VariationFormModal = ({
   onClose,
   onSuccess,
   variation,
   allVariations = [],
   groups,
-  categories = [],
   defaultGroupId,
 }: VariationFormModalProps) => {
-  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  useBodyScrollLock(true);
+
   const {
     formData,
     changeFormData,
@@ -60,7 +53,6 @@ export const VariationFormModal = ({
     variation,
     allVariations,
     groups,
-    categories,
     defaultGroupId,
   });
 
@@ -72,16 +64,7 @@ export const VariationFormModal = ({
     configuration: { ...current.configuration, [key]: value },
   }));
 
-  const normalizedCategorySearch = normalizeCategorySearch(categorySearchTerm);
-  const filteredCategoryApplications = useMemo(() =>
-    formData.categoryApplications.filter((item) => {
-      if (!normalizedCategorySearch) return true;
-      const categoryName = categories.find((category) => category.id === item.categoryId)?.name ?? '';
-      return normalizeCategorySearch(categoryName).includes(normalizedCategorySearch);
-    }),
-  [categories, formData.categoryApplications, normalizedCategorySearch]);
-  const canSave = !isSaving && categories.length > 0 &&
-    Boolean(formData.name.trim() && formData.groupId);
+  const canSave = !isSaving && Boolean(formData.name.trim() && formData.groupId);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -89,25 +72,25 @@ export const VariationFormModal = ({
   };
 
   return (
-    <>
+    <div className="characteristic-form-modal-overlay fixed inset-0 z-[1000033] flex items-center justify-center p-0">
       <button
         type="button"
         aria-label="Fechar formulário de característica"
         onClick={onClose}
-        className="fixed inset-0 z-40 bg-slate-950/30 lg:hidden"
+        className="absolute inset-0 z-0 bg-slate-950/30"
       />
       <aside
         role="dialog"
-        aria-modal="false"
+        aria-modal="true"
         aria-labelledby="characteristic-form-title"
-        className="fixed inset-0 z-50 flex min-h-0 flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950 lg:relative lg:inset-auto lg:z-auto lg:w-[min(560px,48vw)] lg:shrink-0 lg:shadow-none"
+        className="characteristic-form-modal-dialog relative z-10 flex h-full min-h-0 w-full flex-col overflow-hidden border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950"
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800 sm:px-7">
           <div>
             <h2 id="characteristic-form-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               {variation?.id ? 'Editar característica' : 'Nova característica'}
             </h2>
-            <p className="mt-1 text-xs text-slate-500">Defina o grupo, o tipo e a aplicação por categoria.</p>
+            <p className="mt-1 text-xs text-slate-500">Defina o grupo, o tipo e as regras da característica.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Cancelar e fechar" className="p-1 text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white">
             Fechar
@@ -115,7 +98,7 @@ export const VariationFormModal = ({
         </header>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-5 py-5 sm:px-7">
+          <div className="min-h-0 flex-1 space-y-7 overflow-y-auto overscroll-contain px-5 py-5 sm:px-7">
             <section className="space-y-4" aria-labelledby="characteristic-general-title">
               <h3 id="characteristic-general-title" className={sectionTitle}>Dados gerais</h3>
               <label className="block text-xs text-slate-500">
@@ -128,6 +111,9 @@ export const VariationFormModal = ({
                   placeholder="Ex.: Material das portas"
                   className={underlineInput}
                 />
+                <span className="mt-1 block text-[11px] leading-4 text-slate-400">
+                  Se houver unidade, inclua-a no final do nome entre parênteses. Ex.: Altura (cm) ou Comprimento (metros).
+                </span>
               </label>
               <label className="block text-xs text-slate-500">
                 Grupo *
@@ -155,7 +141,7 @@ export const VariationFormModal = ({
                   <option value="text_long">{getCharacteristicFillTypeLabel('text_long')}</option>
                   <option value="radio">Opção única</option>
                   <option value="multi_select">Opção múltipla</option>
-                  <option value="boolean">Booleano</option>
+                  <option value="boolean">{getCharacteristicFillTypeLabel('boolean')}</option>
                   <option value="integer">Número inteiro</option>
                   <option value="decimal">Número decimal</option>
                 </select>
@@ -165,16 +151,12 @@ export const VariationFormModal = ({
             {formData.dataType !== 'text_short' && formData.dataType !== 'text_long' && (
             <section className="space-y-4" aria-labelledby="characteristic-type-config-title">
               <h3 id="characteristic-type-config-title" className={sectionTitle}>Configurações do tipo</h3>
-              {formData.dataType === 'boolean' && (
-                <p className="text-xs text-slate-500">Preenchido com um interruptor Sim/Não.</p>
-              )}
               {(formData.dataType === 'integer' || formData.dataType === 'decimal') && (
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <label className="text-xs text-slate-500">Mínimo<input type="number" step={formData.dataType === 'integer' ? 1 : 'any'} value={formData.configuration.minValue ?? ''} onChange={(event) => updateConfiguration('minValue', numberValue(event.target.value))} disabled={isSaving} className={underlineInput} /></label>
                     <label className="text-xs text-slate-500">Máximo<input type="number" step={formData.dataType === 'integer' ? 1 : 'any'} value={formData.configuration.maxValue ?? ''} onChange={(event) => updateConfiguration('maxValue', numberValue(event.target.value))} disabled={isSaving} className={underlineInput} /></label>
                   </div>
-                  <label className="block text-xs text-slate-500">Unidade (opcional)<input value={formData.unit} onChange={(event) => changeFormData((current) => ({ ...current, unit: event.target.value }))} disabled={isSaving} placeholder="Ex.: cm, kg" className={underlineInput} /></label>
                   {formData.dataType === 'decimal' && (
                     <label className="block text-xs text-slate-500">Casas decimais
                       <select value={formData.decimalPlaces} onChange={(event) => changeFormData((current) => ({ ...current, decimalPlaces: Number(event.target.value) as 1 | 2 | 3 }))} disabled={isSaving} className={underlineInput}>
@@ -202,69 +184,6 @@ export const VariationFormModal = ({
             </section>
             )}
 
-            <section className="space-y-3" aria-labelledby="characteristic-category-applications-title">
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <h3 id="characteristic-category-applications-title" className={sectionTitle}>Aplicação por categoria</h3>
-                </div>
-              </div>
-              {categories.length === 0 ? (
-                <p className="text-xs text-amber-700 dark:text-amber-300">Nenhuma categoria de produto foi carregada.</p>
-              ) : (
-                <>
-                  <input
-                    type="search"
-                    value={categorySearchTerm}
-                    onChange={(event) => setCategorySearchTerm(event.target.value)}
-                    placeholder="Pesquisar categoria..."
-                    aria-label="Pesquisar categorias para configurar a característica"
-                    disabled={isSaving}
-                    className={underlineInput}
-                  />
-                  <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto border-y border-slate-100 dark:divide-slate-800 dark:border-slate-800">
-                  {filteredCategoryApplications.length === 0 ? (
-                    <p className="py-3 text-xs text-slate-500">Nenhuma categoria encontrada.</p>
-                  ) : filteredCategoryApplications.map((item) => {
-                    const category = categories.find((candidate) => candidate.id === item.categoryId);
-                    return (
-                      <label
-                        key={item.categoryId}
-                        className="flex items-center justify-between gap-3 py-2"
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className="truncate text-xs font-medium text-slate-700 dark:text-slate-200">{category?.name ?? 'Categoria removida'}</span>
-                        </span>
-                        <span className="relative w-36 shrink-0">
-                        <select
-                          value={item.application}
-                          onChange={(event) => changeFormData((current) => ({
-                            ...current,
-                            categoryApplications: current.categoryApplications.map((application) =>
-                              application.categoryId === item.categoryId
-                                ? { ...application, application: event.target.value as typeof item.application }
-                                : application
-                            ),
-                          }))}
-                          disabled={isSaving}
-                          aria-label={`Aplicação de ${formData.name || 'característica'} em ${category?.name ?? 'categoria'}`}
-                          title={item.application === 'unavailable' ? 'Não se aplica' : undefined}
-                          className={`w-full bg-transparent border-0 border-b border-slate-300 px-1 py-1.5 text-xs outline-none focus:border-blue-600 focus:ring-0 dark:border-slate-700 dark:text-slate-100 ${item.application === 'required' ? 'font-semibold text-emerald-700 dark:text-emerald-300' : ''}`}
-                        >
-                          <option value="unavailable">Não se aplica</option>
-                          <option value="optional">Opcional</option>
-                          <option value="required">Obrigatória</option>
-                        </select>
-                        {item.application === 'unavailable' && (
-                          <span aria-hidden="true" className="pointer-events-none absolute bottom-px left-0 right-6 top-0 flex items-center bg-white px-1 text-xs text-slate-700 dark:bg-slate-950 dark:text-slate-100">N/A</span>
-                        )}
-                        </span>
-                      </label>
-                    );
-                  })}
-                  </div>
-                </>
-              )}
-            </section>
           </div>
 
           <footer className="shrink-0 border-t border-slate-200 px-5 py-4 dark:border-slate-800 sm:px-7">
@@ -278,7 +197,7 @@ export const VariationFormModal = ({
           </footer>
         </form>
       </aside>
-    </>
+    </div>
   );
 };
 

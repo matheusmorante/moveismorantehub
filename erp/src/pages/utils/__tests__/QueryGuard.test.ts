@@ -8,6 +8,7 @@ describe('QueryGuard (SupabaseMonitorService)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
       clone: function () {
         return this;
       },
@@ -20,6 +21,7 @@ describe('QueryGuard (SupabaseMonitorService)', () => {
     circuitBreaker.circuitStates = new Map();
     circuitBreaker.globalHitCounter = [];
     (supabaseMonitor as any).inFlightRequests = new Map();
+    (supabaseMonitor as any).lastServiceRestrictionAt = null;
   });
 
   afterEach(() => {
@@ -67,19 +69,21 @@ describe('QueryGuard (SupabaseMonitorService)', () => {
   });
 
   test('Caso C - chamadas simultâneas idênticas (Deduplicação)', async () => {
+    vi.useRealTimers();
     const url = 'https://hkoxhourxwlddgsfdgws.supabase.co/rest/v1/customers?select=*';
 
-    // Simular um fetch que demora um pouco (200ms)
-    mockFetch.mockReturnValue(
+    // A resposta deve continuar pendente enquanto as chaves são calculadas.
+    mockFetch.mockImplementation(() =>
       new Promise((resolve) => {
         setTimeout(() => {
           resolve({
+            ok: true,
             clone: function () {
               return this;
             },
             headers: new Headers(),
           });
-        }, 200);
+        }, 50);
       })
     );
 
@@ -87,8 +91,6 @@ describe('QueryGuard (SupabaseMonitorService)', () => {
     const requests = Array.from({ length: 25 }, () =>
       supabaseMonitor.customFetch(url, { method: 'GET' })
     );
-
-    vi.advanceTimersByTime(250); // Resolve as promises
 
     const results = await Promise.allSettled(requests);
 
@@ -204,5 +206,148 @@ describe('QueryGuard (SupabaseMonitorService)', () => {
 
     expect(blockedCount).toBeGreaterThan(0);
     expect(blockedCount).toBe(5); // Bloqueou as últimas 5 da janela
+  });
+
+  test('leituras simultâneas com cabeçalhos diferentes não compartilham resposta', async () => {
+    vi.useRealTimers();
+    const url = 'https://example.invalid/rest/v1/items?select=id';
+    mockFetch.mockImplementation((_input, init) => new Promise((resolve) => {
+      const accept = new Headers(init.headers).get('Accept');
+      setTimeout(() => resolve(new Response(accept === 'application/json' ? '[{"id":1}]' : '{"id":1}')), 50);
+    }));
+    const list = supabaseMonitor.customFetch(url, { headers: { Accept: 'application/json' } });
+    const item = supabaseMonitor.customFetch(url, { headers: { Accept: 'application/vnd.pgrst.object+json' } });
+    const [listResponse, itemResponse] = await Promise.all([list, item]);
+    expect(await listResponse.json()).toEqual([{ id: 1 }]);
+    expect(await itemResponse.json()).toEqual({ id: 1 });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  test('alerta de repetição não expõe o corpo de autenticação', async () => {
+    const listener = vi.fn();
+    window.addEventListener('SUPABASE_ANOMALY', listener);
+    try {
+      for (let i = 0; i < 11; i++) {
+        try {
+          await supabaseMonitor.customFetch('https://example.invalid/auth/v1/token', {
+            method: 'POST',
+            body: JSON.stringify({ email: 'dummy@example.invalid', password: 'dummy-password' }),
+          });
+        } catch { /* limite atingido */ }
+      }
+      expect(listener).toHaveBeenCalled();
+      expect(JSON.stringify((listener.mock.calls[0][0] as CustomEvent).detail)).not.toContain('dummy-password');
+      expect(JSON.stringify((listener.mock.calls[0][0] as CustomEvent).detail)).not.toContain('dummy@example.invalid');
+    } finally {
+      window.removeEventListener('SUPABASE_ANOMALY', listener);
+    }
+  });
+
+  test('leituras com credenciais diferentes não compartilham dados', async () => {
+    vi.useRealTimers();
+    const url = 'https://example.invalid/rest/v1/items?select=id';
+    mockFetch.mockImplementation((_input, init) => new Promise((resolve) => {
+      const identity = new Headers(init.headers).get('Authorization');
+      setTimeout(() => resolve(new Response(JSON.stringify({ identity }))), 50);
+    }));
+    const first = supabaseMonitor.customFetch(url, { headers: { Authorization: 'Bearer dummy-a' } });
+    const second = supabaseMonitor.customFetch(url, { headers: { Authorization: 'Bearer dummy-b' } });
+    const [firstResponse, secondResponse] = await Promise.all([first, second]);
+    expect(await firstResponse.json()).toEqual({ identity: 'Bearer dummy-a' });
+    expect(await secondResponse.json()).toEqual({ identity: 'Bearer dummy-b' });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  test('identifica respostas sem contagem e guarda somente bytes informados', async () => {
+    const buffer = (supabaseMonitor as any).telemetryBuffer;
+    buffer.getAndClear();
+    mockFetch.mockResolvedValueOnce(new Response('[]', { headers: { 'Content-Length': '1234' } }));
+    await supabaseMonitor.customFetch('https://example.invalid/rest/v1/measurement?select=id');
+    expect(buffer.getMetrics()).toEqual([expect.objectContaining({
+      table_name: 'measurement',
+      rows_returned: 0,
+      unknown_rows_count: 1,
+      response_bytes: 1234,
+      measured_response_count: 1,
+    })]);
+  });
+
+  test('mede JSON sem cabeçalho de tamanho sem consumir a resposta do chamador', async () => {
+    vi.useRealTimers();
+    const buffer = (supabaseMonitor as any).telemetryBuffer;
+    buffer.getAndClear();
+    const body = JSON.stringify([{ id: 1 }, { id: 2 }]);
+    mockFetch.mockResolvedValueOnce(new Response(body, { headers: { 'Content-Type': 'application/json' } }));
+    const response = await supabaseMonitor.customFetch('https://example.invalid/rest/v1/json_measurement?select=id');
+    expect(await response.json()).toEqual([{ id: 1 }, { id: 2 }]);
+    await vi.waitFor(() => expect(buffer.getMetrics()[0]).toMatchObject({
+      execution_count: 1,
+      response_bytes: new TextEncoder().encode(body).byteLength,
+      measured_response_count: 1,
+    }));
+  });
+
+  test('compartilha uma resposta JSON pendente sem impedir a leitura dos consumidores', async () => {
+    vi.useRealTimers();
+    mockFetch.mockImplementation(() => new Promise((resolve) => {
+      setTimeout(() => resolve(new Response('[{"id":1}]', { headers: { 'Content-Type': 'application/json' } })), 50);
+    }));
+    const url = 'https://example.invalid/rest/v1/shared_json?select=id';
+    const results = await Promise.all(Array.from({ length: 10 }, async () => {
+      const response = await supabaseMonitor.customFetch(url);
+      return response.json();
+    }));
+    expect(results).toEqual(Array.from({ length: 10 }, () => [{ id: 1 }]));
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  test('uma medição lenta não impede a resposta e libera o limite ao expirar', async () => {
+    const stream = new ReadableStream<Uint8Array>({ pull() {} });
+    mockFetch.mockResolvedValueOnce(new Response(stream, { headers: { 'Content-Type': 'application/json' } }));
+    const response = await supabaseMonitor.customFetch('https://example.invalid/rest/v1/slow_measurement?select=id');
+    expect(response).toBeInstanceOf(Response);
+    expect((supabaseMonitor as any).activeBodyMeasurements).toBe(1);
+    await vi.advanceTimersByTimeAsync(10000);
+    expect((supabaseMonitor as any).activeBodyMeasurements).toBe(0);
+  });
+
+  test('registra uma resposta 402 sem atribuir a causa ao egress e evita alertas repetidos', async () => {
+    const listener = vi.fn();
+    window.addEventListener('SUPABASE_ANOMALY', listener);
+    try {
+      const response = new Response('{"message":"restrição"}', { status: 402 });
+      mockFetch.mockResolvedValueOnce(response).mockResolvedValueOnce(new Response('', { status: 402 }));
+
+      const actual = await supabaseMonitor.customFetch('https://example.invalid/rest/v1/items');
+      await supabaseMonitor.customFetch('https://example.invalid/rest/v1/other_items');
+
+      expect(actual).toBe(response);
+      expect(await actual.text()).toBe('{"message":"restrição"}');
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect((listener.mock.calls[0][0] as CustomEvent).detail).toMatchObject({
+        level: 'CRITICAL',
+        title: 'Resposta HTTP 402 do Supabase',
+        message: expect.stringContaining('pode estar relacionada ao consumo ou a pagamentos'),
+      });
+
+      await vi.advanceTimersByTimeAsync(5 * 60_000 + 1);
+      mockFetch.mockResolvedValueOnce(new Response('', { status: 402 }));
+      await supabaseMonitor.customFetch('https://example.invalid/rest/v1/items');
+      expect(listener).toHaveBeenCalledTimes(2);
+    } finally {
+      window.removeEventListener('SUPABASE_ANOMALY', listener);
+    }
+  });
+
+  test('não informa restrição de serviço para outras respostas de erro', async () => {
+    const listener = vi.fn();
+    window.addEventListener('SUPABASE_ANOMALY', listener);
+    try {
+      mockFetch.mockResolvedValueOnce(new Response('', { status: 403 }));
+      await supabaseMonitor.customFetch('https://example.invalid/rest/v1/items');
+      expect(listener).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('SUPABASE_ANOMALY', listener);
+    }
   });
 });

@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import type {
   CancellationEligibility,
@@ -22,6 +21,7 @@ export interface FiscalDocumentRowProps {
   canOperateFiscal: boolean;
   retryingHmlDocumentId: string | null;
   onViewDetails: () => void;
+  onViewLinkedOrderDetails: () => void;
   onToggleDetails: () => void;
   onPrintDanfe: () => void;
   onDownloadXml: () => void;
@@ -42,6 +42,7 @@ export const FiscalDocumentRow: React.FC<FiscalDocumentRowProps> = ({
   canOperateFiscal,
   retryingHmlDocumentId,
   onViewDetails,
+  onViewLinkedOrderDetails,
   onToggleDetails,
   onPrintDanfe,
   onDownloadXml,
@@ -50,12 +51,31 @@ export const FiscalDocumentRow: React.FC<FiscalDocumentRowProps> = ({
   onPrepareLinkedOperation,
   onRetryHml,
 }) => {
-  const navigate = useNavigate();
   const deadlineLabel = getCancellationDeadlineLabel(document, eligibility);
+  const documentLabel = `${document.modelo === '65' ? 'NFC-e' : 'NF-e'} ${String(document.numero_nfe).padStart(6, '0')}`;
+
+  const handleRowClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
+    if (
+      (event.target as HTMLElement).closest('button, a, input, select, textarea, [role="button"]')
+    ) return;
+    onViewDetails();
+  };
+
+  const handleRowKeyDown = (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+    if (event.target !== event.currentTarget || !['Enter', ' '].includes(event.key)) return;
+    event.preventDefault();
+    onViewDetails();
+  };
 
   return (
     <>
-      <tr className="align-middle transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
+      <tr
+        tabIndex={0}
+        aria-label={`Ver detalhes de ${documentLabel}`}
+        onClick={handleRowClick}
+        onKeyDown={handleRowKeyDown}
+        className="cursor-pointer align-middle transition-colors hover:bg-slate-50/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:hover:bg-slate-800/30"
+      >
         <td className="whitespace-nowrap px-3 py-2">
           <FiscalDocumentStatusBadge status={document.status} />
           {document.status === 'abandoned' &&
@@ -95,12 +115,15 @@ export const FiscalDocumentRow: React.FC<FiscalDocumentRowProps> = ({
           {document.order_id ? (
             <button
               type="button"
-              onClick={() => navigate(`/sales-order/edit/${document.order_id}`)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onViewLinkedOrderDetails();
+              }}
               className="font-semibold text-blue-700 hover:underline dark:text-blue-300"
-              title="Abrir pedido de origem"
+              title="Ver detalhes do pedido vinculado"
             >
               #{orderNumber || 'Pedido'}{' '}
-              <i className="bi bi-box-arrow-up-right ml-0.5 text-[9px]" />
+              <i className="bi bi-eye ml-0.5 text-[9px]" />
             </button>
           ) : (
             <span className="text-slate-400">Sem vínculo</span>

@@ -178,7 +178,7 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
   });
 
   describe('2. Persistência de Categorias e Características (saveMobileCategory, delete)', () => {
-    it('AC-08 / AC-12: Preserva obrigatoriedade configurada e as regras de Cor, Linha e Peso ao criar', async () => {
+    it('AC-08 / AC-12: Preserva as regras de Cor e Linha e mantém Peso opcional ao criar', async () => {
       const mockSlugLookup = vi.fn().mockResolvedValue({
         data: [{ slug: 'sofa-retratil' }, { slug: 'sofa-retratil-2' }],
         error: null,
@@ -505,7 +505,7 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
       await expect(fetchMobileCategoryProductCounts()).rejects.toBe(queryError);
     });
 
-    it('AT-11: Consulta características vinculadas e preserva Peso obrigatório', async () => {
+    it('AT-11: Consulta características vinculadas e mantém Peso opcional', async () => {
       (supabase.from as any).mockImplementation((table: string) => {
         if (table === 'category_attributes') {
           return {
@@ -531,7 +531,7 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
         { id: 'a1', name: 'Cor', isRequired: true },
         { id: 'a2', name: 'Tamanho', isRequired: false },
         { id: 'a3', name: 'Material', isRequired: true },
-        { id: 'a4', name: 'Peso', isRequired: true },
+        { id: 'a4', name: 'Peso', isRequired: false },
         { id: 'a5', name: 'Linha', isRequired: true },
       ]);
     });

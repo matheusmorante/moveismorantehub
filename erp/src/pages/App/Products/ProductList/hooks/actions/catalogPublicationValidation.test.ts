@@ -5,6 +5,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   isTestEnvironment: false,
 }));
 import { validateCatalogPublication } from './useProductsCatalogActions';
+import { buildPublishedCatalogEditConfirmationMessage, getPublishedCatalogEditIssues, checkEcomLegibility } from '../../../domain/productLegibilityRules';
 import {
   mapDbVariations,
   createDefaultVariation,
@@ -440,5 +441,89 @@ describe('Mapeamento seguro de status de variações (Anti-publicação indevida
       []
     );
     expect(mapped[0].status).toBe('hidden');
+  });
+});
+
+describe('Confirmação de alteração com perda de conformidade do Catálogo Digital', () => {
+  it('explica o motivo, cita o campo e o que faltou quando uma característica da categoria está pendente', () => {
+    const legibility = checkEcomLegibility(
+      {
+        name: 'Mesa de Jantar',
+        description: 'Mesa de Jantar',
+        unitPrice: 500,
+        images: ['https://example.com/foto.jpg'],
+        categoryIds: ['cat-1'],
+        width: 100,
+        height: 80,
+        depth: 90,
+        weight: 50,
+        technicalValues: { Marca: 'Morante', 'Modelo/Linha': 'Dora', 'Material da estrutura': '' },
+      },
+      [{ name: 'Material da estrutura', requiredCategoryIds: ['cat-1'] }]
+    );
+
+    const issues = getPublishedCatalogEditIssues(legibility);
+    expect(issues).toEqual([
+      {
+        field: '"Material da estrutura"',
+        missing: 'característica obrigatória da categoria desativada ou sem valor preenchido',
+      },
+    ]);
+
+    const message = buildPublishedCatalogEditConfirmationMessage(legibility);
+    expect(message).toContain('Este produto está atualmente publicado no Catálogo Digital');
+    expect(message).toContain('ao salvar, ele será ocultado do Catálogo Digital');
+    expect(message).toContain('• Campo "Material da estrutura": característica obrigatória da categoria desativada ou sem valor preenchido.');
+    expect(message).toContain('ajuste a conformidade do campo citado acima antes de salvar');
+    expect(message).toContain('Deseja salvar as alterações e ocultar o produto do Catálogo Digital?');
+  });
+
+  it('cita múltiplos campos e usa plural na orientação quando faltam fotos e dimensões', () => {
+    const legibility = checkEcomLegibility({
+      name: 'Mesa de Jantar',
+      description: 'Mesa de Jantar',
+      unitPrice: 500,
+      images: [],
+      categoryIds: ['cat-1'],
+      width: 0,
+      height: 0,
+      depth: 0,
+      technicalValues: { Marca: 'Morante', 'Modelo/Linha': 'Dora' },
+    });
+
+    const issues = getPublishedCatalogEditIssues(legibility);
+    expect(issues).toEqual(expect.arrayContaining([
+      { field: 'Fotos', missing: 'adicione pelo menos uma foto ao produto' },
+      { field: 'Dimensões', missing: 'ative e preencha pelo menos uma dimensão física (altura, largura, profundidade ou comprimento) com valor maior que zero' },
+    ]));
+
+    const message = buildPublishedCatalogEditConfirmationMessage(legibility);
+    expect(message).toContain('• Campo Fotos: adicione pelo menos uma foto ao produto.');
+    expect(message).toContain('• Campo Dimensões: ative e preencha pelo menos uma dimensão física');
+    expect(message).toContain('ajuste a conformidade dos campos citados acima antes de salvar');
+  });
+
+  it('cita o campo Preço Promocional quando o valor promocional for maior ou igual ao de venda', () => {
+    const legibility = checkEcomLegibility({
+      name: 'Mesa de Jantar',
+      description: 'Mesa de Jantar',
+      unitPrice: 500,
+      promoPrice: 550,
+      images: ['https://example.com/foto.jpg'],
+      categoryIds: ['cat-1'],
+      width: 100,
+      height: 80,
+      depth: 90,
+      weight: 50,
+      technicalValues: { Marca: 'Morante', 'Modelo/Linha': 'Dora' },
+    });
+
+    const issues = getPublishedCatalogEditIssues(legibility);
+    expect(issues).toEqual(expect.arrayContaining([
+      { field: 'Preço Promocional', missing: 'o preço promocional deve ser menor que o preço de venda' },
+    ]));
+
+    const message = buildPublishedCatalogEditConfirmationMessage(legibility);
+    expect(message).toContain('• Campo Preço Promocional: o preço promocional deve ser menor que o preço de venda.');
   });
 });

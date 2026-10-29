@@ -56,36 +56,13 @@ export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
   const type = resolveTechnicalInputType(field);
 
   if (isYesNoCharacteristic(field)) {
-    const options = field.options?.length
-      ? field.options
-      : [
-          { id: 'sim', value: 'Sim' },
-          { id: 'nao', value: 'Não' },
-        ];
-    const normalizedValue = String(value ?? '').trim().toLocaleLowerCase('pt-BR');
-    const isAffirmative =
-      value === true ||
-      value === 1 ||
-      ['true', '1', 'sim', 's', 'yes', 'ligado'].includes(normalizedValue);
-    const isNegative =
-      value === false ||
-      value === 0 ||
-      ['false', '0', 'não', 'nao', 'no', 'desligado'].includes(normalizedValue);
-    const yesOptionValue =
-      options.find((option) => /^sim$/i.test(option.value.trim()))?.value || 'Sim';
-    const noOptionValue =
-      options.find((option) => /^n[aã]o$/i.test(option.value.trim()))?.value || 'Não';
-    const selectedValue = isAffirmative
-      ? yesOptionValue
-      : isNegative
-        ? noOptionValue
-        : String(value ?? '');
-
     return (
-      <ChoiceDropdown
-        options={options}
-        value={selectedValue}
+      <YesNoPowerToggle
+        field={field}
+        value={value}
         disabled={disabled}
+        isInvalid={isInvalid}
+        compact
         onChange={onChange}
       />
     );

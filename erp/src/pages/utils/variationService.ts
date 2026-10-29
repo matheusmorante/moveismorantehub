@@ -4,7 +4,7 @@ import type { VariationOption } from '../types/variation.type';
 import { toTitleCase } from './textUtils';
 import { sortAttributeValuesNaturally } from './attributeValueSorting';
 import { queryClient } from '@/lib/queryClient';
-import { isWeightCharacteristicName } from './technicalValuesService';
+import { isCatalogNeverRequiredCharacteristicName } from '../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 import { inferAttributeDataType, normalizeAttributeDataType } from './attributeDataType';
 import { variationFamilyAttributeSchema, VariationFamilyUnconfirmedError } from '../../../../shared-utils/variationFamilyFormSchemas';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
@@ -141,7 +141,7 @@ const fetchAllVariationRows = async (
 };
 
 export const fetchVariations = async (
-  options: { throwOnError?: boolean } = {}
+  options: { throwOnError?: boolean; includeCategoryApplications?: boolean } = {}
 ): Promise<VariationType[]> => {
   try {
     // 1. Buscar características globais ordenadas por nome
@@ -194,11 +194,13 @@ export const fetchVariations = async (
         'attribute_id, category_id, is_required',
         ['attribute_id', 'category_id']
       ),
-      fetchAllVariationRows(
-        'attribute_category_applications',
-        'attribute_id, category_id, application, is_configured',
-        ['attribute_id', 'category_id']
-      ),
+      options.includeCategoryApplications === false
+        ? Promise.resolve({ data: null, error: null })
+        : fetchAllVariationRows(
+            'attribute_category_applications',
+            'attribute_id, category_id, application, is_configured',
+            ['attribute_id', 'category_id']
+          ),
     ]);
     const { data: catAttrData, error: catAttrErr } = catalogLinks;
     const { data: categoryApplicationData, error: categoryApplicationErr } = categoryApplications;
@@ -227,7 +229,7 @@ export const fetchVariations = async (
           ? attr.configuration
           : {},
       isGloballyRequired:
-        Boolean(attr.is_globally_required) || isWeightCharacteristicName(attr.name),
+        !isCatalogNeverRequiredCharacteristicName(attr.name) && Boolean(attr.is_globally_required),
       isCustom: Boolean(attr.is_custom),
       options: (() => {
         const values = (valData || [])
@@ -250,15 +252,20 @@ export const fetchVariations = async (
         .filter((ca: any) => ca.attribute_id === attr.id)
         .map((ca: any) => ({
           categoryId: ca.category_id,
-          isRequired: Boolean(ca.is_required) || isWeightCharacteristicName(attr.name),
+          isRequired:
+            !isCatalogNeverRequiredCharacteristicName(attr.name) && Boolean(ca.is_required),
         })),
-      categoryApplications: (categoryApplicationErr ? [] : categoryApplicationData || [])
-        // Unconfigured rows carry the optional default and must still reach product forms.
-        .filter((application: any) => application.attribute_id === attr.id)
-        .map((application: any) => ({
-          categoryId: String(application.category_id),
-          application: application.application,
-        })),
+      ...(options.includeCategoryApplications === false
+        ? {}
+        : {
+            categoryApplications: (categoryApplicationErr ? [] : categoryApplicationData || [])
+              // Unconfigured rows carry the optional default and must still reach product forms.
+              .filter((application: any) => application.attribute_id === attr.id)
+              .map((application: any) => ({
+                categoryId: String(application.category_id),
+                application: application.application,
+              })),
+          }),
       deleted: false, // Exclusões sem uso são físicas; itens usados ficam ativos=false.
     }));
 
@@ -337,7 +344,28 @@ const persistVariationDefinition = async (
 ): Promise<string> => {
   const definition: Record<string, unknown> = { ...variation };
   if (variation.dataType) definition.dataType = normalizeAttributeDataType(variation.dataType);
-  if (variation.name !== undefined) definition.name = capitalize(variation.name.trim());
+  if (variation.name !== undefined) {
+    definition.name = capitalize(variation.name.trim());
+    if (isCatalogNeverRequiredCharacteristicName(String(definition.name))) {
+      definition.isGloballyRequired = false;
+      if (Array.isArray(definition.categoryAttributes)) {
+        definition.categoryAttributes = (definition.categoryAttributes as Array<Record<string, unknown>>).map((link) => ({
+          ...link,
+          isRequired: false,
+        }));
+      }
+      if (Array.isArray(definition.categoryApplications)) {
+        definition.categoryApplications = (
+          definition.categoryApplications as Array<Record<string, unknown>>
+        ).map((application) => ({
+          ...application,
+          application: application.application === 'required'
+            ? 'optional'
+            : application.application,
+        }));
+      }
+    }
+  }
   if (variation.groupId !== undefined) definition.groupId = variation.groupId;
   if (variation.configuration !== undefined) {
     const configuration = { ...variation.configuration };

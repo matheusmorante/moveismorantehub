@@ -20,6 +20,7 @@ import {
   getProductCharacteristicAttributes,
   getDisplayedOptionalProductTechnicalFields,
   isConfiguredProductTechnicalDependencySatisfied,
+  isConfiguredFamilyProductTechnicalDependencySatisfied,
   getTechnicalValue,
   groupProductTechnicalFields,
   hasTechnicalValue,
@@ -330,14 +331,32 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   );
 
   const isConfiguredFieldDependencySatisfied = useCallback(
-    (field: MobileProductTechnicalField) =>
-      !isSimpleProduct ||
-      isConfiguredProductTechnicalDependencySatisfied(
+    (field: MobileProductTechnicalField) => {
+      if (parentData) return true;
+      if (isSimpleProduct) {
+        return isConfiguredProductTechnicalDependencySatisfied(
+          field,
+          visibleTechnicalFields,
+          dependencyValues
+        );
+      }
+
+      return isConfiguredFamilyProductTechnicalDependencySatisfied(
         field,
         visibleTechnicalFields,
-        dependencyValues
-      ),
-    [isSimpleProduct, visibleTechnicalFields, dependencyValues]
+        dependencyValues,
+        formData.variations || [],
+        variableTechnicalFieldNames
+      );
+    },
+    [
+      parentData,
+      isSimpleProduct,
+      visibleTechnicalFields,
+      dependencyValues,
+      formData.variations,
+      variableTechnicalFieldNames,
+    ]
   );
 
   const configuredDependencyReferenceIds = useMemo(() => {
@@ -427,7 +446,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         variableTechnicalFieldNames,
         manualFieldNames
       );
-      if (!isSimpleProduct) return displayed;
+      if (!isSimpleProduct) {
+        return displayed.filter(isConfiguredFieldDependencySatisfied);
+      }
       const displayedIds = new Set(
         displayed
           .filter(isConfiguredFieldDependencySatisfied)

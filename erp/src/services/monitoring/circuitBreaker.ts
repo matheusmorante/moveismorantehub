@@ -3,7 +3,8 @@ import { CircuitState, OperationType, SupabaseAnomalyEvent, GUARD_CONFIG } from 
 export class CircuitBreaker {
   private globalHitCounter: number[] = [];
   private hitCounters: Map<string, number[]> = new Map();
-  private circuitStates: Map<string, { state: CircuitState; expiresAt: number }> = new Map();
+  private circuitStates: Map<string, { state: CircuitState; expiresAt: number; probeInFlight?: boolean }> = new Map();
+  private globalAlertActive = false;
   private emitAnomaly: (event: SupabaseAnomalyEvent) => void;
 
   constructor(emitAnomaly: (event: SupabaseAnomalyEvent) => void) {
@@ -15,6 +16,9 @@ export class CircuitBreaker {
 
     // Limpar global
     this.globalHitCounter = this.globalHitCounter.filter((t) => t > windowStart);
+    if (this.globalHitCounter.length < GUARD_CONFIG.GLOBAL_KILL_SWITCH) {
+      this.globalAlertActive = false;
+    }
 
     // Limpar per fingerprint
     for (const [fp, hits] of this.hitCounters.entries()) {
@@ -36,48 +40,36 @@ export class CircuitBreaker {
     }
   }
 
-  public check(fingerprint: string, operationType: OperationType): boolean {
+  public check(
+    fingerprint: string,
+    operationType: OperationType,
+    context?: { module: string; screen: string; action: string; table_name: string }
+  ): boolean {
     const now = Date.now();
     this.cleanOldHits(now);
 
-    // 1. Verificar Kill Switch Global
-    this.globalHitCounter.push(now);
-    if (this.globalHitCounter.length > GUARD_CONFIG.GLOBAL_KILL_SWITCH) {
-      if (operationType === 'SELECT') {
-        // Prioriza preservar writes
+    const circuit = this.circuitStates.get(fingerprint);
+    if (circuit?.state === 'OPEN' || circuit?.probeInFlight) return false;
+
+    // Tentativas já bloqueadas não representam tráfego enviado.
+    if (operationType === 'SELECT' && this.globalHitCounter.length >= GUARD_CONFIG.GLOBAL_KILL_SWITCH) {
+      if (!this.globalAlertActive) {
+        this.globalAlertActive = true;
         this.emitAnomaly({
           level: 'CRITICAL',
           title: 'Emergency Kill Switch Ativado',
-          message: `Mais de ${GUARD_CONFIG.GLOBAL_KILL_SWITCH} requests em ${GUARD_CONFIG.WINDOW_MS}ms. Bloqueando leitura.`,
+          message: `${this.globalHitCounter.length} requisições liberadas para envio em ${GUARD_CONFIG.WINDOW_MS / 1000} segundos neste navegador. Novas leituras aguardam.`,
+          metric: context && { ...context, operation_type: operationType, execution_count: this.globalHitCounter.length, total_duration_ms: 0, rows_returned: 0 },
         });
-        return false; // Bloqueado
       }
+      return false;
     }
 
-    // 2. Verificar estado do circuito para o fingerprint
-    const circuit = this.circuitStates.get(fingerprint);
-    if (circuit?.state === 'OPEN') {
-      if (now >= circuit.expiresAt) {
-        this.circuitStates.set(fingerprint, { state: 'HALF_OPEN', expiresAt: 0 });
-        return true; // Permite passar em HALF_OPEN
-      }
-      return false; // Bloqueado
-    }
-
-    // Se HALF_OPEN e estamos chamando agora, não bloqueamos AINDA.
-    // A validação de falha ou sucesso no HALF_OPEN ocorrerá ao observar se o loop volta.
-
-    // 3. Adicionar hit
     const hits = this.hitCounters.get(fingerprint) || [];
-    hits.push(now);
-    this.hitCounters.set(fingerprint, hits);
-
-    // 4. Validar limites
     const maxLimit =
       operationType === 'SELECT' ? GUARD_CONFIG.MAX_READ_REQUESTS : GUARD_CONFIG.MAX_WRITE_REQUESTS;
 
-    if (hits.length > maxLimit) {
-      // Abre o circuito
+    if (hits.length >= maxLimit) {
       this.circuitStates.set(fingerprint, {
         state: 'OPEN',
         expiresAt: now + GUARD_CONFIG.COOLDOWN_MS,
@@ -85,18 +77,31 @@ export class CircuitBreaker {
       this.emitAnomaly({
         level: 'CRITICAL',
         title: 'Circuit Breaker Acionado',
-        message: `Loop detectado (${hits.length} chamadas). Operação bloqueada por ${GUARD_CONFIG.COOLDOWN_MS}ms.`,
-        fingerprint,
+        message: `Possível repetição excessiva (${hits.length} chamadas liberadas para envio em ${GUARD_CONFIG.WINDOW_MS / 1000} segundos). Operação pausada por ${GUARD_CONFIG.COOLDOWN_MS / 1000} segundos.`,
+        metric: context && { ...context, operation_type: operationType, execution_count: hits.length, total_duration_ms: 0, rows_returned: 0 },
       });
-      return false; // Bloqueado
+      return false;
     }
 
-    return true; // Permitido
+    if (circuit?.state === 'HALF_OPEN') circuit.probeInFlight = true;
+    hits.push(now);
+    this.hitCounters.set(fingerprint, hits);
+    this.globalHitCounter.push(now);
+    return true;
   }
 
   public onSuccess(fingerprint: string) {
     if (this.circuitStates.get(fingerprint)?.state === 'HALF_OPEN') {
       this.circuitStates.delete(fingerprint); // Fechado
+    }
+  }
+
+  public onFailure(fingerprint: string) {
+    if (this.circuitStates.get(fingerprint)?.state === 'HALF_OPEN') {
+      this.circuitStates.set(fingerprint, {
+        state: 'OPEN',
+        expiresAt: Date.now() + GUARD_CONFIG.COOLDOWN_MS,
+      });
     }
   }
 }

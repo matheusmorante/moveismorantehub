@@ -4,6 +4,7 @@ import type {
   CharacteristicTopicGroupDefinition,
 } from '@/pages/utils/technicalValuesService';
 import { getTechnicalFieldDisplayName } from '../../../../../../../../shared-utils/productTechnicalFieldScope';
+import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 import type { ProductCharacteristicGroupView } from './productCharacteristicGroupRules';
 
 export interface TechnicalCharacteristicSearchProps {
@@ -108,7 +109,8 @@ export const TechnicalCharacteristicSearch: React.FC<TechnicalCharacteristicSear
                 </div>
                 {groupFields.map(({ field, disabledReason, scope = 'not_inform', active = false }) => {
                   const fieldIsPresent = group.fields.some((existing) => existing.id === field.id);
-                  const isRequired = Boolean(field.isRequired || field.isRequiredForCatalog);
+                  const isRequired = !isCatalogNeverRequiredCharacteristicName(field.name) &&
+                    Boolean(field.isRequired || field.isRequiredForCatalog);
                   const canToggle = isSimpleProduct && !isRequired && Boolean(onToggleCharacteristic);
                   const canSelectScope = !isSimpleProduct && !isRequired && Boolean(onSetCharacteristicScope);
                   return (

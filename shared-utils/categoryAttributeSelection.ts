@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isCatalogNeverRequiredCharacteristicName } from './catalogPublication/requiredCharacteristicPolicy';
 
 /** Category attribute state shared by the ERP and mobile category forms. */
 export const categoryAttributeSelectionSchema = z.object({
@@ -21,7 +22,6 @@ const ALWAYS_REQUIRED_CATEGORY_ATTRIBUTE_NAMES = new Set([
   'altura total',
   'largura total',
   'profundidade total',
-  'peso',
   'altura',
   'largura',
   'profundidade',
@@ -39,7 +39,8 @@ const ALWAYS_REQUIRED_CATEGORY_ATTRIBUTE_NAMES = new Set([
 export const isCategoryAttributeAlwaysRequired = (name: string): boolean =>
   ALWAYS_REQUIRED_CATEGORY_ATTRIBUTE_NAMES.has(normalizeAttributeName(name));
 
-export const isCategoryAttributeAlwaysOptional = (_name: string): boolean => false;
+export const isCategoryAttributeAlwaysOptional = (name: string): boolean =>
+  isCatalogNeverRequiredCharacteristicName(name);
 
 export const isCategoryAttributeRequirementLocked = (name: string): boolean =>
   isCategoryAttributeAlwaysRequired(name) || isCategoryAttributeAlwaysOptional(name);

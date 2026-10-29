@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { Routes, Route, BrowserRouter, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SupabaseHistoryRecorder } from './components/layout/SupabaseHistoryRecorder';
 import { ERPListPaginationPreferenceContext } from './components/shared/ERPListPaginationPreferenceContext';
 import { PasswordSetupPrompt } from './components/auth/PasswordSetupPrompt';
 import SalesOrder from './pages/App/SalesOrder';
@@ -200,6 +201,7 @@ const PaginationPreferenceScope: React.FC<{ children: React.ReactNode }> = ({ ch
 function Router() {
   return (
     <AuthProvider>
+      <SupabaseHistoryRecorder />
       <PaginationPreferenceScope>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>

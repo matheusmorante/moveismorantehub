@@ -68,7 +68,7 @@ function createDefaultValues(): FiscalExportFormValues {
     environment: '1',
     models: ['55', '65'],
     documentTypes: ['outbound', 'estorno', 'return'],
-    statuses: ['autorizada', 'cancelada'],
+    statuses: ['autorizada'],
     includeEvents: true,
     includeReport: true,
   };
@@ -168,9 +168,11 @@ export const FiscalExportModal: React.FC<FiscalExportModalProps> = ({
   const hasCurrentPreview = Boolean(preview && previewKey === liveKey);
   const visiblePreview = hasCurrentPreview ? preview : null;
   const accountingPurpose = currentValues.purpose === 'accounting';
-  const environmentStatuses: FiscalExportStatus[] = currentValues.environment === '1'
-    ? ['autorizada', 'cancelada', 'denegada', 'rejeitada']
-    : ['homologada', 'cancelada', 'denegada', 'rejeitada'];
+  const environmentStatuses: FiscalExportStatus[] = accountingPurpose
+    ? ['autorizada']
+    : currentValues.environment === '1'
+      ? ['autorizada', 'cancelada', 'denegada', 'rejeitada']
+      : ['homologada', 'cancelada', 'denegada', 'rejeitada'];
   const previewRequestRef = React.useRef<{ key: string; promise: Promise<FiscalExportPreview> } | null>(null);
   const requestPreview = React.useCallback((filters: FiscalExportFilters, key: string) => {
     const currentRequest = previewRequestRef.current;
@@ -245,7 +247,7 @@ export const FiscalExportModal: React.FC<FiscalExportModalProps> = ({
     if (purpose === 'accounting') {
       setValue('environment', '1', { shouldValidate: true });
       setValue('documentTypes', getValues('documentTypes').filter((type) => type !== 'inbound'), { shouldValidate: true });
-      setValue('statuses', ['autorizada', 'cancelada'], { shouldValidate: true });
+      setValue('statuses', ['autorizada'], { shouldValidate: true });
       setValue('includeEvents', true, { shouldValidate: true });
     }
   };
@@ -321,7 +323,7 @@ export const FiscalExportModal: React.FC<FiscalExportModalProps> = ({
                 )}
               />
               <div className="rounded-lg bg-blue-50 px-3 py-2 text-[11px] leading-relaxed text-blue-900 dark:bg-blue-950/40 dark:text-blue-100">
-                Contabilidade inclui apenas Produção, notas autorizadas/canceladas e os XMLs de eventos fiscais registrados, quando existentes.
+                Contabilidade inclui apenas notas autorizadas em Produção e os XMLs de eventos fiscais registrados, quando existentes.
               </div>
             </section>
 

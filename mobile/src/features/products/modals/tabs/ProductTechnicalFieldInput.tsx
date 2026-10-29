@@ -116,54 +116,46 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
     );
   }, [value, decimalPlaces, type]);
 
+  const renderRadioOption = (
+    key: string,
+    label: string,
+    selected: boolean,
+    outputValue: unknown
+  ) => (
+    <TouchableOpacity
+      key={key}
+      disabled={disabled}
+      onPress={() => onChange(outputValue)}
+      accessibilityRole="radio"
+      accessibilityLabel={`${field.name}: ${label}`}
+      accessibilityState={{ selected, disabled }}
+      style={[styles.radioOption, disabled && styles.disabled]}
+    >
+      <View
+        style={[
+          styles.radioCircle,
+          dark && styles.darkRadioCircle,
+          selected && styles.radioCircleSelected,
+        ]}
+      >
+        {selected ? <View style={styles.radioDot} /> : null}
+      </View>
+      <Text style={[styles.chipText, dark && styles.lightText, selected && styles.selectedText]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+
   if (type === 'boolean' || field.data_type === 'boolean') {
     const answer = parseProductBooleanCharacteristicValue(value);
-    const label = answer === null ? 'Não informado' : answer ? 'Sim' : 'Não';
     return (
-      <View style={styles.booleanSwitchRow}>
-        <Text style={[styles.booleanSwitchLabel, dark && styles.lightText]}>{label}</Text>
-        <View
-          style={[
-            styles.booleanSwitchTrack,
-            {
-              backgroundColor:
-                answer === true
-                  ? dark ? '#059669' : '#10b981'
-                  : answer === false
-                    ? dark ? '#475569' : '#94a3b8'
-                    : dark ? '#334155' : '#cbd5e1',
-            },
-            disabled && styles.disabled,
-          ]}
-        >
-          <TouchableOpacity
-            style={styles.booleanSwitchSide}
-            disabled={disabled}
-            onPress={() => onChange(answer === false ? null : false)}
-            accessibilityRole="radio"
-            accessibilityLabel={`${field.name}: Não`}
-            accessibilityState={{ selected: answer === false, disabled }}
-          />
-          <TouchableOpacity
-            style={styles.booleanSwitchSide}
-            disabled={disabled}
-            onPress={() => onChange(answer === true ? null : true)}
-            accessibilityRole="radio"
-            accessibilityLabel={`${field.name}: Sim`}
-            accessibilityState={{ selected: answer === true, disabled }}
-          />
-          <View
-            pointerEvents="none"
-            style={[
-              styles.booleanSwitchThumb,
-              answer === true
-                ? styles.booleanSwitchThumbOn
-                : answer === null
-                  ? styles.booleanSwitchThumbUnanswered
-                  : undefined,
-            ]}
-          />
-        </View>
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel={field.name}
+        style={styles.booleanOptions}
+      >
+        {renderRadioOption('yes', 'Sim', answer === true, true)}
+        {renderRadioOption('no', 'Não', answer === false, false)}
       </View>
     );
   }
@@ -323,34 +315,14 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
     ];
     return (
       <View style={styles.selectionWrap}>
-        <View style={[styles.booleanOptions, disabled && styles.disabled]}>
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel={field.name}
+          style={styles.booleanOptions}
+        >
           {yesNoOptions.map((option) => {
             const selected = currentValue === option.key;
-            return (
-              <TouchableOpacity
-                key={option.key}
-                disabled={disabled}
-                onPress={() => {
-                  if (selected) {
-                    onChange('');
-                    return;
-                  }
-                  onChange(option.outputValue);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  selected
-                    ? `${option.label} para ${field.name}, toque novamente para limpar a seleção`
-                    : `${option.label} para ${field.name}`
-                }
-                accessibilityState={{ selected, disabled }}
-                style={[styles.booleanOption, dark && styles.darkChip, selected && styles.selectedChip]}
-              >
-                <Text style={[styles.chipText, dark && styles.lightText, selected && styles.selectedText]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            );
+            return renderRadioOption(option.key, option.label, selected, option.outputValue);
           })}
         </View>
       </View>
@@ -546,41 +518,26 @@ const styles = StyleSheet.create({
   darkInput: { borderColor: '#475569', color: '#f1f5f9', backgroundColor: '#0f172a' },
   disabled: { opacity: 0.5 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  booleanOptions: { flexDirection: 'row', gap: 8 },
-  booleanSwitchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
-  booleanSwitchLabel: { color: '#475569', fontSize: 12, fontWeight: '600' },
-  booleanSwitchTrack: {
-    width: 48,
-    height: 28,
-    borderRadius: 14,
-    flexDirection: 'row',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  booleanSwitchSide: { width: 24, height: 28, zIndex: 1 },
-  booleanSwitchThumb: {
-    position: 'absolute',
-    top: 3,
-    left: 3,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#fff',
-    elevation: 2,
-  },
-  booleanSwitchThumbOn: { left: 23 },
-  booleanSwitchThumbUnanswered: { left: 13 },
-  booleanOption: {
-    flex: 1,
+  booleanOptions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 16 },
+  radioOption: {
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 2,
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#64748b',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
   },
+  darkRadioCircle: { borderColor: '#94a3b8' },
+  radioCircleSelected: { borderColor: '#059669' },
+  radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#059669' },
   chip: {
     minHeight: 44,
     justifyContent: 'center',

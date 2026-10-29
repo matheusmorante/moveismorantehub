@@ -16,11 +16,12 @@ const CategoriesAndEnvironments: React.FC = () => {
     nameInput,
     setNameInput,
     selectedLinks,
-    selectedAttributes,
-    setSelectedAttributes,
+    selectedCharacteristicApplications,
+    setSelectedCharacteristicApplications,
+    isLoadingCharacteristicApplications,
+    characteristicApplicationsLoadFailed,
     isLoadingAttributes,
     attributeLoadFailed,
-    hasAddedRequiredAttributes,
     closeForm,
     handleSave,
     handleDelete,
@@ -88,11 +89,12 @@ const CategoriesAndEnvironments: React.FC = () => {
         nameInput={nameInput}
         onChangeNameInput={setNameInput}
         selectedLinks={selectedLinks}
-        selectedAttributes={selectedAttributes}
-        setSelectedAttributes={setSelectedAttributes}
+        selectedCharacteristicApplications={selectedCharacteristicApplications}
+        setSelectedCharacteristicApplications={setSelectedCharacteristicApplications}
+        isLoadingCharacteristicApplications={isLoadingCharacteristicApplications}
+        characteristicApplicationsLoadFailed={characteristicApplicationsLoadFailed}
         isLoadingAttributes={isLoadingAttributes}
         attributeLoadFailed={attributeLoadFailed}
-        hasAddedRequiredAttributes={hasAddedRequiredAttributes}
         onToggleLink={toggleLink}
         categories={categories}
         environments={environments}

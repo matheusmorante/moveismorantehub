@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import type { FiscalDocumentRowProps } from './FiscalDocumentRow';
 import { FiscalDocumentStatusBadge } from './FiscalDocumentStatusBadge';
@@ -18,6 +17,7 @@ export const FiscalDocumentCard: React.FC<FiscalDocumentRowProps> = ({
   canOperateFiscal,
   retryingHmlDocumentId,
   onViewDetails,
+  onViewLinkedOrderDetails,
   onToggleDetails,
   onPrintDanfe,
   onDownloadXml,
@@ -26,8 +26,8 @@ export const FiscalDocumentCard: React.FC<FiscalDocumentRowProps> = ({
   onPrepareLinkedOperation,
   onRetryHml,
 }) => {
-  const navigate = useNavigate();
   const deadlineLabel = getCancellationDeadlineLabel(document, eligibility);
+  const documentLabel = `${document.modelo === '65' ? 'NFC-e' : 'NF-e'} ${String(document.numero_nfe).padStart(6, '0')}`;
   const successor = allDocuments.find(
     (candidate) => candidate.supersedes_document_id === document.id
   );
@@ -36,8 +36,29 @@ export const FiscalDocumentCard: React.FC<FiscalDocumentRowProps> = ({
       ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
       : 'bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300';
 
+  const handleCardClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (
+      (event.target as HTMLElement).closest(
+        'button, a, input, select, textarea, summary, details, [role="button"]'
+      )
+    ) return;
+    onViewDetails();
+  };
+
+  const handleCardKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.target !== event.currentTarget || !['Enter', ' '].includes(event.key)) return;
+    event.preventDefault();
+    onViewDetails();
+  };
+
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <article
+      tabIndex={0}
+      aria-label={`Ver detalhes de ${documentLabel}`}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+      className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:border-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:border-slate-800 dark:bg-slate-900"
+    >
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1.5">
           <FiscalDocumentStatusBadge status={document.status} />
@@ -89,12 +110,15 @@ export const FiscalDocumentCard: React.FC<FiscalDocumentRowProps> = ({
           {document.order_id ? (
             <button
               type="button"
-              onClick={() => navigate(`/sales-order/edit/${document.order_id}`)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onViewLinkedOrderDetails();
+              }}
               className="mt-0.5 inline-flex min-h-9 items-center font-semibold text-blue-700 hover:underline dark:text-blue-300"
-              title="Abrir pedido de origem"
+              title="Ver detalhes do pedido vinculado"
             >
               #{orderNumber || 'Pedido'}
-              <i className="bi bi-box-arrow-up-right ml-1 text-[10px]" aria-hidden="true" />
+              <i className="bi bi-eye ml-1 text-[10px]" aria-hidden="true" />
             </button>
           ) : (
             <p className="mt-0.5 text-slate-500">Sem vínculo</p>

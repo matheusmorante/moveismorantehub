@@ -6,15 +6,13 @@ import type { CharacteristicGroupFormData } from '../../../../shared-utils/chara
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import { sortProductCharacteristicGroups } from '../../../../shared-utils/productCharacteristicGroupOrder';
 
-export type ProductCategoryOption = { id: string; name: string };
-
 export const CHARACTERISTIC_GROUPS_QUERY_KEY = ['characteristic-groups'] as const;
 const CHARACTERISTIC_GROUP_REQUEST_TIMEOUT_MS = 20_000;
 const CACHE_TTL_MS = 60_000;
 
 let cachedCharacteristicGroups: {
   timestamp: number;
-  data: { groups: CharacteristicGroup[]; categories: ProductCategoryOption[] };
+  data: { groups: CharacteristicGroup[] };
 } | null = null;
 
 export const clearCharacteristicGroupCache = () => {
@@ -23,32 +21,21 @@ export const clearCharacteristicGroupCache = () => {
 
 export const fetchCharacteristicGroups = async (options?: { forceRefresh?: boolean }): Promise<{
   groups: CharacteristicGroup[];
-  categories: ProductCategoryOption[];
 }> => {
   const now = Date.now();
   if (!options?.forceRefresh && cachedCharacteristicGroups && now - cachedCharacteristicGroups.timestamp < CACHE_TTL_MS) {
     return cachedCharacteristicGroups.data;
   }
 
-  const results = await withTimeout(
-    Promise.all([
-      supabase.from('attribute_groups').select('id, name, description, is_default').order('name'),
-      supabase.from('categories').select('id, name').eq('type', 'category').order('name'),
-    ]),
+  const groupResult = await withTimeout(
+    supabase.from('attribute_groups').select('id, name, description, is_default').order('name'),
     CHARACTERISTIC_GROUP_REQUEST_TIMEOUT_MS,
     null,
     'Carregar grupos de características'
   );
-  if (!results) throw new Error('Tempo esgotado ao carregar grupos de características.');
-  const [groupResult, categoryResult] = results;
+  if (!groupResult) throw new Error('Tempo esgotado ao carregar grupos de características.');
 
   if (groupResult.error) throw groupResult.error;
-  if (categoryResult.error) throw categoryResult.error;
-
-  const categories = (categoryResult.data ?? []).map((row: any) => ({
-    id: String(row.id),
-    name: String(row.name),
-  }));
   const groups: CharacteristicGroup[] = (groupResult.data ?? []).map((row: any) => ({
     id: String(row.id),
     name: String(row.name),
@@ -59,7 +46,7 @@ export const fetchCharacteristicGroups = async (options?: { forceRefresh?: boole
 
   cachedCharacteristicGroups = {
     timestamp: now,
-    data: { groups: sortedGroups, categories },
+    data: { groups: sortedGroups },
   };
 
   return cachedCharacteristicGroups.data;

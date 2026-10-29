@@ -1,8 +1,13 @@
 import { toTitleCase } from '../../../../../shared-utils/productText';
 import { withCatalogAttributesLoadTimeout } from '../../../../../shared-utils/catalogAttributesLoadTimeout';
 import { inferAttributeDataType, normalizeAttributeDataType } from '../../../../../shared-utils/attributeDataType';
+import {
+  normalizeCharacteristicFillConfiguration,
+  type CharacteristicFillConfigurationPayload,
+} from '../../../../../shared-utils/characteristicFormRules';
 import { supabase } from '../../../services/supabaseClient';
 import { isWeightCharacteristicName } from '../domain/productCharacteristics';
+import { isCatalogNeverRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 
 export interface MobileAttributeValue {
   id: string;
@@ -40,6 +45,7 @@ export interface MobileAttribute {
   isGloballyRequired?: boolean;
   isCustom?: boolean;
   unit?: string;
+  configuration?: CharacteristicFillConfigurationPayload;
   categoryAttributes?: MobileCategoryAttribute[];
   options: MobileAttributeValue[];
 }
@@ -50,7 +56,7 @@ export type MobileAttributeDefinition = Omit<MobileAttribute, 'id' | 'options'> 
 };
 
 const isMissingColumn = (error: { code?: string; message?: string } | null, column: string) =>
-  Boolean(error && (error.code === '42703' || error.message?.includes(column)));
+  Boolean(error && error.message?.toLocaleLowerCase().includes(column.toLocaleLowerCase()));
 
 const ATTRIBUTE_FETCH_PAGE_SIZE = 1000;
 
@@ -80,19 +86,16 @@ const fetchAttributeRows = async () => {
       .range(firstRow, lastRow)
   );
 
-  let query = await fetchWithColumns(
-    'id, name, active, data_type, unit, is_custom, decimal_places, is_globally_required'
-  );
-  if (isMissingColumn(query.error, 'decimal_places')) {
-    query = await fetchWithColumns(
-      'id, name, active, data_type, unit, is_custom, is_globally_required'
+  const optionalColumns = ['configuration', 'decimal_places', 'is_custom', 'is_globally_required'];
+  let columns = ['id', 'name', 'active', 'data_type', 'unit', ...optionalColumns];
+  let query = await fetchWithColumns(columns.join(', '));
+  while (query.error) {
+    const missingColumn = optionalColumns.find(
+      (column) => columns.includes(column) && isMissingColumn(query.error, column)
     );
-  }
-  if (isMissingColumn(query.error, 'is_custom')) {
-    query = await fetchWithColumns('id, name, active, data_type, unit, is_globally_required');
-  }
-  if (isMissingColumn(query.error, 'is_globally_required')) {
-    query = await fetchWithColumns('id, name, active, data_type, unit');
+    if (!missingColumn) break;
+    columns = columns.filter((column) => column !== missingColumn);
+    query = await fetchWithColumns(columns.join(', '));
   }
   if (query.error) throw query.error;
   return query.data;
@@ -139,8 +142,10 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
     );
   }
 
-  const mapped: MobileAttribute[] = attributes.map((attribute: any) => {
-    const options: MobileAttributeValue[] = values
+  const attributeRows = attributes ?? [];
+  const valueRows = values ?? [];
+  const mapped: MobileAttribute[] = attributeRows.map((attribute: any) => {
+    const options: MobileAttributeValue[] = valueRows
       .filter((value: any) => String(value.attribute_id) === String(attribute.id))
       .map((value: any) => ({
         id: String(value.id),
@@ -161,11 +166,12 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
           })
         );
 
+    const dataType = inferAttributeDataType(attribute.name, attribute.data_type || attribute.dataType);
     return {
       id: String(attribute.id),
       name: attribute.name,
       active: attribute.active ?? true,
-      dataType: inferAttributeDataType(attribute.name, attribute.data_type || attribute.dataType),
+      dataType,
       decimalPlaces:
         isWeightCharacteristicName(attribute.name) || attribute.data_type === 'weight'
           ? 1
@@ -175,10 +181,14 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
             ? attribute.decimal_places
             : undefined,
       isGloballyRequired:
-        isWeightCharacteristicName(attribute.name) ||
+        !isCatalogNeverRequiredCharacteristicName(attribute.name) &&
         Boolean(attribute.is_globally_required ?? attribute.isGloballyRequired),
       isCustom: Boolean(attribute.is_custom ?? attribute.isCustom),
       unit: attribute.unit || '',
+      configuration: normalizeCharacteristicFillConfiguration(
+        dataType,
+        attribute.configuration,
+      ),
       options: orderedOptions,
       categoryAttributes: categoriesResult.error
         ? undefined
@@ -186,7 +196,8 @@ export const fetchMobileAttributes = async (): Promise<MobileAttribute[]> => {
             .filter((link) => String(link.attribute_id) === String(attribute.id))
             .map((link) => ({
               categoryId: String(link.category_id),
-              isRequired: isWeightCharacteristicName(attribute.name) || Boolean(link.is_required),
+              isRequired:
+                !isCatalogNeverRequiredCharacteristicName(attribute.name) && Boolean(link.is_required),
             })),
     };
   });
@@ -221,7 +232,7 @@ export const saveMobileAttributeDefinition = async (
           ? 1
           : undefined,
     isGloballyRequired:
-      isWeightCharacteristicName(name) || (definition.isGloballyRequired ?? false),
+      !isCatalogNeverRequiredCharacteristicName(name) && (definition.isGloballyRequired ?? false),
     isCustom: definition.isCustom ?? true,
     options: definition.options.map((option, index) => ({
       ...(option.id ? { id: option.id } : {}),
@@ -232,13 +243,25 @@ export const saveMobileAttributeDefinition = async (
   if (definition.categoryAttributes) {
     payload.categoryAttributes = definition.categoryAttributes.map((link) => ({
       categoryId: link.categoryId,
-      isRequired: isWeightCharacteristicName(name) || link.isRequired,
+      isRequired: !isCatalogNeverRequiredCharacteristicName(name) && link.isRequired,
     }));
   }
 
-  const { data, error } = await supabase.rpc('save_product_characteristic_definition', {
+  if (definition.configuration !== undefined) {
+    payload.configuration = normalizeCharacteristicFillConfiguration(
+      definition.dataType,
+      definition.configuration,
+    ) ?? {};
+  }
+
+  const { data, error } = await supabase.rpc(
+    definition.configuration !== undefined
+      ? 'save_product_characteristic_definition_v2'
+      : 'save_product_characteristic_definition',
+    {
     p_definition: payload,
-  });
+    }
+  );
   if (error) throw error;
   if (typeof data !== 'string' || !data) {
     throw new Error('O banco não retornou o identificador da característica salva.');

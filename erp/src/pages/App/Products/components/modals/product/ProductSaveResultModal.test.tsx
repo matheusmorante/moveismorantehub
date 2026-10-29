@@ -249,7 +249,7 @@ describe('ProductSaveResultModal - Regra de Origem de Estoque Salvados e Usados'
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('bloqueia publicação quando uma característica obrigatória do grupo fica vazia', async () => {
+  it('não inclui Quantidade de portas entre os requisitos de publicação', async () => {
     vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockResolvedValueOnce([
       {
         id: 'door-quantity', name: 'Quantidade de portas', dataType: 'integer', options: [],
@@ -268,7 +268,7 @@ describe('ProductSaveResultModal - Regra de Origem de Estoque Salvados e Usados'
       images: ['https://example.test/guarda-roupa.jpg'], width: 80, height: 180, depth: 50,
       weight: 60,
       selectedCharacteristicGroupIds: ['doors'], activeCharacteristicGroupIds: ['doors'],
-      selectedCharacteristicIds: [], technicalValues: {}, variations: [],
+      selectedCharacteristicIds: [], variations: [],
     } as unknown as Product;
 
     render(
@@ -280,8 +280,8 @@ describe('ProductSaveResultModal - Regra de Origem de Estoque Salvados e Usados'
       />
     );
 
-    expect(await screen.findByText('Características obrigatórias: Quantidade de portas')).toBeDefined();
-    expect((screen.getByRole('button', { name: 'Publicar no Catálogo' }) as HTMLButtonElement).disabled).toBe(true);
+    const missingRequirements = await screen.findByText(/Características obrigatórias:/);
+    expect(missingRequirements.textContent).not.toContain('Quantidade de portas');
   });
 
   it('bloqueia somente a publicação quando não consegue consultar os requisitos da categoria', async () => {

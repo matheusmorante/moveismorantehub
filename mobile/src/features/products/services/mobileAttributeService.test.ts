@@ -13,6 +13,7 @@ import {
   addMobileAttributeValue,
   deleteMobileAttribute,
   deleteMobileAttributeValue,
+  fetchMobileAttributes,
   saveMobileAttributeDefinition,
 } from './mobileAttributeService';
 
@@ -21,41 +22,45 @@ describe('mobile attribute service', () => {
     vi.clearAllMocks();
   });
 
-  const mockAttributeReads = () => {
-    const attributesQuery = {
-      select: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({
-        data: [
-          {
-            id: 'attribute-id',
-            name: 'Cor',
-            active: true,
-            data_type: 'radio',
-            unit: null,
-            is_custom: true,
-            decimal_places: null,
-            is_globally_required: false,
-          },
-        ],
-        error: null,
-      }),
+  const mockAttributeReads = (
+    attributeResults: Array<{ data: unknown[] | null; error: unknown }> = [{
+      data: [
+        {
+          id: 'attribute-id',
+          name: 'Cor',
+          active: true,
+          data_type: 'radio',
+          unit: null,
+          is_custom: true,
+          decimal_places: null,
+          is_globally_required: false,
+          configuration: {},
+        },
+      ],
+      error: null,
+    }],
+  ) => {
+    let attributeQueryIndex = 0;
+    const createQuery = (result: { data: unknown[] | null; error: unknown }) => {
+      const query: any = {};
+      query.select = vi.fn(() => query);
+      query.order = vi.fn(() => query);
+      query.range = vi.fn().mockResolvedValue(result);
+      return query;
     };
-    const valuesQuery = {
-      select: vi.fn().mockResolvedValue({
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') {
+        const result = attributeResults[Math.min(attributeQueryIndex++, attributeResults.length - 1)];
+        return createQuery(result);
+      }
+      if (table === 'attribute_values') return createQuery({
         data: [
           { id: 'option-1', attribute_id: 'attribute-id', value: 'Azul', sort_order: 0 },
           { id: 'option-2', attribute_id: 'attribute-id', value: 'Preto', sort_order: 1 },
         ],
         error: null,
-      }),
-    };
-    const categoriesQuery = {
-      select: vi.fn().mockResolvedValue({ data: [], error: null }),
-    };
-    supabaseMock.from.mockImplementation((table: string) => {
-      if (table === 'attributes') return attributesQuery;
-      if (table === 'attribute_values') return valuesQuery;
-      return categoriesQuery;
+      });
+      return createQuery({ data: [], error: null });
     });
   };
 
@@ -109,6 +114,64 @@ describe('mobile attribute service', () => {
     expect(supabaseMock.from).not.toHaveBeenCalled();
   });
 
+  it('saves fill configuration with the same v2 RPC used by the ERP', async () => {
+    supabaseMock.rpc.mockResolvedValue({ data: 'attribute-id', error: null });
+
+    await saveMobileAttributeDefinition({
+      name: 'Largura',
+      dataType: 'decimal',
+      unit: 'cm',
+      decimalPlaces: 2,
+      active: true,
+      isCustom: true,
+      options: [],
+      configuration: { minValue: 10, maxValue: 42.5, dependencyLogic: 'any' } as any,
+    });
+
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'save_product_characteristic_definition_v2',
+      expect.objectContaining({
+        p_definition: expect.objectContaining({
+          configuration: { minValue: 10, maxValue: 42.5 },
+        }),
+      })
+    );
+  });
+
+  it('loads supported fill configuration and falls back only when the configuration column is absent', async () => {
+    mockAttributeReads([{
+      data: [
+        {
+          id: 'attribute-id', name: 'Largura', active: true, data_type: 'decimal', unit: 'cm',
+          is_custom: true, decimal_places: 2, is_globally_required: false,
+          configuration: { minValue: 10, maxValue: 42.5, dependencyLogic: 'any' },
+        },
+      ],
+      error: null,
+    }]);
+
+    await expect(fetchMobileAttributes()).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'attribute-id',
+        configuration: { minValue: 10, maxValue: 42.5 },
+      }),
+    ]));
+
+    mockAttributeReads([
+      { data: null, error: { code: '42703', message: 'column attributes.configuration does not exist' } },
+      {
+        data: [{
+          id: 'attribute-id', name: 'Cor', active: true, data_type: 'radio', unit: null,
+          is_custom: true, decimal_places: null, is_globally_required: false,
+        }],
+        error: null,
+      },
+    ]);
+    await expect(fetchMobileAttributes()).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'attribute-id', configuration: undefined }),
+    ]));
+  });
+
   it('saves edited option order and values in one ERP transaction', async () => {
     supabaseMock.rpc.mockResolvedValue({ data: 'attribute-id', error: null });
 
@@ -155,10 +218,11 @@ describe('mobile attribute service', () => {
     await addMobileAttributeValue('attribute-id', '  Verde  ');
 
     expect(supabaseMock.rpc).toHaveBeenCalledWith(
-      'save_product_characteristic_definition',
+      'save_product_characteristic_definition_v2',
       expect.objectContaining({
         p_definition: expect.objectContaining({
           id: 'attribute-id',
+          configuration: {},
           options: [
             { id: 'option-1', value: 'Azul', sortOrder: 0 },
             { id: 'option-2', value: 'Preto', sortOrder: 1 },
@@ -176,10 +240,11 @@ describe('mobile attribute service', () => {
     await deleteMobileAttributeValue('option-1');
 
     expect(supabaseMock.rpc).toHaveBeenCalledWith(
-      'save_product_characteristic_definition',
+      'save_product_characteristic_definition_v2',
       expect.objectContaining({
         p_definition: expect.objectContaining({
           id: 'attribute-id',
+          configuration: {},
           options: [{ id: 'option-2', value: 'Preto', sortOrder: 0 }],
           categoryAttributes: [],
         }),

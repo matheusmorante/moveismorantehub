@@ -16,7 +16,7 @@ describe('YesNoPowerToggle', () => {
     options: [{ id: '1', value: 'Não' }, { id: '2', value: 'Sim' }],
   };
 
-  it('renderiza no estado Desligado quando o valor for "Não" ou vazio', () => {
+  it('renderiza as opções radio e seleciona Não quando o valor for negativo', () => {
     render(
       <YesNoPowerToggle
         field={mockField}
@@ -25,14 +25,13 @@ describe('YesNoPowerToggle', () => {
       />
     );
 
-    const toggle = screen.getByRole('switch');
-    expect(toggle.getAttribute('aria-checked')).toBe('false');
-    expect(screen.getByText('Desligado')).toBeDefined();
+    const naoOption = screen.getByRole('radio', { name: 'Não' }) as HTMLInputElement;
+    expect(naoOption.checked).toBe(true);
     expect(screen.getByText('Não')).toBeDefined();
-    expect(toggle.querySelector('.bi-power')).toBeDefined();
+    expect((screen.getByRole('radio', { name: 'Sim' }) as HTMLInputElement).checked).toBe(false);
   });
 
-  it('renderiza no estado Ligado quando o valor for "Sim" ou true', () => {
+  it('seleciona Sim quando o valor for afirmativo', () => {
     render(
       <YesNoPowerToggle
         field={mockField}
@@ -41,13 +40,11 @@ describe('YesNoPowerToggle', () => {
       />
     );
 
-    const toggle = screen.getByRole('switch');
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByText('Ligado')).toBeDefined();
-    expect(screen.getByText('Sim')).toBeDefined();
+    expect((screen.getByRole('radio', { name: 'Sim' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('radio', { name: 'Não' }) as HTMLInputElement).checked).toBe(false);
   });
 
-  it('alterna de Desligado para Ligado emitindo "Sim" ao clicar', () => {
+  it('emite "Sim" ao selecionar o rádio afirmativo', () => {
     const onChange = vi.fn();
     render(
       <YesNoPowerToggle
@@ -57,13 +54,12 @@ describe('YesNoPowerToggle', () => {
       />
     );
 
-    const toggle = screen.getByRole('switch');
-    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole('radio', { name: 'Sim' }));
 
     expect(onChange).toHaveBeenCalledWith('Sim');
   });
 
-  it('alterna de Ligado para Desligado emitindo "Não" ao clicar', () => {
+  it('emite "Não" ao selecionar o rádio negativo', () => {
     const onChange = vi.fn();
     render(
       <YesNoPowerToggle
@@ -73,8 +69,7 @@ describe('YesNoPowerToggle', () => {
       />
     );
 
-    const toggle = screen.getByRole('switch');
-    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole('radio', { name: 'Não' }));
 
     expect(onChange).toHaveBeenCalledWith('Não');
   });
@@ -90,10 +85,10 @@ describe('YesNoPowerToggle', () => {
       />
     );
 
-    const toggle = screen.getByRole('switch');
-    fireEvent.click(toggle);
+    const simOption = screen.getByRole('radio', { name: 'Sim' }) as HTMLInputElement;
+    fireEvent.click(simOption);
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(toggle.hasAttribute('disabled')).toBe(true);
+    expect(simOption.hasAttribute('disabled')).toBe(true);
   });
 });

@@ -77,6 +77,16 @@ export function CharacteristicOptionsSection({
     setError('');
   };
 
+  const removeOption = (optionId: string) => {
+    if (options.length <= 1) return;
+    onOptionsChange(sortOptions(options.filter((option) => option.id !== optionId)));
+    if (editingId === optionId) {
+      setEditingId(null);
+      setEditingValue('');
+    }
+    setError('');
+  };
+
   return (
     <section className="space-y-3" aria-labelledby="characteristic-options-label">
       <div className="flex items-center justify-between gap-3">
@@ -146,22 +156,30 @@ export function CharacteristicOptionsSection({
                 className={underlineInput}
               />
             ) : (
-              <div className="min-w-0 flex-1">
-                <span className={`block truncate text-sm ${option.active === false ? 'text-slate-400 line-through' : 'text-slate-800 dark:text-slate-100'}`}>
-                  {option.value}
-                </span>
-                {option.active === false && <span className="text-[10px] text-slate-400">Inativa</span>}
-              </div>
-            )}
-            {editingId !== option.id && (
               <button
                 type="button"
                 onClick={() => { setEditingId(option.id); setEditingValue(option.value); setError(''); }}
                 disabled={disabled}
                 aria-label={`Editar opção ${option.value}`}
-                className="px-1.5 py-1 text-xs text-slate-500 hover:text-slate-900 disabled:opacity-40 dark:hover:text-white"
-              >Editar</button>
+                title="Clique para editar"
+                className={`min-w-0 flex-1 truncate text-left text-sm disabled:cursor-default ${option.active === false ? 'text-slate-400 line-through' : 'text-slate-800 hover:text-blue-700 dark:text-slate-100 dark:hover:text-blue-300'}`}
+              >
+                {option.value}
+              </button>
             )}
+            {option.active === false && editingId !== option.id && (
+              <span className="text-[10px] text-slate-400">Inativa</span>
+            )}
+            <button
+              type="button"
+              onClick={() => removeOption(option.id)}
+              disabled={disabled || options.length <= 1}
+              aria-label={`Remover opção ${option.value}`}
+              title={options.length <= 1 ? 'A característica precisa ter ao menos uma opção.' : 'Remover opção'}
+              className="shrink-0 px-1.5 py-1 text-xs text-slate-500 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-red-400"
+            >
+              <i className="bi bi-trash" aria-hidden="true" />
+            </button>
           </div>
         ))}
       </div>

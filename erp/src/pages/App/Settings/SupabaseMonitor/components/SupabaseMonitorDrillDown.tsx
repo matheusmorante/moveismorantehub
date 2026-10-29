@@ -30,7 +30,7 @@ export const SupabaseMonitorDrillDown: React.FC<Props> = ({
 }) => {
   const getWarningFlags = (item: DrillDownItem, isActionLevel: boolean) => {
     const flags: Array<{ title: string; desc: string; color: string }> = [];
-    if (item.avgRows > 500) {
+    if (item.avgRows != null && item.avgRows > 500) {
       flags.push({
         title: `Média de ${item.avgRows} registros/req`,
         desc: 'Possível consulta sem paginação.',
@@ -163,9 +163,14 @@ export const SupabaseMonitorDrillDown: React.FC<Props> = ({
                           <i className="bi bi-arrow-repeat mr-1"></i> {item.count} reqs (
                           {Math.round(item.percent)}%)
                         </span>
-                        {item.avgRows > 0 && (
+                        {item.avgRows != null && item.avgRows > 0 && (
                           <span title="Média de Registros por Requisição">
                             <i className="bi bi-database mr-1"></i> {item.avgRows} linhas/req
+                          </span>
+                        )}
+                        {item.unknownRowsCount > 0 && (
+                          <span title="Quantidade de respostas sem contagem disponível">
+                            {item.unknownRowsCount} sem contagem
                           </span>
                         )}
                         {item.avgDuration > 0 && (

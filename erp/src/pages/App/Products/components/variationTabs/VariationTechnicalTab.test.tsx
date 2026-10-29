@@ -236,7 +236,7 @@ describe('VariationTechnicalTab', () => {
     );
 
     expect(await screen.findByTestId('input-Quantidade de portas')).toBeDefined();
-    expect(screen.getByText('Quantidade de portas').closest('label')?.querySelector('[aria-label="Obrigatória"]')).not.toBeNull();
+    expect(screen.getByText('Quantidade de portas').closest('label')?.querySelector('[aria-label="Obrigatória"]')).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Exibir característica Quantidade de portas' })).toBeNull();
   });
 

@@ -3,6 +3,7 @@ import { ApiUsageGuard } from '@/services/apiMonitoring/apiUsageGuard';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
 import { parseCoordinatesFromMapsUrl } from '../mapCoordinates';
 import { isGoogleQuotaError, loadGoogleMapsApi } from './googleMapsLoader';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export interface GeocodeResponse {
   coords: [number, number];
@@ -211,121 +212,142 @@ export const geocodeAddressUncached = async (
     if (cached) return cached;
   }
 
-  // Verificar limites operacionais (Usage Guard)
-  const guard = await ApiUsageGuard.check('google_geocoding');
-  if (!guard.allowed) {
-    console.warn(`[ApiUsageGuard] Chamada a Geocoding bloqueada: ${guard.reason}`);
-    onFailure?.(`A busca do endereço foi bloqueada: ${guard.reason}`);
-    return null;
-  }
-
-  const startTime = Date.now();
-  let lastGeocodeStatus = '';
-  try {
-    await loadGoogleMapsApi();
-    const google = (window as any).google;
-    const geocoder = new google.maps.Geocoder();
-
-    const runGeocode = async (requestParam: any): Promise<any> => {
-      return new Promise((resolve, reject) => {
-        geocoder.geocode(
-          typeof requestParam === 'string'
-            ? { address: requestParam }
-            : requestParam,
-          (results: any, status: any) => {
-            if (status === 'OK' && results && results.length > 0) resolve(results[0]);
-            else reject(status);
-          }
-        );
-      });
-    };
-
-    let r: any = null;
-    let isPrimarySuccess = false;
-
-    // Se temos o placeId do Google Places, resolver diretamente por ele é 100% infalível
-    if (placeId) {
-      try {
-        r = await runGeocode({ placeId });
-        isPrimarySuccess = true;
-      } catch (placeErr) {
-        lastGeocodeStatus = String(placeErr);
-      }
+  let active = true;
+  const run = async (): Promise<GeocodeResponse | null> => {
+    // Verificar limites operacionais (Usage Guard)
+    const guard = await ApiUsageGuard.check('google_geocoding');
+    if (!active) return null;
+    if (!guard.allowed) {
+      console.warn(`[ApiUsageGuard] Chamada a Geocoding bloqueada: ${guard.reason}`);
+      onFailure?.(`A busca do endereço foi bloqueada: ${guard.reason}`);
+      return null;
     }
 
-    // Se não resolveu por placeId, percorre a lista inteligente de queries
-    if (!r) {
-      for (let i = 0; i < candidateQueries.length; i++) {
-        const query = candidateQueries[i];
+    const startTime = Date.now();
+    let lastGeocodeStatus = '';
+    try {
+      await loadGoogleMapsApi();
+      if (!active) return null;
+      const google = (window as any).google;
+      const geocoder = new google.maps.Geocoder();
+
+      const runGeocode = async (requestParam: any): Promise<any> => {
+        return new Promise((resolve, reject) => {
+          geocoder.geocode(
+            typeof requestParam === 'string'
+              ? { address: requestParam }
+              : requestParam,
+            (results: any, status: any) => {
+              if (status === 'OK' && results && results.length > 0) resolve(results[0]);
+              else reject(status);
+            }
+          );
+        });
+      };
+
+      let r: any = null;
+      let isPrimarySuccess = false;
+
+      // Se temos o placeId do Google Places, resolver diretamente por ele é 100% infalível
+      if (placeId) {
         try {
-          r = await runGeocode(query);
-          isPrimarySuccess = i === 0;
-          break;
-        } catch (err) {
-          lastGeocodeStatus = String(err);
-          // Erros de cota ou autorização não serão corrigidos tentando outras queries
-          if (isGoogleQuotaError(err)) {
+          r = await runGeocode({ placeId });
+          isPrimarySuccess = true;
+        } catch (placeErr) {
+          lastGeocodeStatus = String(placeErr);
+        }
+        if (!active) return null;
+      }
+
+      // Se não resolveu por placeId, percorre a lista inteligente de queries
+      if (!r) {
+        for (let i = 0; i < candidateQueries.length; i++) {
+          if (!active) return null;
+          const query = candidateQueries[i];
+          try {
+            r = await runGeocode(query);
+            isPrimarySuccess = i === 0;
             break;
+          } catch (err) {
+            lastGeocodeStatus = String(err);
+            // Erros de cota ou autorização não serão corrigidos tentando outras queries
+            if (isGoogleQuotaError(err)) {
+              break;
+            }
           }
         }
       }
-    }
 
-    if (r?.geometry?.location) {
+      if (!active) return null;
+      if (r?.geometry?.location) {
+        ApiUsageTracker.record({
+          provider: 'google',
+          service: 'google_geocoding',
+          operation: 'geocode',
+          units: 1,
+          status: 'SUCCESS',
+          response_time_ms: Date.now() - startTime,
+          module_source: 'sales_order',
+        });
+        const result: GeocodeResponse = {
+          coords: [
+            typeof r.geometry.location.lng === 'function'
+              ? r.geometry.location.lng()
+              : r.geometry.location.lng,
+            typeof r.geometry.location.lat === 'function'
+              ? r.geometry.location.lat()
+              : r.geometry.location.lat,
+          ],
+          isPrecision: isPrimarySuccess,
+        };
+
+        // Alimenta o cache com a query primária e com a query de sucesso
+        candidateQueries.forEach((q) => geocodeCache.set(q, result));
+        if (r.formatted_address) geocodeCache.set(r.formatted_address, result);
+        schedulePersistGeocodeCache();
+
+        return result;
+      }
+    } catch (e) {
+      if (!active) return null;
+      console.error('Google Maps Geocoder error:', e);
+      onFailure?.(`Falha no serviço de geocodificação do Google Maps: ${String(e)}`);
       ApiUsageTracker.record({
         provider: 'google',
         service: 'google_geocoding',
         operation: 'geocode',
         units: 1,
-        status: 'SUCCESS',
+        status: 'ERROR',
         response_time_ms: Date.now() - startTime,
         module_source: 'sales_order',
+        error_message: String(e),
       });
-      const result: GeocodeResponse = {
-        coords: [
-          typeof r.geometry.location.lng === 'function'
-            ? r.geometry.location.lng()
-            : r.geometry.location.lng,
-          typeof r.geometry.location.lat === 'function'
-            ? r.geometry.location.lat()
-            : r.geometry.location.lat,
-        ],
-        isPrecision: isPrimarySuccess,
-      };
-
-      // Alimenta o cache com a query primária e com a query de sucesso
-      candidateQueries.forEach((q) => geocodeCache.set(q, result));
-      if (r.formatted_address) geocodeCache.set(r.formatted_address, result);
-      schedulePersistGeocodeCache();
-
-      return result;
+      return null;
     }
-  } catch (e) {
-    console.error('Google Maps Geocoder error:', e);
-    onFailure?.(`Falha no serviço de geocodificação do Google Maps: ${String(e)}`);
-    ApiUsageTracker.record({
-      provider: 'google',
-      service: 'google_geocoding',
-      operation: 'geocode',
-      units: 1,
-      status: 'ERROR',
-      response_time_ms: Date.now() - startTime,
-      module_source: 'sales_order',
-      error_message: String(e),
-    });
-    return null;
-  }
 
-  if (isGoogleQuotaError(lastGeocodeStatus)) {
-    onFailure?.(
-      'A cota diária do Google Maps foi atingida. O pedido pode ser salvo, mas a localização e o cálculo da rota ficarão pendentes até a cota ser renovada.'
+    if (isGoogleQuotaError(lastGeocodeStatus)) {
+      onFailure?.(
+        'A cota diária do Google Maps foi atingida. O pedido pode ser salvo, mas a localização e o cálculo da rota ficarão pendentes até a cota ser renovada.'
+      );
+    } else {
+      onFailure?.(
+        `O Google Maps não localizou o endereço informado${lastGeocodeStatus ? ` (${lastGeocodeStatus})` : ''}. Confira rua, número, cidade e UF.`
+      );
+    }
+    return null;
+  };
+
+  // O SDK não oferece aborto neste contrato; descartar conclusões após o prazo.
+  try {
+    const result = await withTimeout<GeocodeResponse | null | undefined>(
+      run(), 15_000, undefined, 'maps:geocodificar-endereco',
     );
-  } else {
-    onFailure?.(
-      `O Google Maps não localizou o endereço informado${lastGeocodeStatus ? ` (${lastGeocodeStatus})` : ''}. Confira rua, número, cidade e UF.`
-    );
+    active = false;
+    if (result === undefined) onFailure?.('A busca do endereço excedeu o tempo de espera.');
+    return result ?? null;
+  } finally {
+    active = false;
   }
-  return null;
 };
 
 export const geocodeAddress = async (

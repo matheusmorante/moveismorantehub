@@ -18,6 +18,8 @@ import {
   getCharacteristicDependencies,
 } from '../../../../../../../../../shared-utils/characteristicDependencyRules';
 import { isSofaCategoryName } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
+import { isCatalogCoreRequiredCharacteristicName } from '../../../../../../../../../shared-utils/catalogPublication/characteristicValues';
+import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 import {
   areTechnicalCharacteristicNamesEquivalent,
   isTechnicalFieldAllowedForCategories,
@@ -78,10 +80,21 @@ export const useTechnicalFieldApplicability = ({
       selectedCategoryIds.has(String(application.categoryId))
     ) ?? false;
   const isCatalogRequiredForSelectedCategory = (field: TechnicalFieldDefinition) =>
-    field.requiredCategoryIds?.some((id) => selectedCategoryIds.has(String(id))) ?? false;
+    !isCatalogNeverRequiredCharacteristicName(field.name) && (
+      Boolean(field.isRequiredForCatalog) ||
+      isCatalogCoreRequiredCharacteristicName(field.name) ||
+      (field.requiredCategoryIds?.some((id) =>
+        selectedCategoryIds.has(String(id)) && !field.categoryApplications?.some(
+          (application) => String(application.categoryId) === String(id)
+        )
+      ) ?? false)
+    );
 
   const categoryTechnicalFields = allTechnicalFields
     .map((field) => {
+      if (isCatalogNeverRequiredCharacteristicName(field.name)) {
+        return { ...field, isRequired: false, isRequiredForCatalog: false };
+      }
       const hasCategoryApplication = field.categoryApplications?.some((application) =>
         selectedCategoryIds.has(String(application.categoryId))
       ) ?? false;
@@ -99,12 +112,12 @@ export const useTechnicalFieldApplicability = ({
       ) ?? false;
       if (Array.isArray(field.categoryApplications) &&
         resolveProductCharacteristicApplication(field, formData.categoryIds || []) === 'unavailable' &&
-        !(isCatalogRequiredForSelectedCategory(field) && !hasCategoryApplication)) {
+        !isCatalogRequiredForSelectedCategory(field)) {
         return false;
       }
       if (!isTechnicalFieldAllowedForCategories(
         field.name, [categoryName], field.categoryApplications, formData.categoryIds || []
-      )) return false;
+      ) && !isCatalogCoreRequiredCharacteristicName(field.name)) return false;
       const linkedToSelectedCategory = field.categoryIds?.some((id) =>
         selectedCategoryIds.has(String(id))
       ) ?? false;
@@ -168,7 +181,7 @@ export const useTechnicalFieldApplicability = ({
     )
   );
 
-  if (isSofaCategorySelected && retractableField && !hasSelectedCategoryApplication(retractableField)) {
+  if (isSofaCategorySelected && retractableField) {
     applicableFieldsByName.set(normalizeSearchTerm(retractableField.name), {
       ...retractableField,
       isRequired: true,
@@ -206,7 +219,7 @@ export const useTechnicalFieldApplicability = ({
   });
 
   const categoryVisibleFields = requiredFieldsOnly
-    ? applicableFields.filter((field) => field.isRequired)
+    ? applicableFields.filter((field) => field.isRequired || field.isRequiredForCatalog)
     : applicableFields;
 
   const requiredFields = categoryVisibleFields.filter((field) => field.isRequired);
@@ -232,6 +245,7 @@ export const useTechnicalFieldApplicability = ({
   const dependencyReferenceIds = new Set<string>();
 
   const isFieldRequired = (field: TechnicalFieldDefinition) => {
+    if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
     const categoryField = applicableFieldsByName.get(normalizeSearchTerm(field.name));
     return Boolean(
       field.isRequired ||
@@ -373,7 +387,7 @@ export const useTechnicalFieldApplicability = ({
       return {
         ...field,
         isRequired: required,
-        isRequiredForProductEntry: required,
+        isRequiredForProductEntry: false,
         characteristicActive: active,
         characteristicToggleDisabled: required,
       };
@@ -395,6 +409,7 @@ export const useTechnicalFieldApplicability = ({
     const allGroupFields = sofaTechnicalFields
       .filter((field) => field.groupId === group.id)
       .filter((field) =>
+        isCatalogCoreRequiredCharacteristicName(field.name) ||
         resolveProductCharacteristicApplication(field, formData.categoryIds || []) !== 'unavailable' ||
         (isCatalogRequiredForSelectedCategory(field) && !(field.categoryApplications?.some((application) =>
           selectedCategoryIds.has(String(application.categoryId))
@@ -421,7 +436,7 @@ export const useTechnicalFieldApplicability = ({
           ...field,
           isRequired: required,
           isRequiredForCatalog: Boolean(field.isRequiredForCatalog),
-          isRequiredForProductEntry: required,
+          isRequiredForProductEntry: false,
           characteristicActive: active,
           characteristicToggleDisabled: required,
           dependencySatisfied: dependency.satisfied,
@@ -553,7 +568,7 @@ export const useTechnicalFieldApplicability = ({
               field: {
                 ...field,
                 isRequired: required,
-                isRequiredForProductEntry: required,
+                isRequiredForProductEntry: false,
                 characteristicActive: active,
                 characteristicToggleDisabled: required,
               },

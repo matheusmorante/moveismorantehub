@@ -34,6 +34,7 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
   const [isOpenSuggestions, setIsOpenSuggestions] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const booleanRadioGroupName = React.useId();
 
   const trimmedValue = (value || '').trim();
   const form = useZodForm(bulkAttributeFormSchema, { name: attributeId || '', value: trimmedValue });
@@ -99,16 +100,42 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
 
   const renderInput = () => {
     if (dataType === 'boolean') {
+      const normalizedBooleanValue = trimmedValue
+        .toLocaleLowerCase('pt-BR')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      const selectedBooleanValue = [
+        'sim',
+        's',
+        'yes',
+        'true',
+        '1',
+      ].includes(normalizedBooleanValue)
+        ? 'Sim'
+        : ['nao', 'n', 'no', 'false', '0'].includes(normalizedBooleanValue)
+          ? 'Não'
+          : '';
+
       return (
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="box-border h-[34px] w-full bg-transparent border-b-2 border-t-0 border-x-0 outline-none px-1 py-0 text-xs font-bold transition-all border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:border-blue-500"
-        >
-          <option value="">Selecione...</option>
-          <option value="Sim">Sim</option>
-          <option value="Não">Não</option>
-        </select>
+        <fieldset className="m-0 flex min-h-[34px] items-center gap-5 border-0 p-0">
+          <legend className="sr-only">{attributeName || 'Sim ou não'}</legend>
+          {(['Sim', 'Não'] as const).map((option) => (
+            <label
+              key={option}
+              className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200"
+            >
+              <input
+                type="radio"
+                name={booleanRadioGroupName}
+                value={option}
+                checked={selectedBooleanValue === option}
+                onChange={() => onChange(option)}
+                className="h-4 w-4 accent-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900"
+              />
+              <span>{option}</span>
+            </label>
+          ))}
+        </fieldset>
       );
     }
 

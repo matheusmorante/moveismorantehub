@@ -2,17 +2,19 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCategoriesAndEnvironments } from './useCategoriesAndEnvironments';
-const mocks = vi.hoisted(() => ({ environments: vi.fn(), categories: vi.fn(), counts: vi.fn(), createEnvironment: vi.fn(), updateEnvironment: vi.fn(), createCategory: vi.fn(), updateCategory: vi.fn(), attributes: vi.fn(), error: vi.fn() }));
+const mocks = vi.hoisted(() => ({ environments: vi.fn(), categories: vi.fn(), counts: vi.fn(), createEnvironment: vi.fn(), updateEnvironment: vi.fn(), createCategory: vi.fn(), updateCategory: vi.fn(), attributes: vi.fn(), activeCharacteristics: vi.fn(), categoryApplications: vi.fn(), error: vi.fn() }));
 vi.mock('@/pages/utils/categoryService', () => ({
   fetchEnvironments: mocks.environments, fetchCategories: mocks.categories, fetchCategoryProductCounts: mocks.counts,
   createEnvironment: mocks.createEnvironment, updateEnvironment: mocks.updateEnvironment,
   createCategory: mocks.createCategory, updateCategory: mocks.updateCategory, fetchCategoryAttributes: mocks.attributes,
+  fetchActiveCharacteristics: mocks.activeCharacteristics, fetchCharacteristicCategoryApplications: mocks.categoryApplications,
   deleteEnvironment: vi.fn(), deleteCategory: vi.fn(), unlinkCategoryFromEnvironment: vi.fn(),
 }));
 vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn() } }));
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks(); mocks.environments.mockResolvedValue([]); mocks.categories.mockResolvedValue([]); mocks.counts.mockResolvedValue({}); mocks.attributes.mockResolvedValue([]);
+  mocks.activeCharacteristics.mockResolvedValue([]); mocks.categoryApplications.mockResolvedValue([]);
   for (const save of [mocks.createEnvironment, mocks.updateEnvironment, mocks.createCategory, mocks.updateCategory]) save.mockResolvedValue(undefined);
 });
 const submit = (result: ReturnType<typeof renderHook<ReturnType<typeof useCategoriesAndEnvironments>, unknown>>['result']) => result.current.handleSave({ preventDefault() {} } as React.FormEvent);
@@ -33,7 +35,7 @@ describe('cadastro proprietário de ambientes e categorias', () => {
     act(() => { result.current.setNameInput('  sala de estar  '); if (environment) result.current.toggleLink('category'); else result.current.setSelectedAttributes([{ id: 'material', name: 'Material', isRequired: true }]); });
     await act(async () => { await submit(result); });
     if (environment) expect(mocks.createEnvironment).toHaveBeenCalledWith('SALA DE ESTAR', ['category']);
-    else expect(mocks.createCategory).toHaveBeenCalledWith('SALA DE ESTAR', ['env'], [{ id: 'material', name: 'Material', isRequired: true }], { meta_title: 'SALA DE ESTAR | Móveis Morante' });
+    else expect(mocks.createCategory).toHaveBeenCalledWith('SALA DE ESTAR', ['env'], [{ id: 'material', name: 'Material', isRequired: true }], { meta_title: 'SALA DE ESTAR | Móveis Morante' }, []);
     expect(result.current.showModal).toBeNull();
   });
   it.each([false, true])('edita com payload parseado e atributos carregados; ambiente=%s', async (environment) => {
@@ -43,7 +45,7 @@ describe('cadastro proprietário de ambientes e categorias', () => {
     act(() => result.current.setNameInput('  Novo nome  '));
     await act(async () => { await submit(result); });
     if (environment) expect(mocks.updateEnvironment).toHaveBeenCalledWith('env', 'NOVO NOME', ['category']);
-    else expect(mocks.updateCategory).toHaveBeenCalledWith('category', 'NOVO NOME', ['env'], [{ id: 'material', name: 'Material', isRequired: true }]);
+    else expect(mocks.updateCategory).toHaveBeenCalledWith('category', 'NOVO NOME', ['env'], [{ id: 'material', name: 'Material', isRequired: true }], undefined, []);
   });
   it('não salva categoria enquanto atributos estão pendentes ou falharam', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});

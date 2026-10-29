@@ -45,8 +45,7 @@ export const ProductGridPagination: React.FC<ProductGridPaginationProps> = ({
       <div
         role="group"
         aria-label="Paginação do catálogo de produtos"
-        className="grid w-full items-center gap-1 rounded-xl bg-slate-100 p-1"
-        style={{ gridTemplateColumns: `repeat(${pages.length}, minmax(0, 1fr))` }}
+        className="flex w-fit items-center gap-1 rounded-xl bg-slate-100 p-1"
       >
         {pages.map((page) => {
           const isCurrent = page === safeCurrentPage;
@@ -59,7 +58,7 @@ export const ProductGridPagination: React.FC<ProductGridPaginationProps> = ({
               disabled={isCurrent}
               onClick={() => onPageChange(page)}
               title={isCurrent ? `Página atual: ${page}` : `Ir para a página ${page}`}
-              className={`flex h-[42px] min-w-0 items-center justify-center rounded-lg text-sm font-extrabold transition-colors disabled:cursor-default ${
+              className={`flex h-[42px] min-w-[42px] shrink-0 items-center justify-center rounded-lg text-sm font-extrabold transition-colors disabled:cursor-default ${
                 isCurrent
                   ? 'bg-blue-600 text-white'
                   : 'bg-transparent text-slate-700 hover:bg-white/70'

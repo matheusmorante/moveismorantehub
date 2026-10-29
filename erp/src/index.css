@@ -320,6 +320,21 @@
   }
 }
 
+@media (min-width: 900px) {
+  .characteristic-form-modal-overlay {
+    padding: 1.5rem;
+  }
+
+  .characteristic-form-modal-dialog {
+    height: auto;
+    max-height: calc(100dvh - 3rem);
+    width: 560px;
+    max-width: 100%;
+    border-width: 1px;
+    border-radius: 1rem;
+  }
+}
+
 /* =========================================================================
    Faixa de luz animada (shimmer) para rótulos fiscais (NF / NFH)
    ========================================================================= */

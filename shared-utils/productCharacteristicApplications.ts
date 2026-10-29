@@ -1,6 +1,9 @@
+import { isCatalogNeverRequiredCharacteristicName } from './catalogPublication/requiredCharacteristicPolicy';
+
 export type ProductCharacteristicApplication = 'unavailable' | 'optional' | 'required';
 
 export interface ProductCategoryApplicationField {
+  readonly name?: string;
   readonly categoryApplications?: readonly {
     readonly categoryId: string;
     readonly application: ProductCharacteristicApplication;
@@ -19,9 +22,14 @@ export const resolveProductCharacteristicApplication = (
   const configuredApplications = field.categoryApplications?.filter((item) =>
     selectedCategories.has(String(item.categoryId))
   ) ?? [];
+  const neverRequired = Boolean(
+    field.name && isCatalogNeverRequiredCharacteristicName(field.name)
+  );
 
   if (configuredApplications.length > 0) {
-    if (configuredApplications.some((item) => item.application === 'required')) return 'required';
+    if (configuredApplications.some((item) => item.application === 'required')) {
+      return neverRequired ? 'optional' : 'required';
+    }
     if (configuredApplications.some((item) => item.application === 'optional')) return 'optional';
   }
 
@@ -32,10 +40,10 @@ export const resolveProductCharacteristicApplication = (
   }
 
   if (field.requiredProductCategoryIds?.some((id) => selectedCategories.has(String(id)))) {
-    return 'required';
+    return neverRequired ? 'optional' : 'required';
   }
   if (field.categoryIds?.some((id) => selectedCategories.has(String(id)))) return 'optional';
-  if (field.isRequired) return 'required';
+  if (field.isRequired) return neverRequired ? 'optional' : 'required';
 
   return 'unavailable';
 };

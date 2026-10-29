@@ -7,6 +7,7 @@ import {
   isCombinedProductModelLineAlias,
 } from './productTechnicalValueAliases';
 import { removeProductVariationTechnicalAttribute } from './productVariationTechnicalAttributes';
+import { isCatalogNeverRequiredCharacteristicName } from './catalogPublication/requiredCharacteristicPolicy';
 
 export interface RequiredProductCategoryAttribute {
   readonly attributeId: string;
@@ -199,8 +200,7 @@ export const fetchRequiredProductCategoryAttributes = async (
     if (!attributeId || !name) {
       throw new Error('Não foi possível identificar uma característica obrigatória da categoria.');
     }
-    // Peso is deliberately not a category-required technical field in either form.
-    if (normalizeName(name) === 'peso') continue;
+    if (isCatalogNeverRequiredCharacteristicName(name)) continue;
 
     const isCombinedModelLine = isCombinedProductModelLineAlias(name);
     const identity = isCombinedModelLine

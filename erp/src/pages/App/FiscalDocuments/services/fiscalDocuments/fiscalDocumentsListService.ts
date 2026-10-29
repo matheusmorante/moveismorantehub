@@ -6,6 +6,7 @@ import {
   type FiscalDocumentFilters,
   type NfeDocumentRecord,
 } from '../../types/fiscalDocuments.types';
+import { parseFiscalXmlDetails } from '../../utils/fiscalXmlParser';
 
 export interface FetchFiscalDocumentsParams {
   filters: FiscalDocumentFilters;
@@ -40,6 +41,51 @@ export interface FiscalDocumentsSummary {
 
 const NFE_LIST_COLUMNS =
   'id,order_id,numero_nfe,serie,chave_acesso,modelo,ambiente,status,motivo_status,numero_protocolo,valor_total,destinatario_nome,destinatario_documento,created_at,updated_at,document_type,fiscal_ruleset_version,supersedes_document_id';
+
+async function enrichRecipientsFromFiscalXml(
+  documents: NfeDocumentRecord[]
+): Promise<NfeDocumentRecord[]> {
+  const documentsToResolve = documents.filter((document) => {
+    const name = document.destinatario_nome?.trim().toLowerCase();
+    return (
+      !name ||
+      name === 'consumidor' ||
+      name === 'consumidor final' ||
+      !document.destinatario_documento?.trim()
+    );
+  });
+  if (!documentsToResolve.length) return documents;
+
+  const { data: xmlDocuments, error } = await supabase
+    .from('nfe_documents')
+    .select('id,xml_nfe')
+    .in('id', documentsToResolve.map((document) => document.id))
+    .abortSignal(AbortSignal.timeout(8_000));
+
+  if (error) throw error;
+
+  const recipientsById = new Map(
+    (xmlDocuments || []).map((document) => [
+      String(document.id),
+      parseFiscalXmlDetails(document.xml_nfe || '')?.recipient,
+    ] as const)
+  );
+
+  return documents.map((document) => {
+    const currentName = document.destinatario_nome?.trim();
+    const nameIsGeneric =
+      !currentName || ['consumidor', 'consumidor final'].includes(currentName.toLowerCase());
+    const recipient = recipientsById.get(document.id);
+
+    return {
+      ...document,
+      destinatario_nome:
+        (nameIsGeneric ? recipient?.name?.trim() : currentName) || undefined,
+      destinatario_documento:
+        document.destinatario_documento?.trim() || recipient?.taxId?.trim() || undefined,
+    };
+  });
+}
 
 async function resolveOrderIdsFromSearch(normalizedSearch: string): Promise<string[]> {
   if (!/^#?\d{1,12}$/.test(normalizedSearch)) return [];
@@ -202,12 +248,13 @@ export async function fetchFiscalDocumentsList({
   if (error) throw error;
   if (!data) throw new Error('A consulta de documentos fiscais não retornou dados.');
 
-  const documents = data as NfeDocumentRecord[];
+  const rawDocuments = data as NfeDocumentRecord[];
   const totalCount = count || 0;
 
-  const [orderNumbers, cancellationEligibility] = await Promise.all([
-    fetchLinkedOrderNumbers(documents),
-    fetchCancellationEligibilityMap(documents),
+  const [documents, orderNumbers, cancellationEligibility] = await Promise.all([
+    enrichRecipientsFromFiscalXml(rawDocuments),
+    fetchLinkedOrderNumbers(rawDocuments),
+    fetchCancellationEligibilityMap(rawDocuments),
   ]);
 
   return {

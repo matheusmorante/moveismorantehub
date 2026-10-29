@@ -220,8 +220,11 @@ describe('TechnicalFieldRow', () => {
       options: [],
       isRequired: false,
       isRequiredForCatalog: true,
+      characteristicActive: true,
+      characteristicToggleDisabled: false,
     };
     const onToggleVariable = vi.fn();
+    const onToggleCharacteristic = vi.fn();
 
     const { rerender } = render(
       <TechnicalFieldRow
@@ -230,6 +233,7 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         isSimpleProduct
         onToggleVariable={onToggleVariable}
+        onToggleCharacteristic={onToggleCharacteristic}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
         onRemoveManualField={vi.fn()}
@@ -246,6 +250,7 @@ describe('TechnicalFieldRow', () => {
         manualFieldNames={[]}
         isVariable
         onToggleVariable={onToggleVariable}
+        onToggleCharacteristic={onToggleCharacteristic}
         onValueChange={vi.fn()}
         onOpenAttributeModal={vi.fn()}
         onRemoveManualField={vi.fn()}

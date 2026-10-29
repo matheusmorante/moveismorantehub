@@ -18,6 +18,8 @@ export interface TelemetryEvent {
   operation_type: OperationType;
   duration_ms: number;
   rows_returned: number;
+  rows_count_known?: boolean;
+  response_bytes?: number;
 }
 
 export interface AggregatedMetric {
@@ -29,6 +31,9 @@ export interface AggregatedMetric {
   execution_count: number;
   total_duration_ms: number;
   rows_returned: number;
+  unknown_rows_count?: number;
+  response_bytes?: number;
+  measured_response_count?: number;
 }
 
 export interface SupabaseAnomalyEvent {
@@ -36,7 +41,6 @@ export interface SupabaseAnomalyEvent {
   title: string;
   message: string;
   metric?: AggregatedMetric;
-  fingerprint?: string;
 }
 
 export class CircuitBreakerError extends Error {
@@ -52,4 +56,6 @@ export const GUARD_CONFIG = {
   MAX_WRITE_REQUESTS: 10, // Mais de 10 chamadas idênticas de WRITE/RPC = OPEN
   COOLDOWN_MS: 30000, // 30 segundos bloqueado
   GLOBAL_KILL_SWITCH: 200, // Mais de 200 chamadas globais na janela = EMERGENCY
+  AGGREGATE_WINDOW_MS: 300000,
+  MAX_WINDOW_RESPONSE_BYTES: 25 * 1024 * 1024,
 };

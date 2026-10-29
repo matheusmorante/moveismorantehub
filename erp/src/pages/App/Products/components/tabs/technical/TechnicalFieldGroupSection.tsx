@@ -5,11 +5,7 @@ import type {
   TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
 import {
-  isHasDoorsCharacteristic,
-  isHasDrawersCharacteristic,
   isHasFeetCharacteristic,
-  isDoorQuantityCharacteristic,
-  isDrawerQuantityCharacteristic,
   isCharacteristicDependent,
   isCharacteristicDependentOnVariableField,
 } from '@/pages/utils/technicalValuesService';
@@ -42,22 +38,6 @@ export interface TechnicalFieldGroupSectionProps {
   readonly onRemoveManualField: (fieldName: string) => void;
 }
 
-const DEFAULT_POSSUI_PORTAS: TechnicalFieldDefinition = {
-  id: 'e3f1a001-1111-4000-8000-000000000001',
-  name: 'Possui portas?',
-  dataType: 'boolean',
-  options: [],
-  isRequired: false,
-};
-
-const DEFAULT_POSSUI_GAVETAS: TechnicalFieldDefinition = {
-  id: 'e3f1a002-2222-4000-8000-000000000002',
-  name: 'Possui gavetas?',
-  dataType: 'boolean',
-  options: [],
-  isRequired: false,
-};
-
 const DEFAULT_POSSUI_PES: TechnicalFieldDefinition = {
   id: 'a1f3e792-0790-4554-b269-e3b0b707896e',
   name: 'Possui pés?',
@@ -75,7 +55,6 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
   collapsible = false,
   expanded = true,
   onToggleExpanded,
-  allDisplayedFields = [],
   formData,
   manualFieldNames,
   validationErrors,
@@ -91,8 +70,6 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
   onOpenAttributeModal,
   onRemoveManualField,
 }) => {
-  const isPortasGroup = group.title === 'Portas';
-  const isGavetasGroup = group.title === 'Gavetas';
   const isPesGroup = group.title === 'Pés';
   const isDimensionsGroup =
     group.title === 'Dimensões' || group.title === 'Dimensões e Peso';
@@ -104,44 +81,11 @@ export const TechnicalFieldGroupSection: React.FC<TechnicalFieldGroupSectionProp
         : isTechnicalFieldVariable(field.name, variableTechnicalFieldNames);
 
   const effectiveFields = [...group.fields];
-  const hasDoorQuantityField = [...effectiveFields, ...allDisplayedFields].some((field) =>
-    isDoorQuantityCharacteristic(field.name)
-  );
-  const hasDrawerQuantityField = [...effectiveFields, ...allDisplayedFields].some((field) =>
-    isDrawerQuantityCharacteristic(field.name)
-  );
-
-  if (!suppressImplicitFields && (
-    isPortasGroup &&
-    !hasDoorQuantityField &&
-    !effectiveFields.some((field) => isHasDoorsCharacteristic(field.name))
-  )) {
-    effectiveFields.unshift(DEFAULT_POSSUI_PORTAS);
-  }
-  if (!suppressImplicitFields && (
-    isGavetasGroup &&
-    !hasDrawerQuantityField &&
-    !effectiveFields.some((field) => isHasDrawersCharacteristic(field.name))
-  )) {
-    effectiveFields.unshift(DEFAULT_POSSUI_GAVETAS);
-  }
   if (!suppressImplicitFields && isPesGroup && !effectiveFields.some((f) => isHasFeetCharacteristic(f.name))) {
     effectiveFields.unshift(DEFAULT_POSSUI_PES);
   }
 
-  const displayedFields = effectiveFields.filter((field) => {
-    // O formulário pode agrupar opcionais em uma seção genérica; ainda assim,
-    // a presença da quantidade torna redundante o controle booleano mestre.
-    if (isHasDoorsCharacteristic(field.name)) return !hasDoorQuantityField;
-    if (isDoorQuantityCharacteristic(field.name)) return true;
-    if (isHasDrawersCharacteristic(field.name)) return !hasDrawerQuantityField;
-    if (isDrawerQuantityCharacteristic(field.name)) return true;
-    if (isPesGroup) {
-      if (isHasFeetCharacteristic(field.name)) return true;
-      return true;
-    }
-    return true;
-  });
+  const displayedFields = effectiveFields;
 
   const fieldGrid = (
     <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,280px))] gap-x-5 gap-y-4">

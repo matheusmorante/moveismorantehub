@@ -146,3 +146,10 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 
 * A Lixeira lista somente produtos com `deleted = true`; produtos inativos sem exclusão permanecem no filtro **Desativados**.
 * Aplicar esse predicado tanto no ERP quanto no aplicativo. Não combinar `active = false` com a Lixeira.
+
+## 15. Obrigatoriedade no Formulário de Produto
+
+* No formulário de produto, o asterisco vermelho indica exclusivamente campos necessários para concluir o cadastro no ERP. Não usar o asterisco em características que sejam exigidas somente para o Catálogo Digital.
+* Marca e Modelo/Linha são características obrigatórias para publicação no Catálogo Digital em todas as categorias. Características obrigatórias por categoria também devem ser adicionadas automaticamente e validadas para publicação no Catálogo Digital. Nenhuma dessas exigências deve bloquear o cadastro nem a ativação do produto no ERP, nem exibir asterisco vermelho ou controle para ativar/desativar a característica.
+* Quantidade de portas, Tipo de portas e Peso permanecem opcionais em todas as categorias, tanto no cadastro do ERP quanto na publicação no Catálogo Digital, inclusive quando houver configurações antigas marcando esses campos como obrigatórios.
+* Características Sim/Não devem usar um grupo de opções radio com rótulos visíveis “Sim” e “Não”, sem alternador deslizante; preserve a acessibilidade dos controles para leitores de tela.

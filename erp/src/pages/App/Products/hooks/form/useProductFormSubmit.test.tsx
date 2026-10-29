@@ -237,6 +237,35 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
       variations: [expect.objectContaining({ status: 'hidden' })],
     }));
   });
+  it('exibe modal com motivo e campos faltantes ao salvar produto publicado sem descrição do catálogo', async () => {
+    const publishedWithoutDesc: Product = {
+      ...complete,
+      isDraft: false,
+      status: 'published',
+      active: true,
+      title: 'Armário publicado',
+      images: ['https://example.com/foto1.jpg'],
+      ecommerceDescription: '',
+      description: '',
+    };
+    mocks.swalFire.mockResolvedValueOnce({ isConfirmed: true });
+    const { result } = renderSubmit(publishedWithoutDesc, true);
+
+    await act(async () => {
+      expect(await result.current.handleSubmit(false)).toBe(true);
+    });
+
+    expect(Swal.fire).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Ocultar produto do Catálogo Digital?',
+      text: expect.stringContaining('Campo Descrição: a descrição do catálogo deve ser preenchida'),
+    }));
+    expect(Swal.fire).toHaveBeenCalledWith(expect.objectContaining({
+      text: expect.stringContaining('ajuste a conformidade do campo citado acima antes de salvar'),
+    }));
+    expect(mocks.saveProduct).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'hidden',
+    }));
+  });
   it('mantém produto normal publicado sem salvar quando a leitura dos requisitos de categoria falha', async () => {
     const publishedProduct: Product = {
       ...complete,
@@ -267,6 +296,7 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
       status: 'published',
       active: true,
       title: 'Armário publicado',
+      images: ['https://example.com/foto1.jpg'],
       ecommerceDescription: 'Armário de madeira.',
       technicalValues: { ...complete.technicalValues, 'Material da estrutura': '' },
     };
@@ -285,6 +315,10 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
       confirmButtonText: 'Salvar e ocultar',
       cancelButtonText: 'Continuar editando',
       showCancelButton: true,
+      text: expect.stringContaining('Material da estrutura'),
+    }));
+    expect(Swal.fire).toHaveBeenCalledWith(expect.objectContaining({
+      text: expect.stringContaining('ajuste a conformidade do campo citado acima antes de salvar'),
     }));
     expect(mocks.saveProduct).not.toHaveBeenCalled();
   });

@@ -3,10 +3,10 @@ import {
   parseDoorQuantityValue,
   parseDrawerQuantityValue,
   parseFeetQuantityValue,
-  isDoorQuantityCharacteristic,
   TechnicalFieldDefinition,
 } from '@/pages/utils/technicalValuesService';
 import { getProductTechnicalValueCandidateKeys } from '../../../../../../../../../shared-utils/productTechnicalValueAliases';
+import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 import { normalizeTechnicalName } from '../technicalTabUtils';
 
 /**
@@ -53,6 +53,7 @@ export const populateInitialTechnicalValues = (
 
   fieldDefinitions
     .filter((field) => {
+      if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
       const categoryApplications = field.categoryApplications?.filter((application) =>
         (prev.categoryIds || []).includes(application.categoryId)
       ) ?? [];
@@ -139,31 +140,8 @@ export const populateInitialTechnicalValues = (
     }
   }
 
-  // Inferência automática e compatibilidade de switches mestres
-  if (!Object.prototype.hasOwnProperty.call(technicalValues, 'Possui portas?')) {
-    const hasDoorQuantityField = Object.keys(technicalValues).some(isDoorQuantityCharacteristic);
-    if (
-      !hasDoorQuantityField &&
-      (technicalValues['Tipo de portas'] || technicalValues['Material das portas'])
-    ) {
-      technicalValues['Possui portas?'] = true;
-      changed = true;
-    }
-  }
-
-  if (!Object.prototype.hasOwnProperty.call(technicalValues, 'Possui gavetas?')) {
-    const drawerQty = parseDrawerQuantityValue(technicalValues);
-    if (
-      (drawerQty !== null && drawerQty > 0) ||
-      technicalValues['Tipo/Material das corrediças'] ||
-      technicalValues['Materiais das corrediças'] ||
-      technicalValues['Material das gavetas']
-    ) {
-      technicalValues['Possui gavetas?'] = true;
-      changed = true;
-    }
-  }
-
+  // Compatibilidade de valores legados dos pés: o campo numérico não é mais exibido,
+  // mas ainda ajuda a preencher o Booleano Possui pés? em produtos antigos.
   if (!Object.prototype.hasOwnProperty.call(technicalValues, 'Possui pés?')) {
     const feetQty = parseFeetQuantityValue(technicalValues);
     if (

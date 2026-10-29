@@ -658,7 +658,7 @@ describe('mobileProductTechnicalService', () => {
       ['id, name, active, data_type, unit, configuration, group_id, dependency_attribute_id, dependency_operator, dependency_value'],
     ]);
     expect(valuesQuery.select.mock.calls).toEqual([
-      ['id, attribute_id, value, sort_order'],
+      ['id, attribute_id, value, sort_order, active'],
       ['id, attribute_id, value'],
     ]);
     expect(fields[0]).toMatchObject({

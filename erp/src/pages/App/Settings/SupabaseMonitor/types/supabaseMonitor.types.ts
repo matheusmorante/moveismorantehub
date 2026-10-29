@@ -8,6 +8,9 @@ export interface TelemetryRow {
   execution_count: number;
   total_duration_ms: number;
   rows_returned: number;
+  unknown_rows_count: number;
+  response_bytes: number;
+  measured_response_count: number;
   user_id: string;
   recorded_at: string;
 }
@@ -17,6 +20,8 @@ export interface GlobalStats {
   selects: number;
   writes: number;
   realtime: number;
+  responseBytes: number;
+  measuredResponses: number;
 }
 
 export type PeriodType = '15m' | '1h' | '24h' | '7d';
@@ -25,7 +30,8 @@ export interface DrillDownItem {
   name: string;
   count: number;
   percent: number;
-  avgRows: number;
+  avgRows: number | null;
+  unknownRowsCount: number;
   avgDuration: number;
   items: TelemetryRow[];
 }

@@ -1,7 +1,8 @@
-import { SupabaseAnomalyEvent, OperationType, CircuitBreakerError } from './types';
+import { SupabaseAnomalyEvent, OperationType, CircuitBreakerError, GUARD_CONFIG } from './types';
 import { CircuitBreaker } from './circuitBreaker';
 import { TelemetryBuffer } from './telemetryBuffer';
 import { AnomalyDetector } from './anomalyDetector';
+import { withTimeout } from '../../../../shared-utils/withTimeout';
 
 class QueryGuard {
   private inFlightRequests: Map<string, Promise<Response>> = new Map();
@@ -10,6 +11,9 @@ class QueryGuard {
   private anomalyDetector: AnomalyDetector;
   private flushFailureCount = 0;
   private nextFlushAt = 0;
+  private uniqueFingerprint = 0;
+  private activeBodyMeasurements = 0;
+  private lastServiceRestrictionAt: number | null = null;
 
   private flushInterval: ReturnType<typeof setInterval> | null = null;
   private anomalyInterval: ReturnType<typeof setInterval> | null = null;
@@ -46,10 +50,10 @@ class QueryGuard {
       this.flushInterval = setInterval(() => this.flush(), 300000);
     }
 
-    // A cada 30 segundos, verifica anomalias agregadas (herdado do monitor antigo)
+    // Descarta janelas sem atividade; as anomalias são verificadas em cada resposta.
     if (!this.anomalyInterval) {
       this.anomalyInterval = setInterval(() => {
-        this.anomalyDetector.detectAnomalies(this.telemetryBuffer.getMetrics());
+        this.anomalyDetector.prune();
       }, 30000);
     }
   }
@@ -81,8 +85,10 @@ class QueryGuard {
           import.meta.env.VITE_SUPABASE_ANON_KEY ||
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhrb3hob3VyeHdsZGRnc2ZkZ3dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNTg5MzgsImV4cCI6MjA5MzczNDkzOH0.vCNJeoR4wDl1BqESiyNhKpgviwxcx0cim8Dbl6MvdJI';
 
-        const response = await window.fetch(`${url}/rest/v1/rpc/flush_supabase_telemetry`, {
+        const controller = new AbortController();
+        const response = await withTimeout<Response | null>(window.fetch(`${url}/rest/v1/rpc/flush_supabase_telemetry`, {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
             apikey: apikey,
@@ -94,7 +100,9 @@ class QueryGuard {
               user_id: userId,
             })),
           }),
-        });
+        }), 10000, null, 'envio de telemetria');
+        controller.abort();
+        if (!response) throw new Error('Tempo de envio da telemetria esgotado.');
         if (!response.ok) {
           this.telemetryBuffer.merge(metricsToSave);
           this.scheduleFlushBackoff();
@@ -121,38 +129,33 @@ class QueryGuard {
     this.nextFlushAt = Date.now() + delayMs;
   }
 
-  private getFingerprint(input: RequestInfo | URL, init?: RequestInit): string {
+  private async getFingerprint(input: RequestInfo | URL, init?: RequestInit): Promise<string> {
     const urlStr =
       typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const method = init?.method?.toUpperCase() || 'GET';
+    const request = input instanceof Request ? input : undefined;
+    const method = (init?.method || request?.method || 'GET').toUpperCase();
+    const headers = new Headers(request?.headers);
+    if (init?.headers) new Headers(init.headers).forEach((value, name) => headers.set(name, value));
 
-    // Ignorar coisas mutáveis na URL (ex: timestamps aleatórios se houver), mas manter path e query params
-    const urlObj = new URL(urlStr);
-    const pathAndQuery = `${urlObj.pathname}${urlObj.search}`;
-
-    let fingerprint = `${method}:${pathAndQuery}`;
-
-    // Para POST/PATCH em RPCs seguras, adiciona o body ao fingerprint
-    if (init?.body && typeof init.body === 'string') {
-      // Ignorar chaves sensíveis como senhas se necessário. Para o Supabase, os args estão no JSON.
-      try {
-        const parsed = JSON.parse(init.body);
-        // Ordenar chaves para garantir mesmo fingerprint independente da ordem
-        const keys = Object.keys(parsed).sort();
-        const stableBody = keys.reduce(
-          (acc, key) => {
-            acc[key] = parsed[key];
-            return acc;
-          },
-          {} as Record<string, any>
-        );
-        fingerprint += `|${JSON.stringify(stableBody)}`;
-      } catch (e) {
-        fingerprint += `|${init.body.length}`;
-      }
+    // Nunca usar o corpo ou os parâmetros em um evento/log. Quando não for
+    // possível gerar uma chave segura, não compartilhar a requisição.
+    if (!globalThis.crypto?.subtle || (init?.body && typeof init.body !== 'string') ||
+        (request && request.body && init?.body === undefined)) {
+      return `unique:${++this.uniqueFingerprint}`;
     }
-
-    return fingerprint;
+    try {
+      const material = JSON.stringify([
+        method, urlStr, Array.from(headers.entries()),
+        init?.body || '', init?.credentials || request?.credentials || '',
+        init?.mode || request?.mode || '', init?.cache || request?.cache || '',
+        init?.redirect || request?.redirect || '', init?.referrer || request?.referrer || '',
+        init?.referrerPolicy || request?.referrerPolicy || '', init?.integrity || request?.integrity || '',
+      ]);
+      const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(material));
+      return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    } catch {
+      return `unique:${++this.uniqueFingerprint}`;
+    }
   }
 
   private getOperationType(
@@ -182,30 +185,70 @@ class QueryGuard {
     return { tableName, operationType };
   }
 
+  private async measureJsonResponse(response: Response): Promise<number | undefined> {
+    if (!response.body || this.activeBodyMeasurements >= 2 ||
+        !response.headers.get('Content-Type')?.toLowerCase().includes('json')) return undefined;
+
+    this.activeBodyMeasurements += 1;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      reader = response.clone().body?.getReader();
+      if (!reader) return undefined;
+      const read = async () => {
+        let bytes = 0;
+        while (bytes <= GUARD_CONFIG.MAX_WINDOW_RESPONSE_BYTES) {
+          const chunk = await reader!.read();
+          if (chunk.done) return bytes;
+          bytes += chunk.value.byteLength;
+        }
+        return bytes;
+      };
+      const timeout = new Promise<undefined>((resolve) => { timer = setTimeout(() => resolve(undefined), 10000); });
+      return await Promise.race([read(), timeout]);
+    } catch {
+      return undefined;
+    } finally {
+      if (timer) clearTimeout(timer);
+      if (reader) void reader.cancel().catch(() => {});
+      this.activeBodyMeasurements -= 1;
+    }
+  }
+
   // WRAPPER DE INTERCEPTAÇÃO (Custom Fetch com Query Guard)
   public customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const urlStr =
       typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const method = init?.method?.toUpperCase() || 'GET';
+    const request = input instanceof Request ? input : undefined;
+    const method = (init?.method || request?.method || 'GET').toUpperCase();
 
     // 1. Ignorar telemetria para não causar loop infinito
-    if (urlStr.includes('supabase_telemetry') || urlStr.includes('flush_supabase_telemetry')) {
+    if (urlStr.includes('supabase_telemetry') || urlStr.includes('get_aggregated_telemetry') ||
+        urlStr.includes('supabase_mass_load_history')) {
       return window.fetch(input, init);
     }
 
     const { tableName, operationType } = this.getOperationType(urlStr, method);
-    const fingerprint = this.getFingerprint(input, init);
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : 'N/A';
+    const context = {
+      module: this.currentContext.module !== 'Global' ? this.currentContext.module : 'ERP',
+      screen: this.currentContext.screen !== 'N/A' ? this.currentContext.screen : currentPath,
+      action: this.currentContext.action !== 'N/A' ? this.currentContext.action : method + ' ' + tableName,
+      table_name: tableName,
+    };
+    const fingerprint = await this.getFingerprint(input, init);
+    const canDeduplicate = operationType === 'SELECT' && !init?.signal && !request?.signal;
 
     // Deduplicate SELECTs before counting them. Only outgoing requests should
     // consume the loop budget; multiple callers sharing one in-flight read do
     // not create additional Supabase traffic.
-    if (operationType === 'SELECT') {
+    if (canDeduplicate) {
       const inFlight = this.inFlightRequests.get(fingerprint);
       if (inFlight) return inFlight.then((res) => res.clone());
     }
 
     // 2. Passar pelo Circuit Breaker
-    if (!this.circuitBreaker.check(fingerprint, operationType)) {
+    if (!this.circuitBreaker.check(fingerprint, operationType, context)) {
       throw new CircuitBreakerError(
         `Requisição bloqueada pelo Query Guard (Loop Detectado). Aguarde e tente novamente.`
       );
@@ -218,19 +261,20 @@ class QueryGuard {
       .fetch(input, init)
       .then((res) => {
         // Remover do In-Flight caching
-        if (operationType === 'SELECT') {
+        if (canDeduplicate) {
           this.inFlightRequests.delete(fingerprint);
         }
         return res;
       })
       .catch((err) => {
-        if (operationType === 'SELECT') {
+        if (canDeduplicate) {
           this.inFlightRequests.delete(fingerprint);
         }
+        this.circuitBreaker.onFailure(fingerprint);
         throw err;
       });
 
-    if (operationType === 'SELECT') {
+    if (canDeduplicate) {
       this.inFlightRequests.set(fingerprint, fetchPromise);
     }
 
@@ -241,41 +285,53 @@ class QueryGuard {
     // Telemetria passiva baseada no resultado
     let rowsReturned = 0;
     const contentRange = response.headers.get('Content-Range');
+    let rowsCountKnown = false;
     if (contentRange) {
       const match = contentRange.match(/^(\d+)-(\d+)\//);
       if (match) {
         rowsReturned = parseInt(match[2], 10) - parseInt(match[1], 10) + 1;
+        rowsCountKnown = true;
+      } else if (contentRange === '*/0') {
+        rowsCountKnown = true;
       }
     }
+    const lengthHeader = response.headers.get('Content-Length');
+    const declaredBytes = lengthHeader && /^\d+$/.test(lengthHeader) ? Number(lengthHeader) : undefined;
+    const responseBytes = declaredBytes != null && Number.isSafeInteger(declaredBytes) ? declaredBytes : undefined;
+    const metric = {
+      ...context,
+      operation_type: operationType,
+      duration_ms: Math.round(end - start),
+      rows_returned: rowsReturned,
+      rows_count_known: rowsCountKnown,
+      response_bytes: responseBytes,
+    };
+    const observedAt = Date.now();
+    if (response.status === 402) {
+      const previousRestrictionAt = this.lastServiceRestrictionAt;
+      this.lastServiceRestrictionAt = observedAt;
+      if (previousRestrictionAt === null || observedAt - previousRestrictionAt > GUARD_CONFIG.AGGREGATE_WINDOW_MS) {
+        this.emitAnomaly({
+          level: 'CRITICAL',
+          title: 'Resposta HTTP 402 do Supabase',
+          message: 'O Supabase retornou uma possível restrição de serviço. Ela pode estar relacionada ao consumo ou a pagamentos. Consulte o painel oficial para identificar o motivo.',
+        });
+      }
+    }
+    this.telemetryBuffer.track(metric, context);
+    this.anomalyDetector.track(metric, context, observedAt);
+    if (responseBytes == null && ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'RPC'].includes(operationType)) {
+      void this.measureJsonResponse(response).then((bytes) => {
+        if (bytes == null) return;
+        this.telemetryBuffer.addMeasurement(metric, context, bytes);
+        this.anomalyDetector.addMeasurement(metric, context, bytes, observedAt);
+      });
+    }
 
-    const currentPath = typeof window !== 'undefined' ? window.location.pathname : 'N/A';
-    const callerModule =
-      this.currentContext.module !== 'Global' ? this.currentContext.module : 'ERP';
-    const callerScreen =
-      this.currentContext.screen !== 'N/A' ? this.currentContext.screen : currentPath;
-    const callerAction =
-      this.currentContext.action !== 'N/A' ? this.currentContext.action : 'customFetch';
+    if (response.ok) this.circuitBreaker.onSuccess(fingerprint);
+    else this.circuitBreaker.onFailure(fingerprint);
 
-    this.telemetryBuffer.track(
-      {
-        table_name: tableName,
-        operation_type: operationType,
-        duration_ms: Math.round(end - start),
-        rows_returned: rowsReturned,
-        module: callerModule,
-        action: callerAction,
-      },
-      { ...this.currentContext, module: callerModule, screen: callerScreen, action: callerAction }
-    );
-
-    this.circuitBreaker.onSuccess(fingerprint);
-
-    // IMPORTANTE: precisamos clonar a resposta para quem a originou
-    // pois o response body stream só pode ser lido uma vez.
-    return response.clone();
-    // sucesso
-
-    // finalizado
+    return response;
   };
 }
 

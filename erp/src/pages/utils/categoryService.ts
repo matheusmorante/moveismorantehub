@@ -5,10 +5,16 @@ import {
   resolveCategoryAttributeIsRequired,
   type CategoryAttributeSelection,
 } from '../../../../shared-utils/categoryAttributeSelection';
+import type { CharacteristicCategoryApplication } from '../../../../shared-utils/categoryCharacteristicApplication';
 import { countDistinctProductsByCategory } from '../../../../shared-utils/categoryProductCounts';
 import { withCatalogAttributesLoadTimeout } from '../../../../shared-utils/catalogAttributesLoadTimeout';
+import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { invalidateTechnicalFieldDefinitionsCache } from '@/pages/App/Products/services/technicalFieldService';
 
 export type { CategoryAttributeSelection } from '../../../../shared-utils/categoryAttributeSelection';
+export type { CharacteristicCategoryApplication } from '../../../../shared-utils/categoryCharacteristicApplication';
+
+const CHARACTERISTIC_APPLICATION_TIMEOUT_MS = 20_000;
 
 export type Category = {
   id: string;
@@ -134,7 +140,8 @@ export const createCategory = async (
   name: string,
   environmentIds: string[],
   attributes?: CategoryAttributeSelection[],
-  seoFields?: Partial<Category>
+  seoFields?: Partial<Category>,
+  characteristicApplications?: CharacteristicCategoryApplication[]
 ) => {
   const formattedName = toTitleCase(name);
   let uniqueSlug = normalizeSlug(seoFields?.slug || formattedName);
@@ -181,6 +188,10 @@ export const createCategory = async (
     if (attrError) throw attrError;
   }
 
+  if (characteristicApplications !== undefined) {
+    await saveCharacteristicCategoryApplications(newCatId, characteristicApplications);
+  }
+
   return data[0];
 };
 
@@ -189,7 +200,8 @@ export const updateCategory = async (
   name: string,
   environmentIds: string[],
   attributes?: CategoryAttributeSelection[],
-  seoFields?: Partial<Category>
+  seoFields?: Partial<Category>,
+  characteristicApplications?: CharacteristicCategoryApplication[]
 ) => {
   const formattedName = toTitleCase(name);
   const updateData: any = { name: formattedName, type: 'category' };
@@ -243,6 +255,66 @@ export const updateCategory = async (
       if (insAttrError) throw insAttrError;
     }
   }
+
+  if (characteristicApplications !== undefined) {
+    await saveCharacteristicCategoryApplications(id, characteristicApplications);
+  }
+};
+
+export type ActiveCharacteristic = { id: string; name: string };
+
+/** Active product characteristics shown in the category's application settings. */
+export const fetchActiveCharacteristics = async (): Promise<ActiveCharacteristic[]> => {
+  const result = await withTimeout(
+    supabase.from('attributes').select('id, name, active').order('name').limit(10000),
+    CHARACTERISTIC_APPLICATION_TIMEOUT_MS,
+    null,
+    'Carregar características para a categoria'
+  );
+  if (!result) throw new Error('Tempo esgotado ao carregar as características da categoria.');
+  if (result.error) throw result.error;
+  return (result.data ?? [])
+    .filter((row) => row.active !== false)
+    .map((row) => ({ id: String(row.id), name: String(row.name) }));
+};
+
+export const fetchCharacteristicCategoryApplications = async (
+  categoryId: string
+): Promise<Array<{ attributeId: string; application: 'unavailable' | 'optional' | 'required' }>> => {
+  const result = await withTimeout(
+    supabase
+      .from('attribute_category_applications')
+      .select('attribute_id, application')
+      .eq('category_id', categoryId)
+      .limit(10000),
+    CHARACTERISTIC_APPLICATION_TIMEOUT_MS,
+    null,
+    'Carregar aplicações das características'
+  );
+  if (!result) throw new Error('Tempo esgotado ao carregar as aplicações das características.');
+  if (result.error) throw result.error;
+  return (result.data ?? []).map((row) => ({
+    attributeId: String(row.attribute_id),
+    application: row.application as 'unavailable' | 'optional' | 'required',
+  }));
+};
+
+const saveCharacteristicCategoryApplications = async (
+  categoryId: string,
+  applications: CharacteristicCategoryApplication[]
+): Promise<void> => {
+  const result = await withTimeout(
+    supabase.rpc('save_product_category_characteristic_applications', {
+      p_category_id: categoryId,
+      p_applications: applications.map(({ attributeId, application }) => ({ attributeId, application })),
+    }),
+    CHARACTERISTIC_APPLICATION_TIMEOUT_MS,
+    null,
+    'Salvar aplicações das características'
+  );
+  if (!result) throw new Error('Tempo esgotado ao salvar as aplicações das características.');
+  if (result.error) throw result.error;
+  invalidateTechnicalFieldDefinitionsCache();
 };
 
 /**

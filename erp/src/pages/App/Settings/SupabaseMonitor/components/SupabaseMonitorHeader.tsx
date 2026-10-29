@@ -36,9 +36,13 @@ export const SupabaseMonitorHeader: React.FC<Props> = ({ period, onPeriodChange 
       </header>
 
       <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-        Cobertura atual: chamadas instrumentadas pelos clientes web do ERP, enviadas em lotes a cada
-        5 minutos e dependentes de sessão autenticada. Catálogo digital, aplicativo mobile, chamadas
-        feitas no servidor e volume em bytes (egress) não entram neste painel.
+        Cobertura: chamadas instrumentadas no ERP web, enviadas em lotes e dependentes de sessão.
+        Os dados medidos são parciais, podem estar descomprimidos e não representam o egress faturável.
+        Aplicativo, catálogo e chamadas no servidor não entram neste painel. O ERP ainda não alerta
+        automaticamente sobre o consumo oficial faturável.{' '}
+        <a className="underline" href="https://supabase.com/dashboard/org/_/usage" target="_blank" rel="noreferrer">
+          Consultar o uso oficial no Supabase
+        </a>.
       </div>
     </>
   );

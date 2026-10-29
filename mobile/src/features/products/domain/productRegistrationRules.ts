@@ -16,6 +16,9 @@ import {
   checkEcomLegibility,
   type CatalogCharacteristicRequirement,
   type EcomLegibilityResult,
+  buildPublishedCatalogEditConfirmationMessage,
+  getPublishedCatalogEditIssues,
+  type PublishedCatalogEditIssue,
 } from '../../../../../shared-utils/catalogPublicationValidation';
 import { hasRequiredProductCategory } from '../../../../../shared-utils/productCategoryRequirement';
 import { getActiveCompositionVariationRequirementIssue } from '../../../../../shared-utils/productCompositionRequirements';
@@ -92,6 +95,12 @@ export const getMobileProductReadiness = (product: any = {}): MobileProductReadi
 });
 
 /** Revalida os requisitos completos antes de salvar uma edição já publicada. */
+export {
+  buildPublishedCatalogEditConfirmationMessage,
+  getPublishedCatalogEditIssues,
+  type PublishedCatalogEditIssue,
+};
+
 export const getMobilePublishedCatalogEditLegibility = (
   product: any,
   candidate: any,

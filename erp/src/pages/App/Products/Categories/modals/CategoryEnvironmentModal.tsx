@@ -1,4 +1,5 @@
 import { ZodForm } from '@/components/forms/ZodForm';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { catalogNameFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React from 'react';
 import {
@@ -8,15 +9,8 @@ import {
   EditingNode,
 } from '../types/categoryEnvironment.types';
 import { SecureDeleteButton } from '../components/SecureDeleteButton';
-import AttributeAutocomplete from '@/components/AttributeAutocomplete';
-import type { CategoryAttributeSelection } from '@/pages/utils/categoryService';
-import {
-  getDefaultCategoryAttributeIsRequired,
-  isCategoryAttributeAlwaysRequired,
-  isCategoryAttributeRequirementLocked,
-  resolveCategoryAttributeIsRequired,
-  setCategoryAttributeRequirement,
-} from '../../../../../../../shared-utils/categoryAttributeSelection';
+import type { CharacteristicCategoryApplication } from '@/pages/utils/categoryService';
+import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 
 interface CategoryEnvironmentModalProps {
   readonly showModal: ModalType | null;
@@ -24,15 +18,14 @@ interface CategoryEnvironmentModalProps {
   readonly nameInput: string;
   readonly onChangeNameInput: (value: string) => void;
   readonly selectedLinks: string[];
-  readonly selectedAttributes?: CategoryAttributeSelection[];
-  readonly setSelectedAttributes?: (
-    attrs:
-      | CategoryAttributeSelection[]
-      | ((prev: CategoryAttributeSelection[]) => CategoryAttributeSelection[])
-  ) => void;
   readonly isLoadingAttributes?: boolean;
   readonly attributeLoadFailed?: boolean;
-  readonly hasAddedRequiredAttributes?: boolean;
+  readonly selectedCharacteristicApplications?: CharacteristicCategoryApplication[];
+  readonly setSelectedCharacteristicApplications?: React.Dispatch<
+    React.SetStateAction<CharacteristicCategoryApplication[]>
+  >;
+  readonly isLoadingCharacteristicApplications?: boolean;
+  readonly characteristicApplicationsLoadFailed?: boolean;
   readonly onToggleLink: (id: string) => void;
   readonly categories: CategoryNode[];
   readonly environments: EnvironmentNode[];
@@ -48,11 +41,12 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
   nameInput,
   onChangeNameInput,
   selectedLinks,
-  selectedAttributes = [],
-  setSelectedAttributes,
   isLoadingAttributes = false,
   attributeLoadFailed = false,
-  hasAddedRequiredAttributes = false,
+  selectedCharacteristicApplications = [],
+  setSelectedCharacteristicApplications,
+  isLoadingCharacteristicApplications = false,
+  characteristicApplicationsLoadFailed = false,
   onToggleLink,
   categories,
   environments,
@@ -61,28 +55,49 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
   onSave,
   onDelete,
 }) => {
+  useBodyScrollLock(Boolean(showModal));
+
+  const [characteristicSearchTerm, setCharacteristicSearchTerm] = React.useState('');
+  React.useEffect(() => {
+    setCharacteristicSearchTerm('');
+  }, [showModal, editingNode?.id]);
   if (!showModal) return null;
 
   const isEnv = showModal === 'ambiente';
-  const isAttributeRequired = resolveCategoryAttributeIsRequired;
   const title = editingNode
     ? `Editar ${isEnv ? 'Ambiente' : 'Categoria'}`
     : `Novo ${isEnv ? 'Ambiente' : 'Categoria'}`;
+  const normalizedCharacteristicSearch = characteristicSearchTerm
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .trim();
+  const visibleCharacteristicApplications = selectedCharacteristicApplications.filter((item) => {
+    if (!normalizedCharacteristicSearch) return true;
+    const normalizedName = item.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase('pt-BR');
+    return normalizedName.includes(normalizedCharacteristicSearch);
+  });
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[1000000] flex items-center justify-center bg-slate-900/60 p-0 backdrop-blur-sm lg:p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm border-0 cursor-default w-full h-full"
+        className="absolute inset-0 z-0 border-0 cursor-default"
         onClick={onClose}
         aria-label="Fechar modal"
       />
       <ZodForm schema={catalogNameFormSchema} values={{ name: nameInput }}
         onSubmit={onSave}
-        className="relative bg-white dark:bg-slate-900 w-full max-w-lg max-h-[calc(100dvh-2rem)] rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-slate-800 dark:text-slate-200"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="category-environment-modal-title"
+        className="relative z-10 min-h-0 h-dvh max-h-dvh w-full max-w-none overflow-hidden border border-slate-100 bg-white text-slate-800 shadow-2xl dark:border-slate-800 dark:bg-slate-900 flex flex-col animate-in zoom-in-95 duration-200 lg:h-auto lg:max-h-[calc(100dvh-2rem)] lg:max-w-3xl lg:rounded-2xl"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-4">
-          <h3 className="text-base font-bold text-slate-850 dark:text-slate-100">{title}</h3>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-6 sm:py-4">
+          <h3 id="category-environment-modal-title" className="text-base font-bold text-slate-850 dark:text-slate-100">{title}</h3>
           <button
             type="button"
             onClick={onClose}
@@ -93,7 +108,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4 custom-scrollbar">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-4 custom-scrollbar sm:px-6">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
               Nome d{isEnv ? 'o Ambiente' : 'a Categoria'}
@@ -159,161 +174,118 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
             </div>
           </div>
 
-          {!isEnv && setSelectedAttributes && (
+          {!isEnv && setSelectedCharacteristicApplications && (
             <div className="flex flex-col gap-2 pt-2">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                Características da Categoria
+                Aplicação das características
               </label>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Selecione as características dos produtos desta categoria. A obrigatoriedade marcada aqui vale apenas para publicar no Catálogo Digital.
+                Defina quais características se aplicam a esta categoria. As características sem configuração começam como opcionais.
               </p>
-              {isLoadingAttributes && (
+              {isLoadingCharacteristicApplications && (
                 <p className="flex items-center gap-2 text-xs text-slate-500" role="status">
-                  <i className="bi bi-arrow-repeat animate-spin" /> Carregando características...
+                  <i className="bi bi-arrow-repeat animate-spin" /> Carregando aplicações...
                 </p>
               )}
-              {attributeLoadFailed && (
+              {characteristicApplicationsLoadFailed && (
                 <p className="text-xs font-semibold text-red-600 dark:text-red-400" role="alert">
-                  Não foi possível carregar a configuração atual. Feche o modal e tente novamente.
+                  Não foi possível carregar as aplicações atuais. Feche o formulário e tente novamente.
                 </p>
               )}
-              <AttributeAutocomplete
-                selectedIds={selectedAttributes.map((a) => a.id)}
-                onSelect={(attr) => {
-                  setSelectedAttributes((prev) => {
-                    const exists = prev.some((a) => a.id === attr.id);
-                    if (exists) {
-                      return prev.filter((a) => a.id !== attr.id);
-                    }
-                    return [
-                      ...prev,
-                      { ...attr, isRequired: getDefaultCategoryAttributeIsRequired(attr.name) },
-                    ];
-                  });
-                }}
-                placeholder="Buscar característica (mínimo 2 letras)..."
-                disabled={isSubmitting || isLoadingAttributes || attributeLoadFailed}
-              />
-              {selectedAttributes.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-1 max-h-36 overflow-y-auto custom-scrollbar p-1">
-                  {selectedAttributes.map((attr) => (
-                    <div
-                      key={attr.id}
-                      className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-500/20 text-xs font-bold shadow-2xs"
-                    >
-                      <span>{attr.name}</span>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={isAttributeRequired(attr)}
-                        aria-label={`Característica ${attr.name} ${isAttributeRequired(attr) ? 'obrigatória' : 'opcional'} para o Catálogo Digital`}
-                        title={
-                          isCategoryAttributeAlwaysRequired(attr.name)
-                            ? `${attr.name} é obrigatória para o Catálogo Digital em todas as categorias`
-                            : attr.isRequired
-                              ? 'Obrigatória para o Catálogo Digital — clique para tornar opcional'
-                              : 'Opcional para o Catálogo Digital — clique para tornar obrigatória'
-                        }
-                        onClick={() =>
-                          setSelectedAttributes((prev) =>
-                            setCategoryAttributeRequirement(prev, attr.id, !attr.isRequired)
-                          )
-                        }
-                        disabled={
-                          isSubmitting ||
-                          isCategoryAttributeRequirementLocked(attr.name)
-                        }
-                        className={`relative inline-flex h-4 w-7 shrink-0 rounded-full border-2 border-transparent transition-colors ${
-                          isAttributeRequired(attr)
-                            ? 'bg-blue-600'
-                            : 'bg-slate-300 dark:bg-slate-700'
-                        } disabled:cursor-not-allowed disabled:opacity-70`}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition ${
-                            isAttributeRequired(attr) ? 'translate-x-3' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                      <span className="text-[9px] font-semibold">
-                        {isAttributeRequired(attr)
-                          ? 'Obrigatória para o Catálogo Digital'
-                          : 'Opcional para o Catálogo Digital'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelectedAttributes((prev) => prev.filter((a) => a.id !== attr.id))
-                        }
-                        className="hover:text-blue-900 dark:hover:text-blue-200 transition-colors bg-transparent border-0 flex items-center justify-center rounded-full outline-none"
-                        disabled={isSubmitting}
-                        aria-label={`Remover especificação ${attr.name}`}
-                      >
-                        <i className="bi bi-x-lg text-[10px]" />
-                      </button>
+              {!isLoadingCharacteristicApplications && !characteristicApplicationsLoadFailed && (
+                <>
+                  <input
+                    type="search"
+                    value={characteristicSearchTerm}
+                    onChange={(event) => setCharacteristicSearchTerm(event.target.value)}
+                    placeholder="Pesquisar característica..."
+                    aria-label="Pesquisar características para esta categoria"
+                    disabled={isSubmitting}
+                    className="w-full bg-transparent border-0 border-b border-slate-300 px-1 py-2 text-xs outline-none focus:border-blue-600 focus:ring-0 dark:border-slate-700 dark:text-slate-100"
+                  />
+                  {selectedCharacteristicApplications.length === 0 ? (
+                    <p className="py-2 text-xs text-slate-500">Nenhuma característica ativa cadastrada.</p>
+                  ) : (
+                    <div className="max-h-64 divide-y divide-slate-100 overflow-y-auto overscroll-contain border-y border-slate-100 dark:divide-slate-800 dark:border-slate-800">
+                      {visibleCharacteristicApplications.length === 0 ? (
+                        <p className="py-3 text-xs text-slate-500">Nenhuma característica encontrada.</p>
+                      ) : visibleCharacteristicApplications.map((item) => (
+                        <label key={item.attributeId} className="flex items-center justify-between gap-3 py-2">
+                          <span className="min-w-0 truncate text-xs font-medium text-slate-700 dark:text-slate-200">
+                            {item.name}
+                          </span>
+                          <select
+                            value={item.application}
+                            onChange={(event) => setSelectedCharacteristicApplications((previous) =>
+                              previous.map((application) => application.attributeId === item.attributeId
+                                ? { ...application, application: event.target.value as typeof item.application }
+                                : application)
+                            )}
+                            disabled={isSubmitting}
+                            aria-label={`Aplicação de ${item.name} nesta categoria`}
+                            className="w-36 shrink-0 bg-transparent border-0 border-b border-slate-300 px-1 py-1.5 text-xs outline-none focus:border-blue-600 focus:ring-0 dark:border-slate-700 dark:text-slate-100"
+                          >
+                            <option value="unavailable">N/A</option>
+                            <option value="optional">Opcional</option>
+                            <option
+                              value="required"
+                              disabled={isCatalogNeverRequiredCharacteristicName(item.name)}
+                            >
+                              Obrigatório
+                            </option>
+                          </select>
+                        </label>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
           )}
+
         </div>
 
-        <div className="flex shrink-0 items-center justify-between border-t border-slate-100 dark:border-slate-800 bg-white px-6 py-4 dark:bg-slate-900">
-          <div>
-            {editingNode &&
-              onDelete &&
-              (() => {
-                if (isEnv) {
-                  const env = environments.find((e) => e.id === editingNode.id);
-                  const count = env?.categories?.length || 0;
-                  const isDisabled = count > 0;
-                  const reason = `Não é possível excluir este ambiente porque ele possui ${count} categoria${count > 1 ? 's vinculadas' : ' vinculada'}. Desvincule todas as categorias deste ambiente antes de excluí-lo.`;
-                  return (
-                    <SecureDeleteButton
-                      disabled={isDisabled}
-                      disabledReason={reason}
-                      onDelete={() => {
-                        onClose();
-                        onDelete(editingNode.id, true);
-                      }}
-                      ariaLabel={`Excluir ambiente ${nameInput}`}
-                      title="Excluir ambiente"
-                    />
-                  );
-                } else {
-                  const cat = categories.find((c) => c.id === editingNode.id);
-                  const count = cat?.productCount || 0;
-                  const isDisabled = count > 0;
-                  const reason = `Não é possível excluir esta categoria porque ela está sendo utilizada por ${count} produto${count > 1 ? 's' : ''}. Remova ou altere a categoria desses produtos antes de excluí-la.`;
-                  return (
-                    <SecureDeleteButton
-                      disabled={isDisabled}
-                      disabledReason={reason}
-                      onDelete={() => {
-                        onClose();
-                        onDelete(editingNode.id, false);
-                      }}
-                      ariaLabel={`Excluir categoria ${nameInput}`}
-                      title="Excluir categoria"
-                    />
-                  );
-                }
+        <div className="flex shrink-0 flex-col gap-3 border-t border-slate-100 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 sm:px-6 sm:py-4">
+          {isLoadingAttributes && (
+            <p role="status" className="text-xs text-slate-500">Carregando configurações atuais da categoria…</p>
+          )}
+          {attributeLoadFailed && (
+            <p role="alert" className="text-xs font-semibold text-red-600 dark:text-red-400">
+              Não foi possível carregar as configurações atuais da categoria. Feche o modal e tente novamente.
+            </p>
+          )}
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              {editingNode && isEnv && onDelete && (() => {
+                const env = environments.find((item) => item.id === editingNode.id);
+                const count = env?.categories?.length || 0;
+                const reason = `Não é possível excluir este ambiente porque ele possui ${count} categoria${count > 1 ? 's vinculadas' : ' vinculada'}. Desvincule todas as categorias deste ambiente antes de excluí-lo.`;
+                return (
+                  <SecureDeleteButton
+                    disabled={count > 0}
+                    disabledReason={reason}
+                    onDelete={() => {
+                      onClose();
+                      onDelete(editingNode.id, true);
+                    }}
+                    ariaLabel={`Excluir ambiente ${nameInput}`}
+                    title="Excluir ambiente"
+                  />
+                );
               })()}
-          </div>
-          <div className="flex gap-3">
+            </div>
+            <div className="ml-auto flex gap-2 sm:gap-3">
             <button
               type="button"
               onClick={onClose}
-              disabled={isSubmitting || isLoadingAttributes || attributeLoadFailed}
+              disabled={isSubmitting}
               className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isLoadingAttributes || attributeLoadFailed || isLoadingCharacteristicApplications || characteristicApplicationsLoadFailed}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg flex items-center gap-2 transition-all disabled:opacity-60"
             >
               {isSubmitting && (
@@ -323,6 +295,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
             </button>
           </div>
         </div>
+      </div>
       </ZodForm>
     </div>
   );

@@ -23,7 +23,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { useZodForm, flattenFormErrors } from '../../../hooks/useZodForm';
-import { createCharacteristicFormSchema } from '../../../../../shared-utils/characteristicFormRules';
+import {
+  createCharacteristicFormSchema,
+  normalizeManagedCharacteristicType,
+  type CharacteristicFillConfigurationPayload,
+} from '../../../../../shared-utils/characteristicFormRules';
+import { getCharacteristicTextLimits } from '../../../../../shared-utils/characteristicTextLimits';
 import { normalizeProductAttributeOptionValue } from '../../../../../shared-utils/productAttributeOptionRules';
 import { validateAttributeOption } from '../categories/domain/categoryEnvironmentRules';
 import {
@@ -55,6 +60,12 @@ const ATTRIBUTE_TYPE_OPTIONS: Array<[MobileAttributeDataType, string]> = [
   ['boolean', 'Sim ou não'],
 ];
 
+type FillLimitInputKey = 'minValue' | 'maxValue' | 'minSelections' | 'maxSelections';
+type FillLimitInputValues = Record<FillLimitInputKey, string>;
+
+const parseOptionalNumber = (value: string): number | undefined =>
+  value.trim() === '' ? undefined : Number(value);
+
 const attributeOptionFormSchema = z.object({
   value: z.string()
     .transform(normalizeProductAttributeOptionValue)
@@ -65,6 +76,16 @@ const attributeOptionFormSchema = z.object({
   const result = validateAttributeOption(values.value, values.existingOptions);
   if (!result.valid) ctx.addIssue({ code: 'custom', path: ['value'], message: result.error || 'Valor inválido.' });
 });
+
+type CharacteristicOptionInput = {
+  id: string;
+  value: string;
+  sortOrder?: number;
+  [key: string]: unknown;
+};
+
+const toCharacteristicOptionInput = (option: MobileAttribute['options'][number]): CharacteristicOptionInput =>
+  ({ ...option }) as CharacteristicOptionInput;
 
 export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose }) => {
   const insets = useSafeAreaInsets();
@@ -79,14 +100,35 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   const [newAttrName, setNewAttrName] = useState('');
   const [newOptionInput, setNewOptionInput] = useState('');
   const [newOptions, setNewOptions] = useState<string[]>([]);
+  const [newConfigurationInputs, setNewConfigurationInputs] = useState<FillLimitInputValues>({
+    minValue: '',
+    maxValue: '',
+    minSelections: '',
+    maxSelections: '',
+  });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newValText, setNewValText] = useState('');
   const [savingValueId, setSavingValueId] = useState<string | null>(null);
   const optionsUpdateAttributeId = useRef<string | undefined>(undefined);
   const allCharacteristics = attributes.map((attribute) => ({ ...attribute, active: attribute.active !== false }));
+  const newFillType = normalizeManagedCharacteristicType(newDataType);
+  const newConfiguration: CharacteristicFillConfigurationPayload =
+    getCharacteristicTextLimits(newFillType) ??
+    (newFillType === 'integer' || newFillType === 'decimal'
+      ? {
+          minValue: parseOptionalNumber(newConfigurationInputs.minValue),
+          maxValue: parseOptionalNumber(newConfigurationInputs.maxValue),
+        }
+      : newFillType === 'multi_select'
+        ? {
+            minSelections: parseOptionalNumber(newConfigurationInputs.minSelections),
+            maxSelections: parseOptionalNumber(newConfigurationInputs.maxSelections),
+          }
+        : {});
   const newDefinition = {
     name: newAttrName, dataType: newDataType, unit: newDataType === 'measure' ? newUnit : '',
     decimalPlaces: newDecimalPlaces, active: true,
+    configuration: newConfiguration,
     options: [...newOptions, ...((newDataType === 'radio' || newDataType === 'multi_select') && newOptionInput.trim() ? [newOptionInput.trim()] : [])]
       .map((value) => ({ id: '', value: normalizeProductAttributeOptionValue(value) })),
   };
@@ -128,6 +170,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
         dataType: values.dataType,
         unit: values.unit,
         decimalPlaces: values.dataType === 'decimal' ? values.decimalPlaces : undefined,
+        configuration: values.configuration,
         active: true,
         isCustom: true,
         options: isChoiceType ? values.options : [],
@@ -136,6 +179,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
       setNewDataType('radio');
       setNewUnit('cm');
       setNewDecimalPlaces(2);
+      setNewConfigurationInputs({ minValue: '', maxValue: '', minSelections: '', maxSelections: '' });
       setNewOptionInput('');
       setNewOptions([]);
       void load();
@@ -194,7 +238,10 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
         unit: attr.unit ?? '',
         decimalPlaces: attr.decimalPlaces ?? 2,
         active: attr.active !== false,
-        options: [...attr.options, { id: '', value: values.value }],
+        options: [
+          ...attr.options.map(toCharacteristicOptionInput),
+          { id: '', value: values.value } as CharacteristicOptionInput,
+        ],
       }, async () => {
         setSavingValueId(attrId);
         try {
@@ -227,7 +274,9 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
             unit: attribute.unit ?? '',
             decimalPlaces: attribute.decimalPlaces ?? 2,
             active: attribute.active !== false,
-            options: attribute.options.filter((option) => option.id !== valId),
+            options: attribute.options
+              .filter((option) => option.id !== valId)
+              .map(toCharacteristicOptionInput),
           }, async () => {
             try {
               await deleteMobileAttributeValue(valId);
@@ -344,7 +393,10 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
               {ATTRIBUTE_TYPE_OPTIONS.map(([value, label]) => (
                 <TouchableOpacity
                   key={value}
-                  onPress={() => setNewDataType(value as MobileAttributeDataType)}
+                  onPress={() => {
+                    setNewDataType(value as MobileAttributeDataType);
+                    setNewConfigurationInputs({ minValue: '', maxValue: '', minSelections: '', maxSelections: '' });
+                  }}
                   style={[styles.typeBtn, newDataType === value && styles.typeBtnActive]}
                 >
                   <Text style={[styles.typeText, newDataType === value && styles.typeTextActive]}>
@@ -353,6 +405,68 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                 </TouchableOpacity>
               ))}
             </View>
+            {(newFillType === 'integer' || newFillType === 'decimal') && (
+              <View style={styles.configurationArea}>
+                <Text style={[styles.newValuesLabel, dark && styles.light]}>Configurações do tipo</Text>
+                <View style={styles.configurationRow}>
+                  <View style={styles.configurationField}>
+                    <Text style={[styles.configurationLabel, dark && styles.light]}>Mínimo</Text>
+                    <TextInput
+                      value={newConfigurationInputs.minValue}
+                      onChangeText={(value) => setNewConfigurationInputs((previous) => ({ ...previous, minValue: value }))}
+                      keyboardType={newFillType === 'integer' ? 'numeric' : 'decimal-pad'}
+                      placeholder="Sem mínimo"
+                      placeholderTextColor="#94a3b8"
+                      style={[styles.input, dark && styles.darkInput, dark && styles.light]}
+                      accessibilityLabel="Valor mínimo da característica"
+                    />
+                  </View>
+                  <View style={styles.configurationField}>
+                    <Text style={[styles.configurationLabel, dark && styles.light]}>Máximo</Text>
+                    <TextInput
+                      value={newConfigurationInputs.maxValue}
+                      onChangeText={(value) => setNewConfigurationInputs((previous) => ({ ...previous, maxValue: value }))}
+                      keyboardType={newFillType === 'integer' ? 'numeric' : 'decimal-pad'}
+                      placeholder="Sem máximo"
+                      placeholderTextColor="#94a3b8"
+                      style={[styles.input, dark && styles.darkInput, dark && styles.light]}
+                      accessibilityLabel="Valor máximo da característica"
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
+            {newFillType === 'multi_select' && (
+              <View style={styles.configurationArea}>
+                <Text style={[styles.newValuesLabel, dark && styles.light]}>Configurações do tipo</Text>
+                <View style={styles.configurationRow}>
+                  <View style={styles.configurationField}>
+                    <Text style={[styles.configurationLabel, dark && styles.light]}>Mínimo de seleções</Text>
+                    <TextInput
+                      value={newConfigurationInputs.minSelections}
+                      onChangeText={(value) => setNewConfigurationInputs((previous) => ({ ...previous, minSelections: value }))}
+                      keyboardType="numeric"
+                      placeholder="Sem mínimo"
+                      placeholderTextColor="#94a3b8"
+                      style={[styles.input, dark && styles.darkInput, dark && styles.light]}
+                      accessibilityLabel="Mínimo de seleções da característica"
+                    />
+                  </View>
+                  <View style={styles.configurationField}>
+                    <Text style={[styles.configurationLabel, dark && styles.light]}>Máximo de seleções</Text>
+                    <TextInput
+                      value={newConfigurationInputs.maxSelections}
+                      onChangeText={(value) => setNewConfigurationInputs((previous) => ({ ...previous, maxSelections: value }))}
+                      keyboardType="numeric"
+                      placeholder="Sem máximo"
+                      placeholderTextColor="#94a3b8"
+                      style={[styles.input, dark && styles.darkInput, dark && styles.light]}
+                      accessibilityLabel="Máximo de seleções da característica"
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
             {(newDataType === 'radio' || newDataType === 'multi_select') && (
               <View style={styles.newValuesArea}>
                 <Text style={[styles.newValuesLabel, dark && styles.light]}>
@@ -659,6 +773,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   measureInputRow: { flexDirection: 'row', gap: 8 },
+  configurationArea: { gap: 8 },
+  configurationRow: { flexDirection: 'row', gap: 8 },
+  configurationField: { flex: 1, minWidth: 0, gap: 4 },
+  configurationLabel: { color: '#64748b', fontSize: 11, fontWeight: '700' },
   newValuesArea: { gap: 8 },
   newValuesLabel: { color: '#64748b', fontSize: 11, fontWeight: '800' },
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },

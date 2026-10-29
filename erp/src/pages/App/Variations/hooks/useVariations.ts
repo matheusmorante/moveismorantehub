@@ -17,7 +17,7 @@ export const useVariations = () => {
     error,
   } = useQuery({
     queryKey: VARIATIONS_QUERY_KEY,
-    queryFn: () => fetchVariations({ throwOnError: true }),
+    queryFn: () => fetchVariations({ throwOnError: true, includeCategoryApplications: false }),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
   });

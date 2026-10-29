@@ -159,7 +159,7 @@ function parseFilters(value, accountantOnly) {
   const start = Date.parse(`${input.periodStart}T00:00:00.000Z`);
   const end = Date.parse(`${input.periodEnd}T00:00:00.000Z`);
   if (end - start > 366 * 24 * 60 * 60 * 1e3) return null;
-  if (purpose === "accounting" && (environment !== 1 || documentTypes.includes("inbound") || !includeEvents || statuses.some((status) => !["autorizada", "cancelada"].includes(status)))) return null;
+  if (purpose === "accounting" && (environment !== 1 || documentTypes.includes("inbound") || !includeEvents || statuses.some((status) => status !== "autorizada"))) return null;
   if (environment === 1 && statuses.includes("homologada")) return null;
   if (environment === 2 && statuses.includes("autorizada")) return null;
   return {
@@ -245,9 +245,10 @@ async function summarizeExport(db, filters) {
   const linkedIds = [...new Set(outboundData.flatMap((document) => [document.original_document_id, document.supersedes_document_id]).filter(Boolean).map(String))].filter((id) => !documentIds.includes(id));
   let eventDocumentIds = documentIds;
   if (linkedIds.length) {
-    const { data: originals, error: originalError } = await db.from("nfe_documents").select("id").in("id", linkedIds).eq("ambiente", filters.environment);
+    const { data: originals, error: originalError } = await db.from("nfe_documents").select("id,status").in("id", linkedIds).eq("ambiente", filters.environment);
     if (originalError) throw new Error("N\xE3o foi poss\xEDvel carregar as refer\xEAncias fiscais dos documentos.");
-    eventDocumentIds = [...documentIds, ...(originals || []).map((document) => String(document.id))];
+    const eventLinkedIds = (originals || []).filter((document) => filters.purpose !== "accounting" || document.status !== "cancelada").map((document) => String(document.id));
+    eventDocumentIds = [...documentIds, ...eventLinkedIds];
   }
   let eventCount = 0;
   if (filters.includeEvents && eventDocumentIds.length) {
@@ -376,7 +377,7 @@ async function handler(req, res) {
       if (originalsError || !Array.isArray(originals) || originals.length !== originalIds.length) {
         return res.status(503).json({ success: false, error: "N\xE3o foi poss\xEDvel carregar todas as notas originais referenciadas." });
       }
-      linkedDocuments = originals.map((document) => ({ ...document, isContextDocument: true }));
+      linkedDocuments = originals.filter((document) => filters.purpose !== "accounting" || document.status !== "cancelada").map((document) => ({ ...document, isContextDocument: true }));
     }
     const allDocuments = [...data, ...linkedDocuments];
     const allIds = [...new Set(allDocuments.map((document) => String(document.id)))];

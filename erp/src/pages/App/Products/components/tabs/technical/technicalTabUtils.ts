@@ -4,13 +4,8 @@ import {
   getCharacteristicDependencyState,
   isDoorQuantityCharacteristic,
   isDrawerQuantityCharacteristic,
-  isFeetQuantityCharacteristic,
-  isHasDoorsActive,
-  isHasDrawersActive,
-  isHasFeetActive,
   parseDoorQuantityValue,
   parseDrawerQuantityValue,
-  parseFeetQuantityValue,
 } from '@/pages/utils/technicalValuesService';
 import { getProductTechnicalRootFallbackValue } from '../../../../../../../../shared-utils/productTechnicalRootPatch';
 
@@ -126,11 +121,8 @@ export const computeTechnicalFieldItemState = (
   const dep = getCharacteristicDependencyState(field.name, formData.technicalValues || {});
   const isFieldDisabled = field.dependency ? field.dependencySatisfied === false : dep.isDisabled;
 
-  const isDoorQtyReq = isDoorQuantityCharacteristic(field.name) &&
-    (field.isRequired || isHasDoorsActive(formData.technicalValues || {}));
-  const isDrawerQtyReq = isDrawerQuantityCharacteristic(field.name) &&
-    (field.isRequired || isHasDrawersActive(formData.technicalValues || {}));
-  const isFeetQtyReq = isFeetQuantityCharacteristic(field.name) && isHasFeetActive(formData.technicalValues || {});
+  const isDoorQtyReq = isDoorQuantityCharacteristic(field.name) && field.isRequired;
+  const isDrawerQtyReq = isDrawerQuantityCharacteristic(field.name) && field.isRequired;
 
   let isInvalidQty = false;
   if (isDoorQtyReq) {
@@ -139,9 +131,6 @@ export const computeTechnicalFieldItemState = (
   } else if (isDrawerQtyReq) {
     const qty = parseDrawerQuantityValue({ [field.name]: rawValue });
     isInvalidQty = qty === null || qty < 0;
-  } else if (isFeetQtyReq) {
-    const qty = parseFeetQuantityValue({ [field.name]: rawValue });
-    isInvalidQty = qty === null || qty <= 0;
   }
 
   const isFieldInvalid = Boolean(

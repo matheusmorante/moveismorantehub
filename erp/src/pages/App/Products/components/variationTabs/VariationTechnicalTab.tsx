@@ -50,6 +50,8 @@ import {
   areTechnicalCharacteristicNamesEquivalent,
   isTechnicalFieldAllowedForCategories,
 } from '../../../../../../../shared-utils/productTechnicalFieldScope';
+import { isCatalogCoreRequiredCharacteristicName } from '../../../../../../../shared-utils/catalogPublication/characteristicValues';
+import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 import {
   evaluateCharacteristicDependencies,
   evaluateCharacteristicDependency,
@@ -257,6 +259,9 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     );
     return allTechnicalFields.map((field) => ({
       ...field,
+      ...(isCatalogNeverRequiredCharacteristicName(field.name)
+        ? { isRequired: false, isRequiredForCatalog: false }
+        : {}),
       groupName: field.groupId ? groupNameById.get(field.groupId) : undefined,
     }));
   }, [allTechnicalFields, characteristicGroups]);
@@ -287,6 +292,8 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     );
     const hasExplicitActiveFieldIds = Array.isArray(parentProduct.activeCharacteristicIds);
     const isRequiredInCategory = (field: TechnicalFieldDefinition) => {
+      if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
+      if (isCatalogCoreRequiredCharacteristicName(field.name)) return true;
       const application = resolveProductCharacteristicApplication(field, parentProduct.categoryIds || []);
       const hasCategoryApplication = field.categoryApplications?.some((item) =>
         selectedCategoryIds.has(String(item.categoryId))
@@ -299,8 +306,8 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     };
     const getGroupFieldState = (field: TechnicalFieldDefinition) => {
       const application = resolveProductCharacteristicApplication(field, parentProduct.categoryIds || []);
-      if (application === 'unavailable') return { visible: false, required: false };
       const required = isRequiredInCategory(field);
+      if (application === 'unavailable' && !required) return { visible: false, required: false };
       const hasStoredValue =
         hasVariationOverride(parentProduct.technicalValues, field.name) ||
         (parentProduct.variations || []).some((variation) =>
@@ -364,7 +371,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
         [parentProduct.category || ''],
         field.categoryApplications,
         parentProduct.categoryIds || []
-      )) {
+      ) && !isCatalogCoreRequiredCharacteristicName(field.name)) {
         return;
       }
       const groupState = getGroupFieldState(field);

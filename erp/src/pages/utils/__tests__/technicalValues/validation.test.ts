@@ -19,7 +19,7 @@ describe('technicalValues - Validação de Campos Obrigatórios', () => {
     expect(isRequiredCharacteristicName('Altura')).toBe(true);
     expect(isRequiredCharacteristicName('Largura')).toBe(true);
     expect(isRequiredCharacteristicName('Profundidade')).toBe(true);
-    expect(isRequiredCharacteristicName('Peso')).toBe(true);
+    expect(isRequiredCharacteristicName('Peso')).toBe(false);
 
     expect(isRequiredCharacteristicName('Acabamento')).toBe(false);
   });
@@ -53,15 +53,15 @@ describe('technicalValues - Validação de Campos Obrigatórios', () => {
     expect(hasLength).toContain('Profundidade total');
   });
 
-  it('exige quantidade preenchida mesmo sem componente, aceitando zero como Não possui', () => {
+  it('não exige Quantidade de portas, mesmo quando a configuração antiga a marca como obrigatória', () => {
     const noQuantity: TechnicalValuesMap = {
       'Possui portas': 'Não',
     };
     const requiredList = ['Quantidade de portas', 'Cor'];
     const missing = getMissingRequiredTechnicalFields(requiredList, noQuantity);
 
-    expect(missing).toContain('Quantidade de portas');
     expect(missing).toContain('Cor');
+    expect(missing).not.toContain('Quantidade de portas');
 
     const zeroQuantity = getMissingRequiredTechnicalFields(requiredList, {
       'Quantidade de portas': 0,
@@ -74,7 +74,7 @@ describe('technicalValues - Validação de Campos Obrigatórios', () => {
     })).toEqual([]);
     expect(getMissingRequiredTechnicalFields(['Quantidade de portas'], {
       'Quantidade de portas': '-1',
-    })).toContain('Quantidade de portas');
+    })).not.toContain('Quantidade de portas');
   });
 
   it('exige material dependente apenas quando a quantidade de portas for maior que zero', () => {

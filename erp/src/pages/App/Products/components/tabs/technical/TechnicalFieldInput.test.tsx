@@ -300,7 +300,7 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     expect((screen.getByRole('checkbox', { name: 'Nylon' }) as HTMLInputElement).checked).toBe(true);
   });
 
-  it('renderiza as opções Sim/Não configuradas para um campo radio', () => {
+  it('renderiza as opções Sim/Não como radios para um campo radio', () => {
     const fieldPossuiPes: TechnicalFieldDefinition = {
       id: 'attr-pes',
       name: 'Possui pés',
@@ -309,25 +309,21 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
     };
     const onChange = vi.fn();
 
-    // Renderiza inicialmente com "Sim" (Ligado)
+    // Renderiza inicialmente com "Sim" selecionado.
     const { rerender } = render(
       <TechnicalFieldInput field={fieldPossuiPes} value="Sim" onChange={onChange} />
     );
 
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
-    expect(select.value).toBe('Sim');
+    expect((screen.getByRole('radio', { name: 'Sim' }) as HTMLInputElement).checked).toBe(true);
 
-    fireEvent.change(select, { target: { value: 'Não' } });
+    fireEvent.click(screen.getByRole('radio', { name: 'Não' }));
     expect(onChange).toHaveBeenCalledWith('Não');
 
     rerender(<TechnicalFieldInput field={fieldPossuiPes} value="Não" onChange={onChange} />);
-    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('Não');
-
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
-    expect(onChange).toHaveBeenLastCalledWith('');
+    expect((screen.getByRole('radio', { name: 'Não' }) as HTMLInputElement).checked).toBe(true);
   });
 
-  it('renderiza booleano como interruptor e grava valores true/false', () => {
+  it('renderiza booleano como radios e grava valores true/false', () => {
     const fieldBoolean: TechnicalFieldDefinition = {
       id: 'attr-bool',
       name: 'Possui iluminação',
@@ -340,16 +336,16 @@ describe('TechnicalFieldInput - Marca, Modelo e Quantidade de Lugares', () => {
       <TechnicalFieldInput field={fieldBoolean} value={false} onChange={onChange} />
     );
 
-    const toggle = screen.getByRole('switch');
-    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect((screen.getByRole('radio', { name: 'Não' }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('radio', { name: 'Sim' }) as HTMLInputElement).checked).toBe(false);
 
-    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole('radio', { name: 'Sim' }));
     expect(onChange).toHaveBeenLastCalledWith(true);
 
     rerender(<TechnicalFieldInput field={fieldBoolean} value={true} onChange={onChange} />);
-    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
+    expect((screen.getByRole('radio', { name: 'Sim' }) as HTMLInputElement).checked).toBe(true);
 
-    fireEvent.click(screen.getByRole('switch'));
+    fireEvent.click(screen.getByRole('radio', { name: 'Não' }));
     expect(onChange).toHaveBeenLastCalledWith(false);
     expect(screen.queryByRole('combobox')).toBeNull();
   });

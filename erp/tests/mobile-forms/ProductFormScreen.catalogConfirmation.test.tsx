@@ -324,6 +324,18 @@ const openCatalogConfirmation = async () => {
     expect.any(Array),
     expect.objectContaining({ cancelable: true })
   ));
+  expect(mocks.alert).toHaveBeenCalledWith(
+    'Ocultar produto do Catálogo Digital?',
+    expect.stringContaining('ao salvar, ele será ocultado do Catálogo Digital'),
+    expect.any(Array),
+    expect.anything()
+  );
+  expect(mocks.alert).toHaveBeenCalledWith(
+    'Ocultar produto do Catálogo Digital?',
+    expect.stringContaining('ajuste a conformidade do campo citado acima antes de salvar'),
+    expect.any(Array),
+    expect.anything()
+  );
 };
 
 describe('ProductFormScreen: validação e confirmação ao editar Produto', () => {

@@ -15,11 +15,12 @@ export const SupabaseMonitorStatsCards: React.FC<Props> = ({ stats }) => {
         color="blue"
       />
       <StatCard title="Total SELECTs" value={stats.selects} icon="bi-search" color="emerald" />
-      <StatCard title="Total Writes" value={stats.writes} icon="bi-pencil-square" color="amber" />
+      <StatCard title="Escritas" value={stats.writes} icon="bi-pencil-square" color="amber" />
       <StatCard
-        title="Total Realtime"
-        value={stats.realtime}
-        icon="bi-lightning-charge"
+        title="Dados medidos"
+        value={stats.measuredResponses ? (stats.responseBytes / 1024 / 1024).toFixed(1) + ' MiB' : 'Indisponível'}
+        detail={stats.measuredResponses + ' respostas medidas parcialmente'}
+        icon="bi-hdd-network"
         color="purple"
       />
     </div>
@@ -28,12 +29,13 @@ export const SupabaseMonitorStatsCards: React.FC<Props> = ({ stats }) => {
 
 interface StatCardProps {
   title: string;
-  value: number;
+  value: number | string;
+  detail?: string;
   icon: string;
   color: 'blue' | 'emerald' | 'amber' | 'purple';
 }
 
-function StatCard({ title, value, icon, color }: StatCardProps) {
+function StatCard({ title, value, detail, icon, color }: StatCardProps) {
   const colors = {
     blue: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
     emerald: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -52,6 +54,7 @@ function StatCard({ title, value, icon, color }: StatCardProps) {
       <span className="text-2xl font-black text-slate-800 dark:text-slate-100">
         {value.toLocaleString()}
       </span>
+      {detail && <span className="mt-1 text-xs text-slate-500">{detail}</span>}
     </div>
   );
 }

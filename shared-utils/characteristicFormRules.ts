@@ -3,7 +3,6 @@ import type {
   AttributeDataType,
   CharacteristicFillConfiguration,
   CharacteristicFillType,
-  CategoryApplication,
   CharacteristicGroup,
   VariationOption,
   default as VariationType,
@@ -16,10 +15,9 @@ export type CharacteristicFormData = Pick<VariationType, 'name' | 'options' | 'a
   unit: string;
   decimalPlaces: 1 | 2 | 3;
   configuration: CharacteristicFillConfiguration;
-  categoryApplications: Array<Omit<CategoryApplication, 'application'> & {
-    application: CategoryApplication['application'] | '';
-  }>;
 };
+
+export type CharacteristicFillConfigurationPayload = CharacteristicFillConfiguration;
 
 export type CharacteristicSaveStatus = 'saved' | 'saving' | 'error';
 
@@ -68,14 +66,8 @@ export const resolveCharacteristicUnit = (
 
 export const getInitialCharacteristicFormData = (
   variation?: VariationType | null,
-  defaultGroupId = '',
-  categories: readonly { id: string; name: string }[] = []
+  defaultGroupId = ''
 ): CharacteristicFormData => {
-  const categoryApplications: CharacteristicFormData['categoryApplications'] = categories.map((category) => ({
-    categoryId: category.id,
-    application: (variation?.categoryApplications?.find((item) => item.categoryId === category.id)?.application || 'optional') as
-      CategoryApplication['application'] | '',
-  }));
   if (!variation) {
     return {
       name: '',
@@ -86,7 +78,6 @@ export const getInitialCharacteristicFormData = (
       unit: '',
       decimalPlaces: 2,
       configuration: getCharacteristicTextLimits('text_short') ?? {},
-      categoryApplications,
     };
   }
 
@@ -104,7 +95,6 @@ export const getInitialCharacteristicFormData = (
     unit: dataType === 'decimal' || dataType === 'integer' ? variation.unit || '' : '',
     decimalPlaces: variation.decimalPlaces ?? 2,
     configuration: getCharacteristicTextLimits(dataType) ?? variation.configuration ?? {},
-    categoryApplications,
   };
 };
 
@@ -112,6 +102,84 @@ const isIntegerOrEmpty = (value: number | undefined) =>
   value === undefined || (Number.isInteger(value) && value >= 0);
 const isNumberOrEmpty = (value: number | undefined) =>
   value === undefined || Number.isFinite(value);
+
+const characteristicFillConfigurationSchema = z.object({
+  minLength: z.number().int().nonnegative().optional(),
+  maxLength: z.number().int().nonnegative().optional(),
+  minValue: z.number().finite().optional(),
+  maxValue: z.number().finite().optional(),
+  minSelections: z.number().int().nonnegative().optional(),
+  maxSelections: z.number().int().nonnegative().optional(),
+});
+
+export const normalizeCharacteristicFillConfiguration = (
+  dataType: AttributeDataType | undefined,
+  configuration: unknown,
+): CharacteristicFillConfigurationPayload | undefined => {
+  if (!configuration || typeof configuration !== 'object' || Array.isArray(configuration)) {
+    return undefined;
+  }
+
+  const fillType = normalizeManagedCharacteristicType(dataType);
+  const allowedKeys: readonly (keyof CharacteristicFillConfigurationPayload)[] =
+    fillType === 'text_short' || fillType === 'text_long'
+      ? ['minLength', 'maxLength']
+      : fillType === 'integer' || fillType === 'decimal'
+        ? ['minValue', 'maxValue']
+        : fillType === 'multi_select'
+          ? ['minSelections', 'maxSelections']
+          : [];
+  const source = configuration as Record<string, unknown>;
+  const normalized: CharacteristicFillConfigurationPayload = {};
+
+  for (const key of allowedKeys) {
+    const value = source[key];
+    if (typeof value === 'number' && Number.isFinite(value)) normalized[key] = value;
+  }
+  return normalized;
+};
+
+export const validateCharacteristicFillConfiguration = (
+  dataType: CharacteristicFillType,
+  decimalPlaces: 1 | 2 | 3,
+  configuration: CharacteristicFillConfiguration,
+): string | null => {
+  const textLimits = getCharacteristicTextLimits(dataType);
+  if (textLimits && (
+    configuration.minLength !== textLimits.minLength ||
+    configuration.maxLength !== textLimits.maxLength
+  )) {
+    return 'Os limites de texto são definidos automaticamente pelo tipo de preenchimento.';
+  }
+  if (dataType === 'integer' || dataType === 'decimal') {
+    if (!isNumberOrEmpty(configuration.minValue) || !isNumberOrEmpty(configuration.maxValue)) {
+      return 'Os limites devem ser números válidos.';
+    }
+    if (
+      dataType === 'integer' &&
+      [configuration.minValue, configuration.maxValue].some((value) => value !== undefined && !Number.isInteger(value))
+    ) return 'Os limites do número inteiro devem ser inteiros.';
+    if (
+      configuration.minValue !== undefined &&
+      configuration.maxValue !== undefined &&
+      configuration.minValue > configuration.maxValue
+    ) return 'O valor mínimo não pode superar o valor máximo.';
+    if (!Number.isInteger(decimalPlaces) || decimalPlaces < 1 || decimalPlaces > 3) {
+      return 'Selecione de 1 a 3 casas decimais.';
+    }
+  }
+  if (dataType === 'multi_select') {
+    if (!isIntegerOrEmpty(configuration.minSelections) || !isIntegerOrEmpty(configuration.maxSelections)) {
+      return 'Os limites de seleção devem ser inteiros iguais ou maiores que zero.';
+    }
+    if (
+      configuration.minSelections !== undefined &&
+      configuration.maxSelections !== undefined &&
+      configuration.minSelections > configuration.maxSelections
+    ) return 'A quantidade mínima não pode superar a máxima.';
+  }
+  return null;
+};
 
 export const validateCharacteristicSnapshot = (
   snapshot: CharacteristicFormData,
@@ -149,43 +217,11 @@ export const validateCharacteristicSnapshot = (
     return 'Mantenha pelo menos uma opção ativa para este tipo de característica.';
   }
 
-  const configuration = snapshot.configuration;
-  const textLimits = getCharacteristicTextLimits(snapshot.dataType);
-  if (textLimits && (
-    configuration.minLength !== textLimits.minLength ||
-    configuration.maxLength !== textLimits.maxLength
-  )) {
-    return 'Os limites de texto são definidos automaticamente pelo tipo de preenchimento.';
-  }
-  if (snapshot.dataType === 'integer' || snapshot.dataType === 'decimal') {
-    if (!isNumberOrEmpty(configuration.minValue) || !isNumberOrEmpty(configuration.maxValue)) {
-      return 'Os limites devem ser números válidos.';
-    }
-    if (
-      snapshot.dataType === 'integer' &&
-      [configuration.minValue, configuration.maxValue].some((value) => value !== undefined && !Number.isInteger(value))
-    ) return 'Os limites do número inteiro devem ser inteiros.';
-    if (
-      configuration.minValue !== undefined &&
-      configuration.maxValue !== undefined &&
-      configuration.minValue > configuration.maxValue
-    ) return 'O valor mínimo não pode superar o valor máximo.';
-    if (!Number.isInteger(snapshot.decimalPlaces) || snapshot.decimalPlaces < 1 || snapshot.decimalPlaces > 3) {
-      return 'Selecione de 1 a 3 casas decimais.';
-    }
-  }
-  if (snapshot.dataType === 'multi_select') {
-    if (!isIntegerOrEmpty(configuration.minSelections) || !isIntegerOrEmpty(configuration.maxSelections)) {
-      return 'Os limites de seleção devem ser inteiros iguais ou maiores que zero.';
-    }
-    if (
-      configuration.minSelections !== undefined &&
-      configuration.maxSelections !== undefined &&
-      configuration.minSelections > configuration.maxSelections
-    ) return 'A quantidade mínima não pode superar a máxima.';
-  }
-
-  return null;
+  return validateCharacteristicFillConfiguration(
+    snapshot.dataType,
+    snapshot.decimalPlaces,
+    snapshot.configuration,
+  );
 };
 
 const optionSchema = z.object({
@@ -198,8 +234,7 @@ const optionSchema = z.object({
 export const createManagedCharacteristicFormSchema = (
   allVariations: readonly VariationType[] = [],
   currentCharacteristicId?: string | (() => string | undefined),
-  groups: readonly CharacteristicGroup[] = [],
-  categoryIds: readonly string[] = []
+  groups: readonly CharacteristicGroup[] = []
 ) => z.object({
   name: z.string().trim().min(1, 'O nome da característica é obrigatório.'),
   groupId: z.string().min(1, 'Selecione um grupo para a característica.'),
@@ -208,41 +243,8 @@ export const createManagedCharacteristicFormSchema = (
   decimalPlaces: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(2),
   active: z.boolean(),
   options: z.array(optionSchema),
-  configuration: z.object({
-    minLength: z.number().int().nonnegative().optional(),
-    maxLength: z.number().int().nonnegative().optional(),
-    minValue: z.number().finite().optional(),
-    maxValue: z.number().finite().optional(),
-    minSelections: z.number().int().nonnegative().optional(),
-    maxSelections: z.number().int().nonnegative().optional(),
-  }),
-  categoryApplications: z.array(z.object({
-    categoryId: z.string().min(1),
-    application: z.enum(['unavailable', 'optional', 'required']).or(z.literal('')),
-  })),
+  configuration: characteristicFillConfigurationSchema,
 }).superRefine((snapshot, context) => {
-  const seenCategoryIds = new Set(snapshot.categoryApplications.map((item) => item.categoryId));
-  if (
-    categoryIds.length === 0 ||
-    snapshot.categoryApplications.length !== categoryIds.length ||
-    seenCategoryIds.size !== snapshot.categoryApplications.length ||
-    categoryIds.some((categoryId) => !seenCategoryIds.has(categoryId))
-  ) {
-    context.addIssue({
-      code: 'custom',
-      path: ['categoryApplications'],
-      message: 'A aplicação deve incluir cada categoria disponível uma única vez.',
-    });
-  }
-  snapshot.categoryApplications.forEach((item, index) => {
-    if (!item.application) {
-      context.addIssue({
-        code: 'custom',
-        path: ['categoryApplications', index, 'application'],
-        message: 'Defina a aplicação desta característica para a categoria.',
-      });
-    }
-  });
   const error = validateCharacteristicSnapshot(
     snapshot as CharacteristicFormData,
     allVariations,
@@ -265,6 +267,7 @@ export const createCharacteristicFormSchema = (
   unit: z.string().default(''),
   decimalPlaces: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(2),
   active: z.boolean(),
+  configuration: characteristicFillConfigurationSchema.optional(),
   options: z.array(z.object({
     id: z.string(),
     value: z.string(),
@@ -292,11 +295,22 @@ export const createCharacteristicFormSchema = (
     error = 'Selecione uma unidade de medida válida.';
   }
   if (error) context.addIssue({ code: 'custom', path: ['name'], message: error });
+
+  const fillType = normalizeManagedCharacteristicType(snapshot.dataType);
+  const configuration = snapshot.configuration ?? getCharacteristicTextLimits(fillType) ?? {};
+  const configurationError = validateCharacteristicFillConfiguration(
+    fillType,
+    snapshot.decimalPlaces,
+    configuration,
+  );
+  if (configurationError) {
+    context.addIssue({ code: 'custom', path: ['configuration'], message: configurationError });
+  }
 });
 
 export const getCharacteristicSubtitle = (attribute: VariationType): string => {
   switch (normalizeManagedCharacteristicType(attribute.dataType)) {
-    case 'boolean': return 'Booleano · Sim/Não';
+    case 'boolean': return 'Sim/Não';
     case 'integer': return `Número inteiro${attribute.unit ? ` • ${attribute.unit}` : ''}`;
     case 'decimal': {
       const places = attribute.decimalPlaces ?? 2;
@@ -317,7 +331,7 @@ export const getCharacteristicSubtitle = (attribute: VariationType): string => {
 
 export const getCharacteristicFillTypeLabel = (dataType?: AttributeDataType): string => {
   switch (normalizeManagedCharacteristicType(dataType)) {
-    case 'boolean': return 'Booleano';
+    case 'boolean': return 'Sim/Não';
     case 'text_short': return 'Texto curto (máx. 30 caracteres)';
     case 'text_long': return 'Texto longo (máx. 255 caracteres)';
     case 'radio': return 'Opção única';

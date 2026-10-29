@@ -78,14 +78,13 @@ import { parseLocalizedNumber as parseLocalizedPrice } from '../domain/productNu
 import {
   getMobileVariationRegistrationIssue,
   getMobileProductReadiness,
-  getMobilePublishedCatalogEditLegibility,
   isMobileSalvadoProduct,
   type MobileVariationRegistrationIssue,
 } from '../domain/productRegistrationRules';
 import {
   prepareMobileProductSaveState,
-  shouldValidatePublishedCatalogEdit,
 } from '../domain/productSaveState';
+import { verifyAndConfirmMobilePublishedCatalogEdit } from '../domain/mobilePublishedCatalogConfirmation';
 import {
   createMobileProductDraftSaveQueue,
   type MobileProductDraftSaveEntry,
@@ -103,7 +102,6 @@ import { ProductFormTechnicalTab } from '../modals/tabs/ProductFormTechnicalTab'
 import { ProductFormVariationsTab } from '../modals/tabs/ProductFormVariationsTab';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 import { fetchMobileProductFiscalDefaults } from '../services/mobileProductFiscalService';
-import { fetchMobileProductTechnicalFields } from '../services/mobileProductTechnicalService';
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 type TabId = MobileProductFormTabId;
@@ -1040,70 +1038,9 @@ export const ProductFormScreen: React.FC<Props> = ({
           async (validated) => {
             setDescriptionTechnicalValidationError(false);
             let hideFromCatalog = false;
-            if (
-              shouldValidatePublishedCatalogEdit(
-                product?.status || validated.status,
-                product,
-                validated,
-              )
-            ) {
-              let categoryRequirements: Awaited<
-                ReturnType<typeof fetchMobileProductTechnicalFields>
-              > | null = null;
-              try {
-                categoryRequirements = await withTimeout(
-                  fetchMobileProductTechnicalFields({ requireCategoryLinks: true }),
-                  15000,
-                  null,
-                  'produto:verificar-requisitos-do-catalogo'
-                );
-                if (!categoryRequirements) {
-                  throw new Error('Requisitos de categoria indisponíveis.');
-                }
-              } catch {
-                Alert.alert(
-                  'Verificação indisponível',
-                  'Não foi possível verificar as características obrigatórias da categoria. O produto publicado não foi alterado.'
-                );
-                return;
-              }
-
-              const catalogEditLegibility = getMobilePublishedCatalogEditLegibility(
-                product,
-                validated,
-                categoryRequirements
-              );
-              if (catalogEditLegibility && !catalogEditLegibility.isLegible) {
-                const missingCharacteristics =
-                  catalogEditLegibility.missingCategoryCharacteristics;
-                if (missingCharacteristics.length === 0) {
-                  Alert.alert(
-                    'Catálogo publicado',
-                    'O produto ainda precisa atender aos requisitos do Catálogo Digital.'
-                  );
-                  return;
-                }
-
-                const characteristicLabel = missingCharacteristics.join(', ');
-                const characteristicMessage =
-                  missingCharacteristics.length === 1
-                    ? `O campo obrigatório "${characteristicLabel}" está desativado ou sem valor.`
-                    : `Os campos obrigatórios (${characteristicLabel}) estão desativados ou sem valor.`;
-                const confirmed = await new Promise<boolean>((resolve) => {
-                  Alert.alert(
-                    'Ocultar produto do Catálogo Digital?',
-                    `${characteristicMessage} Se confirmar, as alterações serão salvas e o produto será ocultado do Catálogo Digital.`,
-                    [
-                      { text: 'Continuar editando', style: 'cancel', onPress: () => resolve(false) },
-                      { text: 'Salvar e ocultar', style: 'destructive', onPress: () => resolve(true) },
-                    ],
-                    { cancelable: true, onDismiss: () => resolve(false) }
-                  );
-                });
-                if (!confirmed) return;
-                hideFromCatalog = true;
-              }
-            }
+            const catalogCheck = await verifyAndConfirmMobilePublishedCatalogEdit(product, validated);
+            if (!catalogCheck.shouldContinue) return;
+            hideFromCatalog = catalogCheck.hideFromCatalog;
 
             const payload = await prepareSavePayload(validated, isDraft);
             if (hideFromCatalog && !isDraft) {

@@ -155,7 +155,7 @@ export const VariationTechnicalFieldItem: React.FC<VariationTechnicalFieldItemPr
           title={displayName}
         >
           {displayName}
-          {(field.isRequired || field.isRequiredForCatalog) && (
+          {field.isRequiredForProductEntry && (
             <span aria-label="Obrigatória" className="ml-1 text-red-500">*</span>
           )}
           {isDependencyDisabled && (

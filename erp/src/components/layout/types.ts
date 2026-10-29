@@ -1,3 +1,5 @@
+import type { AggregatedMetric } from '@/services/monitoring/types';
+
 export type MenuKey =
   | 'products'
   | 'stock'
@@ -13,6 +15,7 @@ export interface SupabaseAnomalyNotification {
   level?: 'CRITICAL' | 'WARNING' | string;
   title: string;
   message: string;
+  metric?: AggregatedMetric;
 }
 
 export interface AssistanceModalEventDetail {

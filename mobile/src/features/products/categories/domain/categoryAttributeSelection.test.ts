@@ -20,11 +20,22 @@ describe('contrato de atributos de categoria ERP/mobile', () => {
     },
   );
 
-  it('mantém Peso sempre obrigatório, mesmo com um valor legado isRequired=false', () => {
-    expect(isCategoryAttributeAlwaysRequired(' peso ')).toBe(true);
-    expect(isCategoryAttributeAlwaysOptional('Peso')).toBe(false);
-    expect(getDefaultCategoryAttributeIsRequired('Peso')).toBe(true);
-    expect(resolveCategoryAttributeIsRequired({ name: 'Peso', isRequired: false })).toBe(true);
+  it.each(['Peso', 'Quantidade de portas', 'Tipo de portas'])(
+    'mantém %s sempre opcional, mesmo com uma configuração antiga obrigatória',
+    (name) => {
+      expect(isCategoryAttributeAlwaysRequired(name)).toBe(false);
+      expect(isCategoryAttributeAlwaysOptional(name)).toBe(true);
+      expect(getDefaultCategoryAttributeIsRequired(name)).toBe(false);
+      expect(resolveCategoryAttributeIsRequired({ name, isRequired: true })).toBe(false);
+      expect(isCategoryAttributeRequirementLocked(name)).toBe(true);
+    }
+  );
+
+  it('mantém Peso opcional ao resolver um vínculo legado', () => {
+    expect(isCategoryAttributeAlwaysRequired(' peso ')).toBe(false);
+    expect(isCategoryAttributeAlwaysOptional('Peso')).toBe(true);
+    expect(getDefaultCategoryAttributeIsRequired('Peso')).toBe(false);
+    expect(resolveCategoryAttributeIsRequired({ name: 'Peso', isRequired: false })).toBe(false);
     expect(isCategoryAttributeRequirementLocked('Peso')).toBe(true);
   });
 
@@ -44,10 +55,10 @@ describe('contrato de atributos de categoria ERP/mobile', () => {
     expect(setCategoryAttributeRequirement(attributes, 'material', true)).toEqual([
       { id: 'material', name: 'Material', isRequired: true },
       attributes[1],
-      { id: 'peso', name: 'Peso', isRequired: true },
+      { id: 'peso', name: 'Peso', isRequired: false },
     ]);
     expect(setCategoryAttributeRequirement(attributes, 'cor', false)[1].isRequired).toBe(true);
-    expect(setCategoryAttributeRequirement(attributes, 'peso', false)[2].isRequired).toBe(true);
+    expect(setCategoryAttributeRequirement(attributes, 'peso', true)[2].isRequired).toBe(false);
   });
 
   it('exige ID, nome e isRequired no payload de edição', () => {

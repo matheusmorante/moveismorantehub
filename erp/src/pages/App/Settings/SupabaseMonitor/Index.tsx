@@ -3,11 +3,13 @@ import { useSupabaseTelemetry } from './hooks/useSupabaseTelemetry';
 import { SupabaseMonitorHeader } from './components/SupabaseMonitorHeader';
 import { SupabaseMonitorStatsCards } from './components/SupabaseMonitorStatsCards';
 import { SupabaseMonitorDrillDown } from './components/SupabaseMonitorDrillDown';
+import { SupabaseMassLoadHistory } from './components/SupabaseMassLoadHistory';
 
 export default function SupabaseMonitorDashboard() {
   const {
     isAdmin,
     loading,
+    error,
     period,
     setPeriod,
     activeModule,
@@ -40,10 +42,15 @@ export default function SupabaseMonitorDashboard() {
   return (
     <div className="p-6 max-w-7xl mx-auto animate-fade-in">
       <SupabaseMonitorHeader period={period} onPeriodChange={handlePeriodChange} />
+      <div className="mb-6"><SupabaseMassLoadHistory /></div>
 
       {loading ? (
         <div className="py-12 flex justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+        </div>
+      ) : error ? (
+        <div className="py-8 text-center text-sm text-amber-700 dark:text-amber-300">
+          Não foi possível carregar a telemetria agora.
         </div>
       ) : (
         <div className="space-y-6">

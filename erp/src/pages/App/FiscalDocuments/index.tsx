@@ -12,7 +12,9 @@ import type { ReplacementPendingAction } from '@/pages/utils/nfe/orderFiscalBadg
 import type Order from '@/pages/types/order.type';
 import { fetchOrderById } from '@/pages/utils/orderHistoryService';
 import { beginFiscalEmissionReplacement } from '@/pages/utils/nfe/nfeEmissionRequestState';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
+import OrderDetailsModal from '../DeliverySchedule/OrderDetailsModal';
 import { useFiscalDocumentsList } from './hooks/useFiscalDocumentsList';
 import { useFiscalDocumentDetails } from './hooks/useFiscalDocumentDetails';
 import { useFiscalCancelModal } from './hooks/useFiscalCancelModal';
@@ -63,6 +65,8 @@ export default function FiscalDocumentsPage() {
   const [operationSourceDoc, setOperationSourceDoc] = useState<NfeDocumentRecord | null>(null);
   const [automaticDraftId, setAutomaticDraftId] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Pick<NfeDocumentRecord, 'id' | 'order_id' | 'ambiente'> | null>(null);
+  const [linkedOrderDetails, setLinkedOrderDetails] = useState<Order | null>(null);
+  const linkedOrderRequestId = React.useRef(0);
   const [emissionModalOrder, setEmissionModalOrder] = useState<Order | null>(null);
   const [emissionModalEnv, setEmissionModalEnv] = useState<1 | 2>(2);
 
@@ -105,6 +109,29 @@ export default function FiscalDocumentsPage() {
   }, [summaryCollapsed]);
 
   const pendenciesHook = useFiscalPendencies(canViewFiscal);
+
+  const handleViewLinkedOrderDetails = async (orderId: string) => {
+    const requestId = ++linkedOrderRequestId.current;
+    setSelectedDocument(null);
+    try {
+      const order = await withTimeout(
+        fetchOrderById(orderId),
+        15_000,
+        null,
+        'fiscal-documents:pedido-vinculado'
+      );
+      if (requestId !== linkedOrderRequestId.current) return;
+      if (!order) {
+        toast.info('Não foi possível carregar os detalhes do pedido vinculado.');
+        return;
+      }
+      setLinkedOrderDetails(order);
+    } catch {
+      if (requestId === linkedOrderRequestId.current) {
+        toast.error('Não foi possível carregar os detalhes do pedido vinculado.');
+      }
+    }
+  };
 
   // Hook de Detalhes Fiscais
   const {
@@ -303,6 +330,7 @@ export default function FiscalDocumentsPage() {
                 canOperateFiscal={canOperateFiscal}
                 retryingHmlDocumentId={sefaz.retryingHmlDocumentId}
                 onViewDetails={setSelectedDocument}
+                onViewLinkedOrderDetails={(orderId) => void handleViewLinkedOrderDetails(orderId)}
                 onToggleDetails={toggleDetails}
                 onPrintDanfe={sefaz.handlePrint}
                 onDownloadXml={sefaz.handleDownload}
@@ -395,6 +423,14 @@ export default function FiscalDocumentsPage() {
             setEmissionModalEnv(env);
             setEmissionModalOrder(targetOrder);
           }}
+        />
+      )}
+
+      {linkedOrderDetails && (
+        <OrderDetailsModal
+          order={linkedOrderDetails}
+          isReadOnly
+          onClose={() => setLinkedOrderDetails(null)}
         />
       )}
 

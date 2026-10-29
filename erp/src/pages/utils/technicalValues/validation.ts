@@ -6,17 +6,13 @@ import { REQUIRED_CHARACTERISTIC_NAMES } from './constants';
 import {
   normalizeCharacteristicName,
   getCharacteristicDependencyState,
-  isHasDoorsActive,
-  isHasDrawersActive,
-  isHasFeetActive,
   parseDoorQuantityValue,
   parseDrawerQuantityValue,
-  parseFeetQuantityValue,
   isDoorQuantityCharacteristic,
   isDrawerQuantityCharacteristic,
-  isFeetQuantityCharacteristic,
 } from './predicates';
 import type { TechnicalValuesMap } from './types';
+import { isCatalogNeverRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 
 export const getMissingRequiredCharacteristics = (values: TechnicalValuesMap = {}): string[] => {
   const valuesByName = new Map<string, unknown>();
@@ -85,9 +81,6 @@ export const getMissingRequiredDimensions = (
   ) {
     missing.push('Profundidade total');
   }
-  if (!isPositive(directDimensions?.weight) && !isPositive(valuesByName.get('peso'))) {
-    missing.push('Peso');
-  }
   return missing;
 };
 
@@ -95,7 +88,10 @@ export const getMissingRequiredTechnicalFields = (
   requiredFieldNames: readonly string[],
   values: TechnicalValuesMap = {}
 ): string[] => {
-  const missing = requiredFieldNames.filter((name) => {
+  const applicableRequiredFieldNames = requiredFieldNames.filter(
+    (name) => !isCatalogNeverRequiredCharacteristicName(name)
+  );
+  const missing = applicableRequiredFieldNames.filter((name) => {
     const dep = getCharacteristicDependencyState(name, values);
     if (dep.isDisabled) {
       return false;
@@ -103,7 +99,7 @@ export const getMissingRequiredTechnicalFields = (
     return !String(values[name] ?? '').trim();
   });
 
-  if (requiredFieldNames.some(isDoorQuantityCharacteristic) || isHasDoorsActive(values)) {
+  if (applicableRequiredFieldNames.some(isDoorQuantityCharacteristic)) {
     const doorQty = parseDoorQuantityValue(values);
     if (doorQty === null || doorQty < 0) {
       if (!missing.some((m) => isDoorQuantityCharacteristic(m))) {
@@ -112,20 +108,11 @@ export const getMissingRequiredTechnicalFields = (
     }
   }
 
-  if (requiredFieldNames.some(isDrawerQuantityCharacteristic) || isHasDrawersActive(values)) {
+  if (applicableRequiredFieldNames.some(isDrawerQuantityCharacteristic)) {
     const drawerQty = parseDrawerQuantityValue(values);
     if (drawerQty === null || drawerQty < 0) {
       if (!missing.some((m) => isDrawerQuantityCharacteristic(m))) {
         missing.push('Quantidade de gavetas');
-      }
-    }
-  }
-
-  if (isHasFeetActive(values)) {
-    const feetQty = parseFeetQuantityValue(values);
-    if (feetQty === null || feetQty <= 0) {
-      if (!missing.some((m) => isFeetQuantityCharacteristic(m))) {
-        missing.push('Quantidade de pés');
       }
     }
   }

@@ -46,7 +46,6 @@ export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Modelo', 'Marca'] as const
 export const GLOBAL_REQUIRED_ATTRIBUTE_NAMES = [
   ...REQUIRED_CHARACTERISTIC_NAMES,
   ...REQUIRED_DIMENSION_NAMES,
-  'Peso',
 ] as const;
 
 export const PRIMARY_CHARACTERISTIC_NAMES = [
@@ -81,40 +80,32 @@ export const DIMENSIONS_SORT_ORDER: Readonly<Record<string, number>> = {
 
 /** Sequência canônica de exibição das portas */
 export const DOORS_SORT_ORDER: Readonly<Record<string, number>> = {
-  'possui portas': 1,
-  'possui porta': 1,
-  'possui portas?': 1,
-  'possui porta?': 1,
-  'quantidade de portas': 2,
-  'quantidade de porta': 2,
-  'tipo de portas': 3,
-  'tipo de porta': 3,
-  'tipo(s) de porta': 3,
-  'tipo(s) de portas': 3,
-  'material das portas': 4,
-  'material da porta': 4,
+  'quantidade de portas': 1,
+  'quantidade de porta': 1,
+  'tipo de portas': 2,
+  'tipo de porta': 2,
+  'tipo(s) de porta': 2,
+  'tipo(s) de portas': 2,
+  'material das portas': 3,
+  'material da porta': 3,
 };
 
 /** Sequência canônica de exibição das gavetas */
 export const DRAWERS_SORT_ORDER: Readonly<Record<string, number>> = {
-  'possui gavetas': 1,
-  'possui gaveta': 1,
-  'possui gavetas?': 1,
-  'possui gaveta?': 1,
-  'quantidade de gavetas': 2,
-  'quantidade de gaveta': 2,
-  'tipo/material das corrediças': 3,
-  'tipo/material da corrediça': 3,
-  'materiais das corrediças': 3,
-  'material das corrediças': 3,
-  'material da corrediça': 3,
-  'tipo de corrediça': 3,
-  'tipo de corrediças': 3,
-  corrediça: 3,
-  corrediças: 3,
-  'material das gavetas': 4,
-  'material da gaveta': 4,
-  'gavetas com chave': 5,
+  'quantidade de gavetas': 1,
+  'quantidade de gaveta': 1,
+  'tipo/material das corrediças': 2,
+  'tipo/material da corrediça': 2,
+  'materiais das corrediças': 2,
+  'material das corrediças': 2,
+  'material da corrediça': 2,
+  'tipo de corrediça': 2,
+  'tipo de corrediças': 2,
+  corrediça: 2,
+  corrediças: 2,
+  'material das gavetas': 3,
+  'material da gaveta': 3,
+  'gavetas com chave': 4,
 };
 
 export interface CharacteristicTopicGroupDefinition {
@@ -165,14 +156,12 @@ export const CHARACTERISTIC_TOPIC_GROUPS: ReadonlyArray<CharacteristicTopicGroup
     masterField: 'Possui pés?',
     fieldNames: [
       'Possui pés?',
-      'Quantidade de pés',
-      'Quantidade de pé',
       'Material dos pés',
       'Material do pé',
       'Os pés são reguláveis?',
       'Possui rodízios?',
     ],
-    description: 'Possui pés?, Quantidade de pés e Material dos pés',
+    description: 'Possui pés?, Material dos pés e regulagem',
   },
 ];
 
@@ -190,14 +179,12 @@ export const FEET_SORT_ORDER: Readonly<Record<string, number>> = {
   'possui pé': 1,
   'possui pés?': 1,
   'possui pé?': 1,
-  'quantidade de pés': 2,
-  'quantidade de pé': 2,
-  'material dos pés': 3,
-  'material do pé': 3,
-  'pés reguláveis': 4,
-  'os pés são reguláveis?': 4,
-  rodízios: 5,
-  'possui rodízios?': 5,
+  'material dos pés': 2,
+  'material do pé': 2,
+  'pés reguláveis': 3,
+  'os pés são reguláveis?': 3,
+  rodízios: 4,
+  'possui rodízios?': 4,
 };
 
 /** Sequência canônica de exibição dos acessórios */

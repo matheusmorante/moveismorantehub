@@ -80,7 +80,7 @@ function parseFilters(value: unknown, accountantOnly: boolean): ExportFilters | 
   if (end - start > 366 * 24 * 60 * 60 * 1000) return null;
 
   if (purpose === 'accounting' && (environment !== 1 || documentTypes.includes('inbound') || !includeEvents ||
-      statuses.some((status) => !['autorizada', 'cancelada'].includes(status)))) return null;
+      statuses.some((status) => status !== 'autorizada'))) return null;
   if (environment === 1 && statuses.includes('homologada')) return null;
   if (environment === 2 && statuses.includes('autorizada')) return null;
 
@@ -202,11 +202,14 @@ async function summarizeExport(db: any, filters: ExportFilters) {
   if (linkedIds.length) {
     const { data: originals, error: originalError } = await db
       .from('nfe_documents')
-      .select('id')
+      .select('id,status')
       .in('id', linkedIds)
       .eq('ambiente', filters.environment);
     if (originalError) throw new Error('Não foi possível carregar as referências fiscais dos documentos.');
-    eventDocumentIds = [...documentIds, ...(originals || []).map((document: any) => String(document.id))];
+    const eventLinkedIds = (originals || [])
+      .filter((document: any) => filters.purpose !== 'accounting' || document.status !== 'cancelada')
+      .map((document: any) => String(document.id));
+    eventDocumentIds = [...documentIds, ...eventLinkedIds];
   }
   let eventCount = 0;
   if (filters.includeEvents && eventDocumentIds.length) {
@@ -370,7 +373,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (originalsError || !Array.isArray(originals) || originals.length !== originalIds.length) {
         return res.status(503).json({ success: false, error: 'Não foi possível carregar todas as notas originais referenciadas.' });
       }
-      linkedDocuments = originals.map((document: any) => ({ ...document, isContextDocument: true }));
+      linkedDocuments = originals
+        .filter((document: any) => filters.purpose !== 'accounting' || document.status !== 'cancelada')
+        .map((document: any) => ({ ...document, isContextDocument: true }));
     }
 
     const allDocuments = [...data, ...linkedDocuments];

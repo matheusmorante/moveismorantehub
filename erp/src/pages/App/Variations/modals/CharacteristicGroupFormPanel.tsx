@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import type { default as VariationType, CharacteristicGroup } from '../../../types/variation.type';
 import { getVariationErrorMessage } from '../../../utils/variationService';
@@ -36,6 +37,8 @@ export function CharacteristicGroupFormPanel({
   onAddCharacteristic,
   onEditCharacteristic,
 }: CharacteristicGroupFormPanelProps) {
+  useBodyScrollLock(true);
+
   const [formData, setFormData] = useState<CharacteristicGroupFormData>(() =>
     getInitialCharacteristicGroupFormData(group)
   );
@@ -85,9 +88,9 @@ export function CharacteristicGroupFormPanel({
   };
 
   return (
-    <>
-      <button type="button" aria-label="Fechar formulário de grupo" onClick={onClose} className="fixed inset-0 z-40 bg-slate-950/30 lg:hidden" />
-      <aside role="dialog" aria-modal="false" aria-labelledby="characteristic-group-form-title" className="fixed inset-0 z-50 flex min-h-0 flex-col border-l border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950 lg:relative lg:inset-auto lg:z-auto lg:w-[min(560px,48vw)] lg:shrink-0 lg:shadow-none">
+    <div className="characteristic-form-modal-overlay fixed inset-0 z-[1000032] flex items-center justify-center p-0">
+      <button type="button" aria-label="Fechar formulário de grupo" onClick={onClose} className="absolute inset-0 z-0 bg-slate-950/30" />
+      <aside role="dialog" aria-modal="true" aria-labelledby="characteristic-group-form-title" className="characteristic-form-modal-dialog relative z-10 flex h-full min-h-0 w-full flex-col overflow-hidden border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-950">
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800 sm:px-7">
           <div>
             <h2 id="characteristic-group-form-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -99,7 +102,7 @@ export function CharacteristicGroupFormPanel({
         </header>
 
         <form onSubmit={(event) => void handleSubmit(event)} className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-5 py-5 sm:px-7">
+          <div className="min-h-0 flex-1 space-y-7 overflow-y-auto overscroll-contain px-5 py-5 sm:px-7">
             <section className="space-y-4" aria-labelledby="group-general-title">
               <h3 id="group-general-title" className="text-sm font-semibold text-slate-800 dark:text-slate-100">Dados do grupo</h3>
               <label className="block text-xs text-slate-500">Nome do grupo *
@@ -144,6 +147,6 @@ export function CharacteristicGroupFormPanel({
           </footer>
         </form>
       </aside>
-    </>
+    </div>
   );
 }

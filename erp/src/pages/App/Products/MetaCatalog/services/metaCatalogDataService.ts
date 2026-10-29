@@ -9,8 +9,8 @@ import { calculateMetaCatalogStats, type MetaCatalogStats } from './metaCatalogS
 export const fetchMetaCatalogStats = async (): Promise<MetaCatalogStats> => {
   const [{ data: products, error: productsError }, { data: variations, error: variationsError }] =
     await Promise.all([
-      supabase.from('products').select('id, status, active, deleted, deleted_at, is_salvado, product_kind'),
-      supabase.from('product_variations').select('id, product_id, status, active'),
+      supabase.from('products').select('id, status, deleted, deleted_at'),
+      supabase.from('product_variations').select('id, product_id, status'),
     ]);
 
   if (productsError) throw productsError;

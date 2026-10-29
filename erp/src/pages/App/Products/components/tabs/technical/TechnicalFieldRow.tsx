@@ -82,10 +82,11 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
     ? 'Peso suportado por prateleira'
     : getTechnicalFieldDisplayName(field.name);
   const isCategoryMandatory = Boolean(field.isRequired || field.isRequiredForCatalog);
-  const isMandatory = Boolean(field.isRequiredForProductEntry ?? isCategoryMandatory);
+  const isMandatoryForProductEntry = Boolean(field.isRequiredForProductEntry);
   const hasCharacteristicActivation = Boolean(
     onToggleCharacteristic &&
     field.characteristicActive !== undefined &&
+    !isCategoryMandatory &&
     !field.characteristicToggleDisabled
   );
   const isCharacteristicInactive = hasCharacteristicActivation && !field.characteristicActive;
@@ -98,7 +99,8 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
   const shouldDefaultToGlobal =
     field.characteristicActive === true ||
     hasConfiguredValue ||
-    isMandatory ||
+    isCategoryMandatory ||
+    isMandatoryForProductEntry ||
     isDependencySatisfied;
   const scope = effectiveIsVariable
     ? 'variation'
@@ -185,7 +187,7 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
               {displayName}
               {field.unit ? ` (${field.unit})` : ''}
             </span>
-            {isMandatory && (
+            {isMandatoryForProductEntry && (
               <span aria-label="Obrigatória" className="shrink-0 text-red-500">*</span>
             )}
             {isFieldDisabled && (
@@ -230,7 +232,8 @@ export const TechnicalFieldRow: React.FC<TechnicalFieldRowProps> = ({
             isSimpleProduct &&
             showSimpleFieldToggle &&
             !hasCharacteristicActivation &&
-            !isMandatory &&
+            !isMandatoryForProductEntry &&
+            !isCategoryMandatory &&
             !isDependencyVariable &&
             !isDependentCharacteristic && (
             <button

@@ -20,6 +20,7 @@ interface FiscalDocumentsTableProps {
   canOperateFiscal: boolean;
   retryingHmlDocumentId: string | null;
   onViewDetails: (doc: NfeDocumentRecord) => void;
+  onViewLinkedOrderDetails: (orderId: string) => void;
   onToggleDetails: (doc: NfeDocumentRecord) => void;
   onPrintDanfe: (doc: NfeDocumentRecord) => void;
   onDownloadXml: (doc: NfeDocumentRecord) => void;
@@ -41,6 +42,7 @@ export const FiscalDocumentsTable: React.FC<FiscalDocumentsTableProps> = ({
   canOperateFiscal,
   retryingHmlDocumentId,
   onViewDetails,
+  onViewLinkedOrderDetails,
   onToggleDetails,
   onPrintDanfe,
   onDownloadXml,
@@ -81,6 +83,9 @@ export const FiscalDocumentsTable: React.FC<FiscalDocumentsTableProps> = ({
     canOperateFiscal,
     retryingHmlDocumentId,
     onViewDetails: () => onViewDetails(doc),
+    onViewLinkedOrderDetails: () => {
+      if (doc.order_id) onViewLinkedOrderDetails(doc.order_id);
+    },
     onToggleDetails: () => onToggleDetails(doc),
     onPrintDanfe: () => onPrintDanfe(doc),
     onDownloadXml: () => onDownloadXml(doc),

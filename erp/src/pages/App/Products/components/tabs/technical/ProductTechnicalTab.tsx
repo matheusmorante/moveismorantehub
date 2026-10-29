@@ -7,11 +7,6 @@ import { TechnicalFieldGroupSection } from './TechnicalFieldGroupSection';
 import { TechnicalTabFeedbackState } from './TechnicalTabFeedbackState';
 import {
   resolveVariableTechnicalFieldNames,
-  isTechnicalFieldVariable,
-  isDoorQuantityCharacteristic,
-  isDrawerQuantityCharacteristic,
-  parseDoorQuantityValue,
-  parseDrawerQuantityValue,
   groupTechnicalFields,
   mergeCharacteristicGroups,
 } from '@/pages/utils/technicalValuesService';
@@ -187,58 +182,6 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
     });
   };
 
-  const requiredProductFields = [
-    ...productGroupSections.flatMap((group) => group.fields),
-    ...requiredFieldGroups.flatMap((group) => group.fields),
-  ].filter((field, index, fields) =>
-    (field.isRequiredForProductEntry || field.isRequired || field.isRequiredForCatalog) &&
-    fields.findIndex((candidate) => candidate.id === field.id) === index
-  );
-  const isMultiVariation =
-    Boolean(formData.hasVariations) || (formData.variations || []).length > 1;
-  const activeVariations = (formData.variations || []).filter(
-    (variation) => variation.active !== false
-  );
-  const valueFrom = (values: Record<string, unknown> | undefined, name: string) =>
-    Object.entries(values || {}).find(([key]) =>
-      areTechnicalCharacteristicNamesEquivalent(key, name)
-    )?.[1];
-  const hasEnteredValue = (value: unknown) => {
-    if (typeof value === 'string') {
-      const normalized = value.trim().toLocaleLowerCase('pt-BR');
-      return normalized.length > 0 && !['não informar', 'nao informar', 'não se aplica', 'nao se aplica', 'n/a'].includes(normalized);
-    }
-    if (Array.isArray(value)) return value.length > 0;
-    return value !== undefined && value !== null;
-  };
-  const hasRequiredFieldValue = (
-    field: (typeof requiredProductFields)[number],
-    value: unknown
-  ) => {
-    if (isDoorQuantityCharacteristic(field.name)) {
-      const quantity = parseDoorQuantityValue({ [field.name]: value });
-      return quantity !== null && quantity >= 0;
-    }
-    if (isDrawerQuantityCharacteristic(field.name)) {
-      const quantity = parseDrawerQuantityValue({ [field.name]: value });
-      return quantity !== null && quantity >= 0;
-    }
-    return hasEnteredValue(value);
-  };
-  const isRequiredFieldFilled = (field: (typeof requiredProductFields)[number]) => {
-    if (isMultiVariation && isTechnicalFieldVariable(field.name, variableTechnicalFieldNames)) {
-      return activeVariations.length > 0 && activeVariations.every((variation) => {
-        const value = valueFrom(variation.technicalValues, field.name) ??
-          variation.attributes?.find((attribute) =>
-            areTechnicalCharacteristicNamesEquivalent(attribute.name, field.name)
-          )?.value;
-        return hasRequiredFieldValue(field, value);
-      });
-    }
-    return hasRequiredFieldValue(field, valueFrom(formData.technicalValues, field.name));
-  };
-  const filledRequiredCount = requiredProductFields.filter(isRequiredFieldFilled).length;
-
   const renderGroup = (
     group: (typeof fieldGroups)[number],
     hideHeading = false,
@@ -284,24 +227,11 @@ export const ProductTechnicalTab: React.FC<ProductTechnicalTabProps> = ({
           />
         ) : (
           <div className="flex flex-col gap-6 pt-2">
-            <div className="flex flex-wrap items-end justify-between gap-2 border-b border-slate-200 pb-2 dark:border-slate-800">
-              <div className="flex min-w-0 flex-col gap-1">
-                <h3 className="text-base font-bold text-slate-800 dark:text-slate-100">Características</h3>
-                {categoryName.trim() && (
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Categoria: {categoryName.trim()}</span>
-                )}
-              </div>
-              {requiredProductFields.length > 0 && (
-                <span className="pb-0.5 text-xs font-medium text-slate-700 dark:text-slate-200">
-                  {filledRequiredCount} de {requiredProductFields.length} preenchidas
-                </span>
-              )}
-            </div>
             {searchControl}
             {(requiredFieldGroups.length > 0 || requiredProductGroups.length > 0) && (
               <section aria-labelledby="technical-required-groups" className="flex flex-col gap-3">
       <h4 id="technical-required-groups" className="flex items-center justify-between border-b border-slate-200 pb-2 text-sm font-bold uppercase tracking-wide text-slate-600 dark:border-slate-800 dark:text-slate-300">
-                  <span>Obrigatórias</span>
+                  <span>Características adicionadas</span>
                   <span className="text-[10px] font-semibold normal-case tracking-normal text-slate-400">
                     {requiredProductGroups.length + requiredFieldGroups.length}{' '}
                     {requiredProductGroups.length + requiredFieldGroups.length === 1 ? 'grupo' : 'grupos'}

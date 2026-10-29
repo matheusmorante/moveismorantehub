@@ -17,6 +17,7 @@ import {
   getDisplayedOptionalProductTechnicalFields,
   getMobileProductTechnicalSearchMatches,
   getProductTechnicalDependencyChain,
+  isConfiguredFamilyProductTechnicalDependencySatisfied,
   isConfiguredProductTechnicalDependencySatisfied,
   isDependentProductTechnicalFieldActive,
   getPersistableProductTechnicalValues,
@@ -98,6 +99,69 @@ describe('productCharacteristics', () => {
     expect(isConfiguredProductTechnicalDependencySatisfied(first, [first, second], { Primeiro: 'sim', Segundo: 'sim' })).toBe(false);
     expect(isConfiguredProductTechnicalDependencySatisfied(dependent, [dependent], {})).toBe(false);
     expect(getProductTechnicalDependencyChain(first, [first, second])).toEqual([first, second]);
+  });
+
+  it('avalia dependências variáveis da família por variação ativa sem herdar o valor variável do pai', () => {
+    const color = { id: 'color', name: 'Cor', data_type: 'text' };
+    const finish = {
+      id: 'finish',
+      name: 'Acabamento',
+      data_type: 'text',
+      dependency: {
+        referenceAttributeId: 'color',
+        operator: 'equals' as const,
+        value: 'Azul',
+      },
+    };
+    const fields = [color, finish];
+    const parentValues = { Cor: 'Azul' };
+    const variableFields = ['Cor'];
+
+    expect(isConfiguredFamilyProductTechnicalDependencySatisfied(
+      finish,
+      fields,
+      parentValues,
+      [
+        { active: true, attributes: [{ name: 'Cor', value: 'Verde' }] },
+        { active: true, technicalValues: { Cor: 'Azul' } },
+      ],
+      variableFields
+    )).toBe(true);
+
+    expect(isConfiguredFamilyProductTechnicalDependencySatisfied(
+      finish,
+      fields,
+      parentValues,
+      [
+        { active: true, attributes: [{ name: 'Cor', value: 'Verde' }] },
+        { active: false, technicalValues: { Cor: 'Azul' } },
+      ],
+      variableFields
+    )).toBe(false);
+
+    expect(isConfiguredFamilyProductTechnicalDependencySatisfied(
+      finish,
+      fields,
+      parentValues,
+      [{ active: false, technicalValues: { Cor: 'Verde' } }],
+      variableFields
+    )).toBe(true);
+
+    expect(isConfiguredFamilyProductTechnicalDependencySatisfied(
+      finish,
+      fields,
+      parentValues,
+      [{ active: true }],
+      variableFields
+    )).toBe(false);
+
+    expect(isConfiguredFamilyProductTechnicalDependencySatisfied(
+      finish,
+      fields,
+      parentValues,
+      [{ active: true, attributes: [{ name: 'Cor', value: 'Verde' }] }],
+      []
+    )).toBe(true);
   });
 
   it('não infere variabilidade por nomes legados de dependência', () => {
@@ -225,11 +289,10 @@ describe('productCharacteristics', () => {
     expect(getMissingRequiredDimensions({ Altura: '180' })).toEqual([
       'Largura total',
       'Profundidade total',
-      'Peso',
     ]);
   });
 
-  it('mantém Peso obrigatório independentemente das configurações legadas da categoria', () => {
+  it('mantém Peso opcional independentemente das configurações legadas da categoria', () => {
     const weightField = {
       name: 'Peso',
       isRequired: true,
@@ -238,14 +301,15 @@ describe('productCharacteristics', () => {
     };
 
     expect(isWeightCharacteristicName(' peso ')).toBe(true);
-    expect(isProductTechnicalFieldRequired(weightField, ['cat-chair'])).toBe(true);
+    expect(isProductTechnicalFieldRequired(weightField, ['cat-chair'])).toBe(false);
+    expect(isProductTechnicalFieldRequiredForCatalog(weightField, ['cat-chair'])).toBe(false);
     expect(
       getApplicableProductTechnicalFields([weightField]).map((field) => ({
         name: field.name,
         isRequired: field.isRequired,
         decimal_places: field.decimal_places,
       }))
-    ).toEqual([{ name: 'Peso', isRequired: true, decimal_places: 1 }]);
+    ).toEqual([{ name: 'Peso', isRequired: false, decimal_places: 1 }]);
   });
 
   it('marca uma característica da categoria só como requisito do catálogo, sem torná-la obrigatória para salvar', () => {
@@ -483,29 +547,29 @@ describe('productCharacteristics', () => {
     ).toEqual(['Cor', 'Da categoria', 'Legado preenchido', 'Campo legado inativo']);
   });
 
-  it('mantém Altura visível quando a categoria de colchão a exige para o catálogo', () => {
-    const requiredHeight = {
-      name: 'Altura',
+  it('mantém visível um atributo não global exigido somente para o catálogo', () => {
+    const catalogOnlyField = {
+      name: 'Acabamento do colchão',
       active: true,
       categoryIds: [MATTRESS_CATEGORY_ID],
       requiredCategoryIds: [MATTRESS_CATEGORY_ID],
     };
 
     const applicable = getApplicableProductTechnicalFields(
-      [requiredHeight],
+      [catalogOnlyField],
       [MATTRESS_CATEGORY_ID]
     );
 
     expect(applicable).toHaveLength(1);
     expect(applicable[0]).toMatchObject({
-      name: 'Altura',
+      name: 'Acabamento do colchão',
       isRequired: false,
       isRequiredForCatalog: true,
     });
     expect(
       getApplicableProductTechnicalFields(
-        [{ name: 'Altura', active: true, categoryIds: [MATTRESS_CATEGORY_ID] }],
-        [MATTRESS_CATEGORY_ID]
+        [{ name: 'Acabamento do colchão', active: true, categoryIds: [MATTRESS_CATEGORY_ID] }],
+        []
       )
     ).toEqual([]);
   });

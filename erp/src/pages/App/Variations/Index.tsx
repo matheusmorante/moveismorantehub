@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import type { default as VariationType, CharacteristicGroup } from '../../types/variation.type';
@@ -22,6 +22,7 @@ type EditorState =
       characteristic?: VariationType | null;
       defaultGroupId?: string;
       returnToGroupId?: string;
+      backgroundGroupId?: string;
     };
 
 interface VariationsProps {
@@ -43,12 +44,12 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
     staleTime: 60_000,
   });
   const groups = groupData?.groups ?? [];
-  const categories = groupData?.categories ?? [];
   const [searchTerm, setSearchTerm] = useState('');
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
+  const initialFocusHandled = useRef(false);
 
   const search = normalizeSearchTerm(searchTerm);
   const visibleGroups = useMemo(() => groups
@@ -110,9 +111,44 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
     void refetchGroups();
   };
 
-  const editorGroup = editor?.type === 'group'
-    ? groups.find((group) => group.id === editor.groupId) ?? null
-    : null;
+  useEffect(() => {
+    if (initialFocusHandled.current || attributesLoading || groupsLoading) return;
+    if (!focusAttributeName && !autoOpenAttributeName) return;
+    initialFocusHandled.current = true;
+
+    const normalizedFocusName = normalizeSearchTerm(focusAttributeName || autoOpenAttributeName || '');
+    const normalizedEditorName = normalizeSearchTerm(autoOpenAttributeName || '');
+    const focusedCharacteristic = variations.find(
+      (item) => normalizeSearchTerm(item.name) === normalizedFocusName
+    );
+    const characteristicToEdit = variations.find(
+      (item) => normalizeSearchTerm(item.name) === normalizedEditorName
+    );
+    const groupId = focusedCharacteristic?.groupId ?? characteristicToEdit?.groupId;
+    const groupExists = groups.some((group) => group.id === groupId);
+
+    setSearchTerm(focusAttributeName || autoOpenAttributeName || '');
+    if (groupExists && groupId) {
+      setExpandedGroups((current) => new Set(current).add(groupId));
+    }
+
+    if (characteristicToEdit) {
+      const returnToGroupId = groupExists ? groupId : undefined;
+      setEditor({
+        type: 'characteristic',
+        characteristic: characteristicToEdit,
+        defaultGroupId: returnToGroupId,
+        returnToGroupId,
+        backgroundGroupId: returnToGroupId,
+      });
+    }
+  }, [attributesLoading, autoOpenAttributeName, focusAttributeName, groups, groupsLoading, variations]);
+
+  const groupPanelOpen = editor?.type === 'group' ||
+    (editor?.type === 'characteristic' && Boolean(editor.backgroundGroupId));
+  const groupPanelId = editor?.type === 'group' ? editor.groupId :
+    editor?.type === 'characteristic' ? editor.backgroundGroupId : undefined;
+  const groupPanel = groups.find((group) => group.id === groupPanelId) ?? null;
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-white dark:bg-slate-950">
@@ -225,28 +261,10 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
           </div>
         </main>
 
-        {editor?.type === 'characteristic' && (
-          <VariationFormModal
-            key={`characteristic-${editor.characteristic?.id ?? 'new'}`}
-            onClose={() => closeCharacteristicEditor(editor.returnToGroupId)}
-            onSuccess={async () => {
-              await refresh();
-              if (editor.returnToGroupId) {
-                setExpandedGroups((current) => new Set(current).add(editor.returnToGroupId!));
-                setEditor({ type: 'group', groupId: editor.returnToGroupId });
-              } else setEditor(null);
-            }}
-            variation={editor.characteristic}
-            allVariations={variations}
-            groups={groups}
-            categories={categories}
-            defaultGroupId={editor.defaultGroupId}
-          />
-        )}
-        {editor?.type === 'group' && (
+        {groupPanelOpen && (
           <CharacteristicGroupFormPanel
-            key={`group-${editor.groupId ?? 'new'}`}
-            group={editorGroup}
+            key={`group-${groupPanelId ?? 'new'}`}
+            group={groupPanel}
             characteristics={variations}
             groups={groups}
             onClose={() => setEditor(null)}
@@ -262,6 +280,23 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
               await refetchGroups();
               setEditor(null);
             }}
+          />
+        )}
+        {editor?.type === 'characteristic' && (
+          <VariationFormModal
+            key={`characteristic-${editor.characteristic?.id ?? 'new'}`}
+            onClose={() => closeCharacteristicEditor(editor.returnToGroupId)}
+            onSuccess={async () => {
+              await refresh();
+              if (editor.returnToGroupId) {
+                setExpandedGroups((current) => new Set(current).add(editor.returnToGroupId!));
+                setEditor({ type: 'group', groupId: editor.returnToGroupId });
+              } else setEditor(null);
+            }}
+            variation={editor.characteristic}
+            allVariations={variations}
+            groups={groups}
+            defaultGroupId={editor.defaultGroupId}
           />
         )}
       </div>

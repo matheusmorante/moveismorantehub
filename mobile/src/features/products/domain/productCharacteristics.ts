@@ -33,6 +33,7 @@ import {
   findProductTechnicalValueEntry,
   deduplicateProductTechnicalValueAliasFields,
   getProductTechnicalValueCandidateKeys,
+  removeProductTechnicalValueAliases,
 } from '../../../../../shared-utils/productTechnicalValueAliases';
 import { getTechnicalFieldDisplayName } from '../../../../../shared-utils/productTechnicalFieldScope';
 import {
@@ -49,6 +50,7 @@ import {
   isWeightCapacityCharacteristic,
 } from '../../../../../shared-utils/productTechnicalFieldRules';
 import { resolveProductCharacteristicApplication } from '../../../../../shared-utils/productCharacteristicApplications';
+import { isCatalogNeverRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 import { sortProductCharacteristicGroups } from '../../../../../shared-utils/productCharacteristicGroupOrder';
 export { isWeightCharacteristicName } from '../../../../../shared-utils/productTechnicalFieldRules';
 
@@ -127,7 +129,6 @@ export const REQUIRED_CHARACTERISTIC_NAMES = ['Cor', 'Modelo', 'Marca'] as const
 export const GLOBAL_REQUIRED_ATTRIBUTE_NAMES = [
   ...REQUIRED_CHARACTERISTIC_NAMES,
   ...REQUIRED_DIMENSION_NAMES,
-  'Peso',
 ] as const;
 
 export const MATTRESS_CATEGORY_ID = '3b616449-7d0c-40fc-9917-70a20836f3b8';
@@ -330,6 +331,7 @@ export const isMattressCategory = (
 };
 
 export const isRequiredCharacteristicName = (name: string): boolean => {
+  if (isCatalogNeverRequiredCharacteristicName(name)) return false;
   const normalized = normalizeName(name);
   if (isLengthCharacteristic(name)) return true;
   if (
@@ -350,12 +352,11 @@ export const isProductTechnicalFieldRequired = (
   categoryIds: readonly string[] = [],
   _categoryName = ''
 ): boolean => {
+  if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
   if (Array.isArray(field.categoryApplications)) {
     return resolveProductCharacteristicApplication(field, categoryIds) === 'required';
   }
   if (isWeightCapacityCharacteristic(field.name)) return false;
-  if (isWeightCharacteristicName(field.name)) return true;
-
   return (
     (field.isRequiredForProduct ?? field.isRequired) === true ||
     isRequiredCharacteristicName(field.name)
@@ -367,6 +368,7 @@ export const isProductTechnicalFieldRequiredForCatalog = (
   categoryIds: readonly string[] = [],
   _categoryName = ''
 ): boolean =>
+  !isCatalogNeverRequiredCharacteristicName(field.name) &&
   !isWeightCapacityCharacteristic(field.name) &&
   (field.requiredForCategory === true ||
     isProductTechnicalAttributeRequiredByCategories(field.requiredCategoryIds, categoryIds));
@@ -672,6 +674,68 @@ export const isConfiguredProductTechnicalDependencySatisfied = (
       dependency,
       reference.data_type as Parameters<typeof evaluateCharacteristicDependency>[1],
       getTechnicalValue(technicalValues, reference.name)
+    );
+  });
+};
+
+/**
+ * Avalia dependências do Produto Pai como no ERP: referências variáveis usam
+ * somente o valor de cada variação ativa; as demais referências usam o valor
+ * próprio do Produto. Sem variações ativas, conserva o contexto do Produto.
+ */
+export const isConfiguredFamilyProductTechnicalDependencySatisfied = (
+  field: ProductTechnicalField,
+  allFields: readonly ProductTechnicalField[],
+  productTechnicalValues: Record<string, unknown>,
+  variations: readonly {
+    active?: boolean | null;
+    attributes?: unknown;
+    technicalValues?: Record<string, unknown> | null;
+  }[],
+  variableFieldNames: readonly string[]
+): boolean => {
+  const hasVariableReference = getCharacteristicDependencies(field).some((dependency) => {
+    const reference = allFields.find(
+      (candidate) => candidate.id === dependency.referenceAttributeId
+    );
+    return Boolean(
+      reference && isMobileVariableTechnicalField(reference.name, variableFieldNames)
+    );
+  });
+
+  if (!hasVariableReference) {
+    return isConfiguredProductTechnicalDependencySatisfied(
+      field,
+      allFields,
+      productTechnicalValues
+    );
+  }
+
+  const activeVariations = variations.filter((variation) => variation.active !== false);
+  if (activeVariations.length === 0) {
+    return isConfiguredProductTechnicalDependencySatisfied(
+      field,
+      allFields,
+      productTechnicalValues
+    );
+  }
+
+  return activeVariations.some((variation) => {
+    const parentValuesWithoutVariableFields = variableFieldNames.reduce(
+      (values, name) => removeProductTechnicalValueAliases(values, name),
+      { ...productTechnicalValues }
+    );
+    const variationValues = getEffectiveVariationTechnicalValues({}, variation);
+    const variableOverrides = Object.fromEntries(
+      Object.entries(variationValues).filter(([name]) =>
+        isMobileVariableTechnicalField(name, variableFieldNames)
+      )
+    );
+
+    return isConfiguredProductTechnicalDependencySatisfied(
+      field,
+      allFields,
+      { ...parentValuesWithoutVariableFields, ...variableOverrides }
     );
   });
 };
@@ -1073,9 +1137,6 @@ export const getMissingRequiredDimensions = (
     !isPositive(getTechnicalValue(values, 'comprimento'))
   ) {
     missing.push('Profundidade total');
-  }
-  if (!isPositive(directDimensions?.weight) && !isPositive(getTechnicalValue(values, 'peso'))) {
-    missing.push('Peso');
   }
   return missing;
 };

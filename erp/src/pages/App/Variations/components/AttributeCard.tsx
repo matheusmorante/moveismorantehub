@@ -19,7 +19,14 @@ export function AttributeCard({ attribute, onEdit, onDelete }: AttributeCardProp
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{attribute.name}</span>
+          <span className={`truncate text-sm font-medium ${attribute.active === false ? 'text-slate-400 line-through dark:text-slate-500' : 'text-slate-800 dark:text-slate-100'}`}>
+            {attribute.name}
+          </span>
+          {attribute.active === false && (
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              Inativa
+            </span>
+          )}
           <span className="text-xs text-slate-500">{getCharacteristicSubtitle(attribute)}</span>
         </div>
       </div>

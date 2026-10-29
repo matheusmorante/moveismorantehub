@@ -14,18 +14,16 @@ vi.mock('../../../utils/variationService', () => ({
 const groups: CharacteristicGroup[] = [{
   id: 'group-1', name: 'Dimensões',
 }];
-const categories = [{ id: 'cat-1', name: 'Cômodas' }];
 
 describe('useCharacteristicForm resolver persistence', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('bloqueia uma definição inválida antes de chamar o serviço', async () => {
     const { result, unmount } = renderHook(() => useCharacteristicForm({
-      isOpen: true, onClose: vi.fn(), groups, categories, defaultGroupId: 'group-1',
+      isOpen: true, onClose: vi.fn(), groups, defaultGroupId: 'group-1',
     }));
     act(() => result.current.changeFormData((current) => ({
       ...current, name: 'Cor', dataType: 'radio', options: [],
-      categoryApplications: [{ categoryId: 'cat-1', application: 'optional' }],
     })));
     await act(async () => { await result.current.save(); });
     await waitFor(() => expect(result.current.saveStatus).toBe('error'));
@@ -36,7 +34,7 @@ describe('useCharacteristicForm resolver persistence', () => {
 
   it('salva os valores parseados pelo resolver com grupo, configuração e dependência', async () => {
     const { result, unmount } = renderHook(() => useCharacteristicForm({
-      isOpen: true, onClose: vi.fn(), groups, categories, defaultGroupId: 'group-1',
+      isOpen: true, onClose: vi.fn(), groups, defaultGroupId: 'group-1',
     }));
     act(() => result.current.changeFormData((current) => ({
       ...current,
@@ -45,7 +43,6 @@ describe('useCharacteristicForm resolver persistence', () => {
       decimalPlaces: 3,
       unit: 'kg/m³',
       configuration: { minValue: 0, maxValue: 10 },
-      categoryApplications: [{ categoryId: 'cat-1', application: 'required' }],
     })));
     await act(async () => { await result.current.save(); });
     await waitFor(() => expect(result.current.saveStatus).toBe('saved'));
@@ -67,7 +64,6 @@ describe('useCharacteristicForm resolver persistence', () => {
       isOpen: true,
       onClose: vi.fn(),
       groups,
-      categories,
       variation: {
         id: 'usb',
         name: 'Entrada USB',
@@ -75,7 +71,6 @@ describe('useCharacteristicForm resolver persistence', () => {
         active: true,
         options: [{ id: 'yes', value: 'Sim' }, { id: 'no', value: 'Não' }],
         groupId: 'group-1',
-        categoryApplications: [{ categoryId: 'cat-1', application: 'optional' }],
       },
     }));
 

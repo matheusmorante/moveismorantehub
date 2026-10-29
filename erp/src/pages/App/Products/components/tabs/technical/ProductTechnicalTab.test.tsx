@@ -84,13 +84,13 @@ describe('ProductTechnicalTab Component', () => {
     );
 
     expect(
-      await screen.findByRole('heading', { name: /Obrigatórias/ })
+      await screen.findByRole('heading', { name: /Características adicionadas/ })
     ).toBeDefined();
     const dimensionsHeading = screen.getByText('Dimensões e Peso');
     expect(dimensionsHeading.closest('section')).not.toBeNull();
     expect(
       screen
-        .getByRole('heading', { name: /Obrigatórias/ })
+        .getByRole('heading', { name: /Características adicionadas/ })
         .closest('section')
         ?.contains(dimensionsHeading)
     ).toBe(true);
@@ -196,7 +196,42 @@ describe('ProductTechnicalTab Component', () => {
       />
     );
     expect(await screen.findByText(name)).toBeDefined();
-    expect(screen.getByText(name).closest('label')?.querySelector('[aria-label="Obrigatória"]')).not.toBeNull();
+    expect(screen.getByText(name).closest('label')?.querySelector('[aria-label="Obrigatória"]')).toBeNull();
+  });
+
+  it('mantém É retrátil? obrigatória para sofás e mostra as opções radio Sim/Não', async () => {
+    vi.mocked(characteristicGroupService.fetchCharacteristicGroups).mockResolvedValueOnce({
+      groups: [{ id: 'upholstery', name: 'Assentos e estofamento' }],
+      categories: [],
+    });
+    vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockResolvedValueOnce([
+      {
+        id: 'retractable',
+        name: 'É retrátil?',
+        dataType: 'boolean',
+        options: [],
+        groupId: 'upholstery',
+        categoryIds: ['sofas'],
+        categoryApplications: [{ categoryId: 'sofas', application: 'optional' }],
+        isRequired: false,
+        active: true,
+      },
+    ] as any);
+
+    render(
+      <ProductTechnicalTab
+        categoryName="Sofás"
+        formData={{ categoryIds: ['sofas'], technicalValues: {} }}
+        setFormData={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByRole('radio', { name: 'Sim' })).toBeDefined();
+    expect(screen.getByRole('radio', { name: 'Não' })).toBeDefined();
+    expect(screen.queryByRole('heading', { name: 'Características' })).toBeNull();
+    expect(screen.queryByText('Categoria: Sofás')).toBeNull();
+    expect(screen.queryByText(/preenchidas para o catálogo digital/)).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Ativar característica É retrátil?' })).toBeNull();
   });
 
   it('mantém a característica opcional fora do formulário até ativá-la na pesquisa', async () => {
@@ -272,11 +307,9 @@ describe('ProductTechnicalTab Component', () => {
     const doorsInput = screen.getByPlaceholderText('Insira a quantidade de portas') as HTMLInputElement;
     expect(doorsInput.min).toBe('0');
     expect(doorsInput.value).toBe('');
-    expect(screen.getByText('Quantidade de portas').closest('label')?.querySelector('[aria-label="Obrigatória"]')).not.toBeNull();
-    const title = screen.getByRole('heading', { name: 'Características' });
+    expect(screen.getByText('Quantidade de portas').closest('label')?.querySelector('[aria-label="Obrigatória"]')).toBeNull();
     const search = screen.getByRole('searchbox');
-    const requiredHeading = screen.getByRole('heading', { name: /Obrigatórias/ });
-    expect(title.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const requiredHeading = screen.getByRole('heading', { name: /Características adicionadas/ });
     expect(search.compareDocumentPosition(requiredHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -364,7 +397,7 @@ describe('ProductTechnicalTab Component', () => {
     await waitFor(() => expect(screen.queryByText('Quantidade de gavetas')).toBeNull());
   });
 
-  it('mostra a categoria, a pendência de preenchimento e permite recolher grupos obrigatórios', async () => {
+  it('oculta os resumos repetidos e permite recolher grupos obrigatórios', async () => {
     vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockResolvedValueOnce([
       {
         id: 'door-quantity',
@@ -393,12 +426,13 @@ describe('ProductTechnicalTab Component', () => {
       />
     );
 
-    expect(await screen.findByText('Categoria: Guarda-roupas')).toBeDefined();
-    expect(screen.getByText('0 de 1 preenchidas')).toBeDefined();
+    const groupButton = await screen.findByRole('button', { name: 'Portas' });
+    expect(screen.queryByRole('heading', { name: 'Características' })).toBeNull();
+    expect(screen.queryByText('Categoria: Guarda-roupas')).toBeNull();
+    expect(screen.queryByText(/preenchidas para o catálogo digital/)).toBeNull();
     expect(screen.queryByText('Simples')).toBeNull();
     expect(screen.queryByText('Com variações')).toBeNull();
 
-    const groupButton = screen.getByRole('button', { name: 'Portas' });
     const fieldsId = groupButton.getAttribute('aria-controls');
     expect(groupButton.getAttribute('aria-expanded')).toBe('true');
     expect(document.getElementById(fieldsId!)?.hasAttribute('hidden')).toBe(false);

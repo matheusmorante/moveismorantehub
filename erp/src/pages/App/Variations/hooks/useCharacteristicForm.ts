@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import type {
   default as VariationType,
-  CategoryApplication,
   CharacteristicGroup,
 } from '../../../types/variation.type';
 import {
@@ -17,7 +16,6 @@ import {
   getInitialCharacteristicFormData,
   isChoiceCharacteristicType,
 } from '../domain/characteristicFormRules';
-import type { ProductCategoryOption } from '../../../utils/characteristicGroupService';
 import { getCharacteristicTextLimits } from '../../../../../../shared-utils/characteristicTextLimits';
 
 const getSortedInitialCharacteristicFormData = (
@@ -41,7 +39,6 @@ interface UseCharacteristicFormParams {
   readonly variation?: VariationType | null;
   readonly allVariations?: readonly VariationType[];
   readonly groups?: readonly CharacteristicGroup[];
-  readonly categories?: readonly ProductCategoryOption[];
   readonly defaultGroupId?: string;
 }
 
@@ -52,11 +49,10 @@ export const useCharacteristicForm = ({
   variation,
   allVariations = [],
   groups = [],
-  categories = [],
   defaultGroupId = '',
 }: UseCharacteristicFormParams) => {
   const [formData, setFormData] = useState<CharacteristicFormData>(() =>
-    getSortedInitialCharacteristicFormData(variation, defaultGroupId, categories)
+    getSortedInitialCharacteristicFormData(variation, defaultGroupId)
   );
   const [saveStatus, setSaveStatus] = useState<CharacteristicSaveStatus>('saved');
   const [saveError, setSaveError] = useState('');
@@ -65,19 +61,18 @@ export const useCharacteristicForm = ({
     () => createManagedCharacteristicFormSchema(
       allVariations,
       variation?.id,
-      groups,
-      categories.map((category) => category.id)
+      groups
     ),
-    [allVariations, categories, groups, variation?.id]
+    [allVariations, groups, variation?.id]
   );
   const { validateAndRun } = useZodForm(schema, formData);
 
   useEffect(() => {
     if (!isOpen) return;
-    setFormData(getSortedInitialCharacteristicFormData(variation, defaultGroupId, categories));
+    setFormData(getSortedInitialCharacteristicFormData(variation, defaultGroupId));
     setSaveStatus('saved');
     setSaveError('');
-  }, [categories, defaultGroupId, isOpen, variation?.id]);
+  }, [defaultGroupId, isOpen, variation?.id]);
 
   const changeFormData = (update: (current: CharacteristicFormData) => CharacteristicFormData) => {
     setFormData((current) => update(current));
@@ -121,11 +116,6 @@ export const useCharacteristicForm = ({
             ...values.configuration,
           },
           dependency: null,
-          categoryApplications: values.categoryApplications.map((item) => ({
-            categoryId: item.categoryId,
-            // The Zod resolver rejects empty applications before this operation runs.
-            application: item.application as CategoryApplication['application'],
-          })),
           isCustom: variation?.isCustom ?? true,
         }),
         (errors) => {

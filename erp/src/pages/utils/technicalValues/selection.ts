@@ -20,6 +20,8 @@ import { deduplicateProductTechnicalValueAliasFields } from '../../../../../shar
 import { isProductTechnicalAttributeRequiredByCategories } from '../../../../../shared-utils/productCategoryRequiredAttributes';
 import { isTechnicalFieldAllowedForCategories } from '../../../../../shared-utils/productTechnicalFieldScope';
 import { resolveProductCharacteristicApplication } from '../../../../../shared-utils/productCharacteristicApplications';
+import { isCatalogCoreRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/characteristicValues';
+import { isCatalogNeverRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 
 /**
  * Determina a lista de campos técnicos que devem ser exibidos no formulário do produto.
@@ -48,27 +50,32 @@ export const getApplicableTechnicalFields = (
     ) ?? false;
 
   const isRequiredForProduct = (field: TechnicalFieldDefinition): boolean => {
+    if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
     if (Array.isArray(field.categoryApplications)) {
       return resolveProductCharacteristicApplication(field, productCategoryIds) === 'required';
     }
     if (isWeightCapacityCharacteristic(field.name)) return false;
-    if (isWeightCharacteristicName(field.name)) return true;
     return Boolean(field.isRequired) || Boolean(
       field.requiredProductCategoryIds?.some((categoryId) => activeCategorySet.has(String(categoryId)))
     );
   };
 
-  const isRequiredForCatalog = (field: TechnicalFieldDefinition): boolean =>
-    isProductTechnicalAttributeRequiredByCategories(
-      field.requiredCategoryIds,
-      productCategoryIds.filter((categoryId) =>
-        !field.categoryApplications?.some(
-          (application) => String(application.categoryId) === String(categoryId)
+  const isRequiredForCatalog = (field: TechnicalFieldDefinition): boolean => {
+    if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
+    return isCatalogCoreRequiredCharacteristicName(field.name) ||
+      resolveProductCharacteristicApplication(field, productCategoryIds) === 'required' ||
+      isProductTechnicalAttributeRequiredByCategories(
+        field.requiredCategoryIds,
+        productCategoryIds.filter((categoryId) =>
+          !field.categoryApplications?.some(
+            (application) => String(application.categoryId) === String(categoryId)
+          )
         )
-      )
-    );
+      );
+  };
 
   const applicable = safeFields.filter((field) => {
+    const isCatalogCoreRequired = isCatalogCoreRequiredCharacteristicName(field.name);
     const configuredApplications = field.categoryApplications?.filter((application) =>
       activeCategorySet.has(String(application.categoryId))
     ) ?? [];
@@ -76,12 +83,12 @@ export const getApplicableTechnicalFields = (
       Array.isArray(field.categoryApplications) &&
       configuredApplications.length > 0 &&
       configuredApplications.every((application) => application.application === 'unavailable')
-    ) return false;
+    ) return !isCatalogCoreRequired;
 
     if (!isTechnicalFieldAllowedForCategories(
       field.name, productCategoryNames, field.categoryApplications, productCategoryIds
-    )) return false;
-    if (isExcludedCharacteristic(field.name)) return false;
+    ) && !isCatalogCoreRequired) return false;
+    if (isExcludedCharacteristic(field.name) && !isCatalogCoreRequired) return false;
 
     // Para a categoria Pias, "Material da estrutura" não se aplica (usa-se estritamente "Material da pia")
     if (!hasCategoryApplication(field) && isSink && isStructureMaterialCharacteristic(field.name)) {
