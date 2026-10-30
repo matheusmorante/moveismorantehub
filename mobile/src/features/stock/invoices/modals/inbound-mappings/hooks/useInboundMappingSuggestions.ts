@@ -28,7 +28,7 @@ export const useInboundMappingSuggestions = ({
 
   useEffect(() => {
     const unresolved = items.filter(
-      (item) => !item.matchedProductId && !item.compositionLinks?.length
+      (item) => item.linkMode !== 'not_applicable' && !item.matchedProductId && !item.compositionLinks?.length
     );
     if (!visible || !supplierId || unresolved.length === 0) {
       setSuggestionsLoading(false);

@@ -5,6 +5,7 @@ import {
   getVariationErrorMessage,
   moveToTrash,
 } from '../../../utils/variationService';
+import { isFactoryDefaultCharacteristicName } from '../../../../../../shared-utils/characteristicFormRules';
 
 export const VARIATIONS_QUERY_KEY = ['variations'] as const;
 
@@ -28,7 +29,7 @@ export const useVariations = () => {
 
   const handleDelete = async (id: string) => {
     const variation = variations.find((candidate) => candidate.id === id);
-    if (!variation) return;
+    if (!variation || isFactoryDefaultCharacteristicName(variation.name)) return;
 
     if (
       window.confirm(

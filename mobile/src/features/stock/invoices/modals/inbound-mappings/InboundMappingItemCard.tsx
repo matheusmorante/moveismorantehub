@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Link2, Plus, Search, Trash2 } from 'lucide-react-native';
+import { Check, ChevronDown, Link2, Lock, Plus, Search, Trash2 } from 'lucide-react-native';
 import type { CompositionLink, InboundScorerProduct, MappingItem, ProductSuggestion } from './types';
 import { amount, formatMoney, landedUnitCost } from './inboundCostUtils';
 import { styles } from './inboundMappings.styles';
@@ -10,6 +10,7 @@ import { InboundItemSuggestionsCard } from './InboundItemSuggestionsCard';
 export interface InboundMappingItemCardProps {
   item: MappingItem;
   supplierId: string;
+  lockToNotApplicable?: boolean;
   isDarkMode: boolean;
   isExpanded: boolean;
   saving: boolean;
@@ -20,7 +21,7 @@ export interface InboundMappingItemCardProps {
   itemSuggestions: ProductSuggestion[];
   isDismissedSuggestion: boolean;
   onToggleExpand: () => void;
-  onToggleMode: (mode: 'single' | 'composition') => void;
+  onToggleMode: (mode: 'single' | 'composition' | 'not_applicable') => void;
   onRemoveLink: () => void;
   onRemoveCompositionLink: (linkId: string) => void;
   onSaveMultiplier: (linkId: string, value: string) => void;
@@ -33,6 +34,7 @@ export interface InboundMappingItemCardProps {
 export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
   item,
   supplierId,
+  lockToNotApplicable = false,
   isDarkMode,
   isExpanded,
   saving,
@@ -53,8 +55,16 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
   onLinkProduct,
 }) => {
   const composition: CompositionLink[] = item.compositionLinks || [];
-  const isComposition = item.linkMode === 'composition';
-  const hasItemLink = Boolean(item.matchedProductId || composition.length);
+  const isComposition = !lockToNotApplicable && item.linkMode === 'composition';
+  const isNotApplicable = lockToNotApplicable || item.linkMode === 'not_applicable';
+  const isSingle = !isComposition && !isNotApplicable;
+  const quickRegisterDisabled =
+    saving ||
+    !supplierId.trim() ||
+    isNotApplicable ||
+    (!isComposition && Boolean(item.matchedProductId || item.matchedVariationId));
+  const selectedModeLabel = isNotApplicable ? 'Não se aplica' : isComposition ? 'Composto' : 'Único';
+  const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const quantity = Math.max(1, amount(item.quantity));
   const totalLandedCost = landedUnitCost(item) * quantity;
   const totalBaseCost = amount(item.unitCost) * quantity;
@@ -66,7 +76,13 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
   let apportionedBeforeLast = 0;
 
   return (
-    <View style={[styles.section, isDarkMode && styles.sectionDark]}>
+    <View
+      style={[
+        styles.section,
+        isDarkMode && styles.sectionDark,
+        isModeMenuOpen && styles.sectionMenuOpen,
+      ]}
+    >
       <Text style={[styles.itemTitle, isDarkMode && styles.textDark]}>
         {item.itemNumber}. {item.productDescription}
       </Text>
@@ -116,33 +132,111 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
       />
 
       <View style={[styles.linkSection, isDarkMode && styles.linkSectionDark]}>
-        <View style={styles.linkHeader}>
+        {isModeMenuOpen ? (
+          <TouchableOpacity
+            style={styles.modeMenuDismissOverlay}
+            activeOpacity={1}
+            onPress={() => setIsModeMenuOpen(false)}
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+          />
+        ) : null}
+        <View style={[styles.linkHeader, isModeMenuOpen && styles.linkHeaderMenuOpen]}>
           <Text style={[styles.linkTitle, isDarkMode && styles.textDark]}>
             {isComposition ? 'Vincular produtos' : 'Vincular produto'}
           </Text>
-          <View style={styles.modeSwitch}>
+          <View style={styles.linkHeaderActions}>
+            <View style={[styles.modePicker, isModeMenuOpen && styles.modePickerOpen]}>
+              <TouchableOpacity
+                style={[styles.modePickerTrigger, isDarkMode && styles.modePickerTriggerDark]}
+                accessibilityRole="button"
+                accessibilityLabel={`Modo de vínculo: ${selectedModeLabel}`}
+                accessibilityState={{ expanded: isModeMenuOpen, disabled: saving || lockToNotApplicable }}
+                disabled={saving || lockToNotApplicable}
+                onPress={() => setIsModeMenuOpen((open) => !open)}
+              >
+                <Text style={[styles.modePickerText, isDarkMode && styles.modePickerTextDark]}>{selectedModeLabel}</Text>
+                {lockToNotApplicable ? <Lock size={14} color={isDarkMode ? '#fcd34d' : '#92400e'} /> : <ChevronDown size={14} color={isDarkMode ? '#cbd5e1' : '#475569'} />}
+              </TouchableOpacity>
+              {isModeMenuOpen && !lockToNotApplicable ? (
+                <View style={[styles.modeMenu, isDarkMode && styles.modeMenuDark]}>
+                  <TouchableOpacity
+                    style={[styles.modeMenuItem, isSingle && styles.modeMenuItemSelected]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSingle, disabled: isComposition && composition.length > 1 }}
+                    disabled={saving || (isComposition && composition.length > 1)}
+                    onPress={() => {
+                      onToggleMode('single');
+                      setIsModeMenuOpen(false);
+                    }}
+                  >
+                    <Text style={[styles.modeMenuItemText, isDarkMode && styles.modeMenuItemTextDark]}>Único</Text>
+                    {isSingle ? <Check size={15} color="#2563eb" /> : null}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modeMenuItem, isComposition && styles.modeMenuItemSelected]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isComposition }}
+                    disabled={saving}
+                    onPress={() => {
+                      onToggleMode('composition');
+                      setIsModeMenuOpen(false);
+                    }}
+                  >
+                    <Text style={[styles.modeMenuItemText, isDarkMode && styles.modeMenuItemTextDark]}>Composto</Text>
+                    {isComposition ? <Check size={15} color="#2563eb" /> : null}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modeMenuItem, isNotApplicable && styles.modeMenuItemSelected]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isNotApplicable }}
+                    disabled={saving}
+                    onPress={() => {
+                      onToggleMode('not_applicable');
+                      setIsModeMenuOpen(false);
+                    }}
+                  >
+                    <Text style={[styles.modeMenuItemText, isDarkMode && styles.modeMenuItemTextDark]}>
+                      Não se aplica
+                    </Text>
+                    {isNotApplicable ? <Check size={15} color="#d97706" /> : null}
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </View>
             <TouchableOpacity
-              disabled={saving || (isComposition && composition.length > 1)}
-              onPress={() => onToggleMode('single')}
-              style={[styles.modeButton, !isComposition && styles.modeButtonActive]}
+              style={[
+                styles.quickRegisterHeader,
+                quickRegisterDisabled && styles.quickRegisterHeaderDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Cadastro rápido"
+              accessibilityState={{ disabled: quickRegisterDisabled }}
+              accessibilityHint={
+                isNotApplicable
+                  ? 'Disponível nos modos Único ou Composto.'
+                  : !supplierId.trim()
+                    ? 'Vincule o fornecedor para usar esta ação.'
+                    : !isComposition && Boolean(item.matchedProductId || item.matchedVariationId)
+                      ? 'Este item já tem um produto vinculado.'
+                      : undefined
+              }
+              disabled={quickRegisterDisabled}
+              onPress={onOpenQuickRegister}
             >
-              <Text style={[styles.modeText, !isComposition && styles.modeTextActive]}>
-                Único
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              disabled={saving}
-              onPress={() => onToggleMode('composition')}
-              style={[styles.modeButton, isComposition && styles.modeButtonActive]}
-            >
-              <Text style={[styles.modeText, isComposition && styles.modeTextActive]}>
-                Composição
+              <Plus size={15} color={isDarkMode ? '#bfdbfe' : '#1d4ed8'} />
+              <Text style={[styles.quickRegisterHeaderText, isDarkMode && styles.quickRegisterHeaderTextDark]}>
+                Cadastro rápido
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {!supplierId ? (
+        {isNotApplicable ? (
+          <Text style={[styles.lockedText, { color: isDarkMode ? '#fcd34d' : '#92400e' }]}>
+            Este item continuará na NF-e, mas será ignorado no recebimento e não movimentará o estoque.
+          </Text>
+        ) : !supplierId ? (
           <Text style={styles.lockedText}>
             Vincule o fornecedor antes de identificar ou cadastrar produtos.
           </Text>
@@ -218,19 +312,8 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
               </View>
             ) : null}
 
-            {!hasItemLink || isComposition ? (
+            {!item.matchedProductId || isComposition ? (
               <>
-                {!isComposition ? (
-                  <TouchableOpacity
-                    style={styles.registerButton}
-                    onPress={onOpenQuickRegister}
-                    disabled={saving}
-                  >
-                    <Plus size={16} color="#2563eb" />
-                    <Text style={styles.registerButtonText}>Cadastrar produto</Text>
-                  </TouchableOpacity>
-                ) : null}
-
                 <InboundItemSuggestionsCard
                   isComposition={isComposition}
                   itemSuggestions={itemSuggestions}

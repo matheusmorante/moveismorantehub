@@ -35,6 +35,7 @@ export interface ParentProductActionsProps {
   readonly onOpenLabelModal: (type: LabelPrintType) => void;
   readonly onMoveToAnotherFamily?: (product: ActionProductLike) => void;
   readonly onMergeWithAnotherVariation?: (product: ActionProductLike) => void;
+  readonly onMergeDuplicateProduct?: (product: Product) => void;
 }
 
 export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
@@ -54,6 +55,7 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
   onOpenLabelModal,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
+  onMergeDuplicateProduct,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuAnchorRef = useRef<HTMLButtonElement>(null);
@@ -212,6 +214,25 @@ export const ParentProductActions: React.FC<ParentProductActionsProps> = ({
                     <i className="bi bi-copy text-blue-500" />
                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
                       Duplicar
+                    </span>
+                  </button>
+                )}
+
+                {canDeleteProducts && !isDraft && !showTrash && !product.deleted
+                  && product.hasVariations && onMergeDuplicateProduct && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMenuOpen(false);
+                      onMergeDuplicateProduct(product);
+                    }}
+                    className="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-950"
+                  >
+                    <i className="bi bi-intersect text-violet-500" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                      Mesclar produto duplicado
                     </span>
                   </button>
                 )}

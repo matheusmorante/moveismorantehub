@@ -10,10 +10,11 @@ import {
 describe('technicalValues - Validação de Campos Obrigatórios', () => {
   it('identifica características obrigatórias canônicas e flexibilizações de modelo/linha', () => {
     expect(isRequiredCharacteristicName('Cor')).toBe(true);
-    expect(isRequiredCharacteristicName('Modelo')).toBe(true);
-    expect(isRequiredCharacteristicName('Modelo/Linha')).toBe(true);
-    expect(isRequiredCharacteristicName('Linha/Modelo')).toBe(true);
-    expect(isRequiredCharacteristicName('Linha')).toBe(true);
+    expect(isRequiredCharacteristicName('Modelo')).toBe(false);
+    expect(isRequiredCharacteristicName('Modelo/Linha')).toBe(false);
+    expect(isRequiredCharacteristicName('Linha/Modelo')).toBe(false);
+    expect(isRequiredCharacteristicName('Linha')).toBe(false);
+    expect(isRequiredCharacteristicName('Marca')).toBe(false);
     expect(isRequiredCharacteristicName('Comprimento total')).toBe(true);
     expect(isRequiredCharacteristicName('Comprimento')).toBe(true);
     expect(isRequiredCharacteristicName('Altura')).toBe(true);

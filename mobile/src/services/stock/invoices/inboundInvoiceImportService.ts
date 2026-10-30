@@ -8,49 +8,71 @@ import {
 } from './inboundInvoiceMappers';
 import { findInboundSupplierProductCodes } from './inboundInvoiceMappingsService';
 import { mergeInboundInvoiceXml } from '../../../../../shared-utils/inboundInvoiceXmlMerge';
-import { normalizeInvoiceStatus } from '../../../features/stock/invoices/utils/invoiceList';
+import {
+  hasUnlinkedInvoiceItems,
+  normalizeInvoiceStatus,
+} from '../../../features/stock/invoices/utils/invoiceList';
 import {
   assertInboundInvoiceRecipientMatchesCompany,
   getInboundInvoiceRecipientGuardError,
 } from '../../../../../shared-utils/inboundInvoiceRecipient';
+import {
+  getSupplierStockOriginsFromRelation,
+  isSalvadosOnlySupplier,
+} from '../../../../../shared-utils/productSupplierStockOrigin';
+import { markInboundInvoiceItemsNotApplicable } from '../../../../../shared-utils/inboundInvoiceSupplierRules';
 
 export const findInboundInvoiceSupplier = async (taxId: string, name: string) => {
   const digits = normalizeTaxId(taxId);
-  const supplierTypeFilter = 'person_type.ilike.suppliers,person_type.ilike.supplier';
 
   if (digits.length === 11 || digits.length === 14) {
     const formatted = formatTaxId(digits);
     const { data, error } = await supabase
       .from('people')
-      .select('id, full_name, cpf_cnpj')
-      .or(supplierTypeFilter)
+      .select('id, full_name, cpf_cnpj, stock_origins, active')
+      .in('person_type', ['suppliers', 'supplier'])
+      .or('deleted.eq.false,deleted.is.null')
       .in('cpf_cnpj', [digits, formatted])
       .order('full_name')
       .limit(20);
     if (error) throw error;
-    const exactMatch = (data || []).find(
+    const matches = (data || []).filter(
       (person: any) => normalizeTaxId(person.cpf_cnpj) === digits
     );
-    if (exactMatch) return exactMatch;
+    const salvadosMatch = matches.find(
+      (person: any) => person.active && isSalvadosOnlySupplier(person.stock_origins)
+    ) || matches.find((person: any) => isSalvadosOnlySupplier(person.stock_origins));
+    if (salvadosMatch) return salvadosMatch;
+    const activeMatch = matches.find((person: any) => person.active);
+    if (activeMatch) return activeMatch;
+    if (matches[0]) return matches[0];
   }
 
   const normalizedName = name.trim();
   if (!normalizedName) return null;
   const { data, error } = await supabase
     .from('people')
-    .select('id, full_name, cpf_cnpj')
-    .or(supplierTypeFilter)
+    .select('id, full_name, cpf_cnpj, stock_origins, active')
+    .in('person_type', ['suppliers', 'supplier'])
+    .or('deleted.eq.false,deleted.is.null')
     .ilike('full_name', normalizedName)
     .order('full_name')
     .limit(20);
   if (error) throw error;
-  return (
-    (data || []).find(
+  const matches = (data || []).filter(
       (person: any) =>
         String(person.full_name || '')
           .trim()
           .toLocaleLowerCase('pt-BR') === normalizedName.toLocaleLowerCase('pt-BR')
-    ) || null
+    );
+  return (
+    matches.find(
+      (person: any) => person.active && isSalvadosOnlySupplier(person.stock_origins)
+    ) ||
+    matches.find((person: any) => isSalvadosOnlySupplier(person.stock_origins)) ||
+    matches.find((person: any) => person.active) ||
+    matches[0] ||
+    null
   );
 };
 
@@ -83,7 +105,7 @@ export const importInboundInvoiceXml = async (
   onStatusChange?.('Conferindo se esta NF-e já está cadastrada...');
   const { data: existingRow, error: duplicateCheckError } = await supabase
     .from('inbound_invoices')
-    .select('*, inbound_invoice_items(*)')
+    .select('*, supplier:people(stock_origins), inbound_invoice_items(*)')
     .eq('chave_acesso', accessKey)
     .maybeSingle();
   if (duplicateCheckError) throw duplicateCheckError;
@@ -175,24 +197,39 @@ export const importInboundInvoiceXml = async (
     onStatusChange?.('NF-e já cadastrada e desatualizada. Atualizando com os dados novos do XML...');
   }
 
-  let supplierId = existingRow?.supplier_id || invoice.supplierId || null;
-  if (!supplierId) {
-    try {
-      const supplier = await findInboundInvoiceSupplier(
-        invoice.emitterCnpj || '',
-        invoice.emitterName || ''
-      );
-      supplierId = supplier?.id || null;
-    } catch (supplierError) {
-      console.warn(
-        '[importInboundInvoiceXml] Não foi possível localizar o fornecedor; a NF será salva sem associação.',
-        supplierError
-      );
-    }
+  let supplier: any = null;
+  try {
+    supplier = await findInboundInvoiceSupplier(invoice.emitterCnpj || '', invoice.emitterName || '');
+  } catch (supplierError) {
+    console.warn(
+      '[importInboundInvoiceXml] Não foi possível localizar o fornecedor; a NF será salva sem associação.',
+      supplierError
+    );
   }
+  const existingSupplierOrigins = getSupplierStockOriginsFromRelation(existingRow?.supplier);
+  const salvadosSupplier = isSalvadosOnlySupplier(supplier?.stock_origins)
+    ? supplier
+    : isSalvadosOnlySupplier(existingSupplierOrigins)
+      ? { id: existingRow?.supplier_id, stock_origins: existingSupplierOrigins }
+      : isSalvadosOnlySupplier(invoice.supplierStockOrigins)
+        ? { id: existingRow?.supplier_id || invoice.supplierId, stock_origins: invoice.supplierStockOrigins }
+        : null;
+  const supplierId = salvadosSupplier?.id || existingRow?.supplier_id || invoice.supplierId || supplier?.id || null;
+  const supplierStockOrigins = Array.isArray(salvadosSupplier?.stock_origins)
+    ? salvadosSupplier.stock_origins
+    : existingSupplierOrigins
+      ? existingSupplierOrigins
+      : Array.isArray(invoice.supplierStockOrigins)
+        ? invoice.supplierStockOrigins
+        : Array.isArray(supplier?.stock_origins)
+          ? supplier.stock_origins
+          : null;
+  const isSalvadosSupplier = isSalvadosOnlySupplier(supplierStockOrigins);
 
   let items = Array.isArray(invoiceToSave.items) ? invoiceToSave.items : [];
-  if (supplierId && items.length) {
+  if (isSalvadosSupplier) {
+    items = markInboundInvoiceItemsNotApplicable(items);
+  } else if (supplierId && items.length) {
     try {
       const mappings = await findInboundSupplierProductCodes(
         supplierId,
@@ -200,7 +237,7 @@ export const importInboundInvoiceXml = async (
       );
       if (mappings.size) {
         items = items.map((item: any) => {
-          if (item.matchedProductId || item.matchedVariationId) return item;
+          if (item.linkMode === 'not_applicable' || item.matchedProductId || item.matchedVariationId) return item;
           const code = String(item.productCode || '')
             .trim()
             .toLocaleUpperCase('pt-BR');
@@ -268,6 +305,7 @@ export const importInboundInvoiceXml = async (
     issueDate: invoiceToSave.issuedAt || '',
     totalValue: Number(invoiceToSave.totalInvoice || 0),
     itemsCount: itemRows.length,
+    hasPendingBindings: hasUnlinkedInvoiceItems(items),
     status: existingRow ? normalizeInvoiceStatus(existingRow.status_recebimento) : 'pending',
     outcome,
     hasConflicts,

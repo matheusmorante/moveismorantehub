@@ -119,7 +119,7 @@ export const useInvoiceScreenActions = (reload: () => void) => {
         totalValue: result.totalValue,
         itemsCount: result.itemsCount,
         status: result.status,
-        hasPendingBindings: result.itemsCount > 0,
+        hasPendingBindings: result.hasPendingBindings,
         sefazStatus: 'pending',
       };
       setShowImportModal(false);
@@ -133,9 +133,9 @@ export const useInvoiceScreenActions = (reload: () => void) => {
       }
       Alert.alert(
         result.outcome === 'updated' ? 'Nota fiscal atualizada' : 'Nota Fiscal Adicionada!',
-        `${result.outcome === 'updated' ? `A NF-e já estava cadastrada; o XML trouxe dados novos e ela foi atualizada.${result.hasConflicts ? ' Campos com valores divergentes foram preservados.' : ''}\n\n` : ''}NF-e #${result.number} · Série ${result.series}\nFornecedor: ${result.supplierName}\nTotal: R$ ${result.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nItens: ${result.itemsCount}${result.itemsCount ? '\n\nDeseja gerenciar os vínculos dos produtos desta nota agora?' : ''}`,
+        `${result.outcome === 'updated' ? `A NF-e já estava cadastrada; o XML trouxe dados novos e ela foi atualizada.${result.hasConflicts ? ' Campos com valores divergentes foram preservados.' : ''}\n\n` : ''}NF-e #${result.number} · Série ${result.series}\nFornecedor: ${result.supplierName}\nTotal: R$ ${result.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nItens: ${result.itemsCount}${result.hasPendingBindings ? '\n\nDeseja gerenciar os vínculos dos produtos desta nota agora?' : ''}`,
         [
-          ...(result.itemsCount
+          ...(result.hasPendingBindings
             ? [{ text: 'Gerenciar vínculos', onPress: () => setMappingInvoice(importedInvoice) }]
             : []),
           { text: 'Fechar', style: 'cancel' as const },

@@ -509,7 +509,7 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
             let statusLabel = 'Agendada';
             let statusTone = 'pending';
             if (routeStatus === 'completed') {
-              statusLabel = 'Concluída';
+              statusLabel = routeActivity.activityType === 'delivery' ? 'Atendido' : 'Concluída';
               statusTone = 'completed';
             } else if (routeStatus === 'unattended') {
               statusLabel = 'Não realizada';
@@ -544,16 +544,28 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
               >
                 <View style={styles.activityTextContent}>
                   <View style={styles.activityTopLine}>
-                    <View
-                      style={[styles.activityTypeRow, { backgroundColor: activityTypeBackground }]}
-                    >
-                      <Truck size={13} color={activityTypeColor} />
+                    <View style={styles.activityTypeCluster}>
                       <Text
                         numberOfLines={1}
-                        style={[styles.activityType, { color: activityTypeColor }]}
+                        style={[
+                          styles.activityMeta,
+                          styles.activityOrderNumber,
+                          isDarkMode && styles.textMuted,
+                        ]}
                       >
-                        {activityLabel}
+                        {`Pedido #${orderNumber}`}
                       </Text>
+                      <View
+                        style={[styles.activityTypeRow, { backgroundColor: activityTypeBackground }]}
+                      >
+                        <Truck size={13} color={activityTypeColor} />
+                        <Text
+                          numberOfLines={1}
+                          style={[styles.activityType, { color: activityTypeColor }]}
+                        >
+                          {activityLabel}
+                        </Text>
+                      </View>
                     </View>
                     <View
                       style={[
@@ -637,12 +649,6 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
                       ))}
                     </View>
                   )}
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.activityMeta, isDarkMode && styles.textMuted]}
-                  >
-                    {`Pedido #${orderNumber}`}
-                  </Text>
                 </View>
                 <ChevronRight size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
               </TouchableOpacity>
@@ -849,6 +855,13 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
+  activityTypeCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    minWidth: 0,
+    gap: 6,
+  },
   assemblyLabels: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 3 },
   activityType: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', flexShrink: 1 },
   activityStatusBadge: { borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3 },
@@ -880,6 +893,7 @@ const styles = StyleSheet.create({
   activityScheduleDark: { color: '#e2e8f0' },
   activityLocation: { color: '#64748b', fontSize: 11 },
   activityMeta: { color: '#64748b', fontSize: 10, marginTop: 2 },
+  activityOrderNumber: { flexShrink: 1, marginTop: 0, fontWeight: '700' },
   emptyActivitiesText: { color: '#64748b', fontSize: 12, paddingVertical: 10 },
   textLight: { color: '#f8fafc' },
   textMuted: { color: '#94a3b8' },

@@ -280,6 +280,7 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     await act(async () => { expect(await result.current.handleSubmit(false)).toBe(false); });
 
     expect(fetchTechnicalFieldDefinitions).toHaveBeenCalledWith('product-form', {
+      categoryIds: ['categoria'],
       forceRefresh: true,
       requireCategoryLinks: true,
     });
@@ -440,24 +441,19 @@ describe('conclusão do pai respeita os requisitos de cada variação', () => {
     );
   });
 
-  it('bloqueia conclusão do cadastro quando a variação não possui foto vinculada', async () => {
+  it('salva o produto quando a variação não possui foto vinculada', async () => {
     const productWithoutVariationPhoto: Product = {
       ...complete,
       variations: [{ ...complete.variations![0], images: [] }],
     };
-    const { result, variations, setActiveTab } = renderSubmit(productWithoutVariationPhoto);
+    const { result } = renderSubmit(productWithoutVariationPhoto);
 
     await act(async () => {
-      expect(await result.current.handleSubmit(false)).toBe(false);
+      await result.current.handleSubmit(false);
     });
 
-    expect(mocks.saveProduct).not.toHaveBeenCalled();
-    expect(variations.setEditingVariationId).toHaveBeenCalledWith('v1');
-    expect(setActiveTab).toHaveBeenCalledWith('variacoes');
-    expect(toast.error).toHaveBeenCalledWith(
-      expect.stringContaining('deve ter pelo menos 1 foto vinculada para concluir o cadastro'),
-      { autoClose: 8000 }
-    );
+    expect(mocks.saveProduct).toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it('salva produto publicado sem abrir Swal quando características opcionais possuem apenas defaults vazios (brand="", line="", weight=0) e dimensões legadas', async () => {

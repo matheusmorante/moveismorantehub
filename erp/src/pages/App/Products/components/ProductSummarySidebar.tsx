@@ -58,7 +58,7 @@ export const ProductSummarySidebar: React.FC<ProductSummarySidebarProps> = ({
               <i className="bi bi-pie-chart-fill" />
             </div>
             <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">
-              {mode === 'composition' ? 'Resumo das Composições' : 'Resumo dos Produtos'}
+              {mode === 'composition' ? 'Resumo dos Produtos Compostos' : 'Resumo dos Produtos'}
             </h4>
           </div>
           <i

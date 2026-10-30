@@ -1,5 +1,10 @@
 import React from 'react';
+import { toast } from 'react-toastify';
 import { TechnicalCombobox } from './TechnicalCombobox';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { saveAttributeValue } from '@/pages/utils/variationService';
+import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { bulkAttributeFormSchema } from '../../../../../../../../shared-utils/catalogFormSchemas';
 import {
   isQuantityCharacteristic,
   isDimensionCharacteristicName,
@@ -18,6 +23,45 @@ import {
   SIMPLE_CHOICE_DROPDOWN_LIMIT,
 } from './inputs';
 import { YesNoPowerToggle } from './YesNoPowerToggle';
+
+const ColorCharacteristicInput: React.FC<{
+  field: TechnicalFieldInputProps['field'];
+  value: unknown;
+  disabled?: boolean;
+  onChange: TechnicalFieldInputProps['onChange'];
+}> = ({ field, value, disabled, onChange }) => {
+  const form = useZodForm(bulkAttributeFormSchema, { name: field.id, value: '' });
+
+  const handleCreateOption = async (newValue: string) => {
+    const result = await form.validateAndRun(
+      { name: field.id, value: newValue },
+      async ({ name, value: validatedValue }) => {
+        try {
+          const saved = await saveAttributeValue(name, validatedValue);
+          toast.success(`Cor "${saved.value}" cadastrada e selecionada.`);
+          return { id: saved.id, value: saved.value };
+        } catch (error: unknown) {
+          toast.error(error instanceof Error ? error.message : 'Erro ao cadastrar cor.');
+          return null;
+        }
+      },
+      (errors) => toast.error(Object.values(flattenFormErrors(errors))[0] || 'Informe a cor.')
+    );
+    return result === false ? null : result;
+  };
+
+  return (
+    <ChoiceSearch
+      options={field.options}
+      value={String(value ?? '')}
+      disabled={disabled}
+      multiple={false}
+      onChange={onChange}
+      onCreateOption={handleCreateOption}
+      createOptionLabel="cor"
+    />
+  );
+};
 
 export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
   field,
@@ -63,6 +107,17 @@ export const TechnicalFieldInput: React.FC<TechnicalFieldInputProps> = ({
         disabled={disabled}
         isInvalid={isInvalid}
         compact
+        onChange={onChange}
+      />
+    );
+  }
+
+  if (normalizeSearchTerm(field.name) === 'cor') {
+    return (
+      <ColorCharacteristicInput
+        field={field}
+        value={value}
+        disabled={disabled}
         onChange={onChange}
       />
     );

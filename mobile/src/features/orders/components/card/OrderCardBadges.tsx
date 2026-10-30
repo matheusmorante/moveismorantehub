@@ -203,7 +203,11 @@ export const OrderCardBadges: React.FC<OrderCardBadgesProps> = ({
       <View
         style={[
           styles.iconBadge,
-          { backgroundColor: statusConfig.bg, borderColor: statusConfig.border },
+          {
+            display: isDraft ? 'none' : undefined,
+            backgroundColor: statusConfig.bg,
+            borderColor: statusConfig.border,
+          },
         ]}
         accessibilityLabel={`Status: ${statusLabel}`}
       >

@@ -7,6 +7,7 @@ export type SyncOperationType = 'create' | 'update' | 'delete';
 export type SyncEventState = 'PENDING' | 'SYNCING' | 'CONFIRMED' | 'REJECTED';
 export type MediaUploadState = 'PENDING_UPLOAD' | 'UPLOADING' | 'UPLOADED' | 'FAILED';
 export type SyncEventType =
+  | 'DELIVERY_START_PREPARATION'
   | 'DELIVERY_START_ROUTE'
   | 'DELIVERY_ARRIVE_DESTINATION'
   | 'DELIVERY_START_SERVICE'

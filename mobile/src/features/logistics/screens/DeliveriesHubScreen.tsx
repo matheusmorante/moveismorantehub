@@ -25,7 +25,6 @@ import { NativeAssembliesScreen } from '../../assemblies/screens/NativeAssemblie
 import { getAssemblyTasks } from '../../assemblies/assemblyTasks';
 import type { AssemblyHandlingOption } from '../../../utils/aiSummaryHelper';
 import { addDaysToLocalDateString, getLocalDateString } from '../../../utils/orderUtils';
-import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { supabase } from '../../../services/supabaseClient';
 import { classifyDeliveryService } from '../domain/deliveryServiceClassification';
@@ -66,7 +65,6 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<DeliveriesSubTab>(initialTab);
   const [selectedMarkerItem, setSelectedMarkerItem] = useState<DeliveryRouteItem | null>(null);
-  const [selectedMapDate, setSelectedMapDate] = useState('');
   const [selectedMapFilter, setSelectedMapFilter] = useState<MapActivityFilter>('delivery');
   const [scheduleDateScope, setScheduleDateScope] = useState<DeliveryRouteDateScope>('today');
   const [handlingOptions, setHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
@@ -139,29 +137,10 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         ),
     [assemblyTasks, scheduleDateScope, todayDate, tomorrowDate]
   );
-  const mapDates = useMemo(
-    () =>
-      Array.from(
-        new Set(routeItems.map((item) => getOperationalScheduleDate(item.order)).filter(Boolean))
-      ).sort(),
-    [routeItems]
-  );
-  useEffect(() => {
-    setSelectedMapDate((current) => (mapDates.includes(current) ? current : mapDates[0] || ''));
-  }, [mapDates]);
   useEffect(() => setSelectedMarkerItem(null), [scheduleDateScope]);
-  const mapDateItems = useMemo(
-    () =>
-      scheduleDateScope === 'next_days'
-        ? routeItems.filter(
-            (item) => getOperationalScheduleDate(item.order) === selectedMapDate
-          )
-        : routeItems,
-    [routeItems, scheduleDateScope, selectedMapDate]
-  );
   const mapFilterCounts = useMemo(
     () =>
-      mapDateItems.reduce(
+      routeItems.reduce(
         (counts, item) => {
           const type = getMapActivityType(item);
           if (type) counts[type] += 1;
@@ -169,11 +148,11 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
         },
         { delivery: 0, assistance: 0, return: 0 }
       ),
-    [mapDateItems]
+    [routeItems]
   );
   const mapItems = useMemo(
-    () => mapDateItems.filter((item) => getMapActivityType(item) === selectedMapFilter),
-    [mapDateItems, selectedMapFilter]
+    () => routeItems.filter((item) => getMapActivityType(item) === selectedMapFilter),
+    [routeItems, selectedMapFilter]
   );
   useEffect(() => setSelectedMarkerItem(null), [selectedMapFilter]);
   const { coords: driverCoords, gpsEnabled } = useDriverLocation();
@@ -445,50 +424,6 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
       ) : (
         /* Aba MAPA: Visão geográfica limpa no mapa */
         <View style={styles.mapArea}>
-          {scheduleDateScope === 'next_days' && mapDates.length > 1 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.mapDateList}
-              accessibilityLabel="Selecionar data da rota"
-            >
-              {mapDates.map((dateKey) => {
-                const [year, month, day] = dateKey.split('-').map(Number);
-                const label = new Date(year, month - 1, day, 12).toLocaleDateString('pt-BR', {
-                  weekday: 'short',
-                  day: '2-digit',
-                  month: '2-digit',
-                });
-                return (
-                  <TouchableOpacity
-                    key={dateKey}
-                    style={[
-                      styles.mapDateChip,
-                      selectedMapDate === dateKey && styles.mapDateChipActive,
-                      isDarkMode && styles.mapDateChipDark,
-                      isDarkMode && selectedMapDate === dateKey && styles.mapDateChipActiveDark,
-                    ]}
-                    onPress={() => {
-                      setSelectedMapDate(dateKey);
-                      setSelectedMarkerItem(null);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: selectedMapDate === dateKey }}
-                  >
-                    <Text
-                      style={[
-                        styles.mapDateText,
-                        isDarkMode && styles.mapDateTextDark,
-                        selectedMapDate === dateKey && styles.mapDateTextActive,
-                      ]}
-                    >
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
           <View style={styles.mapCanvas}>
             {loading ? (
               <View style={styles.loadingCenter}>
@@ -693,7 +628,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mapCanvas: { flex: 1, position: 'relative' },
-  mapDateList: { paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   mapFilterOverlay: {
     position: 'absolute',
     top: 0,
@@ -735,18 +669,6 @@ const styles = StyleSheet.create({
   mapFilterCount: { color: '#64748b', fontSize: 10, fontWeight: '800' },
   mapFilterCountDark: { color: '#94a3b8' },
   mapFilterCountActive: { color: '#ffffff' },
-  mapDateChip: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  mapDateChipActive: { backgroundColor: '#2563eb' },
-  mapDateChipDark: { backgroundColor: '#334155' },
-  mapDateChipActiveDark: { backgroundColor: '#1d4ed8' },
-  mapDateText: { color: '#475569', fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
-  mapDateTextDark: { color: '#e2e8f0' },
-  mapDateTextActive: { color: '#ffffff' },
   loadingCenter: {
     flex: 1,
     alignItems: 'center',

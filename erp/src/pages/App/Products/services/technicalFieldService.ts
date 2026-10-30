@@ -27,31 +27,30 @@ interface TechnicalAttributeRow {
   readonly dependency_value?: string | null;
 }
 
-let cachedDefinitions: {
-  'product-form'?: { data: TechnicalFieldDefinition[]; timestamp: number; categoryLinksVerified: boolean };
-  'variation-form'?: { data: TechnicalFieldDefinition[]; timestamp: number; categoryLinksVerified: boolean };
-} = {};
-
-let inFlightDefinitions: {
-  'product-form'?: Promise<TechnicalFieldDefinition[]> | null;
-  'variation-form'?: Promise<TechnicalFieldDefinition[]> | null;
-} = {};
+const cachedDefinitions = new Map<string, {
+  data: TechnicalFieldDefinition[];
+  timestamp: number;
+  categoryLinksVerified: boolean;
+}>();
+const inFlightDefinitions = new Map<string, Promise<TechnicalFieldDefinition[]>>();
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos de cache em memória
 const APPLICATION_PAGE_SIZE = 1000;
 
-const fetchAllCategoryApplications = async () => {
+const fetchCategoryApplications = async (categoryIds: readonly string[]) => {
+  if (categoryIds.length === 0) return { data: [], error: null };
+
   const rows: Array<{
     attribute_id: string;
     category_id: string;
     application: string;
-    is_configured: boolean;
   }> = [];
 
   for (let start = 0; ; start += APPLICATION_PAGE_SIZE) {
     const { data, error } = await supabase
       .from('attribute_category_applications')
-      .select('attribute_id, category_id, application, is_configured')
+      .select('attribute_id, category_id, application')
+      .in('category_id', [...categoryIds])
       .order('attribute_id', { ascending: true })
       .order('category_id', { ascending: true })
       .range(start, start + APPLICATION_PAGE_SIZE - 1);
@@ -91,28 +90,31 @@ const isMissingDependencyAlternativesRelation = (error: { code?: string | null; 
     /(could not find|does not exist|not found)/i.test(String(error.message ?? '')));
 
 export const invalidateTechnicalFieldDefinitionsCache = () => {
-  cachedDefinitions = {};
-  inFlightDefinitions = {};
+  cachedDefinitions.clear();
+  inFlightDefinitions.clear();
 };
 
 /** Loads and maps the technical fields shared by product and variation forms. */
 export const fetchTechnicalFieldDefinitions = async (
   unitPolicy: TechnicalFieldUnitPolicy,
-  options?: { forceRefresh?: boolean; requireCategoryLinks?: boolean }
+  options: { categoryIds: readonly string[]; forceRefresh?: boolean; requireCategoryLinks?: boolean }
 ): Promise<TechnicalFieldDefinition[]> => {
+  const categoryIds = [...new Set(options.categoryIds.map((id) => id.trim()).filter(Boolean))].sort();
+  const cacheKey = `${unitPolicy}:${JSON.stringify(categoryIds)}`;
   const now = Date.now();
-  if (!options?.forceRefresh) {
-    const cached = cachedDefinitions[unitPolicy];
+  if (!options.forceRefresh) {
+    const cached = cachedDefinitions.get(cacheKey);
     if (
       cached &&
       now - cached.timestamp < CACHE_TTL_MS &&
-      (!options?.requireCategoryLinks || cached.categoryLinksVerified)
+      (!options.requireCategoryLinks || cached.categoryLinksVerified)
     ) {
       return cached.data;
     }
-    if (inFlightDefinitions[unitPolicy]) {
-      const inFlight = await inFlightDefinitions[unitPolicy]!;
-      if (!options?.requireCategoryLinks || cachedDefinitions[unitPolicy]?.categoryLinksVerified) {
+    const pending = inFlightDefinitions.get(cacheKey);
+    if (pending) {
+      const inFlight = await pending;
+      if (!options.requireCategoryLinks || cachedDefinitions.get(cacheKey)?.categoryLinksVerified) {
         return inFlight;
       }
       return fetchTechnicalFieldDefinitions(unitPolicy, { ...options, forceRefresh: true });
@@ -165,7 +167,7 @@ export const fetchTechnicalFieldDefinitions = async (
           .from('category_attributes')
           .select('attribute_id, category_id, is_required')
           .limit(10000),
-        fetchAllCategoryApplications(),
+        fetchCategoryApplications(categoryIds),
         hasPrimaryDependencies
           ? fetchAllDependencyAlternatives()
           : Promise.resolve({ data: [], error: null }),
@@ -188,11 +190,11 @@ export const fetchTechnicalFieldDefinitions = async (
 
       if (categoryLinksError) {
         console.warn('Aviso ao buscar category_attributes:', categoryLinksError);
-        if (options?.requireCategoryLinks) throw categoryLinksError;
+        if (options.requireCategoryLinks) throw categoryLinksError;
       }
       if (applicationLinksError) {
         console.warn('Aviso ao buscar aplicações das características por categoria:', applicationLinksError);
-        if (options?.requireCategoryLinks) throw applicationLinksError;
+        if (options.requireCategoryLinks) throw applicationLinksError;
       }
       const dependencyAlternativesTableMissing = Boolean(
         dependencyAlternativesResult.error &&
@@ -330,17 +332,17 @@ export const fetchTechnicalFieldDefinitions = async (
         });
       const result = deduplicateProductTechnicalValueAliasFields<TechnicalFieldDefinition>(mappedFields);
 
-      cachedDefinitions[unitPolicy] = {
+      cachedDefinitions.set(cacheKey, {
         data: result,
         timestamp: Date.now(),
         categoryLinksVerified: !categoryLinksError && !applicationLinksError,
-      };
+      });
       return result;
     } finally {
-      inFlightDefinitions[unitPolicy] = null;
+      inFlightDefinitions.delete(cacheKey);
     }
   })();
 
-  inFlightDefinitions[unitPolicy] = fetchPromise;
+  inFlightDefinitions.set(cacheKey, fetchPromise);
   return fetchPromise;
 };

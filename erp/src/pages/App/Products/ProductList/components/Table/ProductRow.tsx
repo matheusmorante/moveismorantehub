@@ -40,6 +40,7 @@ export interface ProductRowProps {
   readonly singleVariation?: ProductListRow;
   readonly onMoveToAnotherFamily?: (product: Product) => void;
   readonly onMergeWithAnotherVariation?: (product: Product) => void;
+  readonly onMergeDuplicateProduct?: (product: Product) => void;
 }
 
 export const ProductRow: React.FC<ProductRowProps> = ({
@@ -68,6 +69,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
   singleVariation,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
+  onMergeDuplicateProduct,
   onRefresh,
 }) => {
   const [labelModal, setLabelModal] = React.useState<{ open: boolean; type: LabelPrintType }>({
@@ -174,6 +176,7 @@ export const ProductRow: React.FC<ProductRowProps> = ({
           onOpenLabelModal={(type) => setLabelModal({ open: true, type })}
           onMoveToAnotherFamily={onMoveToAnotherFamily}
           onMergeWithAnotherVariation={onMergeWithAnotherVariation}
+          onMergeDuplicateProduct={onMergeDuplicateProduct}
           onRefresh={onRefresh}
         />
       );

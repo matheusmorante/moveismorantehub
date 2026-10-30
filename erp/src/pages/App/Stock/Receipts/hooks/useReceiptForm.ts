@@ -370,6 +370,7 @@ export function useReceiptForm({
     }
     if (
       inboundItems?.some((item) => {
+        if (item.linkMode === 'not_applicable') return false;
         if (item.linkMode === 'composition')
           return !item.compositionLinks || item.compositionLinks.length === 0;
         return !item.linkedProductId;
@@ -405,7 +406,11 @@ export function useReceiptForm({
 
       const isCompleteInvoiceReceipt =
         !inboundItems ||
-        inboundItems.every((item) => item.quantity >= (item.expectedQuantity || item.quantity));
+        inboundItems.every(
+          (item) =>
+            item.linkMode === 'not_applicable' ||
+            item.quantity >= (item.expectedQuantity || item.quantity)
+        );
       if (validated.fiscalKey && isCompleteInvoiceReceipt) {
         await markInvoiceAsReceived(validated.fiscalKey, receiptId);
       }

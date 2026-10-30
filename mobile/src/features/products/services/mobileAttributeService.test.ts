@@ -39,7 +39,15 @@ describe('mobile attribute service', () => {
       ],
       error: null,
     }],
+    dataType?: 'radio' | 'multi_select',
+    optionRows = [
+      { id: '11111111-1111-4111-8111-111111111111', attribute_id: 'attribute-id', value: 'Azul', sort_order: 0, active: true },
+      { id: '22222222-2222-4222-8222-222222222222', attribute_id: 'attribute-id', value: 'Preto', sort_order: 1, active: true },
+    ],
   ) => {
+    const results = dataType ? attributeResults.map((result, index) => index === 0 && result.data
+      ? { ...result, data: result.data.map((row: any) => ({ ...row, data_type: dataType })) }
+      : result) : attributeResults;
     let attributeQueryIndex = 0;
     const createQuery = (result: { data: unknown[] | null; error: unknown }) => {
       const query: any = {};
@@ -50,14 +58,11 @@ describe('mobile attribute service', () => {
     };
     supabaseMock.from.mockImplementation((table: string) => {
       if (table === 'attributes') {
-        const result = attributeResults[Math.min(attributeQueryIndex++, attributeResults.length - 1)];
+        const result = results[Math.min(attributeQueryIndex++, results.length - 1)];
         return createQuery(result);
       }
       if (table === 'attribute_values') return createQuery({
-        data: [
-          { id: 'option-1', attribute_id: 'attribute-id', value: 'Azul', sort_order: 0 },
-          { id: 'option-2', attribute_id: 'attribute-id', value: 'Preto', sort_order: 1 },
-        ],
+        data: optionRows,
         error: null,
       });
       return createQuery({ data: [], error: null });
@@ -211,44 +216,96 @@ describe('mobile attribute service', () => {
     expect(supabaseMock.from).not.toHaveBeenCalled();
   });
 
-  it('adds an option by saving the full ordered definition in one transaction', async () => {
+  it.each(['radio', 'multi_select'] as const)(
+    'adds an option to a %s characteristic through the independent options RPC', async (dataType) => {
+      mockAttributeReads(undefined, dataType);
+      supabaseMock.rpc.mockResolvedValue({
+        data: [
+          { id: '11111111-1111-4111-8111-111111111111', value: 'Azul', active: true, sortOrder: 0 },
+          { id: '22222222-2222-4222-8222-222222222222', value: 'Preto', active: true, sortOrder: 1 },
+          { id: '33333333-3333-4333-8333-333333333333', value: 'Verde', active: true, sortOrder: 2 },
+        ],
+        error: null,
+      });
+
+      await addMobileAttributeValue('attribute-id', '  Verde  ');
+
+      expect(supabaseMock.rpc).toHaveBeenCalledWith('save_characteristic_options', {
+        p_attribute_id: 'attribute-id',
+        p_options: [
+          { id: '11111111-1111-4111-8111-111111111111', value: 'Azul', active: true, sortOrder: 0 },
+          { id: '22222222-2222-4222-8222-222222222222', value: 'Preto', active: true, sortOrder: 1 },
+          { value: 'Verde', active: true, sortOrder: 2 },
+        ],
+      });
+    }
+  );
+
+  it('blocks adding an option that already exists with different capitalization', async () => {
     mockAttributeReads();
-    supabaseMock.rpc.mockResolvedValue({ data: 'attribute-id', error: null });
 
-    await addMobileAttributeValue('attribute-id', '  Verde  ');
-
-    expect(supabaseMock.rpc).toHaveBeenCalledWith(
-      'save_product_characteristic_definition_v2',
-      expect.objectContaining({
-        p_definition: expect.objectContaining({
-          id: 'attribute-id',
-          configuration: {},
-          options: [
-            { id: 'option-1', value: 'Azul', sortOrder: 0 },
-            { id: 'option-2', value: 'Preto', sortOrder: 1 },
-            { value: 'Verde', sortOrder: 2 },
-          ],
-        }),
-      })
+    await expect(addMobileAttributeValue('attribute-id', 'azul')).rejects.toThrow(
+      'As opções não podem ter nomes duplicados.'
     );
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
 
-  it('removes an option through the ERP transaction and preserves category links', async () => {
+  it('blocks duplicate capitalization when saving a complete definition', async () => {
+    await expect(saveMobileAttributeDefinition({
+      name: 'Cor',
+      dataType: 'radio',
+      active: true,
+      isCustom: true,
+      options: [
+        { id: '', value: 'Avela PF/Mocca UV' },
+        { id: '', value: 'avela pf/mocca uv' },
+      ],
+    })).rejects.toThrow('As opções não podem ter nomes duplicados.');
+
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+  });
+
+  it('removes an option using the same RPC while preserving the other choices', async () => {
     mockAttributeReads();
-    supabaseMock.rpc.mockResolvedValue({ data: 'attribute-id', error: null });
+    supabaseMock.rpc.mockResolvedValue({
+      data: [{ id: '22222222-2222-4222-8222-222222222222', value: 'Preto', active: true, sortOrder: 0 }],
+      error: null,
+    });
 
-    await deleteMobileAttributeValue('option-1');
+    await deleteMobileAttributeValue('11111111-1111-4111-8111-111111111111');
 
-    expect(supabaseMock.rpc).toHaveBeenCalledWith(
-      'save_product_characteristic_definition_v2',
-      expect.objectContaining({
-        p_definition: expect.objectContaining({
-          id: 'attribute-id',
-          configuration: {},
-          options: [{ id: 'option-2', value: 'Preto', sortOrder: 0 }],
-          categoryAttributes: [],
-        }),
-      })
-    );
+    expect(supabaseMock.rpc).toHaveBeenCalledWith('save_characteristic_options', {
+      p_attribute_id: 'attribute-id',
+      p_options: [
+        { id: '22222222-2222-4222-8222-222222222222', value: 'Preto', active: true, sortOrder: 0 },
+      ],
+    });
+  });
+
+  it('preserves inactive options when another value is added', async () => {
+    const optionRows = [
+      { id: '11111111-1111-4111-8111-111111111111', attribute_id: 'attribute-id', value: 'Azul', sort_order: 0, active: false },
+      { id: '22222222-2222-4222-8222-222222222222', attribute_id: 'attribute-id', value: 'Preto', sort_order: 1, active: true },
+    ];
+    mockAttributeReads(undefined, 'radio', optionRows);
+    supabaseMock.rpc.mockResolvedValue({
+      data: [
+        { id: '11111111-1111-4111-8111-111111111111', value: 'Azul', active: false, sortOrder: 0 },
+        { id: '22222222-2222-4222-8222-222222222222', value: 'Preto', active: true, sortOrder: 1 },
+        { id: '33333333-3333-4333-8333-333333333333', value: 'Verde', active: true, sortOrder: 2 },
+      ],
+      error: null,
+    });
+
+    await addMobileAttributeValue('attribute-id', 'Verde');
+
+    expect(supabaseMock.rpc).toHaveBeenCalledWith('save_characteristic_options', {
+      p_attribute_id: 'attribute-id',
+      p_options: [
+        { id: '11111111-1111-4111-8111-111111111111', value: 'Azul', active: false, sortOrder: 0 },
+        { id: '22222222-2222-4222-8222-222222222222', value: 'Preto', active: true, sortOrder: 1 },
+        { value: 'Verde', active: true, sortOrder: 2 },
+      ],
+    });
   });
 });

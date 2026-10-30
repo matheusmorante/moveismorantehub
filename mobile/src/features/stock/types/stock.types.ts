@@ -10,6 +10,7 @@ export interface Invoice {
   itemsCount: number;
   status: 'received' | 'manifested' | 'pending';
   hasPendingBindings: boolean;
+  supplierStockOrigins?: string[];
   sefazStatus: 'authorized' | 'cancelled' | 'denied' | 'pending';
   isSummaryOnly?: boolean;
   rawXml?: string;

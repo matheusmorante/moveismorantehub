@@ -139,7 +139,7 @@ export function ProductsHeader({
             {showTrash
               ? 'Lixeira'
               : mode === 'composition'
-              ? 'Composições'
+              ? 'Produto composto'
               : mode === 'categories'
                 ? 'Ambientes e Categorias'
                 : 'Produtos'}

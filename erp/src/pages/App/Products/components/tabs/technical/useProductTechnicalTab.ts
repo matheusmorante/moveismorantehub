@@ -45,6 +45,7 @@ export const useProductTechnicalTab = ({
   const [loadingFields, setLoadingFields] = useState(false);
   const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
   const [debouncedCharacteristicSearchTerm, setDebouncedCharacteristicSearchTerm] = useState('');
+  const categoryIdsKey = JSON.stringify([...new Set(formData.categoryIds ?? [])].filter(Boolean).sort());
 
   // Debounce do termo de pesquisa de características
   useEffect(() => {
@@ -62,8 +63,9 @@ export const useProductTechnicalTab = ({
     const loadFields = async () => {
       setLoadingFields(true);
       try {
+        const categoryIds: string[] = JSON.parse(categoryIdsKey);
         const [mapped, groupData] = await Promise.all([
-          fetchTechnicalFieldDefinitions('product-form'),
+          fetchTechnicalFieldDefinitions('product-form', { categoryIds }),
           fetchCharacteristicGroups(),
         ]);
         if (!isMounted) return;
@@ -97,7 +99,7 @@ export const useProductTechnicalTab = ({
     return () => {
       isMounted = false;
     };
-  }, [refreshKey, setFormData]);
+  }, [refreshKey, categoryIdsKey, setFormData]);
 
   // Sub-hook: Resolução de campos aplicáveis, visibilidade e agrupamento
   const applicability = useTechnicalFieldApplicability({

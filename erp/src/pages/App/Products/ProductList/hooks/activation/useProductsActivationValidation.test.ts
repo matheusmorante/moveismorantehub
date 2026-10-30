@@ -159,6 +159,40 @@ describe('validação da ativação ERP por tipo do produto', () => {
     ).toMatchObject({ isValid: false, errorMessage: expect.stringContaining('preço de venda') });
   });
 
+  it('não bloqueia ativação de produto simples por Marca/Modelo exigidos somente no Catálogo', () => {
+    const simpleProduct: Product = {
+      id: 'simple-without-catalog-characteristics',
+      name: 'Produto simples',
+      description: 'Produto simples',
+      categoryIds: ['category-1'],
+      unitPrice: 250,
+      unit: 'UN',
+      active: false,
+      isDraft: false,
+      hasVariations: false,
+      itemType: 'product',
+      mainSupplierId: 'supplier-1',
+      technicalValues: {},
+      variations: [
+        {
+          id: 'simple-default-variation',
+          sku: 'SIMPLE-01',
+          name: 'Produto simples',
+          stock: 0,
+          unitPrice: 250,
+          syncUnitPrice: true,
+          active: false,
+          attributes: [],
+          technicalValues: {},
+        },
+      ],
+    };
+
+    expect(
+      validateErpActivationRequirements(simpleProduct.id!, [simpleProduct], [simpleProduct])
+    ).toEqual({ isValid: true });
+  });
+
   it('exige preço no produto simples que tem a variação padrão operacional', () => {
     const simpleProduct: Product = {
       id: 'simple-with-default-variation',

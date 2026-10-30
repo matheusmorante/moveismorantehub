@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { fromMock, rpcMock } = vi.hoisted(() => ({
+const {
+  fromMock,
+  rpcMock,
+  invalidateTechnicalFieldDefinitionsCacheMock,
+  saveAttributeValueWithClientMock,
+} = vi.hoisted(() => ({
   fromMock: vi.fn(),
   rpcMock: vi.fn(),
+  invalidateTechnicalFieldDefinitionsCacheMock: vi.fn(),
+  saveAttributeValueWithClientMock: vi.fn(),
 }));
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({
@@ -12,7 +19,20 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({
   },
 }));
 
-import { fetchVariations, saveVariation, subscribeToVariations } from '../variationService';
+vi.mock('@/pages/App/Products/services/technicalFieldService', () => ({
+  invalidateTechnicalFieldDefinitionsCache: invalidateTechnicalFieldDefinitionsCacheMock,
+}));
+vi.mock('../../../../../shared-utils/productAttributeValueService', () => ({
+  saveAttributeValueWithClient: saveAttributeValueWithClientMock,
+}));
+
+import {
+  fetchVariations,
+  saveAttributeValue,
+  saveCharacteristicOptions,
+  saveVariation,
+  subscribeToVariations,
+} from '../variationService';
 
 const pagedQuery = (result: (from: number, to: number) => unknown) => {
   const chain: any = {
@@ -27,6 +47,8 @@ describe('subscribeToVariations', () => {
   beforeEach(() => {
     fromMock.mockReset();
     rpcMock.mockReset();
+    invalidateTechnicalFieldDefinitionsCacheMock.mockReset();
+    saveAttributeValueWithClientMock.mockReset();
   });
 
   it('salva condições alternativas pela operação atômica de características', async () => {
@@ -38,6 +60,119 @@ describe('subscribeToVariations', () => {
     expect(rpcMock).toHaveBeenCalledWith('save_product_characteristic_definition_v3', {
       p_definition: expect.objectContaining({ dependency, dependencyAlternatives: [alternative] }),
     });
+  });
+
+  it('preserva literalmente opções existentes ao adicionar uma opção nova', async () => {
+    rpcMock.mockResolvedValue({ data: 'attribute-color', error: null });
+    const existingOptionId = '11111111-1111-4111-8111-111111111111';
+
+    await saveVariation({
+      id: 'attribute-color',
+      name: 'Cor',
+      active: true,
+      options: [
+        { id: existingOptionId, value: 'Avela PF/Mocca UV', active: true },
+        { id: 'new-option-test', value: 'cedar/cinza soft', active: true },
+      ],
+    }, { invalidate: false });
+
+    expect(rpcMock).toHaveBeenCalledWith('save_product_characteristic_definition', {
+      p_definition: expect.objectContaining({
+        options: [
+          expect.objectContaining({ id: existingOptionId, value: 'Avela PF/Mocca UV' }),
+          expect.objectContaining({ id: 'new-option-test', value: 'Cedar/Cinza Soft' }),
+        ],
+      }),
+    });
+  });
+
+  it('salva opções pela RPC independente e invalida a lista usada nos formulários de produto', async () => {
+    const persistedOptionId = '11111111-1111-4111-8111-111111111111';
+    const newOptionId = '22222222-2222-4222-8222-222222222222';
+    rpcMock.mockResolvedValue({
+      data: [
+        { id: persistedOptionId, value: 'Avela PF/Mocca UV', active: true, sortOrder: 0 },
+        { id: newOptionId, value: 'Cedar/Cinza Soft', active: true, sortOrder: 1 },
+      ],
+      error: null,
+    });
+
+    const saved = await saveCharacteristicOptions('attribute-color', [
+      { id: persistedOptionId, value: 'Avela PF/Mocca UV', active: true },
+      { id: 'new-option-test', value: 'cedar/cinza soft', active: true },
+    ]);
+
+    expect(rpcMock).toHaveBeenCalledWith('save_characteristic_options', {
+      p_attribute_id: 'attribute-color',
+      p_options: [
+        { id: persistedOptionId, value: 'Avela PF/Mocca UV', active: true, sortOrder: 0 },
+        { id: 'new-option-test', value: 'Cedar/Cinza Soft', active: true, sortOrder: 1 },
+      ],
+    });
+    expect(saved.map(({ id, value }) => ({ id, value }))).toEqual([
+      { id: persistedOptionId, value: 'Avela PF/Mocca UV' },
+      { id: newOptionId, value: 'Cedar/Cinza Soft' },
+    ]);
+    expect(invalidateTechnicalFieldDefinitionsCacheMock).toHaveBeenCalledOnce();
+  });
+
+  it('rejeita opções duplicadas sem diferenciar maiúsculas e minúsculas antes da RPC', async () => {
+    await expect(saveCharacteristicOptions('attribute-color', [
+      { id: '11111111-1111-4111-8111-111111111111', value: 'Avela PF/Mocca UV', active: true },
+      { id: 'new-option-test', value: 'avela pf/mocca uv', active: true },
+    ])).rejects.toThrow('As opções não podem ter nomes duplicados.');
+
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it('rejeita opções duplicadas ao salvar uma definição completa', async () => {
+    await expect(saveVariation({
+      id: 'attribute-color',
+      name: 'Cor',
+      active: true,
+      options: [
+        { id: '11111111-1111-4111-8111-111111111111', value: 'Avela PF/Mocca UV', active: true },
+        { id: 'new-option-test', value: 'avela pf/mocca uv', active: true },
+      ],
+    }, { invalidate: false })).rejects.toThrow('As opções não podem ter nomes duplicados.');
+
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it('não confirma o salvamento se o banco devolver uma lista sem a opção nova', async () => {
+    rpcMock.mockResolvedValue({
+      data: [{
+        id: '11111111-1111-4111-8111-111111111111',
+        value: 'Azul',
+        active: true,
+        sortOrder: 0,
+      }],
+      error: null,
+    });
+
+    await expect(saveCharacteristicOptions('attribute-color', [
+      { id: '11111111-1111-4111-8111-111111111111', value: 'Azul', active: true },
+      { id: 'new-option-test', value: 'Verde', active: true },
+    ])).rejects.toThrow('O banco não confirmou todas as opções.');
+    expect(invalidateTechnicalFieldDefinitionsCacheMock).not.toHaveBeenCalled();
+  });
+
+  it('invalida as características em cache ao cadastrar uma opção de cor no formulário', async () => {
+    const saved = {
+      id: 'color-red',
+      attribute_id: 'attribute-color',
+      value: 'Cedar/Cinza Soft',
+    };
+    saveAttributeValueWithClientMock.mockResolvedValue(saved);
+
+    await expect(saveAttributeValue('attribute-color', 'Cedar/Cinza Soft')).resolves.toEqual(saved);
+
+    expect(saveAttributeValueWithClientMock).toHaveBeenCalledWith(
+      expect.anything(),
+      'attribute-color',
+      'Cedar/Cinza Soft',
+    );
+    expect(invalidateTechnicalFieldDefinitionsCacheMock).toHaveBeenCalledOnce();
   });
 
   it('preserva a lista quando category_attributes ainda não está disponível', async () => {

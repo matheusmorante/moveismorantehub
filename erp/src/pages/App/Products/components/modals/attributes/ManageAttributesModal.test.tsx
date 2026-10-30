@@ -2,22 +2,25 @@
 import { act, fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ManageAttributesModal from './ManageAttributesModal';
-import { saveVariation, updateVariation } from '../../../../../utils/variationService';
+import { saveCharacteristicOptions, saveVariation } from '../../../../../utils/variationService';
 import { toast } from 'react-toastify';
 import type VariationType from '@/pages/types/variation.type';
-const fixtures = vi.hoisted(() => ({ variations: [] as VariationType[] }));
+const fixtures = vi.hoisted(() => ({
+  variations: [] as VariationType[],
+  refresh: vi.fn(),
+}));
 
 vi.mock('../../../../Variations/useVariations', () => ({
   useVariations: () => ({
     variations: fixtures.variations,
     loading: false,
     handleDelete: vi.fn(),
-    refresh: vi.fn(),
+    refresh: fixtures.refresh,
   }),
 }));
 vi.mock('../../../../../utils/variationService', () => ({
   saveVariation: vi.fn().mockResolvedValue('new'),
-  updateVariation: vi.fn().mockResolvedValue(undefined),
+  saveCharacteristicOptions: vi.fn().mockResolvedValue([]),
   getVariationErrorMessage: (_error: unknown, fallback: string) => fallback,
 }));
 vi.mock('react-toastify', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -25,8 +28,9 @@ vi.mock('react-toastify', () => ({ toast: { error: vi.fn(), success: vi.fn() } }
 describe('ManageAttributesModal resolver', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    fixtures.refresh.mockResolvedValue(undefined);
     fixtures.variations = [{ id: 'cor', name: 'Cor', active: true, dataType: 'radio', options: [{ id: 'azul', value: 'Azul' }] }];
-    vi.mocked(saveVariation).mockResolvedValue('new'); vi.mocked(updateVariation).mockResolvedValue(undefined);
+    vi.mocked(saveVariation).mockResolvedValue('new'); vi.mocked(saveCharacteristicOptions).mockResolvedValue([]);
   });
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -48,7 +52,7 @@ describe('ManageAttributesModal resolver', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole('button', { name: 'Remover valor Azul' }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(2));
-    expect(updateVariation).not.toHaveBeenCalled();
+    expect(saveCharacteristicOptions).not.toHaveBeenCalled();
   });
 
   it('protege criação concorrente e permite retomar após falha', async () => {
@@ -65,21 +69,43 @@ describe('ManageAttributesModal resolver', () => {
     view.unmount();
   });
 
-  it('valida e normaliza a opção adicionada antes de atualizar', async () => {
+  it.each(['radio', 'multi_select'] as const)(
+    'salva e confirma opções de característica %s pela mesma operação', async (dataType) => {
+      fixtures.variations[0].dataType = dataType;
+      render(<ManageAttributesModal isOpen onClose={vi.fn()} />);
+      fireEvent.change(screen.getByPlaceholderText('Novo valor...'), { target: { value: '  Verde  ' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Adicionar$/ }));
+      await waitFor(() => expect(saveCharacteristicOptions).toHaveBeenCalledWith('cor', [
+        { id: 'azul', value: 'Azul' },
+        { id: '', value: 'Verde' },
+      ]));
+      await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Valor adicionado com sucesso!'));
+      expect(fixtures.refresh).toHaveBeenCalledOnce();
+    }
+  );
+
+  it('espera a lista atualizar antes de confirmar que adicionou uma opção', async () => {
+    let finishRefresh!: () => void;
+    fixtures.refresh.mockImplementationOnce(() => new Promise((resolve) => { finishRefresh = () => resolve(undefined); }));
     render(<ManageAttributesModal isOpen onClose={vi.fn()} />);
-    fireEvent.change(screen.getByPlaceholderText('Novo valor...'), { target: { value: '  Verde  ' } });
+    fireEvent.change(screen.getByPlaceholderText('Novo valor...'), { target: { value: 'Verde' } });
     fireEvent.click(screen.getByRole('button', { name: /^Adicionar$/ }));
-    await waitFor(() => expect(updateVariation).toHaveBeenCalledWith('cor', { options: [{ id: 'azul', value: 'Azul' }, { id: '', value: 'Verde' }] }));
+
+    await waitFor(() => expect(fixtures.refresh).toHaveBeenCalledOnce());
+    expect(toast.success).not.toHaveBeenCalled();
+
+    await act(async () => { finishRefresh(); });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Valor adicionado com sucesso!'));
   });
 
   it('protege clique/Enter de adicionar durante uma atualização pendente', async () => {
     let finish!: () => void;
-    vi.mocked(updateVariation).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    vi.mocked(saveCharacteristicOptions).mockImplementationOnce(() => new Promise((resolve) => { finish = () => resolve([]); }));
     render(<ManageAttributesModal isOpen onClose={vi.fn()} />);
     const input = screen.getByPlaceholderText('Novo valor...');
     fireEvent.change(input, { target: { value: 'Verde' } });
     act(() => { fireEvent.click(screen.getByRole('button', { name: /^Adicionar$/ })); fireEvent.keyDown(input, { key: 'Enter' }); });
-    await waitFor(() => expect(updateVariation).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(saveCharacteristicOptions).toHaveBeenCalledTimes(1));
     await act(async () => { finish(); }); await waitFor(() => expect(toast.success).toHaveBeenCalled());
   });
 
@@ -88,6 +114,6 @@ describe('ManageAttributesModal resolver', () => {
     fixtures.variations[0].options.push({ id: 'verde', value: 'Verde' });
     render(<ManageAttributesModal isOpen onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Remover valor Verde' }));
-    await waitFor(() => expect(updateVariation).toHaveBeenCalledWith('cor', { options: [{ id: 'azul', value: 'Azul' }] }));
+    await waitFor(() => expect(saveCharacteristicOptions).toHaveBeenCalledWith('cor', [{ id: 'azul', value: 'Azul' }]));
   });
 });

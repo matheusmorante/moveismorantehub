@@ -375,6 +375,7 @@ export const useProducts = (filters?: ProductListFilters) => {
           const [requirementsResult, groupsResult] = await Promise.all([
             withTimeout(
               fetchTechnicalFieldDefinitions('product-form', {
+                categoryIds: parentProduct?.categoryIds ?? [],
                 forceRefresh: true,
                 requireCategoryLinks: true,
               }),

@@ -19,6 +19,8 @@ import { fetchPersons } from '@/pages/utils/personService';
 import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import { resolveLinkedProductDetails } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
 import Person from '@/pages/types/person.type';
+import { isSalvadosOnlySupplier } from '../../../../../../../shared-utils/productSupplierStockOrigin';
+import { markInboundInvoiceItemsNotApplicable } from '../../../../../../../shared-utils/inboundInvoiceSupplierRules';
 
 /**
  * Localiza o fornecedor já cadastrado para vincular à nota de entrada.
@@ -32,15 +34,29 @@ async function ensureSupplier(
   try {
     const suppliers = await fetchPersons('suppliers');
     if (cleanDoc) {
-      const matchByCnpj = suppliers.find((p) => normalizeFiscalIdentifier(p.cpfCnpj) === cleanDoc);
-      if (matchByCnpj) return matchByCnpj;
+      const matchesByCnpj = suppliers.filter(
+        (p) => normalizeFiscalIdentifier(p.cpfCnpj) === cleanDoc
+      );
+      const salvadosMatch = matchesByCnpj.find(
+        (supplier) => supplier.active && isSalvadosOnlySupplier(supplier.stockOrigins)
+      ) || matchesByCnpj.find((supplier) => isSalvadosOnlySupplier(supplier.stockOrigins));
+      if (salvadosMatch) return salvadosMatch;
+      const activeMatch = matchesByCnpj.find((supplier) => supplier.active);
+      if (activeMatch) return activeMatch;
+      if (matchesByCnpj[0]) return matchesByCnpj[0];
     }
 
     if (emitterName?.trim()) {
-      const matchByName = suppliers.find(
+      const matchesByName = suppliers.filter(
         (p) => (p.fullName || '').trim().toLowerCase() === emitterName.trim().toLowerCase()
       );
-      if (matchByName) return matchByName;
+      const salvadosMatch = matchesByName.find(
+        (supplier) => supplier.active && isSalvadosOnlySupplier(supplier.stockOrigins)
+      ) || matchesByName.find((supplier) => isSalvadosOnlySupplier(supplier.stockOrigins));
+      if (salvadosMatch) return salvadosMatch;
+      const activeMatch = matchesByName.find((supplier) => supplier.active);
+      if (activeMatch) return activeMatch;
+      if (matchesByName[0]) return matchesByName[0];
     }
   } catch (err) {
     console.warn('[useInboundDocumentImport] Aviso ao localizar fornecedor:', err);
@@ -125,16 +141,20 @@ export function useInboundDocumentImport({
         setStatusMessage('NF-e já cadastrada e desatualizada. Atualizando com os dados novos do XML...');
       }
 
-      let supplierId = validated.supplierId;
-      if (!supplierId) {
-        setStatusMessage('Identificando fornecedor...');
-        const supplier = await ensureSupplier(validated.emitterName, validated.emitterCnpj);
-        supplierId = supplier?.id;
-      }
+      setStatusMessage('Identificando fornecedor...');
+      const supplier = await ensureSupplier(validated.emitterName, validated.emitterCnpj);
+      const salvadosSupplier = isSalvadosOnlySupplier(supplier?.stockOrigins) ? supplier : null;
+      const supplierId = salvadosSupplier?.id || validated.supplierId || supplier?.id;
+      const supplierStockOrigins = salvadosSupplier?.stockOrigins
+        || supplier?.stockOrigins
+        || validated.supplierStockOrigins;
+      const isSalvadosSupplier = isSalvadosOnlySupplier(supplierStockOrigins);
 
       // Auto-match com vínculos anteriores do fornecedor
-      let itemsWithMatches = validated.items;
-      if (supplierId && itemsWithMatches.length > 0) {
+      let itemsWithMatches = isSalvadosSupplier
+        ? markInboundInvoiceItemsNotApplicable(validated.items)
+        : validated.items;
+      if (!isSalvadosSupplier && supplierId && itemsWithMatches.length > 0) {
         setStatusMessage('Consultando vínculos de produtos...');
         try {
           const mappings = await findProductSupplierCodes(
@@ -144,7 +164,7 @@ export function useInboundDocumentImport({
           if (mappings.size > 0) {
             itemsWithMatches = await Promise.all(
               itemsWithMatches.map(async (item) => {
-                if (item.matchedProductId || item.matchedVariationId) return item;
+                if (item.linkMode === 'not_applicable' || item.matchedProductId || item.matchedVariationId) return item;
                 const map = mappings.get((item.productCode || '').trim().toLocaleUpperCase('pt-BR'));
                 if (!map) return item;
                 const details = await resolveLinkedProductDetails(
@@ -170,6 +190,7 @@ export function useInboundDocumentImport({
         ...validated,
         nfeKey: cleanKey,
         supplierId: supplierId || validated.supplierId,
+        supplierStockOrigins,
         items: itemsWithMatches,
       };
 

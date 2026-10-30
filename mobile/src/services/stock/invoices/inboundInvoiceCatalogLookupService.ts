@@ -36,40 +36,61 @@ export const searchInboundInvoiceProducts = async (searchTerm: string) => {
   if (productsResult.error) throw productsResult.error;
   if (variationsResult.error) throw variationsResult.error;
 
-  const variations = variationsResult.data || [];
-  const parentIds = [...new Set(variations.map((variation: any) => variation.product_id))];
-  const { data: parents, error: parentsError } = parentIds.length
+  const matchingParentIds = [
+    ...new Set((productsResult.data || []).map((product: any) => String(product.id))),
+  ];
+  const parentVariationsResult = matchingParentIds.length
+    ? await supabase
+        .from('product_variations')
+        .select('id, product_id, name, sku, price, use_parent_price, active')
+        .eq('active', true)
+        .in('product_id', matchingParentIds)
+        .limit(50)
+    : { data: [], error: null };
+  if (parentVariationsResult.error) throw parentVariationsResult.error;
+
+  const variationById = new Map<string, any>();
+  [...(variationsResult.data || []), ...(parentVariationsResult.data || [])].forEach(
+    (variation: any) => {
+      variationById.set(String(variation.id), variation);
+    }
+  );
+  const variations = [...variationById.values()];
+  const parentById = new Map<string, any>(
+    (productsResult.data || []).map((parent: any) => [String(parent.id), parent])
+  );
+  const parentIds = [...new Set(variations.map((variation: any) => String(variation.product_id)))];
+  const missingParentIds = parentIds.filter((parentId) => !parentById.has(parentId));
+  const { data: parents, error: parentsError } = missingParentIds.length
     ? await supabase
         .from('products')
         .select('id, name, code, unit_price')
         .eq('deleted', false)
         .eq('active', true)
         .not('is_draft', 'is', true)
-        .in('id', parentIds)
+        .in('id', missingParentIds)
     : { data: [], error: null };
   if (parentsError) throw parentsError;
 
-  const parentById = new Map((parents || []).map((parent: any) => [String(parent.id), parent]));
-  return [
-    ...(productsResult.data || []).map((product: any) => ({
-      ...product,
-      sku: product.code,
-      productId: String(product.id),
-      sellingPrice: Number(product.unit_price || 0),
-    })),
-    ...variations.map((variation: any) => ({
-      id: String(variation.id),
-      productId: String(variation.product_id),
-      variationId: String(variation.id),
-      name: variation.name,
-      sku: variation.sku,
-      sellingPrice: Number(
-        variation.use_parent_price
-          ? parentById.get(String(variation.product_id))?.unit_price || 0
-          : variation.price || 0
-      ),
-    })),
-  ];
+  (parents || []).forEach((parent: any) => parentById.set(String(parent.id), parent));
+  return variations
+    .flatMap((variation: any) => {
+      const parent = parentById.get(String(variation.product_id));
+      if (!parent) return [];
+      return [
+        {
+          id: String(variation.id),
+          productId: String(variation.product_id),
+          variationId: String(variation.id),
+          name: variation.name || parent.name,
+          sku: variation.sku || parent.code || '',
+          sellingPrice: Number(
+            variation.use_parent_price ? parent.unit_price || 0 : variation.price || 0
+          ),
+        },
+      ];
+    })
+    .slice(0, 20);
 };
 
 export const getInboundInvoiceProductById = async (
@@ -129,7 +150,7 @@ export const fetchInboundInvoiceProductDetails = async (
   const { data: variations, error: variationsError } = canonicalVariationIds.length
     ? await supabase
         .from('product_variations')
-        .select('id, product_id, name, sku, price, use_parent_price')
+      .select('id, product_id, name, sku, price, use_parent_price')
         .in('id', canonicalVariationIds)
     : { data: [], error: null };
   if (variationsError) throw variationsError;

@@ -227,7 +227,7 @@ export function useProductsPageState({
     () =>
       filters.isDraft
         ? mode === 'composition'
-          ? 'Rascunhos de Composições'
+          ? 'Rascunhos de Produtos Compostos'
           : 'Rascunhos de Produtos'
         : undefined,
     [filters.isDraft, mode]

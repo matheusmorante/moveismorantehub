@@ -1,11 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  ActivityIndicator,
-  useWindowDimensions,
-} from 'react-native';
+import { View, Text, FlatList, ActivityIndicator } from 'react-native';
 import { useInvoices } from '../../hooks/useInvoices';
 import { FixedPageSlots } from '../../../../../components/shared/FixedPageSlots';
 import { InvoiceCard } from '../../components/InvoiceCard';
@@ -29,7 +23,6 @@ import {
 const ITEMS_PER_PAGE = stockService.ITEMS_PER_PAGE;
 
 type InvoiceListRow =
-  | { type: 'module'; id: 'module-header' }
   | { type: 'page'; id: 'page-header' }
   | { type: 'invoice'; id: string; invoice: Invoice }
   | { type: 'loading'; id: 'loading' }
@@ -39,12 +32,10 @@ type InvoiceListRow =
 interface Props {
   isDarkMode: boolean;
   onBack: () => void;
-  renderHeader: () => React.ReactElement;
+  renderHeader: (rightAction?: React.ReactNode) => React.ReactElement;
 }
 
 export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeader }) => {
-  const { width: viewportWidth } = useWindowDimensions();
-  const isCompactViewport = viewportWidth < 540;
   const listRef = useRef<FlatList<InvoiceListRow>>(null);
   const [summaryInvoiceForXmlImport, setSummaryInvoiceForXmlImport] = useState<Invoice | null>(null);
   const {
@@ -92,7 +83,6 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
   };
 
   const rows: InvoiceListRow[] = [
-    { type: 'module', id: 'module-header' },
     { type: 'page', id: 'page-header' },
     ...invoices.map((invoice) => ({ type: 'invoice' as const, id: invoice.id, invoice })),
   ];
@@ -112,15 +102,14 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
         ref={listRef}
         data={rows}
         keyExtractor={(item) => item.id}
-        stickyHeaderIndices={[1]}
+        stickyHeaderIndices={[0]}
         keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => {
-          if (item.type === 'module') return renderHeader();
           if (item.type === 'page')
             return (
               <InvoicesPageHeader
                 isDarkMode={isDarkMode}
-                isCompactViewport={isCompactViewport}
+                renderModuleHeader={renderHeader}
                 periodLabel={periodLabel}
                 dateFilter={dateFilter}
                 searchTerm={searchTerm}

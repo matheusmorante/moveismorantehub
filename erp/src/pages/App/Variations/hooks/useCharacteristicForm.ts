@@ -14,7 +14,8 @@ import {
   type CharacteristicSaveStatus,
   createManagedCharacteristicFormSchema,
   getInitialCharacteristicFormData,
-  isChoiceCharacteristicType,
+  isFactoryDefaultCharacteristicName,
+  normalizeManagedCharacteristicType,
 } from '../domain/characteristicFormRules';
 import { getCharacteristicTextLimits } from '../../../../../../shared-utils/characteristicTextLimits';
 
@@ -35,7 +36,11 @@ const getSortedInitialCharacteristicFormData = (
 interface UseCharacteristicFormParams {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onSuccess?: () => void | Promise<void>;
+  readonly onSuccess?: (
+    savedId: string,
+    values: CharacteristicFormData,
+    wasNew: boolean,
+  ) => void | Promise<void>;
   readonly variation?: VariationType | null;
   readonly allVariations?: readonly VariationType[];
   readonly groups?: readonly CharacteristicGroup[];
@@ -61,9 +66,13 @@ export const useCharacteristicForm = ({
     () => createManagedCharacteristicFormSchema(
       allVariations,
       variation?.id,
-      groups
+      groups,
+      true,
     ),
     [allVariations, groups, variation?.id]
+  );
+  const isFactoryDefault = Boolean(
+    variation?.id && isFactoryDefaultCharacteristicName(variation.name)
   );
   const { validateAndRun } = useZodForm(schema, formData);
 
@@ -75,7 +84,15 @@ export const useCharacteristicForm = ({
   }, [defaultGroupId, isOpen, variation?.id]);
 
   const changeFormData = (update: (current: CharacteristicFormData) => CharacteristicFormData) => {
-    setFormData((current) => update(current));
+    setFormData((current) => {
+      const updated = update(current);
+      if (!isFactoryDefault || !variation) return updated;
+      return {
+        ...updated,
+        name: variation.name,
+        dataType: normalizeManagedCharacteristicType(variation.dataType),
+      };
+    });
     setSaveStatus('saved');
     setSaveError('');
   };
@@ -95,29 +112,30 @@ export const useCharacteristicForm = ({
     setSaveStatus('saving');
     setSaveError('');
     try {
+      const wasNew = !variation?.id;
+      let savedValues = formData;
       const savedId = await validateAndRun(
         formData,
-        async (values) => saveVariation({
-          id: variation?.id,
-          name: values.name,
-          groupId: values.groupId,
-          options: values.dataType === 'boolean'
-            ? undefined
-            : (isChoiceCharacteristicType(values.dataType) ? values.options : []).map((option, index) => ({
-                ...option,
-                active: option.active !== false,
-                sortOrder: index,
-              })),
-          active: true,
-          dataType: values.dataType,
-          unit: values.unit.trim(),
-          decimalPlaces: values.dataType === 'decimal' ? values.decimalPlaces : undefined,
-          configuration: {
-            ...values.configuration,
-          },
-          dependency: null,
-          isCustom: variation?.isCustom ?? true,
-        }),
+        async (values) => {
+          savedValues = values;
+          const dataType = isFactoryDefault
+            ? normalizeManagedCharacteristicType(variation?.dataType)
+            : values.dataType;
+          return saveVariation({
+            id: variation?.id,
+            name: isFactoryDefault ? (variation?.name ?? values.name) : values.name,
+            groupId: values.groupId,
+            active: true,
+            dataType,
+            unit: values.unit.trim(),
+            decimalPlaces: dataType === 'decimal' ? values.decimalPlaces : undefined,
+            configuration: {
+              ...values.configuration,
+            },
+            dependency: null,
+            isCustom: variation?.isCustom ?? true,
+          });
+        },
         (errors) => {
           const firstError = Object.values(flattenFormErrors(errors))[0];
           setSaveStatus('error');
@@ -126,8 +144,8 @@ export const useCharacteristicForm = ({
       );
       if (savedId === false) return;
       setSaveStatus('saved');
-      await onSuccess?.();
-      onClose();
+      await onSuccess?.(savedId, savedValues, wasNew);
+      if (!wasNew || !onSuccess) onClose();
     } catch (error: unknown) {
       setSaveStatus('error');
       setSaveError(getVariationErrorMessage(error, 'Não foi possível salvar a característica.'));
@@ -138,6 +156,7 @@ export const useCharacteristicForm = ({
 
   return {
     formData,
+    isFactoryDefault,
     setFormData,
     changeFormData,
     handleTypeChange,

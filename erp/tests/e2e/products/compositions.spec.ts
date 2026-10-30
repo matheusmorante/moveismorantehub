@@ -37,7 +37,7 @@ test.describe('Módulo de Composições (Kit de Produtos)', () => {
     test('1. Deve criar uma composição com sucesso contendo produtos reais vinculados', async ({ page }) => {
         await page.goto('/products/compositions?auth_email=matheusmorante002@gmail.com&user_id=mock-e2e-master&auth_role=administrator');
         
-        const newCompositionBtn = page.getByRole('button', { name: /Nova Composição|\+ Composição/i });
+        const newCompositionBtn = page.getByRole('button', { name: /Novo Produto Composto|Nova Composição|\+ Composição/i });
         await newCompositionBtn.click();
 
         const nameInput = page.locator('input[placeholder*="Ex: Cozinha Compacta"]');
@@ -68,7 +68,7 @@ test.describe('Módulo de Composições (Kit de Produtos)', () => {
 
     test('2. Validação: Não deve permitir salvar composição sem nome', async ({ page }) => {
         await page.goto('/products/compositions?auth_email=matheusmorante002@gmail.com&user_id=mock-e2e-master&auth_role=administrator');
-        await page.getByRole('button', { name: /Nova Composição|\+ Composição/i }).click();
+        await page.getByRole('button', { name: /Novo Produto Composto|Nova Composição|\+ Composição/i }).click();
 
         // Tenta salvar direto sem preencher nada
         await page.getByRole('button', { name: /Salvar Composição/i }).click();
@@ -89,7 +89,7 @@ test.describe('Módulo de Composições (Kit de Produtos)', () => {
 
     test('3. UI/UX: Deve exibir o estado vazio "Composição vazia" quando não houver itens', async ({ page }) => {
         await page.goto('/products/compositions?auth_email=matheusmorante002@gmail.com&user_id=mock-e2e-master&auth_role=administrator');
-        await page.getByRole('button', { name: /Nova Composição|\+ Composição/i }).click();
+        await page.getByRole('button', { name: /Novo Produto Composto|Nova Composição|\+ Composição/i }).click();
 
         await page.getByRole('tab', { name: /Produtos Componentes/i }).click();
 
@@ -100,7 +100,7 @@ test.describe('Módulo de Composições (Kit de Produtos)', () => {
 
     test('4. Remoção de Item: Deve permitir excluir um componente da lista', async ({ page }) => {
         await page.goto('/products/compositions?auth_email=matheusmorante002@gmail.com&user_id=mock-e2e-master&auth_role=administrator');
-        await page.getByRole('button', { name: /Nova Composição|\+ Composição/i }).click();
+        await page.getByRole('button', { name: /Novo Produto Composto|Nova Composição|\+ Composição/i }).click();
 
         await page.getByRole('tab', { name: /Produtos Componentes/i }).click();
         await page.getByRole('button', { name: /Adicionar Produto/i }).click();

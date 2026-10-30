@@ -11,7 +11,7 @@ interface ProductsHeaderModeSelectorProps {
 }
 
 /**
- * Seletor de abas/modos da listagem: Produtos padrão, Composições e Ambientes/Categorias.
+ * Seletor de abas/modos da listagem: Produtos, Produto composto e Ambientes/Categorias.
  */
 export const ProductsHeaderModeSelector: React.FC<ProductsHeaderModeSelectorProps> = ({
   mode,
@@ -20,7 +20,7 @@ export const ProductsHeaderModeSelector: React.FC<ProductsHeaderModeSelectorProp
 }) => {
   const modes = [
     { key: 'standard' as const, label: 'Produtos' },
-    { key: 'composition' as const, label: 'Composições' },
+    { key: 'composition' as const, label: 'Produto composto' },
     { key: 'categories' as const, label: 'Ambientes e Categorias' },
   ].filter(({ key }) => availableModes.includes(key));
 

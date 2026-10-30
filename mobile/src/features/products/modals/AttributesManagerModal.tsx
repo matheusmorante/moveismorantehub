@@ -182,7 +182,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
       setNewConfigurationInputs({ minValue: '', maxValue: '', minSelections: '', maxSelections: '' });
       setNewOptionInput('');
       setNewOptions([]);
-      void load();
+      await load();
     } catch (error) {
       Alert.alert(
         'Não foi possível criar',
@@ -280,7 +280,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
           }, async () => {
             try {
               await deleteMobileAttributeValue(valId);
-              void load();
+              await load();
               return true;
             } catch (error) {
               Alert.alert(

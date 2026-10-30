@@ -1,7 +1,6 @@
 import type { ComponentType } from 'react';
 import {
   ArrowLeftRight,
-  BarChart3,
   BookOpen,
   ClipboardList,
   FileText,
@@ -20,12 +19,6 @@ export interface StockModuleItem {
 }
 
 export const STOCK_MODULES: StockModuleItem[] = [
-  {
-    key: 'summary',
-    title: 'Resumo',
-    description: 'Visão geral e atalhos do estoque',
-    Icon: BarChart3,
-  },
   {
     key: 'moves',
     title: 'Movimentações',

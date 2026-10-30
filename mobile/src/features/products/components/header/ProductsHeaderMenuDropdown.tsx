@@ -106,7 +106,7 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
               >
                 <PlusCircle size={18} color="#2563eb" />
                 <Text style={[styles.menuItemText, dark && styles.light]}>
-                  {mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}
+                  {mode === 'composition' ? 'Novo Produto Composto' : 'Novo Produto'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -120,7 +120,7 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
                 }}
               >
                 <PlusCircle size={18} color="#10b981" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>Nova Composição</Text>
+                <Text style={[styles.menuItemText, dark && styles.light]}>Novo Produto Composto</Text>
               </TouchableOpacity>
             )}
 

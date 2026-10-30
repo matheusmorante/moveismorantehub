@@ -1,11 +1,12 @@
-import { type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import type {
   default as VariationType,
   CharacteristicFillConfiguration,
   CharacteristicGroup,
+  VariationOption,
 } from '../../../types/variation.type';
-import { CharacteristicOptionsSection } from '../components/CharacteristicOptionsSection';
+import { saveCharacteristicOptions } from '../../../utils/variationService';
 import type { CharacteristicFormData } from '../domain/characteristicFormRules';
 import {
   getCharacteristicFillTypeLabel,
@@ -13,10 +14,15 @@ import {
   normalizeManagedCharacteristicType,
 } from '../domain/characteristicFormRules';
 import { useCharacteristicForm } from '../hooks/useCharacteristicForm';
+import { CharacteristicOptionsModal } from './CharacteristicOptionsModal';
 
 export interface VariationFormModalProps {
   readonly onClose: () => void;
-  readonly onSuccess?: () => void | Promise<void>;
+  readonly onSuccess?: (
+    savedId: string,
+    values: CharacteristicFormData,
+    wasNew: boolean,
+  ) => void | Promise<void>;
   readonly variation?: VariationType | null;
   readonly allVariations?: readonly VariationType[];
   readonly groups: readonly CharacteristicGroup[];
@@ -37,11 +43,13 @@ export const VariationFormModal = ({
   defaultGroupId,
 }: VariationFormModalProps) => {
   useBodyScrollLock(true);
+  const [optionsModalOpen, setOptionsModalOpen] = useState(false);
 
   const {
     formData,
     changeFormData,
     handleTypeChange,
+    isFactoryDefault,
     save,
     saveStatus,
     saveError,
@@ -71,7 +79,15 @@ export const VariationFormModal = ({
     void save();
   };
 
+  const saveOptions = async (options: VariationOption[]) => {
+    if (!variation?.id) throw new Error('Salve a característica para gravar as opções separadamente.');
+    const savedOptions = await saveCharacteristicOptions(variation.id, options);
+    changeFormData((current) => ({ ...current, options: savedOptions }));
+    return savedOptions;
+  };
+
   return (
+    <>
     <div className="characteristic-form-modal-overlay fixed inset-0 z-[1000033] flex items-center justify-center p-0">
       <button
         type="button"
@@ -107,7 +123,7 @@ export const VariationFormModal = ({
                   maxLength={80}
                   value={formData.name}
                   onChange={(event) => changeFormData((current) => ({ ...current, name: event.target.value }))}
-                  disabled={isSaving}
+                  disabled={isSaving || isFactoryDefault}
                   placeholder="Ex.: Material das portas"
                   className={underlineInput}
                 />
@@ -134,7 +150,7 @@ export const VariationFormModal = ({
                 <select
                   value={formData.dataType}
                   onChange={(event) => handleTypeChange(event.target.value as CharacteristicFormData['dataType'])}
-                  disabled={isSaving}
+                  disabled={isSaving || isFactoryDefault}
                   className={underlineInput}
                 >
                   <option value="text_short">{getCharacteristicFillTypeLabel('text_short')}</option>
@@ -172,14 +188,6 @@ export const VariationFormModal = ({
                   <label className="text-xs text-slate-500">Máximo de seleções<input type="number" min="0" value={formData.configuration.maxSelections ?? ''} onChange={(event) => updateConfiguration('maxSelections', numberValue(event.target.value))} disabled={isSaving} className={underlineInput} /></label>
                 </div>
               )}
-              {isChoiceCharacteristicType(formData.dataType) && (
-                <CharacteristicOptionsSection
-                  options={formData.options}
-                  onOptionsChange={(options) => changeFormData((current) => ({ ...current, options }))}
-                  disabled={isSaving}
-                  characteristicName={formData.name}
-                />
-              )}
               <p className="text-[11px] text-slate-400">Preenchimento: {getCharacteristicFillTypeLabel(formData.dataType)}.</p>
             </section>
             )}
@@ -190,14 +198,41 @@ export const VariationFormModal = ({
             <p role="status" aria-live="polite" className={`mb-3 min-h-4 text-xs ${saveStatus === 'error' ? 'text-red-600' : 'text-slate-500'}`}>
               {saveStatus === 'saving' ? 'Salvando característica…' : saveStatus === 'error' ? saveError : 'As alterações serão salvas ao confirmar.'}
             </p>
-            <div className="flex justify-end gap-3">
-              <button type="button" onClick={onClose} disabled={isSaving} className="px-3 py-2 text-sm font-medium text-slate-600 disabled:opacity-40 dark:text-slate-300">Cancelar</button>
-              <button type="submit" disabled={!canSave} className="px-4 py-2 text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-50">Salvar característica</button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {isChoiceCharacteristicType(formData.dataType) && (
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => setOptionsModalOpen(true)}
+                    disabled={isSaving || !variation?.id}
+                    title={!variation?.id ? 'Salve a característica para habilitar a gestão independente das opções.' : 'Gerenciar opções'}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-blue-300 dark:hover:bg-slate-800 sm:w-auto"
+                  >
+                    <i className="bi bi-list-ul" aria-hidden="true" />
+                    Gerenciar opções
+                    <span className="font-normal text-slate-500 dark:text-slate-400">({formData.options.length})</span>
+                  </button>
+                  {!variation?.id && <p className="text-[11px] text-slate-500">Salve a característica primeiro para cadastrar as opções separadamente.</p>}
+                </div>
+              )}
+              <div className="flex justify-end gap-3">
+                <button type="button" onClick={onClose} disabled={isSaving} className="px-3 py-2 text-sm font-medium text-slate-600 disabled:opacity-40 dark:text-slate-300">Cancelar</button>
+                <button type="submit" disabled={!canSave} className="px-4 py-2 text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 disabled:opacity-50">Salvar característica</button>
+              </div>
             </div>
           </footer>
         </form>
       </aside>
     </div>
+    {optionsModalOpen && isChoiceCharacteristicType(formData.dataType) && (
+      <CharacteristicOptionsModal
+        characteristicName={formData.name || 'Nova característica'}
+        options={formData.options}
+        onClose={() => setOptionsModalOpen(false)}
+        onSave={saveOptions}
+      />
+    )}
+    </>
   );
 };
 

@@ -126,7 +126,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
             <span>Fotos vinculadas</span>
           </h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            Vincule até {MAX_VARIATION_IMAGES} fotos do produto pai. É obrigatório vincular pelo menos 1 foto na variação para concluir o cadastro. Arraste para reordenar (1ª foto: Capa, 2ª foto: Imagem Secundária).
+            Fotos são opcionais. Vincule até {MAX_VARIATION_IMAGES} fotos do produto pai e arraste para reordenar (1ª foto: Capa, 2ª foto: Imagem Secundária).
           </p>
         </div>
 
@@ -138,7 +138,7 @@ export const VariationPhotosTab: React.FC<VariationPhotosTabProps> = ({
           }`}
         >
           {images.length === 0
-            ? 'Nenhuma foto vinculada (mín. 1)'
+            ? 'Nenhuma foto vinculada (opcional)'
             : `${images.length} de ${MAX_VARIATION_IMAGES} foto(s) vinculada(s)`}
         </span>
       </div>

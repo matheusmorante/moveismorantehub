@@ -87,14 +87,20 @@ export const InboundItemSingleMode: React.FC<InboundItemSingleModeProps> = ({
   return (
     /* ── Modo Único — buscar produto ── */
     <div className="space-y-2">
-      <ProductAutocomplete
-        supplierId={supplierId}
-        excludedProductLinks={excludedProductLinks}
-        isSelected={false}
-        placeholder="Digite 2 ou mais letras para buscar..."
-        onSelect={(product, variation) => onSelectProduct(item.itemNumber, product, variation)}
-        onEditClick={onRequestEditProduct}
-      />
+      <div className="flex flex-wrap items-start gap-2 sm:flex-nowrap">
+        <div className="min-w-0 flex-1">
+          <ProductAutocomplete
+            className="w-full"
+            supplierId={supplierId}
+            variationsOnly
+            excludedProductLinks={excludedProductLinks}
+            isSelected={false}
+            placeholder="Digite 2 ou mais letras para buscar..."
+            onSelect={(product, variation) => onSelectProduct(item.itemNumber, product, variation)}
+            onEditClick={onRequestEditProduct}
+          />
+        </div>
+      </div>
       {suggestion && (
         <div className="rounded-xl border border-amber-300 bg-amber-50/70 px-3 py-1.5 dark:border-amber-700/80 dark:bg-amber-950/30 flex items-center justify-between gap-2 shadow-xs transition-all animate-in fade-in slide-in-from-top-1 duration-200">
           <span

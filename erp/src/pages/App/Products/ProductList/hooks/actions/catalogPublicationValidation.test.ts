@@ -97,6 +97,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       height: 80,
       depth: 90,
       weight: 30,
+      technicalValues: { Marca: 'Morante', 'Modelo/Linha': 'Dora' },
     };
 
     const result = validateCatalogPublication(validProduct as Product);
@@ -113,7 +114,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       unitPrice: 100,
       images: ['https://example.com/conjunto.jpg'],
       categoryIds: ['cat-kit'],
-      technicalValues: {},
+      technicalValues: { Marca: 'Morante', 'Modelo/Linha': 'Dora' },
       selectedCharacteristicIds: [],
       activeCharacteristicIds: [],
     };
@@ -140,7 +141,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       height: 80,
       depth: 90,
       weight: 30,
-      technicalValues: {},
+      technicalValues: { Marca: 'Morante', 'Modelo/Linha': 'Dora' },
     };
     const requirements = [
       { name: 'Acabamento', categoryApplications: [], requiredCategoryIds: ['cat-mesas'] },
@@ -151,12 +152,74 @@ describe('Validação de Publicação no Catálogo Digital', () => {
     expect(result.errorMessage).toContain('Acabamento');
 
     const completedResult = validateCatalogPublication(
-      { ...product, technicalValues: { Acabamento: 'Laca' } } as Product,
+      { ...product, technicalValues: { ...product.technicalValues, Acabamento: 'Laca' } } as Product,
       undefined,
       false,
       requirements
     );
     expect(completedResult.isValid).toBe(true);
+  });
+
+  it('valida o requisito do Catálogo mesmo quando a aplicação no formulário da Categoria é indisponível', () => {
+    const product: Partial<Product> = {
+      id: 'prod-unavailable-catalog-required',
+      name: 'Mesa de Jantar',
+      description: 'Mesa de jantar de madeira',
+      status: 'hidden',
+      unitPrice: 1200,
+      images: ['https://example.com/mesa.jpg'],
+      categoryIds: ['cat-mesas'],
+      width: 160,
+      height: 80,
+      depth: 90,
+      technicalValues: { Marca: 'Morante', 'Modelo/Linha': 'Dora' },
+    };
+    const requirements = [{
+      id: 'finish',
+      name: 'Acabamento',
+      active: false,
+      groupId: 'group-finish',
+      categoryApplications: [{ categoryId: 'cat-mesas', application: 'unavailable' as const }],
+      unavailableCategoryIds: ['cat-mesas'],
+      requiredCategoryIds: ['cat-mesas'],
+    }];
+
+    const missing = validateCatalogPublication(product as Product, undefined, false, requirements);
+    expect(missing.isValid).toBe(false);
+    expect(missing.errorMessage).toContain('Acabamento');
+
+    const filled = validateCatalogPublication(
+      { ...product, technicalValues: { ...product.technicalValues, Acabamento: 'Laca' } } as Product,
+      undefined,
+      false,
+      requirements
+    );
+    expect(filled.isValid).toBe(true);
+  });
+
+  it('não trata uma característica obrigatória só no formulário como requisito do Catálogo', () => {
+    const product: Partial<Product> = {
+      id: 'prod-entry-required-only',
+      name: 'Mesa de Jantar',
+      description: 'Mesa de jantar de madeira',
+      status: 'hidden',
+      unitPrice: 1200,
+      images: ['https://example.com/mesa.jpg'],
+      categoryIds: ['cat-mesas'],
+      width: 160,
+      height: 80,
+      depth: 90,
+      technicalValues: { Marca: 'Morante', 'Modelo/Linha': 'Dora' },
+    };
+    const requirements = [{
+      id: 'finish-entry-only',
+      name: 'Acabamento',
+      categoryApplications: [{ categoryId: 'cat-mesas', application: 'required' as const }],
+      requiredProductCategoryIds: ['cat-mesas'],
+    }];
+
+    const result = validateCatalogPublication(product as Product, undefined, false, requirements);
+    expect(result.isValid).toBe(true);
   });
 
   it('cobra características opcionais ativadas e ignora dependências ocultas', () => {
@@ -175,6 +238,8 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       selectedCharacteristicIds: ['drawer-quantity', 'drawer-runner'],
       activeCharacteristicIds: ['drawer-quantity', 'drawer-runner'],
       technicalValues: {
+        Marca: 'Morante',
+        'Modelo/Linha': 'Matriz',
         'Quantidade de gavetas': 2,
         'Tipo de corrediça': '',
       },
@@ -208,7 +273,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
         ...product,
         selectedCharacteristicIds: [],
         activeCharacteristicIds: [],
-        technicalValues: {},
+        technicalValues: { Marca: 'Morante', 'Modelo/Linha': 'Dora' },
       } as Product,
       undefined,
       false,
@@ -232,6 +297,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       {
         ...product,
         technicalValues: {
+          ...product.technicalValues,
           'Quantidade de gavetas': 1,
           'Tipo de corrediça': '',
         },
@@ -247,6 +313,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       {
         ...product,
         technicalValues: {
+          ...product.technicalValues,
           'Quantidade de gavetas': 2,
           'Tipo de corrediça': 'Não informar',
         },
@@ -265,6 +332,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
         selectedCharacteristicIds: [],
         activeCharacteristicIds: [],
         technicalValues: {
+          ...product.technicalValues,
           'Quantidade de gavetas': 2,
           'Tipo de corrediça': 'Correr',
           'Material das gavetas': '',
@@ -283,6 +351,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
         selectedCharacteristicIds: [],
         activeCharacteristicIds: [],
         technicalValues: {
+          ...product.technicalValues,
           'Quantidade de gavetas': 2,
           'Tipo de corrediça': 'Correr',
           'Material das gavetas': '',
@@ -299,12 +368,17 @@ describe('Validação de Publicação no Catálogo Digital', () => {
     );
     expect(requiredCharacteristicDoesNotRequireItsWholeGroup.isValid).toBe(true);
 
-    const requiredCharacteristicMissing = validateCatalogPublication(
+    const entryRequiredCharacteristic = validateCatalogPublication(
       {
         ...product,
         selectedCharacteristicIds: [],
         activeCharacteristicIds: [],
-        technicalValues: { 'Quantidade de gavetas': '', 'Tipo de corrediça': '', 'Material das gavetas': '' },
+        technicalValues: {
+          ...product.technicalValues,
+          'Quantidade de gavetas': '',
+          'Tipo de corrediça': '',
+          'Material das gavetas': '',
+        },
       } as Product,
       undefined,
       false,
@@ -315,9 +389,8 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       ],
       { characteristicGroups }
     );
-    expect(requiredCharacteristicMissing.isValid).toBe(false);
-    expect(requiredCharacteristicMissing.errorMessage).toContain('Quantidade de gavetas');
-    expect(requiredCharacteristicMissing.errorMessage).not.toContain('Material das gavetas');
+    expect(entryRequiredCharacteristic.isValid).toBe(true);
+    expect(entryRequiredCharacteristic.errorMessage).toBeUndefined();
 
     const zeroDoorDrawerQuantity = validateCatalogPublication(
       {
@@ -325,6 +398,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
         selectedCharacteristicIds: [],
         activeCharacteristicIds: [],
         technicalValues: {
+          ...product.technicalValues,
           'Quantidade de gavetas': 0,
           'Tipo de corrediça': '',
           'Material das gavetas': '',
@@ -357,7 +431,7 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       depth: 90,
       weight: 30,
       variableTechnicalFields: ['Modelo/Linha'],
-      technicalValues: { 'Modelo/Linha': 'Matriz' },
+      technicalValues: { Marca: 'Morante', 'Modelo/Linha': 'Matriz' },
       variations: [
         { id: 'var-1', active: true, technicalValues: { 'Modelo/Linha': 'Linha A' } },
         { id: 'var-2', active: true, technicalValues: { 'Modelo/Linha': '' } },

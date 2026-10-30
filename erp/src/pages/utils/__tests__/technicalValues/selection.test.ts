@@ -50,7 +50,6 @@ describe('technicalValues - Seleção e Aplicabilidade de Campos', () => {
       },
       {
         id: 'finish', name: 'Acabamento', dataType: 'text', options: [], active: true,
-        requiredCategoryIds: ['tables'],
         categoryApplications: [{ categoryId: 'tables', application: 'optional' }],
       },
     ];
@@ -60,11 +59,12 @@ describe('technicalValues - Seleção e Aplicabilidade de Campos', () => {
       isRequired: false,
       isRequiredForCatalog: false,
     });
+    expect(tableFields.find((field) => field.id === 'top')?.isRequiredForCatalog).toBe(false);
     expect(getApplicableTechnicalFields(fields, ['beds'], {}, [], ['Camas']).map((field) => field.id))
       .not.toContain('top');
   });
 
-  it('preserva uma exigência do catálogo enquanto a aplicação da característica está pendente', () => {
+  it('adiciona uma exigência do catálogo mesmo quando a aplicação do formulário diz indisponível', () => {
     const [pendingField] = getApplicableTechnicalFields(
       [{
         id: 'pending-catalog-field', name: 'Acabamento', dataType: 'text', options: [],
@@ -74,15 +74,52 @@ describe('technicalValues - Seleção e Aplicabilidade de Campos', () => {
     );
     const unavailableFields = getApplicableTechnicalFields(
       [{
-        id: 'unavailable-catalog-field', name: 'Acabamento', dataType: 'text', options: [],
+        id: 'unavailable-catalog-field', name: 'Acabamento', dataType: 'text', options: [], active: false,
         categoryApplications: [{ categoryId: 'cat-a', application: 'unavailable' }],
-        requiredCategoryIds: ['cat-a'], active: true,
+        requiredCategoryIds: ['cat-a'],
       }],
       ['cat-a']
     );
 
     expect(pendingField).toMatchObject({ isRequired: false, isRequiredForCatalog: true });
-    expect(unavailableFields).toEqual([]);
+    expect(unavailableFields).toHaveLength(1);
+    expect(unavailableFields[0]).toMatchObject({ isRequired: false, isRequiredForCatalog: true });
+  });
+
+  it.each(['Marca', 'Modelo/Linha'])('%s fica disponível para o Catálogo sem virar requisito de cadastro', (name) => {
+    const [field] = getApplicableTechnicalFields(
+      [{ id: name, name, dataType: 'text', options: [], active: false }],
+      ['cat-a']
+    );
+
+    expect(field).toMatchObject({ isRequired: false, isRequiredForCatalog: true });
+  });
+
+  it('inclui uma característica obrigatória no Catálogo mesmo quando a regra especial da categoria a excluiria', () => {
+    const [field] = getApplicableTechnicalFields(
+      [{
+        id: 'retractable', name: 'Reclinável', dataType: 'boolean', options: [], active: false,
+        requiredCategoryIds: ['cat-a'],
+      }],
+      ['cat-a'],
+      {},
+      [],
+      ['Camas']
+    );
+
+    expect(field).toMatchObject({ isRequired: false, isRequiredForCatalog: true });
+  });
+
+  it('não confunde aplicação obrigatória no formulário com atributo obrigatório do Catálogo', () => {
+    const [field] = getApplicableTechnicalFields(
+      [{
+        id: 'entry-required', name: 'Acabamento', dataType: 'text', options: [], active: true,
+        categoryApplications: [{ categoryId: 'cat-a', application: 'required' }],
+      }],
+      ['cat-a']
+    );
+
+    expect(field).toMatchObject({ isRequired: true, isRequiredForCatalog: false });
   });
 
   it('agrupa requisitos da mesma característica Modelo/Linha apesar de IDs e aliases distintos', () => {

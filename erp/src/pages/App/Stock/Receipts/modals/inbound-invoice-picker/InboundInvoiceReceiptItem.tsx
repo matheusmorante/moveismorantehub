@@ -17,7 +17,13 @@ export const InboundInvoiceReceiptItem: React.FC<InboundInvoiceReceiptItemProps>
   const isFullyLinked = Boolean(
     inv.items &&
       inv.items.length > 0 &&
-      inv.items.every((item) => Boolean(item.matchedProductId))
+      inv.items.every((item) =>
+        item.linkMode === 'not_applicable'
+          ? true
+          : item.linkMode === 'composition'
+            ? Boolean(item.compositionLinks?.some((link) => link.productId))
+            : Boolean(item.matchedProductId)
+      )
   );
 
   return (

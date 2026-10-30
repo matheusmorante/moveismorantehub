@@ -84,6 +84,12 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
   const isDeliveryInfoStale = [...DELIVERY_ACTION_KEYS].some((key) =>
     staleButtons?.[key as keyof IsButtonsClicked]
   );
+  const isDeliveryInfoComplete = [...DELIVERY_ACTION_KEYS]
+    .filter((key) => isAdministrator || key !== 'sendCustomerOrderDirectApi')
+    .every((key) => Boolean(clickedButtons[key]));
+  const deliveryInfoStatusClasses = isDeliveryInfoStale
+    ? 'text-[#3b1900] bg-amber-400 hover:bg-amber-300 border-amber-500 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40'
+    : `${isPickupOrder ? 'text-purple-600 bg-purple-50 dark:bg-purple-900/20' : 'text-orange-600 bg-orange-50 dark:bg-orange-900/20'} ${isDeliveryInfoComplete ? 'border-emerald-500 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : 'border-slate-100 dark:border-slate-800'}`;
 
   const handleMarkActionCompleted = async (key: keyof IsButtonsClicked) => {
     setClickedButtons((prev) => ({ ...prev, [key]: true }));
@@ -218,8 +224,13 @@ const PostOrderActionsModal: React.FC<PostOrderActionsModalProps> = ({
                 type="button"
                 title={deliveryModalLabel}
                 onClick={() => setIsDeliveryModalOpen(true)}
-                className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all relative min-h-[100px] hover:-translate-y-1 hover:shadow-lg ${isDeliveryInfoStale ? 'text-[#3b1900] bg-amber-400 hover:bg-amber-300 border-amber-500 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/40' : `border-slate-100 dark:border-slate-800 ${isPickupOrder ? 'text-purple-600 bg-purple-50 dark:bg-purple-900/20' : 'text-orange-600 bg-orange-50 dark:bg-orange-900/20'}`}`}
+                className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all relative min-h-[100px] hover:-translate-y-1 hover:shadow-lg ${deliveryInfoStatusClasses}`}
               >
+                {isDeliveryInfoComplete && !isDeliveryInfoStale && (
+                  <div className="absolute top-2 right-2 bg-emerald-500 text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-in zoom-in duration-300">
+                    <i className="bi bi-check text-sm font-black" aria-hidden="true" />
+                  </div>
+                )}
                 {isPickupOrder ? (
                   <PickupIcon className="mb-2 h-7 w-7" />
                 ) : (

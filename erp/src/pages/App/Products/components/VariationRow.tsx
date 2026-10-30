@@ -86,7 +86,7 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
 							isEditable
 								? varImage
 									? "Clique para editar detalhes da variação"
-									: "Sem foto vinculada — clique para vincular (obrigatório)"
+									: "Sem foto vinculada — clique para vincular (opcional)"
 								: "Produto simples: a variação herda as fotos do produto e não pode ser editada."
 						}
 						onClick={() => onEdit?.(v.id)}

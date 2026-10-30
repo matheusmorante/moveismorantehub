@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, type ReactNode } from 'react';
 import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { ArrowLeft, ChevronRight } from 'lucide-react-native';
 
-import { StockSummaryScreen } from '../StockSummaryScreen';
 import { StockMovesScreen } from '../../moves';
 import { InventoryScreen } from '../../inventory';
 import { PurchasesScreen } from '../../purchases/PurchasesScreen';
@@ -29,7 +28,7 @@ export const NativeStockScreen: React.FC<Props> = ({
     selectedModuleIndex === null ? null : STOCK_MODULES[selectedModuleIndex];
   const returnToMenu = () => setSelectedModuleIndex(null);
 
-  const renderModuleHeader = () => (
+  const renderModuleHeader = (rightAction?: ReactNode) => (
     <View style={[styles.moduleHeader, isDarkMode && styles.moduleHeaderDark]}>
       <TouchableOpacity
         style={[styles.backButton, isDarkMode && styles.backButtonDark]}
@@ -40,22 +39,17 @@ export const NativeStockScreen: React.FC<Props> = ({
         <ArrowLeft size={18} color={isDarkMode ? '#f8fafc' : '#334155'} />
       </TouchableOpacity>
       <Text style={[styles.moduleTitle, isDarkMode && styles.textLight]} numberOfLines={1}>
-        {selectedModule?.title}
+        {selectedModule?.key === 'invoices'
+          ? 'Notas Fiscais de Entrada'
+          : selectedModule?.title}
       </Text>
+      {rightAction}
     </View>
   );
 
   const renderSelectedModule = () => {
-    switch (selectedModuleIndex) {
-      case 0:
-        return (
-          <StockSummaryScreen
-            isDarkMode={isDarkMode}
-            renderHeader={renderModuleHeader}
-            onNavigate={(index) => setSelectedModuleIndex(index)}
-          />
-        );
-      case 1:
+    switch (selectedModule?.key) {
+      case 'moves':
         return (
           <StockMovesScreen
             isDarkMode={isDarkMode}
@@ -63,7 +57,7 @@ export const NativeStockScreen: React.FC<Props> = ({
             onBack={returnToMenu}
           />
         );
-      case 2:
+      case 'inventory':
         return (
           <InventoryScreen
             isDarkMode={isDarkMode}
@@ -72,7 +66,7 @@ export const NativeStockScreen: React.FC<Props> = ({
             onBack={returnToMenu}
           />
         );
-      case 3:
+      case 'purchases':
         return (
           <PurchasesScreen
             isDarkMode={isDarkMode}
@@ -80,7 +74,7 @@ export const NativeStockScreen: React.FC<Props> = ({
             onBack={returnToMenu}
           />
         );
-      case 4:
+      case 'invoices':
         return (
           <InvoicesScreen
             isDarkMode={isDarkMode}
@@ -88,7 +82,7 @@ export const NativeStockScreen: React.FC<Props> = ({
             onBack={returnToMenu}
           />
         );
-      case 5:
+      case 'receipts':
         return (
           <ReceiptsScreen
             isDarkMode={isDarkMode}
@@ -96,7 +90,7 @@ export const NativeStockScreen: React.FC<Props> = ({
             onBack={returnToMenu}
           />
         );
-      case 6:
+      case 'suppliers':
         return (
           <SuppliersScreen
             isDarkMode={isDarkMode}
@@ -104,7 +98,7 @@ export const NativeStockScreen: React.FC<Props> = ({
             onBack={returnToMenu}
           />
         );
-      case 7:
+      case 'unavailabilities':
         return (
           <UnavailabilitiesScreen
             isDarkMode={isDarkMode}

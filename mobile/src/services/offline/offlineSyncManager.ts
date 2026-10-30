@@ -80,11 +80,18 @@ const eventPatch = (event: SyncEvent): Record<string, unknown> => {
     ...(event.payload as Record<string, unknown>),
     lastSyncEventId: event.eventId,
   };
+  if (event.type === 'DELIVERY_START_PREPARATION')
+    return {
+      ...base,
+      deliveryPreparationStartedAt:
+        (event.payload as any)?.deliveryPreparationStartedAt ?? event.occurredAt,
+    };
   if (event.type === 'DELIVERY_START_ROUTE')
     return {
       ...base,
       deliveryStatus: 'in_progress',
       deliveryStartedAt: event.occurredAt,
+      deliveryPreparationStartedAt: null,
       deliveryResponsibles:
         (event.payload as any)?.deliveryResponsibles ?? base.deliveryResponsibles,
       deliveryResponsibleName:
@@ -133,6 +140,7 @@ const eventPatch = (event: SyncEvent): Record<string, unknown> => {
       deliveryArrivedAt: null,
       deliveryServiceStartedAt: null,
       deliveryFinishedAt: null,
+      deliveryPreparationStartedAt: null,
       deliveryChecklist: null,
       unattendedAt: null,
       unattendedReason: null,

@@ -60,75 +60,83 @@ export function InboundReceiptItemRow({
 
         {/* Lado direito: vínculo com produto do ERP */}
         <div className="space-y-3 bg-slate-50/80 dark:bg-slate-800/40 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                {item.linkMode === 'composition'
-                  ? 'Vincular produtos cadastrados'
-                  : 'Vincular produto cadastrado'}
-              </span>
-              {/* Toggle Único / Composição */}
-              <div className="flex items-center rounded-lg bg-white p-0.5 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700 shrink-0">
+          {item.linkMode === 'not_applicable' ? (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+              Não se aplica. Este item será ignorado no recebimento e não movimentará o estoque. Para alterar, volte a Gerenciar vínculos da NF-e.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                    {item.linkMode === 'composition'
+                      ? 'Vincular produtos cadastrados'
+                      : 'Vincular produto cadastrado'}
+                  </span>
+                  <div className="flex items-center rounded-lg bg-white p-0.5 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onChange(item.itemNumber, { linkMode: 'single' })}
+                      className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
+                        item.linkMode !== 'composition'
+                          ? 'bg-slate-700 text-white shadow-sm'
+                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      Único
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onChange(item.itemNumber, { linkMode: 'composition' })}
+                      className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
+                        item.linkMode === 'composition'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      Composição
+                    </button>
+                  </div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => onChange(item.itemNumber, { linkMode: 'single' })}
-                  className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
-                    item.linkMode !== 'composition'
-                      ? 'bg-slate-700 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
+                  onClick={() => onQuickRegister(item.itemNumber, item)}
+                  className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer bg-white dark:bg-slate-900 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-900 shadow-sm flex items-center gap-1"
                 >
-                  Único
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChange(item.itemNumber, { linkMode: 'composition' })}
-                  className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${
-                    item.linkMode === 'composition'
-                      ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
-                >
-                  Composição
+                  <i className="bi bi-plus-circle-fill"></i> Cadastrar rapidamente
                 </button>
               </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => onQuickRegister(item.itemNumber, item)}
-              className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer bg-white dark:bg-slate-900 px-2 py-1 rounded-lg border border-emerald-200 dark:border-emerald-900 shadow-sm flex items-center gap-1"
-            >
-              <i className="bi bi-plus-circle-fill"></i> Cadastrar rapidamente
-            </button>
-          </div>
 
-          {item.linkMode === 'composition' ? (
-            <InboundCompositionManager
-              composition={item.composition || []}
-              onChangeComposition={(newComp) => onChange(item.itemNumber, { composition: newComp })}
-              totalItemCost={item.unitCost * item.quantity}
-            />
-          ) : (
-            <ProductAutocomplete
-              value={item.linkedProductName || ''}
-              onSelect={(prod, variation) => {
-                onChange(item.itemNumber, {
-                  linkedProductId: prod.id,
-                  linkedVariationId:
-                    variation?.id ||
-                    ((prod as Record<string, unknown>).variationId as string | undefined),
-                  linkedProductName: variation?.name || prod.name || prod.title,
-                  linkStatus: 'automatic',
-                });
-              }}
-              placeholder="Buscar produto no catálogo..."
-            />
+              {item.linkMode === 'composition' ? (
+                <InboundCompositionManager
+                  composition={item.composition || []}
+                  onChangeComposition={(newComp) => onChange(item.itemNumber, { composition: newComp })}
+                  totalItemCost={item.unitCost * item.quantity}
+                />
+              ) : (
+                <ProductAutocomplete
+                  value={item.linkedProductName || ''}
+                  onSelect={(prod, variation) => {
+                    onChange(item.itemNumber, {
+                      linkedProductId: prod.id,
+                      linkedVariationId:
+                        variation?.id ||
+                        ((prod as Record<string, unknown>).variationId as string | undefined),
+                      linkedProductName: variation?.name || prod.name || prod.title,
+                      linkStatus: 'automatic',
+                    });
+                  }}
+                  placeholder="Buscar produto no catálogo..."
+                />
+              )}
+            </>
           )}
         </div>
       </div>
 
       {/* Bloco Inferior: Custos, Desconto, Frete e Total */}
-      <div className="flex flex-wrap items-end gap-3 pt-2">
+      {item.linkMode !== 'not_applicable' && (
+        <div className="flex flex-wrap items-end gap-3 pt-2">
         <label className="flex-1 min-w-fit flex flex-col gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
           <span className="whitespace-nowrap">Qtd. Nota</span>
           <span className="text-[9px] font-medium tracking-normal text-slate-400 whitespace-nowrap">
@@ -194,7 +202,8 @@ export function InboundReceiptItemRow({
           colorClass="text-slate-800 dark:text-slate-100"
           boldValue
         />
-      </div>
+        </div>
+      )}
     </div>
   );
 }

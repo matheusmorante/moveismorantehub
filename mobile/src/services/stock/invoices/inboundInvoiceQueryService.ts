@@ -16,7 +16,7 @@ export const fetchInboundInvoices = async (page: number) => {
 
   const { data, error } = await supabase
     .from('inbound_invoices')
-    .select('*, inbound_invoice_items(*)')
+    .select('*, inbound_invoice_items(*), supplier:people(stock_origins)')
     .order('data_emissao', { ascending: false })
     .range(from, to);
 
@@ -46,7 +46,7 @@ export const fetchInboundInvoicesPage = async ({
   let query = supabase
     .from('inbound_invoices')
     .select(
-      'id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,data_emissao,valor_total,status_recebimento,itens,xml_conteudo,inbound_invoice_items(*)',
+      'id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,data_emissao,valor_total,status_recebimento,itens,xml_conteudo,supplier:people(stock_origins),inbound_invoice_items(*)',
       { count: 'exact' }
     );
 
@@ -82,7 +82,7 @@ export const fetchInboundInvoiceDetails = async (invoiceId: string) => {
   const { data, error } = await supabase
     .from('inbound_invoices')
     .select(
-      'id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,emitente_ie,destinatario_nome,destinatario_cnpj,data_emissao,data_saida_entrada,natureza_operacao,modelo,protocolo,informacoes_adicionais,valor_produtos,valor_frete,valor_ipi,valor_desconto,valor_seguro,outras_despesas,valor_icms,valor_icms_st,valor_total,status_recebimento,xml_conteudo,updated_at,itens,inbound_invoice_items(*)'
+      'id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,emitente_ie,destinatario_nome,destinatario_cnpj,data_emissao,data_saida_entrada,natureza_operacao,modelo,protocolo,informacoes_adicionais,valor_produtos,valor_frete,valor_ipi,valor_desconto,valor_seguro,outras_despesas,valor_icms,valor_icms_st,valor_total,status_recebimento,xml_conteudo,updated_at,itens,supplier:people(stock_origins),inbound_invoice_items(*)'
     )
     .eq('id', invoiceId)
     .maybeSingle();

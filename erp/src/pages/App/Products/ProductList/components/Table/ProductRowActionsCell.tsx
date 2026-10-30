@@ -37,6 +37,7 @@ export interface ProductRowActionsCellProps {
   readonly onOpenLabelModal: (type: LabelPrintType) => void;
   readonly onMoveToAnotherFamily?: (product: Product) => void;
   readonly onMergeWithAnotherVariation?: (product: Product) => void;
+  readonly onMergeDuplicateProduct?: (product: Product) => void;
   readonly onRefresh?: () => void;
 }
 
@@ -61,6 +62,7 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
   onOpenLabelModal,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
+  onMergeDuplicateProduct,
   onRefresh,
 }) => {
   const { profile } = useAuth();
@@ -106,6 +108,7 @@ export const ProductRowActionsCell: React.FC<ProductRowActionsCellProps> = ({
           onOpenLabelModal={onOpenLabelModal}
           onMoveToAnotherFamily={onMoveToAnotherFamily}
           onMergeWithAnotherVariation={onMergeWithAnotherVariation}
+          onMergeDuplicateProduct={onMergeDuplicateProduct}
         />
       )}
     </td>

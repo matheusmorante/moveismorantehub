@@ -238,8 +238,6 @@ export const validateProductFormSubmission = (
   const variations = formData.variations || [];
   const isMultiVariationMode = Boolean(formData.hasVariations) || variations.length > 1;
   const isSingleVariation = variations.length === 1 && !isMultiVariationMode;
-  const parentImages = Array.isArray(formData.images) ? formData.images.filter(Boolean) : [];
-
   const schemaVariationIssues = result.success
     ? []
     : result.error.issues.flatMap((issue) => {
@@ -260,29 +258,6 @@ export const validateProductFormSubmission = (
         }];
       });
 
-  // Validação de conformidade: cada variação deve ter pelo menos 1 foto vinculada para concluir o cadastro
-  const variationMissingImageIndex = variations.findIndex((v) => {
-    if (!v || typeof v !== 'object') return false;
-    const imgs = Array.isArray(v.images)
-      ? v.images.filter(Boolean)
-      : typeof (v as any).image_url === 'string' && (v as any).image_url.trim()
-        ? (v as any).image_url.split(',').filter(Boolean)
-        : [];
-    return imgs.length === 0 && (isMultiVariationMode || parentImages.length === 0);
-  });
-
-  const imageVariationIssue = variationMissingImageIndex >= 0
-    ? (() => {
-        const variation = variations[variationMissingImageIndex];
-        const message = `A variação "${variation.name || variation.sku || 'sem nome'}" deve ter pelo menos 1 foto vinculada para concluir o cadastro.`;
-        return {
-          index: variationMissingImageIndex,
-          source: 'image' as const,
-          variation,
-        issue: { message, tab: 'fotos', fieldKey: 'images' },
-        };
-      })()
-    : undefined;
   const registrationVariationIssue = variations.flatMap((variation, index) => {
     const issue = getVariationRegistrationIssue(formData, variation);
     return issue
@@ -295,10 +270,9 @@ export const validateProductFormSubmission = (
       : [];
   })[0];
 
-  const issueSourcePriority = { schema: 0, image: 1, registration: 2 };
+  const issueSourcePriority = { schema: 0, registration: 1 };
   const invalidCandidate = [
     ...schemaVariationIssues,
-    ...(imageVariationIssue ? [imageVariationIssue] : []),
     ...(registrationVariationIssue ? [registrationVariationIssue] : []),
   ].sort((left, right) =>
     left.index - right.index || issueSourcePriority[left.source] - issueSourcePriority[right.source]

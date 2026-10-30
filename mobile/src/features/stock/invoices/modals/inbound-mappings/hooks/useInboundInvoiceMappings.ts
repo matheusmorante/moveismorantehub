@@ -9,6 +9,7 @@ import * as stockService from '../../../../../../services/stockService';
 import type { Invoice } from '../../../../types/stock.types';
 import {
   applyProductLinkToMappingItems,
+  buildNotApplicableItems,
   buildCompositionMigratedItems,
   buildSingleModeItems,
   clearAllMappingItemLinks,
@@ -22,6 +23,8 @@ import { useInboundMappingSearches } from './useInboundMappingSearches';
 import { useInboundMappingSuggestions } from './useInboundMappingSuggestions';
 import { useInboundQuickRegistration } from './useInboundQuickRegistration';
 import type { CompositionLink, MappingItem, Product, Supplier } from '../types';
+import { isSalvadosOnlySupplier } from '../../../../../../../../shared-utils/productSupplierStockOrigin';
+import { markInboundInvoiceItemsNotApplicable } from '../../../../../../../../shared-utils/inboundInvoiceSupplierRules';
 
 interface UseInboundInvoiceMappingsParams {
   invoice: Invoice | null;
@@ -37,6 +40,7 @@ export const useInboundInvoiceMappings = ({
   const [details, setDetails] = useState<any>(null);
   const [items, setItems] = useState<MappingItem[]>([]);
   const [supplierId, setSupplierId] = useState('');
+  const [supplierStockOrigins, setSupplierStockOrigins] = useState<string[] | undefined>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -60,8 +64,16 @@ export const useInboundInvoiceMappings = ({
     }
   );
 
-  const searchState = useInboundMappingSearches({ visible, supplierId });
-  const suggestionState = useInboundMappingSuggestions({ visible, supplierId, items });
+  const isSalvadosSupplier = isSalvadosOnlySupplier(supplierStockOrigins ?? invoice?.supplierStockOrigins);
+  const searchState = useInboundMappingSearches({
+    visible: visible && !isSalvadosSupplier,
+    supplierId: isSalvadosSupplier ? '' : supplierId,
+  });
+  const suggestionState = useInboundMappingSuggestions({
+    visible: visible && !isSalvadosSupplier,
+    supplierId: isSalvadosSupplier ? '' : supplierId,
+    items: isSalvadosSupplier ? [] : items,
+  });
 
   useEffect(() => {
     if (!visible || !invoice) return;
@@ -69,12 +81,18 @@ export const useInboundInvoiceMappings = ({
     uncertainSupplierCodeOperation.current = '';
     setLoading(true);
     setErrorMessage('');
+    setSupplierStockOrigins(invoice.supplierStockOrigins);
+    setSupplierId('');
+    setItems([]);
     void stockService
       .fetchInboundInvoiceForMappings(invoice.id)
       .then(async (result) => {
         if (!active) return;
+        const resolvedOrigins = result.supplierStockOrigins ?? invoice.supplierStockOrigins;
+        const salvadosOnly = isSalvadosOnlySupplier(resolvedOrigins);
+        if (salvadosOnly) result.items = markInboundInvoiceItemsNotApplicable(result.items);
         let mappings = new Map<string, any>();
-        if (result.supplier_id && result.items.length) {
+        if (!salvadosOnly && result.supplier_id && result.items.length) {
           try {
             mappings = await stockService.findInboundSupplierProductCodes(
               result.supplier_id,
@@ -87,21 +105,25 @@ export const useInboundInvoiceMappings = ({
             );
           }
         }
-        const linkedRefs = extractLinkedProductRefs(result.items, mappings);
-        try {
-          const productDetails = await stockService.fetchInboundInvoiceProductDetails(linkedRefs);
-          result.items = hydrateMappingItemsWithDetails(result.items, mappings, productDetails);
-        } catch (error) {
-          console.warn(
-            '[InboundInvoiceMappings] linked product details could not be loaded',
-            error
-          );
+        if (!salvadosOnly) {
+          const linkedRefs = extractLinkedProductRefs(result.items, mappings);
+          try {
+            const productDetails = await stockService.fetchInboundInvoiceProductDetails(linkedRefs);
+            result.items = hydrateMappingItemsWithDetails(result.items, mappings, productDetails);
+          } catch (error) {
+            console.warn(
+              '[InboundInvoiceMappings] linked product details could not be loaded',
+              error
+            );
+          }
         }
         if (!active) return;
         setDetails(result);
         setItems(result.items);
         setSupplierId(result.supplier_id || '');
+        setSupplierStockOrigins(resolvedOrigins);
         searchState.setSuppliers(result.supplier ? [result.supplier as Supplier] : []);
+        searchState.setSupplierSearch(result.supplier?.full_name || '');
       })
       .catch((error: any) =>
         setErrorMessage(error?.message || 'Não foi possível carregar os dados da nota.')
@@ -122,13 +144,17 @@ export const useInboundInvoiceMappings = ({
 
   const saveValidatedMappings = async (values: MappingValues) => {
     try {
+      const effectiveSupplierId = isSalvadosSupplier ? supplierId : values.supplierId;
+      const effectiveItems = isSalvadosSupplier
+        ? markInboundInvoiceItemsNotApplicable(values.items)
+        : values.items;
       await stockService.updateInboundInvoiceMappings(
         values.invoiceId,
-        values.supplierId || null,
-        values.items
+        effectiveSupplierId || null,
+        effectiveItems
       );
-      setItems(values.items);
-      setSupplierId(values.supplierId);
+      setItems(effectiveItems);
+      setSupplierId(effectiveSupplierId);
       onSaved();
       return true;
     } catch (error: any) {
@@ -160,9 +186,14 @@ export const useInboundInvoiceMappings = ({
   };
 
   const chooseSupplier = async (supplier: Supplier) => {
-    const cleared = clearAllMappingItemLinks(items);
+    if (isSalvadosSupplier) return false;
+    const nextIsSalvadosSupplier = isSalvadosOnlySupplier(supplier.stock_origins);
+    const cleared = nextIsSalvadosSupplier
+      ? markInboundInvoiceItemsNotApplicable(items)
+      : clearAllMappingItemLinks(items);
     if (await persist(cleared, supplier.id)) {
-      searchState.setSupplierSearch('');
+      setSupplierStockOrigins(supplier.stock_origins || undefined);
+      searchState.setSupplierSearch(supplier.full_name);
       searchState.setSuppliers([supplier]);
       return true;
     }
@@ -178,6 +209,7 @@ export const useInboundInvoiceMappings = ({
   };
 
   const linkProduct = async (item: MappingItem, product: Product) => {
+    if (isSalvadosSupplier) return false;
     const nextItems = applyProductLinkToMappingItems(items, item, product);
     if (item.linkMode === 'composition') {
       const saved = await persist(nextItems);
@@ -278,8 +310,16 @@ export const useInboundInvoiceMappings = ({
     linkProduct,
   });
 
-  const toggleLinkMode = async (item: MappingItem, mode: 'single' | 'composition') => {
+  const toggleLinkMode = async (
+    item: MappingItem,
+    mode: 'single' | 'composition' | 'not_applicable'
+  ) => {
+    if (isSalvadosSupplier) return;
     if (item.linkMode === mode) return;
+    if (mode === 'not_applicable') {
+      await persist(buildNotApplicableItems(items, item));
+      return;
+    }
     if (mode === 'composition') {
       await persist(buildCompositionMigratedItems(items, item));
       return;
@@ -296,6 +336,7 @@ export const useInboundInvoiceMappings = ({
   };
 
   const removeCompositionLink = async (item: MappingItem, linkId: string) => {
+    if (isSalvadosSupplier) return;
     await persist(removeCompositionLinkFromItems(items, item, linkId));
   };
 
@@ -304,6 +345,7 @@ export const useInboundInvoiceMappings = ({
     linkId: string,
     rawValue: string
   ) => {
+    if (isSalvadosSupplier) return;
     const parsed = Number(rawValue.replace(',', '.'));
     if (!Number.isFinite(parsed) || parsed <= 0) {
       setErrorMessage('A quantidade na composição precisa ser maior que zero.');
@@ -313,6 +355,7 @@ export const useInboundInvoiceMappings = ({
   };
 
   const removeLink = async (item: MappingItem) => {
+    if (isSalvadosSupplier) return false;
     if (uncertainSupplierCodeOperation.current) {
       setErrorMessage(uncertainSupplierCodeOperation.current);
       return false;
@@ -392,6 +435,8 @@ export const useInboundInvoiceMappings = ({
     details,
     items,
     supplierId,
+    supplierStockOrigins,
+    isSalvadosSupplier,
     setSupplierId,
     supplierSearch: searchState.supplierSearch,
     setSupplierSearch: searchState.setSupplierSearch,

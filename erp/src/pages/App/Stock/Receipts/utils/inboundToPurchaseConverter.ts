@@ -10,6 +10,7 @@ import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeType
  */
 export function convertInboundToPurchaseItems(inboundItems: InboundReceiptItem[]): PurchaseItem[] {
   return inboundItems.flatMap((item) => {
+    if (item.linkMode === 'not_applicable') return [];
     const quantity = Math.max(1, item.expectedQuantity || item.quantity);
     const itemBaseUnit = Number(item.unitCost || 0);
     const itemBaseTotal = item.totalCost

@@ -50,6 +50,7 @@ import {
   isWeightCapacityCharacteristic,
 } from '../../../../../shared-utils/productTechnicalFieldRules';
 import { resolveProductCharacteristicApplication } from '../../../../../shared-utils/productCharacteristicApplications';
+import { isCatalogCoreRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/characteristicValues';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
 import { sortProductCharacteristicGroups } from '../../../../../shared-utils/productCharacteristicGroupOrder';
 export { isWeightCharacteristicName } from '../../../../../shared-utils/productTechnicalFieldRules';
@@ -332,6 +333,7 @@ export const isMattressCategory = (
 
 export const isRequiredCharacteristicName = (name: string): boolean => {
   if (isCatalogNeverRequiredCharacteristicName(name)) return false;
+  if (isCatalogCoreRequiredCharacteristicName(name)) return false;
   const normalized = normalizeName(name);
   if (isLengthCharacteristic(name)) return true;
   if (
@@ -356,6 +358,7 @@ export const isProductTechnicalFieldRequired = (
   if (Array.isArray(field.categoryApplications)) {
     return resolveProductCharacteristicApplication(field, categoryIds) === 'required';
   }
+  if (isCatalogCoreRequiredCharacteristicName(field.name)) return false;
   if (isWeightCapacityCharacteristic(field.name)) return false;
   return (
     (field.isRequiredForProduct ?? field.isRequired) === true ||
@@ -370,7 +373,8 @@ export const isProductTechnicalFieldRequiredForCatalog = (
 ): boolean =>
   !isCatalogNeverRequiredCharacteristicName(field.name) &&
   !isWeightCapacityCharacteristic(field.name) &&
-  (field.requiredForCategory === true ||
+  (isCatalogCoreRequiredCharacteristicName(field.name) ||
+    field.requiredForCategory === true ||
     isProductTechnicalAttributeRequiredByCategories(field.requiredCategoryIds, categoryIds));
 
 export const getDimensionSortRank = (name: string): number => {
@@ -881,11 +885,17 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
   const isSink = isSinkCategory(categoryIds, safeFields);
 
   let applicable = safeFields.filter((field) => {
+    const hasCatalogCategoryRequirement =
+      !isCatalogNeverRequiredCharacteristicName(field.name) &&
+      isProductTechnicalAttributeRequiredByCategories(field.requiredCategoryIds, categoryIds);
+    if (hasCatalogCategoryRequirement) return true;
     if (isExcludedProductTechnicalField(field.name)) return false;
+    if (isProductTechnicalFieldRequiredForCatalog(field, categoryIds, categoryName)) return true;
     if (!isProductTechnicalFieldApplicableByCategory(field, categoryIds, categoryName)) return false;
     if (
       Array.isArray(field.categoryApplications) &&
-      resolveProductCharacteristicApplication(field, categoryIds) === 'unavailable'
+      resolveProductCharacteristicApplication(field, categoryIds) === 'unavailable' &&
+      !isProductTechnicalFieldRequiredForCatalog(field, categoryIds, categoryName)
     ) return false;
     if (isSink && isStructureMaterialCharacteristic(field.name)) return false;
     if (
@@ -905,7 +915,6 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
       isWeightCharacteristicName(field.name) ||
       isShelfWeightCapacityCharacteristic(field.name)
     ) return true;
-    if (isProductTechnicalFieldRequiredForCatalog(field, categoryIds, categoryName)) return true;
     if (field.active === false) {
       return hasExistingValue || manualNames.has(norm);
     }

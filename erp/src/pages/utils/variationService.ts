@@ -9,11 +9,22 @@ import { inferAttributeDataType, normalizeAttributeDataType } from './attributeD
 import { variationFamilyAttributeSchema, VariationFamilyUnconfirmedError } from '../../../../shared-utils/variationFamilyFormSchemas';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import { saveAttributeValueWithClient } from '../../../../shared-utils/productAttributeValueService';
+import { normalizeCharacteristicText } from '../../../../shared-utils/characteristicFormRules';
+import { invalidateTechnicalFieldDefinitionsCache } from '@/pages/App/Products/services/technicalFieldService';
 
 export { normalizeAttributeDataType };
 
 const capitalize = (str: string): string => {
   return toTitleCase(str);
+};
+
+const PERSISTED_ATTRIBUTE_VALUE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const assertUniqueCharacteristicOptions = (options: readonly VariationOption[]) => {
+  const values = options.map((option) => normalizeCharacteristicText(option.value));
+  if (new Set(values).size !== values.length) {
+    throw new Error('As opções não podem ter nomes duplicados.');
+  }
 };
 
 /** Garante um valor canônico para uma característica global sem criar duplicatas. */
@@ -77,6 +88,7 @@ export const ensureAttributeValue = async (
     storedValue = response.data?.value;
   }
   if (typeof storedValue !== 'string' || storedValue.trim().toLocaleLowerCase('pt-BR') !== normalizedValue.toLocaleLowerCase('pt-BR')) throw new VariationFamilyUnconfirmedError('O valor da característica não foi confirmado. Consulte as características antes de repetir.');
+  invalidateVariationsQueries();
   return variationFamilyAttributeSchema.parse({ name: attribute.name, value: storedValue });
 };
 
@@ -87,7 +99,9 @@ export const saveAttributeValue = async (
   attributeId: string,
   value: string
 ): Promise<{ id: string; attribute_id: string; value: string }> => {
-  return saveAttributeValueWithClient(supabase, attributeId, value);
+  const saved = await saveAttributeValueWithClient(supabase, attributeId, value);
+  invalidateVariationsQueries();
+  return saved;
 };
 
 export const checkVariationUsage = async (
@@ -333,9 +347,56 @@ export const updateVariation = async (
 
 
 const invalidateVariationsQueries = () => {
+  invalidateTechnicalFieldDefinitionsCache();
   void queryClient
     .invalidateQueries({ queryKey: ['variations'] })
     .catch((error) => console.error('[Variations] Falha ao atualizar o cache:', error));
+};
+
+export const saveCharacteristicOptions = async (
+  attributeId: string,
+  options: readonly VariationOption[],
+): Promise<VariationOption[]> => {
+  assertUniqueCharacteristicOptions(options);
+
+  const { data, error } = await supabase.rpc('save_characteristic_options', {
+    p_attribute_id: attributeId,
+    p_options: options.map((option, sortOrder) => ({
+      ...option,
+      value: PERSISTED_ATTRIBUTE_VALUE_ID.test(option.id)
+        ? option.value
+        : capitalize(option.value.trim()),
+      active: option.active !== false,
+      sortOrder,
+    })),
+  });
+  if (error) throw error;
+  if (!Array.isArray(data)) {
+    throw new Error('O banco não retornou as opções salvas da característica.');
+  }
+
+  const savedOptions = data.map((option: Record<string, unknown>) => {
+    if (typeof option.id !== 'string' || typeof option.value !== 'string') {
+      throw new Error('O banco retornou uma opção inválida.');
+    }
+    return {
+      id: option.id,
+      value: option.value,
+      active: option.active !== false,
+      sortOrder: typeof option.sortOrder === 'number' ? option.sortOrder : undefined,
+    };
+  });
+  const normalizedSavedValues = new Set(
+    savedOptions.map((option) => option.value.trim().toLocaleLowerCase('pt-BR'))
+  );
+  if (
+    savedOptions.length !== options.length ||
+    options.some((option) => !normalizedSavedValues.has(option.value.trim().toLocaleLowerCase('pt-BR')))
+  ) {
+    throw new Error('O banco não confirmou todas as opções. Atualize a lista antes de tentar novamente.');
+  }
+  invalidateVariationsQueries();
+  return savedOptions;
 };
 
 const persistVariationDefinition = async (
@@ -374,9 +435,12 @@ const persistVariationDefinition = async (
   }
   if (variation.dependency !== undefined) definition.dependency = variation.dependency;
   if (variation.options !== undefined) {
+    assertUniqueCharacteristicOptions(variation.options);
     definition.options = variation.options.map((option, index) => ({
       ...option,
-      value: capitalize(option.value.trim()),
+      value: PERSISTED_ATTRIBUTE_VALUE_ID.test(option.id)
+        ? option.value
+        : capitalize(option.value.trim()),
       active: option.active !== false,
       sortOrder: index,
     }));

@@ -22,6 +22,9 @@ interface Props {
   deliveryMethod: 'delivery' | 'pickup';
   errors: ValidationErrors;
   isMobile?: boolean;
+  isTablet?: boolean;
+  isNarrowMobile?: boolean;
+  compactDesktop?: boolean;
   onSelectProduct: (idx: number, product: Product, variation?: Variation) => void;
   isBudget?: boolean;
   isReturn?: boolean;
@@ -47,6 +50,9 @@ const BodyRow: React.FC<Props> = ({
   deliveryMethod,
   errors,
   isMobile,
+  isTablet,
+  isNarrowMobile,
+  compactDesktop,
   onSelectProduct,
   isBudget,
   isReturn,
@@ -204,6 +210,9 @@ const BodyRow: React.FC<Props> = ({
     settings,
     isBudget,
     isReturn,
+    isTablet,
+    isNarrowMobile,
+    compactDesktop,
     hideHandling,
     shouldHideHandling,
     highlightAsTemporary,

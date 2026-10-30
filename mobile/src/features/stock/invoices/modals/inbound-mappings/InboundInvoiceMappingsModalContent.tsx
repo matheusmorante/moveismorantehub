@@ -37,6 +37,7 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
     details,
     items,
     supplierId,
+    isSalvadosSupplier,
     setSupplierId,
     supplierSearch,
     setSupplierSearch,
@@ -135,6 +136,7 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
               currentSupplier={currentSupplier}
               details={details}
               hasMatches={hasMatches}
+              supplierLocked={isSalvadosSupplier}
               isDarkMode={isDarkMode}
               supplierSearch={supplierSearch}
               supplierSearchLoading={supplierSearchLoading}
@@ -151,7 +153,9 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
                 Itens da NF ({items.length})
               </Text>
               <Text style={styles.muted}>
-                {linkedCount} vinculados · {items.length - linkedCount} sem vínculo
+                {isSalvadosSupplier
+                  ? `${items.length} itens em “Não se aplica” · sem movimentação de estoque`
+                  : `${linkedCount} vinculados · ${items.length - linkedCount} sem vínculo`}
               </Text>
             </View>
 
@@ -160,6 +164,7 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
                 key={item.itemNumber}
                 item={item}
                 supplierId={supplierId}
+                lockToNotApplicable={isSalvadosSupplier}
                 isDarkMode={isDarkMode}
                 isExpanded={Boolean(expandedItems[item.itemNumber])}
                 saving={saving}
@@ -204,7 +209,7 @@ export const InboundInvoiceMappingsModalContent: React.FC<Props> = ({
             {suggestionsLoading ? (
               <Text style={[styles.muted, { textAlign: 'center' }]}>Analisando sugestões de vínculo...</Text>
             ) : null}
-            {suggestionsError ? (
+            {!isSalvadosSupplier && suggestionsError ? (
               <TouchableOpacity onPress={handleRetrySuggestions} style={styles.retrySuggestion}>
                 <Text style={styles.changeText}>Não foi possível analisar sugestões · Tentar novamente</Text>
                 <Text style={styles.muted}>{suggestionsError}</Text>

@@ -52,14 +52,13 @@ describe('mobile stockReceiptsService', () => {
     expect(builderMock.range).toHaveBeenCalledWith(15, 29);
   });
 
-  it('deve tratar erro na consulta retornando array vazio sem lançar exceção', async () => {
+  it('deve propagar erro na consulta para a tela informar a falha e permitir nova tentativa', async () => {
     mockResult = {
       data: null,
       error: new Error('Erro de conexão no mobile'),
     };
 
-    const receipts = await fetchReceipts(0);
-    expect(receipts).toEqual([]);
+    await expect(fetchReceipts(0)).rejects.toBe(mockResult.error);
   });
 
   it('deve aplicar defaults para supplierName e totalValue quando vierem nulos do banco', async () => {

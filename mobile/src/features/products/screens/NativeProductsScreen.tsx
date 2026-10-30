@@ -107,8 +107,8 @@ export const NativeProductsScreen: React.FC<Props> = ({
     },
     {
       key: 'composition' as const,
-      title: 'Composições',
-      description: 'Acesse as composições cadastradas.',
+      title: 'Produto composto',
+      description: 'Acesse os produtos compostos cadastrados.',
       Icon: Blocks,
     },
     {
@@ -626,7 +626,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
               <Package size={40} color="#cbd5e1" />
               <Text style={styles.emptyText}>
                 {activeMode === 'composition'
-                  ? 'Nenhuma composição encontrada'
+                  ? 'Nenhum produto composto encontrado'
                   : productsHook.showTrash
                     ? 'A lixeira está vazia'
                     : 'Nenhum item encontrado'}

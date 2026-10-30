@@ -30,6 +30,7 @@ export interface ProductCardActionsProps {
   readonly onPermanentDelete?: (id: string) => void;
   readonly onMoveToAnotherFamily?: (variation: CardVariationItem) => void;
   readonly onMergeWithAnotherVariation?: (variation: CardVariationItem) => void;
+  readonly onMergeDuplicateProduct?: (product: Product) => void;
   readonly onOpenSalesModal: () => void;
 }
 
@@ -47,6 +48,7 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
   onMoveToTrash,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
+  onMergeDuplicateProduct,
   onOpenSalesModal,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -229,6 +231,25 @@ export const ProductCardActions: React.FC<ProductCardActionsProps> = ({
                 <i className="bi bi-copy text-indigo-500" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
                   Duplicar
+                </span>
+              </button>
+            )}
+
+            {canDeleteProducts && !isLabelOnlyProfile && !isDraft && !product.deleted
+              && product.hasVariations && onMergeDuplicateProduct && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  onMergeDuplicateProduct(product);
+                }}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-950 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50 mt-1 cursor-pointer"
+              >
+                <i className="bi bi-intersect text-violet-500" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
+                  Mesclar produto duplicado
                 </span>
               </button>
             )}

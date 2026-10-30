@@ -9,6 +9,7 @@ const createApplicationLinksQuery = (pages: Array<{ data: any[] | null; error: a
   { data: [], error: null },
 ]) => {
   const builder = {
+    in: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
     range: vi.fn().mockImplementation(async (start: number) =>
       pages[Math.floor(start / 1000)] ?? { data: [], error: null }
@@ -36,6 +37,43 @@ describe('technicalFieldService no fluxo de publicação', () => {
     vi.clearAllMocks();
   });
 
+  it('recarrega opções da característica depois que um salvamento invalida o cache', async () => {
+    let storedOptions: Array<Record<string, unknown>> = [];
+    const attributesQuery = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: [{ id: 'color', name: 'Cor', active: true, data_type: 'radio' }],
+        error: null,
+      }),
+    };
+    const valuesQuery = {
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockImplementation(async () => ({ data: storedOptions, error: null })),
+      }),
+    };
+    const emptyQuery = () => ({
+      select: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue({ data: [], error: null }) }),
+    });
+    supabaseMock.from.mockImplementation((table: string) => {
+      if (table === 'attributes') return attributesQuery;
+      if (table === 'attribute_values') return valuesQuery;
+      if (table === 'category_attributes') return emptyQuery();
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const beforeSave = await fetchTechnicalFieldDefinitions('product-form', { categoryIds: [] });
+    expect(beforeSave[0].options).toEqual([]);
+
+    storedOptions = [{ id: 'color-red', attribute_id: 'color', value: 'Cedar/Cinza Soft', active: true }];
+    invalidateTechnicalFieldDefinitionsCache();
+    const afterSave = await fetchTechnicalFieldDefinitions('product-form', { categoryIds: [] });
+
+    expect(afterSave[0].options).toEqual([
+      { id: 'color-red', value: 'Cedar/Cinza Soft', sortOrder: undefined },
+    ]);
+    expect(attributesQuery.order).toHaveBeenCalledTimes(2);
+  });
+
   it('carrega condições alternativas junto à condição principal', async () => {
     const attributesQuery = {
       select: vi.fn().mockReturnThis(),
@@ -52,7 +90,8 @@ describe('technicalFieldService no fluxo de publicação', () => {
       if (table === 'attribute_values' || table === 'category_attributes') return emptyQuery;
       throw new Error(`Unexpected table ${table}`);
     });
-    const fields = await fetchTechnicalFieldDefinitions('product-form', { forceRefresh: true });
+    const fields = await fetchTechnicalFieldDefinitions('product-form', { categoryIds: [], forceRefresh: true });
+    expect(supabaseMock.from).not.toHaveBeenCalledWith('attribute_category_applications');
     expect(fields[0]).toMatchObject({
       dependency: { referenceAttributeId: 'doors', operator: 'greater_than', value: '0' },
       dependencyAlternatives: [{ referenceAttributeId: 'drawers', operator: 'greater_than', value: '0' }],
@@ -101,7 +140,7 @@ describe('technicalFieldService no fluxo de publicação', () => {
       throw new Error(`Unexpected table ${table}`);
     });
 
-    const fields = await fetchTechnicalFieldDefinitions('product-form', { forceRefresh: true });
+    const fields = await fetchTechnicalFieldDefinitions('product-form', { categoryIds: [], forceRefresh: true });
 
     expect(fields.map(({ name }) => name)).toEqual([
       'Reclinável',
@@ -131,9 +170,9 @@ describe('technicalFieldService no fluxo de publicação', () => {
     const applicationLinksQuery = createApplicationLinksQuery([
       {
           data: [
-            { attribute_id: 'attr-explicit', category_id: 'cat-1', application: 'optional', is_configured: false },
-            { attribute_id: 'attr-explicit', category_id: 'cat-2', application: 'required', is_configured: true },
-            { attribute_id: 'attr-pending', category_id: 'cat-1', application: 'optional', is_configured: false },
+            { attribute_id: 'attr-explicit', category_id: 'cat-1', application: 'optional' },
+            { attribute_id: 'attr-explicit', category_id: 'cat-2', application: 'required' },
+            { attribute_id: 'attr-pending', category_id: 'cat-1', application: 'optional' },
           ],
           error: null,
       },
@@ -146,7 +185,7 @@ describe('technicalFieldService no fluxo de publicação', () => {
       throw new Error(`Unexpected table ${table}`);
     });
 
-    const fields = await fetchTechnicalFieldDefinitions('product-form', { forceRefresh: true });
+    const fields = await fetchTechnicalFieldDefinitions('product-form', { categoryIds: ['cat-1', 'cat-2'], forceRefresh: true });
 
     expect(fields.find(({ id }) => id === 'attr-explicit')).toMatchObject({
       categoryIds: ['cat-1', 'cat-2'],
@@ -164,7 +203,7 @@ describe('technicalFieldService no fluxo de publicação', () => {
     });
   });
 
-  it('carrega aplicações além da primeira página do Supabase', async () => {
+  it('filtra as aplicações pelas categorias selecionadas e mantém a paginação do Supabase', async () => {
     const attributesQuery = {
       select: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({
@@ -181,14 +220,13 @@ describe('technicalFieldService no fluxo de publicação', () => {
       {
         data: Array.from({ length: 1000 }, (_, index) => ({
           attribute_id: 'other',
-          category_id: `cat-${index}`,
+          category_id: 'cat-selected',
           application: 'optional',
-          is_configured: true,
         })),
         error: null,
       },
       {
-        data: [{ attribute_id: 'target', category_id: 'cat-final', application: 'required', is_configured: true }],
+        data: [{ attribute_id: 'target', category_id: 'cat-selected', application: 'required' }],
         error: null,
       },
     ]);
@@ -200,10 +238,11 @@ describe('technicalFieldService no fluxo de publicação', () => {
       throw new Error(`Unexpected table ${table}`);
     });
 
-    const fields = await fetchTechnicalFieldDefinitions('product-form', { forceRefresh: true });
+    const fields = await fetchTechnicalFieldDefinitions('product-form', { categoryIds: ['cat-selected'], forceRefresh: true });
     expect(applications.builder.range.mock.calls).toEqual([[0, 999], [1000, 1999]]);
+    expect(applications.builder.in).toHaveBeenCalledWith('category_id', ['cat-selected']);
     expect(fields[0].categoryApplications).toEqual([
-      { categoryId: 'cat-final', application: 'required' },
+      { categoryId: 'cat-selected', application: 'required' },
     ]);
   });
 
@@ -243,7 +282,7 @@ describe('technicalFieldService no fluxo de publicação', () => {
       throw new Error(`Unexpected table ${table}`);
     });
 
-    const fields = await fetchTechnicalFieldDefinitions('product-form', { forceRefresh: true });
+    const fields = await fetchTechnicalFieldDefinitions('product-form', { categoryIds: [], forceRefresh: true });
 
     expect(fields).toMatchObject(
       names.map((name) => ({ name, dataType: 'measure', unit: 'cm' }))
@@ -286,8 +325,9 @@ describe('technicalFieldService no fluxo de publicação', () => {
       throw new Error(`Unexpected table ${table}`);
     });
 
-    await fetchTechnicalFieldDefinitions('product-form');
+    await fetchTechnicalFieldDefinitions('product-form', { categoryIds: ['cat-1'] });
     const verified = await fetchTechnicalFieldDefinitions('product-form', {
+      categoryIds: ['cat-1'],
       requireCategoryLinks: true,
     });
 
@@ -304,6 +344,7 @@ describe('technicalFieldService no fluxo de publicação', () => {
 
     await expect(
       fetchTechnicalFieldDefinitions('product-form', {
+        categoryIds: [],
         forceRefresh: true,
         requireCategoryLinks: true,
       })
@@ -341,6 +382,7 @@ describe('technicalFieldService no fluxo de publicação', () => {
 
     await expect(
       fetchTechnicalFieldDefinitions('product-form', {
+        categoryIds: [],
         forceRefresh: true,
         requireCategoryLinks: true,
       })
@@ -391,6 +433,7 @@ describe('technicalFieldService no fluxo de publicação', () => {
     });
 
     const fields = await fetchTechnicalFieldDefinitions('product-form', {
+      categoryIds: [],
       forceRefresh: true,
       requireCategoryLinks: true,
     });
@@ -424,6 +467,7 @@ describe('technicalFieldService no fluxo de publicação', () => {
 
     await expect(
       fetchTechnicalFieldDefinitions('product-form', {
+        categoryIds: [],
         forceRefresh: true,
         requireCategoryLinks: true,
       })
@@ -459,6 +503,7 @@ describe('technicalFieldService no fluxo de publicação', () => {
 
     await expect(
       fetchTechnicalFieldDefinitions('product-form', {
+        categoryIds: [],
         forceRefresh: true,
         requireCategoryLinks: true,
       })

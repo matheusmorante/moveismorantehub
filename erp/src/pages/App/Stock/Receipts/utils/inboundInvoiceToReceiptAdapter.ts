@@ -101,13 +101,14 @@ export async function adaptInboundInvoiceToReceiptState(
   const rawNormalizedItems = (invoice.items || []).map((item, idx) =>
     normalizeInvoiceItem(item, idx)
   );
+  const applicableItems = rawNormalizedItems.filter((item) => item.linkMode !== 'not_applicable');
 
   let references = new Map<string, { productId: string; productVariationId?: string }>();
   try {
     references = resolvedSupplierId
       ? await findProductSupplierCodes(
           resolvedSupplierId,
-          rawNormalizedItems.map((i) => i.productCode)
+          applicableItems.map((i) => i.productCode)
         )
       : new Map();
   } catch (error: unknown) {
@@ -133,6 +134,7 @@ export async function adaptInboundInvoiceToReceiptState(
   );
 
   const linkedItems: InboundReceiptItem[] = rawNormalizedItems.map((item) => {
+    const notApplicable = item.linkMode === 'not_applicable';
     const reference = item.productCode
       ? references.get(item.productCode.trim().toLocaleUpperCase('pt-BR'))
       : undefined;
@@ -149,12 +151,25 @@ export async function adaptInboundInvoiceToReceiptState(
       acquisitionCost: allocation?.acquisitionCost ?? item.acquisitionCost ?? item.totalCost,
       ipiValue: hasItemSpecificIpi ? item.ipiValue : undefined,
       ipiPercent: hasItemSpecificIpi ? item.ipiPercent : undefined,
-      linkedProductId: reference?.productId || item.matchedProductId,
-      linkedVariationId: reference?.productVariationId || item.matchedVariationId,
-      linkedProductCode: variation?.sku || product?.code || item.linkedProductCode || '',
-      linkedProductName:
-        variation?.name || product?.name || product?.title || item.productErpName || '',
-      linkStatus: reference || item.matchedProductId ? 'automatic' : 'pending',
+      matchedProductId: notApplicable ? undefined : item.matchedProductId,
+      matchedVariationId: notApplicable ? undefined : item.matchedVariationId,
+      productErpName: notApplicable ? undefined : item.productErpName,
+      sellingPrice: notApplicable ? undefined : item.sellingPrice,
+      compositionLinks: notApplicable ? [] : item.compositionLinks,
+      composition: notApplicable ? [] : item.composition,
+      linkedProductId: notApplicable ? undefined : reference?.productId || item.matchedProductId,
+      linkedVariationId: notApplicable ? undefined : reference?.productVariationId || item.matchedVariationId,
+      linkedProductCode: notApplicable
+        ? undefined
+        : variation?.sku || product?.code || item.linkedProductCode || '',
+      linkedProductName: notApplicable
+        ? undefined
+        : variation?.name || product?.name || product?.title || item.productErpName || '',
+      linkStatus: notApplicable
+        ? 'not_applicable'
+        : reference || item.matchedProductId || item.compositionLinks?.some((link) => link.productId)
+          ? 'automatic'
+          : 'pending',
     } as InboundReceiptItem;
   });
 

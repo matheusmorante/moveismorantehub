@@ -114,6 +114,94 @@ const safeRecordOfflineEvent = async (
  * dos eventos do fluxo de entrega (SRP & Separation of Concerns).
  */
 export const deliveryFlowService = {
+  /** Marca o início da etapa de preparação ao abrir o fluxo de entrega. */
+  async startPreparation(orderId: string, currentData: Record<string, any> = {}) {
+    const now = new Date().toISOString();
+    let baseData: Record<string, any> = {};
+    let remoteSnapshotLoaded = false;
+    let remoteDeliveryStatus: string | null = null;
+    let remoteOrderSnapshot: Record<string, any> | null = null;
+
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('order_data, delivery_status')
+        .eq('id', orderId)
+        .maybeSingle();
+      if (!error && data) {
+        baseData = data.order_data && typeof data.order_data === 'object' ? data.order_data : {};
+        remoteSnapshotLoaded = true;
+        remoteDeliveryStatus = data.delivery_status || baseData.deliveryStatus || null;
+        remoteOrderSnapshot = data;
+      } else if (error) {
+        console.warn('[deliveryFlowService] Falha ao ler pedido antes da preparação:', error);
+      }
+    } catch (error) {
+      console.warn('[deliveryFlowService] Falha ao ler pedido antes da preparação:', error);
+    }
+
+    if (!remoteSnapshotLoaded) {
+      try {
+        const localOrder = await OrderRepository.getById(orderId);
+        if (localOrder?.orderData) baseData = { ...baseData, ...localOrder.orderData };
+      } catch {}
+
+      for (const cacheKey of ['logistics_orders', 'assemblies_orders']) {
+        try {
+          const cached = await offlineStorageService.getWorkingSet<any[]>(cacheKey);
+          const cachedOrder = cached?.data?.find((order) => order?.id === orderId);
+          if (cachedOrder?.order_data && typeof cachedOrder.order_data === 'object') {
+            baseData = { ...baseData, ...cachedOrder.order_data };
+            remoteDeliveryStatus =
+              cachedOrder.delivery_status ||
+              cachedOrder.order_data.deliveryStatus ||
+              remoteDeliveryStatus;
+            break;
+          }
+        } catch {}
+      }
+    }
+
+    const inputData = Object.fromEntries(
+      Object.entries(currentData).filter(([, value]) => value !== undefined)
+    );
+    baseData = { ...baseData, ...inputData };
+
+    if (remoteOrderSnapshot) {
+      try {
+        const [overlaidOrder] = await OrderRepository.overlayPendingLocalOrders([
+          { ...remoteOrderSnapshot, order_data: baseData },
+        ]);
+        if (overlaidOrder?.order_data && typeof overlaidOrder.order_data === 'object') {
+          baseData = overlaidOrder.order_data;
+          remoteDeliveryStatus =
+            overlaidOrder.delivery_status || baseData.deliveryStatus || remoteDeliveryStatus;
+        }
+      } catch {}
+    }
+
+    const currentStatus = remoteDeliveryStatus || baseData.deliveryStatus;
+    if (
+      ['in_progress', 'arrived', 'in_service', 'completed', 'unattended'].includes(
+        String(currentStatus || '')
+      )
+    ) {
+      return { updatedData: baseData };
+    }
+
+    if (baseData.deliveryPreparationStartedAt) return { updatedData: baseData };
+
+    const preparationStartedAt = baseData.deliveryPreparationStartedAt || now;
+    const updatedData = { ...baseData, deliveryPreparationStartedAt: preparationStartedAt };
+
+    await syncLocalOrderCaches(orderId, updatedData);
+    await safeRecordOfflineEvent('DELIVERY_START_PREPARATION', 'order', orderId, {
+      deliveryPreparationStartedAt: preparationStartedAt,
+    });
+
+    return { updatedData };
+  },
+
   /**
    * Inicia a rota de entrega, gravando no Supabase e enfileirando o evento offline.
    */
@@ -141,6 +229,7 @@ export const deliveryFlowService = {
       ...currentData,
       ...payload,
     };
+    delete updatedData.deliveryPreparationStartedAt;
 
     try {
       await supabase
@@ -344,7 +433,7 @@ export const deliveryFlowService = {
    */
   async stepBackToPreparation(orderId: string, currentData: Record<string, any>) {
     const now = new Date().toISOString();
-    const updatedData = { ...currentData };
+    const updatedData = { ...currentData, deliveryPreparationStartedAt: now };
     delete updatedData.deliveryStatus;
     delete updatedData.deliveryStartedAt;
     delete updatedData.deliveryArrivedAt;
@@ -455,6 +544,7 @@ export const deliveryFlowService = {
     const now = new Date().toISOString();
     const updatedData = { ...currentData };
     delete updatedData.deliveryStatus;
+    delete updatedData.deliveryPreparationStartedAt;
     delete updatedData.deliveryStartedAt;
     delete updatedData.deliveryArrivedAt;
     delete updatedData.deliveryServiceStartedAt;
@@ -488,6 +578,7 @@ export const deliveryFlowService = {
       ...updatedData,
       status: 'scheduled',
       deliveryStatus: null,
+      deliveryPreparationStartedAt: null,
       deliveryStartedAt: null,
       deliveryArrivedAt: null,
       deliveryServiceStartedAt: null,

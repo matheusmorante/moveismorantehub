@@ -83,7 +83,7 @@ describe('ScheduleCard - cartões compactos do cronograma', () => {
       />
     );
 
-    expect(html).toContain('Preparação');
+    expect(html).not.toContain('Preparação');
     expect(html).toContain('Agendada');
     expect(html).not.toContain('ENTREGA');
     expect(html).not.toContain('Iniciar fluxo de entrega');

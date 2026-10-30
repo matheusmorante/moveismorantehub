@@ -5,11 +5,13 @@ import { normalizeUf, parseAddressPrediction } from '../addressParsing';
 import { getSettings } from '../settingsService';
 import { geocodeCache } from './addressGeocoding';
 import { loadGoogleMapsApi } from './googleMapsLoader';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
-export const searchAddressSuggestions = async (
+const searchAddressSuggestionsRequest = async (
   query: string,
-  city?: string,
-  state: string = 'PR'
+  city: string | undefined,
+  state: string,
+  isActive: () => boolean
 ): Promise<any[]> => {
   if (!query || query.trim().length < 2) return [];
 
@@ -32,6 +34,7 @@ export const searchAddressSuggestions = async (
       .select('results')
       .eq('query_key', cacheQueryKey)
       .single();
+    if (!isActive()) return [];
     if (!error && data && data.results && data.results.length > 0) {
       ApiUsageTracker.record({
         provider: 'google',
@@ -48,7 +51,9 @@ export const searchAddressSuggestions = async (
     /* no-op: intencionalmente silencioso */
   }
 
+  if (!isActive()) return [];
   const guard = await ApiUsageGuard.check('google_places');
+  if (!isActive()) return [];
   if (!guard.allowed) {
     console.warn(`[ApiUsageGuard] Busca de sugestões bloqueada: ${guard.reason}`);
     return [];
@@ -58,6 +63,7 @@ export const searchAddressSuggestions = async (
 
   try {
     await loadGoogleMapsApi();
+    if (!isActive()) return [];
     const google = (window as any).google;
 
     if (google?.maps?.places?.AutocompleteService) {
@@ -84,6 +90,7 @@ export const searchAddressSuggestions = async (
           }
 
           autocompleteService.getPlacePredictions(reqOpts, (res: any, status: any) => {
+            if (!isActive()) { resolve([]); return; }
             const isOk =
               status === 'OK' || status === google?.maps?.places?.PlacesServiceStatus?.OK;
             if (isOk && res && res.length > 0) {
@@ -99,6 +106,7 @@ export const searchAddressSuggestions = async (
           });
         });
 
+        if (!isActive()) return [];
         if (predictions && predictions.length > 0) {
           const streetPredictions = predictions.filter((pred: any) => {
             const types = pred.types || [];
@@ -163,10 +171,12 @@ export const searchAddressSuggestions = async (
           return placesMapped;
         }
       } catch (autoErr) {
+        if (!isActive()) return [];
         console.warn('Places AutocompleteService warning:', autoErr);
       }
     }
   } catch (error) {
+    if (!isActive()) return [];
     console.error('Erro na API do Google Maps:', error);
     ApiUsageTracker.record({
       provider: 'google',
@@ -184,9 +194,13 @@ export const searchAddressSuggestions = async (
   return [];
 };
 
-export const fetchPlaceDetails = async (placeId: string): Promise<any | null> => {
+const fetchPlaceDetailsRequest = async (
+  placeId: string,
+  isActive: () => boolean
+): Promise<any | null> => {
   if (!placeId) return null;
   const guard = await ApiUsageGuard.check('google_places');
+  if (!isActive()) return null;
   if (!guard.allowed) {
     console.warn(`[ApiUsageGuard] Detalhes de lugar bloqueados: ${guard.reason}`);
     return null;
@@ -196,16 +210,19 @@ export const fetchPlaceDetails = async (placeId: string): Promise<any | null> =>
 
   try {
     await loadGoogleMapsApi();
+    if (!isActive()) return null;
     const google = (window as any).google;
     const geocoder = new google.maps.Geocoder();
 
     const r: any = await new Promise((resolve, reject) => {
       geocoder.geocode({ placeId }, (results: any, status: any) => {
+        if (!isActive()) { resolve(null); return; }
         if (status === 'OK' && results && results.length > 0) resolve(results[0]);
         else reject(status);
       });
     });
 
+    if (!isActive()) return null;
     if (r) {
       ApiUsageTracker.record({
         provider: 'google',
@@ -272,7 +289,36 @@ export const fetchPlaceDetails = async (placeId: string): Promise<any | null> =>
       };
     }
   } catch (e) {
+    if (!isActive()) return null;
     console.warn('fetchPlaceDetails error:', e);
   }
   return null;
+};
+
+export const searchAddressSuggestions = async (
+  query: string,
+  city?: string,
+  state: string = 'PR'
+): Promise<any[]> => {
+  let active = true;
+  try {
+    return await withTimeout<any[]>(
+      searchAddressSuggestionsRequest(query, city, state, () => active),
+      15_000, [], 'maps:autocomplete'
+    );
+  } finally {
+    active = false;
+  }
+};
+
+export const fetchPlaceDetails = async (placeId: string): Promise<any | null> => {
+  let active = true;
+  try {
+    return await withTimeout<any | null>(
+      fetchPlaceDetailsRequest(placeId, () => active),
+      15_000, null, 'maps:place-details'
+    );
+  } finally {
+    active = false;
+  }
 };

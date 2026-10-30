@@ -109,7 +109,7 @@ const PersonFormModal: React.FC<PersonFormModalProps> = ({
 
         <form noValidate
           onSubmit={handleSubmit}
-          className="p-8 flex flex-col gap-8 max-h-[70vh] overflow-y-auto custom-scrollbar"
+          className={`p-8 flex flex-col gap-8 max-h-[70vh] overflow-y-auto custom-scrollbar ${collectionName === 'customers' ? 'customer-person-form' : ''}`}
         >
           {canMarkTestArtifact && (
             <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white/70 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40">

@@ -17,6 +17,8 @@ interface ChoiceSearchProps {
   disabled?: boolean;
   multiple: boolean;
   onChange: (v: any) => void;
+  onCreateOption?: (value: string) => Promise<{ id?: string; value: string } | null>;
+  createOptionLabel?: string;
 }
 
 export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
@@ -25,10 +27,15 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
   disabled,
   multiple,
   onChange,
+  onCreateOption,
+  createOptionLabel,
 }) => {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [debouncedTerm, setDebouncedTerm] = useState('');
+  const [hasBlurredQuery, setHasBlurredQuery] = useState(false);
+  const [isCreatingOption, setIsCreatingOption] = useState(false);
+  const [createdOptions, setCreatedOptions] = useState<{ id?: string; value: string }[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
   const rawArray = Array.isArray(value)
     ? value
@@ -42,6 +49,17 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
       (item) => item && normalizeSearchTerm(item) !== normalizeSearchTerm('Não se aplica')
     );
   const term = normalizeSearchTerm(query);
+  const availableOptions = useMemo(() => {
+    const existingValues = new Set(options.map((option) => normalizeSearchTerm(option.value)));
+    return [
+      ...options,
+      ...createdOptions.filter((option) => !existingValues.has(normalizeSearchTerm(option.value))),
+    ];
+  }, [options, createdOptions]);
+  const exactOption = availableOptions.find((option) => normalizeSearchTerm(option.value) === term);
+  const canCreateOption = Boolean(
+    !multiple && onCreateOption && !disabled && hasBlurredQuery && query.trim() && !exactOption
+  );
 
   useEffect(() => {
     if (term.length < MIN_CHOICE_SEARCH_CHARACTERS) {
@@ -59,16 +77,16 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
   const isSearchActive = term.length >= MIN_CHOICE_SEARCH_CHARACTERS && debouncedTerm === term;
   const matchingOptions = useMemo(() => {
     if (isSearchActive) {
-      return options.filter((option) => normalizeSearchTerm(option.value).includes(debouncedTerm));
+      return availableOptions.filter((option) => normalizeSearchTerm(option.value).includes(debouncedTerm));
     }
     // When not filtering, if multiple or few options, show all available options
-    if (multiple || options.length <= SIMPLE_CHOICE_DROPDOWN_LIMIT) {
-      return options;
+    if (multiple || availableOptions.length <= SIMPLE_CHOICE_DROPDOWN_LIMIT) {
+      return availableOptions;
     }
     return [];
-  }, [options, debouncedTerm, isSearchActive, multiple]);
+  }, [availableOptions, debouncedTerm, isSearchActive, multiple]);
 
-  const filtered = matchingOptions.slice(0, Math.max(MAX_CHOICE_SEARCH_RESULTS, options.length));
+  const filtered = matchingOptions.slice(0, Math.max(MAX_CHOICE_SEARCH_RESULTS, availableOptions.length));
   const isSelected =
     term.length === 0
       ? selected.length > 0
@@ -78,12 +96,37 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
     const closeSuggestions = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setIsOpen(false);
-        setQuery('');
+        if (onCreateOption && query.trim() && !exactOption) {
+          setHasBlurredQuery(true);
+        } else {
+          setQuery('');
+          setHasBlurredQuery(false);
+        }
       }
     };
     document.addEventListener('mousedown', closeSuggestions);
     return () => document.removeEventListener('mousedown', closeSuggestions);
-  }, []);
+  }, [exactOption, onCreateOption, query]);
+
+  const handleCreateOption = async () => {
+    if (!canCreateOption || !onCreateOption || isCreatingOption) return;
+    setIsCreatingOption(true);
+    try {
+      const created = await onCreateOption(query.trim());
+      if (!created) return;
+      setCreatedOptions((previous) =>
+        previous.some((option) => normalizeSearchTerm(option.value) === normalizeSearchTerm(created.value))
+          ? previous
+          : [...previous, created]
+      );
+      onChange(created.value);
+      setQuery('');
+      setIsOpen(false);
+      setHasBlurredQuery(false);
+    } finally {
+      setIsCreatingOption(false);
+    }
+  };
 
   const inputPlaceholder = multiple
     ? selected.length > 0
@@ -113,14 +156,32 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
           value={displayInputValue}
           disabled={disabled}
           onFocus={() => {
-            if (!disabled) setIsOpen(true);
+            if (!disabled) {
+              setHasBlurredQuery(false);
+              setIsOpen(true);
+            }
           }}
           onClick={() => {
             if (!disabled) setIsOpen(true);
           }}
           onChange={(e) => {
             setQuery(e.target.value);
+            setHasBlurredQuery(false);
             if (!isOpen) setIsOpen(true);
+          }}
+          onBlur={(event) => {
+            if (!onCreateOption) return;
+            if (exactOption) {
+              onChange(exactOption.value);
+              setQuery('');
+              setIsOpen(false);
+              setHasBlurredQuery(false);
+              return;
+            }
+            setHasBlurredQuery(Boolean(onCreateOption && query.trim()));
+            if (!searchRef.current?.contains(event.relatedTarget as Node | null)) {
+              setIsOpen(false);
+            }
           }}
           placeholder={inputPlaceholder}
           className={`w-full border-b-2 bg-transparent py-2 pr-8 text-xs outline-none focus:border-blue-600 ${
@@ -134,6 +195,24 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
             className="bi bi-check-lg absolute right-1 top-1/2 -translate-y-1/2 text-emerald-600 dark:text-emerald-400"
             aria-label="Opção selecionada"
           />
+        )}
+        {canCreateOption && (
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => void handleCreateOption()}
+            disabled={isCreatingOption}
+            title={`Cadastrar esta ${createOptionLabel || 'opção'}`}
+            aria-label={`Cadastrar ${createOptionLabel || 'nova opção'}`}
+            aria-busy={isCreatingOption}
+            className="absolute right-0 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60"
+          >
+            {isCreatingOption ? (
+              <i className="bi bi-arrow-repeat animate-spin text-xs" aria-hidden="true" />
+            ) : (
+              <i className="bi bi-check-lg text-sm font-black" aria-hidden="true" />
+            )}
+          </button>
         )}
       </div>
 

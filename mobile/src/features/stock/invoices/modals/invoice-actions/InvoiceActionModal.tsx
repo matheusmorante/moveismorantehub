@@ -10,6 +10,7 @@ import {
 import { Download, Link2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Invoice } from '../../../types/stock.types';
+import { isSalvadosOnlySupplier } from '../../../../../../../shared-utils/productSupplierStockOrigin';
 
 interface Props {
   visible: boolean;
@@ -43,7 +44,7 @@ export const InvoiceActionModal: React.FC<Props> = ({
                 NF-e {activeInvoice.number}
               </Text>
 
-              {!isSummaryOnly && (
+              {!isSummaryOnly && !isSalvadosOnlySupplier(activeInvoice.supplierStockOrigins) && (
                 <TouchableOpacity
                   style={styles.bsActionBtn}
                   onPress={() => {

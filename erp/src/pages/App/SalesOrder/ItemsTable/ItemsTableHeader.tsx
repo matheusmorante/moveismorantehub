@@ -14,7 +14,6 @@ export const ItemsTableHeader: React.FC<ItemsTableHeaderProps> = ({
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const menuContainerRef = useRef<HTMLDivElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
-  const itemCount = productsCount + servicesCount;
 
   useEffect(() => {
     if (!isAddMenuOpen) return undefined;
@@ -47,13 +46,11 @@ export const ItemsTableHeader: React.FC<ItemsTableHeaderProps> = ({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 pb-2.5 dark:border-slate-800">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
-        <span className="text-slate-700 dark:text-slate-200">
-          {itemCount} {itemCount === 1 ? 'item' : 'itens'}
-        </span>
         <span className="inline-flex items-center gap-1.5">
           <i className="bi bi-box-seam text-blue-600 dark:text-blue-400" aria-hidden="true" />
           {productsCount} {productsCount === 1 ? 'produto' : 'produtos'}
         </span>
+        <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">·</span>
         <span className="inline-flex items-center gap-1.5">
           <i className="bi bi-tools text-amber-600 dark:text-amber-400" aria-hidden="true" />
           {servicesCount} {servicesCount === 1 ? 'serviço' : 'serviços'}

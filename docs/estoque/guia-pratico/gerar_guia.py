@@ -93,7 +93,7 @@ def base(section, title, subtitle=''):
     c.line(M, 36, W - M, 36)
     c.setFillColor(MUTED)
     c.setFont('Segoe', 8)
-    c.drawString(M, 23, 'Operação do ERP  |  Edição ilustrada  |  27/10/2026')
+    c.drawString(M, 23, 'Operação do ERP  |  Edição ilustrada  |  29/10/2026')
     c.setFont('SegoeBold', 9)
     c.setFillColor(NAVY)
     c.drawRightString(W - M, 22, str(n).zfill(2))
@@ -339,8 +339,8 @@ cards_top = branch_top - 30
 card_h, card_gap = 70, 5
 invoice_steps = [
     ('Use a nota ou importe o arquivo', 'Se os produtos não aparecerem na nota, abra XML incompleto e siga os passos da página 7.'),
-    ('Associe fornecedor e produtos', 'Escolha o fornecedor correto e associe cada item da nota ao produto correspondente.'),
-    ('Gere o recebimento', 'Com fornecedor e produtos associados, clique em Gerar recebimento.'),
+    ('Associe fornecedor e itens de estoque', 'Escolha o fornecedor correto e associe os itens que entrarão no estoque. Marque “Não se aplica” nas demais linhas.'),
+    ('Gere o recebimento', 'Com o fornecedor e os itens de estoque vinculados ou marcados “Não se aplica”, clique em Gerar recebimento.'),
     ('Confira quantidades e custos', 'Revise o que chegou, o custo, o frete e as outras despesas, sem duplicar valores.'),
     ('Confirme a entrada', 'Use Confirmar recebimento. Só então os produtos entram no estoque. Imprima etiquetas se necessário.'),
 ]
@@ -379,20 +379,21 @@ for n, title, body in [
 y = note('Se algo não estiver conforme', 'Avise a equipe responsável e não confirme quantidades incorretas. Só registre indisponibilidade quando separar a unidade e tirá-la do estoque disponível; veja as páginas 25 e 26.', y, fill=AMBER)
 
 # 04 - Lista de NF
-y = base('02 / NF de entrada', 'Localize a nota antes de importar', 'Estoque > NF de entrada. Pesquise e confira o período para evitar duplicar trabalho.')
-y = shot('01-nf-entrada', y, max_height=275, caption='1 Importar XML  •  2 Vinculações pendentes  •  3 XML incompleto. Dados comerciais foram ocultados.')
+y = base('02 / NF de entrada', 'Localize a nota antes de importar', 'Estoque > NF de entrada. A lista mostra até 15 notas por página no ERP e no app. Use os controles abaixo para ver as próximas; pesquise e confira o período para evitar duplicidade.')
+y = shot('01-nf-entrada-header', y, max_height=75, caption='1 No menu de três pontinhos, selecione Importar.')
+y = shot('01-nf-entrada', y, max_height=210, crop=(0, 220, 1380, 500), caption='2 Vinculações pendentes  •  3 XML incompleto. Dados comerciais foram ocultados.')
 y = table(['O que aparece', 'O que fazer'], [
     ['<b>XML incompleto</b>', 'Os produtos ainda não aparecem. Abra esse rótulo e importe o arquivo XML completo.'],
     ['<b>Vinculações Pendentes</b>', 'Abra o rótulo para associar o fornecedor e cada produto ao cadastro correto.'],
     ['<b>Disponível</b>', 'Confira os itens e os vínculos antes de gerar o recebimento. Esse status, sozinho, não significa entrada no saldo.'],
 ], y, widths=[145, TW - 145], size=10)
-y = para('Se a nota não aparecer, confira a busca e amplie o período de emissão. Se já tiver o XML, use Importar XML da NF-e.', y, size=10.8)
+y = para('Se a nota não aparecer, confira a busca e amplie o período de emissão. Se já tiver o XML, use Importar no menu de três pontinhos.', y, size=10.8)
 y = note('Confira o destinatário e evite duplicidade', 'Toda nota recebida em que sua empresa aparece como destinatária deve estar nesta lista. Se já estiver, não importe novamente. Se aparecer como XML incompleto, siga o rótulo para completar. Notas cadastradas não podem ser excluídas.', y, fill=MINT)
 
 # 05 - Importar
 y = base('02 / NF de entrada', 'Importe o arquivo XML da nota', 'O XML é o arquivo digital da nota com os dados dos produtos. O DANFE é a versão impressa; foto ou PDF dele não substitui o XML para importar os itens.')
 y = shot('02-importar-xml', y, width=TW, max_height=325, caption='1 Escolha ou arraste o arquivo  •  2 Consulta pelo portal, se você ainda precisa obter o XML.')
-y = step(1, 'Abra Importar XML da NF-e', 'Para consultar no portal, use o campo Chave de Acesso, o código que identifica a nota. Escanear esse código ajuda na consulta, mas não importa os produtos.', y)
+y = step(1, 'Abra a opção de importar', 'No app e no ERP, toque nos três pontinhos do cabeçalho e em Importar. Para consultar no Portal, use Chave de Acesso; escanear não importa os produtos.', y)
 y = step(2, 'Escolha ou arraste o arquivo XML', 'A importação começa ao escolher o arquivo. Aguarde a mensagem do sistema antes de continuar.', y)
 y = step(3, 'Confira a mensagem do sistema', 'Nota nova: ela será adicionada. Nota já cadastrada com dados faltando: será completada. XML igual ao já salvo: o sistema avisará que não houve mudança.', y)
 y = note('Importar não é receber', 'Depois de importar, abra <b>Gerenciar vínculos</b>. A nota pode estar completa e ainda precisar de fornecedor e produtos vinculados.', y, fill=MINT)
@@ -402,16 +403,16 @@ y = base('02 / NF de entrada', 'Complete a nota com o XML', 'Use o arquivo XML c
 y = shot('03-xml-incompleto', y, width=TW, max_height=250, crop=(0, 275, 576, 225), caption='2 Selecione o XML completo da mesma nota.')
 y = step(1, 'Obtenha o XML completo', 'Se ainda não tem o arquivo, clique em Consultar no Portal ou peça o XML ao fornecedor.', y)
 y = step(2, 'Importe o arquivo na mesma nota', 'Selecione ou arraste o XML no campo Arquivo XML da NF-e.', y)
-y = step(3, 'Confira e associe os produtos', 'Verifique se os itens aparecem e, em seguida, vincule o fornecedor e os produtos corretos.', y)
+y = step(3, 'Confira e associe os produtos', 'Verifique se os itens aparecem e, em seguida, vincule o fornecedor e os produtos que entrarão no estoque. Marque “Não se aplica” nas demais linhas.', y)
 y = note('Ciência sem confirmação', 'Se aparecer “Comunicação sem confirmação”, consulte o Histórico Fiscal antes de tentar registrar a Ciência novamente. O envio pode ter sido processado mesmo sem uma resposta na tela.', y, fill=AMBER)
 
 # 07 - Vínculos
-y = base('03 / Vínculos', 'Associe a nota aos cadastros corretos', 'No sistema, esta etapa se chama Gerenciar vínculos. Abra Vinculações Pendentes ou os três pontinhos da nota.')
-y = shot('04-gerenciar-vinculos', y, max_height=290, caption='Visão geral: 1 fornecedor  •  2 produtos  •  3 gerar recebimento. Os vínculos são salvos automaticamente.')
+y = base('03 / Vínculos', 'Associe a nota aos cadastros corretos', 'Abra Gerenciar vínculos em Vinculações Pendentes ou nos três pontinhos. Aguarde o carregamento da nota e dos vínculos antes de editar.')
+y = shot('04-gerenciar-vinculos', y, max_height=290, caption='1 Fornecedor  •  2 seletor de modo à esquerda; Cadastro rápido ao lado, sem fundo ou borda  •  3 gerar recebimento. “Não se aplica” preserva a NF e ignora o item no estoque.')
 y = shot('04b-fornecedor', y, max_height=65, caption='Ampliação do campo de fornecedor. Digite pelo menos duas letras para pesquisar.')
-y = step(1, 'Associe o fornecedor correto', 'Escolha o cadastro com o mesmo nome da empresa que emitiu a nota. Se não existir, use Novo fornecedor e confira os dados antes de criar.', y)
-y = step(2, 'Encontre o produto antes de criar outro', 'Pesquise pelo nome ou código. Um produto ou variação já vinculado a outra linha desta NF-e não aparece na busca. Confira modelo, cor e medida antes de criar outro cadastro.', y)
-y = step(3, 'Aguarde a confirmação do salvamento', 'Os dados são salvos automaticamente. Aguarde “Salvando e confirmando vínculos...” e resolva qualquer aviso antes de continuar. Se uma tentativa ficar sem confirmação, feche e reabra Gerenciar vínculos para consultar a nota antes de tentar novamente.', y)
+y = step(1, 'Associe o fornecedor correto', 'Compare o Emitente da NF-e e escolha o cadastro correto. A escolha fica igual no ERP e no app. Para trocar, remova os vínculos existentes. Use Novo fornecedor se faltar cadastro. Fornecedores exclusivos de Salvados ficam fixos em “Não se aplica”: não exigem vínculo de produto e não geram recebimento nem movimentação de estoque.', y)
+y = step(2, 'Encontre o produto antes de criar outro', 'Pesquise por nome ou código. A lista mostra apenas variações disponíveis, mesmo ao buscar pelo nome do produto principal. Confira cor, medida ou modelo. Variações já vinculadas não aparecem. Marque “Não se aplica” para deixar a linha fora do estoque.', y)
+y = step(3, 'Aguarde a confirmação do salvamento', 'Os dados são salvos automaticamente. Aguarde “Salvando e confirmando vínculos...”. Se não houver confirmação, reabra Gerenciar vínculos para conferir a nota antes de tentar novamente.', y)
 
 # 08 - Cadastro rápido
 y = base('03 / Vínculos', 'Cadastro rápido: escolha o tipo certo', 'Abra Cadastro rápido na linha do item em Gerenciar vínculos quando não encontrar um produto correspondente. Pesquise primeiro para evitar outro cadastro igual.')
@@ -446,7 +447,7 @@ y = step(1, 'Quando cadastrar uma composição', 'Use Produto composto para kits
 y = step(2, 'Como preencher as características', 'No formulário do produto, abra Características e preencha os dados corretos nos campos correspondentes, como material ou quantidade de portas. Para uma variação, informe também o que distingue aquela versão. Use os mesmos nomes e valores para produtos semelhantes.', y)
 y = note(
     'Conjunto que chega agrupado na NF-e',
-    'Em Gerenciar vínculos, associe manualmente cada peça da nota ao produto ou variação corretos e confira as quantidades. Ao receber, o ERP rateia automaticamente o custo total da linha da NF-e entre as peças conforme os preços de venda cadastrados e as quantidades. Para manter a mesma proporção entre custo e preço, some o custo unitário de cada peça multiplicado por sua quantidade e calcule manualmente: <b>preço unitário da peça = custo unitário da peça ÷ custo total do conjunto × preço total desejado do conjunto</b>. Exemplo: uma peça que representa 25% do custo total deve receber 25% do preço total desejado. Cadastre os preços unitários individualmente nas peças.',
+    'Em Gerenciar vínculos, associe manualmente cada peça da nota ao produto ou variação corretos. O ERP calcula o rateio do custo da linha no recebimento.',
     y, fill=AMBER,
 )
 y = note(
@@ -473,7 +474,7 @@ y = shot('04c-gerar-recebimento', y, max_height=190, width=TW, caption='Neste ex
 for text in [
     'O arquivo XML da nota está completo e mostra todos os produtos.',
     'O fornecedor está associado ao cadastro correto.',
-    'Todos os itens estão associados aos produtos e versões corretos.',
+    'Os itens que entrarão no estoque estão associados aos produtos e versões corretos; as demais linhas estão marcadas “Não se aplica”.',
     'O sistema terminou de salvar as associações.',
     'Você é Administrador ou Estoquista, e a nota ainda permite gerar a entrada.',
 ]:
@@ -485,7 +486,7 @@ y = note('Ainda falta a conferência final', 'Gerar recebimento apenas prepara o
 # 11 - Receber caminhos
 y = base('04 / Recebimentos', 'Escolha o caminho de recebimento', 'Estoque > Recebimentos > Receber Mercadoria.')
 y = shot('06-opcoes-recebimento', y, max_height=220, caption='As três opções separam a origem dos dados. A confirmação final continua sendo feita no recebimento.')
-y = step(1, 'Com nota fiscal de entrada', 'Use NF-e com XML completo. Resumos e notas incompletas não aparecem; conclua o XML pela lista NF de entrada (pág. 7). Fornecedores Salvados-only ficam ocultos. Em cartões cinza, escolha “Finalizar Vinculação” e associe todos os produtos para usar “Usar NF”. Se fornecedor e itens já estiverem associados, prefira “Gerar recebimento” na própria nota.', y)
+y = step(1, 'Com nota fiscal de entrada', 'Use NF-e com XML completo. Resumos e notas incompletas não aparecem; conclua o XML pela lista NF de entrada (pág. 7). Fornecedores exclusivos de Salvados não geram recebimento: as notas ficam em NF de entrada, com todos os itens fixos em “Não se aplica”, sem vínculo de produto ou movimentação de estoque. Os demais fornecedores aparecem neste seletor; conclua os vínculos antes de gerar o recebimento.', y)
 y = step(2, 'Com pedido de compra', 'Escolha o fornecedor e o pedido desta carga. Confira os itens previstos e ajuste as quantidades para o que chegou.', y)
 y = step(3, 'Sem nota ou pedido adequado', 'Informe o fornecedor, os produtos, as quantidades recebidas e os custos disponíveis.', y)
 y = note('O pedido não substitui o recebimento', 'Mesmo que o pedido esteja como Atendido ou tenha sido conferido, registre a entrada em Recebimentos.', y, fill=AMBER)
@@ -516,12 +517,13 @@ y = shot('07-formulario-recebimento', y, width=TW, max_height=95, crop=(845, 848
 for n, title, body in [
     (1, 'Faça a última conferência', 'Confira fornecedor, produtos, quantidades e valor final. Veja se a mesma entrega já não foi registrada.'),
     (2, 'Use Confirmar recebimento e aguarde', 'Clique uma vez e espere a mensagem do sistema. Não feche a tela durante a confirmação.'),
-    (3, 'Confira o status Recebido', 'Encontre o recebimento na lista e veja se está como Recebido. A nota também aparece como recebida quando todos os itens esperados dão entrada.'),
+    (3, 'Confira o status Recebido', 'Encontre o recebimento na lista e veja se está como Recebido. A nota também aparece como recebida quando todos os itens que entrarão no estoque dão entrada; linhas “Não se aplica” não contam como pendência.'),
     (4, 'Confira a movimentação gerada', 'Em Movimentações, localize o produto e o período. A entrada deve corresponder ao recebimento confirmado.'),
 ]:
     y = step(n, title, body, y)
 y = table(['Se acontecer...', 'Como agir'], [
     ['Não apareceu mensagem de sucesso ou erro', 'Confira a lista de recebimentos antes de tentar de novo. A entrada pode já ter sido registrada.'],
+    ['A lista não carrega no app', 'Toque em Tentar novamente. Se não houver registros, aparece “Nenhum recebimento encontrado”.'],
     ['Recebimento confirmado com erro', 'Peça ajuda a um usuário autorizado. Estornar Recebimento reverte a entrada e só deve ser usado após conferir a situação real.'],
     ['Preciso usar Duplicar recebimento', 'Use para uma nova entrega. Duplicar e confirmar a mesma entrega aumenta o estoque duas vezes.'],
 ], y, widths=[180, TW - 180], size=10)
@@ -529,7 +531,7 @@ y = table(['Se acontecer...', 'Como agir'], [
 # 15 - Etiquetas
 y = base('05 / Etiquetas', 'Escolha por onde imprimir as etiquetas', 'Use só a nota ou o recebimento para identificar as mesmas unidades.')
 y = shot('16-menus-de-acoes', y, max_height=267, caption='Menus reais com exemplo didático: 2 etiquetas pela NF-e  •  3 etiquetas pelo recebimento concluído. A opção 1 prepara o recebimento pela NF-e.')
-y = step(1, 'Pela nota fiscal', 'Com o fornecedor e todos os produtos vinculados, abra os três pontinhos e escolha Imprimir etiquetas de identificação.', y)
+y = step(1, 'Pela nota fiscal', 'Com o fornecedor e os produtos que serão identificados vinculados, abra os três pontinhos e escolha Imprimir etiquetas de identificação. Linhas “Não se aplica” não geram etiquetas.', y)
 y = step(2, 'Pelo recebimento', 'Com o recebimento concluído e no status Recebido, abra os três pontinhos e escolha a mesma ação. Em rascunho ou estornado, a impressão fica desativada.', y)
 y = note('Identificação e preço têm usos diferentes', 'A etiqueta de identificação acompanha a unidade física. A etiqueta de preço serve à exposição e à venda; não use para contar estoque. Na lista Produtos, a ação Etiqueta de Preço exige permissão para editar Produtos. Perfis somente consulta devem solicitar a impressão a alguém autorizado.', y, fill=MINT)
 
@@ -689,7 +691,7 @@ y = base('Consulta rápida', 'Conferência final do estoque', 'Antes de encerrar
 for text in [
     'A carga foi conferida com a nota ou, sem nota, com o pedido de compra.',
     'A nota é da empresa correta e o arquivo XML mostra todos os produtos.',
-    'O fornecedor e todos os produtos estão associados corretamente à nota.',
+    'Os itens que entrarão no estoque estão associados corretamente; as demais linhas da nota estão marcadas “Não se aplica”.',
     'As quantidades recebidas correspondem às unidades completas que chegaram.',
     'Custos, descontos, frete e outras despesas foram revisados sem duplicidade.',
     'O recebimento está como Recebido e a entrada aparece no estoque.',

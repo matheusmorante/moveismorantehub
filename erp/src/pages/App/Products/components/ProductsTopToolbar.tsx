@@ -59,7 +59,7 @@ export const ProductsTopToolbar: React.FC<ProductsTopToolbarProps> = ({
             type="text"
             placeholder={
               mode === 'composition'
-                ? 'Pesquisar composições (mín. 3 caracteres)...'
+                ? 'Pesquisar produtos compostos (mín. 3 caracteres)...'
                 : 'Pesquisar produtos (mín. 3 caracteres)...'
             }
             value={searchInput}
@@ -118,7 +118,7 @@ export const ProductsTopToolbar: React.FC<ProductsTopToolbarProps> = ({
                         <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
                           <i className="bi bi-plus-lg" />
                         </div>
-                        {mode === 'composition' ? 'Nova Composição' : 'Novo Produto'}
+                        {mode === 'composition' ? 'Novo Produto Composto' : 'Novo Produto'}
                       </button>
 
                       {mode === 'standard' && (

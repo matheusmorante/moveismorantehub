@@ -125,24 +125,6 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
         });
       }
 
-      const parentImages = Array.isArray((data as any).images)
-        ? (data as any).images.filter(Boolean)
-        : [];
-      variations.forEach((variation, index) => {
-        const varImages = Array.isArray(variation.images)
-          ? variation.images.filter(Boolean)
-          : typeof (variation as any).image_url === 'string' && (variation as any).image_url.trim()
-            ? (variation as any).image_url.split(',').filter(Boolean)
-            : [];
-        if (varImages.length === 0 && (isMultiVariationMode || parentImages.length === 0)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `A variação "${variation.name || `Variação ${index + 1}`}" deve ter pelo menos 1 foto vinculada para concluir o cadastro.`,
-            path: ['variations', index, 'images'],
-          });
-        }
-      });
-
       if (isMultiVariationMode && variations.length > 1) {
         const parentName = enteredName;
         const completeNames = variations.map((variation) =>

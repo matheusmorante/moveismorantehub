@@ -245,8 +245,7 @@ export const fetchReceipts = async (page: number) => {
     .range(from, to);
 
   if (error) {
-    console.warn('Erro ao buscar recebimentos:', error);
-    return [];
+    throw error;
   }
 
   const pendingChecks = await getPendingGoodsReceiptChecks();

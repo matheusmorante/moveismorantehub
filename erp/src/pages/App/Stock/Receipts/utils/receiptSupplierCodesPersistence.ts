@@ -9,6 +9,7 @@ export async function persistInboundSupplierProductCodes(
 
   await Promise.all(
     inboundItems.flatMap((item) => {
+      if (item.linkMode === 'not_applicable') return [];
       if (item.linkMode === 'composition' && item.compositionLinks?.length) {
         return item.compositionLinks.map((comp) =>
           saveProductSupplierCode({

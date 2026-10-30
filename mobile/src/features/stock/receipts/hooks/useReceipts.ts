@@ -29,12 +29,14 @@ const overlayPendingChecksOnReceipts = async (list: any[]): Promise<any[]> => {
 
 export const useReceipts = () => {
   const [receipts, setReceipts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
   const loadReceipts = useCallback(async (isRefresh = false, pageNum = 0) => {
+    setLoadError(null);
     if (isRefresh) {
       setPage(0);
       setHasMore(true);
@@ -94,6 +96,7 @@ export const useReceipts = () => {
       }
     } catch (err) {
       console.error('Failed to fetch receipts:', err);
+      setLoadError('Não foi possível carregar os recebimentos. Tente novamente.');
       if (pageNum === 0) {
         try {
           const cached =
@@ -131,5 +134,5 @@ export const useReceipts = () => {
     return unsubscribe;
   }, [loadReceipts]);
 
-  return { receipts, loading, loadingMore, loadMore, reload: () => loadReceipts(true, 0) };
+  return { receipts, loading, loadingMore, loadMore, loadError, reload: () => loadReceipts(true, 0) };
 };

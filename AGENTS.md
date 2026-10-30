@@ -139,6 +139,7 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 
 * Em 24/10/2026, o operador autorizou o agente a executar, sem confirmação repetida por migration, migrations de schema necessárias para implementar tarefas explicitamente solicitadas no Supabase operacional já usado pelo ERP.
 * Antes de cada aplicação, revisar o SQL completo, confirmar o project ref, consultar o histórico remoto e validar precondições, compatibilidade e impacto. Aplicar somente no schema `public` do projeto operacional existente e verificar o resultado depois.
+* Quando uma migration de schema for necessária para concluir uma tarefa explicitamente solicitada, aplicá-la ao Supabase operacional na mesma tarefa após as verificações acima. Não finalizar deixando a migration apenas no repositório nem tratar a aplicação como uma etapa futura. Se o histórico, as precondições ou a compatibilidade não forem confirmados, não aplicar e registrar o bloqueio concreto.
 * Esta autorização cobre DDL de migrations dentro do escopo solicitado. Não autoriza provisionar fixtures ou dados sintéticos, fazer escritas DML de teste, limpar dados, criar projetos/branches/bancos/schemas, enviar mensagens, executar ações fiscais nem contornar gates de ownership, isolamento e autorização específicos. Essas operações continuam sujeitas à política e às aprovações próprias.
 * Permanecem proibidos Supabase Local, migrations em banco local, `DROP`, `TRUNCATE`, DDL experimental e alterações amplas de RLS no banco compartilhado. Preferir migrations compatíveis e reversíveis, sem apagar histórico ou registros operacionais.
 
@@ -153,3 +154,8 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 * Marca e Modelo/Linha são características obrigatórias para publicação no Catálogo Digital em todas as categorias. Características obrigatórias por categoria também devem ser adicionadas automaticamente e validadas para publicação no Catálogo Digital. Nenhuma dessas exigências deve bloquear o cadastro nem a ativação do produto no ERP, nem exibir asterisco vermelho ou controle para ativar/desativar a característica.
 * Quantidade de portas, Tipo de portas e Peso permanecem opcionais em todas as categorias, tanto no cadastro do ERP quanto na publicação no Catálogo Digital, inclusive quando houver configurações antigas marcando esses campos como obrigatórios.
 * Características Sim/Não devem usar um grupo de opções radio com rótulos visíveis “Sim” e “Não”, sem alternador deslizante; preserve a acessibilidade dos controles para leitores de tela.
+
+## 16. Publicação de atualizações OTA do aplicativo
+
+* Publicar uma atualização OTA (EAS Update), em qualquer branch, ambiente ou plataforma, somente quando o usuário pedir explicitamente. Um pedido para implementar uma mudança no app não autoriza sua publicação OTA.
+* Sem pedido explícito de OTA, concluir as alterações locais e informar que a publicação ficou pendente. Builds e verificações locais do bundle são permitidos se não publicarem uma atualização.

@@ -38,6 +38,23 @@ export const isChoiceCharacteristicType = (value?: AttributeDataType): boolean =
 export const normalizeCharacteristicText = (value: string): string =>
   value.trim().toLocaleLowerCase('pt-BR');
 
+const FACTORY_DEFAULT_CHARACTERISTIC_NAMES = new Set([
+  'cor',
+  'altura total',
+  'largura total',
+  'profundidade total',
+  'modelo/linha',
+  'linha/modelo',
+  'modelo e linha',
+  'modelo ou linha',
+  'marca',
+]);
+
+export const isFactoryDefaultCharacteristicName = (name: string): boolean =>
+  FACTORY_DEFAULT_CHARACTERISTIC_NAMES.has(
+    normalizeCharacteristicText(name).replace(/\s*\/\s*/g, '/')
+  );
+
 export const normalizeManagedCharacteristicType = (
   value?: AttributeDataType
 ): CharacteristicFillType => {
@@ -185,7 +202,8 @@ export const validateCharacteristicSnapshot = (
   snapshot: CharacteristicFormData,
   allVariations: readonly VariationType[],
   currentCharacteristicId?: string,
-  groups: readonly CharacteristicGroup[] = []
+  groups: readonly CharacteristicGroup[] = [],
+  allowEmptyChoiceOptions = false,
 ): string | null => {
   const name = snapshot.name.trim();
   if (!name) return 'O nome da característica é obrigatório.';
@@ -213,7 +231,7 @@ export const validateCharacteristicSnapshot = (
   if (new Set(normalizedOptions).size !== normalizedOptions.length) {
     return 'As opções não podem ter nomes duplicados.';
   }
-  if (isChoiceCharacteristicType(snapshot.dataType) && activeOptions.length === 0) {
+  if (isChoiceCharacteristicType(snapshot.dataType) && activeOptions.length === 0 && !allowEmptyChoiceOptions) {
     return 'Mantenha pelo menos uma opção ativa para este tipo de característica.';
   }
 
@@ -234,7 +252,8 @@ const optionSchema = z.object({
 export const createManagedCharacteristicFormSchema = (
   allVariations: readonly VariationType[] = [],
   currentCharacteristicId?: string | (() => string | undefined),
-  groups: readonly CharacteristicGroup[] = []
+  groups: readonly CharacteristicGroup[] = [],
+  allowEmptyChoiceOptions = false,
 ) => z.object({
   name: z.string().trim().min(1, 'O nome da característica é obrigatório.'),
   groupId: z.string().min(1, 'Selecione um grupo para a característica.'),
@@ -250,6 +269,7 @@ export const createManagedCharacteristicFormSchema = (
     allVariations,
     typeof currentCharacteristicId === 'function' ? currentCharacteristicId() : currentCharacteristicId,
     groups,
+    allowEmptyChoiceOptions,
   );
   if (error) context.addIssue({ code: 'custom', path: ['name'], message: error });
 });

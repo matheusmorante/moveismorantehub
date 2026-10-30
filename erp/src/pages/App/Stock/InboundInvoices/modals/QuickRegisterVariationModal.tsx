@@ -176,11 +176,13 @@ export function QuickRegisterVariationModal({
     setParentProduct(null);
     setTechnicalDefinitions([]);
     const loadParent = async () => {
+      let parentCategoryIds: string[] = [];
       try {
         const full = await withTimeout(getFullProduct(selectedParent.id), 15000, null, 'entrada:produto-pai');
         if (!full || full.id !== selectedParent.id || full.deleted || full.isVariation || full.active === false || full.itemType !== 'product') {
           throw new Error('Produto pai não encontrado ou indisponível.');
         }
+        parentCategoryIds = full.categoryIds ?? [];
         if (current && active.current) setParentProduct(full);
       } catch (failure) {
         if (current && active.current) setError(failure instanceof Error ? failure.message : 'Não foi possível consultar o produto pai.');
@@ -188,7 +190,7 @@ export function QuickRegisterVariationModal({
         if (current && active.current) setParentLoading(false);
       }
       try {
-        const definitions = await withTimeout(fetchTechnicalFieldDefinitions('variation-form'), 15000, null, 'entrada:caracteristicas-variacao');
+        const definitions = await withTimeout(fetchTechnicalFieldDefinitions('variation-form', { categoryIds: parentCategoryIds }), 15000, null, 'entrada:caracteristicas-variacao');
         if (definitions && current && active.current) setTechnicalDefinitions(definitions);
       } catch {
         if (current && active.current) setError('Não foi possível carregar as características configuradas no produto pai.');
@@ -449,7 +451,7 @@ export function QuickRegisterVariationModal({
                   <section className="space-y-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
                     <h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Componentes do produto composto <span className="text-rose-600">*</span></h4>
                     <p className="text-[11px] text-slate-500">Use para kits ou conjuntos de peças cadastradas separadamente. Escolha cada peça e quantidade manualmente, mesmo se a NF-e trouxer o conjunto em uma só linha; no pedido de venda, o ERP inclui automaticamente esses componentes.</p>
-                    <ProductAutocomplete disabled={busy} supplierId={supplierId} value="" placeholder="Buscar produto ou variação componente..." onSelect={handleAddComponent} onChange={() => {}} />
+                    <ProductAutocomplete disabled={busy} supplierId={supplierId} variationsOnly value="" placeholder="Buscar produto ou variação componente..." onSelect={handleAddComponent} onChange={() => {}} />
                     {components.map((component) => (
                       <div key={component.key} className="grid grid-cols-[1fr_90px_auto] items-center gap-2 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
                         <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{component.description}</span>

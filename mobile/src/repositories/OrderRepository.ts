@@ -136,6 +136,7 @@ export const OrderRepository = {
         };
         const clearableDeliveryKeys = [
           'deliveryStatus',
+          'deliveryPreparationStartedAt',
           'deliveryStartedAt',
           'deliveryArrivedAt',
           'deliveryServiceStartedAt',

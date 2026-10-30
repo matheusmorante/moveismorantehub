@@ -1,11 +1,17 @@
 import { supabase } from '../../supabaseClient';
 import { parseInboundNfeXml } from '../../../features/stock/invoices/utils/inboundXmlParser';
+import { buildInboundInvoiceItemRows } from './inboundInvoiceMappers';
+import {
+  getSupplierStockOriginsFromRelation,
+  isSalvadosOnlySupplier,
+} from '../../../../../shared-utils/productSupplierStockOrigin';
+import { markInboundInvoiceItemsNotApplicable } from '../../../../../shared-utils/inboundInvoiceSupplierRules';
 
 export const fetchInboundInvoiceForMappings = async (invoiceId: string) => {
   const { data, error } = await supabase
     .from('inbound_invoices')
     .select(
-      'id, numero_nfe, serie, emitente_nome, emitente_cnpj, supplier_id, itens, xml_conteudo, inbound_invoice_items(item_number, product_code, product_description, product_id, variation_id, raw_item)'
+      'id, numero_nfe, serie, emitente_nome, emitente_cnpj, supplier_id, itens, xml_conteudo, supplier:people(stock_origins), inbound_invoice_items(item_number, product_code, product_description, product_id, variation_id, raw_item)'
     )
     .eq('id', invoiceId)
     .maybeSingle();
@@ -84,14 +90,22 @@ export const fetchInboundInvoiceForMappings = async (invoiceId: string) => {
   if (data.supplier_id) {
     const { data: supplierRow, error: supplierError } = await supabase
       .from('people')
-      .select('id, full_name, cpf_cnpj')
+      .select('id, full_name, cpf_cnpj, stock_origins')
       .eq('id', data.supplier_id)
       .maybeSingle();
     if (supplierError) throw supplierError;
     supplier = supplierRow;
   }
 
-  return { ...data, supplier, items };
+  const joinedSupplierOrigins = getSupplierStockOriginsFromRelation(data.supplier);
+  const supplierStockOrigins = Array.isArray(supplier?.stock_origins)
+    ? supplier.stock_origins
+    : joinedSupplierOrigins;
+  if (isSalvadosOnlySupplier(supplierStockOrigins)) {
+    items = markInboundInvoiceItemsNotApplicable(items);
+  }
+
+  return { ...data, supplier, supplierStockOrigins, items };
 };
 
 export const updateInboundInvoiceMappings = async (
@@ -99,20 +113,48 @@ export const updateInboundInvoiceMappings = async (
   supplierId: string | null,
   items: any[]
 ) => {
+  const { data: currentInvoice, error: currentInvoiceError } = await supabase
+    .from('inbound_invoices')
+    .select('supplier_id, supplier:people(stock_origins)')
+    .eq('id', invoiceId)
+    .maybeSingle();
+  if (currentInvoiceError) throw currentInvoiceError;
+
+  const currentOrigins = getSupplierStockOriginsFromRelation(currentInvoice?.supplier);
+  const currentIsSalvados = isSalvadosOnlySupplier(currentOrigins);
+  let effectiveSupplierId = currentIsSalvados
+    ? currentInvoice?.supplier_id || supplierId
+    : supplierId;
+  let targetOrigins = currentIsSalvados ? currentOrigins : undefined;
+
+  if (!targetOrigins && effectiveSupplierId) {
+    const { data: targetSupplier, error: targetSupplierError } = await supabase
+      .from('people')
+      .select('stock_origins')
+      .eq('id', effectiveSupplierId)
+      .maybeSingle();
+    if (targetSupplierError) throw targetSupplierError;
+    targetOrigins = Array.isArray(targetSupplier?.stock_origins)
+      ? targetSupplier.stock_origins
+      : undefined;
+  }
+
+  const isSalvadosSupplier = isSalvadosOnlySupplier(targetOrigins);
+  if (isSalvadosSupplier && !effectiveSupplierId) {
+    effectiveSupplierId = currentInvoice?.supplier_id || supplierId;
+  }
+  const persistedItems = isSalvadosSupplier
+    ? markInboundInvoiceItemsNotApplicable(items)
+    : items;
+
   const { error } = await supabase
     .from('inbound_invoices')
-    .update({ supplier_id: supplierId, itens: items, updated_at: new Date().toISOString() })
+    .update({ supplier_id: effectiveSupplierId, itens: persistedItems, updated_at: new Date().toISOString() })
     .eq('id', invoiceId);
   if (error) throw error;
 
-  if (items.length) {
-    const itemRows = items.map((item: any, index: number) => ({
-      invoice_id: invoiceId,
-      item_number: Number(item.itemNumber ?? item.item_number ?? index + 1),
-      product_id: item.matchedProductId || null,
-      variation_id: item.matchedVariationId || null,
-      raw_item: item,
-    }));
+  if (persistedItems.length) {
+    const itemRows = buildInboundInvoiceItemRows(invoiceId, persistedItems);
     const { error: itemsError } = await supabase
       .from('inbound_invoice_items')
       .upsert(itemRows, { onConflict: 'invoice_id,item_number' });

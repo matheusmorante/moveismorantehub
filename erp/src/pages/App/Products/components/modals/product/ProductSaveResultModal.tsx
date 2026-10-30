@@ -93,6 +93,7 @@ export const ProductSaveResultModal: React.FC<ProductSaveResultModalProps> = ({
         const [requirements, groupData] = await Promise.all([
           withTimeout(
             fetchTechnicalFieldDefinitions('product-form', {
+              categoryIds: product.categoryIds ?? [],
               forceRefresh: true,
               requireCategoryLinks: true,
             }),

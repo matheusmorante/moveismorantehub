@@ -18,7 +18,6 @@ export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSy
   const [status, setStatus] = useState<SefazSyncStatus | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [automationNotice, setAutomationNotice] = useState<string | null>(null);
-  const [nextRecoveryCheckAt, setNextRecoveryCheckAt] = useState<number | null>(null);
   const onSyncSuccessRef = useRef(onSyncSuccess);
   const autoSyncInFlight = useRef(false);
   const scienceInFlight = useRef(false);
@@ -162,7 +161,6 @@ export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSy
 
   useEffect(() => {
     scienceQueueMounted.current = true;
-    setNextRecoveryCheckAt(Date.now() + NSU_RECOVERY_CHECK_INTERVAL_MS);
     void (async () => {
       await syncIfDue();
       requestScienceProcessing();
@@ -172,7 +170,6 @@ export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSy
       void syncIfDue();
     }, 45000); // Polling leve a cada 45 segundos para atualizar o indicador
     const recoveryInterval = setInterval(() => {
-      setNextRecoveryCheckAt(Date.now() + NSU_RECOVERY_CHECK_INTERVAL_MS);
       void recoverMissingNsu();
     }, NSU_RECOVERY_CHECK_INTERVAL_MS);
     return () => {
@@ -201,53 +198,13 @@ export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSy
 
   if (!status) return null;
 
-  // lastSyncAt representa a descoberta geral por distNSU, não a recuperação consNSU.
-  let lastSyncText = 'nenhuma busca de novas notas realizada ainda';
-  if (status.lastSyncAt) {
-    const diffMin = Math.floor((Date.now() - new Date(status.lastSyncAt).getTime()) / 60000);
-    if (diffMin <= 0) {
-      lastSyncText = 'busca de novas notas feita agora';
-    } else if (diffMin < 60) {
-      lastSyncText = `busca de novas notas há ${diffMin} min`;
-    } else {
-      const hours = Math.floor(diffMin / 60);
-      lastSyncText = `busca de novas notas há ${hours}h`;
-    }
-  }
-
-  // distNSU descobre documentos novos uma vez por hora.
-  let nextDiscoveryText = 'Próxima busca de novas notas em breve';
-  if (status.nextAllowedSyncAt) {
-    const remainingMs = new Date(status.nextAllowedSyncAt).getTime() - Date.now();
-    if (remainingMs > 0) {
-      const remainingMin = Math.ceil(remainingMs / 60000);
-      nextDiscoveryText = `Próxima busca de novas notas em ~${remainingMin} min`;
-    } else {
-      nextDiscoveryText = 'Nova busca de notas liberada';
-    }
-  } else if (status.lastSyncAt) {
-    const nextCycleMs = new Date(status.lastSyncAt).getTime() + 60 * 60 * 1000 - Date.now();
-    if (nextCycleMs > 0) {
-      const remainingMin = Math.ceil(nextCycleMs / 60000);
-      nextDiscoveryText = `Próxima busca de novas notas em ~${remainingMin} min`;
-    } else {
-      nextDiscoveryText = 'Nova busca de notas liberada';
-    }
-  }
-  const recoveryRemainingMs = nextRecoveryCheckAt === null ? null : nextRecoveryCheckAt - Date.now();
-  const nextRecoveryCheckText = recoveryRemainingMs === null
-    ? 'Checagem de notas pendentes a cada 5 min'
-    : recoveryRemainingMs > 0
-      ? `Próxima checagem de notas pendentes em ~${Math.ceil(recoveryRemainingMs / 60000)} min, se houver`
-      : 'Checagem de notas pendentes em andamento';
-
   // Caso de erro técnico na sincronização
   if (status.status === 'error') {
     return (
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-amber-700 dark:text-amber-300">
         <span className="flex items-center gap-1 font-medium">
           <i className="bi bi-exclamation-triangle-fill text-amber-500" />
-          Não foi possível atualizar as NF-e ({lastSyncText})
+          Não foi possível atualizar as NF-e
         </span>
         <button
           type="button"
@@ -273,29 +230,11 @@ export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSy
     );
   }
 
-  const syncIsStale =
-    !status.lastSyncAt ||
-    (lastSyncText !== 'busca de novas notas feita agora' &&
-      (Date.now() - new Date(status.lastSyncAt).getTime()) / 3600000 >= 24);
-  const syncTone = syncIsStale
-    ? 'text-amber-700 dark:text-amber-300'
-    : 'text-emerald-700 dark:text-emerald-300';
-  const syncDot = syncIsStale ? 'bg-amber-500' : 'bg-emerald-500';
-  const friendlyLastSync =
-    status.lastSyncAt && syncIsStale
-      ? `Busca de novas notas há ${Math.max(1, Math.floor((Date.now() - new Date(status.lastSyncAt).getTime()) / 86400000))} dia(s)`
-      : lastSyncText;
+  if (!automationNotice) return null;
 
-  // Exibição semântica: atraso não deve parecer uma sincronização saudável.
   return (
-    <div className="flex flex-col text-[11px] leading-tight text-slate-500 dark:text-slate-400">
-      <span className={`flex items-center gap-1.5 font-semibold ${syncTone}`}>
-        <span className={`h-1.5 w-1.5 rounded-full ${syncDot} shrink-0`} />
-        <span>SEFAZ: {friendlyLastSync}</span>
-      </span>
-      <span className="text-[10px] text-slate-400 dark:text-slate-500 pl-3">{nextDiscoveryText}</span>
-      <span className="text-[10px] text-slate-400 dark:text-slate-500 pl-3">{nextRecoveryCheckText}</span>
-      {automationNotice && <span role="status" className="pl-3 text-[10px] text-amber-700 dark:text-amber-300">{automationNotice}</span>}
-    </div>
+    <span role="status" className="text-[10px] text-amber-700 dark:text-amber-300">
+      {automationNotice}
+    </span>
   );
 };

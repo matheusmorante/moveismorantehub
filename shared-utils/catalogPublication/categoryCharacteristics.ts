@@ -9,6 +9,7 @@ import {
   readCharacteristicValue,
   hasRequiredCatalogValue,
   getProductCategoryIds,
+  isCatalogCoreRequiredCharacteristicName,
 } from './characteristicValues';
 import { isCatalogNeverRequiredCharacteristicName } from './requiredCharacteristicPolicy';
 import {
@@ -24,8 +25,6 @@ export const getMissingCategoryRequiredCharacteristics = (
   _characteristicGroups: readonly CatalogCharacteristicGroup[] = []
 ): string[] => {
   const activeCategories = new Set(getProductCategoryIds(data));
-  const isAvailableInCategory = (requirement: CatalogCharacteristicRequirement, categoryId: string) =>
-    !requirement.unavailableCategoryIds?.some((id) => String(id) === categoryId);
   const getCharacteristicApplication = (requirement: CatalogCharacteristicRequirement) => {
     const configured = requirement.categoryApplications?.filter((application) =>
       activeCategories.has(String(application.categoryId))
@@ -46,22 +45,18 @@ export const getMissingCategoryRequiredCharacteristics = (
     )) return 'optional';
     return undefined;
   };
+  // Catalog requirements are independent of the editor's application setting.
+  // A category-required characteristic must remain visible and validated even
+  // when the form metadata says "unavailable".
   const hasCatalogRequiredCategory = (requirement: CatalogCharacteristicRequirement) =>
-    requirement.requiredCategoryIds?.some((id) =>
-      activeCategories.has(String(id)) && isAvailableInCategory(requirement, String(id))
-    ) ?? false;
+    !isCatalogNeverRequiredCharacteristicName(requirement.name) &&
+    Boolean(requirement.requiredCategoryIds?.some((id) =>
+      activeCategories.has(String(id))
+    ));
   const isRequiredForCategory = (requirement: CatalogCharacteristicRequirement) => {
     if (isCatalogNeverRequiredCharacteristicName(requirement.name)) return false;
-    const configuredApplications = requirement.categoryApplications?.filter((application) =>
-      activeCategories.has(String(application.categoryId))
-    ) ?? [];
-    if (configuredApplications.length > 0) {
-      return configuredApplications.some((application) => application.application === 'required');
-    }
-    if (requirement.requiredProductCategoryIds?.some((id) => activeCategories.has(String(id)))) {
-      return true;
-    }
-    return requirement.requiredForCategory === true || hasCatalogRequiredCategory(requirement);
+    if (hasCatalogRequiredCategory(requirement)) return true;
+    return requirement.requiredForCategory === true;
   };
   const isService = data.itemType === 'service' || data.item_type === 'service';
   const globalRequiredNames = isService ? [] : [
@@ -86,7 +81,10 @@ export const getMissingCategoryRequiredCharacteristics = (
     .filter(
       (requirement) => {
         if (isCatalogNeverRequiredCharacteristicName(requirement.name)) return false;
-        if (getCharacteristicApplication(requirement) === 'unavailable') return false;
+        if (
+          getCharacteristicApplication(requirement) === 'unavailable' &&
+          !hasCatalogRequiredCategory(requirement)
+        ) return false;
         const requiredForCategory = isRequiredForCategory(requirement);
         if (requirement.groupId) return false;
         return requiredForCategory;
@@ -178,9 +176,15 @@ export const getMissingCategoryRequiredCharacteristics = (
       hasRequiredCatalogValue(field.name, readCharacteristicValue(variation, field.name), field.dataType ?? field.data_type)
     );
   };
-  const isCharacteristicRequired = (field: CatalogCharacteristicRequirement) =>
-    getCharacteristicApplication(field) !== 'unavailable' &&
-    isRequiredForCategory(field);
+  const isCharacteristicRequired = (field: CatalogCharacteristicRequirement) => {
+    if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
+    if (
+      (!isService && isCatalogCoreRequiredCharacteristicName(field.name)) ||
+      hasCatalogRequiredCategory(field)
+    ) return true;
+    return getCharacteristicApplication(field) !== 'unavailable' &&
+      isRequiredForCategory(field);
+  };
   const isDependencySatisfied = (
     field: CatalogCharacteristicRequirement,
     record: Readonly<Record<string, any>> = data,
@@ -230,9 +234,10 @@ export const getMissingCategoryRequiredCharacteristics = (
     field: CatalogCharacteristicRequirement,
     visited: Set<string> = new Set()
   ): boolean => {
-    if (getCharacteristicApplication(field) === 'unavailable') return false;
+    const isCatalogRequired = isCharacteristicRequired(field);
+    if (getCharacteristicApplication(field) === 'unavailable' && !isCatalogRequired) return false;
     if (!isDependencySatisfied(field, data, visited)) return false;
-    if (isCharacteristicRequired(field)) return true;
+    if (isCatalogRequired) return true;
     if (field.id && selectedFieldIds.has(field.id) && activeFieldIds.has(field.id)) return true;
     if (hasExplicitCharacteristicSelection || hasExplicitCharacteristicActivation) return false;
     const isNotInformValue = (value: unknown) =>
@@ -293,7 +298,12 @@ export const getMissingCategoryRequiredCharacteristics = (
     });
   });
   const activeGroupFields = requirements.filter((field) => {
-    if (!field.id || (field.active === false && !hasStoredGroupFieldValue(field))) {
+    if (
+      !field.id ||
+      (field.active === false &&
+        !hasStoredGroupFieldValue(field) &&
+        !isCharacteristicRequired(field))
+    ) {
       return false;
     }
     // Group membership is organizational; each characteristic has its own application and activation.

@@ -2,10 +2,12 @@ import React from 'react';
 
 interface ItemsTableDesktopHeaderProps {
   readonly hideHandling: boolean;
+  readonly compactDesktop?: boolean;
 }
 
 export const ItemsTableDesktopHeader: React.FC<ItemsTableDesktopHeaderProps> = ({
   hideHandling,
+  compactDesktop = false,
 }) => {
   return (
     <thead className="bg-slate-50/70 dark:bg-slate-800/40 border-b border-slate-200/70 dark:border-slate-800">
@@ -24,15 +26,17 @@ export const ItemsTableDesktopHeader: React.FC<ItemsTableDesktopHeaderProps> = (
         <th className="px-2 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]">
           Preço unitário <span className="text-red-500">*</span>
         </th>
-        <th colSpan={2} className="px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+        <th colSpan={2} className="w-[150px] px-2 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
           Desconto
         </th>
-        <th
-          className="px-2 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]"
-          title="Preço final unitário"
-        >
-          Preço final unitário
-        </th>
+        {!compactDesktop && (
+          <th
+            className="px-2 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[110px]"
+            title="Preço final unitário"
+          >
+            Preço final unitário
+          </th>
+        )}
         <th className="px-2 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 w-[105px]">
           Total
         </th>

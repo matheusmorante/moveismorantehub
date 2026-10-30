@@ -24,6 +24,7 @@ import { InboundItemCompositionMode } from './InboundItemCompositionMode';
 interface InboundInvoiceItemRowProps {
   item: InboundInvoiceItem;
   supplierId?: string;
+  lockToNotApplicable?: boolean;
   excludedProductLinks: readonly ProductAutocompleteExcludedLink[];
   suggestion?: InboundSuggestion;
   acceptingSuggestion: number | null;
@@ -40,6 +41,7 @@ interface InboundInvoiceItemRowProps {
 export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
   item,
   supplierId,
+  lockToNotApplicable = false,
   excludedProductLinks,
   suggestion,
   acceptingSuggestion,
@@ -52,7 +54,8 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
   onRequestEditProduct,
   onUpdateItem,
 }) => {
-  const isComposition = item.linkMode === 'composition';
+  const isComposition = !lockToNotApplicable && item.linkMode === 'composition';
+  const isNotApplicable = lockToNotApplicable || item.linkMode === 'not_applicable';
   const compositionLinks = item.compositionLinks || [];
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -84,7 +87,7 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
       compositionLinks: compositionLinks.filter((c) => c.id !== id),
     });
   };
-  const linked = Boolean(item.matchedProductId);
+  const linked = !lockToNotApplicable && Boolean(item.matchedProductId);
   const totalUnit = itemCostWithAdditionalCosts(item);
   const itemDescription =
     item.productDescription ||
@@ -151,6 +154,23 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
       : resolvedFallback?.code || item.linkedProductCode || '—';
 
   const displaySellingPrice = item.sellingPrice || resolvedFallback?.sellingPrice || 0;
+  const requestQuickRegister = () =>
+    onRequestQuickRegister({
+      itemNumber: item.itemNumber,
+      item: {
+        productDescription: itemDescription,
+        productCode: item.productCode,
+        unit: item.unit,
+        ncm: item.ncm,
+        ean: item.ean,
+        eanTrib: item.eanTrib,
+        cest: item.cest,
+        cfop: item.cfop,
+        quantity: item.quantity,
+        unitCost: item.unitCost,
+        finalCost: totalUnit,
+      },
+    });
 
   return (
     <div className="grid grid-cols-1 gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -219,18 +239,24 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
         <InboundItemLinkHeader
           item={item}
           isComposition={isComposition}
-          compositionLinks={compositionLinks}
+          lockToNotApplicable={lockToNotApplicable}
           supplierId={supplierId}
-          itemDescription={itemDescription}
-          totalUnit={totalUnit}
+          quickRegisterDisabled={
+            !supplierId?.trim() || isNotApplicable || (!isComposition && linked)
+          }
+          compositionLinks={compositionLinks}
           displayName={displayName}
           displayCode={displayCode}
           displaySellingPrice={displaySellingPrice}
+          onRequestQuickRegister={requestQuickRegister}
           onUpdateItem={onUpdateItem}
-          onRequestQuickRegister={onRequestQuickRegister}
         />
 
-        {!supplierId?.trim() ? (
+        {isNotApplicable ? (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+            Não se aplica. Este item continuará na NF-e, mas não será lançado no estoque pelo recebimento.
+          </p>
+        ) : !supplierId?.trim() ? (
           <p className="mt-3 text-xs text-amber-700 dark:text-amber-400 font-semibold">
             Vincule o fornecedor para identificar ou cadastrar os produtos.
           </p>

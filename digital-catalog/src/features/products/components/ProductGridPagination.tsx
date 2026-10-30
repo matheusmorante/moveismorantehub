@@ -58,10 +58,10 @@ export const ProductGridPagination: React.FC<ProductGridPaginationProps> = ({
               disabled={isCurrent}
               onClick={() => onPageChange(page)}
               title={isCurrent ? `Página atual: ${page}` : `Ir para a página ${page}`}
-              className={`flex h-[42px] min-w-[42px] shrink-0 items-center justify-center rounded-lg text-sm font-extrabold transition-colors disabled:cursor-default ${
+              className={`flex h-[42px] min-w-[42px] shrink-0 cursor-pointer items-center justify-center rounded-lg text-sm font-extrabold transition-colors ${
                 isCurrent
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-transparent text-slate-700 hover:bg-white/70'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-transparent text-slate-700 hover:bg-white/70 hover:text-blue-700'
               }`}
             >
               {page}

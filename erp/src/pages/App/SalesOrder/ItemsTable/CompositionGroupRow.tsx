@@ -39,17 +39,14 @@ const CompositionGroupRow: React.FC<CompositionGroupRowProps> = ({
   quantityError,
   children,
 }) => {
-  const [desktopExpanded, setDesktopExpanded] = useState(true);
   const [expandedComponentId, setExpandedComponentId] = useState<string | null>(null);
   const firstItem = items[0]?.item;
   const group = firstItem?.compositionGroup;
   if (!firstItem || !group) return null;
 
   const total = items.reduce((sum, entry) => sum + calcItemTotalValue(entry.item), 0);
-  const groupIsExpanded = isMobile ? isExpanded : desktopExpanded;
-  const handleToggleGroup = isMobile
-    ? onToggleExpand
-    : () => setDesktopExpanded((expanded) => !expanded);
+  const groupIsExpanded = isExpanded;
+  const handleToggleGroup = onToggleExpand;
   const toggleComponent = (itemId: string) => {
     setExpandedComponentId((current) => (current === itemId ? null : itemId));
   };

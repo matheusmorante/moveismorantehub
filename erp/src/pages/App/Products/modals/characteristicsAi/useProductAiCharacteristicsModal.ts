@@ -53,6 +53,7 @@ export const useProductAiCharacteristicsModal = ({
   const [selectedKeys, setSelectedKeys] = useState<Record<string, boolean>>({});
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
   const [loadedAttributes, setLoadedAttributes] = useState<TechnicalFieldDefinition[]>([]);
+  const categoryIdsKey = JSON.stringify([...new Set(formData.categoryIds ?? [])].filter(Boolean).sort());
 
   // Sincronizar estado apenas quando o modal for aberto
   const prevIsOpenRef = useRef(isOpen);
@@ -67,12 +68,15 @@ export const useProductAiCharacteristicsModal = ({
 
   // Carregar características se não vierem nas props
   useEffect(() => {
+    let current = true;
     if (isOpen && (!availableAttributesProp || availableAttributesProp.length === 0)) {
-      void fetchTechnicalFieldDefinitions('product-form')
-        .then((attrs) => setLoadedAttributes(attrs || []))
-        .catch(() => setLoadedAttributes([]));
+      const categoryIds: string[] = JSON.parse(categoryIdsKey);
+      void fetchTechnicalFieldDefinitions('product-form', { categoryIds })
+        .then((attrs) => { if (current) setLoadedAttributes(attrs || []); })
+        .catch(() => { if (current) setLoadedAttributes([]); });
     }
-  }, [isOpen, availableAttributesProp]);
+    return () => { current = false; };
+  }, [isOpen, availableAttributesProp, categoryIdsKey]);
 
   const effectiveAttributes =
     availableAttributesProp && availableAttributesProp.length > 0

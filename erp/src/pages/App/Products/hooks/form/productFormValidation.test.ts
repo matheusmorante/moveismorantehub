@@ -4,7 +4,7 @@ import { createProductFormSchema, validateProductFormSubmission } from './produc
 import { PRODUCT_SUPPLIER_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productSupplierRequirement';
 import { PRODUCT_COMPOSITION_PRODUCT_COMPONENTS_REQUIRED_MESSAGE } from '../../../../../../../shared-utils/productCompositionRequirements';
 
-describe('validateProductFormSubmission - validação de conformidade de fotos por variação', () => {
+describe('validateProductFormSubmission - fotos opcionais por variação', () => {
   const baseProduct: Partial<Product> = {
     name: 'Mesa de Centro',
     unitPrice: 150,
@@ -15,7 +15,7 @@ describe('validateProductFormSubmission - validação de conformidade de fotos p
     images: ['https://img.test/mesa-pai.jpg'],
   };
 
-  it('bloqueia conclusão do cadastro se a variação não possui foto vinculada', () => {
+  it('permite concluir o cadastro se a variação não possui foto vinculada', () => {
     const productWithEmptyVariation: Partial<Product> = {
       ...baseProduct,
       images: [],
@@ -38,16 +38,11 @@ describe('validateProductFormSubmission - validação de conformidade de fotos p
       saveAsDraft: false,
     });
 
-    expect(result.errors.variations).toBe(true);
-    expect(result.errors.variationRegistration).toBe(true);
-    expect(result.errorMessage).toContain('Mesa de Centro Carvalho');
-    expect(result.errorMessage).toContain('pelo menos 1 foto vinculada');
-    expect(result.invalidVariation).toBeDefined();
-    expect(result.invalidVariation?.issue.tab).toBe('fotos');
-    expect(result.invalidVariation?.variation.id).toBe('var-1');
+    expect(result.invalidVariation).toBeUndefined();
+    expect(result.errorMessage).not.toContain('foto vinculada');
   });
 
-  it('identifica exatamente a variação sem fotos quando há múltiplas variações', () => {
+  it('não bloqueia variações múltiplas sem fotos próprias', () => {
     const productWithMultipleVariations: Partial<Product> = {
       ...baseProduct,
       hasVariations: true,
@@ -80,11 +75,8 @@ describe('validateProductFormSubmission - validação de conformidade de fotos p
       saveAsDraft: false,
     });
 
-    expect(result.errors.variations).toBe(true);
-    expect(result.errors.variationRegistration).toBe(true);
-    expect(result.errorMessage).toContain('Mesa de Centro Nogueira');
-    expect(result.invalidVariation?.variation.id).toBe('var-2');
-    expect(result.invalidVariation?.issue.tab).toBe('fotos');
+    expect(result.invalidVariation).toBeUndefined();
+    expect(result.errorMessage).not.toContain('foto vinculada');
   });
 
   it('permite salvar rascunho mesmo com variação sem foto vinculada', () => {
@@ -110,7 +102,7 @@ describe('validateProductFormSubmission - validação de conformidade de fotos p
       saveAsDraft: true,
     });
 
-    // Em rascunho, a regra de fotos por variação não bloqueia a submissão
+    // Fotos são opcionais também ao concluir o cadastro.
     expect(result.errors.variations).toBeUndefined();
     expect(result.errors.variationRegistration).toBeUndefined();
     expect(result.invalidVariation).toBeUndefined();
@@ -233,13 +225,13 @@ describe('createProductFormSchema - modos de variação', () => {
     expect(duplicateNames.error?.issues.some((issue) => issue.message.includes('nomes completos'))).toBe(true);
   });
 
-  it('mantém fotos próprias obrigatórias no modo múltiplo e deixa rascunhos incompletos', () => {
+  it('permite variações múltiplas sem fotos próprias e deixa rascunhos incompletos', () => {
     const missingVariationPhoto = schema.safeParse({
       ...base,
       hasVariations: true,
       variations: [variation('1', 'Poltrona Azul'), variation('2', 'Poltrona Verde', [])],
     });
-    expect(missingVariationPhoto.error?.issues.some((issue) => issue.message.includes('Poltrona Verde') && issue.message.includes('foto'))).toBe(true);
+    expect(missingVariationPhoto.success).toBe(true);
 
     const draft = createProductFormSchema({ isStockistOnly: false, saveAsDraft: true }).safeParse({
       name: 'Rascunho',

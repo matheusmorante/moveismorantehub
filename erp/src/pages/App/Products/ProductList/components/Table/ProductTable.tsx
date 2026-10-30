@@ -15,6 +15,7 @@ import {
 import { ProductBulkActionsToolbar } from '../Shared/ProductBulkActionsToolbar';
 import { MoveVariationFamilyModal } from '../../modals/MoveVariationFamilyModal';
 import { MergeVariationModal } from '../../modals/MergeVariationModal';
+import { MergeDuplicateProductModal } from '../../modals/MergeDuplicateProductModal';
 import { useAuth } from '@/context/AuthContext';
 import { shouldHideCatalogPublicationStatus } from '@/pages/utils/accessRoles';
 
@@ -147,6 +148,7 @@ const ProductTable = ({
   const [expandedParents, setExpandedParents] = React.useState<Record<string, boolean>>({});
   const [variationToMove, setVariationToMove] = React.useState<any>(null);
   const [variationToMerge, setVariationToMerge] = React.useState<any>(null);
+  const [productToMerge, setProductToMerge] = React.useState<Product | null>(null);
 
   const toggleExpandParent = React.useCallback((parentId: string) => {
     setExpandedParents((prev) => ({
@@ -343,6 +345,7 @@ const ProductTable = ({
                   variationsCount={variationsCount}
                   onMoveToAnotherFamily={setVariationToMove}
                   onMergeWithAnotherVariation={setVariationToMerge}
+                  onMergeDuplicateProduct={setProductToMerge}
                   singleVariation={singleVariation}
                 />
               );
@@ -387,6 +390,7 @@ const ProductTable = ({
                 onDuplicate={onDuplicate}
                 onMoveToAnotherFamily={setVariationToMove}
                 onMergeWithAnotherVariation={setVariationToMerge}
+                onMergeDuplicateProduct={setProductToMerge}
               />
             ))
         )}
@@ -399,6 +403,11 @@ const ProductTable = ({
       <MergeVariationModal
         variation={variationToMerge}
         onClose={() => setVariationToMerge(null)}
+        onMerged={() => onRefresh?.()}
+      />
+      <MergeDuplicateProductModal
+        product={productToMerge}
+        onClose={() => setProductToMerge(null)}
         onMerged={() => onRefresh?.()}
       />
     </div>

@@ -43,7 +43,7 @@ const SalesOrderFormSection = ({
       }}
     >
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 pt-4 custom-scrollbar">
-        <div className="max-w-[1400px] mx-auto pb-10">
+        <div className="max-w-[1600px] mx-auto pb-10">
           {currentStep === 1 && (
             <BasicInfoStepSection
               form={form}
@@ -59,7 +59,6 @@ const SalesOrderFormSection = ({
                 icon="bi bi-box-seam"
                 iconBg="bg-blue-600 shadow-blue-100 dark:shadow-blue-900/20"
                 title="ITENS DO PEDIDO"
-                subtitle="Produtos e serviços"
                 compactHeader
               >
                 <ItemsTable

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Modal } from 'react-native';
 import { OrderDetailsBody } from '../OrderDetailsBody';
 import { DeliveryPreparationScreen } from '../../features/orders/screens/DeliveryPreparationScreen';
+import { deliveryFlowService } from '../../features/orders/services/deliveryFlowService';
 import {
   useOrderDetailsModal,
   OrderDetailsModalHeader,
@@ -30,6 +31,7 @@ export const OrderDetailsModal: React.FC<Props> = ({
   userRole,
   userProfile,
 }) => {
+  const preparationStartRequestedOrderRef = React.useRef<string | null>(null);
   const {
     detailedOrder,
     preparingDelivery,
@@ -37,6 +39,28 @@ export const OrderDetailsModal: React.FC<Props> = ({
     canStartDelivery,
     topInset,
   } = useOrderDetailsModal({ order, userRole });
+
+  const markPreparationStarted = React.useCallback(
+    (targetOrder: any, currentData?: Record<string, any>) => {
+      if (!targetOrder?.id || preparationStartRequestedOrderRef.current === targetOrder.id) return;
+      preparationStartRequestedOrderRef.current = targetOrder.id;
+      void deliveryFlowService.startPreparation(
+        targetOrder.id,
+        currentData || targetOrder.order_data || targetOrder.orderData || {}
+      );
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (!order?._openDeliveryPreparation || !order?.id) return;
+    markPreparationStarted(order);
+  }, [markPreparationStarted, order?.id, order?._openDeliveryPreparation]);
+
+  const handleStartDelivery = () => {
+    markPreparationStarted(order, detailedOrder?.order_data || detailedOrder?.orderData);
+    setPreparingDelivery(true);
+  };
 
   if (!order) return null;
 
@@ -77,7 +101,7 @@ export const OrderDetailsModal: React.FC<Props> = ({
                 order={detailedOrder}
                 isDarkMode={isDarkMode}
                 canStartDelivery={canStartDelivery}
-                onStartDelivery={() => setPreparingDelivery(true)}
+                onStartDelivery={handleStartDelivery}
                 onViewDelivery={() => setPreparingDelivery(true)}
               />
             </View>

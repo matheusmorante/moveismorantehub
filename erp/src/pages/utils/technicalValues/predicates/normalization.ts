@@ -6,6 +6,7 @@ import {
   GLOBAL_REQUIRED_ATTRIBUTE_NAMES,
   PRIMARY_CHARACTERISTIC_NAMES,
 } from '../constants';
+import { isCatalogCoreRequiredCharacteristicName } from '../../../../../../shared-utils/catalogPublication/characteristicValues';
 
 export const normalizeCharacteristicName = (name: string): string =>
   name.trim().toLocaleLowerCase('pt-BR');
@@ -39,6 +40,8 @@ export const isModelCharacteristic = (name: string): boolean => {
 };
 
 export const isRequiredCharacteristicName = (name: string): boolean => {
+  // Marca/Modelo são requisitos de publicação no Catálogo, não do cadastro ERP.
+  if (isCatalogCoreRequiredCharacteristicName(name)) return false;
   const normalized = normalizeCharacteristicName(name);
   if (normalized === 'comprimento' || normalized === 'comprimento total') return true;
   if (isModelCharacteristic(name)) return true;

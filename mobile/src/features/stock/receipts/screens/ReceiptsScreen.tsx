@@ -18,7 +18,7 @@ interface Props {
 }
 
 export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHeader }) => {
-  const { receipts, loading, loadingMore, loadMore, reload } = useReceipts();
+  const { receipts, loading, loadingMore, loadMore, loadError, reload } = useReceipts();
   const [selectedReceipt, setSelectedReceipt] = useState<any | null>(null);
 
   if (selectedReceipt) {
@@ -36,6 +36,7 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
 
   const data: any[] = [
     { type: 'MODULE_HEADER', id: 'MODULE_HEADER' },
+    ...(receipts.length === 0 && !loading ? [{ type: 'EMPTY', id: 'EMPTY' }] : []),
     ...receipts.map((r) => ({ type: 'ITEM', id: r.id, data: r })),
   ];
 
@@ -47,6 +48,29 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
         stickyHeaderIndices={[0]}
         renderItem={({ item }) => {
           if (item.type === 'MODULE_HEADER') return renderHeader();
+          if (item.type === 'EMPTY') {
+            return (
+              <View style={styles.emptyState}>
+                <Box
+                  size={48}
+                  color={isDarkMode ? '#334155' : '#cbd5e1'}
+                  style={{ marginBottom: 16 }}
+                />
+                <Text style={[styles.emptyText, isDarkMode && styles.emptyTextDark]}>
+                  {loadError || 'Nenhum recebimento encontrado.'}
+                </Text>
+                {loadError ? (
+                  <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={() => void reload()}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.retryButtonText}>Tentar novamente</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            );
+          }
           const r = item.data;
           const hasNF = Boolean(r.fiscal_key && r.fiscal_key.replace(/\D/g, '').length === 44);
           const formattedDate = new Date(r.received_at || r.created_at).toLocaleDateString('pt-BR');
@@ -172,29 +196,20 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
         }}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
-        ListEmptyComponent={
-          !loading && !loadingMore ? (
-            <View style={{ padding: 32, alignItems: 'center' }}>
-              <Box
-                size={48}
-                color={isDarkMode ? '#334155' : '#cbd5e1'}
-                style={{ marginBottom: 16 }}
-              />
-              <Text
-                style={{
-                  color: isDarkMode ? '#94a3b8' : '#64748b',
-                  fontSize: 16,
-                  fontWeight: '600',
-                }}
-              >
-                Nenhum recebimento encontrado.
-              </Text>
-            </View>
-          ) : null
-        }
         ListFooterComponent={
           loadingMore || loading ? (
             <ActivityIndicator size="small" color="#2563eb" style={{ padding: 16 }} />
+          ) : loadError && receipts.length > 0 ? (
+            <View style={styles.retryFooter}>
+              <Text style={[styles.emptyText, isDarkMode && styles.emptyTextDark]}>{loadError}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={() => void reload()}
+                accessibilityRole="button"
+              >
+                <Text style={styles.retryButtonText}>Tentar novamente</Text>
+              </TouchableOpacity>
+            </View>
           ) : null
         }
       />
@@ -205,6 +220,18 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   containerDark: { backgroundColor: '#0f172a' },
+  emptyState: { padding: 32, alignItems: 'center' },
+  emptyText: { color: '#64748b', fontSize: 16, fontWeight: '600', textAlign: 'center' },
+  emptyTextDark: { color: '#94a3b8' },
+  retryFooter: { padding: 16, alignItems: 'center', gap: 10 },
+  retryButton: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: '#2563eb',
+  },
+  retryButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 13 },
   pageHeader: {
     flexDirection: 'row',
     alignItems: 'center',

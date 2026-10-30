@@ -26,6 +26,7 @@ export * from './productService/productQueryService';
 export * from './productService/productPersistenceService';
 export * from './productService/productMutationService';
 export * from './productService/productVariationActionsService';
+export * from './productService/productDuplicateMergeService';
 export * from './productService/productWhatsAppSyncService';
 export * from './productService/productMaintenanceService';
 export * from './productService/productDependencyCheck';

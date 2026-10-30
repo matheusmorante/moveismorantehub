@@ -267,10 +267,11 @@ describe('productCharacteristics', () => {
     expect(getMobileVariationColorSummary([{ attributes: [{ name: 'Tamanho', value: 'M' }] }])).toBe('');
   });
 
-  it('exige Cor, Modelo, Marca e Dimensões como características obrigatórias, como no ERP', () => {
+  it('separa requisitos de cadastro dos pré-requisitos de descrição assistida', () => {
     expect(isRequiredCharacteristicName('cor')).toBe(true);
-    expect(isRequiredCharacteristicName('modelo')).toBe(true);
-    expect(isRequiredCharacteristicName('marca')).toBe(true);
+    expect(isRequiredCharacteristicName('modelo')).toBe(false);
+    expect(isRequiredCharacteristicName('modelo/linha')).toBe(false);
+    expect(isRequiredCharacteristicName('marca')).toBe(false);
     expect(isRequiredCharacteristicName('altura')).toBe(true);
     expect(isRequiredCharacteristicName('largura')).toBe(true);
     expect(isRequiredCharacteristicName('profundidade')).toBe(true);
@@ -329,7 +330,7 @@ describe('productCharacteristics', () => {
     });
   });
 
-  it('segue a aplicação por categoria do ERP e não mostra uma característica indisponível', () => {
+  it('segue a aplicação por categoria, mas inclui atributos exigidos pelo Catálogo mesmo se indisponíveis no formulário', () => {
     const fields = [
       {
         name: 'Acabamento opcional',
@@ -344,6 +345,7 @@ describe('productCharacteristics', () => {
       {
         name: 'Acabamento indisponível',
         requiredCategoryIds: ['cat-unavailable'],
+        active: false,
         categoryApplications: [{ categoryId: 'cat-unavailable', application: 'unavailable' as const }],
       },
     ];
@@ -357,7 +359,53 @@ describe('productCharacteristics', () => {
     ]);
     expect(isProductTechnicalFieldRequired(fields[1], ['cat-required'])).toBe(true);
     expect(isProductTechnicalFieldRequiredForCatalog(fields[2], ['cat-unavailable'])).toBe(true);
-    expect(getApplicableProductTechnicalFields(fields, ['cat-unavailable'])).toEqual([]);
+    expect(getApplicableProductTechnicalFields(fields, ['cat-unavailable'])).toMatchObject([
+      { name: 'Acabamento indisponível', isRequired: false, isRequiredForCatalog: true },
+    ]);
+  });
+
+  it.each(['Marca', 'Modelo/Linha'])('%s é acrescentada para publicação em qualquer categoria sem virar requisito do ERP', (name) => {
+    const field = {
+      id: `catalog-${name}`,
+      name,
+      active: false,
+      categoryApplications: [{ categoryId: 'cat-unavailable', application: 'unavailable' as const }],
+    };
+
+    expect(getApplicableProductTechnicalFields([field], ['cat-unavailable'])).toMatchObject([
+      { name, isRequired: false, isRequiredForProduct: false, isRequiredForCatalog: true },
+    ]);
+  });
+
+  it.each(['Marca', 'Modelo/Linha'])('%s continua opcional para cadastro no fallback sem aplicações por categoria', (name) => {
+    const [field] = getApplicableProductTechnicalFields([{
+      id: `legacy-${name}`,
+      name,
+      active: false,
+    }], ['cat-any']);
+
+    expect(field).toMatchObject({
+      name,
+      isRequired: false,
+      isRequiredForProduct: false,
+      isRequiredForCatalog: true,
+    });
+  });
+
+  it('mantém uma característica exigida pelo Catálogo apesar das exclusões específicas da categoria', () => {
+    const [field] = getApplicableProductTechnicalFields([{
+      id: 'retractable',
+      name: 'Reclinável',
+      active: false,
+      requiredCategoryIds: ['cat-any'],
+    }], ['cat-any']);
+
+    expect(field).toMatchObject({
+      name: 'Reclinável',
+      isRequired: false,
+      isRequiredForProduct: false,
+      isRequiredForCatalog: true,
+    });
   });
 
   it('mantém capacidade por prateleira visível, opcional e no grupo Prateleiras', () => {

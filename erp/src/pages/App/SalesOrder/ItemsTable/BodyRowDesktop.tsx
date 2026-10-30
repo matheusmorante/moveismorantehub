@@ -1,7 +1,7 @@
 import React from 'react';
 import Item from '../../../types/items.type';
 import Product, { Variation } from '../../../types/product.type';
-import { calcItemTotalValue } from '../../../utils/calculations';
+import { calcItemTotalValue, getFixedDiscount } from '../../../utils/calculations';
 import UnitInput from './UnitInput';
 import CurrencyInput from '../../../../components/CurrencyInput';
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
@@ -32,6 +32,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   shouldHideHandling,
   highlightAsTemporary,
   isExpanded = true,
+  compactDesktop = false,
   autoFocusDescription = false,
   onDescriptionBlur,
   pricing,
@@ -73,11 +74,162 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   } = pricing;
 
   const settings = propSettings || getSettings();
+  const handlingOptions =
+    (deliveryMethod === 'pickup'
+      ? settings.pickupHandlingOptions
+      : settings.deliveryHandlingOptions) || [];
+  const isSelectedHandlingInOptions =
+    item.handlingType && handlingOptions.some((option) => option.label === item.handlingType);
+  const handlingControl = !item.isComboItem ? (
+    <div className="relative group/hsel">
+      <select
+        aria-label="Manuseio"
+        className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1 text-[11px] font-bold text-slate-600 outline-none transition-colors dark:text-slate-400 ${
+          handlingError
+            ? 'border-red-500 focus:border-red-500'
+            : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'
+        }`}
+        value={item.handlingType || ''}
+        onChange={(event) => {
+          const value = event.target.value;
+          if (value && item.handlingType !== value) handleHandlingChange(value);
+        }}
+      >
+        <option value="" disabled className="dark:bg-slate-900">Selecione</option>
+        {handlingOptions.map((option) => (
+          <option key={option.label} value={option.label} className="dark:bg-slate-900">
+            {option.label}
+          </option>
+        ))}
+        {item.handlingType && !isSelectedHandlingInOptions && !isGenericHandlingLabel(item.handlingType) && (
+          <option value={item.handlingType} className="italic text-slate-400">
+            {item.handlingType} (Atual)
+          </option>
+        )}
+      </select>
+      {assemblyResponsibleRequired && (
+        <div className="mt-2">
+          <label className="mb-1 block text-[9px] font-black uppercase tracking-wider text-slate-400">
+            Responsável pela montagem <span className="text-red-500">*</span>
+          </label>
+          <select
+            aria-label="Responsável pela montagem"
+            aria-required="true"
+            aria-invalid={Boolean(assemblyResponsibleError)}
+            required
+            className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1 text-[10px] font-bold outline-none transition-colors dark:text-slate-300 ${
+              assemblyResponsibleError
+                ? 'border-red-500 focus:border-red-500'
+                : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'
+            }`}
+            value={item.assemblyResponsible || ''}
+            onChange={(event) => onChange(idx, 'assemblyResponsible', event.target.value)}
+          >
+            <option value="">Selecione</option>
+            <option value="Nossa equipe">Nossa equipe</option>
+            <option value="Montador terceirizado">Montador terceirizado</option>
+          </select>
+          {assemblyResponsibleError && (
+            <span className="mt-1 block text-[9px] text-red-600 dark:text-red-400">
+              {assemblyResponsibleError}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  ) : null;
+  const collapseButton = onToggleExpand ? (
+    <button
+      type="button"
+      onClick={onToggleExpand}
+      aria-label={`Recolher item ${displayNumber}`}
+      aria-expanded={true}
+      title="Recolher item"
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+    >
+      <i className="bi bi-chevron-up text-[10px]" aria-hidden="true" />
+    </button>
+  ) : null;
+
+  if (!isExpanded && !isCompositionComponent) {
+    const quantity = Number(item.quantity) || 0;
+    const unitDiscount = getFixedDiscount(item);
+    const totalDiscount = unitDiscount * quantity;
+
+    return (
+      <tr
+        className={`group border-b border-slate-100 font-sans transition-colors dark:border-slate-800 ${
+          highlightAsTemporary
+            ? 'bg-amber-50/50 ring-2 ring-inset ring-amber-400/50 dark:bg-amber-950/20'
+            : itemHasError
+              ? 'bg-red-50/30 dark:bg-red-950/10'
+              : 'bg-white hover:bg-slate-50/50 dark:bg-slate-900 dark:hover:bg-slate-800/20'
+        }`}
+      >
+        <td className="px-3 py-2">
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            aria-expanded={false}
+            aria-label={`Editar item ${displayNumber}: ${item.description || (isService ? 'serviço sem descrição' : 'produto sem descrição')}`}
+            className="flex min-w-0 w-full items-center gap-2 text-left"
+          >
+            <i className="bi bi-chevron-right shrink-0 text-[10px] text-slate-400" aria-hidden="true" />
+            <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold ${isService ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+              #{displayNumber}
+            </span>
+            <i className={`bi ${isService ? 'bi-tools text-amber-500' : 'bi-box-seam text-blue-600 dark:text-blue-400'}`} aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+              {item.description || (isService ? 'Serviço sem descrição' : 'Produto sem descrição')}
+            </span>
+            {isLinkedProduct && <i className="bi bi-check-circle-fill shrink-0 text-[10px] text-emerald-500" aria-label="Produto vinculado" />}
+            {showTemporaryProductLabel && <i className="bi bi-clock-history shrink-0 text-[10px] text-amber-500" aria-label="Produto temporário" />}
+            {itemHasError && <i className="bi bi-exclamation-circle-fill shrink-0 text-[10px] text-red-500" aria-label="Pendência no item" />}
+            <i className="bi bi-pencil-square shrink-0 text-[10px] text-blue-500" aria-hidden="true" />
+          </button>
+        </td>
+        {!hideHandling && !compactDesktop && (
+          <td className="px-2 py-2 text-center text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            {isService ? '—' : item.handlingType || '—'}
+          </td>
+        )}
+        <td className="px-2 py-2 text-center text-xs text-slate-600 dark:text-slate-300">
+          {quantity.toLocaleString('pt-BR')} un.
+        </td>
+        <td className="px-2 py-2 text-right text-xs text-slate-600 dark:text-slate-300">
+          {item.isComboItem ? '—' : <CurrencyDisplay value={item.unitPrice} />}
+        </td>
+        <td colSpan={2} className="w-[150px] px-2 py-2 text-center text-xs text-slate-600 dark:text-slate-300">
+          {item.isComboItem || totalDiscount <= 0 ? '—' : <>−<CurrencyDisplay value={totalDiscount} /></>}
+        </td>
+        {!compactDesktop && (
+          <td className="px-2 py-2 text-right text-xs text-slate-600 dark:text-slate-300">
+            {item.isComboItem ? '—' : <CurrencyDisplay value={Math.max(0, item.unitPrice - unitDiscount)} />}
+          </td>
+        )}
+        <td className="px-2 py-2 text-right text-xs font-bold text-slate-700 dark:text-slate-200">
+          <CurrencyDisplay value={calcItemTotalValue(item)} />
+        </td>
+        <td className="px-2 py-2 text-center">
+          {!item.isComboItem && (
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label={`Remover item ${displayNumber}`}
+              className="mx-auto flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 dark:text-slate-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+            >
+              <i className="bi bi-trash text-xs" aria-hidden="true" />
+            </button>
+          )}
+        </td>
+      </tr>
+    );
+  }
 
   if (isCompositionComponent && !isExpanded) {
     return (
       <tr className="border-b border-slate-100 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800/40">
-        <td colSpan={hideHandling ? 8 : 9} className="px-3 py-1.5">
+        <td colSpan={compactDesktop ? 7 : hideHandling ? 8 : 9} className="px-3 py-1.5">
           <button
             type="button"
             onClick={onToggleExpand}
@@ -119,6 +271,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
       <td className="px-3 py-1.5 relative group/desc">
         {isService ? (
           <div className="flex min-w-0 items-start gap-2">
+            {collapseButton}
             <span className="mt-1 inline-flex shrink-0 items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[9px] font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
               <i className="bi bi-tools" aria-hidden="true" />
               #{displayNumber}
@@ -214,10 +367,13 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
           </div>
         ) : !item.isComboItem ? (
           <>
-            <span className="mb-0.5 inline-flex rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-              <i className="bi bi-box-seam mr-1" aria-hidden="true" />
-              #{displayNumber}
-            </span>
+            <div className="mb-0.5 flex items-center gap-1">
+              {collapseButton}
+              <span className="inline-flex rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[9px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                <i className="bi bi-box-seam mr-1" aria-hidden="true" />
+                #{displayNumber}
+              </span>
+            </div>
             <ProductAutocomplete
               value={item.description}
               onChange={(val) => onChange(idx, 'description', val)}
@@ -284,10 +440,17 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
           </>
         ) : (
           <div className="flex items-center gap-2 pl-3">
+            {collapseButton}
             <i className="bi bi-arrow-return-right text-slate-300" />
             <span className="text-xs italic text-slate-500 dark:text-slate-400">
               {item.description}
             </span>
+          </div>
+        )}
+        {compactDesktop && !shouldHideHandling && !item.isComboItem && (
+          <div className="mt-2 flex items-center gap-2">
+            <span className="shrink-0 text-[9px] font-black uppercase tracking-wider text-slate-400">Manuseio</span>
+            <div className="min-w-0 w-full max-w-[260px]">{handlingControl}</div>
           </div>
         )}
         {error && (
@@ -297,88 +460,12 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
           </div>
         )}
       </td>
-      {!shouldHideHandling && (
+      {!compactDesktop && !shouldHideHandling && (
         <td className="px-2 py-1.5 w-[140px]">
-          {!item.isComboItem && (
-            <div className="relative group/hsel">
-              <select
-                aria-label="Manuseio"
-                className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1 text-[11px] font-bold text-slate-600 outline-none transition-colors dark:text-slate-400 ${
-                  handlingError
-                    ? 'border-red-500 focus:border-red-500'
-                    : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'
-                }`}
-                value={item.handlingType || ''}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (!val) return;
-                  if (item.handlingType === val) return;
-                  handleHandlingChange(val);
-                }}
-              >
-                <option value="" disabled className="dark:bg-slate-900">
-                  Selecione
-                </option>
-                {(() => {
-                  const options =
-                    deliveryMethod === 'pickup'
-                      ? settings.pickupHandlingOptions || []
-                      : settings.deliveryHandlingOptions || [];
-                  const isSelectedInOptions =
-                    item.handlingType && options.some((o) => o.label === item.handlingType);
-
-                  return (
-                    <>
-                      {options.map((opt) => (
-                        <option key={opt.label} value={opt.label} className="dark:bg-slate-900">
-                          {opt.label}
-                        </option>
-                      ))}
-                      {item.handlingType &&
-                        !isSelectedInOptions &&
-                        !isGenericHandlingLabel(item.handlingType) && (
-                          <option value={item.handlingType} className="italic text-slate-400">
-                            {item.handlingType} (Atual)
-                          </option>
-                        )}
-                    </>
-                  );
-                })()}
-              </select>
-              {assemblyResponsibleRequired && (
-                <div className="mt-2">
-                  <label className="mb-1 block text-[9px] font-black uppercase tracking-wider text-slate-400">
-                    Responsável pela montagem <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    aria-label="Responsável pela montagem"
-                    aria-required="true"
-                    aria-invalid={Boolean(assemblyResponsibleError)}
-                    required
-                    className={`w-full appearance-none border-b-2 bg-transparent px-2 py-1 text-[10px] font-bold outline-none transition-colors dark:text-slate-300 ${
-                      assemblyResponsibleError
-                        ? 'border-red-500 focus:border-red-500'
-                        : 'border-slate-200 focus:border-blue-600 dark:border-slate-800 dark:focus:border-blue-500'
-                    }`}
-                    value={item.assemblyResponsible || ''}
-                    onChange={(e) => onChange(idx, 'assemblyResponsible', e.target.value)}
-                  >
-                    <option value="">Selecione</option>
-                    <option value="Nossa equipe">Nossa equipe</option>
-                    <option value="Montador terceirizado">Montador terceirizado</option>
-                  </select>
-                  {assemblyResponsibleError && (
-                    <span className="mt-1 block text-[9px] text-red-600 dark:text-red-400">
-                      {assemblyResponsibleError}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+          {handlingControl}
         </td>
       )}
-      {isService && !hideHandling && !isBudget && !isReturn && (
+      {!compactDesktop && isService && !hideHandling && !isBudget && !isReturn && (
         <td className="px-2 py-1.5 w-[140px] text-center text-xs text-slate-300 dark:text-slate-700">
           -
         </td>
@@ -401,23 +488,39 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
           <div className="text-right text-xs font-bold text-slate-400">-</div>
         )}
       </td>
-      <td colSpan={2} className="px-2 py-1.5">
+      <td colSpan={2} className="w-[150px] px-2 py-1.5">
         {!item.isComboItem ? (
-          <DiscountInput
-            discountType={item.discountType}
-            fixedValue={tempDiscountValue}
-            percentageValue={tempDiscountPercent}
-            unitPrice={item.unitPrice}
-            onFixedValueChange={setTempDiscountValue}
-            onPercentageValueChange={setTempDiscountPercent}
-            onFixedBlur={commitDiscountValue}
-            onPercentageBlur={commitDiscountPercent}
-            onToggleType={onToggleDiscountType}
-          />
+          <>
+            <DiscountInput
+              discountType={item.discountType}
+              fixedValue={tempDiscountValue}
+              percentageValue={tempDiscountPercent}
+              unitPrice={item.unitPrice}
+              onFixedValueChange={setTempDiscountValue}
+              onPercentageValueChange={setTempDiscountPercent}
+              onFixedBlur={commitDiscountValue}
+              onPercentageBlur={commitDiscountPercent}
+              onToggleType={onToggleDiscountType}
+            />
+            {compactDesktop && (
+              <div className="mt-2">
+                <label className="mb-1 ml-1 block text-[9px] font-black uppercase tracking-wider text-slate-400">
+                  Preço final unitário
+                </label>
+                <CurrencyInput
+                  value={tempSubtotal}
+                  max={item.unitPrice || undefined}
+                  onChange={(value: number) => setTempSubtotal(value)}
+                  onBlur={commitSubtotal}
+                />
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-right text-xs font-bold text-slate-400">-</div>
         )}
       </td>
+      {!compactDesktop && (
       <td className="px-2 py-1.5 w-[110px]">
         {!item.isComboItem ? (
           <CurrencyInput
@@ -430,6 +533,7 @@ export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
           <div className="text-right text-xs font-bold text-slate-400">-</div>
         )}
       </td>
+      )}
       <td className="px-2 py-1.5 w-[105px] text-right">
         <div className="font-bold text-slate-700 dark:text-slate-200 text-xs whitespace-nowrap">
           <CurrencyDisplay value={calcItemTotalValue(item)} />

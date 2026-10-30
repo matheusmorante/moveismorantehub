@@ -66,21 +66,34 @@ export const ScheduleCard: React.FC<Props> = ({
     Number.isFinite(distance) && distance > 0
       ? `${distance.toFixed(1).replace('.', ',')} km`
       : undefined;
+  const storedDuration = Number(item.durationMin ?? shipping.durationMinutes);
+  const durationMinutes =
+    Number.isFinite(storedDuration) && storedDuration > 0
+      ? Math.round(storedDuration)
+      : Number.isFinite(distance) && distance > 0
+        ? Math.max(1, Math.round(distance * 2.2))
+        : undefined;
+  const durationText = durationMinutes ? `~ ${durationMinutes} min` : undefined;
   const isDeliveryActivity = item.activityType === 'delivery';
+  const isPreparationStarted = Boolean(oData.deliveryPreparationStartedAt);
   const timelineMarker = getDeliveryTimelineMarker(item, isDarkMode);
   const statusBadge =
     item.status === 'pending'
-      ? {
-          label: 'Agendada',
-          backgroundColor: isDarkMode ? '#334155' : '#f1f5f9',
-          color: isDarkMode ? '#e2e8f0' : '#475569',
-        }
-      : item.status === 'completed'
-        ? {
-            label: 'Concluída',
-            backgroundColor: isDarkMode ? '#14532d' : '#F0FDF4',
-            color: isDarkMode ? '#bbf7d0' : '#16A34A',
+      ? isPreparationStarted
+        ? null
+        : {
+            label: 'Agendada',
+            backgroundColor: isDarkMode ? '#334155' : '#f1f5f9',
+            color: isDarkMode ? '#e2e8f0' : '#475569',
           }
+      : item.status === 'completed'
+        ? isDeliveryActivity
+          ? null
+          : {
+              label: 'Concluída',
+              backgroundColor: isDarkMode ? '#14532d' : '#F0FDF4',
+              color: isDarkMode ? '#bbf7d0' : '#16A34A',
+            }
         : item.status === 'unattended'
           ? {
               label: 'Falhou',
@@ -151,7 +164,7 @@ export const ScheduleCard: React.FC<Props> = ({
         {item.customerName}
       </Text>
 
-      {locationText || distanceText ? (
+      {locationText || durationText || distanceText ? (
         <View style={styles.locationRow}>
           <MapPin size={13} color={isDarkMode ? '#94a3b8' : '#64748b'} />
           {locationText ? (
@@ -162,9 +175,25 @@ export const ScheduleCard: React.FC<Props> = ({
               {locationText}
             </Text>
           ) : null}
-          {distanceText ? (
+          {durationText ? (
             <>
               {locationText ? <View style={styles.distanceDivider} /> : null}
+              <View
+                style={[styles.distanceBadge, isDarkMode && styles.distanceBadgeDark]}
+                accessible
+                accessibilityRole="text"
+                accessibilityLabel={`Tempo estimado: ${durationText}`}
+              >
+                <Clock size={10} color={isDarkMode ? '#bfdbfe' : '#2563EB'} />
+                <Text style={[styles.distanceText, isDarkMode && styles.distanceTextDark]}>
+                  {durationText}
+                </Text>
+              </View>
+            </>
+          ) : null}
+          {distanceText ? (
+            <>
+              {locationText || durationText ? <View style={styles.distanceDivider} /> : null}
               <View
                 style={[styles.distanceBadge, isDarkMode && styles.distanceBadgeDark]}
                 accessible
@@ -181,7 +210,7 @@ export const ScheduleCard: React.FC<Props> = ({
       ) : null}
 
       <View style={styles.cardFooter}>
-        {isDeliveryActivity ? (
+        {isDeliveryActivity && (item.status !== 'pending' || isPreparationStarted) ? (
           <View
             style={styles.flowStageRow}
             accessible
@@ -267,6 +296,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     paddingHorizontal: 5,
     paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   distanceBadgeDark: { backgroundColor: '#172554' },
   distanceText: { color: '#2563EB', fontSize: 9, fontWeight: '800' },

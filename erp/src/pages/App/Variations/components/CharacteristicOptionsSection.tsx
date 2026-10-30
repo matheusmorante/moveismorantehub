@@ -52,7 +52,7 @@ export function CharacteristicOptionsSection({
       return;
     }
     onOptionsChange(sortOptions([...options, {
-      id: globalThis.crypto?.randomUUID?.() ?? `new-option-${Date.now()}`,
+      id: `new-option-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`,
       value,
       active: true,
       sortOrder: options.length,

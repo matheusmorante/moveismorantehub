@@ -94,7 +94,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
                   className="bi bi-file-earmark-arrow-up text-blue-600 text-lg"
                   aria-hidden="true"
                 />
-                {summaryInvoice ? 'Completar XML da NF-e' : 'Importar XML da NF-e'}
+                {summaryInvoice ? 'Obter XML da nota fiscal' : 'Importar XML da NF-e'}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {summaryInvoice

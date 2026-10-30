@@ -219,6 +219,23 @@
   }
 }
 
+.customer-person-form :is(input:not([type='checkbox']):not([type='radio']), select, textarea) {
+  background-color: transparent;
+  border-top-width: 0;
+  border-right-width: 0;
+  border-left-width: 0;
+  border-radius: 0;
+}
+
+.customer-person-form :is(input:not([type='checkbox']):not([type='radio']), select, textarea):focus {
+  border-bottom-color: #2563eb;
+  box-shadow: none;
+}
+
+.dark .customer-person-form :is(input:not([type='checkbox']):not([type='radio']), select, textarea):focus {
+  border-bottom-color: #60a5fa;
+}
+
 /* Custom scrollbar Improvements */
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;

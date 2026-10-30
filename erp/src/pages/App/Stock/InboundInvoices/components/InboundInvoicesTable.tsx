@@ -7,6 +7,7 @@ import {
   getInboundReceiptBlockedReason,
   hasCompleteInboundInvoiceMappings,
 } from '../inboundReceiptEligibility';
+import { isSalvadosOnlySupplier } from '../../../../../../../shared-utils/productSupplierStockOrigin';
 
 interface InboundInvoicesTableProps {
   readonly invoices: readonly InboundInvoice[];
@@ -57,15 +58,19 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
   }, []);
 
   const getActionsMenuProps = (invoice: InboundInvoice, canManageMappings: boolean) => {
+    const isSalvadosSupplier = isSalvadosOnlySupplier(invoice.supplierStockOrigins);
     const canGenerateReceipt = Boolean(
-      onGenerateReceipt && !getInboundReceiptBlockedReason(invoice, canAccessReceipts)
+      onGenerateReceipt &&
+        !isSalvadosSupplier &&
+        !getInboundReceiptBlockedReason(invoice, canAccessReceipts)
     );
 
     return {
       invoice,
-      canManageMappings,
+      canManageMappings: canManageMappings && !isSalvadosSupplier,
       canGenerateReceipt,
       canPrintIdentificationLabels: Boolean(
+        !isSalvadosSupplier &&
         canPrintIdentificationLabels &&
           onPrintIdentificationLabels &&
           hasCompleteInboundInvoiceMappings(invoice)
@@ -183,7 +188,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                               Disponível
                             </span>
                           )}
-                          {hasCompleteInboundInvoiceMappings(inv) ? (
+                          {isSalvadosOnlySupplier(inv.supplierStockOrigins) ? null : hasCompleteInboundInvoiceMappings(inv) ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                               <i className="bi bi-check2-all text-xs" aria-hidden="true" />{' '}
                               Vinculação Completa
@@ -283,7 +288,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                         </span>
                       )}
 
-                      {hasCompleteInboundInvoiceMappings(inv) ? (
+                      {isSalvadosOnlySupplier(inv.supplierStockOrigins) ? null : hasCompleteInboundInvoiceMappings(inv) ? (
                         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                           Vinculação Completa
                         </span>

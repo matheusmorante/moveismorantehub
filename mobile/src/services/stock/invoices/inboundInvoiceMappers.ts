@@ -2,6 +2,11 @@ import {
   hasUnlinkedInvoiceItems,
   normalizeInvoiceStatus,
 } from '../../../features/stock/invoices/utils/invoiceList';
+import {
+  getSupplierStockOriginsFromRelation,
+  isSalvadosOnlySupplier,
+} from '../../../../../shared-utils/productSupplierStockOrigin';
+import { markInboundInvoiceItemsNotApplicable } from '../../../../../shared-utils/inboundInvoiceSupplierRules';
 
 export const normalizeTaxId = (value: unknown) => String(value || '').replace(/\D/g, '');
 
@@ -17,7 +22,11 @@ export const mapInboundInvoiceListRow = (row: any) => {
     ? row.inbound_invoice_items.map((item: any) => ({ ...item.raw_item, ...item }))
     : [];
   const legacyItems = Array.isArray(row.itens) ? row.itens : [];
-  const items = linkedItems.length ? linkedItems : legacyItems;
+  const sourceItems = linkedItems.length ? linkedItems : legacyItems;
+  const supplierStockOrigins = getSupplierStockOriginsFromRelation(row.supplier);
+  const items = isSalvadosOnlySupplier(supplierStockOrigins)
+    ? markInboundInvoiceItemsNotApplicable(sourceItems)
+    : sourceItems;
   const isSummaryOnly =
     items.length === 0 && Boolean(row.xml_conteudo?.includes('<resNFe') || !row.xml_conteudo);
 
@@ -32,7 +41,10 @@ export const mapInboundInvoiceListRow = (row: any) => {
     totalValue: Number(row.valor_total || 0),
     itemsCount: items.length,
     status: normalizeInvoiceStatus(row.status_recebimento),
-    hasPendingBindings: hasUnlinkedInvoiceItems(items),
+    hasPendingBindings: isSalvadosOnlySupplier(supplierStockOrigins)
+      ? false
+      : hasUnlinkedInvoiceItems(items),
+    supplierStockOrigins,
     sefazStatus: 'pending' as const,
     isSummaryOnly,
     rawXml: row.xml_conteudo || '',
@@ -71,7 +83,11 @@ export const mapInboundInvoiceDetailRow = (data: any) => {
   const sourceItems = rows.length
     ? rows.map((item: any) => ({ ...(item.raw_item || {}), ...item }))
     : legacyItems;
-  const items = sourceItems.map(mapInboundInvoiceDetailItem);
+  const supplierStockOrigins = getSupplierStockOriginsFromRelation(data.supplier);
+  const normalizedItems = isSalvadosOnlySupplier(supplierStockOrigins)
+    ? markInboundInvoiceItemsNotApplicable(sourceItems)
+    : sourceItems;
+  const items = normalizedItems.map(mapInboundInvoiceDetailItem);
 
   return {
     id: data.id,
@@ -85,7 +101,10 @@ export const mapInboundInvoiceDetailRow = (data: any) => {
     totalValue: Number(data.valor_total || 0),
     itemsCount: items.length,
     status: normalizeInvoiceStatus(data.status_recebimento),
-    hasPendingBindings: hasUnlinkedInvoiceItems(sourceItems),
+    hasPendingBindings: isSalvadosOnlySupplier(supplierStockOrigins)
+      ? false
+      : hasUnlinkedInvoiceItems(normalizedItems),
+    supplierStockOrigins,
     sefazStatus: 'pending' as const,
     recipientName: data.destinatario_nome || '',
     recipientCnpj: data.destinatario_cnpj || '',

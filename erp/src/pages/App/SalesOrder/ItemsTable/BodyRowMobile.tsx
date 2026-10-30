@@ -1,7 +1,7 @@
 import React from 'react';
 import Item from '../../../types/items.type';
 import Product, { Variation } from '../../../types/product.type';
-import { calcItemTotalValue } from '../../../utils/calculations';
+import { calcItemTotalValue, getFixedDiscount } from '../../../utils/calculations';
 import UnitInput from './UnitInput';
 import CurrencyInput from '../../../../components/CurrencyInput';
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
@@ -28,6 +28,9 @@ export interface BodyRowViewProps {
   settings?: AppSettings;
   isBudget?: boolean;
   isReturn?: boolean;
+  isTablet?: boolean;
+  isNarrowMobile?: boolean;
+  compactDesktop?: boolean;
   hideHandling?: boolean;
   highlightAsTemporary?: boolean;
   isExpanded?: boolean;
@@ -66,6 +69,8 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
   settings: propSettings,
   isBudget,
   isReturn,
+  isTablet = false,
+  isNarrowMobile = false,
   shouldHideHandling,
   highlightAsTemporary,
   isExpanded = true,
@@ -130,107 +135,121 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
 
   // MODO COMPACTO
   if (!isExpanded) {
-    const hasDescription = Boolean(item.description?.trim());
-    const canExpand = hasDescription || isCompositionComponent || item.isComboItem;
+    const quantity = Number(item.quantity) || 0;
+    const unitDiscount = getFixedDiscount(item);
+    const totalDiscount = unitDiscount * quantity;
+    const description = item.description?.trim() || (isService ? 'Serviço sem descrição' : 'Produto sem descrição');
+
+    const itemIdentity = (
+      <div className="flex min-w-0 items-center gap-2">
+        <span className={`flex h-7 min-w-7 shrink-0 items-center justify-center gap-1 rounded-xl px-1.5 text-[9px] font-bold ${isService ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'}`}>
+          <i className={`bi ${isService ? 'bi-tools' : 'bi-box-seam'} text-xs`} aria-hidden="true" />
+          {displayNumber}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xs font-bold text-slate-800 dark:text-slate-100">{description}</div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            {isCompositionComponent && (
+              <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+                Componente {Number(item.compositionGroup?.componentIndex ?? 0) + 1}/{item.compositionGroup?.componentCount}
+              </span>
+            )}
+            {isLinkedProduct && <i className="bi bi-check-circle-fill text-[10px] text-emerald-500" aria-label="Produto vinculado" />}
+            {showTemporaryProductLabel && <TemporaryProductWarning />}
+            {itemHasError && <span className="text-[9px] font-bold text-red-600 dark:text-red-400">Pendência</span>}
+          </div>
+        </div>
+      </div>
+    );
+
+    const quantityCell = (
+      <div className="text-right">
+        <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400">Qtd.</span>
+        <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">{quantity.toLocaleString('pt-BR')} un.</span>
+      </div>
+    );
+    const unitPriceCell = (
+      <div className="text-right">
+        <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400">Unitário</span>
+        <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+          {item.isComboItem ? '—' : <CurrencyDisplay value={item.unitPrice} />}
+        </span>
+      </div>
+    );
+    const discountCell = (
+      <div className="text-right">
+        <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400">Desconto</span>
+        <span className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+          {item.isComboItem || totalDiscount <= 0 ? '—' : <>−<CurrencyDisplay value={totalDiscount} /></>}
+        </span>
+      </div>
+    );
+    const totalCell = (
+      <div className="text-right">
+        <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400">Total</span>
+        <span className="text-xs font-black text-blue-600 dark:text-blue-400">
+          <CurrencyDisplay value={calcItemTotalValue(item)} />
+        </span>
+      </div>
+    );
+
+    if (isTablet) {
+      return (
+        <div
+          className={`grid grid-cols-[minmax(180px,2fr)_repeat(4,minmax(68px,1fr))_28px] items-center gap-3 border-b px-3.5 py-2.5 transition-colors last:border-b-0 group ${
+            highlightAsTemporary
+              ? 'border-b-amber-400 bg-amber-50/20 dark:border-b-amber-500 dark:bg-amber-950/10'
+              : itemHasError
+                ? 'border-b-red-400 bg-white dark:border-b-red-500 dark:bg-slate-900'
+                : 'border-b-slate-200/80 bg-white dark:border-b-slate-800 dark:bg-slate-900'
+          }`}
+        >
+          {itemIdentity}
+          {quantityCell}
+          {unitPriceCell}
+          {discountCell}
+          {totalCell}
+          <button
+            type="button"
+            aria-label={`Expandir item ${displayNumber}`}
+            aria-expanded={false}
+            onClick={onToggleExpand}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+          >
+            <i className="bi bi-chevron-down text-xs" aria-hidden="true" />
+          </button>
+        </div>
+      );
+    }
 
     return (
       <div
-        className={`flex items-center justify-between gap-3 px-3.5 py-2.5 border-b transition-colors last:border-b-0 group ${
+        className={`flex flex-col gap-2.5 border-b px-3.5 py-2.5 transition-colors last:border-b-0 group ${
           highlightAsTemporary
             ? 'border-b-amber-400 bg-amber-50/20 dark:border-b-amber-500 dark:bg-amber-950/10'
             : itemHasError
               ? 'border-b-red-400 bg-white dark:border-b-red-500 dark:bg-slate-900'
               : 'border-b-slate-200/80 bg-white dark:border-b-slate-800 dark:bg-slate-900'}`}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <span className={`flex h-7 min-w-7 shrink-0 items-center justify-center gap-1 rounded-xl px-1.5 text-[9px] font-bold ${isService ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400'}`}>
-            <i className={`bi ${isService ? 'bi-tools' : 'bi-box-seam'} text-xs`} aria-hidden="true" />
-            {displayNumber}
-          </span>
-
-          <div className="min-w-0 flex-1">
-            {isCompositionComponent ? (
-              <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                {item.description}
-              </div>
-            ) : isService ? (
-              <input
-                type="text"
-                aria-label="Descrição do serviço"
-                autoFocus={autoFocusDescription}
-                value={item.description}
-                onChange={(event) => onChange(idx, 'description', event.target.value)}
-                onBlur={(event) => handleDescriptionBlur(event.currentTarget.value)}
-                placeholder="Descrição do serviço..."
-                className="w-full border-x-0 border-t-0 border-b-2 border-b-slate-200 bg-transparent px-1 py-1 text-xs font-semibold text-slate-800 outline-none transition-colors placeholder:font-normal placeholder:text-slate-400 focus:border-b-blue-500 dark:border-b-slate-700 dark:text-slate-100 dark:focus:border-b-blue-500"
-              />
-            ) : !item.isComboItem ? (
-              <ProductAutocomplete
-                value={item.description}
-                onChange={(value) => onChange(idx, 'description', value)}
-                onSelect={handleProductSelect}
-                onBlur={(event) => handleDescriptionBlur(event.currentTarget.value)}
-                autoFocus={autoFocusDescription}
-                preventBlurOnSelect
-                inputAriaLabel="Descrição do produto"
-                allowedProductKinds={STOCK_ORIGIN_PRODUCT_KINDS[item.condition ?? '']}
-                includeDeactivated
-                placeholder="Busque ou descreva o produto... (mínimo de 3 caracteres para buscar)"
-                maxSuggestions={5}
-                productsOnly
-                excludeCombos
-                isTemporary={showTemporaryProductLabel}
-                inputEndAdornment={showTemporaryProductLabel ? <TemporaryProductWarning /> : undefined}
-                isSelected={isLinkedProduct}
-                className={error ? 'border-red-500 focus:border-red-500 dark:border-red-500 dark:focus:border-red-500' : 'w-full'}
-                inputClassName="w-full border-x-0 border-t-0 border-b-2 rounded-none bg-transparent px-1 py-1 text-xs font-semibold text-slate-800 outline-none focus:border-b-blue-500 dark:text-slate-100"
-              />
-            ) : (
-              <div className="text-xs font-semibold text-slate-800 dark:text-slate-100">
-                {item.description}
-              </div>
-            )}
-
-            <div className="mt-0.5 flex items-center gap-2 flex-wrap">
-              {isCompositionComponent && (
-                <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
-                  Componente {Number(item.compositionGroup?.componentIndex ?? 0) + 1}/{item.compositionGroup?.componentCount}
-                </span>
-              )}
-              {item.handlingType && !shouldHideHandling && (
-                <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-500">
-                  {item.handlingType}
-                </span>
-              )}
-            </div>
-            {item.observation && (
-              <div className="text-[10px] text-slate-400 truncate max-w-sm mt-0.5">
-                {item.observation}
-              </div>
-            )}
-            {itemHasError && <span className="mt-0.5 block text-[9px] font-bold text-red-600 dark:text-red-400">Pendência no item</span>}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="text-right">
-            <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
-              {item.quantity}x <CurrencyDisplay value={tempSubtotal} />
-            </div>
-            <div className="text-xs font-black text-blue-600 dark:text-blue-400">
-              <CurrencyDisplay value={calcItemTotalValue(item)} />
-            </div>
-          </div>
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          {itemIdentity}
+          <div className="flex shrink-0 items-start gap-2">
+            {totalCell}
           <button
             type="button"
-            aria-label={`${canExpand ? 'Expandir' : 'Aguarde a descrição para expandir'} item ${displayNumber}`}
+            aria-label={`Expandir item ${displayNumber}`}
             aria-expanded={false}
-            disabled={!canExpand}
             onClick={onToggleExpand}
-            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${canExpand ? 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300' : 'cursor-not-allowed text-slate-300 dark:text-slate-700'}`}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
           >
-            <i className="bi bi-chevron-down text-xs transition-transform" />
+              <i className="bi bi-chevron-down text-xs transition-transform" aria-hidden="true" />
           </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
+          {quantityCell}
+          {unitPriceCell}
+          {discountCell}
         </div>
       </div>
     );
@@ -480,7 +499,7 @@ export const BodyRowMobile: React.FC<BodyRowViewProps> = ({
       {/* Linha 3: Grid de Valores */}
       {!item.isComboItem && (
         <div className="space-y-2 pt-1">
-          <div className="grid grid-cols-2 items-end gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+          <div className={`grid ${isNarrowMobile ? 'grid-cols-1' : isTablet ? 'grid-cols-3' : 'grid-cols-2'} items-end gap-2.5`}>
           <div className="w-full">
             <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1 block ml-1">
               Quantidade <span className="text-red-500">*</span>

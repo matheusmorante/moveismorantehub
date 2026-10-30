@@ -2,14 +2,10 @@ import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { isProductIdentificationLabelOnlyProfile } from '@/pages/utils/accessRoles';
 import Product from '../../../../../types/product.type';
-import { isNonConventionalProduct } from '../../../../../utils/productKindRules';
-import { isSalvadoStockOrigin } from '../../../../../../../../shared-utils/productStockOrigin';
 import { normalizeVariationSku } from '@/pages/utils/productVariationDefaults';
-import { ChannelStatusBadges } from '../Shared/ChannelStatusBadges';
-import { StockOriginBadge } from '../Shared/StockOriginBadge';
-import { MergedBadge } from '../Shared/MergedBadge';
 import type { CardVariationItem } from '../Variations/ProductCardVariationList';
 import { ProductCardActions } from './ProductCardActions';
+import { ProductCardBadges } from './ProductCardBadges';
 
 interface ProductCardHeaderProps {
   product: Product;
@@ -38,6 +34,7 @@ interface ProductCardHeaderProps {
   onDuplicate?: (product: Product) => void;
   onMoveToAnotherFamily?: (variation: CardVariationItem) => void;
   onMergeWithAnotherVariation?: (variation: CardVariationItem) => void;
+  onMergeDuplicateProduct?: (product: Product) => void;
   onOpenSalesModal: () => void;
 }
 
@@ -68,16 +65,16 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
   onDuplicate,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
+  onMergeDuplicateProduct,
   onOpenSalesModal,
 }) => {
   const { profile } = useAuth();
   const isLabelOnlyProfile = isProductIdentificationLabelOnlyProfile(profile);
-  const singleVariationId = singleVariation?.variationId || singleVariation?.id || product.id!;
 
   return (
-    <div className="flex justify-between items-center mb-2 gap-2 flex-wrap">
+    <div className="flex justify-between items-start mb-2 gap-2">
       {/* Lado Esquerdo: Botão Dropdown de Variações + Código do Produto */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
         {hasParentVariations && (
           <button
             type="button"
@@ -103,7 +100,7 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
             ? normalizeVariationSku(singleVariation.sku || (singleVariation as any).code || product.sku || product.code) || product.code
             : product.code || (product.sku ? normalizeVariationSku(product.sku) : '');
           return displaySku ? (
-            <span className="font-mono text-[9px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/80 dark:border-slate-700 font-bold">
+            <span title={displaySku} className="max-w-full truncate font-mono text-[9px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200/80 dark:border-slate-700 font-bold">
               {displaySku}
             </span>
           ) : null;
@@ -118,85 +115,25 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
         )}
       </div>
 
-      {/* Canto Superior Direito: Todos os Selos + Botões de Ação */}
+      {/* Canto Superior Direito: botões de ação; os selos descem abaixo dos dados no card mobile. */}
       <div
-        className="flex items-center gap-2 flex-wrap justify-end ml-auto"
+        className="ml-auto flex shrink-0 items-center justify-end gap-2"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 1. Status de Canais (ERP e Catálogo) */}
-        <ChannelStatusBadges
-          active={singleVariation ? singleVariation.active !== false : product.active !== false}
-          catalogStatus={singleVariation?.status || product.status}
-          isParent={isParent && !singleVariation}
-          isNonConventional={isNonConventionalProduct(product)}
-          isSalvado={isSalvadoStockOrigin(product, singleVariation, oppName)}
-          canManageCatalog={canManageCatalog}
-          canToggleActive={canDeleteProducts}
+        <ProductCardBadges
+          product={product}
+          canDeleteProducts={canDeleteProducts}
           showCatalogControl={showCatalogControl}
+          isParent={isParent}
+          isVariation={isVariation}
           isDraft={isDraft}
-          activeVariationsCount={
-            singleVariation
-              ? undefined
-              : ((product as any).activeVariationsCount ??
-                product.variations?.filter((v: any) => v.active !== false).length)
-          }
-          totalVariationsCount={
-            singleVariation
-              ? undefined
-              : ((product as any).totalVariationsCount ?? product.variations?.length)
-          }
-          onToggleActive={(e) => {
-            e.stopPropagation();
-            onToggleActive(
-              singleVariationId,
-              singleVariation ? singleVariation.active !== false : product.active !== false
-            );
-          }}
-          onToggleCatalog={(e) => {
-            e.stopPropagation();
-            onDeactivateCatalog(singleVariationId);
-          }}
-          disabled={Boolean(singleVariation?.mergedToVariationId) || Boolean((product as any).isMerged)}
-          disabledReason={
-            singleVariation?.mergedToVariationId || (product as any).isMerged
-              ? 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
-              : undefined
-          }
-          size="xs"
+          canManageCatalog={canManageCatalog}
+          singleVariation={singleVariation}
+          oppName={oppName}
+          onToggleActive={onToggleActive}
+          onDeactivateCatalog={onDeactivateCatalog}
+          className="hidden xl:flex"
         />
-
-        {/* Selo de Mesclado */}
-        {(Boolean(singleVariation?.mergedToVariationId) || Boolean((product as any).isMerged)) && (
-          <MergedBadge
-            targetVariationId={singleVariation?.mergedToVariationId}
-            size="xs"
-          />
-        )}
-
-        {/* 2. Selo de Rascunho */}
-        {isDraft && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-800 select-none">
-            <i className="bi bi-file-earmark-text text-amber-600 text-[9px]" />
-            Rascunho
-          </span>
-        )}
-
-        {/* 3. Selo de Origem do Estoque */}
-        {!isVariation && product.itemType !== 'service' && (
-          <StockOriginBadge
-            product={product}
-            singleVariation={singleVariation}
-            oppName={oppName}
-            size="xs"
-          />
-        )}
-
-        {/* 4. Selo de Tipo (Serviço) */}
-        {!isVariation && product.itemType === 'service' && (
-          <span className="text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest bg-amber-100 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400">
-            Serviço
-          </span>
-        )}
 
         {readOnly && !showTrash && !isLabelOnlyProfile ? (
           <button
@@ -235,6 +172,7 @@ export const ProductCardHeader: React.FC<ProductCardHeaderProps> = ({
               onPermanentDelete={onPermanentDelete}
               onMoveToAnotherFamily={onMoveToAnotherFamily}
               onMergeWithAnotherVariation={onMergeWithAnotherVariation}
+              onMergeDuplicateProduct={onMergeDuplicateProduct}
               onOpenSalesModal={onOpenSalesModal}
             />
           )

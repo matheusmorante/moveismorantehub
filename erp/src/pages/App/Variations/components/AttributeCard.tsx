@@ -1,16 +1,22 @@
 import { useState } from 'react';
 import type VariationType from '../../../types/variation.type';
 import { normalizeSearchTerm } from '../../../utils/textUtils';
-import { getCharacteristicSubtitle } from '../domain/characteristicFormRules';
+import { getCharacteristicSubtitle, isChoiceCharacteristicType, normalizeManagedCharacteristicType } from '../domain/characteristicFormRules';
+import { isFactoryDefaultCharacteristicName } from '../../../../../../shared-utils/characteristicFormRules';
 
 export interface AttributeCardProps {
   readonly attribute: VariationType;
   readonly onEdit: (attribute: VariationType) => void;
+  readonly onManageOptions: (attribute: VariationType) => void;
   readonly onDelete: (attribute: VariationType) => void;
 }
 
-export function AttributeCard({ attribute, onEdit, onDelete }: AttributeCardProps) {
+export function AttributeCard({ attribute, onEdit, onManageOptions, onDelete }: AttributeCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteTooltipOpen, setDeleteTooltipOpen] = useState(false);
+  const isFactoryDefault = isFactoryDefaultCharacteristicName(attribute.name);
+  const hasChoiceOptions = isChoiceCharacteristicType(normalizeManagedCharacteristicType(attribute.dataType));
+  const deleteTooltipId = `factory-default-characteristic-${attribute.id ?? normalizeSearchTerm(attribute.name)}`;
 
   return (
     <article
@@ -42,12 +48,51 @@ export function AttributeCard({ attribute, onEdit, onDelete }: AttributeCardProp
         </button>
         {menuOpen && (
           <div className="absolute right-0 top-full z-30 w-48 bg-white p-1 shadow-xl dark:bg-slate-900">
+            {hasChoiceOptions && (
+              <button type="button" onClick={() => { setMenuOpen(false); onManageOptions(attribute); }} className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
+                Gerenciar opções
+              </button>
+            )}
             <button type="button" onClick={() => { setMenuOpen(false); onEdit(attribute); }} className="w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
               Editar característica
             </button>
-            <button type="button" onClick={() => { setMenuOpen(false); onDelete(attribute); }} className="w-full px-3 py-2 text-left text-xs text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/30">
-              Excluir característica
-            </button>
+            <div
+              className="relative"
+              onMouseEnter={() => isFactoryDefault && setDeleteTooltipOpen(true)}
+              onMouseLeave={() => setDeleteTooltipOpen(false)}
+            >
+              <button
+                type="button"
+                aria-disabled={isFactoryDefault}
+                aria-describedby={isFactoryDefault && deleteTooltipOpen ? deleteTooltipId : undefined}
+                onFocus={() => isFactoryDefault && setDeleteTooltipOpen(true)}
+                onBlur={() => setDeleteTooltipOpen(false)}
+                onClick={() => {
+                  if (isFactoryDefault) {
+                    setDeleteTooltipOpen(true);
+                    return;
+                  }
+                  setMenuOpen(false);
+                  onDelete(attribute);
+                }}
+                className={`w-full px-3 py-2 text-left text-xs dark:text-red-300 ${
+                  isFactoryDefault
+                    ? 'cursor-not-allowed text-red-700/50 dark:text-red-300/50'
+                    : 'text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30'
+                }`}
+              >
+                Excluir característica
+              </button>
+              {isFactoryDefault && deleteTooltipOpen && (
+                <span
+                  id={deleteTooltipId}
+                  role="tooltip"
+                  className="absolute right-0 top-full z-50 mt-1 w-56 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-xl"
+                >
+                  Característica padrão; não pode ser apagada.
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>

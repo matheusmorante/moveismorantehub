@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import type { default as VariationType, CharacteristicGroup } from '../../types/variation.type';
 import { normalizeSearchTerm } from '../../utils/textUtils';
-import { getVariationErrorMessage } from '../../utils/variationService';
+import { getVariationErrorMessage, saveCharacteristicOptions } from '../../utils/variationService';
 import {
   CHARACTERISTIC_GROUPS_QUERY_KEY,
   deleteCharacteristicGroup,
@@ -13,6 +13,7 @@ import { AttributeCard } from './components/AttributeCard';
 import { useVariations } from './hooks/useVariations';
 import { VariationFormModal } from './modals/VariationFormModal';
 import { CharacteristicGroupFormPanel } from './modals/CharacteristicGroupFormPanel';
+import { CharacteristicOptionsModal } from './modals/CharacteristicOptionsModal';
 import { getCharacteristicSubtitle } from './domain/characteristicFormRules';
 
 type EditorState =
@@ -46,6 +47,7 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
   const groups = groupData?.groups ?? [];
   const [searchTerm, setSearchTerm] = useState('');
   const [editor, setEditor] = useState<EditorState | null>(null);
+  const [optionsEditor, setOptionsEditor] = useState<VariationType | null>(null);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
@@ -248,6 +250,7 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
                               key={attribute.id}
                               attribute={attribute}
                               onEdit={(item) => startCharacteristicEditor(item, undefined, group.id)}
+                              onManageOptions={(item) => setOptionsEditor(item)}
                               onDelete={(item) => { if (item.id) void handleDelete(item.id); }}
                             />
                           ))}
@@ -286,8 +289,27 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
           <VariationFormModal
             key={`characteristic-${editor.characteristic?.id ?? 'new'}`}
             onClose={() => closeCharacteristicEditor(editor.returnToGroupId)}
-            onSuccess={async () => {
+            onSuccess={async (savedId, values, wasNew) => {
               await refresh();
+              if (wasNew) {
+                setEditor((current) => current?.type === 'characteristic' ? {
+                  ...current,
+                  characteristic: {
+                    id: savedId,
+                    name: values.name,
+                    groupId: values.groupId,
+                    dataType: values.dataType,
+                    unit: values.unit,
+                    decimalPlaces: values.dataType === 'decimal' ? values.decimalPlaces : undefined,
+                    configuration: values.configuration,
+                    active: values.active,
+                    options: values.options,
+                    isCustom: true,
+                    dependency: null,
+                  },
+                } : current);
+                return;
+              }
               if (editor.returnToGroupId) {
                 setExpandedGroups((current) => new Set(current).add(editor.returnToGroupId!));
                 setEditor({ type: 'group', groupId: editor.returnToGroupId });
@@ -300,6 +322,18 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
           />
         )}
       </div>
+      {optionsEditor && (
+        <CharacteristicOptionsModal
+          characteristicName={optionsEditor.name}
+          options={optionsEditor.options}
+          onClose={() => setOptionsEditor(null)}
+          onSave={async (options) => {
+            if (!optionsEditor.id) throw new Error('Não foi possível identificar a característica.');
+            await saveCharacteristicOptions(optionsEditor.id, options);
+            await refresh();
+          }}
+        />
+      )}
     </div>
   );
 };

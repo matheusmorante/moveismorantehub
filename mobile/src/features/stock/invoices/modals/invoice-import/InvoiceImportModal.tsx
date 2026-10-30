@@ -148,7 +148,9 @@ export const InvoiceImportModal: React.FC<Props> = ({
                   </View>
                   <View style={styles.headerCopy}>
                     <Text style={[styles.title, isDarkMode && styles.textDark]}>
-                      {summaryInvoice ? 'Completar XML da NF-e' : 'Importar XML da NF de entrada'}
+                      {summaryInvoice
+                        ? 'Obter XML da nota fiscal'
+                        : 'Importar XML da NF de entrada'}
                     </Text>
                     <Text style={[styles.subtitle, isDarkMode && styles.textMutedDark]}>
                       {summaryInvoice

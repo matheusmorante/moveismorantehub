@@ -55,7 +55,7 @@ export interface InboundInvoiceItem {
   linkedProductCode?: string;
   sellingPrice?: number;
   apportionedCost?: number;
-  linkMode?: 'single' | 'composition';
+  linkMode?: 'single' | 'composition' | 'not_applicable';
   compositionLinks?: {
     id: string;
     productId: string;

@@ -62,20 +62,20 @@ export const getApplicableTechnicalFields = (
 
   const isRequiredForCatalog = (field: TechnicalFieldDefinition): boolean => {
     if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
-    return isCatalogCoreRequiredCharacteristicName(field.name) ||
-      resolveProductCharacteristicApplication(field, productCategoryIds) === 'required' ||
+    const isLegacyModelAlias = isExcludedCharacteristic(field.name);
+    return (isCatalogCoreRequiredCharacteristicName(field.name) && !isLegacyModelAlias) ||
       isProductTechnicalAttributeRequiredByCategories(
         field.requiredCategoryIds,
-        productCategoryIds.filter((categoryId) =>
-          !field.categoryApplications?.some(
-            (application) => String(application.categoryId) === String(categoryId)
-          )
-        )
+        productCategoryIds
       );
   };
 
   const applicable = safeFields.filter((field) => {
-    const isCatalogCoreRequired = isCatalogCoreRequiredCharacteristicName(field.name);
+    const isCatalogCoreRequired =
+      isCatalogCoreRequiredCharacteristicName(field.name) && !isExcludedCharacteristic(field.name);
+    const hasCatalogCategoryRequirement =
+      !isCatalogNeverRequiredCharacteristicName(field.name) &&
+      isProductTechnicalAttributeRequiredByCategories(field.requiredCategoryIds, productCategoryIds);
     const configuredApplications = field.categoryApplications?.filter((application) =>
       activeCategorySet.has(String(application.categoryId))
     ) ?? [];
@@ -83,7 +83,13 @@ export const getApplicableTechnicalFields = (
       Array.isArray(field.categoryApplications) &&
       configuredApplications.length > 0 &&
       configuredApplications.every((application) => application.application === 'unavailable')
-    ) return !isCatalogCoreRequired;
+    ) return isCatalogCoreRequired || hasCatalogCategoryRequirement;
+
+    // An explicit Catalog requirement takes precedence over category-specific
+    // editor exclusions; otherwise the required value could not be entered.
+    if (hasCatalogCategoryRequirement) return true;
+    if (isExcludedCharacteristic(field.name)) return false;
+    if (isRequiredForCatalog(field)) return true;
 
     if (!isTechnicalFieldAllowedForCategories(
       field.name, productCategoryNames, field.categoryApplications, productCategoryIds
@@ -115,9 +121,6 @@ export const getApplicableTechnicalFields = (
           productTechnicalValues['Linha'] !== undefined ||
           productTechnicalValues['linha'] !== undefined
         ));
-
-    // A característica precisa continuar disponível quando a categoria a exige para publicação.
-    if (isRequiredForCatalog(field)) return true;
 
     // O peso por prateleira pode ser informado sem depender da quantidade de prateleiras.
     if (isShelfWeightCapacityCharacteristic(field.name)) return true;

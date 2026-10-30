@@ -944,7 +944,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                   );
                   const alwaysApplicable =
                     currentFieldIsRequired ||
-                    (!parentData && requiredForCatalog) ||
+                    (!parentData && requiredForCatalog && isSimpleProduct) ||
                     Boolean(
                       parentData &&
                         isCurrentVariableField &&
@@ -959,18 +959,21 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                     dependencyState.isDependent && !isDependencyDisabled;
                   const currentScope = isCurrentVariableField
                     ? 'variation'
-                    : isExplicitlyNotApplicable
-                      ? 'not_inform'
-                      : hasTechnicalValue(ownTechnicalValues, field.name) ||
+                    : requiredForCatalog
+                      ? 'global'
+                      : isExplicitlyNotApplicable
+                        ? 'not_inform'
+                        : hasTechnicalValue(ownTechnicalValues, field.name) ||
                         (normalizeName(field.name) === 'marca' && Boolean(formData.brand)) ||
                         alwaysApplicable ||
                         isDependencySatisfied
-                      ? 'global'
-                      : 'not_inform';
+                        ? 'global'
+                        : 'not_inform';
                   const isPhysicalDimension = getProductTechnicalDimensionField(field.name) !== null;
                   const hasConfiguredParentValue =
                     Boolean(parentData) && hasTechnicalValue(parentTechnicalValues, field.name);
                   const applicable =
+                    requiredForCatalog ||
                     alwaysApplicable ||
                     (dependencyState.isDependent
                       ? isDependencySatisfied && !isExplicitlyNotApplicable
@@ -981,9 +984,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                   const isManual = manualFieldNames.includes(field.name);
                   const isQuantityField = isQuantityCharacteristic(field.name);
                   const isOptionalField = !currentFieldIsRequired && !requiredForCatalog;
-                  const showsApplicabilitySwitch = parentData
+                  const showsApplicabilitySwitch = !requiredForCatalog && (parentData
                     ? isQuantityField && isOptionalField
-                    : !alwaysApplicable && (!isManual || isQuantityField);
+                    : !alwaysApplicable && (!isManual || isQuantityField));
                   const parentText = String(parentValue ?? '').trim();
                   const parentIsZero =
                     ['integer', 'number', 'decimal', 'measure'].includes(field.data_type) &&
@@ -1170,9 +1173,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                         !isDependencyVariable && (
                         <View style={styles.scopeRow}>
                           {([
-                            ['not_inform', 'Não informar'],
-                            ['global', 'Global'],
-                            ['variation', 'Por variação'],
+                            ...(!requiredForCatalog ? [['not_inform', 'Não informar'] as const] : []),
+                            ['global', 'Global'] as const,
+                            ['variation', 'Por variação'] as const,
                           ] as const).map(([scope, label]) => {
                             const selected = currentScope === scope;
                             return (

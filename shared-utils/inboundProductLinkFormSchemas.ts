@@ -118,7 +118,7 @@ export const inboundInvoiceMappingFormSchema = z.object({
     linkedProductCode: z.string().optional(), productErpName: z.string().optional(),
     ncm: z.string().transform((value) => value.trim().replace(/[.\s]/g, '')).pipe(z.string().regex(/^(\d{8})?$/, 'Informe um NCM válido com 8 dígitos.')).optional(),
     sellingPrice: z.number().nonnegative('Informe um preço válido.').optional(),
-    linkMode: z.enum(['single', 'composition']).optional(),
+    linkMode: z.enum(['single', 'composition', 'not_applicable']).optional(),
     compositionLinks: z.array(z.object({
       id: identifier, productId: identifier, variationId: identifier.optional(), quantityMultiplier: z.number().positive(),
       sellingPrice: z.number().nonnegative().optional(), apportionedCost: z.number().nonnegative().optional(),
@@ -136,7 +136,7 @@ export const mobileInboundMappingsFormSchema = z.object({
   items: z.array(z.object({
     itemNumber: z.number().int().positive(), productCode: z.string(), productDescription: z.string(),
     matchedProductId: identifier.optional(), matchedVariationId: identifier.optional(),
-    linkMode: z.enum(['single', 'composition']).optional(), sellingPrice: z.number().nonnegative().optional(),
+    linkMode: z.enum(['single', 'composition', 'not_applicable']).optional(), sellingPrice: z.number().nonnegative().optional(),
     compositionLinks: z.array(z.object({
       id: identifier, productId: identifier, variationId: identifier.optional(), quantityMultiplier: z.number().positive(),
     }).passthrough()).optional(),

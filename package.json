@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/run-vercel-env-dev.cjs",
-    "dev:stack": "node scripts/assert-vercel-development.cjs && npm run build:fiscal --prefix erp && concurrently -k -n ERP,API -c cyan,magenta \"npm run dev:erp:serve\" \"npm run dev:api:serve\"",
+    "dev:stack": "node scripts/assert-vercel-development.cjs && npm run build:fiscal --prefix erp && concurrently -k -n ERP,API,APP,CATALOG -c cyan,magenta,green,yellow \"npm run dev:erp:serve\" \"npm run dev:api:serve\" \"npm run start --prefix mobile\" \"npm run dev:catalog\"",
     "dev:erp": "node scripts/run-vercel-env-dev.cjs erp",
     "dev:erp:serve": "node scripts/assert-vercel-development.cjs && npm run dev:serve --prefix erp",
     "dev:api": "node scripts/run-vercel-env-dev.cjs api",

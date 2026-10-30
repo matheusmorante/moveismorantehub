@@ -18,8 +18,8 @@ export type InboundReceiptItem = InboundInvoiceItem & {
   linkedVariationId?: string;
   linkedProductCode?: string;
   linkedProductName?: string;
-  linkStatus: 'automatic' | 'pending';
-  linkMode?: 'single' | 'composition';
+  linkStatus: 'automatic' | 'pending' | 'not_applicable';
+  linkMode?: 'single' | 'composition' | 'not_applicable';
   composition?: InboundReceiptItemComposition[];
 };
 
@@ -49,8 +49,14 @@ export function InboundNfeItemsSection({
     }),
   );
 
-  const linkedCount = items.filter((item) => Boolean(item.linkedProductId)).length;
-  const allLinked = items.length > 0 && linkedCount === items.length;
+  const notApplicableCount = items.filter((item) => item.linkMode === 'not_applicable').length;
+  const linkedCount = items.filter(
+    (item) =>
+      item.linkMode !== 'not_applicable' &&
+      Boolean(item.linkedProductId || item.compositionLinks?.some((link) => link.productId))
+  ).length;
+  const pendingCount = items.length - linkedCount - notApplicableCount;
+  const allResolved = pendingCount === 0;
 
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 shadow-sm">
@@ -61,22 +67,22 @@ export function InboundNfeItemsSection({
             Itens da NF-e e Vínculo com o ERP
           </h3>
           <p className="mt-0.5 text-xs text-slate-500">
-            Confirme o produto ERP correspondente de cada item para a correta entrada no estoque.
+            Revise os produtos que entrarão no estoque. Linhas “Não se aplica” permanecem na NF-e e são ignoradas.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
-              allLinked
+              allResolved
                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300/40'
                 : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/40'
             }`}
           >
             <i
-              className={`bi ${allLinked ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill'}`}
+              className={`bi ${allResolved ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill'}`}
               aria-hidden="true"
             />
-            {linkedCount} de {items.length} itens vinculados
+            {linkedCount} vinculados · {notApplicableCount} não se aplica · {pendingCount} pendentes
           </span>
         </div>
       </header>

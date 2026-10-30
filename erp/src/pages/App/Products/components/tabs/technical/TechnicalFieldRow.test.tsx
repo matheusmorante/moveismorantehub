@@ -241,6 +241,7 @@ describe('TechnicalFieldRow', () => {
     );
 
     expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByText('*')).toBeNull();
     expect(screen.getByRole('textbox')).toBeDefined();
 
     rerender(

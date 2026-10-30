@@ -61,4 +61,17 @@ describe('CharacteristicOptionsSection', () => {
     renderOptions([{ id: 'single', value: 'Única', active: true }]);
     expect((screen.getByRole('button', { name: 'Remover opção Única' }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it('marca a opção recém-adicionada como temporária até o salvamento', () => {
+    const onOptionsChange = renderOptions();
+    fireEvent.change(screen.getByPlaceholderText('Digite uma opção'), {
+      target: { value: 'cedar/cinza soft' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
+
+    const addedOption = onOptionsChange.mock.calls[0][0].find(
+      (option: VariationOption) => option.value === 'cedar/cinza soft'
+    );
+    expect(addedOption.id).toMatch(/^new-option-/);
+  });
 });

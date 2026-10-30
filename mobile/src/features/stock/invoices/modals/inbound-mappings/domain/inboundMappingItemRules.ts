@@ -6,6 +6,7 @@ export const extractLinkedProductRefs = (
   mappings: Map<string, any>
 ): Array<{ productId?: string; variationId?: string }> =>
   items.flatMap((item: MappingItem) => {
+    if (item.linkMode === 'not_applicable') return [];
     const normalizedCode = item.productCode.trim().toLocaleUpperCase('pt-BR');
     return [
       ...(item.matchedProductId
@@ -25,6 +26,17 @@ export const hydrateMappingItemsWithDetails = (
   productDetails: Map<string, any>
 ): MappingItem[] =>
   items.map((item: MappingItem) => {
+    if (item.linkMode === 'not_applicable') {
+      return {
+        ...item,
+        matchedProductId: undefined,
+        matchedVariationId: undefined,
+        productErpName: undefined,
+        linkedProductCode: undefined,
+        sellingPrice: undefined,
+        compositionLinks: [],
+      };
+    }
     const knownMapping = mappings.get(item.productCode.trim().toLocaleUpperCase('pt-BR'));
     const itemReference = item.matchedProductId
       ? productDetails.get(`${item.matchedProductId}:${item.matchedVariationId || ''}`)
@@ -99,6 +111,8 @@ export const applyProductLinkToMappingItems = (
     }
     return {
       ...current,
+      linkMode: 'single' as const,
+      compositionLinks: [],
       matchedProductId: product.productId,
       matchedVariationId: product.variationId,
       productErpName: product.name,
@@ -195,6 +209,25 @@ export const clearSingleItemLinkFromItems = (
     current.itemNumber === item.itemNumber
       ? {
           ...current,
+          matchedProductId: undefined,
+          matchedVariationId: undefined,
+          productErpName: undefined,
+          linkedProductCode: undefined,
+          sellingPrice: undefined,
+          compositionLinks: [],
+        }
+      : current
+  );
+
+export const buildNotApplicableItems = (
+  items: MappingItem[],
+  item: MappingItem
+): MappingItem[] =>
+  items.map((current) =>
+    current.itemNumber === item.itemNumber
+      ? {
+          ...current,
+          linkMode: 'not_applicable' as const,
           matchedProductId: undefined,
           matchedVariationId: undefined,
           productErpName: undefined,

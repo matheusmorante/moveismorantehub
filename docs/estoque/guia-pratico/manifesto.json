@@ -31,6 +31,7 @@
   ],
   "imagens": [
     "00-menu-estoque.png",
+    "01-nf-entrada-header.png",
     "01-nf-entrada.png",
     "02-importar-xml.png",
     "03-xml-incompleto.png",

@@ -10,12 +10,16 @@ import { InboundInvoiceDetailsModal } from '../modals/InboundInvoiceDetailsModal
 import { InboundDocumentImportModal } from '../modals/InboundDocumentImportModal';
 import { ManageInboundInvoiceMappingsModal } from '../modals/ManageInboundInvoiceMappingsModal';
 import { InboundPostImportActionModal } from '../modals/InboundPostImportActionModal';
-import { InboundInvoicesPagination } from '../components/InboundInvoicesPagination';
+import {
+  InboundInvoicesPagination,
+  INBOUND_INVOICES_PAGE_SIZE,
+} from '../components/InboundInvoicesPagination';
 import { fetchInboundInvoicesPage } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { prepareIdentificationLabelProducts } from '@/pages/App/Stock/LabelPrinting/services/identificationLabelPrefillService';
 import { LabelPrintSelectionModal } from '@/pages/App/Products/components/modals/product/LabelPrintSelectionModal';
 import type { IdentificationLabelProduct } from '@/pages/App/Stock/LabelPrinting/services/identificationLabelPrefillService';
+import { isSalvadosOnlySupplier } from '../../../../../../../shared-utils/productSupplierStockOrigin';
 
 const getCurrentYearMonth = (): string => {
   const d = new Date();
@@ -50,7 +54,6 @@ export default function InboundInvoicesPage() {
   }));
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(15);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,7 +78,7 @@ export default function InboundInvoicesPage() {
       try {
         const res = await fetchInboundInvoicesPage({
           page: pageToLoad,
-          pageSize: itemsPerPage,
+          pageSize: INBOUND_INVOICES_PAGE_SIZE,
           searchTerm,
           dateFilter,
         });
@@ -92,7 +95,7 @@ export default function InboundInvoicesPage() {
         if (revision === requestRevision.current) setIsLoading(false);
       }
     },
-    [searchTerm, dateFilter, itemsPerPage]
+    [searchTerm, dateFilter]
   );
 
   useEffect(() => {
@@ -149,6 +152,7 @@ export default function InboundInvoicesPage() {
   };
 
   const handleGenerateReceipt = (invoice: InboundInvoice) => {
+    if (isSalvadosOnlySupplier(invoice.supplierStockOrigins)) return;
     const params = new URLSearchParams({ inboundKey: invoice.nfeKey });
     navigate(`/estoque/recebimentos?${params.toString()}`);
   };
@@ -157,6 +161,7 @@ export default function InboundInvoicesPage() {
     if (!canPrintLabels) return toast.error('Seu usuário não tem acesso à impressão de etiquetas.');
     try {
       const references = (invoice.items || []).flatMap((item) => {
+        if (item.linkMode === 'not_applicable') return [];
         if (item.linkMode === 'composition' && item.compositionLinks?.length) {
           return item.compositionLinks.map((link) => ({
             productId: link.productId,
@@ -239,12 +244,7 @@ export default function InboundInvoicesPage() {
         currentPage={currentPage}
         totalPages={totalPages}
         totalItems={totalCount}
-        itemsPerPage={itemsPerPage}
         onPageChange={handlePageChange}
-        onPageSizeChange={(size) => {
-          setCurrentPage(1);
-          setItemsPerPage(size);
-        }}
         loading={isLoading}
       />
 

@@ -7,6 +7,7 @@ export type MappingItem = {
   productDescription: string;
   matchedProductId?: string;
   matchedVariationId?: string;
+  linkMode?: 'single' | 'composition' | 'not_applicable';
   productErpName?: string;
   linkedProductCode?: string;
   [key: string]: any;
@@ -16,6 +17,7 @@ export type Supplier = {
   id: string;
   full_name: string;
   cpf_cnpj?: string | null;
+  stock_origins?: string[] | null;
 };
 
 export type Product = InboundScorerProduct;

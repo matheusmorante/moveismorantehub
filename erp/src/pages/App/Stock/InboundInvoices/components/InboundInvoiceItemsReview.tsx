@@ -12,6 +12,7 @@ interface InboundInvoiceItemsReviewProps {
   contextKey?: string;
   items: InboundInvoiceItem[];
   supplierId?: string;
+  lockToNotApplicable?: boolean;
   suppliers: Person[];
   onChange: (itemNumber: number, update: Partial<InboundInvoiceItem>) => void | boolean | Promise<void | boolean>;
   onProcessingSuggestionsChange?: (processing: boolean) => void;
@@ -23,7 +24,7 @@ interface InboundInvoiceItemsReviewProps {
  * Apresenta a lista de itens e integra os modais de cadastro e classificação.
  */
 export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps) {
-  const { items, supplierId, suggestionsEnabled = false } = props;
+  const { items, supplierId, lockToNotApplicable = false, suggestionsEnabled = false } = props;
   const review = useInboundInvoiceItemsReview(props);
   const excludedProductLinks = React.useMemo(() => {
     const links = new Map<string, { productId: string; variationId?: string }>();
@@ -37,6 +38,7 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
     };
 
     items.forEach((item) => {
+      if (item.linkMode === 'not_applicable') return;
       addLink(item.matchedProductId, item.matchedVariationId);
       item.compositionLinks?.forEach((link) => addLink(link.productId, link.variationId));
     });
@@ -53,7 +55,7 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
               Itens da NF ({items.length})
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              {review.linkedCount} vinculados · {items.length - review.linkedCount} não vinculados
+              {review.linkedCount} vinculados · {review.notApplicableCount} não se aplica · {review.unlinkedItems.length} pendentes
             </p>
           </div>
         </header>
@@ -66,6 +68,7 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
               key={item.itemNumber}
               item={item}
               supplierId={supplierId}
+              lockToNotApplicable={lockToNotApplicable}
               excludedProductLinks={excludedProductLinks}
               suggestion={review.suggestionFor(item)}
               acceptingSuggestion={review.acceptingSuggestion}
@@ -87,7 +90,7 @@ export function InboundInvoiceItemsReview(props: InboundInvoiceItemsReviewProps)
               <div className="text-xs font-bold text-slate-600 dark:text-slate-300">
                 <p>{items.length} itens na NF</p>
                 <p className="mt-1 text-emerald-700 dark:text-emerald-300">
-                  {review.linkedCount} vinculados · {review.unlinkedItems.length} sem vínculo
+                  {review.linkedCount} vinculados · {review.notApplicableCount} não se aplica · {review.unlinkedItems.length} sem vínculo
                 </p>
               </div>
             </div>

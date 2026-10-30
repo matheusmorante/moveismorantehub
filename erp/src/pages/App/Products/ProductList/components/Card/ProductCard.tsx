@@ -10,6 +10,7 @@ import { CardThumbnail } from './CardThumbnail';
 import { CardPriceStock } from './CardPriceStock';
 import { ProductCardVariationList } from '../Variations/ProductCardVariationList';
 import { ProductCardHeader } from './ProductCardHeader';
+import { ProductCardBadges } from './ProductCardBadges';
 import { isNonConventionalProduct } from '@/pages/utils/productKindRules';
 
 interface ProductCardProps {
@@ -34,6 +35,7 @@ interface ProductCardProps {
   readonly onDuplicate?: (product: Product) => void;
   readonly onMoveToAnotherFamily?: (variation: any) => void;
   readonly onMergeWithAnotherVariation?: (variation: any) => void;
+  readonly onMergeDuplicateProduct?: (product: Product) => void;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({
@@ -56,6 +58,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onDuplicate,
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
+  onMergeDuplicateProduct,
   onRefresh,
 }) => {
   const [isSalesModalOpen, setIsSalesModalOpen] = React.useState(false);
@@ -162,6 +165,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         onDuplicate={onDuplicate}
         onMoveToAnotherFamily={onMoveToAnotherFamily}
         onMergeWithAnotherVariation={onMergeWithAnotherVariation}
+        onMergeDuplicateProduct={onMergeDuplicateProduct}
         onOpenSalesModal={() => setIsSalesModalOpen(true)}
       />
 
@@ -225,6 +229,21 @@ const ProductCard: React.FC<ProductCardProps> = ({
               ))}
             </div>
           )}
+
+          <ProductCardBadges
+            product={product}
+            canDeleteProducts={canDeleteProducts}
+            showCatalogControl={showCatalogControl}
+            isParent={isParent}
+            isVariation={isVariation}
+            isDraft={isDraft}
+            canManageCatalog={canManageCatalog}
+            singleVariation={singleVariation}
+            oppName={oppName ?? undefined}
+            onToggleActive={onToggleActive}
+            onDeactivateCatalog={onDeactivateCatalog}
+            className="mt-2 flex xl:hidden"
+          />
         </div>
       </div>
 

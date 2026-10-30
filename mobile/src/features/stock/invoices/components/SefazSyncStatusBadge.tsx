@@ -14,7 +14,6 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
   const [status, setStatus] = useState<any>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [automationNotice, setAutomationNotice] = useState<string | null>(null);
-  const [nextRecoveryCheckAt, setNextRecoveryCheckAt] = useState<number | null>(null);
   const onSyncSuccessRef = useRef(onSyncSuccess);
   const autoSyncInFlight = useRef(false);
   const scienceInFlight = useRef(false);
@@ -164,7 +163,6 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
 
   useEffect(() => {
     scienceQueueMounted.current = true;
-    setNextRecoveryCheckAt(Date.now() + NSU_RECOVERY_CHECK_INTERVAL_MS);
     void (async () => {
       await syncIfDue();
       requestScienceProcessing();
@@ -174,7 +172,6 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
       void syncIfDue();
     }, 45000); // Polling leve a cada 45 segundos
     const recoveryInterval = setInterval(() => {
-      setNextRecoveryCheckAt(Date.now() + NSU_RECOVERY_CHECK_INTERVAL_MS);
       void recoverMissingNsu();
     }, NSU_RECOVERY_CHECK_INTERVAL_MS);
     return () => {
@@ -219,32 +216,6 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
     }
   }
 
-  // distNSU descobre documentos novos uma vez por hora.
-  let nextDiscoveryText = 'Próxima busca de novas notas em breve';
-  if (status.next_allowed_sync_at) {
-    const remainingMs = new Date(status.next_allowed_sync_at).getTime() - Date.now();
-    if (remainingMs > 0) {
-      const remainingMin = Math.ceil(remainingMs / 60000);
-      nextDiscoveryText = `Próxima busca de novas notas em ~${remainingMin} min`;
-    } else {
-      nextDiscoveryText = 'Nova busca de notas liberada';
-    }
-  } else if (status.last_sync_at) {
-    const nextCycleMs = new Date(status.last_sync_at).getTime() + 60 * 60 * 1000 - Date.now();
-    if (nextCycleMs > 0) {
-      const remainingMin = Math.ceil(nextCycleMs / 60000);
-      nextDiscoveryText = `Próxima busca de novas notas em ~${remainingMin} min`;
-    } else {
-      nextDiscoveryText = 'Nova busca de notas liberada';
-    }
-  }
-  const recoveryRemainingMs = nextRecoveryCheckAt === null ? null : nextRecoveryCheckAt - Date.now();
-  const nextRecoveryCheckText = recoveryRemainingMs === null
-    ? 'Checagem de notas pendentes a cada 5 min'
-    : recoveryRemainingMs > 0
-      ? `Próxima checagem de notas pendentes em ~${Math.ceil(recoveryRemainingMs / 60000)} min, se houver`
-      : 'Checagem de notas pendentes em andamento';
-
   // Caso de erro técnico na sincronização
   if (status.status === 'error') {
     return (
@@ -283,18 +254,14 @@ export const SefazSyncStatusBadge: React.FC<Props> = ({ isDarkMode, onSyncSucces
     );
   }
 
-  // Exibição padrão discreta e limpa (espelhando a Web)
+  // No app, mantenha somente avisos operacionais; os horários de rotina ficam ocultos.
+  if (!automationNotice) return null;
+
   return (
     <View style={styles.container}>
-      <View style={styles.statusRow}>
-        <View style={styles.onlineDot} />
-        <Text style={[styles.statusText, isDarkMode && styles.statusTextDark]}>
-          SEFAZ: {lastSyncText}
-        </Text>
-      </View>
-      <Text style={[styles.subText, isDarkMode && styles.subTextDark]}>{nextDiscoveryText}</Text>
-      <Text style={[styles.subText, isDarkMode && styles.subTextDark]}>{nextRecoveryCheckText}</Text>
-      {automationNotice && <Text accessibilityRole="alert" style={[styles.subText, isDarkMode && styles.subTextDark]}>{automationNotice}</Text>}
+      <Text accessibilityRole="alert" style={[styles.subText, isDarkMode && styles.subTextDark]}>
+        {automationNotice}
+      </Text>
     </View>
   );
 };
@@ -304,25 +271,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 2,
     paddingHorizontal: 4,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#10b981',
-    marginRight: 6,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  statusTextDark: {
-    color: '#cbd5e1',
   },
   subText: {
     fontSize: 10,

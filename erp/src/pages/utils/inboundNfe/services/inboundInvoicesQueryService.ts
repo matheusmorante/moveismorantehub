@@ -4,6 +4,11 @@ import { parseInboundNfeXml } from '../utils/inboundXmlParser';
 import { DateFilterConfig } from '../../../App/Stock/InboundInvoices/components/InboundInvoicesHeader';
 import { isValidUuid } from '../../uuidUtils';
 import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
+import {
+  getSupplierStockOriginsFromRelation,
+  isSalvadosOnlySupplier,
+} from '../../../../../../shared-utils/productSupplierStockOrigin';
+import { markInboundInvoiceItemsNotApplicable } from '../../../../../../shared-utils/inboundInvoiceSupplierRules';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import {
   getMonthDateBounds,
@@ -106,14 +111,24 @@ const resolveMissingSupplierOrigins = async (
   }
 
   return invoices.map((invoice) => {
-    if (Array.isArray(invoice.supplierStockOrigins)) return invoice;
+    if (Array.isArray(invoice.supplierStockOrigins)) {
+      return isSalvadosOnlySupplier(invoice.supplierStockOrigins)
+        ? { ...invoice, items: markInboundInvoiceItemsNotApplicable(invoice.items) }
+        : invoice;
+    }
     const cnpj = normalizeFiscalIdentifier(invoice.emitterCnpj);
     const supplier = originsByCnpj.get(cnpj);
     if (!supplier) return invoice;
     const supplierStockOrigins = supplier.hasSalvadosOnlySupplier
       ? ['salvados']
       : Array.from(supplier.origins);
-    return { ...invoice, supplierStockOrigins };
+    return {
+      ...invoice,
+      supplierStockOrigins,
+      ...(isSalvadosOnlySupplier(supplierStockOrigins)
+        ? { items: markInboundInvoiceItemsNotApplicable(invoice.items) }
+        : {}),
+    };
   });
 };
 
@@ -221,6 +236,7 @@ export const fetchInboundInvoicesPage = async (
             })
         )
         .map((row: any) => {
+          const supplierStockOrigins = getSupplierStockOriginsFromRelation(row.supplier);
           const sources: any[][] = [];
           if (Array.isArray(row.inbound_invoice_items) && row.inbound_invoice_items.length > 0)
             sources.push(row.inbound_invoice_items);
@@ -277,10 +293,10 @@ export const fetchInboundInvoicesPage = async (
               normalized[0]?.unit ||
               'UN';
 
-            const matchedProductId = normalized.map((c) => c.matchedProductId).find(Boolean);
-            const matchedVariationId = normalized.map((c) => c.matchedVariationId).find(Boolean);
-            const productErpName = normalized.map((c) => c.productErpName).find(Boolean);
-            const linkedProductCode = normalized.map((c) => c.linkedProductCode).find(Boolean);
+          const matchedProductId = normalized.map((c) => c.matchedProductId).find(Boolean);
+          const matchedVariationId = normalized.map((c) => c.matchedVariationId).find(Boolean);
+          const productErpName = normalized.map((c) => c.productErpName).find(Boolean);
+          const linkedProductCode = normalized.map((c) => c.linkedProductCode).find(Boolean);
 
             childItems.push({
               ...normalized[0],
@@ -312,9 +328,7 @@ export const fetchInboundInvoicesPage = async (
             emitterIe: row.emitente_ie || undefined,
             emitterAddress: row.emitente_endereco || {},
             supplierId: row.supplier_id || undefined,
-            supplierStockOrigins: Array.isArray(row.supplier?.stock_origins)
-              ? row.supplier.stock_origins
-              : undefined,
+            supplierStockOrigins,
             recipientCnpj: row.destinatario_cnpj || '',
             recipientName: row.destinatario_nome || '',
             totalProducts: Number(row.valor_produtos || 0),
@@ -364,7 +378,9 @@ export const fetchInboundInvoicesPage = async (
             receiptId: row.receipt_id,
             receivedAt: row.updated_at,
             rawXml: row.xml_conteudo,
-            items: childItems,
+            items: isSalvadosOnlySupplier(supplierStockOrigins)
+              ? markInboundInvoiceItemsNotApplicable(childItems)
+              : childItems,
             createdAt: row.created_at,
           };
         });
@@ -487,9 +503,7 @@ export const checkInboundInvoiceKeyExists = async (
         emitterIe: data.emitente_ie || undefined,
         emitterAddress: data.emitente_endereco || {},
         supplierId: data.supplier_id || undefined,
-        supplierStockOrigins: Array.isArray(data.supplier?.stock_origins)
-          ? data.supplier.stock_origins
-          : undefined,
+        supplierStockOrigins: getSupplierStockOriginsFromRelation(data.supplier),
         recipientCnpj: data.destinatario_cnpj || '',
         recipientName: data.destinatario_nome || '',
         totalProducts: Number(data.valor_produtos || 0),
@@ -544,7 +558,9 @@ export const checkInboundInvoiceKeyExists = async (
         throw err;
       }
 
-      return result;
+      return isSalvadosOnlySupplier(result.supplierStockOrigins)
+        ? { ...result, items: markInboundInvoiceItemsNotApplicable(result.items) }
+        : result;
     }
   } catch (err) {
     console.warn('Erro ao consultar duplicidade de chave de acesso:', err);

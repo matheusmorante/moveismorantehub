@@ -32,14 +32,14 @@ beforeEach(() => vi.mocked(fetchInboundInvoicesPage).mockReset());
 afterEach(cleanup);
 
 describe('InboundInvoicesPage pagination', () => {
-  it('returns to page one with the selected size', async () => {
+  it('keeps 15 invoices per page while navigating', async () => {
     vi.mocked(fetchInboundInvoicesPage).mockResolvedValue(response('initial'));
     render(<MemoryRouter><InboundInvoicesPage /></MemoryRouter>);
     await screen.findByText('initial');
+    expect(screen.queryByRole('combobox', { name: 'Registros por página' })).toBeNull();
+    expect(screen.getByText('15 por página')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Página 2' }));
     await waitFor(() => expect(fetchInboundInvoicesPage).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, pageSize: 15 })));
-    fireEvent.change(screen.getByRole('combobox', { name: 'Registros por página' }), { target: { value: '50' } });
-    await waitFor(() => expect(fetchInboundInvoicesPage).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, pageSize: 50 })));
   });
 
   it('does not replace a newer filtered page with a late response', async () => {

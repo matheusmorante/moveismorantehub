@@ -22,16 +22,28 @@ export const useInboundMappingSearches = ({
   const [productSearchErrors, setProductSearchErrors] = useState<Record<number, string>>({});
 
   useEffect(() => {
-    if (!visible || supplierSearch.trim().length < 2 || supplierId) {
+    if (!visible) {
+      setSuppliers([]);
+      setSupplierSearchError('');
+      setSupplierSearchLoading(false);
+      return;
+    }
+    if (supplierId) {
+      setSupplierSearchError('');
+      setSupplierSearchLoading(false);
+      return;
+    }
+    if (supplierSearch.trim().length < 2) {
       setSuppliers([]);
       setSupplierSearchError('');
       setSupplierSearchLoading(false);
       return;
     }
     let active = true;
+    setSuppliers([]);
+    setSupplierSearchError('');
+    setSupplierSearchLoading(true);
     const timer = setTimeout(() => {
-      setSupplierSearchLoading(true);
-      setSuppliers([]);
       void stockService
         .searchInboundInvoiceSuppliers(supplierSearch)
         .then((rows) => {

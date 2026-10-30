@@ -111,6 +111,20 @@ export const hasUnlinkedInvoiceItems = (items: unknown): boolean => {
       row.item_snapshot && typeof row.item_snapshot === 'object'
         ? (row.item_snapshot as Record<string, any>)
         : {};
+    const rawItem =
+      row.raw_item && typeof row.raw_item === 'object'
+        ? (row.raw_item as Record<string, any>)
+        : {};
+    if (
+      snapshot.linkMode === 'not_applicable' ||
+      snapshot.link_mode === 'not_applicable' ||
+      row.linkMode === 'not_applicable' ||
+      row.link_mode === 'not_applicable' ||
+      rawItem.linkMode === 'not_applicable' ||
+      rawItem.link_mode === 'not_applicable'
+    ) {
+      return false;
+    }
     const compositionLinks =
       snapshot.compositionLinks ||
       snapshot.composition_links ||

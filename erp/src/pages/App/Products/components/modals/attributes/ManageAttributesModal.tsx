@@ -4,7 +4,7 @@ import VariationType, { VariationOption } from '../../../../../types/variation.t
 import { useVariations } from '../../../../Variations/useVariations';
 import {
   saveVariation,
-  updateVariation,
+  saveCharacteristicOptions,
   getVariationErrorMessage,
 } from '../../../../../utils/variationService';
 import { toast } from 'react-toastify';
@@ -20,6 +20,7 @@ import {
   finalizeAttributeDraftValues,
   normalizeAttributeDraftValue,
 } from '../../utils/attributeValueDraft';
+import { isFactoryDefaultCharacteristicName } from '../../../../../../../../shared-utils/characteristicFormRules';
 
 export interface ManageAttributesModalProps {
   readonly isOpen: boolean;
@@ -41,6 +42,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
   const [currentValInput, setCurrentValInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [existingValInputs, setExistingValInputs] = useState<Record<string, string>>({});
+  const [protectedDeleteTooltipId, setProtectedDeleteTooltipId] = useState<string | null>(null);
   const isChoiceType = newDataType === 'list' || newDataType === 'radio' || newDataType === 'multi_select';
   const newAttribute = {
     name: newAttrName,
@@ -105,6 +107,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
         options: values.options,
       });
 
+      await refresh();
       toast.success('Característica criada com sucesso!');
       setNewAttrName('');
       setNewDataType('radio');
@@ -112,7 +115,6 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
       setNewUnit('cm');
       setTempValues([]);
       setCurrentValInput('');
-      refresh();
     } catch (err: unknown) {
       const message = getVariationErrorMessage(err, 'Erro desconhecido ao salvar característica.');
       toast.error(`Erro ao salvar: ${message}`);
@@ -129,7 +131,7 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
       decimalPlaces: attr.decimalPlaces ?? 2,
       options,
     }, async (values) => {
-      await updateVariation(attr.id!, { options: values.options });
+      await saveCharacteristicOptions(attr.id!, values.options);
       return true;
     }, showValidationErrors);
 
@@ -142,8 +144,8 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
     try {
       const updatedOptions = attr.options.filter((o) => o.id !== opt.id);
       if (!await saveExistingOptions(attr, updatedOptions)) return;
+      await refresh();
       toast.success('Valor removido com sucesso!');
-      refresh();
     } catch (err: unknown) {
       const message = getVariationErrorMessage(err, 'Erro ao remover valor.');
       toast.error(`Erro ao remover valor: ${message}`);
@@ -161,9 +163,9 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
     try {
       const updatedOptions = [...attr.options, { id: '', value: valText.trim() }];
       if (!await saveExistingOptions(attr, updatedOptions)) return;
+      await refresh();
       toast.success('Valor adicionado com sucesso!');
       setExistingValInputs((prev) => ({ ...prev, [attr.id!]: '' }));
-      refresh();
     } catch (err: unknown) {
       const message = getVariationErrorMessage(err, 'Erro ao adicionar valor.');
       toast.error(`Erro ao adicionar valor: ${message}`);
@@ -393,33 +395,67 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
                   Nenhuma característica encontrada.
                 </div>
               ) : (
-                filteredVariations.map((attr) => (
-                  <div
-                    key={attr.id}
-                    className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 space-y-3"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h5 className="text-sm font-black text-slate-800 dark:text-slate-100">
-                          {attr.name}
-                        </h5>
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                          {attr.options?.length || 0} valores vinculados
-                        </p>
+                filteredVariations.map((attr) => {
+                  const isFactoryDefault = isFactoryDefaultCharacteristicName(attr.name);
+                  const deleteTooltipId = `factory-default-characteristic-${attr.id}`;
+                  const deleteTooltipOpen = protectedDeleteTooltipId === attr.id;
+                  return (
+                    <div
+                      key={attr.id}
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 space-y-3"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h5 className="text-sm font-black text-slate-800 dark:text-slate-100">
+                            {attr.name}
+                          </h5>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                            {attr.options?.length || 0} valores vinculados
+                          </p>
+                        </div>
+                        <div
+                          className="relative"
+                          onMouseEnter={() => isFactoryDefault && setProtectedDeleteTooltipId(attr.id!)}
+                          onMouseLeave={() => setProtectedDeleteTooltipId((current) => current === attr.id ? null : current)}
+                        >
+                          <button
+                            type="button"
+                            aria-disabled={isFactoryDefault}
+                            aria-describedby={isFactoryDefault && deleteTooltipOpen ? deleteTooltipId : undefined}
+                            onFocus={() => isFactoryDefault && setProtectedDeleteTooltipId(attr.id!)}
+                            onBlur={() => setProtectedDeleteTooltipId((current) => current === attr.id ? null : current)}
+                            onClick={(event) => {
+                              if (isFactoryDefault) {
+                                event.preventDefault();
+                                setProtectedDeleteTooltipId(attr.id!);
+                                return;
+                              }
+                              void handleDelete(attr.id!);
+                            }}
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
+                              isFactoryDefault
+                                ? 'cursor-not-allowed text-slate-400/50 dark:text-slate-400/40'
+                                : 'cursor-pointer text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10'
+                            }`}
+                            title={isFactoryDefault ? undefined : 'Excluir característica'}
+                            aria-label={`Excluir característica ${attr.name}`}
+                          >
+                            <i className="bi bi-trash text-sm" aria-hidden="true" />
+                          </button>
+                          {isFactoryDefault && deleteTooltipOpen && (
+                            <span
+                              id={deleteTooltipId}
+                              role="tooltip"
+                              className="absolute right-0 top-full z-40 mt-1 w-56 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-xl"
+                            >
+                              Característica padrão; não pode ser apagada.
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => handleDelete(attr.id!, e)}
-                        className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
-                        title="Excluir característica"
-                        aria-label={`Excluir característica ${attr.name}`}
-                      >
-                        <i className="bi bi-trash text-sm" aria-hidden="true" />
-                      </button>
-                    </div>
 
-                    <div className="flex flex-wrap gap-1.5">
-                      {attr.options?.map((opt) => (
+                      <div className="flex flex-wrap gap-1.5">
+                        {attr.options?.map((opt) => (
                         <span
                           key={opt.id}
                           className="h-7 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold text-[11px] gap-1.5 py-0 px-2.5 rounded-full flex items-center shrink-0"
@@ -435,17 +471,17 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
                             <i className="bi bi-x text-xs" aria-hidden="true" />
                           </button>
                         </span>
-                      ))}
-                      {attr.options?.length === 0 && (
-                        <span className="text-slate-400 italic text-xs">
-                          Sem valores cadastrados
-                        </span>
-                      )}
-                    </div>
+                        ))}
+                        {attr.options?.length === 0 && (
+                          <span className="text-slate-400 italic text-xs">
+                            Sem valores cadastrados
+                          </span>
+                        )}
+                      </div>
 
                     {/* Adição rápida de valor */}
-                    <div className="flex gap-2 max-w-sm pt-1">
-                      <input
+                      <div className="flex gap-2 max-w-sm pt-1">
+                        <input
                         placeholder="Novo valor..."
                         value={existingValInputs[attr.id!] || ''}
                         onChange={(e) =>
@@ -458,17 +494,18 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
                         }}
                         aria-label={`Adicionar novo valor à característica ${attr.name}`}
                         className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-bold dark:text-slate-300"
-                      />
-                      <button
+                        />
+                        <button
                         type="button"
                         onClick={() => void handleAddValueToExisting(attr)}
                         className="bg-white hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 font-bold text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer"
-                      >
-                        Adicionar
-                      </button>
+                        >
+                          Adicionar
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

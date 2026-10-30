@@ -44,13 +44,6 @@ const compareChronologically = (a: DeliveryRouteItem, b: DeliveryRouteItem) => {
   return a.customerName.localeCompare(b.customerName, 'pt-BR');
 };
 
-const getRecordedDistance = (item: DeliveryRouteItem) => {
-  const distance = Number(
-    item.distanceKm ?? item.order?.order_data?.shipping?.distance ?? item.order?.shipping?.distance
-  );
-  return Number.isFinite(distance) && distance > 0 ? distance : Number.POSITIVE_INFINITY;
-};
-
 const matchesPeriod = (item: DeliveryRouteItem, period: 'morning' | 'afternoon') => {
   const value = String(item.windowStart || item.periodLabel || '').toLocaleLowerCase('pt-BR');
   const startMinutes = getStartTimeMinutes(item);
@@ -74,7 +67,6 @@ export const DeliveryTimelineView: React.FC<Props> = ({
   isDarkMode = false,
 }) => {
   const [periodFilter, setPeriodFilter] = useState<'all' | 'morning' | 'afternoon'>('all');
-  const [sortMode, setSortMode] = useState<'chronological' | 'proximity'>('chronological');
   const [loadedHandlingOptions, setLoadedHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
 
   const shiftCounts = useMemo(
@@ -114,19 +106,8 @@ export const DeliveryTimelineView: React.FC<Props> = ({
   const filteredItems = useMemo(() => {
     const periodItems =
       periodFilter === 'all' ? [...items] : items.filter((item) => matchesPeriod(item, periodFilter));
-    return periodItems.sort((a, b) => {
-      if (sortMode === 'proximity') {
-        const distanceA = getRecordedDistance(a);
-        const distanceB = getRecordedDistance(b);
-        const distanceDiff = distanceA - distanceB;
-        if (Number.isFinite(distanceDiff) && distanceDiff) return distanceDiff;
-        if (Number.isFinite(distanceA) !== Number.isFinite(distanceB)) {
-          return Number.isFinite(distanceA) ? -1 : 1;
-        }
-      }
-      return compareChronologically(a, b);
-    });
-  }, [items, periodFilter, sortMode]);
+    return periodItems.sort(compareChronologically);
+  }, [items, periodFilter]);
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -212,54 +193,6 @@ export const DeliveryTimelineView: React.FC<Props> = ({
             Exibindo {filteredItems.length}{' '}
             {filteredItems.length === 1 ? 'entrega' : 'entregas'}
           </Text>
-          <View style={[styles.sortControl, isDarkMode && styles.sortControlDark]}>
-            <TouchableOpacity
-              style={[
-                styles.sortOption,
-                sortMode === 'chronological' && styles.sortOptionActive,
-                isDarkMode && sortMode === 'chronological' && styles.sortOptionActiveDark,
-              ]}
-              onPress={() => setSortMode('chronological')}
-              accessibilityRole="button"
-              accessibilityState={{ selected: sortMode === 'chronological' }}
-              accessibilityLabel="Ordenar por horário"
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.sortOptionText,
-                  isDarkMode && styles.sortOptionTextDark,
-                  sortMode === 'chronological' && styles.sortOptionTextActive,
-                  isDarkMode && sortMode === 'chronological' && styles.sortOptionTextActiveDark,
-                ]}
-              >
-                Horário
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.sortOption,
-                sortMode === 'proximity' && styles.sortOptionActive,
-                isDarkMode && sortMode === 'proximity' && styles.sortOptionActiveDark,
-              ]}
-              onPress={() => setSortMode('proximity')}
-              accessibilityRole="button"
-              accessibilityState={{ selected: sortMode === 'proximity' }}
-              accessibilityLabel="Ordenar por proximidade, usando a distância registrada no pedido"
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.sortOptionText,
-                  isDarkMode && styles.sortOptionTextDark,
-                  sortMode === 'proximity' && styles.sortOptionTextActive,
-                  isDarkMode && sortMode === 'proximity' && styles.sortOptionTextActiveDark,
-                ]}
-              >
-                Proximidade
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
         <Text style={[styles.timelineHint, isDarkMode && styles.textMuted]}>
           Cada ponto indica a etapa ou situação atual; a lista não representa a rota.
@@ -352,28 +285,11 @@ const styles = StyleSheet.create({
   listControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    justifyContent: 'flex-start',
     marginHorizontal: 10,
     marginBottom: 2,
   },
   resultCount: { color: '#475569', fontSize: 10, fontWeight: '700', flexShrink: 1 },
-  sortControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    padding: 2,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
-  },
-  sortControlDark: { backgroundColor: '#1e293b' },
-  sortOption: { minHeight: 28, justifyContent: 'center', paddingHorizontal: 7, borderRadius: 6 },
-  sortOptionActive: { backgroundColor: '#ffffff' },
-  sortOptionActiveDark: { backgroundColor: '#1e3a8a' },
-  sortOptionText: { color: '#64748b', fontSize: 9, fontWeight: '700' },
-  sortOptionTextDark: { color: '#cbd5e1' },
-  sortOptionTextActive: { color: '#1d4ed8', fontWeight: '800' },
-  sortOptionTextActiveDark: { color: '#bfdbfe' },
   timelineHint: { color: '#64748b', fontSize: 9, marginHorizontal: 10, marginBottom: 6 },
   scrollContent: {
     paddingHorizontal: 10,

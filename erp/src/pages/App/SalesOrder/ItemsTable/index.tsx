@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Footer from './Footer';
 import Body from './Body';
 import { Item, ItemsSummary } from '../../../types/items.type';
@@ -48,7 +48,7 @@ const ItemsTable = ({
 }: Props) => {
   const hideHandling = Boolean(propHideHandling || isBudget || isReturn);
 
-  // Apenas um item expandido por vez no modo card
+  // Uma única linha expandida nos layouts compactos.
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [descriptionFocusIndex, setDescriptionFocusIndex] = useState<number | null>(null);
   const [compositionDraftOpen, setCompositionDraftOpen] = useState(false);
@@ -77,6 +77,7 @@ const ItemsTable = ({
 
     setCompositionDraftOpen(false);
     const newItemIndex = items.length;
+    setExpandedIndex(newItemIndex);
     setItems((prev: Item[]) => [...prev, createEmptyOrderItem(itemType)]);
     setDescriptionFocusIndex(newItemIndex);
   };
@@ -89,10 +90,42 @@ const ItemsTable = ({
   };
 
   const { width } = useWindowSize();
-  const isCardsView = width < 1280; // Visualização em cards para telas menores que XL (< 1280px)
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return undefined;
+
+    const updateWidth = () => {
+      setContainerWidth(container.getBoundingClientRect().width || width);
+    };
+    updateWidth();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateWidth);
+      return () => window.removeEventListener('resize', updateWidth);
+    }
+
+    const observer = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry?.contentRect.width || container.getBoundingClientRect().width || width);
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [width]);
+
+  const isCardsView = containerWidth < 1024;
+  const isTabletView = containerWidth >= 768 && containerWidth < 1024;
+  const isNarrowMobileView = containerWidth < 360;
+  const isCompactDesktop = containerWidth >= 1024 && containerWidth < 1440;
+  const isWideDesktop = containerWidth >= 1440;
 
   return (
-    <div className="flex flex-col gap-3 p-0 h-full w-full">
+    <div
+      ref={containerRef}
+      className="flex min-w-0 flex-col gap-3 p-0 h-full w-full"
+      style={{ containerType: 'inline-size' } as React.CSSProperties}
+    >
       {!isReturn && (
         <ItemsTableHeader
           productsCount={productsCount}
@@ -101,7 +134,7 @@ const ItemsTable = ({
         />
       )}
 
-      {/* Conteúdo: Modo Cards (telas < 1280px) ou Modo Tabela (telas >= 1280px) */}
+      {/* O layout acompanha a largura real disponível neste contêiner. */}
       {isCardsView ? (
         <div className="flex flex-col">
           <div className="flex flex-col">
@@ -116,6 +149,8 @@ const ItemsTable = ({
               isReturn={isReturn}
               hideHandling={hideHandling}
               highlightTemporaryItems={highlightTemporaryItems}
+              isTablet={isTabletView}
+              isNarrowMobile={isNarrowMobileView}
               expandedIndex={expandedIndex}
               setExpandedIndex={setExpandedIndex}
               autoFocusDescriptionIndex={descriptionFocusIndex}
@@ -133,9 +168,9 @@ const ItemsTable = ({
           </div>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-slate-200/70 dark:border-slate-800">
+        <div className="min-w-0 rounded-2xl border border-slate-200/70 dark:border-slate-800">
           <table className="w-full border-collapse table-fixed">
-            <ItemsTableDesktopHeader hideHandling={hideHandling} />
+            <ItemsTableDesktopHeader hideHandling={hideHandling || isCompactDesktop} compactDesktop={isCompactDesktop} />
             <Body
               items={items}
               setItems={setItems}
@@ -147,6 +182,10 @@ const ItemsTable = ({
               isReturn={isReturn}
               hideHandling={hideHandling}
               highlightTemporaryItems={highlightTemporaryItems}
+              expandedIndex={expandedIndex}
+              setExpandedIndex={setExpandedIndex}
+              compactDesktop={isCompactDesktop}
+              alwaysExpanded={isWideDesktop}
               autoFocusDescriptionIndex={descriptionFocusIndex}
               onDescriptionBlur={(idx) =>
                 setDescriptionFocusIndex((current) => (current === idx ? null : current))
@@ -155,7 +194,14 @@ const ItemsTable = ({
               onSelectComposition={handleCompositionSelect}
               onCancelCompositionDraft={() => setCompositionDraftOpen(false)}
             />
-            <Footer summary={summary} items={items} isBudget={isBudget} physicalProductQuantity={physicalProductQuantity} />
+            <Footer
+              summary={summary}
+              items={items}
+              isBudget={isBudget}
+              hideHandling={hideHandling || isCompactDesktop}
+              compactDesktop={isCompactDesktop}
+              physicalProductQuantity={physicalProductQuantity}
+            />
           </table>
         </div>
       )}

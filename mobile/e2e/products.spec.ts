@@ -62,16 +62,16 @@ test.describe('Módulo de Produtos - E2E (Mobile on Web)', () => {
     await expect(page.getByText('Tipos de Produto', { exact: true })).toBeVisible();
   });
 
-  test('abre o modo de composições e exibe a configuração de componentes', async ({ page }) => {
+  test('abre o modo Produto composto e exibe a configuração de componentes', async ({ page }) => {
     await page.goto(START_URL);
     await expect(page.getByText('Produtos', { exact: true }).first()).toBeVisible({ timeout: 60000 });
 
-    await page.getByText('Composições', { exact: true }).click();
-    await expect(page.getByText('Composições', { exact: true }).first()).toBeVisible();
+    await page.getByText('Produto composto', { exact: true }).click();
+    await expect(page.getByText('Produto composto', { exact: true }).first()).toBeVisible();
     await expect(page.getByPlaceholder('Buscar composições...')).toBeVisible();
 
     await page.getByLabel('Opções de produtos').click();
-    await page.getByText('Nova Composição', { exact: true }).click();
+    await page.getByText('Novo Produto Composto', { exact: true }).click();
 
     await expect(page.getByText('Cadastro de Produto', { exact: true })).toBeVisible();
     await page.getByRole('tab', { name: /CADASTRO GERAL/i }).click();
@@ -86,7 +86,7 @@ test.describe('Módulo de Produtos - E2E (Mobile on Web)', () => {
   test('reabre uma composição existente com seus componentes persistidos', async ({ page }) => {
     await page.goto(START_URL);
     await expect(page.getByText('Produtos', { exact: true }).first()).toBeVisible({ timeout: 60000 });
-    await page.getByText('Composições', { exact: true }).click();
+    await page.getByText('Produto composto', { exact: true }).click();
     await expect(page.getByPlaceholder('Buscar composições...')).toBeVisible();
 
     const editButtons = page.getByLabel(/Editar .+/);

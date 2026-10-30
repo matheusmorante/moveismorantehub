@@ -99,7 +99,12 @@ export function useInboundInvoiceProductCreation({
   const advanceQueue = (queue: number[]) => {
     setCreationQueue(queue);
     if (queue.length) {
-      const next = items.find((item) => item.itemNumber === queue[0] && !item.matchedProductId);
+      const next = items.find(
+        (item) =>
+          item.itemNumber === queue[0] &&
+          item.linkMode !== 'not_applicable' &&
+          !item.matchedProductId
+      );
       if (next) void classifyAndStart(next, queue);
     }
   };

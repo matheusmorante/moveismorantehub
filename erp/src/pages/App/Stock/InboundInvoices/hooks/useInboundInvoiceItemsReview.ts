@@ -170,10 +170,22 @@ export function useInboundInvoiceItemsReview({
   });
 
   const linkedCount = useMemo(
-    () => items.filter((item) => Boolean(item.matchedProductId)).length,
+    () =>
+      items.filter(
+        (item) =>
+          item.linkMode !== 'not_applicable' &&
+          Boolean(item.matchedProductId || item.compositionLinks?.some((link) => link.productId))
+      ).length,
     [items]
   );
-  const unlinkedItems = useMemo(() => items.filter((item) => !item.matchedProductId), [items]);
+  const notApplicableCount = useMemo(
+    () => items.filter((item) => item.linkMode === 'not_applicable').length,
+    [items]
+  );
+  const unlinkedItems = useMemo(
+    () => items.filter((item) => item.linkMode !== 'not_applicable' && !item.matchedProductId && !item.compositionLinks?.some((link) => link.productId)),
+    [items]
+  );
   const creatingItem = useMemo(
     () => items.find((item) => item.itemNumber === creatingItemNumber),
     [items, creatingItemNumber]
@@ -322,6 +334,7 @@ export function useInboundInvoiceItemsReview({
   return {
     // Estatísticas e listas
     linkedCount,
+    notApplicableCount,
     unlinkedItems,
     creatingItem,
     supplier,

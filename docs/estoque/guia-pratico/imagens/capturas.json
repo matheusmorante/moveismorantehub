@@ -1,5 +1,21 @@
 [
   {
+    "name": "01-nf-entrada-header",
+    "file": "01-nf-entrada-header.png",
+    "width": 1222,
+    "height": 86,
+    "boxes": [
+      {
+        "n": 1,
+        "label": "Importar",
+        "x": 1051,
+        "y": 49,
+        "w": 166,
+        "h": 36
+      }
+    ]
+  },
+  {
     "name": "01-nf-entrada",
     "file": "01-nf-entrada.png",
     "width": 1380,
@@ -379,31 +395,31 @@
     "name": "04-gerenciar-vinculos",
     "file": "04-gerenciar-vinculos.png",
     "width": 1024,
-    "height": 873,
+    "height": 760,
     "boxes": [
       {
         "n": 1,
         "label": "Fornecedor",
-        "x": 37.5,
-        "y": 194,
-        "w": 795,
-        "h": 38
+        "x": 56,
+        "y": 196,
+        "w": 912,
+        "h": 40
       },
       {
         "n": 2,
-        "label": "Produto vinculado",
-        "x": 539.5,
-        "y": 404.25,
-        "w": 132,
-        "h": 15
+        "label": "Modo e Cadastro rápido",
+        "x": 726,
+        "y": 445,
+        "w": 218,
+        "h": 37
       },
       {
         "n": 3,
         "label": "Gerar recebimento",
-        "x": 796.6875,
-        "y": 821,
-        "w": 211.8125,
-        "h": 36
+        "x": 786,
+        "y": 599,
+        "w": 180,
+        "h": 44
       }
     ]
   },

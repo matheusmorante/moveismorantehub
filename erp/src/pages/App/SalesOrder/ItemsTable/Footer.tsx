@@ -1,25 +1,34 @@
 import React from 'react';
 import { Item, ItemsSummary } from '../../../types/items.type';
 import CurrencyDisplay from '../../../../components/CurrencyDisplay';
-import { calcItemTotalValue } from '../../../utils/calculations';
 
 interface Props {
   summary: ItemsSummary;
   items?: Item[];
   isMobile?: boolean;
   isBudget?: boolean;
+  hideHandling?: boolean;
+  compactDesktop?: boolean;
   physicalProductQuantity?: number;
 }
 
-const Footer = ({ summary, items = [], isMobile, isBudget, physicalProductQuantity = 0 }: Props) => {
+const Footer = ({
+  summary,
+  items = [],
+  isMobile,
+  isBudget,
+  hideHandling,
+  compactDesktop,
+  physicalProductQuantity = 0,
+}: Props) => {
   // Apuração dos subtotais segregados por tipo
   const productsSubtotal = items
     .filter((i) => i.itemType !== 'service')
-    .reduce((acc, i) => acc + calcItemTotalValue(i), 0);
+    .reduce((acc, i) => acc + (Number(i.unitPrice) || 0) * (Number(i.quantity) || 0), 0);
 
   const servicesSubtotal = items
     .filter((i) => i.itemType === 'service')
-    .reduce((acc, i) => acc + calcItemTotalValue(i), 0);
+    .reduce((acc, i) => acc + (Number(i.unitPrice) || 0) * (Number(i.quantity) || 0), 0);
 
   const hasServices = items.some((item) => item.itemType === 'service');
   const hasDiscounts = (summary.totalFixedDiscount || 0) > 0;
@@ -39,7 +48,7 @@ const Footer = ({ summary, items = [], isMobile, isBudget, physicalProductQuanti
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
-              Produtos:
+              Subtotal produtos:
             </span>
             <span className="text-slate-700 dark:text-slate-300 font-extrabold">
               <CurrencyDisplay value={productsSubtotal} />
@@ -49,7 +58,7 @@ const Footer = ({ summary, items = [], isMobile, isBudget, physicalProductQuanti
           {hasServices && (
             <div className="flex items-center gap-1.5">
               <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
-                Serviços:
+                Subtotal serviços:
               </span>
               <span className="text-slate-700 dark:text-slate-300 font-extrabold">
                 <CurrencyDisplay value={servicesSubtotal} />
@@ -70,7 +79,7 @@ const Footer = ({ summary, items = [], isMobile, isBudget, physicalProductQuanti
         {/* Total consolidado dos itens */}
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-            Total Itens:
+            Total dos itens:
           </span>
           <span className="text-sm sm:text-base font-black text-blue-600 dark:text-blue-400 leading-none">
             <CurrencyDisplay value={summary.itemsTotalValue} />
@@ -80,13 +89,13 @@ const Footer = ({ summary, items = [], isMobile, isBudget, physicalProductQuanti
     );
   }
 
-  const colSpanValue = isBudget ? 5 : 6;
+  const colSpanValue = compactDesktop ? 4 : isBudget || hideHandling ? 5 : 6;
 
   return (
     <tfoot className="bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-200/80 dark:border-slate-800">
       <tr>
         <td colSpan={colSpanValue} className="px-4 py-2.5">
-          <div className="flex items-center gap-4 text-xs font-bold text-slate-500 dark:text-slate-400">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-slate-500 dark:text-slate-400">
             <div className="flex items-center gap-1.5">
               <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
                 Unidades físicas:
@@ -97,7 +106,7 @@ const Footer = ({ summary, items = [], isMobile, isBudget, physicalProductQuanti
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
-                Produtos:
+              Subtotal produtos:
               </span>
               <span className="text-slate-700 dark:text-slate-300">
                 <CurrencyDisplay value={productsSubtotal} />
@@ -107,7 +116,7 @@ const Footer = ({ summary, items = [], isMobile, isBudget, physicalProductQuanti
             {hasServices && (
               <div className="flex items-center gap-1.5">
                 <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">
-                  Serviços:
+                Subtotal serviços:
                 </span>
                 <span className="text-slate-700 dark:text-slate-300">
                   <CurrencyDisplay value={servicesSubtotal} />
@@ -126,7 +135,7 @@ const Footer = ({ summary, items = [], isMobile, isBudget, physicalProductQuanti
           </div>
         </td>
         <td className="px-3 py-2.5 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">
-          Total Itens:
+          Total dos itens:
         </td>
         <td className="px-4 py-2.5 text-right">
           <div className="text-base font-black text-blue-600 dark:text-blue-400 whitespace-nowrap">

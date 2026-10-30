@@ -84,9 +84,7 @@ export const useTechnicalFieldApplicability = ({
       Boolean(field.isRequiredForCatalog) ||
       isCatalogCoreRequiredCharacteristicName(field.name) ||
       (field.requiredCategoryIds?.some((id) =>
-        selectedCategoryIds.has(String(id)) && !field.categoryApplications?.some(
-          (application) => String(application.categoryId) === String(id)
-        )
+        selectedCategoryIds.has(String(id))
       ) ?? false)
     );
 
@@ -409,13 +407,14 @@ export const useTechnicalFieldApplicability = ({
     const allGroupFields = sofaTechnicalFields
       .filter((field) => field.groupId === group.id)
       .filter((field) =>
-        isCatalogCoreRequiredCharacteristicName(field.name) ||
-        resolveProductCharacteristicApplication(field, formData.categoryIds || []) !== 'unavailable' ||
-        (isCatalogRequiredForSelectedCategory(field) && !(field.categoryApplications?.some((application) =>
-          selectedCategoryIds.has(String(application.categoryId))
-        ) ?? false))
+        isCatalogRequiredForSelectedCategory(field) ||
+        resolveProductCharacteristicApplication(field, formData.categoryIds || []) !== 'unavailable'
       )
-      .filter((field) => field.active !== false || hasStoredField(field));
+      .filter((field) =>
+        field.active !== false ||
+        hasStoredField(field) ||
+        isCatalogRequiredForSelectedCategory(field)
+      );
     const categoryEnrichedGroupFields = allGroupFields.map((field) => ({
       ...field,
       ...applicableFieldsByName.get(normalizeSearchTerm(field.name)),

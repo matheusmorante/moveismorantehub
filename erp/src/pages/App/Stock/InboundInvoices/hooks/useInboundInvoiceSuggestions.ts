@@ -53,7 +53,7 @@ export function useInboundInvoiceSuggestions({
   const keyFor = (item: InboundInvoiceItem) =>
     JSON.stringify([supplierId, item.itemNumber, item.productCode, item.productDescription]);
   const pending = items.filter(
-    (item) => !item.matchedProductId && !rejected[keyFor(item)] && !completed[keyFor(item)]
+    (item) => item.linkMode !== 'not_applicable' && !item.matchedProductId && !item.compositionLinks?.some((link) => link.productId) && !rejected[keyFor(item)] && !completed[keyFor(item)]
   );
   const pendingKey = JSON.stringify(
     pending.map((item) => [item.itemNumber, item.productCode, item.productDescription])
@@ -138,7 +138,7 @@ export function useInboundInvoiceSuggestions({
   return {
     retrySuggestions: () => {
       if (!isActuallyEnabled || !supplierId?.trim() || processing) return;
-      const keys = items.filter((item) => !item.matchedProductId).map(keyFor);
+      const keys = items.filter((item) => item.linkMode !== 'not_applicable' && !item.matchedProductId && !item.compositionLinks?.some((link) => link.productId)).map(keyFor);
       if (!keys.length) return;
 
       catalog.current.delete(supplierId);
@@ -156,11 +156,12 @@ export function useInboundInvoiceSuggestions({
     isItemProcessing: (item: InboundInvoiceItem) =>
       isActuallyEnabled &&
       processing &&
+      item.linkMode !== 'not_applicable' &&
       !item.matchedProductId &&
       !rejected[keyFor(item)] &&
       !completed[keyFor(item)],
     suggestionFor: (item: InboundInvoiceItem) =>
-      isActuallyEnabled && !item.matchedProductId && !rejected[keyFor(item)]
+      isActuallyEnabled && item.linkMode !== 'not_applicable' && !item.matchedProductId && !rejected[keyFor(item)]
         ? suggestions[keyFor(item)]
         : undefined,
     rejectSuggestion: (item: InboundInvoiceItem) =>

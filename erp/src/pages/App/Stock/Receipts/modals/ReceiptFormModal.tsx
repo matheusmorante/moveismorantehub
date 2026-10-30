@@ -236,8 +236,9 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
             </p>
             {inboundItems && (
               <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold bg-slate-200/60 dark:bg-slate-800/60 px-2.5 py-1 rounded-lg">
-                {inboundItems.filter((i) => Boolean(i.linkedProductId)).length} de{' '}
-                {inboundItems.length} itens vinculados
+                {inboundItems.filter((i) => i.linkMode !== 'not_applicable' && Boolean(i.linkedProductId || i.compositionLinks?.some((link) => link.productId))).length} vinculados ·{' '}
+                {inboundItems.filter((i) => i.linkMode === 'not_applicable').length} não se aplica ·{' '}
+                {inboundItems.filter((i) => i.linkMode !== 'not_applicable' && !i.linkedProductId && !i.compositionLinks?.some((link) => link.productId)).length} pendentes
               </span>
             )}
           </div>

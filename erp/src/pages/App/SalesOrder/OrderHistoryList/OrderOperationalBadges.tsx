@@ -104,7 +104,10 @@ export const OrderOperationalBadges = ({
       )}
 
       {/* 4. Status Picker Button */}
-      <div className="relative" onClick={isCancelled ? undefined : (e) => e.stopPropagation()}>
+      <div
+        className={order.status === 'draft' ? 'hidden' : 'relative'}
+        onClick={isCancelled ? undefined : (e) => e.stopPropagation()}
+      >
         <button
           type="button"
           onClick={(e) => {

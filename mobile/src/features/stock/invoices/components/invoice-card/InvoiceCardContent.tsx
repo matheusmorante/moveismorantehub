@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { AlertTriangle, CheckCircle2, Clock, FileText, MoreVertical } from 'lucide-react-native';
 import { Invoice } from '../../../types/stock.types';
+import { isSalvadosOnlySupplier } from '../../../../../../../shared-utils/productSupplierStockOrigin';
 
 interface Props {
   item: Invoice;
@@ -22,16 +23,21 @@ export const InvoiceCardContent: React.FC<Props> = ({
 }) => {
   const isSummaryOnly = Boolean(item.isSummaryOnly ?? item.itemsCount === 0);
   const isReceived = item.status === 'received';
+  const isSalvados = isSalvadosOnlySupplier(item.supplierStockOrigins);
   const hasCompleteBindings = item.itemsCount > 0 && !item.hasPendingBindings;
-  const statusLabel = isReceived ? 'RECEBIDA' : 'DISPONÍVEL';
-  const statusColor = isReceived
+  const statusLabel = isReceived ? 'RECEBIDA' : isSalvados ? 'SALVADOS' : 'DISPONÍVEL';
+  const statusColor = isSalvados && !isReceived
+    ? isDarkMode ? '#451a03' : '#fef3c7'
+    : isReceived
     ? isDarkMode
       ? '#064e3b'
       : '#d1fae5'
     : isDarkMode
       ? '#1e3a8a'
       : '#dbeafe';
-  const statusTextColor = isReceived
+  const statusTextColor = isSalvados && !isReceived
+    ? isDarkMode ? '#fcd34d' : '#b45309'
+    : isReceived
     ? isDarkMode
       ? '#6ee7b7'
       : '#047857'
@@ -67,12 +73,22 @@ export const InvoiceCardContent: React.FC<Props> = ({
                   onOpenXmlImport(item);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="XML incompleto. Abrir instruções para obter o XML completo."
+                accessibilityLabel="NF incompleta. Obter XML da nota fiscal."
+                accessibilityHint="Abre a importação do XML completo desta nota."
                 accessibilityState={{ expanded: false }}
               >
-                <FileText size={12} color={isDarkMode ? '#fcd34d' : '#b45309'} />
-                <Text style={[styles.badgeText, { color: isDarkMode ? '#fcd34d' : '#b45309' }]}>
-                  XML INCOMPLETO
+                <FileText size={12} color={isDarkMode ? '#fca5a5' : '#b91c1c'} />
+                <Text style={[styles.badgeText, { color: isDarkMode ? '#fca5a5' : '#b91c1c' }]}>
+                  NF INCOMPLETA
+                </Text>
+                <Text
+                  style={[
+                    styles.badgeText,
+                    styles.summaryXmlLink,
+                    isDarkMode && styles.summaryXmlLinkDark,
+                  ]}
+                >
+                  Obter XML
                 </Text>
               </TouchableOpacity>
             </View>
@@ -87,7 +103,7 @@ export const InvoiceCardContent: React.FC<Props> = ({
                 <Text style={[styles.badgeText, { color: statusTextColor }]}>{statusLabel}</Text>
               </View>
 
-              {!hasCompleteBindings && (
+              {!isSalvados && !hasCompleteBindings && (
                 <TouchableOpacity
                   style={[styles.badge, { backgroundColor: isDarkMode ? '#451a03' : '#fef3c7' }]}
                   onPress={(event) => {
@@ -103,7 +119,7 @@ export const InvoiceCardContent: React.FC<Props> = ({
                   </Text>
                 </TouchableOpacity>
               )}
-              {hasCompleteBindings && (
+              {!isSalvados && hasCompleteBindings && (
                 <View
                   style={[styles.badge, { backgroundColor: isDarkMode ? '#064e3b' : '#d1fae5' }]}
                 >
@@ -219,15 +235,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#fcd34d',
+    borderColor: '#fecaca',
     borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 5,
-    backgroundColor: '#fef3c7',
+    backgroundColor: '#fef2f2',
   },
   summaryXmlButtonDark: {
-    borderColor: '#78350f',
-    backgroundColor: '#451a03',
+    borderColor: '#7f1d1d',
+    backgroundColor: '#450a0a',
+  },
+  summaryXmlLink: {
+    color: '#1d4ed8',
+    textDecorationLine: 'underline',
+    marginLeft: 4,
+  },
+  summaryXmlLinkDark: {
+    color: '#93c5fd',
   },
   menuBtn: {
     padding: 4,

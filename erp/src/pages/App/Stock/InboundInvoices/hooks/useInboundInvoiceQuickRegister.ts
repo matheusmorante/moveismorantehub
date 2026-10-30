@@ -235,6 +235,13 @@ export function useInboundInvoiceQuickRegister(
           assertCurrent();
           const variation = saved?.variations?.find((candidate) => candidate.id === attempt.variationId);
           if (!saved || saved.deleted || !variation) throw new Error('Produto cadastrado, mas ainda não foi possível conferir a variação. Confira o cadastro antes de continuar.');
+          const isComposition = sourceItem?.linkMode === 'composition';
+          const existingCompositionLinks = sourceItem?.compositionLinks || [];
+          if (isComposition && existingCompositionLinks.some((link) =>
+            link.productId === saved.id && link.variationId === variation.id
+          )) {
+            throw new Error('Este produto já está na composição.');
+          }
           writing = true;
           await saveProductSupplierCode({ supplierId: data.supplierId, productId: saved.id!, productVariationId: variation.id,
             supplierProductCode: data.item.productCode, supplierDescription: data.item.productDescription });
@@ -243,8 +250,29 @@ export function useInboundInvoiceQuickRegister(
           assertCurrent();
           const confirmed = mappings.get(data.item.productCode.toLocaleUpperCase('pt-BR'));
           if (!confirmed || confirmed.productId !== saved.id || confirmed.productVariationId !== variation.id) throw new Error('Não foi possível confirmar o vínculo do fornecedor.');
-          const applied = await onChange(data.itemNumber, { matchedProductId: saved.id, matchedVariationId: variation.id,
-            linkedProductCode: variation.sku || saved.code, productErpName: variation.name || saved.name || saved.title });
+          const productErpName = variation.name || saved.name || saved.title || 'Produto';
+          const linkedProductCode = variation.sku || saved.code || '';
+          const applied = await onChange(data.itemNumber, {
+            linkMode: isComposition ? 'composition' : 'single',
+            matchedProductId: isComposition ? undefined : saved.id,
+            matchedVariationId: isComposition ? undefined : variation.id,
+            compositionLinks: isComposition
+              ? [
+                  ...existingCompositionLinks,
+                  {
+                    id: crypto.randomUUID(),
+                    productId: saved.id,
+                    variationId: variation.id,
+                    productErpName,
+                    linkedProductCode,
+                    sellingPrice: Number(variation.unitPrice || saved.unitPrice || 0),
+                    quantityMultiplier: 1,
+                  },
+                ]
+              : [],
+            linkedProductCode,
+            productErpName,
+          });
           if (applied === false) throw new Error('Não foi possível confirmar o vínculo no item da nota.');
           writing = false;
           return true;

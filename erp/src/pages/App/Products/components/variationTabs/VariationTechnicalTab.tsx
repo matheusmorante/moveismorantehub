@@ -102,6 +102,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   const [groupsError, setGroupsError] = useState('');
   const [characteristicSearchTerm, setCharacteristicSearchTerm] = useState('');
   const [debouncedCharacteristicSearchTerm, setDebouncedCharacteristicSearchTerm] = useState('');
+  const parentCategoryIdsKey = JSON.stringify([...new Set(parentProduct.categoryIds ?? [])].filter(Boolean).sort());
 
   useEffect(() => {
     const timeoutId = window.setTimeout(
@@ -124,7 +125,8 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       setLoadingFields(true);
       setFieldsError('');
       try {
-        const mapped = await withTimeout(fetchTechnicalFieldDefinitions('variation-form', { forceRefresh: refreshKey > 0 }), 15000, null, 'variacao:caracteristicas');
+        const categoryIds: string[] = JSON.parse(parentCategoryIdsKey);
+        const mapped = await withTimeout(fetchTechnicalFieldDefinitions('variation-form', { categoryIds, forceRefresh: refreshKey > 0 }), 15000, null, 'variacao:caracteristicas');
         if (!isMounted) return;
         if (!mapped) throw new Error('Consulta de características não confirmada.');
         setAllTechnicalFields(mapped);
@@ -140,7 +142,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [refreshKey, initialTechnicalFields]);
+  }, [refreshKey, initialTechnicalFields, parentCategoryIdsKey]);
 
   useEffect(() => {
     let isMounted = true;

@@ -132,10 +132,10 @@ export const PRODUCT_PERMISSION_AREA: ProductPermissionArea = {
     },
     {
       id: 'viewProductCompositions',
-      submodule: 'Composições',
+      submodule: 'Produto composto',
       capability: 'view',
       label: 'Acessar',
-      description: 'Consultar e configurar composições e kits.',
+      description: 'Consultar e configurar produtos compostos.',
       icon: 'bi-diagram-3-fill',
       defaultRoles: ['manager', 'seller'],
     },

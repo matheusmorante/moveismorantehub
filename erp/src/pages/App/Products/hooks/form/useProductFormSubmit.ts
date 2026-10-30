@@ -187,6 +187,7 @@ export const useProductFormSubmit = ({
               const [categoryRequirements, groupData] = await Promise.all([
                 withTimeout(
                   fetchTechnicalFieldDefinitions('product-form', {
+                    categoryIds: validatedData.categoryIds ?? formData.categoryIds ?? [],
                     forceRefresh: true,
                     requireCategoryLinks: true,
                   }),

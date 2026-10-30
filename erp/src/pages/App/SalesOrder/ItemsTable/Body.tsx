@@ -13,6 +13,10 @@ interface Props {
   deliveryMethod: 'delivery' | 'pickup';
   errors: ValidationErrors;
   isMobile?: boolean;
+  isTablet?: boolean;
+  isNarrowMobile?: boolean;
+  compactDesktop?: boolean;
+  alwaysExpanded?: boolean;
   onSelectProduct: (idx: number, product: any, variation?: any) => void;
   isBudget?: boolean;
   isReturn?: boolean;
@@ -33,6 +37,10 @@ const Body = ({
   deliveryMethod,
   errors,
   isMobile,
+  isTablet,
+  isNarrowMobile,
+  compactDesktop,
+  alwaysExpanded = false,
   onSelectProduct,
   isBudget,
   isReturn,
@@ -108,10 +116,13 @@ const Body = ({
   };
 
   const deleteItem = (idx: number) => {
+    const removedItem = items[idx];
+    if (!removedItem) return;
+    const removedCompositionId = removedItem.compositionGroup?.groupId;
+    const previouslyExpandedItem = expandedIndex == null ? null : items[expandedIndex];
     setItems((prev: Item[]) => {
-      const removedItem = prev[idx];
-      if (!removedItem) return prev;
-      const removedCompositionId = removedItem.compositionGroup?.groupId;
+      const currentRemovedItem = prev[idx];
+      if (!currentRemovedItem) return prev;
       const removedOrderItemIds = new Set(
         prev
           .filter((item, index) =>
@@ -127,7 +138,7 @@ const Body = ({
           ? item.compositionGroup?.groupId !== removedCompositionId
           : index !== idx
       );
-      if (removedItem.itemType !== 'service' && removedOrderItemIds.size > 0) {
+      if (currentRemovedItem.itemType !== 'service' && removedOrderItemIds.size > 0) {
         return newItems.map((item) => {
           if (item.itemType !== 'service') return item;
           const linkedIds = item.linkedProductOrderItemIds;
@@ -145,9 +156,19 @@ const Body = ({
       }
       return newItems;
     });
-    if (expandedIndex === idx) {
-      setExpandedIndex?.(null);
-    }
+    const nextExpandedIndex = previouslyExpandedItem
+      ? items
+          .filter((item, index) => {
+            if (removedCompositionId) return item.compositionGroup?.groupId !== removedCompositionId;
+            return index !== idx;
+          })
+          .findIndex((item) =>
+            previouslyExpandedItem.orderItemId
+              ? item.orderItemId === previouslyExpandedItem.orderItemId
+              : item === previouslyExpandedItem
+          )
+      : -1;
+    setExpandedIndex?.(nextExpandedIndex >= 0 ? nextExpandedIndex : null);
   };
 
   const changeCompositionQuantity = (groupId: string, rawQuantity: number) => {
@@ -168,7 +189,7 @@ const Body = ({
   // Preserva a ordem original entre produtos simples, compostos e serviços.
   const indexedItems = items.map((item, originalIndex) => ({ item, originalIndex }));
   if (indexedItems.length === 0 && !compositionDraftOpen) {
-    return (
+    const emptyState = (
       <div className="bg-slate-50/50 px-4 py-8 text-center dark:bg-slate-850/40">
         <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto mb-2 text-base">
           <i className="bi bi-inboxes" />
@@ -180,6 +201,14 @@ const Body = ({
           Use “Adicionar item” para incluir um produto, produto composto ou serviço.
         </p>
       </div>
+    );
+    if (isMobile) return emptyState;
+    return (
+      <tbody>
+        <tr>
+          <td colSpan={compactDesktop ? 7 : hideHandling ? 8 : 9}>{emptyState}</td>
+        </tr>
+      </tbody>
     );
   }
 
@@ -231,7 +260,7 @@ const Body = ({
           }
           onQuantityChange={(quantity) => changeCompositionQuantity(row.groupId, quantity)}
           onDelete={() => deleteItem(row.firstIndex)}
-          columnCount={hideHandling ? 8 : 9}
+          columnCount={compactDesktop ? 7 : hideHandling ? 8 : 9}
           hasPending={row.items.some(({ originalIndex }) => hasItemErrors(originalIndex))}
           quantityError={row.items
             .map(({ originalIndex }) => errors[`item_${originalIndex}_quantity`])
@@ -254,6 +283,9 @@ const Body = ({
                   deliveryMethod={deliveryMethod}
                   errors={errors}
                   isMobile={isMobile}
+                  isTablet={isTablet}
+                  isNarrowMobile={isNarrowMobile}
+                  compactDesktop={compactDesktop}
                   onSelectProduct={onSelectProduct}
                   isBudget={isBudget}
                   isReturn={isReturn}
@@ -284,6 +316,9 @@ const Body = ({
         deliveryMethod={deliveryMethod}
         errors={errors}
         isMobile={isMobile}
+        isTablet={isTablet}
+        isNarrowMobile={isNarrowMobile}
+        compactDesktop={compactDesktop}
         onSelectProduct={onSelectProduct}
         isBudget={isBudget}
         isReturn={isReturn}
@@ -293,11 +328,11 @@ const Body = ({
           (!item.productId || item.productId.trim() === '') &&
           item.itemType !== 'service'
         }
-        isExpanded={expandedIndex === originalIndex}
+        isExpanded={alwaysExpanded || expandedIndex === originalIndex}
         autoFocusDescription={autoFocusDescriptionIndex === originalIndex}
         onAutoExpand={() => setExpandedIndex?.(originalIndex)}
         onDescriptionBlur={() => onDescriptionBlur?.(originalIndex)}
-        onToggleExpand={() =>
+        onToggleExpand={alwaysExpanded ? undefined : () =>
           setExpandedIndex?.(expandedIndex === originalIndex ? null : originalIndex)
         }
       />
