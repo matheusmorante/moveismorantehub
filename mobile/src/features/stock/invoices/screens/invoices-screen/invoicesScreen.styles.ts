@@ -41,12 +41,7 @@ export const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#ffffff',
   },
-  menuTriggerDark: { borderColor: '#334155', backgroundColor: '#1e293b' },
   menuOverlay: { flex: 1 },
   importMenu: {
     position: 'absolute',

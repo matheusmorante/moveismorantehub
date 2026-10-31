@@ -85,6 +85,7 @@ export const getCleanObservation = (move: InventoryMoveLike): string => {
     /^Saída - Pedido\s*#/i.test(rawLabel) ||
     /^Pedido\s*#/i.test(rawLabel)
   ) {
+    if (obsText.startsWith('Ajuste do pedido de venda #')) return obsText;
     const rawId =
       move.relatedEntityId ||
       move.related_entity_id ||

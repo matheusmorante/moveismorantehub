@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { z } from 'zod';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { catalogNameFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
@@ -265,7 +266,12 @@ export function useCategoriesAndEnvironments() {
   const handleDelete = useCallback(
     async (id: string, isEnv: boolean) => {
       const itemLabel = isEnv ? 'este ambiente' : 'esta categoria';
-      if (!window.confirm(`Deseja EXCLUIR permanentemente ${itemLabel} do sistema?`)) {
+      if (!await requestConfirmation({
+        title: 'Excluir permanentemente?',
+        message: `Deseja EXCLUIR permanentemente ${itemLabel} do sistema?`,
+        confirmLabel: 'Excluir permanentemente',
+        type: 'danger',
+      })) {
         return;
       }
 

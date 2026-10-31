@@ -447,7 +447,7 @@ export function fetchConversationActivityPage(
 ): Promise<CustomerSupportHistoryPage> {
   if (!conversationId) return Promise.resolve({ messages: [], hasMore: false, nextCursor: null });
   let query = supabase.from('whatsapp_messages')
-    .select(MESSAGE_SELECT_COLUMNS)
+    .select('id, conversation_id, message_type, text_content, timestamp, created_at')
     .eq('conversation_id', conversationId)
     .in('message_type', ['internal_note', 'system_event']);
   query = applyHistoryCursor(query, cursor)

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { InboundInvoiceActionsMenu } from './InboundInvoiceActionsMenu';
@@ -8,6 +9,74 @@ import {
   hasCompleteInboundInvoiceMappings,
 } from '../inboundReceiptEligibility';
 import { isSalvadosOnlySupplier } from '../../../../../../../shared-utils/productSupplierStockOrigin';
+import { hasInboundItemCommercialData } from '../../../../../../../shared-utils/inboundInvoiceCompleteness';
+
+const SalvadosBindingStatus: React.FC = () => {
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isInfoOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsInfoOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isInfoOpen]);
+
+  return (
+    <>
+      <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-[10px] font-black uppercase text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+        Vinculação não se aplica
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsInfoOpen(true);
+          }}
+          aria-label="Por que a vinculação não se aplica?"
+          aria-haspopup="dialog"
+          title="Por que a vinculação não se aplica?"
+          className="inline-flex cursor-pointer items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        >
+          <i className="bi bi-info-circle text-xs" aria-hidden="true" />
+        </button>
+      </span>
+      {isInfoOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[1000006] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+          onClick={() => setIsInfoOpen(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="Por que a vinculação não se aplica"
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl dark:bg-slate-900"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <h2 className="text-base font-black text-slate-900 dark:text-slate-100">
+                Vinculação não se aplica
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsInfoOpen(false)}
+                aria-label="Fechar explicação"
+                className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:bg-slate-800"
+              >
+                <i className="bi bi-x-lg" aria-hidden="true" />
+              </button>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+              O fornecedor desta nota tem origem de estoque Salvados. Itens dessa origem não geram
+              movimentação de estoque, então não precisam ser vinculados a produtos.
+            </p>
+          </section>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
 
 interface InboundInvoicesTableProps {
   readonly invoices: readonly InboundInvoice[];
@@ -67,7 +136,10 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
 
     return {
       invoice,
-      canManageMappings: canManageMappings && !isSalvadosSupplier,
+      canManageMappings:
+        canManageMappings &&
+        !isSalvadosSupplier &&
+        hasInboundItemCommercialData(invoice.items),
       canGenerateReceipt,
       canPrintIdentificationLabels: Boolean(
         !isSalvadosSupplier &&
@@ -133,8 +205,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {invoices.map((inv) => {
               const isMenuOpen = openMenuId === inv.id;
-              const isSummaryOnly =
-                (!inv.items || inv.items.length === 0) && Boolean(inv.rawXml?.includes('<resNFe'));
+              const isIncomplete = !hasInboundItemCommercialData(inv.items);
               return (
                 <tr
                   key={inv.id}
@@ -163,18 +234,16 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                     {new Date(inv.issuedAt).toLocaleDateString('pt-BR')}
                   </td>
                   <td className="px-3 py-4 font-bold text-slate-700 dark:text-slate-200">
-                    {isSummaryOnly ? '— itens' : `${inv.itemsCount || inv.items.length} itens`}
+                    {isIncomplete ? '— itens' : `${inv.itemsCount || inv.items.length} itens`}
                   </td>
                   <td className="px-3 py-4 font-black text-emerald-600 dark:text-emerald-400">
                     {formatCurrency(inv.totalInvoice)}
                   </td>
                   <td className="px-3 py-4">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {isSummaryOnly ? (
+                      {isIncomplete ? (
                         <SummaryXmlStatusBadge onClick={() => onImportSummaryXml(inv)} />
-                      ) : (
-                        <>
-                          {inv.status === 'received' ? (
+                      ) : inv.status === 'received' ? (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                               <i
                                 className="bi bi-check-circle-fill text-[11px]"
@@ -188,7 +257,9 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                               Disponível
                             </span>
                           )}
-                          {isSalvadosOnlySupplier(inv.supplierStockOrigins) ? null : hasCompleteInboundInvoiceMappings(inv) ? (
+                      {isSalvadosOnlySupplier(inv.supplierStockOrigins) ? (
+                        <SalvadosBindingStatus />
+                      ) : isIncomplete ? null : hasCompleteInboundInvoiceMappings(inv) ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                               <i className="bi bi-check2-all text-xs" aria-hidden="true" />{' '}
                               Vinculação Completa
@@ -208,8 +279,6 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                               Vinculações Pendentes
                             </button>
                           )}
-                        </>
-                      )}
                     </div>
                   </td>
                   <td
@@ -226,7 +295,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                           e.stopPropagation();
                           setOpenMenuId(openMenuId === inv.id ? null : inv.id);
                         }}
-                        className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                        className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                         title="Mais opções"
                         aria-label="Mais opções"
                         aria-haspopup="true"
@@ -251,8 +320,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
       <div className="grid grid-cols-1 gap-4 md:hidden">
         {invoices.map((inv) => {
           const isCardMenuOpen = openMenuId === inv.id;
-          const isSummaryOnly =
-            (!inv.items || inv.items.length === 0) && Boolean(inv.rawXml?.includes('<resNFe'));
+          const isIncomplete = !hasInboundItemCommercialData(inv.items);
           return (
             <div
               key={inv.id}
@@ -274,11 +342,9 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                   className="flex items-center gap-1.5 flex-wrap"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {isSummaryOnly ? (
+                  {isIncomplete ? (
                     <SummaryXmlStatusBadge onClick={() => onImportSummaryXml(inv)} />
-                  ) : (
-                    <>
-                      {inv.status === 'received' ? (
+                  ) : inv.status === 'received' ? (
                         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                           Recebida
                         </span>
@@ -287,8 +353,9 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                           Disponível
                         </span>
                       )}
-
-                      {isSalvadosOnlySupplier(inv.supplierStockOrigins) ? null : hasCompleteInboundInvoiceMappings(inv) ? (
+                  {isSalvadosOnlySupplier(inv.supplierStockOrigins) ? (
+                    <SalvadosBindingStatus />
+                  ) : isIncomplete ? null : hasCompleteInboundInvoiceMappings(inv) ? (
                         <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                           Vinculação Completa
                         </span>
@@ -306,8 +373,6 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                           Vinculações Pendentes
                         </button>
                       )}
-                    </>
-                  )}
 
                   <div
                     className="relative inline-block text-left"
@@ -319,7 +384,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
                         e.stopPropagation();
                         setOpenMenuId(openMenuId === inv.id ? null : inv.id);
                       }}
-                      className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                       title="Mais opções"
                       aria-label="Mais opções"
                       aria-haspopup="true"
@@ -347,7 +412,7 @@ export const InboundInvoicesTable: React.FC<InboundInvoicesTableProps> = ({
 
               <div className="flex justify-between items-center text-xs py-2 border-t border-slate-100 dark:border-slate-800">
                 <span className="text-slate-400">
-                  {isSummaryOnly ? '— itens' : `${inv.itemsCount || inv.items.length} itens`}
+                  {isIncomplete ? '— itens' : `${inv.itemsCount || inv.items.length} itens`}
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="font-black text-emerald-600 dark:text-emerald-400">

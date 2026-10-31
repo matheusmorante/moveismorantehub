@@ -10,6 +10,7 @@ const snapshotItem = z.object({
 
 export const inventoryAuditItemSchema = snapshotItem.extend({
   id: z.string().min(1), key: z.string().min(1), physicalCount: count.nullable(), countedAt: z.string().optional(),
+  supplierStageStarted: z.boolean().optional(),
 });
 const inventoryAuditSourceItemSchema = inventoryAuditItemSchema.extend({ productId: z.string() }).superRefine((item, context) => {
   if (item.physicalCount !== null && !item.productId.trim()) {

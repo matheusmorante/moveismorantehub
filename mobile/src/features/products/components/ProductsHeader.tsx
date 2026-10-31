@@ -156,7 +156,7 @@ export function ProductsHeader({
           onPress={handleOpenMenu}
           accessibilityRole="button"
           accessibilityLabel="Opções de produtos"
-          style={[styles.menuBtn, dark && styles.darkMenuBtn]}
+          style={styles.menuBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <MoreVertical size={18} color="#2563eb" />

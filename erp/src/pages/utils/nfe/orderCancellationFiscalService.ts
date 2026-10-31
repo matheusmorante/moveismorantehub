@@ -74,7 +74,7 @@ export async function processOrderCancellationFiscalEffects(
   options: {
     reason?: string;
     productionConfirmed?: boolean;
-    confirmProduction?: () => boolean;
+    confirmProduction?: () => boolean | Promise<boolean>;
     documentId?: string;
   } = {}
 ): Promise<OrderCancellationFiscalEffectsResult> {
@@ -123,10 +123,11 @@ export async function processOrderCancellationFiscalEffects(
     const needsProductionConfirmation = operations.some(
       (operation) => operation.action === 'cancel' && operation.environment === 1
     );
-    const productionConfirmed =
-      !needsProductionConfirmation ||
-      options.productionConfirmed === true ||
-      options.confirmProduction?.() === true;
+    let productionConfirmed =
+      !needsProductionConfirmation || options.productionConfirmed === true;
+    if (needsProductionConfirmation && !productionConfirmed && options.confirmProduction) {
+      productionConfirmed = (await options.confirmProduction()) === true;
+    }
     const results = [] as NonNullable<OrderCancellationFiscalEffectsResult['results']>;
     for (const operation of operations) {
       if (operation.action === 'cancel' && operation.environment === 1 && !productionConfirmed) {
@@ -236,9 +237,10 @@ export async function processOrderCancellationFiscalEffects(
       policy.reason || 'A situação comercial ou fiscal bloqueia a aplicação automática do efeito.'
     );
 
-  const productionConfirmed =
-    options.productionConfirmed === true ||
-    (policy.environment === 1 && options.confirmProduction?.() === true);
+  let productionConfirmed = options.productionConfirmed === true;
+  if (policy.environment === 1 && !productionConfirmed && options.confirmProduction) {
+    productionConfirmed = (await options.confirmProduction()) === true;
+  }
   if (policy.action === 'cancel' && policy.environment === 1 && !productionConfirmed)
     throw new Error('Confirme explicitamente o cancelamento fiscal no ambiente de Produção.');
 

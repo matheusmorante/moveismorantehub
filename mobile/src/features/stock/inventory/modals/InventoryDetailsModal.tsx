@@ -140,8 +140,7 @@ export const InventoryDetailsModal: React.FC<Props> = ({
               {session.name || `Inventário #${session.inventoryCode}`}
             </Text>
             <Text style={[styles.subtitle, { color: muted }]}>
-              {new Date(session.created_at).toLocaleDateString('pt-BR')} • {items.length} itens
-              totais
+              {new Date(session.created_at).toLocaleDateString('pt-BR')}
             </Text>
           </View>
         </View>
@@ -161,12 +160,6 @@ export const InventoryDetailsModal: React.FC<Props> = ({
               <View style={[styles.summaryCard, { backgroundColor: surface, borderColor: border }]}>
                 <Text style={[styles.summaryVal, { color: '#f59e0b' }]}>{adjustments.length}</Text>
                 <Text style={[styles.summaryLbl, { color: muted }]}>Divergências</Text>
-              </View>
-              <View style={[styles.summaryCard, { backgroundColor: surface, borderColor: border }]}>
-                <Text style={[styles.summaryVal, { color: textPrimary }]}>
-                  {items.length - countedItems.length}
-                </Text>
-                <Text style={[styles.summaryLbl, { color: muted }]}>Pendentes</Text>
               </View>
             </View>
 

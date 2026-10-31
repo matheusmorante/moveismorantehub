@@ -20,7 +20,7 @@ describe('contrato de atributos de categoria ERP/mobile', () => {
     },
   );
 
-  it.each(['Peso', 'Quantidade de portas', 'Tipo de portas'])(
+  it.each(['Peso', 'Quantidade de portas', 'Tipo de portas', 'Material das portas'])(
     'mantém %s sempre opcional, mesmo com uma configuração antiga obrigatória',
     (name) => {
       expect(isCategoryAttributeAlwaysRequired(name)).toBe(false);

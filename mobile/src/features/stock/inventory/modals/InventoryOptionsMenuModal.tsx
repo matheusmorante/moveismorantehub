@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
+import { Play } from 'lucide-react-native';
 import type { InventorySession } from '../../types/stock.types';
 
 interface Props {
@@ -47,9 +48,14 @@ export const InventoryOptionsMenuModal: React.FC<Props> = ({
 
           {isInProgress ? (
             <TouchableOpacity style={styles.modalOption} onPress={() => onContinue(session)}>
-              <Text style={[styles.modalOptionText, { color: '#059669' }]}>
-                {session.status === 'pending_sync' ? 'Retomar envio' : 'Continuar inventário'}
-              </Text>
+              {session.status === 'pending_sync' ? (
+                <Text style={[styles.modalOptionText, { color: '#059669' }]}>Retomar envio</Text>
+              ) : (
+                <View style={styles.modalOptionAction}>
+                  <Play size={17} color="#059669" fill="#059669" />
+                  <Text style={[styles.modalOptionText, { color: '#059669' }]}>Retomar inventário</Text>
+                </View>
+              )}
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={styles.modalOption} onPress={() => onViewDetails(session)}>
@@ -134,6 +140,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 8,
+  },
+  modalOptionAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   modalOptionText: {
     fontSize: 15,

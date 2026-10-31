@@ -5,6 +5,7 @@ import { inboundInvoiceFormSchema } from '../../../../../../../shared-utils/inbo
 import { inboundXmlUploadFormSchema } from '../../../../../../../shared-utils/fileFormSchemas';
 import { inboundXmlFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
 import { normalizeFiscalIdentifier } from '../../../../../../../shared-utils/fiscalIdentifiers';
+import { hasInboundItemCommercialData } from '../../../../../../../shared-utils/inboundInvoiceCompleteness';
 import { assertInboundInvoiceRecipientMatchesCompany } from '../../../../../../../shared-utils/inboundInvoiceRecipient';
 import { getSettings } from '@/pages/utils/settingsService';
 import type { z } from 'zod';
@@ -15,6 +16,7 @@ import {
 import { parseInboundNfeXml } from '@/pages/utils/inboundNfe/inboundXmlParser';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { mergeInboundInvoiceXml } from '../../../../../../../shared-utils/inboundInvoiceXmlMerge';
+import { INBOUND_XML_WITHOUT_COMMERCIAL_DATA_ERROR } from '../../../../../../../shared-utils/inboundSummaryHelp';
 import { fetchPersons } from '@/pages/utils/personService';
 import { findProductSupplierCodes } from '@/pages/utils/productSupplierCodesService';
 import { resolveLinkedProductDetails } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
@@ -108,6 +110,9 @@ export function useInboundDocumentImport({
     if (expectedAccessKey !== undefined && (expectedKey.length !== 44 || parsedKey !== expectedKey)) {
       toast.error('O XML selecionado não corresponde à chave desta nota fiscal incompleta.');
       return;
+    }
+    if (!hasInboundItemCommercialData(parsedInvoice.items)) {
+      throw new Error(INBOUND_XML_WITHOUT_COMMERCIAL_DATA_ERROR);
     }
 
     await validateAndRun({ ...parsedInvoice, items: parsedInvoice.items.map((item) => ({ ...item })) }, async (data) => {

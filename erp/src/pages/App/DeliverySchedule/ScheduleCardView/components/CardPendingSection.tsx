@@ -43,7 +43,7 @@ export const CardPendingSection: React.FC<CardPendingSectionProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black text-amber-700 dark:text-amber-300 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-amber-200 dark:border-amber-800 uppercase shadow-xs">
+          <span className="shrink-0 whitespace-nowrap text-[10px] font-black text-amber-700 dark:text-amber-300 uppercase">
             {pendingOrders.length} {pendingOrders.length === 1 ? 'pendente' : 'pendentes'}
           </span>
           <div className="w-7 h-7 rounded-xl bg-amber-200/60 dark:bg-amber-900/50 flex items-center justify-center text-amber-800 dark:text-amber-200 text-xs font-bold transition-transform">

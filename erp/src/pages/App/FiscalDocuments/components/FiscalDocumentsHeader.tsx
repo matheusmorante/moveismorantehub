@@ -40,7 +40,7 @@ export const FiscalDocumentsHeader: React.FC<FiscalDocumentsHeaderProps> = ({
   }, [menuOpen]);
 
   return (
-    <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-0.5">
+    <header className="flex min-h-[56px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between py-2">
       <div>
         <h1 className="text-base font-semibold leading-tight tracking-tight text-slate-800 dark:text-slate-100">
           NF de saída
@@ -102,7 +102,7 @@ export const FiscalDocumentsHeader: React.FC<FiscalDocumentsHeaderProps> = ({
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="flex h-9 w-9 items-center justify-center text-slate-600 transition hover:text-slate-900 focus:outline-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:text-slate-300 dark:hover:text-white"
             >
               <i aria-hidden="true" className="bi bi-three-dots-vertical text-lg" />
             </button>

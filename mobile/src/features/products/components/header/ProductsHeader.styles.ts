@@ -20,6 +20,7 @@ export const styles = StyleSheet.create({
     gap: 10,
   },
   topRow: {
+    minHeight: 44,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -63,13 +64,8 @@ export const styles = StyleSheet.create({
   menuBtn: {
     width: 44,
     height: 44,
-    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#eff6ff',
-  },
-  darkMenuBtn: {
-    backgroundColor: '#1e3a8a30',
   },
   searchBox: {
     minHeight: 44,

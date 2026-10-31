@@ -45,7 +45,7 @@ describe('purchase stock entry owner with real RHF/resolver', () => {
     fireEvent.change(screen.getByLabelText('Observação'), { target: { value: '  Conferido  ' } }); view.submit();
     await waitFor(() => expect(mocks.update).toHaveBeenCalledWith('purchase-1', { stockProcessed: true }));
     expect(mocks.save).toHaveBeenCalledWith({ productId: 'product-1', variationId: 'variation-1', productDescription: 'Produto', type: 'entry', quantity: 2,
-      date: new Date('2026-10-10T12:00:00').toISOString(), label: 'Entrada a partir do Pedido #10', observation: 'Conferido', unitCost: 0,
+      date: new Date('2026-10-10T12:00:00').toISOString(), label: 'Entrada a partir do Pedido #0010', observation: 'Conferido', unitCost: 0,
       relatedEntityId: 'purchase-1', relatedEntityType: 'purchase_order' }, 5);
     expect(view.close).not.toHaveBeenCalled(); expect(mocks.success).not.toHaveBeenCalled();
     await act(async () => { finish(); }); expect(view.close).toHaveBeenCalledOnce();

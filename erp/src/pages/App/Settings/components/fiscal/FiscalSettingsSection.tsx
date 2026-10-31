@@ -164,13 +164,12 @@ export default function FiscalSettingsSection({ settings, onChange }: FiscalSett
               Ao ativar, você autoriza o MoranteHub a enviar o evento 210210 em Produção para NF-e modelo 55
               destinadas ao CNPJ configurado. O sistema agrupa até 20 eventos por lote e aguarda cinco segundos
               após cada resposta da SEFAZ antes de enviar o próximo lote, enquanto a tela de NF de entrada estiver aberta.
-              Depois que a Ciência for aceita, o sistema tenta obter o XML completo por chave, respeitando uma consulta
-              pontual a cada cinco minutos por CNPJ. Se a SEFAZ devolver somente o resumo, ele aguarda a próxima distribuição.
+              A sincronização automática registra os dados da NF-e e a chave de acesso, sem carregar os itens. Depois que
+              a Ciência for aceita, obtenha o XML completo no Portal da NF-e e importe-o manualmente na nota de entrada.
             </p>
             <p className="mt-2 text-xs leading-relaxed text-amber-900/80 dark:text-amber-100/80">
               Ciência não confirma a compra. A manifestação final deverá ser feita depois que a operação for
-              verificada; o sistema nunca confirma recebimento automaticamente. O XML completo depende da
-              próxima distribuição da SEFAZ.
+              verificada; o sistema nunca confirma recebimento automaticamente. A consulta automática não baixa o XML.
             </p>
           </div>
         </div>

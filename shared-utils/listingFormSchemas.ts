@@ -4,18 +4,16 @@ import { PRODUCT_LIST_SEARCH_MIN_LENGTH } from './productListSearch';
 export const orderListFormSchema = z.object({ page: z.number().int().positive(), search: z.string(), status: z.string() });
 export const purchaseListFormSchema = z.object({ page: z.number().int().nonnegative(), search: z.string().optional(), supplierId: z.string().optional() });
 export const supplierListFormSchema = z.object({ page: z.number().int().nonnegative(), search: z.string(), sortBy: z.enum(['full_name', 'created_at']), sortOrder: z.enum(['asc', 'desc']), activeOnly: z.boolean().optional() });
-export const ERP_LIST_PAGE_SIZES = [15, 30, 50, 100] as const;
+export const ERP_LIST_PAGE_SIZES = [15] as const;
 export const erpListPageSizeFormSchema = z.object({
   pageSize: z.preprocess(
     (value) => (typeof value === 'string' ? Number(value) : value),
-    z.number().int().positive().max(100)
+    z.literal(15)
   ),
 });
 export const PRODUCT_LIST_PAGE_SIZES = ERP_LIST_PAGE_SIZES;
 export type ProductListPageSize = (typeof PRODUCT_LIST_PAGE_SIZES)[number];
-export const productListPageSizeSchema = z.union([
-  z.literal(15), z.literal(30), z.literal(50), z.literal(100),
-]);
+export const productListPageSizeSchema = z.literal(15);
 export const productListPageSizeFormSchema = z.object({
   itemsPerPage: z.preprocess(
     (value) => (typeof value === 'string' ? Number(value) : value),

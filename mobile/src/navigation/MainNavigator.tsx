@@ -221,6 +221,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
     <View style={{ flex: 1 }}>
       <DashboardHeader
         isDarkMode={isDarkMode}
+        userProfile={userProfile}
         setIsDarkMode={setIsDarkMode}
         setShowProfileModal={setShowProfileModal}
         title={headerTitle}

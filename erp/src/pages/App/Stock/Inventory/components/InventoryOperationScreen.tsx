@@ -5,9 +5,9 @@ import type { AuditItem } from '../types/inventoryAudit.types';
 import { InventoryOperationHeader } from './InventoryOperationHeader';
 import { InventoryManualMode } from './InventoryManualMode';
 import { InventoryStagesView } from './InventoryStagesView';
-import { useInventoryOperation } from '../hooks/useInventoryOperation';
 import type { InventoryScopeType } from '../types/inventoryScope.types';
 import QRScannerModal from '@/components/shared/QRScannerModal';
+import ConfirmModal from '@/components/shared/ConfirmModal';
 import { matchScannedProductItem } from '@/pages/utils/barcodeScannerUtils';
 import { getPhysicalInventoryScanId } from '../services/inventoryScanRules';
 import {
@@ -74,6 +74,9 @@ interface InventoryOperationScreenProps {
   readonly scopeType?: InventoryScopeType | null;
   readonly onUpdateCount: (id: string, count: number | null) => void;
   readonly onIncrementScannedItem: (id: string, labelId?: string) => Promise<number | null>;
+  readonly onStartSupplierStage: (supplierName: string) => Promise<void>;
+  readonly onResetSupplierStage?: (supplierName: string) => Promise<void>;
+  readonly onDiscardInventory?: () => Promise<boolean>;
   readonly onAddManualItem: () => void;
   readonly onUpdateItemProduct?: (itemId: string, product: Product, variation?: Variation) => void;
   readonly onReview: () => void;
@@ -87,6 +90,9 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
   scopeType,
   onUpdateCount,
   onIncrementScannedItem,
+  onStartSupplierStage,
+  onResetSupplierStage,
+  onDiscardInventory,
   onAddManualItem,
   onUpdateItemProduct,
   onReview,
@@ -95,6 +101,13 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
   const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
   const [isScanProcessing, setIsScanProcessing] = useState(false);
   const [activeStage, setActiveStage] = useState<string | null>(null);
+  const [isStageMenuOpen, setIsStageMenuOpen] = useState(false);
+  const [isCancelStageConfirmOpen, setIsCancelStageConfirmOpen] = useState(false);
+  const [isCancellingStage, setIsCancellingStage] = useState(false);
+  const [isCancelInventoryConfirmOpen, setIsCancelInventoryConfirmOpen] = useState(false);
+  const [isCancellingInventory, setIsCancellingInventory] = useState(false);
+  const [cancelInventoryError, setCancelInventoryError] = useState('');
+  const [stageActionError, setStageActionError] = useState('');
   const [lastRead, setLastRead] = useState<{ item: AuditItem; quantity: number } | null>(null);
   const [scanFeedback, setScanFeedback] = useState<{
     type: 'error';
@@ -104,32 +117,47 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
 
   // Filtramos os itens pelo fornecedor ativo, ou usamos todos se não tiver etapas
   const activeItems = useMemo(() => {
-    if (!hasStages) return items;
-    if (!activeStage) return [];
+    if (!hasStages && scopeType !== 'general') return items;
+    if (!activeStage) return scopeType === 'general' ? items : [];
     return items.filter((item) => (item.assignedSupplier || 'Sem fornecedor') === activeStage);
-  }, [items, hasStages, activeStage]);
+  }, [items, hasStages, scopeType, activeStage]);
   const supplierItems = useMemo(
     () => items.filter((item) => (item.assignedSupplier || 'Sem fornecedor') !== 'Sem fornecedor'),
     [items]
   );
-  const scannerItems = activeStage ? activeItems : items;
-
-  const { filter, setFilter, search, setSearch, filteredItems } =
-    useInventoryOperation(activeItems);
+  const scannerItems = hasStages
+    ? activeStage ? activeItems : []
+    : scopeType === 'general' && activeStage ? [] : items;
 
   const isShowingStages = hasStages && !activeStage;
-  const progressItems = isShowingStages ? items : scannerItems;
-  const countedProgressItems = progressItems.filter((item) => item.physicalCount !== null);
-  const progressPercent =
-    progressItems.length > 0
-      ? Math.round((countedProgressItems.length / progressItems.length) * 100)
-      : 0;
+  const isSupplierSpecific = Boolean(hasStages && scopeType === 'supplier');
+  const isShowingSupplierSelection = isSupplierSpecific && !activeStage;
+  const isShowingSupplierSummary = scopeType === 'general' && !activeStage;
+  const countItems = isShowingStages || isShowingSupplierSummary ? items : activeItems;
+  const countedProductsCount = countItems.filter(
+    (item) => typeof item.physicalCount === 'number'
+  ).length;
+  const usesZeroInitializedCounts = scopeType === 'product' || Boolean(hasStages && (scopeType === 'full' || scopeType === 'supplier'));
+  const headerCount = usesZeroInitializedCounts
+    ? isShowingStages ? countedProductsCount : countItems.length
+    : countedProductsCount;
   const isCustom = scopeType === 'custom';
 
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recentErrorFeedbackAtRef = useRef(new Map<string, number>());
   const activeScansRef = useRef(0);
   const isSupplierScanner = Boolean(hasStages && activeStage);
+
+  useEffect(() => {
+    if (!isSupplierSpecific || activeStage) return;
+    const startedSuppliers = new Set(
+      items
+        .filter((item) => item.supplierStageStarted === true || typeof item.physicalCount === 'number')
+        .map((item) => item.assignedSupplier || 'Sem fornecedor')
+        .filter((supplier) => supplier !== 'Sem fornecedor')
+    );
+    if (startedSuppliers.size === 1) setActiveStage([...startedSuppliers][0]);
+  }, [items, isSupplierSpecific, activeStage]);
 
   useEffect(
     () => () => {
@@ -143,6 +171,58 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
     setScanFeedback(null);
     prepareInventoryAudio();
     setIsQrScannerOpen(true);
+  };
+
+  const scannerButton = (!isShowingStages || isShowingSupplierSummary) && !(scopeType === 'general' && activeStage) ? (
+    <button
+      type="button"
+      onClick={openScanner}
+      className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700 active:scale-95"
+      title={activeStage ? `Escanear produtos de ${activeStage}` : scopeType === 'general' ? 'Scanner Geral' : 'Escanear itens selecionados'}
+      aria-label={
+        activeStage ? 'Escanear fornecedor atual' : scopeType === 'general' ? 'Scanner Geral' : 'Escanear itens selecionados'
+      }
+    >
+      <i className="bi bi-qr-code-scan text-lg" aria-hidden="true" />
+      {activeStage ? 'Escanear este fornecedor' : scopeType === 'general' ? 'Scanner Geral' : 'Escanear itens selecionados'}
+    </button>
+  ) : null;
+
+  const cancelActiveStage = async () => {
+    if (!activeStage || !onResetSupplierStage || isCancellingStage) return;
+    const supplierName = activeStage;
+    setIsCancellingStage(true);
+    setStageActionError('');
+    try {
+      await onResetSupplierStage(supplierName);
+      setIsQrScannerOpen(false);
+      setActiveStage(null);
+      setIsStageMenuOpen(false);
+    } catch {
+      setStageActionError('Não foi possível cancelar a etapa. A contagem foi preservada; tente novamente.');
+    } finally {
+      setIsCancellingStage(false);
+    }
+  };
+
+  const requestCancelInventory = () => {
+    setCancelInventoryError('');
+    setIsCancelInventoryConfirmOpen(true);
+  };
+
+  const cancelInventory = async () => {
+    if (!onDiscardInventory || isCancellingInventory) return;
+    setIsCancellingInventory(true);
+    setCancelInventoryError('');
+    try {
+      const discarded = await onDiscardInventory();
+      if (!discarded) throw new Error('discard-not-confirmed');
+      setIsCancelInventoryConfirmOpen(false);
+    } catch {
+      setCancelInventoryError('Não foi possível cancelar o inventário. Os dados foram preservados; tente novamente.');
+    } finally {
+      setIsCancellingInventory(false);
+    }
   };
 
   const showErrorFeedback = (rawCode: string, title: string, detail?: string) => {
@@ -200,7 +280,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
         showErrorFeedback(
           rawCode,
           'Produto de outro fornecedor',
-          `Produto: ${otherSupplierItem.name} · Fornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}. Nenhuma quantidade foi alterada. Volte à lista, escolha esse fornecedor ou use o scanner geral.`
+          `Produto: ${otherSupplierItem.name} · Fornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}. Nenhuma quantidade foi alterada. Volte à lista e inicie a etapa desse fornecedor.`
         );
         return;
       }
@@ -235,38 +315,79 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
 
   return (
     <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900">
-      <InventoryOperationHeader items={progressItems} />
+      <InventoryOperationHeader
+        items={countItems}
+        title={activeStage ? `${inventoryName} - ${activeStage}` : inventoryName}
+        showCount={!isShowingSupplierSelection}
+        count={headerCount}
+        countLabel={usesZeroInitializedCounts ? 'produtos para contar' : 'produtos contados'}
+        onClose={!isSupplierSpecific && !activeStage ? onClose : undefined}
+        onRequestCancelInventory={
+          scopeType === 'full' && hasStages && activeStage && onResetSupplierStage
+            ? undefined
+            : requestCancelInventory
+        }
+      />
 
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
+      <div className="flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
         <div className="max-w-5xl mx-auto space-y-6 h-full">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="min-w-0 truncate text-lg font-black text-slate-800 dark:text-slate-100">
-              {activeStage ? `${inventoryName} - ${activeStage}` : inventoryName}
-            </h3>
+          {!isShowingSupplierSummary && <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex shrink-0 items-center justify-end gap-2">
-              {!activeStage && onClose && (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700"
-                >
-                  Voltar
-                </button>
+              {scannerButton}
+              {scopeType === 'full' && hasStages && activeStage && onResetSupplierStage && (
+                <div className="relative">
+                  {isStageMenuOpen && (
+                    <button
+                      type="button"
+                      aria-label="Fechar menu de etapa"
+                      className="fixed inset-0 z-40 cursor-default"
+                      onClick={() => setIsStageMenuOpen(false)}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`Ações da etapa ${activeStage}`}
+                    aria-haspopup="menu"
+                    aria-expanded={isStageMenuOpen}
+                    onClick={() => setIsStageMenuOpen((open) => !open)}
+                    className="relative z-50 flex h-11 w-11 items-center justify-center text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                  >
+                    <i className="bi bi-three-dots-vertical" aria-hidden="true" />
+                  </button>
+                  {isStageMenuOpen && (
+                    <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setIsStageMenuOpen(false);
+                          setStageActionError('');
+                          setIsCancelStageConfirmOpen(true);
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-bold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                      >
+                        <i className="bi bi-x-circle" aria-hidden="true" />
+                        Cancelar etapa
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setIsStageMenuOpen(false);
+                          requestCancelInventory();
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-bold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                      >
+                        <i className="bi bi-trash3" aria-hidden="true" />
+                        Cancelar inventário
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
-              <button
-                type="button"
-                onClick={openScanner}
-                className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700 active:scale-95"
-                title={activeStage ? `Escanear produtos de ${activeStage}` : 'Escanear o inventário'}
-                aria-label={
-                  activeStage ? 'Escanear fornecedor atual' : 'Escanear inventário completo'
-                }
-              >
-                <i className="bi bi-qr-code-scan text-lg" aria-hidden="true" />
-                {activeStage ? 'Escanear este fornecedor' : 'Escanear inventário completo'}
-              </button>
             </div>
-          </div>
+          </div>}
+          {stageActionError && <p role="alert" className="text-sm font-semibold text-rose-600 dark:text-rose-400">{stageActionError}</p>}
 
           {/* Botão "Adicionar Item" acima da lista — apenas para inventário personalizado */}
           {isCustom && !isShowingStages && (
@@ -282,18 +403,20 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
             </div>
           )}
 
-          {isShowingStages ? (
+          {isShowingStages || isShowingSupplierSummary ? (
             <InventoryStagesView
               items={items}
-              onSelectStage={(supplierName) => setActiveStage(supplierName)}
+              variant={isShowingSupplierSummary ? 'summary' : isSupplierSpecific ? 'selection' : 'stages'}
+              onSelectSupplier={isShowingSupplierSummary ? setActiveStage : undefined}
+              summaryAction={isShowingSupplierSummary ? scannerButton : undefined}
+              onStartStage={isShowingStages ? async (supplierName) => {
+                await onStartSupplierStage(supplierName);
+                setActiveStage(supplierName);
+              } : undefined}
             />
           ) : (
             <InventoryManualMode
-              filteredItems={filteredItems}
-              filter={filter}
-              setFilter={setFilter}
-              search={search}
-              setSearch={setSearch}
+              items={activeItems}
               onUpdateCount={onUpdateCount}
               isCustom={scopeType === 'custom'}
               onUpdateItemProduct={onUpdateItemProduct}
@@ -303,27 +426,37 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
       </div>
 
       {/* Bottom Bar: Revisar ou Voltar */}
-      <div className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 py-2 shrink-0">
+      <div className={`bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 py-2 shrink-0 ${isSupplierSpecific && !activeStage ? 'hidden sm:block' : ''}`}>
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {activeStage && (
+            {!isSupplierSpecific && activeStage && (
               <button
-                onClick={() => setActiveStage(null)}
+                onClick={() => { setIsStageMenuOpen(false); setActiveStage(null); }}
                 className="text-sm font-bold text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center gap-2"
               >
                 <i className="bi bi-arrow-left"></i>
                 Voltar
               </button>
             )}
+            <button
+              type="button"
+              onClick={requestCancelInventory}
+              className="hidden sm:flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+            >
+              <i className="bi bi-x-circle" aria-hidden="true" />
+              Cancelar inventário
+            </button>
           </div>
 
-          <button
-            onClick={onReview}
-            className="bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-8 py-2 rounded-xl font-black shadow-sm transition-colors flex items-center gap-2"
-          >
-            Revisar e Concluir
-            <i className="bi bi-arrow-right"></i>
-          </button>
+          {(!isSupplierSpecific || Boolean(activeStage)) && (
+            <button
+              onClick={onReview}
+              className="bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-8 py-2 rounded-xl font-black shadow-sm transition-colors flex items-center gap-2"
+            >
+              Revisar e Concluir
+              <i className="bi bi-arrow-right"></i>
+            </button>
+          )}
         </div>
       </div>
 
@@ -338,11 +471,13 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
             setIsScanProcessing(activeScansRef.current > 0);
           });
         }}
-        title={isSupplierScanner ? `Contagem — ${activeStage}` : 'Contagem geral'}
+        title={isSupplierScanner ? 'Etapa iniciada' : scopeType === 'product' ? 'Produto selecionado' : 'Contagem geral'}
         subtitle={
           isSupplierScanner
-            ? `Somente produtos de ${activeStage}`
-            : 'Aceita itens de qualquer fornecedor listado neste inventário'
+            ? `Fornecedor: ${activeStage}`
+            : scopeType === 'product'
+              ? inventoryName
+              : 'Aceita qualquer item deste inventário'
         }
         qrCodeOnly
         allowManualInput={false}
@@ -388,7 +523,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
               </div>
             ) : null}
             <p className="text-center text-xs font-semibold text-slate-600 dark:text-slate-300">
-              {countedProgressItems.length} / {progressItems.length} produtos contados · {progressPercent}%
+              {countedProductsCount} produtos contados
             </p>
             <button
               type="button"
@@ -401,6 +536,58 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
           </div>
         }
       />
+
+      <ConfirmModal
+        isOpen={isCancelStageConfirmOpen}
+        onClose={() => setIsCancelStageConfirmOpen(false)}
+        onConfirm={() => { void cancelActiveStage(); }}
+        title="Cancelar etapa do fornecedor?"
+        message={`A contagem de ${activeStage || 'este fornecedor'} será apagada e a etapa voltará para não iniciada. As outras etapas não serão alteradas.`}
+        confirmLabel={isCancellingStage ? 'Salvando...' : 'Cancelar etapa'}
+        type="danger"
+      />
+
+      {isCancelInventoryConfirmOpen && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="cancel-inventory-title">
+          <button
+            type="button"
+            aria-label="Continuar contando"
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            disabled={isCancellingInventory}
+            onClick={() => setIsCancelInventoryConfirmOpen(false)}
+          />
+          <div className="relative w-full max-w-md space-y-5 rounded-3xl border border-slate-200 bg-white p-7 text-center shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
+              <i className="bi bi-exclamation-triangle-fill text-2xl" aria-hidden="true" />
+            </div>
+            <div>
+              <h3 id="cancel-inventory-title" className="text-xl font-black text-slate-900 dark:text-slate-100">Cancelar inventário?</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                Toda a contagem será descartada e você voltará à lista de tipos de inventário.
+              </p>
+            </div>
+            {cancelInventoryError && <p role="alert" className="text-sm font-semibold text-rose-600 dark:text-rose-400">{cancelInventoryError}</p>}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={isCancellingInventory}
+                onClick={() => setIsCancelInventoryConfirmOpen(false)}
+                className="flex-1 rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              >
+                Continuar contando
+              </button>
+              <button
+                type="button"
+                disabled={isCancellingInventory}
+                onClick={() => void cancelInventory()}
+                className="flex-1 rounded-xl bg-rose-600 px-4 py-3 text-sm font-black text-white hover:bg-rose-700 disabled:opacity-50"
+              >
+                {isCancellingInventory ? 'Cancelando…' : 'Cancelar inventário'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

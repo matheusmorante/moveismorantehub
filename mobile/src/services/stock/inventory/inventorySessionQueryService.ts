@@ -66,7 +66,9 @@ const mapInventorySessionMarker = (
     if (data.name) sessionName = data.name;
 
     if (data.inventoryAudit && Array.isArray(data.items)) {
-      productsCount = data.items.length;
+      productsCount = data.items.filter(
+        (item: any) => item?.physicalCount !== null && item?.physicalCount !== undefined
+      ).length;
       status = data.status || 'completed';
     } else {
       productsCount = Math.abs(m.quantity || 0);

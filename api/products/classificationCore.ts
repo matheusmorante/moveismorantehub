@@ -1,12 +1,14 @@
 import {
   normalizeNcmSearchText,
   isWoodenBedroomFurnitureByName,
+  resolveSyntheticStoneFixtureNcm,
   WOODEN_BEDROOM_FURNITURE_NCM,
 } from '../../shared-utils/ncmClassification';
 
 export {
   normalizeNcmSearchText,
   isWoodenBedroomFurnitureByName,
+  resolveSyntheticStoneFixtureNcm,
   WOODEN_BEDROOM_FURNITURE_NCM,
 };
 

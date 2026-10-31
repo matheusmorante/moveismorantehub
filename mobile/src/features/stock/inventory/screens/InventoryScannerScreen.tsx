@@ -37,8 +37,6 @@ interface Props {
   continuous?: boolean;
   inventoryLayout?: boolean;
   countedCount?: number;
-  totalCount?: number;
-  progressPercent?: number;
 }
 
 export interface InventoryScanFeedback {
@@ -62,8 +60,6 @@ export const InventoryScannerScreen: React.FC<Props> = ({
   continuous = false,
   inventoryLayout = false,
   countedCount,
-  totalCount,
-  progressPercent,
 }) => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(
@@ -316,8 +312,6 @@ export const InventoryScannerScreen: React.FC<Props> = ({
               unitsRead={unitsRead}
               productsReadCount={productsRead.size}
               countedCount={countedCount}
-              totalCount={totalCount}
-              progressPercent={progressPercent}
               scanned={scanned}
               onClose={onClose}
             />

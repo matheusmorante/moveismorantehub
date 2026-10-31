@@ -1,6 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Purchase from '../types/purchase.type';
 import { cancelInventoryMovesByRelatedEntity } from '@/pages/utils/inventoryService';
+import { formatPurchaseNumber } from '../../../../shared-utils/purchaseNumber';
 
 const TABLE_NAME = 'purchases';
 
@@ -81,7 +82,7 @@ export const reverseInventoryMoves = async (
     (purchase as any)?.supplier?.name ||
     (purchase as any)?.supplier?.tradeName ||
     '';
-  const purchaseNum = purchase?.purchaseNumber || 1;
+  const purchaseNum = formatPurchaseNumber(purchase?.purchaseNumber) || '0001';
   const reason =
     customReason ||
     (supplierName
@@ -122,6 +123,46 @@ export const cancelPurchase = async (purchase: Purchase): Promise<void> => {
   currentPurchases = currentPurchases.map((p) =>
     p.id === purchase.id ? { ...p, status: 'cancelled', stockProcessed: false } : p
   );
+  notifyListeners();
+};
+
+export const deleteCancelledPurchase = async (purchase: Purchase): Promise<void> => {
+  if (!purchase.id || purchase.status !== 'cancelled') {
+    throw new Error('Somente pedidos de compra cancelados podem ser excluídos.');
+  }
+
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .delete()
+    .eq('id', purchase.id)
+    .eq('status', 'cancelled')
+    .select('id')
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error('O pedido não está mais cancelado ou não foi encontrado. Atualize a lista e tente novamente.');
+
+  currentPurchases = currentPurchases.filter((item) => item.id !== purchase.id);
+  notifyListeners();
+};
+
+export const discardPurchaseDraft = async (purchase: Purchase): Promise<void> => {
+  if (!purchase.id || purchase.status !== 'draft') {
+    throw new Error('Somente pedidos em rascunho podem ser descartados.');
+  }
+
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .delete()
+    .eq('id', purchase.id)
+    .eq('status', 'draft')
+    .select('id')
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error('Este pedido não está mais como rascunho. Atualize a lista e tente novamente.');
+
+  currentPurchases = currentPurchases.filter((item) => item.id !== purchase.id);
   notifyListeners();
 };
 
@@ -219,7 +260,9 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
       .single();
     if (lookupError) throw lookupError;
     if (!existing) throw new Error('Pedido não encontrado');
-    if (updates.stockProcessed === true && existing.status === 'cancelled') throw new Error('Este pedido de compra está cancelado.');
+    if (updates.stockProcessed === true && ['cancelled', 'draft', 'pending'].includes(existing.status)) {
+      throw new Error('Confirme o pedido como Em Ordem antes de registrar a entrada no estoque.');
+    }
 
     const currentPurchase = mapFromDB(existing);
     const merged: Purchase = { ...currentPurchase, ...updates };
@@ -245,6 +288,8 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
     if (updates.invoiceStatus !== undefined) dbUpdates.invoice_status = updates.invoiceStatus;
     if (updates.fiscalKey !== undefined) dbUpdates.fiscal_key = updates.fiscalKey || null;
     if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments || [];
+    if (updates.discountPercent !== undefined)
+      dbUpdates.discount_percent = updates.discountPercent || 0;
     if (updates.ipiPercent !== undefined) dbUpdates.ipi_value = updates.ipiPercent || 0;
     if (updates.freightPercent !== undefined)
       dbUpdates.freight_percent = updates.freightPercent || 0;
@@ -279,6 +324,49 @@ export const updatePurchase = async (id: string, updates: Partial<Purchase>): Pr
   }
 };
 
+export const updatePurchaseDraft = async (id: string, updates: Partial<Purchase>): Promise<void> => {
+  if (!id || updates.status !== 'draft') {
+    throw new Error('A atualização automática só pode salvar um pedido como rascunho.');
+  }
+
+  const dbUpdates: Record<string, any> = {
+    supplier_id: updates.supplierId || null,
+    supplier_name: updates.supplierName || null,
+    date: updates.date ? new Date(updates.date).toISOString() : new Date().toISOString(),
+    total_value: Number(updates.totalValue || 0),
+    observation: updates.observation || '',
+    status: 'draft',
+    invoice_number: updates.invoiceNumber || null,
+    invoice_date:
+      updates.invoiceDate && updates.invoiceDate.trim() !== ''
+        ? new Date(updates.invoiceDate).toISOString()
+        : null,
+    invoice_status: updates.invoiceStatus || 'pending',
+    attachments: updates.attachments || [],
+    discount_percent: Number(updates.discountPercent || 0),
+    ipi_value: Number(updates.ipiPercent || 0),
+    freight_percent: Number(updates.freightPercent || 0),
+  };
+
+  const { data, error } = await supabase
+    .from(TABLE_NAME)
+    .update(dbUpdates)
+    .eq('id', id)
+    .eq('status', 'draft')
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('Este pedido não está mais como rascunho. Reabra a lista antes de continuar.');
+
+  if (updates.items !== undefined) await syncPurchaseItems(id, updates.items);
+  currentPurchases = currentPurchases.map((purchase) =>
+    purchase.id === id
+      ? { ...purchase, ...updates, items: updates.items ?? purchase.items }
+      : purchase
+  );
+  notifyListeners();
+};
+
 const mapToDB = (p: Purchase) => ({
   supplier_id: p.supplierId || null,
   supplier_name: p.supplierName || null,
@@ -292,6 +380,7 @@ const mapToDB = (p: Purchase) => ({
   invoice_status: p.invoiceStatus || 'pending',
   fiscal_key: p.fiscalKey || null,
   attachments: p.attachments || [],
+  discount_percent: Number(p.discountPercent || 0),
   ipi_value: p.ipiPercent || 0,
   freight_percent: p.freightPercent || 0,
   created_at: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
@@ -312,6 +401,7 @@ const mapFromDB = (data: any, sequentialIndex?: number): Purchase => {
                 ? Number(pi.item_snapshot.receivedQuantity)
                 : undefined,
             baseCost: Number(pi.base_cost ?? pi.item_snapshot?.baseCost ?? 0),
+            discountUnit: Number(pi.item_snapshot?.discountUnit ?? pi.discountUnit ?? 0),
             unitCost: Number(pi.unit_cost ?? pi.item_snapshot?.unitCost ?? 0),
             totalCost: Number(pi.total_cost ?? pi.item_snapshot?.totalCost ?? 0),
           }))
@@ -338,6 +428,7 @@ const mapFromDB = (data: any, sequentialIndex?: number): Purchase => {
     invoiceStatus: data.invoice_status,
     fiscalKey: data.fiscal_key,
     attachments: data.attachments || [],
+    discountPercent: Number(data.discount_percent || 0),
     ipiPercent: data.ipi_value ? Number(data.ipi_value) : 0,
     freightPercent: data.freight_percent ? Number(data.freight_percent) : 0,
     createdAt: data.created_at,

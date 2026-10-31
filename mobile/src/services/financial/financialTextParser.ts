@@ -1,6 +1,6 @@
 import type { ParsedFinancialIntent } from './financialTypes';
 import { parsePtBrWrittenNumbers } from './wordToNumberPtBr';
-import { extractUnknownFieldsFromText } from './financialSlotFilling';
+import { extractUnknownFieldsFromText } from './financialUnknownFieldExtractor';
 
 export interface FinancialCategoryType {
   id?: string;

@@ -174,11 +174,14 @@ export const executeInventoryFinalization = async ({
       );
       onClose();
     } else {
+      const countedProductsCount = items.filter(
+        (item) => typeof item.physicalCount === 'number'
+      ).length;
       Alert.alert(
         'Sucesso',
         alreadyProcessed
           ? `Inventário #${code} já estava concluído. O envio local foi confirmado.`
-          : `Inventário #${code} finalizado! ${items.length} produto(s) contados e ${data?.moves?.length ?? submission.items.length} ajuste(s) lançados no estoque. ✨`,
+          : `Inventário #${code} finalizado! ${countedProductsCount} ${countedProductsCount === 1 ? 'produto' : 'produtos'} contados e ${data?.moves?.length ?? submission.items.length} ajuste(s) lançados no estoque. ✨`,
         [{ text: 'OK', onPress: onClose }]
       );
     }

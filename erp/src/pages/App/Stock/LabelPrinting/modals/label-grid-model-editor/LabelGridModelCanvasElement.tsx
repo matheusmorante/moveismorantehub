@@ -133,7 +133,7 @@ export const LabelGridModelCanvasElement = ({
       {selectedElement === el.id && el.id.startsWith('extra_') && (
         <div className="absolute -top-4 -right-4 z-[200]">
           <div className="relative group/menu">
-            <button className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-transform">
+            <button className="w-8 h-8 text-slate-700 dark:text-slate-200 flex items-center justify-center hover:text-blue-600 transition-colors">
               {' '}
               <i className="bi bi-three-dots-vertical text-xs" />{' '}
             </button>

@@ -12,6 +12,7 @@ export const isCatalogNeverRequiredCharacteristicName = (name: string): boolean 
   return (
     /^peso(?:\([^)]*\))?$/.test(key) ||
     /^quantidade(?:de|das)porta(?:\(s\)|s)?$/.test(key) ||
-    /^tipo(?:\(s\)|s)?(?:de|da|das)porta(?:\(s\)|s)?$/.test(key)
+    /^tipo(?:\(s\)|s)?(?:de|da|das)porta(?:\(s\)|s)?$/.test(key) ||
+    key === 'materialdasportas'
   );
 };

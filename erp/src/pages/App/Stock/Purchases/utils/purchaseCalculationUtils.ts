@@ -10,9 +10,14 @@ export interface CalculatedPurchaseCosts {
  */
 export function calculatePurchaseCosts(
   items: readonly PurchaseItem[],
+  discountPercent: number,
   ipiPercent: number,
   freightPercent: number
 ): CalculatedPurchaseCosts {
+  const rawDiscountPercent = Number(discountPercent);
+  const safeDiscountPercent = Number.isFinite(rawDiscountPercent)
+    ? Math.min(100, Math.max(0, rawDiscountPercent))
+    : 0;
   const safeIpi = Number.isFinite(Number(ipiPercent)) ? Number(ipiPercent) : 0;
   const safeFreight = Number.isFinite(Number(freightPercent)) ? Number(freightPercent) : 0;
 
@@ -21,9 +26,12 @@ export function calculatePurchaseCosts(
     const baseCost = Number.isFinite(Number(rawBase)) ? Number(rawBase) : 0;
     const qty = Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 0;
 
-    const itemIpi = baseCost * (safeIpi / 100);
+    const discountedBaseCost = baseCost * (1 - safeDiscountPercent / 100);
+    const itemIpi = discountedBaseCost * (safeIpi / 100);
     const itemFreight = baseCost * (safeFreight / 100);
-    const itemUnitCost = baseCost + itemIpi + itemFreight;
+    const rawDiscount = Number(item.discountUnit ?? 0);
+    const itemDiscount = Number.isFinite(rawDiscount) ? Math.max(0, rawDiscount) : 0;
+    const itemUnitCost = Math.max(0, discountedBaseCost + itemIpi + itemFreight - itemDiscount);
     const itemTotalCost = qty * itemUnitCost;
 
     return {

@@ -1,6 +1,10 @@
 import type Person from '@/pages/types/person.type';
 import type Product from '@/pages/types/product.type';
 import { isStockInventorySupplierEligible } from '../../../../../../../shared-utils/inventorySupplierEligibility';
+import { isTestProduct } from '../../../../../../../shared-utils/isTestProduct';
+
+export const isInventoryVariationEligible = (variation: unknown): boolean =>
+  !isTestProduct(variation);
 
 const getProductSupplierIds = (product: Product): string[] =>
   [
@@ -27,7 +31,11 @@ export const isInventoryProductEligible = (
   product: Product,
   suppliers: readonly Person[]
 ): boolean => {
-  if (product.productKind === 'salvado' || product.productKind === 'usado') return false;
+  if (
+    product.productKind === 'salvado' ||
+    product.productKind === 'usado' ||
+    isTestProduct({ ...product, variations: [], product_variations: [] })
+  ) return false;
 
   const supplierIds = getProductSupplierIds(product);
   return supplierIds.length === 0 || getInventorySupplierIds(product, suppliers).length > 0;

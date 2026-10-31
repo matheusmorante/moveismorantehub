@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import type { default as VariationType, CharacteristicGroup } from '../../../types/variation.type';
 import { getVariationErrorMessage } from '../../../utils/variationService';
@@ -74,7 +75,12 @@ export function CharacteristicGroupFormPanel({
 
   const handleDelete = async () => {
     if (!group || group.isDefault || linkedCharacteristics.length > 0) return;
-    if (!window.confirm(`Excluir o grupo "${group.name}"?`)) return;
+    if (!await requestConfirmation({
+      title: 'Excluir grupo?',
+      message: `Excluir o grupo "${group.name}"?`,
+      confirmLabel: 'Excluir grupo',
+      type: 'danger',
+    })) return;
     setIsSaving(true);
     setSaveError('');
     try {

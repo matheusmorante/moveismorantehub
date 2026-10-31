@@ -127,7 +127,7 @@ export const ReceiptCard: React.FC<ReceiptCardProps> = ({
             }}
             aria-label="Abrir menu de ações do recebimento"
             aria-expanded={showMenu}
-            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+            className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
             title="Ações do recebimento"
           >
             <i className="bi bi-three-dots-vertical text-base" />

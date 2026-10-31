@@ -3,6 +3,7 @@ import { ZodForm } from '@/components/forms/ZodForm';
 import { marketingAssetFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
 import React, { useState, useEffect, useMemo } from 'react';
 import { MarketingAsset, AssetCategory } from '../../types';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { assetService } from '../../services/assetService';
 import { AssetCard } from './AssetCard';
 
@@ -77,7 +78,12 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Deseja remover este asset?')) {
+    if (await requestConfirmation({
+      title: 'Remover arquivo?',
+      message: 'Deseja remover este asset?',
+      confirmLabel: 'Remover arquivo',
+      type: 'danger',
+    })) {
       await assetService.delete(id);
       loadAssets();
     }

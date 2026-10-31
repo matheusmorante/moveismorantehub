@@ -25,7 +25,7 @@ export const PurchaseDetailsFooter: React.FC<PurchaseDetailsFooterProps> = ({
       </button>
 
       <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-        {onCheckReceipt && purchase.status !== 'cancelled' && (
+        {onCheckReceipt && !['cancelled', 'draft', 'pending'].includes(purchase.status) && (
           <button
             type="button"
             onClick={() => onCheckReceipt(purchase)}
@@ -39,7 +39,15 @@ export const PurchaseDetailsFooter: React.FC<PurchaseDetailsFooterProps> = ({
           <button
             type="button"
             onClick={() => onEdit(purchase)}
-            className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-md shadow-blue-200 dark:shadow-none flex items-center justify-center gap-2 text-xs uppercase tracking-wider"
+            disabled={!['pending', 'ordered'].includes(purchase.status) || purchase.stockProcessed}
+            title={
+              ['pending', 'ordered'].includes(purchase.status) && !purchase.stockProcessed
+                ? 'Editar informações do pedido'
+                : purchase.stockProcessed
+                  ? 'A edição fica indisponível após registrar movimento no estoque.'
+                  : 'A edição fica disponível para pedidos Pendentes ou Em Ordem.'
+            }
+            className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-md shadow-blue-200 dark:shadow-none flex items-center justify-center gap-2 text-xs uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50"
           >
             <i className="bi bi-pencil-square" aria-hidden="true" />
             <span>Editar Compra</span>

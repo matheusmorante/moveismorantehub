@@ -310,7 +310,7 @@ export const MobileProductCard: React.FC<Props> = ({
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={`Ações da variação ${displayTitle}`}
-                style={[styles.actionIconBtn, dark && styles.darkBtn]}
+                style={styles.menuActionIconBtn}
                 hitSlop={{ top: 2, bottom: 2, left: 2, right: 2 }}
               >
                 <MoreVertical size={15} color={dark ? '#cbd5e1' : '#64748b'} />
@@ -327,7 +327,7 @@ export const MobileProductCard: React.FC<Props> = ({
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={`Opções de ${product.name || 'produto'}`}
-                style={[styles.actionIconBtn, dark && styles.darkBtn]}
+                style={styles.menuActionIconBtn}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
               >
                 <MoreVertical size={15} color={dark ? '#cbd5e1' : '#64748b'} />

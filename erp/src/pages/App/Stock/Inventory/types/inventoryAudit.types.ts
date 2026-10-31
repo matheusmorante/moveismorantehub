@@ -4,6 +4,8 @@ export interface InventorySnapshotItem {
   readonly name: string;
   readonly systemStock: number;
   readonly physicalCount: number | null;
+  readonly supplierStageStarted?: boolean;
+  readonly supplierStageReset?: boolean;
   scannedLabelIds?: string[];
   readonly assignedSupplier?: string;
   readonly sku?: string;
@@ -38,6 +40,9 @@ export interface AuditItem {
   assignedSupplier: string;
   systemStock: number;
   physicalCount: number | null;
+  supplierStageStarted?: boolean;
+  supplierStageReset?: boolean;
+  scannedLabelIds?: string[];
   countedAt?: string;
   unit: string;
   sku?: string;

@@ -30,21 +30,22 @@ const ScheduleCardView: React.FC<Props> = ({
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const [isPendingOpen, setIsPendingOpen] = React.useState(false);
   const [collapsedDates, setCollapsedDates] = React.useState<Record<string, boolean>>({});
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+    today.getDate()
+  ).padStart(2, '0')}`;
+
+  const isDateCollapsed = (date: string) => collapsedDates[date] ?? date !== todayStr;
 
   const toggleDateCollapse = (date: string) => {
     setCollapsedDates((prev) => ({
       ...prev,
-      [date]: !prev[date],
+      [date]: !(prev[date] ?? date !== todayStr),
     }));
   };
 
   React.useEffect(() => {
     if (hasInitialScrolled?.current) return;
-
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
-      today.getDate()
-    ).padStart(2, '0')}`;
 
     // Find the closest date (today or future)
     const availableDates = Object.keys(schedule).sort();
@@ -78,7 +79,7 @@ const ScheduleCardView: React.FC<Props> = ({
           key={date}
           date={date}
           orders={orders}
-          isCollapsed={Boolean(collapsedDates[date])}
+          isCollapsed={isDateCollapsed(date)}
           onToggleCollapse={toggleDateCollapse}
           onOrderClick={onOrderClick}
           isReadOnly={isReadOnly}

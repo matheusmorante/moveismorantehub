@@ -21,6 +21,7 @@ import {
   normalizeAttributeDraftValue,
 } from '../../utils/attributeValueDraft';
 import { isFactoryDefaultCharacteristicName } from '../../../../../../../../shared-utils/characteristicFormRules';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 export interface ManageAttributesModalProps {
   readonly isOpen: boolean;
@@ -136,9 +137,12 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
     }, showValidationErrors);
 
   const handleDeleteValue = async (attr: VariationType, opt: VariationOption) => {
-    if (
-      !confirm(`Tem certeza que deseja remover o valor "${opt.value}" da característica "${attr.name}"?`)
-    )
+    if (!await requestConfirmation({
+      title: 'Remover valor da característica?',
+      message: `Remover o valor "${opt.value}" da característica "${attr.name}"?`,
+      confirmLabel: 'Remover',
+      type: 'danger',
+    }))
       return;
 
     try {

@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   containerDark: { backgroundColor: '#0f172a' },
   content: { padding: 20, gap: 16 },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  topRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
   screenTitle: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
   textDark: { color: '#f8fafc' },
   card: {

@@ -1,31 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Package, Filter, X } from 'lucide-react-native';
-import type { InventoryScopeType, ScopeSupplier } from '../hooks/useInventoryScopeBuilder';
+import { Box, Building2, Package, ScanLine } from 'lucide-react-native';
+import type { InventoryScopeType } from '../hooks/useInventoryScopeBuilder';
 import type { SearchableProduct } from '../modals/InventoryProductSearchModal';
 
 interface Props {
   isDarkMode: boolean;
-  suppliers?: ScopeSupplier[];
-  expandedType: InventoryScopeType | null;
-  onToggleExpand: (type: InventoryScopeType) => void;
-  selectedSupplierId?: string | null;
-  onSelectSupplier?: (supplierId: string | null) => void;
   customProducts: SearchableProduct[];
   lockedCustomSelection?: boolean;
-  onOpenSearch: () => void;
-  onRemoveCustomProduct: (product: SearchableProduct) => void;
   onConfirmType: (type: InventoryScopeType, supplierId?: string) => void;
 }
 
 export const InventoryScopeTypeSelector: React.FC<Props> = ({
   isDarkMode,
-  expandedType,
-  onToggleExpand,
   customProducts,
   lockedCustomSelection = false,
-  onOpenSearch,
-  onRemoveCustomProduct,
   onConfirmType,
 }) => {
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
@@ -35,65 +24,90 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
 
   return (
     <View style={styles.optionsContainer}>
-      {/* 1. Estoque Completo: Etapas por Fornecedor */}
+      {/* 1. Inventário Geral */}
       {!lockedCustomSelection && (
-        <TouchableOpacity
-          testID="scope-full-stock-btn"
-          style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]}
-          onPress={() => onConfirmType('full')}
-        >
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.typeIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-              <Package size={24} color="#10b981" />
+        <>
+          <TouchableOpacity
+            testID="scope-general-inventory-btn"
+            style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]}
+            onPress={() => onConfirmType('general')}
+          >
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.typeIcon, { backgroundColor: 'rgba(59, 130, 246, 0.15)' }]}>
+                <ScanLine size={24} color="#3b82f6" />
+              </View>
+              <View style={styles.flex1}>
+                <Text style={[styles.typeTitle, { color: textPrimary }]}>Inventário Geral</Text>
+                <Text style={[styles.typeDesc, { color: muted }]}>
+                  Conte todos os itens do escopo pelo scanner geral. Os cartões mostram itens contados por fornecedor.
+                </Text>
+              </View>
             </View>
-            <View style={styles.flex1}>
-              <Text style={[styles.typeTitle, { color: textPrimary }]}>
-                Estoque Completo: Etapas por Fornecedor
-              </Text>
-              <Text style={[styles.typeDesc, { color: muted }]}>
-                Todas as variações ativas cadastradas no sistema divididas por fornecedor.
-              </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            testID="scope-full-stock-btn"
+            style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]}
+            onPress={() => onConfirmType('full')}
+          >
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.typeIcon, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                <Package size={24} color="#10b981" />
+              </View>
+              <View style={styles.flex1}>
+                <Text style={[styles.typeTitle, { color: textPrimary }]}>
+                  Livre: Etapas por Fornecedor
+                </Text>
+                <Text style={[styles.typeDesc, { color: muted }]}>
+                  Produtos convencionais ativos organizados em etapas por fornecedor.
+                </Text>
+              </View>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            testID="scope-product-variations-btn"
+            style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]}
+            onPress={() => onConfirmType('product')}
+          >
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.typeIcon, { backgroundColor: 'rgba(139, 92, 246, 0.15)' }]}>
+                <Box size={24} color="#7c3aed" />
+              </View>
+              <View style={styles.flex1}>
+                <Text style={[styles.typeTitle, { color: textPrimary }]}>Produto específico e suas variações</Text>
+                <Text style={[styles.typeDesc, { color: muted }]}>
+                  Escolha um produto pai ativo e conte somente as variações dele.
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            testID="scope-specific-supplier-btn"
+            style={[styles.typeOption, { backgroundColor: surface, borderColor: border }]}
+            onPress={() => onConfirmType('supplier')}
+          >
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.typeIcon, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
+                <Building2 size={24} color="#d97706" />
+              </View>
+              <View style={styles.flex1}>
+                <Text style={[styles.typeTitle, { color: textPrimary }]}>Fornecedor específico</Text>
+                <Text style={[styles.typeDesc, { color: muted }]}>
+                  Escolha um fornecedor nos cartões e conte somente os produtos dele.
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </>
       )}
 
-      {/* 2. Seleção Personalizada */}
-      <View style={{ marginBottom: expandedType === 'custom' ? 12 : 0 }}>
-        <TouchableOpacity
-          style={[
-            styles.typeOption,
-            { backgroundColor: surface, borderColor: border },
-            expandedType === 'custom' ? styles.expandedOptionBorder : {},
-          ]}
-          onPress={() => { if (!lockedCustomSelection) onToggleExpand('custom'); }}
-          disabled={lockedCustomSelection}
-        >
-          <View style={styles.cardHeaderRow}>
-            <View style={[styles.typeIcon, { backgroundColor: 'rgba(168, 85, 247, 0.15)' }]}>
-              <Filter size={24} color="#a855f7" />
-            </View>
-            <View style={styles.flex1}>
-              <Text style={[styles.typeTitle, { color: textPrimary }]}>Seleção Personalizada</Text>
-              <Text style={[styles.typeDesc, { color: muted }]}>
-                Pesquise e adicione manualmente produtos ou variações específicas ao escopo.
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        {expandedType === 'custom' && (
+      {lockedCustomSelection && (
           <View style={[styles.expandableBox, { backgroundColor: surface, borderColor: border }]}>
             <Text style={{ color: muted, fontSize: 13, marginBottom: 12 }}>
-              {lockedCustomSelection
-                ? 'Revise os itens copiados antes de iniciar a contagem.'
-                : 'Selecione produtos ou variações antes de iniciar a contagem.'}
+              Revise os itens copiados antes de iniciar a contagem.
             </Text>
-            {!lockedCustomSelection && (
-              <TouchableOpacity style={styles.customAddButton} onPress={onOpenSearch}>
-                <Text style={styles.actionButtonText}>+ Adicionar produto ou variação</Text>
-              </TouchableOpacity>
-            )}
             {customProducts.map((product) => (
               <View
                 key={`${product.id}-${product.variation_id || 'main'}`}
@@ -102,14 +116,6 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
                 <Text numberOfLines={2} style={[{ color: textPrimary }, styles.flex1]}>
                   {product.name}
                 </Text>
-                {!lockedCustomSelection && (
-                  <TouchableOpacity
-                    onPress={() => onRemoveCustomProduct(product)}
-                    accessibilityLabel={`Remover ${product.name}`}
-                  >
-                    <X size={18} color={muted} />
-                  </TouchableOpacity>
-                )}
               </View>
             ))}
             <TouchableOpacity
@@ -122,12 +128,11 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
               onPress={() => onConfirmType('custom')}
             >
               <Text style={styles.actionButtonText}>
-                Continuar com {customProducts.length} item(ns)
+                Iniciar cópia com {customProducts.length} item(ns)
               </Text>
             </TouchableOpacity>
           </View>
-        )}
-      </View>
+      )}
     </View>
   );
 };
@@ -140,11 +145,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderRadius: 16,
-  },
-  expandedOptionBorder: {
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    borderBottomWidth: 0,
   },
   typeIcon: {
     width: 48,
@@ -164,33 +164,8 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 0,
   },
-  sectionTitle: { fontSize: 13, marginBottom: 12, fontWeight: '700' },
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  searchInput: { flex: 1, paddingVertical: 9, fontSize: 14 },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderRadius: 20,
-  },
   actionButton: { alignItems: 'center', padding: 12, borderRadius: 12, marginTop: 14 },
   actionButtonText: { color: '#fff', fontWeight: '800' },
-  customAddButton: {
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#7c3aed',
-    marginBottom: 8,
-  },
   customProductRow: {
     flexDirection: 'row',
     alignItems: 'center',

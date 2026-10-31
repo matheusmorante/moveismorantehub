@@ -1,7 +1,8 @@
 import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Edit3, X } from 'lucide-react-native';
+import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
 import { MobilePurchase, PurchaseStatus, purchaseStatusLabel } from '../../mobilePurchaseService';
 
 export interface PurchaseDetailsModalProps {
@@ -37,21 +38,14 @@ export const PurchaseDetailsModalContent: React.FC<PurchaseDetailsModalProps> = 
   const statusColor =
     purchase.status === 'fulfilled'
       ? '#059669'
+      : purchase.status === 'draft'
+      ? '#4f46e5'
+      : purchase.status === 'pending'
+      ? '#d97706'
       : purchase.status === 'cancelled'
       ? '#dc2626'
       : '#d97706';
-  const changeStatus = (status: PurchaseStatus) => {
-    if (status === 'cancelled') {
-      Alert.alert(
-        'Cancelar pedido?',
-        'O ERP cancela o pedido e estorna movimentos vinculados quando o estoque já foi processado.',
-        [
-          { text: 'Voltar', style: 'cancel' },
-          { text: 'Cancelar pedido', style: 'destructive', onPress: () => onStatusChange(status) },
-        ]
-      );
-    } else onStatusChange(status);
-  };
+  const changeStatus = (status: PurchaseStatus) => onStatusChange(status);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
@@ -68,7 +62,7 @@ export const PurchaseDetailsModalContent: React.FC<PurchaseDetailsModalProps> = 
           <View style={styles.headerCopy}>
             <View style={styles.titleLine}>
               <Text style={[styles.title, { color: colors.text }]}>
-                Pedido #{purchase.purchaseNumber || purchase.id.slice(0, 8).toUpperCase()}
+                Pedido #{formatPurchaseNumber(purchase.purchaseNumber) || purchase.id.slice(0, 8).toUpperCase()}
               </Text>
               <Text style={[styles.badge, { color: statusColor, borderColor: statusColor }]}>
                 {purchaseStatusLabel(purchase.status)}
@@ -89,19 +83,19 @@ export const PurchaseDetailsModalContent: React.FC<PurchaseDetailsModalProps> = 
               { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
           >
-            <View>
+            <View style={styles.summaryCell}>
               <Text style={[styles.label, { color: colors.muted }]}>Fornecedor</Text>
               <Text style={[styles.value, { color: colors.text }]}>{purchase.supplierName}</Text>
             </View>
-            <View>
+            <View style={styles.summaryCell}>
               <Text style={[styles.label, { color: colors.muted }]}>Data</Text>
               <Text style={[styles.value, { color: colors.text }]}>{date(purchase.date)}</Text>
             </View>
-            <View>
+            <View style={styles.summaryCell}>
               <Text style={[styles.label, { color: colors.muted }]}>Total</Text>
               <Text style={[styles.total, { color: '#059669' }]}>{money(purchase.totalValue)}</Text>
             </View>
-            <View>
+            <View style={styles.summaryCell}>
               <Text style={[styles.label, { color: colors.muted }]}>Estoque</Text>
               <Text style={[styles.value, { color: colors.text }]}>
                 {purchase.stockProcessed ? 'Processado' : 'Não processado'}
@@ -149,7 +143,7 @@ export const PurchaseDetailsModalContent: React.FC<PurchaseDetailsModalProps> = 
           >
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Dados adicionais</Text>
             <Text style={[styles.meta, { color: colors.muted }]}>
-              IPI: {purchase.ipiPercent.toFixed(2)}% · Frete: {purchase.freightPercent.toFixed(2)}%
+              Desconto: {(purchase.discountPercent ?? 0).toFixed(2)}% · IPI: {purchase.ipiPercent.toFixed(2)}% · Frete: {purchase.freightPercent.toFixed(2)}%
             </Text>
             {purchase.invoiceNumber ? (
               <Text style={[styles.meta, { color: colors.muted }]}>
@@ -166,11 +160,38 @@ export const PurchaseDetailsModalContent: React.FC<PurchaseDetailsModalProps> = 
         <View
           style={[styles.footer, { backgroundColor: colors.surface, borderColor: colors.border }]}
         >
-          <TouchableOpacity onPress={onEdit} style={styles.editButton}>
+          <TouchableOpacity
+            onPress={onEdit}
+            disabled={!['pending', 'ordered'].includes(purchase.status) || purchase.stockProcessed}
+            accessibilityState={{ disabled: !['pending', 'ordered'].includes(purchase.status) || purchase.stockProcessed }}
+            style={[styles.editButton, (!['pending', 'ordered'].includes(purchase.status) || purchase.stockProcessed) && styles.disabledButton]}
+            accessibilityLabel={purchase.stockProcessed
+              ? 'Edição indisponível após registrar movimento no estoque'
+              : 'Editar pedido de compra'}
+          >
             <Edit3 size={16} color="#2563eb" />
             <Text style={styles.editText}>Editar</Text>
           </TouchableOpacity>
-          {purchase.status === 'ordered' ? (
+          {purchase.status === 'draft' ? (
+            <Text style={[styles.meta, { color: colors.muted }, styles.draftInfo]}>
+              Edite o rascunho para continuar ou confirme o pedido no formulário.
+            </Text>
+          ) : purchase.status === 'pending' ? (
+            <View style={styles.pendingStatusActions}>
+              <TouchableOpacity
+                onPress={() => changeStatus('ordered')}
+                style={[styles.primary, styles.pendingStatusAction]}
+              >
+                <Text style={styles.primaryText}>Marcar em ordem</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => changeStatus('fulfilled')}
+                style={[styles.primary, styles.pendingStatusAction]}
+              >
+                <Text style={styles.primaryText}>Marcar atendido</Text>
+              </TouchableOpacity>
+            </View>
+          ) : purchase.status === 'ordered' ? (
             <TouchableOpacity onPress={() => changeStatus('fulfilled')} style={styles.primary}>
               <Text style={styles.primaryText}>Marcar atendido</Text>
             </TouchableOpacity>
@@ -179,7 +200,7 @@ export const PurchaseDetailsModalContent: React.FC<PurchaseDetailsModalProps> = 
               <Text style={styles.editText}>Voltar para ordem</Text>
             </TouchableOpacity>
           )}
-          {purchase.status !== 'cancelled' ? (
+          {purchase.status !== 'cancelled' && purchase.status !== 'draft' ? (
             <TouchableOpacity onPress={() => changeStatus('cancelled')} style={styles.danger}>
               <Text style={styles.primaryText}>Cancelar</Text>
             </TouchableOpacity>
@@ -222,6 +243,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 14,
   },
+  summaryCell: { flexGrow: 1, flexBasis: '45%', minWidth: 110 },
   label: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
   value: { fontSize: 13, fontWeight: '800', marginTop: 3 },
   total: { fontSize: 17, fontWeight: '900', marginTop: 2 },
@@ -234,13 +256,21 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
   },
-  itemCopy: { flex: 1 },
+  itemCopy: { flex: 1, minWidth: 0 },
   itemName: { fontSize: 13, fontWeight: '800' },
   itemValue: { fontSize: 12, fontWeight: '900' },
   observation: { marginTop: 10, lineHeight: 19 },
-  footer: { borderTopWidth: 1, padding: 12, flexDirection: 'row', gap: 8 },
+  footer: {
+    borderTopWidth: 1,
+    padding: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
   editButton: {
     flex: 1,
+    minWidth: 112,
     minHeight: 44,
     borderWidth: 1,
     borderColor: '#bfdbfe',
@@ -250,9 +280,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 5,
   },
+  disabledButton: { opacity: 0.45 },
+  draftInfo: { flexBasis: '100%' },
   editText: { color: '#2563eb', fontWeight: '900' },
   primary: {
     flex: 1.35,
+    minWidth: 132,
     minHeight: 44,
     borderRadius: 10,
     backgroundColor: '#059669',
@@ -261,11 +294,21 @@ const styles = StyleSheet.create({
   },
   danger: {
     flex: 1,
+    minWidth: 112,
     minHeight: 44,
     borderRadius: 10,
     backgroundColor: '#dc2626',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pendingStatusActions: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pendingStatusAction: {
+    flex: 1,
+    minWidth: 0,
   },
   primaryText: { color: '#fff', fontWeight: '900', fontSize: 11 },
 });

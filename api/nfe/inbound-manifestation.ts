@@ -17,159 +17,6 @@ import {
   CNPJ_PATTERN,
   normalizeFiscalIdentifier,
 } from '../../shared-utils/fiscalIdentifiers.js';
-import {
-  getNextInboundXmlConsultRetryAt,
-  INBOUND_XML_CONSULT_RETRY_INTERVAL_MS,
-  selectPendingInboundXmlConsults,
-} from './inboundXmlConsultQueue';
-
-const DIRECT_CONSULT_INTERVAL_MS = 5 * 60 * 1000;
-
-async function getNextDirectConsultAt(db: SupabaseClient<any>, configuredCnpj: string) {
-  const { data } = await db
-    .from('sefaz_direct_consult_control')
-    .select('next_allowed_at')
-    .eq('cnpj', configuredCnpj)
-    .maybeSingle();
-  return typeof data?.next_allowed_at === 'string'
-    ? data.next_allowed_at
-    : new Date(Date.now() + DIRECT_CONSULT_INTERVAL_MS).toISOString();
-}
-
-async function consultNextRegisteredSummary(
-  db: SupabaseClient<any>,
-  configuredCnpj: string,
-  invoice: any,
-  remainingCount: number,
-) {
-  const accessKey = normalizeFiscalIdentifier(invoice.chave_acesso);
-  const environment = Number(invoice.ambiente) as 1 | 2;
-  const environmentName = environment === 1 ? 'production' : 'homologation';
-  const { data, error } = await db.functions.invoke('sefaz-inbound-sync', {
-    body: { accessKey, environment: environmentName },
-  });
-
-  if (error || !data) {
-    const retryAfter = await getNextDirectConsultAt(db, configuredCnpj);
-    return {
-      status: 202,
-      body: {
-        success: false,
-        pending: true,
-        retryable: true,
-        hasMore: true,
-        retryAfter,
-        xmlLookupPending: true,
-        error: 'Não foi possível confirmar a consulta automática do XML. A fila tentará novamente após o intervalo da SEFAZ.',
-      },
-    };
-  }
-
-  if (data.code === 'SEFAZ_DIRECT_COOLDOWN') {
-    return {
-      status: 200,
-      body: {
-        success: true,
-        skipped: true,
-        hasMore: true,
-        retryAfter: data.retryAfter || await getNextDirectConsultAt(db, configuredCnpj),
-        xmlLookupPending: true,
-        message: 'A consulta automática do XML aguarda o intervalo de cinco minutos por CNPJ.',
-      },
-    };
-  }
-
-  if (data.success !== true) {
-    const retryAfter = typeof data.retryAfter === 'string'
-      ? data.retryAfter
-      : await getNextDirectConsultAt(db, configuredCnpj);
-    return {
-      status: 202,
-      body: {
-        success: false,
-        pending: true,
-        retryable: true,
-        hasMore: true,
-        retryAfter,
-        sefazBlocked: data.code === 'SEFAZ_RATE_LIMIT' || data.cStat === '656',
-        xmlLookupPending: true,
-        cStat: typeof data.cStat === 'string' ? data.cStat : null,
-        error: typeof data.message === 'string'
-          ? data.message
-          : 'A SEFAZ ainda não confirmou a consulta automática do XML.',
-      },
-    };
-  }
-
-  const documentKind = data.document?.kind;
-  let persistedFullXml = false;
-  let persistedItemsCount = 0;
-  if (documentKind === 'full') {
-    const { data: savedInvoice, error: savedInvoiceError } = await db
-      .from('inbound_invoices')
-      .select('xml_conteudo,itens')
-      .eq('id', invoice.id)
-      .maybeSingle();
-    persistedFullXml = !savedInvoiceError &&
-      /<(?:[\w.-]+:)?(?:nfeProc|infNFe)\b/i.test(String(savedInvoice?.xml_conteudo || ''));
-    persistedItemsCount = Array.isArray(savedInvoice?.itens) ? savedInvoice.itens.length : 0;
-  }
-
-  const retryNeeded = documentKind !== 'full' || !persistedFullXml;
-  const { error: attemptError } = await db
-    .from('sefaz_inbound_xml_consult_attempts')
-    .upsert({
-      access_key: accessKey,
-      environment,
-      result: documentKind === 'full' && persistedFullXml
-        ? 'full_received'
-        : documentKind === 'summary' || documentKind === 'full'
-          ? 'summary'
-          : 'no_document',
-      consulted_at: new Date().toISOString(),
-    }, { onConflict: 'access_key,environment' });
-  if (attemptError) {
-    return {
-      status: 503,
-      body: {
-        success: false,
-        retryable: true,
-        hasMore: true,
-        retryAfter: await getNextDirectConsultAt(db, configuredCnpj),
-        xmlLookupPending: true,
-        error: 'A consulta terminou, mas não foi possível salvar o horário da próxima tentativa.',
-      },
-    };
-  }
-
-  const retryAfter = remainingCount > 0
-    ? await getNextDirectConsultAt(db, configuredCnpj)
-    : retryNeeded
-      ? new Date(Date.now() + INBOUND_XML_CONSULT_RETRY_INTERVAL_MS).toISOString()
-      : null;
-  return {
-    status: 200,
-    body: {
-      success: true,
-      xmlRetrieved: documentKind === 'full' && persistedFullXml,
-      xmlItemsCount: persistedItemsCount,
-      xmlLookupPending: retryNeeded,
-      cStat: typeof data.cStat === 'string' ? data.cStat : null,
-      hasMore: remainingCount > 0 || retryNeeded,
-      retryAfter,
-      message: documentKind === 'full' && persistedFullXml && persistedItemsCount > 0
-        ? `XML completo salvo na NF de entrada; ${persistedItemsCount} item(ns) foram atualizados.`
-        : documentKind === 'full' && persistedFullXml
-          ? 'XML completo salvo na NF de entrada, mas nenhum item foi extraído para a lista.'
-          : documentKind === 'full'
-            ? 'A SEFAZ devolveu o XML completo, mas não foi possível confirmar a gravação na NF de entrada.'
-        : documentKind === 'summary'
-          ? 'A SEFAZ ainda retornou somente o resumo. O sistema tentará consultar novamente em 15 minutos.'
-          : 'A SEFAZ ainda não disponibilizou o XML completo. O sistema tentará consultar novamente em 15 minutos.',
-    },
-  };
-}
-
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
@@ -457,12 +304,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (automatic) {
     const candidates: any[] = [];
-    const xmlCandidates: any[] = [];
     let foundEligible = false;
     let batchEnvironment: number | null = null;
-    let xmlConsultTrackingAvailable = true;
-    let nextXmlConsultRetryAt: string | null = null;
-    for (let offset = 0; candidates.length < 20 && xmlCandidates.length < 20; offset += 100) {
+    for (let offset = 0; candidates.length < 20; offset += 100) {
       const { data: summaries, error: summariesError } = await db
         .from('inbound_invoices')
         .select('id,chave_acesso,modelo,ambiente,destinatario_cnpj,status_sefaz,xml_conteudo,data_emissao')
@@ -501,40 +345,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (previousEventsError)
           return res.status(503).json({ success: false, error: 'Não foi possível confirmar se já existe uma Ciência registrada.' });
 
-        const attemptedKeys = new Set((previousEvents || []).map((event: any) => `${event.access_key}:${event.environment}`));
-        let previousConsults: any[] = [];
-        if (xmlConsultTrackingAvailable) {
-          const consultResult = await db
-            .from('sefaz_inbound_xml_consult_attempts')
-            .select('access_key,environment,consulted_at')
-            .in('access_key', candidateKeys);
-          if (consultResult.error) {
-            const consultError = consultResult.error;
-            const consultTableMissing = ['42P01', 'PGRST205'].includes(consultError.code || '') ||
-              (/sefaz_inbound_xml_consult_attempts/i.test(consultError.message || '') &&
-                /(does not exist|could not find|not found)/i.test(consultError.message || ''));
-            if (!consultTableMissing)
-              return res.status(503).json({ success: false, error: 'Não foi possível conferir as consultas automáticas de XML já realizadas.' });
-            xmlConsultTrackingAvailable = false;
-          } else {
-            previousConsults = consultResult.data || [];
-          }
-        }
-
+        const attemptedKeys = new Set((previousEvents || []).map((event: any) => event.access_key + ':' + event.environment));
         const pending = autoScienceEnabled
           ? eligible.filter((invoice: any) =>
-            !attemptedKeys.has(`${normalizeFiscalIdentifier(invoice.chave_acesso)}:${Number(invoice.ambiente)}`)
+            !attemptedKeys.has(normalizeFiscalIdentifier(invoice.chave_acesso) + ':' + Number(invoice.ambiente))
           )
           : [];
-        const pendingXml = xmlConsultTrackingAvailable
-          ? selectPendingInboundXmlConsults(eligible, previousEvents || [], previousConsults)
-          : [];
-        xmlCandidates.push(...pendingXml.slice(0, 20 - xmlCandidates.length));
-        const nextRetryAt = xmlConsultTrackingAvailable
-          ? getNextInboundXmlConsultRetryAt(eligible, previousEvents || [], previousConsults)
-          : null;
-        if (nextRetryAt && (!nextXmlConsultRetryAt || Date.parse(nextRetryAt) < Date.parse(nextXmlConsultRetryAt)))
-          nextXmlConsultRetryAt = nextRetryAt;
         if (batchEnvironment === null && pending.length)
           batchEnvironment = Number(pending[0].ambiente);
         candidates.push(...pending
@@ -544,44 +360,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (candidates.length >= 20 || summaries.length < 100) break;
     }
-    if (!candidates.length && xmlCandidates.length) {
-      const consultation = await consultNextRegisteredSummary(
-        db,
-        configuredCnpj,
-        xmlCandidates[0],
-        xmlCandidates.length - 1,
-      );
-      return res.status(consultation.status).json(consultation.body);
-    }
-
-    if (!candidates.length && nextXmlConsultRetryAt) {
-      return res.status(200).json({
-        success: true,
-        skipped: true,
-        hasMore: true,
-        retryAfter: nextXmlConsultRetryAt,
-        xmlLookupPending: true,
-        message: 'A consulta do XML está aguardando o intervalo automático de 15 minutos.',
-      });
-    }
-
-    if (!candidates.length && foundEligible && !xmlConsultTrackingAvailable)
-      return res.status(409).json({
-        success: false,
-        retryable: false,
-        xmlLookupPending: true,
-        error: 'Consulta automática do XML pausada: falta aplicar a migration sefaz_inbound_xml_consult_tracking no Supabase operacional. A Ciência automática continua disponível; a busca do XML será retomada após a criação da tabela de controle.',
-      });
 
     if (!candidates.length)
       return res.status(200).json({
         success: true,
         skipped: true,
         message: !autoScienceEnabled
-          ? 'A Ciência automática está desativada; a busca do XML continua para notas que já têm Ciência registrada.'
+          ? 'A Ciência automática está desativada. A sincronização mantém os dados da NF-e e a chave de acesso; obtenha o XML completo no Portal da NF-e e importe-o manualmente.'
           : foundEligible
-          ? 'As notas resumo elegíveis já possuem tentativa de Ciência ou consulta automática de XML registrada.'
-          : 'Nenhuma nota resumo elegível para Ciência automática.',
+            ? 'As notas resumo elegíveis já possuem Ciência registrada. Obtenha o XML completo no Portal da NF-e e importe-o manualmente para carregar os itens.'
+            : 'Nenhuma nota resumo elegível para Ciência automática.',
       });
 
     const pfxBase64 = process.env.NFE_CERTIFICATE_BASE64;

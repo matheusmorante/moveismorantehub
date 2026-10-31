@@ -39,13 +39,13 @@ export const STOCK_MODULES: StockModuleItem[] = [
   },
   {
     key: 'invoices',
-    title: 'NF Entrada',
-    description: 'Notas fiscais recebidas',
+    title: 'Nota Fiscal de Entrada',
+    description: 'NF Recebidas',
     Icon: FileText,
   },
   {
     key: 'receipts',
-    title: 'Recebimentos',
+    title: 'Recebimentos de Mercadorias',
     description: 'Conferência de mercadorias recebidas',
     Icon: PackageCheck,
   },

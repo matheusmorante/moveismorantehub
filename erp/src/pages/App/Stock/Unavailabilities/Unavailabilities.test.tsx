@@ -41,7 +41,7 @@ vi.mock('@/pages/utils/supabaseConfig', () => {
 });
 
 vi.mock('@/pages/utils/stockUnavailabilityService', () => ({
-  STOCK_UNAVAILABILITIES_PAGE_SIZE: 30,
+  STOCK_UNAVAILABILITIES_PAGE_SIZE: 15,
   createStockUnavailability: vi.fn(),
   fetchStockUnavailabilities: vi.fn(),
   undoStockUnavailability: vi.fn(),

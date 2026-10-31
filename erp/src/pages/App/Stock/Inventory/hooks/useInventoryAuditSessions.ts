@@ -12,6 +12,7 @@ import type { InventoryAuditSession } from '../types/inventoryAudit.types';
 import { readSnapshot } from '../utils/inventorySnapshotUtils';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { mapInventoryMoveFromDB } from '@/pages/utils/inventoryService/inventoryMapper';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import {
   deleteWebInventoryDraft,
   listWebInventoryDrafts,
@@ -181,7 +182,12 @@ export const useInventoryAuditSessions = () => {
   };
 
   const deleteDraft = async (session: InventoryAuditSession) => {
-    if (!window.confirm(`Excluir a contagem #${session.inventoryCode}?`)) return;
+    if (!await requestConfirmation({
+      title: 'Excluir contagem em andamento?',
+      message: `Deseja excluir a contagem #${session.inventoryCode}?`,
+      confirmLabel: 'Excluir contagem',
+      type: 'danger',
+    })) return;
     try {
       if (session.markerMoveId) await deleteInventoryMove(session.markerMoveId, false, true);
       await deleteWebInventoryDraft(session.id);
@@ -286,7 +292,7 @@ export const useInventoryAuditSessions = () => {
           date: marker.date,
           status: snapshot.status,
           items: snapshot.items,
-          productsCount: snapshot.items.length,
+          productsCount: snapshot.items.filter((item) => typeof item.physicalCount === 'number').length,
           adjustmentsCount,
           reversedCount,
           hasStages: snapshot.hasStages,

@@ -4,6 +4,7 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { postCampaignDeleteFormSchema } from '../../../../../../../shared-utils/postManagerFormSchemas';
 import { marketingCampaignFormSchema } from '../../../../../../../shared-utils/campaignFormSchemas';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import type { z } from 'zod';
 
 type Props = {
@@ -67,7 +68,12 @@ export function CampaignManagerModal({
     try { await deleteForm.validateAndRun({ id }, async (values) => {
       if (!active.current) return false;
       const selected = campaigns.find((item) => item.id === values.id); if (!selected) throw new Error('A campanha selecionada mudou. Atualize a lista.');
-      if (!window.confirm('Excluir a campanha "' + selected.name + '"?')) return false;
+      if (!await requestConfirmation({
+        title: 'Excluir campanha?',
+        message: `Excluir a campanha "${selected.name}"?`,
+        confirmLabel: 'Excluir campanha',
+        type: 'danger',
+      })) return false;
       await onRemove(values.id); return true;
     }, (errors) => setSaveError(Object.values(flattenFormErrors(errors))[0])); }
     catch (error) { if (active.current) setSaveError(error instanceof Error ? error.message : 'Não foi possível excluir a campanha.'); }

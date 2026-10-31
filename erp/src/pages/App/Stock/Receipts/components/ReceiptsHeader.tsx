@@ -39,7 +39,7 @@ export const ReceiptsHeader: React.FC<ReceiptsHeaderProps> = ({
 }) => {
   return (
     <>
-      <header className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <header className="mb-4 flex min-h-[56px] flex-col sm:flex-row sm:items-center justify-between gap-3 py-2">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-600/20">
             <i className="bi bi-box-seam text-lg" />

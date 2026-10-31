@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelAssetFormSchema, customLabelAssetFormSchema, labelAssetQueueFormSchema } from '../../../../../../../shared-utils/labelDesignFormSchemas';
 import { catalogSelectionFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
@@ -116,11 +117,16 @@ export const useLabelModalsAndAssets = ({
 
   const handleDeleteAvailableLogo = async (id: string) => {
     if (locked.current) return false;
-    return runOwned((current, fail) => selectionForm.validateAndRun({ id }, (values) => {
+    return runOwned((current, fail) => selectionForm.validateAndRun({ id }, async (values) => {
       if (!current()) return false;
       if (!availableLogos.some((logo) => logo.id === values.id)) throw new Error('Logotipo não encontrado. Reabra a biblioteca.');
       if (['logo_mdf_std', 'logo_morante_std'].includes(values.id)) throw new Error('Este logotipo padrão permanece disponível. Remova apenas imagens que você adicionou.');
-      if (!window.confirm('Excluir este logotipo do seu banco de imagens?') || !current()) return false;
+      if (!await requestConfirmation({
+        title: 'Excluir logotipo?',
+        message: 'Este logotipo será removido do seu banco de imagens.',
+        confirmLabel: 'Excluir logotipo',
+        type: 'danger',
+      }) || !current()) return false;
       const updated = availableLogos.filter((logo) => logo.id !== values.id);
       if (saveAvailableLabelLogos(updated) !== true) throw new Error('Não foi possível gravar a remoção neste dispositivo.');
       setAvailableLogos(updated); toast.info('Imagem removida do banco.'); return true;
@@ -184,10 +190,15 @@ export const useLabelModalsAndAssets = ({
 
   const handleDeleteCustomLabel = async (id: string) => {
     if (locked.current) return false;
-    return runOwned((current, fail) => selectionForm.validateAndRun({ id }, (values) => {
+    return runOwned((current, fail) => selectionForm.validateAndRun({ id }, async (values) => {
       if (!current()) return false;
       if (!customLabels.some((label) => label.id === values.id)) throw new Error('Rótulo não encontrado. Reabra a biblioteca.');
-      if (!window.confirm('Excluir este rótulo permanentemente?') || !current()) return false;
+      if (!await requestConfirmation({
+        title: 'Excluir rótulo permanentemente?',
+        message: 'Este rótulo será removido da sua biblioteca.',
+        confirmLabel: 'Excluir rótulo',
+        type: 'danger',
+      }) || !current()) return false;
       const updated = customLabels.filter((label) => label.id !== values.id);
       if (saveCustomLabels(updated) !== true) throw new Error('Não foi possível gravar a remoção neste dispositivo.');
       setCustomLabels(updated); toast.info('Rótulo removido.'); return true;

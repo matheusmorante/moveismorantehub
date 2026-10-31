@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import type { default as VariationType, CharacteristicGroup } from '../../types/variation.type';
 import { normalizeSearchTerm } from '../../utils/textUtils';
 import { getVariationErrorMessage, saveCharacteristicOptions } from '../../utils/variationService';
@@ -98,7 +99,12 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
   };
 
   const handleDeleteGroup = async (group: CharacteristicGroup) => {
-    if (!window.confirm(`Excluir o grupo "${group.name}"?`)) return;
+    if (!await requestConfirmation({
+      title: 'Excluir grupo?',
+      message: `Excluir o grupo "${group.name}"?`,
+      confirmLabel: 'Excluir grupo',
+      type: 'danger',
+    })) return;
     try {
       await deleteCharacteristicGroup(group.id);
       await refetchGroups();

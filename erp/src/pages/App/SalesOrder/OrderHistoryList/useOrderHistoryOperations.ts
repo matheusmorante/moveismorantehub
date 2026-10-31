@@ -11,6 +11,7 @@ import { getFulfillmentLabels } from '@/pages/utils/orderStatusPresentation';
 import { processOrderCancellationFiscalEffects } from '@/pages/utils/nfe/nfeService';
 import { canUndoFulfillment } from '@/pages/utils/orderStatusTransitionRules';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 interface OrderHistoryOperationsParams {
   orders: Order[];
@@ -47,11 +48,12 @@ export const createOrderHistoryOperations = ({
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (
-      window.confirm(
-        'Certeza que deseja excluir DEFINITIVAMENTE este pedido? Esta ação não pode ser desfeita.'
-      )
-    ) {
+    if (await requestConfirmation({
+      title: 'Excluir pedido permanentemente?',
+      message: 'Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir pedido',
+      type: 'danger',
+    })) {
       await permanentDeleteOrder(id);
       toast.success('Pedido excluído permanentemente.');
       refresh();
@@ -95,11 +97,12 @@ export const createOrderHistoryOperations = ({
 
   const handleBulkPermanentDelete = async () => {
     if (selectedOrders.length === 0) return;
-    if (
-      window.confirm(
-        `Certeza que deseja excluir DEFINITIVAMENTE ${selectedOrders.length} pedido(s)? Esta ação não pode ser desfeita.`
-      )
-    ) {
+    if (await requestConfirmation({
+      title: 'Excluir pedidos permanentemente?',
+      message: `Deseja excluir definitivamente ${selectedOrders.length} pedido(s)? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Excluir pedidos',
+      type: 'danger',
+    })) {
       setLoading(true);
       try {
         await Promise.all(selectedOrders.map((id) => permanentDeleteOrder(id)));
@@ -280,10 +283,12 @@ export const createOrderHistoryOperations = ({
         String(order.orderIndex || order.orderNumber || order.id),
         {
           ...(documentId ? { documentId } : {}),
-          confirmProduction: () =>
-            window.confirm(
-              'Confirmo o reprocessamento do cancelamento fiscal desta nota em Produção na SEFAZ.'
-            ),
+          confirmProduction: () => requestConfirmation({
+            title: 'Confirmar cancelamento fiscal em Produção?',
+            message: 'Esta ação reprocessará o cancelamento fiscal desta nota na SEFAZ de Produção.',
+            confirmLabel: 'Confirmar cancelamento fiscal',
+            type: 'danger',
+          }),
         }
       );
       if (result.action === 'reconcile') {

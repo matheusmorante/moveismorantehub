@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ChevronDown, Plus, Search, X } from 'lucide-react-native';
+import { ChevronDown, Search, X } from 'lucide-react-native';
 import { styles } from './purchasesScreen.styles';
 
 interface PurchasesScreenHeaderProps {
@@ -11,7 +11,6 @@ interface PurchasesScreenHeaderProps {
   supplierName: string;
   onOpenSupplierModal: () => void;
   onClearSupplier: () => void;
-  onNewPurchase: () => void;
 }
 
 export const PurchasesScreenHeader: React.FC<PurchasesScreenHeaderProps> = ({
@@ -22,20 +21,9 @@ export const PurchasesScreenHeader: React.FC<PurchasesScreenHeaderProps> = ({
   supplierName,
   onOpenSupplierModal,
   onClearSupplier,
-  onNewPurchase,
 }) => {
   return (
     <View>
-      <View style={[styles.pageHeader, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-        <View>
-          <Text style={[styles.pageTitle, { color: colors.text }]}>Pedidos de compra</Text>
-          <Text style={[styles.pageSubtitle, { color: colors.muted }]}>Produtos e variações</Text>
-        </View>
-        <TouchableOpacity style={styles.newButton} onPress={onNewPurchase}>
-          <Plus size={17} color="#fff" />
-          <Text style={styles.newButtonText}>Novo pedido</Text>
-        </TouchableOpacity>
-      </View>
       <View
         style={[styles.filters, { backgroundColor: colors.surface, borderColor: colors.border }]}
       >

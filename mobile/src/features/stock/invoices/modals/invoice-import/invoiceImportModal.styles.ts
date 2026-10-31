@@ -9,11 +9,21 @@ export const styles = StyleSheet.create({
     paddingVertical: 24,
     backgroundColor: 'rgba(15, 23, 42, 0.68)',
   },
+  modalBackdropCompact: {
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
   modalCentering: {
     width: '100%',
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  modalCenteringCompact: {
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
   },
   modalCard: {
     width: '100%',
@@ -29,6 +39,16 @@ export const styles = StyleSheet.create({
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 16 },
     elevation: 18,
+  },
+  modalCardCompact: {
+    flex: 1,
+    maxWidth: '100%',
+    maxHeight: '100%',
+    flexDirection: 'column',
+    borderRadius: 0,
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   modalCardDark: { backgroundColor: '#0f172a', borderColor: '#334155' },
   header: {

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import {
   fetchVariations,
   getVariationErrorMessage,
@@ -31,11 +32,12 @@ export const useVariations = () => {
     const variation = variations.find((candidate) => candidate.id === id);
     if (!variation || isFactoryDefaultCharacteristicName(variation.name)) return;
 
-    if (
-      window.confirm(
-        `Excluir "${variation.name}"? Se estiver vinculada a produtos, ela será desativada e os valores existentes serão preservados.`
-      )
-    ) {
+    if (await requestConfirmation({
+      title: 'Excluir característica?',
+      message: `Excluir "${variation.name}"? Se estiver vinculada a produtos, ela será desativada e os valores existentes serão preservados.`,
+      confirmLabel: 'Excluir',
+      type: 'warning',
+    })) {
       try {
         const result = await moveToTrash(id);
         toast.success(

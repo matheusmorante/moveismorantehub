@@ -1,10 +1,16 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, type ReactNode } from 'react';
 import {
+  Modal,
+  Pressable,
+  StyleSheet,
   View,
   Text,
   FlatList,
   ActivityIndicator,
+  TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
+import { ClipboardList, MoreVertical } from 'lucide-react-native';
 import { FixedPageSlots } from '../../../../components/shared/FixedPageSlots';
 import { InventoryCard } from '../components/inventory-card/InventoryCard';
 import { useInventory } from '../hooks/useInventory';
@@ -21,7 +27,7 @@ interface Props {
   isDarkMode: boolean;
   userProfile?: any;
   onBack: () => void;
-  renderHeader: () => React.ReactElement;
+  renderHeader: (rightAction?: ReactNode) => React.ReactElement;
 }
 
 export const InventoryScreen: React.FC<Props> = ({
@@ -31,9 +37,13 @@ export const InventoryScreen: React.FC<Props> = ({
 }) => {
   const { sessions, loading, loadingMore, loadMore, reload } = useInventory(userProfile?.id);
   const listRef = useRef<FlatList<any>>(null);
+  const menuAnchorRef = useRef<View>(null);
+  const { width: viewportWidth } = useWindowDimensions();
   const [periodDays, setPeriodDays] = useState(30);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const [isNewInventoryMenuVisible, setIsNewInventoryMenuVisible] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 16 });
+  const pageSize = 15;
 
   const {
     showCount,
@@ -77,6 +87,35 @@ export const InventoryScreen: React.FC<Props> = ({
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
   };
 
+  const openNewInventoryMenu = () => {
+    menuAnchorRef.current?.measureInWindow((x, y, width, height) => {
+      setMenuPosition({
+        top: y + height + 4,
+        right: Math.max(8, viewportWidth - x - width),
+      });
+      setIsNewInventoryMenuVisible(true);
+    });
+  };
+
+  const newInventoryMenuTrigger = (
+    <View ref={menuAnchorRef} collapsable={false}>
+      <TouchableOpacity
+        style={styles.menuTrigger}
+        onPress={openNewInventoryMenu}
+        accessibilityRole="button"
+        accessibilityLabel="Mais opções de inventário"
+        accessibilityHint="Abre as ações disponíveis para inventários"
+      >
+        <MoreVertical size={19} color={isDarkMode ? '#cbd5e1' : '#475569'} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const handleStartNewInventory = () => {
+    setIsNewInventoryMenuVisible(false);
+    startNewInventory();
+  };
+
   if (showCount) {
     return (
       <InventoryAuditFlow
@@ -108,14 +147,13 @@ export const InventoryScreen: React.FC<Props> = ({
           ) : null
         }
         renderItem={({ item }) => {
-          if (item.type === 'MODULE_HEADER') return renderHeader();
+          if (item.type === 'MODULE_HEADER') return renderHeader(newInventoryMenuTrigger);
           if (item.type === 'PAGE_HEADER') {
             return (
               <InventoryScreenPageHeader
                 isDarkMode={isDarkMode}
                 periodDays={periodDays}
                 onCyclePeriod={handleCyclePeriod}
-                onStartNewInventory={startNewInventory}
               />
             );
           }
@@ -175,6 +213,34 @@ export const InventoryScreen: React.FC<Props> = ({
         onApplyAdjustments={handleApplyAdjustments}
         onDeleteDraft={handleDeleteDraft}
       />
+      <Modal
+        visible={isNewInventoryMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsNewInventoryMenuVisible(false)}
+      >
+        <View style={styles.menuOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setIsNewInventoryMenuVisible(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Fechar menu de inventário"
+          />
+          <View style={[styles.actionMenu, isDarkMode && styles.actionMenuDark, menuPosition]}>
+            <TouchableOpacity
+              style={styles.actionMenuItem}
+              onPress={handleStartNewInventory}
+              accessibilityRole="button"
+              accessibilityLabel="Novo inventário"
+            >
+              <ClipboardList size={17} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
+              <Text style={[styles.actionMenuText, isDarkMode && styles.actionMenuTextDark]}>
+                Novo inventário
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       {viewDetailsSession && (
         <InventoryDetailsModal
           session={viewDetailsSession}

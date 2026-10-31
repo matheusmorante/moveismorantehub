@@ -5,7 +5,7 @@ import { styles } from './inventoryReview.styles';
 
 interface InventoryReviewSummaryCardProps {
   countedCount: number;
-  totalCount: number;
+  hasUncountedItems: boolean;
   adjustmentsCount: number;
   surface: string;
   border: string;
@@ -17,7 +17,7 @@ interface InventoryReviewSummaryCardProps {
 
 export const InventoryReviewSummaryCard: React.FC<InventoryReviewSummaryCardProps> = ({
   countedCount,
-  totalCount,
+  hasUncountedItems,
   adjustmentsCount,
   surface,
   border,
@@ -26,8 +26,6 @@ export const InventoryReviewSummaryCard: React.FC<InventoryReviewSummaryCardProp
   muted,
   isDarkMode,
 }) => {
-  const uncountedCount = totalCount - countedCount;
-
   return (
     <>
       <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
@@ -47,7 +45,8 @@ export const InventoryReviewSummaryCard: React.FC<InventoryReviewSummaryCardProp
           </View>
           <Text style={[styles.title, { color: textPrimary }]}>Pronto para finalizar!</Text>
           <Text style={[styles.subtitle, { color: muted, textAlign: 'center' }]}>
-            Você contou {countedCount} de {totalCount} itens do escopo.
+            {countedCount}{' '}
+            {countedCount === 1 ? 'produto contado' : 'produtos contados'} neste inventário.
           </Text>
         </View>
 
@@ -58,16 +57,10 @@ export const InventoryReviewSummaryCard: React.FC<InventoryReviewSummaryCardProp
               {adjustmentsCount}
             </Text>
           </View>
-          <View style={styles.summaryRow}>
-            <Text style={{ color: muted, fontWeight: '700' }}>Itens não contados</Text>
-            <Text style={{ color: textPrimary, fontWeight: '800', fontSize: 16 }}>
-              {uncountedCount}
-            </Text>
-          </View>
         </View>
       </View>
 
-      {uncountedCount > 0 && (
+      {hasUncountedItems && (
         <View
           style={[
             styles.warningCard,
@@ -80,10 +73,10 @@ export const InventoryReviewSummaryCard: React.FC<InventoryReviewSummaryCardProp
           <AlertTriangle size={20} color="#d97706" style={{ marginTop: 2 }} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.warningTitle, { color: isDarkMode ? '#fbbf24' : '#92400e' }]}>
-              Itens não contados ({uncountedCount})
+              Itens sem contagem
             </Text>
             <Text style={[styles.warningDesc, { color: isDarkMode ? '#fde68a' : '#b45309' }]}>
-              As variações que não receberam contagem permanecerão com o saldo intacto no sistema.
+              Itens sem contagem permanecem com o saldo atual no sistema.
             </Text>
           </View>
         </View>

@@ -42,7 +42,7 @@ export const InventoryScreenEmptyState: React.FC<InventoryScreenEmptyStateProps>
         Nenhum inventário ainda
       </Text>
       <Text style={{ textAlign: 'center', color: isDarkMode ? '#94a3b8' : '#64748b' }}>
-        Toque no botão "Novo Inventário" para começar a auditar seu estoque.
+        Toque nos três pontinhos do cabeçalho e escolha "Novo inventário" para começar.
       </Text>
     </View>
   );

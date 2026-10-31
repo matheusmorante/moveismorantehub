@@ -3,6 +3,7 @@ import { ZodForm } from '@/components/forms/ZodForm';
 import { catalogNameFormSchema } from '../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import {
   createProductType,
   deleteProductType,
@@ -52,7 +53,12 @@ const ProductTypes = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja remover este tipo?')) return;
+    if (!await requestConfirmation({
+      title: 'Remover tipo de produto?',
+      message: 'Tem certeza que deseja remover este tipo?',
+      confirmLabel: 'Remover tipo',
+      type: 'danger',
+    })) return;
 
     try {
       await deleteProductType(id);

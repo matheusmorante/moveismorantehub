@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { whatsappGraphService, WhatsAppProduct } from '../../utils/whatsappGraphService';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { syncFromWhatsApp } from '@/pages/utils/productService';
 
 export default function WhatsAppMarketplace() {
@@ -77,11 +78,12 @@ export default function WhatsAppMarketplace() {
   };
 
   const handleSyncAll = async () => {
-    if (
-      !window.confirm(
-        `Deseja tentar sincronizar as fotos e textos dos ${products.length} produtos do WhatsApp com os correspondentes no ERP?`
-      )
-    )
+    if (!await requestConfirmation({
+      title: 'Sincronizar catálogo do WhatsApp?',
+      message: `Deseja tentar sincronizar as fotos e textos dos ${products.length} produtos do WhatsApp com os correspondentes no ERP?`,
+      confirmLabel: 'Sincronizar',
+      type: 'warning',
+    }))
       return;
 
     setLoading(true);

@@ -93,7 +93,7 @@ def base(section, title, subtitle=''):
     c.line(M, 36, W - M, 36)
     c.setFillColor(MUTED)
     c.setFont('Segoe', 8)
-    c.drawString(M, 23, 'Operação do ERP  |  Edição ilustrada  |  29/10/2026')
+    c.drawString(M, 23, f'Operação do ERP  |  Edição ilustrada  |  {GUIDE.get("lastUpdated", "29/10/2026")}')
     c.setFont('SegoeBold', 9)
     c.setFillColor(NAVY)
     c.drawRightString(W - M, 22, str(n).zfill(2))
@@ -298,11 +298,11 @@ para('Com telas reais, ampliações, setas e exemplos de contagem.<br/>Os menus 
 
 # 02 - Navegação e mapa
 y = base('Mapa do guia', 'Onde encontrar cada operação', 'No aplicativo ou no sistema do computador, abra Estoque. O guia em PDF fica nessa lista.')
-shot('00-menu-estoque', y, width=172, max_height=447, x=M, caption='1 NF de entrada  •  2 Recebimentos<br/>3 Abrir o guia em PDF')
+shot('00-menu-estoque', y, width=172, max_height=447, x=M, caption='1 Nota Fiscal de Entrada  •  2 Recebimentos<br/>3 Abrir o guia em PDF')
 xx, ww = M + 195, TW - 195
 yy = y
 for title, body in [
-    ('NF de entrada', 'Localizar a nota, importar o arquivo XML e associar os produtos.'),
+    ('Nota Fiscal de Entrada', 'Localizar a nota, importar o arquivo XML e associar os produtos.'),
     ('Recebimentos', 'Conferir a mercadoria recebida e confirmar a entrada.'),
     ('Pedidos de compra', 'Registrar o que foi comprado; isso ainda não coloca os produtos no estoque.'),
     ('Inventário', 'Contar o estoque físico e revisar diferenças.'),
@@ -379,40 +379,40 @@ for n, title, body in [
 y = note('Se algo não estiver conforme', 'Avise a equipe responsável e não confirme quantidades incorretas. Só registre indisponibilidade quando separar a unidade e tirá-la do estoque disponível; veja as páginas 25 e 26.', y, fill=AMBER)
 
 # 04 - Lista de NF
-y = base('02 / NF de entrada', 'Localize a nota antes de importar', 'Estoque > NF de entrada. A lista mostra até 15 notas por página no ERP e no app. Use os controles abaixo para ver as próximas; pesquise e confira o período para evitar duplicidade.')
+y = base('02 / NF de entrada', 'Localize a nota antes de importar', 'No app: Estoque > Nota Fiscal de Entrada (NF Recebidas). No ERP: Estoque > NF de entrada. A lista mostra até 15 notas por página. Use os controles abaixo para ver as próximas; pesquise e confira o período para evitar duplicidade.')
 y = shot('01-nf-entrada-header', y, max_height=75, caption='1 No menu de três pontinhos, selecione Importar.')
 y = shot('01-nf-entrada', y, max_height=210, crop=(0, 220, 1380, 500), caption='2 Vinculações pendentes  •  3 XML incompleto. Dados comerciais foram ocultados.')
 y = table(['O que aparece', 'O que fazer'], [
-    ['<b>XML incompleto</b>', 'Os produtos ainda não aparecem. Abra esse rótulo e importe o arquivo XML completo.'],
-    ['<b>Vinculações Pendentes</b>', 'Abra o rótulo para associar o fornecedor e cada produto ao cadastro correto.'],
+    ['<b>NF incompleta / Obter XML</b>', 'Antes de vincular produtos ou gerar recebimento, use esse rótulo para importar o XML completo atualizado do Portal da NF-e.'],
+    ['<b>Vinculações Pendentes</b>', 'Fornecedores convencionais: abra para vincular. Salvados: status normal da NF e selo azul “Vinculação não se aplica”; toque no i para ver o motivo.'],
     ['<b>Disponível</b>', 'Confira os itens e os vínculos antes de gerar o recebimento. Esse status, sozinho, não significa entrada no saldo.'],
 ], y, widths=[145, TW - 145], size=10)
-y = para('Se a nota não aparecer, confira a busca e amplie o período de emissão. Se já tiver o XML, use Importar no menu de três pontinhos.', y, size=10.8)
-y = note('Confira o destinatário e evite duplicidade', 'Toda nota recebida em que sua empresa aparece como destinatária deve estar nesta lista. Se já estiver, não importe novamente. Se aparecer como XML incompleto, siga o rótulo para completar. Notas cadastradas não podem ser excluídas.', y, fill=MINT)
+y = para('Abra a nota e consulte as abas Resumo, Participantes, Itens e Fiscal. Se não aparecer, confira busca e período. NFs automáticas sem itens ou valores precisam do XML completo do Portal: use Obter XML.', y, size=10.8)
+y = note('Confira o destinatário e evite duplicidade', 'Toda NF recebida em que sua empresa é destinatária deve constar aqui. Confira antes de importar. Se incompleta, use Obter XML. Notas cadastradas não podem ser excluídas.', y, fill=MINT)
 
 # 05 - Importar
 y = base('02 / NF de entrada', 'Importe o arquivo XML da nota', 'O XML é o arquivo digital da nota com os dados dos produtos. O DANFE é a versão impressa; foto ou PDF dele não substitui o XML para importar os itens.')
 y = shot('02-importar-xml', y, width=TW, max_height=325, caption='1 Escolha ou arraste o arquivo  •  2 Consulta pelo portal, se você ainda precisa obter o XML.')
 y = step(1, 'Abra a opção de importar', 'No app e no ERP, toque nos três pontinhos do cabeçalho e em Importar. Para consultar no Portal, use Chave de Acesso; escanear não importa os produtos.', y)
-y = step(2, 'Escolha ou arraste o arquivo XML', 'A importação começa ao escolher o arquivo. Aguarde a mensagem do sistema antes de continuar.', y)
+y = step(2, 'Escolha ou arraste o arquivo XML', 'No ERP, arraste o XML sobre a lista. Solte quando aparecer o painel azul para importar; clique no fundo azul para cancelar. No app, escolha o XML pelo seletor do aparelho. Aguarde a mensagem do sistema antes de continuar.', y)
 y = step(3, 'Confira a mensagem do sistema', 'Nota nova: ela será adicionada. Nota já cadastrada com dados faltando: será completada. XML igual ao já salvo: o sistema avisará que não houve mudança.', y)
 y = note('Importar não é receber', 'Depois de importar, abra <b>Gerenciar vínculos</b>. A nota pode estar completa e ainda precisar de fornecedor e produtos vinculados.', y, fill=MINT)
 
 # 06 - XML incompleto
 y = base('02 / NF de entrada', 'Complete a nota com o XML', 'Use o arquivo XML completo para incluir os produtos que faltam na nota.')
 y = shot('03-xml-incompleto', y, width=TW, max_height=250, crop=(0, 275, 576, 225), caption='2 Selecione o XML completo da mesma nota.')
-y = step(1, 'Obtenha o XML completo', 'Se ainda não tem o arquivo, clique em Consultar no Portal ou peça o XML ao fornecedor.', y)
+y = step(1, 'Obtenha o XML completo', 'Na nota incompleta, clique em Obter XML. No Portal da NF-e, consulte a chave e baixe o XML completo mais recente; depois importe o arquivo nesta mesma nota.', y)
 y = step(2, 'Importe o arquivo na mesma nota', 'Selecione ou arraste o XML no campo Arquivo XML da NF-e.', y)
 y = step(3, 'Confira e associe os produtos', 'Verifique se os itens aparecem e, em seguida, vincule o fornecedor e os produtos que entrarão no estoque. Marque “Não se aplica” nas demais linhas.', y)
-y = note('Ciência sem confirmação', 'Se aparecer “Comunicação sem confirmação”, consulte o Histórico Fiscal antes de tentar registrar a Ciência novamente. O envio pode ter sido processado mesmo sem uma resposta na tela.', y, fill=AMBER)
+y = note('Ciência sem confirmação', 'Se aparecer “Comunicação sem confirmação”, consulte o Histórico Fiscal antes de tentar registrar a Ciência novamente. O envio pode ter sido processado mesmo sem uma resposta na tela. A SEFAZ também pode exigir uma Ciência aceita para liberar o XML no Portal.', y, fill=AMBER)
 
 # 07 - Vínculos
 y = base('03 / Vínculos', 'Associe a nota aos cadastros corretos', 'Abra Gerenciar vínculos em Vinculações Pendentes ou nos três pontinhos. Aguarde o carregamento da nota e dos vínculos antes de editar.')
 y = shot('04-gerenciar-vinculos', y, max_height=290, caption='1 Fornecedor  •  2 seletor de modo à esquerda; Cadastro rápido ao lado, sem fundo ou borda  •  3 gerar recebimento. “Não se aplica” preserva a NF e ignora o item no estoque.')
-y = shot('04b-fornecedor', y, max_height=65, caption='Ampliação do campo de fornecedor. Digite pelo menos duas letras para pesquisar.')
-y = step(1, 'Associe o fornecedor correto', 'Compare o Emitente da NF-e e escolha o cadastro correto. A escolha fica igual no ERP e no app. Para trocar, remova os vínculos existentes. Use Novo fornecedor se faltar cadastro. Fornecedores exclusivos de Salvados ficam fixos em “Não se aplica”: não exigem vínculo de produto e não geram recebimento nem movimentação de estoque.', y)
+y = shot('04b-fornecedor', y, max_height=65, caption='Ampliação do campo de fornecedor. Quando estiver bloqueado, clique ou toque para consultar o motivo.')
+y = step(1, 'Associe o fornecedor correto', 'Compare o Emitente e escolha o fornecedor correspondente. Se o campo estiver bloqueado, clique ou toque nele para consultar o motivo. Para trocar, desvincule todos os produtos antes. Use Novo fornecedor se necessário. Fornecedores exclusivos de Salvados ficam em “Não se aplica” e não geram recebimento nem movimentação de estoque.', y)
 y = step(2, 'Encontre o produto antes de criar outro', 'Pesquise por nome ou código. A lista mostra apenas variações disponíveis, mesmo ao buscar pelo nome do produto principal. Confira cor, medida ou modelo. Variações já vinculadas não aparecem. Marque “Não se aplica” para deixar a linha fora do estoque.', y)
-y = step(3, 'Aguarde a confirmação do salvamento', 'Os dados são salvos automaticamente. Aguarde “Salvando e confirmando vínculos...”. Se não houver confirmação, reabra Gerenciar vínculos para conferir a nota antes de tentar novamente.', y)
+y = step(3, 'Aguarde a confirmação do salvamento', 'Os dados são salvos automaticamente. Aguarde “Salvando e confirmando vínculos...”. Após a confirmação, as abas atualizam a lista. Se não houver confirmação, reabra Gerenciar vínculos e confira o resultado.', y)
 
 # 08 - Cadastro rápido
 y = base('03 / Vínculos', 'Cadastro rápido: escolha o tipo certo', 'Abra Cadastro rápido na linha do item em Gerenciar vínculos quando não encontrar um produto correspondente. Pesquise primeiro para evitar outro cadastro igual.')
@@ -484,11 +484,11 @@ y = step(2, 'Clique em Gerar recebimento', 'O formulário abre com fornecedor, i
 y = note('Ainda falta a conferência final', 'Gerar recebimento apenas prepara o formulário. Revise a entrega física e as despesas e use <b>Confirmar recebimento</b> para efetivar a entrada.', y, fill=MINT)
 
 # 11 - Receber caminhos
-y = base('04 / Recebimentos', 'Escolha o caminho de recebimento', 'Estoque > Recebimentos > Receber Mercadoria.')
-y = shot('06-opcoes-recebimento', y, max_height=220, caption='As três opções separam a origem dos dados. A confirmação final continua sendo feita no recebimento.')
-y = step(1, 'Com nota fiscal de entrada', 'Use NF-e com XML completo. Resumos e notas incompletas não aparecem; conclua o XML pela lista NF de entrada (pág. 7). Fornecedores exclusivos de Salvados não geram recebimento: as notas ficam em NF de entrada, com todos os itens fixos em “Não se aplica”, sem vínculo de produto ou movimentação de estoque. Os demais fornecedores aparecem neste seletor; conclua os vínculos antes de gerar o recebimento.', y)
-y = step(2, 'Com pedido de compra', 'Escolha o fornecedor e o pedido desta carga. Confira os itens previstos e ajuste as quantidades para o que chegou.', y)
-y = step(3, 'Sem nota ou pedido adequado', 'Informe o fornecedor, os produtos, as quantidades recebidas e os custos disponíveis.', y)
+y = base('04 / Recebimentos', 'Escolha o caminho de recebimento', 'ERP: Receber Mercadoria. App: três pontinhos > Novo.')
+y = shot('06-opcoes-recebimento', y, max_height=220, caption='Escolha uma das três origens. A entrada é registrada ao confirmar o recebimento.')
+y = step(1, 'Sem nota fiscal', 'Selecione o fornecedor, a data de chegada e as variações. Informe as quantidades e o custo unitário de cada item.', y)
+y = step(2, 'Com nota fiscal de entrada', 'ERP e app oferecem o mesmo filtro por data de emissão: Mês Atual, Mês Anterior, Este Ano, Ano Passado, Outro Mês ou Intervalo Personalizado. No app, toque em Período para escolher. Após selecionar a nota, o app usa o fornecedor vinculado à NF. Na etapa seguinte, escolha no calendário a data em que a mercadoria chegou; o campo mostra DD/MM/AAAA. Só aparecem NF-e completas de fornecedores com origem Normal e vínculos concluídos; notas de Salvados ficam fora. No app, entradas anteriores são descontadas e linhas “Não se aplica” ficam fora do estoque.', y)
+y = step(3, 'Com pedido de compra', 'Selecione o pedido desta carga. Confira os itens e os custos preenchidos e ajuste as quantidades para o que chegou.', y)
 y = note('O pedido não substitui o recebimento', 'Mesmo que o pedido esteja como Atendido ou tenha sido conferido, registre a entrada em Recebimentos.', y, fill=AMBER)
 
 # 12 - Recebimento
@@ -496,13 +496,13 @@ y = base('04 / Recebimentos', 'Revise o formulário antes de confirmar', 'Fornec
 y = shot('17-recebimento-campos', y, max_height=235, caption='Detalhe do formulário: 1 fornecedor  •  2 data do recebimento. Exemplo vazio, sem gravar uma entrada real.')
 y = step(1, 'Confira fornecedor e data de chegada', 'Ao abrir pela nota, confira os dados carregados. Ajuste a data do recebimento para o dia em que a mercadoria chegou, não para a data em que a nota foi emitida.', y)
 y = step(2, 'Revise cada produto e a quantidade recebida', 'Confira modelo, cor ou medida, quantidade entregue e custo por unidade. Não registre o que ainda está faltando. No cadastro manual, selecione o fornecedor antes de Adicionar Item.', y)
-y = step(3, 'Registre observações e documentos úteis', 'Use as observações para explicar divergências. Anexe pedido, comprovante ou imagem quando ajudarem; a tela aceita até cinco anexos.', y)
-y = note('Rascunho não movimenta o estoque', 'Depois de selecionar o fornecedor e adicionar um item, o primeiro salvamento automático atribui um código ao rascunho. Se você excluir o rascunho, esse código fica disponível para outro recebimento. Para continuar o mesmo, abra o menu de ações na lista Recebimentos e escolha <b>Retomar</b>. Revise os dados e confirme quando estiverem corretos; não crie outro recebimento só porque já existe um rascunho.', y, fill=MINT)
+y = step(3, 'Registre observações e documentos úteis', 'Use as observações para explicar divergências. No ERP, anexe pedido, comprovante ou imagem quando ajudarem; a tela aceita até cinco anexos.', y)
+y = note('No ERP há rascunho; no app a confirmação é direta', 'No ERP, fornecedor e item iniciam um rascunho com código; use <b>Retomar</b> no menu da lista para continuar o mesmo. No app, o formulário não salva rascunho: toque <b>Confirmar recebimento</b> somente após conferir, pois a entrada é registrada nesse momento.', y, fill=MINT)
 
 # 13 - Custos
 y = base('04 / Custos', 'Frete e despesas: confira sem duplicar', 'A entrega pode ter custos fora da NF-e, como uma transportadora cobrada separadamente.')
 y = shot('18-custos-recebimento', y, max_height=270, caption='1 Desconto  •  2 Frete  •  3 Outras despesas. Selecione % ou R$ conforme o valor informado.')
-y = para('<b>Confira o que já veio da nota</b> antes de acrescentar valores. Informe apenas o frete à parte, desconto ou despesa que ainda falta considerar. Depois revise <b>Custo unitário final</b>, <b>Total do item final</b> e <b>Total final</b>.', y, size=10.6)
+y = para('<b>Confira o que já veio da nota</b> antes de acrescentar valores. Para informar frete, desconto ou despesas não fiscais adicionais, use o formulário do ERP antes de confirmar. Revise o custo unitário e o total final também no app.', y, size=10.6)
 y = table(['Exemplo simples, apenas para entender', 'Valor'], [
     ['10 unidades a R$ 100,00 de custo', 'R$ 1.000,00'],
     ['Frete separado, ainda não incluído', '+ R$ 100,00'],
@@ -573,45 +573,58 @@ y = step(1, 'Cole no volume 1 e confira a correspondência', 'Leia o produto da 
 y = step(2, 'Se não puder colar no volume 1, mantenha um padrão', 'Combine com a equipe qual caixa será a principal e use sempre essa. Etiquetas em caixas diferentes podem causar separação ou entrega incompleta.', y)
 
 # 17 - Compras
-y = base('06 / Compras', 'Pedido de compra registra o combinado', 'Estoque > Pedidos de compra > Nova Compra. Use o pedido para lembrar o que foi comprado e conferir a entrega.')
-y = shot('09-pedido-compra', y, max_height=285, caption='Tela real do pedido: fornecedor, data, impostos/despesas, anexos e itens. Confirmar Pedido não recebe mercadoria.')
-y = step(1, 'Selecione o fornecedor e a data', 'Escolha o fornecedor correto antes dos itens. Para trocar de fornecedor depois, a tela pode exigir remover os itens do pedido.', y)
-y = step(2, 'Adicione produtos, quantidades e custos previstos', 'Em Adicionar Item, selecione produto ou variação, informe Qtd e Custo unitário e use Adicionar. Confira despesas e anexos úteis.', y)
-y = step(3, 'Use Confirmar Pedido', 'O pedido registra a compra prevista. Acompanhe Em Ordem, Atendido ou Cancelado conforme a operação.', y)
-y = note('Conferir Pedido também não dá entrada', 'Essa conferência compara o pedido, a nota e o que chegou, e pode mostrar diferenças. Depois, registre a entrada em Recebimentos. O estoque não aumenta só porque o pedido ficou Atendido.', y, fill=AMBER)
+y = base('06 / Compras', 'Pedido de compra registra o combinado', 'Estoque > Pedidos de compra > menu de três pontinhos > Novo pedido. Use o pedido para lembrar o que foi comprado e conferir a entrega.')
+y = shot('09-pedido-compra', y, max_height=220, caption='Fechado: produto, quantidade em unidades e custo total; sem produto, “Produto não informado”.')
+y = step(1, 'Preencha o pedido', 'Informe fornecedor, data, desconto geral (%) antes do IPI, IPI e frete. Anexe até cinco PDFs ou imagens, se necessário. Em Adicionar Item, escolha produto, quantidade e custo unitário; o desconto por unidade (R$) reduz o custo final. Na lista compacta do ERP e no app, o item novo fica aberto; os anteriores recolhem e só um fica expandido. Para trocar produto, apague o texto no ERP ou toque no nome no app. O primeiro item fixa o fornecedor até remover todos. Pedidos incompletos ficam salvos como rascunho.', y)
+y = step(2, 'Escolha o status e edite o pedido', 'Com fornecedor e um item, o pedido fica Pendente. No card compacto do ERP, a data fica abaixo do número e o seletor de status, à esquerda dos três pontinhos. Na tabela ampla, use a coluna Status; no app, toque no status do cartão. Em rascunhos, use Retomar ou Descartar; não há troca direta de status. Marque Atendido direto de Pendente, sem Conferir Pedido. Edite Pendente ou Em Ordem em três pontinhos > Editar pedido antes de movimentar estoque; para voltar, use Voltar para Pendente. Atendido não altera estoque: registre a entrada em Recebimentos e salve em Salvar Alterações.', y)
+y = step(3, 'Descarte rascunhos e apague pedidos cancelados', 'Para descartar um rascunho salvo, abra os três pontinhos do pedido no ERP ou no app, escolha Descartar rascunho e confirme. A mesma lista permite apagar pedidos cancelados após confirmação; recebimentos já registrados são preservados e deixam de apontar para o pedido apagado.', y)
+y = note('Conferir Pedido é opcional', 'Atendido não movimenta estoque; registre a entrada em Recebimentos.', y, fill=AMBER)
 
 # 18 - Inventário inicial
-y = base('07 / Inventário', 'Defina o que será contado', 'Estoque > Inventário > Novo inventário. Escolha os produtos que entram na contagem antes de começar.')
-y = shot('10-inventario-escopo', y, max_height=180, caption='1 Estoque completo em etapas por fornecedor  •  2 Seleção personalizada de produtos ou variações.')
-y = shot('11-inventario-responsavel', y, max_height=120, caption='O nome e o check aparecem quando há responsável selecionado. No app, a pessoa elegível já fica pré-selecionada.')
-y = step(1, 'Escolha quais produtos contar', 'Só fornecedores marcados com origem Convencional aparecem no seletor; sem origem cadastrada e exclusivos de Salvados/Usados ficam fora. Estoque Completo conta produtos convencionais ativos; Seleção Personalizada também aceita só esses itens.', y)
-y = step(2, 'Escolha quem vai fazer a contagem', 'No app, o usuário logado com perfil de Administrador, Gestor ou Estoquista já fica selecionado. Para trocar, digite duas letras e escolha outro colaborador com um desses perfis. Se alguém não aparecer, use Tentar sincronizar lista e confira o perfil de acesso.', y)
-y = step(3, 'Conte um, vários ou todos os fornecedores', 'Abra as etapas desejadas; a lista mostra o progresso geral. No app, o título da etapa aberta mostra só o nome do fornecedor e o progresso conta apenas os itens dele. Itens não contados não são ajustados.', y)
-y = note('Duplicar inventário', 'Cada código identifica uma contagem. Se ela já estiver em andamento, retome-a pela lista antes de criar outra. Ao duplicar, revise os produtos, quantidades e responsável; a contagem e as etiquetas antigas não são copiadas. Os botões para mudar de página ficam abaixo da lista.', y, fill=MINT)
+y = base('07 / Inventário', 'Defina o que será contado', 'No ERP e no app, abra o menu de três pontinhos no cabeçalho de Inventário e escolha Novo inventário.')
+y = table(['Modo de inventário', 'Como funciona'], [
+    ['<b>1 · Inventário Geral</b>', 'Use o scanner geral ou abra um cartão de fornecedor. Itens sem fornecedor não têm cartão; podem ser contados pelo scanner geral.'],
+    ['<b>2 · Livre: Etapas por Fornecedor</b>', 'Inicie somente os fornecedores que serão contados.'],
+    ['<b>3 · Produto específico e suas variações</b>', 'Escolha um produto pai ativo e conte somente as variações dele.'],
+    ['<b>4 · Fornecedor específico</b>', 'Abra o cartão de um fornecedor para contar somente os itens dele.'],
+], y, widths=[220, TW - 220], size=10.4)
+y = table(['Etapa', 'O que fazer'], [
+    ['<b>1 · Produto pai</b>', 'Busque e selecione um produto; o X libera a busca para trocar.'],
+    ['<b>2 · Variações</b>', 'Toque Próxima etapa para abrir as variações ativas, iniciadas em zero.'],
+], y, widths=[180, TW - 180], size=10.2)
+y = step(1, 'Escolha o escopo', 'Use produtos convencionais ativos. Produtos identificados como teste, Salvados e Usados ficam fora de todos os modos de inventário.', y)
+y = step(2, 'Escolha quem vai fazer a contagem', 'No app, uma pessoa elegível já fica selecionada. No ERP, escolha o responsável autorizado.', y)
+y = step(3, 'Abra a contagem', 'Modo Livre: o cartão mostra 0 produtos considerados antes de iniciar e todos ao iniciar. Toque em Iniciar ou Retomar; o scanner fica na etapa. Fornecedor específico: toque no cartão. No Geral, use o scanner inicial ou abra um cartão. Nos modos em zero, o cabeçalho mostra produtos para contar; zero não confirma a conferência.', y)
+y = note('Voltar, cancelar ou duplicar', 'Cancelar inventário apaga a contagem e volta aos tipos; no ERP amplo, use o botão, e no app ou telas menores, o menu de três pontinhos. No Livre, Cancelar etapa limpa só aquela etapa. Ao sair com contagens no app, escolha Continuar contando ou Voltar ao escopo; no app instalado, há também Fechar inventário. Ao duplicar, revise itens e responsável; a contagem não é copiada.', y, fill=MINT)
 
 # 19 - Contagem
-y = base('07 / Inventário', 'Conte os produtos que encontrou', 'A contagem começa vazia. Use +/-, digite a quantidade ou leia a etiqueta QR correspondente ao produto.')
-y = shot('14-contagem-manual', y, max_height=315, caption='Exemplo didático: 1 filtros  •  2 quantidade contada  •  3 zero  •  4 campo vazio. Os dados não são de uma contagem real.')
+y = base('07 / Inventário', 'Conte os produtos que encontrou', 'No modo Livre e em Fornecedor específico, os itens vazios do fornecedor iniciado contam como zero. Em Produto específico e suas variações, cada variação ativa começa em zero. No Geral, o scanner fica na tela inicial; os cartões abrem somente fornecedores associados.')
+y = note('Lista de contagem', 'No ERP e no app, confira os cartões dos itens sem barra de busca ou filtros. Use os botões de diminuir e aumentar ou digite a quantidade no campo Contado.', y, fill=PALE)
+y = table(['No cartão', 'O que conferir'], [
+    ['<b>Produto</b>', 'Confira o nome e a variação antes de registrar a quantidade.'],
+    ['<b>Sistema e Ajuste</b>', 'Compare o saldo registrado e a diferença apresentada.'],
+    ['<b>Contado</b>', 'Informe a quantidade encontrada usando os botões ou o campo.'],
+], y, widths=[165, TW - 165], size=10.2)
 y = table(['Campo Contado', 'Significado'], [
     ['<b>4</b>', 'Você contou quatro unidades do produto completo.'],
     ['<b>0</b>', 'Você contou e não encontrou nenhuma unidade. Pode gerar ajuste para zero após a revisão.'],
-    ['<b>Vazio</b>', 'Este item ainda não foi contado. Não equivale a zero e o saldo não deve ser zerado por isso.'],
+    ['<b>Vazio</b>', 'No Livre ou Fornecedor específico, equivale a zero. Em Produto específico e suas variações, todas começam em zero ao tocar Próxima etapa. No Geral, sem contagem não gera ajuste.'],
 ], y, widths=[130, TW - 130], size=10.2)
-y = note('Scanners do inventário geral', 'Use Escanear inventário completo para aceitar todos os itens. Na etapa, Escanear este fornecedor aceita somente os produtos daquele fornecedor; ao ler outro, volte à etapa correta ou use o scanner geral. O QR pode ser lido em qualquer ponto da imagem. Cada QR contabilizado soma uma unidade e toca um bipe de cerca de 80 ms. Em leituras simultâneas, os beeps começam com pelo menos 20 ms entre si e podem se sobrepor. A contagem não espera o áudio nem outras gravações. QR duplicado, ignorado ou fora do escopo não toca. Produtos sem fornecedor ficam fora das etapas; o visor mostra o total e as duas últimas leituras.', y, fill=MINT)
+y = note('Produto específico e suas variações', 'Selecione um produto pai ativo e toque Próxima etapa. O cabeçalho mostra o pai; conte suas variações ativas, que começam em zero, pelos controles ou pelo scanner na própria tela.', y, fill=MINT)
 
 # 20 - Revisão inventário
 y = base('07 / Inventário', 'Revise as diferenças antes de concluir', 'Compare Esperado (saldo no sistema), Contado (quantidade encontrada) e Ajuste (diferença que será aplicada). Reconte o que parecer errado.')
 y = table(['Exemplo', 'Esperado', 'Contado', 'Ajuste'], [
     ['Guarda-roupa', '5', '4', '-1 unidade'],
     ['Mesa', '3', '0', '-3 unidades'],
-    ['Cômoda não contada', '2', 'Vazio', 'Sem ajuste'],
+    ['Produto sem contagem', '2', 'Fora da revisão', 'Sem ajuste'],
 ], y, widths=[205, 90, 90, TW - 385], size=10.5)
-y = para('Os números são exemplos. O sistema considera as entradas e saídas feitas durante a contagem; confira a revisão atual, não só o saldo que aparecia no começo. Só itens com contagem numérica entram no ajuste: etapas não abertas e itens vazios ficam como estão. Zero digitado é uma contagem válida.', y, size=11)
+y = para('Os números são exemplos. O sistema considera entradas e saídas durante a contagem; confira a revisão atual. No modo Livre, só entram fornecedores iniciados e itens vazios viram zero. Em Fornecedor específico, só entra o fornecedor aberto; vazios também viram zero. Em Produto específico e suas variações, entram somente as variações ativas do produto escolhido, iniciadas em zero. No Inventário Geral, itens sem contagem ficam como estão.', y, size=11)
 y = step(1, 'Reconte o que estiver diferente', 'Confira se o produto está em outro local, se houve entrada ou saída durante a contagem e se todas as caixas desse móvel foram verificadas.', y)
-y = step(2, 'Volte à contagem se precisar corrigir', 'Use Voltar para contagem quando encontrar erro. Não conclua um ajuste apenas para eliminar a pendência da tela.', y)
+y = step(2, 'Volte à contagem se precisar corrigir', 'Use Voltar para contagem quando encontrar erro. Confirme somente quantidades que foram verificadas.', y)
 y = step(3, 'Conclua depois da revisão', 'Só pessoas autorizadas podem finalizar inventários. Se o botão estiver indisponível, peça ajuda a um Gestor ou Estoquista autorizado. Use a conta com que iniciou a confirmação; ela pode ser diferente da pessoa responsável pela contagem. Aguarde a mensagem de sucesso e confira o status.', y)
 y = table(['Status ou ação', 'O que significa na rotina'], [
-    ['Em andamento / Continuar inventário', 'No aparelho em que começou, entre com a mesma conta para continuar. A contagem offline em andamento aparece somente para essa conta.'],
+    ['Em andamento / Retomar inventário', 'No aparelho em que começou, entre com a mesma conta e escolha Retomar inventário, identificado pelo ícone de play. A contagem offline em andamento aparece somente para essa conta.'],
     ['Aguardando envio / Retomar envio', 'Retome o mesmo inventário usando a conta com que iniciou a confirmação. Se não tiver acesso a essa conta, peça ajuda a um Gestor. Não comece outra contagem.'],
     ['Concluído / Ver detalhes', 'Consulte o resultado. Se precisar desfazer algo, peça ajuda a uma pessoa autorizada.'],
 ], y, widths=[190, TW - 190], size=10)
@@ -620,14 +633,14 @@ y = table(['Status ou ação', 'O que significa na rotina'], [
 y = base('08 / Consulta do saldo', 'Descubra o que mudou no estoque', 'Estoque > Movimentações. Consulte quais operações aumentaram ou diminuíram o estoque.')
 y = shot('13-movimentacoes', y, max_height=200, caption='1 Buscar produto  •  2 Período. As descrições das operações foram ocultadas na imagem.')
 y = step(1, 'Pesquise o produto', 'Use Buscar produto e escolha o item correto. Ajuste o período: uma entrada antiga pode não aparecer no mês atual.', y)
-y = step(2, 'Confira a quantidade e o resultado', 'Efetivada significa que a mudança foi registrada. Estornada significa que ela foi desfeita. Confira qual operação gerou a mudança.', y)
+y = step(2, 'Confira a quantidade e o resultado', 'Efetivada foi registrada; Estornada foi desfeita. Para corrigir, use o documento de origem. Ao salvar um pedido de venda já movimentado, mudar apenas o preço não altera o estoque; um acréscimo gera uma saída de ajuste. Redução, troca ou remoção estornam as saídas anteriores do item e, quando necessário, geram uma nova saída.', y)
 y = table(['Tipo', 'Como interpretar'], [
     ['Entrada', 'Acrescenta unidades ao saldo conforme a operação de origem.'],
     ['Saída', 'Retira unidades do saldo conforme a operação de origem.'],
     ['Ajuste', 'Corrige a quantidade do estoque, por exemplo, após uma contagem.'],
 ], y, widths=[110, TW - 110], size=10.6)
-y = note('Confira onde a mudança começou', 'Se a mudança veio de um recebimento, abra esse recebimento. Se veio de inventário ou indisponibilidade, abra esse registro. A lista de Produtos não serve para corrigir o estoque diretamente. Em produto composto, confira também os produtos que formam o conjunto.', y, fill=MINT)
-y = para('<b>Listas paginadas:</b> no ERP, escolha a quantidade por página e use as setas ou números. Ao mudar filtros, a lista volta à primeira página. No app, use os números abaixo da lista.', y, size=9.7, leading=13.5, gap=0)
+y = note('Confira onde a mudança começou', 'Abra o recebimento, inventário ou registro de indisponibilidade que originou a mudança. A lista de Produtos não corrige o estoque; em produtos compostos, confira também as peças.', y, fill=MINT)
+y = para('<b>Listas paginadas:</b> no ERP e no app, cada página mostra até 15 registros. Use as setas ou números abaixo da lista para avançar; não há seletor de quantidade. Ao mudar filtros, a lista volta à primeira página.', y, size=9.7, leading=13.5, gap=0)
 
 # 24 - Avarias e indisponibilidades
 y = base('09 / Indisponibilidades', 'Registre só o que sai do estoque', 'Avaria, por si só, não é indisponibilidade. Use o registro quando separar a unidade e ela deixar de estar disponível para venda ou uso.')

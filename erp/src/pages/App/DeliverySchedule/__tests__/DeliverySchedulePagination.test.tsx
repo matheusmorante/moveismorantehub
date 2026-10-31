@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import DeliverySchedule from '../index';
@@ -38,21 +38,16 @@ vi.mock('../../SalesOrder/modals/AssistanceOrderModal', () => ({ default: () => 
 
 afterEach(cleanup);
 
-describe('DeliverySchedule pagination', () => {
-  it('paginates scheduled orders across dates while keeping pending orders available', async () => {
+describe('DeliverySchedule', () => {
+  it('renders all scheduled orders across dates without pagination and keeps pending orders available', () => {
     render(<MemoryRouter initialEntries={['/delivery-schedule']}><DeliverySchedule /></MemoryRouter>);
     expect(screen.getByText('2026-10-26: first-1')).toBeTruthy();
     expect(screen.getByText('2026-10-27: second-5')).toBeTruthy();
-    expect(screen.queryByText('2026-10-27: second-6')).toBeNull();
-    expect(screen.getByText('pending')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Página 2' }));
-    expect(screen.queryByText('2026-10-26: first-1')).toBeNull();
     expect(screen.getByText('2026-10-27: second-6')).toBeTruthy();
-    expect(screen.getByText('pending')).toBeTruthy();
-
-    fireEvent.change(screen.getByRole('combobox', { name: 'Registros por página' }), { target: { value: '30' } });
-    await waitFor(() => expect(screen.getByText('2026-10-26: first-1')).toBeTruthy());
     expect(screen.getByText('2026-10-27: second-9')).toBeTruthy();
+    expect(screen.getByText('pending')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Página 2' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Registros por página' })).toBeNull();
+    expect(screen.queryByText('15 por página')).toBeNull();
   });
 });

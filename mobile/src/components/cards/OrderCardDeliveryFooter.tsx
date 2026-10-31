@@ -3,41 +3,129 @@ import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import { Truck, MapPin, AlertTriangle, CheckCircle2, PackageCheck } from 'lucide-react-native';
 import { getFulfillmentLabels } from '../../features/orders/domain/orderStatusPresentation';
 
+const FULFILLED_ORDER_STATUSES = new Set([
+  'fulfilled',
+  'atendido',
+  'delivered',
+  'entregue',
+  'retirado',
+  'completed',
+  'concluido',
+  'concluído',
+]);
+const FULFILLED_DELIVERY_STATUSES = new Set(['completed', 'delivered', 'entregue', 'retirado']);
+const ACTIVE_DELIVERY_STATUSES = new Set([
+  'in_service',
+  'arrived',
+  'preparing',
+  'unattended',
+  ...FULFILLED_DELIVERY_STATUSES,
+  'in_progress',
+  'in_transit',
+  'in-transit',
+  'out_for_delivery',
+  'out-for-delivery',
+  'em_transito',
+  'em_rota',
+  'em rota',
+  'em_entrega',
+  'em entrega',
+]);
+const TRANSIT_DELIVERY_STATUSES = new Set([
+  'in_progress',
+  'in_transit',
+  'in-transit',
+  'out_for_delivery',
+  'out-for-delivery',
+  'em_transito',
+  'em_rota',
+  'em rota',
+  'em_entrega',
+  'em entrega',
+]);
+
 interface Props {
   order: any;
   dark?: boolean;
   onPress?: () => void;
+  onlyActiveStages?: boolean;
 }
 
-export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress }) => {
+export const OrderCardDeliveryFooter: React.FC<Props> = ({
+  order,
+  dark,
+  onPress,
+  onlyActiveStages = false,
+}) => {
   const data = order.order_data || order;
   const shipping = data.shipping || {};
-  const status = String(order.status || data.status || '').toLowerCase();
-  const pickup = /pickup|retirada/.test(
-    String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase()
-  );
+  const status = String(order.status || data.status || '').trim().toLowerCase();
+  const legacyDeliveryStatus = data.deliveryStatus || order.delivery_status;
+  const pickup =
+    /pickup|retirada/.test(
+      String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase()
+    ) ||
+    /pickup|retirada/.test(
+      String(order.task_type || data.taskType || order.taskType || '').toLowerCase()
+    );
 
-  const deliveryStatus = data.deliveryStatus || order.delivery_status;
-  const isFulfilled =
-    ['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(status) ||
-    deliveryStatus === 'completed';
-  const isInService =
-    !isFulfilled && (deliveryStatus === 'in_service' || Boolean(data.deliveryServiceStartedAt));
-  const isInArrival =
-    !isFulfilled &&
-    (deliveryStatus === 'arrived' || Boolean(data.deliveryArrivedAt)) &&
-    !isInService;
-  const isInTransit =
-    !isFulfilled &&
-    (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) &&
-    !isInArrival &&
-    !isInService;
-  const isUnattended = deliveryStatus === 'unattended';
-  const isPreparing = deliveryStatus === 'preparing';
+  const deliveryStatus = String(
+    data.deliveryStatus || order.deliveryStatus || order.delivery_status || ''
+  )
+    .trim()
+    .toLowerCase();
+  const isAgendaFulfilled =
+    FULFILLED_ORDER_STATUSES.has(status) ||
+    FULFILLED_DELIVERY_STATUSES.has(deliveryStatus) ||
+    Boolean(data.deliveryFinishedAt || order.deliveryFinishedAt || order.delivery_finished_at);
+  const canUseAgendaTimestamps = !ACTIVE_DELIVERY_STATUSES.has(deliveryStatus);
+  const agendaStage = (() => {
+    if (isAgendaFulfilled || pickup) return null;
+    if (deliveryStatus === 'in_service') return 'service';
+    if (deliveryStatus === 'arrived') return 'arrival';
+    if (deliveryStatus === 'preparing') return 'preparing';
+    if (TRANSIT_DELIVERY_STATUSES.has(deliveryStatus)) return 'transit';
+    if (deliveryStatus === 'unattended') return 'unattended';
+    if (!canUseAgendaTimestamps) return null;
+    if (data.deliveryServiceStartedAt || order.deliveryServiceStartedAt) return 'service';
+    if (data.deliveryArrivedAt || order.deliveryArrivedAt) return 'arrival';
+    if (data.deliveryStartedAt || order.deliveryStartedAt) return 'transit';
+    if (data.deliveryPreparationStartedAt || order.deliveryPreparationStartedAt) return 'preparing';
+    return null;
+  })();
+
+  // A Agenda mostra somente etapas ativas; as demais telas mantêm o rodapé original.
+  const isFulfilled = onlyActiveStages
+    ? isAgendaFulfilled
+    : ['fulfilled', 'atendido', 'delivered', 'entregue', 'retirado'].includes(status) ||
+      legacyDeliveryStatus === 'completed';
+  const isInService = onlyActiveStages
+    ? agendaStage === 'service'
+    : !isFulfilled &&
+      (legacyDeliveryStatus === 'in_service' || Boolean(data.deliveryServiceStartedAt));
+  const isInArrival = onlyActiveStages
+    ? agendaStage === 'arrival'
+    : !isFulfilled &&
+      (legacyDeliveryStatus === 'arrived' || Boolean(data.deliveryArrivedAt)) &&
+      !isInService;
+  const isInTransit = onlyActiveStages
+    ? agendaStage === 'transit'
+    : !isFulfilled &&
+      (legacyDeliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) &&
+      !isInArrival &&
+      !isInService;
+  const isUnattended = onlyActiveStages
+    ? agendaStage === 'unattended'
+    : legacyDeliveryStatus === 'unattended';
+  const isPreparing = onlyActiveStages
+    ? agendaStage === 'preparing'
+    : legacyDeliveryStatus === 'preparing';
+  const shouldShowActiveStage = !pickup && (isInTransit || isInService || isPreparing);
+  const shouldAnimate = isInTransit || isInService || (onlyActiveStages && isPreparing);
   const shimmer = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (isInTransit || isInService) {
+    if (shouldAnimate) {
       const loop = Animated.loop(
         Animated.timing(shimmer, {
           toValue: 1,
@@ -48,7 +136,9 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
       loop.start();
       return () => loop.stop();
     }
-  }, [isInTransit, isInService, shimmer]);
+  }, [shouldAnimate, shimmer]);
+
+  if (onlyActiveStages && !shouldShowActiveStage) return null;
 
   if (pickup && !isFulfilled) return null;
 
@@ -123,7 +213,7 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({ order, dark, onPress 
       activeOpacity={onPress ? 0.8 : 1}
       style={[styles.container, { backgroundColor: config.bgColor }]}
     >
-      {(isInTransit || isInService) && (
+      {shouldAnimate && (
         <View style={StyleSheet.absoluteFill}>
           <View style={{ flex: 1, overflow: 'hidden', borderRadius: 12 }}>
             <Animated.View

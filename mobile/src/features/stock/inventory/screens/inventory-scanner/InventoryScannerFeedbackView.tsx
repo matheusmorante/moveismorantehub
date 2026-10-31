@@ -9,8 +9,6 @@ interface InventoryScannerFeedbackViewProps {
   unitsRead: number;
   productsReadCount: number;
   countedCount?: number;
-  totalCount?: number;
-  progressPercent?: number;
   scanned: boolean;
   onClose: () => void;
 }
@@ -21,8 +19,6 @@ export const InventoryScannerFeedbackView: React.FC<InventoryScannerFeedbackView
   unitsRead,
   productsReadCount,
   countedCount,
-  totalCount,
-  progressPercent,
   scanned,
   onClose,
 }) => {
@@ -67,12 +63,11 @@ export const InventoryScannerFeedbackView: React.FC<InventoryScannerFeedbackView
         </View>
       ))}
       <Text style={[styles.footerText, styles.footerTextInventory]}>{description}</Text>
-      {countedCount !== undefined && totalCount !== undefined && progressPercent !== undefined ? (
+      {countedCount !== undefined ? (
         <View style={styles.sessionStatsRow}>
           <Text style={styles.sessionStat}>
-            {countedCount} / {totalCount} produtos contados
+            {countedCount} {countedCount === 1 ? 'produto contado' : 'produtos contados'}
           </Text>
-          <Text style={styles.sessionStat}>{progressPercent}%</Text>
         </View>
       ) : (
         <View style={styles.sessionStatsRow}>

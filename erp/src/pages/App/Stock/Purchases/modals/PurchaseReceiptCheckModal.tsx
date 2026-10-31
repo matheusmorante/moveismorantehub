@@ -1,5 +1,6 @@
 import React from 'react';
 import Purchase from '../../../../types/purchase.type';
+import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
 import QRScannerModal from '@/components/shared/QRScannerModal';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import { formatToBRDate } from '../../../../utils/formatters';
@@ -68,7 +69,7 @@ export const PurchaseReceiptCheckModal: React.FC<PurchaseReceiptCheckModalProps>
               3-Way Match: Conferência de Compra
             </h2>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-200 mt-1">
-              Pedido #{purchase.id?.slice(-4)} • {purchase.supplierName} •{' '}
+              Pedido #{formatPurchaseNumber(purchase.purchaseNumber) || purchase.id?.slice(-4)} • {purchase.supplierName} •{' '}
               {formatToBRDate(purchase.date)}
             </p>
           </div>

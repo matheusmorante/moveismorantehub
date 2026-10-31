@@ -128,6 +128,37 @@ describe('Validação de Publicação no Catálogo Digital', () => {
       .toContain('Profundidade total');
   });
 
+  it('não exige peso nem características de portas no Catálogo mesmo com metadados legados obrigatórios', () => {
+    const product: Partial<Product> = {
+      id: 'product-legacy-category-requirements',
+      name: 'Mesa de Jantar',
+      description: 'Mesa de jantar em madeira',
+      status: 'hidden',
+      unitPrice: 1200,
+      images: ['https://example.com/mesa.jpg'],
+      categoryIds: ['cat-mesas'],
+      width: 160,
+      height: 80,
+      depth: 90,
+      technicalValues: { Marca: 'Morante', 'Modelo/Linha': 'Dora' },
+    };
+    const requirements = ['Peso', 'Quantidade de portas', 'Tipo de portas', 'Material das portas'].map((name) => ({
+      id: `legacy-${name}`,
+      name,
+      active: true,
+      requiredForCategory: true,
+      requiredCategoryIds: ['cat-mesas'],
+      requiredProductCategoryIds: ['cat-mesas'],
+      categoryIds: ['cat-mesas'],
+      categoryApplications: [{ categoryId: 'cat-mesas', application: 'required' as const }],
+    }));
+
+    const result = validateCatalogPublication(product as Product, undefined, false, requirements);
+
+    expect(result.isValid).toBe(true);
+    expect(result.errorMessage).toBeUndefined();
+  });
+
   it('aplica a obrigatoriedade de categoria somente à publicação no Catálogo Digital', () => {
     const product: Partial<Product> = {
       id: 'prod-category-required',

@@ -12,6 +12,7 @@ import { LoginScreen } from './src/components/LoginScreen';
 import { PendingApprovalScreen } from './src/components/PendingApprovalScreen';
 import { MandatoryUpdateModal } from './src/components/modals/MandatoryUpdateModal';
 import { PasswordSetupModal } from './src/components/modals/PasswordSetupModal';
+import { WebAlertHost } from './src/components/modals/WebAlertHost';
 
 import { useExpoAutoUpdate } from './src/hooks/useExpoAutoUpdate';
 import { useMandatoryAppUpdate } from './src/hooks/useMandatoryAppUpdate';
@@ -85,6 +86,7 @@ const AppContent = () => {
         onCreatePassword={createPasswordCredential}
         onLogout={handleLogout}
       />
+      <WebAlertHost isDarkMode={isDarkMode} />
     </View>
   );
 };

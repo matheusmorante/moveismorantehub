@@ -14,9 +14,11 @@ import InventoryReviewModal from '../modals/InventoryReviewModal';
 import { useInventoryAuditWorkflow } from '../hooks/useInventoryAuditWorkflow';
 import { getVariationDisplayName } from '@/components/productAutocompleteUtils';
 import { useAuth } from '@/context/AuthContext';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { canPerform } from '@/pages/utils/permissionService';
 import {
   getInventorySupplierIds,
+  isInventoryVariationEligible,
   isInventoryProductEligible,
 } from '../domain/inventoryScopeEligibility';
 
@@ -27,8 +29,12 @@ interface InventoryAuditModalProps {
   readonly editingSession?: InventoryAuditSession | null;
 }
 
-export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = (props) => props.isOpen
-  ? <InventoryAuditEditor {...props} key={JSON.stringify([props.editingSession?.id || 'new', props.copiedItems])} /> : null;
+export const InventoryAuditModal: React.FC<InventoryAuditModalProps> = (props) => {
+  useBodyScrollLock(props.isOpen);
+  return props.isOpen
+    ? <InventoryAuditEditor {...props} key={JSON.stringify([props.editingSession?.id || 'new', props.copiedItems])} />
+    : null;
+};
 
 const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
   isOpen,
@@ -50,6 +56,9 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
     draftRef,
     handleConfirmScope,
     handleFinalize,
+    startSupplierStage,
+    resetSupplierStage,
+    discardInventory,
     incrementScannedItem,
     catalogSyncedAt,
     saveDraft,
@@ -91,9 +100,12 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
   };
 
   const handleUpdateItemProduct = (itemId: string, product: Product, variation?: Variation) => {
-    if (!isInventoryProductEligible(product, suppliers)) {
+    if (
+      !isInventoryProductEligible(product, suppliers) ||
+      (variation && !isInventoryVariationEligible(variation))
+    ) {
       setManualProductError(
-        'Produtos Salvados e Usados e fornecedores exclusivos desses itens não entram no inventário.'
+        'Produtos de teste, Salvados e Usados e fornecedores exclusivos desses itens não entram no inventário.'
       );
       return;
     }
@@ -195,6 +207,9 @@ const InventoryAuditEditor: React.FC<InventoryAuditModalProps> = ({
                 );
               }}
               onIncrementScannedItem={incrementScannedItem}
+              onStartSupplierStage={startSupplierStage}
+              onResetSupplierStage={resetSupplierStage}
+              onDiscardInventory={discardInventory}
               onAddManualItem={handleAddBlankItem}
               onUpdateItemProduct={handleUpdateItemProduct}
               onReview={() => { if (!isSaving) setView('review'); }}

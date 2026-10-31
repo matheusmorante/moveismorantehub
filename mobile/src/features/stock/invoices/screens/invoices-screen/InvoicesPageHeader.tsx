@@ -64,7 +64,7 @@ export const InvoicesPageHeader: React.FC<InvoicesPageHeaderProps> = ({
   const importMenuTrigger = (
     <View ref={menuAnchorRef} collapsable={false}>
       <TouchableOpacity
-        style={[styles.menuTrigger, isDarkMode && styles.menuTriggerDark]}
+        style={styles.menuTrigger}
         onPress={openImportMenu}
         accessibilityRole="button"
         accessibilityLabel="Mais opções de NF-e"

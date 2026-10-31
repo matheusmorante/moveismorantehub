@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getSettings, AppSettings, subscribeToSettings } from '@/pages/utils/settingsService';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import {
   agentSendFormSchema, agentResponseSchema, agentHistoryFormSchema,
@@ -349,7 +350,12 @@ export default function AIChatAssistant({
   sendRef.current = handleSendMessage;
 
   const handleClearHistory = async () => {
-    if (busyRef.current || !window.confirm('Deseja limpar o histórico da conversa com o assistente?')) return;
+    if (busyRef.current || !await requestConfirmation({
+      title: 'Limpar histórico da conversa?',
+      message: 'Deseja limpar o histórico da conversa com o assistente?',
+      confirmLabel: 'Limpar histórico',
+      type: 'warning',
+    })) return;
     busyRef.current = true; setIsLoading(true);
     const clearScope = scopeRef.current;
     try {

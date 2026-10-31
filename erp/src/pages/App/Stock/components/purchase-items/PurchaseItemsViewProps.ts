@@ -15,6 +15,7 @@ export interface PurchaseItemsViewProps {
   handleEditProductInRow: (idx: number) => void;
   handleQtyChange: (idx: number, newQty: number) => void;
   handleCostChange: (idx: number, newCost: number) => void;
+  handleDiscountChange: (idx: number, newDiscount: number) => void;
 }
 
 export interface PurchaseItemsTableProps extends PurchaseItemsViewProps {

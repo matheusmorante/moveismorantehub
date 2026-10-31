@@ -132,7 +132,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
     isProductListEnabled,
     canViewCompositions,
     isAdmin,
-    userProfile?.id ?? null,
     !loadingProfile,
   );
   const canViewLinkedProductOrders = canShowMobileLinkedProductOrders({
@@ -605,9 +604,8 @@ export const NativeProductsScreen: React.FC<Props> = ({
             </View>
           ) : productsHook.loadError && productsHook.products.length === 0 ? (
             <View style={styles.empty}>
-              <Package size={40} color="#dc2626" />
               <Text
-                style={styles.emptyText}
+                style={[styles.emptyText, { color: '#dc2626' }]}
                 accessibilityRole="alert"
                 accessibilityLiveRegion="assertive"
               >
@@ -690,7 +688,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
               itemsPerPage={productsHook.itemsPerPage}
               dark={isDarkMode}
               onPageChange={handlePageChange}
-              onItemsPerPageChange={productsHook.onItemsPerPageChange}
             />
           )}
         </ScrollView>

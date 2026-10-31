@@ -78,21 +78,24 @@ describe('technicalValues - Validação de Campos Obrigatórios', () => {
     })).not.toContain('Quantidade de portas');
   });
 
-  it('exige material dependente apenas quando a quantidade de portas for maior que zero', () => {
+  it.each(['Peso', 'Quantidade de portas', 'Tipo de portas'])(
+    'mantém %s opcional no cadastro ERP mesmo quando consta na lista legada de obrigatórios',
+    (name) => {
+      expect(getMissingRequiredTechnicalFields([name], {})).not.toContain(name);
+    }
+  );
+
+  it('mantém Material das portas opcional independentemente da quantidade de portas', () => {
     const requiredList = ['Quantidade de portas', 'Material das portas'];
 
-    expect(
-      getMissingRequiredTechnicalFields(requiredList, {
-        'Quantidade de portas': 0,
-        'Material das portas': '',
-      })
-    ).toEqual([]);
-
-    expect(
-      getMissingRequiredTechnicalFields(requiredList, {
-        'Quantidade de portas': 2,
-        'Material das portas': '',
-      })
-    ).toContain('Material das portas');
+    expect(getMissingRequiredTechnicalFields(requiredList, {})).toEqual([]);
+    expect(getMissingRequiredTechnicalFields(requiredList, {
+      'Quantidade de portas': 0,
+      'Material das portas': '',
+    })).toEqual([]);
+    expect(getMissingRequiredTechnicalFields(requiredList, {
+      'Quantidade de portas': 2,
+      'Material das portas': '',
+    })).toEqual([]);
   });
 });

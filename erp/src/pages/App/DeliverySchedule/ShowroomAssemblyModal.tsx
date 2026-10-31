@@ -6,6 +6,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { formatToBRDate } from '../../utils/formatters';
 import { Drill } from '@/components/shared/DrillIcon';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 export interface ShowroomAssembly {
   id?: string;
@@ -102,7 +103,12 @@ const ShowroomAssemblyModal = ({ onClose }: ShowroomAssemblyModalProps) => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Deseja excluir este agendamento de mostruário?')) return;
+    if (!await requestConfirmation({
+      title: 'Excluir agendamento?',
+      message: 'Deseja excluir este agendamento de mostruário?',
+      confirmLabel: 'Excluir agendamento',
+      type: 'danger',
+    })) return;
     try {
       const { error } = await supabase.from(TABLE_NAME).delete().eq('id', id);
       if (error) throw error;

@@ -69,23 +69,13 @@ export const SefazSyncStatusBadge: React.FC<SefazSyncStatusBadgeProps> = ({ onSy
               ? `Ciência registrada para ${count} NF-e; após a rejeição 656, a fila ficará pausada por 1 hora.`
               : 'Ciência automática pausada por 1 hora após a rejeição 656 da SEFAZ.'
           );
-        } else if (science.xmlRetrieved) {
-          const itemsCount = science.xmlItemsCount || 0;
-          setAutomationNotice(
-            science.message || (itemsCount
-              ? `XML completo recebido; ${itemsCount} item(ns) foram atualizados.`
-              : 'XML completo recebido e salvo na nota de entrada.')
-          );
-          onSyncSuccessRef.current?.();
-        } else if (science.xmlLookupPending) {
-          setAutomationNotice(science.message || 'Consulta automática do XML pendente; a fila respeitará o intervalo de cinco minutos por CNPJ.');
         } else if (science.success && science.processed) {
           const count = science.processedCount || 1;
           const rejected = science.rejectedCount || 0;
           setAutomationNotice(
             rejected
-              ? `Ciência registrada para ${count} NF-e; ${rejected} evento(s) foram rejeitados. A busca do XML seguirá automaticamente.`
-              : `Ciência registrada para ${count} NF-e; a busca automática do XML seguirá respeitando cinco minutos por CNPJ.`
+              ? `Ciência registrada para ${count} NF-e; ${rejected} evento(s) foram rejeitados. Para carregar os itens, importe o XML completo obtido no Portal da NF-e.`
+              : `Ciência registrada para ${count} NF-e. Para carregar os itens, importe o XML completo obtido no Portal da NF-e.`
           );
           onSyncSuccessRef.current?.();
         } else if (science.communicationUnconfirmed && science.error) {

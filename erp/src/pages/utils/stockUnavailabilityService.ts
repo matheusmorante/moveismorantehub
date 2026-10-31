@@ -3,7 +3,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { stockUnavailabilityWriteFormSchema, stockUnavailabilityAckSchema, StockUnavailabilityUnconfirmedError } from '../../../../shared-utils/stockUnavailabilityFormSchemas';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 
-export const STOCK_UNAVAILABILITIES_PAGE_SIZE = 30;
+export const STOCK_UNAVAILABILITIES_PAGE_SIZE = 15;
 
 export type UnavailabilityStatusFilter = 'all' | 'active' | 'cancelled';
 export type UnavailabilityProductKindFilter = 'all' | 'normal' | 'salvado' | 'usado';

@@ -9,6 +9,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { ExternalLink, X, UploadCloud } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -49,6 +50,8 @@ export const InvoiceImportModal: React.FC<Props> = ({
   onConsultSefaz,
   onUploadXml,
 }) => {
+  const { width } = useWindowDimensions();
+  const compactLayout = width < 600;
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? 24 : 0);
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 0);
@@ -135,13 +138,34 @@ export const InvoiceImportModal: React.FC<Props> = ({
           if (!isLoading) onClose();
         }}
       >
-        <View style={[styles.modalBackdrop, { paddingTop: topInset, paddingBottom: bottomInset }]}>
+        <View
+          style={[
+            styles.modalBackdrop,
+            compactLayout && styles.modalBackdropCompact,
+            {
+              paddingTop: compactLayout ? 0 : topInset,
+              paddingBottom: compactLayout ? 0 : bottomInset,
+            },
+          ]}
+        >
           <KeyboardAvoidingView
-            style={styles.modalCentering}
+            style={[styles.modalCentering, compactLayout && styles.modalCenteringCompact]}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            <View style={[styles.modalCard, isDarkMode && styles.modalCardDark]}>
-              <View style={[styles.header, isDarkMode && styles.headerDark]}>
+            <View
+              style={[
+                styles.modalCard,
+                compactLayout && styles.modalCardCompact,
+                isDarkMode && styles.modalCardDark,
+              ]}
+            >
+              <View
+                style={[
+                  styles.header,
+                  compactLayout && { paddingTop: 20 + topInset },
+                  isDarkMode && styles.headerDark,
+                ]}
+              >
                 <View style={styles.headerLeft}>
                   <View style={[styles.iconBox, isDarkMode && styles.iconBoxDark]}>
                     <UploadCloud size={20} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
@@ -154,7 +178,7 @@ export const InvoiceImportModal: React.FC<Props> = ({
                     </Text>
                     <Text style={[styles.subtitle, isDarkMode && styles.textMutedDark]}>
                       {summaryInvoice
-                        ? 'Consulte a nota e importe o XML completo para preencher os itens.'
+                        ? 'Baixe o XML completo atualizado no Portal da NF-e e importe-o para atualizar os itens.'
                         : 'Importe o arquivo XML da nota fiscal para conferência e entrada no estoque.'}
                     </Text>
                   </View>
@@ -233,7 +257,13 @@ export const InvoiceImportModal: React.FC<Props> = ({
                 />
               </ScrollView>
 
-              <View style={[styles.footer, isDarkMode && styles.footerDark]}>
+              <View
+                style={[
+                  styles.footer,
+                  compactLayout && { paddingBottom: 20 + bottomInset },
+                  isDarkMode && styles.footerDark,
+                ]}
+              >
                 <TouchableOpacity
                   style={[styles.cancelBtn, isDarkMode && styles.cancelBtnDark]}
                   onPress={onClose}

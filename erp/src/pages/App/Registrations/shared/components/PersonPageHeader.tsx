@@ -36,8 +36,8 @@ const PersonPageHeader: React.FC<PersonPageHeaderProps> = ({
     <div
       className={
         isSupplier || isCustomer
-          ? 'flex flex-col gap-2 border-b border-slate-100 pb-2.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between'
-          : 'flex flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-4 xl:gap-0'
+          ? 'flex min-h-[56px] flex-col gap-2 border-b border-slate-100 py-2.5 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between'
+          : 'flex min-h-[56px] flex-col xl:flex-row justify-between xl:items-center mb-6 md:mb-10 gap-4 xl:gap-0 py-2'
       }
     >
       <div className="flex items-center gap-3">

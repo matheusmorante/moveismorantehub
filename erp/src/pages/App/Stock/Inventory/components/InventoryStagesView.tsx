@@ -1,24 +1,33 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { AuditItem } from '../types/inventoryAudit.types';
 
 interface Stage {
   supplierName: string;
-  total: number;
   counted: number;
-  status: 'not_started' | 'in_progress' | 'completed';
+  total: number;
+  started: boolean;
 }
 
 interface InventoryStagesViewProps {
   readonly items: AuditItem[];
-  readonly onSelectStage: (supplierName: string) => void;
+  readonly variant?: 'stages' | 'summary' | 'selection';
+  readonly onStartStage?: (supplierName: string) => Promise<void>;
+  readonly onSelectSupplier?: (supplierName: string) => void;
   readonly onCancel?: () => void;
+  readonly summaryAction?: React.ReactNode;
 }
 
 export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
   items,
-  onSelectStage,
+  variant = 'stages',
+  onStartStage,
+  onSelectSupplier,
   onCancel,
+  summaryAction,
 }) => {
+  const [startingStage, setStartingStage] = useState<string | null>(null);
+  const [startError, setStartError] = useState('');
+
   const stages = useMemo(() => {
     const stageMap = new Map<string, Stage>();
 
@@ -27,26 +36,26 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
       if (!stageMap.has(supplier)) {
         stageMap.set(supplier, {
           supplierName: supplier,
-          total: 0,
           counted: 0,
-          status: 'not_started',
+          total: 0,
+          started: false,
         });
       }
       const stage = stageMap.get(supplier)!;
       stage.total++;
-      if (item.physicalCount !== null) {
+      if (typeof item.physicalCount === 'number') {
         stage.counted++;
+        stage.started = true;
       }
+      if (item.supplierStageStarted === true) stage.started = true;
     }
 
-    const stagesArray = Array.from(stageMap.values()).map((stage) => {
-      if (stage.counted === 0) stage.status = 'not_started';
-      else if (stage.counted === stage.total) stage.status = 'completed';
-      else stage.status = 'in_progress';
-      return stage;
-    });
+    const stagesArray = Array.from(stageMap.values());
+    for (const stage of stagesArray) {
+      if (variant === 'stages' && stage.started) stage.counted = stage.total;
+    }
 
-    // Sort: Suppliers alphabetically. Filter out 'Sem fornecedor' per user request.
+    // Items without a supplier remain available to the general scanner, not as a supplier card.
     const filteredStagesArray = stagesArray.filter(
       (stage) => stage.supplierName !== 'Sem fornecedor'
     );
@@ -55,7 +64,20 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
     });
 
     return filteredStagesArray;
-  }, [items]);
+  }, [items, variant]);
+
+  const startStage = async (supplierName: string) => {
+    if (startingStage || !onStartStage) return;
+    setStartingStage(supplierName);
+    setStartError('');
+    try {
+      await onStartStage(supplierName);
+    } catch {
+      setStartError('Não foi possível salvar o início desta etapa. Tente novamente.');
+    } finally {
+      setStartingStage(null);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -71,79 +93,92 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
         </div>
       )}
       <div className="space-y-4">
-        <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest px-2">
-          Etapas por Fornecedor ({stages.length})
-        </h3>
+        <div className={variant === 'summary' && summaryAction ? 'flex items-center justify-between gap-3' : ''}>
+          <h3 className={`text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ${variant === 'summary' && summaryAction ? 'min-w-0 flex-1' : 'px-2'}`}>
+            {variant === 'summary'
+              ? `Itens contados por fornecedor (${stages.length})`
+              : variant === 'selection'
+                ? 'Escolha o fornecedor para contar'
+                : `Livre: Etapas por Fornecedor (${stages.length})`}
+          </h3>
+          {variant === 'summary' && summaryAction}
+        </div>
+        {variant === 'selection' && (
+          <p className="px-2 -mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Abra um cartão para contar somente os produtos daquele fornecedor.
+          </p>
+        )}
+        {variant === 'stages' ? (
+          <p className="px-2 -mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Etapas não iniciadas ficam fora do ajuste. Clique em Iniciar ou Retomar para abrir a contagem; ao iniciar, campos sem quantidade valem 0.
+          </p>
+        ) : null}
+        {variant !== 'summary' && startError && <p role="alert" className="px-2 text-sm font-semibold text-rose-600">{startError}</p>}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {variant === 'selection' && stages.length === 0 && (
+            <p className="col-span-full rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+              Nenhum fornecedor com produtos disponíveis para este inventário.
+            </p>
+          )}
           {stages.map((stage) => {
-            const stagePercent =
-              stage.total > 0 ? Math.round((stage.counted / stage.total) * 100) : 0;
-            const pending = stage.total - stage.counted;
-
-            return (
-              <button
-                key={stage.supplierName}
-                onClick={() => onSelectStage(stage.supplierName)}
-                className="group flex flex-col text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-emerald-300 dark:hover:border-emerald-700/50 transition-all"
-              >
-                <div className="flex items-start justify-between mb-4 w-full">
-                  <div className="font-black text-lg text-slate-800 dark:text-slate-100 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-2 leading-tight">
+            const isLightCard = variant === 'summary' || variant === 'selection' || stage.started;
+            const cardContent = (
+              <>
+                <div className={`flex items-start justify-between w-full gap-3 ${variant === 'selection' ? '' : 'mb-4'}`}>
+                  <div className={`min-w-0 font-black text-lg line-clamp-2 leading-tight ${isLightCard ? 'text-slate-800 dark:text-slate-100' : 'text-white'}`}>
                     {stage.supplierName}
                   </div>
-                  {stage.status === 'completed' && (
-                    <i className="bi bi-check-circle-fill text-emerald-500 text-2xl shrink-0"></i>
-                  )}
-                </div>
-
-                <div className="mt-auto w-full">
-                  <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">
-                    <strong className="text-slate-700 dark:text-slate-300">{stage.counted}</strong>{' '}
-                    / {stage.total} itens
-                    {pending > 0 && (
-                      <span className="block text-amber-600 dark:text-amber-500 mt-1">
-                        {pending} pendentes
-                      </span>
-                    )}
-                    {pending === 0 && (
-                      <span className="block text-emerald-600 dark:text-emerald-500 mt-1">
-                        Concluído
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3 w-full">
-                    <div className="flex-1 bg-slate-100 dark:bg-slate-900 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-emerald-500 h-2 rounded-full transition-all"
-                        style={{ width: `${stagePercent}%` }}
-                      />
-                    </div>
-                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 min-w-[32px] text-right">
-                      {stagePercent}%
-                    </span>
-                  </div>
-
-                  <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700/50 flex justify-between items-center w-full">
-                    <span
-                      className={`text-[10px] font-black uppercase tracking-widest ${stage.status === 'not_started' ? 'text-slate-400' : stage.status === 'completed' ? 'text-emerald-500' : 'text-amber-500'}`}
+                  {variant === 'selection' ? (
+                    startingStage === stage.supplierName
+                      ? <i className="bi bi-arrow-repeat animate-spin text-blue-600" aria-hidden="true" />
+                      : <i className="bi bi-chevron-right text-slate-400" aria-hidden="true" />
+                  ) : variant === 'summary' && onSelectSupplier ? (
+                    <i className="bi bi-chevron-right text-slate-400" aria-hidden="true" />
+                  ) : variant === 'stages' ? (
+                    <button
+                      type="button"
+                      onClick={() => void startStage(stage.supplierName)}
+                      disabled={startingStage !== null}
+                      aria-label={`${stage.started ? 'Retomar' : 'Iniciar'} contagem de ${stage.supplierName}`}
+                      title={`${stage.started ? 'Retomar' : 'Iniciar'} contagem`}
+                      className={`flex min-h-10 min-w-[76px] shrink-0 items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold transition-colors disabled:opacity-60 ${stage.started ? 'bg-emerald-600 text-white' : 'bg-white text-slate-900'}`}
                     >
-                      {stage.status === 'not_started'
-                        ? 'Não iniciado'
-                        : stage.status === 'completed'
-                          ? 'Finalizado'
-                          : 'Em andamento'}
-                    </span>
-                    <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 group-hover:underline">
-                      {stage.status === 'completed'
-                        ? 'Revisar'
-                        : stage.status === 'not_started'
-                          ? 'Iniciar'
-                          : 'Continuar'}
-                      <i className="bi bi-chevron-right ml-1"></i>
-                    </span>
-                  </div>
+                      {startingStage === stage.supplierName
+                        ? <i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" />
+                        : stage.started ? 'Retomar' : 'Iniciar'}
+                    </button>
+                  ) : null}
                 </div>
+
+                {variant !== 'selection' && (
+                  <div className={`mt-auto w-full text-sm font-medium ${isLightCard ? 'text-slate-500 dark:text-slate-400' : 'text-slate-300'} ${variant === 'stages' ? 'mb-4' : ''}`}>
+                    <strong className={isLightCard ? 'text-slate-700 dark:text-slate-300' : 'text-white'}>{stage.counted}</strong>{' '}
+                    {variant === 'summary'
+                      ? stage.counted === 1 ? 'item contado' : 'itens contados'
+                      : stage.counted === 1 ? 'produto considerado' : 'produtos considerados'}
+                  </div>
+                )}
+              </>
+            );
+
+            const cardClass = `flex flex-col text-left border rounded-2xl p-5 shadow-sm transition-all ${isLightCard ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700' : 'bg-slate-950 border-slate-800 text-white'}`;
+            return variant === 'selection' || (variant === 'summary' && onSelectSupplier) ? (
+              <button
+                key={stage.supplierName}
+                type="button"
+                disabled={variant === 'selection' && startingStage !== null}
+                onClick={() => variant === 'selection'
+                  ? void startStage(stage.supplierName)
+                  : onSelectSupplier?.(stage.supplierName)}
+                aria-label={`${variant === 'selection' ? 'Abrir contagem' : 'Abrir itens'} do fornecedor ${stage.supplierName}`}
+                className={`${cardClass} w-full min-h-20 hover:border-blue-400 hover:shadow-md disabled:opacity-60`}
+              >
+                {cardContent}
               </button>
+            ) : (
+              <article key={stage.supplierName} className={cardClass}>
+                {cardContent}
+              </article>
             );
           })}
         </div>

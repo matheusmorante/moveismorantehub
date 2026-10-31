@@ -5,6 +5,7 @@ import './ProductCatalogPanel.css';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import type { Category } from '@/pages/utils/categoryService';
 import { buildProductCatalogUrl } from '../../../../shared-utils/productCatalogLinks';
 import {
@@ -513,8 +514,12 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
 
   const handlePdf = async () => {
     if (!prepared?.items.length || prepared.bulkScope) return;
-    if (prepared.items.length > PDF_LIMIT_WITH_IMAGES_NOTICE &&
-        !window.confirm(`Você selecionou ${prepared.items.length} produtos. O PDF vai baixar imagens e pode levar alguns minutos. Gerar agora?`)) return;
+    if (prepared.items.length > PDF_LIMIT_WITH_IMAGES_NOTICE && !await requestConfirmation({
+      title: 'Gerar PDF do catálogo?',
+      message: `Você selecionou ${prepared.items.length} produtos. O PDF vai baixar imagens e pode levar alguns minutos. Gerar agora?`,
+      confirmLabel: 'Gerar PDF',
+      type: 'warning',
+    })) return;
     setIsGeneratingPdf(true);
     setPdfProgress(0);
     setPreviewFeedback('');

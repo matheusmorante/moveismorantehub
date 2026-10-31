@@ -77,4 +77,12 @@ describe('Regras de Negócio e Cálculo de Saldo de Movimentações (ERP ↔ Mob
     expect(isOrderLinked(purchaseMove)).toBe(true);
     expect(getCleanObservation(purchaseMove)).toBe('Entrada gerada por Entrada do Pedido #502');
   });
+
+  it('exibe a observação de ajuste de pedido sem perder o número do pedido', () => {
+    expect(getCleanObservation({
+      relatedEntityType: 'sales_order',
+      label: 'Saída - Pedido #10045',
+      observation: JSON.stringify({ status: 'effective', note: 'Ajuste do pedido de venda #10045' }),
+    })).toBe('Ajuste do pedido de venda #10045');
+  });
 });

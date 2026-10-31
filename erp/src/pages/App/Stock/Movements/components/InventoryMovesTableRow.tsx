@@ -246,7 +246,7 @@ export const InventoryMovesTableRow: React.FC<InventoryMovesTableRowProps> = ({
             <button
               type="button"
               onClick={(e) => handleOpenMenu(e, move)}
-              className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+              className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
               title="Mais Ações"
               aria-label="Mais Ações"
               aria-haspopup="true"

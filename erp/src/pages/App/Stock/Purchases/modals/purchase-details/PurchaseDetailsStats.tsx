@@ -34,10 +34,11 @@ export const PurchaseDetailsStats: React.FC<PurchaseDetailsStatsProps> = ({
 
       <div className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col justify-center">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-          IPI & Frete
+          Desconto, IPI & Frete
         </p>
         <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mt-1.5">
-          IPI: <span className="font-extrabold">{purchase.ipiPercent || 0}%</span> • Frete:{' '}
+          Desconto: <span className="font-extrabold">{purchase.discountPercent || 0}%</span> • IPI:{' '}
+          <span className="font-extrabold">{purchase.ipiPercent || 0}%</span> • Frete:{' '}
           <span className="font-extrabold">{purchase.freightPercent || 0}%</span>
         </p>
       </div>

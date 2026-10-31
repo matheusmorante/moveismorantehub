@@ -9,6 +9,7 @@ import type {
 } from '../types/inventoryScope.types';
 import {
   getInventorySupplierIds,
+  isInventoryVariationEligible,
   isInventoryProductEligible,
 } from '../domain/inventoryScopeEligibility';
 
@@ -23,6 +24,7 @@ export const useInventoryScopeBuilder = (
   // Configs
   const [inventoryName, setInventoryName] = useState('');
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
   const [selectedResponsibleId, setSelectedResponsibleId] = useState(defaultResponsibleId);
   const [responsibleError, setResponsibleError] = useState(false);
   const [customProducts, setCustomProducts] = useState<
@@ -57,11 +59,42 @@ export const useInventoryScopeBuilder = (
     [suppliers]
   );
 
+  const eligibleProductParents = useMemo(
+    () => allProducts
+      .filter((product) =>
+        Boolean(
+          product.id &&
+          product.itemType === 'product' &&
+          product.active === true &&
+          !product.deleted &&
+          !product.isDraft &&
+          isInventoryProductEligible(product, suppliers) &&
+          product.variations?.some((variation) =>
+            isInventoryVariationEligible(variation) &&
+            variation.active === true &&
+            !variation.mergedToVariationId &&
+            !['hidden', 'draft'].includes(String(variation.status || '').toLowerCase())
+          )
+        )
+      )
+      .slice()
+      .sort((left, right) =>
+        String(left.description || left.name || '').localeCompare(
+          String(right.description || right.name || ''),
+          'pt-BR'
+        )
+      ),
+    [allProducts, suppliers]
+  );
+
   const matchingItems = useMemo(() => {
     const items: ScopeConfiguration['itemsSnapshot'] = [];
 
     const addProductVariations = (product: Product, specificVariation?: Variation) => {
-      if (!isInventoryProductEligible(product, suppliers)) return;
+      if (
+        !isInventoryProductEligible(product, suppliers) ||
+        (specificVariation && !isInventoryVariationEligible(specificVariation))
+      ) return;
       const assignedSupplier = getAssignedSupplierName(product);
       const supplierNames = getSupplierNames(product);
 
@@ -84,7 +117,9 @@ export const useInventoryScopeBuilder = (
             !['hidden', 'draft'].includes(String(specificVariation.status || '').toLowerCase()),
         });
       } else if (product.variations && product.variations.length > 0) {
-        for (const variation of product.variations.filter((item) => !item.mergedToVariationId)) {
+        for (const variation of product.variations.filter(
+          (item) => !item.mergedToVariationId && isInventoryVariationEligible(item)
+        )) {
           items.push({
             productId: String(product.id),
             variationId: String(variation.id),
@@ -118,17 +153,32 @@ export const useInventoryScopeBuilder = (
       }
     };
 
-    if (scopeType === 'full') {
+    if (scopeType === 'full' || scopeType === 'general') {
       for (const product of allProducts) {
         addProductVariations(product);
       }
-    } else if (scopeType === 'supplier' && selectedSupplierId) {
-      const supplierProducts = allProducts.filter((product) => {
-        const supplierIds = getInventorySupplierIds(product, suppliers);
-        return supplierIds.includes(String(selectedSupplierId));
-      });
+    } else if (scopeType === 'supplier') {
+      const supplierProducts = selectedSupplierId
+        ? allProducts.filter((product) => {
+            const supplierIds = getInventorySupplierIds(product, suppliers);
+            return supplierIds.includes(String(selectedSupplierId));
+          })
+        : allProducts;
       for (const product of supplierProducts) {
         addProductVariations(product);
+      }
+    } else if (scopeType === 'product') {
+      const product = eligibleProductParents.find(
+        (item) => String(item.id) === selectedProductId
+      );
+      for (const variation of product?.variations || []) {
+        if (
+          variation.active === true &&
+          !variation.mergedToVariationId &&
+          !['hidden', 'draft'].includes(String(variation.status || '').toLowerCase())
+        ) {
+          addProductVariations(product!, variation);
+        }
       }
     } else if (scopeType === 'custom') {
       for (const { product, variation } of customProducts) {
@@ -142,7 +192,9 @@ export const useInventoryScopeBuilder = (
     allProducts,
     suppliers,
     selectedSupplierId,
+    selectedProductId,
     customProducts,
+    eligibleProductParents,
     getAssignedSupplierName,
     getSupplierNames,
   ]);
@@ -153,8 +205,13 @@ export const useInventoryScopeBuilder = (
 
     // Auto-generate name
     const dateStr = new Date().toLocaleDateString('pt-BR');
-    if (type === 'full') setInventoryName(`Inventário Geral - ${dateStr}`);
-    else if (type === 'supplier') setInventoryName(`Inventário por Fornecedor`);
+    if (type === 'full') setInventoryName(`Inventário Livre: Etapas por Fornecedor - ${dateStr}`);
+    else if (type === 'general') setInventoryName(`Inventário Geral - ${dateStr}`);
+    else if (type === 'supplier') setInventoryName(`Fornecedor específico - ${dateStr}`);
+    else if (type === 'product') {
+      setSelectedProductId('');
+      setInventoryName('Produto específico e suas variações');
+    }
     else setInventoryName(`Inventário Personalizado`);
   }, []);
 
@@ -165,6 +222,9 @@ export const useInventoryScopeBuilder = (
     setInventoryName,
     selectedSupplierId,
     setSelectedSupplierId,
+    selectedProductId,
+    setSelectedProductId,
+    eligibleProductParents,
     selectedResponsibleId,
     setSelectedResponsibleId,
     responsibleError,
@@ -173,5 +233,6 @@ export const useInventoryScopeBuilder = (
     setCustomProducts,
     matchingItems,
     handleNextStep,
+    setStep,
   };
 };

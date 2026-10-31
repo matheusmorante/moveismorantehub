@@ -1,6 +1,7 @@
 import React from 'react';
 import { QueueSectionProps } from '../types/LabelPrintingSections.types';
 import LabelQueue from '../components/LabelQueue';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 export const QueueSection: React.FC<QueueSectionProps> = (props) => {
   const {
@@ -85,8 +86,13 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
               selectedCategory !== 'identificacao' &&
               activeItems.length > 0 && (
                 <button
-                  onClick={() => {
-                    if (window.confirm('Deseja limpar todos os itens da fila?')) {
+                  onClick={async () => {
+                    if (await requestConfirmation({
+                      title: 'Limpar fila de etiquetas?',
+                      message: 'Todos os itens desta fila serão removidos.',
+                      confirmLabel: 'Limpar fila',
+                      type: 'warning',
+                    })) {
                       if (selectedCategory === 'logos') setLogoItems([]);
                       else setLabelItems([]);
                     }

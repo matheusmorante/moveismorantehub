@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Check, ChevronRight, Lock, Search, X } from 'lucide-react-native';
 import type { Supplier } from './types';
 import { styles } from './inboundMappings.styles';
@@ -53,6 +53,21 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
     onSearchChange('');
   };
 
+  const showSupplierLockReason = () => {
+    if (supplierLocked) {
+      Alert.alert(
+        'Fornecedor de Salvados',
+        'Os itens desta nota permanecem em “Não se aplica” e não geram movimentação de estoque.',
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Fornecedor bloqueado',
+      'Para trocar o fornecedor da nota, desvincule primeiro todos os produtos dela.',
+    );
+  };
+
   return (
     <View style={[styles.section, isDarkMode && styles.sectionDark]}>
       <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Fornecedor</Text>
@@ -76,28 +91,22 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
           supplierId && styles.supplierSearchSelected,
           supplierId && isDarkMode && styles.supplierSearchSelectedDark,
           inputLocked && styles.supplierSearchDisabled,
+          inputLocked && styles.supplierLockedTapTargetContainer,
         ]}
       >
         <Search size={17} color="#94a3b8" />
         <TextInput
           value={searchValue}
           onChangeText={handleSearchChange}
-          placeholder={
-            supplierLocked
-              ? 'Fornecedor de Salvados fixado em “Não se aplica”.'
-              : hasMatches
-              ? 'Fornecedor fixado para os itens vinculados'
-              : 'Digite 2 ou mais letras para buscar fornecedor'
-          }
+          placeholder={inputLocked ? 'Fornecedor bloqueado' : 'Digite 2 ou mais letras para buscar fornecedor'}
           placeholderTextColor="#94a3b8"
           accessibilityLabel="Buscar fornecedor para vincular à NF-e"
           accessibilityHint={
-            supplierLocked
-              ? 'Fornecedor de Salvados: a NF não gera movimentação de estoque.'
-              : hasMatches
-              ? 'Desvincule os itens da nota antes de trocar o fornecedor.'
+            inputLocked
+              ? 'Toque no campo para ver por que o fornecedor está bloqueado.'
               : 'Digite pelo menos duas letras e selecione um resultado.'
           }
+          accessible={!inputLocked}
           editable={!inputLocked}
           returnKeyType="search"
           style={[styles.input, isDarkMode && styles.textDark]}
@@ -119,25 +128,26 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
             </>
           )
         ) : null}
+        {inputLocked ? (
+          <TouchableOpacity
+            style={styles.supplierLockedTapTarget}
+            onPress={showSupplierLockReason}
+            accessibilityRole="button"
+            accessibilityLabel="Consultar motivo do bloqueio do fornecedor"
+            accessibilityHint="Mostra por que o fornecedor não pode ser alterado."
+          />
+        ) : null}
       </View>
 
-      {supplierLocked ? (
-        <Text style={[styles.supplierSearchStatus, styles.supplierSearchLocked]}>
-          Este fornecedor fica fixo e todos os itens permanecem em “Não se aplica”, sem movimentação de estoque.
-        </Text>
-      ) : hasMatches ? (
-        <Text style={[styles.supplierSearchStatus, styles.supplierSearchLocked]}>
-          Para trocar o fornecedor, desvincule primeiro todos os produtos da nota.
-        </Text>
-      ) : supplierId ? (
+      {!inputLocked && supplierId ? (
         <Text style={[styles.supplierSearchStatus, styles.supplierSearchLinked]}>
           Fornecedor vinculado. Os produtos estão liberados.
         </Text>
-      ) : (
+      ) : !inputLocked ? (
         <Text style={styles.supplierSearchStatus}>
           Selecione o fornecedor para habilitar os vínculos dos produtos.
         </Text>
-      )}
+      ) : null}
 
       {supplierSearchLoading ? (
         <View style={styles.supplierSearchProgress}>

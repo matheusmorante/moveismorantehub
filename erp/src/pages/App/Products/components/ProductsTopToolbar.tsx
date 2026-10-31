@@ -47,7 +47,7 @@ export const ProductsTopToolbar: React.FC<ProductsTopToolbarProps> = ({
   activeOnly,
 }) => {
   return (
-    <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 sm:gap-4 px-0.5 sm:px-1">
+    <div className="flex min-h-[56px] flex-col xl:flex-row justify-between items-start xl:items-center gap-3 sm:gap-4 px-0.5 sm:px-1 py-2">
       <div className="flex flex-wrap items-center gap-2 w-full">
         {/* Search input with debounced typing and quick clear */}
         <div className="relative flex-1 min-w-[200px] max-w-md">

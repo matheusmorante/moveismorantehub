@@ -3,6 +3,7 @@ import { ZodForm } from '@/components/forms/ZodForm';
 import { catalogNameFormSchema } from '../../../../../../../shared-utils/catalogFormSchemas';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { toast } from 'react-toastify';
 
 interface BaseItem {
@@ -85,7 +86,12 @@ export default function ProductCatalogConfigSection() {
   };
 
   const handleDeleteMaterial = async (item: BaseItem) => {
-    if (!confirm(`Remover material "${item.name}"?`)) return;
+    if (!await requestConfirmation({
+      title: 'Remover material?',
+      message: `Remover material "${item.name}"?`,
+      confirmLabel: 'Remover material',
+      type: 'danger',
+    })) return;
     try {
       const { count } = await supabase
         .from('products')
@@ -103,7 +109,12 @@ export default function ProductCatalogConfigSection() {
   };
 
   const handleDeleteType = async (item: BaseItem) => {
-    if (!confirm(`Remover categoria "${item.name}"?`)) return;
+    if (!await requestConfirmation({
+      title: 'Remover categoria?',
+      message: `Remover categoria "${item.name}"?`,
+      confirmLabel: 'Remover categoria',
+      type: 'danger',
+    })) return;
     try {
       // Verificar se existem produtos usando esta categoria
       const { count } = await supabase

@@ -1,5 +1,6 @@
 import Purchase from '../../../../types/purchase.type';
 import { formatCurrency, formatToBRDate } from '../../../../utils/formatters';
+import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
 
 export function printPurchaseDocument(purchase: Purchase): void {
   const printWindow = window.open('', '_blank');
@@ -10,7 +11,7 @@ export function printPurchaseDocument(purchase: Purchase): void {
     <html>
         <head>
             <meta charset="utf-8" />
-            <title>Pedido de Compra #${purchase.purchaseNumber || purchase.id?.slice(-4)}</title>
+            <title>Pedido de Compra #${formatPurchaseNumber(purchase.purchaseNumber) || purchase.id?.slice(-4)}</title>
             <style>
                 body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px; color: #0f172a; margin: 0; }
                 .header { border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; }

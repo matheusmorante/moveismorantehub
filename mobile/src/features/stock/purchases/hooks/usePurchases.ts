@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { purchaseListFormSchema } from '../../../../../../shared-utils/listingFormSchemas';
 import { supabase } from '../../../../services/supabaseClient';
@@ -16,6 +16,7 @@ export const usePurchases = (filters: PurchaseFilters = {}) => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const realtimeReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { validateValues: validateList } = useZodForm(purchaseListFormSchema, { page, ...filters });
 
   const loadPurchases = useCallback(
@@ -58,26 +59,40 @@ export const usePurchases = (filters: PurchaseFilters = {}) => {
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore && !loading) void loadPurchases(false, page + 1);
   }, [hasMore, loading, loadingMore, loadPurchases, page]);
+  const reload = useCallback(() => {
+    if (realtimeReloadTimerRef.current) clearTimeout(realtimeReloadTimerRef.current);
+    realtimeReloadTimerRef.current = null;
+    return loadPurchases(true, 0);
+  }, [loadPurchases]);
 
   useEffect(() => {
     void loadPurchases(true, 0);
   }, [loadPurchases]);
 
   useEffect(() => {
+    const scheduleReload = () => {
+      if (realtimeReloadTimerRef.current) clearTimeout(realtimeReloadTimerRef.current);
+      realtimeReloadTimerRef.current = setTimeout(() => {
+        realtimeReloadTimerRef.current = null;
+        void loadPurchases(true, 0);
+      }, 1000);
+    };
     const channel = supabase
       .channel(`mobile-purchases-${Date.now()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'purchases' },
-        () => void loadPurchases(true, 0)
+        scheduleReload
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'purchase_items' },
-        () => void loadPurchases(true, 0)
+        scheduleReload
       )
       .subscribe();
     return () => {
+      if (realtimeReloadTimerRef.current) clearTimeout(realtimeReloadTimerRef.current);
+      realtimeReloadTimerRef.current = null;
       void supabase.removeChannel(channel);
     };
   }, [loadPurchases]);
@@ -89,6 +104,6 @@ export const usePurchases = (filters: PurchaseFilters = {}) => {
     error,
     hasMore,
     loadMore,
-    reload: () => loadPurchases(true, 0),
+    reload,
   };
 };

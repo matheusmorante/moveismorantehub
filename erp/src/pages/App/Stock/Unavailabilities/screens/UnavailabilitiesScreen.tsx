@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
@@ -25,7 +26,7 @@ export default function UnavailabilitiesPage() {
   const [unavailabilities, setUnavailabilities] = useState<StockUnavailability[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(STOCK_UNAVAILABILITIES_PAGE_SIZE);
+  const itemsPerPage = STOCK_UNAVAILABILITIES_PAGE_SIZE;
   const [statusFilter, setStatusFilter] = useState<UnavailabilityStatusFilter>('all');
   const [productKindFilter, setProductKindFilter] =
     useState<UnavailabilityProductKindFilter>('all');
@@ -70,7 +71,12 @@ export default function UnavailabilitiesPage() {
   }, [fetchPage]);
 
   const handleUndo = async (unavailabilityId: string) => {
-    if (!canManageStock || !window.confirm('Desfazer esta indisponibilidade?')) return;
+    if (!canManageStock || !await requestConfirmation({
+      title: 'Desfazer indisponibilidade?',
+      message: 'Desfazer esta indisponibilidade?',
+      confirmLabel: 'Desfazer',
+      type: 'warning',
+    })) return;
     try {
       await undoStockUnavailability(unavailabilityId);
       toast.success('Indisponibilidade desfeita.');
@@ -286,11 +292,6 @@ export default function UnavailabilitiesPage() {
         pageSize={itemsPerPage}
         totalItems={totalCount}
         onPageChange={setCurrentPage}
-        onPageSizeChange={(size) => {
-          setCurrentPage(1);
-          setItemsPerPage(size);
-        }}
-        preferenceKey="stock-unavailabilities"
         itemLabel="indisponibilidades"
         loading={isLoading}
         className="my-4"

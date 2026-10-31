@@ -7,6 +7,7 @@ import {
   isSalvadosOnlySupplier,
 } from '../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../shared-utils/inboundInvoiceSupplierRules';
+import { hasInboundItemCommercialData } from '../../../../../shared-utils/inboundInvoiceCompleteness';
 
 export const normalizeTaxId = (value: unknown) => String(value || '').replace(/\D/g, '');
 
@@ -27,8 +28,7 @@ export const mapInboundInvoiceListRow = (row: any) => {
   const items = isSalvadosOnlySupplier(supplierStockOrigins)
     ? markInboundInvoiceItemsNotApplicable(sourceItems)
     : sourceItems;
-  const isSummaryOnly =
-    items.length === 0 && Boolean(row.xml_conteudo?.includes('<resNFe') || !row.xml_conteudo);
+  const isSummaryOnly = !hasInboundItemCommercialData(items);
 
   return {
     id: row.id,

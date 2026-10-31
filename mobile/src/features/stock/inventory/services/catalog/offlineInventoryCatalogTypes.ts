@@ -1,8 +1,8 @@
 export type CatalogRow = Record<string, any>;
-export const OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION = 3 as const;
+export const OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION = 4 as const;
 
 export interface OfflineInventoryCatalog {
-  formatVersion?: 2 | typeof OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION;
+  formatVersion?: 2 | 3 | typeof OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION;
   products: Record<string, CatalogRow>;
   variations: Record<string, CatalogRow>;
   labels: Record<string, CatalogRow>;

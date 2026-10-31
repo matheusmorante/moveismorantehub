@@ -25,6 +25,9 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onSelect: (product: SearchableProduct) => void;
+  subtitle?: string;
+  supplierId?: string;
+  activeOnly?: boolean;
 }
 
 export const InventoryProductSearchModalContent: React.FC<Props> = ({
@@ -32,6 +35,9 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
   visible,
   onClose,
   onSelect,
+  subtitle = 'Selecione para adicionar à contagem',
+  supplierId,
+  activeOnly = false,
 }) => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(
@@ -40,6 +46,7 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
   );
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [products, setProducts] = useState<SearchableProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -95,8 +102,14 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
             barcode: product.barcode || '',
             stock: product.stock ?? 0,
             unit: product.unit || 'UN',
+            main_supplier_id: product.main_supplier_id ? String(product.main_supplier_id) : undefined,
+            supplier_id: product.supplier_id ? String(product.supplier_id) : undefined,
+            supplier_ids: Array.isArray(product.supplier_ids)
+              ? product.supplier_ids.map(String)
+              : [],
             supplierNames,
             assignedSupplier,
+            active: product.active !== false,
           } as SearchableProduct;
         });
 
@@ -109,16 +122,39 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
       });
   }, [visible]);
 
-  const filtered =
-    search.length < 2
-      ? products.slice(0, 30)
-      : products
-          .filter((p) =>
-            `${p.name || p.description || ''} ${p.sku || ''}`
-              .toLowerCase()
-              .includes(search.toLowerCase())
-          )
-          .slice(0, 30);
+  useEffect(() => {
+    const term = search.trim();
+    if (term.length < 3) {
+      setDebouncedSearch('');
+      return;
+    }
+
+    const timeoutId = setTimeout(() => setDebouncedSearch(term), 300);
+    return () => clearTimeout(timeoutId);
+  }, [search]);
+
+  const supplierScopedProducts = products.filter((product) => {
+    if (activeOnly && product.active === false) return false;
+    if (!supplierId) return true;
+    const supplierIds = new Set([
+      ...(product.supplier_ids || []),
+      product.main_supplier_id,
+      product.supplier_id,
+    ].filter(Boolean).map(String));
+    return supplierIds.has(supplierId);
+  });
+
+  const searchTerm = search.trim();
+  const searchReady = searchTerm.length >= 3 && searchTerm === debouncedSearch;
+  const filtered = searchReady
+    ? supplierScopedProducts
+        .filter((p) =>
+          `${p.name || p.description || ''} ${p.sku || ''}`
+            .toLocaleLowerCase('pt-BR')
+            .includes(debouncedSearch.toLocaleLowerCase('pt-BR'))
+        )
+        .slice(0, 5)
+    : [];
 
   const handleSelect = (product: SearchableProduct) => {
     onSelect(product);
@@ -139,7 +175,7 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
         <View style={[styles.header, { backgroundColor: '#7c3aed' }]}>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Buscar Produto</Text>
-            <Text style={styles.headerSubtitle}>Selecione para adicionar à contagem</Text>
+            <Text style={styles.headerSubtitle}>{subtitle}</Text>
           </View>
           <TouchableOpacity testID="close-modal-btn" onPress={onClose} style={styles.closeBtn}>
             <X size={24} color="#ffffff" />
@@ -182,13 +218,19 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
             ListEmptyComponent={
               <View style={styles.centered}>
                 <Text style={{ color: muted, textAlign: 'center' }}>
-                  {search.length > 0 ? 'Nenhum produto encontrado' : 'Digite para buscar produtos'}
+                  {searchTerm.length < 3
+                    ? 'Digite ao menos 3 caracteres para buscar produtos'
+                    : !searchReady
+                      ? 'Buscando produtos...'
+                      : 'Nenhum produto encontrado'}
                 </Text>
               </View>
             }
             renderItem={({ item }) => (
               <TouchableOpacity
                 testID="product-search-item"
+                accessibilityRole="button"
+                accessibilityLabel={`Selecionar produto ${item.name || item.description || 'Produto'}${item.sku ? `, SKU ${item.sku}` : ''}`}
                 style={[styles.productItem, { backgroundColor: surface, borderColor: border }]}
                 onPress={() => handleSelect(item)}
               >
@@ -203,9 +245,6 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
                     {item.sku ? `SKU: ${item.sku} · ` : ''}Estoque: {item.stock ?? 0}{' '}
                     {item.unit || 'UN'}
                   </Text>
-                </View>
-                <View style={styles.addBtn}>
-                  <Text style={styles.addBtnText}>+ Add</Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -250,11 +289,4 @@ const styles = StyleSheet.create({
   },
   productName: { fontSize: 15, fontWeight: '700' },
   productStock: { fontSize: 12, marginTop: 2 },
-  addBtn: {
-    backgroundColor: '#7c3aed',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  addBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 13 },
 });

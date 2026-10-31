@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createProductVariationFormSchema } from '../../../../../../../shared-utils/productVariationValidation';
 import type Person from '@/pages/types/person.type';
@@ -607,12 +608,12 @@ export function useProductFormModal({
         return;
       }
       if (!isRegisteredProduct) return;
-      if (
-        !skipConfirm &&
-        !window.confirm(
-          'Excluir esta variação permanentemente? O sistema verificará se o UUID possui vínculos antes de continuar.'
-        )
-      )
+      if (!skipConfirm && !await requestConfirmation({
+        title: 'Excluir variação permanentemente?',
+        message: 'O sistema verificará se o UUID possui vínculos antes de continuar.',
+        confirmLabel: 'Excluir variação',
+        type: 'danger',
+      }))
         return;
 
       setDeletingVariationId(variationId);

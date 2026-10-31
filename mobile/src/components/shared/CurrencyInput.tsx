@@ -73,7 +73,7 @@ export function CurrencyInput({
       return;
     }
 
-    const digitsOnly = text.replace(/\\D/g, '');
+    const digitsOnly = text.replace(/\D/g, '');
 
     if (!digitsOnly) {
       onChangeValue(null);

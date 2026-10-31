@@ -1,13 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Order from '@/pages/types/order.type';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import ShowcaseAssemblyModal from './components/ShowcaseAssemblyModal';
 import { ShowcaseAssembly, deleteShowcaseAssembly } from '@/pages/utils/showcaseAssemblyService';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { useAssemblyListQuery } from './hooks/useAssemblyListQuery';
 import AssemblyCard from './components/AssemblyCard';
 import OrderDetailsModal from '../DeliverySchedule/OrderDetailsModal';
-import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 const getLocalDateKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -21,8 +21,6 @@ const formatUpcomingDate = (dateKey: string) => {
 
 const AssemblyListPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const isStandalone = window.location.pathname.includes('/assembly-schedule');
   const hasInitialScrolled = useRef(false);
@@ -35,7 +33,12 @@ const AssemblyListPage = () => {
   const { assemblies, loading, refetchAssemblies } = useAssemblyListQuery();
 
   const handleDeleteShowcase = async (id: string) => {
-    if (!window.confirm('Deseja realmente excluir esta montagem de mostruário?')) return;
+    if (!await requestConfirmation({
+      title: 'Excluir montagem de mostruário?',
+      message: 'Deseja realmente excluir esta montagem de mostruário?',
+      confirmLabel: 'Excluir montagem',
+      type: 'danger',
+    })) return;
     try {
       await deleteShowcaseAssembly(id);
       toast.success('Montagem excluída!');
@@ -126,7 +129,7 @@ const AssemblyListPage = () => {
             type="text"
             placeholder="Buscar..."
             value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl pl-11 pr-4 py-3 text-sm font-bold shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all w-full md:w-60 outline-none"
           />
         </div>
@@ -188,13 +191,11 @@ const AssemblyListPage = () => {
     });
 
     const sortedAssemblies = [...scopedAssemblies].sort((a, b) => a.date.localeCompare(b.date));
-    const safePage = Math.min(page, Math.max(1, Math.ceil(sortedAssemblies.length / pageSize)));
-    const visibleAssemblies = sortedAssemblies.slice((safePage - 1) * pageSize, safePage * pageSize);
     const dateCounts = sortedAssemblies.reduce((counts, item) => {
       counts[item.date] = (counts[item.date] || 0) + 1;
       return counts;
     }, {} as Record<string, number>);
-    const grouped = visibleAssemblies.reduce(
+    const grouped = sortedAssemblies.reduce(
       (groups, item) => {
         groups[item.date] ||= [];
         groups[item.date].push(item);
@@ -342,17 +343,6 @@ const AssemblyListPage = () => {
             })}
           </div>
         )}
-        <ERPListPagination
-          ariaLabel="Paginação de montagens"
-          page={page}
-          pageSize={pageSize}
-          totalItems={sortedAssemblies.length}
-          onPageChange={setPage}
-          onPageSizeChange={(size) => { setPage(1); setPageSize(size); }}
-          preferenceKey="assembly-list"
-          itemLabel="montagens"
-          loading={loading}
-        />
       </div>
     );
   };

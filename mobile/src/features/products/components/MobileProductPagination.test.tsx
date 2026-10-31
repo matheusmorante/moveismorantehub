@@ -1,7 +1,6 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { PRODUCT_LIST_PAGE_SIZES } from '../../../../../shared-utils/listingFormSchemas';
 
 vi.mock('react-native', () => {
   const container = ({ children }: any) => React.createElement('div', null, children);
@@ -28,24 +27,19 @@ vi.mock('../../../components/shared/FixedPageSlots', () => ({
 
 import { MobileProductPagination } from './MobileProductPagination';
 
-describe('MobileProductPagination accessibility', () => {
-  it('announces the page-size choices as radios with the checked value', () => {
-    const selectedPageSize = PRODUCT_LIST_PAGE_SIZES[0];
+describe('MobileProductPagination', () => {
+  it('shows the fixed page size without offering a control to change it', () => {
     const markup = renderToStaticMarkup(
       <MobileProductPagination
         currentPage={1}
         totalPages={2}
         totalItems={20}
-        itemsPerPage={selectedPageSize}
+        itemsPerPage={15}
         onPageChange={vi.fn()}
-        onItemsPerPageChange={vi.fn()}
       />,
     );
 
-    for (const size of PRODUCT_LIST_PAGE_SIZES) {
-      expect(markup).toContain(
-        `<button role="radio" aria-label="Itens por página: ${size}" aria-checked="${size === selectedPageSize}">`,
-      );
-    }
+    expect(markup).toContain('15 por página');
+    expect(markup).not.toContain('role="radio"');
   });
 });

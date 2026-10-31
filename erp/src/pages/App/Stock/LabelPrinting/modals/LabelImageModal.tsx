@@ -10,6 +10,7 @@ import {
   fetchLabelImages,
 } from '../services/labelImageService';
 import type { LabelImage } from '../types/LabelImage.types';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 export type { LabelImage } from '../types/LabelImage.types';
 
 export interface LabelImageModalProps {
@@ -106,7 +107,12 @@ const LabelImageLibrary: React.FC<LabelImageModalProps> = ({
   const handleDelete = async (event: React.MouseEvent, id: number) => {
     event.stopPropagation();
     await runMutation('delete', () => deleteForm.validateAndRun({ id }, async (values) => {
-      if (!mounted.current || !window.confirm('Excluir esta imagem permanentemente?')) return;
+      if (!mounted.current || !await requestConfirmation({
+        title: 'Excluir imagem permanentemente?',
+        message: 'Esta imagem será removida da biblioteca de etiquetas.',
+        confirmLabel: 'Excluir imagem',
+        type: 'danger',
+      }) || !mounted.current) return;
       const result = await withTimeout(deleteLabelImage(values.id).then(() => ({ done: true })), 20_000, null, 'etiquetas:excluir-imagem');
       if (!mounted.current) return;
       if (!result) throw { uncertain: true };

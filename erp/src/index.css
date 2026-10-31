@@ -408,4 +408,15 @@
   }
 }
 
+.inventory-count-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.inventory-count-input::-webkit-inner-spin-button,
+.inventory-count-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 

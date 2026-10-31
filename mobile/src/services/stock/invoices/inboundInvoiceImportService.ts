@@ -8,6 +8,8 @@ import {
 } from './inboundInvoiceMappers';
 import { findInboundSupplierProductCodes } from './inboundInvoiceMappingsService';
 import { mergeInboundInvoiceXml } from '../../../../../shared-utils/inboundInvoiceXmlMerge';
+import { hasInboundItemCommercialData } from '../../../../../shared-utils/inboundInvoiceCompleteness';
+import { INBOUND_XML_WITHOUT_COMMERCIAL_DATA_ERROR } from '../../../../../shared-utils/inboundSummaryHelp';
 import {
   hasUnlinkedInvoiceItems,
   normalizeInvoiceStatus,
@@ -82,6 +84,9 @@ export const importInboundInvoiceXml = async (
 ) => {
   onStatusChange?.('Lendo e validando o XML...');
   const invoice = parseInboundNfeXml(xml);
+  if (!hasInboundItemCommercialData(invoice.items)) {
+    throw new Error(INBOUND_XML_WITHOUT_COMMERCIAL_DATA_ERROR);
+  }
   const accessKey = String(invoice.nfeKey || '').replace(/\D/g, '');
   if (accessKey.length !== 44) throw new Error('Chave de acesso da NF-e inválida.');
   if (String(invoice.model || '').replace(/\D/g, '') === '65') {

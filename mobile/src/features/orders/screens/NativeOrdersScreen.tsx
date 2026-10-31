@@ -209,7 +209,6 @@ function OrdersList({
         currentPage={orders.currentPage}
         totalPages={orders.totalPages}
         totalItems={orders.totalItems}
-        itemsPerPage={orders.itemsPerPage}
         dark={dark}
         onPageChange={handlePageChange}
       />

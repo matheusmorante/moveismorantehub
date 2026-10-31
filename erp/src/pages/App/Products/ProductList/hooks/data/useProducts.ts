@@ -60,11 +60,7 @@ export const useProducts = (filters?: ProductListFilters) => {
   const [mutationLoading, setMutationLoading] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState<ProductListPageSize>(15);
-  const handleItemsPerPageChange = useCallback((nextItemsPerPage: ProductListPageSize) => {
-    setItemsPerPage(nextItemsPerPage);
-    setCurrentPage(1);
-  }, []);
+  const itemsPerPage: ProductListPageSize = 15;
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 
   const queryFilters = useMemo(() => {
@@ -452,7 +448,6 @@ export const useProducts = (filters?: ProductListFilters) => {
     itemsPerPage,
     totalPages,
     setCurrentPage,
-    handleItemsPerPageChange,
     loading: serverLoading || mutationLoading,
     error: queryError,
     isServerPagination: true,

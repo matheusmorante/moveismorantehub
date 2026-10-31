@@ -57,13 +57,17 @@ export const InventoryAuditContextMenu: React.FC<Props> = ({
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 cursor-pointer"
         >
           <i
-            className={activeSession.status !== 'completed' ? 'bi bi-pencil-square' : 'bi bi-eye'}
+            className={activeSession.status === 'in_progress'
+              ? 'bi bi-play-fill'
+              : activeSession.status !== 'completed'
+                ? 'bi bi-pencil-square'
+                : 'bi bi-eye'}
             aria-hidden="true"
           />
           {activeSession.status === 'pending'
             ? 'Retomar envio'
             : activeSession.status === 'in_progress'
-              ? 'Continuar inventário'
+              ? 'Retomar inventário'
               : 'Ver detalhes'}
         </button>
         <button

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { useAuth } from '@/context/AuthContext';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { salesReportReferenceRowSchema, salesReportReferenceWriteFormSchema, salesReportReferenceQueryFormSchema } from '../../../../../../../shared-utils/salesReportFormSchemas';
@@ -113,7 +114,10 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
     if (intentRef.current?.signature !== signature) intentRef.current = { signature, id: crypto.randomUUID() };
     return writeReference({ intent: 'add', id: intentRef.current.id, masterName: newMaster, referenceName: newReference });
   };
-  const handleDelete = (id: string) => { if (confirm('Deseja excluir esta referência?')) return writeReference({ intent: 'delete', id, confirmed: true }); };
+  const handleDelete = async (id: string) => {
+    if (await requestConfirmation({ title: 'Excluir referência?', message: 'Deseja excluir esta referência?', confirmLabel: 'Excluir referência', type: 'danger' }))
+      return writeReference({ intent: 'delete', id, confirmed: true });
+  };
 
   const normSearch = normalizeSearchTerm(searchTerm);
   const filteredReferences = references.filter(

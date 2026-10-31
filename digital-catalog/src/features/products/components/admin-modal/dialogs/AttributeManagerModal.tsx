@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useConfirmDialog } from '@/components/providers/confirm-dialog-provider';
 import { Sparkles, X, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
@@ -40,6 +41,7 @@ export function AttributeManagerModal({
   fetchDbAttributes,
   onAttributeCreated,
 }: AttributeManagerModalProps) {
+  const requestConfirmation = useConfirmDialog();
   const [fastAttrName, setFastAttrName] = useState('');
   const [fastAttrValues, setFastAttrValues] = useState<string[]>([]);
   const [fastAttrValInput, setFastAttrValInput] = useState('');
@@ -151,12 +153,14 @@ export function AttributeManagerModal({
   };
 
   const handleDeleteDbAttribute = async (attrId: string) => {
-    if (
-      !confirm(
-        'Excluir este atributo global e todos os seus valores vinculados? Isso pode afetar variações existentes.'
-      )
-    )
-      return;
+    const confirmed = await requestConfirmation({
+      title: 'Excluir atributo global?',
+      description:
+        'Excluir este atributo e todos os seus valores vinculados? Isso pode afetar variações existentes.',
+      confirmLabel: 'Excluir',
+      destructive: true,
+    });
+    if (!confirmed) return;
     try {
       const { error } = await supabase.from('attributes').delete().eq('id', attrId);
       if (error) throw error;

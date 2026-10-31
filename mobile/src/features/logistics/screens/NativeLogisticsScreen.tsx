@@ -7,9 +7,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
-  Modal,
+  Share,
 } from 'react-native';
-import { Calendar, ChevronDown, Check, MoreVertical } from 'lucide-react-native';
+import { Calendar, Share2 } from 'lucide-react-native';
 import {
   groupOrdersByDate,
   isCancelledOrder,
@@ -19,7 +19,6 @@ import {
 } from '../../../utils/orderUtils';
 import { getOperationalScheduleDate } from '../../../utils/operationalSchedule';
 import { TodayDeliveriesScreen } from './TodayDeliveriesScreen';
-import { PERIOD_OPTIONS } from '../components/LogisticsPeriodModal';
 import { LogisticsOrderCard } from '../components/LogisticsOrderCard';
 import { useLogisticsScheduleData } from '../hooks/useLogisticsScheduleData';
 import { LogisticsDateSectionHeader } from '../components/LogisticsDateSectionHeader';
@@ -41,8 +40,8 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
   title,
 }) => {
   const { orders, loading, refreshing, handlingOptions, onRefresh } = useLogisticsScheduleData();
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('today_and_following');
-  const [showPeriodModal, setShowPeriodModal] = useState<boolean>(false);
+  const selectedPeriod = 'today_and_following';
+  const todayStr = getLocalDateString(new Date());
   const [showTodayMap, setShowTodayMap] = useState<boolean>(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     sem_data: true,
@@ -51,12 +50,9 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
   const toggleSection = (key: string) => {
     setCollapsedSections((prev) => ({
       ...prev,
-      [key]: !prev[key],
+      [key]: !(prev[key] ?? key !== todayStr),
     }));
   };
-
-  const currentPeriodLabel =
-    PERIOD_OPTIONS.find((p) => p.id === selectedPeriod)?.label || 'A partir de hoje';
 
   const deliveryOrders = orders.filter((o) => {
     const oData = o.order_data || {};
@@ -80,11 +76,9 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     if (isExplicitlyPending) return true;
     if (!rawSchedDate || rawSchedDate === 'sem_data') return false;
 
-    if (selectedPeriod === 'all') return true;
     return isDateInPeriod(rawSchedDate || o.created_at, selectedPeriod);
   });
 
-  const todayStr = getLocalDateString(new Date());
   const rawGrouped = groupOrdersByDate(deliveryOrders);
 
   const getDatesInPeriod = (period: string): string[] => {
@@ -176,37 +170,27 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
     <View style={styles.headerPadding}>
       <View style={styles.topRow}>
         <View style={styles.titleContainer}>
+          <View style={styles.agendaIcon}>
+            <Calendar size={16} color="#ffffff" />
+          </View>
           <Text style={[styles.screenTitle, isDarkMode && styles.textDark]}>
             {title || 'Agenda'}
           </Text>
-          <TouchableOpacity
-            style={[styles.selectBtn, isDarkMode && styles.selectBtnDark]}
-            onPress={() => setShowPeriodModal(true)}
-            activeOpacity={0.75}
-          >
-            <Calendar size={13} color="#2563eb" style={{ marginRight: 6 }} />
-            <Text
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[styles.selectBtnText, isDarkMode && styles.textDark]}
-            >
-              {currentPeriodLabel}
-            </Text>
-            <ChevronDown
-              size={14}
-              color={isDarkMode ? '#cbd5e1' : '#64748b'}
-              style={{ marginLeft: 4 }}
-            />
-          </TouchableOpacity>
         </View>
-
         <TouchableOpacity
-          style={[styles.moreBtn, isDarkMode && styles.moreBtnDark]}
-          onPress={() => {}}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          activeOpacity={0.7}
+          style={styles.shareBtn}
+          onPress={() =>
+            void Share.share({
+              title: 'Agenda do MoranteHub',
+              message: '📦 Agenda do MoranteHub\n🔗 Acesse online agora: https://morantehub.vercel.app/schedule',
+            })
+          }
+          accessibilityRole="button"
+          accessibilityLabel="Compartilhar agenda"
+          activeOpacity={0.8}
         >
-          <MoreVertical size={20} color={isDarkMode ? '#cbd5e1' : '#64748b'} />
+          <Share2 size={15} color="#ffffff" />
+          <Text style={styles.shareBtnText}>Compartilhar</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -225,53 +209,6 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <Modal
-        visible={showPeriodModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowPeriodModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowPeriodModal(false)}
-        >
-          <View style={[styles.modalCard, isDarkMode && styles.modalCardDark]}>
-            <Text style={[styles.modalTitle, isDarkMode && styles.textDark]}>Filtrar Período</Text>
-            {PERIOD_OPTIONS.map((opt) => {
-              const isSel = selectedPeriod === opt.id;
-              return (
-                <TouchableOpacity
-                  key={opt.id}
-                  style={[
-                    styles.modalOptionBtn,
-                    isSel && styles.modalOptionBtnActive,
-                    isDarkMode && isSel && styles.modalOptionBtnActiveDark,
-                  ]}
-                  onPress={() => {
-                    setSelectedPeriod(opt.id);
-                    setShowPeriodModal(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.modalOptionText,
-                      isSel && styles.modalOptionTextActive,
-                      isDarkMode && styles.textDark,
-                      isDarkMode && isSel && styles.textPrimaryDark,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                  {isSel && <Check size={16} color="#2563eb" />}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
       {loading && !refreshing ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#2563eb" />
@@ -359,10 +296,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerPadding: {
-    paddingTop: 12,
-    paddingBottom: 16,
+    paddingVertical: 8,
   },
   topRow: {
+    minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -370,8 +307,17 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
     flex: 1,
+    minWidth: 0,
+  },
+  agendaIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f59e0b',
   },
   screenTitle: {
     fontSize: 22,
@@ -379,33 +325,22 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     letterSpacing: -0.5,
   },
-  selectBtn: {
+  shareBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    maxWidth: 180,
-  },
-  selectBtnDark: {
-    backgroundColor: '#1e293b',
-  },
-  selectBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#334155',
-  },
-  moreBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f8fafc',
+    gap: 6,
+    backgroundColor: '#10b981',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
   },
-  moreBtnDark: {
-    backgroundColor: '#1e293b',
+  shareBtnText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   cardContainer: {
     marginBottom: 12,
@@ -430,63 +365,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#94a3b8',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 320,
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 20,
-    elevation: 5,
-  },
-  modalCardDark: {
-    backgroundColor: '#1e293b',
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#0f172a',
-    marginBottom: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  modalOptionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    marginBottom: 6,
-  },
-  modalOptionBtnActive: {
-    backgroundColor: '#eff6ff',
-  },
-  modalOptionBtnActiveDark: {
-    backgroundColor: '#1e3a8a/30',
-  },
-  modalOptionText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  modalOptionTextActive: {
-    color: '#2563eb',
-    fontWeight: '900',
-  },
   textDark: {
     color: '#f8fafc',
   },
   textMuted: {
     color: '#64748b',
-  },
-  textPrimaryDark: {
-    color: '#60a5fa',
   },
 });

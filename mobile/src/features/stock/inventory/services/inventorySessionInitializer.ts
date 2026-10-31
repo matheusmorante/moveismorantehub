@@ -78,6 +78,7 @@ export const restoreInventorySession = async (
     assignedSupplier: it.assignedSupplier || 'Sem fornecedor',
     systemStock: it.systemStock || 0,
     physicalCount: it.physicalCount !== undefined ? it.physicalCount : null,
+    supplierStageStarted: it.supplierStageStarted,
     countedAt: it.countedAt,
     unit: it.unit || 'UN',
     sku: it.sku || it.code || '',

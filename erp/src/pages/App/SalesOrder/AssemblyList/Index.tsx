@@ -8,6 +8,7 @@ import { getLocalISODate } from '@/pages/utils/formatters';
 import { Assembly } from './assemblyTypes';
 import { AssemblyFormCard } from './AssemblyFormCard';
 import { AssemblyGroupsView } from './AssemblyGroupsView';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 interface Props {
   onClose: () => void;
@@ -95,7 +96,12 @@ const AssemblyList = ({ onClose }: Props) => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deseja realmente excluir esta montagem?')) return;
+    if (!await requestConfirmation({
+      title: 'Excluir montagem?',
+      message: 'Deseja realmente excluir esta montagem?',
+      confirmLabel: 'Excluir montagem',
+      type: 'danger',
+    })) return;
 
     const { error } = await supabase.from('assemblies').delete().eq('id', id);
 

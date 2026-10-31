@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   Modal,
   Alert,
 } from 'react-native';
-import { useInventoryOperation } from '../hooks/useInventoryOperation';
 import { matchScannedProductItem } from '../../../../utils/barcodeScannerUtils';
 import { getPhysicalInventoryScanId } from '../services/inventoryScanRules';
 import {
@@ -33,8 +33,12 @@ interface Props {
   inventoryName: string;
   items: AuditItem[];
   scopeType?: string | null;
+  hasStages?: boolean;
   onUpdateCount: (id: string, count: number | null) => void;
   onIncrementScannedItem: (id: string, labelId?: string) => Promise<number | null>;
+  onStartSupplierStage: (supplierName: string) => Promise<void>;
+  onResetSupplierStage?: (supplierName: string) => Promise<void>;
+  onDiscardInventory?: () => Promise<boolean>;
   onFlushLocalWrites: () => Promise<void>;
   onAddManualItem: () => void;
   onOpenProductSearch?: (itemId: string) => void;
@@ -50,8 +54,12 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
   inventoryName,
   items,
   scopeType,
+  hasStages,
   onUpdateCount,
   onIncrementScannedItem,
+  onStartSupplierStage,
+  onResetSupplierStage,
+  onDiscardInventory,
   onFlushLocalWrites,
   onAddManualItem,
   onOpenProductSearch,
@@ -60,27 +68,47 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
 }) => {
   const [showScanner, setShowScanner] = useState(false);
   const [activeStage, setActiveStage] = useState<string | null>(null);
+  const [showCancelStageConfirm, setShowCancelStageConfirm] = useState(false);
+  const [isCancellingStage, setIsCancellingStage] = useState(false);
+  const [cancelStageError, setCancelStageError] = useState('');
+  const [showCancelInventoryConfirm, setShowCancelInventoryConfirm] = useState(false);
+  const [isCancellingInventory, setIsCancellingInventory] = useState(false);
+  const [cancelInventoryError, setCancelInventoryError] = useState('');
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
   const recentErrorFeedbackAtRef = React.useRef(new Map<string, number>());
 
+  const isStageBased = Boolean(hasStages && (scopeType === 'full' || scopeType === 'supplier'));
+  const isSupplierSpecific = isStageBased && scopeType === 'supplier';
   const activeItems = React.useMemo(() => {
-    if (scopeType !== 'full') return items;
-    if (!activeStage) return [];
+    if (!isStageBased && scopeType !== 'general') return items;
+    if (!activeStage) return scopeType === 'general' ? items : [];
     return items.filter((item) => (item.assignedSupplier || 'Sem fornecedor') === activeStage);
-  }, [items, scopeType, activeStage]);
-  const scannerItems = scopeType === 'full' && activeStage ? activeItems : items;
-
-  const { filter, setFilter, search, setSearch, filteredItems } =
-    useInventoryOperation(activeItems);
+  }, [items, isStageBased, scopeType, activeStage]);
+  const scannerItems = scopeType === 'general' && activeStage
+    ? []
+    : isStageBased ? (activeStage ? activeItems : []) : items;
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
-  const isShowingStages = scopeType === 'full' && !activeStage;
-  const progressItems = isShowingStages ? items : activeItems;
-  const countedItems = progressItems.filter((i) => i.physicalCount !== null);
-  const progressPercent =
-    progressItems.length > 0 ? Math.round((countedItems.length / progressItems.length) * 100) : 0;
+  const isShowingStages = isStageBased && !activeStage;
+  const isShowingSupplierSelection = isSupplierSpecific && !activeStage;
+  const isShowingSupplierSummary = scopeType === 'general' && !activeStage;
+  const countItems = isShowingStages ? items : activeItems;
+  const countedItems = countItems.filter((i) => typeof i.physicalCount === 'number');
+  const countableItemCount = isShowingStages ? countedItems.length : activeItems.length;
+  const countLabel = isStageBased || scopeType === 'product' ? 'produtos para contar' : 'produtos contados';
+
+  React.useEffect(() => {
+    if (!isSupplierSpecific || activeStage) return;
+    const startedSuppliers = new Set(
+      items
+        .filter((item) => item.supplierStageStarted === true || typeof item.physicalCount === 'number')
+        .map((item) => item.assignedSupplier || 'Sem fornecedor')
+        .filter((supplier) => supplier !== 'Sem fornecedor')
+    );
+    if (startedSuppliers.size === 1) setActiveStage([...startedSuppliers][0]);
+  }, [items, isSupplierSpecific, activeStage]);
 
   const withErrorFeedbackCooldown = (
     data: string,
@@ -133,7 +161,7 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
         return withErrorFeedbackCooldown(data, {
           kind: 'error',
           title: 'Produto de outro fornecedor',
-          message: `Produto: ${otherSupplierItem.name}\nFornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}\nNenhuma quantidade foi alterada. Volte à lista, escolha esse fornecedor ou use o scanner geral.`,
+          message: `Produto: ${otherSupplierItem.name}\nFornecedor: ${otherSupplierItem.assignedSupplier || 'Sem fornecedor'}\nNenhuma quantidade foi alterada. Volte à lista e inicie a etapa desse fornecedor.`,
         });
       return withErrorFeedbackCooldown(data, {
         kind: 'error',
@@ -172,6 +200,37 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
     }
   };
 
+  const confirmCancelStage = async () => {
+    if (!activeStage || !onResetSupplierStage || isCancellingStage) return;
+    setIsCancellingStage(true);
+    setCancelStageError('');
+    try {
+      await onResetSupplierStage(activeStage);
+      setShowScanner(false);
+      setActiveStage(null);
+      setShowCancelStageConfirm(false);
+    } catch {
+      setCancelStageError('Não foi possível salvar o cancelamento. A etapa continua preservada; tente novamente.');
+    } finally {
+      setIsCancellingStage(false);
+    }
+  };
+
+  const confirmCancelInventory = async () => {
+    if (!onDiscardInventory || isCancellingInventory) return;
+    setIsCancellingInventory(true);
+    setCancelInventoryError('');
+    try {
+      const discarded = await onDiscardInventory();
+      if (!discarded) throw new Error('discard-not-confirmed');
+      setShowCancelInventoryConfirm(false);
+    } catch {
+      setCancelInventoryError('Não foi possível cancelar o inventário. Os dados foram preservados; tente novamente.');
+    } finally {
+      setIsCancellingInventory(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: bg }]}
@@ -180,35 +239,48 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
       <InventoryOperationHeader
         isDarkMode={isDarkMode}
         title={activeStage || inventoryName}
-        countedCount={countedItems.length}
-        totalCount={progressItems.length}
-        progressPercent={progressPercent}
+        countedCount={isStageBased || scopeType === 'product' ? countableItemCount : countedItems.length}
+        countLabel={countLabel}
         onBack={activeStage ? () => setActiveStage(null) : onCancel || (() => {})}
         onOpenScanner={() => setShowScanner(true)}
+        showBackButton={!isSupplierSpecific}
+        showCount={!isShowingSupplierSelection}
+        showScanner={!isShowingStages && !(scopeType === 'general' && activeStage)}
+        showStageActions={scopeType === 'full' && Boolean(activeStage && onResetSupplierStage)}
+        onRequestCancelInventory={() => {
+          setCancelInventoryError('');
+          setShowCancelInventoryConfirm(true);
+        }}
+        onRequestCancelStage={() => {
+          setCancelStageError('');
+          setShowCancelStageConfirm(true);
+        }}
       />
-
-      {isShowingStages ? (
+      {isShowingStages || isShowingSupplierSummary ? (
         <View style={{ flex: 1 }}>
           <InventoryStagesView
             items={items}
             isDarkMode={isDarkMode}
-            onSelectStage={setActiveStage}
+            variant={isShowingSupplierSummary ? 'summary' : isSupplierSpecific ? 'selection' : 'stages'}
+            onSelectSupplier={isShowingSupplierSummary ? setActiveStage : undefined}
+            onStartStage={isShowingStages ? async (supplierName) => {
+              await onStartSupplierStage(supplierName);
+              setActiveStage(supplierName);
+            } : undefined}
           />
         </View>
       ) : (
         <>
-          <InventoryOperationFilterBar
-            isDarkMode={isDarkMode}
-            scopeType={scopeType}
-            search={search}
-            onSearchChange={setSearch}
-            filter={filter}
-            onFilterChange={setFilter}
-            onAddManualItem={onAddManualItem}
-          />
+          {!activeStage && (
+            <InventoryOperationFilterBar
+              isDarkMode={isDarkMode}
+              scopeType={scopeType}
+              onAddManualItem={onAddManualItem}
+            />
+          )}
 
           <FlatList
-            data={filteredItems}
+            data={activeItems}
             keyExtractor={(i) => i.id}
             renderItem={({ item }) => (
               <InventoryOperationItemCard
@@ -233,12 +305,16 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
         </>
       )}
 
-      <InventoryOperationFooter
-        isDarkMode={isDarkMode}
-        activeStage={activeStage}
-        onBack={activeStage ? () => setActiveStage(null) : onCancel || (() => {})}
-        onReview={onReview}
-      />
+      {(!isSupplierSpecific || Boolean(activeStage)) && (
+        <InventoryOperationFooter
+          isDarkMode={isDarkMode}
+          activeStage={activeStage}
+          supplierSpecific={isSupplierSpecific}
+          supplierSelected={Boolean(activeStage)}
+          onBack={activeStage ? () => setActiveStage(null) : onCancel || (() => {})}
+          onReview={onReview}
+        />
+      )}
 
       <Modal
         visible={showScanner}
@@ -254,8 +330,6 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
         <InventoryScannerScreen
           isDarkMode={isDarkMode}
           countedCount={countedItems.length}
-          totalCount={progressItems.length}
-          progressPercent={progressPercent}
           onClose={() => {
             void onFlushLocalWrites()
               .then(() => setShowScanner(false))
@@ -265,16 +339,103 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
           }}
           onScan={handleScan}
           continuous
-          title=""
+          title={activeStage ? 'Etapa iniciada' : scopeType === 'product' ? inventoryName : ''}
+          subtitle={activeStage ? `Fornecedor: ${activeStage}` : scopeType === 'product' ? 'Variações do produto' : undefined}
           inventoryLayout
           description={
-            scopeType === 'full'
+            scopeType === 'general'
+              ? 'Scanner geral: aceita todos os itens deste inventário, com ou sem fornecedor.'
+              : scopeType === 'full'
               ? activeStage
-                ? `Somente produtos de ${activeStage}. Para outro fornecedor, volte à lista e use o scanner geral.`
-                : 'Scanner geral: aceita produtos de qualquer fornecedor incluído neste inventário.'
+                ? `Somente produtos de ${activeStage}. Para outro fornecedor, volte à lista e inicie a etapa correspondente.`
+                : 'Aponte para o QR Code da etiqueta'
               : 'Aponte para o QR Code da etiqueta'
           }
         />
+      </Modal>
+
+      <Modal
+        visible={showCancelStageConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isCancellingStage) setShowCancelStageConfirm(false);
+        }}
+      >
+        <View style={styles.confirmOverlay}>
+          <View style={[styles.confirmCard, { backgroundColor: isDarkMode ? '#0f172a' : '#ffffff' }]}>
+            <View style={styles.confirmIcon}>
+              <Text style={styles.confirmIconText}>!</Text>
+            </View>
+            <Text style={{ color: isDarkMode ? '#f1f5f9' : '#0f172a', fontSize: 19, fontWeight: '800', textAlign: 'center' }}>
+              Cancelar etapa?
+            </Text>
+            <Text style={{ color: muted, fontSize: 14, lineHeight: 20, textAlign: 'center' }}>
+              A contagem de {activeStage || 'este fornecedor'} será apagada e a etapa voltará para não iniciada. As outras etapas serão preservadas.
+            </Text>
+            {cancelStageError ? <Text accessibilityRole="alert" style={styles.cancelStageError}>{cancelStageError}</Text> : null}
+            <View style={styles.confirmActions}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                disabled={isCancellingStage}
+                style={[styles.confirmCancelButton, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
+                onPress={() => setShowCancelStageConfirm(false)}
+              >
+                <Text style={{ color: isDarkMode ? '#cbd5e1' : '#475569', fontWeight: '700' }}>Voltar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                disabled={isCancellingStage}
+                style={[styles.confirmDeleteButton, isCancellingStage && { opacity: 0.6 }]}
+                onPress={() => void confirmCancelStage()}
+              >
+                <Text style={{ color: '#ffffff', fontWeight: '800' }}>{isCancellingStage ? 'Salvando…' : 'Cancelar etapa'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showCancelInventoryConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isCancellingInventory) setShowCancelInventoryConfirm(false);
+        }}
+      >
+        <View style={styles.confirmOverlay}>
+          <View style={[styles.confirmCard, { backgroundColor: isDarkMode ? '#0f172a' : '#ffffff' }]}>
+            <View style={styles.confirmIcon}>
+              <Text style={styles.confirmIconText}>!</Text>
+            </View>
+            <Text style={{ color: isDarkMode ? '#f1f5f9' : '#0f172a', fontSize: 19, fontWeight: '800', textAlign: 'center' }}>
+              Cancelar inventário?
+            </Text>
+            <Text style={{ color: muted, fontSize: 14, lineHeight: 20, textAlign: 'center' }}>
+              Toda a contagem será descartada e você voltará à lista de tipos de inventário.
+            </Text>
+            {cancelInventoryError ? <Text accessibilityRole="alert" style={styles.cancelStageError}>{cancelInventoryError}</Text> : null}
+            <View style={styles.confirmActions}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                disabled={isCancellingInventory}
+                style={[styles.confirmCancelButton, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9' }]}
+                onPress={() => setShowCancelInventoryConfirm(false)}
+              >
+                <Text style={{ color: isDarkMode ? '#cbd5e1' : '#475569', fontWeight: '700' }}>Continuar contando</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityRole="button"
+                disabled={isCancellingInventory}
+                style={[styles.confirmDeleteButton, isCancellingInventory && { opacity: 0.6 }]}
+                onPress={() => void confirmCancelInventory()}
+              >
+                <Text style={{ color: '#ffffff', fontWeight: '800' }}>{isCancellingInventory ? 'Cancelando…' : 'Cancelar inventário'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       <InventoryFocusMode
@@ -295,4 +456,12 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   listContent: { padding: 16 },
   empty: { padding: 40, alignItems: 'center' },
+  confirmOverlay: { flex: 1, backgroundColor: 'rgba(2,6,23,0.62)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  confirmCard: { width: '100%', maxWidth: 420, borderRadius: 24, padding: 24, gap: 14, alignItems: 'center', elevation: 16 },
+  confirmIcon: { width: 54, height: 54, borderRadius: 18, backgroundColor: '#fff1f2', alignItems: 'center', justifyContent: 'center' },
+  confirmIconText: { color: '#e11d48', fontSize: 30, fontWeight: '900' },
+  confirmActions: { width: '100%', flexDirection: 'row', gap: 10, marginTop: 6 },
+  confirmCancelButton: { flex: 1, borderRadius: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  confirmDeleteButton: { flex: 1, borderRadius: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e11d48' },
+  cancelStageError: { color: '#e11d48', fontSize: 13, fontWeight: '700', textAlign: 'center' },
 });

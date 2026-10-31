@@ -1,28 +1,19 @@
 import React, { useState } from 'react';
 import type { AuditItem } from '../types/inventoryAudit.types';
-import type { InventoryFilter } from '../hooks/useInventoryOperation';
 
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
 import ProductSearchModal from '@/pages/App/SalesOrder/modals/ProductSearchModal';
 
 interface InventoryManualModeProps {
-  readonly filteredItems: readonly AuditItem[];
-  readonly filter: InventoryFilter;
-  readonly setFilter: (f: InventoryFilter) => void;
-  readonly search: string;
-  readonly setSearch: (s: string) => void;
+  readonly items: readonly AuditItem[];
   readonly onUpdateCount: (id: string, count: number | null) => void;
   readonly isCustom?: boolean;
   readonly onUpdateItemProduct?: (itemId: string, product: Product, variation?: Variation) => void;
 }
 
 export const InventoryManualMode: React.FC<InventoryManualModeProps> = ({
-  filteredItems,
-  filter,
-  setFilter,
-  search,
-  setSearch,
+  items,
   onUpdateCount,
   isCustom,
   onUpdateItemProduct,
@@ -31,41 +22,8 @@ export const InventoryManualMode: React.FC<InventoryManualModeProps> = ({
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-        <div className="flex w-full sm:w-auto p-1 bg-slate-50 dark:bg-slate-900 rounded-lg overflow-x-auto hide-scrollbar">
-          {(['all', 'uncounted', 'counted', 'divergent'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-md text-sm font-bold whitespace-nowrap transition-colors ${filter === f ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-            >
-              {f === 'all'
-                ? 'Todos'
-                : f === 'uncounted'
-                  ? 'Não contados'
-                  : f === 'counted'
-                    ? 'Contados'
-                    : 'Divergentes'}
-            </button>
-          ))}
-        </div>
-        {!isCustom && (
-          <div className="relative w-full sm:w-64 shrink-0">
-            <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-            <input
-              type="text"
-              placeholder="Buscar item..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-        )}
-      </div>
-
       <div className="space-y-3">
-        {filteredItems.map((item) => {
+        {items.map((item) => {
           const isCounted = item.physicalCount !== null;
           const diff = isCounted ? item.physicalCount! - item.systemStock : 0;
 
@@ -140,22 +98,22 @@ export const InventoryManualMode: React.FC<InventoryManualModeProps> = ({
                 <button
                   onClick={() => onUpdateCount(item.id, Math.max(0, (item.physicalCount || 0) - 1))}
                   disabled={item.physicalCount === 0}
-                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-lg shadow-sm active:scale-95 transition-all"
+                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-rose-600 hover:bg-rose-700 border border-rose-700 text-white disabled:opacity-50 disabled:cursor-not-allowed text-lg shadow-sm active:scale-95 transition-all"
                 >
-                  <i className="bi bi-dash"></i>
+                  <i className="bi bi-dash text-white"></i>
                 </button>
 
                 <div className="flex flex-col items-center min-w-[50px]">
                   <input
                     type="number"
-                    value={item.physicalCount === null ? '' : item.physicalCount}
+                    value={item.physicalCount ?? 0}
                     onChange={(e) => {
                       const val = e.target.value;
-                      if (val === '') onUpdateCount(item.id, null);
+                      if (val === '') onUpdateCount(item.id, 0);
                       else onUpdateCount(item.id, Math.max(0, parseInt(val, 10) || 0));
                     }}
                     placeholder="-"
-                    className="w-full text-center bg-transparent text-xl font-black text-slate-800 dark:text-slate-100 outline-none p-0 focus:ring-0 border-0"
+                    className="inventory-count-input w-full text-center bg-transparent text-xl font-black text-slate-800 dark:text-slate-100 outline-none p-0 focus:ring-0 border-0"
                   />
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                     Contado
@@ -164,18 +122,18 @@ export const InventoryManualMode: React.FC<InventoryManualModeProps> = ({
 
                 <button
                   onClick={() => onUpdateCount(item.id, (item.physicalCount || 0) + 1)}
-                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-lg shadow-sm active:scale-95 transition-all"
+                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-700 text-white text-lg shadow-sm active:scale-95 transition-all"
                 >
-                  <i className="bi bi-plus"></i>
+                  <i className="bi bi-plus text-white"></i>
                 </button>
               </div>
             </div>
           );
         })}
 
-        {filteredItems.length === 0 && (
+        {items.length === 0 && (
           <div className="text-center py-12 text-slate-500">
-            Nenhum item encontrado com estes filtros.
+            Nenhum item disponível neste inventário.
           </div>
         )}
       </div>

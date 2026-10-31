@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { PurchaseItem } from '../../../types/purchase.type';
 import type Product from '../../../types/product.type';
 import type { Variation } from '../../../types/product.type';
@@ -35,71 +35,7 @@ export const PurchaseItemsSection = ({
   hasError = false,
   isReceiptMode = true,
 }: Props) => {
-  // Current item being added (utilizado no modo Compras tradicional)
-  const [currentProductId, setCurrentProductId] = useState('');
-  const [currentVariationId, setCurrentVariationId] = useState<string | undefined>(undefined);
-  const [currentDescription, setCurrentDescription] = useState('');
-  const [currentQty, setCurrentQty] = useState(1);
-  const [currentCost, setCurrentCost] = useState(0);
-
-  const tempIpiVal = currentCost * (ipiPercent / 100);
-  const tempFreightVal = currentCost * (freightPercent / 100);
-  const tempTotalUnit = currentCost + tempIpiVal + tempFreightVal;
-
-  const handleSelectCurrentProduct = (product: Product, variation?: Variation) => {
-    setCurrentProductId(product.id!);
-    setCurrentVariationId(variation?.id);
-    const prodName = product.name || product.title || product.description;
-    setCurrentDescription(
-      variation
-        ? variation.name && variation.name.toLowerCase().includes(prodName.toLowerCase())
-          ? variation.name
-          : `${prodName} - ${variation.name}`
-        : prodName
-    );
-    if (variation?.costPrice) setCurrentCost(variation.costPrice);
-    else if (product.costPrice) setCurrentCost(product.costPrice);
-    else setCurrentCost(0);
-
-    const prodSupplierId =
-      product.mainSupplierId ||
-      product.supplierId ||
-      (product as any).main_supplier_id ||
-      (product as any).supplier_id;
-    if (!supplierId && prodSupplierId && onSupplierAutoSelect) {
-      onSupplierAutoSelect(prodSupplierId);
-    }
-  };
-
-  const handleAddItemClick = () => {
-    if (!currentProductId) {
-      toast.error('Selecione um produto antes de adicionar.');
-      return;
-    }
-
-    const qtyToAdd = isReceiptMode ? 1 : Math.max(1, currentQty);
-
-    const added = onAddItem({
-      productId: currentProductId,
-      variationId: currentVariationId,
-      description: currentDescription,
-      quantity: qtyToAdd,
-      baseCost: currentCost,
-      unitCost: tempTotalUnit,
-      totalCost: qtyToAdd * tempTotalUnit,
-    });
-
-    if (added === false) return;
-
-    toast.success('Item adicionado.');
-    setCurrentProductId('');
-    setCurrentVariationId(undefined);
-    setCurrentDescription('');
-    setCurrentQty(1);
-    setCurrentCost(0);
-  };
-
-  // No modo de recebimento: adiciona linha vazia para digitar o produto diretamente nela
+  // Adiciona linha de item vazia para selecionar o produto e preencher quantidade e custo diretamente nela
   const handleAddNewItemRow = () => {
     if (isReceiptMode && !supplierId) {
       toast.warn('Selecione o fornecedor acima primeiro.');
@@ -126,9 +62,12 @@ export const PurchaseItemsSection = ({
     const cost = variation?.costPrice || product.costPrice || 0;
     const tempIpi = cost * (ipiPercent / 100);
     const tempFreight = cost * (freightPercent / 100);
-    const unitCost = cost + tempIpi + tempFreight;
     const currentItem = items[idx];
     const quantity = currentItem?.quantity || 1;
+    const unitCost = Math.max(
+      0,
+      Number((cost + tempIpi + tempFreight - Number(currentItem?.discountUnit || 0)).toFixed(2))
+    );
 
     if (onUpdateItem) {
       onUpdateItem(idx, {
@@ -138,7 +77,7 @@ export const PurchaseItemsSection = ({
         description,
         baseCost: cost,
         unitCost,
-        totalCost: quantity * unitCost,
+        totalCost: Number((quantity * unitCost).toFixed(2)),
       });
     }
 
@@ -167,7 +106,10 @@ export const PurchaseItemsSection = ({
     const baseCost = item.baseCost ?? item.unitCost ?? 0;
     const tempIpi = baseCost * (ipiPercent / 100);
     const tempFreight = baseCost * (freightPercent / 100);
-    const unitCost = Number((baseCost + tempIpi + tempFreight).toFixed(2));
+    const unitCost = Math.max(
+      0,
+      Number((baseCost + tempIpi + tempFreight - Number(item.discountUnit || 0)).toFixed(2))
+    );
     const updated: PurchaseItem = {
       ...item,
       quantity: validQty,
@@ -185,7 +127,10 @@ export const PurchaseItemsSection = ({
     const validCost = Math.max(0, newCost);
     const tempIpi = validCost * (ipiPercent / 100);
     const tempFreight = validCost * (freightPercent / 100);
-    const unitCost = Number((validCost + tempIpi + tempFreight).toFixed(2));
+    const unitCost = Math.max(
+      0,
+      Number((validCost + tempIpi + tempFreight - Number(item.discountUnit || 0)).toFixed(2))
+    );
     const updated: PurchaseItem = {
       ...item,
       baseCost: validCost,
@@ -196,6 +141,23 @@ export const PurchaseItemsSection = ({
     if (onUpdateItem) {
       onUpdateItem(idx, updated);
     }
+  };
+
+  const handleDiscountChange = (idx: number, newDiscount: number) => {
+    const item = items[idx];
+    if (!item || !onUpdateItem) return;
+    const discountUnit = Math.max(0, newDiscount);
+    const baseCost = item.baseCost ?? item.unitCost ?? 0;
+    const unitCost = Math.max(
+      0,
+      Number((baseCost * (1 + ipiPercent / 100 + freightPercent / 100) - discountUnit).toFixed(2))
+    );
+    onUpdateItem(idx, {
+      ...item,
+      discountUnit,
+      unitCost,
+      totalCost: Number((item.quantity * unitCost).toFixed(2)),
+    });
   };
 
   const totalValue = items.reduce((sum, item) => sum + item.totalCost, 0);
@@ -213,23 +175,15 @@ export const PurchaseItemsSection = ({
     handleEditProductInRow,
     handleQtyChange,
     handleCostChange,
+    handleDiscountChange,
   };
 
   return (
     <div className="space-y-4">
       <PurchaseItemsEntrySection
-        itemCount={items.length}
         isReceiptMode={isReceiptMode}
         hasError={hasError}
         supplierId={supplierId}
-        currentDescription={currentDescription}
-        currentQty={currentQty}
-        currentCost={currentCost}
-        onDescriptionChange={setCurrentDescription}
-        onSelectProduct={handleSelectCurrentProduct}
-        onQuantityChange={setCurrentQty}
-        onCostChange={setCurrentCost}
-        onAddItemClick={handleAddItemClick}
         onAddNewItemRow={handleAddNewItemRow}
       />
       <PurchaseItemsTable {...itemsViewProps} totalValue={totalValue} />

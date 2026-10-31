@@ -2,6 +2,13 @@ import { supabase } from '../supabaseClient';
 import { ITEMS_PER_PAGE } from './stockPagination';
 import { offlineStorageService, generateUUID } from '../offline/offlineStorageService';
 import { connectivityService } from '../offline/connectivityService';
+import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { mapInboundInvoiceListRow } from './invoices/inboundInvoiceMappers';
+import {
+  buildInboundInvoiceSearchFilter,
+  getInvoiceDateBounds,
+} from '../../features/stock/invoices/utils/invoiceList';
+import type { InvoiceDateFilter } from '../../features/stock/types/stock.types';
 
 export const GOODS_RECEIPTS_CACHE_KEY = 'goods_receipts_cache_v1';
 export const GOODS_RECEIPTS_DRAFTS_KEY = 'goods_receipt_check_drafts_v1';
@@ -24,6 +31,163 @@ export interface PendingGoodsReceiptCheck {
   userId?: string | null;
   checkedAt: string;
 }
+
+export interface NewMobileGoodsReceipt {
+  id: string;
+  purchaseId?: string;
+  supplierId: string;
+  supplierName: string;
+  receivedAt: string;
+  totalValue: number;
+  observation?: string;
+  invoiceId?: string;
+  invoiceComplete?: boolean;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  fiscalKey?: string;
+  ipiPercent?: number;
+  freightPercent?: number;
+  fiscalIpi?: number;
+  fiscalFreight?: number;
+  fiscalDiscount?: number;
+  fiscalOtherExpenses?: number;
+  items: Array<{
+    productId: string;
+    variationId?: string;
+    description: string;
+    quantity: number;
+    baseCost: number;
+    unitCost: number;
+    totalCost: number;
+    freightFiscalUnit?: number;
+    freightNonFiscalUnit?: number;
+    discountUnit?: number;
+    otherExpensesFiscalUnit?: number;
+    otherExpensesNonFiscalUnit?: number;
+    additionalCostUnit?: number;
+    sku?: string;
+  }>;
+}
+
+/** Confirma uma nova entrada usando a mesma transação atômica do ERP. */
+export const createMobileGoodsReceipt = async (receipt: NewMobileGoodsReceipt): Promise<{ invoiceUpdated: boolean }> => {
+  if (!connectivityService.connected) {
+    throw new Error('Conecte-se à internet para confirmar o recebimento.');
+  }
+
+  const rpcPromise = supabase.rpc('confirm_goods_receipt_checked_transaction', {
+    p_receipt: {
+      id: receipt.id,
+      receipt_index: null,
+      purchase_id: receipt.purchaseId || null,
+      supplier_id: receipt.supplierId,
+      supplier_name: receipt.supplierName,
+      received_at: receipt.receivedAt,
+      invoice_number: receipt.invoiceNumber || null,
+      invoice_date: receipt.invoiceDate || null,
+      total_value: receipt.totalValue,
+      observation: receipt.observation || '',
+      fiscal_key: receipt.fiscalKey || null,
+      attachments: [],
+      status: 'received',
+      is_draft: false,
+      ipi_percent: receipt.ipiPercent || 0,
+      freight_percent: receipt.freightPercent || 0,
+      non_fiscal_discount_mode: null,
+      non_fiscal_discount_value: 0,
+      non_fiscal_freight_mode: null,
+      non_fiscal_freight_value: 0,
+      non_fiscal_other_expenses_mode: null,
+      non_fiscal_other_expenses_value: 0,
+      fiscal_ipi: receipt.fiscalIpi || 0,
+      fiscal_freight: receipt.fiscalFreight || 0,
+      fiscal_discount: receipt.fiscalDiscount || 0,
+      fiscal_other_expenses: receipt.fiscalOtherExpenses || 0,
+    },
+    p_items: receipt.items.map((item) => ({
+      ...item,
+      freightFiscalUnit: item.freightFiscalUnit || 0,
+      freightNonFiscalUnit: item.freightNonFiscalUnit || 0,
+      discountUnit: item.discountUnit || 0,
+      otherExpensesFiscalUnit: item.otherExpensesFiscalUnit || 0,
+      otherExpensesNonFiscalUnit: item.otherExpensesNonFiscalUnit || 0,
+      additionalCostUnit: item.additionalCostUnit || 0,
+    })),
+  });
+  let result = await withTimeout<any | null>(
+    Promise.resolve(rpcPromise),
+    20_000,
+    null,
+    'mobile:goods-receipt-confirmation'
+  );
+  if (!result) {
+    let confirmed: any = null;
+    try {
+      const check = supabase.from('goods_receipts').select('id,status').eq('id', receipt.id).maybeSingle();
+      confirmed = await withTimeout<any | null>(Promise.resolve(check), 10_000, null, 'mobile:receipt-confirmation-check');
+    } catch { /* O resultado permanece incerto. */ }
+    if (confirmed && !confirmed.error && confirmed.data?.status === 'received') {
+      result = { data: { receiptId: receipt.id }, error: null };
+    } else {
+      throw new Error('A confirmação demorou. Confira a lista de recebimentos antes de tentar novamente.');
+    }
+  }
+  if (result.error) throw new Error(result.error.message || 'Não foi possível confirmar o recebimento.');
+  if (result.data?.receiptId !== receipt.id) {
+    throw new Error('A confirmação não retornou o resultado esperado. Confira a lista de recebimentos.');
+  }
+  if (!receipt.invoiceId || !receipt.invoiceComplete) return { invoiceUpdated: true };
+
+  try {
+    const update = supabase.from('inbound_invoices').update({
+      status_recebimento: 'received', receipt_id: receipt.id, updated_at: new Date().toISOString(),
+    }).eq('id', receipt.invoiceId).is('receipt_id', null).select('id').maybeSingle();
+    const updated = await withTimeout<any | null>(Promise.resolve(update), 10_000, null, 'mobile:receipt-invoice-link');
+    return { invoiceUpdated: Boolean(updated && !updated.error && updated.data) };
+  } catch {
+    return { invoiceUpdated: false };
+  }
+};
+
+export const fetchReceiptInvoiceSources = async (
+  page: number,
+  search: string,
+  dateFilter: InvoiceDateFilter,
+) => {
+  const from = page * ITEMS_PER_PAGE;
+  const dateBounds = getInvoiceDateBounds(dateFilter);
+  if (!dateBounds) throw new Error('Informe um período válido para buscar as notas fiscais.');
+  let query = supabase.from('inbound_invoices').select(
+    'id,numero_nfe,serie,chave_acesso,emitente_nome,emitente_cnpj,data_emissao,valor_total,status_recebimento,itens,xml_conteudo,supplier:people!inner(stock_origins),inbound_invoice_items(*)',
+    { count: 'exact' }
+  ).contains('supplier.stock_origins', ['normal'])
+    .gte('data_emissao', dateBounds.start)
+    .lte('data_emissao', dateBounds.end);
+  const filter = buildInboundInvoiceSearchFilter(search);
+  if (filter) query = query.or(filter);
+  const response = await withTimeout<any | null>(
+    Promise.resolve(query.order('data_emissao', { ascending: false }).range(from, from + ITEMS_PER_PAGE - 1)),
+    12_000, null, 'mobile:receipt-invoice-sources'
+  );
+  if (!response) throw new Error('A busca de notas demorou. Tente novamente.');
+  if (response.error) throw response.error;
+  const data = (response.data || []).map(mapInboundInvoiceListRow);
+  return {
+    data: data.filter((invoice: any) => invoice.supplierStockOrigins?.includes('normal')),
+    count: response.count || 0,
+  };
+};
+
+export const fetchInvoiceReceiptItems = async (fiscalKey: string, exceptReceiptId?: string) => {
+  let query = supabase.from('goods_receipts')
+    .select('goods_receipt_items(product_id,variation_id,quantity)')
+    .eq('fiscal_key', fiscalKey).eq('status', 'received');
+  if (exceptReceiptId) query = query.neq('id', exceptReceiptId);
+  const response = await withTimeout<any | null>(Promise.resolve(query), 12_000, null, 'mobile:invoice-previous-receipts');
+  if (!response) throw new Error('Não foi possível conferir os recebimentos anteriores. Tente novamente.');
+  if (response.error) throw new Error('Não foi possível conferir os recebimentos anteriores.');
+  return (response.data || []).flatMap((receipt: any) => receipt.goods_receipt_items || []);
+};
 
 const resolveSessionUserId = async (explicitUserId?: string | null): Promise<string | null> => {
   if (explicitUserId) return explicitUserId;

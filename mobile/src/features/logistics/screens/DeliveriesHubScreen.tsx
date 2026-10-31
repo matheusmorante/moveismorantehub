@@ -8,6 +8,7 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
+import { LayoutGrid, Map, Truck, Wrench } from 'lucide-react-native';
 import {
   useDeliveryRoute,
   DeliveryRouteDateScope,
@@ -37,6 +38,13 @@ const MAP_ACTIVITY_FILTERS: { key: MapActivityFilter; label: string }[] = [
   { key: 'assistance', label: 'Assistência' },
   { key: 'return', label: 'Coleta de devolução' },
 ];
+
+const OPERATIONS_TABS = [
+  { key: 'today', label: 'Resumo', Icon: LayoutGrid },
+  { key: 'schedule', label: 'Entregas', Icon: Truck },
+  { key: 'assemblies', label: 'Montagens', Icon: Wrench },
+  { key: 'map', label: 'Mapa', Icon: Map },
+] as const;
 
 const getMapActivityType = (item: DeliveryRouteItem): MapActivityFilter | null => {
   if (item.activityType === 'assistance') return 'assistance';
@@ -227,7 +235,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                   scheduleDateScope === 'today' && styles.dateScopeBtnTextActive,
                 ]}
               >
-                Hoje ({dateScopeCounts.today})
+                Hoje {dateScopeCounts.today}
               </Text>
             </TouchableOpacity>
 
@@ -249,7 +257,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                   scheduleDateScope === 'tomorrow' && styles.dateScopeBtnTextActive,
                 ]}
               >
-                Amanhã ({dateScopeCounts.tomorrow})
+                Amanhã {dateScopeCounts.tomorrow}
               </Text>
             </TouchableOpacity>
 
@@ -271,104 +279,52 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
                   scheduleDateScope === 'next_days' && styles.dateScopeBtnTextActive,
                 ]}
               >
-                Dias Seguintes ({dateScopeCounts.next_days})
+                Próximos {dateScopeCounts.next_days}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Abas Resumo, Entregas, Montagens e Mapa */}
-        <View style={styles.tabsViewport}>
-          <ScrollView
-            style={styles.tabsScrollView}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.tabsPillContainer}
-          >
-            <TouchableOpacity
-              style={[
-                styles.tabBtn,
-                activeTab === 'today' && styles.tabBtnActive,
-              ]}
-              onPress={() => setActiveTab('today')}
-              accessibilityRole="button"
-              accessibilityState={{ selected: activeTab === 'today' }}
-              activeOpacity={0.8}
-            >
-              <Text
+        <View style={[styles.tabsViewport, isDarkMode && styles.tabsViewportDark]}>
+          {OPERATIONS_TABS.map(({ key, label, Icon }) => {
+            const selected = activeTab === key;
+            const iconColor = selected
+              ? isDarkMode
+                ? '#60a5fa'
+                : '#2563eb'
+              : isDarkMode
+                ? '#cbd5e1'
+                : '#64748b';
+            return (
+              <TouchableOpacity
+                key={key}
                 style={[
-                  styles.tabBtnText,
-                  activeTab === 'today' && styles.tabBtnTextActive,
-                  isDarkMode && activeTab === 'today' && styles.tabBtnTextActiveDark,
+                  styles.tabBtn,
+                  isDarkMode && styles.tabBtnDark,
+                  selected && styles.tabBtnActive,
+                  selected && isDarkMode && styles.tabBtnActiveDark,
                 ]}
+                onPress={() => setActiveTab(key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                activeOpacity={0.8}
               >
-                Resumo
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.tabBtn,
-                activeTab === 'schedule' && styles.tabBtnActive,
-              ]}
-              onPress={() => setActiveTab('schedule')}
-              accessibilityRole="button"
-              accessibilityState={{ selected: activeTab === 'schedule' }}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.tabBtnText,
-                  activeTab === 'schedule' && styles.tabBtnTextActive,
-                  isDarkMode && activeTab === 'schedule' && styles.tabBtnTextActiveDark,
-                ]}
-              >
-                Entregas
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.tabBtn,
-                activeTab === 'assemblies' && styles.tabBtnActive,
-              ]}
-              onPress={() => setActiveTab('assemblies')}
-              accessibilityRole="button"
-              accessibilityState={{ selected: activeTab === 'assemblies' }}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.tabBtnText,
-                  activeTab === 'assemblies' && styles.tabBtnTextActive,
-                  isDarkMode && activeTab === 'assemblies' && styles.tabBtnTextActiveDark,
-                ]}
-              >
-                Montagens
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.tabBtn,
-                activeTab === 'map' && styles.tabBtnActive,
-              ]}
-              onPress={() => setActiveTab('map')}
-              accessibilityRole="button"
-              accessibilityState={{ selected: activeTab === 'map' }}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.tabBtnText,
-                  activeTab === 'map' && styles.tabBtnTextActive,
-                  isDarkMode && activeTab === 'map' && styles.tabBtnTextActiveDark,
-                ]}
-              >
-                Mapa
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
+                <Icon size={17} color={iconColor} strokeWidth={2.2} />
+                <Text
+                  style={[
+                    styles.tabBtnText,
+                    isDarkMode && styles.tabBtnTextDark,
+                    selected && styles.tabBtnTextActive,
+                    selected && isDarkMode && styles.tabBtnTextActiveDark,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -535,6 +491,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#334155',
   },
   titleRow: {
+    minHeight: 42,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
@@ -543,36 +500,41 @@ const styles = StyleSheet.create({
   dateScopeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    width: '100%',
+    backgroundColor: '#f1f5f9',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 18,
-    padding: 0,
-    gap: 0,
+    borderRadius: 16,
+    padding: 4,
+    gap: 3,
   },
   dateScopeContainerDark: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#020617',
     borderColor: '#334155',
   },
   dateScopeBtn: {
+    flex: 1,
+    minWidth: 0,
     minHeight: 34,
-    paddingHorizontal: 14,
+    paddingHorizontal: 2,
     paddingVertical: 0,
-    borderRadius: 16,
+    borderRadius: 11,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   dateScopeBtnActive: {
-    backgroundColor: '#0055ff',
+    backgroundColor: '#2563eb',
   },
   dateScopeBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#0055ff',
+    color: '#475569',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   dateScopeBtnTextDark: {
-    color: '#60a5fa',
+    color: '#cbd5e1',
   },
   dateScopeBtnTextActive: {
     color: '#ffffff',
@@ -584,41 +546,49 @@ const styles = StyleSheet.create({
   textMuted: {
     color: '#94a3b8',
   },
-  tabsPillContainer: {
+  tabsViewport: {
     flexDirection: 'row',
     alignItems: 'stretch',
     width: '100%',
-    minWidth: 240,
+    minHeight: 60,
+    marginTop: 8,
+    padding: 4,
+    borderRadius: 13,
+    backgroundColor: '#f1f5f9',
   },
-  tabsViewport: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    minHeight: 44,
-    marginTop: 12,
+  tabsViewportDark: {
+    backgroundColor: '#020617',
+    borderWidth: 1,
+    borderColor: '#1e293b',
   },
-  tabsScrollView: { flex: 1, alignSelf: 'stretch' },
   tabBtn: {
     flex: 1,
-    flexShrink: 0,
-    minWidth: 60,
-    minHeight: 44,
+    minWidth: 0,
+    minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 2,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    gap: 4,
+    paddingHorizontal: 1,
+    borderRadius: 10,
+  },
+  tabBtnDark: {
+    backgroundColor: 'transparent',
   },
   tabBtnActive: {
-    borderBottomColor: '#2563eb',
+    backgroundColor: '#dbeafe',
+  },
+  tabBtnActiveDark: {
+    backgroundColor: '#0f172a',
   },
   tabBtnText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: '#64748b',
-    flexShrink: 0,
     textAlign: 'center',
-    flexWrap: 'wrap',
+    includeFontPadding: false,
+  },
+  tabBtnTextDark: {
+    color: '#cbd5e1',
   },
   tabBtnTextActive: {
     color: '#2563eb',

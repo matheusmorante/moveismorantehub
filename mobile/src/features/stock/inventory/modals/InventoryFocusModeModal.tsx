@@ -6,16 +6,15 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
-  Dimensions,
+  KeyboardAvoidingView,
   Platform,
   StatusBar,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
 import { InventoryFocusItemCard } from '../components/InventoryFocusItemCard';
-
-const { width } = Dimensions.get('window');
 
 interface Props {
   visible: boolean;
@@ -40,7 +39,10 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
 }) => {
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(initialItemIndex);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const isNarrow = windowWidth < 360;
+  const isShort = windowHeight < 700;
   const topInset = Math.max(
     insets.top,
     Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
@@ -53,24 +55,26 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
   const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
-  // Ao abrir, deve scrollar para o item inicial
+  // Ao abrir, posiciona o carrossel no item escolhido. Ao redimensionar,
+  // mantém o item atual alinhado à largura nova da página.
   useEffect(() => {
-    if (
-      visible &&
-      flatListRef.current &&
-      initialItemIndex >= 0 &&
-      initialItemIndex < items.length
-    ) {
-      setCurrentIndex(initialItemIndex);
-      setTimeout(() => {
-        flatListRef.current?.scrollToIndex({ index: initialItemIndex, animated: false });
-      }, 100);
-    }
+    if (!visible || items.length === 0) return;
+    setCurrentIndex(Math.min(Math.max(initialItemIndex, 0), items.length - 1));
   }, [visible, initialItemIndex, items.length]);
 
+  useEffect(() => {
+    if (!visible || items.length === 0 || windowWidth <= 0) return;
+    const index = Math.min(Math.max(currentIndex, 0), items.length - 1);
+    const frame = requestAnimationFrame(() => {
+      flatListRef.current?.scrollToOffset({ offset: index * windowWidth, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [visible, currentIndex, items.length, windowWidth]);
+
   const handleScroll = (e: any) => {
+    if (windowWidth <= 0) return;
     const x = e.nativeEvent.contentOffset.x;
-    const newIndex = Math.round(x / width);
+    const newIndex = Math.round(x / windowWidth);
     if (newIndex !== currentIndex && newIndex >= 0 && newIndex < items.length) {
       setCurrentIndex(newIndex);
     }
@@ -80,36 +84,60 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View
+      <KeyboardAvoidingView
         style={[
           styles.container,
           { backgroundColor: bg, paddingTop: topInset, paddingBottom: bottomInset },
         ]}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={topInset}
       >
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: border, backgroundColor: surface }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              borderBottomColor: border,
+              backgroundColor: surface,
+              paddingHorizontal: isNarrow ? 16 : 24,
+              paddingTop: isShort ? 8 : 16,
+              paddingBottom: isShort ? 12 : 20,
+            },
+          ]}
+        >
           <View style={{ flex: 1 }}>
-            <Text style={[styles.progressTitle, { color: textPrimary }]}>Modo Foco</Text>
-            <Text style={[styles.progressSubtitle, { color: muted }]}>
+            <Text
+              style={[styles.progressTitle, { color: textPrimary, fontSize: isNarrow ? 20 : 24 }]}
+            >
+              Modo Foco
+            </Text>
+            <Text style={[styles.progressSubtitle, { color: muted, fontSize: isNarrow ? 13 : 16 }]}>
               Contados:{' '}
               <Text style={{ color: '#10b981', fontWeight: '800' }}>{countedItemsCount}</Text> de{' '}
               {totalItemsCount}
             </Text>
           </View>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <X size={28} color={textPrimary} />
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Fechar modo foco"
+            onPress={onClose}
+            style={styles.closeBtn}
+          >
+            <X size={24} color={textPrimary} />
           </TouchableOpacity>
         </View>
 
         {/* Swipable List */}
         <FlatList
           ref={flatListRef}
+          style={styles.carouselList}
           data={items}
           keyExtractor={(i) => i.id}
           renderItem={({ item }) => (
             <InventoryFocusItemCard
               item={item}
-              width={width}
+              width={windowWidth}
+              height={windowHeight}
               isDarkMode={isDarkMode}
               textPrimary={textPrimary}
               muted={muted}
@@ -122,14 +150,27 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleScroll}
-          getItemLayout={(data, index) => ({ length: width, offset: width * index, index })}
+          getItemLayout={(data, index) => ({
+            length: windowWidth,
+            offset: windowWidth * index,
+            index,
+          })}
           initialScrollIndex={
             initialItemIndex >= 0 && initialItemIndex < items.length ? initialItemIndex : 0
           }
         />
 
         {/* Footer */}
-        <View style={styles.footer}>
+        <View
+          style={[
+            styles.footer,
+            {
+              paddingHorizontal: isNarrow ? 12 : 24,
+              paddingTop: isShort ? 8 : 12,
+              paddingBottom: isShort ? 8 : 12,
+            },
+          ]}
+        >
           {items.length > 1 && (
             <View style={styles.navigationHintRow}>
               <ChevronLeft size={20} color={muted} opacity={currentIndex > 0 ? 1 : 0} />
@@ -145,7 +186,7 @@ export const InventoryFocusModeModal: React.FC<Props> = ({
             Item {currentIndex + 1} de {items.length}
           </Text>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -155,7 +196,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 20,
     borderBottomWidth: 1,
@@ -163,15 +203,15 @@ const styles = StyleSheet.create({
   progressTitle: { fontSize: 24, fontWeight: '900' },
   progressSubtitle: { fontSize: 16, fontWeight: '600', marginTop: 4 },
   closeBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(100,116,139,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  carouselList: { flex: 1 },
   footer: {
-    padding: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },

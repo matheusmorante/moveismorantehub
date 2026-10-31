@@ -69,19 +69,24 @@ export const useInventory = (userProfileId?: string | null) => {
           reservedCodes.add(nextCode);
         }
 
-        localDraftSessions = localDrafts.map((d) => ({
-          id: d.id,
-          name: d.name,
-          status: d.status || 'in_progress',
-          created_at: d.updatedAt,
-          updated_at: d.updatedAt,
-          items_count: d.items.length,
-          productsCount: d.items.length,
-          adjustmentsCount: 0,
-          reversedCount: 0,
-          inventoryCode: d.code,
-          responsibleName: d.responsibleName || 'Armazenado no aparelho',
-        }));
+        localDraftSessions = localDrafts.map((d) => {
+          const countedProductsCount = d.items.filter(
+            (item) => typeof item.physicalCount === 'number'
+          ).length;
+          return {
+            id: d.id,
+            name: d.name,
+            status: d.status || 'in_progress',
+            created_at: d.updatedAt,
+            updated_at: d.updatedAt,
+            items_count: countedProductsCount,
+            productsCount: countedProductsCount,
+            adjustmentsCount: 0,
+            reversedCount: 0,
+            inventoryCode: d.code,
+            responsibleName: d.responsibleName || 'Armazenado no aparelho',
+          };
+        });
         setSessions(localDraftSessions);
         setLoading(false);
       } catch (e) {

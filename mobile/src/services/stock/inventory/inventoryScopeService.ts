@@ -16,7 +16,7 @@ import { OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION } from '../../../features/stoc
 const assertInventoryCatalogCurrent = (formatVersion?: number) => {
   if (formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION) {
     throw new Error(
-      'O catálogo local precisa ser atualizado para conferir as origens dos fornecedores. Conecte-se à internet e tente novamente.'
+      'O catálogo local precisa ser atualizado antes de iniciar o inventário. Conecte-se à internet e tente novamente.'
     );
   }
 };

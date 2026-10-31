@@ -70,25 +70,35 @@ function findMissingNsuRanges(
 }
 
 async function persistParsedInvoice(supabaseClient: any, parsed: any): Promise<boolean> {
-  if (!parsed.itens?.length) {
-    const { data: existing, error: existingError } = await supabaseClient
-      .from("inbound_invoices")
-      .select("itens, xml_conteudo")
-      .eq("chave_acesso", parsed.chave_acesso)
-      .maybeSingle();
-    if (existingError) throw new Error(`Falha ao conferir XML já salvo: ${existingError.message}`);
+  const sourceXml = String(parsed.xml_conteudo || "");
+  const receivedFullXml = /<(?:[a-zA-Z0-9_]+:)?(?:nfeProc|infNFe)\b/i.test(sourceXml);
+  const metadataOnly = receivedFullXml
+    ? { ...parsed, itens: [], xml_conteudo: null }
+    : parsed;
+  const { data: existing, error: existingError } = await supabaseClient
+    .from("inbound_invoices")
+    .select("itens, xml_conteudo")
+    .eq("chave_acesso", parsed.chave_acesso)
+    .maybeSingle();
+  if (existingError) throw new Error("Falha ao conferir XML já salvo: " + existingError.message);
 
-    const existingXml = String(existing?.xml_conteudo || "");
-    const existingHasFullXml = /<(?:[a-zA-Z0-9_]+:)?(?:nfeProc|infNFe)\b/i.test(existingXml);
-    if ((Array.isArray(existing?.itens) && existing.itens.length > 0) || existingHasFullXml) {
-      return false;
-    }
+  const existingXml = String(existing?.xml_conteudo || "");
+  const existingHasFullXml = /<(?:[a-zA-Z0-9_]+:)?(?:nfeProc|infNFe)\b/i.test(existingXml);
+  if ((Array.isArray(existing?.itens) && existing.itens.length > 0) || existingHasFullXml) {
+    return false;
+  }
+
+  // A distribuição automática guarda somente os metadados, mesmo se a SEFAZ
+  // enviar um XML completo. Preserve um resumo já salvo para manter a chave e
+  // a elegibilidade da Ciência até o operador importar o XML do Portal.
+  if (receivedFullXml && /<(?:[a-zA-Z0-9_]+:)?resNFe\b/i.test(existingXml)) {
+    metadataOnly.xml_conteudo = existingXml;
   }
 
   const { error } = await supabaseClient
     .from("inbound_invoices")
-    .upsert(parsed, { onConflict: "chave_acesso" });
-  if (error) throw new Error(`Falha ao salvar NF-e recebida da SEFAZ: ${error.message}`);
+    .upsert(metadataOnly, { onConflict: "chave_acesso" });
+  if (error) throw new Error("Falha ao salvar NF-e recebida da SEFAZ: " + error.message);
   return true;
 }
 
@@ -320,6 +330,14 @@ serve(async (req) => {
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       );
+    }
+
+    if (String(body.accessKey || "").trim()) {
+      return new Response(JSON.stringify({
+        success: false,
+        code: "PORTAL_XML_REQUIRED",
+        message: "A consulta automática por chave foi desativada. Obtenha o XML completo no Portal da NF-e e importe-o na nota.",
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 409 });
     }
 
     const { cnpj: requestedCnpj } = body;

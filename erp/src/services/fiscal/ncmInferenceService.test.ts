@@ -36,18 +36,18 @@ describe('ncmInferenceService', () => {
       expect(resolveSemanticNcmCode({ title: 'Beliche Infantil Madeira Maciça' })).toBe('94035000');
     });
 
-    it('infere móveis de quarto de metal como 94032000', () => {
+    it('infere móveis de quarto de metal como 94032090', () => {
       expect(
         resolveSemanticNcmCode({
           title: 'Guarda Roupa Organizador',
           material: 'Aço carbono',
         })
-      ).toBe('94032000');
+      ).toBe('94032090');
       expect(
         resolveSemanticNcmCode({
           title: 'Beliche Tubular de Ferro',
         })
-      ).toBe('94032000');
+      ).toBe('94032090');
     });
 
     it('infere móveis de cozinha como 94034000', () => {

@@ -101,6 +101,38 @@ describe('Suíte Unitária: mobilePurchaseService (Pedidos de Compra Mobile)', (
       const mapped = mapPurchaseFromDb(rowWithInvalidStatus);
       expect(mapped.status).toBe('ordered');
     });
+
+    it('ignora itens sem identificador de produto ao mapear ou confirmar compra', () => {
+      const rowWithBlankItem = {
+        id: 'purch-004',
+        supplier_name: 'Fornecedor Teste',
+        status: 'ordered',
+        purchase_items: [
+          {
+            item_index: 1,
+            product_id: 'prod-valido',
+            description: 'Item Válido',
+            quantity: 2,
+            base_cost: 100,
+            unit_cost: 100,
+            total_cost: 200,
+          },
+          {
+            item_index: 2,
+            product_id: '',
+            description: '',
+            quantity: 1,
+            base_cost: 0,
+            unit_cost: 0,
+            total_cost: 0,
+          },
+        ],
+      };
+
+      const mapped = mapPurchaseFromDb(rowWithBlankItem);
+      expect(mapped.items[0].productId).toBe('prod-valido');
+      expect(mapped.items[0].quantity).toBe(2);
+    });
   });
 
   describe('2. Labels de status amigáveis (purchaseStatusLabel)', () => {

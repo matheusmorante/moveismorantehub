@@ -5,6 +5,7 @@ interface UseSupplierAutocompleteProps {
   suppliers: Person[];
   selectedSupplierId: string;
   onSelect: (supplierId: string) => void;
+  supplierFilter?: (supplier: Person) => boolean;
   disabled?: boolean;
   minChars?: number;
 }
@@ -13,10 +14,12 @@ export const useSupplierAutocomplete = ({
   suppliers,
   selectedSupplierId,
   onSelect,
+  supplierFilter,
   disabled = false,
   minChars = 2,
 }: UseSupplierAutocompleteProps) => {
   const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId);
+  const selectableSuppliers = supplierFilter ? suppliers.filter(supplierFilter) : suppliers;
   const [query, setQuery] = useState(selectedSupplier?.fullName || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -63,7 +66,7 @@ export const useSupplierAutocomplete = ({
   const queryNorm = normalize(query);
 
   // Filtrar sugestÃƒÆ’Ã‚Âµes localmente respeitando a quantidade mÃƒÆ’Ã‚Â­nima de caracteres
-  const filteredSuggestions = suppliers.filter((s) => {
+  const filteredSuggestions = selectableSuppliers.filter((s) => {
     if (minChars > 0 && queryNorm.length < minChars) {
       return false;
     }
@@ -117,7 +120,7 @@ export const useSupplierAutocomplete = ({
     if (trimmed === '') {
       onSelect('');
     } else {
-      const exactMatch = suppliers.find(
+      const exactMatch = selectableSuppliers.find(
         (s) =>
           (s.fullName || '').trim().toLowerCase() === trimmed.toLowerCase() ||
           (s.tradeName || '').trim().toLowerCase() === trimmed.toLowerCase()

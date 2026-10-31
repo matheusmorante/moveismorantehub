@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { AlertTriangle, CheckCircle2, Clock, FileText, MoreVertical } from 'lucide-react-native';
+import { Alert, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { AlertTriangle, CheckCircle2, Clock, FileText, Info, MoreVertical } from 'lucide-react-native';
 import { Invoice } from '../../../types/stock.types';
 import { isSalvadosOnlySupplier } from '../../../../../../../shared-utils/productSupplierStockOrigin';
 
@@ -25,19 +25,15 @@ export const InvoiceCardContent: React.FC<Props> = ({
   const isReceived = item.status === 'received';
   const isSalvados = isSalvadosOnlySupplier(item.supplierStockOrigins);
   const hasCompleteBindings = item.itemsCount > 0 && !item.hasPendingBindings;
-  const statusLabel = isReceived ? 'RECEBIDA' : isSalvados ? 'SALVADOS' : 'DISPONÍVEL';
-  const statusColor = isSalvados && !isReceived
-    ? isDarkMode ? '#451a03' : '#fef3c7'
-    : isReceived
+  const statusLabel = isReceived ? 'RECEBIDA' : 'DISPONÍVEL';
+  const statusColor = isReceived
     ? isDarkMode
       ? '#064e3b'
       : '#d1fae5'
     : isDarkMode
       ? '#1e3a8a'
       : '#dbeafe';
-  const statusTextColor = isSalvados && !isReceived
-    ? isDarkMode ? '#fcd34d' : '#b45309'
-    : isReceived
+  const statusTextColor = isReceived
     ? isDarkMode
       ? '#6ee7b7'
       : '#047857'
@@ -131,6 +127,28 @@ export const InvoiceCardContent: React.FC<Props> = ({
               )}
             </>
           )}
+          {isSalvados ? (
+            <View style={[styles.badge, { backgroundColor: isDarkMode ? '#1e3a8a' : '#dbeafe' }]}>
+              <Text style={[styles.badgeText, { color: isDarkMode ? '#93c5fd' : '#1d4ed8' }]}>
+                VINCULAÇÃO NÃO SE APLICA
+              </Text>
+              <TouchableOpacity
+                onPress={(event) => {
+                  event.stopPropagation();
+                  Alert.alert(
+                    'Vinculação não se aplica',
+                    'O fornecedor desta nota tem origem de estoque Salvados. Itens dessa origem não geram movimentação de estoque, então não precisam ser vinculados a produtos.'
+                  );
+                }}
+                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Por que a vinculação não se aplica?"
+                accessibilityHint="Explica por que esta nota não exige vínculo de produto."
+              >
+                <Info size={12} color={isDarkMode ? '#93c5fd' : '#1d4ed8'} />
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
 
         <TouchableOpacity

@@ -1,6 +1,6 @@
 // Helper para pré-agrupamento determinístico e geração do Resumo Inteligente de Entregas por IA
 
-import { simplifyProductName } from './orderUtils';
+import { simplifyProductName } from './productNameFormatters';
 
 export interface SpokenDeliveryItem {
   city: string;

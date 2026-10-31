@@ -230,7 +230,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           title="Mais opções da conversa"
           aria-label="Mais ações da conversa"
           aria-expanded={isMenuOpen}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          className="w-9 h-9 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
         >
           <i className="bi bi-three-dots-vertical text-sm"></i>
         </button>

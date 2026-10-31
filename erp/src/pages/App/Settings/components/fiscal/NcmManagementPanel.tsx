@@ -6,6 +6,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { ncmService, NcmSearchResult } from '@/services/fiscal/ncmService';
 import { useAuth } from '@/context/AuthContext';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 type NcmFilter =
   | 'all'
@@ -77,8 +78,8 @@ interface NcmPreviewChange {
   new_legal_act: string | null;
 }
 
-const PAGE_SIZE = 30;
-const NCM_PAGE_SIZES = [15, 30] as const;
+const PAGE_SIZE = 15;
+const NCM_PAGE_SIZES = [15] as const;
 const filterOptions: Array<{ id: NcmFilter; label: string }> = [
   { id: 'all', label: 'Todos' },
   { id: 'vigentes', label: 'Vigentes' },
@@ -365,9 +366,12 @@ export function NcmManagementPanel() {
     const validated = await productReviewForm.validateAndRun({ destinationCode: destination.code, productIds: selectedProducts }, (data) => data,
       (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0]));
     if (!validated) return;
-    const confirmed = window.confirm(
-      `Atualizar o NCM de ${selectedProducts.length} produto(s) de ${selectedRow.code} para ${destination.code}? Essa alteração vale para operações futuras; os documentos fiscais já emitidos permanecem inalterados.`
-    );
+    const confirmed = await requestConfirmation({
+      title: 'Atualizar NCM dos produtos?',
+      message: `Atualizar o NCM de ${selectedProducts.length} produto(s) de ${selectedRow.code} para ${destination.code}? Essa alteração vale para operações futuras; os documentos fiscais já emitidos permanecem inalterados.`,
+      confirmLabel: 'Atualizar NCM',
+      type: 'warning',
+    });
     if (!confirmed) return;
     setIsReviewing(true);
     setErrorMessage('');

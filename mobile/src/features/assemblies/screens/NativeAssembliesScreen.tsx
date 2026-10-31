@@ -5,7 +5,6 @@ import {
   Platform,
   RefreshControl,
   SectionList,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -20,6 +19,7 @@ import { addDaysToLocalDateString, getLocalDateString } from '../../../utils/ord
 import type { AssemblyTask } from '../assemblyTasks';
 import { AssemblyOrderCard } from '../components/AssemblyOrderCard';
 import { getAssemblyTasks } from '../assemblyTasks';
+import { styles } from './nativeAssembliesScreen.styles';
 
 const ASSEMBLIES_CACHE_KEY = 'assemblies_orders';
 const HANDLING_OPTIONS_CACHE_KEY = 'order_handling_options_v1';
@@ -457,59 +457,3 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  containerDark: { backgroundColor: '#0f172a' },
-  listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
-  listHeader: { paddingTop: 4, paddingBottom: 8 },
-  locationFilters: { flexDirection: 'row', gap: 6 },
-  locationFilter: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    minHeight: 44,
-    paddingHorizontal: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  locationFilterText: { fontSize: 11, fontWeight: '700' },
-  locationFilterCount: { fontSize: 11, fontWeight: '800' },
-  filterSummary: { color: '#64748b', fontSize: 11, marginTop: 6 },
-  filterSummaryDark: { color: '#94a3b8' },
-  center: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    alignSelf: 'center',
-    minHeight: 44,
-    backgroundColor: '#f8fafc',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    paddingHorizontal: 4,
-    paddingVertical: 8,
-  },
-  sectionHeaderDark: { backgroundColor: '#0f172a', borderBottomColor: '#334155' },
-  sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  sectionHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionHeaderText: { fontSize: 13, fontWeight: '800', color: '#334155' },
-  sectionHeaderCount: { color: '#64748b', fontSize: 11, fontWeight: '700' },
-  sectionHeaderCountDark: { color: '#94a3b8' },
-  emptyText: {
-    color: '#64748b',
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  textDark: { color: '#f8fafc' },
-});

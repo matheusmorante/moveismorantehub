@@ -4,6 +4,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { inventoryAuditReviewFormSchema, inventoryAuditReviewQuerySchema } from '../../../../../../../shared-utils/inventoryAuditFormSchemas';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { prepareSupplierStageReviewItems } from '../../../../../../../shared-utils/inventorySupplierStages';
 
 type ReviewedItem = AuditItem & { reconciledExpected: number; difference: number };
 type InventoryMove = {
@@ -24,12 +25,13 @@ interface InventoryReviewModalProps {
 }
 
 export const InventoryReviewModal: React.FC<InventoryReviewModalProps> = (props) => (
-  <InventoryReviewEditor key={JSON.stringify([props.startDate, props.items])} {...props} />
+  <InventoryReviewEditor key={JSON.stringify([props.startDate, props.hasStages, props.items])} {...props} />
 );
 
 const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
   items,
   startDate,
+  hasStages,
   canFinalize,
   onCancel,
   onConfirm,
@@ -37,13 +39,15 @@ const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
   const [loading, setLoading] = useState(true);
   const [reconcileError, setReconcileError] = useState(false);
   const [reconciledItems, setReconciledItems] = useState<ReviewedItem[]>([]);
-  const [uncountedCount, setUncountedCount] = useState(0);
   const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState('');
   const [sourceInvalid, setSourceInvalid] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const mounted = useRef(false), locked = useRef(false), replayBlocked = useRef(false);
-  const [queryValues] = useState(() => ({ items: items.map((item) => ({ ...item })), startDate }));
+  const [queryValues] = useState(() => ({
+    items: prepareSupplierStageReviewItems(items, Boolean(hasStages)),
+    startDate,
+  }));
   const queryForm = useZodForm(inventoryAuditReviewQuerySchema, queryValues);
   const { validateValues: validateQuery } = queryForm;
   const form = useZodForm(inventoryAuditReviewFormSchema, {
@@ -120,7 +124,6 @@ const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
         });
 
         if (!active) return;
-        setUncountedCount(source.filter((item) => item.physicalCount === null).length);
         setReconciledItems(reconciled);
       };
       try {
@@ -232,6 +235,7 @@ const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
   const itemsToAdjust = reconciledItems.filter(
     (item) => item.physicalCount !== null && item.difference !== 0
   );
+  const hasUncountedItems = reconciledItems.some((item) => typeof item.physicalCount !== 'number');
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Revisão do Inventário" aria-busy={loading || isConfirming} className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
@@ -242,7 +246,7 @@ const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
               Revisão do Inventário
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-              Verifique as divergências e itens não contados antes de concluir.
+              Revise as divergências das contagens registradas antes de concluir.
             </p>
           </div>
           <button
@@ -277,7 +281,17 @@ const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
                   ficará salva neste navegador.
                 </p>
               )}
-              {uncountedCount > 0 && (
+              {hasStages && reconciledItems.length === 0 && (
+                <p className="rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                  Inicie ao menos uma etapa de fornecedor para revisar e concluir este inventário.
+                </p>
+              )}
+              {hasStages && (
+                <p className="rounded-xl bg-blue-50 p-4 text-sm font-semibold text-blue-800 dark:bg-blue-950/30 dark:text-blue-200">
+                  Fornecedores sem etapa iniciada ficam fora do ajuste. Nas etapas iniciadas, campos vazios contam como 0.
+                </p>
+              )}
+              {hasUncountedItems && (
                 <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-xl">
                   <div className="flex items-start gap-3">
                     <i className="bi bi-exclamation-triangle text-amber-600 dark:text-amber-500 text-xl mt-0.5"></i>
@@ -286,8 +300,7 @@ const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
                         Itens não contados
                       </h4>
                       <p className="text-sm text-amber-700 dark:text-amber-500 mt-1">
-                        Há <strong>{uncountedCount}</strong> variações no escopo que não receberam
-                        nenhuma contagem. Eles permanecerão com o saldo intacto no sistema.
+                        Itens sem contagem permanecem com o saldo atual no sistema.
                       </p>
                     </div>
                   </div>
@@ -385,7 +398,9 @@ const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
                 !canFinalize
                   ? 'Seu perfil precisa da permissão “Finalizar inventários”.'
                   : reconciledItems.every((item) => item.physicalCount === null)
-                    ? 'Conte pelo menos um item para confirmar o inventário.'
+                    ? hasStages
+                      ? 'Inicie ao menos uma etapa de fornecedor para confirmar o inventário.'
+                      : 'Conte pelo menos um item para confirmar o inventário.'
                     : ''
               }
               className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"

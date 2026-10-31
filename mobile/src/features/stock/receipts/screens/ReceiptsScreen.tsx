@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   View,
   Text,
@@ -6,20 +7,36 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  Pressable,
+  useWindowDimensions,
 } from 'react-native';
-import { ArrowLeft, Box } from 'lucide-react-native';
+import { Box, MoreVertical, Plus } from 'lucide-react-native';
 import { useReceipts } from '../hooks/useReceipts';
 import { ReceiptCheckScreen } from './ReceiptCheckScreen';
+import { NewGoodsReceiptModal } from '../modals/NewGoodsReceiptModal';
 
 interface Props {
   isDarkMode: boolean;
   onBack: () => void;
-  renderHeader: () => React.ReactElement;
+  renderHeader: (rightAction?: ReactNode) => React.ReactElement;
 }
 
 export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHeader }) => {
   const { receipts, loading, loadingMore, loadMore, loadError, reload } = useReceipts();
+  const { width } = useWindowDimensions();
+  const menuAnchor = useRef<View>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<any | null>(null);
+  const [isNewReceiptOpen, setIsNewReceiptOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 16 });
+
+  const openMenu = () => {
+    menuAnchor.current?.measureInWindow((x, y, anchorWidth, height) => {
+      setMenuPosition({ top: y + height + 4, right: Math.max(8, width - x - anchorWidth) });
+      setIsMenuOpen(true);
+    });
+  };
 
   if (selectedReceipt) {
     return (
@@ -47,7 +64,20 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
         keyExtractor={(item) => item.id}
         stickyHeaderIndices={[0]}
         renderItem={({ item }) => {
-          if (item.type === 'MODULE_HEADER') return renderHeader();
+          if (item.type === 'MODULE_HEADER') {
+            return renderHeader(
+              <View ref={menuAnchor} collapsable={false}>
+                <TouchableOpacity
+                  style={styles.menuTrigger}
+                  onPress={openMenu}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mais opções de recebimentos"
+                >
+                  <MoreVertical size={19} color={isDarkMode ? '#cbd5e1' : '#475569'} />
+                </TouchableOpacity>
+              </View>
+            );
+          }
           if (item.type === 'EMPTY') {
             return (
               <View style={styles.emptyState}>
@@ -213,6 +243,31 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
           ) : null
         }
       />
+      <Modal visible={isMenuOpen} transparent animationType="fade" onRequestClose={() => setIsMenuOpen(false)}>
+        <View style={styles.menuOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsMenuOpen(false)} accessibilityRole="button" accessibilityLabel="Fechar menu de opções" />
+          <View style={[styles.menu, isDarkMode && styles.menuDark, menuPosition]}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setIsMenuOpen(false);
+                setIsNewReceiptOpen(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Novo recebimento"
+            >
+              <Plus size={17} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
+              <Text style={[styles.menuText, isDarkMode && styles.textDark]}>Novo</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      <NewGoodsReceiptModal
+        visible={isNewReceiptOpen}
+        isDarkMode={isDarkMode}
+        onClose={() => setIsNewReceiptOpen(false)}
+        onSaved={() => void reload()}
+      />
     </View>
   );
 };
@@ -232,6 +287,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#2563eb',
   },
   retryButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 13 },
+  menuTrigger: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuOverlay: { flex: 1 },
+  menu: { position: 'absolute', minWidth: 168, padding: 5, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#ffffff', elevation: 8 },
+  menuDark: { borderColor: '#334155', backgroundColor: '#1e293b' },
+  menuItem: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10 },
+  menuText: { color: '#0f172a', fontSize: 13, fontWeight: '700' },
   pageHeader: {
     flexDirection: 'row',
     alignItems: 'center',

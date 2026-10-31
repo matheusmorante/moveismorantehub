@@ -29,6 +29,7 @@ import { buildSalesOrderSnapshot, prepareOrderForFormEditing } from './orderForm
 import { useOrderFormSubmission } from './useOrderFormSubmission';
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
 import { requiresAssemblyResponsible } from '../../../../../../shared-utils/commercialOrderRules';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 export { parseStorageDateToLocal };
 
@@ -308,8 +309,13 @@ export const useSalesOrderForm = (
     prevDeliveryMethodRef.current = shipping.deliveryMethod;
   }, [shipping.deliveryMethod]);
 
-  const clearForm = useCallback(() => {
-    if (window.confirm('Deseja limpar o formulário para um novo pedido?')) {
+  const clearForm = useCallback(async () => {
+    if (await requestConfirmation({
+      title: 'Limpar formulário do pedido?',
+      message: 'Os dados não salvos deste pedido serão descartados.',
+      confirmLabel: 'Limpar formulário',
+      type: 'warning',
+    })) {
       window.location.reload();
     }
   }, []);

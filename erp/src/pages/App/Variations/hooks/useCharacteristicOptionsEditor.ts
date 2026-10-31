@@ -1,5 +1,6 @@
 import { type MutableRefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import type { VariationOption } from '../../../types/variation.type';
 import { normalizeSearchTerm } from '../../../utils/textUtils';
 import {
@@ -179,7 +180,12 @@ export const useCharacteristicOptionsEditor = ({
     ) {
       return;
     }
-    if (!window.confirm(`Remover a opção "${option.value}"?`)) return;
+    if (!await requestConfirmation({
+      title: 'Remover opção?',
+      message: `Remover a opção "${option.value}"?`,
+      confirmLabel: 'Remover opção',
+      type: 'danger',
+    })) return;
 
     cancelPendingFormSaveTimer();
     const current = formDataRef.current;

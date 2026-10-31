@@ -71,7 +71,6 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
       currentPage,
       itemsPerPage,
       setCurrentPage,
-      handleItemsPerPageChange,
       handleDelete,
       handleRestore,
       handleMoveToTrash,
@@ -115,8 +114,6 @@ const ProductList = forwardRef<ProductListRef, ProductListProps>(
         pageSize={itemsPerPage}
         totalItems={totalItems}
         onPageChange={setCurrentPage}
-        onPageSizeChange={(size) => handleItemsPerPageChange(size as Parameters<typeof handleItemsPerPageChange>[0])}
-        preferenceKey={`products:${mode}`}
         itemLabel="itens"
         loading={loading}
         className="mt-4"

@@ -229,10 +229,10 @@ const PersonRow = ({
                       e.stopPropagation();
                       setIsMenuOpen(!isMenuOpen);
                     }}
-                    className={`p-2 rounded-xl transition-all shadow-sm border bg-white dark:bg-slate-955 hover:bg-slate-50 dark:hover:bg-slate-900 ${
+                    className={`p-2 transition-colors ${
                       isMenuOpen
-                        ? 'border-blue-200 text-blue-600 ring-4 ring-blue-50 dark:ring-blue-900/10'
-                        : 'text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-800'
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'
                     }`}
                     title="Mais Ações"
                   >

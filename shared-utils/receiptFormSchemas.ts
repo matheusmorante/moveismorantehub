@@ -21,3 +21,19 @@ export const receiptFormSchema = receiptDraftFormSchema.extend({
   supplierId: z.string().min(1, 'Selecione o fornecedor para continuar.'),
   items: purchaseFormSchema.shape.items,
 });
+
+export const mobileReceiptFormSchema = receiptFormSchema.extend({
+  receiptDate: z.iso.date('Informe uma data de recebimento válida.'),
+  items: z.array(purchaseFormSchema.shape.items.element.extend({
+    baseCost: z.number().nonnegative(),
+    freightFiscalUnit: z.number().nonnegative().optional(),
+    discountUnit: z.number().nonnegative().optional(),
+    otherExpensesFiscalUnit: z.number().nonnegative().optional(),
+    ipiUnit: z.number().nonnegative().optional(),
+  })).min(1, 'Adicione pelo menos um item ao recebimento.'),
+});
+
+export const receiptSourceSearchSchema = z.object({
+  page: z.number().int().nonnegative(),
+  search: z.string().trim().max(200),
+});

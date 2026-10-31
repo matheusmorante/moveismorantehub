@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { useInventoryReconciliation } from '../hooks/useInventoryReconciliation'
 import { styles } from './inventory-review/inventoryReview.styles';
 import { InventoryReviewSummaryCard } from './inventory-review/InventoryReviewSummaryCard';
 import { InventoryReviewDifferencesList } from './inventory-review/InventoryReviewDifferencesList';
+import { prepareSupplierStageReviewItems } from '../../../../../../shared-utils/inventorySupplierStages';
 
 interface Props {
   isDarkMode: boolean;
@@ -29,11 +30,16 @@ export const InventoryReviewScreen: React.FC<Props> = ({
   isDarkMode,
   items,
   startDate,
+  hasStages,
   canFinalize,
   onCancel,
   onConfirm,
 }) => {
-  const { reconciledItems, loading, reconcileError } = useInventoryReconciliation(items, startDate);
+  const reviewItems = useMemo(
+    () => prepareSupplierStageReviewItems(items, Boolean(hasStages)),
+    [items, hasStages]
+  );
+  const { reconciledItems, loading, reconcileError } = useInventoryReconciliation(reviewItems, startDate);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
@@ -41,7 +47,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
   const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
-  const countedItems = items.filter((i) => i.physicalCount !== null);
+  const countedItems = reviewItems.filter((i) => typeof i.physicalCount === 'number');
   const itemsWithDifferences = reconciledItems.filter(
     (i) => i.physicalCount !== null && i.difference !== 0
   );
@@ -76,6 +82,16 @@ export const InventoryReviewScreen: React.FC<Props> = ({
         </View>
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16 }}>
+          {hasStages && (
+            <Text style={{ color: '#2563eb', fontWeight: '700' }}>
+              Fornecedores sem etapa iniciada ficam fora do ajuste. Nas etapas iniciadas, campos vazios contam como 0.
+            </Text>
+          )}
+          {hasStages && reviewItems.length === 0 && (
+            <Text style={{ color: '#b45309', fontWeight: '700' }}>
+              Inicie ao menos uma etapa de fornecedor para revisar e concluir este inventário.
+            </Text>
+          )}
           {reconcileError && (
             <Text style={{ color: '#b45309', fontWeight: '700' }}>
               Sem conexão com o estoque. As divergências abaixo são estimativas locais; a submissão
@@ -85,7 +101,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
 
           <InventoryReviewSummaryCard
             countedCount={countedItems.length}
-            totalCount={items.length}
+            hasUncountedItems={countedItems.length < reviewItems.length}
             adjustmentsCount={itemsWithDifferences.length}
             surface={surface}
             border={border}
@@ -118,7 +134,9 @@ export const InventoryReviewScreen: React.FC<Props> = ({
             {!canFinalize
               ? 'Seu perfil precisa da permissão “Finalizar inventários” para concluir.'
               : countedItems.length === 0
-                ? 'Você precisa contar pelo menos 1 item para finalizar o inventário.'
+                ? hasStages
+                  ? 'Inicie ao menos uma etapa de fornecedor para finalizar o inventário.'
+                  : 'Você precisa contar pelo menos 1 item para finalizar o inventário.'
                 : 'A revisão ainda está carregando.'}
           </Text>
         )}

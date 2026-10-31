@@ -94,7 +94,7 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
             onClick={() => setActionsOpen((prev) => !prev)}
             aria-label="Ações do preview"
             aria-expanded={actionsOpen}
-            className="w-7 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+            className="w-7 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
           >
             <i className="bi bi-three-dots-vertical" />
           </button>

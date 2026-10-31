@@ -77,8 +77,9 @@ const ItemMovementChangeConfirmModal = ({
           </div>
         ))}
         <p className="rounded-2xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-          A movimentação de saída vinculada ao item anterior será estornada. Em seguida, será gerada
-          uma nova movimentação para o estado atual do item.
+          Ao acrescentar uma quantidade, será gerada uma saída apenas para o acréscimo. Ao reduzir
+          a quantidade, trocar ou remover um produto, as saídas anteriores desse item serão
+          estornadas; quando necessário, uma nova saída será criada para o item atualizado.
         </p>
       </div>
       <footer className="flex flex-col-reverse gap-2 border-t border-slate-100 p-4 sm:flex-row sm:justify-end dark:border-slate-800">

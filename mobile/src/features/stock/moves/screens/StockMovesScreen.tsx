@@ -2,13 +2,11 @@ import React, { useRef, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Calendar, ChevronDown } from 'lucide-react-native';
 import { useStockMoves } from '../hooks/useStockMoves';
-import { useStockMoveActions } from '../hooks/useStockMoveActions';
 import { styles } from './stockMovesStyles';
 import type { StockProductSelection } from '../domain/stockMoveTypes';
 import { StockMove } from '../../types/stock.types';
-import { useAuth } from '../../../../contexts/AuthContext';
 import { StockMoveCard, StockProductSearchFilter, StockBalanceBadge } from '../components';
-import { InventoryMoveDeleteModal, InventoryMoveEditModal, StockPeriodModal } from '../modals';
+import { StockPeriodModal } from '../modals';
 import { FixedPageSlots } from '../../../../components/shared/FixedPageSlots';
 
 interface Props {
@@ -41,20 +39,7 @@ export const StockMovesScreen: React.FC<Props> = ({
     changePeriod,
   } = useStockMoves();
 
-  const { canManageStock } = useAuth();
   const listRef = useRef<FlatList<StockMoveListItem>>(null);
-
-  const {
-    editingMove,
-    setEditingMove,
-    savingEdit,
-    moveToDelete,
-    setMoveToDelete,
-    isDeleting,
-    requestReverse,
-    confirmReverse,
-    saveEdit,
-  } = useStockMoveActions(() => goToPage(page));
 
   // Estados de Período
   const [showPeriodModal, setShowPeriodModal] = useState(false);
@@ -161,9 +146,6 @@ export const StockMovesScreen: React.FC<Props> = ({
               <StockMoveCard
                 move={item.data}
                 isDarkMode={isDarkMode}
-                canManage={canManageStock}
-                onEdit={setEditingMove}
-                onReverse={requestReverse}
               />
             </View>
           );
@@ -203,24 +185,6 @@ export const StockMovesScreen: React.FC<Props> = ({
           changePeriod('Personalizado', range);
         }}
         onClose={() => setShowPeriodModal(false)}
-      />
-
-      <InventoryMoveDeleteModal
-        isOpen={Boolean(moveToDelete)}
-        move={moveToDelete}
-        isDarkMode={isDarkMode}
-        isDeleting={isDeleting}
-        onClose={() => !isDeleting && setMoveToDelete(null)}
-        onConfirm={confirmReverse}
-      />
-
-      <InventoryMoveEditModal
-        isOpen={Boolean(editingMove)}
-        move={editingMove}
-        isDarkMode={isDarkMode}
-        isSaving={savingEdit}
-        onClose={() => !savingEdit && setEditingMove(null)}
-        onSave={saveEdit}
       />
 
     </View>

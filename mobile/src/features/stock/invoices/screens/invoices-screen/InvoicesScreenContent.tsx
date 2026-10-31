@@ -101,6 +101,7 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
       <FlatList<InvoiceListRow>
         ref={listRef}
         data={rows}
+        scrollEnabled={!showImportModal}
         keyExtractor={(item) => item.id}
         stickyHeaderIndices={[0]}
         keyboardShouldPersistTaps="handled"

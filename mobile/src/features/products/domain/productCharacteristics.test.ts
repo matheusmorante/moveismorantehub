@@ -313,6 +313,33 @@ describe('productCharacteristics', () => {
     ).toEqual([{ name: 'Peso', isRequired: false, decimal_places: 1 }]);
   });
 
+  it.each(['Peso', 'Quantidade de portas', 'Tipo de portas', 'Material das portas'])(
+    'mantém %s opcional no app quando configurações legadas de categoria a marcam como obrigatória',
+    (name) => {
+      const field = {
+        id: `legacy-${name}`,
+        name,
+        active: true,
+        isRequired: true,
+        isRequiredForProduct: true,
+        isRequiredForCatalog: true,
+        requiredForCategory: true,
+        requiredCategoryIds: ['cat-chair'],
+        categoryIds: ['cat-chair'],
+        categoryApplications: [{ categoryId: 'cat-chair', application: 'required' as const }],
+      };
+
+      expect(isProductTechnicalFieldRequired(field, ['cat-chair'])).toBe(false);
+      expect(isProductTechnicalFieldRequiredForCatalog(field, ['cat-chair'])).toBe(false);
+      expect(getApplicableProductTechnicalFields([field], ['cat-chair'])[0]).toMatchObject({
+        name,
+        isRequired: false,
+        isRequiredForProduct: false,
+        isRequiredForCatalog: false,
+      });
+    }
+  );
+
   it('marca uma característica da categoria só como requisito do catálogo, sem torná-la obrigatória para salvar', () => {
     const field = {
       name: 'Acabamento',

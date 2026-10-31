@@ -23,6 +23,7 @@ import {
   isEligibleInventoryResponsible,
 } from '../../../../../../shared-utils/inventoryResponsible';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { isTestProduct } from '../../../../../../shared-utils/isTestProduct';
 
 export type { OfflineInventoryCatalog, OfflineInventoryMatch };
 export { resolveOfflineInventoryMatch };
@@ -167,8 +168,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
         if (previous.syncedAt) throw error;
         deletions = null;
       }
-      // Version 3 adds supplier stock origins to the offline projection. Force
-      // a bootstrap so older cached suppliers do not default to conventional.
+      // Version 4 removes test products from the offline projection and refreshes old caches.
       const fullRefresh =
         deletions === null ||
         previous.formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION;
@@ -176,7 +176,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
         awaitCatalogQuery(
           fetchChangedRows(
             'products',
-            'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, product_kind, supplier_id, main_supplier_id, supplier_ids, updated_at',
+            'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, product_kind, supplier_id, main_supplier_id, supplier_ids, technical_specs_is_test:technical_specs->>is_test, technical_specs_is_test_camel:technical_specs->>isTest, test_artifact_is_test:technical_specs->testArtifact->>is_test, test_artifact_is_test_camel:technical_specs->testArtifact->>isTest, updated_at',
             fullRefresh ? undefined : previous.cursors.products,
             ['item_type', 'product']
           ),
@@ -238,6 +238,21 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
       };
       for (const row of products) {
         const key = String(row.id);
+        const isTestCatalogProduct = isTestProduct({
+          ...row,
+          is_test: row.technical_specs_is_test,
+          isTest: row.technical_specs_is_test_camel,
+          technical_specs: {
+            testArtifact: {
+              is_test: row.test_artifact_is_test,
+              isTest: row.test_artifact_is_test_camel,
+            },
+          },
+        });
+        if (isTestCatalogProduct) {
+          delete next.products[key];
+          continue;
+        }
         if (row.item_type === 'product') next.products[key] = row;
         else if (next.products[key]) next.products[key] = { ...next.products[key], deleted: true };
       }

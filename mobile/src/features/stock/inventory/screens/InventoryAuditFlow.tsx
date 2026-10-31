@@ -45,6 +45,9 @@ export const InventoryAuditFlow: React.FC<Props> = ({
     incrementScannedItem,
     flushLocalWrites,
     handleFinalize,
+    startSupplierStage,
+    resetSupplierStage,
+    discardInventory,
   } = useInventoryAuditWorkflow(userProfile, onClose, initialSession, copiedItems != null);
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
@@ -156,8 +159,12 @@ export const InventoryAuditFlow: React.FC<Props> = ({
           inventoryId={draftRef.current.id!}
           items={items}
           scopeType={scopeConfig.scopeType}
+          hasStages={scopeConfig.hasStages}
           onUpdateCount={handleUpdateCount}
           onIncrementScannedItem={incrementScannedItem}
+          onStartSupplierStage={startSupplierStage}
+          onResetSupplierStage={resetSupplierStage}
+          onDiscardInventory={discardInventory}
           onFlushLocalWrites={flushLocalWrites}
           onAddManualItem={handleAddBlankItem}
           onOpenProductSearch={(itemId) => {
@@ -173,33 +180,28 @@ export const InventoryAuditFlow: React.FC<Props> = ({
               return;
             }
 
-            // Contagens salvas com segurança no SQLite local
             if (Platform.OS === 'web') {
-              const shouldExit =
-                typeof window !== 'undefined' && window.confirm
-                  ? window.confirm(
-                      'Suas contagens estão salvas com segurança. Deseja voltar ao escopo?'
-                    )
-                  : true;
-              if (shouldExit) setView('scope');
+              Alert.alert(
+                'Sair da contagem?',
+                'Suas contagens estão salvas com segurança. Deseja voltar ao escopo?',
+                [
+                  { text: 'Continuar contando', style: 'cancel' },
+                  { text: 'Voltar ao escopo', onPress: () => setView('scope') },
+                ]
+              );
               return;
             }
 
             Alert.alert(
               'Sair da contagem',
-              'Suas contagens estão salvas neste aparelho. Deseja voltar à seleção de escopo ou fechar o inventário?',
+              'Suas contagens estão salvas neste aparelho. Deseja voltar ao escopo ou fechar o inventário?',
               [
                 { text: 'Continuar contando', style: 'cancel' },
-                {
-                  text: 'Voltar ao escopo',
-                  onPress: () => setView('scope'),
-                },
+                { text: 'Voltar ao escopo', onPress: () => setView('scope') },
                 {
                   text: 'Fechar inventário',
                   style: 'destructive',
-                  onPress: () => {
-                    void closeAfterLocalSave();
-                  },
+                  onPress: () => void closeAfterLocalSave(),
                 },
               ]
             );
@@ -229,6 +231,7 @@ export const InventoryAuditFlow: React.FC<Props> = ({
         }}
         onSelect={handleAddProductFromSearch}
       />
+
     </View>
   );
 };

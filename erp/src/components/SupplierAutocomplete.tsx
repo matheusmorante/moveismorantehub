@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Person from '../pages/types/person.type';
 import { useSupplierAutocomplete } from './supplier-autocomplete/useSupplierAutocomplete';
 import { SupplierSuggestionsList } from './supplier-autocomplete/SupplierSuggestionsList';
@@ -7,11 +7,13 @@ export interface SupplierAutocompleteProps {
   suppliers: Person[];
   selectedSupplierId: string;
   onSelect: (supplierId: string) => void;
+  supplierFilter?: (supplier: Person) => boolean;
   placeholder?: string;
   className?: string;
   inputClassName?: string;
   disabled?: boolean;
   disabledReason?: string;
+  showDisabledReasonOnClick?: boolean;
   hideLabel?: boolean;
   customLabel?: string;
   showSelectedBadge?: boolean;
@@ -22,16 +24,20 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
   suppliers,
   selectedSupplierId,
   onSelect,
+  supplierFilter,
   placeholder = 'Digite 2 ou mais letras para buscar fornecedor...',
   className = '',
   inputClassName = 'w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-200 transition-all focus:ring-0 rounded-none',
   disabled = false,
   disabledReason = '',
+  showDisabledReasonOnClick = false,
   hideLabel = false,
   customLabel = 'Fornecedor',
   showSelectedBadge = true,
   minChars = 2,
 }) => {
+  const [showDisabledReason, setShowDisabledReason] = useState(false);
+  const disabledReasonId = React.useId();
   const {
     query,
     wrapperRef,
@@ -47,9 +53,30 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
     suppliers,
     selectedSupplierId,
     onSelect,
+    supplierFilter,
     disabled,
     minChars,
   });
+
+  React.useEffect(() => {
+    if (!showDisabledReason) return;
+
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setShowDisabledReason(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowDisabledReason(false);
+    };
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [showDisabledReason, wrapperRef]);
 
   return (
     <div ref={wrapperRef} className={`relative flex flex-col gap-2 ${className}`}>
@@ -71,28 +98,44 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
         </div>
       )}
       <div className="relative">
-        <input
-          type="text"
-          autoComplete="off"
-          value={query}
-          disabled={disabled}
-          onChange={(e) => handleInputChange(e.target.value)}
-          onFocus={handleFocus}
-          placeholder={disabled ? 'Fornecedor fixado para os itens atuais' : placeholder}
-          className={`${inputClassName} ${
-            disabled
-              ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800/60'
-              : isSelected
-                ? 'border-b-2 border-emerald-500 dark:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-100 focus:border-blue-600'
-                : 'bg-white dark:bg-slate-900'
-          }`}
-          title={
-            disabled
-              ? disabledReason || 'Para trocar de fornecedor, remova todos os itens do pedido.'
-              : undefined
-          }
-        />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+        {disabled && showDisabledReasonOnClick ? (
+          <button
+            type="button"
+            className={`${inputClassName} block text-left pr-10 opacity-70 cursor-pointer bg-slate-100 dark:bg-slate-800/60`}
+            aria-label="Ver por que o fornecedor está bloqueado"
+            aria-expanded={showDisabledReason}
+            aria-controls={disabledReasonId}
+            aria-describedby={showDisabledReason ? disabledReasonId : undefined}
+            onClick={() => setShowDisabledReason((current) => !current)}
+          >
+            <span className="block truncate">{query || 'Fornecedor fixado para os itens atuais'}</span>
+          </button>
+        ) : (
+          <input
+            type="text"
+            autoComplete="off"
+            value={query}
+            disabled={disabled}
+            onChange={(e) => handleInputChange(e.target.value)}
+            onFocus={handleFocus}
+            placeholder={disabled ? 'Fornecedor fixado para os itens atuais' : placeholder}
+            className={`${inputClassName} ${
+              disabled
+                ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800/60'
+                : isSelected
+                  ? 'border-b-2 border-emerald-500 dark:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-100 focus:border-blue-600'
+                  : 'bg-white dark:bg-slate-900'
+            }`}
+            title={
+              disabled
+                ? disabledReason || 'Para trocar de fornecedor, remova todos os itens do pedido.'
+                : undefined
+            }
+          />
+        )}
+        <div
+          className={`absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 ${disabled && showDisabledReasonOnClick ? 'pointer-events-none' : ''}`}
+        >
           {isSelected && !disabled && (
             <button
               type="button"
@@ -107,8 +150,18 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
             className={`bi ${disabled ? 'bi-lock-fill text-amber-500' : isSelected ? 'bi-check-circle-fill text-emerald-600 dark:text-emerald-400' : 'bi-truck text-slate-400'} text-base`}
           />
         </div>
+        {disabled && showDisabledReasonOnClick && showDisabledReason && disabledReason && (
+          <div
+            id={disabledReasonId}
+            role="tooltip"
+            className="absolute left-0 right-0 top-full z-[100] mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800 shadow-xl dark:border-amber-900/60 dark:bg-amber-950 dark:text-amber-200"
+          >
+            <i className="bi bi-lock-fill mr-1.5" />
+            {disabledReason}
+          </div>
+        )}
       </div>
-      {disabled && disabledReason && (
+      {disabled && disabledReason && !showDisabledReasonOnClick && (
         <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
           <i className="bi bi-info-circle text-[10px]" />
           {disabledReason}

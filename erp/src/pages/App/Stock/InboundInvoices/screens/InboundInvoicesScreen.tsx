@@ -14,7 +14,10 @@ import {
   InboundInvoicesPagination,
   INBOUND_INVOICES_PAGE_SIZE,
 } from '../components/InboundInvoicesPagination';
-import { fetchInboundInvoicesPage } from '@/pages/utils/inboundNfe/inboundInvoicesService';
+import {
+  fetchInboundInvoicesPage,
+  subscribeToInboundInvoiceListRefresh,
+} from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { prepareIdentificationLabelProducts } from '@/pages/App/Stock/LabelPrinting/services/identificationLabelPrefillService';
 import { LabelPrintSelectionModal } from '@/pages/App/Products/components/modals/product/LabelPrintSelectionModal';
@@ -58,6 +61,9 @@ export default function InboundInvoicesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const requestRevision = useRef(0);
+  const pendingVisibleLoad = useRef(false);
+  const currentPageRef = useRef(currentPage);
+  currentPageRef.current = currentPage;
 
   const [selectedInvoice, setSelectedInvoice] = useState<InboundInvoice | null>(null);
   const [selectedMappingInvoice, setSelectedMappingInvoice] = useState<InboundInvoice | null>(null);
@@ -72,9 +78,12 @@ export default function InboundInvoicesPage() {
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
 
   const loadInvoices = useCallback(
-    async (pageToLoad = 1) => {
+    async (pageToLoad = 1, silent = false) => {
       const revision = ++requestRevision.current;
-      setIsLoading(true);
+      if (!silent) {
+        pendingVisibleLoad.current = true;
+        setIsLoading(true);
+      }
       try {
         const res = await fetchInboundInvoicesPage({
           page: pageToLoad,
@@ -90,19 +99,47 @@ export default function InboundInvoicesPage() {
       } catch (err) {
         if (revision !== requestRevision.current) return;
         console.error('Erro ao carregar notas fiscais de entrada:', err);
-        toast.error('Erro ao carregar lista de notas fiscais.');
+        if (!silent) toast.error('Erro ao carregar lista de notas fiscais.');
       } finally {
-        if (revision === requestRevision.current) setIsLoading(false);
+        if (revision === requestRevision.current && pendingVisibleLoad.current) {
+          pendingVisibleLoad.current = false;
+          setIsLoading(false);
+        }
       }
     },
     [searchTerm, dateFilter]
   );
+
+  const loadInvoicesRef = useRef(loadInvoices);
+  loadInvoicesRef.current = loadInvoices;
 
   useEffect(() => {
     setCurrentPage(1);
     void loadInvoices(1);
     return () => { requestRevision.current += 1; };
   }, [searchTerm, dateFilter, loadInvoices]);
+
+  useEffect(() => {
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (document.visibilityState === 'hidden') return;
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        void loadInvoicesRef.current(currentPageRef.current, true);
+      }, 450);
+    };
+    const unsubscribe = subscribeToInboundInvoiceListRefresh(scheduleRefresh);
+    window.addEventListener('focus', scheduleRefresh);
+    document.addEventListener('visibilitychange', scheduleRefresh);
+
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      unsubscribe();
+      window.removeEventListener('focus', scheduleRefresh);
+      document.removeEventListener('visibilitychange', scheduleRefresh);
+    };
+  }, []);
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
@@ -123,6 +160,11 @@ export default function InboundInvoicesPage() {
     if (e.currentTarget === e.target) {
       setGlobalDragging(false);
     }
+  }, []);
+
+  const cancelGlobalDrag = useCallback(() => {
+    setGlobalDragging(false);
+    setDroppedFile(null);
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -198,8 +240,18 @@ export default function InboundInvoicesPage() {
       onDrop={handleDrop}
     >
       {globalDragging && (
-        <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-blue-900/40 backdrop-blur-sm border-[6px] border-blue-500 border-dashed m-4 rounded-3xl animate-in fade-in pointer-events-none">
-          <div className="flex flex-col items-center justify-center bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl">
+        <div className="pointer-events-auto fixed inset-0 z-[999999] flex items-center justify-center bg-blue-900/40 backdrop-blur-sm animate-in fade-in">
+          <button
+            type="button"
+            aria-label="Cancelar arraste do XML"
+            onClick={cancelGlobalDrag}
+            className="absolute inset-0 z-0 cursor-default border-0 bg-transparent p-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-400"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-4 rounded-3xl border-[6px] border-dashed border-blue-500"
+          />
+          <div className="relative z-10 flex flex-col items-center justify-center bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-2xl">
             <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400 mb-4 animate-bounce">
               <i className="bi bi-cloud-arrow-up-fill text-4xl" />
             </div>
@@ -207,7 +259,7 @@ export default function InboundInvoicesPage() {
               Solte o XML da Nota Fiscal Aqui
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              A nota será importada automaticamente para o Morante Hub.
+              Solte o XML para importar ou clique no fundo azul para cancelar.
             </p>
           </div>
         </div>

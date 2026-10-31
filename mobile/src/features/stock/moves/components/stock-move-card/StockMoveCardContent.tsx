@@ -9,7 +9,6 @@ import {
   Tag,
 } from 'lucide-react-native';
 import { StockMove } from '../../../types/stock.types';
-import { isOrderLinked as checkIsOrderLinked } from '../../domain/inventoryTimelineBalance';
 import { styles } from './stockMoveCard.styles';
 import {
   getTypeVisualConfig,
@@ -23,23 +22,16 @@ import {
 interface Props {
   move: StockMove;
   isDarkMode: boolean;
-  canManage?: boolean;
-  onReverse?: (move: StockMove) => void;
-  onEdit?: (move: StockMove) => void;
 }
 
 export const StockMoveCardContent: React.FC<Props> = ({
   move,
   isDarkMode,
-  canManage,
-  onReverse,
-  onEdit,
 }) => {
   const [expandedObservation, setExpandedObservation] = React.useState(false);
 
   const isReversed = move.status === 'reversed';
   const isEffective = move.status === 'effective' || move.status === 'active';
-  const isOrderLinked = checkIsOrderLinked(move);
 
   const { TypeIcon, typeText, typeColor, typeBg, typeBorder, isEntry, isExit } =
     getTypeVisualConfig(move, isDarkMode);
@@ -252,27 +244,6 @@ export const StockMoveCardContent: React.FC<Props> = ({
         </Text>
       )}
 
-      {canManage && isEffective && !isOrderLinked && (onReverse || onEdit) && (
-        <View style={styles.actionsRow}>
-          {onEdit && (
-            <TouchableOpacity style={styles.actionButton} onPress={() => onEdit(move)}>
-              <Text style={styles.actionButtonText}>Editar</Text>
-            </TouchableOpacity>
-          )}
-          {onReverse && (
-            <TouchableOpacity
-              style={styles.reverseButton}
-              onPress={() => onReverse(move)}
-              accessibilityLabel="Estornar movimentação"
-            >
-              <RotateCcw size={14} color={isDarkMode ? '#fbbf24' : '#b45309'} />
-              <Text style={[styles.reverseButtonText, isDarkMode && { color: '#fbbf24' }]}>
-                Estornar movimentação
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
     </View>
   );
 };

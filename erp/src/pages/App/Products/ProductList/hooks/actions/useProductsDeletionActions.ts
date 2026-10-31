@@ -1,4 +1,5 @@
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import type Product from '@/pages/types/product.type';
 import {
   bulkMoveToTrash,
@@ -85,9 +86,12 @@ export const executeRestoreProductFromTrash = async (
  * Executa o descarte definitivo de rascunho de produto
  */
 export const discardProductDraft = async (id: string, refresh: () => void): Promise<void> => {
-  const confirmed = window.confirm(
-    'Deseja descartar este rascunho permanentemente?\n\nEsta ação não poderá ser desfeita.'
-  );
+  const confirmed = await requestConfirmation({
+    title: 'Descartar rascunho?',
+    message: 'Deseja descartar este rascunho permanentemente? Esta ação não poderá ser desfeita.',
+    confirmLabel: 'Descartar',
+    type: 'danger',
+  });
   if (!confirmed) return;
 
   const toastId = toast.loading('Descartando rascunho...');
@@ -120,9 +124,12 @@ export const discardProductDraft = async (id: string, refresh: () => void): Prom
  * Desativa um produto operacional individual
  */
 export const deactivateSingleProduct = async (id: string): Promise<void> => {
-  const confirmed = window.confirm(
-    "Desativar este produto?\n\nEle permanecerá na lista com a etiqueta de 'Desativado'."
-  );
+  const confirmed = await requestConfirmation({
+    title: 'Desativar produto?',
+    message: "Ele permanecerá na lista com a etiqueta de 'Desativado'.",
+    confirmLabel: 'Desativar',
+    type: 'warning',
+  });
   if (!confirmed) return;
 
   const toastId = toast.loading('Desativando produto...');
@@ -142,9 +149,12 @@ export const deactivateSingleProduct = async (id: string): Promise<void> => {
 
 /** Exclui permanentemente um produto após confirmar a ausência de referências no banco. */
 export const deleteProductPermanently = async (id: string, refresh: () => void): Promise<void> => {
-  const confirmed = window.confirm(
-    'Excluir este produto permanentemente?\n\nA exclusão só será permitida se não houver vínculos, estoque ou histórico. Esta ação não poderá ser desfeita.'
-  );
+  const confirmed = await requestConfirmation({
+    title: 'Excluir produto permanentemente?',
+    message: 'A exclusão só será permitida se não houver vínculos, estoque ou histórico. Esta ação não poderá ser desfeita.',
+    confirmLabel: 'Excluir permanentemente',
+    type: 'danger',
+  });
   if (!confirmed) return;
 
   const toastId = toast.loading('Verificando vínculos e excluindo produto...');
@@ -181,7 +191,12 @@ export const executeBulkTrash = async (
   setLoading: (loading: boolean) => void
 ): Promise<void> => {
   if (selectedProducts.length === 0) return;
-  const confirmed = window.confirm(`Desativar ${selectedProducts.length} produto(s)?`);
+  const confirmed = await requestConfirmation({
+    title: 'Desativar produtos selecionados?',
+    message: `Desativar ${selectedProducts.length} produto(s)?`,
+    confirmLabel: 'Desativar',
+    type: 'warning',
+  });
   if (!confirmed) return;
 
   const toastId = toast.loading('Desativando itens selecionados...');

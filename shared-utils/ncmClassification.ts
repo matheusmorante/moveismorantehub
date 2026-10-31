@@ -3,8 +3,10 @@ export const WOODEN_KITCHEN_FURNITURE_NCM = '94034000';
 export const WOODEN_OFFICE_FURNITURE_NCM = '94033000';
 export const OTHER_WOODEN_FURNITURE_NCM = '94036000';
 export const METAL_OFFICE_FURNITURE_NCM = '94031000';
-export const OTHER_METAL_FURNITURE_NCM = '94032000';
+export const METAL_KITCHEN_FURNITURE_NCM = '94032010';
+export const OTHER_METAL_FURNITURE_NCM = '94032090';
 export const PLASTIC_FURNITURE_NCM = '94037000';
+export const SYNTHETIC_STONE_SANITARY_FIXTURE_NCM = '68109900';
 export const UPHOLSTERED_WOODEN_SEATS_NCM = '94016100';
 export const OTHER_WOODEN_SEATS_NCM = '94016900';
 export const UPHOLSTERED_METAL_SEATS_NCM = '94017100';
@@ -48,9 +50,29 @@ export interface SemanticNcmFacts {
   material?: string;
 }
 
+export function resolveSyntheticStoneFixtureNcm(
+  facts: SemanticNcmFacts
+): string | null {
+  const combined = normalizeNcmSearchText(
+    [facts.title, facts.name, facts.description, facts.category, facts.material]
+      .filter((value): value is string => Boolean(value && value.trim()))
+      .join(' ')
+  );
+  const isArtificialStone =
+    /\b(marmores? sinteticos?|marmorite|pedras? (?:artificial|artificiais)|pedras? sinteticas?)\b/.test(
+      combined
+    );
+  const isSanitaryFixture = /\b(pias?|cubas?|tanques?|lavatorios?)\b/.test(combined);
+  const includesFurniture = /\b(gabinete|armarios?|modulo|cozinha planejada)\b/.test(combined);
+
+  return isArtificialStone && isSanitaryFixture && !includesFurniture
+    ? SYNTHETIC_STONE_SANITARY_FIXTURE_NCM
+    : null;
+}
+
 /**
  * Resolve o NCM por regras semânticas determinísticas baseadas na classificação
- * oficial da Receita Federal (Capítulo 94 do NCM/SH).
+ * oficial da Receita Federal para móveis e artigos de pedra artificial.
  */
 export function resolveSemanticNcmCode(facts: SemanticNcmFacts): string | null {
   const parts = [facts.title, facts.name, facts.description, facts.category, facts.material]
@@ -60,6 +82,9 @@ export function resolveSemanticNcmCode(facts: SemanticNcmFacts): string | null {
 
   const combined = normalizeNcmSearchText(parts.join(' '));
   const materialText = normalizeNcmSearchText(facts.material || '');
+
+  const syntheticStoneFixtureNcm = resolveSyntheticStoneFixtureNcm(facts);
+  if (syntheticStoneFixtureNcm) return syntheticStoneFixtureNcm;
 
   const isMetal =
     /\b(aco|metal|aluminio|ferro|tubular|inox)\b/.test(materialText) ||
@@ -129,7 +154,8 @@ export function resolveSemanticNcmCode(facts: SemanticNcmFacts): string | null {
       combined
     );
   if (isKitchenFurniture) {
-    if (isMetal) return OTHER_METAL_FURNITURE_NCM;
+    if (isMetal) return METAL_KITCHEN_FURNITURE_NCM;
+    if (isPlastic) return PLASTIC_FURNITURE_NCM;
     return WOODEN_KITCHEN_FURNITURE_NCM;
   }
 
@@ -140,6 +166,7 @@ export function resolveSemanticNcmCode(facts: SemanticNcmFacts): string | null {
     );
   if (isOfficeFurniture) {
     if (isMetal) return METAL_OFFICE_FURNITURE_NCM;
+    if (isPlastic) return PLASTIC_FURNITURE_NCM;
     return WOODEN_OFFICE_FURNITURE_NCM;
   }
 

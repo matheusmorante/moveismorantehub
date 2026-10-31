@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Image,
   Modal,
   Platform,
   Pressable,
@@ -13,9 +12,11 @@ import { Bell, ChevronRight, LogOut, MoreVertical, Moon, Settings, Sun } from 'l
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SvgXml } from 'react-native-svg';
 import { MORANTE_BRAND_MARK_SVG } from '../../../assets/moranteBrandMarkSvg';
+import { UserProfileAvatar } from '../../../components/shared/UserProfileAvatar';
 
 interface Props {
   isDarkMode: boolean;
+  userProfile?: { fullName?: string; full_name?: string; avatar_url?: string | null } | null;
   setIsDarkMode: (val: boolean | ((prev: boolean) => boolean)) => void;
   setShowProfileModal: (val: boolean) => void;
   handleOpenNotificationsModal: () => void;
@@ -27,6 +28,7 @@ interface Props {
 
 export const DashboardHeader: React.FC<Props> = ({
   isDarkMode,
+  userProfile,
   setIsDarkMode,
   setShowProfileModal,
   handleOpenNotificationsModal,
@@ -168,17 +170,15 @@ export const DashboardHeader: React.FC<Props> = ({
                 borderBottomColor: border,
               }}
             >
-              <Image
-                source={require('../../../../assets/lizandro-small.png')}
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 21,
-                  borderWidth: 2,
-                  borderColor: '#2563eb',
-                  marginRight: 12,
-                }}
-              />
+              <View style={{ marginRight: 12 }}>
+                <UserProfileAvatar
+                  name={userProfile?.fullName || userProfile?.full_name}
+                  imageUrl={userProfile?.avatar_url}
+                  size={42}
+                  borderColor="#2563eb"
+                  borderWidth={2}
+                />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: text, fontSize: 14, fontWeight: '700' }}>Minha conta</Text>
                 <Text style={{ color: muted, fontSize: 12, marginTop: 2 }}>

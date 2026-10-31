@@ -6,6 +6,7 @@ import { subscribeToPeople } from '@/pages/utils/personService';
 import { formatCurrency, formatToBRDate } from '@/pages/utils/formatters';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
+import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
 
 export interface PurchaseReceiptPickerModalProps {
   readonly isOpen: boolean;
@@ -147,7 +148,7 @@ export const PurchaseReceiptPickerModal: React.FC<PurchaseReceiptPickerModalProp
                 >
                   <div>
                     <p className="text-sm font-black text-slate-800 dark:text-slate-100">
-                      Pedido #{purchase.purchaseNumber || purchase.id?.slice(-4)} ·{' '}
+                      Pedido #{formatPurchaseNumber(purchase.purchaseNumber) || purchase.id?.slice(-4)} ·{' '}
                       {purchase.supplierName}
                     </p>
                     <p className="mt-1 text-xs font-medium text-slate-500">

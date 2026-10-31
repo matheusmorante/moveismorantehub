@@ -106,7 +106,8 @@ describe('OrderSelectionModal', () => {
 
     // Contagem da paginação
     expect(screen.getByText('1–4 de 4 pedidos')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Registros por página' })).toHaveValue('15');
+    expect(screen.getByText('15 por página')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Registros por página' })).not.toBeInTheDocument();
   });
 
   it('paginação exibe exatamente 15 itens por página e permite navegar pelas páginas', () => {
@@ -126,7 +127,8 @@ describe('OrderSelectionModal', () => {
 
     // Página 1: Exibindo 1-15 de 35 pedidos
     expect(screen.getByText('1–15 de 35 pedidos')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Registros por página' })).toHaveValue('15');
+    expect(screen.getByText('15 por página')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Registros por página' })).not.toBeInTheDocument();
 
     // Botão da página 2 deve existir
     const page2Button = screen.getByRole('button', { name: 'Página 2' });

@@ -2,29 +2,32 @@
 // Full implementation extracted from InventoryStagesView.tsx to separate UI/logic.
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { ArrowRight, PackageCheck, PackageOpen } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { ChevronRight, PackageOpen } from 'lucide-react-native';
 import type { AuditItem } from '../../hooks/useInventoryAuditWorkflow';
 
 interface Stage {
   supplierName: string;
-  total: number;
   counted: number;
-  status: 'not_started' | 'in_progress' | 'completed';
+  total: number;
+  started: boolean;
 }
 
 interface Props {
   items: AuditItem[];
   isDarkMode: boolean;
-  onSelectStage: (supplierName: string) => void;
+  variant?: 'stages' | 'summary' | 'selection';
+  onStartStage?: (supplierName: string) => Promise<void>;
+  onSelectSupplier?: (supplierName: string) => void;
 }
 
-export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode, onSelectStage }) => {
-  const bg = isDarkMode ? '#0f172a' : '#f8fafc';
+export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode, variant = 'stages', onStartStage, onSelectSupplier }) => {
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
   const border = isDarkMode ? '#334155' : '#e2e8f0';
   const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
+  const [startingStage, setStartingStage] = React.useState<string | null>(null);
+  const [startError, setStartError] = React.useState('');
 
   const stages = useMemo(() => {
     const stageMap = new Map<string, Stage>();
@@ -34,123 +37,141 @@ export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode,
       if (!stageMap.has(supplier)) {
         stageMap.set(supplier, {
           supplierName: supplier,
-          total: 0,
           counted: 0,
-          status: 'not_started',
+          total: 0,
+          started: false,
         });
       }
       const stage = stageMap.get(supplier)!;
       stage.total++;
-      if (item.physicalCount !== null) {
+      if (typeof item.physicalCount === 'number') {
         stage.counted++;
+        stage.started = true;
       }
+      if (item.supplierStageStarted === true) stage.started = true;
     }
 
-    const stagesArray = Array.from(stageMap.values()).map((stage) => {
-      if (stage.counted === 0) stage.status = 'not_started';
-      else if (stage.counted === stage.total) stage.status = 'completed';
-      else stage.status = 'in_progress';
-      return stage;
-    });
+    const stagesArray = Array.from(stageMap.values());
+    for (const stage of stagesArray) {
+      if (variant === 'stages' && stage.started) stage.counted = stage.total;
+    }
 
-    // Produtos sem fornecedor não aparecem como etapa (igual ao ERP).
-    const filteredStagesArray = stagesArray.filter((stage) => stage.supplierName !== 'Sem fornecedor');
+    // Produtos sem fornecedor ficam disponíveis no scanner geral, mas sem cartão próprio.
+    const filteredStagesArray = stagesArray.filter(
+      (stage) => stage.supplierName !== 'Sem fornecedor'
+    );
     filteredStagesArray.sort((a, b) => a.supplierName.localeCompare(b.supplierName));
 
     return filteredStagesArray;
-  }, [items]);
+  }, [items, variant]);
+
+  const startStage = async (supplierName: string) => {
+    if (startingStage || !onStartStage) return;
+    setStartingStage(supplierName);
+    setStartError('');
+    try {
+      await onStartStage(supplierName);
+    } catch {
+      setStartError('Não foi possível salvar o início desta etapa. Tente novamente.');
+    } finally {
+      setStartingStage(null);
+    }
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={[styles.sectionTitle, { color: textPrimary }]}>Etapas por Fornecedor ({stages.length})</Text>
+      <Text style={[styles.sectionTitle, { color: textPrimary }]}>
+        {variant === 'summary'
+          ? `Itens contados por fornecedor (${stages.length})`
+          : variant === 'selection'
+            ? 'Escolha o fornecedor para contar'
+            : `Livre: Etapas por Fornecedor (${stages.length})`}
+      </Text>
+      {variant === 'selection' && (
+        <Text style={{ color: muted, fontSize: 13, marginBottom: 12 }}>
+          Toque em um cartão para abrir a contagem desse fornecedor.
+        </Text>
+      )}
+      {variant === 'stages' && (
+        <Text style={{ color: muted, fontSize: 13, marginBottom: 12 }}>
+          Etapas não iniciadas ficam fora do ajuste. Toque em Iniciar ou Retomar para abrir a contagem; ao iniciar, campos sem quantidade valem 0.
+        </Text>
+      )}
+      {variant !== 'summary' && startError ? <Text accessibilityRole="alert" style={{ color: '#dc2626', fontWeight: '700', marginBottom: 12 }}>{startError}</Text> : null}
 
       {/* Stages List */}
       <View style={styles.stagesList}>
+        {variant === 'selection' && stages.length === 0 && (
+          <Text style={{ color: muted, padding: 16, textAlign: 'center' }}>
+            Nenhum fornecedor com produtos disponíveis para este inventário.
+          </Text>
+        )}
         {stages.map((stage) => {
-          const isCompleted = stage.status === 'completed';
-          const isInProgress = stage.status === 'in_progress';
-          const stageProgress = Math.round((stage.counted / stage.total) * 100);
+          const isLightCard = variant === 'summary' || variant === 'selection' || stage.started;
+          const cardContent = (
+            <View style={styles.stageHeader}>
+              <View style={styles.stageInfo}>
+                <View style={[styles.iconBox, { backgroundColor: 'rgba(100,116,139,0.1)' }]}>
+                  <PackageOpen size={20} color={muted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.stageName, { color: isLightCard ? textPrimary : '#f8fafc' }]} numberOfLines={2}>
+                    {stage.supplierName}
+                  </Text>
+                  {variant !== 'selection' && (
+                    <Text style={[styles.stageDesc, { color: isLightCard ? muted : '#cbd5e1' }]}>
+                      <Text style={{ fontWeight: '800', color: isLightCard ? textPrimary : '#ffffff' }}>{stage.counted}</Text>{' '}
+                      {variant === 'summary'
+                        ? stage.counted === 1 ? 'item contado' : 'itens contados'
+                        : stage.counted === 1 ? 'produto considerado' : 'produtos considerados'}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              {variant === 'selection' ? (
+                startingStage === stage.supplierName
+                  ? <ActivityIndicator size="small" color="#2563eb" />
+                  : <ChevronRight size={20} color={muted} />
+              ) : variant === 'summary' && onSelectSupplier ? (
+                <ChevronRight size={20} color={muted} />
+              ) : variant === 'stages' ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={`${stage.started ? 'Retomar' : 'Iniciar'} contagem de ${stage.supplierName}`}
+                  style={[styles.stageActionButton, { backgroundColor: stage.started ? '#059669' : '#f8fafc' }]}
+                  disabled={startingStage !== null}
+                  onPress={() => void startStage(stage.supplierName)}
+                >
+                  {startingStage === stage.supplierName
+                    ? <ActivityIndicator size="small" color={stage.started ? '#ffffff' : '#020617'} />
+                    : <Text style={[styles.stageActionText, { color: stage.started ? '#ffffff' : '#020617' }]}>{stage.started ? 'Retomar' : 'Iniciar'}</Text>}
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          );
 
-          return (
+          return variant === 'selection' || (variant === 'summary' && onSelectSupplier) ? (
             <TouchableOpacity
               key={stage.supplierName}
               testID="stage-card"
-              style={[
-                styles.stageCard,
-                {
-                  backgroundColor: surface,
-                  borderColor: isCompleted ? '#10b981' : isInProgress ? '#3b82f6' : border,
-                },
-              ]}
-              onPress={() => onSelectStage(stage.supplierName)}
+              accessibilityRole="button"
+              accessibilityLabel={`${variant === 'selection' ? 'Abrir contagem' : 'Abrir itens'} do fornecedor ${stage.supplierName}`}
+              disabled={variant === 'selection' && startingStage !== null}
+              onPress={() => variant === 'selection'
+                ? void startStage(stage.supplierName)
+                : onSelectSupplier?.(stage.supplierName)}
+              style={[styles.stageCard, styles.selectionCard, { backgroundColor: surface, borderColor: border }]}
             >
-              <View style={styles.stageHeader}>
-                <View style={styles.stageInfo}>
-                  <View
-                    style={[
-                      styles.iconBox,
-                      {
-                        backgroundColor: isCompleted
-                          ? 'rgba(16,185,129,0.1)'
-                          : isInProgress
-                          ? 'rgba(59,130,246,0.1)'
-                          : 'rgba(100,116,139,0.1)',
-                      },
-                    ]}
-                  >
-                    {isCompleted ? (
-                      <PackageCheck size={20} color="#10b981" />
-                    ) : (
-                      <PackageOpen size={20} color={isInProgress ? '#3b82f6' : muted} />
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.stageName, { color: textPrimary }]} numberOfLines={1}>
-                      {stage.supplierName}
-                    </Text>
-                    <Text style={[styles.stageDesc, { color: muted }]}
-                    >
-                      <Text style={{ fontWeight: '800', color: textPrimary }}>{stage.counted}</Text>{' '}
-                      / {stage.total} itens
-                      {stage.total - stage.counted > 0
-                        ? `  •  ${stage.total - stage.counted} pendentes`
-                        : ''}
-                    </Text>
-                  </View>
-                </View>
-                <ArrowRight size={20} color={muted} />
-              </View>
-
-              {/* Stage Progress */}
-              <View
-                style={[
-                  styles.barBg,
-                  { backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9', marginTop: 12, height: 6 },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.barFill,
-                    { width: `${stageProgress}%`, backgroundColor: isCompleted ? '#10b981' : '#3b82f6' },
-                  ]}
-                />
-              </View>
-
-              {/* Status Footer */}
-              <View style={styles.stageFooter}>
-                <Text
-                  style={[
-                    styles.statusBadge,
-                    { color: isCompleted ? '#10b981' : isInProgress ? '#f59e0b' : muted },
-                  ]}
-                >
-                  {isCompleted ? 'FINALIZADO' : isInProgress ? 'EM ANDAMENTO' : 'NÃO INICIADO'}
-                </Text>
-                <Text style={[styles.actionLabel, { color: isCompleted ? '#10b981' : '#3b82f6' }]}>
-                  {isCompleted ? 'Revisar →' : isInProgress ? 'Continuar →' : 'Iniciar →'}
-                </Text>
-              </View>
+              {cardContent}
             </TouchableOpacity>
+          ) : (
+            <View
+              key={stage.supplierName}
+              testID="stage-card"
+              style={[styles.stageCard, { backgroundColor: isLightCard ? surface : '#020617', borderColor: isLightCard ? border : '#1e293b' }]}
+            >
+              {cardContent}
+            </View>
           );
         })}
       </View>
@@ -162,8 +183,6 @@ export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode,
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16 },
-  barBg: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 4 },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12, paddingHorizontal: 4 },
   stagesList: { gap: 12 },
   stageCard: {
@@ -171,6 +190,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
   },
+  selectionCard: { minHeight: 76, justifyContent: 'center' },
   stageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -192,15 +212,14 @@ const styles = StyleSheet.create({
   },
   stageName: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
   stageDesc: { fontSize: 13 },
-  stageFooter: {
-    flexDirection: 'row',
+  stageActionButton: {
+    minWidth: 76,
+    minHeight: 40,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(100,116,139,0.15)',
+    justifyContent: 'center',
   },
-  statusBadge: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-  actionLabel: { fontSize: 13, fontWeight: '700' },
+  stageActionText: { fontSize: 13, fontWeight: '700' },
 });

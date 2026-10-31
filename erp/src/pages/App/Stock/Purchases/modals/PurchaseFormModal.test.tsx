@@ -24,10 +24,10 @@ describe('purchase submit owners', () => {
     const close = vi.fn();
     render(<PurchaseFormModal isOpen onClose={close} />);
     fill();
-    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
     expect(mocks.save).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByText('Quantidade 2'));
-    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
     act(() => { fireEvent.click(screen.getByText('Confirmar Pedido')); fireEvent.click(screen.getByText('Confirmar Pedido')); });
     expect(mocks.update).not.toHaveBeenCalled();
     await act(async () => { finishDraft('persisted'); });
@@ -35,7 +35,7 @@ describe('purchase submit owners', () => {
     expect(mocks.update).toHaveBeenCalledTimes(1);
     expect(mocks.update).toHaveBeenCalledWith('persisted', expect.objectContaining({ items: [expect.objectContaining({ productId: 'product', quantity: 2 })] }));
     expect(close).toHaveBeenCalledOnce();
-    await act(async () => { await vi.advanceTimersByTimeAsync(1400); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
     expect(mocks.save).toHaveBeenCalledTimes(1);
     expect(mocks.update).toHaveBeenCalledTimes(1);
   });

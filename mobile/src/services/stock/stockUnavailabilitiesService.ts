@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient';
 
-export const STOCK_UNAVAILABILITIES_PAGE_SIZE = 30;
+export const STOCK_UNAVAILABILITIES_PAGE_SIZE = 15;
 
 export type UnavailabilityStatusFilter = 'all' | 'active' | 'cancelled';
 export type UnavailabilityProductKindFilter = 'all' | 'normal' | 'salvado' | 'usado';

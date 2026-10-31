@@ -31,7 +31,7 @@ export const InvoiceActionModal: React.FC<Props> = ({
 }) => {
   const insets = useSafeAreaInsets();
   if (!activeInvoice) return null;
-  const isSummaryOnly = activeInvoice.itemsCount === 0;
+  const isSummaryOnly = Boolean(activeInvoice.isSummaryOnly || activeInvoice.itemsCount === 0);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>

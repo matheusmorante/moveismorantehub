@@ -1,6 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getNextInventoryCode } from '../../../../services/stockService';
-import { listLocalInventoryDrafts } from '../../../../services/sqlite/inventoryDrafts';
+import {
+  deleteLocalInventoryDraft,
+  listLocalInventoryDrafts,
+} from '../../../../services/sqlite/inventoryDrafts';
 import { Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import {
@@ -24,6 +27,11 @@ import { useInventoryPersistenceQueue } from './useInventoryPersistenceQueue';
 import { executeInventoryFinalization } from '../services/inventoryFinalizer';
 import { applyInventoryPhysicalScan } from '../services/inventoryScanRules';
 import { getInventorySubmission } from '../../../../services/sqlite/inventoryOutbox';
+import {
+  prepareSupplierStageReviewItems,
+  resetSupplierStageItems,
+  startSupplierStageItems,
+} from '../../../../../../shared-utils/inventorySupplierStages';
 
 export type { AuditItem } from '../types/inventoryWorkflow.types';
 
@@ -137,6 +145,7 @@ export const useInventoryAuditWorkflow = (
       },
       async (config) => {
         frozenSubmissionRef.current = false;
+        const productStageStartedAt = config.type === 'product' ? new Date().toISOString() : undefined;
         const initialItems: AuditItem[] = config.itemsSnapshot.map((snapshot) => ({
           id: createInventoryItemId(),
           key: `${snapshot.productId}-${snapshot.variationId || 'main'}`,
@@ -146,7 +155,8 @@ export const useInventoryAuditWorkflow = (
           supplierNames: snapshot.supplierNames,
           assignedSupplier: snapshot.assignedSupplier || 'Sem fornecedor',
           systemStock: snapshot.systemStock,
-          physicalCount: null,
+          physicalCount: productStageStartedAt ? 0 : null,
+          countedAt: productStageStartedAt,
           unit: snapshot.unit,
           sku: snapshot.sku,
           code: snapshot.code,
@@ -230,6 +240,48 @@ export const useInventoryAuditWorkflow = (
     return result.count;
   };
 
+  const startSupplierStage = useCallback(async (supplierName: string) => {
+    if (frozenSubmissionRef.current) throw new Error('A submissão já está congelada.');
+    setItems(startSupplierStageItems(latestItemsRef.current, supplierName));
+    await flush();
+  }, [flush, setItems]);
+
+  const resetSupplierStage = useCallback(async (supplierName: string) => {
+    if (frozenSubmissionRef.current) throw new Error('A submissão já está congelada.');
+    const previousItems = latestItemsRef.current;
+    setItems(resetSupplierStageItems(latestItemsRef.current, supplierName));
+    try {
+      await flush();
+    } catch (error) {
+      setItems(previousItems);
+      await flush().catch(() => {});
+      throw error;
+    }
+  }, [flush, setItems]);
+
+  const discardInventory = useCallback(async () => {
+    if (frozenSubmissionRef.current) throw new Error('Este inventário já possui uma submissão pendente.');
+    if (!scopeConfig) throw new Error('O escopo do inventário não pode ser identificado.');
+    const inventoryId = draftRef.current.id;
+    if (!inventoryId || !userProfile?.id) throw new Error('O rascunho local não pode ser identificado.');
+
+    await flush();
+    const submission = await getInventorySubmission(inventoryId, userProfile.id);
+    if (submission) {
+      frozenSubmissionRef.current = true;
+      throw new Error('Este inventário possui uma submissão pendente e não pode ser apagado.');
+    }
+
+    await deleteLocalInventoryDraft(inventoryId, userProfile.id);
+    frozenSubmissionRef.current = false;
+    draftRef.current = {};
+    latestItemsRef.current = [];
+    setItemsState([]);
+    setScopeConfig(null);
+    setView('scope');
+    return true;
+  }, [flush, scopeConfig, userProfile?.id]);
+
   const handleFinalize = async (itemsWithAdjustment: FinalizeAdjustmentItem[]) => {
     if (!scopeConfig) {
       Alert.alert('Atenção', 'Configuração de escopo inválida.', [
@@ -245,7 +297,7 @@ export const useInventoryAuditWorkflow = (
         {
           id: draftRef.current.id || '',
           code: draftRef.current.code || '',
-          items: latestItemsRef.current.map((item) => ({ ...item })),
+          items: prepareSupplierStageReviewItems(latestItemsRef.current, Boolean(scopeConfig.hasStages)),
           adjustments: itemsWithAdjustment.map((item) => ({
             ...item,
             physicalCount: item.physicalCount!,
@@ -283,5 +335,8 @@ export const useInventoryAuditWorkflow = (
     incrementScannedItem,
     flushLocalWrites: flush,
     handleFinalize,
+    startSupplierStage,
+    resetSupplierStage,
+    discardInventory,
   };
 };

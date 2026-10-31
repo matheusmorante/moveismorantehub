@@ -7,6 +7,7 @@ import {
   buildNcmSearchTerms,
   isCurrentNcm,
   isWoodenBedroomFurnitureByName,
+  resolveSyntheticStoneFixtureNcm,
   WOODEN_BEDROOM_FURNITURE_NCM,
   validateCategoryChoice,
   validateNcmChoice,
@@ -178,7 +179,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const ncmOptions = new Map<string, NcmCandidate>();
         let categoryName = isInvoice ? '' : categoryHint;
 
-        if (!hasNcm && isWoodenBedroomFurnitureByName(classificationTitle, material)) {
+        const syntheticStoneFixtureCode =
+          !isInvoice && !hasNcm
+            ? resolveSyntheticStoneFixtureNcm({
+                title: classificationTitle,
+                name,
+                description,
+                category: categoryHint,
+                material,
+              })
+            : null;
+        if (syntheticStoneFixtureCode) {
+          const { data: syntheticStoneFixtureNcm } = await db
+            .from('ncms')
+            .select('code,official_description,active,is_active,start_date,end_date')
+            .eq('code', syntheticStoneFixtureCode)
+            .maybeSingle();
+          if (syntheticStoneFixtureNcm && isCurrentNcm(syntheticStoneFixtureNcm, dateInBrazil()))
+            ncm = syntheticStoneFixtureNcm;
+        }
+
+        if (!hasNcm && !ncm && isWoodenBedroomFurnitureByName(classificationTitle, material)) {
           const { data: bedroomFurnitureNcm } = await db
             .from('ncms')
             .select('code,official_description,active,is_active,start_date,end_date')
@@ -287,7 +308,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!Object.keys(questions).length)
           return {
             category: null,
-            ncm: null,
+            ncm: ncm && { code: ncm.code, description: ncm.official_description },
           };
         const jevRequest = {
           state: isInvoice

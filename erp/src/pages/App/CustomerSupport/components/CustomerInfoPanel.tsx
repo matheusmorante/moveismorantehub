@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { supportCustomerLinkSchema, type SupportCustomerLinkInput } from '../../../../../../shared-utils/customerSupportFormSchemas';
 import { WhatsAppConversation, WhatsAppMessage } from '../types';
 import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
@@ -114,7 +115,12 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
     setCustomerActionError('');
     try {
       await unlinkForm.handleSubmit(async (data) => {
-        if (!window.confirm('Deseja realmente desvincular este cliente da conversa?')) return;
+        if (!await requestConfirmation({
+          title: 'Desvincular cliente?',
+          message: 'Deseja realmente desvincular este cliente da conversa?',
+          confirmLabel: 'Desvincular',
+          type: 'warning',
+        })) return;
         const res = await unlinkCustomer(supabase, data.conversationId);
         if (!res.success) {
           setCustomerActionError(res.error || 'Não foi possível desvincular o cliente.');

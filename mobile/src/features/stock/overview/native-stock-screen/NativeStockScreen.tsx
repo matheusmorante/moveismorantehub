@@ -13,6 +13,7 @@ import { STOCK_MODULES } from './nativeStockScreen.types';
 import { styles } from './nativeStockScreen.styles';
 import { WEB_URL } from '../../../../services/supabaseClient';
 import stockGuide from '../../../../../../shared-utils/stockGuide.json';
+import { getProductProfileRoles, normalizePermissionRoles } from '../../../../../../shared-utils/productPermissions';
 
 interface Props {
   isDarkMode: boolean;
@@ -26,6 +27,8 @@ export const NativeStockScreen: React.FC<Props> = ({
   const [selectedModuleIndex, setSelectedModuleIndex] = useState<number | null>(null);
   const selectedModule =
     selectedModuleIndex === null ? null : STOCK_MODULES[selectedModuleIndex];
+  const roles = normalizePermissionRoles(getProductProfileRoles(userProfile));
+  const canAccessReceipts = roles.includes('administrator') || roles.includes('stockist');
   const returnToMenu = () => setSelectedModuleIndex(null);
 
   const renderModuleHeader = (rightAction?: ReactNode) => (
@@ -38,9 +41,9 @@ export const NativeStockScreen: React.FC<Props> = ({
       >
         <ArrowLeft size={18} color={isDarkMode ? '#f8fafc' : '#334155'} />
       </TouchableOpacity>
-      <Text style={[styles.moduleTitle, isDarkMode && styles.textLight]} numberOfLines={1}>
+      <Text style={[styles.moduleTitle, isDarkMode && styles.textLight]} numberOfLines={selectedModule?.key === 'receipts' ? 2 : 1}>
         {selectedModule?.key === 'invoices'
-          ? 'Notas Fiscais de Entrada'
+          ? 'Nota Fiscal de Entrada'
           : selectedModule?.title}
       </Text>
       {rightAction}
@@ -83,6 +86,7 @@ export const NativeStockScreen: React.FC<Props> = ({
           />
         );
       case 'receipts':
+        if (!canAccessReceipts) return null;
         return (
           <ReceiptsScreen
             isDarkMode={isDarkMode}
@@ -119,7 +123,7 @@ export const NativeStockScreen: React.FC<Props> = ({
           <Text style={[styles.menuSubtitle, isDarkMode && styles.textMutedDark]}>
             Escolha o módulo que deseja consultar.
           </Text>
-          {STOCK_MODULES.map(({ key, title, description, Icon }, index) => (
+          {STOCK_MODULES.map(({ key, title, description, Icon }, index) => key === 'receipts' && !canAccessReceipts ? null : (
             <TouchableOpacity
               key={key}
               testID={`stock-module-${key}`}

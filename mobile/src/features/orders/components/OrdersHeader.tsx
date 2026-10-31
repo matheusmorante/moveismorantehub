@@ -128,6 +128,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   top: {
+    minHeight: 44,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

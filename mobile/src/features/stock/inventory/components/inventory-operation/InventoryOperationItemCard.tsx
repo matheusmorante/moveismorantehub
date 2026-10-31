@@ -112,9 +112,9 @@ export const InventoryOperationItemCard: React.FC<Props> = ({
               testID="count-input"
               style={[styles.countInput, { color: textPrimary }]}
               keyboardType="numeric"
-              value={item.physicalCount === null ? '' : String(item.physicalCount)}
+              value={String(item.physicalCount ?? 0)}
               onChangeText={(val) => {
-                if (val === '') onUpdateCount(item, null);
+                if (val === '') onUpdateCount(item, 0);
                 else onUpdateCount(item, Math.max(0, parseInt(val, 10) || 0));
               }}
               placeholder="-"

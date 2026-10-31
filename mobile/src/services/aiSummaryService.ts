@@ -83,8 +83,8 @@ export const generateDeliveryAISummary = async (
         .eq('id', 'app')
         .maybeSingle();
       settingsData = data;
-    } catch (e) {
-      console.warn('Configurações de IA não carregadas:', e);
+    } catch {
+      console.warn('Configurações de IA não carregadas.');
     }
 
     const settings = settingsData?.data || settingsData || {};
@@ -174,8 +174,7 @@ export const generateDeliveryAISummary = async (
                 setSummaryQuotaExceeded(true);
               }
               console.warn(
-                'Erro ao chamar Gemini Flash para resumo (usando texto estruturado local):',
-                geminiErr
+                'Erro ao chamar Gemini Flash para resumo (usando texto estruturado local).'
               );
             }
           }
@@ -209,10 +208,9 @@ export const generateDeliveryAISummary = async (
     else if (smartText && (mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)
       setAiSummaryTomorrow(smartText);
     return smartText;
-  } catch (err: any) {
-    console.warn('Erro durante geração de resumo:', err);
-    const detail = err instanceof Error ? err.message : String(err);
-    const fallbackText = `Não foi possível atualizar o resumo agora. ${detail}`;
+  } catch {
+    console.warn('Erro durante geração de resumo.');
+    const fallbackText = 'Não foi possível atualizar o resumo agora. Tente novamente.';
 
     if (mode === 'today' && setAiSummaryToday) setAiSummaryToday(fallbackText);
     else if ((mode === 'tomorrow' || mode === 'next_days') && setAiSummaryTomorrow)

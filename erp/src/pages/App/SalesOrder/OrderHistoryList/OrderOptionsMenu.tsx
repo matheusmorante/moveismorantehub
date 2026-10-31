@@ -88,12 +88,12 @@ export const OrderOptionsMenu = ({
       <button
         type="button"
         ref={menuButtonRef}
-        className={`p-2 rounded-xl transition-all border flex items-center justify-center ${buttonClassName || 'h-7 w-7'} shadow-sm ${
+        className={`p-2 transition-colors flex items-center justify-center ${buttonClassName || 'h-7 w-7'} ${
           showMenu
-            ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+            ? 'text-slate-800 dark:text-slate-200'
             : isCancelled
-              ? 'text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:text-slate-900 dark:hover:white hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer'
-              : 'text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white cursor-pointer'
+              : 'text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
         }`}
         title={isCancelled ? 'Mais opções (Duplicar pedido)' : 'Mais ações e opções de envio'}
         onClick={handleToggleMenu}

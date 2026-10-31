@@ -2,7 +2,6 @@ import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import type { InvoiceDetail } from '../../../types/stock.types';
-import { formatInvoiceDate } from '../../utils/invoiceList';
 import { styles } from './invoiceDetailsModal.styles';
 
 interface InvoiceDetailsHeaderProps {
@@ -21,9 +20,7 @@ export const InvoiceDetailsHeader: React.FC<InvoiceDetailsHeaderProps> = ({
       <View style={styles.headerCopy}>
         <View style={styles.titleLine}>
           <Text style={[styles.title, isDarkMode && styles.textDark]}>
-            {invoice
-              ? `NF-e #${invoice.number} - Série ${invoice.series}`
-              : 'Detalhes da NF-e'}
+            Detalhes da nota fiscal de entrada
           </Text>
           {invoice && (
             <View
@@ -68,14 +65,8 @@ export const InvoiceDetailsHeader: React.FC<InvoiceDetailsHeaderProps> = ({
           )}
         </View>
         {invoice && (
-          <Text style={styles.keyText}>
-            {invoice.accessKey || 'Chave de acesso não informada'}
-          </Text>
-        )}
-        {invoice && (
-          <Text style={styles.metaText}>
-            Emissão: {formatInvoiceDate(invoice.issueDate)} · Recebida em:{' '}
-            {formatInvoiceDate(invoice.receivedAt)}
+          <Text style={[styles.metaText, isDarkMode && styles.textMutedDark]}>
+            NF-e #{invoice.number || '—'} · Série {invoice.series || '—'}
           </Text>
         )}
       </View>

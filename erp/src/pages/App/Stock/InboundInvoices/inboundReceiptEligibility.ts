@@ -1,5 +1,6 @@
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { isSalvadosOnlySupplier } from '../../../../../../shared-utils/productSupplierStockOrigin';
+import { hasInboundItemCommercialData } from '../../../../../../shared-utils/inboundInvoiceCompleteness';
 
 export function hasCompleteInboundInvoiceMappings(invoice: InboundInvoice): boolean {
   const items = invoice.items || [];
@@ -18,7 +19,9 @@ export function hasCompleteInboundInvoiceMappings(invoice: InboundInvoice): bool
 
 export function hasCompleteInboundInvoiceItems(invoice: InboundInvoice): boolean {
   const items = invoice.items || [];
-  return items.length > 0 && (invoice.itemsCount === 0 || invoice.itemsCount === items.length);
+  return items.length > 0 &&
+    (invoice.itemsCount === 0 || invoice.itemsCount === items.length) &&
+    hasInboundItemCommercialData(items);
 }
 
 export function getInboundReceiptBlockedReason(
@@ -36,7 +39,7 @@ export function getInboundReceiptBlockedReason(
   if (!invoice.supplierId) return 'Vincule o fornecedor da NF-e ao cadastro de fornecedores.';
 
   if (!hasCompleteInboundInvoiceItems(invoice)) {
-    return 'Importe o XML completo para carregar todos os itens da NF-e.';
+    return 'Obtenha o XML atualizado no Portal da NF-e e importe-o para conferir os dados dos itens antes de gerar o recebimento.';
   }
   if (!hasCompleteInboundInvoiceMappings(invoice)) {
     return 'Vincule cada item da NF-e a um produto cadastrado ou marque “Não se aplica”.';

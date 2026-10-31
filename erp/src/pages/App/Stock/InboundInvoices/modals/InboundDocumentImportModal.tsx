@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { inboundAccessKeyFormSchema } from '../../../../../../../shared-utils/lookupFormSchemas';
 import { normalizeFiscalIdentifier } from '../../../../../../../shared-utils/fiscalIdentifiers';
 import { INBOUND_SUMMARY_XML_HELP } from '../../../../../../../shared-utils/inboundSummaryHelp';
@@ -52,6 +53,8 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
     expectedAccessKey: summaryInvoice ? summaryAccessKey : undefined,
   });
 
+  useBodyScrollLock(isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
     setAccessKey(summaryAccessKey);
@@ -80,9 +83,9 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
         onKeyDown={(e) => {
           if (e.key === 'Escape' && !busy) onClose();
         }}
-        className="fixed inset-0 z-[1000002] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in"
+        className="fixed inset-0 z-[1000002] flex items-stretch justify-center p-0 bg-slate-950/60 backdrop-blur-sm animate-in fade-in sm:items-center sm:p-4"
       >
-        <div className="relative w-full max-w-xl rounded-3xl bg-white shadow-2xl border border-slate-100 dark:bg-slate-900 dark:border-slate-800 animate-in zoom-in-95 duration-150 overflow-hidden">
+        <div className="relative flex h-full max-h-full min-h-0 w-full max-w-none flex-col overflow-hidden rounded-none border-0 bg-white shadow-2xl dark:bg-slate-900 dark:border-slate-800 animate-in zoom-in-95 duration-150 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-xl sm:rounded-3xl sm:border sm:border-slate-100">
           {/* Header */}
           <header className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 p-5 px-6">
             <div>
@@ -98,7 +101,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {summaryInvoice
-                  ? 'Esta nota chegou sem os itens. Consulte o Portal e importe o XML completo para atualizá-la.'
+                  ? 'Esta nota pode estar incompleta ou desatualizada. Baixe o XML completo atualizado no Portal da NF-e e importe-o aqui.'
                   : 'Importe o arquivo XML da nota fiscal para conferência e entrada no estoque.'}
               </p>
             </div>
@@ -114,7 +117,7 @@ export const InboundDocumentImportModal: React.FC<InboundDocumentImportModalProp
           </header>
 
           {/* Conteúdo Principal */}
-          <main className="p-6 space-y-4">
+          <main className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4 sm:p-6">
             {/* Estado de Carregamento / Progresso */}
             {isLoading && (
               <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 dark:border-blue-900/50 dark:bg-blue-950/40 flex items-center gap-3 animate-pulse">

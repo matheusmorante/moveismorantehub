@@ -1,0 +1,26 @@
+{
+  "runId": "7b70cd0c-54f0-49a3-8c46-c2b8ab045a82",
+  "ownerId": "13eab361-be48-4e49-be4b-4ad79813b812",
+  "scenarioKey": "sale-stock-adjustment",
+  "customerId": "01cdd4cf-7da8-4f74-9839-f2a6aa1cdfd9",
+  "orderId": "6f5c10f9-9e40-4cdc-8df2-5c48c4dc78ca",
+  "products": [
+    {
+      "id": "692bb7f2-33ee-45bb-b11e-213eee98cdf9",
+      "variationId": "bf4db3a6-b835-4cc7-981c-913b3b5bd5c6",
+      "i": 0
+    },
+    {
+      "id": "136e90d2-6e14-47e1-9b9c-b1f8832185dd",
+      "variationId": "a74fb76f-6f01-4f9b-91fd-b9825e225bb6",
+      "i": 1
+    }
+  ],
+  "itemIds": [
+    "3300ad1d-0437-4b68-92dc-8f36d19b9235",
+    "97e79769-faa4-4a91-bf96-cca080ff15bf",
+    "b3e8d37c-7218-4a36-926a-55c0be4cd868"
+  ],
+  "phase": "cancelled-after-test",
+  "movementCount": 4
+}

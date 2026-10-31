@@ -50,7 +50,7 @@ describe('resolveMobileUserProfile', () => {
       },
     });
 
-    expect(mocks.profileQuery.select).toHaveBeenCalledWith('id,email,full_name,role,roles');
+    expect(mocks.profileQuery.select).toHaveBeenCalledWith('id,email,full_name,role,roles,avatar_url');
     expect(mocks.peopleQuery.select).toHaveBeenCalledWith('roles,role');
     expect(profile.roles).toEqual(['seller', 'stockist']);
     expect(profile.id).toBe('user-1');

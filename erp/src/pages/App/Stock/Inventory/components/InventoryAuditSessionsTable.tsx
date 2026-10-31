@@ -76,7 +76,7 @@ export const InventoryAuditSessionsTable: React.FC<InventoryAuditSessionsTablePr
               <button
                 type="button"
                 onClick={(event) => onOpenMenu(event, session)}
-                className="cursor-pointer rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="cursor-pointer p-2 text-slate-500 transition-colors hover:text-slate-900 dark:hover:text-white"
                 title="Mais opções"
                 aria-label="Mais opções"
                 aria-haspopup="true"

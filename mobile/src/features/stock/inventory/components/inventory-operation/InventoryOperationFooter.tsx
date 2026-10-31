@@ -7,6 +7,8 @@ interface Props {
   activeStage: string | null;
   onBack: () => void;
   onReview: () => void;
+  supplierSpecific?: boolean;
+  supplierSelected?: boolean;
 }
 
 export const InventoryOperationFooter: React.FC<Props> = ({
@@ -14,6 +16,8 @@ export const InventoryOperationFooter: React.FC<Props> = ({
   activeStage,
   onBack,
   onReview,
+  supplierSpecific = false,
+  supplierSelected = false,
 }) => {
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
   const border = isDarkMode ? '#334155' : '#e2e8f0';
@@ -21,17 +25,21 @@ export const InventoryOperationFooter: React.FC<Props> = ({
 
   return (
     <View style={[styles.footer, { backgroundColor: surface, borderTopColor: border }]}>
-      <TouchableOpacity testID="footer-back-btn" style={styles.backBtn} onPress={onBack}>
-        <ArrowLeft size={18} color={textPrimary} />
-        <Text style={[styles.backBtnText, { color: textPrimary }]}>
-          {activeStage ? 'Voltar para etapas' : 'Voltar'}
-        </Text>
-      </TouchableOpacity>
+      {supplierSpecific ? null : (
+        <TouchableOpacity testID="footer-back-btn" style={styles.backBtn} onPress={onBack}>
+          <ArrowLeft size={18} color={textPrimary} />
+          <Text style={[styles.backBtnText, { color: textPrimary }]}>
+            {activeStage ? 'Voltar para etapas' : 'Voltar'}
+          </Text>
+        </TouchableOpacity>
+      )}
 
-      <TouchableOpacity testID="footer-review-btn" style={styles.reviewBtn} onPress={onReview}>
-        <Text style={styles.reviewBtnText}>Revisar</Text>
-        <ArrowRight size={18} color="#ffffff" />
-      </TouchableOpacity>
+      {(!supplierSpecific || supplierSelected) && (
+        <TouchableOpacity testID="footer-review-btn" style={styles.reviewBtn} onPress={onReview}>
+          <Text style={styles.reviewBtnText}>Revisar</Text>
+          <ArrowRight size={18} color="#ffffff" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };

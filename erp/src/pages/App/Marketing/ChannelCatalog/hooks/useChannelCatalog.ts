@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { buildChannelCatalogSyncPayload } from '../../channelCatalogRows';
@@ -20,7 +21,7 @@ export function useChannelCatalog() {
   const [apiError, setApiError] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(30);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const requestRevision = useRef(0);
@@ -126,7 +127,12 @@ export function useChannelCatalog() {
       toast.info('Nenhuma variação marcada para sincronizar.');
       return;
     }
-    if (!window.confirm(`Deseja atualizar ${toSync.length} variações no WhatsApp?`)) return;
+    if (!await requestConfirmation({
+      title: 'Atualizar catálogo do WhatsApp?',
+      message: `Deseja atualizar ${toSync.length} variações no WhatsApp?`,
+      confirmLabel: 'Atualizar',
+      type: 'warning',
+    })) return;
 
     setLoading(true);
     let count = 0;

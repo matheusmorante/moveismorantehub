@@ -10,6 +10,7 @@ import {
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useConfirmDialog } from '@/components/providers/confirm-dialog-provider';
 import { CategoryFormData, CategoryItem, CategoryLink } from '../types/categoryManager.types';
 import { generateSlug } from '../utils/slugUtils';
 
@@ -19,6 +20,7 @@ export interface UseCategoriesManagerProps {
 }
 
 export function useCategoriesManager({ isOpen, onSuccess }: UseCategoriesManagerProps) {
+  const requestConfirmation = useConfirmDialog();
   const [categories, setCategories] = useState<readonly CategoryItem[]>([]);
   const [relationships, setRelationships] = useState<readonly CategoryLink[]>([]);
   const [loading, setLoading] = useState(true);
@@ -284,7 +286,13 @@ export function useCategoriesManager({ isOpen, onSuccess }: UseCategoriesManager
           if (!isCurrent(generation) || !categories.some((category) => category.id === values.id)) {
             throw new Error('O item selecionado não está mais disponível. Atualize a lista.');
           }
-          if (!confirm('Excluir este item?')) return;
+          const confirmed = await requestConfirmation({
+            title: 'Excluir este item?',
+            description: 'Esta ação remove o item do catálogo.',
+            confirmLabel: 'Excluir',
+            destructive: true,
+          });
+          if (!confirmed) return;
           const { data, error } = await request(
             supabase.from('categories').delete().eq('id', values.id).select('id'),
             generation,

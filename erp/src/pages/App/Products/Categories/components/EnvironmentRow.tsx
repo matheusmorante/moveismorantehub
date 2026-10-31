@@ -1,4 +1,5 @@
 import React from 'react';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { EnvironmentNode, CategoryNode } from '../types/categoryEnvironment.types';
 import { SecureDeleteButton } from './SecureDeleteButton';
 
@@ -93,8 +94,13 @@ export const EnvironmentRow: React.FC<EnvironmentRowProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (window.confirm(`Desvincular "${c.name}" de "${environment.name}"?`)) {
+                onClick={async () => {
+                  if (await requestConfirmation({
+                    title: 'Desvincular categoria?',
+                    message: `Desvincular "${c.name}" de "${environment.name}"?`,
+                    confirmLabel: 'Desvincular',
+                    type: 'warning',
+                  })) {
                     onUnlinkCategory(environment.id, c.id);
                   }
                 }}

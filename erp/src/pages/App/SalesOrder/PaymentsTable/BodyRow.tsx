@@ -1,4 +1,5 @@
 import paymentMethods from './paymentMethods';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { PaymentsSummary, Payment } from '../../../types/payments.type';
 import CurrencyInput from '../../../../components/CurrencyInput';
 import CurrencyOrPercentInput from '../../../../components/CurrencyOrPercentInput';
@@ -253,12 +254,14 @@ const BodyRow = ({
                 <select
                   className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-xs font-bold leading-4 outline-none transition-colors focus:border-blue-600 dark:text-slate-200 dark:focus:border-blue-500 ${statusError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
                   value={payment.status}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const val = e.target.value;
-                    if (
-                      val &&
-                      window.confirm(`Tem certeza que quer alterar o status para "${val}"?`)
-                    ) {
+                    if (val && await requestConfirmation({
+                      title: 'Alterar status do pagamento?',
+                      message: `Tem certeza que quer alterar o status para "${val}"?`,
+                      confirmLabel: 'Alterar status',
+                      type: 'warning',
+                    })) {
                       onChange(idx, 'status', val);
                     }
                   }}
@@ -430,9 +433,14 @@ const BodyRow = ({
           <select
             className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-blue-600 dark:text-slate-200 dark:focus:border-blue-500 ${statusError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
             value={payment.status}
-            onChange={(e) => {
+            onChange={async (e) => {
               const val = e.target.value;
-              if (val && window.confirm(`Tem certeza que quer alterar o status para "${val}"?`)) {
+              if (val && await requestConfirmation({
+                title: 'Alterar status do pagamento?',
+                message: `Tem certeza que quer alterar o status para "${val}"?`,
+                confirmLabel: 'Alterar status',
+                type: 'warning',
+              })) {
                 onChange(idx, 'status', val);
               }
             }}

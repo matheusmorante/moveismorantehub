@@ -302,7 +302,7 @@ describe('useProducts query snapshot', () => {
     expect(result.current.currentPage).toBe(1);
   });
 
-  it('returns to page one and refetches the selected page size', async () => {
+  it('keeps 15 products per page while navigating', async () => {
     mocks.fetchProductsPage.mockResolvedValue({ data: [], total: 40 });
     const { result } = renderHook(() => useProducts({}), { wrapper: createWrapper() });
 
@@ -311,20 +311,16 @@ describe('useProducts query snapshot', () => {
     await waitFor(() => expect(result.current.currentPage).toBe(3));
     await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(2));
 
-    mocks.fetchProductsPage.mockClear();
-    act(() => result.current.handleItemsPerPageChange(30));
-
-    await waitFor(() => expect(mocks.fetchProductsPage).toHaveBeenCalledTimes(1));
-    expect(mocks.fetchProductsPage).toHaveBeenCalledWith(
-      1,
-      30,
+    expect(mocks.fetchProductsPage).toHaveBeenLastCalledWith(
+      3,
+      15,
       expect.any(Object),
       { throwOnError: true }
     );
-    expect(result.current.currentPage).toBe(1);
-    expect(result.current.itemsPerPage).toBe(30);
+    expect(result.current.currentPage).toBe(3);
+    expect(result.current.itemsPerPage).toBe(15);
     expect(result.current.totalItems).toBe(40);
-    expect(result.current.totalPages).toBe(2);
+    expect(result.current.totalPages).toBe(3);
   });
 
   it('includes test-product visibility in the query key and server filter', async () => {

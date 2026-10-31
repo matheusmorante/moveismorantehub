@@ -1,6 +1,7 @@
 import { supabase } from '../../../services/supabaseClient';
+import { formatPurchaseNumber } from '../../../../../shared-utils/purchaseNumber';
 
-export type PurchaseStatus = 'ordered' | 'fulfilled' | 'cancelled';
+export type PurchaseStatus = 'draft' | 'pending' | 'ordered' | 'fulfilled' | 'cancelled';
 
 export interface MobilePurchaseItem {
   productId: string;
@@ -9,6 +10,7 @@ export interface MobilePurchaseItem {
   quantity: number;
   receivedQuantity?: number;
   baseCost: number;
+  discountUnit?: number;
   unitCost: number;
   totalCost: number;
   sku?: string;
@@ -29,6 +31,7 @@ export interface MobilePurchase {
   invoiceStatus?: string;
   fiscalKey?: string;
   attachments: string[];
+  discountPercent?: number;
   ipiPercent: number;
   freightPercent: number;
   stockProcessed: boolean;
@@ -43,6 +46,8 @@ export interface PurchaseFilters {
 export const PURCHASE_PAGE_SIZE = 15;
 
 const normalizeStatus = (status: unknown): PurchaseStatus => {
+  if (status === 'draft') return 'draft';
+  if (status === 'pending') return 'pending';
   if (status === 'fulfilled') return 'fulfilled';
   if (status === 'cancelled') return 'cancelled';
   return 'ordered';
@@ -50,6 +55,8 @@ const normalizeStatus = (status: unknown): PurchaseStatus => {
 
 export const purchaseStatusLabel = (status: PurchaseStatus) =>
   ({
+    draft: 'Rascunho',
+    pending: 'Pendente',
     ordered: 'Em Ordem',
     fulfilled: 'Atendido',
     cancelled: 'Cancelado',
@@ -70,6 +77,7 @@ export const mapPurchaseFromDb = (row: any, fallbackNumber?: number): MobilePurc
                 ? Number(item.item_snapshot.receivedQuantity)
                 : undefined,
             baseCost: Number(item.base_cost ?? item.item_snapshot?.baseCost ?? 0),
+            discountUnit: Number(item.item_snapshot?.discountUnit ?? item.discount_unit ?? 0),
             unitCost: Number(item.unit_cost ?? item.item_snapshot?.unitCost ?? 0),
             totalCost: Number(item.total_cost ?? item.item_snapshot?.totalCost ?? 0),
             sku: item.item_snapshot?.sku,
@@ -83,6 +91,7 @@ export const mapPurchaseFromDb = (row: any, fallbackNumber?: number): MobilePurc
             receivedQuantity:
               item.receivedQuantity !== undefined ? Number(item.receivedQuantity) : undefined,
             baseCost: Number(item.baseCost ?? item.base_cost ?? 0),
+            discountUnit: Number(item.discountUnit ?? item.discount_unit ?? 0),
             unitCost: Number(item.unitCost ?? item.unit_cost ?? 0),
             totalCost: Number(item.totalCost ?? item.total_cost ?? 0),
             sku: item.sku,
@@ -93,7 +102,7 @@ export const mapPurchaseFromDb = (row: any, fallbackNumber?: number): MobilePurc
     id: String(row.id),
     purchaseNumber: row.purchase_number ? Number(row.purchase_number) : fallbackNumber,
     supplierId: row.supplier_id || undefined,
-    supplierName: row.supplier_name || 'Fornecedor não informado',
+    supplierName: row.supplier_name || 'Fornecedor ainda não informado',
     date: row.date || row.created_at || new Date().toISOString(),
     items: normalizedItems,
     totalValue: Number(row.total_value ?? row.total_amount ?? 0),
@@ -104,6 +113,7 @@ export const mapPurchaseFromDb = (row: any, fallbackNumber?: number): MobilePurc
     invoiceStatus: row.invoice_status || 'pending',
     fiscalKey: row.fiscal_key || undefined,
     attachments: Array.isArray(row.attachments) ? row.attachments : [],
+    discountPercent: Number(row.discount_percent || 0),
     ipiPercent: Number(row.ipi_value || 0),
     freightPercent: Number(row.freight_percent || 0),
     stockProcessed: Boolean(row.stockProcessed ?? row.stock_processed),
@@ -149,6 +159,7 @@ const toDbPurchase = (purchase: Partial<MobilePurchase>) => ({
   invoice_status: purchase.invoiceStatus || 'pending',
   fiscal_key: purchase.fiscalKey || null,
   attachments: purchase.attachments || [],
+  discount_percent: Number(purchase.discountPercent || 0),
   ipi_value: Number(purchase.ipiPercent || 0),
   freight_percent: Number(purchase.freightPercent || 0),
   stockProcessed: Boolean(purchase.stockProcessed),
@@ -194,7 +205,7 @@ export const saveMobilePurchase = async (purchase: Omit<MobilePurchase, 'id'>) =
     .select()
     .single();
   if (error) throw error;
-  await syncPurchaseItems(String(data.id), purchase.items || []);
+  if (purchase.items?.length) await syncPurchaseItems(String(data.id), purchase.items);
   return mapPurchaseFromDb({
     ...data,
     purchase_items: purchase.items.map((item, index) => ({
@@ -220,6 +231,8 @@ const toDbPurchaseUpdates = (updates: Partial<MobilePurchase>) => {
   if (updates.invoiceStatus !== undefined) dbUpdates.invoice_status = updates.invoiceStatus;
   if (updates.fiscalKey !== undefined) dbUpdates.fiscal_key = updates.fiscalKey || null;
   if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments || [];
+  if (updates.discountPercent !== undefined)
+    dbUpdates.discount_percent = Number(updates.discountPercent || 0);
   if (updates.ipiPercent !== undefined) dbUpdates.ipi_value = Number(updates.ipiPercent || 0);
   if (updates.freightPercent !== undefined)
     dbUpdates.freight_percent = Number(updates.freightPercent || 0);
@@ -229,14 +242,55 @@ const toDbPurchaseUpdates = (updates: Partial<MobilePurchase>) => {
   return dbUpdates;
 };
 
-export const updateMobilePurchase = async (id: string, updates: Partial<MobilePurchase>) => {
-  const { error } = await supabase
+export const updateMobilePurchase = async (
+  id: string,
+  updates: Partial<MobilePurchase>,
+  options: { readonly fetchAfterUpdate?: boolean } = {}
+) => {
+  const update = supabase
     .from('purchases')
     .update(toDbPurchaseUpdates(updates))
     .eq('id', id);
-  if (error) throw error;
+  if (updates.status === 'draft') {
+    const { data, error } = await update.eq('status', 'draft').select('id').maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error('Este pedido não está mais como rascunho. Reabra a lista antes de continuar.');
+  } else {
+    const { error } = await update;
+    if (error) throw error;
+  }
   if (updates.items) await syncPurchaseItems(id, updates.items);
-  return fetchMobilePurchase(id);
+  return options.fetchAfterUpdate === false ? undefined : fetchMobilePurchase(id);
+};
+
+export const deleteCancelledMobilePurchase = async (purchase: MobilePurchase) => {
+  if (purchase.status !== 'cancelled') {
+    throw new Error('Somente pedidos de compra cancelados podem ser excluídos.');
+  }
+  const { data, error } = await supabase
+    .from('purchases')
+    .delete()
+    .eq('id', purchase.id)
+    .eq('status', 'cancelled')
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('O pedido não está mais cancelado ou não foi encontrado. Atualize a lista e tente novamente.');
+};
+
+export const discardMobilePurchaseDraft = async (purchase: MobilePurchase) => {
+  if (purchase.status !== 'draft') {
+    throw new Error('Somente pedidos em rascunho podem ser descartados.');
+  }
+  const { data, error } = await supabase
+    .from('purchases')
+    .delete()
+    .eq('id', purchase.id)
+    .eq('status', 'draft')
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('Este pedido não está mais como rascunho. Atualize a lista e tente novamente.');
 };
 
 export const cancelMobilePurchase = async (purchase: MobilePurchase) => {
@@ -245,7 +299,7 @@ export const cancelMobilePurchase = async (purchase: MobilePurchase) => {
   // compatibilidade com registros normalizados e com os lançamentos antigos
   // que gravavam o pedido no order_id/observação.
   if (purchase.stockProcessed) {
-    const reason = `Cancelamento do pedido de compra #${purchase.purchaseNumber || ''}`.trim();
+    const reason = `Cancelamento do pedido de compra #${formatPurchaseNumber(purchase.purchaseNumber) || ''}`.trim();
     const searchPattern = `%${purchase.id}%`;
     const { data: moves, error: movesError } = await supabase
       .from('inventory_moves')

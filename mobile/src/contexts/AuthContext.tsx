@@ -62,6 +62,7 @@ const createFallbackProfile = (session: any) => {
       user.email?.split('@')[0] ||
       'Usuário',
     email: user.email,
+    avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
     role: 'pending',
     roles: [],
     active: true,

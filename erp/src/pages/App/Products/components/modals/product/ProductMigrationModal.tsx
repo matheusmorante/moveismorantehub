@@ -3,6 +3,7 @@ import Product, { Variation } from '@/pages/types/product.type';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
 import { migrateProductReferences } from '@/pages/utils/productService';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 export interface ProductMigrationModalProps {
   readonly sourceProduct: Product;
@@ -44,11 +45,14 @@ export const ProductMigrationModal: React.FC<ProductMigrationModalProps> = ({
       return;
     }
 
-    const confirmed = window.confirm(
-      `Tem certeza que deseja migrar todas as referências de "${sourceProduct.description}" para "${targetProduct.description}${
+    const confirmed = await requestConfirmation({
+      title: 'Migrar referências do produto?',
+      message: `Migrar todas as referências de "${sourceProduct.description}" para "${targetProduct.description}${
         targetVariation ? ` (${targetVariation.name})` : ''
-      }"?\n\nEsta ação é irreversível e desativará o produto de origem.`
-    );
+      }"? Esta ação é irreversível e desativará o produto de origem.`,
+      confirmLabel: 'Migrar',
+      type: 'danger',
+    });
 
     if (!confirmed) return;
 

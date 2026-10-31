@@ -1,20 +1,17 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { ClipboardList } from 'lucide-react-native';
 import { styles } from './inventoryScreen.styles';
 
 interface InventoryScreenPageHeaderProps {
   isDarkMode: boolean;
   periodDays: number;
   onCyclePeriod: () => void;
-  onStartNewInventory: () => void;
 }
 
 export const InventoryScreenPageHeader: React.FC<InventoryScreenPageHeaderProps> = ({
   isDarkMode,
   periodDays,
   onCyclePeriod,
-  onStartNewInventory,
 }) => {
   return (
     <View style={[styles.pageHeader, isDarkMode && styles.pageHeaderDark]}>
@@ -38,14 +35,6 @@ export const InventoryScreenPageHeader: React.FC<InventoryScreenPageHeaderProps>
           </Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        testID="new-inventory-btn"
-        style={styles.startBtn}
-        onPress={onStartNewInventory}
-      >
-        <ClipboardList size={18} color="#ffffff" />
-        <Text style={styles.startBtnText}>Novo Inventário</Text>
-      </TouchableOpacity>
     </View>
   );
 };

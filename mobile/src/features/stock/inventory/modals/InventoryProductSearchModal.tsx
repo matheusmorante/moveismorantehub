@@ -16,6 +16,7 @@ export interface SearchableProduct {
   supplier_ids?: string[];
   supplierNames?: string;
   assignedSupplier?: string;
+  active?: boolean;
 }
 
 export interface InventoryProductSearchModalProps {
@@ -23,6 +24,9 @@ export interface InventoryProductSearchModalProps {
   visible: boolean;
   onClose: () => void;
   onSelect: (product: SearchableProduct) => void;
+  subtitle?: string;
+  supplierId?: string;
+  activeOnly?: boolean;
 }
 
 export const InventoryProductSearchModal: React.FC<InventoryProductSearchModalProps> = (props) => {

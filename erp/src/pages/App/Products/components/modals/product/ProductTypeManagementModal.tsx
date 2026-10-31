@@ -11,6 +11,7 @@ import {
   getProductMetadataErrorCode,
   type ProductCatalogMetadataOption,
 } from '../../../services/productCatalogMetadataService';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 export type ProductType = ProductCatalogMetadataOption;
 
@@ -80,7 +81,12 @@ export const ProductTypeManagementModal: React.FC<ProductTypeManagementModalProp
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Tem certeza que deseja remover este tipo?')) return;
+    if (!await requestConfirmation({
+      title: 'Remover tipo de produto?',
+      message: 'Deseja remover este tipo de produto?',
+      confirmLabel: 'Remover',
+      type: 'danger',
+    })) return;
 
     try {
       await deleteProductType(id);

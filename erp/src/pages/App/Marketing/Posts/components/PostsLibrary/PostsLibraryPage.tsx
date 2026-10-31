@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import { postLibraryFilterFormSchema, postDeleteFormSchema, postDownloadFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
@@ -126,7 +127,12 @@ export function PostsLibraryPage({
         const cleanup = cleanupSource.current.find((item) => item.id === values.id);
         const selected = cleanup || postsSource.current.find((item) => item.id === values.id);
         if (!selected || selected.productId !== values.productId || selected.imageStoragePath !== values.imageStoragePath) throw new Error('A arte selecionada mudou. Atualize a biblioteca.');
-        if (!cleanup && !confirm('Excluir esta arte da Biblioteca? A ação não pode ser desfeita.')) return false;
+        if (!cleanup && !await requestConfirmation({
+          title: 'Excluir arte da biblioteca?',
+          message: 'A ação não pode ser desfeita.',
+          confirmLabel: 'Excluir arte',
+          type: 'danger',
+        })) return false;
         await productPostsService.deletePost(values as unknown as ProductPost, { recordAlreadyDeleted: Boolean(cleanup), isCurrent: current });
         if (!current()) return false;
         setCleanupPending((previous) => previous.filter((item) => item.id !== values.id));

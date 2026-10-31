@@ -350,11 +350,12 @@ export function ManageInboundInvoiceMappingsModal({
                     disabled={hasMatchedProducts || isSalvadosSupplier}
                     disabledReason={
                       isSalvadosSupplier
-                        ? 'Fornecedor exclusivo de Salvados: os itens ficam fixos em “Não se aplica”.'
+                        ? 'Fornecedor de Salvados: os itens permanecem em “Não se aplica” e não geram movimentação de estoque.'
                         : hasMatchedProducts
                         ? 'Para alterar o fornecedor da NF, desvincule primeiro todos os produtos da nota.'
                         : undefined
                     }
+                    showDisabledReasonOnClick={true}
                     hideLabel={true}
                     inputClassName="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-blue-600 transition-colors"
                     placeholder="Digite 2 ou mais letras para buscar fornecedor..."
@@ -370,25 +371,15 @@ export function ManageInboundInvoiceMappingsModal({
                 </button>
               </div>
 
-              {isSalvadosSupplier ? (
-                <p className="mt-2 flex items-center gap-1.5 rounded-xl border border-amber-200/60 bg-amber-50 p-2.5 text-xs font-semibold text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-400">
-                  <i className="bi bi-lock-fill text-amber-600 text-sm" />
-                  Fornecedor de Salvados: os itens permanecem em “Não se aplica” e não geram movimentação de estoque.
-                </p>
-              ) : hasMatchedProducts ? (
-                <p className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200/60 dark:border-amber-900/40">
-                  <i className="bi bi-lock-fill text-amber-600 text-sm" />
-                  Para alterar o fornecedor da NF, desvincule primeiro todos os produtos da nota.
-                </p>
-              ) : invoice.supplierId ? (
+              {!isSalvadosSupplier && !hasMatchedProducts && invoice.supplierId ? (
                 <p className="mt-2 text-xs font-bold text-emerald-700">
                   Fornecedor vinculado. Os produtos estão liberados.
                 </p>
-              ) : (
+              ) : !isSalvadosSupplier && !hasMatchedProducts ? (
                 <p className="mt-2 text-xs text-amber-700">
                   Selecione o fornecedor para habilitar a vinculação de produtos.
                 </p>
-              )}
+              ) : null}
             </section>
 
             {/* Revisão de Itens e Vínculos */}

@@ -1,20 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import Purchase, { PurchaseItem } from '../../../../types/purchase.type';
-import Product from '../../../../types/product.type';
-import Person from '../../../../types/person.type';
-import { subscribeToProducts } from '@/pages/utils/productService';
-import { subscribeToPeople } from '@/pages/utils/personService';
+import Purchase from '../../../../types/purchase.type';
 import { savePurchase, updatePurchase } from '../../../../utils/purchaseService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { purchaseDraftFormSchema, purchaseFormSchema } from '../../../../../../../shared-utils/purchaseFormSchemas';
-import { calculatePurchaseCosts } from '../utils/purchaseCalculationUtils';
-
-interface ProductSupplierLookupLike extends Partial<Product> {
-  readonly supplier_ids?: readonly string[];
-  readonly main_supplier_id?: string;
-  readonly supplier_id?: string;
-}
+import { purchaseFormSchema } from '../../../../../../../shared-utils/purchaseFormSchemas';
+import { usePurchaseSubscriptions } from './usePurchaseSubscriptions';
+import { usePurchaseItemsManager } from './usePurchaseItemsManager';
+import { usePurchaseDraftSync } from './usePurchaseDraftSync';
 
 export interface UsePurchaseModalFormProps {
   readonly isOpen: boolean;
@@ -24,6 +16,13 @@ export interface UsePurchaseModalFormProps {
   readonly setAttachments: (attachments: readonly string[]) => void;
 }
 
+/**
+ * Hook orquestrador do modal de pedido de compra no ERP.
+ * Aplica princípios de responsabilidade única coordenando sub-hooks modulares:
+ * - `usePurchaseSubscriptions`: tempo real de fornecedores/produtos e tecla Escape.
+ * - `usePurchaseItemsManager`: itens, cálculos de IPI/Frete e validação por fornecedor.
+ * - `usePurchaseDraftSync`: persistência e auto-save atômico com debounce de 3000ms.
+ */
 export function usePurchaseModalForm({
   isOpen,
   onClose,
@@ -31,37 +30,138 @@ export function usePurchaseModalForm({
   attachments,
   setAttachments,
 }: UsePurchaseModalFormProps) {
-  const [suppliers, setSuppliers] = useState<readonly Person[]>([]);
-  const [products, setProducts] = useState<readonly Product[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState('');
-  const [items, setItems] = useState<readonly PurchaseItem[]>([]);
+  // Campos do cabeçalho
+  const [selectedSupplierId, setSelectedSupplierIdState] = useState('');
+  const [purchaseDate, setPurchaseDateState] = useState(new Date().toISOString().split('T')[0]);
+  const [discountPercent, setDiscountPercentState] = useState(0);
+  const [ipiPercent, setIpiPercentState] = useState(0);
+  const [freightPercent, setFreightPercentState] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
-  const [ipiPercent, setIpiPercent] = useState(0);
-  const [freightPercent, setFreightPercent] = useState(0);
-  const [validationErrors, setValidationErrors] = useState({ supplier: false, items: false });
-  const [draftId, setDraftIdState] = useState<string | null>(null);
-  const draftIdRef = useRef<string | null>(null);
-  const setDraftId = useCallback((id: string | null) => {
-    draftIdRef.current = id;
-    setDraftIdState(id);
-  }, []);
-  const pendingDraftRef = useRef<Promise<unknown>>(Promise.resolve());
+
+  // Controle de concorrência e finalização
   const actionRef = useRef(false);
   const completedRef = useRef(false);
-  const closeRef = useRef<() => Promise<void>>(async () => {});
-  const [draftError, setDraftError] = useState('');
-  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const initializedPurchaseKeyRef = useRef<string | null>(null);
+  const activePurchaseRef = useRef(activePurchase);
+  activePurchaseRef.current = activePurchase;
 
-  const { enqueueAndRun: validateDraft } = useZodForm(purchaseDraftFormSchema, {
-    supplierId: selectedSupplierId,
-    supplierName: '',
-    date: purchaseDate,
-    status: 'ordered',
-    items: [],
-    totalValue: 0,
+  const isDraftSession = !activePurchase?.id || activePurchase.status === 'draft';
+
+  // Sub-hook de Assinaturas (Fornecedores e Produtos em tempo real + Escape)
+  const closeRef = useRef<() => Promise<void>>(async () => {});
+  const { suppliers, products } = usePurchaseSubscriptions({
+    isOpen,
+    onEscape: () => void closeRef.current(),
   });
 
+  // Sub-hook de Itens e Custos
+  const itemsManager = usePurchaseItemsManager({
+    selectedSupplierId,
+    setSelectedSupplierId: (id) => {
+      draftSync.markDraftChanged();
+      setSelectedSupplierIdState(id);
+    },
+    suppliers,
+    products,
+    discountPercent,
+    ipiPercent,
+    freightPercent,
+    onItemsChange: () => draftSync.markDraftChanged(),
+  });
+
+  // Sub-hook de Rascunho e Auto-Save
+  const draftSync = usePurchaseDraftSync({
+    isOpen,
+    isDraftSession,
+    activePurchase,
+    selectedSupplierId,
+    purchaseDate,
+    processedItems: itemsManager.processedItems,
+    totalValue: itemsManager.totalValue,
+    discountPercent,
+    ipiPercent,
+    freightPercent,
+    attachments,
+    suppliers,
+    actionRef,
+    completedRef,
+  });
+
+  // Inicialização e Reset ao abrir ou trocar a compra ativa
+  useEffect(() => {
+    if (!isOpen) {
+      initializedPurchaseKeyRef.current = null;
+      return;
+    }
+
+    const purchase = activePurchaseRef.current;
+    const purchaseKey = purchase?.id || 'new-purchase';
+    if (initializedPurchaseKeyRef.current === purchaseKey) return;
+    initializedPurchaseKeyRef.current = purchaseKey;
+    completedRef.current = false;
+    actionRef.current = false;
+
+    if (purchase) {
+      setSelectedSupplierIdState(purchase.supplierId || '');
+      setPurchaseDateState(
+        purchase.date
+          ? purchase.date.includes('T')
+            ? purchase.date.split('T')[0]
+            : purchase.date
+          : new Date().toISOString().split('T')[0]
+      );
+      setDiscountPercentState(purchase.discountPercent || 0);
+      setIpiPercentState(purchase.ipiPercent || 0);
+      setFreightPercentState(purchase.freightPercent || 0);
+      const initialAttachments = purchase.attachments || [];
+      setAttachments(initialAttachments);
+      itemsManager.setItems(purchase.items || []);
+      draftSync.resetDraftState(purchase);
+    } else {
+      setSelectedSupplierIdState('');
+      setPurchaseDateState(new Date().toISOString().split('T')[0]);
+      setDiscountPercentState(0);
+      setIpiPercentState(0);
+      setFreightPercentState(0);
+      setAttachments([]);
+      itemsManager.setItems([]);
+      draftSync.resetDraftState(null);
+    }
+
+    itemsManager.setValidationErrors({ supplier: false, items: false });
+
+    return () => {
+      initializedPurchaseKeyRef.current = null;
+    };
+  }, [isOpen, activePurchase?.id, setAttachments, draftSync.resetDraftState]);
+
+  // Alteradores de cabeçalho marcando rascunho sujo
+  const handleSelectedSupplierChange = useCallback((supplierId: string) => {
+    draftSync.markDraftChanged();
+    setSelectedSupplierIdState(supplierId);
+  }, [draftSync]);
+
+  const handlePurchaseDateChange = useCallback((date: string) => {
+    draftSync.markDraftChanged();
+    setPurchaseDateState(date);
+  }, [draftSync]);
+
+  const handleIpiPercentChange = useCallback((value: number) => {
+    draftSync.markDraftChanged();
+    setIpiPercentState(value);
+  }, [draftSync]);
+
+  const handleDiscountPercentChange = useCallback((value: number) => {
+    draftSync.markDraftChanged();
+    setDiscountPercentState(value);
+  }, [draftSync]);
+
+  const handleFreightPercentChange = useCallback((value: number) => {
+    draftSync.markDraftChanged();
+    setFreightPercentState(value);
+  }, [draftSync]);
+
+  // Formulário Zod de validação final
   const { validateAndRun: validatePurchase } = useZodForm(purchaseFormSchema, {
     supplierId: selectedSupplierId,
     supplierName: '',
@@ -69,154 +169,24 @@ export function usePurchaseModalForm({
     status: 'ordered',
     items: [],
     totalValue: 0,
+    discountPercent: 0,
   });
 
-  const observation = '';
-  const invoiceNumber = '';
-  const invoiceDate = '';
-
-  useEffect(() => {
-    if (isOpen) {
-      completedRef.current = false;
-      const unsubSuppliers = subscribeToPeople('suppliers', (data) => {
-        setSuppliers(data.filter((p) => !p.deleted && p.type === 'suppliers'));
-      });
-      const unsubProducts = subscribeToProducts((data) => {
-        setProducts(data.filter((p) => !p.deleted && p.itemType === 'product'));
-      });
-
-      if (activePurchase) {
-        setSelectedSupplierId(activePurchase.supplierId || '');
-        setPurchaseDate(
-          activePurchase.date
-            ? activePurchase.date.includes('T')
-              ? activePurchase.date.split('T')[0]
-              : activePurchase.date
-            : new Date().toISOString().split('T')[0]
-        );
-        setIpiPercent(activePurchase.ipiPercent || 0);
-        setFreightPercent(activePurchase.freightPercent || 0);
-        setAttachments(activePurchase.attachments || []);
-        setItems(activePurchase.items || []);
-        setValidationErrors({ supplier: false, items: false });
-        setDraftId(null);
-      } else {
-        setSelectedSupplierId('');
-        setPurchaseDate(new Date().toISOString().split('T')[0]);
-        setIpiPercent(0);
-        setFreightPercent(0);
-        setAttachments([]);
-        setItems([]);
-        setValidationErrors({ supplier: false, items: false });
-        setDraftId(null);
-      }
-
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          void closeRef.current();
-        }
-      };
-
-      window.addEventListener('keydown', handleKeyDown);
-
-      return () => {
-        unsubSuppliers();
-        unsubProducts();
-        window.removeEventListener('keydown', handleKeyDown);
-      };
-    }
-  }, [isOpen, activePurchase, setAttachments, setDraftId]);
-
-  const handleAddItem = (newItem: PurchaseItem) => {
-    const product = products.find((p) => p.id === newItem.productId) as
-      | ProductSupplierLookupLike
-      | undefined;
-    const supplierIds = product?.supplierIds || product?.supplier_ids || [];
-    const prodSupplierId =
-      product?.mainSupplierId ||
-      product?.supplierId ||
-      product?.main_supplier_id ||
-      product?.supplier_id;
-
-    const productUsesSelectedSupplier =
-      !selectedSupplierId ||
-      !product ||
-      supplierIds.includes(selectedSupplierId) ||
-      prodSupplierId === selectedSupplierId;
-
-    if (!selectedSupplierId && prodSupplierId) {
-      setSelectedSupplierId(prodSupplierId);
-    } else if (selectedSupplierId && !productUsesSelectedSupplier) {
-      const prodSupplier = suppliers.find((s) => s.id === prodSupplierId);
-      toast.error(
-        `Este produto pertence ao fornecedor "${prodSupplier?.fullName || 'outro fornecedor'}". Remova os itens para trocar de fornecedor.`
-      );
-      return false;
-    }
-
-    setItems((currentItems) => [...currentItems, newItem]);
-    setValidationErrors((current) => ({ ...current, items: false }));
-    return true;
-  };
-
-  const handleRemoveItem = (idx: number) => {
-    setItems((current) => current.filter((_, i) => i !== idx));
-  };
-
-  const handleUpdateItem = (idx: number, updatedItem: PurchaseItem) => {
-    setItems((currentItems) => currentItems.map((item, i) => (i === idx ? updatedItem : item)));
-  };
-
-  const { processedItems, totalValue } = calculatePurchaseCosts(items, ipiPercent, freightPercent);
-
-  const persistDraft = useCallback(
-    (payload: Purchase, allowDuringAction = false) =>
-      validateDraft(
-        payload,
-        async (values) => {
-          if (completedRef.current || (actionRef.current && !allowDuringAction)) return false;
-          if (draftIdRef.current) {
-            await updatePurchase(draftIdRef.current, values as Purchase);
-          } else {
-            const savedId = await savePurchase(values as Purchase);
-            if (!savedId) throw new Error('Não foi possível salvar o rascunho da compra.');
-            setDraftId(savedId);
-          }
-          setDraftError('');
-          return true;
-        },
-        (errors) => setDraftError(Object.values(flattenFormErrors(errors))[0])
-      ),
-    [validateDraft, setDraftId]
-  );
-
+  // Fechamento / Cancelamento com garantia de persistência de rascunho pendente
   const handleCancelOrClose = async () => {
     if (actionRef.current || completedRef.current) return;
     actionRef.current = true;
     try {
-      await pendingDraftRef.current;
-      if (!activePurchase?.id && items.length > 0) {
+      if (draftSync.autoSaveTimerRef.current !== null) {
+        window.clearTimeout(draftSync.autoSaveTimerRef.current);
+      }
+      await draftSync.pendingDraftRef.current;
+      if (isDraftSession && draftSync.hasDraftChangesRef.current) {
         try {
-          const supplier = suppliers.find((s) => s.id === selectedSupplierId);
-          const draftPurchase: Purchase = {
-            supplierId: selectedSupplierId,
-            supplierName: supplier?.fullName || 'Fornecedor Rascunho',
-            date: new Date(purchaseDate).toISOString(),
-            items: processedItems,
-            totalValue,
-            observation,
-            status: 'ordered',
-            invoiceNumber,
-            invoiceDate,
-            invoiceStatus: 'pending',
-            attachments: [...attachments],
-            ipiPercent,
-            freightPercent,
-          };
-
-          const saved = await persistDraft(draftPurchase, true);
+          const saved = await draftSync.persistDraft(draftSync.buildDraftPayload(), true);
           if (!saved) return;
-          toast.info('Pedido de compra salvo como rascunho!');
+          draftSync.hasDraftChangesRef.current = false;
+          draftSync.setHasDraftChanges(false);
         } catch (err: unknown) {
           console.error('Erro ao salvar rascunho de compra:', err);
           toast.error('Não foi possível salvar o rascunho da compra.');
@@ -231,96 +201,61 @@ export function usePurchaseModalForm({
   };
   closeRef.current = handleCancelOrClose;
 
-  useEffect(() => {
-    if (!isOpen || activePurchase?.id || !items.length) return;
-    const timer = window.setTimeout(async () => {
-      setIsAutoSaving(true);
-      try {
-        const supplier = suppliers.find((item) => item.id === selectedSupplierId);
-        const payload: Purchase = {
-          supplierId: selectedSupplierId,
-          supplierName: supplier?.fullName || 'Fornecedor Rascunho',
-          date: new Date(purchaseDate).toISOString(),
-          items: processedItems,
-          totalValue,
-          observation,
-          status: 'ordered',
-          invoiceNumber,
-          invoiceDate,
-          invoiceStatus: 'pending',
-          attachments: [...attachments],
-          ipiPercent,
-          freightPercent,
-        };
-        const write = persistDraft(payload);
-        pendingDraftRef.current = write.catch(() => undefined);
-        await write;
-      } catch (error: unknown) {
-        console.error('Erro ao salvar rascunho automático:', error);
-        setDraftError('Não foi possível salvar o rascunho da compra.');
-      } finally {
-        setIsAutoSaving(false);
-      }
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [
-    isOpen,
-    activePurchase?.id,
-    items,
-    selectedSupplierId,
-    suppliers,
-    purchaseDate,
-    ipiPercent,
-    freightPercent,
-    attachments,
-    draftId,
-    totalValue,
-    persistDraft,
-  ]);
-
-  const handleSave = async (status: 'ordered' | 'fulfilled') => {
+  // Confirmação e salvamento do pedido de compra
+  const handleSave = async () => {
     if (actionRef.current || completedRef.current) return;
-    if (!selectedSupplierId || items.length === 0) {
-      setValidationErrors({ supplier: !selectedSupplierId, items: items.length === 0 });
+    const validItems = itemsManager.processedItems.filter((item) => Boolean(item.productId && item.productId.trim()));
+    if (!selectedSupplierId || validItems.length === 0) {
+      itemsManager.setValidationErrors({
+        supplier: !selectedSupplierId,
+        items: validItems.length === 0,
+      });
       toast.error(
-        !selectedSupplierId && items.length === 0
+        !selectedSupplierId && validItems.length === 0
           ? 'Selecione o fornecedor e adicione pelo menos um item.'
           : !selectedSupplierId
             ? 'Selecione um fornecedor para salvar o pedido.'
-            : 'Adicione pelo menos um item ao pedido.'
+            : 'Adicione pelo menos um item com produto selecionado ao pedido.'
       );
       return;
     }
 
     const supplier = suppliers.find((s) => s.id === selectedSupplierId);
+    const status = activePurchase?.id && activePurchase.status !== 'draft'
+      ? activePurchase.status
+      : 'pending';
 
     actionRef.current = true;
     setIsSaving(true);
     try {
-      await pendingDraftRef.current;
+      if (draftSync.autoSaveTimerRef.current !== null) {
+        window.clearTimeout(draftSync.autoSaveTimerRef.current);
+      }
+      await draftSync.pendingDraftRef.current;
       const purchasePayload: Purchase = {
         supplierId: selectedSupplierId,
         supplierName: supplier?.fullName || activePurchase?.supplierName || 'Fornecedor',
         date: new Date(purchaseDate).toISOString(),
-        items: processedItems,
-        totalValue,
-        observation,
-        status: activePurchase?.status === 'cancelled' ? 'cancelled' : status,
-        invoiceNumber: invoiceNumber || activePurchase?.invoiceNumber,
-        invoiceDate: invoiceDate || activePurchase?.invoiceDate,
+        items: validItems,
+        totalValue: itemsManager.totalValue,
+        observation: '',
+        status,
+        invoiceNumber: activePurchase?.invoiceNumber || '',
+        invoiceDate: activePurchase?.invoiceDate || '',
         invoiceStatus:
           status === 'fulfilled' ? 'received' : activePurchase?.invoiceStatus || 'pending',
         fiscalKey: '',
         attachments: [...attachments],
+        discountPercent,
         ipiPercent,
         freightPercent,
       };
 
-      const purchaseId = activePurchase?.id || draftIdRef.current;
+      const purchaseId = activePurchase?.id || draftSync.draftIdRef.current;
       await validatePurchase(
         purchasePayload,
         async (validated) => {
-          const hasOnlyRegisteredProducts = processedItems.every((item) =>
+          const hasOnlyRegisteredProducts = itemsManager.processedItems.every((item) =>
             products.some((product) => String(product.id) === String(item.productId))
           );
           if (purchaseId) {
@@ -329,7 +264,7 @@ export function usePurchaseModalForm({
           } else {
             const savedId = await savePurchase(validated as Purchase);
             if (!savedId) throw new Error('Não foi possível salvar o pedido de compra.');
-            setDraftId(savedId);
+            draftSync.setDraftId(savedId);
             let message = savedId
               ? 'Pedido de compra confirmado!'
               : 'Não foi possível salvar o pedido de compra.';
@@ -341,7 +276,21 @@ export function usePurchaseModalForm({
           completedRef.current = true;
           onClose();
         },
-        (errors) => toast.error(Object.values(flattenFormErrors(errors))[0])
+        (errors) => {
+          toast.error(Object.values(flattenFormErrors(errors))[0]);
+          if (isDraftSession && draftSync.hasDraftChangesRef.current) {
+            const revision = draftSync.draftRevisionRef.current;
+            void draftSync.persistDraft(draftSync.buildDraftPayload(), true).then((saved) => {
+              if (saved && revision === draftSync.draftRevisionRef.current) {
+                draftSync.hasDraftChangesRef.current = false;
+                draftSync.setHasDraftChanges(false);
+              }
+            }).catch((error: unknown) => {
+              console.error('Erro ao salvar rascunho após validação:', error);
+              draftSync.setDraftError('Não foi possível salvar o rascunho da compra.');
+            });
+          }
+        }
       );
     } catch (error: unknown) {
       console.error('Erro ao salvar compra:', error);
@@ -357,24 +306,28 @@ export function usePurchaseModalForm({
     suppliers,
     products,
     selectedSupplierId,
-    setSelectedSupplierId,
-    items,
-    processedItems,
-    totalValue,
+    setSelectedSupplierId: handleSelectedSupplierChange,
+    items: itemsManager.items,
+    processedItems: itemsManager.processedItems,
+    totalValue: itemsManager.totalValue,
     isSaving,
     purchaseDate,
-    setPurchaseDate,
+    setPurchaseDate: handlePurchaseDateChange,
+    discountPercent,
+    setDiscountPercent: handleDiscountPercentChange,
     ipiPercent,
-    setIpiPercent,
+    setIpiPercent: handleIpiPercentChange,
     freightPercent,
-    setFreightPercent,
-    validationErrors,
-    draftId,
-    draftError,
-    isAutoSaving,
-    handleAddItem,
-    handleRemoveItem,
-    handleUpdateItem,
+    setFreightPercent: handleFreightPercentChange,
+    validationErrors: itemsManager.validationErrors,
+    draftId: draftSync.draftId,
+    draftError: draftSync.draftError,
+    isAutoSaving: draftSync.isAutoSaving,
+    hasDraftChanges: draftSync.hasDraftChanges,
+    isDraftSession,
+    handleAddItem: itemsManager.handleAddItem,
+    handleRemoveItem: itemsManager.handleRemoveItem,
+    handleUpdateItem: itemsManager.handleUpdateItem,
     handleCancelOrClose,
     handleSave,
   };

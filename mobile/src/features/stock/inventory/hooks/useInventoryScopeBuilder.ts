@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
+import { isTestProduct } from '../../../../../../shared-utils/isTestProduct';
 
 export interface ScopeProduct {
   id: string;
   variation_id?: string;
   name: string;
+  parent_name?: string;
   description?: string;
   stock: number;
   unit?: string;
@@ -31,12 +33,13 @@ export interface ScopeEmployee {
   position?: string;
 }
 
-export type InventoryScopeType = 'full' | 'supplier' | 'custom';
+export type InventoryScopeType = 'full' | 'general' | 'supplier' | 'product' | 'custom';
 
 export interface ScopeConfiguration {
   type: InventoryScopeType;
   name: string;
   hasStages?: boolean;
+  productId?: string;
   supplierId?: string;
   responsibleId: string;
   responsibleName: string;
@@ -98,6 +101,10 @@ export const useInventoryScopeBuilder = (
     const items: ScopeConfiguration['itemsSnapshot'] = [];
 
     const addProduct = (product: ScopeProduct) => {
+      if (
+        isTestProduct({ ...product, title: product.parent_name }) ||
+        isTestProduct({ id: product.variation_id, name: product.name, sku: product.sku })
+      ) return;
       const supplierName = getSupplierNames(product);
       items.push({
         productId: String(product.id),
@@ -114,14 +121,16 @@ export const useInventoryScopeBuilder = (
       });
     };
 
-    if (scopeType === 'full') {
+    if (scopeType === 'full' || scopeType === 'general') {
       for (const product of allProducts) addProduct(product);
-    } else if (scopeType === 'supplier' && selectedSupplierId) {
-      const supplierProducts = allProducts.filter((p) =>
-        [p.main_supplier_id, p.supplier_id, ...(p.supplier_ids || [])].some(
-          (id) => String(id) === String(selectedSupplierId)
-        )
-      );
+    } else if (scopeType === 'supplier') {
+      const supplierProducts = selectedSupplierId
+        ? allProducts.filter((p) =>
+            [p.main_supplier_id, p.supplier_id, ...(p.supplier_ids || [])].some(
+              (id) => String(id) === String(selectedSupplierId)
+            )
+          )
+        : allProducts;
       for (const product of supplierProducts) addProduct(product);
     } else if (scopeType === 'custom') {
       for (const { product } of customProducts) addProduct(product);
@@ -135,8 +144,9 @@ export const useInventoryScopeBuilder = (
     setStep(2);
 
     const dateStr = new Date().toLocaleDateString('pt-BR');
-    if (type === 'full') setInventoryName(`Inventário Geral - ${dateStr}`);
-    else if (type === 'supplier') setInventoryName(`Inventário por Fornecedor`);
+    if (type === 'full') setInventoryName(`Inventário Livre: Etapas por Fornecedor - ${dateStr}`);
+    else if (type === 'general') setInventoryName(`Inventário Geral - ${dateStr}`);
+    else if (type === 'supplier') setInventoryName(`Fornecedor específico - ${dateStr}`);
     else setInventoryName(`Inventário Personalizado`);
   };
 

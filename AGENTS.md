@@ -152,10 +152,23 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 
 * No formulário de produto, o asterisco vermelho indica exclusivamente campos necessários para concluir o cadastro no ERP. Não usar o asterisco em características que sejam exigidas somente para o Catálogo Digital.
 * Marca e Modelo/Linha são características obrigatórias para publicação no Catálogo Digital em todas as categorias. Características obrigatórias por categoria também devem ser adicionadas automaticamente e validadas para publicação no Catálogo Digital. Nenhuma dessas exigências deve bloquear o cadastro nem a ativação do produto no ERP, nem exibir asterisco vermelho ou controle para ativar/desativar a característica.
-* Quantidade de portas, Tipo de portas e Peso permanecem opcionais em todas as categorias, tanto no cadastro do ERP quanto na publicação no Catálogo Digital, inclusive quando houver configurações antigas marcando esses campos como obrigatórios.
+* Quantidade de portas, Tipo de portas, Peso e Material das portas permanecem opcionais em todas as categorias, tanto no cadastro do ERP quanto na publicação no Catálogo Digital, inclusive quando houver configurações antigas marcando esses campos como obrigatórios. Material das portas continua opcional independentemente da quantidade de portas ou do valor de qualquer outra característica.
 * Características Sim/Não devem usar um grupo de opções radio com rótulos visíveis “Sim” e “Não”, sem alternador deslizante; preserve a acessibilidade dos controles para leitores de tela.
 
 ## 16. Publicação de atualizações OTA do aplicativo
 
 * Publicar uma atualização OTA (EAS Update), em qualquer branch, ambiente ou plataforma, somente quando o usuário pedir explicitamente. Um pedido para implementar uma mudança no app não autoriza sua publicação OTA.
 * Sem pedido explícito de OTA, concluir as alterações locais e informar que a publicação ficou pendente. Builds e verificações locais do bundle são permitidos se não publicarem uma atualização.
+
+## 17. Paridade obrigatória nas funcionalidades existentes no ERP e no app
+
+* Ao alterar uma funcionalidade existente tanto no ERP quanto no aplicativo, conferir os caminhos reais nas duas plataformas e aplicar a mudança equivalente em ambas no mesmo trabalho, sem exigir que o usuário repita o pedido para o app. Isso inclui regras, validações, permissões, filtros e otimizações de consultas ou carregamento de mídias, respeitando as diferenças de interface web e nativa.
+* Antes de afirmar que uma mudança foi replicada, localizar e revisar as telas, componentes, hooks, serviços e chamadores correspondentes. Registrar o que foi alterado e validado em cada plataforma; não declarar paridade concluída se uma delas ficou pendente.
+* Esta regra cobre as funcionalidades já existentes nas duas plataformas. Se o módulo ou a tela não existir no app, informar a ausência concreta; a paridade de uma alteração pontual não autoriza criar um módulo inteiro. Não presumir uma implementação mobile nem pedir decisão sobre criar esse módulo como condição para concluir a alteração na tela existente do ERP.
+* Preservar as exceções explícitas de produto, especialmente a Conciliação de Produtos exclusiva do ERP (seção 12), e a exigência de pedido explícito para publicação OTA (seção 16).
+
+## 18. Paginação fixa no ERP e telas sem paginação
+
+* Nas listas paginadas do ERP, exibir no máximo 15 registros por página. Não oferecer opções de 30, 50, 100 ou outro tamanho selecionável; remova o seletor e mantenha a navegação entre páginas.
+* A Agenda e o Cronograma de logística não devem ter paginação. Exibir todos os resultados que correspondam aos filtros vigentes, sem recorte por página nem controles de navegação.
+* Ao criar ou alterar um paginador do ERP, conferir todas as listas e caminhos afetados. A página inicial deve permanecer em 15 e não deve recuperar preferências ou quantidades salvas anteriormente.

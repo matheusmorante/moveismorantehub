@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ChevronRight, Clock3, UserRound } from 'lucide-react-native';
 import { MobileDrill } from '../../../components/shared/MobileDrill';
-import { formatItemDisplayName } from '../../../utils/orderUtils';
+import { formatItemDisplayName } from '../../../utils/productNameFormatters';
 
 interface AssemblyOrderCardProps {
   order: any;

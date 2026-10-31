@@ -2,7 +2,6 @@ import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import type { DateFilterConfig } from '@/pages/App/Stock/InboundInvoices/components/InboundInvoicesHeader';
 import { hasCompleteInboundInvoiceItems } from '@/pages/App/Stock/InboundInvoices/inboundReceiptEligibility';
-import { supplierProvidesStockOrigin } from '../../../../../../../shared-utils/productSupplierStockOrigin';
 
 export const normalizeDigits = (value: string): string => value.replace(/\D/g, '');
 
@@ -78,7 +77,10 @@ export const filterInboundInvoicesForReceipt = (
     .filter((inv) => inv.status !== 'received')
     .filter((inv) => !/<(?:[\w.-]+:)?resNFe\b/i.test(inv.rawXml || ''))
     .filter(hasCompleteInboundInvoiceItems)
-    .filter((inv) => supplierProvidesStockOrigin(inv.supplierStockOrigins, 'normal'))
+    .filter(
+      (inv) =>
+        Array.isArray(inv.supplierStockOrigins) && inv.supplierStockOrigins.includes('normal')
+    )
     .filter((inv) => isInDateFilter(inv.issuedAt, dateFilter))
     .filter((inv) => {
       if (!term) return true;

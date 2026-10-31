@@ -5,7 +5,9 @@ import { InventoryStagesViewContent } from './InventoryStagesViewContent';
 export interface InventoryStagesViewProps {
   items: AuditItem[];
   isDarkMode: boolean;
-  onSelectStage: (supplierName: string) => void;
+  variant?: 'stages' | 'summary' | 'selection';
+  onStartStage?: (supplierName: string) => Promise<void>;
+  onSelectSupplier?: (supplierName: string) => void;
 }
 
 export const InventoryStagesView: React.FC<InventoryStagesViewProps> = (props) => {

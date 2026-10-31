@@ -11,7 +11,7 @@ export const fetchInboundInvoiceForMappings = async (invoiceId: string) => {
   const { data, error } = await supabase
     .from('inbound_invoices')
     .select(
-      'id, numero_nfe, serie, emitente_nome, emitente_cnpj, supplier_id, itens, xml_conteudo, supplier:people(stock_origins), inbound_invoice_items(item_number, product_code, product_description, product_id, variation_id, raw_item)'
+      'id, numero_nfe, serie, chave_acesso, data_emissao, emitente_nome, emitente_cnpj, supplier_id, status_recebimento, receipt_id, valor_produtos, valor_frete, valor_ipi, valor_desconto, valor_seguro, outras_despesas, valor_icms_st, itens, xml_conteudo, supplier:people(stock_origins), inbound_invoice_items(item_number, product_code, product_description, product_id, variation_id, raw_item)'
     )
     .eq('id', invoiceId)
     .maybeSingle();

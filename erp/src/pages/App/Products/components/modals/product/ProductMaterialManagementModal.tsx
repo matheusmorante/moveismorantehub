@@ -11,6 +11,7 @@ import {
   getProductMetadataErrorCode,
   type ProductCatalogMetadataOption,
 } from '../../../services/productCatalogMetadataService';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 export type ProductMaterial = ProductCatalogMetadataOption;
 
@@ -83,7 +84,12 @@ export const ProductMaterialManagementModal: React.FC<ProductMaterialManagementM
   };
 
   const handleDelete = async (material: ProductMaterial) => {
-    if (!window.confirm(`Tem certeza que deseja remover o material "${material.name}"?`)) return;
+    if (!await requestConfirmation({
+      title: 'Remover material?',
+      message: `Deseja remover o material "${material.name}"?`,
+      confirmLabel: 'Remover',
+      type: 'danger',
+    })) return;
 
     try {
       // Verificar se existem produtos usando este material

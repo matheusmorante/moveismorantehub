@@ -9,6 +9,7 @@ import type {
 } from './offlineInventoryCatalogTypes';
 import { OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION } from './offlineInventoryCatalogTypes';
 import { isStockInventorySupplierEligible } from '../../../../../../../shared-utils/inventorySupplierEligibility';
+import { isTestProduct } from '../../../../../../../shared-utils/isTestProduct';
 
 const productSupplierIds = (product: CatalogRow): string[] =>
   [
@@ -70,6 +71,8 @@ export const buildScopeProductsFromCatalog = (
     const product = catalog.products[String(variation.product_id)];
     if (
       !product ||
+      isTestProduct(product) ||
+      isTestProduct(variation) ||
       product.item_type !== 'product' ||
       product.deleted ||
       product.deleted_at ||
@@ -85,6 +88,7 @@ export const buildScopeProductsFromCatalog = (
     rows.push({
       id: String(product.id),
       variation_id: String(variation.id),
+      parent_name: product.name || product.description || 'Produto',
       name: variation.name || product.name || product.description || 'Produto',
       description: product.description,
       stock: Number(variation.stock ?? product.stock ?? 0),
@@ -151,6 +155,8 @@ export const resolveOfflineInventoryMatch = (
     const product = catalog.products[String(variation.product_id)];
     if (
       !product ||
+      isTestProduct(product) ||
+      isTestProduct(variation) ||
       ((product.item_type !== 'product' ||
         product.deleted ||
         product.deleted_at ||
@@ -183,6 +189,8 @@ export const resolveOfflineInventoryMatch = (
   if (
     !variation ||
     !product ||
+    isTestProduct(product) ||
+    isTestProduct(variation) ||
     product.item_type !== 'product' ||
     product.deleted ||
     product.deleted_at ||

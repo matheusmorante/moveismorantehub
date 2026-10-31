@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Purchase from '../../../../types/purchase.type';
+import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
 import { toast } from 'react-toastify';
 import { printPurchaseDocument } from '../utils/purchasePrintService';
 import {
@@ -62,7 +63,7 @@ export const PurchaseDetailsModal: React.FC<PurchaseDetailsModalProps> = ({
       className="fixed inset-0 z-[9999999] flex items-center justify-center p-0 xl:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label={`Pedido de Compra #${purchase.purchaseNumber || purchase.id?.slice(-4)}`}
+      aria-label={`Pedido de Compra #${formatPurchaseNumber(purchase.purchaseNumber) || purchase.id?.slice(-4)}`}
     >
       {/* Backdrop */}
       <button
@@ -83,7 +84,7 @@ export const PurchaseDetailsModal: React.FC<PurchaseDetailsModalProps> = ({
         />
 
         {/* Body Content */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 xl:p-8 custom-scrollbar space-y-6">
+        <div className="flex-1 space-y-5 overflow-y-auto p-4 custom-scrollbar sm:space-y-6 sm:p-6 xl:p-8">
           <PurchaseDetailsStats purchase={purchase} totalQuantity={totalQuantity} />
 
           <PurchaseDetailsItemsTable items={purchase.items} />

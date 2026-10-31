@@ -74,17 +74,26 @@ export const purchaseStockEntryFormSchema = z.object({
 
 export const inventoryScopeFormSchema = z
   .object({
-    type: z.enum(['full', 'supplier', 'custom']),
+    type: z.enum(['full', 'general', 'supplier', 'product', 'custom']),
     name: z.string().trim(),
     supplierId: z.string(),
+    productId: z.string().optional(),
+    hasStages: z.boolean().optional(),
     responsibleId: z.string().min(1, 'Selecione o responsável pelo inventário.'),
   })
   .superRefine((value, ctx) => {
-    if (value.type === 'supplier' && !value.supplierId) {
+    if (value.type === 'supplier' && !value.supplierId && value.hasStages !== true) {
       ctx.addIssue({
         code: 'custom',
         path: ['supplierId'],
         message: 'Selecione o fornecedor.',
+      });
+    }
+    if (value.type === 'product' && !value.productId?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['productId'],
+        message: 'Selecione o produto pai antes de iniciar a contagem.',
       });
     }
   });

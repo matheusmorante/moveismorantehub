@@ -190,6 +190,7 @@ export const LogisticsOrderCard: React.FC<LogisticsOrderCardProps> = ({
       <OrderCardDeliveryFooter
         order={o}
         dark={isDarkMode}
+        onlyActiveStages
         onPress={() => onSelectOrder && onSelectOrder(o)}
       />
     </TouchableOpacity>

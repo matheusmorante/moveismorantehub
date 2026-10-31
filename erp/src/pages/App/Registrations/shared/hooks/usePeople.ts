@@ -11,6 +11,7 @@ import {
 import type { PersonMutationOptions } from '@/pages/utils/personService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 const EMPTY_PEOPLE: Awaited<ReturnType<typeof fetchPersons>> = [];
 
@@ -189,7 +190,12 @@ export const usePeople = (collectionName: string, filters?: any) => {
   };
 
   const handlePermanentDelete = async (id: string) => {
-    if (window.confirm('Certeza que deseja excluir DEFINITIVAMENTE?')) {
+    if (await requestConfirmation({
+      title: 'Excluir pessoa permanentemente?',
+      message: 'Certeza que deseja excluir DEFINITIVAMENTE?',
+      confirmLabel: 'Excluir permanentemente',
+      type: 'danger',
+    })) {
       await permanentDeletePerson(collectionName, id);
       toast.success('Excluído permanentemente.');
     }
@@ -219,7 +225,12 @@ export const usePeople = (collectionName: string, filters?: any) => {
 
   const handleBulkPermanentDelete = async () => {
     if (selectedPeople.length === 0) return;
-    if (window.confirm(`Excluir DEFINITIVAMENTE ${selectedPeople.length} item(ns)?`)) {
+    if (await requestConfirmation({
+      title: 'Excluir pessoas permanentemente?',
+      message: `Excluir DEFINITIVAMENTE ${selectedPeople.length} item(ns)?`,
+      confirmLabel: 'Excluir permanentemente',
+      type: 'danger',
+    })) {
       try {
         await runBulkMutation((id, options) =>
           permanentDeletePerson(collectionName, id, options)

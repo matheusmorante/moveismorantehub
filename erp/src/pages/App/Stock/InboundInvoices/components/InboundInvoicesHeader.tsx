@@ -73,7 +73,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
     <header className="mb-4 flex flex-col gap-3">
       <GeminiQuotaWarningBanner isUnavailable={isUnavailable} reason={reason} variant="header" />
 
-      <div className="flex min-h-9 items-center justify-between gap-3">
+      <div className="flex min-h-[52px] items-center justify-between gap-3 py-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-sm shadow-blue-500/20">
             <i className="bi bi-receipt-cutoff text-base" aria-hidden="true" />
@@ -92,7 +92,7 @@ export const InboundInvoicesHeader: React.FC<InboundInvoicesHeaderProps> = ({
             aria-controls="inbound-invoices-header-menu"
             title="Mais opções"
             onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="flex h-9 w-9 items-center justify-center text-slate-600 transition hover:text-slate-900 focus:outline-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:text-slate-300 dark:hover:text-white"
           >
             <i aria-hidden="true" className="bi bi-three-dots-vertical text-lg" />
           </button>

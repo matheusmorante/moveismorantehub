@@ -3,6 +3,7 @@
 import React from 'react';
 import { Layers, Plus, Tags, X, Pencil, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useConfirmDialog } from '@/components/providers/confirm-dialog-provider';
 import { ProductFormData, TempVariation } from '../types';
 
 interface Step4VariationsProps {
@@ -26,6 +27,8 @@ export function Step4Variations({
   onOpenEditVar,
   onOpenFastCreate,
 }: Step4VariationsProps) {
+  const requestConfirmation = useConfirmDialog();
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between border-b pb-2">
@@ -38,12 +41,14 @@ export function Step4Variations({
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                if (
-                  confirm(
-                    'Tem certeza que deseja desativar as variações? Todas as variações criadas serão perdidas ao salvar.'
-                  )
-                ) {
+              onClick={async () => {
+                const confirmed = await requestConfirmation({
+                  title: 'Desativar variações?',
+                  description: 'Todas as variações criadas serão perdidas ao salvar.',
+                  confirmLabel: 'Desativar',
+                  destructive: true,
+                });
+                if (confirmed) {
                   setVariationsEnabled(false);
                   setProductVariations([]);
                 }

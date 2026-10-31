@@ -15,6 +15,7 @@ import { checkAndUpdateManually } from '../../hooks/useExpoAutoUpdate';
 import { testRemotePushNotification } from '../../services/notificationService';
 import { APP_NAME, APP_VERSION, APP_BUILD } from '../../constants/appVersion';
 import { styles } from './ProfileModalStyles';
+import { UserProfileAvatar } from '../shared/UserProfileAvatar';
 
 interface Props {
   visible: boolean;
@@ -58,6 +59,8 @@ export const ProfileModal: React.FC<Props> = ({
   };
 
   const currentUpdateId = Updates.updateId ? `#${Updates.updateId.substring(0, 8)}` : 'OTA Ativa';
+  const profileName =
+    userProfile?.fullName || userProfile?.full_name || userProfile?.name || 'Usuário';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -90,17 +93,17 @@ export const ProfileModal: React.FC<Props> = ({
           >
             {/* Cartão do Usuário */}
             <View style={[styles.profileUserCard, isDarkMode && styles.profileUserCardDark]}>
-              <View style={styles.profileBigAvatar}>
-                <Text style={styles.profileBigAvatarText}>
-                  {(userProfile?.fullName || 'M')[0].toUpperCase()}
-                </Text>
-              </View>
+              <UserProfileAvatar
+                name={profileName}
+                imageUrl={userProfile?.avatar_url}
+                size={52}
+              />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.profileUserName, isDarkMode && styles.textPrimaryDark]}>
-                  {userProfile?.fullName || 'Matheus Morante'}
+                  {profileName}
                 </Text>
                 <Text style={styles.profileUserEmail}>
-                  {userProfile?.email || 'matheusmorante002@gmail.com'}
+                  {userProfile?.email || 'E-mail não informado'}
                 </Text>
                 <View style={styles.roleBadgeContainer}>
                   <ShieldCheck size={12} color="#10b981" style={{ marginRight: 4 }} />

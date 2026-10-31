@@ -1,4 +1,4 @@
-export type InventoryScopeType = 'full' | 'supplier' | 'custom';
+export type InventoryScopeType = 'full' | 'general' | 'supplier' | 'product' | 'custom';
 
 export interface InventoryScopeSnapshotItem {
   productId: string;
@@ -17,6 +17,7 @@ export interface InventoryScopeSnapshotItem {
 export interface ScopeConfiguration {
   type: InventoryScopeType;
   name: string;
+  productId?: string;
   supplierId?: string;
   responsibleId: string;
   customProductIds?: string[];

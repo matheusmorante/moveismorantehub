@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import StockLaunchModal from '../modals/StockLaunchModal';
 import InventoryAuditModal from '../Inventory/modals/InventoryAuditModal';
@@ -27,6 +27,8 @@ const StockPage = () => {
   const navigate = useNavigate();
   const [isLaunchModalOpen, setIsLaunchModalOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [isAuditMenuOpen, setIsAuditMenuOpen] = useState(false);
+  const auditMenuRef = useRef<HTMLDivElement>(null);
   const [copiedAuditItems, setCopiedAuditItems] = useState<readonly InventorySnapshotItem[] | null>(
     null
   );
@@ -73,6 +75,24 @@ const StockPage = () => {
   });
   const [purchaseForStockEntry, setPurchaseForStockEntry] = useState<Purchase | null>(null);
 
+  useEffect(() => {
+    if (!isAuditMenuOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && !auditMenuRef.current?.contains(event.target)) {
+        setIsAuditMenuOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsAuditMenuOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isAuditMenuOpen]);
+
   const handleSelectProduct = (prod: Product | null, v?: Variation) => {
     setSelectedProduct(prod);
     setSelectedVariation(v);
@@ -88,6 +108,7 @@ const StockPage = () => {
   };
 
   useEffect(() => {
+    setIsAuditMenuOpen(false);
     if (location.pathname.includes('/estoque/inventarios')) {
       setActiveTab('audit');
     } else if (location.pathname.includes('/estoque/movimentacoes')) {
@@ -150,17 +171,40 @@ const StockPage = () => {
               </h1>
             </div>
 
-            {canManageStock && (
-              <div className="flex items-center gap-2 shrink-0">
-                {activeTab === 'audit' && (
-                  <button
-                    onClick={handleOpenNewAudit}
-                    className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 sm:px-4 sm:py-1.5 rounded-lg font-black uppercase tracking-wider text-[11px] sm:text-xs shadow-sm transition-all active:scale-95 cursor-pointer"
-                    title="Novo inventário"
+            {activeTab === 'audit' && canManageStock && (
+              <div className="relative shrink-0" ref={auditMenuRef}>
+                <button
+                  type="button"
+                  aria-label="Mais opções de inventário"
+                  aria-haspopup="menu"
+                  aria-expanded={isAuditMenuOpen}
+                  aria-controls="inventory-header-menu"
+                  title="Mais opções"
+                  onClick={() => setIsAuditMenuOpen((open) => !open)}
+                  className="flex h-9 w-9 items-center justify-center text-slate-600 transition hover:text-slate-900 focus:outline-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:text-slate-300 dark:hover:text-white"
+                >
+                  <i aria-hidden="true" className="bi bi-three-dots-vertical text-lg" />
+                </button>
+                {isAuditMenuOpen && (
+                  <div
+                    id="inventory-header-menu"
+                    role="menu"
+                    aria-label="Ações do inventário"
+                    className="absolute right-0 z-30 mt-2 w-48 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900"
                   >
-                    <i className="bi bi-plus-lg text-xs" />
-                    <span>Novo inventário</span>
-                  </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsAuditMenuOpen(false);
+                        handleOpenNewAudit();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      <i aria-hidden="true" className="bi bi-clipboard-check text-emerald-600 dark:text-emerald-400" />
+                      <span>Novo inventário</span>
+                    </button>
+                  </div>
                 )}
               </div>
             )}

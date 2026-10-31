@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { MetaCollectionItem } from '../types';
 
@@ -32,9 +33,12 @@ export function useMetaCollections() {
   }, [fetchMetaCollections]);
 
   const handleDeleteMetaCollection = useCallback(async (id: string, name: string) => {
-    if (
-      !window.confirm(`Deseja deletar a coleção "${name}" do catálogo da Meta permanentemente?`)
-    ) {
+    if (!await requestConfirmation({
+      title: 'Excluir coleção permanentemente?',
+      message: `Deseja deletar a coleção "${name}" do catálogo da Meta permanentemente?`,
+      confirmLabel: 'Excluir coleção',
+      type: 'danger',
+    })) {
       return;
     }
 

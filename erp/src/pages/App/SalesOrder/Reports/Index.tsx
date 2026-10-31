@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { ptBR } from 'date-fns/locale';
 import { useSalesReport } from './hooks/useSalesReport';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
@@ -121,7 +122,7 @@ const SalesOrderReports = () => {
                           e.stopPropagation();
                           setOpenMenuId(openMenuId === report.id ? null : report.id);
                         }}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${openMenuId === report.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 dark:bg-slate-950 text-slate-400 hover:text-indigo-600'}`}
+                        className={`w-10 h-10 flex items-center justify-center transition-colors ${openMenuId === report.id ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`}
                       >
                         <i className="bi bi-three-dots-vertical"></i>
                       </button>
@@ -141,7 +142,12 @@ const SalesOrderReports = () => {
                           <button
                             disabled={busy}
                             onClick={async () => {
-                              if (confirm('Deseja realmente excluir este relatório?') && await deleteReport(report.id)) setOpenMenuId(null);
+                              if (await requestConfirmation({
+                                title: 'Excluir relatório?',
+                                message: 'Deseja realmente excluir este relatório?',
+                                confirmLabel: 'Excluir relatório',
+                                type: 'danger',
+                              }) && await deleteReport(report.id)) setOpenMenuId(null);
                             }}
                             className="w-full flex items-center gap-3 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                           >

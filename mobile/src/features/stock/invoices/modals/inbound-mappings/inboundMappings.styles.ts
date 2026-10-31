@@ -61,10 +61,11 @@ export const styles = StyleSheet.create({
   supplierSearchSelected: { borderColor: '#86efac', backgroundColor: '#f0fdf4' },
   supplierSearchSelectedDark: { borderColor: '#166534', backgroundColor: '#052e16' },
   supplierSearchDisabled: { opacity: 0.75 },
+  supplierLockedTapTargetContainer: { position: 'relative' },
+  supplierLockedTapTarget: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   supplierClearButton: { padding: 5, marginRight: -4 },
   supplierSearchStatus: { color: '#64748b', fontSize: 11, marginTop: 8 },
   supplierSearchLinked: { color: '#15803d', fontWeight: '700' },
-  supplierSearchLocked: { color: '#b45309', fontWeight: '600' },
   supplierSearchProgress: {
     flexDirection: 'row',
     alignItems: 'center',

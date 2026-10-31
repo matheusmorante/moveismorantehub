@@ -8,6 +8,8 @@ export interface AuditItem {
   assignedSupplier: string;
   systemStock: number;
   physicalCount: number | null;
+  supplierStageStarted?: boolean;
+  supplierStageReset?: boolean;
   countedAt?: string;
   unit: string;
   sku?: string;

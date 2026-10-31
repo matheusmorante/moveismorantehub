@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { z } from 'zod';
 import {
   supportChatComposerDraftSchema,
@@ -730,7 +731,12 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       if (attachment.kind === 'catalog') return total + (attachment.selection.bulkScope?.total || attachment.selection.items.length);
       return total + 1;
     }, 0);
-    if (startCount > 10 && !window.confirm(`Você está prestes a enviar conteúdo sobre ${startCount} itens. Deseja continuar?`)) return;
+    if (startCount > 10 && !await requestConfirmation({
+      title: 'Enviar mais de 10 itens?',
+      message: `Você está prestes a enviar conteúdo sobre ${startCount} itens. Deseja continuar?`,
+      confirmLabel: 'Enviar',
+      type: 'warning',
+    })) return;
 
     // Valida o lote inteiro antes da primeira chamada externa para evitar envios parciais previsíveis.
     let plannedText = draft.message.trim();

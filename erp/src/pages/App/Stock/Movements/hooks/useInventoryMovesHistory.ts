@@ -199,6 +199,7 @@ export function useInventoryMovesHistory({
       /^Saída - Pedido\s*#/i.test(move.label || '') ||
       /^Pedido\s*#/i.test(move.label || '')
     ) {
+      if (obsText.startsWith('Ajuste do pedido de venda #')) return obsText;
       const rawId =
         move.relatedEntityId || move.label?.replace(/^(Saída - )?Pedido\s*#/i, '') || '';
       const resolved = formatOrderLabel(rawId);

@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { supportFolderDeleteSchema, type SupportFolderDeleteInput } from '../../../../../shared-utils/customerSupportFormSchemas';
 import { getTestArtifactContext } from '../../../../../shared-utils/testArtifactContext';
 import { toast } from 'react-toastify';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
@@ -313,7 +314,12 @@ export default function CustomerSupport() {
     folderDeleteForm.reset({ folderId: folder.id, createdBy: folder.createdBy, currentUserId: user?.id || '' });
     try {
       await folderDeleteForm.handleSubmit(async (data) => {
-        if (!window.confirm(`Excluir a pasta compartilhada "${folder.name}"?`)) return;
+        if (!await requestConfirmation({
+          title: 'Excluir pasta compartilhada?',
+          message: `Excluir a pasta compartilhada "${folder.name}"?`,
+          confirmLabel: 'Excluir pasta',
+          type: 'danger',
+        })) return;
         const error = await removeFolder(data.folderId);
         if (error) toast.error(error);
         else toast.success(`Pasta "${folder.name}" excluída.`);

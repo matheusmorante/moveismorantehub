@@ -1,6 +1,7 @@
 import React from 'react';
 import Purchase from '../../../../../types/purchase.type';
 import { formatToBRDate } from '../../../../../utils/formatters';
+import { formatPurchaseNumber } from '../../../../../../../../shared-utils/purchaseNumber';
 
 interface PurchaseDetailsHeaderProps {
   purchase: Purchase;
@@ -26,12 +27,16 @@ export const PurchaseDetailsHeader: React.FC<PurchaseDetailsHeaderProps> = ({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl xl:text-2xl font-black tracking-tight uppercase">
-              Pedido de Compra #{purchase.purchaseNumber || purchase.id?.slice(-4)}
+              Pedido de Compra #{formatPurchaseNumber(purchase.purchaseNumber) || purchase.id?.slice(-4)}
             </h2>
             <span
               className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                 purchase.status === 'fulfilled'
                   ? 'bg-emerald-500 text-white'
+                  : purchase.status === 'draft'
+                    ? 'bg-indigo-200 text-indigo-900'
+                    : purchase.status === 'pending'
+                      ? 'bg-amber-200 text-amber-900'
                   : purchase.status === 'ordered'
                     ? 'bg-blue-200 text-blue-900'
                     : 'bg-red-500 text-white'
@@ -39,6 +44,10 @@ export const PurchaseDetailsHeader: React.FC<PurchaseDetailsHeaderProps> = ({
             >
               {purchase.status === 'fulfilled'
                 ? 'Atendido'
+                : purchase.status === 'draft'
+                  ? 'Rascunho'
+                  : purchase.status === 'pending'
+                    ? 'Pendente'
                 : purchase.status === 'ordered'
                   ? 'Em Ordem'
                   : 'Cancelado'}
@@ -67,15 +76,22 @@ export const PurchaseDetailsHeader: React.FC<PurchaseDetailsHeaderProps> = ({
         {onEdit && (
           <button
             type="button"
+            disabled={!['pending', 'ordered'].includes(purchase.status) || purchase.stockProcessed}
             onClick={() => onEdit(purchase)}
-            className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-3.5 py-2.5 rounded-xl font-black uppercase tracking-wider text-xs transition-all active:scale-95"
-            title="Editar Informações do Pedido"
+            className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-3.5 py-2.5 rounded-xl font-black uppercase tracking-wider text-xs transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+            title={
+              ['pending', 'ordered'].includes(purchase.status) && !purchase.stockProcessed
+                ? 'Editar informações do pedido'
+                : purchase.stockProcessed
+                  ? 'A edição fica indisponível após registrar movimento no estoque.'
+                  : 'A edição fica disponível para pedidos Pendentes ou Em Ordem.'
+            }
           >
             <i className="bi bi-pencil-square text-sm" aria-hidden="true" />
             <span className="hidden md:inline">Editar</span>
           </button>
         )}
-        {onCheckReceipt && purchase.status !== 'cancelled' && (
+        {onCheckReceipt && !['cancelled', 'draft', 'pending'].includes(purchase.status) && (
           <button
             type="button"
             onClick={() => onCheckReceipt(purchase)}

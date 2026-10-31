@@ -5,6 +5,7 @@ import type { CategoryType } from '../hooks/useLabelCategory';
 import type { GridModel } from '../types/LabelGridModelTypes';
 import type { LabelConfig } from '../utils/LabelConstants';
 import { calculateLabelDimensions } from '../utils/calculateLabelDimensions';
+import { requestConfirmation } from '@/components/shared/confirmationService';
 
 interface LabelModelManagerModalProps {
   isOpen: boolean;
@@ -45,7 +46,12 @@ const LabelModelManagerDialog: React.FC<LabelModelManagerModalProps> = ({
     if (locked.current || isSaving || blocked) return;
     locked.current = true; setPending(true); setLocalError('');
     try {
-      if (!window.confirm(`Excluir modelo "${model.name}"?`)) return;
+      if (!await requestConfirmation({
+        title: 'Excluir modelo de etiqueta?',
+        message: `Deseja excluir o modelo "${model.name}"?`,
+        confirmLabel: 'Excluir',
+        type: 'danger',
+      })) return;
       const confirmed = await handleDeleteLayout(model.id, () => mounted.current);
       if (mounted.current && !confirmed) setLocalError('A exclusão não foi confirmada. Confira o modelo.');
     } catch (cause) { if (mounted.current) setLocalError(cause instanceof Error ? cause.message : 'Não foi possível excluir o modelo.'); }

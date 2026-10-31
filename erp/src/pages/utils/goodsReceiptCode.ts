@@ -1,3 +1,5 @@
+const MAX_RECEIPT_CODE = 999_999;
+
 export const getGoodsReceiptIndex = (
   receipt?: { receiptIndex?: number | null } | Record<string, any>
 ): number | null => {

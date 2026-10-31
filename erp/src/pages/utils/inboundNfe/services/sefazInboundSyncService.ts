@@ -43,9 +43,6 @@ export interface InboundManifestationResult {
   retryable?: boolean;
   retryAfter?: string | null;
   nextAllowedAt?: string | null;
-  xmlRetrieved?: boolean;
-  xmlItemsCount?: number;
-  xmlLookupPending?: boolean;
   sefazBlocked?: boolean;
   skipped?: boolean;
   cStat?: string | null;
@@ -258,9 +255,6 @@ export async function processNextAutomaticInboundScience(): Promise<InboundManif
       retryable: result.retryable === true || response.status >= 500,
       retryAfter: typeof result.retryAfter === 'string' ? result.retryAfter : null,
       nextAllowedAt: typeof result.nextAllowedAt === 'string' ? result.nextAllowedAt : null,
-      xmlRetrieved: result.xmlRetrieved === true,
-      xmlItemsCount: Number.isFinite(result.xmlItemsCount) ? result.xmlItemsCount : undefined,
-      xmlLookupPending: result.xmlLookupPending === true,
       sefazBlocked: result.sefazBlocked === true,
       skipped: result.skipped === true,
       cStat: typeof result.cStat === 'string' ? result.cStat : null,

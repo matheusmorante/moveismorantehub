@@ -13,7 +13,7 @@ import {
 } from '@/pages/utils/customerSupport/supportOrdersService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 
-const CUSTOMER_RECORD_PAGE_SIZES = [15, 30, 50] as const;
+const CUSTOMER_RECORD_PAGE_SIZES = [15] as const;
 const STATUS_OPTIONS: Record<SupportCustomerOrderGroup, Array<{ value: string; label: string }>> = {
   sales: [
     { value: 'draft', label: 'Rascunho' },

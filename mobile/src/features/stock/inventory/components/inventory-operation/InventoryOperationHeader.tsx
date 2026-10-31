@@ -1,30 +1,45 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ArrowLeft, ScanLine } from 'lucide-react-native';
+import { ArrowLeft, MoreVertical, ScanLine, X } from 'lucide-react-native';
 
 interface Props {
   isDarkMode: boolean;
   title: string;
   countedCount: number;
-  totalCount: number;
-  progressPercent: number;
+  countLabel?: string;
   onBack: () => void;
   onOpenScanner: () => void;
+  showBackButton?: boolean;
+  showCount?: boolean;
+  showScanner?: boolean;
+  showStageActions?: boolean;
+  onRequestCancelStage?: () => void;
+  onRequestCancelInventory?: () => void;
 }
 
 export const InventoryOperationHeader: React.FC<Props> = ({
   isDarkMode,
   title,
   countedCount,
-  totalCount,
-  progressPercent,
+  countLabel = 'produtos contados',
   onBack,
   onOpenScanner,
+  showBackButton = true,
+  showCount = true,
+  showScanner = true,
+  showStageActions = false,
+  onRequestCancelStage,
+  onRequestCancelInventory,
 }) => {
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
   const border = isDarkMode ? '#334155' : '#e2e8f0';
   const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
+  const [stageMenuOpen, setStageMenuOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!showStageActions && !onRequestCancelInventory) setStageMenuOpen(false);
+  }, [showStageActions, onRequestCancelInventory]);
 
   return (
     <View
@@ -33,29 +48,80 @@ export const InventoryOperationHeader: React.FC<Props> = ({
         { backgroundColor: surface, borderBottomColor: border },
       ]}
     >
-      <TouchableOpacity testID="header-back-btn" onPress={onBack} style={styles.backBtn}>
-        <ArrowLeft size={24} color={textPrimary} />
-      </TouchableOpacity>
+      {showBackButton && (
+        <TouchableOpacity testID="header-back-btn" onPress={onBack} style={styles.backBtn}>
+          <ArrowLeft size={24} color={textPrimary} />
+        </TouchableOpacity>
+      )}
       <View style={styles.titleCol}>
         <Text style={[styles.headerTitle, { color: textPrimary }]} numberOfLines={1}>
           {title}
         </Text>
-        <View style={styles.progressRow}>
-          <Text style={[styles.progressText, { color: muted }]}>
-            <Text style={{ color: '#10b981', fontWeight: '800' }}>{countedCount}</Text> /{' '}
-            {totalCount}
+        {showCount && (
+          <Text style={[styles.countedText, { color: muted }]}>
+            <Text style={{ color: '#10b981', fontWeight: '800' }}>{countedCount}</Text>{' '}
+            {countLabel}
           </Text>
-          <View
-            style={[styles.progressBarBg, { backgroundColor: isDarkMode ? '#334155' : '#e2e8f0' }]}
-          >
-            <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-          </View>
-          <Text style={[styles.progressText, { color: muted }]}>{progressPercent}%</Text>
-        </View>
+        )}
       </View>
-      <TouchableOpacity style={styles.scanActionBtn} onPress={onOpenScanner}>
-        <ScanLine size={24} color="#ffffff" />
-      </TouchableOpacity>
+      <View style={styles.headerActions}>
+        {showScanner && (
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Escanear inventário"
+            style={styles.scanActionBtn}
+            onPress={() => {
+              setStageMenuOpen(false);
+              onOpenScanner();
+            }}
+          >
+            <ScanLine size={24} color="#ffffff" />
+          </TouchableOpacity>
+        )}
+        {(showStageActions || onRequestCancelInventory) && (
+          <View style={styles.stageActionsContainer}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={showStageActions ? 'Ações do inventário e da etapa' : 'Ações do inventário'}
+              accessibilityState={{ expanded: stageMenuOpen }}
+              style={styles.stageMenuButton}
+              onPress={() => setStageMenuOpen((open) => !open)}
+            >
+              <MoreVertical size={22} color={muted} />
+            </TouchableOpacity>
+            {stageMenuOpen && (
+              <View style={[styles.stageMenu, { backgroundColor: surface, borderColor: border }]}>
+                {onRequestCancelInventory && (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    style={styles.cancelStageAction}
+                    onPress={() => {
+                      setStageMenuOpen(false);
+                      onRequestCancelInventory();
+                    }}
+                  >
+                    <X size={17} color={isDarkMode ? '#fda4af' : '#e11d48'} />
+                    <Text style={[styles.cancelStageLabel, { color: isDarkMode ? '#fda4af' : '#be123c' }]}>Cancelar inventário</Text>
+                  </TouchableOpacity>
+                )}
+                {showStageActions && (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    style={styles.cancelStageAction}
+                    onPress={() => {
+                      setStageMenuOpen(false);
+                      onRequestCancelStage?.();
+                    }}
+                  >
+                    <X size={17} color={isDarkMode ? '#fda4af' : '#e11d48'} />
+                    <Text style={[styles.cancelStageLabel, { color: isDarkMode ? '#fda4af' : '#be123c' }]}>Cancelar etapa</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+      </View>
     </View>
   );
 };
@@ -70,11 +136,9 @@ const styles = StyleSheet.create({
   },
   backBtn: { marginRight: 12, padding: 4 },
   titleCol: { flex: 1, paddingRight: 16 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { fontSize: 18, fontWeight: '800' },
-  progressRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 },
-  progressText: { fontSize: 12, fontWeight: '700' },
-  progressBarBg: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
-  progressBarFill: { height: '100%', backgroundColor: '#10b981', borderRadius: 3 },
+  countedText: { fontSize: 12, fontWeight: '700', marginTop: 4 },
   scanActionBtn: {
     width: 44,
     height: 44,
@@ -88,4 +152,24 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  stageActionsContainer: { position: 'relative' },
+  stageMenuButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stageMenu: {
+    position: 'absolute',
+    top: 50,
+    right: 0,
+    width: 190,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 5,
+    zIndex: 20,
+    elevation: 10,
+  },
+  cancelStageAction: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 11, paddingVertical: 12, borderRadius: 10 },
+  cancelStageLabel: { fontSize: 13, fontWeight: '700' },
 });

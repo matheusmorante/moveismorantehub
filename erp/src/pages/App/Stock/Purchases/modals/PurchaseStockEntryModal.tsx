@@ -7,6 +7,7 @@ import { updatePurchase } from '@/pages/utils/purchaseService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { purchaseInventoryEntryFormSchema } from '../../../../../../../shared-utils/inventoryMoveSchemas';
+import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 
 interface PurchaseStockEntryModalProps {
@@ -75,7 +76,7 @@ function PurchaseStockEntryEditor({ purchase, onClose }: PurchaseStockEntryModal
         const movementDate = new Date(`${data.date}T12:00:00`).toISOString();
         for (const item of data.items) {
           if (!mounted.current) return;
-          if (latest.current.status === 'cancelled' || latest.current.stockProcessed) throw new Error('O pedido mudou.');
+          if (['cancelled', 'draft', 'pending'].includes(latest.current.status) || latest.current.stockProcessed) throw new Error('Confirme o pedido como Em Ordem antes de registrar a entrada no estoque.');
           const product = catalog.current.products.find((current) => current.id === item.productId);
           if (!product) throw new Error('O produto não está mais disponível no catálogo.');
           const variation = product.variations?.find((current) => current.id === item.variationId);
@@ -87,7 +88,7 @@ function PurchaseStockEntryEditor({ purchase, onClose }: PurchaseStockEntryModal
             type: 'entry',
             quantity: item.quantity,
             date: movementDate,
-            label: `Entrada a partir do Pedido #${purchase.purchaseNumber || purchase.id?.slice(-4)}`,
+            label: `Entrada a partir do Pedido #${formatPurchaseNumber(purchase.purchaseNumber) || purchase.id?.slice(-4)}`,
             observation: data.observation,
             unitCost: item.unitCost,
             relatedEntityId: data.purchaseId,
@@ -141,7 +142,7 @@ function PurchaseStockEntryEditor({ purchase, onClose }: PurchaseStockEntryModal
         <header className="flex shrink-0 items-center justify-between bg-emerald-600 p-6 text-white">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-100">
-              Pedido #{purchase.purchaseNumber || purchase.id?.slice(-4)} · {purchase.supplierName}
+              Pedido #{formatPurchaseNumber(purchase.purchaseNumber) || purchase.id?.slice(-4)} · {purchase.supplierName}
             </p>
             <h2 id="purchase-stock-entry-title" className="mt-1 text-xl font-black">
               Entrada a partir deste pedido

@@ -9,6 +9,7 @@ import type { ScopeConfiguration } from '../types/inventoryScope.types';
 import { getEmployeeDisplayName } from '../utils/employeeDisplayName';
 import { useInventoryAuditData } from './useInventoryAuditData';
 import {
+  deleteWebInventoryDraft,
   getWebInventoryDraft,
   listWebInventoryDrafts,
   saveWebInventoryDraft,
@@ -23,6 +24,11 @@ import {
   inventoryAuditDraftSchema,
   inventoryAuditScopeSchema,
 } from '../../../../../../../shared-utils/inventoryAuditFormSchemas';
+import {
+  prepareSupplierStageReviewItems,
+  resetSupplierStageItems,
+  startSupplierStageItems,
+} from '../../../../../../../shared-utils/inventorySupplierStages';
 
 const rejectInvalidSnapshot = (errors: Parameters<typeof flattenFormErrors>[0]) => {
   throw new Error(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados do inventário.');
@@ -176,6 +182,69 @@ export const useInventoryAuditWorkflow = (
     if (writeErrorRef.current) throw writeErrorRef.current;
   }, []);
 
+  const startSupplierStage = useCallback(async (supplierName: string) => {
+    if (frozenSubmissionRef.current) throw new Error('A submissão já está congelada.');
+    setItems(startSupplierStageItems(latestItemsRef.current, supplierName));
+    await flushLocalWrites();
+  }, [flushLocalWrites, setItems]);
+
+  const resetSupplierStage = useCallback(async (supplierName: string) => {
+    if (frozenSubmissionRef.current) throw new Error('A submissão já está congelada.');
+    const previousItems = latestItemsRef.current;
+    setItems(resetSupplierStageItems(latestItemsRef.current, supplierName));
+    try {
+      await flushLocalWrites();
+    } catch (error) {
+      setItems(previousItems);
+      await flushLocalWrites().catch(() => {});
+      throw error;
+    }
+  }, [flushLocalWrites, setItems]);
+
+  const discardInventory = async (): Promise<boolean> => {
+    const captured = beginOperation();
+    if (!captured) return false;
+    try {
+      const scope = scopeConfigRef.current;
+      if (!scope) throw new Error('O escopo do inventário não pode ser identificado.');
+      if (frozenSubmissionRef.current) throw new Error('Este inventário possui uma submissão pendente.');
+
+      await flushLocalWrites();
+      if (!isCurrent(captured)) return false;
+      const draftId = draftRef.current.id;
+      if (!draftId) throw new Error('O rascunho local não pode ser identificado.');
+
+      const submissionResult = await withTimeout(
+        getInventorySubmission(draftId).then((pending) => ({ pending })),
+        10_000,
+        null,
+        'inventario:cancelar-conferir-submissao'
+      );
+      if (!submissionResult) throw new Error('Não foi possível conferir a fila de envio local.');
+      if (submissionResult.pending) {
+        frozenSubmissionRef.current = true;
+        throw new Error('Este inventário possui uma submissão pendente e não pode ser apagado.');
+      }
+
+      await deleteWebInventoryDraft(draftId);
+      if (!isCurrent(captured)) return false;
+
+      owner.current.draftUncertain = false;
+      owner.current.finalized = false;
+      latestItemsRef.current = [];
+      setItemsState([]);
+      scopeConfigRef.current = null;
+      setScopeConfig(null);
+      draftRef.current = {};
+      scannedLabelsRef.current.clear();
+      uncertainCompletion.current = null;
+      setView('scope');
+      return true;
+    } finally {
+      finishOperation(captured);
+    }
+  };
+
   // Initialization
   useEffect(() => {
     if (!isOpen) {
@@ -236,6 +305,9 @@ export const useInventoryAuditWorkflow = (
             assignedSupplier: source.assignedSupplier || 'Sem fornecedor',
             systemStock: source.systemStock,
             physicalCount: source.physicalCount,
+            supplierStageStarted: source.supplierStageStarted,
+            supplierStageReset: source.supplierStageReset,
+            scannedLabelIds: source.scannedLabelIds,
             unit: product?.unit || 'UN',
             countedAt: (source as AuditItem).countedAt,
             sku: source.sku || product?.sku || product?.code || '',
@@ -297,6 +369,7 @@ export const useInventoryAuditWorkflow = (
     frozenSubmissionRef.current = false;
     await withTimeout(ensureOfflineInventoryCatalogSynced(), 15_000, null, 'inventario:catalogo');
     if (!isCurrent(captured)) return false;
+    const productStageStartedAt = config.type === 'product' ? new Date().toISOString() : undefined;
     const initialItems = config.itemsSnapshot.map((snapshot) => ({
       id: createItemId(),
       key: `${snapshot.productId}-${snapshot.variationId || 'main'}`,
@@ -306,7 +379,8 @@ export const useInventoryAuditWorkflow = (
       supplierNames: snapshot.supplierNames,
       assignedSupplier: snapshot.assignedSupplier,
       systemStock: snapshot.systemStock,
-      physicalCount: null, // Start as null (uncounted)
+      physicalCount: productStageStartedAt ? 0 : null,
+      countedAt: productStageStartedAt,
       unit: snapshot.unit,
       sku: snapshot.sku,
       code: snapshot.code,
@@ -392,15 +466,24 @@ export const useInventoryAuditWorkflow = (
       toast.error('Esta conclusão já foi salva. Retome o envio sem alterar a contagem.');
       return null;
     }
-    if (labelId && scannedLabelsRef.current.has(labelId)) return null;
     const current = latestItemsRef.current.find((item) => item.id === itemId);
     if (!current) throw new Error('Produto não encontrado no inventário local.');
+    if (labelId && current.scannedLabelIds?.includes(labelId)) return null;
+    // Older drafts kept only a draft-wide ID set; reset rows may reuse those IDs as they rebuild item-level IDs.
+    if (labelId && scannedLabelsRef.current.has(labelId) && current.supplierStageReset !== true) return null;
     const count = (current.physicalCount ?? 0) + 1;
     if (labelId) scannedLabelsRef.current.add(labelId);
     setItems((previous) =>
       previous.map((item) =>
         item.id === itemId
-          ? { ...item, physicalCount: count, countedAt: new Date().toISOString() }
+          ? {
+              ...item,
+              physicalCount: count,
+              countedAt: new Date().toISOString(),
+              scannedLabelIds: labelId
+                ? [...new Set([...(item.scannedLabelIds || []), labelId])]
+                : item.scannedLabelIds,
+            }
           : item
       )
     );
@@ -425,7 +508,7 @@ export const useInventoryAuditWorkflow = (
       if (!isCurrent(captured)) return false;
       return await validateCompletion({
         id: draftRef.current.id || '', code: draftRef.current.code || '',
-        items: latestItemsRef.current.map((item) => ({ ...item })),
+        items: prepareSupplierStageReviewItems(latestItemsRef.current, Boolean(scopeConfig.hasStages)),
         adjustments: itemsWithAdjustment.map((item) => ({ ...item, physicalCount: item.physicalCount! })),
       }, async (values) => {
       if (!isCurrent(captured)) return false;
@@ -522,6 +605,9 @@ export const useInventoryAuditWorkflow = (
     hasChanges,
     handleConfirmScope,
     handleFinalize,
+    startSupplierStage,
+    resetSupplierStage,
+    discardInventory,
     saveDraft,
     flushLocalWrites,
     incrementScannedItem,

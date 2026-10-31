@@ -1,7 +1,5 @@
-import React, { useContext, useEffect, useRef, useState } from 'react';
-import { useZodForm } from '@/hooks/useZodForm';
-import { ERP_LIST_PAGE_SIZES, erpListPageSizeFormSchema } from '../../../../shared-utils/listingFormSchemas';
-import { ERPListPaginationPreferenceContext } from './ERPListPaginationPreferenceContext';
+import React, { useEffect, useRef } from 'react';
+import { ERP_LIST_PAGE_SIZES } from '../../../../shared-utils/listingFormSchemas';
 import './ERPListPagination.css';
 
 export interface ERPListPaginationProps {
@@ -39,36 +37,22 @@ export const getERPListPageItems = (page: number, totalPages: number): PageItem[
 
 export const ERPListPagination: React.FC<ERPListPaginationProps> = ({
   page,
-  pageSize,
   totalItems,
   onPageChange,
-  onPageSizeChange,
-  pageSizeOptions = ERP_LIST_PAGE_SIZES,
-  preferenceKey,
   itemLabel = 'registros',
   ariaLabel,
   loading = false,
   className = '',
 }) => {
-  const userId = useContext(ERPListPaginationPreferenceContext);
   const rootRef = useRef<HTMLDivElement>(null);
-  const restoredPreference = useRef<string | null>(null);
   const onPageChangeRef = useRef(onPageChange);
-  const [pageSizeError, setPageSizeError] = useState('');
-  const pageSizeErrorId = React.useId();
-  const { validateValues } = useZodForm(erpListPageSizeFormSchema, { pageSize });
 
-  const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : 15;
+  const safePageSize = ERP_LIST_PAGE_SIZES[0];
   const safeTotalItems = Number.isFinite(totalItems) ? Math.max(0, Math.floor(totalItems)) : 0;
   const totalPages = Math.max(1, Math.ceil(safeTotalItems / safePageSize));
   const safePage = Number.isFinite(page) ? Math.min(totalPages, Math.max(1, Math.floor(page))) : 1;
   const firstItem = safeTotalItems ? (safePage - 1) * safePageSize + 1 : 0;
   const lastItem = Math.min(safePage * safePageSize, safeTotalItems);
-  const sizes = pageSizeOptions.includes(safePageSize)
-    ? pageSizeOptions
-    : [...pageSizeOptions, safePageSize].sort((a, b) => a - b);
-  const storageKey = userId && preferenceKey ? `erp-page-size:${userId}:${preferenceKey}` : null;
-
   useEffect(() => {
     onPageChangeRef.current = onPageChange;
   }, [onPageChange]);
@@ -76,23 +60,6 @@ export const ERPListPagination: React.FC<ERPListPaginationProps> = ({
   useEffect(() => {
     if (!loading && page !== safePage) onPageChangeRef.current(safePage);
   }, [loading, page, safePage]);
-
-  useEffect(() => {
-    if (!storageKey || !onPageSizeChange || loading || typeof window === 'undefined') return;
-    try {
-      if (restoredPreference.current !== storageKey) {
-        restoredPreference.current = storageKey;
-        const saved = Number(window.localStorage.getItem(storageKey));
-        if (pageSizeOptions.includes(saved) && saved !== safePageSize) {
-          onPageSizeChange(saved);
-          return;
-        }
-      }
-      window.localStorage.setItem(storageKey, String(safePageSize));
-    } catch {
-      // A lista continua utilizável quando o navegador bloqueia armazenamento local.
-    }
-  }, [storageKey, onPageSizeChange, pageSizeOptions, safePageSize, loading]);
 
   const changePage = (nextPage: number) => {
     if (loading || nextPage === safePage || nextPage < 1 || nextPage > totalPages) return;
@@ -114,17 +81,6 @@ export const ERPListPagination: React.FC<ERPListPaginationProps> = ({
     });
   };
 
-  const changePageSize = async (value: string) => {
-    const parsed = await validateValues({ pageSize: value }, () => setPageSizeError('Selecione uma quantidade válida.'));
-    if (!parsed || !pageSizeOptions.includes(parsed.pageSize)) {
-      setPageSizeError('Selecione uma quantidade válida.');
-      return;
-    }
-    setPageSizeError('');
-    if (parsed.pageSize === safePageSize) return;
-    onPageSizeChange?.(parsed.pageSize);
-  };
-
   if (!loading && safeTotalItems === 0) return null;
 
   return (
@@ -135,24 +91,7 @@ export const ERPListPagination: React.FC<ERPListPaginationProps> = ({
           <span>{loading ? `Carregando ${itemLabel}…` : `${firstItem}–${lastItem} de ${safeTotalItems} ${itemLabel}`}</span>
         </div>
         <div className="erp-list-pagination-size">
-          {onPageSizeChange ? (
-            <>
-              <select
-                aria-label="Registros por página"
-                aria-invalid={Boolean(pageSizeError)}
-                aria-describedby={pageSizeError ? pageSizeErrorId : undefined}
-                value={safePageSize}
-                disabled={loading}
-                onChange={(event) => void changePageSize(event.target.value)}
-                className="h-[34px] rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-              >
-                {sizes.map((size) => <option key={size} value={size}>{size} por página</option>)}
-              </select>
-              {pageSizeError && <span id={pageSizeErrorId} role="alert" className="text-xs text-red-600">{pageSizeError}</span>}
-            </>
-          ) : (
-            <span className="text-xs font-semibold">{safePageSize} por página</span>
-          )}
+          <span className="text-xs font-semibold">{safePageSize} por página</span>
         </div>
         <nav className="erp-list-pagination-nav" aria-label={ariaLabel}>
           <button type="button" aria-label="Página anterior" title="Página anterior" disabled={loading || safePage <= 1} onClick={() => changePage(safePage - 1)} className="erp-list-pagination-button text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-700">

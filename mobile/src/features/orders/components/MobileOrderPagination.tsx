@@ -7,7 +7,6 @@ interface Props {
   currentPage: number;
   totalPages: number;
   totalItems: number;
-  itemsPerPage?: number;
   dark?: boolean;
   onPageChange: (page: number) => void;
 }
@@ -16,10 +15,10 @@ export const MobileOrderPagination: React.FC<Props> = ({
   currentPage,
   totalPages,
   totalItems,
-  itemsPerPage = 30,
   dark = false,
   onPageChange,
 }) => {
+  const itemsPerPage = 15;
   const safeTotalPages = Math.max(1, totalPages);
   const safeCurrentPage = normalizePageNumber(currentPage, safeTotalPages);
   const startIndex =

@@ -65,11 +65,17 @@ export const fetchMobileProductSuppliers = async (): Promise<MobileProductSuppli
   return result.suppliers;
 };
 
-export const fetchMobileSuppliers = async (): Promise<any[]> => {
+export const fetchMobileSuppliers = async (
+  options: { includeStockOrigins?: boolean } = {}
+): Promise<any[]> => {
   try {
     const { data, error } = await supabase
       .from('people')
-      .select('id, full_name, nickname, social_name, person_type')
+      .select(
+        options.includeStockOrigins
+          ? 'id, full_name, nickname, social_name, person_type, stock_origins'
+          : 'id, full_name, nickname, social_name, person_type'
+      )
       .or('person_type.ilike.suppliers,person_type.ilike.supplier')
       .order('full_name');
     if (error) {

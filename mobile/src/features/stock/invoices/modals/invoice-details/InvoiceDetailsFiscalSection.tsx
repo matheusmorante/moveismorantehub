@@ -16,25 +16,7 @@ export const InvoiceDetailsFiscalSection: React.FC<InvoiceDetailsFiscalSectionPr
   compactLayout,
 }) => {
   return (
-    <>
-      <View style={[styles.parties, isDarkMode && styles.sectionDark]}>
-        <View style={styles.party}>
-          <Text style={styles.sectionLabel}>Fornecedor / Emitente</Text>
-          <Text style={[styles.partyName, isDarkMode && styles.textDark]}>
-            {invoice.supplierName}
-          </Text>
-          <Text style={styles.metaText}>CNPJ: {invoice.supplierCnpj || '—'}</Text>
-        </View>
-        <View style={styles.party}>
-          <Text style={styles.sectionLabel}>Destinatário</Text>
-          <Text style={[styles.partyName, isDarkMode && styles.textDark]}>
-            {invoice.recipientName || '—'}
-          </Text>
-          <Text style={styles.metaText}>CNPJ: {invoice.recipientCnpj || '—'}</Text>
-        </View>
-      </View>
-
-      <View style={[styles.fiscalSection, isDarkMode && styles.sectionDark]}>
+    <View style={[styles.fiscalSection, isDarkMode && styles.sectionDark]}>
         <Text style={styles.sectionLabel}>Dados fiscais extraídos</Text>
         <View style={styles.fiscalGrid}>
           <Text
@@ -174,11 +156,10 @@ export const InvoiceDetailsFiscalSection: React.FC<InvoiceDetailsFiscalSectionPr
           </Text>
         </View>
         {invoice.additionalInfo ? (
-          <Text style={styles.additionalInfo}>
+          <Text style={[styles.additionalInfo, isDarkMode && styles.textMutedDark]}>
             Observações: {invoice.additionalInfo}
           </Text>
         ) : null}
-      </View>
-    </>
+    </View>
   );
 };

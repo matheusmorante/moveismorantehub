@@ -39,7 +39,7 @@ export type Purchase = {
   items: PurchaseItem[];
   totalValue: number;
   observation?: string;
-  status: 'ordered' | 'fulfilled' | 'cancelled'; // Em Ordem, Atendido, Cancelado
+  status: 'draft' | 'pending' | 'ordered' | 'fulfilled' | 'cancelled'; // Rascunho, Pendente, Em Ordem, Atendido, Cancelado
   createdAt?: string;
   stockProcessed?: boolean;
   invoiceNumber?: string;
@@ -47,6 +47,7 @@ export type Purchase = {
   invoiceStatus?: 'pending' | 'partially_received' | 'received';
   fiscalKey?: string;
   attachments?: string[];
+  discountPercent?: number;
   ipiPercent?: number;
   freightPercent?: number;
 };

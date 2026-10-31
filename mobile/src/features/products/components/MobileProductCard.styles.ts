@@ -107,6 +107,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  menuActionIconBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   darkBtn: {
     backgroundColor: '#334155',
     borderColor: '#475569',

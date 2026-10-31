@@ -12,6 +12,7 @@ import { InventoryScopeConfigForm } from '../components/InventoryScopeConfigForm
 import type { ScopeConfiguration } from '../types/inventoryScope.types';
 import type { InventorySnapshotItem } from '../types/inventoryAudit.types';
 import {
+  isInventoryVariationEligible,
   isInventoryProductEligible,
   isInventorySupplierEligible,
 } from '../domain/inventoryScopeEligibility';
@@ -45,6 +46,9 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
     setInventoryName,
     selectedSupplierId,
     setSelectedSupplierId,
+    selectedProductId,
+    setSelectedProductId,
+    eligibleProductParents,
     selectedResponsibleId,
     setSelectedResponsibleId,
     responsibleError,
@@ -52,6 +56,7 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
     matchingItems,
     setCustomProducts,
     handleNextStep,
+    setStep,
   } = useInventoryScopeBuilder(allProducts, suppliers, profile?.id || '');
 
   const copyRequested = copiedItems != null;
@@ -68,7 +73,11 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
       );
       const variation = source.variationId ? product?.variations?.find((item) => item.id === source.variationId) : undefined;
       const key = JSON.stringify([source.productId, source.variationId || '']);
-      if (!product || (source.variationId && !variation) || seen.has(key)) return null;
+      if (
+        !product ||
+        (source.variationId && (!variation || !isInventoryVariationEligible(variation))) ||
+        seen.has(key)
+      ) return null;
       seen.add(key); selected.push({ product, variation });
     }
     return selected;
@@ -90,9 +99,14 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
   const mounted = useRef(false), locked = useRef(false), replayBlocked = useRef(false);
   const options = useRef({ suppliers, employees });
   options.current = { suppliers, employees };
+  const selectedProduct = eligibleProductParents.find(
+    (product) => String(product.id) === selectedProductId
+  );
+  const selectedProductName = selectedProduct?.description || selectedProduct?.name || '';
   const values = {
-    type: scopeType!, name: inventoryName, supplierId: selectedSupplierId,
-    responsibleId: selectedResponsibleId, hasStages: scopeType === 'full',
+    type: scopeType!, name: scopeType === 'product' ? selectedProductName : inventoryName,
+    supplierId: selectedSupplierId, productId: selectedProductId || undefined,
+    responsibleId: selectedResponsibleId, hasStages: scopeType === 'full' || scopeType === 'supplier',
     itemsSnapshot: scopeType === 'custom' && !copyRequested ? [] : matchingItems.map((item) => ({ ...item })),
   };
   const form = useZodForm(inventoryAuditScopeSchema, values);
@@ -124,12 +138,17 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
         }
         if (
           data.type === 'supplier' &&
+          data.supplierId &&
           !options.current.suppliers.some(
             (supplier) =>
               String(supplier.id) === data.supplierId && isInventorySupplierEligible(supplier)
           )
         ) {
           setError('O fornecedor não está mais disponível. Selecione um fornecedor da lista.');
+          return false;
+        }
+        if (data.type === 'product' && (!selectedProduct || data.itemsSnapshot.length === 0)) {
+          setError('Selecione um produto pai ativo com variações disponíveis.');
           return false;
         }
         const result = await withTimeout(Promise.resolve(onConfirm(data)).then((value) => ({ value })),
@@ -170,7 +189,11 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
             Novo Inventário
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
-            {step === 1 ? 'O que você deseja inventariar?' : 'Configuração do Escopo'}
+            {step === 1
+              ? 'O que você deseja inventariar?'
+              : scopeType === 'product'
+                ? 'Selecione o produto pai e o responsável'
+                : 'Configuração do Escopo'}
           </p>
           <p className="mt-1 text-[11px] text-slate-400" role="status">
             {catalogSyncedAt
@@ -201,15 +224,17 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
             {step === 2 && (
               <InventoryScopeConfigForm
                 scopeType={scopeType}
-                inventoryName={inventoryName}
-                setInventoryName={(value) => { if (!locked.current && !replayBlocked.current) setInventoryName(value); }}
-                selectedSupplierId={selectedSupplierId}
-                setSelectedSupplierId={(value) => { if (!locked.current && !replayBlocked.current) setSelectedSupplierId(value); }}
+                productParents={eligibleProductParents}
+                selectedProductId={selectedProductId}
+                onSelectProductId={(id) => {
+                  const product = eligibleProductParents.find((item) => String(item.id) === id);
+                  setSelectedProductId(id);
+                  if (product) setInventoryName(product.description || product.name || 'Produto');
+                }}
                 selectedResponsibleId={selectedResponsibleId}
                 setSelectedResponsibleId={(value) => { if (!locked.current && !replayBlocked.current) setSelectedResponsibleId(value); }}
                 responsibleError={responsibleError}
                 setResponsibleError={(value) => { if (!locked.current) setResponsibleError(value); }}
-                suppliers={suppliers}
                 employees={employees}
               />
             )}
@@ -221,19 +246,26 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
         <footer className="shrink-0 px-6 py-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between shadow-sm">
           <button
             type="button"
-            onClick={close}
+            onClick={() => {
+              if (scopeType === 'product') {
+                setSelectedProductId('');
+                setStep(1);
+                return;
+              }
+              close();
+            }}
             disabled={isSaving}
             className="px-6 py-2.5 font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
-            Cancelar
+            {scopeType === 'product' ? 'Voltar' : 'Cancelar'}
           </button>
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={isSaving || blocked}
-            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg shadow-sm transition-colors flex items-center gap-2"
+            disabled={isSaving || blocked || (scopeType === 'product' && !selectedProduct)}
+            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-lg shadow-sm transition-colors flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Confirmar e Iniciar
+            {scopeType === 'product' ? 'Próxima etapa' : 'Confirmar e Iniciar'}
             <i className="bi bi-arrow-right"></i>
           </button>
         </footer>

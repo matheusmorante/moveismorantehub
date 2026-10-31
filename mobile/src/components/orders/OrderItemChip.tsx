@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform, StyleSheet, Text } from 'react-native';
 import { isAssemblyInternalType, isAssemblyOutsideType } from '../../utils/aiSummaryHelper';
-import { formatItemDisplayName } from '../../utils/orderUtils';
+import { formatItemDisplayName } from '../../utils/productNameFormatters';
 
 interface OrderItemChipProps {
   item: any;
