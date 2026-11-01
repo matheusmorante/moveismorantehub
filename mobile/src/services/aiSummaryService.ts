@@ -14,6 +14,7 @@ import {
 import { getLocalDateString } from '../utils/orderUtils';
 import { formatDistanceNatural, formatProductNameWithArticle } from '../utils/aiSummaryHelper';
 import { buildDeliverySummaryPrompt } from './aiSummaryPrompt';
+import { withTimeout } from '../../../shared-utils/withTimeout';
 
 // Camada quente da sessão: evita nova geração quando o operador alterna entre
 // Hoje e Dias seguintes antes mesmo da leitura persistida terminar.
@@ -64,25 +65,39 @@ export const generateDeliveryAISummary = async (
   try {
     let rawOrders = initialOrders;
     if (!rawOrders || rawOrders.length === 0) {
-      const { data } = await supabase
+      const response = await withTimeout(
+        supabase
         .from('orders')
         .select('id, status, deleted, scheduled_date, created_at, order_data')
         .or(
           'deleted.is.null,deleted.eq.false,order_data->>deleted.is.null,order_data->>deleted.eq.false'
         )
         .order('created_at', { ascending: false })
-        .limit(300);
-      rawOrders = data || [];
+        .limit(300)
+        .then((result) => ({ result })),
+        15_000,
+        null,
+        'resumo:pedidos'
+      );
+      if (!response) throw new Error('Tempo de leitura dos pedidos excedido.');
+      rawOrders = response.result.data || [];
     }
 
     let settingsData: any = null;
     try {
-      const { data } = await supabase
+      const response = await withTimeout(
+        supabase
         .from('settings')
         .select('data->handlingOptions,data->orderTypes')
         .eq('id', 'app')
-        .maybeSingle();
-      settingsData = data;
+        .maybeSingle()
+        .then((result) => ({ result })),
+        15_000,
+        null,
+        'resumo:configuracoes'
+      );
+      if (!response) throw new Error('Tempo de leitura das configurações excedido.');
+      settingsData = response.result.data;
     } catch {
       console.warn('Configurações de IA não carregadas.');
     }

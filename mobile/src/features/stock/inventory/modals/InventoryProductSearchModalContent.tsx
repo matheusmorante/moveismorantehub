@@ -13,6 +13,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { X, Search } from 'lucide-react-native';
+import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 
 import {
   fetchInventoryScopeSuppliers,
@@ -148,11 +149,7 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
   const searchReady = searchTerm.length >= 3 && searchTerm === debouncedSearch;
   const filtered = searchReady
     ? supplierScopedProducts
-        .filter((p) =>
-          `${p.name || p.description || ''} ${p.sku || ''}`
-            .toLocaleLowerCase('pt-BR')
-            .includes(debouncedSearch.toLocaleLowerCase('pt-BR'))
-        )
+        .filter((p) => matchesSearchText(`${p.name || p.description || ''} ${p.sku || ''}`, debouncedSearch))
         .slice(0, 5)
     : [];
 

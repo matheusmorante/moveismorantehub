@@ -188,16 +188,6 @@ export const DeliveryTimelineView: React.FC<Props> = ({
           </TouchableOpacity>
         </View>
 
-        <View style={styles.listControlsRow}>
-          <Text style={[styles.resultCount, isDarkMode && styles.textMuted]}>
-            Exibindo {filteredItems.length}{' '}
-            {filteredItems.length === 1 ? 'entrega' : 'entregas'}
-          </Text>
-        </View>
-        <Text style={[styles.timelineHint, isDarkMode && styles.textMuted]}>
-          Cada ponto indica a etapa ou situação atual; a lista não representa a rota.
-        </Text>
-
         {filteredItems.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, isDarkMode && styles.textMuted]}>
@@ -223,7 +213,7 @@ export const DeliveryTimelineView: React.FC<Props> = ({
                   {index < filteredItems.length - 1 && <View style={styles.timelineLine} />}
                 </View>
 
-                {/* Card de Entrega */}
+                {/* Cartão da atividade */}
                 <View style={styles.timelineContent}>
                   <ScheduleCard
                     item={item}
@@ -252,21 +242,24 @@ const styles = StyleSheet.create({
   periodFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingBottom: 8,
-    marginBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  periodFilterRowDark: { borderBottomColor: '#334155' },
-  periodPill: {
-    paddingHorizontal: 12,
-    minHeight: 36,
-    paddingVertical: 7,
-    borderRadius: 10,
+    width: '100%',
+    gap: 3,
+    padding: 4,
+    marginBottom: 8,
     backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 16,
+  },
+  periodFilterRowDark: { backgroundColor: '#020617', borderColor: '#334155' },
+  periodPill: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 34,
+    paddingHorizontal: 2,
+    borderRadius: 11,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
     justifyContent: 'center',
   },
   periodPillActive: {
@@ -282,15 +275,6 @@ const styles = StyleSheet.create({
   periodPillTextActive: {
     color: '#ffffff',
   },
-  listControlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    marginHorizontal: 10,
-    marginBottom: 2,
-  },
-  resultCount: { color: '#475569', fontSize: 10, fontWeight: '700', flexShrink: 1 },
-  timelineHint: { color: '#64748b', fontSize: 9, marginHorizontal: 10, marginBottom: 6 },
   scrollContent: {
     paddingHorizontal: 10,
     paddingTop: 0,

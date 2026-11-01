@@ -54,9 +54,9 @@ export const InventoryCardContent = ({
     >
       {/* Header */}
       <View style={[styles.header, isDarkMode && styles.borderDark]}>
-        <View>
-          <Text style={styles.label}>Inventário</Text>
-          <Text style={[styles.title, isDarkMode && styles.textWhite]}>
+        <View style={styles.headerTitleLine}>
+          <Text style={[styles.titlePrefix, isDarkMode && styles.textWhite]}>Inventário</Text>
+          <Text style={[styles.title, isDarkMode && styles.textWhite]} numberOfLines={1}>
             #{session.inventoryCode || session.name?.replace('Inventário #', '') || '---'}
           </Text>
         </View>
@@ -84,15 +84,14 @@ export const InventoryCardContent = ({
 
       {/* Body */}
       <View style={styles.bodyGrid}>
-        <View style={[styles.gridItem, isDarkMode && styles.borderRightDark]}>
-          <Text style={styles.label}>Data</Text>
-          <Text style={[styles.value, isDarkMode && styles.textWhite]}>
-            {dateStr} {timeStr}
+        <Text style={[styles.metadataValue, isDarkMode && styles.textWhite]}>
+          {dateStr} · {timeStr}
+        </Text>
+        <View style={styles.responsibleRow}>
+          <Text style={[styles.metadataLabel, isDarkMode && styles.metadataLabelDark]}>
+            Responsável:
           </Text>
-        </View>
-        <View style={styles.gridItem}>
-          <Text style={styles.label}>Responsável</Text>
-          <Text style={[styles.value, isDarkMode && styles.textWhite]} numberOfLines={1}>
+          <Text style={[styles.metadataValue, styles.responsibleValue, isDarkMode && styles.textWhite]} numberOfLines={1}>
             {session.responsibleName?.toLowerCase() === 'usuário logado' ||
             session.responsibleName?.toLowerCase() === 'usuario logado'
               ? 'Colaborador'
@@ -104,9 +103,11 @@ export const InventoryCardContent = ({
       {/* Footer */}
       <View style={[styles.footerGrid, isDarkMode && styles.footerGridDark]}>
         <View style={[styles.gridItem, isDarkMode && styles.borderRightDark]}>
-          <Text style={styles.label}>Produtos contados</Text>
+          <Text style={styles.label}>Quantidades contadas</Text>
           <Text style={[styles.bigValue, isDarkMode && styles.textWhite]}>
-            {session.productsCount ?? session.items_count ?? 0}
+            {session.countedQuantityTotal === undefined
+              ? '—'
+              : session.countedQuantityTotal.toLocaleString('pt-BR')}
           </Text>
         </View>
         <View style={styles.gridItem}>
@@ -160,8 +161,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    padding: 16,
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: '#f8fafc',
   },
@@ -180,10 +183,23 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   title: {
-    fontSize: 16,
+    flexShrink: 1,
+    fontSize: 14,
     fontWeight: '900',
     color: '#0f172a',
     fontFamily: 'monospace',
+  },
+  titlePrefix: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  headerTitleLine: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   textWhite: {
     color: '#f8fafc',
@@ -191,8 +207,8 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRadius: 12,
   },
   dot: {
@@ -202,13 +218,37 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   badgeText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   bodyGrid: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 5,
+  },
+  responsibleRow: {
     flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 5,
+  },
+  metadataLabel: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  metadataLabelDark: {
+    color: '#94a3b8',
+  },
+  metadataValue: {
+    color: '#334155',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  responsibleValue: {
+    flex: 1,
+    minWidth: 0,
   },
   footerGrid: {
     flexDirection: 'row',
@@ -222,7 +262,8 @@ const styles = StyleSheet.create({
   },
   gridItem: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRightWidth: 1,
     borderRightColor: '#f1f5f9',
   },
@@ -232,7 +273,7 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   bigValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
     color: '#334155',
   },
@@ -252,7 +293,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   adjBadgeText: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -260,10 +301,10 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
   },
   moreButton: {
-    padding: 4,
+    padding: 2,
     marginRight: -4,
   },
 });

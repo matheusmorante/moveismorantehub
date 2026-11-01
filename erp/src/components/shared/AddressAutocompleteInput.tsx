@@ -87,7 +87,8 @@ export const AddressAutocompleteInput: React.FC<Props> = ({
         if (!result.success) {
           clearSuggestions(); setLookupError('Não foi possível obter sugestões válidas. Informe o endereço manualmente ou tente novamente.'); return;
         }
-        available.current = result.data; setSuggestions(result.data); setIsOpen(true);
+        const firstSuggestions = result.data.slice(0, 5);
+        available.current = firstSuggestions; setSuggestions(firstSuggestions); setIsOpen(true);
       } catch {
         if (mounted.current && revision === searchRevision.current) { clearSuggestions(); setLookupError('Não foi possível pesquisar o endereço. Informe os dados manualmente ou tente novamente.'); }
       } finally {

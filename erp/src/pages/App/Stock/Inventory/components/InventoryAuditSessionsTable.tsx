@@ -1,6 +1,7 @@
 import React from 'react';
 import type { InventoryAuditSession } from '../types/inventoryAudit.types';
 import { AdjustmentBadge, StatusBadge } from './InventoryAuditBadges';
+import { sumInventoryCountedQuantities } from '../../../../../../../shared-utils/inventorySupplierStages';
 
 interface InventoryAuditSessionsTableProps {
   readonly sessions: readonly InventoryAuditSession[];
@@ -35,7 +36,7 @@ export const InventoryAuditSessionsTable: React.FC<InventoryAuditSessionsTablePr
             Status
           </th>
           <th scope="col" className="px-8 py-5 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
-            Produtos contados
+            Quantidades contadas
           </th>
           <th scope="col" className="px-8 py-5 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">
             Ajustes gerados
@@ -65,7 +66,7 @@ export const InventoryAuditSessionsTable: React.FC<InventoryAuditSessionsTablePr
               <StatusBadge session={session} />
             </td>
             <td className="px-8 py-5 text-center text-sm font-black text-slate-600 dark:text-slate-300">
-              {session.productsCount}
+              {(session.countedQuantityTotal ?? sumInventoryCountedQuantities(session.items)).toLocaleString('pt-BR')}
             </td>
             <td className="px-8 py-5">
               <div className="flex items-center justify-center gap-2">

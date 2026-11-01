@@ -6,6 +6,8 @@
 
 ## Referências atuais
 
+- [Busca de documentos fiscais sem distinção de acentos — 31/10](historico-correcoes-2026-10-31.md#busca-de-documentos-fiscais-sem-distincao-de-acentos): pesquisar pelo nome do destinatário no ERP aceita texto com ou sem acentos.
+- [Itens de recebimento no app preservados ao organizar compras — 31/10](historico-correcoes-2026-10-31.md#itens-de-recebimento-no-app-preservados-ao-organizar-compras): mantém os custos calculados do recebimento e reconecta a seleção de produtos no componente compartilhado.
 - [NCM para pias de mármore sintético e revisão de móveis — 31/10](historico-correcoes-2026-10-31.md#ncm-para-pias-de-mármore-sintético-e-revisão-de-móveis): ativa `68109900` com exemplos internos, corrige o código metálico desdobrado e habilita códigos atuais usados pelo classificador.
 - [Detalhes da NF de entrada em abas no ERP e no app — 31/10](historico-correcoes-2026-10-31.md#detalhes-da-nf-de-entrada-em-abas-no-erp-e-no-app): organiza resumo, participantes, itens e dados fiscais em um modal responsivo, preservando os dados e o aviso de XML incompleto.
 - [Ajustes de estoque ao editar pedido de venda — 30/10](historico-correcoes-2026-10-30.md#ajustes-de-estoque-ao-editar-pedido-de-venda): preço não altera movimentos; acréscimos, reduções e trocas são reconciliados por linha na transação do pedido.

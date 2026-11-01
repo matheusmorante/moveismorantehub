@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { toTitleCase } from '../../../../../shared-utils/productText';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
 import {
   sameFamilyAttributes,
   toFamilyAttributes,
@@ -466,7 +467,7 @@ export const searchMobileCanonicalVariations = async (
     .select('id, name, sku, product:products!inner(name, description, supplier_id)')
     .neq('id', sourceId)
     .is('merged_to_variation_id', null)
-    .or(`name.ilike."%${safeTerm}%",sku.ilike."%${safeTerm}%"`);
+    .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], safeTerm));
   if (supplierId) query = query.eq('products.supplier_id', supplierId);
 
   const { data, error } = await query.limit(12);

@@ -1,4 +1,5 @@
 import { supabase } from '../../supabaseClient';
+import { buildPostgrestAccentInsensitiveOrFilter, buildPostgrestAccentInsensitivePattern } from '../../../../../shared-utils/searchText';
 
 export const searchInboundInvoiceSuppliers = async (searchTerm: string) => {
   const term = searchTerm.trim();
@@ -7,7 +8,7 @@ export const searchInboundInvoiceSuppliers = async (searchTerm: string) => {
     .from('people')
     .select('id, full_name, cpf_cnpj')
     .or('person_type.ilike.suppliers,person_type.ilike.supplier')
-    .ilike('full_name', `%${term}%`)
+    .filter('full_name', 'imatch', buildPostgrestAccentInsensitivePattern(term))
     .limit(20);
   if (error) throw error;
   return data || [];
@@ -24,13 +25,13 @@ export const searchInboundInvoiceProducts = async (searchTerm: string) => {
       .eq('deleted', false)
       .eq('active', true)
       .not('is_draft', 'is', true)
-      .or(`name.ilike.%${term}%,code.ilike.%${term}%`)
+      .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'code'], term))
       .limit(10),
     supabase
       .from('product_variations')
       .select('id, product_id, name, sku, price, use_parent_price')
       .eq('active', true)
-      .or(`name.ilike.%${term}%,sku.ilike.%${term}%`)
+      .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], term))
       .limit(10),
   ]);
   if (productsResult.error) throw productsResult.error;
@@ -209,7 +210,7 @@ export const searchInboundInvoiceProductParents = async (searchTerm: string) => 
     .eq('deleted', false)
     .eq('active', true)
     .not('is_draft', 'is', true)
-    .or(`name.ilike.%${term}%,code.ilike.%${term}%`)
+    .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'code'], term))
     .order('name')
     .limit(20);
   if (error) throw error;

@@ -66,7 +66,7 @@ export const InventoryScannerFeedbackView: React.FC<InventoryScannerFeedbackView
       {countedCount !== undefined ? (
         <View style={styles.sessionStatsRow}>
           <Text style={styles.sessionStat}>
-            {countedCount} {countedCount === 1 ? 'produto contado' : 'produtos contados'}
+            {countedCount.toLocaleString('pt-BR')} quantidades contadas
           </Text>
         </View>
       ) : (
@@ -76,7 +76,7 @@ export const InventoryScannerFeedbackView: React.FC<InventoryScannerFeedbackView
           </Text>
           <Text style={styles.sessionStat}>
             {productsReadCount}{' '}
-            {productsReadCount === 1 ? 'produto contado' : 'produtos contados'}
+            {productsReadCount === 1 ? 'item contado' : 'itens contados'}
           </Text>
         </View>
       )}

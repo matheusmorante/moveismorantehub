@@ -190,6 +190,16 @@ export const usePeople = (collectionName: string, filters?: any) => {
   };
 
   const handlePermanentDelete = async (id: string) => {
+    if (collectionName === 'suppliers') {
+      try {
+        await permanentDeletePerson(collectionName, id);
+        toast.success('Fornecedor excluído permanentemente.');
+      } catch {
+        toast.error('Não foi possível excluir o fornecedor. Atualize a lista e confira os vínculos.');
+      }
+      return;
+    }
+
     if (await requestConfirmation({
       title: 'Excluir pessoa permanentemente?',
       message: 'Certeza que deseja excluir DEFINITIVAMENTE?',

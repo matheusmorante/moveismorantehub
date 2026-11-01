@@ -30,11 +30,23 @@ export function ProductSupplierField({
   hasError = false,
 }: ProductSupplierFieldProps) {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isPersonFormOpen, setIsPersonFormOpen] = useState(false);
   const [extraSuppliers, setExtraSuppliers] = useState<Person[]>([]);
   const anchorRef = useRef<HTMLDivElement>(null);
   const requiredStockOrigin = getProductSupplierStockOrigin(formData.productKind);
+
+  useEffect(() => {
+    const trimmed = search.trim();
+    if (trimmed.length < 3) {
+      setDebouncedSearch('');
+      return;
+    }
+
+    const timeoutId = setTimeout(() => setDebouncedSearch(trimmed), 300);
+    return () => clearTimeout(timeoutId);
+  }, [search]);
 
   // Fechar dropdown ao pressionar Escape
   useEffect(() => {
@@ -68,15 +80,15 @@ export function ProductSupplierField({
   }, [formData.supplierIds, formData.mainSupplierId, formData.supplierId]);
 
   const visibleSuppliers = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (query.length < 2) return [];
+    const query = debouncedSearch.trim().toLowerCase();
+    if (query.length < 3 || query !== search.trim().toLowerCase()) return [];
     return allSuppliers.filter((supplier) => {
       const sid = String(supplier.id || '');
       if (selectedIds.includes(sid)) return false;
       if (!supplierProvidesStockOrigin(supplier.stockOrigins, requiredStockOrigin)) return false;
       return matchesProductSupplierSearch(supplier, query);
-    });
-  }, [allSuppliers, selectedIds, requiredStockOrigin, search]);
+    }).slice(0, 5);
+  }, [allSuppliers, selectedIds, requiredStockOrigin, search, debouncedSearch]);
 
   const addSupplier = (supplier: Person) => {
     if (!supplier || !supplier.id) return;
@@ -154,7 +166,7 @@ export function ProductSupplierField({
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
-          placeholder="Digite 2 ou mais letras para buscar fornecedor..."
+          placeholder="Digite pelo menos 3 caracteres para buscar fornecedor..."
           className={`w-full bg-transparent border-b-2 border-t-0 border-x-0 py-2.5 pl-8 pr-4 text-xs font-bold outline-none transition-all dark:text-slate-200 ${
             hasError
               ? 'border-red-500 text-red-600 focus:border-red-600'
@@ -169,7 +181,10 @@ export function ProductSupplierField({
         </span>
       )}
 
-      <DropdownPortal anchorRef={anchorRef} isOpen={isOpen && visibleSuppliers.length > 0}>
+      <DropdownPortal
+        anchorRef={anchorRef}
+        isOpen={isOpen && search.trim().length >= 3 && search.trim().toLowerCase() === debouncedSearch.trim().toLowerCase() && visibleSuppliers.length > 0}
+      >
         <div
           role="listbox"
           aria-label="Sugestões de fornecedores"

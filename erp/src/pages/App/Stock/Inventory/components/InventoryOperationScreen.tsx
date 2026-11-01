@@ -15,6 +15,7 @@ import {
   findOfflineInventoryMatch,
 } from '../services/offlineInventoryCatalog';
 import type { OfflineInventoryMatch } from '../types/offlineInventoryCatalog.types';
+import { sumInventoryCountedQuantities } from '../../../../../../../shared-utils/inventorySupplierStages';
 
 type InventoryAudioWindow = Window & { webkitAudioContext?: typeof AudioContext };
 let inventoryAudioContext: AudioContext | null = null;
@@ -134,13 +135,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
   const isShowingSupplierSelection = isSupplierSpecific && !activeStage;
   const isShowingSupplierSummary = scopeType === 'general' && !activeStage;
   const countItems = isShowingStages || isShowingSupplierSummary ? items : activeItems;
-  const countedProductsCount = countItems.filter(
-    (item) => typeof item.physicalCount === 'number'
-  ).length;
-  const usesZeroInitializedCounts = scopeType === 'product' || Boolean(hasStages && (scopeType === 'full' || scopeType === 'supplier'));
-  const headerCount = usesZeroInitializedCounts
-    ? isShowingStages ? countedProductsCount : countItems.length
-    : countedProductsCount;
+  const countedQuantityTotal = sumInventoryCountedQuantities(countItems);
   const isCustom = scopeType === 'custom';
 
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -319,8 +314,8 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
         items={countItems}
         title={activeStage ? `${inventoryName} - ${activeStage}` : inventoryName}
         showCount={!isShowingSupplierSelection}
-        count={headerCount}
-        countLabel={usesZeroInitializedCounts ? 'produtos para contar' : 'produtos contados'}
+        count={countedQuantityTotal}
+        countLabel="quantidades contadas"
         onClose={!isSupplierSpecific && !activeStage ? onClose : undefined}
         onRequestCancelInventory={
           scopeType === 'full' && hasStages && activeStage && onResetSupplierStage
@@ -523,7 +518,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
               </div>
             ) : null}
             <p className="text-center text-xs font-semibold text-slate-600 dark:text-slate-300">
-              {countedProductsCount} produtos contados
+              {countedQuantityTotal.toLocaleString('pt-BR')} quantidades contadas
             </p>
             <button
               type="button"

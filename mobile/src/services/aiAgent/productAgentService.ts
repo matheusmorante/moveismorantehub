@@ -1,6 +1,7 @@
 import { fetchMobileProductsPage } from '../../features/products/services/mobileProductFetchService';
 import { supabase } from '../supabaseClient';
 import { isTestProduct } from '../../../../shared-utils/isTestProduct';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../shared-utils/searchText';
 
 export interface MobileProductSummaryForAgent {
   codigo: string;
@@ -177,7 +178,7 @@ export async function getMobileProductDetails(
       .from('products')
       .select('*, product_variations(*)')
       .eq('deleted', false)
-      .or(`code.eq.${padded},sku.ilike.%${target}%`)
+      .or(`code.eq.${padded},sku.imatch.${buildPostgrestAccentInsensitivePattern(target)}`)
       .limit(1)
       .maybeSingle();
     if (fallbackError) throw fallbackError;

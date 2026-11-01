@@ -4,6 +4,7 @@ import { offlineStorageService } from '../../offline/offlineStorageService';
 import { getLocalInventoryDraft } from '../../sqlite/inventoryDrafts';
 import { getInventorySubmission } from '../../sqlite/inventoryOutbox';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { sumInventoryCountedQuantities } from '../../../../../shared-utils/inventorySupplierStages';
 
 export const INVENTORY_SESSIONS_CACHE_KEY = 'inventory_sessions_cache_v1';
 export const INVENTORY_SESSION_DETAILS_CACHE_KEY = 'inventory_session_details_cache_v1';
@@ -53,6 +54,7 @@ const mapInventorySessionMarker = (
   adjustmentsBySession: Record<string, { total: number; reversed: number }>
 ) => {
   let productsCount = 0;
+  let countedQuantityTotal: number | undefined;
   let status = 'in_progress';
   let inventoryCode = m.id.split('-')[0];
   let responsibleName = 'Não informado';
@@ -69,6 +71,7 @@ const mapInventorySessionMarker = (
       productsCount = data.items.filter(
         (item: any) => item?.physicalCount !== null && item?.physicalCount !== undefined
       ).length;
+      countedQuantityTotal = sumInventoryCountedQuantities(data.items);
       status = data.status || 'completed';
     } else {
       productsCount = Math.abs(m.quantity || 0);
@@ -90,6 +93,7 @@ const mapInventorySessionMarker = (
     updated_at: m.created_at || m.date,
     items_count: productsCount,
     productsCount,
+    countedQuantityTotal,
     adjustmentsCount: sessionAdjustments.total,
     reversedCount: sessionAdjustments.reversed,
   };

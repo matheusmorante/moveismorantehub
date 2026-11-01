@@ -21,6 +21,7 @@ import {
   useMobilePurchaseDraft,
 } from './useMobilePurchaseDraft';
 import { supplierProvidesStockOrigin } from '../../../../../../shared-utils/productSupplierStockOrigin';
+import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 
 export type { Supplier };
 export { parseNumber };
@@ -342,7 +343,7 @@ export function usePurchaseForm({
   const filteredSuppliers = useMemo(() => {
     return suppliers
       .filter((item) => supplierProvidesStockOrigin(item.stock_origins, 'normal'))
-      .filter((item) => item.name.toLowerCase().includes(supplierSearch.toLowerCase()))
+      .filter((item) => matchesSearchText(item.name, supplierSearch))
       .slice(0, 40);
   }, [suppliers, supplierSearch]);
 

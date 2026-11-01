@@ -13,6 +13,7 @@ import {
 } from '../services/mobileOrderListService';
 import type { MobileOrderListItem } from '../services/mobileOrderListService';
 import type { MobileOrderType } from '../domain/types';
+import { matchesSearchText } from '../../../../../shared-utils/searchText';
 
 const ITEMS_PER_PAGE = 15;
 const HANDLING_OPTIONS_CACHE_KEY = 'order_handling_options_v1';
@@ -39,7 +40,7 @@ const matchesLocalStatusFilter = (item: MobileOrderListItem, statusFilter: strin
 };
 
 const matchesLocalSearch = (item: MobileOrderListItem, search: string): boolean => {
-  const term = search.trim().toLowerCase();
+  const term = search.trim();
   if (!term) return true;
   const hay = [
     item.customer_name,
@@ -49,9 +50,8 @@ const matchesLocalSearch = (item: MobileOrderListItem, search: string): boolean 
     item.order_data?.orderIndex,
   ]
     .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-  return hay.includes(term);
+    .join(' ');
+  return matchesSearchText(hay, term);
 };
 
 export function useMobileOrders(orderType: MobileOrderType = 'sale') {

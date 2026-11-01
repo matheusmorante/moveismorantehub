@@ -14,6 +14,7 @@ import {
 import { InventorySession } from '../../types/stock.types';
 import { fetchInventorySessionDetails } from '../../../../services/stockService';
 import { ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react-native';
+import { sumInventoryCountedQuantities } from '../../../../../../shared-utils/inventorySupplierStages';
 
 interface Props {
   session: InventorySession;
@@ -154,8 +155,10 @@ export const InventoryDetailsModal: React.FC<Props> = ({
             {/* Summary Badges */}
             <View style={styles.summaryRow}>
               <View style={[styles.summaryCard, { backgroundColor: surface, borderColor: border }]}>
-                <Text style={[styles.summaryVal, { color: '#10b981' }]}>{countedItems.length}</Text>
-                <Text style={[styles.summaryLbl, { color: muted }]}>Contados</Text>
+                <Text style={[styles.summaryVal, { color: '#10b981' }]}>
+                  {sumInventoryCountedQuantities(items).toLocaleString('pt-BR')}
+                </Text>
+                <Text style={[styles.summaryLbl, { color: muted }]}>Quantidades contadas</Text>
               </View>
               <View style={[styles.summaryCard, { backgroundColor: surface, borderColor: border }]}>
                 <Text style={[styles.summaryVal, { color: '#f59e0b' }]}>{adjustments.length}</Text>

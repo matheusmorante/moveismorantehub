@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Animated, View, Text, TouchableOpacity } from 'react-native';
 import {
-  AlertCircle,
   CalendarDays,
   ChevronRight,
   FileText,
-  Truck,
+  ListTodo,
   Wrench,
 } from 'lucide-react-native';
 import {
@@ -27,12 +26,10 @@ import {
   type DeliverySummaryRecord,
 } from '../../../../services/deliverySummaryService';
 import { offlineStorageService } from '../../../../services/offline/offlineStorageService';
-import { MobileDrill } from '../../../../components/shared/MobileDrill';
 import { DeliveryShiftMetricsGrid } from './DeliveryShiftMetricsGrid';
 import { styles } from './todaySummaryCard.styles';
 import type { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import type { AssemblyTask } from '../../../assemblies/assemblyTasks';
-import { classifyDeliveryService } from '../../domain/deliveryServiceClassification';
 
 interface OrderItem {
   id: string;
@@ -50,20 +47,15 @@ interface OrderItem {
 
 interface TodaySummaryCardProps {
   orders: OrderItem[];
-  onSelectOrder?: (order: any) => void;
   isDarkMode?: boolean;
   periodFilter?: DeliveryPeriodFilter;
   activities?: DeliveryRouteItem[];
   assemblyTasks?: AssemblyTask[];
+  onViewSchedule: () => void;
   onViewAssemblies?: () => void;
 }
 
 const SHOW_AI_SUMMARY = false;
-
-const formatActivityDate = (value: string) => {
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return match ? `${match[3]}/${match[2]}` : value;
-};
 
 const formatSummaryDate = (value: string) => {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -77,22 +69,13 @@ const formatSummaryDate = (value: string) => {
   return formatted.charAt(0).toLocaleUpperCase('pt-BR') + formatted.slice(1);
 };
 
-const getActivityTimeKey = (value?: string) => {
-  const normalized = String(value || '').toLocaleLowerCase('pt-BR');
-  const match = normalized.match(/(\d{1,2}):(\d{2})/);
-  if (match) return `${match[1].padStart(2, '0')}:${match[2]}`;
-  if (normalized.includes('manhã') || normalized.includes('manha')) return '08:00';
-  if (normalized.includes('tarde') || normalized.includes('noite')) return '13:00';
-  return '99:99';
-};
-
 export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   orders,
-  onSelectOrder,
   isDarkMode = false,
   periodFilter = 'today',
   activities = [],
   assemblyTasks = [],
+  onViewSchedule,
   onViewAssemblies,
 }) => {
   const [isGeminiQuotaExceeded, setIsGeminiQuotaExceeded] = useState<boolean>(false);
@@ -107,7 +90,6 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
 
   const [aiSummaryText, setAiSummaryText] = useState<string>('');
   const [fallbackOrders, setFallbackOrders] = useState<any[]>([]);
-  const [showAllDeliveries, setShowAllDeliveries] = useState(false);
 
   const effectiveOrdersRef = useRef<any[]>([]);
 
@@ -176,38 +158,10 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
       .join('|');
   }, [effectiveOrders]);
 
-  const { filteredOrders, totalCount, morningCount, afternoonCount, defaultSummaryText } = useMemo(
+  const { totalCount, morningCount, afternoonCount, defaultSummaryText } = useMemo(
     () => calculateDeliverySummaryMetrics(effectiveOrders, periodFilter),
     [effectiveOrders, periodFilter]
   );
-
-  const upcomingDeliveries = useMemo(() => {
-    const deliveries = activities.filter((activity) =>
-      classifyDeliveryService(activity.order).isDelivery
-    );
-    const priority = (activity: DeliveryRouteItem) => {
-      if (activity.status === 'unattended') return 0;
-      if (
-        activity.status === 'in_progress' ||
-        activity.status === 'arrived' ||
-        activity.status === 'in_service'
-      ) {
-        return 1;
-      }
-      if (activity.isNext) return 2;
-      return activity.status === 'completed' ? 4 : 3;
-    };
-
-    return deliveries.sort(
-      (a, b) =>
-        priority(a) - priority(b) ||
-        getOperationalScheduleDate(a.order).localeCompare(getOperationalScheduleDate(b.order)) ||
-        getActivityTimeKey(a.periodLabel).localeCompare(getActivityTimeKey(b.periodLabel)) ||
-        a.sequence - b.sequence
-    );
-  }, [activities]);
-
-  useEffect(() => setShowAllDeliveries(false), [periodFilter]);
 
   const activeSummaryText = aiSummaryText || defaultSummaryText;
   const assemblyCount = assemblyTasks.length;
@@ -217,13 +171,6 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
   const remainingActivityCount = Math.max(0, activities.length - completedActivityCount);
   const completionPercent =
     activities.length > 0 ? Math.round((completedActivityCount / activities.length) * 100) : 0;
-  const attentionCount = upcomingDeliveries.filter(
-    (activity) => activity.status === 'unattended'
-  ).length;
-  const visibleDeliveries = showAllDeliveries
-    ? upcomingDeliveries
-    : upcomingDeliveries.slice(0, 5);
-
   useEffect(() => {
     if (!SHOW_AI_SUMMARY) return;
     let isMounted = true;
@@ -448,220 +395,41 @@ export const TodaySummaryCard: React.FC<TodaySummaryCardProps> = ({
 
       <View style={[styles.activitiesBox, isDarkMode && styles.activitiesBoxDark]}>
         <View style={styles.activitiesHeader}>
-          <Text style={[styles.activitiesTitle, isDarkMode && styles.textLight]}>
-            Próximas entregas
-          </Text>
-          {upcomingDeliveries.length > 5 && (
-            <TouchableOpacity
-              style={styles.linkButton}
-              onPress={() => setShowAllDeliveries((current) => !current)}
-              accessibilityRole="button"
-              accessibilityLabel={
-                showAllDeliveries ? 'Mostrar menos entregas' : 'Ver todas as entregas'
-              }
-            >
-              <Text style={[styles.linkText, isDarkMode && styles.linkTextDark]}>
-                {showAllDeliveries ? 'Ver menos' : 'Ver todas'}
+          <View
+            style={{
+              flex: 1,
+              minWidth: 0,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <ListTodo size={16} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[styles.activitiesTitle, isDarkMode && styles.textLight]}>
+                Programação
               </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {attentionCount > 0 && (
-          <View style={[styles.attentionNotice, isDarkMode && styles.attentionNoticeDark]}>
-            <AlertCircle size={16} color={isDarkMode ? '#fca5a5' : '#DC2626'} />
-            <Text style={[styles.attentionText, isDarkMode && styles.attentionTextDark]}>
-              {attentionCount}{' '}
-              {attentionCount === 1
-                ? 'entrega não realizada precisa'
-                : 'entregas não realizadas precisam'}{' '}
-              de atenção
-            </Text>
-          </View>
-        )}
-
-        {visibleDeliveries.length ? (
-          visibleDeliveries.map((routeActivity, index) => {
-            const order = routeActivity.order;
-            const orderData = order?.order_data || {};
-            const shipping = orderData.shipping || order?.shipping || {};
-            const address = shipping.deliveryAddress || {};
-            const location = [address.neighborhood, address.city].filter(Boolean).join(' · ');
-            const activityDate = getOperationalScheduleDate(order);
-            const activityLabel = routeActivity.activityLabel || 'ENTREGA';
-            const customerName = routeActivity.customerName || 'Cliente';
-            const timeLabel = routeActivity.periodLabel;
-            const orderNumber = routeActivity.orderIndex || routeActivity.id.slice(0, 6);
-            const deliveryService = classifyDeliveryService(order);
-            const assemblyLabels = [
-              deliveryService.hasInternalAssembly
-                ? { label: 'Montagem no depósito', background: '#f59e0b', border: '#d97706' }
-                : null,
-              deliveryService.hasOutsideAssembly
-                ? { label: 'Montagem fora', background: '#dc2626', border: '#b91c1c' }
-                : null,
-            ].filter(
-              (badge): badge is { label: string; background: string; border: string } =>
-                badge !== null
-            );
-            const routeStatus = routeActivity.status;
-            const activityTypeColor = isDarkMode ? '#93c5fd' : '#2563EB';
-            const activityTypeBackground = isDarkMode ? '#172554' : '#EFF6FF';
-            let statusLabel = 'Agendada';
-            let statusTone = 'pending';
-            if (routeStatus === 'completed') {
-              statusLabel = routeActivity.activityType === 'delivery' ? 'Atendido' : 'Concluída';
-              statusTone = 'completed';
-            } else if (routeStatus === 'unattended') {
-              statusLabel = 'Não realizada';
-              statusTone = 'warning';
-            } else if (
-              routeStatus === 'in_progress' ||
-              routeStatus === 'arrived' ||
-              routeStatus === 'in_service'
-            ) {
-              statusLabel =
-                routeStatus === 'in_progress'
-                  ? 'Em rota'
-                  : routeStatus === 'arrived'
-                    ? 'No local'
-                    : 'Em atendimento';
-              statusTone = 'active';
-            } else if (routeStatus === 'cancelled') {
-              statusLabel = 'Cancelada';
-            }
-
-            return (
-              <TouchableOpacity
-                key={routeActivity.id}
+              <Text
                 style={[
-                  styles.activityRow,
-                  isDarkMode && styles.activityRowDark,
-                  index === visibleDeliveries.length - 1 && styles.activityRowLast,
+                  styles.headerSubtitle,
+                  isDarkMode && styles.headerSubtitleDark,
+                  { marginTop: 2 },
                 ]}
-                onPress={() => onSelectOrder?.(order)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
               >
-                <View style={styles.activityTextContent}>
-                  <View style={styles.activityTopLine}>
-                    <View style={styles.activityTypeCluster}>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.activityMeta,
-                          styles.activityOrderNumber,
-                          isDarkMode && styles.textMuted,
-                        ]}
-                      >
-                        {`Pedido #${orderNumber}`}
-                      </Text>
-                      <View
-                        style={[styles.activityTypeRow, { backgroundColor: activityTypeBackground }]}
-                      >
-                        <Truck size={13} color={activityTypeColor} />
-                        <Text
-                          numberOfLines={1}
-                          style={[styles.activityType, { color: activityTypeColor }]}
-                        >
-                          {activityLabel}
-                        </Text>
-                      </View>
-                    </View>
-                    <View
-                      style={[
-                        styles.activityStatusBadge,
-                        statusTone === 'completed' && styles.activityStatusCompleted,
-                        statusTone === 'active' && styles.activityStatusActive,
-                        statusTone === 'warning' && styles.activityStatusWarning,
-                        statusTone === 'pending' && styles.activityStatusPending,
-                        isDarkMode &&
-                          statusTone === 'completed' &&
-                          styles.activityStatusCompletedDark,
-                        isDarkMode && statusTone === 'active' && styles.activityStatusActiveDark,
-                        isDarkMode && statusTone === 'warning' && styles.activityStatusWarningDark,
-                        isDarkMode && statusTone === 'pending' && styles.activityStatusPendingDark,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.activityStatusText,
-                          statusTone === 'completed' && styles.activityStatusTextCompleted,
-                          statusTone === 'active' && styles.activityStatusTextActive,
-                          statusTone === 'warning' && styles.activityStatusTextWarning,
-                          isDarkMode &&
-                            statusTone === 'completed' &&
-                            styles.activityStatusTextCompletedDark,
-                          isDarkMode && statusTone === 'active' && styles.activityStatusTextActiveDark,
-                          isDarkMode &&
-                            statusTone === 'warning' &&
-                            styles.activityStatusTextWarningDark,
-                          isDarkMode && statusTone === 'pending' && styles.activityStatusTextPendingDark,
-                        ]}
-                      >
-                        {statusLabel}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.activityCustomer, isDarkMode && styles.textLight]}
-                  >
-                    {customerName}
-                  </Text>
-                  <View style={styles.activityDetails}>
-                    <Text
-                      style={[styles.activitySchedule, isDarkMode && styles.activityScheduleDark]}
-                    >
-                      {[
-                        periodFilter !== 'today' ? formatActivityDate(activityDate) : '',
-                        timeLabel,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ') || 'Horário a confirmar'}
-                    </Text>
-                    {location ? (
-                      <Text
-                        numberOfLines={1}
-                        style={[styles.activityLocation, isDarkMode && styles.textMuted]}
-                      >
-                        {location}
-                      </Text>
-                    ) : null}
-                  </View>
-                  {assemblyLabels.length > 0 && (
-                    <View style={styles.assemblyLabels}>
-                      {assemblyLabels.map(({ label, background, border }) => (
-                        <View
-                          key={label}
-                          style={[
-                            styles.activityTypeRow,
-                            { backgroundColor: background, borderColor: border, borderWidth: 1 },
-                          ]}
-                        >
-                          <MobileDrill size={11} color="#ffffff" />
-                          <Text
-                            numberOfLines={1}
-                            style={[styles.activityType, { color: '#ffffff' }]}
-                          >
-                            {label}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
-                <ChevronRight size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-              </TouchableOpacity>
-            );
-          })
-        ) : (
-          <Text style={[styles.emptyActivitiesText, isDarkMode && styles.textMuted]}>
-            {filteredOrders.length
-              ? 'Entregas do período sem detalhes de rota.'
-              : 'Nenhuma entrega programada para este período.'}
-          </Text>
-        )}
+                Entregas, assistências e coletas de devolução agendadas
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.linkButton, { flexDirection: 'row', alignItems: 'center', gap: 2 }]}
+            onPress={onViewSchedule}
+            accessibilityRole="button"
+            accessibilityLabel="Ver programação"
+          >
+            <Text style={[styles.linkText, isDarkMode && styles.linkTextDark]}>Ver</Text>
+            <ChevronRight size={16} color={isDarkMode ? '#60a5fa' : '#2563eb'} />
+          </TouchableOpacity>
+        </View>
       </View>
     </Animated.View>
   );

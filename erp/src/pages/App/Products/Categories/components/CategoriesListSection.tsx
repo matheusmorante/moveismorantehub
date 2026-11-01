@@ -1,6 +1,7 @@
 import React from 'react';
 import { CategoryNode, EnvironmentNode } from '../types/categoryEnvironment.types';
 import { SecureDeleteButton } from './SecureDeleteButton';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface CategoriesListSectionProps {
   readonly categories: CategoryNode[];
@@ -41,8 +42,7 @@ export const CategoriesListSection: React.FC<CategoriesListSectionProps> = ({
       if (filterType === 'sem_ambiente' && hasEnv) return false;
 
       if (searchTerm.trim()) {
-        const norm = searchTerm.toLowerCase();
-        return c.name.toLowerCase().includes(norm);
+        return matchesSearchText(c.name, searchTerm);
       }
       return true;
     });

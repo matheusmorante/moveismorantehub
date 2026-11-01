@@ -12,7 +12,10 @@ import { useInventoryReconciliation } from '../hooks/useInventoryReconciliation'
 import { styles } from './inventory-review/inventoryReview.styles';
 import { InventoryReviewSummaryCard } from './inventory-review/InventoryReviewSummaryCard';
 import { InventoryReviewDifferencesList } from './inventory-review/InventoryReviewDifferencesList';
-import { prepareSupplierStageReviewItems } from '../../../../../../shared-utils/inventorySupplierStages';
+import {
+  prepareSupplierStageReviewItems,
+  sumInventoryCountedQuantities,
+} from '../../../../../../shared-utils/inventorySupplierStages';
 
 interface Props {
   isDarkMode: boolean;
@@ -100,7 +103,7 @@ export const InventoryReviewScreen: React.FC<Props> = ({
           )}
 
           <InventoryReviewSummaryCard
-            countedCount={countedItems.length}
+            countedQuantityTotal={sumInventoryCountedQuantities(countedItems)}
             hasUncountedItems={countedItems.length < reviewItems.length}
             adjustmentsCount={itemsWithDifferences.length}
             surface={surface}

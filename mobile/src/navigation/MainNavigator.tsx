@@ -50,6 +50,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
     }
     return 'entregas';
   });
+  const [stockMenuResetKey, setStockMenuResetKey] = useState(0);
 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
@@ -61,6 +62,12 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
   const activeTab = currentTab === 'agente' && !isAdmin ? 'entregas' : currentTab;
 
   const handleTabChange = (newTab: string, url: string) => {
+    if (newTab === 'estoque') {
+      void url;
+      setCurrentTab('estoque');
+      setStockMenuResetKey((key) => key + 1);
+      return;
+    }
     if (newTab === 'configuracoes') {
       void url;
       setCurrentTab('configuracoes');
@@ -195,6 +202,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
       case 'estoque':
         return (
           <NativeStockScreen
+            key={stockMenuResetKey}
             isDarkMode={isDarkMode}
             userProfile={userProfile}
           />

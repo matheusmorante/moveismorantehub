@@ -6,6 +6,7 @@ import { toTitleCase } from '@/pages/utils/formatters';
 interface CustomerSearchDropdownProps {
   anchorRef: React.RefObject<HTMLDivElement>;
   isOpen: boolean;
+  isLoading?: boolean;
   filteredCustomers: Person[];
   selectedCustomerId?: string;
   onSelectCustomer: (customer: Person) => void;
@@ -14,6 +15,7 @@ interface CustomerSearchDropdownProps {
 export const CustomerSearchDropdown: React.FC<CustomerSearchDropdownProps> = ({
   anchorRef,
   isOpen,
+  isLoading = false,
   filteredCustomers,
   selectedCustomerId,
   onSelectCustomer,
@@ -21,7 +23,9 @@ export const CustomerSearchDropdown: React.FC<CustomerSearchDropdownProps> = ({
   return (
     <DropdownPortal anchorRef={anchorRef} isOpen={isOpen}>
       <div className="mt-1 border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-        {filteredCustomers.length === 0 ? (
+        {isLoading ? (
+          <p className="p-4 text-center text-sm text-slate-400">Buscando clientes...</p>
+        ) : filteredCustomers.length === 0 ? (
           <p className="p-4 text-center text-sm text-slate-400">Nenhum cliente encontrado.</p>
         ) : (
           filteredCustomers.map((customer) => (

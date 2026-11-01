@@ -57,12 +57,13 @@ describe('PurchaseItemsSection inline item inputs', () => {
         ipiPercent={0}
         freightPercent={0}
         formatCurrency={(val) => `R$ ${val.toFixed(2)}`}
+        supplierId="sup-1"
         isReceiptMode={false}
       />
     );
 
     // The header button "Adicionar Item"
-    const addBtn = screen.getByRole('button', { name: /Adicionar Item/i });
+    const addBtn = screen.getAllByRole('button', { name: /Adicionar Item/i, hidden: true })[0];
     fireEvent.click(addBtn);
 
     expect(handleAddItem).toHaveBeenCalledTimes(1);
@@ -155,9 +156,9 @@ describe('PurchaseItemsSection inline item inputs', () => {
       />
     );
 
-    // Increase quantity via "+" button
-    const plusButtons = screen.getAllByRole('button', { name: '+' });
-    fireEvent.click(plusButtons[0]);
+    fireEvent.change(screen.getAllByRole('spinbutton', { name: 'Quantidade de Mesa Dobrável' })[0], {
+      target: { value: '2' },
+    });
 
     expect(handleUpdateItem).toHaveBeenCalledWith(
       0,
@@ -166,5 +167,77 @@ describe('PurchaseItemsSection inline item inputs', () => {
         totalCost: 200,
       })
     );
+  });
+
+  it('shows the same calculated total for an item and the order in purchase mode', () => {
+    const item = {
+      productId: 'prod-1', description: 'Mesa', quantity: 2,
+      baseCost: 33.33, unitCost: 33.33, totalCost: 66.66,
+    };
+    render(
+      <PurchaseItemsSection
+        items={[item]}
+        onAddItem={vi.fn()}
+        onRemoveItem={vi.fn()}
+        onUpdateItem={vi.fn()}
+        ipiPercent={3}
+        freightPercent={7}
+        formatCurrency={(value) => `R$ ${value.toFixed(2)}`}
+        supplierId="sup-1"
+        isReceiptMode={false}
+      />
+    );
+
+    expect(screen.getByText(/IPI \/ unidade/)).toBeDefined();
+    expect(screen.getByText(/Frete \/ unidade/)).toBeDefined();
+    expect(screen.getByText(/Desconto \/ unidade/)).toBeDefined();
+    expect(screen.queryByRole('textbox', { name: /Desconto unitário/i })).toBeNull();
+    expect(screen.queryByText('Subtotal')).toBeNull();
+    expect(screen.queryByText('Outras despesas')).toBeNull();
+    expect(screen.getAllByText('R$ 73.32')).toHaveLength(2);
+    expect(screen.getByText('R$ 36.66')).toBeDefined();
+  });
+
+  it('opens one item at a time and asks for confirmation before removal', () => {
+    const onRemove = vi.fn();
+    const items = [
+      { productId: 'a', description: 'Mesa', quantity: 1, baseCost: 10, unitCost: 10, totalCost: 10 },
+      { productId: 'b', description: 'Cadeira', quantity: 1, baseCost: 20, unitCost: 20, totalCost: 20 },
+    ];
+    render(<PurchaseItemsSection items={items} onAddItem={vi.fn()} onRemoveItem={onRemove}
+      onUpdateItem={vi.fn()} ipiPercent={0} freightPercent={0} formatCurrency={(value) => `R$ ${value.toFixed(2)}`}
+      supplierId="sup-1" isReceiptMode={false} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir item Mesa' }));
+    expect(screen.getByRole('button', { name: 'Recolher item Mesa' }).getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Expandir item Cadeira' }).getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(screen.getByRole('button', { name: 'Mais opções de Mesa' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Remover item/i }));
+    expect(onRemove).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(onRemove).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Mais opções de Mesa' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Remover item/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remover' }));
+    expect(onRemove).toHaveBeenCalledWith(0);
+  });
+
+  it('keeps subtotal and other expenses visible in receipt mode', () => {
+    render(
+      <PurchaseItemsSection
+        items={[{ productId: 'prod-1', description: 'Mesa', quantity: 2, baseCost: 100, unitCost: 105, totalCost: 210, otherExpensesUnit: 2 }]}
+        onAddItem={vi.fn()}
+        onRemoveItem={vi.fn()}
+        onUpdateItem={vi.fn()}
+        ipiPercent={0}
+        freightPercent={0}
+        formatCurrency={(value) => `R$ ${value.toFixed(2)}`}
+        supplierId="sup-1"
+        isReceiptMode
+      />
+    );
+
+    expect(screen.getAllByText('Subtotal')).toHaveLength(2);
+    expect(screen.getAllByText('Outras despesas')).toHaveLength(2);
   });
 });

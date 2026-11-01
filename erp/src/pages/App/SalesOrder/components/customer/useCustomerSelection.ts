@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import CustomerData from '@/pages/types/customerData.type';
 import Person from '@/pages/types/person.type';
-import { getRecentPeople, searchPeople } from '@/pages/utils/personService';
+import { fetchPersonById, getRecentPeople, searchPeople } from '@/pages/utils/personService';
 import { toTitleCase } from '@/pages/utils/formatters';
 import { getTestArtifactContext } from '../../../../../../../shared-utils/testArtifactContext';
 import {
-  canSearchCustomers,
+  canSearchCustomerAutocomplete,
   getCustomerSearchQuery,
   matchesCustomerSearch,
 } from '@/pages/utils/customerSearch';
@@ -43,11 +43,16 @@ export function useCustomerSelection({
     ? { runId, ownerId, ...(scenarioKey ? { scenarioKey } : {}) } : undefined,
   [runId, ownerId, scenarioKey]);
   const [customers, setCustomers] = useState<Person[]>([]);
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
   const [searchTerm, setSearchTerm] = useState(customerData.fullName || '');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [shouldDebounceSearch, setShouldDebounceSearch] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const isSearchSettled =
+    canSearchCustomerAutocomplete(searchTerm) && searchTerm.trim() === debouncedSearchTerm;
   const previousCustomerRef = useRef<{
     customerData: CustomerData;
     searchTerm: string;
@@ -57,25 +62,53 @@ export function useCustomerSelection({
     !customerData.id &&
     customerData.fullName.trim().toLowerCase() === FINAL_CONSUMER_NAME.toLowerCase();
 
-  // Carregar recentes ao montar
+  // A busca de sugestões não carrega mais uma página de recentes ao montar.
+  // Carrega somente o cadastro selecionado para preservar a ação de edição;
+  // em modo de teste, mantém o escopo de fixtures já isolado pelo contexto.
   useEffect(() => {
     let active = true;
     setCustomers([]);
-    if (isTestMode && !testContext) return;
-    getRecentPeople('customers', 20, testContext).then((data) => {
-      if (active) setCustomers(data.filter((customer) => customer.active && !customer.deleted));
-    });
+    if (isTestMode) {
+      if (!testContext) return () => { active = false; };
+      getRecentPeople('customers', 20, testContext).then((data) => {
+        if (active) setCustomers(data.filter((customer) => customer.active && !customer.deleted));
+      });
+    } else if (customerData.id) {
+      fetchPersonById(customerData.id).then((customer) => {
+        if (active && customer?.active && !customer.deleted) setCustomers([customer]);
+      });
+    }
     return () => { active = false; };
-  }, [isTestMode, testContext]);
+  }, [customerData.id, isTestMode, testContext]);
 
-  // Busca com debounce ao digitar
+  // Só libera a busca e os resultados após o termo estabilizar por 300 ms.
   useEffect(() => {
-    if (!searchTerm.trim() || searchTerm.trim().length < 2 || (isTestMode && !testContext)) return;
-    let active = true;
+    if (!shouldDebounceSearch) return;
+    if (!canSearchCustomerAutocomplete(searchTerm)) {
+      setDebouncedSearchTerm('');
+      setShouldDebounceSearch(false);
+      return;
+    }
 
-    const delay = setTimeout(async () => {
+    const trimmedSearchTerm = searchTerm.trim();
+    const delay = setTimeout(() => {
+      setDebouncedSearchTerm(trimmedSearchTerm);
+      setShouldDebounceSearch(false);
+    }, 300);
+
+    return () => clearTimeout(delay);
+  }, [searchTerm, shouldDebounceSearch]);
+
+  useEffect(() => {
+    if (!canSearchCustomerAutocomplete(debouncedSearchTerm) || (isTestMode && !testContext)) {
+      setIsSearchingCustomers(false);
+      return;
+    }
+    let active = true;
+    setIsSearchingCustomers(true);
+    const fetchCustomers = async () => {
       try {
-        const found = await searchPeople(searchTerm, 'customers', 20, testContext);
+        const found = await searchPeople(debouncedSearchTerm, 'customers', 5, testContext);
         if (!active) return;
         setCustomers((prev) => {
           const combined = [...prev, ...found.filter((c) => c.active && !c.deleted)];
@@ -83,20 +116,30 @@ export function useCustomerSelection({
         });
       } catch (e) {
         console.error('Erro ao pesquisar clientes no input:', e);
+      } finally {
+        if (active) setIsSearchingCustomers(false);
       }
-    }, 300);
+    };
 
-    return () => { active = false; clearTimeout(delay); };
-  }, [searchTerm, isTestMode, testContext]);
+    void fetchCustomers();
+    return () => { active = false; };
+  }, [debouncedSearchTerm, isTestMode, testContext]);
 
   useEffect(() => {
-    if (!isOpen) setSearchTerm(customerData.fullName || '');
-  }, [customerData.fullName, isOpen]);
+    if (
+      !isOpen &&
+      !shouldDebounceSearch &&
+      (customerData.id || customerData.fullName)
+    ) {
+      setSearchTerm(customerData.fullName || '');
+    }
+  }, [customerData.fullName, customerData.id, isOpen, shouldDebounceSearch]);
 
   useEffect(() => {
     const closeOnOutsideClick = (event: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setShouldDebounceSearch(false);
       }
     };
     document.addEventListener('mousedown', closeOnOutsideClick);
@@ -109,15 +152,17 @@ export function useCustomerSelection({
   }, [customers, customerData.id]);
 
   const filteredCustomers = useMemo(() => {
-    if (!canSearchCustomers(searchTerm)) return [];
-    const query = getCustomerSearchQuery(searchTerm);
-    return customers.filter((customer) =>
-      matchesCustomerSearch(query, {
-        name: customer.fullName || customer.tradeName,
-        phone: customer.phone,
-      })
-    );
-  }, [customers, searchTerm]);
+    if (!isSearchSettled) return [];
+    const query = getCustomerSearchQuery(debouncedSearchTerm);
+    return customers
+      .filter((customer) =>
+        matchesCustomerSearch(query, {
+          name: customer.fullName || customer.tradeName,
+          phone: customer.phone,
+        })
+      )
+      .slice(0, 5);
+  }, [customers, debouncedSearchTerm, isSearchSettled]);
 
   const clearCustomer = () => {
     setCustomerData({
@@ -130,6 +175,8 @@ export function useCustomerSelection({
       additionalContacts: [],
     });
     setSearchTerm('');
+    setDebouncedSearchTerm('');
+    setShouldDebounceSearch(false);
     setIsOpen(false);
   };
 
@@ -148,6 +195,7 @@ export function useCustomerSelection({
         }
       );
       setSearchTerm(previous?.searchTerm || '');
+      setShouldDebounceSearch(false);
       setIsOpen(false);
       return;
     }
@@ -162,6 +210,7 @@ export function useCustomerSelection({
       additionalContacts: [],
     });
     setSearchTerm(FINAL_CONSUMER_NAME);
+    setShouldDebounceSearch(false);
     setIsOpen(false);
   };
 
@@ -180,6 +229,7 @@ export function useCustomerSelection({
       additionalContacts: customer.additionalContacts || [],
     });
     setSearchTerm(formattedName);
+    setShouldDebounceSearch(false);
     if (customer.marketingOrigin) setMarketingOrigin?.(customer.marketingOrigin);
     setIsOpen(false);
   };
@@ -210,11 +260,20 @@ export function useCustomerSelection({
   const handleSearchInputChange = (value: string) => {
     if (customerData.id && value !== searchTerm) {
       clearCustomer();
+    }
+    if (!value) {
+      clearCustomer();
       return;
     }
     setSearchTerm(value);
-    setIsOpen(canSearchCustomers(value));
-    if (!value) clearCustomer();
+    setShouldDebounceSearch(true);
+    setIsOpen(canSearchCustomerAutocomplete(value));
+  };
+
+  const handleSearchInputFocus = () => {
+    if (customerData.id || !canSearchCustomerAutocomplete(searchTerm)) return;
+    setIsOpen(true);
+    if (!isSearchSettled) setShouldDebounceSearch(true);
   };
 
   const handleSearchInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -252,6 +311,8 @@ export function useCustomerSelection({
     searchTerm,
     setSearchTerm,
     isOpen,
+    isSearchSettled,
+    isSearchingCustomers,
     setIsOpen,
     isNewCustomerOpen,
     setIsNewCustomerOpen,
@@ -265,6 +326,7 @@ export function useCustomerSelection({
     toggleFinalConsumer,
     handleEditCustomer,
     handleSearchInputChange,
+    handleSearchInputFocus,
     handleSearchInputKeyDown,
     handleNewCustomerSuccess,
     handleEditCustomerSuccess,

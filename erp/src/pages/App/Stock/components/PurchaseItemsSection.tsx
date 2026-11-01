@@ -7,12 +7,16 @@ import { PurchaseItemsEntrySection } from './purchase-items/PurchaseItemsEntrySe
 import type { PurchaseItemsViewProps } from './purchase-items/PurchaseItemsViewProps';
 import { PurchaseItemsMobileList } from './purchase-items/PurchaseItemsMobileList';
 import { PurchaseItemsTable } from './purchase-items/PurchaseItemsTable';
+import { PurchaseOrderItemsView } from './purchase-items/PurchaseOrderItemsView';
+import { calculatePurchaseCosts } from '../Purchases/utils/purchaseCalculationUtils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface Props {
   items: PurchaseItem[];
   onAddItem: (item: PurchaseItem) => boolean | void;
   onRemoveItem: (idx: number) => void;
   onUpdateItem?: (idx: number, item: PurchaseItem) => void;
+  discountPercent?: number;
   ipiPercent: number;
   freightPercent: number;
   formatCurrency: (value: number) => string;
@@ -20,6 +24,9 @@ interface Props {
   onSupplierAutoSelect?: (supplierId: string) => void;
   hasError?: boolean;
   isReceiptMode?: boolean;
+  activeItemIndex?: number | null;
+  onActiveItemChange?: (index: number | null) => void;
+  canRemoveItems?: boolean;
 }
 
 export const PurchaseItemsSection = ({
@@ -27,6 +34,7 @@ export const PurchaseItemsSection = ({
   onAddItem,
   onRemoveItem,
   onUpdateItem,
+  discountPercent = 0,
   ipiPercent,
   freightPercent,
   formatCurrency,
@@ -34,10 +42,13 @@ export const PurchaseItemsSection = ({
   onSupplierAutoSelect,
   hasError = false,
   isReceiptMode = true,
+  activeItemIndex = null,
+  onActiveItemChange,
+  canRemoveItems = true,
 }: Props) => {
   // Adiciona linha de item vazia para selecionar o produto e preencher quantidade e custo diretamente nela
   const handleAddNewItemRow = () => {
-    if (isReceiptMode && !supplierId) {
+    if (!supplierId) {
       toast.warn('Selecione o fornecedor acima primeiro.');
       return;
     }
@@ -55,7 +66,7 @@ export const PurchaseItemsSection = ({
   const handleSelectProductInRow = (idx: number, product: Product, variation?: Variation) => {
     const prodName = product.name || product.title || product.description || '';
     const description = variation
-      ? variation.name && variation.name.toLowerCase().includes(prodName.toLowerCase())
+      ? variation.name && matchesSearchText(variation.name, prodName)
         ? variation.name
         : `${prodName} - ${variation.name}`
       : prodName;
@@ -160,12 +171,16 @@ export const PurchaseItemsSection = ({
     });
   };
 
-  const totalValue = items.reduce((sum, item) => sum + item.totalCost, 0);
+  const totalValue = isReceiptMode
+    ? items.reduce((sum, item) => sum + item.totalCost, 0)
+    : calculatePurchaseCosts(items, discountPercent, ipiPercent, freightPercent).totalValue;
 
   const itemsViewProps: PurchaseItemsViewProps = {
     items,
     isReceiptMode,
     supplierId,
+    discountPercent,
+    ipiPercent,
     freightPercent,
     formatCurrency,
     onRemoveItem,
@@ -176,7 +191,13 @@ export const PurchaseItemsSection = ({
     handleQtyChange,
     handleCostChange,
     handleDiscountChange,
+    canRemoveItems,
   };
+
+  if (!isReceiptMode) {
+    return <PurchaseOrderItemsView {...itemsViewProps} activeItemIndex={activeItemIndex}
+      onActiveItemChange={onActiveItemChange} hasError={hasError} totalValue={totalValue} />;
+  }
 
   return (
     <div className="space-y-4">

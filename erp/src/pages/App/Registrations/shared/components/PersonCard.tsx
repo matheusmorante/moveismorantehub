@@ -1,6 +1,8 @@
 import React from 'react';
 import Person from '../../../../types/person.type';
 import DropdownPortal from '../../../../../components/shared/DropdownPortal';
+import SupplierDeleteMenuItem from './SupplierDeleteMenuItem';
+import type { SupplierDeletionCounts } from '../../../../../../../shared-utils/supplierDeletion';
 
 interface PersonCardProps {
   readonly person: Person;
@@ -14,6 +16,9 @@ interface PersonCardProps {
   readonly onToggleSelection?: () => void;
   readonly onViewPurchaseHistory?: (person: Person) => void;
   readonly productCount?: number;
+  readonly supplierDeletionCounts?: SupplierDeletionCounts;
+  readonly supplierDeletionCountLoading?: boolean;
+  readonly supplierDeletionCountError?: boolean;
   readonly allowsSelection?: boolean;
 }
 
@@ -77,7 +82,10 @@ const PersonCard = ({
   isSelected,
   onToggleSelection,
   onViewPurchaseHistory,
-  productCount = 0,
+  productCount,
+  supplierDeletionCounts,
+  supplierDeletionCountLoading,
+  supplierDeletionCountError,
   allowsSelection = true,
 }: PersonCardProps) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
@@ -400,19 +408,31 @@ const PersonCard = ({
                         Restaurar
                       </span>
                     </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMenuOpen(false);
-                        onPermanentDelete(person.id!);
-                      }}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                    >
-                      <i className="bi bi-trash3-fill text-red-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
-                        Excluir Permanentemente
-                      </span>
-                    </button>
+                    {isSupplier ? (
+                      <SupplierDeleteMenuItem
+                        counts={supplierDeletionCounts}
+                        loading={supplierDeletionCountLoading}
+                        error={supplierDeletionCountError}
+                        onDelete={() => {
+                          setIsMenuOpen(false);
+                          onPermanentDelete(person.id!);
+                        }}
+                      />
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsMenuOpen(false);
+                          onPermanentDelete(person.id!);
+                        }}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                      >
+                        <i className="bi bi-trash3-fill text-red-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
+                          Excluir Permanentemente
+                        </span>
+                      </button>
+                    )}
                   </>
                 ) : (
                   <>
@@ -446,6 +466,18 @@ const PersonCard = ({
                           Histórico de Pedidos
                         </span>
                       </button>
+                    )}
+
+                    {isSupplier && (
+                      <SupplierDeleteMenuItem
+                        counts={supplierDeletionCounts}
+                        loading={supplierDeletionCountLoading}
+                        error={supplierDeletionCountError}
+                        onDelete={() => {
+                          setIsMenuOpen(false);
+                          onPermanentDelete(person.id!);
+                        }}
+                      />
                     )}
 
                     {person.type !== 'employees' && !isSupplier && (
@@ -524,7 +556,7 @@ const PersonCard = ({
         {person.type === 'suppliers' ? (
           <div className="flex items-center gap-2 text-[11px] font-black text-blue-600 dark:text-blue-400">
             <i className="bi bi-box-seam" />
-            <span>{productCount} produto(s) vinculado(s)</span>
+            <span>{productCount ?? '…'} produto(s) vinculado(s)</span>
           </div>
         ) : (
           <>

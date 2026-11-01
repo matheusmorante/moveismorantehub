@@ -1,3 +1,5 @@
+import { matchesSearchText } from '@/pages/utils/textUtils';
+
 export interface ABCResult {
   product: string;
   supplier: string;
@@ -232,8 +234,7 @@ export const applyFiltersCalculation = (
   }
 
   if (filters.search) {
-    const lowSearch = filters.search.toLowerCase();
-    filtered = filtered.filter((r) => r.product.toLowerCase().includes(lowSearch));
+    filtered = filtered.filter((r) => matchesSearchText(r.product, filters.search));
   }
 
   let finalAvgP = 0;
@@ -275,3 +276,4 @@ export const applyFiltersCalculation = (
 
   return { updatedWithQuadrants, finalAvgP, finalAvgT, newTotalProfit };
 };
+

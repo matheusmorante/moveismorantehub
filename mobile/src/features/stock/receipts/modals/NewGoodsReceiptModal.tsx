@@ -17,6 +17,7 @@ import { ArrowLeft, CalendarDays, X } from 'lucide-react-native';
 import { mobileReceiptFormSchema } from '../../../../../../shared-utils/receiptFormSchemas';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import { supplierProvidesStockOrigin } from '../../../../../../shared-utils/productSupplierStockOrigin';
+import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { generateUUID } from '../../../../services/offline/offlineStorageService';
 import { getLocalDateString } from '../../../../utils/orderUtils';
@@ -131,7 +132,7 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
     return suppliers.filter(
       (supplier) =>
         supplierProvidesStockOrigin(supplier.stock_origins, 'normal') &&
-        (!query || supplier.name.toLocaleLowerCase('pt-BR').includes(query)),
+        matchesSearchText(supplier.name, query),
     );
   }, [supplierSearch, suppliers]);
 
@@ -501,6 +502,7 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
               <PurchaseItemsSection
                 items={items}
                 onOpenProductPicker={() => setProductPickerOpen(true)}
+                onAddItemRow={() => setProductPickerOpen(true)}
                 onUpdateItem={updateItem}
                 onRemoveItem={(index) =>
                   setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
@@ -509,6 +511,7 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
                 allowAdd={origin.kind !== 'invoice'}
                 allowRemove={origin.kind !== 'invoice'}
                 addDisabled={!supplierId}
+                receiptMode
               />
 
               <View

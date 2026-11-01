@@ -22,6 +22,7 @@ export interface InventoryAuditSession {
   readonly status: 'in_progress' | 'pending' | 'completed';
   readonly hasStages?: boolean;
   readonly productsCount: number;
+  readonly countedQuantityTotal?: number;
   readonly adjustmentsCount: number;
   readonly reversedCount: number;
   readonly items: readonly InventorySnapshotItem[];

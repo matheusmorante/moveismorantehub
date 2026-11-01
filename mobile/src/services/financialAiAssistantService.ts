@@ -16,6 +16,7 @@ import {
 } from './financial/financialSlotFilling';
 import { parsePtBrWrittenNumbers } from './financial/wordToNumberPtBr';
 import { fallbackHeuristicParser, parsePtBrNumber } from './financial/financialTextParser';
+import { normalizeSearchTerm } from '../../../shared-utils/searchText';
 
 import {
   IntentType,
@@ -68,15 +69,15 @@ export const parseFinancialIntentWithGemini = async (
     if (patched) {
       if (patched.supplier && !patched.matchedAccount && patched.intentType === 'QUERY_OR_UPDATE') {
         const allPayables = await fetchPayableAccounts();
-        const supplierQuery = (patched.supplier || patched.counterparty || '').toLowerCase();
+        const supplierQuery = normalizeSearchTerm(patched.supplier || patched.counterparty || '');
+        const normalizedUserMessage = normalizeSearchTerm(userMessage);
         const matched = allPayables.filter((p) => {
-          const desc = p.description.toLowerCase();
-          const party = (p.counterparty || '').toLowerCase();
-          const lowerUserMsg = userMessage.toLowerCase();
+          const desc = normalizeSearchTerm(p.description);
+          const party = normalizeSearchTerm(p.counterparty || '');
           return (
-            (party && party.includes(supplierQuery)) ||
-            (desc && desc.includes(supplierQuery)) ||
-            (supplierQuery && lowerUserMsg.includes(party))
+            (supplierQuery && party && party.includes(supplierQuery)) ||
+            (supplierQuery && desc && desc.includes(supplierQuery)) ||
+            (supplierQuery && party && normalizedUserMessage.includes(party))
           );
         });
 
@@ -173,22 +174,23 @@ export const parseFinancialIntentWithGemini = async (
     }
 
     const allPayables = await fetchPayableAccounts();
+    const normalizedUserMessage = normalizeSearchTerm(userMessage);
+    const searchWords = normalizedUserMessage.split(' ');
 
     const matchedPayables = allPayables.filter((p) => {
-      const desc = p.description.toLowerCase();
-      const party = (p.counterparty || '').toLowerCase();
-      const cat = (p.category_name || '').toLowerCase();
-      const supQuery = (supplierName || '').toLowerCase();
+      const desc = normalizeSearchTerm(p.description);
+      const party = normalizeSearchTerm(p.counterparty || '');
+      const cat = normalizeSearchTerm(p.category_name || '');
+      const supQuery = normalizeSearchTerm(supplierName || '');
 
       if (supQuery && ((party && party.includes(supQuery)) || (desc && desc.includes(supQuery)))) {
         return true;
       }
 
       return (
-        (party && lowerMsg.includes(party)) ||
-        (desc && lowerMsg.includes(desc)) ||
-        lowerMsg
-          .split(' ')
+        (party && normalizedUserMessage.includes(party)) ||
+        (desc && normalizedUserMessage.includes(desc)) ||
+        searchWords
           .some(
             (word) =>
               word.length > 3 && (desc.includes(word) || party.includes(word) || cat.includes(word))

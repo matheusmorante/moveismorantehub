@@ -30,6 +30,7 @@ import {
   OFFICIAL_QUEIMA_BADGE_URL,
   OFFICIAL_LIQUIDACAO_BADGE_URL,
 } from './services/postOfficialAssetConstants';
+import { resolvePreviewOpportunity } from './services/postPreviewOpportunityResolver';
 
 export default function MarketingPostsManager() {
   const editor = usePostEditor();
@@ -104,27 +105,10 @@ export default function MarketingPostsManager() {
   const campaign = campaigns.find((item) => item.id === campaignId);
 
   const previewSource = editor.product as (typeof editor.product & { opportunity_id?: string });
-  // Mapeamento resiliente da oportunidade do produto para garantir selo oficial no preview
-  const matchedOpportunity = useMemo(() => {
-    const p = previewSource;
-    if (!p) return null;
-    const oppId =
-      p.opportunity_id ||
-      p.opportunityId ||
-      (typeof p.opportunity === 'object' ? p.opportunity?.id : null);
-    if (oppId) return opportunities.find((o) => o.id === oppId) || null;
-    const oppName =
-      p.opportunityName ||
-      (typeof p.opportunity === 'object' ? p.opportunity?.name : null) ||
-      (typeof p.opportunity === 'string' ? p.opportunity : '');
-    if (oppName)
-      return (
-        opportunities.find(
-          (o) => o.name?.toLowerCase() === oppName.toLowerCase() || (o as any).slug === oppName
-        ) || null
-      );
-    return null;
-  }, [previewSource, opportunities]);
+  const matchedOpportunity = useMemo(
+    () => resolvePreviewOpportunity(previewSource, opportunities),
+    [previewSource, opportunities]
+  );
 
   const productOpportunityId =
     matchedOpportunity?.id ||

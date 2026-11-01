@@ -95,7 +95,7 @@ export const InboundItemSingleMode: React.FC<InboundItemSingleModeProps> = ({
             variationsOnly
             excludedProductLinks={excludedProductLinks}
             isSelected={false}
-            placeholder="Digite 2 ou mais letras para buscar..."
+            placeholder="Digite pelo menos 3 caracteres para buscar..."
             onSelect={(product, variation) => onSelectProduct(item.itemNumber, product, variation)}
             onEditClick={onRequestEditProduct}
           />

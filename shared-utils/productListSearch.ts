@@ -1,3 +1,5 @@
+import { buildPostgrestAccentInsensitiveOrFilter } from './searchText';
+
 export const PRODUCT_LIST_SEARCH_MIN_LENGTH = 3;
 export const PRODUCT_LIST_SEARCH_DEBOUNCE_MS = 350;
 export const PRODUCT_VARIATION_SEARCH_MATCH_LIMIT = 100;
@@ -21,7 +23,7 @@ export const buildProductSearchTerms = (search: string): ProductSearchTerms => {
   const yToI = spaceNormalized.replace(/y/gi, 'i');
   const iToY = spaceNormalized.replace(/i/gi, 'y');
   const searchTerms = Array.from(
-    new Set([safeSearch, unaccented, spaceNormalized, yToI, iToY])
+    new Set([safeSearch, spaceNormalized, yToI, iToY])
   ).filter(Boolean);
   const wordTerms = spaceNormalized
     .split(/\s+/)
@@ -36,7 +38,8 @@ export const buildProductSearchTerms = (search: string): ProductSearchTerms => {
 
 export const buildProductVariationSearchFilter = (searchTerms: readonly string[]): string =>
   searchTerms
-    .flatMap((term) => [`name.ilike.%${term}%`, `sku.ilike.%${term}%`])
+    .map((term) => buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], term))
+    .filter(Boolean)
     .join(',');
 
 export const buildProductParentSearchFilter = (
@@ -46,16 +49,15 @@ export const buildProductParentSearchFilter = (
   const conditions: string[] = [];
 
   search.searchTerms.forEach((term) => {
-    conditions.push(`name.ilike.%${term}%`, `code.ilike.%${term}%`);
+    conditions.push(buildPostgrestAccentInsensitiveOrFilter(['name', 'code'], term));
   });
 
   if (search.wordTerms.length > 0) {
     const andConditions = search.wordTerms.map(({ value, alternative }) => {
       const matchingTerms = Array.from(new Set([value, alternative].filter(Boolean))) as string[];
-      const matchingFields = matchingTerms.flatMap((term) => [
-        `name.ilike.%${term}%`,
-        `code.ilike.%${term}%`,
-      ]);
+      const matchingFields = matchingTerms.map((term) =>
+        buildPostgrestAccentInsensitiveOrFilter(['name', 'code'], term)
+      );
       return `or(${matchingFields.join(',')})`;
     });
     conditions.push(`and(${andConditions.join(',')})`);
@@ -74,3 +76,4 @@ export const createProductVariationSearchTooBroadError = (): Error => {
 
 export const isProductVariationSearchTooBroadError = (error: unknown): error is Error =>
   error instanceof Error && error.name === 'ProductVariationSearchTooBroadError';
+

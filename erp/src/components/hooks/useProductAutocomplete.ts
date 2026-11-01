@@ -29,6 +29,7 @@ interface UseProductAutocompleteProps {
   onChange?: (value: string) => void;
   excludeCombos?: boolean;
   disabled?: boolean;
+  isSelected?: boolean;
 }
 
 export function useProductAutocomplete({
@@ -44,6 +45,7 @@ export function useProductAutocomplete({
   onChange,
   excludeCombos = false,
   disabled = false,
+  isSelected = false,
 }: UseProductAutocompleteProps) {
   const [query, changeQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
@@ -62,11 +64,12 @@ export function useProductAutocomplete({
     allowedProductKinds,
     excludedProductLinks,
     disabled,
+    isSelected,
   ]);
   const latest = useRef({ context, localProducts }); latest.current = { context, localProducts };
   const { enqueueAndRun } = useZodForm(productAutocompleteFormSchema, { query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds: allowedProductKinds ? [...allowedProductKinds] : undefined });
   const setQuery = (next: string) => {
-    generation.current += 1; changeQuery(next); setSuggestions([]); setSearchError(''); setIsLoading(next.trim().length >= 3 && !disabled);
+    generation.current += 1; changeQuery(next); setSuggestions([]); setSearchError(''); setIsLoading(next.trim().length >= 3 && !disabled && !isSelected);
   };
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -97,10 +100,10 @@ export function useProductAutocomplete({
   useEffect(() => {
     let active = true;
     setSuggestions([]); setSearchError('');
-    setIsLoading(!disabled && query.trim().length >= 3);
+    setIsLoading(!disabled && !isSelected && query.trim().length >= 3);
 
     const fetchSuggestions = async () => {
-      if (disabled || query.trim().length < 3) {
+      if (disabled || isSelected || query.trim().length < 3) {
         if (active) {
           setSuggestions([]);
           setIsLoading(false);
@@ -216,7 +219,7 @@ export function useProductAutocomplete({
         });
 
         if (active) {
-          setSuggestions(items.slice(0, 15));
+          setSuggestions(items.slice(0, 5));
         }
         }, (errors) => { if (active) setSearchError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da busca.'); });
       } catch {
@@ -246,6 +249,7 @@ export function useProductAutocomplete({
     localProducts,
     refreshKey,
     disabled,
+    isSelected,
     enqueueAndRun,
   ]);
 

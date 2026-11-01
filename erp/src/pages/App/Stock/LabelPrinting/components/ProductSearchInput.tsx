@@ -3,6 +3,7 @@ import Product from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { processProductData } from '../utils/processLabelProductData';
 import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../../shared-utils/searchText';
 
 const LABEL_PRODUCT_COLUMNS =
   'id, name, description, code, unit_price, cost_price, price, promo_price, stock, active, deleted_at, has_variations, category, unit, images, is_combo';
@@ -38,10 +39,10 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
     value.trim().replace(/[(),]/g, ' ').replace(/[%_]/g, '');
 
   const buildProductSearchFilter = (term: string) =>
-    `name.ilike.%${term}%,description.ilike.%${term}%,code.ilike.%${term}%`;
+    buildPostgrestAccentInsensitiveOrFilter(['name', 'description', 'code'], term);
 
   const buildVariationSearchFilter = (term: string) =>
-    `name.ilike.%${term}%,description.ilike.%${term}%,sku.ilike.%${term}%`;
+    buildPostgrestAccentInsensitiveOrFilter(['name', 'description', 'sku'], term);
 
   // Retorna o Título/Nome do produto priorizando title, name e description
   const getProductTitle = (p?: Product | null) => {
@@ -55,7 +56,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [dropdownMaxHeight, setDropdownMaxHeight] = useState(288);
   const containerRef = useRef<HTMLDivElement>(null);
-  const searchTimeoutRef = useRef<number | null>(null);
+  const selectedProductTitle = getProductTitle(selectedProduct);
 
   useEffect(() => {
     if (!selectedProduct) {
@@ -97,21 +98,20 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
 
   // BUSCA AO VIVO NO SUPABASE POR TÍTULO, NOME, CÓDIGO, SKU OU DESCRIÇÃO
   useEffect(() => {
-    if (!filterText.trim() || filterText.trim().length < 2) {
+    const trimmedSearch = filterText.trim();
+    if (trimmedSearch.length < 3 || (selectedProduct && trimmedSearch === selectedProductTitle.trim())) {
       setDbSearchResults([]);
       setIsLoading(false);
       return;
     }
 
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
+    let active = true;
+    setIsLoading(true);
 
-    searchTimeoutRef.current = window.setTimeout(async () => {
-      setIsLoading(true);
+    const searchTimeout = window.setTimeout(async () => {
       try {
-        const term = getSafeSearchTerm(filterText);
-        if (!term) {
+        const term = getSafeSearchTerm(trimmedSearch);
+        if (term.length < 3) {
           setDbSearchResults([]);
           return;
         }
@@ -125,9 +125,10 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
           .select(LABEL_PRODUCT_COLUMNS)
           .is('deleted_at', null)
           .or('product_kind.eq.normal,product_kind.is.null')
+          .or('has_variations.eq.false,has_variations.is.null')
           .or('is_combo.eq.false,is_combo.is.null')
           .or(buildProductSearchFilter(term))
-          .limit(50);
+          .limit(5);
 
         const variationsQuery = supabase
           .from('product_variations')
@@ -135,13 +136,14 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
           .is('merged_to_variation_id', null)
           .or('product_kind.eq.normal,product_kind.is.null', { foreignTable: 'products' })
           .or(buildVariationSearchFilter(term))
-          .limit(50);
+          .limit(5);
 
         const [productsResponse, variationsResponse] = await Promise.all([
           productsQuery,
           variationsQuery,
         ]);
 
+        if (!active) return;
         if (productsResponse.error) {
           console.error('Erro no Supabase ao buscar produtos:', productsResponse.error);
         }
@@ -195,26 +197,25 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
         [...productResults, ...variationResults].forEach((product) => {
           if (product.id) resultMap.set(String(product.id), product);
         });
-        setDbSearchResults(Array.from(resultMap.values()));
+        if (active) setDbSearchResults(Array.from(resultMap.values()).slice(0, 5));
       } catch (err) {
-        console.error('Erro na busca de produtos:', err);
+        if (active) console.error('Erro na busca de produtos:', err);
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
-    }, 200);
+    }, 300);
 
     return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
+      active = false;
+      clearTimeout(searchTimeout);
     };
-  }, [filterText]);
+  }, [filterText, selectedProduct, selectedProductTitle]);
 
   // COMBINA OS PRODUTOS DA PROP LOCAL COM OS RESULTADOS AO VIVO DO BANCO DE DADOS
   const combinedProducts = React.useMemo(() => {
     const term = normalizeSearchText(filterText.trim());
 
-    if (term.length < 2) {
+    if (term.length < 3) {
       return [];
     }
 
@@ -243,7 +244,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
       if (p.id) map.set(String(p.id), p);
     });
 
-    return Array.from(map.values());
+    return Array.from(map.values()).slice(0, 5);
   }, [products, dbSearchResults, filterText]);
 
   const formatCurrency = (val: number | string | undefined) => {
@@ -273,8 +274,10 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
             onChange={(e) => {
               setFilterText(e.target.value);
               setIsOpen(true);
+              setDbSearchResults([]);
+              setIsLoading(e.target.value.trim().length >= 3);
             }}
-            onFocus={() => setIsOpen(true)}
+            onFocus={() => setIsOpen(Boolean(filterText.trim()))}
             placeholder={placeholder}
             className="bg-transparent border-0 p-0 focus:ring-0 text-sm font-medium text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none w-full truncate"
           />
@@ -287,7 +290,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
               e.stopPropagation();
               setFilterText('');
               onSelectProduct(null);
-              setIsOpen(true);
+              setIsOpen(false);
             }}
             className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 transition-colors"
             title="Limpar busca"
@@ -303,10 +306,10 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
           className="absolute top-[calc(100%+6px)] left-0 right-0 z-[1000] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-y-auto custom-scrollbar p-1.5 animate-slide-up"
           style={{ maxHeight: dropdownMaxHeight }}
         >
-          {filterText.trim().length > 0 && filterText.trim().length < 2 ? (
+          {filterText.trim().length > 0 && filterText.trim().length < 3 ? (
             <div className="p-4 text-center">
               <span className="text-xs font-medium text-slate-400 block">
-                Digite pelo menos 2 caracteres para buscar...
+                Digite pelo menos 3 caracteres para buscar...
               </span>
             </div>
           ) : isLoading && combinedProducts.length === 0 ? (
@@ -316,7 +319,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
             </div>
           ) : combinedProducts.length > 0 ? (
             <div className="flex flex-col gap-0.5">
-              {combinedProducts.slice(0, 50).map((p) => {
+              {combinedProducts.slice(0, 5).map((p) => {
                 const isSelected = selectedProduct?.id === p.id;
                 const title = getProductTitle(p);
                 const priceText = formatCurrency(

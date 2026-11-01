@@ -15,19 +15,38 @@ export type Supplier = {
 export const parseNumber = (value: string) =>
   Number(value.replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
 
-const calculateUnitCost = (
+export interface MobilePurchaseItemCostBreakdown {
+  readonly discountValue: number;
+  readonly ipiValue: number;
+  readonly freightValue: number;
+  readonly unitCost: number;
+}
+
+export const calculateMobilePurchaseItemCostBreakdown = (
   baseCost: number,
   discountUnit: number,
   discountPercent: string,
   ipiPercent: string,
   freightPercent: string
-) => {
+): MobilePurchaseItemCostBreakdown => {
   const safeDiscountPercent = Math.min(100, Math.max(0, parseNumber(discountPercent)));
   const discountedBaseCost = baseCost * (1 - safeDiscountPercent / 100);
+  const unitDiscount = Math.max(0, Number.isFinite(discountUnit) ? discountUnit : 0);
   const itemIpi = discountedBaseCost * (parseNumber(ipiPercent) / 100);
   const itemFreight = baseCost * (parseNumber(freightPercent) / 100);
-  return Math.max(0, Number((discountedBaseCost + itemIpi + itemFreight - discountUnit).toFixed(2)));
+  return {
+    discountValue: baseCost - discountedBaseCost + unitDiscount,
+    ipiValue: itemIpi,
+    freightValue: itemFreight,
+    unitCost: Math.max(
+      0,
+      Number((discountedBaseCost + itemIpi + itemFreight - unitDiscount).toFixed(2))
+    ),
+  };
 };
+
+const calculateUnitCost = (...args: Parameters<typeof calculateMobilePurchaseItemCostBreakdown>) =>
+  calculateMobilePurchaseItemCostBreakdown(...args).unitCost;
 
 export interface UseMobilePurchaseItemsOptions {
   readonly discountPercent: string;
@@ -135,6 +154,7 @@ export function useMobilePurchaseItems({
   }, [supplierId, suppliers, items, onItemsChange, setSupplierId, setSupplierName]);
 
   const addItemRow = useCallback(() => {
+    if (!supplierId) return;
     onItemsChange?.();
     const newIndex = items.length;
     setItems((previous) => [
@@ -152,7 +172,7 @@ export function useMobilePurchaseItems({
     ]);
     setProductPickerIndex(newIndex);
     setProductPickerOpen(true);
-  }, [items.length, onItemsChange]);
+  }, [items.length, onItemsChange, supplierId]);
 
   const handleProductSelect = useCallback((product: SearchableProduct) => {
     const supplierIds = [...new Set([

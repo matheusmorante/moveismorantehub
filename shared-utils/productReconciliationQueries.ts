@@ -12,6 +12,10 @@ import {
   createProductVariationSearchTooBroadError,
   PRODUCT_VARIATION_SEARCH_MATCH_LIMIT,
 } from './productListSearch';
+import {
+  buildPostgrestAccentInsensitiveOrFilter,
+  buildPostgrestAccentInsensitivePattern,
+} from './searchText';
 
 const applyProductReconciliationSqlFilters = (
   query: any,
@@ -28,8 +32,7 @@ const applyProductReconciliationSqlFilters = (
   if (filters.search) {
     const safe = filters.search.replace(/"/g, '').trim();
     if (safe) {
-      const search = `%${safe}%`;
-      const searchConditions = [`name.ilike."${search}"`, `code.ilike."${search}"`];
+      const searchConditions = [buildPostgrestAccentInsensitiveOrFilter(['name', 'code'], safe)];
       if (variationSkuParentIds.length > 0) {
         searchConditions.push(`id.in.(${variationSkuParentIds.join(',')})`);
       }
@@ -48,7 +51,7 @@ const fetchVariationSkuParentIds = async (client: any, search?: string): Promise
   const { data, error } = await client
     .from('product_variations')
     .select('product_id')
-    .ilike('sku', `%${safeSearch}%`)
+    .filter('sku', 'imatch', buildPostgrestAccentInsensitivePattern(safeSearch))
     .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1);
 
   if (error) throw error;

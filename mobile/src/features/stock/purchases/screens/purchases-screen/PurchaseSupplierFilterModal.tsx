@@ -3,6 +3,7 @@ import { FlatList, Modal, Text, TextInput, TouchableOpacity, View } from 'react-
 import { X } from 'lucide-react-native';
 import { fetchMobileSuppliers } from '../../../../products/services/mobileSupplierService';
 import { styles } from './purchasesScreen.styles';
+import { matchesSearchText } from '../../../../../../../shared-utils/searchText';
 
 interface PurchaseSupplierFilterModalProps {
   visible: boolean;
@@ -27,7 +28,7 @@ export const PurchaseSupplierFilterModal: React.FC<PurchaseSupplierFilterModalPr
   const filteredSuppliers = useMemo(
     () =>
       suppliers
-        .filter((item) => item.name.toLowerCase().includes(supplierSearch.toLowerCase()))
+        .filter((item) => matchesSearchText(item.name, supplierSearch))
         .slice(0, 40),
     [supplierSearch, suppliers]
   );

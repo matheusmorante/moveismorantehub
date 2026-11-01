@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { LockKeyhole } from 'lucide-react-native';
+import { Check, LockKeyhole } from 'lucide-react-native';
+import { PercentInput } from '../../../../../components/shared/PercentInput';
+import { parseNumber } from '../../hooks/useMobilePurchaseItems';
 
 interface ThemeColors {
   bg: string;
@@ -42,6 +44,13 @@ export const PurchaseOrderDetailsSection: React.FC<PurchaseOrderDetailsSectionPr
   setFreightPercent,
   colors,
 }) => {
+  const [showSupplierLockTooltip, setShowSupplierLockTooltip] = React.useState(false);
+  const supplierSelected = Boolean(supplierName.trim());
+
+  React.useEffect(() => {
+    if (!supplierLocked) setShowSupplierLockTooltip(false);
+  }, [supplierLocked]);
+
   return (
     <View
       style={[
@@ -53,86 +62,97 @@ export const PurchaseOrderDetailsSection: React.FC<PurchaseOrderDetailsSectionPr
 
       <View style={styles.supplierLabelRow}>
         <Text style={[styles.label, { color: colors.muted }]}>Fornecedor</Text>
-        {supplierLocked ? (
-          <View style={styles.lockedLabel}>
-            <LockKeyhole size={12} color="#d97706" />
-            <Text style={styles.lockedText}>Fixado</Text>
+      </View>
+      <View style={styles.supplierFieldContainer}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={supplierLocked ? 'Fornecedor selecionado. Toque para ver como liberar o campo.' : supplierSelected ? 'Alterar fornecedor selecionado' : 'Selecionar fornecedor'}
+          accessibilityState={{ expanded: supplierLocked && showSupplierLockTooltip }}
+          accessibilityHint={supplierLocked ? 'Remova todos os itens do pedido para trocar o fornecedor.' : undefined}
+          style={[
+            styles.selector,
+            {
+              borderBottomColor: supplierSelected ? '#10b981' : colors.border,
+              backgroundColor: 'transparent',
+            },
+          ]}
+          onPress={() => supplierLocked
+            ? setShowSupplierLockTooltip((visible) => !visible)
+            : onOpenSupplierPicker()}
+        >
+          <Text style={{ color: supplierName ? colors.text : colors.muted, flex: 1 }}>
+            {supplierName || 'Selecione um fornecedor'}
+          </Text>
+          {supplierSelected ? (
+            <View style={styles.supplierIcons}>
+              <Check size={16} color="#059669" />
+              {supplierLocked ? <LockKeyhole size={16} color="#d97706" /> : null}
+            </View>
+          ) : (
+            supplierLocked
+              ? <LockKeyhole size={16} color="#d97706" />
+              : <Text style={{ color: '#2563eb', fontWeight: '800' }}>Selecionar</Text>
+          )}
+        </TouchableOpacity>
+        {supplierLocked && showSupplierLockTooltip ? (
+          <View style={[styles.lockedTooltip, { backgroundColor: colors.surface, borderColor: colors.border }]} accessibilityRole="text">
+            <Text style={[styles.lockedTooltipText, { color: colors.text }]}>
+              Para liberar o campo, remova todos os itens deste pedido.
+            </Text>
           </View>
         ) : null}
       </View>
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityState={{ disabled: supplierLocked }}
-        accessibilityHint={supplierLocked ? 'Remova todos os itens do pedido para trocar o fornecedor.' : undefined}
-        disabled={supplierLocked}
-        style={[
-          styles.selector,
-          { borderColor: colors.border, backgroundColor: colors.bg },
-          supplierLocked && styles.selectorLocked,
-        ]}
-        onPress={onOpenSupplierPicker}
-      >
-        <Text style={{ color: supplierName ? colors.text : colors.muted, flex: 1 }}>
-          {supplierName || 'Selecione um fornecedor'}
-        </Text>
-        {supplierLocked ? (
-          <LockKeyhole size={16} color="#d97706" />
-        ) : (
-          <Text style={{ color: '#2563eb', fontWeight: '800' }}>Selecionar</Text>
-        )}
-      </TouchableOpacity>
-      {supplierLocked ? (
-        <Text style={[styles.lockedHint, { color: colors.muted }]}>
-          Remova todos os itens para trocar o fornecedor.
-        </Text>
-      ) : null}
-
-      <Text style={[styles.label, { color: colors.muted }]}>Data do pedido</Text>
-      <TextInput
-        value={date}
-        onChangeText={setDate}
-        placeholder="AAAA-MM-DD"
-        placeholderTextColor={colors.muted}
-        style={[
-          styles.input,
-          { color: colors.text, borderColor: colors.border, backgroundColor: colors.bg },
-        ]}
-      />
 
       <View style={styles.row}>
         <View style={styles.half}>
-          <Text style={[styles.label, { color: colors.muted }]}>Desconto (%)</Text>
+          <Text style={[styles.label, { color: colors.muted }]}>Data do pedido</Text>
           <TextInput
-            value={discountPercent}
-            onChangeText={setDiscountPercent}
-            keyboardType="decimal-pad"
+            value={date}
+            onChangeText={setDate}
+            placeholder="AAAA-MM-DD"
+            placeholderTextColor={colors.muted}
             style={[
               styles.input,
-              { color: colors.text, borderColor: colors.border, backgroundColor: colors.bg },
+              { color: colors.text, borderBottomColor: colors.border, backgroundColor: 'transparent' },
+            ]}
+          />
+        </View>
+        <View style={styles.half}>
+          <Text style={[styles.label, { color: colors.muted }]}>Desconto (%)</Text>
+          <PercentInput
+            value={discountPercent ? parseNumber(discountPercent) : null}
+            onChangeValue={(value) => setDiscountPercent(value === null ? '' : String(value))}
+            accessibilityLabel="Desconto (%)"
+            color={colors.text}
+            style={[
+              styles.input,
+              { color: colors.text, borderBottomColor: colors.border, backgroundColor: 'transparent' },
             ]}
           />
         </View>
         <View style={styles.half}>
           <Text style={[styles.label, { color: colors.muted }]}>IPI (%)</Text>
-          <TextInput
-            value={ipiPercent}
-            onChangeText={setIpiPercent}
-            keyboardType="decimal-pad"
+          <PercentInput
+            value={ipiPercent ? parseNumber(ipiPercent) : null}
+            onChangeValue={(value) => setIpiPercent(value === null ? '' : String(value))}
+            accessibilityLabel="IPI (%)"
+            color={colors.text}
             style={[
               styles.input,
-              { color: colors.text, borderColor: colors.border, backgroundColor: colors.bg },
+              { color: colors.text, borderBottomColor: colors.border, backgroundColor: 'transparent' },
             ]}
           />
         </View>
         <View style={styles.half}>
           <Text style={[styles.label, { color: colors.muted }]}>Frete (%)</Text>
-          <TextInput
-            value={freightPercent}
-            onChangeText={setFreightPercent}
-            keyboardType="decimal-pad"
+          <PercentInput
+            value={freightPercent ? parseNumber(freightPercent) : null}
+            onChangeValue={(value) => setFreightPercent(value === null ? '' : String(value))}
+            accessibilityLabel="Frete (%)"
+            color={colors.text}
             style={[
               styles.input,
-              { color: colors.text, borderColor: colors.border, backgroundColor: colors.bg },
+              { color: colors.text, borderBottomColor: colors.border, backgroundColor: 'transparent' },
             ]}
           />
         </View>
@@ -146,19 +166,20 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: '900', marginBottom: 3 },
   label: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', marginTop: 5 },
   supplierLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  lockedLabel: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  lockedText: { color: '#d97706', fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
-  lockedHint: { fontSize: 10, marginTop: -5 },
-  input: { minHeight: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 14 },
+  supplierFieldContainer: { position: 'relative', zIndex: 5 },
+  lockedTooltip: { position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, elevation: 10, marginTop: 6, borderWidth: 1, borderRadius: 10, padding: 10, shadowColor: '#0f172a', shadowOpacity: 0.14, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+  lockedTooltipText: { fontSize: 11, fontWeight: '700', lineHeight: 16 },
+  input: { minHeight: 44, borderWidth: 0, borderBottomWidth: 1, borderRadius: 0, paddingHorizontal: 4, fontSize: 14 },
   selector: {
     minHeight: 44,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    borderWidth: 0,
+    borderBottomWidth: 2,
+    borderRadius: 0,
+    paddingHorizontal: 4,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  selectorLocked: { opacity: 0.72 },
+  supplierIcons: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  half: { flex: 1, minWidth: 132 },
+  half: { flex: 1, minWidth: 132, gap: 4 },
 });

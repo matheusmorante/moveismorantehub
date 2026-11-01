@@ -3,6 +3,7 @@ import { ConversationFilter, AssignedProfileSummary, CustomerSupportFolder, Cust
 import { InboxSectionMain, InboxSectionTeam, InboxSectionCustom, AddCustomInboxModal } from './inbox';
 import type { TestArtifactIdentity } from '../../../../../../shared-utils/testArtifactPolicy';
 import { getTestArtifactContext } from '../../../../../../shared-utils/testArtifactContext';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 export interface InboxSidebarProps {
   activeFilter: ConversationFilter;
@@ -69,12 +70,12 @@ export const InboxSidebar: React.FC<InboxSidebarProps> = ({
   const [queueSearch, setQueueSearch] = useState('');
 
   const visibleFolders = useMemo(() => {
-    const term = queueSearch.trim().toLocaleLowerCase();
-    return folders.filter((folder) => !term || folder.name.toLocaleLowerCase().includes(term));
+    const term = queueSearch.trim();
+    return folders.filter((folder) => matchesSearchText(folder.name, term));
   }, [folders, queueSearch]);
   const visibleAgents = useMemo(() => {
-    const term = queueSearch.trim().toLocaleLowerCase();
-    return agents.filter((agent) => !term || agent.fullName.toLocaleLowerCase().includes(term));
+    const term = queueSearch.trim();
+    return agents.filter((agent) => matchesSearchText(agent.fullName, term));
   }, [agents, queueSearch]);
 
   const resetFolderAndAgent = () => {

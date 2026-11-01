@@ -6,6 +6,7 @@ import {
   filterInventoryResponsibleCandidates,
   getInventoryResponsibleDisplayName,
 } from '../../../../../../shared-utils/inventoryResponsible';
+import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 
 interface Props {
   isDarkMode: boolean;
@@ -40,7 +41,7 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
   const selectionGreen = isDarkMode ? '#4ade80' : '#16a34a';
   const inputColor = hasError ? '#f43f5e' : selected ? selectionGreen : text;
   const filteredEmployees = eligibleEmployees.filter((employee) =>
-    getInventoryResponsibleDisplayName(employee).toLowerCase().includes(query.trim().toLowerCase())
+    matchesSearchText(getInventoryResponsibleDisplayName(employee), query)
   );
 
   return (

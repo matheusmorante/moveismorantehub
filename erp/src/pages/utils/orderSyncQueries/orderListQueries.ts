@@ -7,6 +7,10 @@ import { FetchFulfilledOrdersOptions } from './orderSyncTypes';
 import { isValidOrderRow, enrichOrdersWithPeopleOrigins } from './orderPeopleEnrichment';
 import { enrichLinkedReturnMovements } from './orderReturnMovementSummary';
 import { enrichAssistanceLinkedOrders } from './assistanceLinkedOrderEnricher';
+import {
+  buildPostgrestAccentInsensitiveOrFilter,
+  buildPostgrestAccentInsensitivePattern,
+} from '../../../../../shared-utils/searchText';
 
 export const fetchOrdersPage = async (
   page: number = 1,
@@ -68,7 +72,7 @@ export const fetchOrdersPage = async (
 
   const customerName = String(filters?.customerName || '').trim();
   if (customerName) {
-    query = query.ilike('customer_name', `%${customerName}%`);
+    query = query.filter('customer_name', 'imatch', buildPostgrestAccentInsensitivePattern(customerName));
   }
 
   query = query
@@ -123,16 +127,18 @@ export const fetchFulfilledSalesOrdersPage = async (
   // 5. Termo de busca (código, número ou nome do cliente)
   const cleanTerm = String(options.searchTerm || '').replace(/^#/, '').trim();
   if (cleanTerm) {
-    const sanitized = cleanTerm.replace(/[,()]/g, '');
+      const sanitized = cleanTerm.replace(/[,()]/g, ' ');
     if (sanitized) {
       const isNumeric = /^\d+$/.test(sanitized);
+        const textFilters = buildPostgrestAccentInsensitiveOrFilter(
+          isNumeric ? ['customer_name', 'id', 'order_number'] : ['customer_name', 'id'],
+          sanitized
+        );
       if (isNumeric) {
         const num = parseInt(sanitized, 10);
-        query = query.or(
-          `customer_name.ilike.%${sanitized}%,id.ilike.%${sanitized}%,order_number.ilike.%${sanitized}%,order_index.eq.${num}`
-        );
+          query = query.or(`${textFilters},order_index.eq.${num}`);
       } else {
-        query = query.or(`customer_name.ilike.%${sanitized}%,id.ilike.%${sanitized}%`);
+          query = query.or(textFilters);
       }
     }
   }

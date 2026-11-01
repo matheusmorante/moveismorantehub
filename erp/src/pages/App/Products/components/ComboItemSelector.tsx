@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import { useRef } from 'react';
 import { getSelectedProductDisplayName } from '../../../utils/productVariationDefaults';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../../../shared-utils/searchText';
 
 interface ProductSearchResult {
   id: string;
@@ -13,6 +14,11 @@ interface ProductSearchResult {
   stock?: number;
   hasVariations?: boolean;
   variations?: Variation[];
+}
+
+interface ProductSearchSuggestion {
+  product: ProductSearchResult;
+  variation?: Variation;
 }
 
 interface ComboItemSelectorProps {
@@ -34,32 +40,46 @@ export const ComboItemSelector: React.FC<ComboItemSelectorProps> = ({
   const inputContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (search.length < 2) {
+    const trimmedSearch = search.trim();
+    if (trimmedSearch.length < 3) {
       setResults([]);
+      setLoading(false);
       return;
     }
 
+    let active = true;
     const delayDebounceFn = setTimeout(async () => {
       setLoading(true);
       try {
         const { data, error } = await supabase
           .from('products')
           .select('id, description, unitPrice, stock, hasVariations, variations')
-          .ilike('description', `%${search}%`)
+          .filter('description', 'imatch', buildPostgrestAccentInsensitivePattern(trimmedSearch))
           .eq('is_combo', false) // Evitar combos recursivos
           .limit(5);
 
         if (error) throw error;
-        setResults((data as ProductSearchResult[]) || []);
-      } catch (error: unknown) {
-        console.error('[ComboItemSelector] Erro ao buscar produtos:', error);
+        if (active) setResults((data as ProductSearchResult[]) || []);
+      } catch {
+        if (active) setResults([]);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }, 300);
 
-    return () => clearTimeout(delayDebounceFn);
+    return () => {
+      active = false;
+      clearTimeout(delayDebounceFn);
+    };
   }, [search]);
+
+  const suggestions: ProductSearchSuggestion[] = results
+    .flatMap((product) =>
+      product.hasVariations && product.variations?.length
+        ? product.variations.map((variation) => ({ product, variation }))
+        : [{ product }],
+    )
+    .slice(0, 5);
 
   const handleAddItem = (prod: ProductSearchResult, variation?: Variation) => {
     const item: ComboItem = {
@@ -97,7 +117,10 @@ export const ComboItemSelector: React.FC<ComboItemSelectorProps> = ({
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setResults([]);
+            }}
             placeholder="Buscar produto para adicionar ao combo..."
             className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-900 border border-purple-100 dark:border-purple-900/30 rounded-2xl outline-none text-sm focus:ring-2 focus:ring-purple-500 transition-all"
           />
@@ -106,53 +129,50 @@ export const ComboItemSelector: React.FC<ComboItemSelectorProps> = ({
           )}
         </div>
 
-        <DropdownPortal anchorRef={inputContainerRef} isOpen={results.length > 0}>
+        <DropdownPortal anchorRef={inputContainerRef} isOpen={search.trim().length >= 3 && results.length > 0}>
           <div className="mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-xl rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
-            {results.map((prod) => (
-              <div key={prod.id}>
-                {prod.hasVariations && prod.variations && prod.variations.length > 0 ? (
-                  prod.variations.map((v: Variation) => (
+            {suggestions.map(({ product, variation }) => (
+              <div key={`${product.id}-${variation?.id || 'produto'}`}>
+                {variation ? (
                     <button
-                      key={v.id}
                       type="button"
-                      onClick={() => handleAddItem(prod, v)}
+                      onClick={() => handleAddItem(product, variation)}
                       className="w-full px-4 py-3 flex items-center justify-between hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0 cursor-pointer"
                     >
                       <div className="text-left">
                         <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                          {prod.description}
+                          {product.description}
                         </p>
                         <p className="text-[10px] text-purple-600 font-black uppercase tracking-widest">
-                          {v.name}
+                          {variation.name}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-black text-slate-800 dark:text-slate-100">
-                          R$ {Number(v.unitPrice || 0).toFixed(2)}
+                          R$ {Number(variation.unitPrice || 0).toFixed(2)}
                         </p>
                         <p className="text-[10px] text-slate-400 font-bold uppercase">
-                          {Number(v.stock || 0)} em estoque
+                          {Number(variation.stock || 0)} em estoque
                         </p>
                       </div>
                     </button>
-                  ))
                 ) : (
                   <button
                     type="button"
-                    onClick={() => handleAddItem(prod)}
+                    onClick={() => handleAddItem(product)}
                     className="w-full px-4 py-3 flex items-center justify-between hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-colors border-b border-slate-50 dark:border-slate-800 last:border-0 cursor-pointer"
                   >
                     <div className="text-left">
                       <p className="text-xs font-bold text-slate-700 dark:text-slate-200">
-                        {prod.description}
+                        {product.description}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-black text-slate-800 dark:text-slate-100">
-                        R$ {Number(prod.unitPrice || 0).toFixed(2)}
+                        R$ {Number(product.unitPrice || 0).toFixed(2)}
                       </p>
                       <p className="text-[10px] text-slate-400 font-bold uppercase">
-                        {Number(prod.stock || 0)} em estoque
+                        {Number(product.stock || 0)} em estoque
                       </p>
                     </div>
                   </button>

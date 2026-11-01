@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2 } from 'lucide-react-native';
 import { styles } from './inventoryReview.styles';
 
 interface InventoryReviewSummaryCardProps {
-  countedCount: number;
+  countedQuantityTotal: number;
   hasUncountedItems: boolean;
   adjustmentsCount: number;
   surface: string;
@@ -16,7 +16,7 @@ interface InventoryReviewSummaryCardProps {
 }
 
 export const InventoryReviewSummaryCard: React.FC<InventoryReviewSummaryCardProps> = ({
-  countedCount,
+  countedQuantityTotal,
   hasUncountedItems,
   adjustmentsCount,
   surface,
@@ -45,8 +45,7 @@ export const InventoryReviewSummaryCard: React.FC<InventoryReviewSummaryCardProp
           </View>
           <Text style={[styles.title, { color: textPrimary }]}>Pronto para finalizar!</Text>
           <Text style={[styles.subtitle, { color: muted, textAlign: 'center' }]}>
-            {countedCount}{' '}
-            {countedCount === 1 ? 'produto contado' : 'produtos contados'} neste inventário.
+            {countedQuantityTotal.toLocaleString('pt-BR')} quantidades contadas neste inventário.
           </Text>
         </View>
 

@@ -184,32 +184,7 @@ export const PurchasesScreen: React.FC<Props> = ({ isDarkMode, renderHeader }) =
   const openPurchaseMenu = (purchase: MobilePurchase) => setPurchaseMenuPurchase(purchase);
 
   const openStatusMenu = (purchase: MobilePurchase) => {
-    if (purchase.status === 'draft') {
-      // Rascunhos não têm troca direta de status no ERP; usam as ações do pedido.
-      const title = 'Pedido #' + (formatPurchaseNumber(purchase.purchaseNumber) || purchase.id.slice(0, 8).toUpperCase());
-      Alert.alert(title, 'Este rascunho não tem troca direta de status.', [
-        {
-          text: 'Retomar cadastramento',
-          onPress: () => {
-            setSelected(purchase);
-            setDetailsVisible(false);
-            setFormVisible(true);
-          },
-        },
-        ...(canDiscardDrafts
-          ? [{
-              text: 'Descartar rascunho',
-              style: 'destructive' as const,
-              onPress: () => {
-                setPurchaseConfirmationError('');
-                setPurchaseConfirmation({ action: 'discardDraft', purchase });
-              },
-            }]
-          : []),
-        { text: 'Fechar', style: 'cancel' },
-      ]);
-      return;
-    }
+    if (purchase.status === 'draft') return;
     setStatusMenuPurchase(purchase);
   };
 
@@ -287,7 +262,12 @@ export const PurchasesScreen: React.FC<Props> = ({ isDarkMode, renderHeader }) =
             colors={colors}
             onPress={() => {
               setSelected(item);
-              setDetailsVisible(true);
+              if (item.status === 'draft') {
+                setDetailsVisible(false);
+                setFormVisible(true);
+              } else {
+                setDetailsVisible(true);
+              }
             }}
             onOpenMenu={() => openPurchaseMenu(item)}
             onOpenStatusMenu={() => openStatusMenu(item)}
@@ -406,15 +386,17 @@ export const PurchasesScreen: React.FC<Props> = ({ isDarkMode, renderHeader }) =
                 <Text style={[styles.purchaseMenuOptionText, { color: colors.text }]}>Voltar para Pendente</Text>
               </TouchableOpacity>
             ) : null}
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Ver detalhes"
-              onPress={() => handlePurchaseMenuAction('details')}
-              style={styles.purchaseMenuOption}
-            >
-              <Eye size={17} color={colors.muted} />
-              <Text style={[styles.purchaseMenuOptionText, { color: colors.text }]}>Ver detalhes</Text>
-            </TouchableOpacity>
+            {purchaseMenuPurchase?.status !== 'draft' ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Ver detalhes"
+                onPress={() => handlePurchaseMenuAction('details')}
+                style={styles.purchaseMenuOption}
+              >
+                <Eye size={17} color={colors.muted} />
+                <Text style={[styles.purchaseMenuOptionText, { color: colors.text }]}>Ver detalhes</Text>
+              </TouchableOpacity>
+            ) : null}
             {purchaseMenuPurchase?.status === 'cancelled' && canDeleteCancelled ? (
               <TouchableOpacity
                 accessibilityRole="button"

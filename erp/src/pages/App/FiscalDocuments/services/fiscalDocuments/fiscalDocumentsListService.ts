@@ -7,6 +7,7 @@ import {
   type NfeDocumentRecord,
 } from '../../types/fiscalDocuments.types';
 import { parseFiscalXmlDetails } from '../../utils/fiscalXmlParser';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../../shared-utils/searchText';
 
 export interface FetchFiscalDocumentsParams {
   filters: FiscalDocumentFilters;
@@ -111,9 +112,10 @@ function buildSearchAlternatives(normalizedSearch: string, orderIds: string[]): 
   }
   if (safeSearch) {
     alternatives.push(
-      `chave_acesso.ilike.%${safeSearch}%`,
-      `destinatario_nome.ilike.%${safeSearch}%`,
-      `destinatario_documento.ilike.%${safeSearch}%`
+      buildPostgrestAccentInsensitiveOrFilter(
+        ['chave_acesso', 'destinatario_nome', 'destinatario_documento'],
+        safeSearch
+      )
     );
   }
   const safeOrderIds = orderIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id));

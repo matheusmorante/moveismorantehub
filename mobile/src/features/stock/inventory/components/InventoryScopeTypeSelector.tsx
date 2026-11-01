@@ -39,7 +39,7 @@ export const InventoryScopeTypeSelector: React.FC<Props> = ({
               <View style={styles.flex1}>
                 <Text style={[styles.typeTitle, { color: textPrimary }]}>Inventário Geral</Text>
                 <Text style={[styles.typeDesc, { color: muted }]}>
-                  Conte todos os itens do escopo pelo scanner geral. Os cartões mostram itens contados por fornecedor.
+                  Conte todos os itens do escopo pelo scanner geral. Os cartões mostram as quantidades contadas por fornecedor.
                 </Text>
               </View>
             </View>

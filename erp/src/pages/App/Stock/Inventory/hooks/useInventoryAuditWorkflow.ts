@@ -25,6 +25,7 @@ import {
   inventoryAuditScopeSchema,
 } from '../../../../../../../shared-utils/inventoryAuditFormSchemas';
 import {
+  initializeGeneralInventoryCounts,
   prepareSupplierStageReviewItems,
   resetSupplierStageItems,
   startSupplierStageItems,
@@ -276,8 +277,6 @@ export const useInventoryAuditWorkflow = (
             markerMoveId: editingSession.markerMoveId,
           };
           scannedLabelsRef.current = new Set(local.scannedLabelIds || []);
-          latestItemsRef.current = local.items;
-          setItemsState(local.items);
           const config = {
             name: local.name,
             hasStages: local.hasStages,
@@ -288,6 +287,16 @@ export const useInventoryAuditWorkflow = (
           };
           scopeConfigRef.current = config;
           setScopeConfig(config);
+          const restoredItems = !submission.pending && config.scopeType === 'general'
+            ? initializeGeneralInventoryCounts(local.items)
+            : local.items;
+          latestItemsRef.current = restoredItems;
+          setItemsState(restoredItems);
+          if (restoredItems !== local.items) {
+            persistItems(restoredItems);
+            await flushLocalWrites();
+          }
+          if (cancelled) return;
           setView('operation');
           initializedSessionRef.current = sessionKey;
           readyOwner.current = renderOwner; setIsRestoring(false);
@@ -387,6 +396,9 @@ export const useInventoryAuditWorkflow = (
       barcode: snapshot.barcode,
       isActive: snapshot.isActive,
     }));
+    const startedItems = config.type === 'general'
+      ? initializeGeneralInventoryCounts(initialItems)
+      : initialItems;
 
     const responsible = employees.find((employee) => String(employee.id) === config.responsibleId);
     const nextScope = {
@@ -417,9 +429,9 @@ export const useInventoryAuditWorkflow = (
     scannedLabelsRef.current.clear();
     scopeConfigRef.current = nextScope;
     setScopeConfig(nextScope);
-    latestItemsRef.current = initialItems;
-    setItemsState(initialItems);
-    persistItems(initialItems);
+    latestItemsRef.current = startedItems;
+    setItemsState(startedItems);
+    persistItems(startedItems);
     await flushLocalWrites();
     if (!isCurrent(captured)) return false;
     setView('operation'); return true;

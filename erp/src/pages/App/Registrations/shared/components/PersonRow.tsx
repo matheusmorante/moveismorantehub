@@ -2,6 +2,8 @@ import React from 'react';
 import Person, { PersonVisibilitySettings } from '../../../../types/person.type';
 import DropdownPortal from '../../../../../components/shared/DropdownPortal';
 import ConfirmModal from '../../../../../components/shared/ConfirmModal';
+import SupplierDeleteMenuItem from './SupplierDeleteMenuItem';
+import type { SupplierDeletionCounts } from '../../../../../../../shared-utils/supplierDeletion';
 
 interface PersonRowProps {
   person: Person;
@@ -17,6 +19,9 @@ interface PersonRowProps {
   onToggleSelection?: () => void;
   onViewPurchaseHistory?: (person: Person) => void;
   productCount?: number;
+  supplierDeletionCounts?: SupplierDeletionCounts;
+  supplierDeletionCountLoading?: boolean;
+  supplierDeletionCountError?: boolean;
   orderCount?: number;
 }
 
@@ -82,7 +87,10 @@ const PersonRow = ({
   isSelected,
   onToggleSelection,
   onViewPurchaseHistory,
-  productCount = 0,
+  productCount,
+  supplierDeletionCounts,
+  supplierDeletionCountLoading,
+  supplierDeletionCountError,
   orderCount = 0,
 }: PersonRowProps) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
@@ -207,7 +215,7 @@ const PersonRow = ({
         return (
           <td key="products" className="px-3 py-1.5 text-center">
             <span className="inline-flex min-w-8 items-center justify-center rounded-lg bg-blue-50 px-2 py-1 text-xs font-black text-blue-600 dark:bg-blue-900/20 dark:text-blue-400">
-              {productCount}
+              {productCount ?? '…'}
             </span>
           </td>
         );
@@ -269,19 +277,31 @@ const PersonRow = ({
                             </span>
                           </button>
 
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsMenuOpen(false);
-                              onPermanentDelete(person.id!);
-                            }}
-                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                          >
-                            <i className="bi bi-trash3-fill text-red-500" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
-                              Excluir Permanentemente
-                            </span>
-                          </button>
+                          {isSupplier ? (
+                            <SupplierDeleteMenuItem
+                              counts={supplierDeletionCounts}
+                              loading={supplierDeletionCountLoading}
+                              error={supplierDeletionCountError}
+                              onDelete={() => {
+                                setIsMenuOpen(false);
+                                onPermanentDelete(person.id!);
+                              }}
+                            />
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsMenuOpen(false);
+                                onPermanentDelete(person.id!);
+                              }}
+                              className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
+                            >
+                              <i className="bi bi-trash3-fill text-red-500" />
+                              <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
+                                Excluir Permanentemente
+                              </span>
+                            </button>
+                          )}
                         </>
                       ) : (
                         <>
@@ -316,6 +336,18 @@ const PersonRow = ({
                               </span>
                             </button>
                           )}
+
+                    {isSupplier && (
+                      <SupplierDeleteMenuItem
+                        counts={supplierDeletionCounts}
+                        loading={supplierDeletionCountLoading}
+                        error={supplierDeletionCountError}
+                        onDelete={() => {
+                          setIsMenuOpen(false);
+                          onPermanentDelete(person.id!);
+                        }}
+                      />
+                    )}
 
                           {person.type !== 'employees' && !isSupplier && (
                             <button

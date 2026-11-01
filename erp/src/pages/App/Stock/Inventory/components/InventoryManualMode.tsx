@@ -55,7 +55,7 @@ export const InventoryManualMode: React.FC<InventoryManualModeProps> = ({
                   ) : (
                     <div className="flex items-center gap-2 w-full min-w-0">
                       <h4
-                        className={`font-bold truncate text-base flex-1 ${isCustom ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'}`}
+                        className={`font-bold min-w-0 flex-1 whitespace-normal break-words text-base ${isCustom ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'}`}
                       >
                         {item.name}
                       </h4>
@@ -97,8 +97,8 @@ export const InventoryManualMode: React.FC<InventoryManualModeProps> = ({
               <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-xl sm:shrink-0 w-full sm:w-auto justify-between sm:justify-center">
                 <button
                   onClick={() => onUpdateCount(item.id, Math.max(0, (item.physicalCount || 0) - 1))}
-                  disabled={item.physicalCount === 0}
-                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-rose-600 hover:bg-rose-700 border border-rose-700 text-white disabled:opacity-50 disabled:cursor-not-allowed text-lg shadow-sm active:scale-95 transition-all"
+                  disabled={(item.physicalCount ?? 0) <= 0}
+                  className="w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg bg-rose-600 hover:bg-rose-700 border border-rose-700 text-white disabled:opacity-50 disabled:cursor-not-allowed text-2xl sm:text-lg shadow-sm active:scale-95 transition-all"
                 >
                   <i className="bi bi-dash text-white"></i>
                 </button>
@@ -122,7 +122,7 @@ export const InventoryManualMode: React.FC<InventoryManualModeProps> = ({
 
                 <button
                   onClick={() => onUpdateCount(item.id, (item.physicalCount || 0) + 1)}
-                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-700 text-white text-lg shadow-sm active:scale-95 transition-all"
+                  className="w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-700 border border-emerald-700 text-2xl sm:text-lg shadow-sm active:scale-95 transition-all"
                 >
                   <i className="bi bi-plus text-white"></i>
                 </button>

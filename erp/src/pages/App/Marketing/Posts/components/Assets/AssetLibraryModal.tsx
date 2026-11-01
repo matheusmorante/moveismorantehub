@@ -6,6 +6,7 @@ import { MarketingAsset, AssetCategory } from '../../types';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import { assetService } from '../../services/assetService';
 import { AssetCard } from './AssetCard';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface AssetLibraryModalProps {
   isOpen: boolean;
@@ -51,7 +52,7 @@ export const AssetLibraryModal: React.FC<AssetLibraryModalProps> = ({
   const filteredAssets = useMemo(() => {
     return assets.filter((asset) => {
       const matchCategory = selectedCategory === 'ALL' || asset.category === selectedCategory;
-      const matchSearch = asset.name.toLowerCase().includes(search.toLowerCase());
+      const matchSearch = matchesSearchText(asset.name, search);
       const matchCampaign =
         !selectedCampaignId || !asset.campaignId || asset.campaignId === selectedCampaignId;
       return matchCategory && matchSearch && matchCampaign;

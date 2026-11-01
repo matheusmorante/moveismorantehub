@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import type { InventoryAuditSession } from '../types/inventoryAudit.types';
+import { sumInventoryCountedQuantities } from '../../../../../../../shared-utils/inventorySupplierStages';
 
 export interface InventoryAuditDetailsModalProps {
   readonly session: InventoryAuditSession | null;
@@ -66,10 +67,10 @@ export const InventoryAuditDetailsModal: React.FC<InventoryAuditDetailsModalProp
         <div className="grid grid-cols-2 gap-3 border-b border-slate-100 p-5 text-center dark:border-slate-800 sm:grid-cols-3">
           <div>
             <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Itens contados
+              Quantidades contadas
             </span>
             <strong className="text-lg text-slate-700 dark:text-slate-100">
-              {session.productsCount}
+              {(session.countedQuantityTotal ?? sumInventoryCountedQuantities(session.items)).toLocaleString('pt-BR')}
             </strong>
           </div>
           <div>

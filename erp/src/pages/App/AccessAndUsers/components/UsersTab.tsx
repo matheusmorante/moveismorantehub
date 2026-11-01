@@ -6,6 +6,7 @@ import PersonFormModal from '../../Registrations/shared/modals/PersonFormModal';
 import { updatePerson } from '@/pages/utils/personService';
 import { toast } from 'react-toastify';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface Props {
   people: Person[];
@@ -69,11 +70,11 @@ export const UsersTab: React.FC<Props> = ({ people, loading, onRefresh }) => {
   }, [search, selectedRole]);
 
   const filteredPeople = people.filter((p) => {
-    const term = search.toLowerCase().trim();
+    const term = search.trim();
     const matchesSearch =
       !term ||
-      (p.fullName || '').toLowerCase().includes(term) ||
-      (p.email || '').toLowerCase().includes(term) ||
+      matchesSearchText(p.fullName, term) ||
+      matchesSearchText(p.email, term) ||
       (p.phone || '').includes(term);
 
     const rolesList = p.roles && p.roles.length > 0 ? p.roles : p.role ? [p.role] : ['pending'];

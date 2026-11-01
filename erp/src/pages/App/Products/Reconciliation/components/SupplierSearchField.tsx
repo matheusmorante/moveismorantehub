@@ -28,7 +28,7 @@ export const SupplierSearchField: React.FC<SupplierSearchFieldProps> = ({
     setQuery(val);
     onSelect(''); // limpa seleção ao digitar
 
-    onQueryChange(val); setOpen(val.trim().length >= 2);
+    onQueryChange(val); setOpen(val.trim().length >= 3);
   };
 
   const handleClear = () => {
@@ -60,10 +60,10 @@ export const SupplierSearchField: React.FC<SupplierSearchFieldProps> = ({
           value={query}
           onChange={handleChange}
           onFocus={() => {
-            if (query.trim().length >= 2 && suppliers.length > 0) setOpen(true);
+            if (query.trim().length >= 3 && suppliers.length > 0) setOpen(true);
           }}
           onBlur={() => setOpen(false)}
-          placeholder="Digite o nome do fornecedor..."
+          placeholder="Digite pelo menos 3 caracteres para buscar fornecedor..."
           className="w-full h-11 pl-10 pr-9 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-semibold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:font-normal placeholder:text-slate-400"
         />
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">

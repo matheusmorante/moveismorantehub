@@ -7,37 +7,12 @@ import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { whatsappConnectionFormSchema, whatsappTemplatesQueryFormSchema, whatsappTemplateTestCommandSchema } from '../../../../../../../shared-utils/messagingFormSchemas';
+import { getWhatsAppTemplateSampleVariables, WHATSAPP_TEMPLATE_VARIABLE_OPTIONS } from './whatsappTemplateVariables';
 
 interface WhatsAppConfigSectionProps {
   settings: AppSettings;
   onChange: (path: string, value: any) => void;
 }
-
-const VARIABLE_OPTIONS = [
-  { value: 0, label: '0 variáveis — Apenas texto fixo sem {{1}}' },
-  { value: 1, label: '1 variável — {{1}} Nome do Cliente' },
-  { value: 2, label: '2 variáveis — {{1}} Nome, {{2}} Data/Prazo' },
-  { value: 3, label: '3 variáveis — {{1}} Nome, {{2}} Produtos, {{3}} Valor Total' },
-  { value: 4, label: '4 variáveis — {{1}} Nome, {{2}} Data, {{3}} Produtos, {{4}} Total' },
-  {
-    value: 5,
-    label: '5 variáveis — {{1}} Nome, {{2}} Data, {{3}} Endereço, {{4}} Produtos, {{5}} Total',
-  },
-  {
-    value: 6,
-    label:
-      '6 variáveis — {{1}} Nome, {{2}} Data, {{3}} Endereço, {{4}} Produtos, {{5}} Total, {{6}} Pagamento',
-  },
-  {
-    value: 7,
-    label: '7 variáveis — Completo (Nome, Data, Hora, Endereço, Produtos, Total, Pagamento)',
-  },
-  {
-    value: 8,
-    label:
-      '8 variáveis — Completo com Tipo (Nome, Tipo Entrega/Retirada, Data, Hora, Endereço, Produtos, Total, Pagamento)',
-  },
-];
 
 export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppConfigSectionProps) {
   const [isTesting, setIsTesting] = useState(false);
@@ -110,10 +85,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
   const handleTestTemplateSend = () => run('send', async (current) => templateForm.validateAndRun({ phone: testPhone, template: config.templateNameOrderConfirmation || '', language: config.templateLanguage || 'pt_BR', variableCount: config.templateVariableCount ?? 7, config }, async (values) => {
     const key = JSON.stringify([values.phone, values.template, values.language, values.variableCount, values.config.phoneNumberId]);
     if (completedSends.current.has(key)) throw new Error('Este teste já foi enviado ou ficou sem confirmação. Confira as mensagens antes de repetir.');
-    const sampleList = values.variableCount >= 8
-      ? ['Cliente Teste', 'entrega', '26/08/2026', 'Manhã', 'Rua Cascavel, 306, Guaraituba - Colombo/PR', '1x Guarda Roupa Casal 6 Portas', '949,00', 'Pix | R$ 949,00 | Status: Pendente']
-      : ['Cliente Teste', '26/08/2026', 'Manhã', 'Rua Cascavel, 306, Guaraituba - Colombo/PR', '1x Guarda Roupa Casal 6 Portas', '949,00', 'Pix'];
-    const params = sampleList.slice(0, values.variableCount);
+    const params = getWhatsAppTemplateSampleVariables(values.variableCount);
     let result;
     try { result = await withTimeout(whatsappGraphService.sendTemplateMessage(values.phone, values.template, params, values.language, values.config, 'settings_test'), 30_000, null, 'Teste de mensagem WhatsApp'); }
     catch (error) {
@@ -342,7 +314,7 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
                   }
                   className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/20 focus:border-blue-500 dark:text-slate-200 w-full transition-all font-medium"
                 >
-                  {VARIABLE_OPTIONS.map((opt) => (
+                  {WHATSAPP_TEMPLATE_VARIABLE_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>

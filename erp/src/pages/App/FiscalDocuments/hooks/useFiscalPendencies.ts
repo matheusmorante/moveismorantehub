@@ -4,6 +4,7 @@ import type {
   FiscalPendenciesFilters,
 } from '../types/fiscalPendencies.types';
 import { fetchFiscalPendencies } from '../services/fiscalPendenciesService';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const DEFAULT_FILTERS: FiscalPendenciesFilters = {
   pendencyType: 'all',
@@ -101,14 +102,14 @@ export function useFiscalPendencies(canViewFiscal: boolean = true) {
 
       // Busca por pedido, cliente ou documento
       if (filters.search.trim()) {
-        const query = filters.search.trim().toLowerCase();
+        const query = filters.search.trim();
         const queryDigits = query.replace(/\D/g, '');
-        const matchIndex = String(item.orderIndex).toLowerCase().includes(query);
-        const matchCustomer = item.customerName.toLowerCase().includes(query);
+        const matchIndex = matchesSearchText(item.orderIndex, query);
+        const matchCustomer = matchesSearchText(item.customerName, query);
         const matchDoc = queryDigits.length > 0 && item.customerDocument.replace(/\D/g, '').includes(queryDigits);
         const matchOriginalNumber = item.originalDocumentNumber != null && String(item.originalDocumentNumber).includes(query);
         const matchCurrentNumber = item.currentDocumentNumber != null && String(item.currentDocumentNumber).includes(query);
-        const matchReason = Boolean(item.reason?.toLowerCase().includes(query));
+        const matchReason = matchesSearchText(item.reason, query);
 
         if (!matchIndex && !matchCustomer && !matchDoc && !matchOriginalNumber && !matchCurrentNumber && !matchReason) {
           return false;

@@ -20,7 +20,7 @@ export function useReconciliationSupplierSearch(enabled: boolean) {
   }, [enabled]);
   const handleQueryChange = (term: string) => {
     clearSearch(); setSuppliers([]); setSearchError('');
-    if (!opened.current || term.trim().length < 2) return;
+    if (!opened.current || term.trim().length < 3) return;
     const request = revision.current; setIsSearching(true);
     timer.current = setTimeout(async () => {
       timer.current = null;

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Person from '@/pages/types/person.type';
 import DropdownPortal from '@/components/shared/DropdownPortal';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 export interface PurchaseSupplierFilterProps {
   readonly suppliers: readonly Person[];
@@ -43,11 +44,11 @@ export const PurchaseSupplierFilter: React.FC<PurchaseSupplierFilterProps> = ({
   }, []);
 
   const suggestions = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
+    const normalizedQuery = query.trim();
     if (!normalizedQuery) return suppliers;
     return suppliers.filter((supplier) =>
       [supplier.fullName, supplier.tradeName, supplier.cpfCnpj].some((value) =>
-        value?.toLocaleLowerCase().includes(normalizedQuery)
+        matchesSearchText(value, normalizedQuery)
       )
     );
   }, [query, suppliers]);

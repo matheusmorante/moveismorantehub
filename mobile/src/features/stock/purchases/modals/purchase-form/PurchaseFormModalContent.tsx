@@ -41,6 +41,7 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
   onClose,
   onSaved,
 }) => {
+  const [selectedItemIndex, setSelectedItemIndex] = React.useState<number | null>(null);
   const insets = useSafeAreaInsets();
   const topInset = Math.max(insets.top, Platform.OS === 'android' ? 24 : 0);
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 0);
@@ -97,6 +98,10 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
     onSaved,
   });
 
+  React.useEffect(() => {
+    setSelectedItemIndex(null);
+  }, [visible, purchase?.id]);
+
   const draftStatusText = draftSaveStatus === 'saving'
     ? 'Salvando rascunho…'
     : draftSaveStatus === 'error'
@@ -142,6 +147,8 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
             </View>
           </View>
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Fechar pedido de compra"
             disabled={isUploading}
             onPress={() => void handleClose()}
             style={[styles.iconButton, isUploading && styles.disabled]}
@@ -158,7 +165,7 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
         >
           <PurchaseOrderDetailsSection
             supplierName={supplierName}
-            supplierLocked={items.length > 0}
+            supplierLocked={Boolean(supplierId && items.length > 0)}
             onOpenSupplierPicker={() => setSupplierOpen(true)}
             date={date}
             setDate={setDate}
@@ -182,13 +189,20 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
 
           <PurchaseItemsSection
             items={items}
+            discountPercent={discountPercent}
+            ipiPercent={ipiPercent}
+            freightPercent={freightPercent}
             onOpenProductPicker={openProductPicker}
             onAddItemRow={addItemRow}
             onUpdateItem={updateItem}
             onRemoveItem={removeItem}
             colors={colors}
+            selectedItemIndex={selectedItemIndex}
+            onSelectedItemChange={setSelectedItemIndex}
             showEmptyAddButton={false}
+            addDisabled={!supplierId}
             responsiveFieldRows
+            isDarkMode={isDarkMode}
           />
 
           {/* Order total */}
@@ -213,15 +227,14 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
         <View
           style={[styles.footer, { backgroundColor: colors.surface, borderColor: colors.border }]}
         >
+          {isDraftSession ? (
+            <Text style={[styles.draftStatus, { color: colors.muted }]} accessibilityRole="text">
+              {draftStatusText}
+            </Text>
+          ) : null}
           <View style={styles.footerButtons}>
             <TouchableOpacity
-              disabled={isUploading}
-              onPress={() => void handleClose()}
-              style={[styles.cancelButton, { borderColor: colors.border }, isUploading && styles.disabled]}
-            >
-              <Text style={{ color: colors.muted, fontWeight: '800' }}>Fechar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+              accessibilityRole="button"
               disabled={saving || isUploading}
               onPress={() => void handleSave()}
               style={[styles.saveButton, (saving || isUploading) && styles.disabled]}
@@ -235,11 +248,6 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
               )}
             </TouchableOpacity>
           </View>
-          {isDraftSession ? (
-            <Text style={[styles.draftStatus, { color: colors.muted }]} accessibilityRole="text">
-              {draftStatusText}
-            </Text>
-          ) : null}
         </View>
       </KeyboardAvoidingView>
 
@@ -304,21 +312,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footer: { borderTopWidth: 1, padding: 12, gap: 8 },
-  footerButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  footerButtons: { flexDirection: 'row', gap: 10 },
   draftStatus: { fontSize: 11, fontWeight: '700', paddingHorizontal: 2 },
-  cancelButton: {
-    flex: 1,
-    minWidth: 100,
-    minHeight: 46,
-    borderWidth: 1,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   saveButton: {
-    flex: 1.4,
-    minWidth: 140,
+    flex: 1.3,
+    minWidth: 0,
     minHeight: 46,
+    paddingHorizontal: 12,
     borderRadius: 11,
     backgroundColor: '#2563eb',
     alignItems: 'center',

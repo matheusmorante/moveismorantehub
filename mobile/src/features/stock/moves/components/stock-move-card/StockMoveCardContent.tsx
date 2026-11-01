@@ -217,8 +217,10 @@ export const StockMoveCardContent: React.FC<Props> = ({
             <Calendar size={11} color={isDarkMode ? '#64748b' : '#94a3b8'} />
             <Text style={[styles.fieldLabel, isDarkMode && styles.fieldLabelDark]}>DATA</Text>
           </View>
-          <Text style={[styles.footerValue, isDarkMode && styles.textDark]}>{dateStr}</Text>
-          <Text style={[styles.footerSub, isDarkMode && styles.textMutedDark]}>{timeStr}</Text>
+          <View style={styles.footerDateLine}>
+            <Text style={[styles.footerValue, isDarkMode && styles.textDark]}>{dateStr}</Text>
+            <Text style={[styles.footerSub, isDarkMode && styles.textMutedDark]}>{timeStr}</Text>
+          </View>
         </View>
         {move.unitCost != null && move.unitCost > 0 && (
           <View style={[styles.footerCell, { borderLeftWidth: 1, borderLeftColor: dividerColor }]}>

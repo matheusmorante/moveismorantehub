@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient';
 import { FinancialTransaction, TransactionFilterOptions } from './mobileFinanceTypes';
 import { fetchFinancialCategories, determineResultNature } from './mobileCategoryService';
+import { matchesSearchText } from '../../../../shared-utils/searchText';
 
 export const fetchTransactionsForMonth = async (
   year: number,
@@ -77,10 +78,10 @@ export const fetchTransactionsForMonth = async (
     const q = filters.searchQuery.toLowerCase().trim();
     list = list.filter(
       (t) =>
-        t.description.toLowerCase().includes(q) ||
-        (t.category_name && t.category_name.toLowerCase().includes(q)) ||
-        (t.counterparty && t.counterparty.toLowerCase().includes(q)) ||
-        (t.collaborator_name && t.collaborator_name.toLowerCase().includes(q))
+        matchesSearchText(t.description, q) ||
+        matchesSearchText(t.category_name, q) ||
+        matchesSearchText(t.counterparty, q) ||
+        matchesSearchText(t.collaborator_name, q)
     );
   }
 

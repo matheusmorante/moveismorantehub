@@ -305,12 +305,6 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
           : dateScope === 'next_days'
             ? 'Nenhuma montagem agendada para os próximos dias.'
             : 'Nenhuma montagem para hoje ou próximos dias.';
-  const filterSummary =
-    locationFilter === 'all'
-      ? 'Exibindo todas as montagens'
-      : locationFilter === 'internal'
-        ? 'Exibindo montagens no depósito'
-        : 'Exibindo montagens fora';
   const locationFilterOptions: {
     key: AssemblyLocationFilter;
     label: string;
@@ -393,9 +387,6 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
                   );
                 })}
               </View>
-              <Text style={[styles.filterSummary, isDarkMode && styles.filterSummaryDark]}>
-                {filterSummary}
-              </Text>
             </View>
           }
           ListEmptyComponent={

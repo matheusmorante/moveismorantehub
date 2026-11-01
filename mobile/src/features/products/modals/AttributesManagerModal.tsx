@@ -28,6 +28,7 @@ import {
   type CharacteristicFillConfigurationPayload,
 } from '../../../../../shared-utils/characteristicFormRules';
 import { getCharacteristicTextLimits } from '../../../../../shared-utils/characteristicTextLimits';
+import { matchesSearchText } from '../../../../../shared-utils/searchText';
 import { normalizeProductAttributeOptionValue } from '../../../../../shared-utils/productAttributeOptionRules';
 import { validateAttributeOption } from '../categories/domain/categoryEnvironmentRules';
 import {
@@ -537,13 +538,13 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
             ) : (
               <View style={styles.list}>
                 {attributes.filter((attr) =>
-                  attr.name.toLocaleLowerCase().includes(searchTerm.trim().toLocaleLowerCase())
+                  matchesSearchText(attr.name, searchTerm)
                 ).length === 0 ? (
                   <Text style={styles.emptyText}>Nenhuma característica cadastrada</Text>
                 ) : (
                   attributes
                     .filter((attr) =>
-                      attr.name.toLocaleLowerCase().includes(searchTerm.trim().toLocaleLowerCase())
+                      matchesSearchText(attr.name, searchTerm)
                     )
                     .map((attr) => {
                       const isExp = expandedId === attr.id;

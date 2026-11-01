@@ -1,6 +1,7 @@
 import { normalizeSearchTerm } from './textUtils';
 
 export const MIN_CUSTOMER_SEARCH_LENGTH = 2;
+export const MIN_CUSTOMER_AUTOCOMPLETE_SEARCH_LENGTH = 3;
 
 export type CustomerSearchQuery = {
   text: string;
@@ -15,6 +16,14 @@ export const getCustomerSearchQuery = (value: string): CustomerSearchQuery => ({
 export const canSearchCustomers = (value: string): boolean => {
   const { text, digits } = getCustomerSearchQuery(value);
   return text.length >= MIN_CUSTOMER_SEARCH_LENGTH || digits.length >= MIN_CUSTOMER_SEARCH_LENGTH;
+};
+
+export const canSearchCustomerAutocomplete = (value: string): boolean => {
+  const { text, digits } = getCustomerSearchQuery(value);
+  return (
+    text.length >= MIN_CUSTOMER_AUTOCOMPLETE_SEARCH_LENGTH ||
+    digits.length >= MIN_CUSTOMER_AUTOCOMPLETE_SEARCH_LENGTH
+  );
 };
 
 export const matchesCustomerSearch = (

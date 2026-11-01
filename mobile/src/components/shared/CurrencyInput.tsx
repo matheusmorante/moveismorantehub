@@ -62,22 +62,21 @@ export function CurrencyInput({
   const handleChangeText = (text: string) => {
     if (disabled) return;
 
+    const digitsOnly = text.replace(/\D/g, '');
+    if (!digitsOnly) {
+      onChangeValue(null);
+      setDisplayValue('');
+      return;
+    }
+
     const diffLength = Math.abs(text.length - displayValue.length);
     const hasNewFormatSymbols =
       (text.includes(',') || text.includes('.')) && !displayValue.includes(text) && diffLength > 1;
 
-    if (diffLength > 2 || hasNewFormatSymbols) {
+    if (!/^\d$/.test(text) && (diffLength > 2 || hasNewFormatSymbols)) {
       const cleanedText = text.replace(/[^0-9.,R$ ]/g, '');
       const semanticValue = parseSemanticText(cleanedText);
       onChangeValue(semanticValue);
-      return;
-    }
-
-    const digitsOnly = text.replace(/\D/g, '');
-
-    if (!digitsOnly) {
-      onChangeValue(null);
-      setDisplayValue('');
       return;
     }
 

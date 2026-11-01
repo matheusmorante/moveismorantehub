@@ -297,7 +297,7 @@ y = para('Leia na ordem na primeira utilização. Depois, use os capítulos como
 para('Com telas reais, ampliações, setas e exemplos de contagem.<br/>Os menus disponíveis dependem das permissões do seu usuário.', y - 5, size=10.2, color=MUTED)
 
 # 02 - Navegação e mapa
-y = base('Mapa do guia', 'Onde encontrar cada operação', 'No aplicativo ou no sistema do computador, abra Estoque. O guia em PDF fica nessa lista.')
+y = base('Mapa do guia', 'Onde encontrar cada operação', 'No app, toque novamente em Estoque para voltar à lista. No ERP, abra Estoque pelo menu lateral.')
 shot('00-menu-estoque', y, width=172, max_height=447, x=M, caption='1 Nota Fiscal de Entrada  •  2 Recebimentos<br/>3 Abrir o guia em PDF')
 xx, ww = M + 195, TW - 195
 yy = y
@@ -309,7 +309,7 @@ for title, body in [
     ('Movimentações', 'Ver o que aumentou ou diminuiu o estoque e por quê.'),
     ('Indisponibilidades', 'Registrar produtos separados e retirados do estoque.'),
     ('Identificação e Preços', 'Preparar a impressão do tipo de etiqueta correto.'),
-    ('Fornecedores', 'Consultar ou manter os cadastros usados nas compras.'),
+    ('Fornecedores', 'Consulte ou mantenha os cadastros. Em três pontinhos, Excluir fornecedor só é liberado quando não há produtos, pedidos de compra, recebimentos, inventários registrados, notas fiscais ou indisponibilidades vinculados.'),
 ]:
     yy = para(title, yy, xx, ww, size=10.8, bold=True, gap=2)
     yy = para(body, yy, xx, ww, size=9.7, leading=13.4, gap=9)
@@ -493,9 +493,9 @@ y = note('O pedido não substitui o recebimento', 'Mesmo que o pedido esteja com
 
 # 12 - Recebimento
 y = base('04 / Recebimentos', 'Revise o formulário antes de confirmar', 'Fornecedor, data, produtos, quantidades e custos precisam corresponder à entrega real.')
-y = shot('17-recebimento-campos', y, max_height=235, caption='Detalhe do formulário: 1 fornecedor  •  2 data do recebimento. Exemplo vazio, sem gravar uma entrada real.')
+y = shot('17-recebimento-campos', y, max_height=110, crop=(0, 150, 600, 95), annotate=False, caption='Data do recebimento: exemplo de preenchimento, sem gravar uma entrada real.')
 y = step(1, 'Confira fornecedor e data de chegada', 'Ao abrir pela nota, confira os dados carregados. Ajuste a data do recebimento para o dia em que a mercadoria chegou, não para a data em que a nota foi emitida.', y)
-y = step(2, 'Revise cada produto e a quantidade recebida', 'Confira modelo, cor ou medida, quantidade entregue e custo por unidade. Não registre o que ainda está faltando. No cadastro manual, selecione o fornecedor antes de Adicionar Item.', y)
+y = step(2, 'Revise cada produto e a quantidade recebida', 'Confira modelo, cor ou medida, quantidade entregue e custo por unidade. No custo, digite a partir dos centavos: 1234 forma R$ 12,34. Ao usar um pedido, confira e ajuste os descontos no recebimento: o desconto geral do pedido não é transferido automaticamente. Não registre o que ainda está faltando. No cadastro manual, selecione o fornecedor antes de Adicionar Item.', y)
 y = step(3, 'Registre observações e documentos úteis', 'Use as observações para explicar divergências. No ERP, anexe pedido, comprovante ou imagem quando ajudarem; a tela aceita até cinco anexos.', y)
 y = note('No ERP há rascunho; no app a confirmação é direta', 'No ERP, fornecedor e item iniciam um rascunho com código; use <b>Retomar</b> no menu da lista para continuar o mesmo. No app, o formulário não salva rascunho: toque <b>Confirmar recebimento</b> somente após conferir, pois a entrada é registrada nesse momento.', y, fill=MINT)
 
@@ -574,32 +574,31 @@ y = step(2, 'Se não puder colar no volume 1, mantenha um padrão', 'Combine com
 
 # 17 - Compras
 y = base('06 / Compras', 'Pedido de compra registra o combinado', 'Estoque > Pedidos de compra > menu de três pontinhos > Novo pedido. Use o pedido para lembrar o que foi comprado e conferir a entrega.')
-y = shot('09-pedido-compra', y, max_height=220, caption='Fechado: produto, quantidade em unidades e custo total; sem produto, “Produto não informado”.')
-y = step(1, 'Preencha o pedido', 'Informe fornecedor, data, desconto geral (%) antes do IPI, IPI e frete. Anexe até cinco PDFs ou imagens, se necessário. Em Adicionar Item, escolha produto, quantidade e custo unitário; o desconto por unidade (R$) reduz o custo final. Na lista compacta do ERP e no app, o item novo fica aberto; os anteriores recolhem e só um fica expandido. Para trocar produto, apague o texto no ERP ou toque no nome no app. O primeiro item fixa o fornecedor até remover todos. Pedidos incompletos ficam salvos como rascunho.', y)
-y = step(2, 'Escolha o status e edite o pedido', 'Com fornecedor e um item, o pedido fica Pendente. No card compacto do ERP, a data fica abaixo do número e o seletor de status, à esquerda dos três pontinhos. Na tabela ampla, use a coluna Status; no app, toque no status do cartão. Em rascunhos, use Retomar ou Descartar; não há troca direta de status. Marque Atendido direto de Pendente, sem Conferir Pedido. Edite Pendente ou Em Ordem em três pontinhos > Editar pedido antes de movimentar estoque; para voltar, use Voltar para Pendente. Atendido não altera estoque: registre a entrada em Recebimentos e salve em Salvar Alterações.', y)
-y = step(3, 'Descarte rascunhos e apague pedidos cancelados', 'Para descartar um rascunho salvo, abra os três pontinhos do pedido no ERP ou no app, escolha Descartar rascunho e confirme. A mesma lista permite apagar pedidos cancelados após confirmação; recebimentos já registrados são preservados e deixam de apontar para o pedido apagado.', y)
-y = note('Conferir Pedido é opcional', 'Atendido não movimenta estoque; registre a entrada em Recebimentos.', y, fill=AMBER)
+y = shot('09-pedido-compra', y, max_height=220, caption='Nome longo quebra a linha; composição, custo final e total do item. Exemplo fictício.')
+y = step(1, 'Preencha o pedido', 'Escolha o fornecedor antes dos itens; depois, toque no cadeado para ver como liberar o campo. A orientação só aparece ao tocar. Informe data, desconto, IPI e frete; em cada item, produto, quantidade e custo base. As buscas aceitam nomes com e sem acento. O desconto geral se distribui por unidade; confira desconto, IPI, frete, custo final e total. Nos campos de % e R$, 1234 vira 12,34. Nos cards, itens existentes começam recolhidos: toque no card para abrir e em “Recolher” para fechar; um item novo abre e recolhe os anteriores. Para trocar o produto, apague o texto no ERP ou toque no nome no app. Produto selecionado mantém a cor normal; o check e a borda inferior ficam verdes. Na tabela ampla, Produto ocupa o espaço restante e o nome quebra linhas sem corte; selecione a linha para editar e use “Remover”, confirmando no aviso. Nos cards, “Remover item” (vermelho, à esquerda de “Recolher”) desfoca o card e mostra a pergunta, o nome, “Confirmar” e “Cancelar”. O rodapé traz “Confirmar Pedido” ou “Salvar Alterações”; o X fecha o formulário e itens incompletos ficam como rascunho.', y)
+y = step(2, 'Escolha o status e edite o pedido', 'Com fornecedor e item, o status fica Pendente. No ERP, altere pelo status do card ou pela coluna Status; no app, toque no status, exceto em rascunhos. Para retomar um rascunho, toque no card ou escolha Retomar cadastramento no menu; Descartar rascunho aparece conforme a permissão. Pedidos Pendentes ou Em Ordem podem ser editados pelo menu enquanto não houver movimento de estoque. Marque Atendido direto, sem conferência, se necessário; esse status não movimenta o estoque. Registre a entrada em Recebimentos e use Salvar Alterações.', y)
+y = step(3, 'Descarte rascunhos e apague pedidos cancelados', 'No menu de três pontinhos, escolha Descartar rascunho e confirme. Pedidos cancelados também podem ser apagados; recebimentos anteriores são preservados, mas deixam de apontar para o pedido.', y)
 
 # 18 - Inventário inicial
 y = base('07 / Inventário', 'Defina o que será contado', 'No ERP e no app, abra o menu de três pontinhos no cabeçalho de Inventário e escolha Novo inventário.')
 y = table(['Modo de inventário', 'Como funciona'], [
-    ['<b>1 · Inventário Geral</b>', 'Use o scanner geral ou abra um cartão de fornecedor. Itens sem fornecedor não têm cartão; podem ser contados pelo scanner geral.'],
+    ['<b>1 · Inventário Geral</b>', 'Todos os itens começam com Contado 0 ao iniciar. Use o scanner geral ou abra um cartão de fornecedor. Itens sem fornecedor podem ser contados pelo scanner.'],
     ['<b>2 · Livre: Etapas por Fornecedor</b>', 'Inicie somente os fornecedores que serão contados.'],
     ['<b>3 · Produto específico e suas variações</b>', 'Escolha um produto pai ativo e conte somente as variações dele.'],
     ['<b>4 · Fornecedor específico</b>', 'Abra o cartão de um fornecedor para contar somente os itens dele.'],
 ], y, widths=[220, TW - 220], size=10.4)
+y = step(1, 'Escolha o escopo', 'Use produtos convencionais ativos. Produtos identificados como teste, Salvados e Usados ficam fora de todos os modos de inventário.', y)
+y = step(2, 'Escolha quem vai fazer a contagem', 'No app, um responsável elegível já vem selecionado. No ERP, escolha-o antes do produto pai.', y)
 y = table(['Etapa', 'O que fazer'], [
     ['<b>1 · Produto pai</b>', 'Busque e selecione um produto; o X libera a busca para trocar.'],
     ['<b>2 · Variações</b>', 'Toque Próxima etapa para abrir as variações ativas, iniciadas em zero.'],
 ], y, widths=[180, TW - 180], size=10.2)
-y = step(1, 'Escolha o escopo', 'Use produtos convencionais ativos. Produtos identificados como teste, Salvados e Usados ficam fora de todos os modos de inventário.', y)
-y = step(2, 'Escolha quem vai fazer a contagem', 'No app, uma pessoa elegível já fica selecionada. No ERP, escolha o responsável autorizado.', y)
-y = step(3, 'Abra a contagem', 'Modo Livre: o cartão mostra 0 produtos considerados antes de iniciar e todos ao iniciar. Toque em Iniciar ou Retomar; o scanner fica na etapa. Fornecedor específico: toque no cartão. No Geral, use o scanner inicial ou abra um cartão. Nos modos em zero, o cabeçalho mostra produtos para contar; zero não confirma a conferência.', y)
-y = note('Voltar, cancelar ou duplicar', 'Cancelar inventário apaga a contagem e volta aos tipos; no ERP amplo, use o botão, e no app ou telas menores, o menu de três pontinhos. No Livre, Cancelar etapa limpa só aquela etapa. Ao sair com contagens no app, escolha Continuar contando ou Voltar ao escopo; no app instalado, há também Fechar inventário. Ao duplicar, revise itens e responsável; a contagem não é copiada.', y, fill=MINT)
+y = step(3, 'Abra a contagem', 'Modo Livre: Iniciar começa os itens em Contado 0; Retomar continua e o scanner fica na etapa. Fornecedor específico: abra o cartão. No Geral, todos começam em Contado 0; conte pelo scanner inicial ou por cartão.', y)
+y = note('Voltar, cancelar ou duplicar', 'No app, use “Cancelar inventário” à direita do cabeçalho. No ERP amplo, use o botão; nas telas compactas, o menu. “Cancelar etapa”, no modo Livre, limpa só a etapa aberta. Ao sair com contagens no app, escolha Continuar contando ou Voltar ao escopo; no instalado, há Fechar inventário. Ao duplicar, revise itens e responsável; a contagem não é copiada.', y, fill=MINT)
 
 # 19 - Contagem
-y = base('07 / Inventário', 'Conte os produtos que encontrou', 'No modo Livre e em Fornecedor específico, os itens vazios do fornecedor iniciado contam como zero. Em Produto específico e suas variações, cada variação ativa começa em zero. No Geral, o scanner fica na tela inicial; os cartões abrem somente fornecedores associados.')
-y = note('Lista de contagem', 'No ERP e no app, confira os cartões dos itens sem barra de busca ou filtros. Use os botões de diminuir e aumentar ou digite a quantidade no campo Contado.', y, fill=PALE)
+y = base('07 / Inventário', 'Conte os produtos que encontrou', 'No Geral, todos os itens começam com Contado 0 e o ajuste já compara o zero ao saldo do Sistema. No modo Livre e em Fornecedor específico, os itens do fornecedor aberto começam em zero. Em Produto específico, cada variação ativa começa em zero.')
+y = note('Lista de contagem', 'O cabeçalho “Quantidades contadas” soma os valores do campo Contado dos itens incluídos no inventário (por exemplo, 2 + 2 = 4). Um item em Contado 0 contribui com zero, então esse total não informa quantas linhas foram visitadas. O resumo do Geral apresenta a mesma soma separada por fornecedor. No Geral, cada item começa em Contado 0. No modo Livre, etapas não iniciadas ficam fora do total e da revisão. No ERP e no app, confira os cartões sem busca ou filtros; use os botões ou digite no campo Contado. O botão de diminuir desativa em zero. No app, Estoque fica à esquerda, Ajuste no fim da linha e o contador ocupa toda a largura abaixo.', y, fill=PALE)
 y = table(['No cartão', 'O que conferir'], [
     ['<b>Produto</b>', 'Confira o nome e a variação antes de registrar a quantidade.'],
     ['<b>Sistema e Ajuste</b>', 'Compare o saldo registrado e a diferença apresentada.'],
@@ -607,8 +606,8 @@ y = table(['No cartão', 'O que conferir'], [
 ], y, widths=[165, TW - 165], size=10.2)
 y = table(['Campo Contado', 'Significado'], [
     ['<b>4</b>', 'Você contou quatro unidades do produto completo.'],
-    ['<b>0</b>', 'Você contou e não encontrou nenhuma unidade. Pode gerar ajuste para zero após a revisão.'],
-    ['<b>Vazio</b>', 'No Livre ou Fornecedor específico, equivale a zero. Em Produto específico e suas variações, todas começam em zero ao tocar Próxima etapa. No Geral, sem contagem não gera ajuste.'],
+    ['<b>0</b>', 'Valor inicial zero. O ajuste compara com o saldo do Sistema e pode zerá-lo.'],
+    ['<b>Vazio</b>', 'No Livre ou Fornecedor específico, equivale a zero ao abrir. No Geral, os itens começam em Contado 0 e já calculam o ajuste. Produto específico também começa em zero ao avançar.'],
 ], y, widths=[130, TW - 130], size=10.2)
 y = note('Produto específico e suas variações', 'Selecione um produto pai ativo e toque Próxima etapa. O cabeçalho mostra o pai; conte suas variações ativas, que começam em zero, pelos controles ou pelo scanner na própria tela.', y, fill=MINT)
 
@@ -616,10 +615,10 @@ y = note('Produto específico e suas variações', 'Selecione um produto pai ati
 y = base('07 / Inventário', 'Revise as diferenças antes de concluir', 'Compare Esperado (saldo no sistema), Contado (quantidade encontrada) e Ajuste (diferença que será aplicada). Reconte o que parecer errado.')
 y = table(['Exemplo', 'Esperado', 'Contado', 'Ajuste'], [
     ['Guarda-roupa', '5', '4', '-1 unidade'],
-    ['Mesa', '3', '0', '-3 unidades'],
+    ['Produto com saldo -2', '-2', '0', '+2 unidades'],
     ['Produto sem contagem', '2', 'Fora da revisão', 'Sem ajuste'],
 ], y, widths=[205, 90, 90, TW - 385], size=10.5)
-y = para('Os números são exemplos. O sistema considera entradas e saídas durante a contagem; confira a revisão atual. No modo Livre, só entram fornecedores iniciados e itens vazios viram zero. Em Fornecedor específico, só entra o fornecedor aberto; vazios também viram zero. Em Produto específico e suas variações, entram somente as variações ativas do produto escolhido, iniciadas em zero. No Inventário Geral, itens sem contagem ficam como estão.', y, size=11)
+y = para('Os números são exemplos. O sistema considera entradas e saídas durante a contagem; confira a revisão atual. No modo Livre, só entram fornecedores iniciados e todos os seus itens começam em zero. Em Fornecedor específico, só entra o fornecedor aberto e seus itens começam em zero. Em Produto específico, entram as variações ativas do produto escolhido, iniciadas em zero. No Inventário Geral, todos os itens começam em Contado 0 ao iniciar e o ajuste já compara Contado 0 ao saldo do Sistema.', y, size=11)
 y = step(1, 'Reconte o que estiver diferente', 'Confira se o produto está em outro local, se houve entrada ou saída durante a contagem e se todas as caixas desse móvel foram verificadas.', y)
 y = step(2, 'Volte à contagem se precisar corrigir', 'Use Voltar para contagem quando encontrar erro. Confirme somente quantidades que foram verificadas.', y)
 y = step(3, 'Conclua depois da revisão', 'Só pessoas autorizadas podem finalizar inventários. Se o botão estiver indisponível, peça ajuda a um Gestor ou Estoquista autorizado. Use a conta com que iniciou a confirmação; ela pode ser diferente da pessoa responsável pela contagem. Aguarde a mensagem de sucesso e confira o status.', y)

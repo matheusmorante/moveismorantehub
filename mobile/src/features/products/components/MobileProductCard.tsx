@@ -3,23 +3,20 @@ import {
   ChevronRight,
   Eye,
   MoreVertical,
-  Package,
   Pencil,
   Play,
   RotateCcw,
-  Truck,
 } from 'lucide-react-native';
 import type React from 'react';
 import { useState } from 'react';
 import { Alert, Linking, Text, TouchableOpacity, View } from 'react-native';
 import { WEB_URL } from '../../../services/supabaseClient';
-import { ProductImage } from '../../../components/shared/ProductImage';
 import { useMobileProductCardState } from '../hooks/useMobileProductCardState';
 import { MobileChannelBadges } from './MobileChannelBadges';
+import { MobileProductCardIdentity } from './MobileProductCardIdentity';
 import { MobileProductActionsMenu } from './MobileProductActionsMenu';
 import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
 import { MobileProductVariationList } from './MobileProductVariationList';
-import { StockOriginBadge } from './StockOriginBadge';
 import { MergedBadge } from './MergedBadge';
 import { styles } from './MobileProductCard.styles';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
@@ -337,96 +334,19 @@ export const MobileProductCard: React.FC<Props> = ({
         </View>
       </View>
 
-      {/* Título do Produto Pai / Simples */}
-      <View style={styles.productInfoRow}>
-        {(!isParent || isSingleVariationCard) &&
-          (cardImage ? (
-            <ProductImage
-              src={cardImage}
-              size="thumbnail"
-              style={styles.productImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View
-              style={[styles.productImagePlaceholder, dark && styles.darkProductImagePlaceholder]}
-            >
-              <Package size={17} color="#94a3b8" />
-            </View>
-          ))}
-        <View style={styles.titleCol}>
-          <Text
-            style={[styles.title, dark && styles.lightText, isParent && styles.parentTitle]}
-            numberOfLines={isSingleVariationCard ? 3 : 2}
-          >
-            {displayTitle}
-          </Text>
-
-          {compositionCardItems.length > 0 ? (
-            <Text
-              accessibilityLabel={`Componentes da composição: ${compositionCardItems.join(', ')}`}
-              numberOfLines={2}
-              style={[styles.compositionSummary, dark && styles.darkCompositionSummary]}
-            >
-              {compositionCardItems.join(' • ')}
-            </Text>
-          ) : null}
-
-          <View style={styles.tagsRow}>
-            {product.itemType !== 'service' && (
-              <StockOriginBadge
-                product={product}
-                singleVariation={singleVariation}
-                oppName={oppName}
-                dark={dark}
-                size="sm"
-              />
-            )}
-            {product.itemType === 'composition' ? (
-              <View
-                style={[styles.oppBadge, { backgroundColor: '#f3e8ff', borderColor: '#d8b4fe' }]}
-              >
-                <Text style={[styles.oppText, { color: '#7e22ce' }]}>Composto</Text>
-              </View>
-            ) : null}
-            {product.itemType === 'service' ? (
-              <View
-                style={[styles.oppBadge, { backgroundColor: '#fef3c7', borderColor: '#fde68a' }]}
-              >
-                <Text style={[styles.oppText, { color: '#b45309' }]}>Serviço</Text>
-              </View>
-            ) : null}
-            {oppBadgeInfo && !oppBadgeInfo.isSalvado ? (
-              <View
-                style={[
-                  styles.oppBadge,
-                  dark && styles.darkOppBadge,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.oppText,
-                    dark && styles.darkOppText,
-                  ]}
-                >
-                  {oppBadgeInfo.label}
-                </Text>
-              </View>
-            ) : null}
-            {supplierNames.map((sName) => (
-              <View key={sName} style={[styles.supplierBadge, dark && styles.darkBadge]}>
-                <Truck size={10} color="#64748b" />
-                <Text style={styles.supplierText}>{sName}</Text>
-              </View>
-            ))}
-            {product.category ? (
-              <Text style={[styles.categoryBadge, dark && styles.darkCategory]}>
-                {product.category}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-      </View>
+      <MobileProductCardIdentity
+        product={product}
+        dark={dark}
+        isParent={isParent}
+        isSingleVariationCard={isSingleVariationCard}
+        cardImage={cardImage}
+        displayTitle={displayTitle}
+        compositionCardItems={compositionCardItems}
+        singleVariation={singleVariation}
+        oppName={oppName}
+        supplierNames={supplierNames}
+        oppBadgeInfo={oppBadgeInfo}
+      />
 
       {/* Linha Inferior: Preço/Estoque e Status de Canais Bipartido */}
       <View style={styles.bottomRow}>

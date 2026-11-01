@@ -2,6 +2,7 @@ import { supabase } from '../supabaseClient';
 import { excludeTestOrders } from '../../../../shared-utils/testArtifactQueries';
 import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
 import { isAssemblyInternalType, isAssemblyOutsideType } from '../../utils/aiSummaryHelper';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../shared-utils/searchText';
 
 export type MobileOperationKind =
   | 'todas'
@@ -287,7 +288,7 @@ export async function searchOperations(input: OrderDeliverySearchInput) {
   if (input.dataFim) query = query.lte('scheduled_date', input.dataFim);
   if (input.termo?.trim()) {
     const term = input.termo.trim().replace(/[,%()]/g, '');
-    if (term) query = query.or(`customer_name.ilike.%${term}%,order_number.ilike.%${term}%`);
+    if (term) query = query.or(buildPostgrestAccentInsensitiveOrFilter(['customer_name', 'order_number'], term));
   }
 
   const { data, error } = await query;

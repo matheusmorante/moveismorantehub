@@ -7,6 +7,7 @@ import {
 } from '../../../../services/sqlite/inventoryDrafts';
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import { syncPendingInventorySubmissions } from '../services/inventoryFinalizer';
+import { sumInventoryCountedQuantities } from '../../../../../../shared-utils/inventorySupplierStages';
 
 export const useInventory = (userProfileId?: string | null) => {
   const [sessions, setSessions] = useState<InventorySession[]>([]);
@@ -81,6 +82,7 @@ export const useInventory = (userProfileId?: string | null) => {
             updated_at: d.updatedAt,
             items_count: countedProductsCount,
             productsCount: countedProductsCount,
+            countedQuantityTotal: sumInventoryCountedQuantities(d.items),
             adjustmentsCount: 0,
             reversedCount: 0,
             inventoryCode: d.code,
@@ -110,6 +112,7 @@ export const useInventory = (userProfileId?: string | null) => {
         updated_at: session.updated_at,
         items_count: session.items_count || 0,
         productsCount: session.productsCount || 0,
+        countedQuantityTotal: session.countedQuantityTotal,
         adjustmentsCount: session.adjustmentsCount || 0,
         reversedCount: session.reversedCount || 0,
         inventoryCode: session.inventoryCode,

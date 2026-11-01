@@ -1,3 +1,5 @@
+import { normalizeSearchTerm } from './productText';
+
 export interface ProductSupplierNameSource {
   fullName?: string | null;
   full_name?: string | null;
@@ -25,6 +27,6 @@ export const matchesProductSupplierSearch = (
   supplier: ProductSupplierNameSource | null | undefined,
   query: string
 ): boolean =>
-  getProductSupplierDisplayName(supplier)
-    .toLowerCase()
-    .includes(query.trim().toLowerCase());
+  normalizeSearchTerm(getProductSupplierDisplayName(supplier)).includes(
+    normalizeSearchTerm(query)
+  );

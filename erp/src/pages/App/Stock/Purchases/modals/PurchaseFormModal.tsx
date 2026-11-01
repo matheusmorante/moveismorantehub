@@ -4,6 +4,7 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import Purchase from '../../../../types/purchase.type';
 import { formatCurrency } from '../../../../utils/formatters';
 import SupplierAutocomplete from '@/components/SupplierAutocomplete';
+import { PercentInput } from '@/components/PercentInput';
 import { PurchaseItemsSection } from '../../components/PurchaseItemsSection';
 import { PurchaseAttachmentsSection } from '../components/PurchaseAttachmentsSection';
 import { usePurchaseAttachmentUpload } from '../hooks/usePurchaseAttachmentUpload';
@@ -28,7 +29,12 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
   initialPurchase,
 }) => {
   const activePurchase = purchase || initialPurchase;
+  const [activeItemIndex, setActiveItemIndex] = React.useState<number | null>(null);
   useBodyScrollLock(isOpen);
+
+  React.useEffect(() => {
+    setActiveItemIndex(null);
+  }, [isOpen, activePurchase?.id]);
 
   const {
     attachments,
@@ -161,8 +167,9 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
                 selectedSupplierId={selectedSupplierId}
                 onSelect={setSelectedSupplierId}
                 supplierFilter={(supplier) => supplierProvidesStockOrigin(supplier.stockOrigins, 'normal')}
-                disabled={items.length > 0}
+                disabled={Boolean(selectedSupplierId && items.length > 0)}
                 disabledReason="Para alterar o fornecedor, remova todos os itens do pedido."
+                showDisabledReasonOnClick
                 placeholder="Buscar fornecedor..."
                 inputClassName="w-full bg-transparent border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-300 transition-all focus:ring-0 focus:shadow-sm rounded-none"
               />
@@ -170,7 +177,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
                 <span className="text-xs font-bold text-red-500">Selecione um fornecedor.</span>
               )}
             </div>
-            <div className="col-span-2 md:col-span-1 flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
               <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                 Data do Pedido
               </label>
@@ -182,58 +189,40 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <label htmlFor="purchase-discount-percent" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                 Desconto (%)
               </label>
-              <div className="relative border-0 border-b-2 border-slate-200 dark:border-slate-700 focus-within:border-blue-600 dark:focus-within:border-blue-500 transition-all">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  placeholder="0"
-                  value={discountPercent || ''}
-                  onChange={(e) => setDiscountPercent(Number(e.target.value))}
-                  className="w-full bg-transparent p-2 outline-none font-bold text-sm text-slate-700 dark:text-slate-200 border-none focus:ring-0 rounded-none"
-                />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs select-none">
-                  %
-                </div>
-              </div>
+              <PercentInput
+                id="purchase-discount-percent"
+                value={discountPercent}
+                onChangeValue={(value) => setDiscountPercent(value ?? 0)}
+                min={0}
+                className="!text-sm"
+              />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <label htmlFor="purchase-ipi-percent" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                 IPI (%)
               </label>
-              <div className="relative border-0 border-b-2 border-slate-200 dark:border-slate-700 focus-within:border-blue-600 dark:focus-within:border-blue-500 transition-all">
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={ipiPercent || ''}
-                  onChange={(e) => setIpiPercent(Number(e.target.value))}
-                  className="w-full bg-transparent p-2 outline-none font-bold text-sm text-slate-700 dark:text-slate-200 border-none focus:ring-0 rounded-none"
-                />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs select-none">
-                  %
-                </div>
-              </div>
+              <PercentInput
+                id="purchase-ipi-percent"
+                value={ipiPercent}
+                onChangeValue={(value) => setIpiPercent(value ?? 0)}
+                min={0}
+                className="!text-sm"
+              />
             </div>
             <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <label htmlFor="purchase-freight-percent" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                 Frete (%)
               </label>
-              <div className="relative border-0 border-b-2 border-slate-200 dark:border-slate-700 focus-within:border-blue-600 dark:focus-within:border-blue-500 transition-all">
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={freightPercent || ''}
-                  onChange={(e) => setFreightPercent(Number(e.target.value))}
-                  className="w-full bg-transparent p-2 outline-none font-bold text-sm text-slate-700 dark:text-slate-200 border-none focus:ring-0 rounded-none"
-                />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs select-none">
-                  %
-                </div>
-              </div>
+              <PercentInput
+                id="purchase-freight-percent"
+                value={freightPercent}
+                onChangeValue={(value) => setFreightPercent(value ?? 0)}
+                min={0}
+                className="!text-sm"
+              />
             </div>
           </div>
 
@@ -250,6 +239,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
             onAddItem={handleAddItem}
             onRemoveItem={handleRemoveItem}
             onUpdateItem={handleUpdateItem}
+            discountPercent={discountPercent}
             ipiPercent={ipiPercent}
             freightPercent={freightPercent}
             formatCurrency={formatCurrency}
@@ -257,9 +247,12 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
             onSupplierAutoSelect={(supId) => setSelectedSupplierId(supId)}
             hasError={validationErrors.items}
             isReceiptMode={false}
+            activeItemIndex={activeItemIndex}
+            onActiveItemChange={setActiveItemIndex}
+            canRemoveItems={!isSaving && !isUploading}
           />
 
-          <div className="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col items-stretch gap-4">
             {isDraftSession && (
               <p className="text-xs font-bold text-slate-400">
                 <i
@@ -277,22 +270,14 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
                       : 'Preencha um campo para iniciar o rascunho')}
               </p>
             )}
-            <button
-              type="button"
-              onClick={handleCancelOrClose}
-              className="w-full sm:w-auto px-6 py-3.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 font-bold rounded-2xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-            >
-              Cancelar / Fechar
-            </button>
-            <div className="flex gap-3 w-full sm:w-auto justify-end">
+            <div className="flex w-full justify-between gap-3">
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={isSaving}
-                className="w-full sm:w-auto px-8 py-3.5 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none flex items-center justify-center gap-2"
+                className="flex-1 sm:flex-none sm:min-w-[180px] px-3 sm:px-6 py-3.5 bg-blue-600 text-white text-xs sm:text-sm font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none text-center"
               >
-                <i className="bi bi-check2-circle text-lg" aria-hidden="true" />
-                <span>{activePurchase?.id && activePurchase.status !== 'draft' ? 'Salvar Alterações' : 'Confirmar Pedido'}</span>
+                {activePurchase?.id && activePurchase.status !== 'draft' ? 'Salvar Alterações' : 'Confirmar Pedido'}
               </button>
             </div>
           </div>

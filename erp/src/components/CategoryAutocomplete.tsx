@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../pages/utils/supabaseConfig';
 import { normalizeSearchTerm } from '../pages/utils/textUtils';
 import DropdownPortal from './shared/DropdownPortal';
+import { buildPostgrestAccentInsensitivePattern } from '../../../shared-utils/searchText';
 
 interface CategoryNode {
   id: string;
   name: string;
   parents?: string[]; // IDs of environments (if it's a category)
+  parentNames?: string[];
   isEnvironment?: boolean;
 }
 
@@ -26,64 +28,61 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
   onRemove,
   selectedIds,
   onSearch,
-  placeholder = 'Digite para buscar...',
+  placeholder = 'Digite pelo menos 3 caracteres para buscar...',
   className = '',
   inputClassName = 'w-full pl-11 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-400/60',
   filter = 'all',
 }) => {
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [resultsQuery, setResultsQuery] = useState('');
   const [suggestions, setSuggestions] = useState<CategoryNode[]>([]);
-  const [allNodes, setAllNodes] = useState<CategoryNode[]>([]);
+  const [knownSelectedNodes, setKnownSelectedNodes] = useState<CategoryNode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const searchReady = query.trim().length >= 3 && query.trim() === debouncedQuery;
+  const selectedIdsKey = JSON.stringify(selectedIds);
 
   useEffect(() => {
-    const fetchAll = async () => {
-      setIsLoading(true);
-      const { data: envs } = await supabase.from('environments').select('id, name').order('name');
-      const { data: cats } = await supabase.from('categories').select('id, name').order('name');
-      const { data: rels } = await supabase
-        .from('environment_categories')
-        .select('environment_id, category_id');
+    const ids = JSON.parse(selectedIdsKey) as string[];
+    if (ids.length === 0) {
+      setKnownSelectedNodes([]);
+      return;
+    }
 
-      const nodes: CategoryNode[] = [];
-
-      if (envs) {
-        nodes.push(
-          ...envs.map((e: any) => ({
-            id: e.id,
-            name: e.name,
-            isEnvironment: true,
-            parents: [],
-          }))
-        );
+    let active = true;
+    const loadSelectedNames = async () => {
+      try {
+        const [categoryResult, environmentResult] = await Promise.all([
+          supabase.from('categories').select('id, name').in('id', ids),
+          supabase.from('environments').select('id, name').in('id', ids),
+        ]);
+        if (!active || categoryResult.error || environmentResult.error) return;
+        setKnownSelectedNodes([
+          ...(categoryResult.data || []).map((category) => ({ ...category, isEnvironment: false })),
+          ...(environmentResult.data || []).map((environment) => ({ ...environment, isEnvironment: true })),
+        ]);
+      } catch {
+        // Preserve current selected labels if the metadata lookup is temporarily unavailable.
       }
-
-      if (cats) {
-        nodes.push(
-          ...cats.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            isEnvironment: false,
-            parents:
-              rels?.filter((r: any) => r.category_id === c.id).map((r: any) => r.environment_id) ||
-              [],
-          }))
-        );
-      }
-
-      setAllNodes(nodes);
-      setIsLoading(false);
     };
 
-    fetchAll();
+    void loadSelectedNames();
+    return () => { active = false; };
+  }, [selectedIdsKey]);
 
-    window.addEventListener('focus', fetchAll);
-    return () => {
-      window.removeEventListener('focus', fetchAll);
-    };
-  }, []);
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length < 3) {
+      setDebouncedQuery('');
+      return;
+    }
+
+    const timeoutId = setTimeout(() => setDebouncedQuery(trimmedQuery), 300);
+    return () => clearTimeout(timeoutId);
+  }, [query]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -96,27 +95,101 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
   }, []);
 
   useEffect(() => {
-    const filteredList = allNodes.filter((c) => {
-      if (filter === 'all') return true;
-      if (filter === 'environments') return c.isEnvironment;
-      if (filter === 'categories') return !c.isEnvironment;
-      return true;
-    });
-
-    if (query.trim() === '') {
-      setSuggestions(filteredList.slice(0, 30));
+    const trimmedQuery = debouncedQuery.trim();
+    if (trimmedQuery.length < 3) {
+      setSuggestions([]);
+      setResultsQuery('');
+      setIsLoading(false);
       return;
     }
 
-    const normQuery = normalizeSearchTerm(query);
-    const filtered = filteredList
-      .filter((c) => normalizeSearchTerm(c.name).includes(normQuery))
-      .slice(0, 50);
+    let active = true;
+    setIsLoading(true);
+    setSearchFailed(false);
+    const pattern = buildPostgrestAccentInsensitivePattern(trimmedQuery);
 
-    setSuggestions(filtered);
-  }, [query, allNodes, filter]);
+    const searchCategories = async () => {
+      try {
+        const [environmentResult, categoryResult] = await Promise.all([
+          filter !== 'categories'
+            ? supabase.from('environments').select('id, name').filter('name', 'imatch', pattern).order('name').limit(5)
+            : Promise.resolve({ data: [], error: null }),
+          filter !== 'environments'
+            ? supabase.from('categories').select('id, name').filter('name', 'imatch', pattern).order('name').limit(5)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
+        if (environmentResult.error) throw environmentResult.error;
+        if (categoryResult.error) throw categoryResult.error;
+        if (!active) return;
+
+        const categoryRows = categoryResult.data || [];
+        let relations: Array<{ environment_id: string; category_id: string }> = [];
+        if (categoryRows.length > 0) {
+          const relationResult = await supabase
+            .from('environment_categories')
+            .select('environment_id, category_id')
+            .in('category_id', categoryRows.map((category) => category.id));
+          if (relationResult.error) throw relationResult.error;
+          relations = relationResult.data || [];
+        }
+        if (!active) return;
+
+        const parentIds = [...new Set(relations.map((relation) => relation.environment_id))].slice(0, 5);
+        const parentResult = parentIds.length > 0
+          ? await supabase.from('environments').select('id, name').in('id', parentIds)
+          : { data: [], error: null };
+        if (parentResult.error) throw parentResult.error;
+        if (!active) return;
+        const parentNames = new Map((parentResult.data || []).map((parent) => [parent.id, parent.name]));
+
+        const normalizedQuery = normalizeSearchTerm(trimmedQuery);
+        const nodes: CategoryNode[] = [
+          ...(environmentResult.data || []).map((environment) => ({
+            id: environment.id,
+            name: environment.name,
+            isEnvironment: true,
+            parents: [],
+          })),
+          ...categoryRows.map((category) => ({
+            id: category.id,
+            name: category.name,
+            isEnvironment: false,
+            parents: relations
+              .filter((relation) => relation.category_id === category.id)
+              .map((relation) => relation.environment_id),
+            parentNames: relations
+              .filter((relation) => relation.category_id === category.id)
+              .map((relation) => parentNames.get(relation.environment_id))
+              .filter((name): name is string => Boolean(name)),
+          })),
+        ];
+        setSuggestions(
+          nodes
+            .filter((node) => normalizeSearchTerm(node.name).includes(normalizedQuery))
+            .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'))
+            .slice(0, 5),
+        );
+        setResultsQuery(trimmedQuery);
+      } catch {
+        if (active) {
+          setSuggestions([]);
+          setResultsQuery(trimmedQuery);
+          setSearchFailed(true);
+        }
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    void searchCategories();
+    return () => { active = false; };
+  }, [debouncedQuery, filter]);
 
   const handleSelect = (category: CategoryNode) => {
+    setKnownSelectedNodes((current) => [
+      ...current.filter((node) => node.id !== category.id),
+      category,
+    ]);
     onSelect(category);
     setQuery('');
   };
@@ -126,7 +199,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
       {selectedIds.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-1">
           {selectedIds.map((id) => {
-            const cat = allNodes.find((c) => c.id === id);
+            const cat = knownSelectedNodes.find((c) => c.id === id);
             if (!cat) return null;
             return (
               <div
@@ -172,7 +245,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
           <button
             type="button"
             onClick={onSearch}
-            className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800 rounded-2xl hover:bg-blue-100 transition-all shadow-sm"
+            className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800 rounded-2xl hover:bg-blue-100 transition-all shadow-sm md:hidden"
             title="Busca Avançada"
           >
             <i className="bi bi-search"></i>
@@ -180,9 +253,19 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
         )}
       </div>
 
-      <DropdownPortal anchorRef={wrapperRef} isOpen={showSuggestions}>
+      <DropdownPortal anchorRef={wrapperRef} isOpen={showSuggestions && query.trim().length > 0}>
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl max-h-64 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200 p-2 space-y-1">
-          {suggestions.length > 0 ? (
+          {query.trim().length < 3 ? (
+            <div className="p-4 text-center text-xs font-semibold text-slate-500">
+              Digite pelo menos 3 caracteres para buscar.
+            </div>
+          ) : !searchReady || isLoading || resultsQuery !== debouncedQuery ? (
+            <div className="p-4 text-center text-xs font-semibold text-slate-500">Buscando...</div>
+          ) : searchFailed ? (
+            <div className="p-4 text-center text-xs font-semibold text-red-500">
+              Não foi possível buscar categorias. Tente novamente.
+            </div>
+          ) : suggestions.length > 0 ? (
             suggestions.map((cat) => {
               const isSelected = selectedIds.includes(cat.id);
               return (
@@ -199,7 +282,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
                     </span>
                     {!cat.isEnvironment && cat.parents && cat.parents.length > 0 && (
                       <span className="text-[9px] uppercase font-black text-slate-400">
-                        {allNodes.find((c) => c.id === cat.parents![0])?.name || 'Ambiente'} &gt;
+                        {cat.parentNames?.[0] || 'Ambiente'} &gt;
                         Categoria
                       </span>
                     )}

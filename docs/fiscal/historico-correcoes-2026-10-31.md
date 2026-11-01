@@ -1,5 +1,37 @@
 # Histórico de correções fiscais — 31/10/2026
 
+## Busca de documentos fiscais sem distinção de acentos
+
+**Problema e causa raiz comprovada:** na lista de documentos fiscais do ERP, a busca pelo nome do destinatário usava `ILIKE` diretamente sobre `destinatario_nome` e o texto digitado. Por isso, consultar “Joao” não encontrava um destinatário salvo como “João”.
+
+**Solução implementada:** a função `get_fiscal_documents_summary` aplica `public.immutable_unaccent` ao nome e ao termo de busca antes da comparação. A busca por número, chave de acesso, documento e pedido continua com os mesmos critérios. O contrato, o `SECURITY INVOKER`, o RLS e as permissões existentes foram preservados.
+
+**Arquivos e linhas modificados:**
+
+- `supabase/migrations/20261101013530_accent_insensitive_module_searches.sql:829` — definição atualizada da função; `:931` — comparação sem distinção de acentos no destinatário.
+- `docs/fiscal/README.md:10` — referência vigente para este registro.
+- `docs/fiscal/historico-correcoes-2026-10-31.md:3` — este histórico.
+
+**Validação e limites:** o projeto operacional `hkoxhourxwlddgsfdgws` estava ativo e saudável; a assinatura e a definição remota anterior foram consultadas antes da aplicação. Após aplicar a migration, as quatro funções alteradas foram conferidas no catálogo: permissões, `search_path`, `SECURITY DEFINER`/`SECURITY INVOKER` e timeouts foram preservados; a comparação escalar confirmou que “João” corresponde a “joao”. Nenhum teste automatizado foi executado e não houve leitura ou escrita de dados comerciais nem transmissão fiscal.
+
+## Itens de recebimento no app preservados ao organizar compras
+
+**Problema e causa:** o formulário de recebimento do app reutiliza os itens de pedido de compra, mas não fornecia os percentuais e a ação de adicionar que a versão atual do componente esperava. Com itens carregados, a composição de compra podia tentar ler percentuais ausentes; a ação de adicionar também não tinha callback. Os itens de recebimento por NF-e já possuem custos próprios, incluindo os valores distribuídos da nota, e não devem ser recalculados como itens de pedido.
+
+**Solução:** o componente compartilhado distingue o modo de recebimento, apresenta o subtotal já calculado do item e mantém os rótulos de custo e desconto desse fluxo. O formulário de recebimento conecta Adicionar item ao seletor de produtos existente, respeitando o bloqueio para NF-e. A máscara monetária compartilhada reconhece o primeiro dígito como centavo ao substituir o valor selecionado. A apuração fiscal da nota, os dados de origem e a confirmação do recebimento não foram alterados.
+
+**Arquivos e pontos modificados:**
+
+- `mobile/src/features/stock/purchases/modals/purchase-form/PurchaseItemsSection.tsx:19` — parâmetros opcionais de compra, modo de recebimento e subtotal de origem.
+- `mobile/src/features/stock/receipts/modals/NewGoodsReceiptModal.tsx:501` — seleção existente ligada à ação de adicionar e indicação do modo de recebimento.
+- `mobile/src/components/shared/CurrencyInput.tsx:62` — correção da primeira tecla e da limpeza do campo em reais.
+- `mobile/src/features/stock/purchases/modals/purchase-form/PurchaseItemsSection.test.tsx:57`, `mobile/src/components/shared/PurchaseMaskedInputs.test.tsx:31` e `mobile/src/features/stock/receipts/utils/receiptSource.test.ts` — regressões de apresentação, máscara e cálculo de origens, com dados fictícios.
+- `docs/estoque/guia-pratico/gerar_guia.py:496` e `docs/estoque/guia-pratico/README.md` — instrução de digitação do custo; PDFs servidos e de entrega atualizados.
+
+**Validação e limites:** 12 testes Vitest do app passaram, incluindo sete de origens de recebimento e dois do componente compartilhado. No ERP, os testes de itens também preservam subtotal e despesas do recebimento. As páginas 14 e 20 do guia foram renderizadas e revisadas; as cópias têm o mesmo conteúdo. O TypeScript geral do app ainda apresenta erros anteriores, inclusive de tipos de fornecedores no modal de recebimento; não apontou erro nos parâmetros da alteração. O lint do ERP não iniciou porque a instalação de `zod-validation-error` não exporta `./v4`. Não havia telefone físico conectado; não houve prova nativa, gravação de recebimento, emissão fiscal ou publicação OTA.
+
+**Pendência observada:** ao iniciar recebimento por pedido, `useReceiptForm.ts:93` no ERP e `receiptSource.ts:55` no app carregam IPI e frete, mas não transferem o percentual de desconto geral do pedido. A regra de custos do recebimento não foi alterada nesta tarefa; o operador deve conferir os descontos antes de confirmar a entrada.
+
 ## Detalhes da NF de entrada em abas no ERP e no app
 
 **Problema e causa:** os detalhes da NF de entrada reuniam participantes, dados fiscais, itens e totais em uma única rolagem. Em janelas pequenas, localizar cada informação exigia percorrer todo o modal; o app também usava um cartão limitado em vez de aproveitar a tela disponível.

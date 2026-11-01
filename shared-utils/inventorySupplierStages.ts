@@ -8,8 +8,35 @@ export interface SupplierStageItem {
   countedLabelIds?: string[];
 }
 
+/** Sums the recorded physical quantities; untouched rows contribute zero. */
+export const sumInventoryCountedQuantities = (
+  items: readonly Pick<SupplierStageItem, 'physicalCount'>[]
+): number =>
+  items.reduce(
+    (total, item) =>
+      total + (typeof item.physicalCount === 'number' && Number.isFinite(item.physicalCount)
+        ? item.physicalCount
+        : 0),
+    0
+  );
+
 export const getSupplierStageName = (item: SupplierStageItem): string =>
   item.assignedSupplier || 'Sem fornecedor';
+
+export const initializeGeneralInventoryCounts = <
+  T extends SupplierStageItem & { productId: string },
+>(
+  items: T[],
+  startedAt = new Date().toISOString()
+): T[] => {
+  let changed = false;
+  const initializedItems = items.map((item) => {
+    if (!item.productId || typeof item.physicalCount === 'number') return item;
+    changed = true;
+    return { ...item, physicalCount: 0, countedAt: item.countedAt || startedAt };
+  });
+  return changed ? initializedItems : items;
+};
 
 export const startSupplierStageItems = <T extends SupplierStageItem>(
   items: readonly T[],

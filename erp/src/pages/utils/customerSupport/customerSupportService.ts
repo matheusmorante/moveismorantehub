@@ -11,6 +11,7 @@ import { mapPersonToSummary } from './customerMatchingService';
 import type { CustomerLinkStatus, CustomerSummary } from './customerMatchingService';
 import { SupportOrderSummary } from './supportOrdersService';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../../shared-utils/searchText';
 import type { ProductCatalogSendSelection } from '../../../../../shared-utils/productCatalogFormSchemas';
 import {
   supportInternalCommentSchema,
@@ -413,16 +414,12 @@ function applyHistoryCursor(query: any, cursor: CustomerSupportHistoryCursor | n
 }
 
 function literalSupportSearchPattern(search: string): string {
-  return `%${search.replace(/[\\%_*]/g, (character) => `\\${character}`)}%`;
-}
-
-function quoteSupportFilterValue(value: string) {
-  return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+  return buildPostgrestAccentInsensitivePattern(search);
 }
 
 function supportSearchOrFilters(filters: Array<{ column: string; pattern: string }>) {
   return filters.map(({ column, pattern }) =>
-    column + '.ilike.' + quoteSupportFilterValue(pattern)
+    column + '.imatch.' + pattern
   ).join(',');
 }
 
@@ -479,7 +476,7 @@ export async function fetchConversationAttachmentPage(
       .order('timestamp', { ascending: false })
       .order('id', { ascending: false })
       .limit(pageSize + 1);
-    if (column && pattern) query = query.ilike(column, pattern);
+    if (column && pattern) query = query.filter(column, 'imatch', pattern);
     return withTimeout<any>(query, 15_000, null, 'central:anexos');
   });
   const responses = await Promise.all(requests);

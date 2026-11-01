@@ -1,5 +1,6 @@
 import { supabase } from '../../../services/supabaseClient';
 import { formatPurchaseNumber } from '../../../../../shared-utils/purchaseNumber';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../../shared-utils/searchText';
 
 export type PurchaseStatus = 'draft' | 'pending' | 'ordered' | 'fulfilled' | 'cancelled';
 
@@ -177,7 +178,7 @@ export const fetchMobilePurchases = async (page: number, filters: PurchaseFilter
   if (filters.supplierId) query = query.eq('supplier_id', filters.supplierId);
   if (filters.search?.trim()) {
     const term = filters.search.trim().replace(/[%(),]/g, ' ');
-    query = query.or(`supplier_name.ilike.%${term}%,purchase_number.eq.${Number(term) || 0}`);
+    query = query.or(`supplier_name.imatch.${buildPostgrestAccentInsensitivePattern(term)},purchase_number.eq.${Number(term) || 0}`);
   }
 
   const { data, error, count } = await query;

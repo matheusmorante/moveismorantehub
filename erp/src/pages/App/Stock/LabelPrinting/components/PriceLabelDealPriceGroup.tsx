@@ -1,6 +1,7 @@
 import type { MouseEvent, TouchEvent } from 'react';
 import type { PriceLabelArtData } from '../types/PriceLabelArtData';
 import type { PriceLabelLayerKey } from '../types/PriceLabelArtEditorTypes';
+import { PriceLabelArtTransformHandles } from './PriceLabelArtTransformHandles';
 
 type InteractivePriceLabelLayer = Exclude<PriceLabelLayerKey, null>;
 type InteractionEvent = MouseEvent | TouchEvent;
@@ -129,26 +130,12 @@ export function PriceLabelDealPriceGroup({
               )}
               <span>{deText}</span>
               {isEdit && selectedElement === 'deText' && (
-                <>
-                  {startResizing && (
-                    <div
-                      onMouseDown={(e) => startResizing('deText', e)}
-                      onTouchStart={(e) => startResizing('deText', e)}
-                      title="Arraste para redimensionar"
-                      className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-emerald-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                    />
-                  )}
-                  {startRotating && (
-                    <div
-                      onMouseDown={(e) => startRotating('deText', e)}
-                      onTouchStart={(e) => startRotating('deText', e)}
-                      title="Arraste para rotacionar"
-                      className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                    >
-                      <i className="bi bi-arrow-clockwise text-[11px]" />
-                    </div>
-                  )}
-                </>
+                <PriceLabelArtTransformHandles
+                  layer="deText"
+                  startResizing={startResizing}
+                  startRotating={startRotating}
+                  resizeClassName="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-emerald-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
+                />
               )}
             </div>
           )}
@@ -188,26 +175,12 @@ export function PriceLabelDealPriceGroup({
               <span className="absolute left-0.5 right-0.5 top-1/2 -translate-y-1/2 h-[3px] bg-red-600 rounded-none shadow-xs pointer-events-none" />
 
               {isEdit && selectedElement === 'normalPrice' && (
-                <>
-                  {startResizing && (
-                    <div
-                      onMouseDown={(e) => startResizing('normalPrice', e)}
-                      onTouchStart={(e) => startResizing('normalPrice', e)}
-                      title="Arraste para redimensionar"
-                      className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-emerald-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                    />
-                  )}
-                  {startRotating && (
-                    <div
-                      onMouseDown={(e) => startRotating('normalPrice', e)}
-                      onTouchStart={(e) => startRotating('normalPrice', e)}
-                      title="Arraste para rotacionar"
-                      className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                    >
-                      <i className="bi bi-arrow-clockwise text-[11px]" />
-                    </div>
-                  )}
-                </>
+                <PriceLabelArtTransformHandles
+                  layer="normalPrice"
+                  startResizing={startResizing}
+                  startRotating={startRotating}
+                  resizeClassName="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-emerald-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
+                />
               )}
             </div>
           )}
@@ -241,26 +214,12 @@ export function PriceLabelDealPriceGroup({
 
               <span>{porText}</span>
               {isEdit && selectedElement === 'porText' && (
-                <>
-                  {startResizing && (
-                    <div
-                      onMouseDown={(e) => startResizing('porText', e)}
-                      onTouchStart={(e) => startResizing('porText', e)}
-                      title="Arraste para redimensionar"
-                      className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-emerald-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                    />
-                  )}
-                  {startRotating && (
-                    <div
-                      onMouseDown={(e) => startRotating('porText', e)}
-                      onTouchStart={(e) => startRotating('porText', e)}
-                      title="Arraste para rotacionar"
-                      className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                    >
-                      <i className="bi bi-arrow-clockwise text-[11px]" />
-                    </div>
-                  )}
-                </>
+                <PriceLabelArtTransformHandles
+                  layer="porText"
+                  startResizing={startResizing}
+                  startRotating={startRotating}
+                  resizeClassName="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-emerald-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
+                />
               )}
             </div>
           )}

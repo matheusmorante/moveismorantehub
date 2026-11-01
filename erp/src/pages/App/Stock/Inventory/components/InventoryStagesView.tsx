@@ -4,6 +4,7 @@ import type { AuditItem } from '../types/inventoryAudit.types';
 interface Stage {
   supplierName: string;
   counted: number;
+  countedQuantityTotal: number;
   total: number;
   started: boolean;
 }
@@ -37,6 +38,7 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
         stageMap.set(supplier, {
           supplierName: supplier,
           counted: 0,
+          countedQuantityTotal: 0,
           total: 0,
           started: false,
         });
@@ -45,6 +47,7 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
       stage.total++;
       if (typeof item.physicalCount === 'number') {
         stage.counted++;
+        stage.countedQuantityTotal += Number.isFinite(item.physicalCount) ? item.physicalCount : 0;
         stage.started = true;
       }
       if (item.supplierStageStarted === true) stage.started = true;
@@ -96,7 +99,7 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
         <div className={variant === 'summary' && summaryAction ? 'flex items-center justify-between gap-3' : ''}>
           <h3 className={`text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ${variant === 'summary' && summaryAction ? 'min-w-0 flex-1' : 'px-2'}`}>
             {variant === 'summary'
-              ? `Itens contados por fornecedor (${stages.length})`
+              ? 'Quantidades contadas por fornecedor'
               : variant === 'selection'
                 ? 'Escolha o fornecedor para contar'
                 : `Livre: Etapas por Fornecedor (${stages.length})`}
@@ -152,9 +155,13 @@ export const InventoryStagesView: React.FC<InventoryStagesViewProps> = ({
 
                 {variant !== 'selection' && (
                   <div className={`mt-auto w-full text-sm font-medium ${isLightCard ? 'text-slate-500 dark:text-slate-400' : 'text-slate-300'} ${variant === 'stages' ? 'mb-4' : ''}`}>
-                    <strong className={isLightCard ? 'text-slate-700 dark:text-slate-300' : 'text-white'}>{stage.counted}</strong>{' '}
+                    <strong className={isLightCard ? 'text-slate-700 dark:text-slate-300' : 'text-white'}>
+                      {variant === 'summary'
+                        ? stage.countedQuantityTotal.toLocaleString('pt-BR')
+                        : stage.counted}
+                    </strong>{' '}
                     {variant === 'summary'
-                      ? stage.counted === 1 ? 'item contado' : 'itens contados'
+                      ? stage.countedQuantityTotal === 1 ? 'quantidade contada' : 'quantidades contadas'
                       : stage.counted === 1 ? 'produto considerado' : 'produtos considerados'}
                   </div>
                 )}

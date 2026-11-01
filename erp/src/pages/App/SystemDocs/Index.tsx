@@ -6,6 +6,7 @@ import DocumentationFlow from './DocumentationFlow';
 import EngineeringImpactMap from './EngineeringImpactMap';
 import { engineeringImpactMaps } from './engineeringImpactMaps';
 import ArchitectureDocsSection from './ArchitectureDocsSection';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 type DocTab = 'manual' | 'architecture' | 'all';
 
@@ -51,13 +52,9 @@ const SystemDocs = () => {
   }, [activeTab]);
 
   const sections = useMemo(() => {
-    const search = searchTerm.trim().toLocaleLowerCase('pt-BR');
-    if (!search) return activeDocumentation;
+    if (!searchTerm.trim()) return activeDocumentation;
     return activeDocumentation.filter((section) =>
-      [section.title, section.summary, ...section.rules]
-        .join(' ')
-        .toLocaleLowerCase('pt-BR')
-        .includes(search)
+      matchesSearchText([section.title, section.summary, ...section.rules].join(' '), searchTerm)
     );
   }, [activeDocumentation, searchTerm]);
 

@@ -19,14 +19,16 @@ export function filterEnvironmentsBySearch<TEnvironment extends EnvironmentSearc
 ): TEnvironment[] {
   if (!searchTerm.trim()) return environments;
 
-  const normalizedTerm = searchTerm.toLowerCase();
+  const normalizedTerm = normalizeSearchTerm(searchTerm);
   return environments.filter((environment) => {
-    if (environment.name.toLowerCase().includes(normalizedTerm)) return true;
+    if (normalizeSearchTerm(environment.name).includes(normalizedTerm)) return true;
 
     return categories.some(
       (category) =>
         environment.categories?.includes(category.id) &&
-        category.name.toLowerCase().includes(normalizedTerm)
+        normalizeSearchTerm(category.name).includes(normalizedTerm)
     );
   });
 }
+import { normalizeSearchTerm } from './productText';
+

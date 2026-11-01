@@ -9,6 +9,7 @@ import {
 import { UnregisteredProductIndicator } from '@/pages/App/SalesOrder/components/UnregisteredProductIndicator';
 import { CSOSN_OPTIONS, ORIGEM_OPTIONS, CEST_OPTIONS } from '@/pages/utils/nfe/fiscalConstants';
 import type { NfeItemCfopOption } from './domain/itemFiscalCfopOptions';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface Props {
   item: NfeItemWithFiscal;
@@ -70,7 +71,7 @@ export const NfeItemRow: React.FC<Props> = ({
       ? cfopOptions.filter(
           (option) =>
             option.value === selectedCfop ||
-            option.label.toLocaleLowerCase('pt-BR').includes(search)
+            matchesSearchText(option.label, search)
         )
       : cfopOptions;
   }, [cfopOptions, cfopSearch, selectedCfop]);

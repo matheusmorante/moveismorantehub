@@ -396,7 +396,7 @@ export function QuickRegisterVariationModal({
                   <section className="space-y-4 rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
                     <div className="space-y-1.5">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Produto pai <span className="text-rose-600">*</span></label>
-                      <ProductAutocomplete disabled={busy} supplierId={supplierId} parentsOnly value={selectedParent?.name || ''} isSelected={Boolean(selectedParent)} placeholder="Digite 2 ou mais letras para buscar o produto pai..." onChange={() => { setSelectedParent(null); setParentProduct(null); setNameSuffix(''); setTechnicalValues({}); setNcmResolution(undefined); }} onSelect={(product) => {
+                      <ProductAutocomplete disabled={busy} supplierId={supplierId} parentsOnly value={selectedParent?.name || ''} isSelected={Boolean(selectedParent)} placeholder="Digite pelo menos 3 caracteres para buscar o produto pai..." onChange={() => { setSelectedParent(null); setParentProduct(null); setNameSuffix(''); setTechnicalValues({}); setNcmResolution(undefined); }} onSelect={(product) => {
                         const id = String(product.id || '').trim();
                         const parentName = product.name || product.title || '';
                         const description = item.productDescription.trim();

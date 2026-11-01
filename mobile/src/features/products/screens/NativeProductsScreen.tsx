@@ -604,8 +604,9 @@ export const NativeProductsScreen: React.FC<Props> = ({
             </View>
           ) : productsHook.loadError && productsHook.products.length === 0 ? (
             <View style={styles.empty}>
+              <Package size={40} color="#dc2626" />
               <Text
-                style={[styles.emptyText, { color: '#dc2626' }]}
+                style={styles.emptyText}
                 accessibilityRole="alert"
                 accessibilityLiveRegion="assertive"
               >

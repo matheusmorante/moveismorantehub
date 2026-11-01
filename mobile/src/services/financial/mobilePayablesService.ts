@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient';
 import { FinancialTransaction } from './mobileFinanceTypes';
 import { fetchFinancialCategories, determineResultNature } from './mobileCategoryService';
+import { matchesSearchText } from '../../../../shared-utils/searchText';
 
 export const fetchPayableAccounts = async (): Promise<FinancialTransaction[]> => {
   const [categories, { data, error }] = await Promise.all([
@@ -154,9 +155,9 @@ export const findMatchingPayableAccount = async (
       const q = queryText.toLowerCase().trim();
       const matchByQuery = payables.find(
         (p) =>
-          p.description.toLowerCase().includes(q) ||
-          (p.counterparty && p.counterparty.toLowerCase().includes(q)) ||
-          (p.category_name && p.category_name.toLowerCase().includes(q))
+          matchesSearchText(p.description, q) ||
+          matchesSearchText(p.counterparty, q) ||
+          matchesSearchText(p.category_name, q)
       );
       if (matchByQuery) return matchByQuery;
     }

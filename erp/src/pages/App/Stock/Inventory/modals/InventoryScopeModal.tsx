@@ -192,7 +192,7 @@ export const InventoryScopeModal: React.FC<InventoryScopeModalProps> = ({
             {step === 1
               ? 'O que você deseja inventariar?'
               : scopeType === 'product'
-                ? 'Selecione o produto pai e o responsável'
+                ? 'Selecione o responsável e o produto pai'
                 : 'Configuração do Escopo'}
           </p>
           <p className="mt-1 text-[11px] text-slate-400" role="status">

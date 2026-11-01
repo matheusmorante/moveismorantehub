@@ -1,5 +1,6 @@
 import type { Invoice, InvoiceDateFilter } from '../../types/stock.types';
 import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../shared-utils/searchText';
 
 export const getInvoiceMonthBounds = (month: string) => {
   const [year, monthNumber] = month.split('-').map(Number);
@@ -40,20 +41,15 @@ export const buildInboundInvoiceSearchFilter = (searchTerm: string): string | nu
   if (!term) return null;
 
   const cleanNumber = term.replace(/\D/g, '');
-  const safeTerm = term
-    .replace(/[,%()]/g, ' ')
-    .trim()
-    .replace(/\\/g, '\\\\')
-    .replace(/\*/g, '');
-  const filters = [`emitente_nome.ilike.*${safeTerm}*`];
+  const safeTerm = term.replace(/[,%()]/g, ' ').trim();
+  const filters = [buildPostgrestAccentInsensitiveOrFilter(['emitente_nome'], safeTerm)];
 
   if (cleanNumber) {
-    const numericPattern = `*${cleanNumber}*`;
-    filters.push(`emitente_cnpj.ilike.${numericPattern}`, `chave_acesso.ilike.${numericPattern}`);
+    filters.push(buildPostgrestAccentInsensitiveOrFilter(['emitente_cnpj', 'chave_acesso'], cleanNumber));
   }
   const fiscalIdentifier = normalizeFiscalIdentifier(term);
   if (/[A-Z]/.test(fiscalIdentifier) && /\d/.test(fiscalIdentifier) && /^[A-Z0-9]+$/.test(fiscalIdentifier)) {
-    filters.push(`emitente_cnpj.ilike.*${fiscalIdentifier}*`, `chave_acesso.ilike.*${fiscalIdentifier}*`);
+    filters.push(buildPostgrestAccentInsensitiveOrFilter(['emitente_cnpj', 'chave_acesso'], fiscalIdentifier));
   }
 
   // numero_nfe is INTEGER in the database, so ilike on it makes the query fail.

@@ -358,8 +358,8 @@ export function ManageInboundInvoiceMappingsModal({
                     showDisabledReasonOnClick={true}
                     hideLabel={true}
                     inputClassName="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-2 text-sm text-slate-800 dark:text-slate-100 outline-none focus:border-blue-600 transition-colors"
-                    placeholder="Digite 2 ou mais letras para buscar fornecedor..."
-                    minChars={2}
+                    placeholder="Digite pelo menos 3 caracteres para buscar fornecedor..."
+                    minChars={3}
                   />
                 </div>
                 <button

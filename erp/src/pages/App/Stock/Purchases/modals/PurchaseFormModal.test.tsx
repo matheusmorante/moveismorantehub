@@ -59,4 +59,26 @@ describe('purchase submit owners', () => {
     expect(mocks.upload).not.toHaveBeenCalled();
     expect(mocks.error).toHaveBeenCalledWith('Selecione arquivos PDF ou imagens.');
   });
+
+  it('edits the three percentages as two-decimal values and saves the numeric percentages', async () => {
+    render(<PurchaseFormModal isOpen onClose={vi.fn()} />);
+    const typeDigits = (label: string, digits: string) => {
+      const input = screen.getByLabelText(label) as HTMLInputElement;
+      for (const digit of digits) {
+        fireEvent.change(input, { target: { value: `${input.value}${digit}` } });
+      }
+      return input;
+    };
+
+    expect(typeDigits('Desconto (%)', '1234').value).toBe('12,34');
+    expect(typeDigits('IPI (%)', '56').value).toBe('0,56');
+    expect(typeDigits('Frete (%)', '789').value).toBe('7,89');
+    fill();
+    await act(async () => { fireEvent.click(screen.getByText('Confirmar Pedido')); });
+    expect(mocks.save).toHaveBeenCalledWith(expect.objectContaining({
+      discountPercent: 12.34,
+      ipiPercent: 0.56,
+      freightPercent: 7.89,
+    }));
+  });
 });

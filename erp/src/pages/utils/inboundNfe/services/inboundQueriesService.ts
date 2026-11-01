@@ -3,6 +3,11 @@ import { InboundInvoice, InboundInvoiceItem } from '../types/inboundNfeTypes';
 import { DateFilterConfig } from '../../../App/Stock/InboundInvoices/components/InboundInvoicesHeader';
 import { parseInboundNfeXml } from '../utils/inboundXmlParser';
 import { isValidUuid } from '../../uuidUtils';
+import {
+  buildPostgrestAccentInsensitiveOrFilter,
+  buildPostgrestAccentInsensitivePattern,
+} from '../../../../../../shared-utils/searchText';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 import { getLocalInvoices } from './inboundCacheService';
 import {
   getCurrentYearStr,
@@ -111,11 +116,13 @@ export const fetchInboundInvoicesPage = async (
         // Busca exata pela chave (sem wildcards laterais desnecessários, mas mantém ilike para compatibilidade)
         query = query.or(`chave_acesso.ilike.%${cleanNum}%,chave_acesso.eq.${cleanNum}`);
       } else if (cleanNum.length > 0) {
-        query = query.or(
-          `emitente_nome.ilike.%${searchTerm}%,chave_acesso.ilike.%${cleanNum}%,numero_nfe.ilike.%${searchTerm}%,emitente_cnpj.ilike.%${searchTerm}%`
-        );
+        query = query.or([
+          buildPostgrestAccentInsensitiveOrFilter(['emitente_nome'], searchTerm),
+          buildPostgrestAccentInsensitiveOrFilter(['chave_acesso'], cleanNum),
+          buildPostgrestAccentInsensitiveOrFilter(['numero_nfe', 'emitente_cnpj'], searchTerm),
+        ].join(','));
       } else {
-        query = query.ilike('emitente_nome', `%${searchTerm}%`);
+        query = query.filter('emitente_nome', 'imatch', buildPostgrestAccentInsensitivePattern(searchTerm));
       }
     }
 
@@ -299,13 +306,12 @@ export const fetchInboundInvoicesPage = async (
         }
       }
       if (searchTerm) {
-        const term = searchTerm.toLowerCase();
         const cleanNumLocal = searchTerm.replace(/\D/g, '');
         localOnly = localOnly.filter(
           (inv) =>
-            (inv.emitterName || '').toLowerCase().includes(term) ||
-            (inv.nfeKey || '').includes(cleanNumLocal) ||
-            (inv.nfeNumber || '').includes(term)
+            matchesSearchText(inv.emitterName, searchTerm) ||
+            Boolean(cleanNumLocal && (inv.nfeKey || '').includes(cleanNumLocal)) ||
+            matchesSearchText(inv.nfeNumber, searchTerm)
         );
       }
 
@@ -334,12 +340,12 @@ export const fetchInboundInvoicesPage = async (
     filteredLocal = filteredLocal.filter((inv) => !inv.issuedAt || inv.issuedAt <= endDate!);
   }
   if (searchTerm) {
-    const term = searchTerm.toLowerCase();
+    const cleanNumLocal = searchTerm.replace(/\D/g, '');
     filteredLocal = filteredLocal.filter(
       (inv) =>
-        (inv.emitterName || '').toLowerCase().includes(term) ||
-        (inv.nfeKey || '').includes(term) ||
-        (inv.nfeNumber || '').includes(term)
+        matchesSearchText(inv.emitterName, searchTerm) ||
+        Boolean(cleanNumLocal && (inv.nfeKey || '').includes(cleanNumLocal)) ||
+        matchesSearchText(inv.nfeNumber, searchTerm)
     );
   }
 

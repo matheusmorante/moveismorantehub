@@ -9,6 +9,7 @@ import type { AuditItem } from '../../hooks/useInventoryAuditWorkflow';
 interface Stage {
   supplierName: string;
   counted: number;
+  countedQuantityTotal: number;
   total: number;
   started: boolean;
 }
@@ -38,6 +39,7 @@ export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode,
         stageMap.set(supplier, {
           supplierName: supplier,
           counted: 0,
+          countedQuantityTotal: 0,
           total: 0,
           started: false,
         });
@@ -46,6 +48,7 @@ export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode,
       stage.total++;
       if (typeof item.physicalCount === 'number') {
         stage.counted++;
+        stage.countedQuantityTotal += Number.isFinite(item.physicalCount) ? item.physicalCount : 0;
         stage.started = true;
       }
       if (item.supplierStageStarted === true) stage.started = true;
@@ -82,7 +85,7 @@ export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode,
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={[styles.sectionTitle, { color: textPrimary }]}>
         {variant === 'summary'
-          ? `Itens contados por fornecedor (${stages.length})`
+          ? 'Quantidades contadas por fornecedor'
           : variant === 'selection'
             ? 'Escolha o fornecedor para contar'
             : `Livre: Etapas por Fornecedor (${stages.length})`}
@@ -120,9 +123,13 @@ export const InventoryStagesViewContent: React.FC<Props> = ({ items, isDarkMode,
                   </Text>
                   {variant !== 'selection' && (
                     <Text style={[styles.stageDesc, { color: isLightCard ? muted : '#cbd5e1' }]}>
-                      <Text style={{ fontWeight: '800', color: isLightCard ? textPrimary : '#ffffff' }}>{stage.counted}</Text>{' '}
+                      <Text style={{ fontWeight: '800', color: isLightCard ? textPrimary : '#ffffff' }}>
+                        {variant === 'summary'
+                          ? stage.countedQuantityTotal.toLocaleString('pt-BR')
+                          : stage.counted}
+                      </Text>{' '}
                       {variant === 'summary'
-                        ? stage.counted === 1 ? 'item contado' : 'itens contados'
+                        ? stage.countedQuantityTotal === 1 ? 'quantidade contada' : 'quantidades contadas'
                         : stage.counted === 1 ? 'produto considerado' : 'produtos considerados'}
                     </Text>
                   )}

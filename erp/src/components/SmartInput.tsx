@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { matchesSearchText, normalizeSearchTerm } from '@/pages/utils/textUtils';
 import DropdownPortal from './shared/DropdownPortal';
 
 interface SmartInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -79,18 +80,16 @@ const SmartInput: React.FC<SmartInputProps> = ({
 
   const filteredSuggestions = useMemo(() => {
     if (disableSuggestions) return [];
-    const query = String(inputValue || '')
-      .toLowerCase()
-      .trim();
+    const query = normalizeSearchTerm(String(inputValue || ''));
     if (!query) return allSuggestions.slice(0, 10);
 
-    const patternMatches = patterns.filter((s) => s.toLowerCase().startsWith(query));
+    const patternMatches = patterns.filter((s) => normalizeSearchTerm(s).startsWith(query));
     const otherMatches = allSuggestions.filter(
-      (s) => s.toLowerCase().startsWith(query) && !patternMatches.includes(s)
+      (s) => normalizeSearchTerm(s).startsWith(query) && !patternMatches.includes(s)
     );
     const containsMatches = allSuggestions.filter(
       (s) =>
-        s.toLowerCase().includes(query) && !patternMatches.includes(s) && !otherMatches.includes(s)
+        matchesSearchText(s, query) && !patternMatches.includes(s) && !otherMatches.includes(s)
     );
 
     return [...patternMatches, ...otherMatches, ...containsMatches].slice(0, 30);

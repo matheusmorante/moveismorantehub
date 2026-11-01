@@ -1,6 +1,10 @@
 import React from 'react';
 import type { Product } from '@/pages/types/product.type';
 import type { ProductAiSuggestedCharacteristics } from '../../../../../../shared-utils/productAiFormSchemas';
+import { buildCharacteristicsDiffRows } from './characteristicsDiffRows';
+import type { DiffRowItem } from './characteristicsDiffRows';
+
+export type { DiffRowItem } from './characteristicsDiffRows';
 
 export interface CharacteristicsDiffTableProps {
   readonly suggestedResult: ProductAiSuggestedCharacteristics | null;
@@ -11,16 +15,6 @@ export interface CharacteristicsDiffTableProps {
   readonly editedValues: Record<string, any>;
   readonly onEditValue: (key: string, value: any) => void;
   readonly hasCategory?: boolean;
-}
-
-export interface DiffRowItem {
-  key: string;
-  group: 'Geral' | 'Dimensões' | 'Especificações Técnicas';
-  label: string;
-  currentValue: any;
-  suggestedValue: any;
-  isFilledInErp: boolean;
-  confidence: 'alta' | 'media' | 'baixa';
 }
 
 export const CharacteristicsDiffTable: React.FC<CharacteristicsDiffTableProps> = ({
@@ -37,135 +31,8 @@ export const CharacteristicsDiffTable: React.FC<CharacteristicsDiffTableProps> =
   const sources = identifiedProduct?.sources || suggestedResult?.sources || [];
   const divergences = identifiedProduct?.divergences;
 
-  const hasErpValue = (val: any) =>
-    val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '0';
-
-  // Montagem da lista unificada de campos sugeridos (Gerais, Dimensões e Técnicos)
   const rows: DiffRowItem[] = React.useMemo(() => {
-    if (!suggestedResult) return [];
-
-    const items: DiffRowItem[] = [];
-    const conf = suggestedResult.itemConfidence || {};
-
-    // 1. Campos Gerais do Produto
-    if (identifiedProduct?.name) {
-      items.push({
-        key: '__field_name__',
-        group: 'Geral',
-        label: 'Nome do Produto',
-        currentValue: formData.name || formData.title,
-        suggestedValue: identifiedProduct.name,
-        isFilledInErp: hasErpValue(formData.name || formData.title),
-        confidence: identifiedProduct.confidence || 'alta',
-      });
-    }
-
-    if (identifiedProduct?.brand) {
-      const currentBrand =
-        formData.brand || formData.technicalValues?.Marca || formData.technicalValues?.marca;
-      items.push({
-        key: '__field_brand__',
-        group: 'Geral',
-        label: 'Marca / Fabricante',
-        currentValue: currentBrand,
-        suggestedValue: identifiedProduct.brand,
-        isFilledInErp: hasErpValue(currentBrand),
-        confidence: identifiedProduct.confidence || 'alta',
-      });
-    }
-
-    if (identifiedProduct?.model) {
-      const currentModel =
-        formData.technicalValues?.Modelo || formData.technicalValues?.modelo || formData.line;
-      items.push({
-        key: '__field_model__',
-        group: 'Geral',
-        label: 'Modelo / Linha',
-        currentValue: currentModel,
-        suggestedValue: identifiedProduct.model,
-        isFilledInErp: hasErpValue(currentModel),
-        confidence: identifiedProduct.confidence || 'alta',
-      });
-    }
-
-    if (suggestedResult.description) {
-      items.push({
-        key: '__field_description__',
-        group: 'Geral',
-        label: 'Descrição Detalhada',
-        currentValue: formData.description,
-        suggestedValue: suggestedResult.description,
-        isFilledInErp: hasErpValue(formData.description),
-        confidence: 'alta',
-      });
-    }
-
-    // 2. Dimensões e Peso
-    if (suggestedResult.height !== undefined && Number(suggestedResult.height) > 0) {
-      items.push({
-        key: '__field_height__',
-        group: 'Dimensões',
-        label: 'Altura (cm)',
-        currentValue: formData.height,
-        suggestedValue: suggestedResult.height,
-        isFilledInErp: hasErpValue(formData.height),
-        confidence: conf['Altura'] || 'alta',
-      });
-    }
-
-    if (suggestedResult.width !== undefined && Number(suggestedResult.width) > 0) {
-      items.push({
-        key: '__field_width__',
-        group: 'Dimensões',
-        label: 'Largura (cm)',
-        currentValue: formData.width,
-        suggestedValue: suggestedResult.width,
-        isFilledInErp: hasErpValue(formData.width),
-        confidence: conf['Largura'] || 'alta',
-      });
-    }
-
-    if (suggestedResult.depth !== undefined && Number(suggestedResult.depth) > 0) {
-      items.push({
-        key: '__field_depth__',
-        group: 'Dimensões',
-        label: 'Profundidade (cm)',
-        currentValue: formData.depth,
-        suggestedValue: suggestedResult.depth,
-        isFilledInErp: hasErpValue(formData.depth),
-        confidence: conf['Profundidade'] || 'alta',
-      });
-    }
-
-    if (suggestedResult.weight !== undefined && Number(suggestedResult.weight) > 0) {
-      items.push({
-        key: '__field_weight__',
-        group: 'Dimensões',
-        label: 'Peso (kg)',
-        currentValue: formData.weight,
-        suggestedValue: suggestedResult.weight,
-        isFilledInErp: hasErpValue(formData.weight),
-        confidence: conf['Peso'] || 'alta',
-      });
-    }
-
-    // 3. Características Técnicas
-    const techVals = suggestedResult.technicalValues || {};
-    const currentTech = formData.technicalValues || {};
-
-    Object.entries(techVals).forEach(([key, val]) => {
-      items.push({
-        key,
-        group: 'Especificações Técnicas',
-        label: key,
-        currentValue: currentTech[key],
-        suggestedValue: val,
-        isFilledInErp: hasErpValue(currentTech[key]),
-        confidence: conf[key] || 'alta',
-      });
-    });
-
-    return items;
+    return buildCharacteristicsDiffRows(suggestedResult, formData, identifiedProduct);
   }, [suggestedResult, formData, identifiedProduct]);
 
   const totalCount = rows.length;

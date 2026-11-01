@@ -24,6 +24,7 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
 }) => {
   const selectedCategoryIds = categoryIds ?? EMPTY_CATEGORY_IDS;
   const [categorySearch, setCategorySearch] = React.useState('');
+  const [debouncedCategorySearch, setDebouncedCategorySearch] = React.useState('');
   const selectableCategories = React.useMemo(
     () => filterProductSelectableCategories([...availableCategories]),
     [availableCategories]
@@ -32,9 +33,22 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
     () => selectableCategories.filter((category) => selectedCategoryIds.includes(category.id)),
     [selectableCategories, selectedCategoryIds]
   );
+  React.useEffect(() => {
+    const trimmed = categorySearch.trim();
+    if (trimmed.length < 3) {
+      setDebouncedCategorySearch('');
+      return;
+    }
+
+    const timeoutId = setTimeout(() => setDebouncedCategorySearch(trimmed), 300);
+    return () => clearTimeout(timeoutId);
+  }, [categorySearch]);
+
   const suggestedCategories = React.useMemo(
-    () => searchProductCategories(selectableCategories, [...availableCategories], categorySearch),
-    [selectableCategories, availableCategories, categorySearch]
+    () => categorySearch.trim() === debouncedCategorySearch
+      ? searchProductCategories(selectableCategories, [...availableCategories], debouncedCategorySearch).slice(0, 5)
+      : [],
+    [selectableCategories, availableCategories, categorySearch, debouncedCategorySearch]
   );
 
   const getParentNames = (category: ProductCategoryOption) =>
@@ -156,7 +170,7 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
           </div>
         </div>
 
-        {categorySearch.trim().length >= 2 && (
+        {categorySearch.trim().length > 0 && (
           <div
             className={`overflow-y-auto custom-scrollbar w-full border rounded-xl p-2 transition-all ${
               isGeneratingCategory
@@ -166,7 +180,15 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
                   : 'border-slate-200/80 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30'
             }`}
           >
-            {suggestedCategories.length === 0 ? (
+            {categorySearch.trim().length < 3 ? (
+              <div className="py-5 px-3 text-center text-xs text-slate-400 dark:text-slate-500">
+                Digite pelo menos 3 caracteres para buscar.
+              </div>
+            ) : categorySearch.trim() !== debouncedCategorySearch ? (
+              <div className="py-5 px-3 text-center text-xs text-slate-400 dark:text-slate-500">
+                Buscando categorias...
+              </div>
+            ) : suggestedCategories.length === 0 ? (
               <div className="py-5 px-3 text-center text-xs text-slate-400 dark:text-slate-500 flex flex-col items-center justify-center gap-1">
                 <i className="bi bi-inbox text-base opacity-40 mb-0.5" />
                 <span>

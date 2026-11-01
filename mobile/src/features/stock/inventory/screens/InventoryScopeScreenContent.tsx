@@ -17,6 +17,7 @@ import { useAuth } from '../../../../contexts/AuthContext';
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { mobileInventoryAuditScopeSchema } from '../../../../../../shared-utils/inventoryAuditFormSchemas';
+import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 import {
   filterInventoryResponsibleCandidates,
   findDefaultInventoryResponsibleId,
@@ -109,10 +110,10 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
   const selectedProduct = productParents.find((product) => product.id === selectedProductId);
 
   const filteredProductParents = useMemo(() => {
-    const query = productSearch.trim().toLocaleLowerCase('pt-BR');
+    const query = productSearch.trim();
     if (query.length < 2) return [];
     return productParents
-      .filter((product) => `${product.name} ${product.code}`.toLocaleLowerCase('pt-BR').includes(query))
+      .filter((product) => matchesSearchText(`${product.name} ${product.code}`, query))
       .slice(0, 30);
   }, [productParents, productSearch]);
 

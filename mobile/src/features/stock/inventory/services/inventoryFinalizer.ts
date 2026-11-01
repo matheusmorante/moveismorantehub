@@ -12,6 +12,7 @@ import {
 } from '../../../../services/sqlite/inventoryOutbox';
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { sumInventoryCountedQuantities } from '../../../../../../shared-utils/inventorySupplierStages';
 import {
   buildInventorySubmissionClaimRpcParams,
   buildInventorySubmissionRpcParams,
@@ -174,14 +175,12 @@ export const executeInventoryFinalization = async ({
       );
       onClose();
     } else {
-      const countedProductsCount = items.filter(
-        (item) => typeof item.physicalCount === 'number'
-      ).length;
+      const countedQuantityTotal = sumInventoryCountedQuantities(items);
       Alert.alert(
         'Sucesso',
         alreadyProcessed
           ? `Inventário #${code} já estava concluído. O envio local foi confirmado.`
-          : `Inventário #${code} finalizado! ${countedProductsCount} ${countedProductsCount === 1 ? 'produto' : 'produtos'} contados e ${data?.moves?.length ?? submission.items.length} ajuste(s) lançados no estoque. ✨`,
+          : `Inventário #${code} finalizado! Total de quantidades contadas: ${countedQuantityTotal.toLocaleString('pt-BR')}. ${data?.moves?.length ?? submission.items.length} ajuste(s) lançados no estoque. ✨`,
         [{ text: 'OK', onPress: onClose }]
       );
     }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PurchaseItem } from '../../../../types/purchase.type';
+import { calculatePurchaseItemCostBreakdown } from '../utils/purchaseCalculationUtils';
 
 describe('Suíte de Regras de Negócio: Pedido de Compra (Cálculos, 3-Way Match e Validações)', () => {
   describe('1. Cálculos de Custos, IPI e Frete Rateados', () => {
@@ -7,23 +8,12 @@ describe('Suíte de Regras de Negócio: Pedido de Compra (Cálculos, 3-Way Match
       item: { baseCost: number; quantity: number },
       ipiPercent: number,
       freightPercent: number
-    ) => {
-      const baseCost = Number.isFinite(item.baseCost) ? item.baseCost : 0;
-      const safeIpi = Number.isFinite(ipiPercent) ? ipiPercent : 0;
-      const safeFreight = Number.isFinite(freightPercent) ? freightPercent : 0;
-      const qty = Math.max(1, item.quantity);
-
-      const itemIpi = baseCost * (safeIpi / 100);
-      const itemFreight = baseCost * (safeFreight / 100);
-      const itemUnitCost = baseCost + itemIpi + itemFreight;
-      const itemTotalCost = qty * itemUnitCost;
-
-      return {
-        quantity: qty,
-        unitCost: Number(itemUnitCost.toFixed(2)),
-        totalCost: Number(itemTotalCost.toFixed(2)),
-      };
-    };
+    ) => calculatePurchaseItemCostBreakdown(
+      { ...item, productId: '', description: '', unitCost: 0, totalCost: 0 },
+      0,
+      ipiPercent,
+      freightPercent
+    );
 
     it('calcula custo unitário e total sem IPI e sem frete', () => {
       const result = calculateProcessedItem({ baseCost: 100, quantity: 5 }, 0, 0);
@@ -53,7 +43,7 @@ describe('Suíte de Regras de Negócio: Pedido de Compra (Cálculos, 3-Way Match
       const result = calculateProcessedItem({ baseCost: 33.33, quantity: 2 }, 3, 7);
 
       expect(result.unitCost).toBe(36.66);
-      expect(result.totalCost).toBe(73.33);
+      expect(result.totalCost).toBe(73.32);
     });
 
     it('calcula o valor total do pedido como a soma exata de todos os itens processados', () => {

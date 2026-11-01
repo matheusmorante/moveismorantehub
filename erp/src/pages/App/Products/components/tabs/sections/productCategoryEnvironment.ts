@@ -26,7 +26,7 @@ export function searchProductCategories(
   searchTerm: string
 ): ProductCategoryOption[] {
   const term = normalizeSearchTerm(searchTerm);
-  if (term.length < 2) {
+  if (term.length < 3) {
     return [];
   }
 

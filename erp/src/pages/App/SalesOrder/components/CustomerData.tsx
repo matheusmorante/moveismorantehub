@@ -28,6 +28,8 @@ const CustomerDataInputs: React.FC<Props> = ({
     wrapperRef,
     searchTerm,
     isOpen,
+    isSearchSettled,
+    isSearchingCustomers,
     setIsOpen,
     isNewCustomerOpen,
     setIsNewCustomerOpen,
@@ -41,6 +43,7 @@ const CustomerDataInputs: React.FC<Props> = ({
     toggleFinalConsumer,
     handleEditCustomer,
     handleSearchInputChange,
+    handleSearchInputFocus,
     handleSearchInputKeyDown,
     handleNewCustomerSuccess,
     handleEditCustomerSuccess,
@@ -109,7 +112,7 @@ const CustomerDataInputs: React.FC<Props> = ({
           value={searchTerm}
           onKeyDown={handleSearchInputKeyDown}
           onChange={(e) => handleSearchInputChange(e.target.value)}
-          onFocus={() => setIsOpen(Boolean(searchTerm.trim().length >= 2))}
+          onFocus={handleSearchInputFocus}
           placeholder="Busque pelo nome ou telefone..."
           className={`w-full border-b-2 bg-transparent py-3 pr-20 text-sm outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-700 ${
             isFinalConsumer
@@ -158,7 +161,8 @@ const CustomerDataInputs: React.FC<Props> = ({
 
       <CustomerSearchDropdown
         anchorRef={wrapperRef}
-        isOpen={isOpen}
+        isOpen={isOpen && isSearchSettled}
+        isLoading={isSearchingCustomers}
         filteredCustomers={filteredCustomers}
         selectedCustomerId={customerData.id}
         onSelectCustomer={selectCustomer}

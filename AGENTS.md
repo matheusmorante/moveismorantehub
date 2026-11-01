@@ -172,3 +172,17 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 * Nas listas paginadas do ERP, exibir no máximo 15 registros por página. Não oferecer opções de 30, 50, 100 ou outro tamanho selecionável; remova o seletor e mantenha a navegação entre páginas.
 * A Agenda e o Cronograma de logística não devem ter paginação. Exibir todos os resultados que correspondam aos filtros vigentes, sem recorte por página nem controles de navegação.
 * Ao criar ou alterar um paginador do ERP, conferir todas as listas e caminhos afetados. A página inicial deve permanecer em 15 e não deve recuperar preferências ou quantidades salvas anteriormente.
+
+## 19. Campos de busca e autocomplete
+
+* Campos que oferecem sugestões em modal/dropdown ancorado ao input devem iniciar a busca e exibir resultados somente após pelo menos 3 caracteres úteis, com debounce mínimo de 300 ms nas consultas remotas. Consultas canceladas ou respostas obsoletas não devem atualizar a lista.
+* Exibir no máximo os 5 primeiros resultados nas sugestões. Aplicar limite também na consulta remota quando isso preservar os filtros e a cobertura da busca; se houver overfetch necessário por filtragem local posterior, documentar o motivo e manter a lista visível limitada a 5.
+* No ERP em telas largas, a busca comum de campo usa a lista de resultados ancorada abaixo do input, sem abrir uma tela/modal dedicado de busca avançada. Interfaces dedicadas de busca avançada ficam restritas ao mobile; quando usadas em campos, devem apresentar os resultados em um painel compacto logo abaixo do input.
+* Revisar os chamadores e consumidores antes de alterar busca compartilhada; não aplicar esta regra a listas completas, filtros de páginas ou fluxos próprios de seleção/histórico que não sejam autocomplete de campo.
+
+## 20. Busca sem distinção de acentos
+
+* Em todos os campos de busca por texto livre do ERP e do aplicativo, letras com e sem acento devem encontrar os mesmos resultados, sem distinção de maiúsculas e minúsculas. Por exemplo, “cafe” deve localizar “Café”, e “Café” deve localizar “cafe”.
+* Aplicar a normalização tanto à consulta quanto aos valores comparados, em buscas locais, offline e remotas. Em consultas remotas, filtrar no servidor antes da paginação, do limite e da contagem; não carregar apenas uma página para depois remover acentos no cliente.
+* Preservar os textos exibidos e armazenados, os campos cobertos pela busca, os filtros existentes e a pesquisa por códigos numéricos. A normalização vale somente para comparação e não altera cadastros.
+* Ao alterar uma busca existente nos dois clientes, conferir os caminhos reais do ERP e do app e manter a regra equivalente em ambos. Reutilizar os utilitários compartilhados quando aplicável, sem enfraquecer os limites de caracteres, debounce, cancelamento e quantidade de sugestões definidos na seção 19.

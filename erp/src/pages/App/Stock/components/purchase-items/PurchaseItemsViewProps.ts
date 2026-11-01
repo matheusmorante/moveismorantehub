@@ -6,9 +6,12 @@ export interface PurchaseItemsViewProps {
   items: PurchaseItem[];
   isReceiptMode: boolean;
   supplierId?: string;
+  discountPercent: number;
+  ipiPercent: number;
   freightPercent: number;
   formatCurrency: (value: number) => string;
   onRemoveItem: (idx: number) => void;
+  canRemoveItems?: boolean;
   onUpdateItem?: (idx: number, item: PurchaseItem) => void;
   onAddNewItemRow: () => void;
   handleSelectProductInRow: (idx: number, product: Product, variation?: Variation) => void;

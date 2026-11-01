@@ -56,7 +56,6 @@ export const InventoryOperationItemCard: React.FC<Props> = ({
                   styles.itemName,
                   { color: scopeType === 'custom' ? '#10b981' : textPrimary, flex: 1 },
                 ]}
-                numberOfLines={2}
               >
                 {item.name}
               </Text>
@@ -66,9 +65,6 @@ export const InventoryOperationItemCard: React.FC<Props> = ({
                 </View>
               )}
               {isCounted && scopeType !== 'custom' && <View style={styles.countedDot} />}
-              <TouchableOpacity onPress={onFocusItem} style={{ padding: 4 }}>
-                <Maximize2 size={20} color={muted} />
-              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -76,13 +72,29 @@ export const InventoryOperationItemCard: React.FC<Props> = ({
 
       <View style={styles.itemBody}>
         <View style={styles.statsCol}>
-          <View style={{ flexDirection: 'row', gap: 16 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              gap: 16,
+            }}
+          >
             <View>
-              <Text style={[styles.statLabel, { color: muted }]}>Sistema</Text>
+              <Text style={[styles.statLabel, { color: muted }]}>Estoque</Text>
               <Text style={[styles.statVal, { color: textPrimary }]}>
                 {item.systemStock} {item.unit}
               </Text>
             </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={`Abrir modo foco para ${item.name}`}
+              onPress={onFocusItem}
+              style={{ padding: 4 }}
+            >
+              <Maximize2 size={20} color={muted} />
+            </TouchableOpacity>
             {isCounted && diff !== 0 && (
               <View>
                 <Text style={[styles.statLabel, { color: muted }]}>Ajuste</Text>
@@ -102,9 +114,9 @@ export const InventoryOperationItemCard: React.FC<Props> = ({
             testID="decrement-btn"
             style={[styles.counterBtn, { backgroundColor: surface, borderColor: border }]}
             onPress={() => onUpdateCount(item, Math.max(0, (item.physicalCount || 0) - 1))}
-            disabled={item.physicalCount === 0}
+            disabled={(item.physicalCount ?? 0) <= 0}
           >
-            <Minus size={24} color={textPrimary} opacity={item.physicalCount === 0 ? 0.3 : 1} />
+            <Minus size={24} color={textPrimary} opacity={(item.physicalCount ?? 0) <= 0 ? 0.3 : 1} />
           </TouchableOpacity>
 
           <View style={{ alignItems: 'center', width: 60, overflow: 'hidden' }}>
@@ -169,13 +181,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   countedDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10b981' },
-  itemBody: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  statsCol: { flex: 1 },
+  itemBody: { flexDirection: 'column', alignItems: 'stretch', gap: 10 },
+  statsCol: { width: '100%' },
   statLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
   statVal: { fontSize: 16, fontWeight: '800' },
   counter: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     borderRadius: 12,
     borderWidth: 1,
     padding: 4,

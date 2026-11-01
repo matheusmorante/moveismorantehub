@@ -2,6 +2,10 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { TABLE_NAME } from '@/pages/utils/productService/productSkuService';
 import { mapFromDB } from '@/pages/utils/productService/productMapper';
 import Product, { Variation } from '@/pages/types/product.type';
+import {
+  buildPostgrestAccentInsensitiveOrFilter,
+  buildPostgrestAccentInsensitivePattern,
+} from '../../../../shared-utils/searchText';
 
 // Interfaces de transporte exclusivas para o Agente IA (sem IDs de banco)
 
@@ -250,19 +254,17 @@ export const productAgentTools = {
       }
 
       if (categoryFilter) {
-        query = query.ilike('category', `%${categoryFilter}%`);
+        query = query.filter('category', 'imatch', buildPostgrestAccentInsensitivePattern(categoryFilter));
       }
 
       if (searchTerm) {
-        const term = `%${searchTerm}%`;
-
         // Busca se há variações que combinam com o termo para incluir os produtos pai
         let matchedParentIds: string[] = [];
         try {
           const { data: matchedVars } = await supabase
             .from('product_variations')
             .select('product_id')
-            .or(`name.ilike.${term},sku.ilike.${term}`)
+            .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], searchTerm))
             .limit(50);
 
           if (matchedVars && matchedVars.length > 0) {
@@ -275,11 +277,10 @@ export const productAgentTools = {
         }
 
         const orConditions = [
-          `name.ilike.${term}`,
-          `description.ilike.${term}`,
-          `code.ilike.${term}`,
-          `sku.ilike.${term}`,
-          `brand.ilike.${term}`,
+          buildPostgrestAccentInsensitiveOrFilter(
+            ['name', 'description', 'code', 'sku', 'brand'],
+            searchTerm
+          ),
         ];
 
         if (matchedParentIds.length > 0) {
@@ -374,7 +375,7 @@ export const productAgentTools = {
             '*, product_variations(*), product_categories(*, categories(*)), product_images(*)'
           )
           .eq('deleted', false)
-          .or(`code.eq.${paddedCode},sku.ilike.%${rawTarget}%`)
+          .or(`code.eq.${paddedCode},sku.imatch.${buildPostgrestAccentInsensitivePattern(rawTarget)}`)
           .limit(1)
           .maybeSingle();
 

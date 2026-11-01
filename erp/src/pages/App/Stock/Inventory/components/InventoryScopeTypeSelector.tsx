@@ -21,7 +21,7 @@ export const InventoryScopeTypeSelector: React.FC<InventoryScopeTypeSelectorProp
           Inventário Geral
         </span>
         <span className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
-          Conte todos os itens do escopo pelo scanner geral. Os cartões mostram itens contados por fornecedor.
+                  Conte todos os itens do escopo pelo scanner geral. Os cartões mostram as quantidades contadas por fornecedor.
         </span>
       </button>
 

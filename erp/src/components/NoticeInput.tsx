@@ -3,6 +3,7 @@ import { getNoticeFrequency } from '../pages/utils/orderHistoryService';
 import DropdownPortal from './shared/DropdownPortal';
 import { useRef } from 'react';
 import { joinNoticeTags, splitNoticeTags } from '../pages/utils/noticeTags';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface NoticeInputProps {
   value: string;
@@ -44,7 +45,7 @@ const NoticeInput = ({
     const query = inputValue.toLowerCase().trim();
     return Object.entries(frequencies)
       .filter(
-        ([text]) => !tags.includes(text) && (query === '' || text.toLowerCase().includes(query))
+        ([text]) => !tags.includes(text) && matchesSearchText(text, query)
       )
       .sort((a, b) => b[1] - a[1]) // Sort by frequency
       .slice(0, 10);

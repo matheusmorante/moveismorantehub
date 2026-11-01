@@ -3,6 +3,7 @@ import { usePriceLabelFonts } from '../hooks/usePriceLabelFonts';
 import { usePriceLabelCanvasScale } from '../hooks/usePriceLabelCanvasScale';
 import type { PriceLabelLayerKey } from '../types/PriceLabelArtEditorTypes';
 import type { PriceLabelArtData } from '../types/PriceLabelArtData';
+import { PriceLabelArtTransformHandles } from './PriceLabelArtTransformHandles';
 import { PriceLabelDealPriceGroup } from './PriceLabelDealPriceGroup';
 import { PriceLabelTitleLayer } from './PriceLabelTitleLayer';
 
@@ -232,26 +233,11 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
 
           <span>{currencySymbol}</span>
           {isEdit && selectedElement === 'currencySymbol' && (
-            <>
-              {startResizing && (
-                <div
-                  onMouseDown={(e) => startResizing('currencySymbol', e)}
-                  onTouchStart={(e) => startResizing('currencySymbol', e)}
-                  title="Arraste para redimensionar"
-                  className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                />
-              )}
-              {startRotating && (
-                <div
-                  onMouseDown={(e) => startRotating('currencySymbol', e)}
-                  onTouchStart={(e) => startRotating('currencySymbol', e)}
-                  title="Arraste para rotacionar"
-                  className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                >
-                  <i className="bi bi-arrow-clockwise text-[11px]" />
-                </div>
-              )}
-            </>
+            <PriceLabelArtTransformHandles
+              layer="currencySymbol"
+              startResizing={startResizing}
+              startRotating={startRotating}
+            />
           )}
         </div>
       )}
@@ -322,26 +308,13 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
           )}
 
           {isEdit && selectedElement === 'promoPrice' && (
-            <>
-              {startResizing && (
-                <div
-                  onMouseDown={(e) => startResizing('promoPrice', e)}
-                  onTouchStart={(e) => startResizing('promoPrice', e)}
-                  title="Arraste para redimensionar escala do preço"
-                  className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-blue-600 rounded-none cursor-se-resize z-40 shadow-xs hover:scale-125"
-                />
-              )}
-              {startRotating && (
-                <div
-                  onMouseDown={(e) => startRotating('promoPrice', e)}
-                  onTouchStart={(e) => startRotating('promoPrice', e)}
-                  title="Arraste para rotacionar"
-                  className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                >
-                  <i className="bi bi-arrow-clockwise text-[11px]" />
-                </div>
-              )}
-            </>
+            <PriceLabelArtTransformHandles
+              layer="promoPrice"
+              startResizing={startResizing}
+              startRotating={startRotating}
+              resizeTitle="Arraste para redimensionar escala do preço"
+              resizeClassName="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-blue-600 rounded-none cursor-se-resize z-40 shadow-xs hover:scale-125"
+            />
           )}
         </div>
       )}
@@ -376,26 +349,11 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
 
           <span>{centsText}</span>
           {isEdit && selectedElement === 'cents' && (
-            <>
-              {startResizing && (
-                <div
-                  onMouseDown={(e) => startResizing('cents', e)}
-                  onTouchStart={(e) => startResizing('cents', e)}
-                  title="Arraste para redimensionar"
-                  className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                />
-              )}
-              {startRotating && (
-                <div
-                  onMouseDown={(e) => startRotating('cents', e)}
-                  onTouchStart={(e) => startRotating('cents', e)}
-                  title="Arraste para rotacionar"
-                  className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                >
-                  <i className="bi bi-arrow-clockwise text-[11px]" />
-                </div>
-              )}
-            </>
+            <PriceLabelArtTransformHandles
+              layer="cents"
+              startResizing={startResizing}
+              startRotating={startRotating}
+            />
           )}
         </div>
       )}
@@ -434,26 +392,11 @@ export const PriceLabelArtRenderer: React.FC<PriceLabelArtRendererProps> = ({
 
           <span>{installments}</span>
           {isEdit && selectedElement === 'installments' && (
-            <>
-              {startResizing && (
-                <div
-                  onMouseDown={(e) => startResizing('installments', e)}
-                  onTouchStart={(e) => startResizing('installments', e)}
-                  title="Arraste para redimensionar"
-                  className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-white border border-blue-600 rounded-none cursor-se-resize z-30 shadow-xs hover:scale-125"
-                />
-              )}
-              {startRotating && (
-                <div
-                  onMouseDown={(e) => startRotating('installments', e)}
-                  onTouchStart={(e) => startRotating('installments', e)}
-                  title="Arraste para rotacionar"
-                  className="absolute -bottom-6 -right-6 w-5 h-5 bg-white border border-purple-600 rounded-full cursor-grab z-40 shadow-md hover:scale-125 flex items-center justify-center text-purple-600"
-                >
-                  <i className="bi bi-arrow-clockwise text-[11px]" />
-                </div>
-              )}
-            </>
+            <PriceLabelArtTransformHandles
+              layer="installments"
+              startResizing={startResizing}
+              startRotating={startRotating}
+            />
           )}
         </div>
       )}

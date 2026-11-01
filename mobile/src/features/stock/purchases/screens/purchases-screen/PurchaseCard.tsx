@@ -39,23 +39,30 @@ export const PurchaseCard: React.FC<PurchaseCardProps> = ({
           </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={
-              item.status === 'draft'
-                ? `Ações do pedido em rascunho #${purchaseCode}`
-                : `Alterar status do pedido #${purchaseCode}`
-            }
-            onPress={(event) => {
-              event.stopPropagation();
-              onOpenStatusMenu();
-            }}
-            hitSlop={4}
-            style={[styles.badge, styles.badgeButton, { backgroundColor: status.bg }]}
-          >
-            <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
-            <ChevronDown size={12} color={status.color} />
-          </TouchableOpacity>
+          {item.status === 'draft' ? (
+            <View
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel={`Status: ${status.label}`}
+              style={[styles.badge, { backgroundColor: status.bg }]}
+            >
+              <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={`Alterar status do pedido #${purchaseCode}`}
+              onPress={(event) => {
+                event.stopPropagation();
+                onOpenStatusMenu();
+              }}
+              hitSlop={4}
+              style={[styles.badge, styles.badgeButton, { backgroundColor: status.bg }]}
+            >
+              <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
+              <ChevronDown size={12} color={status.color} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel={`Opções do pedido de compra #${purchaseCode}`}

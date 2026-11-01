@@ -96,8 +96,8 @@ export function ReceiptFormHeader({
                 : undefined
           }
           customLabel="Fornecedor"
-          placeholder="Digite 2 ou mais letras para buscar fornecedor..."
-          minChars={2}
+          placeholder="Digite pelo menos 3 caracteres para buscar fornecedor..."
+          minChars={3}
         />
       </div>
       <label className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">

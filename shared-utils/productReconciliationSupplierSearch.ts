@@ -3,6 +3,7 @@ import {
   reconciliationSupplierResultsSchema,
   reconciliationSupplierSearchSchema,
 } from './reconciliationFormSchemas';
+import { buildPostgrestAccentInsensitiveOrFilter } from './searchText';
 
 export type ReconciliationSupplierOption = {
   id: string;
@@ -23,11 +24,11 @@ export async function searchReconciliationSuppliersWithClient(
     client
       .from('people')
       .select('id, full_name, social_name, nickname, cpf_cnpj')
-      .or('full_name.ilike."%' + values.search + '%",social_name.ilike."%' + values.search + '%"')
+      .or(buildPostgrestAccentInsensitiveOrFilter(['full_name', 'social_name'], values.search))
       .or('person_type.ilike.suppliers,person_type.ilike.supplier')
       .eq('deleted', false)
       .order('full_name')
-      .limit(20),
+      .limit(5),
     15_000,
     null,
     'reconciliacao:buscar-fornecedor'

@@ -20,7 +20,7 @@ export const PurchaseItemsEntrySection = ({
         <h3 className="text-xs font-black uppercase leading-none tracking-widest text-slate-700 dark:text-slate-200">
           {isReceiptMode ? 'Itens do Recebimento' : 'Itens do Pedido'}
         </h3>
-        {isReceiptMode && !supplierId && (
+        {!supplierId && (
           <span className="text-[10px] font-bold text-amber-500 ml-2">
             (Selecione o fornecedor acima primeiro)
           </span>
@@ -37,10 +37,10 @@ export const PurchaseItemsEntrySection = ({
       <button
         type="button"
         onClick={onAddNewItemRow}
-        disabled={Boolean(isReceiptMode && !supplierId)}
+        disabled={!supplierId}
         className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
         title={
-          isReceiptMode && !supplierId
+          !supplierId
             ? 'Selecione o fornecedor acima primeiro'
             : 'Adicionar Item'
         }

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { AuditItem } from '../types/inventoryAudit.types';
+import { sumInventoryCountedQuantities } from '../../../../../../../shared-utils/inventorySupplierStages';
 
 interface InventoryOperationHeaderProps {
   readonly items: readonly AuditItem[];
@@ -16,12 +17,11 @@ export const InventoryOperationHeader: React.FC<InventoryOperationHeaderProps> =
   title,
   showCount = true,
   count,
-  countLabel = 'produtos contados',
+  countLabel = 'quantidades contadas',
   onClose,
   onRequestCancelInventory,
 }) => {
-  const countedItems = items.filter((i) => typeof i.physicalCount === 'number');
-  const displayedCount = count ?? countedItems.length;
+  const displayedCount = count ?? sumInventoryCountedQuantities(items);
   const [isCancelMenuOpen, setIsCancelMenuOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -89,7 +89,7 @@ export const InventoryOperationHeader: React.FC<InventoryOperationHeaderProps> =
         role="status"
         aria-live="polite"
       >
-        <span className="text-emerald-600 dark:text-emerald-400">{displayedCount}</span>{' '}
+        <span className="text-emerald-600 dark:text-emerald-400">{displayedCount.toLocaleString('pt-BR')}</span>{' '}
         {countLabel}
       </div>}
     </div>

@@ -26,6 +26,13 @@ import type {
   CustomerSupportSendInput,
   CustomerSupportSendResult,
 } from '@/pages/utils/customerSupport/customerSupportService';
+import {
+  formatSelectedMessage,
+  formatSelectedMessageLines,
+  WHATSAPP_FORMATS,
+  WHATSAPP_LINE_FORMATS,
+  type WhatsAppLineFormatKind,
+} from './chatMessageFormatting';
 
 type SupportChatComposerAttachment = z.input<typeof supportChatComposerDraftSchema>['attachments'][number];
 type AttachmentKind = SupportChatComposerAttachment['kind'];
@@ -53,19 +60,6 @@ interface ChatComposerProps {
 }
 
 const EMOJIS = ['😀', '😊', '😍', '👍', '🙏', '❤️', '✨', '😉', '🎉', '👋', '😄', '🛋️'];
-const WHATSAPP_FORMATS = [
-  { label: 'B', name: 'Negrito', prefix: '*', suffix: '*', title: 'Negrito · *texto*', className: 'font-extrabold' },
-  { label: 'I', name: 'Itálico', prefix: '_', suffix: '_', title: 'Itálico · _texto_', className: 'italic' },
-  { label: 'S', name: 'Tachado', prefix: '~', suffix: '~', title: 'Tachado · ~texto~', className: 'line-through' },
-  { label: '`', name: 'Código inline', prefix: '`', suffix: '`', title: 'Código inline · `texto`', className: 'font-mono' },
-  { label: '</>', name: 'Monoespaçado', prefix: '```', suffix: '```', title: 'Monoespaçado · ```texto```', className: 'font-mono text-[10px]' },
-];
-
-const WHATSAPP_LINE_FORMATS = [
-  { label: '•', name: 'Lista com marcadores', kind: 'bullet' as const, title: 'Lista com marcadores · * texto' },
-  { label: '1.', name: 'Lista numerada', kind: 'numbered' as const, title: 'Lista numerada · 1. texto' },
-  { label: '❞', name: 'Citação', kind: 'quote' as const, title: 'Citação · > texto' },
-];
 const MAX_ATTACHMENTS = 50;
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
 const FILE_TYPES: Record<string, { mimeType: string; label: string }> = {
@@ -542,49 +536,25 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     const textarea = textareaRef.current;
     const start = textarea?.selectionStart ?? message.length;
     const end = textarea?.selectionEnd ?? message.length;
-    const selected = message.slice(start, end);
-    const isWrapped = Boolean(selected)
-      && message.slice(Math.max(0, start - prefix.length), start) === prefix
-      && message.slice(end, end + suffix.length) === suffix;
-    const nextMessage = isWrapped
-      ? `${message.slice(0, start - prefix.length)}${selected}${message.slice(end + suffix.length)}`
-      : `${message.slice(0, start)}${prefix}${selected}${suffix}${message.slice(end)}`;
-    const selectionStart = isWrapped ? start - prefix.length : start + prefix.length;
-    const selectionEnd = selectionStart + selected.length;
+    const formatted = formatSelectedMessage(message, start, end, prefix, suffix);
 
-    setDraftValue('message', nextMessage, { shouldDirty: true, shouldValidate: true });
+    setDraftValue('message', formatted.message, { shouldDirty: true, shouldValidate: true });
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(selectionStart, selectionEnd);
+      textareaRef.current?.setSelectionRange(formatted.selectionStart, formatted.selectionEnd);
     });
   };
 
-  const applyMessageLineFormatting = (kind: typeof WHATSAPP_LINE_FORMATS[number]['kind']) => {
+  const applyMessageLineFormatting = (kind: WhatsAppLineFormatKind) => {
     const textarea = textareaRef.current;
     const start = textarea?.selectionStart ?? message.length;
     const end = textarea?.selectionEnd ?? message.length;
-    const hasSelection = start !== end;
-    const lineStart = message.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
-    const selectedEnd = hasSelection ? Math.max(start, end - 1) : start;
-    const nextBreak = hasSelection && message[end - 1] === '\n'
-      ? end - 1
-      : message.indexOf('\n', selectedEnd);
-    const lineEnd = nextBreak < 0 ? message.length : nextBreak;
-    const selectedLines = message.slice(lineStart, lineEnd).split('\n');
-    const markerAt = (index: number) => kind === 'numbered' ? `${index + 1}. ` : kind === 'quote' ? '> ' : '* ';
-    const linePattern = kind === 'numbered' ? /^\d+\. /u : kind === 'quote' ? /^> /u : /^\* /u;
-    const remove = selectedLines.every((line) => linePattern.test(line));
-    const formattedLines = selectedLines.map((line, index) => remove ? line.replace(linePattern, '') : `${markerAt(index)}${line}`);
-    const replacement = formattedLines.join('\n');
-    const nextMessage = `${message.slice(0, lineStart)}${replacement}${message.slice(lineEnd)}`;
-    const existingMarkerLength = selectedLines[0].match(linePattern)?.[0].length || 0;
-    const cursorOffset = Math.max(0, start - lineStart + (remove ? -existingMarkerLength : markerAt(0).length));
-    const cursor = lineStart + Math.min(replacement.length, cursorOffset);
+    const formatted = formatSelectedMessageLines(message, start, end, kind);
 
-    setDraftValue('message', nextMessage, { shouldDirty: true, shouldValidate: true });
+    setDraftValue('message', formatted.message, { shouldDirty: true, shouldValidate: true });
     requestAnimationFrame(() => {
       textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(hasSelection ? lineStart : cursor, hasSelection ? lineStart + replacement.length : cursor);
+      textareaRef.current?.setSelectionRange(formatted.selectionStart, formatted.selectionEnd);
     });
   };
 

@@ -5,6 +5,7 @@ import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import { postLibraryFilterFormSchema, postDeleteFormSchema, postDownloadFormSchema } from '../../../../../../../../shared-utils/marketingFormSchemas';
 import { submittedSearchFormSchema } from '../../../../../../../../shared-utils/lookupFormSchemas';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../../../../../shared-utils/searchText';
 import { toast } from 'react-toastify';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { PostCampaign } from '../../types/postCreator';
@@ -101,7 +102,7 @@ export function PostsLibraryPage({
     const current = () => active.current && actor.current === scope;
     const results = await searchProducts({ search: query }, async (values) => {
       if (!current()) return [];
-      const result = await withTimeout(supabase.from('products').select('id, name, description, slug').ilike('name', '%' + values.search + '%').eq('is_draft', false).limit(10), 15_000, null, 'Buscar produto da biblioteca');
+      const result = await withTimeout(supabase.from('products').select('id, name, description, slug').filter('name', 'imatch', buildPostgrestAccentInsensitivePattern(values.search)).eq('is_draft', false).limit(10), 15_000, null, 'Buscar produto da biblioteca');
       if (!current()) return [];
       if (!result || result.error || !Array.isArray(result.data)) throw new Error('A busca de produtos não foi confirmada. Tente novamente.');
       return result.data.map((product: any) => ({ id: product.id, name: product.name ?? product.description ?? 'Produto', slug: product.slug ?? '' }));

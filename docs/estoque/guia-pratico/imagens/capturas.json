@@ -226,26 +226,9 @@
   {
     "name": "09-pedido-compra",
     "file": "09-pedido-compra.png",
-    "width": 1280,
-    "height": 895,
-    "boxes": [
-      {
-        "n": 2,
-        "label": "Adicionar item",
-        "x": 76.5,
-        "y": 421.25,
-        "w": 120.8125,
-        "h": 16
-      },
-      {
-        "n": 3,
-        "label": "Confirmar Pedido",
-        "x": 1022.5,
-        "y": 805.75,
-        "w": 225,
-        "h": 56
-      }
-    ]
+    "width": 916,
+    "height": 365,
+    "boxes": []
   },
   {
     "name": "11-inventario-responsavel",

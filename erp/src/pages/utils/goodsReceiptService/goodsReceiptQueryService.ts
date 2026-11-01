@@ -13,6 +13,7 @@ import {
   removeReceiptListener,
 } from './goodsReceiptStorage';
 import { mapGoodsReceiptRow } from './goodsReceiptMapper';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
 
 export const fetchGoodsReceiptsPage = async (
   options?: FetchGoodsReceiptsOptions
@@ -34,7 +35,7 @@ export const fetchGoodsReceiptsPage = async (
   }
 
   if (searchTerm) {
-    query = query.or(`supplier_name.ilike.%${searchTerm}%,invoice_number.ilike.%${searchTerm}%`);
+    query = query.or(buildPostgrestAccentInsensitiveOrFilter(['supplier_name', 'invoice_number'], searchTerm));
   }
 
   query = query

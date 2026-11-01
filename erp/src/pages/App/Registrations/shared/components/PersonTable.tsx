@@ -4,6 +4,7 @@ import PersonCard from './PersonCard';
 import Person, { PersonVisibilitySettings } from '../../../../types/person.type';
 import { useAutoScroll } from '../../../../utils/useAutoScroll';
 import { getSettings } from '@/pages/utils/settingsService';
+import type { SupplierDeletionCounts } from '../../../../../../../shared-utils/supplierDeletion';
 
 interface PersonTableProps {
   readonly people: readonly Person[];
@@ -27,7 +28,9 @@ interface PersonTableProps {
   readonly storageKey: string;
   readonly onViewPurchaseHistory?: (person: Person) => void;
   readonly collectionName: string;
-  readonly supplierProductCounts?: Readonly<Record<string, number>>;
+  readonly supplierDeletionCounts?: Readonly<Record<string, SupplierDeletionCounts>>;
+  readonly supplierDeletionCountLoading?: Readonly<Record<string, boolean>>;
+  readonly supplierDeletionCountErrors?: Readonly<Record<string, boolean>>;
   readonly customerOrderCounts?: Readonly<Record<string, number>>;
 }
 
@@ -77,7 +80,9 @@ const PersonTable = ({
   storageKey,
   onViewPurchaseHistory,
   collectionName,
-  supplierProductCounts,
+  supplierDeletionCounts,
+  supplierDeletionCountLoading,
+  supplierDeletionCountErrors,
   customerOrderCounts,
 }: PersonTableProps) => {
   const isMobile =
@@ -322,7 +327,10 @@ const PersonTable = ({
                 isSelected={selectedPeople.includes(person.id!)}
                 onToggleSelection={() => onToggleSelection(person.id!)}
                 onViewPurchaseHistory={onViewPurchaseHistory}
-                productCount={supplierProductCounts?.[person.id || ''] || 0}
+                productCount={supplierDeletionCounts?.[person.id || '']?.productCount}
+                supplierDeletionCounts={supplierDeletionCounts?.[person.id || '']}
+                supplierDeletionCountLoading={supplierDeletionCountLoading?.[person.id || '']}
+                supplierDeletionCountError={supplierDeletionCountErrors?.[person.id || '']}
                 orderCount={customerOrderCounts?.[person.id || ''] || 0}
               />
             ))}
@@ -355,7 +363,10 @@ const PersonTable = ({
               isSelected={selectedPeople.includes(person.id!)}
               onToggleSelection={() => onToggleSelection(person.id!)}
               onViewPurchaseHistory={onViewPurchaseHistory}
-              productCount={supplierProductCounts?.[person.id || ''] || 0}
+              productCount={supplierDeletionCounts?.[person.id || '']?.productCount}
+              supplierDeletionCounts={supplierDeletionCounts?.[person.id || '']}
+              supplierDeletionCountLoading={supplierDeletionCountLoading?.[person.id || '']}
+              supplierDeletionCountError={supplierDeletionCountErrors?.[person.id || '']}
               allowsSelection={allowsSelection}
             />
           ))

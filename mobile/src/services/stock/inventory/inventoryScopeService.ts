@@ -12,6 +12,11 @@ import {
 import { filterInventoryResponsibleCandidates } from '../../../../../shared-utils/inventoryResponsible';
 import { isStockInventorySupplierEligible } from '../../../../../shared-utils/inventorySupplierEligibility';
 import { OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION } from '../../../features/stock/inventory/services/catalog/offlineInventoryCatalogTypes';
+import {
+  buildPostgrestAccentInsensitiveOrFilter,
+  buildPostgrestAccentInsensitivePattern,
+  matchesSearchText,
+} from '../../../../../shared-utils/searchText';
 
 const assertInventoryCatalogCurrent = (formatVersion?: number) => {
   if (formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION) {
@@ -118,7 +123,7 @@ export const fetchInventoryItems = async (
     .range(from, to);
 
   if (searchQuery) {
-    query = query.ilike('name', `%${searchQuery}%`);
+    query = query.filter('name', 'imatch', buildPostgrestAccentInsensitivePattern(searchQuery));
   }
 
   const { data, error } = await query;
@@ -137,7 +142,7 @@ export const searchProducts = async (query: string) => {
     const { data, error } = await supabase
       .from('products')
       .select('id, name, sku, stock, product_variations(id, name, sku, stock)')
-      .or(`name.ilike.%${query}%,sku.ilike.%${query}%`)
+      .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], query))
       .limit(10);
 
     if (error) throw error;
@@ -161,13 +166,13 @@ export const searchProducts = async (query: string) => {
     });
   } catch {
     // Fallback offline usando o catálogo local SQLite
-    const term = query.trim().toLowerCase();
     const localProducts = await getOfflineInventoryScopeProducts().catch(() => []);
     return localProducts
       .filter((item) =>
-        `${item.name || ''} ${item.sku || ''} ${item.code || ''} ${item.barcode || ''}`
-          .toLowerCase()
-          .includes(term)
+        matchesSearchText(
+          `${item.name || ''} ${item.sku || ''} ${item.code || ''} ${item.barcode || ''}`,
+          query
+        )
       )
       .slice(0, 10)
       .map((item) => ({

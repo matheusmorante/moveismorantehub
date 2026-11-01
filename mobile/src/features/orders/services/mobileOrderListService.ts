@@ -2,6 +2,7 @@ import { supabase } from '../../../services/supabaseClient';
 import { OrderRepository } from '../../../repositories/OrderRepository';
 import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
 
 const ORDER_LIST_VIEW_COLUMNS = [
   'id',
@@ -358,12 +359,12 @@ export const fetchMobileOrdersPage = async ({
       query = query.eq('order_type', effectiveOrderType) || query;
     }
 
-    const term = search.trim().replace(/[,%()]/g, '');
+    const term = search.trim().replace(/[,%()]/g, ' ');
     if (term) {
-      query =
-        query.or(
-          `customer_name.ilike.%${term}%,order_number.ilike.%${term}%,order_index.ilike.%${term}%`
-        ) || query;
+      query = query.or(buildPostgrestAccentInsensitiveOrFilter(
+        ['customer_name', 'order_number', 'order_index'],
+        term
+      )) || query;
     }
     if (status === 'agendados')
       query = query.or('status.ilike.%scheduled%,status.ilike.%agendad%') || query;
@@ -419,9 +420,9 @@ export const fetchMobileOrdersPage = async ({
     query = query.eq('order_type', effectiveOrderType) || query;
   }
 
-  const term = search.trim().replace(/[,%()]/g, '');
+  const term = search.trim().replace(/[,%()]/g, ' ');
   if (term) {
-    query = query.or(`customer_name.ilike.%${term}%,order_number.ilike.%${term}%`) || query;
+    query = query.or(buildPostgrestAccentInsensitiveOrFilter(['customer_name', 'order_number'], term)) || query;
   }
   if (status === 'agendados')
     query = query.or('status.ilike.%scheduled%,status.ilike.%agendad%') || query;

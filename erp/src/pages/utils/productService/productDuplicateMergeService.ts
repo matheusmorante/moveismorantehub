@@ -9,6 +9,7 @@ import {
   duplicateProductMergeSearchSchema,
   DuplicateProductMergeUnconfirmedError,
 } from '../../../../../shared-utils/productDuplicateMergeFormSchemas';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../../shared-utils/searchText';
 
 export type DuplicateProductMergeOption = ReturnType<typeof duplicateProductMergeOptionSchema.parse>;
 
@@ -20,8 +21,6 @@ export async function searchDuplicateProductMergeTargets(
   const parsed = duplicateProductMergeSearchSchema.safeParse({ sourceId, query });
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message || 'Confira a busca do produto canônico.');
 
-  const term = parsed.data.query.replace(/[\\%_]/g, '\\$&');
-  const pattern = `%${term}%`;
   const readTargets = async (column: 'code' | 'name') => withTimeout(
     supabase.from('products')
       .select('id, code, name, stock')
@@ -30,7 +29,7 @@ export async function searchDuplicateProductMergeTargets(
       .eq('has_variations', true)
       .eq('is_combo', false)
       .neq('id', parsed.data.sourceId)
-      .ilike(column, pattern)
+      .filter(column, 'imatch', buildPostgrestAccentInsensitivePattern(parsed.data.query))
       .limit(12),
     10000,
     null,

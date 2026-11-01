@@ -255,6 +255,19 @@ export const permanentDeletePerson = async (
   options: PersonMutationOptions = {}
 ): Promise<void> => {
   try {
+    if (collectionName === 'suppliers') {
+      const { data, error } = await supabase.rpc('delete_supplier_if_unlinked', {
+        p_supplier_id: id,
+      });
+      if (error) throw error;
+      if (data !== true) {
+        throw new Error('O fornecedor possui vínculos ou não pode ser excluído. Atualize a lista e confira novamente.');
+      }
+      dispatchPeopleUpdated(collectionName, options);
+      invalidatePeopleQueryCache(collectionName, options);
+      return;
+    }
+
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     let deletedInPeople = false;
 

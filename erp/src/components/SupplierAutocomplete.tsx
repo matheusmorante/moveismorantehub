@@ -25,7 +25,7 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
   selectedSupplierId,
   onSelect,
   supplierFilter,
-  placeholder = 'Digite 2 ou mais letras para buscar fornecedor...',
+  placeholder = 'Digite pelo menos 3 caracteres para buscar fornecedor...',
   className = '',
   inputClassName = 'w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 p-2 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-sm font-bold text-slate-700 dark:text-slate-200 transition-all focus:ring-0 rounded-none',
   disabled = false,
@@ -34,8 +34,9 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
   hideLabel = false,
   customLabel = 'Fornecedor',
   showSelectedBadge = true,
-  minChars = 2,
+  minChars = 3,
 }) => {
+  const requiredMinChars = Math.max(3, minChars);
   const [showDisabledReason, setShowDisabledReason] = useState(false);
   const disabledReasonId = React.useId();
   const {
@@ -43,6 +44,7 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
     wrapperRef,
     showSuggestions,
     setShowSuggestions,
+    isSearchSettled,
     filteredSuggestions,
     isSelected,
     handleClear,
@@ -55,7 +57,7 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
     onSelect,
     supplierFilter,
     disabled,
-    minChars,
+    minChars: requiredMinChars,
   });
 
   React.useEffect(() => {
@@ -90,7 +92,7 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
               </span>
             )}
           </label>
-          {disabled && (
+          {disabled && !showDisabledReasonOnClick && (
             <span className="text-[9px] font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1">
               <i className="bi bi-lock-fill text-[10px]" /> Bloqueado
             </span>
@@ -101,7 +103,8 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
         {disabled && showDisabledReasonOnClick ? (
           <button
             type="button"
-            className={`${inputClassName} block text-left pr-10 opacity-70 cursor-pointer bg-slate-100 dark:bg-slate-800/60`}
+            className={`${inputClassName} block text-left pr-10 ${isSelected ? '' : 'opacity-70'} cursor-pointer bg-slate-100 dark:bg-slate-800/60`}
+            style={isSelected ? { borderBottomColor: '#10b981' } : undefined}
             aria-label="Ver por que o fornecedor está bloqueado"
             aria-expanded={showDisabledReason}
             aria-controls={disabledReasonId}
@@ -119,11 +122,12 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
             onChange={(e) => handleInputChange(e.target.value)}
             onFocus={handleFocus}
             placeholder={disabled ? 'Fornecedor fixado para os itens atuais' : placeholder}
+            style={isSelected ? { borderBottomColor: '#10b981' } : undefined}
             className={`${inputClassName} ${
               disabled
                 ? 'opacity-70 cursor-not-allowed bg-slate-100 dark:bg-slate-800/60'
                 : isSelected
-                  ? 'border-b-2 border-emerald-500 dark:border-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-100 focus:border-blue-600'
+                  ? 'border-b-2 border-emerald-500 dark:border-emerald-500 focus:border-blue-600'
                   : 'bg-white dark:bg-slate-900'
             }`}
             title={
@@ -146,9 +150,14 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
               <i className="bi bi-x-lg text-xs" />
             </button>
           )}
-          <i
-            className={`bi ${disabled ? 'bi-lock-fill text-amber-500' : isSelected ? 'bi-check-circle-fill text-emerald-600 dark:text-emerald-400' : 'bi-truck text-slate-400'} text-base`}
-          />
+          {isSelected && (
+            <i className="bi bi-check-circle-fill text-emerald-600 dark:text-emerald-400 text-base" />
+          )}
+          {disabled ? (
+            <i className="bi bi-lock-fill text-amber-500 text-base" />
+          ) : !isSelected ? (
+            <i className="bi bi-truck text-slate-400 text-base" />
+          ) : null}
         </div>
         {disabled && showDisabledReasonOnClick && showDisabledReason && disabledReason && (
           <div
@@ -173,7 +182,8 @@ const SupplierAutocomplete: React.FC<SupplierAutocompleteProps> = ({
         isOpen={
           !disabled &&
           showSuggestions &&
-          (!minChars || query.trim().length >= minChars) &&
+          query.trim().length >= requiredMinChars &&
+          isSearchSettled &&
           suppliers.length > 0
         }
         suggestions={filteredSuggestions}

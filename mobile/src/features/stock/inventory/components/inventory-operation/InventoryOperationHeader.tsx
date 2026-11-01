@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ArrowLeft, MoreVertical, ScanLine, X } from 'lucide-react-native';
+import { ArrowLeft, ScanLine } from 'lucide-react-native';
 
 interface Props {
   isDarkMode: boolean;
@@ -21,7 +21,7 @@ export const InventoryOperationHeader: React.FC<Props> = ({
   isDarkMode,
   title,
   countedCount,
-  countLabel = 'produtos contados',
+  countLabel = 'quantidades contadas',
   onBack,
   onOpenScanner,
   showBackButton = true,
@@ -35,12 +35,6 @@ export const InventoryOperationHeader: React.FC<Props> = ({
   const border = isDarkMode ? '#334155' : '#e2e8f0';
   const textPrimary = isDarkMode ? '#f1f5f9' : '#0f172a';
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
-  const [stageMenuOpen, setStageMenuOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!showStageActions && !onRequestCancelInventory) setStageMenuOpen(false);
-  }, [showStageActions, onRequestCancelInventory]);
-
   return (
     <View
       style={[
@@ -59,7 +53,7 @@ export const InventoryOperationHeader: React.FC<Props> = ({
         </Text>
         {showCount && (
           <Text style={[styles.countedText, { color: muted }]}>
-            <Text style={{ color: '#10b981', fontWeight: '800' }}>{countedCount}</Text>{' '}
+            <Text style={{ color: '#10b981', fontWeight: '800' }}>{countedCount.toLocaleString('pt-BR')}</Text>{' '}
             {countLabel}
           </Text>
         )}
@@ -70,54 +64,32 @@ export const InventoryOperationHeader: React.FC<Props> = ({
             accessibilityRole="button"
             accessibilityLabel="Escanear inventário"
             style={styles.scanActionBtn}
-            onPress={() => {
-              setStageMenuOpen(false);
-              onOpenScanner();
-            }}
+            onPress={onOpenScanner}
           >
             <ScanLine size={24} color="#ffffff" />
           </TouchableOpacity>
         )}
         {(showStageActions || onRequestCancelInventory) && (
-          <View style={styles.stageActionsContainer}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel={showStageActions ? 'Ações do inventário e da etapa' : 'Ações do inventário'}
-              accessibilityState={{ expanded: stageMenuOpen }}
-              style={styles.stageMenuButton}
-              onPress={() => setStageMenuOpen((open) => !open)}
-            >
-              <MoreVertical size={22} color={muted} />
-            </TouchableOpacity>
-            {stageMenuOpen && (
-              <View style={[styles.stageMenu, { backgroundColor: surface, borderColor: border }]}>
-                {onRequestCancelInventory && (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    style={styles.cancelStageAction}
-                    onPress={() => {
-                      setStageMenuOpen(false);
-                      onRequestCancelInventory();
-                    }}
-                  >
-                    <X size={17} color={isDarkMode ? '#fda4af' : '#e11d48'} />
-                    <Text style={[styles.cancelStageLabel, { color: isDarkMode ? '#fda4af' : '#be123c' }]}>Cancelar inventário</Text>
-                  </TouchableOpacity>
-                )}
-                {showStageActions && (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    style={styles.cancelStageAction}
-                    onPress={() => {
-                      setStageMenuOpen(false);
-                      onRequestCancelStage?.();
-                    }}
-                  >
-                    <X size={17} color={isDarkMode ? '#fda4af' : '#e11d48'} />
-                    <Text style={[styles.cancelStageLabel, { color: isDarkMode ? '#fda4af' : '#be123c' }]}>Cancelar etapa</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+          <View style={styles.cancelActions}>
+            {showStageActions && onRequestCancelStage && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar etapa"
+                style={[styles.cancelActionButton, { backgroundColor: isDarkMode ? '#451a24' : '#fff1f2', borderColor: isDarkMode ? '#881337' : '#fecdd3' }]}
+                onPress={onRequestCancelStage}
+              >
+                <Text style={[styles.cancelActionLabel, { color: isDarkMode ? '#fda4af' : '#be123c' }]}>Cancelar etapa</Text>
+              </TouchableOpacity>
+            )}
+            {onRequestCancelInventory && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar inventário"
+                style={[styles.cancelActionButton, { backgroundColor: isDarkMode ? '#451a24' : '#fff1f2', borderColor: isDarkMode ? '#881337' : '#fecdd3' }]}
+                onPress={onRequestCancelInventory}
+              >
+                <Text style={[styles.cancelActionLabel, { color: isDarkMode ? '#fda4af' : '#be123c' }]}>Cancelar inventário</Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
@@ -152,24 +124,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  stageActionsContainer: { position: 'relative' },
-  stageMenuButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stageMenu: {
-    position: 'absolute',
-    top: 50,
-    right: 0,
-    width: 190,
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 5,
-    zIndex: 20,
-    elevation: 10,
-  },
-  cancelStageAction: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 11, paddingVertical: 12, borderRadius: 10 },
-  cancelStageLabel: { fontSize: 13, fontWeight: '700' },
+  cancelActions: { alignItems: 'flex-end', justifyContent: 'center', gap: 4 },
+  cancelActionButton: { minHeight: 28, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, justifyContent: 'center' },
+  cancelActionLabel: { fontSize: 10, fontWeight: '800' },
 });

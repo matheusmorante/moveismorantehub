@@ -4,6 +4,7 @@ import { TABLE_NAME, mapFromDB } from './personMapper';
 import { syncMissingEmployeesFromProfiles } from './personSyncService';
 import type { TestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
 import { isTestOperatorVisibleToUser } from '../../../../../shared-utils/testOperatorVisibility';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
 import {
   PERSON_QUERY_COLUMNS,
   type FetchPersonsOptions,
@@ -181,9 +182,11 @@ export const searchPeople = async (
     peopleQuery = peopleQuery.or(`person_type.ilike.suppliers,person_type.ilike.supplier`);
   }
 
-  const searchTerm = `%${query.trim()}%`;
   peopleQuery = peopleQuery.or(
-    `full_name.ilike.${searchTerm},social_name.ilike.${searchTerm},cpf_cnpj.ilike.${searchTerm},phone.ilike.${searchTerm},email.ilike.${searchTerm}`
+    buildPostgrestAccentInsensitiveOrFilter(
+      ['full_name', 'social_name', 'cpf_cnpj', 'phone', 'email'],
+      query.trim()
+    )
   );
 
   if (testContext) {

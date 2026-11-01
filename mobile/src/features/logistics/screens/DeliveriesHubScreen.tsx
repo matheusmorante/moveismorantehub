@@ -8,7 +8,7 @@ import {
   ScrollView,
   RefreshControl,
 } from 'react-native';
-import { LayoutGrid, Map, Truck, Wrench } from 'lucide-react-native';
+import { LayoutGrid, ListTodo, Map, Wrench } from 'lucide-react-native';
 import {
   useDeliveryRoute,
   DeliveryRouteDateScope,
@@ -41,7 +41,7 @@ const MAP_ACTIVITY_FILTERS: { key: MapActivityFilter; label: string }[] = [
 
 const OPERATIONS_TABS = [
   { key: 'today', label: 'Resumo', Icon: LayoutGrid },
-  { key: 'schedule', label: 'Entregas', Icon: Truck },
+  { key: 'schedule', label: 'Programação', Icon: ListTodo },
   { key: 'assemblies', label: 'Montagens', Icon: Wrench },
   { key: 'map', label: 'Mapa', Icon: Map },
 ] as const;
@@ -110,7 +110,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     setActiveTab(initialTab);
   }, [initialTab]);
 
-  // Hooks de dados e localização compartilhados entre Resumo, Entregas e Mapa.
+  // Hooks de dados e localização compartilhados entre Resumo, Programação e Mapa.
   const {
     orders,
     routeItems,
@@ -285,7 +285,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
           </View>
         </View>
 
-        {/* Abas Resumo, Entregas, Montagens e Mapa */}
+        {/* Abas Resumo, Programação, Montagens e Mapa */}
         <View style={[styles.tabsViewport, isDarkMode && styles.tabsViewportDark]}>
           {OPERATIONS_TABS.map(({ key, label, Icon }) => {
             const selected = activeTab === key;
@@ -343,19 +343,19 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
             orders={orders && orders.length > 0 ? orders : routeItems.map((item) => item.order)}
             activities={routeItems}
             assemblyTasks={visibleAssemblyTasks}
-            onSelectOrder={onSelectOrder}
+            onViewSchedule={() => setActiveTab('schedule')}
             onViewAssemblies={() => setActiveTab('assemblies')}
             periodFilter={scheduleDateScope}
             isDarkMode={isDarkMode}
           />
         </ScrollView>
       ) : activeTab === 'schedule' ? (
-        /* Aba ENTREGAS: Timeline vertical enxuta e focada */
+        /* Aba PROGRAMAÇÃO: timeline vertical de atividades */
         loading ? (
           <View style={styles.loadingCenter}>
             <ActivityIndicator size="large" color="#2563eb" />
             <Text style={[styles.loadingText, isDarkMode && styles.textMuted]}>
-              Carregando entregas...
+              Carregando atividades...
             </Text>
           </View>
         ) : (

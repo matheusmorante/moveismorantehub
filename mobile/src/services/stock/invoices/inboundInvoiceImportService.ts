@@ -1,4 +1,6 @@
 import { supabase } from '../../supabaseClient';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../../shared-utils/searchText';
+import { normalizeSearchTerm } from '../../../../../shared-utils/productText';
 import { parseInboundNfeXml } from '../../../features/stock/invoices/utils/inboundXmlParser';
 import {
   buildInboundInvoiceItemRows,
@@ -57,15 +59,13 @@ export const findInboundInvoiceSupplier = async (taxId: string, name: string) =>
     .select('id, full_name, cpf_cnpj, stock_origins, active')
     .in('person_type', ['suppliers', 'supplier'])
     .or('deleted.eq.false,deleted.is.null')
-    .ilike('full_name', normalizedName)
+    .filter('full_name', 'imatch', buildPostgrestAccentInsensitivePattern(normalizedName, 'exact'))
     .order('full_name')
     .limit(20);
   if (error) throw error;
   const matches = (data || []).filter(
       (person: any) =>
-        String(person.full_name || '')
-          .trim()
-          .toLocaleLowerCase('pt-BR') === normalizedName.toLocaleLowerCase('pt-BR')
+        normalizeSearchTerm(String(person.full_name || '').trim()) === normalizeSearchTerm(normalizedName)
     );
   return (
     matches.find(

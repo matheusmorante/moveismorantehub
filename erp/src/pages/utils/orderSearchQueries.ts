@@ -5,6 +5,8 @@ import { splitNoticeTags } from './noticeTags';
 import { mapOrderFromDatabase } from './orderMapper';
 import { excludeTestOrders } from '../../../../shared-utils/testArtifactQueries';
 import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../shared-utils/searchText';
+import { normalizeSearchTerm } from './textUtils';
 
 const TABLE_NAME = 'orders';
 
@@ -153,7 +155,7 @@ export const getOrdersByCustomerInfo = async (
           total_cost, stock_processed, is_stock_checked, deleted, deleted_at,
           created_at, updated_at, order_data
         `)
-        .ilike('customer_name', `%${fullName.trim()}%`)
+        .filter('customer_name', 'imatch', buildPostgrestAccentInsensitivePattern(fullName.trim()))
         .order('created_at', { ascending: false })
         .limit(30);
 
@@ -162,7 +164,8 @@ export const getOrdersByCustomerInfo = async (
           .filter((r: any) => !r.deleted)
           .map((row: any) => mapOrderFromDatabase(row))
           .filter((o) => {
-            const matchName = o.customerData?.fullName?.toLowerCase() === fullName.toLowerCase();
+            const matchName = Boolean(o.customerData?.fullName) &&
+              normalizeSearchTerm(o.customerData?.fullName || '') === normalizeSearchTerm(fullName);
             const matchPhone = !phone || o.customerData?.phone === phone;
             const matchEmail = !email || o.customerData?.email === email;
             return matchName && matchPhone && matchEmail;
@@ -236,7 +239,7 @@ export const getOrdersCustomerDataOnly = async (options?: {
       .limit(limit);
 
     if (options?.searchTerm?.trim()) {
-      query = query.ilike('customer_name', `%${options.searchTerm.trim()}%`);
+      query = query.filter('customer_name', 'imatch', buildPostgrestAccentInsensitivePattern(options.searchTerm.trim()));
     }
 
     const { data: normalizedRows, error } = await query;

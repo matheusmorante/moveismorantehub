@@ -15,22 +15,22 @@ interface SupplierCardProps {
   supplier: any;
   colors: SupplierColors;
   productCount?: number;
-  hasProductCountError?: boolean;
+  hasSupplierCountError?: boolean;
   onEdit: (supplier: any) => void;
   onOpenHistory: (supplier: any) => void;
   onShowActions: (supplier: any) => void;
-  onRetryProductCount: (supplierId: string) => void;
+  onRetrySupplierCounts: (supplierId: string) => void;
 }
 
 export const SupplierCard: React.FC<SupplierCardProps> = ({
   supplier: s,
   colors,
   productCount,
-  hasProductCountError,
+  hasSupplierCountError,
   onEdit,
   onOpenHistory,
   onShowActions,
-  onRetryProductCount,
+  onRetrySupplierCounts,
 }) => {
   return (
     <View style={styles.cardContainer}>
@@ -99,23 +99,23 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
           <TouchableOpacity
             onPress={(event) => {
               event.stopPropagation();
-              if (hasProductCountError) onRetryProductCount(String(s.id));
+              if (hasSupplierCountError) onRetrySupplierCounts(String(s.id));
             }}
-            disabled={!hasProductCountError}
+            disabled={!hasSupplierCountError}
             style={styles.productCount}
             accessibilityRole="button"
             accessibilityLabel={
-              hasProductCountError
-                ? `Tentar carregar a contagem de produtos de ${s.name}`
+              hasSupplierCountError
+                ? `Tentar verificar os vínculos de ${s.name}`
                 : `${productCount ?? 'Carregando'} produtos vinculados`
             }
           >
             <Text style={styles.productCountText}>
-              {productCount === undefined
-                ? hasProductCountError
-                  ? 'Tentar contagem'
-                  : '… produtos'
-                : `${productCount} ${productCount === 1 ? 'produto' : 'produtos'}`}
+              {hasSupplierCountError
+                ? 'Tentar vínculos'
+                : productCount === undefined
+                  ? '… produtos'
+                  : `${productCount} ${productCount === 1 ? 'produto' : 'produtos'}`}
             </Text>
           </TouchableOpacity>
         </View>

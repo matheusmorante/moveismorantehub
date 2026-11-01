@@ -28,6 +28,7 @@ import { executeInventoryFinalization } from '../services/inventoryFinalizer';
 import { applyInventoryPhysicalScan } from '../services/inventoryScanRules';
 import { getInventorySubmission } from '../../../../services/sqlite/inventoryOutbox';
 import {
+  initializeGeneralInventoryCounts,
   prepareSupplierStageReviewItems,
   resetSupplierStageItems,
   startSupplierStageItems,
@@ -77,6 +78,8 @@ export const useInventoryAuditWorkflow = (
     scopeConfig,
     userProfile?.id
   );
+  const persistToSQLiteRef = useRef(persistToSQLite);
+  persistToSQLiteRef.current = persistToSQLite;
 
   const setItems: React.Dispatch<React.SetStateAction<AuditItem[]>> = useCallback(
     (nextValue) => {
@@ -116,9 +119,15 @@ export const useInventoryAuditWorkflow = (
             );
             frozenSubmissionRef.current = isFrozen;
             draftRef.current = data.draft;
-            latestItemsRef.current = data.items;
-            setItemsState(data.items);
+            const restoredItems = !isFrozen && data.scopeConfig.scopeType === 'general'
+              ? initializeGeneralInventoryCounts(data.items)
+              : data.items;
+            latestItemsRef.current = restoredItems;
+            setItemsState(restoredItems);
             setScopeConfig(data.scopeConfig);
+            if (restoredItems !== data.items) {
+              await persistToSQLiteRef.current(restoredItems, data.scopeConfig);
+            }
             setView(isFrozen ? 'review' : 'operation');
           }
         } catch (error) {
@@ -163,6 +172,9 @@ export const useInventoryAuditWorkflow = (
           barcode: snapshot.barcode,
           isActive: snapshot.isActive,
         }));
+        const startedItems = config.type === 'general'
+          ? initializeGeneralInventoryCounts(initialItems)
+          : initialItems;
 
         const auditId = draftRef.current.id || generateInventoryUUID();
         draftRef.current.id = auditId;
@@ -190,10 +202,10 @@ export const useInventoryAuditWorkflow = (
         };
         setScopeConfig(nextScope);
         draftRef.current.date = new Date().toISOString();
-        latestItemsRef.current = initialItems;
-        setItemsState(initialItems);
+        latestItemsRef.current = startedItems;
+        setItemsState(startedItems);
         try {
-          await persistToSQLite(initialItems, nextScope);
+          await persistToSQLite(startedItems, nextScope);
           setView('operation');
         } catch (error) {
           console.error('[Inventory] Falha ao iniciar inventário local:', error);

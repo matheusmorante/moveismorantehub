@@ -1,12 +1,15 @@
 import React from 'react';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
 import CurrencyInput from '@/components/CurrencyInput';
+import { calculatePurchaseItemCostBreakdown } from '@/pages/App/Stock/Purchases/utils/purchaseCalculationUtils';
 import type { PurchaseItemsViewProps } from './PurchaseItemsViewProps';
 
 export const PurchaseItemsMobileList = ({
   items,
   isReceiptMode,
   supplierId,
+  discountPercent,
+  ipiPercent,
   freightPercent,
   formatCurrency,
   onRemoveItem,
@@ -56,15 +59,21 @@ export const PurchaseItemsMobileList = ({
     <div className="block xl:hidden space-y-4">
       {items.map((item, idx) => {
         const unitDiscount = item.discountUnit || 0;
-        const unitFreight = item.freightUnit ?? (item.baseCost || 0) * (freightPercent / 100);
+        const costs = isReceiptMode
+          ? null
+          : calculatePurchaseItemCostBreakdown(item, discountPercent, ipiPercent, freightPercent);
+        const unitIpi = costs?.ipiValue ?? 0;
+        const unitFreight = costs?.freightValue ?? item.freightUnit ?? (item.baseCost || 0) * (freightPercent / 100);
         const unitOther = item.otherExpensesUnit ?? (item.additionalCostUnit || 0);
         const isRowEditing = isReceiptMode ? !item.productId : true;
         const isCollapsed = !isReceiptMode && expandedItemIndex !== idx;
         const collapsedProductLabel = item.productId && item.description?.trim()
           ? item.description
           : 'Produto não informado';
-        const summaryTotalCost = formatCurrency(item.totalCost || 0);
-        const itemSubtotal = item.quantity * (item.baseCost || 0);
+        const summaryTotalCost = formatCurrency(costs?.totalCost ?? item.totalCost ?? 0);
+        const itemSubtotal = costs?.subtotal ?? item.quantity * (item.baseCost || 0);
+        const finalUnitCost = costs?.unitCost ?? item.unitCost;
+        const finalTotalCost = costs?.totalCost ?? item.totalCost;
         const quantityInput = (
           <input
             type="number"
@@ -124,6 +133,7 @@ export const PurchaseItemsMobileList = ({
                     <ProductAutocomplete
                       supplierId={supplierId || undefined}
                       value={item.description || ''}
+                      isSelected={Boolean(item.productId)}
                       autoFocus={!item.productId}
                       onChange={(desc) => {
                         if (onUpdateItem) {
@@ -209,24 +219,25 @@ export const PurchaseItemsMobileList = ({
             </div>}
 
             {/* Métricas em grade fluida para não forçar largura mínima em telas estreitas. */}
-            <div className="grid grid-cols-2 min-[480px]:grid-cols-3 min-[768px]:grid-cols-4 gap-2 text-xs border-t border-slate-100 dark:border-slate-800/50 pt-3">
+            <div className={`grid grid-cols-2 ${isReceiptMode ? 'min-[480px]:grid-cols-3 min-[768px]:grid-cols-4' : 'min-[700px]:grid-cols-4'} gap-2 text-xs border-t border-slate-100 dark:border-slate-800/50 pt-3`}>
               {/* Custo Unitário: Editável -> Fundo Branco, borda apenas embaixo cinza, focus azul */}
-              <div className="min-w-0 p-2 sm:p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center">
-                <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                  Custo unitário
-                </span>
+              <div className={`${!isReceiptMode ? 'min-[700px]:col-span-2' : ''} min-w-0 p-2 sm:p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center`}>
+                <label htmlFor={`purchase-item-base-mobile-${idx}`} className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
+                  {isReceiptMode ? 'Custo unitário' : 'Custo base por unidade'}
+                </label>
                 <CurrencyInput
+                  id={`purchase-item-base-mobile-${idx}`}
                   showBadge={false}
                   prefix="R$ "
                   value={item.baseCost || 0}
                   onChange={(val) => handleCostChange(idx, val)}
-                  className="w-full min-w-[85px] bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-xs font-bold text-slate-800 dark:text-slate-200 px-1 py-1 mt-0.5 rounded-none transition-colors text-right"
+                  className="w-full min-w-0 bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-xs font-bold text-slate-800 dark:text-slate-200 px-1 py-1 mt-0.5 rounded-none transition-colors text-right"
                 />
               </div>
 
-              <div className={`${isReceiptMode ? 'bg-slate-100/70 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm'} min-w-0 p-2 sm:p-2.5 rounded-xl border flex flex-col justify-center`}>
+              <div className={`${isReceiptMode ? 'bg-slate-100/70 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60' : 'min-[700px]:col-span-2 bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm'} min-w-0 p-2 sm:p-2.5 rounded-xl border flex flex-col justify-center`}>
                 <label htmlFor={`purchase-item-discount-mobile-${idx}`} className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                  Desconto por unidade
+                  {isReceiptMode ? 'Desconto por unidade' : 'Desconto unitário'}
                 </label>
                 {isReceiptMode ? (
                   <span className="min-w-0 break-words font-bold text-amber-600 dark:text-amber-400 block text-xs leading-normal">
@@ -244,25 +255,43 @@ export const PurchaseItemsMobileList = ({
                 )}
               </div>
 
+              {!isReceiptMode && (
+                <p className="col-span-full pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Composição e total
+                </p>
+              )}
+              {!isReceiptMode && (
+                <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-center">
+                  <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
+                    IPI por unidade
+                  </span>
+                  <span className="min-w-0 break-words font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">
+                    {formatCurrency(unitIpi)}
+                  </span>
+                </div>
+              )}
+
               {/* Frete: Não-Editável -> Fundo Cinza */}
               <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-center">
                 <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                  Frete
+                  {isReceiptMode ? 'Frete' : 'Frete por unidade'}
                 </span>
                 <span className="min-w-0 break-words font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">
-                  {unitFreight > 0 ? formatCurrency(unitFreight) : '—'}
+                  {isReceiptMode && unitFreight <= 0 ? '—' : formatCurrency(unitFreight)}
                 </span>
               </div>
 
               {/* Outras despesas: Não-Editável -> Fundo Cinza */}
-              <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-center">
-                <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                  Outras despesas
-                </span>
-                <span className="min-w-0 break-words font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">
-                  {unitOther > 0 ? formatCurrency(unitOther) : '—'}
-                </span>
-              </div>
+              {isReceiptMode && (
+                <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-center">
+                  <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
+                    Outras despesas
+                  </span>
+                  <span className="min-w-0 break-words font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">
+                    {unitOther > 0 ? formatCurrency(unitOther) : '—'}
+                  </span>
+                </div>
+              )}
 
               {/* Custo unitário final: Não-Editável -> Fundo Cinza */}
               <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-center">
@@ -270,30 +299,32 @@ export const PurchaseItemsMobileList = ({
                   Custo unitário final
                 </span>
                 <span className="min-w-0 break-words font-black text-emerald-600 dark:text-emerald-400 block text-xs leading-normal">
-                  {formatCurrency(item.unitCost || 0)}
+                  {formatCurrency(finalUnitCost || 0)}
                 </span>
               </div>
 
               {/* Subtotal: Não-Editável -> Fundo Cinza */}
-              <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-center">
-                <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                  Subtotal
-                </span>
-                <span
-                  className="min-w-0 break-words font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal"
-                  title="Valor total antes do frete, desconto e outras despesas"
-                >
-                  {formatCurrency(itemSubtotal)}
-                </span>
-              </div>
+              {isReceiptMode && (
+                <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-center">
+                  <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
+                    Subtotal
+                  </span>
+                  <span
+                    className="min-w-0 break-words font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal"
+                    title="Valor total antes do frete, desconto e outras despesas"
+                  >
+                    {formatCurrency(itemSubtotal)}
+                  </span>
+                </div>
+              )}
 
               {/* Total do item final: Não-Editável -> Fundo Cinza */}
-              <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-center">
+              <div className={`${isReceiptMode ? 'bg-slate-100/80 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/80' : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900'} min-w-0 p-2 sm:p-2.5 rounded-xl border flex flex-col justify-center`}>
                 <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                  Total do item final
+                  {isReceiptMode ? 'Total do item final' : 'Total do item'}
                 </span>
                 <span className="min-w-0 break-words font-black text-slate-800 dark:text-slate-100 block text-sm leading-normal">
-                  {formatCurrency(item.totalCost || 0)}
+                  {formatCurrency(finalTotalCost || 0)}
                 </span>
               </div>
             </div>

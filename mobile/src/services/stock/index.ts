@@ -4,3 +4,4 @@ export * from './stockSefazService';
 export * from './stockInventoryService';
 export * from './stockUnavailabilitiesService';
 export * from './stockReceiptsService';
+export * from './stockSuppliersService';

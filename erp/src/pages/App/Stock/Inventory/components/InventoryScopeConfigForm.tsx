@@ -3,6 +3,7 @@ import type Person from '@/pages/types/person.type';
 import type Product from '@/pages/types/product.type';
 import InventoryResponsibleSelect from '../components/InventoryResponsibleSelect';
 import type { InventoryScopeType } from '../types/inventoryScope.types';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface InventoryScopeConfigFormProps {
   readonly scopeType: InventoryScopeType | null;
@@ -30,20 +31,34 @@ export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> =
   const [productSearch, setProductSearch] = useState('');
   const selectedProduct = productParents.find((product) => String(product.id) === selectedProductId);
   const matchingProductParents = useMemo(() => {
-    const query = productSearch.trim().toLocaleLowerCase('pt-BR');
+    const query = productSearch.trim();
     if (query.length < 2) return [];
     return productParents
-      .filter((product) =>
-        `${product.description || ''} ${product.name || ''} ${product.sku || ''} ${product.code || ''}`
-          .toLocaleLowerCase('pt-BR')
-          .includes(query)
-      )
+      .filter((product) => matchesSearchText(
+        `${product.description || ''} ${product.name || ''} ${product.sku || ''} ${product.code || ''}`,
+        query
+      ))
       .slice(0, 10);
   }, [productParents, productSearch]);
 
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="space-y-5">
+        <div className="relative z-10">
+          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+            Responsável pelo Inventário
+          </label>
+          <InventoryResponsibleSelect
+            employees={employees}
+            value={selectedResponsibleId}
+            hasError={responsibleError}
+            onChange={(val) => {
+              setSelectedResponsibleId(val);
+              setResponsibleError(false);
+            }}
+          />
+        </div>
+
         {scopeType === 'product' && (
           <section className="space-y-3" aria-labelledby="inventory-parent-product-label">
             <label id="inventory-parent-product-label" htmlFor="inventory-parent-product-search" className="block text-sm font-bold text-slate-700 dark:text-slate-300">
@@ -143,20 +158,6 @@ export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> =
           </p>
         )}
 
-        <div className="relative z-10">
-          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-            Responsável pelo Inventário
-          </label>
-          <InventoryResponsibleSelect
-            employees={employees}
-            value={selectedResponsibleId}
-            hasError={responsibleError}
-            onChange={(val) => {
-              setSelectedResponsibleId(val);
-              setResponsibleError(false);
-            }}
-          />
-        </div>
       </div>
     </div>
   );

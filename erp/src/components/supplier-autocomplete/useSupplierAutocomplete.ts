@@ -16,13 +16,28 @@ export const useSupplierAutocomplete = ({
   onSelect,
   supplierFilter,
   disabled = false,
-  minChars = 2,
+  minChars = 3,
 }: UseSupplierAutocompleteProps) => {
+  const requiredMinChars = Math.max(3, minChars);
   const selectedSupplier = suppliers.find((s) => s.id === selectedSupplierId);
   const selectableSuppliers = supplierFilter ? suppliers.filter(supplierFilter) : suppliers;
   const [query, setQuery] = useState(selectedSupplier?.fullName || '');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const isSearchSettled =
+    query.trim().length >= requiredMinChars && query.trim() === debouncedQuery;
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < requiredMinChars) {
+      setDebouncedQuery('');
+      return;
+    }
+
+    const timeoutId = setTimeout(() => setDebouncedQuery(trimmed), 300);
+    return () => clearTimeout(timeoutId);
+  }, [query, requiredMinChars]);
 
   const prevSelectedIdRef = useRef<string>(selectedSupplierId);
 
@@ -63,11 +78,11 @@ export const useSupplierAutocomplete = ({
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
 
-  const queryNorm = normalize(query);
+  const queryNorm = normalize(debouncedQuery);
 
   // Filtrar sugestÃƒÆ’Ã‚Âµes localmente respeitando a quantidade mÃƒÆ’Ã‚Â­nima de caracteres
   const filteredSuggestions = selectableSuppliers.filter((s) => {
-    if (minChars > 0 && queryNorm.length < minChars) {
+    if (!isSearchSettled) {
       return false;
     }
     if (
@@ -75,7 +90,7 @@ export const useSupplierAutocomplete = ({
       queryNorm.length === 0 ||
       queryNorm === normalize(selectedSupplier?.fullName || '')
     ) {
-      return minChars === 0;
+      return false;
     }
     const nameNorm = normalize(s.fullName);
     const tradeNorm = normalize(s.tradeName || '');
@@ -83,7 +98,7 @@ export const useSupplierAutocomplete = ({
     return (
       nameNorm.includes(queryNorm) || tradeNorm.includes(queryNorm) || docNorm.includes(queryNorm)
     );
-  });
+  }).slice(0, 5);
 
   const isSelected = Boolean(selectedSupplierId && selectedSupplier);
 
@@ -97,7 +112,7 @@ export const useSupplierAutocomplete = ({
 
   const handleFocus = () => {
     if (disabled) return;
-    if (minChars > 0 && query.trim().length < minChars) {
+    if (query.trim().length < requiredMinChars) {
       setShowSuggestions(false);
       return;
     }
@@ -108,7 +123,7 @@ export const useSupplierAutocomplete = ({
     if (disabled) return;
     setQuery(val);
     const trimmed = val.trim();
-    if (minChars > 0 && trimmed.length < minChars) {
+    if (trimmed.length < requiredMinChars) {
       setShowSuggestions(false);
       if (trimmed === '') {
         onSelect('');
@@ -144,6 +159,7 @@ export const useSupplierAutocomplete = ({
     wrapperRef,
     showSuggestions,
     setShowSuggestions,
+    isSearchSettled,
     filteredSuggestions,
     selectedSupplier,
     isSelected,

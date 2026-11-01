@@ -1,4 +1,5 @@
 import { CategoryNode, EnvironmentNode, CategoryFilterType } from '../types/mobileCategory.types';
+import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 
 export interface AttributeRef {
   id: string;
@@ -33,8 +34,7 @@ export function filterCategories(
     if (filterType === 'sem_ambiente' && hasEnv) return false;
 
     if (searchTerm && searchTerm.trim()) {
-      const norm = searchTerm.toLowerCase();
-      return c.name.toLowerCase().includes(norm);
+      return matchesSearchText(c.name, searchTerm);
     }
     return true;
   });

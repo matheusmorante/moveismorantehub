@@ -12,6 +12,7 @@ import {
   CUSTOMER_ORDER_PAGE_SIZE,
   fetchPaginatedRows,
 } from '../customerOrderCounts';
+import type { SupplierDeletionCounts } from '../../../../../../../shared-utils/supplierDeletion';
 
 interface PersonListProps {
   onEdit: (person: Person) => void;
@@ -42,8 +43,14 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
     },
     ref
   ) => {
-    const [supplierProductCounts, setSupplierProductCounts] = React.useState<
-      Record<string, number>
+    const [supplierDeletionCounts, setSupplierDeletionCounts] = React.useState<
+      Record<string, SupplierDeletionCounts>
+    >({});
+    const [supplierDeletionCountLoading, setSupplierDeletionCountLoading] = React.useState<
+      Record<string, boolean>
+    >({});
+    const [supplierDeletionCountErrors, setSupplierDeletionCountErrors] = React.useState<
+      Record<string, boolean>
     >({});
     const [confirmModal, setConfirmModal] = React.useState<{
       isOpen: boolean;
@@ -90,32 +97,74 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
       let active = true;
 
       if (collectionName === 'suppliers') {
-        const loadSupplierProductCounts = async () => {
-          const { data, error } = await supabase
-            .from('products')
-            .select('id, supplier_id, main_supplier_id, supplier_ids')
-            .eq('deleted', false)
-            .eq('item_type', 'product');
-          if (error) {
-            console.error('Não foi possível carregar os produtos dos fornecedores:', error);
-            return;
-          }
-          const counts: Record<string, number> = {};
-          (data || []).forEach((product) => {
-            const supplierIds = new Set(
-              [
-                ...(product.supplier_ids || []),
-                product.main_supplier_id,
-                product.supplier_id,
-              ].filter(Boolean)
-            );
-            supplierIds.forEach((supplierId) => {
-              counts[String(supplierId)] = (counts[String(supplierId)] || 0) + 1;
+        const supplierIds = people.map((person) => String(person.id || '')).filter(Boolean);
+        if (!supplierIds.length) return;
+        setSupplierDeletionCountLoading((current) => ({
+          ...current,
+          ...Object.fromEntries(supplierIds.map((id) => [id, true])),
+        }));
+        setSupplierDeletionCountErrors((current) => ({
+          ...current,
+          ...Object.fromEntries(supplierIds.map((id) => [id, false])),
+        }));
+        void supabase
+          .rpc('get_supplier_deletion_counts', { p_supplier_ids: supplierIds })
+          .then(({ data, error }) => {
+            if (error) throw error;
+            const rows = (data || []) as Array<{
+              supplier_id: string;
+              product_count: number | string;
+              purchase_count: number | string;
+              receipt_count: number | string;
+              inventory_count: number | string;
+              invoice_count: number | string;
+              unavailability_count: number | string;
+            }>;
+            const rowsById = new Map(rows.map((row) => [String(row.supplier_id), row]));
+            if (supplierIds.some((id) => !rowsById.has(id))) {
+              throw new Error('A consulta de vínculos não retornou todos os fornecedores.');
+            }
+            if (!active) return;
+            setSupplierDeletionCounts((current) => ({
+              ...current,
+              ...Object.fromEntries(
+                rows.map((row) => [
+                  String(row.supplier_id),
+                  {
+                    productCount: Number(row.product_count),
+                    purchaseCount: Number(row.purchase_count),
+                    receiptCount: Number(row.receipt_count),
+                    inventoryCount: Number(row.inventory_count),
+                    invoiceCount: Number(row.invoice_count),
+                    unavailabilityCount: Number(row.unavailability_count),
+                  },
+                ])
+              ),
+            }));
+            setSupplierDeletionCountErrors((current) => {
+              const next = { ...current };
+              supplierIds.forEach((id) => delete next[id]);
+              return next;
             });
+          })
+          .catch((countError) => {
+            console.error('Não foi possível verificar os vínculos dos fornecedores:', countError);
+            if (active) {
+              setSupplierDeletionCountErrors((current) => ({
+                ...current,
+                ...Object.fromEntries(supplierIds.map((id) => [id, true])),
+              }));
+            }
+          })
+          .finally(() => {
+            if (active) {
+              setSupplierDeletionCountLoading((current) => {
+                const next = { ...current };
+                supplierIds.forEach((id) => delete next[id]);
+                return next;
+              });
+            }
           });
-          if (active) setSupplierProductCounts(counts);
-        };
-        void loadSupplierProductCounts();
       }
 
       if (collectionName === 'customers') {
@@ -180,9 +229,10 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
     const handlePermanentDelete = (id: string) => {
       setConfirmModal({
         isOpen: true,
-        title: 'Excluir Permanentemente?',
-        message:
-          'Esta ação não pode ser desfeita. Todos os dados deste registro serão removidos do banco de dados.',
+        title: collectionName === 'suppliers' ? 'Excluir fornecedor?' : 'Excluir Permanentemente?',
+        message: collectionName === 'suppliers'
+          ? 'A exclusão permanente só é permitida sem produtos, pedidos de compra, recebimentos, inventários registrados, notas fiscais ou indisponibilidades de estoque vinculados. Esta ação não pode ser desfeita.'
+          : 'Esta ação não pode ser desfeita. Todos os dados deste registro serão removidos do banco de dados.',
         onConfirm: () => onPermanentDelete(id),
         type: 'danger',
       });
@@ -283,7 +333,9 @@ const PersonList = forwardRef<PersonListRef, PersonListProps>(
             storageKey={storageKey}
             onViewPurchaseHistory={onViewPurchaseHistory}
             collectionName={collectionName}
-            supplierProductCounts={supplierProductCounts}
+            supplierDeletionCounts={supplierDeletionCounts}
+            supplierDeletionCountLoading={supplierDeletionCountLoading}
+            supplierDeletionCountErrors={supplierDeletionCountErrors}
             customerOrderCounts={customerOrderCounts}
           />
 

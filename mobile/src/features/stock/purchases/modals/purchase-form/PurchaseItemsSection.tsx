@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Plus, Search, ChevronDown } from 'lucide-react-native';
+import { Check, Plus, Search, ChevronDown } from 'lucide-react-native';
 import { CurrencyInput } from '../../../../../components/shared/CurrencyInput';
 import type { MobilePurchaseItem } from '../../mobilePurchaseService';
 import { formatMoney, parseNumber } from '../../hooks/usePurchaseForm';
+import { calculateMobilePurchaseItemCostBreakdown } from '../../hooks/useMobilePurchaseItems';
+import { PurchaseOrderItems } from './PurchaseOrderItems';
 
 interface ThemeColors {
   bg: string;
@@ -13,8 +15,11 @@ interface ThemeColors {
   muted: string;
 }
 
-interface PurchaseItemsSectionProps {
+export interface PurchaseItemsSectionProps {
   items: MobilePurchaseItem[];
+  discountPercent?: string;
+  ipiPercent?: string;
+  freightPercent?: string;
   onOpenProductPicker: (index?: number) => void;
   onAddItemRow: () => void;
   onUpdateItem: (index: number, patch: Partial<MobilePurchaseItem>) => void;
@@ -25,13 +30,23 @@ interface PurchaseItemsSectionProps {
   responsiveFieldRows?: boolean;
   allowRemove?: boolean;
   addDisabled?: boolean;
+  isDarkMode?: boolean;
+  receiptMode?: boolean;
+  selectedItemIndex?: number | null;
+  onSelectedItemChange?: (index: number | null) => void;
 }
 
 /**
  * Seção de itens do pedido de compra com edição inline: busca de produto, quantidade e custo diretamente no item.
  */
-export const PurchaseItemsSection: React.FC<PurchaseItemsSectionProps> = ({
+export const PurchaseItemsSection: React.FC<PurchaseItemsSectionProps> = (props) =>
+  props.receiptMode ? <ReceiptItemsSection {...props} /> : <PurchaseOrderItems {...props} />;
+
+const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
   items,
+  discountPercent = '0',
+  ipiPercent = '0',
+  freightPercent = '0',
   onOpenProductPicker,
   onAddItemRow,
   onUpdateItem,
@@ -42,6 +57,8 @@ export const PurchaseItemsSection: React.FC<PurchaseItemsSectionProps> = ({
   responsiveFieldRows = false,
   allowRemove = true,
   addDisabled = false,
+  isDarkMode = false,
+  receiptMode = false,
 }) => {
   const [expandedItemIndex, setExpandedItemIndex] = useState<number | null>(() => {
     const firstUnselectedItem = items.findIndex((item) => !item.productId);
@@ -104,6 +121,11 @@ export const PurchaseItemsSection: React.FC<PurchaseItemsSectionProps> = ({
           <Text style={[styles.emptyText, { color: colors.muted }]}>
             Nenhum item adicionado ao pedido.
           </Text>
+          {allowAdd && addDisabled ? (
+            <Text style={[styles.emptyText, { color: colors.muted }]}>
+              Selecione o fornecedor acima para liberar a inclusão de itens.
+            </Text>
+          ) : null}
           {allowAdd && showEmptyAddButton && (
             <TouchableOpacity
               style={[styles.emptyAddButton, addDisabled && { opacity: 0.5 }]}
@@ -121,7 +143,17 @@ export const PurchaseItemsSection: React.FC<PurchaseItemsSectionProps> = ({
           const summaryProduct = hasProduct && item.description?.trim()
             ? item.description
             : 'Produto não informado';
-          const summaryTotalCost = formatMoney(Number(item.totalCost || 0));
+          const itemCosts = receiptMode ? null : calculateMobilePurchaseItemCostBreakdown(
+            Number(item.baseCost || 0),
+            Number(item.discountUnit || 0),
+            discountPercent,
+            ipiPercent,
+            freightPercent
+          );
+          const itemTotal = itemCosts
+            ? Number((Number(item.quantity || 0) * itemCosts.unitCost).toFixed(2))
+            : Number(item.totalCost || 0);
+          const summaryTotalCost = formatMoney(itemTotal);
           const isExpanded = expandedItemIndex === index;
 
           return (
@@ -182,7 +214,10 @@ export const PurchaseItemsSection: React.FC<PurchaseItemsSectionProps> = ({
                     <TouchableOpacity
                       style={[
                         styles.productSearchTrigger,
-                        { backgroundColor: colors.bg, borderColor: colors.border },
+                        {
+                          backgroundColor: colors.bg,
+                          borderColor: isDarkMode ? '#4ade80' : '#16a34a',
+                        },
                       ]}
                       onPress={() => onOpenProductPicker(index)}
                       activeOpacity={0.7}
@@ -190,11 +225,15 @@ export const PurchaseItemsSection: React.FC<PurchaseItemsSectionProps> = ({
                       accessibilityLabel={`Alterar produto: ${item.description}`}
                     >
                       <Text
-                        style={[styles.productSearchTriggerText, { color: colors.text, flex: 1 }]}
+                        style={[
+                          styles.productSearchTriggerText,
+                          { color: isDarkMode ? '#4ade80' : '#15803d', flex: 1 },
+                        ]}
                         numberOfLines={1}
                       >
                         {item.description}
                       </Text>
+                      <Check size={16} color={isDarkMode ? '#4ade80' : '#15803d'} />
                     </TouchableOpacity>
                   ) : (
                   <TouchableOpacity
@@ -221,6 +260,7 @@ export const PurchaseItemsSection: React.FC<PurchaseItemsSectionProps> = ({
                   <Text style={[styles.label, { color: colors.muted }]}>Quantidade</Text>
                   <TextInput
                     value={String(item.quantity ?? '')}
+                    accessibilityLabel={`Quantidade de ${item.description || 'item'}`}
                     onChangeText={(value) =>
                       onUpdateItem(index, { quantity: parseNumber(value) })
                     }
@@ -239,9 +279,12 @@ export const PurchaseItemsSection: React.FC<PurchaseItemsSectionProps> = ({
                 </View>
 
                 <View style={[styles.half, responsiveFieldRows && styles.responsiveHalf]}>
-                  <Text style={[styles.label, { color: colors.muted }]}>Custo unitário</Text>
+                  <Text style={[styles.label, { color: colors.muted }]}>
+                    {receiptMode ? 'Custo unitário' : 'Custo base por unidade'}
+                  </Text>
                   <CurrencyInput
                     value={Number(item.baseCost) || null}
+                    accessibilityLabel={`${receiptMode ? 'Custo unitário' : 'Custo base por unidade'} de ${item.description || 'item'}`}
                     onChangeValue={(value) =>
                       onUpdateItem(index, { baseCost: value || 0, unitCost: value || 0 })
                     }
@@ -256,14 +299,16 @@ export const PurchaseItemsSection: React.FC<PurchaseItemsSectionProps> = ({
               </View>
 
               <View style={styles.full}>
-                <Text style={[styles.label, { color: colors.muted }]}>Desconto por unidade</Text>
+                <Text style={[styles.label, { color: colors.muted }]}>
+                  {receiptMode ? 'Desconto por unidade' : 'Desconto unitário'}
+                </Text>
                 <CurrencyInput
                   value={Number(item.discountUnit || 0)}
                   onChangeValue={(value) =>
                     onUpdateItem(index, { discountUnit: Math.max(0, value || 0) })
                   }
                   placeholder="0,00"
-                  accessibilityLabel={`Desconto por unidade de ${item.description || 'item'}`}
+                  accessibilityLabel={`${receiptMode ? 'Desconto por unidade' : 'Desconto unitário'} de ${item.description || 'item'}`}
                   style={[
                     styles.input,
                     { borderColor: colors.border, backgroundColor: colors.bg },
@@ -272,12 +317,39 @@ export const PurchaseItemsSection: React.FC<PurchaseItemsSectionProps> = ({
                 />
               </View>
 
-              <Text style={[styles.itemTotal, { color: '#059669' }]}>
-                Subtotal:{' '}
-                {formatMoney(
-                  Number(item.totalCost || 0)
-                )}
-              </Text>
+              {itemCosts ? (
+                <>
+                  <Text style={[styles.label, { color: colors.muted }]}>Composição e total</Text>
+                  <View style={styles.metricsGrid}>
+                    <View style={[styles.metricCard, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                      <Text style={[styles.metricLabel, { color: colors.muted }]}>IPI por unidade</Text>
+                      <Text style={[styles.metricValue, { color: colors.text }]}>
+                        {formatMoney(itemCosts.ipiValue)}
+                      </Text>
+                    </View>
+                    <View style={[styles.metricCard, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                      <Text style={[styles.metricLabel, { color: colors.muted }]}>Frete por unidade</Text>
+                      <Text style={[styles.metricValue, { color: colors.text }]}>
+                        {formatMoney(itemCosts.freightValue)}
+                      </Text>
+                    </View>
+                    <View style={[styles.metricCard, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                      <Text style={[styles.metricLabel, { color: colors.muted }]}>Custo unitário final</Text>
+                      <Text style={[styles.metricValue, { color: '#059669' }]}>
+                        {formatMoney(itemCosts.unitCost)}
+                      </Text>
+                    </View>
+                    <View style={[styles.metricCard, { backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5', borderColor: isDarkMode ? '#047857' : '#a7f3d0' }]}>
+                      <Text style={[styles.metricLabel, { color: isDarkMode ? '#a7f3d0' : '#047857' }]}>Total do item</Text>
+                      <Text style={[styles.metricValue, { color: isDarkMode ? '#a7f3d0' : '#047857' }]}>
+                        {formatMoney(itemTotal)}
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.receiptItemTotal}>Subtotal: {formatMoney(itemTotal)}</Text>
+              )}
                   {allowRemove && (
                     <TouchableOpacity
                       onPress={() => handleRemoveItem(index)}
@@ -325,6 +397,11 @@ const styles = StyleSheet.create({
   half: { flex: 1 },
   responsiveHalf: { minWidth: 132 },
   full: { width: '100%' },
+  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  metricCard: { flex: 1, minWidth: 108, minHeight: 56, justifyContent: 'center', borderWidth: 1, borderRadius: 10, padding: 10 },
+  metricLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 0.4, textTransform: 'uppercase' },
+  metricValue: { fontSize: 13, fontWeight: '800', marginTop: 4 },
+  receiptItemTotal: { textAlign: 'right', color: '#059669', fontSize: 12, fontWeight: '900', marginTop: 2 },
   addButton: {
     backgroundColor: '#2563eb',
     borderRadius: 10,
@@ -370,7 +447,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 13,
   },
-  itemTotal: { textAlign: 'right', fontSize: 12, fontWeight: '900', marginTop: 2 },
   bottomAddButton: {
     flexDirection: 'row',
     alignItems: 'center',

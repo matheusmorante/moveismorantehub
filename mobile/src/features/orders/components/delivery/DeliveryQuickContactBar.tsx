@@ -3,6 +3,7 @@ import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-
 import { MessageCircle, UserCheck } from 'lucide-react-native';
 import { supabase } from '../../../../services/supabaseClient';
 import { formatOrderCode } from '../../../../utils/orderUtils';
+import { buildPostgrestAccentInsensitivePattern } from '../../../../../../shared-utils/searchText';
 
 interface Props {
   order: any;
@@ -28,7 +29,7 @@ export const DeliveryQuickContactBar: React.FC<Props> = ({ order, isDarkMode }) 
       supabase
         .from('profiles')
         .select('phone, full_name')
-        .ilike('full_name', `%${rawSellerName}%`)
+        .filter('full_name', 'imatch', buildPostgrestAccentInsensitivePattern(rawSellerName))
         .limit(1)
         .then(({ data: profiles }) => {
           if (profiles && profiles.length > 0 && profiles[0].phone) {
@@ -81,7 +82,7 @@ export const DeliveryQuickContactBar: React.FC<Props> = ({ order, isDarkMode }) 
       const { data: profiles } = await supabase
         .from('profiles')
         .select('phone')
-        .ilike('full_name', `%${rawSellerName}%`)
+        .filter('full_name', 'imatch', buildPostgrestAccentInsensitivePattern(rawSellerName))
         .limit(1);
       if (profiles && profiles[0]?.phone) {
         phone = cleanPhone(profiles[0].phone);

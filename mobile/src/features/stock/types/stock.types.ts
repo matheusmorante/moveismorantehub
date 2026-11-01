@@ -84,6 +84,7 @@ export interface InventorySession {
   updated_at: string;
   items_count?: number; // Keep for backward compatibility if needed, but we prefer productsCount
   productsCount?: number;
+  countedQuantityTotal?: number;
   adjustmentsCount?: number;
   reversedCount?: number;
 }

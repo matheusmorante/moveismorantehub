@@ -84,7 +84,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   disabled = false,
   isLoadingSuggestions = false,
   onEditClick,
-  maxSuggestions = 15,
+  maxSuggestions = 5,
 }) => {
   const {
     query,
@@ -110,6 +110,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     localProducts,
     excludeCombos,
     disabled,
+    isSelected,
     onChange: (v) => {
       if (onChange) onChange(v);
     },
@@ -146,6 +147,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               ref={multilineInputRef}
               rows={1}
               wrap="soft"
+              autoFocus={autoFocus}
               aria-multiline="true"
               aria-busy={isLoadingSuggestions}
               aria-label={inputAriaLabel}
@@ -154,7 +156,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               onChange={(e) => handleQueryChange(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
               onBlur={onBlur}
-              onFocus={() => setShowSuggestions(query.trim().length > 0)}
+              onFocus={() => setShowSuggestions(!isSelected && query.trim().length > 0)}
               placeholder={placeholder}
               className={`${inputEndAdornment ? 'pr-10 ' : ''}${
                 inputClassName ||
@@ -182,7 +184,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                 handleQueryChange(e.target.value);
               }}
               onBlur={onBlur}
-              onFocus={() => setShowSuggestions(query.trim().length > 0)}
+              onFocus={() => setShowSuggestions(!isSelected && query.trim().length > 0)}
               placeholder={placeholder}
               className={`${inputEndAdornment ? 'pr-10 ' : ''}${
                 inputClassName ||
@@ -237,7 +239,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
           <button
             type="button"
             onClick={onSearch}
-            className="p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-700 rounded-xl hover:bg-slate-100 transition-all shadow-sm"
+            className="p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-700 rounded-xl hover:bg-slate-100 transition-all shadow-sm md:hidden"
             title="Busca Avançada (Lupa)"
           >
             <i className="bi bi-search"></i>
@@ -315,7 +317,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               Nenhum produto encontrado para esta busca.
             </div>
           ) : (
-            suggestions.slice(0, maxSuggestions).map((item, index) => {
+            suggestions.slice(0, Math.min(maxSuggestions, 5)).map((item, index) => {
               const { product: p, variation: v } = item;
               const fullName = getVariationDisplayName(p, v);
               const displayName = fullName;

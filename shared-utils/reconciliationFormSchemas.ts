@@ -34,7 +34,7 @@ export const reconciliationQueryFormSchema = z.object({
   }),
 });
 export const reconciliationSupplierSearchSchema = z.object({
-  search: z.string().transform((value) => value.replace(/["\\]/g, '').trim()).pipe(z.string().min(2, 'Digite pelo menos dois caracteres.')),
+  search: z.string().transform((value) => value.replace(/["\\]/g, '').trim()).pipe(z.string().min(3, 'Digite pelo menos três caracteres.')),
 });
 export const reconciliationSupplierResultsSchema = z.array(z.object({
   id, full_name: z.string().nullable().optional(), social_name: z.string().nullable().optional(),

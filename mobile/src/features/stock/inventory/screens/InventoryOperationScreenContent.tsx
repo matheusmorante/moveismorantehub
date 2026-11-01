@@ -26,6 +26,7 @@ import { InventoryOperationItemCard } from '../components/inventory-operation/In
 import { InventoryOperationFooter } from '../components/inventory-operation/InventoryOperationFooter';
 
 import type { AuditItem } from '../types/inventoryWorkflow.types';
+import { sumInventoryCountedQuantities } from '../../../../../../shared-utils/inventorySupplierStages';
 
 interface Props {
   isDarkMode: boolean;
@@ -96,8 +97,7 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
   const isShowingSupplierSummary = scopeType === 'general' && !activeStage;
   const countItems = isShowingStages ? items : activeItems;
   const countedItems = countItems.filter((i) => typeof i.physicalCount === 'number');
-  const countableItemCount = isShowingStages ? countedItems.length : activeItems.length;
-  const countLabel = isStageBased || scopeType === 'product' ? 'produtos para contar' : 'produtos contados';
+  const countedQuantityTotal = sumInventoryCountedQuantities(countItems);
 
   React.useEffect(() => {
     if (!isSupplierSpecific || activeStage) return;
@@ -239,8 +239,8 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
       <InventoryOperationHeader
         isDarkMode={isDarkMode}
         title={activeStage || inventoryName}
-        countedCount={isStageBased || scopeType === 'product' ? countableItemCount : countedItems.length}
-        countLabel={countLabel}
+        countedCount={countedQuantityTotal}
+        countLabel="quantidades contadas"
         onBack={activeStage ? () => setActiveStage(null) : onCancel || (() => {})}
         onOpenScanner={() => setShowScanner(true)}
         showBackButton={!isSupplierSpecific}
@@ -329,7 +329,7 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
       >
         <InventoryScannerScreen
           isDarkMode={isDarkMode}
-          countedCount={countedItems.length}
+          countedCount={countedQuantityTotal}
           onClose={() => {
             void onFlushLocalWrites()
               .then(() => setShowScanner(false))

@@ -9,6 +9,7 @@ import {
 } from '@/pages/utils/technicalValuesService';
 import { formatAttributeDecimalValue, limitAttributeIntegerInput, maskAttributeDecimalInput } from '../../../../../../../shared-utils/attributeInputFormatting';
 import type { DbAttributeValueItem } from './VariationIdentificationTab';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface VariationAttributeValueInputProps {
   readonly attributeId?: string;
@@ -93,10 +94,7 @@ export const VariationAttributeValueInput: React.FC<VariationAttributeValueInput
     }
   };
 
-  const term = trimmedValue.toLocaleLowerCase('pt-BR');
-  const suggestions = registeredValues.filter((option) =>
-    option.value.toLocaleLowerCase('pt-BR').includes(term)
-  );
+  const suggestions = registeredValues.filter((option) => matchesSearchText(option.value, trimmedValue));
 
   const renderInput = () => {
     if (dataType === 'boolean') {

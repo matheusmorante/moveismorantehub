@@ -79,6 +79,13 @@ export const PurchaseTable: React.FC<PurchaseTableProps> = ({
 
   const displayCode = (purchase: Purchase) =>
     formatPurchaseNumber(purchase.purchaseNumber) || purchase.id?.slice(-4) || '—';
+  const openPurchase = (purchase: Purchase) => {
+    if (purchase.status === 'draft') {
+      onResumeDraft(purchase);
+      return;
+    }
+    onOpen(purchase);
+  };
   const renderMenuButton = (purchase: Purchase) => (
     <button
       type="button"
@@ -98,29 +105,31 @@ export const PurchaseTable: React.FC<PurchaseTableProps> = ({
         ? (['pending', 'ordered', 'fulfilled', 'cancelled'] as const)
         : PURCHASE_STATUSES;
 
+    if (draft) {
+      return (
+        <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-indigo-700 dark:border-indigo-900 dark:bg-indigo-900/20 dark:text-indigo-300">
+          {STATUS_LABELS.draft}
+        </span>
+      );
+    }
+
     return (
       <div onClick={(event) => event.stopPropagation()}>
-        {draft ? (
-          <span className="inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-indigo-700 dark:border-indigo-900 dark:bg-indigo-900/20 dark:text-indigo-300">
-            {STATUS_LABELS.draft}
-          </span>
-        ) : (
-          <select
-            value={purchase.status}
-            onChange={(event) =>
-              onChangeStatus(purchase, event.target.value as Purchase['status'])
-            }
-            aria-label={`Alterar status do pedido de compra #${displayCode(purchase)}`}
-            title="Alterar status"
-            className="max-w-full rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-center text-[9px] font-black uppercase tracking-wider text-blue-700 outline-none transition-colors hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-900/20 dark:text-blue-400 cursor-pointer sm:px-3"
-          >
-            {statusOptions.map((status) => (
-              <option key={status} value={status}>
-                {STATUS_LABELS[status] || status}
-              </option>
-            ))}
-          </select>
-        )}
+        <select
+          value={purchase.status}
+          onChange={(event) =>
+            onChangeStatus(purchase, event.target.value as Purchase['status'])
+          }
+          aria-label={`Alterar status do pedido de compra #${displayCode(purchase)}`}
+          title="Alterar status"
+          className="max-w-full rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-center text-[9px] font-black uppercase tracking-wider text-blue-700 outline-none transition-colors hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-900/20 dark:text-blue-400 cursor-pointer sm:px-3"
+        >
+          {statusOptions.map((status) => (
+            <option key={status} value={status}>
+              {STATUS_LABELS[status] || status}
+            </option>
+          ))}
+        </select>
       </div>
     );
   };
@@ -134,7 +143,7 @@ export const PurchaseTable: React.FC<PurchaseTableProps> = ({
           return (
             <article
               key={purchase.id}
-              onClick={() => onOpen(purchase)}
+              onClick={() => openPurchase(purchase)}
               className={`min-w-0 cursor-pointer rounded-2xl border p-4 shadow-md transition-all sm:p-5 ${
                 cancelled
                   ? 'border-slate-200 bg-slate-100/90 opacity-60 dark:border-slate-800 dark:bg-slate-900/90'
@@ -144,10 +153,10 @@ export const PurchaseTable: React.FC<PurchaseTableProps> = ({
               <div className="flex min-w-0 items-start justify-between gap-2">
                 <button
                   type="button"
-                  aria-label={`Ver pedido de compra #${code}`}
+                  aria-label={`${purchase.status === 'draft' ? 'Retomar cadastramento do pedido' : 'Ver pedido de compra'} #${code}`}
                   onClick={(event) => {
                     event.stopPropagation();
-                    onOpen(purchase);
+                    openPurchase(purchase);
                   }}
                   className="min-w-0 flex-1 text-left"
                 >
@@ -218,7 +227,7 @@ export const PurchaseTable: React.FC<PurchaseTableProps> = ({
             return (
               <tr
                 key={purchase.id}
-                onClick={() => onOpen(purchase)}
+                onClick={() => openPurchase(purchase)}
                 className={`group cursor-pointer transition-colors ${
                   cancelled
                     ? 'bg-slate-100/90 opacity-60 dark:bg-slate-900/90'
@@ -290,10 +299,12 @@ export const PurchaseTable: React.FC<PurchaseTableProps> = ({
                 <i className="bi bi-arrow-counterclockwise" aria-hidden="true" /> Voltar para Pendente
               </button>
             )}
-            <button type="button" role="menuitem" onClick={() => { onOpen(activePurchase); setActivePurchase(null); setMenuPos(null); }}
-              className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
-              <i className="bi bi-eye text-slate-400" aria-hidden="true" /> Ver detalhes
-            </button>
+            {activePurchase.status !== 'draft' && (
+              <button type="button" role="menuitem" onClick={() => { onOpen(activePurchase); setActivePurchase(null); setMenuPos(null); }}
+                className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">
+                <i className="bi bi-eye text-slate-400" aria-hidden="true" /> Ver detalhes
+              </button>
+            )}
             {canDeleteCancelled && activePurchase.status === 'cancelled' && (
               <button type="button" role="menuitem" onClick={() => { onDelete(activePurchase); setActivePurchase(null); setMenuPos(null); }}
                 className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30">

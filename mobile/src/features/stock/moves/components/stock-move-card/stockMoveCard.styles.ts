@@ -93,8 +93,9 @@ export const styles = StyleSheet.create({
   footer: { flexDirection: 'row' },
   footerCell: { flex: 1, paddingHorizontal: 14, paddingVertical: 10 },
   footerCellHeader: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
+  footerDateLine: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
   footerValue: { fontSize: 14, fontWeight: '800', color: '#0f172a' },
-  footerSub: { fontSize: 11, color: '#94a3b8', marginTop: 1 },
+  footerSub: { fontSize: 11, color: '#94a3b8', textAlign: 'right' },
   reversedText: {
     fontSize: 11,
     color: '#d97706',

@@ -1,9 +1,11 @@
 import { supabase } from '../supabaseClient';
 import { toPersonStockOriginsRow } from '../../../../shared-utils/personStockOrigins';
 import { ITEMS_PER_PAGE } from './stockPagination';
-
-const postgrestValue = (value: string) => `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-const escapeLikePattern = (value: string) => value.replace(/[\\%_]/g, '\\$&');
+import type { SupplierDeletionCounts } from '../../../../shared-utils/supplierDeletion';
+import {
+  buildPostgrestAccentInsensitiveOrFilter,
+  buildPostgrestAccentInsensitivePattern,
+} from '../../../../shared-utils/searchText';
 
 /**
  * Fornecedores
@@ -23,9 +25,8 @@ export const fetchSuppliers = async (
   ];
   const term = searchQuery.trim();
   if (term) {
-    const pattern = postgrestValue(`%${escapeLikePattern(term)}%`);
     filters.push(
-      `or(full_name.ilike.${pattern},nickname.ilike.${pattern},cpf_cnpj.ilike.${pattern},email.ilike.${pattern})`
+      `or(${buildPostgrestAccentInsensitiveOrFilter(['full_name', 'nickname', 'cpf_cnpj', 'email'], term)})`
     );
   }
 
@@ -58,11 +59,11 @@ export const saveSupplier = async (supplier: any) => {
   const normalizedName = String(supplier.fullName ?? supplier.full_name ?? '').trim();
   if (normalizedName) {
     let nameQuery = supabase.from('people').select('id, full_name, nickname, social_name');
-    const exactName = postgrestValue(escapeLikePattern(normalizedName));
+    const exactName = buildPostgrestAccentInsensitivePattern(normalizedName, 'exact');
     const emptyValue = postgrestValue('');
     nameQuery = nameQuery
       .or(
-        `and(or(person_type.ilike.suppliers,person_type.ilike.supplier),or(full_name.ilike.${exactName},and(or(full_name.is.null,full_name.eq.${emptyValue}),nickname.ilike.${exactName}),and(or(full_name.is.null,full_name.eq.${emptyValue}),or(nickname.is.null,nickname.eq.${emptyValue}),social_name.ilike.${exactName})))`
+        `and(or(person_type.ilike.suppliers,person_type.ilike.supplier),or(full_name.imatch.${exactName},and(or(full_name.is.null,full_name.eq.${emptyValue}),nickname.imatch.${exactName}),and(or(full_name.is.null,full_name.eq.${emptyValue}),or(nickname.is.null,nickname.eq.${emptyValue}),social_name.imatch.${exactName})))`
       )
       .limit(1);
     if (id) nameQuery = nameQuery.neq('id', id);
@@ -138,19 +139,57 @@ export const moveSupplierToTrash = async (supplierId: string) => {
   if (error) throw error;
 };
 
-export const fetchSupplierProductCounts = async (supplierIds: string[]) => {
+export const fetchSupplierDeletionCounts = async (
+  supplierIds: string[]
+): Promise<Record<string, SupplierDeletionCounts>> => {
   const ids = [...new Set(supplierIds.filter(Boolean))];
   if (!ids.length) return {};
-  const { data, error } = await supabase.rpc('get_supplier_product_counts', {
+  const { data, error } = await supabase.rpc('get_supplier_deletion_counts', {
     p_supplier_ids: ids,
   });
   if (error) throw error;
-  return Object.fromEntries(
-    (data || []).map((row: { supplier_id: string; product_count: number | string }) => [
+  const counts = Object.fromEntries(
+    (data || []).map((row: {
+      supplier_id: string;
+      product_count: number | string;
+      purchase_count: number | string;
+      receipt_count: number | string;
+      inventory_count: number | string;
+      invoice_count: number | string;
+      unavailability_count: number | string;
+    }) => [
       String(row.supplier_id),
-      Number(row.product_count),
+      {
+        productCount: Number(row.product_count),
+        purchaseCount: Number(row.purchase_count),
+        receiptCount: Number(row.receipt_count),
+        inventoryCount: Number(row.inventory_count),
+        invoiceCount: Number(row.invoice_count),
+        unavailabilityCount: Number(row.unavailability_count),
+      },
     ])
+  ) as Record<string, SupplierDeletionCounts>;
+  if (ids.some((id) => !counts[id])) {
+    throw new Error('A consulta não retornou todos os vínculos dos fornecedores.');
+  }
+  return counts;
+};
+
+export const fetchSupplierProductCounts = async (supplierIds: string[]) => {
+  const counts = await fetchSupplierDeletionCounts(supplierIds);
+  return Object.fromEntries(
+    Object.entries(counts).map(([id, value]) => [id, value.productCount])
   );
+};
+
+export const deleteSupplierIfUnlinked = async (supplierId: string) => {
+  const { data, error } = await supabase.rpc('delete_supplier_if_unlinked', {
+    p_supplier_id: supplierId,
+  });
+  if (error) throw error;
+  if (data !== true) {
+    throw new Error('O fornecedor possui vínculos ou não pode ser excluído. Atualize a lista e confira novamente.');
+  }
 };
 
 export const fetchSupplierPurchaseHistory = async (
@@ -159,13 +198,13 @@ export const fetchSupplierPurchaseHistory = async (
 ) => {
   const name = supplier.name.trim();
   if (!name) return { data: [], count: 0 };
-  const namePattern = postgrestValue(escapeLikePattern(name));
+  const namePattern = buildPostgrestAccentInsensitivePattern(name, 'exact');
   const emptyValue = postgrestValue('');
   const exactPersonField = (column: string, jsonPath: string, value: string) =>
     `or(${column}.eq.${postgrestValue(value)},and(or(${column}.is.null,${column}.eq.${emptyValue}),${jsonPath}.eq.${postgrestValue(value)}))`;
   const identityFilters = [
     'or(deleted.eq.false,deleted.is.null)',
-    `or(customer_name.ilike.${namePattern},and(or(customer_name.is.null,customer_name.eq.${emptyValue}),order_data->customerData->>fullName.ilike.${namePattern}))`,
+    `or(customer_name.imatch.${namePattern},and(or(customer_name.is.null,customer_name.eq.${emptyValue}),order_data->customerData->>fullName.imatch.${namePattern}))`,
   ];
   if (supplier.phone)
     identityFilters.push(

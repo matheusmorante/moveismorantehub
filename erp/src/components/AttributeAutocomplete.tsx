@@ -4,6 +4,7 @@ import { normalizeSearchTerm } from '../pages/utils/textUtils';
 import DropdownPortal from './shared/DropdownPortal';
 import { isCategoryAttributeSelectable } from '../../../shared-utils/categoryAttributeSelection';
 import { withCatalogAttributesLoadTimeout } from '../../../shared-utils/catalogAttributesLoadTimeout';
+import { buildPostgrestAccentInsensitivePattern } from '../../../shared-utils/searchText';
 
 export interface AttributeNode {
   id: string;
@@ -33,56 +34,79 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
   disabled = false,
 }) => {
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [resultsQuery, setResultsQuery] = useState('');
   const [suggestions, setSuggestions] = useState<AttributeNode[]>([]);
-  const [allNodes, setAllNodes] = useState<AttributeNode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [searchAttempt, setSearchAttempt] = useState(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const fetchAll = async () => {
-      setIsLoading(true);
-      try {
-        const { data, error } = await withCatalogAttributesLoadTimeout(
-          supabase.from('attributes').select('id, name').order('name'),
-          'erp:category-attributes:catalog',
-        );
-        if (error) throw error;
-        if (data) {
-          setAllNodes(
-            (data as AttributeRow[])
-              .filter((d) => isCategoryAttributeSelectable(String(d.name)))
-              .map((d) => ({ id: d.id, name: d.name }))
-          );
-        }
-        setLoadFailed(false);
-      } catch (err) {
-        console.error('Erro ao buscar atributos:', err);
-        setAllNodes([]);
-        setLoadFailed(true);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchAll();
-  }, []);
+  const searchReady = query.trim().length >= 3 && query.trim() === debouncedQuery;
 
   useEffect(() => {
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setSuggestions([]);
+    if (trimmed.length < 3) {
+      setDebouncedQuery('');
       return;
     }
 
-    const normalizedQuery = normalizeSearchTerm(trimmed);
-    const filtered = allNodes.filter((node) =>
-      normalizeSearchTerm(node.name).includes(normalizedQuery)
-    );
-    setSuggestions(filtered);
-    setActiveIndex(0);
-  }, [query, allNodes]);
+    const timeoutId = setTimeout(() => setDebouncedQuery(trimmed), 300);
+    return () => clearTimeout(timeoutId);
+  }, [query]);
+
+  useEffect(() => {
+    const trimmed = debouncedQuery.trim();
+    if (trimmed.length < 3) {
+      setSuggestions([]);
+      setResultsQuery('');
+      setIsLoading(false);
+      return;
+    }
+
+    let active = true;
+    setIsLoading(true);
+    setLoadFailed(false);
+    const escapedQuery = trimmed.replace(/[\\%_]/g, '\\$&');
+
+    const fetchSuggestions = async () => {
+      try {
+        const { data, error } = await withCatalogAttributesLoadTimeout(
+          supabase
+            .from('attributes')
+            .select('id, name')
+            .filter('name', 'imatch', buildPostgrestAccentInsensitivePattern(trimmed))
+            .order('name')
+            .limit(5),
+          'erp:category-attributes:search',
+        );
+        if (error) throw error;
+        if (!active) return;
+
+        const normalizedQuery = normalizeSearchTerm(trimmed);
+        const filtered = ((data || []) as AttributeRow[])
+          .filter((attribute) => isCategoryAttributeSelectable(String(attribute.name)))
+          .filter((attribute) => normalizeSearchTerm(attribute.name).includes(normalizedQuery))
+          .slice(0, 5)
+          .map(({ id, name }) => ({ id, name }));
+        setSuggestions(filtered);
+        setResultsQuery(trimmed);
+        setActiveIndex(0);
+      } catch {
+        if (active) {
+          setSuggestions([]);
+          setResultsQuery(trimmed);
+          setLoadFailed(true);
+        }
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    };
+
+    void fetchSuggestions();
+    return () => { active = false; };
+  }, [debouncedQuery, searchAttempt]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -137,31 +161,42 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
           placeholder={placeholder}
           className={inputClassName}
           autoComplete="off"
-          disabled={disabled || loadFailed}
+          disabled={disabled}
         />
         {isLoading && (
           <i className="bi bi-arrow-repeat absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 animate-spin" />
         )}
       </div>
-      {loadFailed && (
-        <p role="alert" className="mt-1 text-xs font-semibold text-red-600 dark:text-red-400">
-          Não foi possível carregar a lista de características. Reabra o modal para tentar novamente.
-        </p>
-      )}
-
       <DropdownPortal
-        isOpen={showSuggestions && query.trim().length >= 2}
+        isOpen={showSuggestions && query.trim().length > 0}
         anchorRef={wrapperRef}
         onClose={() => setShowSuggestions(false)}
       >
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden max-h-64 overflow-y-auto custom-scrollbar p-2">
-          {suggestions.length === 0 ? (
+          {query.trim().length < 3 ? (
+            <div className="p-4 text-center text-xs font-semibold text-slate-500">
+              Digite pelo menos 3 caracteres para buscar.
+            </div>
+          ) : !searchReady || isLoading || resultsQuery !== debouncedQuery ? (
+            <div className="p-4 text-center text-xs font-semibold text-slate-500">Buscando...</div>
+          ) : loadFailed ? (
+            <div role="alert" className="p-4 text-center text-xs font-semibold text-red-500">
+              <p>Não foi possível buscar características.</p>
+              <button
+                type="button"
+                onClick={() => setSearchAttempt((attempt) => attempt + 1)}
+                className="mt-2 font-bold underline"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : suggestions.length === 0 ? (
             <div className="p-4 text-center text-xs font-semibold text-slate-500">
               Nenhuma característica encontrada para &ldquo;{query}&rdquo;
             </div>
           ) : (
             <div className="flex flex-col gap-1">
-              {suggestions.map((node, index) => {
+              {suggestions.slice(0, 5).map((node, index) => {
                 const isChecked = selectedIds.includes(node.id);
                 return (
                   <button

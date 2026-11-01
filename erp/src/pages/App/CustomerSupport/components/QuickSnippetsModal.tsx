@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { QuickSnippet } from '../types';
 import { DEFAULT_QUICK_SNIPPETS } from '@/pages/utils/customerSupport/customerSupportService';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface QuickSnippetsModalProps {
   isOpen: boolean;
@@ -32,9 +33,9 @@ export const QuickSnippetsModal: React.FC<QuickSnippetsModalProps> = ({
     const matchesCat = selectedCategory === 'todos' || s.category === selectedCategory;
     const matchesSearch =
       !search.trim() ||
-      s.title.toLowerCase().includes(search.toLowerCase()) ||
-      s.content.toLowerCase().includes(search.toLowerCase()) ||
-      s.shortcut.toLowerCase().includes(search.toLowerCase());
+      matchesSearchText(s.title, search) ||
+      matchesSearchText(s.content, search) ||
+      matchesSearchText(s.shortcut, search);
     return matchesCat && matchesSearch;
   });
 

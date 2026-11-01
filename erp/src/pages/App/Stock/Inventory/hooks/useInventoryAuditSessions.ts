@@ -9,6 +9,7 @@ import {
 } from '@/pages/utils/inventoryService';
 import { toast } from 'react-toastify';
 import type { InventoryAuditSession } from '../types/inventoryAudit.types';
+import { sumInventoryCountedQuantities } from '../../../../../../../shared-utils/inventorySupplierStages';
 import { readSnapshot } from '../utils/inventorySnapshotUtils';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { mapInventoryMoveFromDB } from '@/pages/utils/inventoryService/inventoryMapper';
@@ -293,6 +294,7 @@ export const useInventoryAuditSessions = () => {
           status: snapshot.status,
           items: snapshot.items,
           productsCount: snapshot.items.filter((item) => typeof item.physicalCount === 'number').length,
+          countedQuantityTotal: sumInventoryCountedQuantities(snapshot.items),
           adjustmentsCount,
           reversedCount,
           hasStages: snapshot.hasStages,
@@ -317,6 +319,7 @@ export const useInventoryAuditSessions = () => {
         status: draft.status === 'pending_sync' ? 'pending' : 'in_progress',
         items: draft.items,
         productsCount: draft.items.filter((item) => item.physicalCount !== null).length,
+        countedQuantityTotal: sumInventoryCountedQuantities(draft.items),
         adjustmentsCount: 0,
         reversedCount: 0,
         hasStages: draft.hasStages,

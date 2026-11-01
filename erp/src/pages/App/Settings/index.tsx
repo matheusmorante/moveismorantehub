@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useSettingsForm } from './hooks/useSettingsForm';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 import SettingsSidebar from './components/SettingsSidebar';
 import SettingsSection from './components/SettingsSection';
@@ -42,10 +43,10 @@ export default function Settings(): any {
     }
 
     if (!search.trim()) return true;
-    const term = search.toLowerCase();
+    const term = search;
     return (
-      category.label.toLowerCase().includes(term) ||
-      category.keywords.some((k: string) => k.toLowerCase().includes(term))
+      matchesSearchText(category.label, term) ||
+      category.keywords.some((k: string) => matchesSearchText(k, term))
     );
   };
 

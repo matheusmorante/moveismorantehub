@@ -2,6 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { pluralizeProductType } from '@/pages/utils/pluralize';
 import { VariationRow, CatalogCollectionItem, ChannelFilter } from '../types';
+import { buildPostgrestAccentInsensitiveOrFilter, matchesSearchText } from '../../../../../../../shared-utils/searchText';
 
 const CATALOG_COLUMNS =
   'id, code, description, brand, category, unit_price, stock, active, deleted_at, images, environment, product_type_name, last_whatsapp_sync, line, variations, product_variations(id, product_id, name, sku, price, stock, status, image_url, attributes)';
@@ -74,11 +75,10 @@ export async function fetchPaginatedChannelProducts(
   }
 
   if (search) {
-    const searchLower = search.toLowerCase();
     const { data: matchingVariations, error: variationSearchError } = await supabase
       .from('product_variations')
       .select('product_id')
-      .or(`name.ilike.%${searchLower}%,sku.ilike.%${searchLower}%`)
+      .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], search))
       .limit(100);
     if (variationSearchError) throw variationSearchError;
 
@@ -87,10 +87,10 @@ export async function fetchPaginatedChannelProducts(
     );
     if (matchingParentIds.length > 0) {
       query = query.or(
-        `description.ilike.%${searchLower}%,code.ilike.%${searchLower}%,id.in.(${matchingParentIds.join(',')})`
+        `${buildPostgrestAccentInsensitiveOrFilter(['description', 'code'], search)},id.in.(${matchingParentIds.join(',')})`
       );
     } else {
-      query = query.or(`description.ilike.%${searchLower}%,code.ilike.%${searchLower}%`);
+      query = query.or(buildPostgrestAccentInsensitiveOrFilter(['description', 'code'], search));
     }
   }
 
@@ -136,12 +136,11 @@ export async function fetchPaginatedChannelProducts(
           rawVarName;
         const varSku = v.sku || v.code || '';
 
-        const searchLower = search.toLowerCase();
         const matchesSearch =
           !search ||
-          cleanVarName.toLowerCase().includes(searchLower) ||
-          varSku.toLowerCase().includes(searchLower) ||
-          pDesc.toLowerCase().includes(searchLower);
+          matchesSearchText(cleanVarName, search) ||
+          matchesSearchText(varSku, search) ||
+          matchesSearchText(pDesc, search);
 
         const whatsappSync = savedVariation?.whatsappSync ?? false;
         const matchesChannel = filterChannel === 'all' || (filterChannel === 'whatsapp' && whatsappSync);

@@ -4,6 +4,7 @@ import {
   filterInventoryResponsibleCandidates,
   getInventoryResponsibleDisplayName,
 } from '../../../../../../../shared-utils/inventoryResponsible';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 export const getEmployeeDisplayName = getInventoryResponsibleDisplayName;
 
@@ -59,9 +60,7 @@ export const InventoryResponsibleSelect: React.FC<InventoryResponsibleSelectProp
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [value, validEmployees]);
 
-  const filtered = validEmployees.filter((e) =>
-    getEmployeeDisplayName(e).toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = validEmployees.filter((e) => matchesSearchText(getEmployeeDisplayName(e), query));
 
   return (
     <div ref={wrapperRef} className="relative w-full">
