@@ -31,7 +31,7 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
   const totalProducts = activeItems.length;
 
   return (
-    <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-6 sm:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col transition-all lg:basis-[45%] xl:basis-[42%] shrink-0">
+    <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-3 sm:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col transition-all lg:basis-[45%] xl:basis-[42%] shrink-0 min-w-0">
       <div className="flex flex-col gap-5 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
         {/* TOPO: TÍTULO E BOTÕES GERAIS */}
         <div className="flex items-start justify-between flex-wrap gap-4">
@@ -108,7 +108,7 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
       </div>
 
       <div className="flex flex-col gap-6">
-        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-[300px]">
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 min-h-[120px] sm:min-h-[300px]">
           <div className="space-y-4">
             {selectedCategory === 'logos' ? (
               <LabelQueue

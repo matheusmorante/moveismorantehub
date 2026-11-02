@@ -19,8 +19,6 @@ import {
   fetchSupportCatalogPage,
   fetchSupportCatalogProductDetails,
   supportCatalogCacheContext,
-  type SupportCatalogProduct,
-  type SupportCatalogVariation,
 } from './supportCatalogService';
 import {
   catalogItemUrl,
@@ -28,6 +26,12 @@ import {
   generateCatalogPdf,
   type CatalogItem,
 } from './productCatalogPresentation';
+import {
+  itemKey,
+  makeCatalogItem,
+  priceOf,
+  productImageOf,
+} from './productCatalogItems';
 
 const CACHE_TIME = 5 * 60 * 1000;
 const SEARCH_DEBOUNCE = 350;
@@ -48,34 +52,6 @@ interface ProductCatalogPanelProps {
 
 const scopeKey = (scope: Pick<BulkScope, 'filters'>) =>
   JSON.stringify([scope.filters.categoryId, scope.filters.search.trim().toLocaleLowerCase(), scope.filters.brand]);
-
-const priceOf = (product: SupportCatalogProduct, variation?: SupportCatalogVariation) => {
-  const promoPrice = Number(variation?.promoPrice ?? product.promoPrice ?? 0);
-  const unitPrice = Number(variation?.price ?? product.price ?? 0);
-  return promoPrice > 0 ? promoPrice : unitPrice;
-};
-
-const productImageOf = (product: SupportCatalogProduct, variation?: SupportCatalogVariation) =>
-  variation?.imageUrl || product.imageUrl || '';
-
-const makeCatalogItem = (
-  product: SupportCatalogProduct,
-  variation?: SupportCatalogVariation,
-): CatalogItem | null => {
-  if (!product.id || !product.name) return null;
-  return {
-    productId: product.id,
-    ...(variation?.id ? { variationId: variation.id } : {}),
-    name: product.title || product.name,
-    ...(variation?.name ? { variationName: variation.name } : {}),
-    ...(product.slug ? { slug: product.slug } : {}),
-    price: priceOf(product, variation),
-    ...(productImageOf(product, variation) ? { imageUrl: productImageOf(product, variation) } : {}),
-  };
-};
-
-const itemKey = (item: Pick<CatalogItem, 'productId' | 'variationId'>) =>
-  `${item.productId}:${item.variationId || ''}`;
 
 export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
   isOpen,

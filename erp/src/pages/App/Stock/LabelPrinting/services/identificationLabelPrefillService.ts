@@ -11,6 +11,48 @@ export interface IdentificationLabelReference {
 
 export type IdentificationLabelProduct = Product & { id: string; labelQty: number };
 
+export async function prepareIdentificationLabelProductsForReceipt(
+  receiptId: string
+): Promise<IdentificationLabelProduct[]> {
+  const id = receiptId.trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new Error('O identificador do recebimento é inválido.');
+  }
+
+  const response = await withTimeout(
+    supabase
+      .from('goods_receipts')
+      .select('id, status, is_draft, items, goods_receipt_items(item_index, product_id, variation_id, quantity, item_snapshot)')
+      .eq('id', id)
+      .maybeSingle(),
+    10000,
+    null,
+    'etiquetas:carregar-recebimento'
+  );
+  if (!response) throw new Error('A consulta do recebimento para as etiquetas excedeu o prazo.');
+  if (response.error) throw new Error('Não foi possível carregar o recebimento para as etiquetas.');
+  if (!response.data) throw new Error('O recebimento não foi encontrado ou você não tem acesso a ele.');
+  if (response.data.status !== 'received' || response.data.is_draft === true) {
+    throw new Error('As etiquetas ficam disponíveis somente para recebimentos concluídos.');
+  }
+
+  const persistedItems = response.data.goods_receipt_items;
+  const items = Array.isArray(persistedItems) && persistedItems.length > 0
+    ? [...persistedItems].sort((left: any, right: any) => Number(left.item_index || 0) - Number(right.item_index || 0))
+    : Array.isArray(response.data.items) ? response.data.items : [];
+  const references = items.map((item: Record<string, any>) => {
+    const snapshot = item.item_snapshot && typeof item.item_snapshot === 'object'
+      ? item.item_snapshot
+      : {};
+    return {
+      productId: String(item.product_id || snapshot.productId || item.productId || ''),
+      variationId: String(item.variation_id || snapshot.variationId || item.variationId || '') || undefined,
+      quantity: Number(item.quantity ?? snapshot.quantity),
+    };
+  });
+  return prepareIdentificationLabelProducts(references);
+}
+
 /** Loads current catalog data for linked stock products, never invoice line descriptions. */
 export async function prepareIdentificationLabelProducts(
   references: readonly IdentificationLabelReference[]
@@ -47,7 +89,7 @@ export async function prepareIdentificationLabelProducts(
     supabase
       .from('products')
       .select(
-        'id, name, description, code, sku, unit_price, cost_price, promo_price, stock, active, deleted_at, has_variations, category, unit, images, variations:product_variations(id, name, description, sku, price, promo_price, stock, image_url, active)'
+        'id, name, description, code, unit_price, cost_price, promo_price, stock, active, deleted_at, has_variations, category, unit, images, variations:product_variations(id, name, description, sku, price, promo_price, stock, image_url, active)'
       )
       .is('deleted_at', null)
       .in('id', productIds),

@@ -119,7 +119,7 @@ export const PriceLabelSelectedElementToolbar: React.FC<PriceLabelSelectedElemen
   setShowSizeDropdown,
 }) => {
   return (
-    <div className="flex items-center justify-start gap-3 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-2 shrink-0 overflow-visible relative z-30 min-h-[44px]">
+    <div className={`flex flex-wrap lg:flex-nowrap items-center justify-start gap-3 bg-slate-100 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-2 shrink-0 overflow-visible relative min-h-[44px] ${showSizeDropdown ? 'z-[1100]' : 'z-30'}`}>
       {/* BOTÃO DESMARCAR */}
       <button
         type="button"
@@ -139,7 +139,7 @@ export const PriceLabelSelectedElementToolbar: React.FC<PriceLabelSelectedElemen
 
       {/* SELEÇÃO ATIVA: FERRAMENTAS DA CAMADA ATIVA */}
       {selectedElements.size > 1 ? (
-        <div className="flex items-center gap-3.5 shrink-0 flex-nowrap animate-fade-in">
+        <div className="flex min-w-0 flex-wrap items-center gap-3.5 lg:flex-nowrap animate-fade-in">
           {/* Identificador de Seleção em Lote */}
           <div className="flex flex-col gap-0.5 items-start shrink-0">
             <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">
@@ -191,7 +191,7 @@ export const PriceLabelSelectedElementToolbar: React.FC<PriceLabelSelectedElemen
           </div>
         </div>
       ) : selectedElement ? (
-        <div className="flex items-center gap-3.5 shrink-0 flex-nowrap animate-fade-in">
+        <div className="flex min-w-0 flex-wrap items-center gap-3.5 lg:flex-nowrap animate-fade-in">
           {/* Identificador do Elemento Ativo */}
           <div className="flex flex-col gap-0.5 items-start shrink-0">
             <span className="text-[9px] font-bold text-slate-500 uppercase leading-none">
@@ -270,7 +270,7 @@ export const PriceLabelSelectedElementToolbar: React.FC<PriceLabelSelectedElemen
                   />
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute top-full left-0 mt-1 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 z-[200] animate-fade-in flex flex-col gap-3"
+                    className="fixed left-4 right-4 top-32 mt-1 w-auto lg:absolute lg:top-full lg:left-0 lg:right-auto lg:w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-4 z-[200] animate-fade-in flex flex-col gap-3"
                   >
                     <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
                       <span className="text-[10px] font-black text-slate-800 dark:text-white uppercase tracking-wider">

@@ -26,13 +26,15 @@ export async function fetchUserProfile({
 }: FetchProfileOptions): Promise<Profile | null> {
   try {
     console.log('[Auth] Fetching profile for:', user.id);
+    const appOwnsSessionRefresh =
+      typeof window !== 'undefined' && window.location.pathname === '/mobile/etiquetas';
     const userEmail = (user.email || '').toLowerCase().trim();
     const isMaster = isMasterEmail(userEmail);
     const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
 
     // 1. Proativamente renova o token se expirado ou prestes a expirar (< 60s)
     try {
-      if (typeof supabaseClient?.auth?.getSession === 'function') {
+      if (!appOwnsSessionRefresh && typeof supabaseClient?.auth?.getSession === 'function') {
         const { data: sessionData } = await supabaseClient.auth.getSession();
         const currentSession = sessionData?.session;
         const nowSeconds = Math.floor(Date.now() / 1000);
@@ -70,7 +72,7 @@ export async function fetchUserProfile({
         queryResult.error.code === 'PGRST301' ||
         (queryResult.error as any).status === 401);
 
-    if (isAuthError && typeof supabaseClient?.auth?.refreshSession === 'function') {
+    if (isAuthError && !appOwnsSessionRefresh && typeof supabaseClient?.auth?.refreshSession === 'function') {
       console.log('[Auth] Erro de autenticação no select de profiles. Renovando sessão e tentando novamente...');
       try {
         const { error: refreshErr } = await supabaseClient.auth.refreshSession();

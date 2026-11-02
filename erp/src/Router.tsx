@@ -61,6 +61,7 @@ import FiscalDocumentsPage from './pages/App/FiscalDocuments';
 import { canPerform } from './pages/utils/permissionService';
 import { getProfileRoles } from './pages/utils/accessRoles';
 import ProductIdentificationLabelRoute from './pages/App/Stock/LabelPrinting/ProductIdentificationLabelRoute';
+import MobileLabelsPage from './pages/App/Stock/LabelPrinting/MobileLabelsPage';
 
 const LoadingFallback = () => (
   <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
@@ -179,6 +180,7 @@ function Router() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/mobile/etiquetas" element={<MobileLabelsPage />} />
 
           {/* Publicly accessible order pages could go here if needed */}
           <Route path="/receipt" element={<ReceiptPage />} />

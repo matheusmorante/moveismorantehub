@@ -55,11 +55,43 @@ describe('label form boundaries', () => {
     await act(async () => { await result.current.handlePrintLabels(); });
     expect(mocks.generate).not.toHaveBeenCalled(); expect(mocks.print).not.toHaveBeenCalled(); expect(mocks.error).toHaveBeenCalled();
   });
+  it('não gera identificadores se o aplicativo não puder abrir a impressão', async () => {
+    window.history.replaceState({}, '', '/mobile/etiquetas?cat=identificacao');
+    (window as any).ReactNativeWebView = {
+      postMessage: (data: string) => {
+        const request = JSON.parse(data);
+        window.dispatchEvent(new CustomEvent('morante-label-action-result', {
+          detail: { id: request.id, ok: false, error: 'Impressão indisponível' },
+        }));
+      },
+    };
+    try {
+      const { result } = renderHook(() => useLabelQueue({ selectedCategory: 'identificacao', config: createInitialLabelConfig(), printingMode: 'simple' }));
+      act(() => result.current.setLabelItems([{ name: 'Mesa', price: 'R$ 100', quantity: 1, productId: 'product' }]));
+      await act(async () => { await result.current.handlePrintLabels(); });
+      expect(mocks.generate).not.toHaveBeenCalled();
+      expect(mocks.print).not.toHaveBeenCalled();
+      expect(mocks.error).toHaveBeenCalledWith('Impressão indisponível');
+    } finally {
+      delete (window as any).ReactNativeWebView;
+      window.history.replaceState({}, '', '/');
+    }
+  });
   it('keeps valid price labels printable without generating inventory identifiers', async () => {
     const { result } = renderHook(() => useLabelQueue({ selectedCategory: 'precos', config: createInitialLabelConfig(), printingMode: 'simple' }));
     act(() => result.current.setLabelItems([{ name: 'Mesa', price: 'CONSULTE', quantity: 2 }]));
     await act(async () => { await result.current.handlePrintLabels(); });
     expect(mocks.print).toHaveBeenCalledOnce(); expect(mocks.generate).not.toHaveBeenCalled();
+  });
+  it('abre uma nova etiqueta de preço do aplicativo pronta para selecionar produto', async () => {
+    window.history.replaceState({}, '', '/mobile/etiquetas?cat=precos');
+    try {
+      const { result } = renderHook(() => useLabelQueue({ selectedCategory: 'precos', config: createInitialLabelConfig(), printingMode: 'advanced' }));
+      await act(async () => { await result.current.handleAddBlankLabel(); });
+      expect(result.current.labelItems).toEqual([expect.objectContaining({ isBlank: true, printingMode: 'advanced' })]);
+    } finally {
+      window.history.replaceState({}, '', '/');
+    }
   });
   it('holds validation across identifier generation and preview preparation, blocking concurrent print requests', async () => {
     vi.useFakeTimers();

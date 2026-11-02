@@ -16,6 +16,7 @@ import { NativeProductsScreen } from '../features/products';
 import { FinanceHubScreen } from '../features/finance/screens/FinanceHubScreen';
 import { GlobalAgentScreen } from '../features/agent/screens/GlobalAgentScreen';
 import { NativeStockScreen } from '../features/stock/overview/NativeStockScreen';
+import { MobileLabelsProvider } from '../features/stock/labels/MobileLabelsProvider';
 
 import { NotificationsModal } from '../components/modals/NotificationsModal';
 import { ProfileModal } from '../components/modals/ProfileModal';
@@ -226,6 +227,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
   };
 
   return (
+    <MobileLabelsProvider isDarkMode={isDarkMode}>
     <View style={{ flex: 1 }}>
       <DashboardHeader
         isDarkMode={isDarkMode}
@@ -294,5 +296,6 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
         userProfile={userProfile}
       />
     </View>
+    </MobileLabelsProvider>
   );
 };

@@ -93,7 +93,7 @@ def base(section, title, subtitle=''):
     c.line(M, 36, W - M, 36)
     c.setFillColor(MUTED)
     c.setFont('Segoe', 8)
-    c.drawString(M, 23, f'Operação do ERP  |  Edição ilustrada  |  {GUIDE.get("lastUpdated", "29/10/2026")}')
+    c.drawString(M, 23, f'Operação do ERP e app  |  Edição ilustrada  |  {GUIDE.get("lastUpdated", "29/10/2026")}')
     c.setFont('SegoeBold', 9)
     c.setFillColor(NAVY)
     c.drawRightString(W - M, 22, str(n).zfill(2))
@@ -530,16 +530,18 @@ y = table(['Se acontecer...', 'Como agir'], [
 ], y, widths=[180, TW - 180], size=10)
 
 # 15 - Etiquetas
-y = base('05 / Etiquetas', 'Escolha por onde imprimir as etiquetas', 'Use só a nota ou o recebimento para identificar as mesmas unidades.')
-y = shot('16-menus-de-acoes', y, max_height=267, caption='Menus reais com exemplo didático: 2 etiquetas pela NF-e  •  3 etiquetas pelo recebimento concluído. A opção 1 prepara o recebimento pela NF-e.')
-y = step(1, 'Pela nota fiscal', 'Com o fornecedor e os produtos que serão identificados vinculados, abra os três pontinhos e escolha Imprimir etiquetas de identificação. Linhas “Não se aplica” não geram etiquetas.', y)
-y = step(2, 'Pelo recebimento', 'Com o recebimento concluído e no status Recebido, abra os três pontinhos e escolha a mesma ação. Em rascunho ou estornado, a impressão fica desativada.', y)
+y = base('05 / Etiquetas', 'Escolha por onde imprimir as etiquetas', 'Escolha um caminho para cada unidade e confira a seleção antes de imprimir.')
+y = shot('16-menus-de-acoes', y, max_height=205, caption='No ERP: 2 etiquetas pela NF-e  •  3 etiquetas pelo recebimento concluído. A opção 1 prepara o recebimento pela NF-e.')
+y = step(1, 'Pela nota fiscal no ERP', 'Com o fornecedor e os produtos vinculados, abra os três pontinhos e escolha Imprimir etiquetas de identificação. Linhas “Não se aplica” não geram etiquetas.', y)
+y = step(2, 'Pelo recebimento no ERP', 'Com o recebimento no status Recebido, abra os três pontinhos e escolha a mesma ação. Em rascunho ou estornado, a impressão fica desativada.', y)
+y = step(3, 'Pelo recebimento no aplicativo', 'Nos três pontinhos de um recebimento Recebido, toque em Imprimir etiquetas de identificação. O app abre o gerador do ERP com o mesmo login e preenche a lista com os produtos vinculados e suas quantidades. Rascunhos, recebimentos estornados ou sem produtos vinculados não podem iniciar a impressão.', y)
+y = step(4, 'Pela área de etiquetas no aplicativo', 'Em Estoque, abra Etiquetas de identificação ou Etiquetas de preço. Também é possível usar a ação de etiqueta no menu do produto ou variação. Escolha produtos, quantidades e modelo; confira a prévia, abra os três pontos dela e toque em Imprimir para abrir a impressão do aparelho.', y)
 y = note('Identificação e preço têm usos diferentes', 'A etiqueta de identificação acompanha a unidade física. A etiqueta de preço serve à exposição e à venda; não use para contar estoque. Na lista Produtos, a ação Etiqueta de Preço exige permissão para editar Produtos. Perfis somente consulta devem solicitar a impressão a alguém autorizado.', y, fill=MINT)
 
 # 16 - Preparar etiquetas
 y = base('05 / Etiquetas', 'Confira a seleção antes de imprimir', 'A janela mostra os produtos associados e as quantidades. Revise antes de imprimir.')
 y = shot('15-selecionar-etiquetas', y, max_height=310, caption='1 Confira a quantidade de cada produto  •  2 Imprimir Etiquetas abre a preparação da impressão. Dados fictícios de exemplo.')
-y = step(1, 'Confira o produto e a quantidade', 'A etiqueta usa o cadastro, não a descrição da nota. Se o produto estiver errado, troque-o no campo do próprio card: digite pelo menos 3 caracteres, aguarde a busca e escolha entre até cinco produtos convencionais. Confira também a quantidade de unidades que vai identificar.', y)
+y = step(1, 'Confira o produto e a quantidade', 'A etiqueta usa o cadastro, não a descrição da nota. No app, toque no campo Produto para abrir a busca; no ERP, pesquise no próprio campo. Digite pelo menos 3 caracteres, aguarde e escolha entre até cinco resultados. Confira também a quantidade de unidades que vai identificar.', y)
 y = step(2, 'Confira o modelo e a prévia', 'Na preparação, Adicionar cria uma linha para buscar outro produto. Selecione-o; o campo fica verde com check. Sem produto, a etiqueta permanece em branco. A etiqueta de identificação mostra nome, SKU e QR, sem foto. Revise o modelo e a posição na folha antes de imprimir.', y)
 y = step(3, 'Imprima e confira cada etiqueta', 'Confira o produto escrito na etiqueta antes de colar. Cada móvel precisa de uma identificação, mesmo que tenha várias caixas.', y)
 y = note('Evite duas etiquetas para o mesmo móvel', 'Cada impressão cria uma nova identificação. Não imprima os mesmos itens pela nota e pelo recebimento. Para substituir uma etiqueta, peça orientação para não deixar duas etiquetas ativas no mesmo móvel.', y, fill=AMBER)

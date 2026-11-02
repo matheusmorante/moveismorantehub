@@ -3,6 +3,7 @@ import labelMdf from '../../../../../../assets/label_mdf.png';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
 import type { Product, Variation } from '@/pages/types/product.type';
 import ProductSearchInput from '../ProductSearchInput';
+import { LabelMobileProductPicker } from '../LabelMobileProductPicker';
 import './LabelQueueCard.responsive.css';
 
 interface LabelQueueCardProps {
@@ -47,6 +48,7 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
   handleDrop,
 }) => {
   const isIdentificationQueue = selectedCategory === 'identificacao';
+  const isEmbeddedMobile = typeof window !== 'undefined' && window.location.pathname === '/mobile/etiquetas';
   const hasSelectedProduct =
     !item.isBlank && Boolean(item.productId || item.variationId);
 
@@ -217,7 +219,15 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
         <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isIdentificationQueue ? 'label-queue-card-details' : ''}`}>
           {/* Nome e SKU */}
           <div className="min-w-0 flex-1">
-            {selectedCategory === 'identificacao' ? (
+            {selectedCategory === 'identificacao' && isEmbeddedMobile ? (
+              <LabelMobileProductPicker
+                category="identificacao"
+                productName={item.name}
+                selected={hasSelectedProduct}
+                products={products}
+                onSelectIdentification={(product, variation) => onReplaceProduct?.(idx, product, variation)}
+              />
+            ) : selectedCategory === 'identificacao' ? (
               <ProductAutocomplete
                 value={item.isBlank ? '' : item.name || ''}
                 onSelect={(product, variation) => onReplaceProduct?.(idx, product, variation)}
@@ -235,7 +245,14 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
                 }`}
               />
             ) : item.isBlank ? (
-              selectedCategory === 'precos' && item.printingMode === 'advanced' ? (
+              selectedCategory === 'precos' && item.printingMode === 'advanced' && isEmbeddedMobile ? (
+                <LabelMobileProductPicker
+                  category="precos"
+                  selected={false}
+                  products={products}
+                  onSelectPrice={(product) => onSelectProduct?.(idx, product)}
+                />
+              ) : selectedCategory === 'precos' && item.printingMode === 'advanced' ? (
                 <ProductSearchInput
                   products={products}
                   selectedProduct={null}

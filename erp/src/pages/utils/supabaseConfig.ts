@@ -31,8 +31,14 @@ const supabaseUrl = isTestEnvironment
 const supabaseKey = isTestEnvironment
   ? testSupabaseKey
   : import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+const isEmbeddedLabels =
+  typeof window !== 'undefined' && window.location.pathname === '/mobile/etiquetas';
 
 export const supabase = createClient(supabaseUrl!, supabaseKey!, {
+  // A sessão desta tela pertence ao aplicativo e vive apenas em memória.
+  auth: isEmbeddedLabels
+    ? { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+    : undefined,
   global: {
     fetch: supabaseMonitor.customFetch,
   },

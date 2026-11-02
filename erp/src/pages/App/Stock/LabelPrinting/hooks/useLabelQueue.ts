@@ -8,6 +8,7 @@ import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDef
 import type { LabelItemConfig, LogoItemConfig } from '../types/LabelGridItem.types';
 import { LabelConfig } from '../utils/LabelConstants';
 import { useLabelPrintMode } from './useLabelPrintMode';
+import { hasMobileLabelBridge, requestMobileLabelAction } from '../services/mobileLabelBridge';
 import {
   generateInventoryLabelsBatch,
   LabelBatchRequestItem,
@@ -35,7 +36,7 @@ const getProductLabelFields = (
   product: Product,
   quantity: number,
   variation?: Variation
-): Partial<LabelItemConfig> => {
+): Pick<LabelItemConfig, 'name' | 'price' | 'quantity'> & Partial<LabelItemConfig> => {
   const selectedVariation = variation?.isVirtual ? undefined : variation;
   const productTitle = product.title || product.name || product.description || '';
   const legacyVariationName = (product as any).variation || (product as any).variationName;
@@ -101,7 +102,7 @@ const getProductLabelFields = (
 
 export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLabelQueueProps) => {
   const [isPrinting, setIsPrinting] = useState(false);
-  const rawPrintLabels = useLabelPrintMode();
+  const rawPrintLabels = useLabelPrintMode(config);
 
   const [simpleLabelItems, setSimpleLabelItems] = useState<LabelItemConfig[]>([]);
   const [advancedLabelItems, setAdvancedLabelItems] = useState<LabelItemConfig[]>([]);
@@ -126,6 +127,7 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
     if (selectedCategory === 'identificacao' && values.items.length > 0) {
       setIsPrinting(true);
       try {
+        if (hasMobileLabelBridge()) await requestMobileLabelAction({ action: 'check-print' });
         const updatedItems = [...values.items];
 
         // Itens que necessitam de geração de novos UUIDs (não é reimpressão já preenchida)
@@ -174,7 +176,11 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
         setIsPrinting(false);
       }
     } else {
-      await rawPrintLabels();
+      try {
+        await rawPrintLabels();
+      } catch (error: any) {
+        toast.error(error?.message || 'Não foi possível abrir a impressão.');
+      }
     }
     }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
@@ -196,7 +202,6 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
     };
 
     setLabelItems((prev: any) => [...prev, newItem]);
-    toast.success(`${fullName} (${quantity} un) adicionado à lista.`);
     return true;
   }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
 
@@ -251,7 +256,9 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
         sku: '',
         quantity: quantity,
         isBlank: true,
-        printingMode: 'simple',
+        printingMode: selectedCategory === 'precos' && window.location.pathname === '/mobile/etiquetas'
+          ? 'advanced'
+          : 'simple',
         extraFields: [],
       };
       setLabelItems((prev: any) => [...prev, newItem]);

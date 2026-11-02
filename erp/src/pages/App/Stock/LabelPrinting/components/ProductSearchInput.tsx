@@ -17,6 +17,7 @@ interface ProductSearchInputProps {
   placeholder?: string;
   className?: string;
   hideIcon?: boolean;
+  autoFocus?: boolean;
 }
 
 export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
@@ -26,6 +27,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
   placeholder = 'Digite para buscar produto...',
   className = '',
   hideIcon = false,
+  autoFocus = false,
 }) => {
   const normalizeSearchText = (value: unknown) =>
     String(value || '')
@@ -270,6 +272,8 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
         <div className="flex flex-col min-w-0 flex-1">
           <input
             type="text"
+            autoFocus={autoFocus}
+            aria-label="Buscar produto"
             value={filterText}
             onChange={(e) => {
               setFilterText(e.target.value);

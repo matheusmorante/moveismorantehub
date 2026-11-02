@@ -276,7 +276,11 @@ export function useAuthSession({
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
       console.log('[Auth] State Change:', event);
-      handleSession(session, event);
+      const source = event === 'SIGNED_IN' && window.location.pathname === '/mobile/etiquetas' &&
+        profileResolvedUserIdRef.current === session?.user?.id
+        ? 'TOKEN_REFRESHED'
+        : event;
+      handleSession(session, source);
     });
 
     return () => {

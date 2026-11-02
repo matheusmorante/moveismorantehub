@@ -20,6 +20,7 @@ import {
   Pencil,
   Play,
   Plus,
+  Printer,
   RotateCcw,
   Trash2,
 } from 'lucide-react-native';
@@ -29,6 +30,8 @@ import { NewGoodsReceiptModal } from '../modals/NewGoodsReceiptModal';
 import { supabase } from '../../../../services/supabaseClient';
 import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
 import { fetchInUseInvoiceKeys, IN_USE_INVOICE_MESSAGE } from '../../../../../../shared-utils/receiptInvoiceAvailability';
+import { styles } from './receiptsScreen.styles';
+import { useMobileLabels } from '../../labels/MobileLabelsProvider';
 import {
   discardMobileGoodsReceiptDraft,
   reverseMobileGoodsReceipt,
@@ -38,6 +41,7 @@ import {
 
 interface Props {
   isDarkMode: boolean;
+  canPrintIdentificationLabels?: boolean;
   onBack: () => void;
   renderHeader: (rightAction?: ReactNode) => React.ReactElement;
 }
@@ -48,8 +52,9 @@ type ReceiptActionDialog =
   | { kind: 'confirm'; action: 'discard' | 'reverse' | 'unreverse'; receipt: any }
   | { kind: 'error'; title: string; message: string };
 
-export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHeader }) => {
+export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, canPrintIdentificationLabels = false, onBack, renderHeader }) => {
   const { receipts, loading, loadingMore, loadMore, loadError, reload } = useReceipts();
+  const { openLabels } = useMobileLabels();
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<any> | null>(null);
   const menuAnchor = useRef<View>(null);
@@ -85,6 +90,24 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
   const unreverseReason = unreverseState === 'blocked' ? IN_USE_INVOICE_MESSAGE :
     unreverseState === 'error' ? 'Não foi possível conferir a nota. Feche e abra o menu para tentar novamente.' :
     'Conferindo o recebimento da nota...';
+  const receiptMenuHasLinkedProducts = Boolean(
+    receiptMenu?.id &&
+    receiptMenu?.items?.length &&
+    receiptMenu.items.every((item: any) => Boolean(
+      item?.productId || item?.product_id || item?.item_snapshot?.productId
+    ))
+  );
+  const receiptMenuCanPrintLabels = Boolean(
+    canPrintIdentificationLabels &&
+    receiptMenu?.status === 'received' &&
+    !isReceiptDraft(receiptMenu) &&
+    receiptMenuHasLinkedProducts
+  );
+  const receiptMenuPrintHint = !canPrintIdentificationLabels
+    ? 'Seu perfil não tem permissão para imprimir etiquetas de identificação.'
+    : !receiptMenuHasLinkedProducts
+      ? 'Este recebimento não tem produtos vinculados para etiquetar.'
+      : undefined;
 
   const handleManageInUseInvoice = async (fiscalKey: string) => {
     try {
@@ -445,6 +468,32 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
             <Text style={[styles.receiptMenuTitle, isDarkMode && styles.textDark]}>
               Ações do recebimento
             </Text>
+            {receiptMenu?.status === 'received' && !isReceiptDraft(receiptMenu) ? (
+              <TouchableOpacity
+                style={[styles.menuItem, !receiptMenuCanPrintLabels && { opacity: 0.5 }]}
+                onPress={() => {
+                  if (!receiptMenuCanPrintLabels) return;
+                  const receiptId = String(receiptMenu.id);
+                  setReceiptMenu(null);
+                  openLabels({ category: 'identificacao', receiptId });
+                }}
+                disabled={!receiptMenuCanPrintLabels}
+                accessibilityRole="button"
+                accessibilityLabel="Imprimir etiquetas de identificação"
+                accessibilityState={{ disabled: !receiptMenuCanPrintLabels }}
+                accessibilityHint={receiptMenuCanPrintLabels ? undefined : receiptMenuPrintHint}
+              >
+                <Printer size={17} color={receiptMenuCanPrintLabels ? '#2563eb' : '#64748b'} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.menuText, isDarkMode && styles.textDark]}>Imprimir etiquetas de identificação</Text>
+                  {!receiptMenuCanPrintLabels && receiptMenuPrintHint ? (
+                    <Text style={[styles.receiptMenuHint, isDarkMode && styles.receiptMenuHintDark]}>
+                      {receiptMenuPrintHint}
+                    </Text>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
+            ) : null}
             {isReceiptDraft(receiptMenu) ? (
               <>
                 <TouchableOpacity
@@ -660,188 +709,3 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, onBack, renderHead
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  containerDark: { backgroundColor: '#0f172a' },
-  emptyState: { padding: 32, alignItems: 'center' },
-  emptyText: { color: '#64748b', fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  emptyTextDark: { color: '#94a3b8' },
-  retryFooter: { padding: 16, alignItems: 'center', gap: 10 },
-  retryButton: {
-    minHeight: 40,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: '#2563eb',
-  },
-  retryButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 13 },
-  menuTrigger: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuOverlay: { flex: 1 },
-  menu: { position: 'absolute', minWidth: 168, padding: 5, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#ffffff', elevation: 8 },
-  menuDark: { borderColor: '#334155', backgroundColor: '#1e293b' },
-  menuItem: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10 },
-  resumeMenuItem: { minHeight: 42, paddingHorizontal: 8, borderRadius: 10 },
-  menuText: { color: '#0f172a', fontSize: 13, fontWeight: '700' },
-  pageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#f8fafc',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  pageHeaderDark: { backgroundColor: '#0f172a', borderBottomColor: '#1e293b' },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  backBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backBtnDark: { backgroundColor: '#1e293b' },
-  pageTitle: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
-  textDark: { color: '#f8fafc' },
-  cardContainer: { paddingHorizontal: 16, paddingTop: 12, position: 'relative' },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    marginBottom: 12,
-  },
-  cardDark: { backgroundColor: '#1e293b', borderColor: '#334155' },
-  receiptCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' },
-  receiptStatusGroup: { flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 46 },
-  focusedReceiptCard: { borderColor: '#2563eb', borderWidth: 2 },
-  focusFilter: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#93c5fd',
-    backgroundColor: '#eff6ff',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  focusFilterDark: { borderColor: '#1d4ed8', backgroundColor: '#172554' },
-  focusFilterText: { flex: 1, color: '#1e3a8a', fontSize: 12, fontWeight: '700' },
-  focusFilterAction: { color: '#2563eb', fontSize: 12, fontWeight: '800' },
-  cardMenuTrigger: {
-    position: 'absolute',
-    top: 17,
-    right: 26,
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-  },
-  cardMenuTriggerDark: { backgroundColor: '#334155' },
-  receiptMenuOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 22,
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
-  },
-  receiptMenuCard: {
-    width: '100%',
-    maxWidth: 360,
-    padding: 8,
-    borderRadius: 16,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    elevation: 10,
-  },
-  receiptMenuTitle: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 8,
-    color: '#0f172a',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  receiptActionDialogOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 22,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-  },
-  receiptActionDialogCard: {
-    width: '100%',
-    maxWidth: 360,
-    padding: 20,
-    borderRadius: 16,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    elevation: 12,
-  },
-  receiptActionDialogTitle: { color: '#0f172a', fontSize: 16, fontWeight: '800' },
-  receiptActionDialogMessage: { marginTop: 10, color: '#475569', fontSize: 14, lineHeight: 20 },
-  dialogMessageDark: { color: '#cbd5e1' },
-  receiptActionDialogActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 22,
-  },
-  receiptActionDialogButton: {
-    minHeight: 44,
-    minWidth: 92,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-  receiptActionCancel: { borderWidth: 1, borderColor: '#cbd5e1', backgroundColor: '#ffffff' },
-  receiptActionDanger: { backgroundColor: '#dc2626' },
-  receiptActionSuccess: { backgroundColor: '#059669' },
-  receiptActionPrimary: { backgroundColor: '#2563eb' },
-  receiptActionCancelText: { color: '#334155', fontSize: 13, fontWeight: '700' },
-  receiptActionConfirmText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
-  receiptActionButtonDisabled: { opacity: 0.65 },
-  dangerMenuText: { color: '#dc2626' },
-  successMenuText: { color: '#059669' },
-  title: { fontSize: 14, fontWeight: '700', color: '#0f172a' },
-  supplierName: { fontSize: 15, fontWeight: '700', color: '#1e293b' },
-  receiptSupplierRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  receiptSupplierName: { flex: 1, minWidth: 0 },
-  receiptInvoiceLabel: { color: '#64748b', fontSize: 11, fontWeight: '600', flexShrink: 0 },
-  receiptInvoiceLabelDark: { color: '#94a3b8' },
-  receiptTotalInline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  receiptTotalLabel: { color: '#64748b', fontSize: 12, fontWeight: '600' },
-  receiptTotalLabelDark: { color: '#94a3b8' },
-  receiptTotalValue: { color: '#0f172a', fontSize: 13, fontWeight: '800' },
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1 },
-  movementBadge: { width: 24, height: 24, borderRadius: 6, justifyContent: 'center', alignItems: 'center', position: 'relative', borderWidth: 1 },
-  movementBadgeEffective: { backgroundColor: '#059669', borderColor: '#047857' },
-  movementBadgePending: { backgroundColor: '#94a3b8', borderColor: '#64748b' },
-  movementBadgeReversed: { backgroundColor: '#dc2626', borderColor: '#b91c1c' },
-  movementBadgeCheckIndicator: { position: 'absolute', top: -3, right: -3, width: 10, height: 10, borderRadius: 5, backgroundColor: '#065f46', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#ffffff' },
-  badgeSuccess: { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' },
-  badgeDraft: { backgroundColor: '#fffbeb', borderColor: '#fde68a' },
-  badgeError: { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
-  badgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
-  badgeTextSuccess: { color: '#059669' },
-  badgeTextDraft: { color: '#d97706' },
-  badgeTextError: { color: '#dc2626' },
-});

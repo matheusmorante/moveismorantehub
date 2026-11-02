@@ -1,7 +1,7 @@
 import { Eye, MoreVertical, Package } from 'lucide-react-native';
 import React from 'react';
-import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { WEB_URL } from '../../../services/supabaseClient';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMobileLabels } from '../../stock/labels/MobileLabelsProvider';
 import { ProductImage } from '../../../components/shared/ProductImage';
 import { toMobileVariationAttributes } from '../services/mobileProductVariationActionsService';
 import { normalizeVariationSku } from '../domain/productSku';
@@ -14,7 +14,6 @@ import { isSalvadoStockOrigin } from '../../../../../shared-utils/productStockOr
 import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
 import { MergedBadge } from './MergedBadge';
-import { buildProductIdentificationLabelUrl } from '../domain/productLabelLinks';
 import { canShowProductVariationActionsMenu } from '../../../../../shared-utils/productPermissions';
 import { getMobileProductVariationCardName } from '../domain/mobileProductCardDisplay';
 
@@ -63,6 +62,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   canPrintLabel = false,
   isLabelOnlyProfile = false,
 }) => {
+  const { openLabels } = useMobileLabels();
   const [menuVisible, setMenuVisible] = React.useState(false);
   const varName = getMobileProductVariationCardName(parentProduct, v, index);
 
@@ -118,11 +118,11 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
 
   const handlePrintLabel = () => {
     const parentId = parentProduct?.id || v.productId || v.id;
-    const url = buildProductIdentificationLabelUrl(WEB_URL, parentId, v.id);
-    Linking.openURL(url).catch((err) => {
-      console.warn('Falha ao abrir tela de etiquetas:', err);
-      Alert.alert('Erro', 'Não foi possível abrir a tela de etiquetas.');
-    });
+    if (!parentId) {
+      Alert.alert('Produto indisponível', 'Não foi possível identificar o produto para a etiqueta.');
+      return;
+    }
+    openLabels({ category: 'identificacao', productId: String(parentId), variationId: v.id, fillSheet: true });
   };
 
   return (

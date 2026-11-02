@@ -1,9 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import { toast } from 'react-toastify';
 import { LabelConfig } from '../utils/LabelConstants';
 import { CategoryType } from './useLabelCategory';
 import Product from '../../../../types/product.type';
+import { hasMobileLabelBridge, requestMobileLabelAction } from '../services/mobileLabelBridge';
+import { getLabelPaperDimensions } from '../utils/labelGridLayout';
 
 interface UseLabelPreviewProps {
   config: LabelConfig;
@@ -28,6 +30,19 @@ export const useLabelPreview = ({
   const [currentPage, setCurrentPage] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
 
+  useEffect(() => {
+    if (window.location.pathname !== '/mobile/etiquetas') return;
+    const fitPreview = () => {
+      const widthMm = Number.parseFloat(getLabelPaperDimensions(config).w);
+      const paperWidthPx = widthMm * 96 / 25.4;
+      const availableWidth = Math.max(80, window.innerWidth - 88);
+      setPreviewZoom(Math.min(0.6, Math.max(0.1, availableWidth / paperWidthPx)));
+    };
+    fitPreview();
+    window.addEventListener('resize', fitPreview);
+    return () => window.removeEventListener('resize', fitPreview);
+  }, [config.paperSize, config.paperWidth, config.paperHeight]);
+
   const handleCellClick = (index: number) => {
     if (config.preset === 'custom' && selectedCategory !== 'posts') {
       setActiveCellIndex(index);
@@ -47,10 +62,16 @@ export const useLabelPreview = ({
         useCORS: true,
         backgroundColor: '#ffffff',
       });
-      const link = document.createElement('a');
-      link.download = `etiquetas-${selectedProduct?.description || 'geral'}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      const fileName = `etiquetas-${selectedProduct?.description || 'geral'}.png`;
+      const dataUrl = canvas.toDataURL('image/png');
+      if (hasMobileLabelBridge()) {
+        await requestMobileLabelAction({ action: 'share-image', dataUrl, fileName });
+      } else {
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = dataUrl;
+        link.click();
+      }
       toast.success('Imagem gerada com sucesso!');
     } catch (e) {
       console.error('Erro ao gerar imagem:', e);

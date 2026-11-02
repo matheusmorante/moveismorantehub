@@ -1,5 +1,9 @@
 # Fonte do guia prático do estoque
 
+## Atualização de 02/11/2026
+
+As páginas 17 e 18 orientam como abrir etiquetas de identificação e de preço no menu Estoque do aplicativo ou pelo menu de um produto, escolher produtos na busca, conferir quantidades e modelo e abrir a impressão do aparelho. Nos três pontinhos de um recebimento Recebido no app, “Imprimir etiquetas de identificação” abre o gerador do ERP com o mesmo login e carrega os produtos vinculados e as quantidades do recebimento. Em rascunhos, estornados ou sem produtos vinculados, a ação não inicia a impressão. A etiqueta de identificação cria uma nova identificação a cada impressão, portanto não repita a impressão das mesmas unidades por caminhos diferentes.
+
 ## Atualização de 01/11/2026
 
 Na alteração de um recebimento já vinculado a NF-e, fornecedor, produtos, quantidades, custos e despesas são informativos; somente a data e as observações podem ser editadas. No cadastro de um novo recebimento com NF, frete e outras despesas cobrados fora da nota podem ser informados e rateados entre os itens. Anexos complementares continuam disponíveis. Nos recebimentos sem NF, a área Despesas oferece apenas frete e outras despesas; os itens não têm campo de desconto.

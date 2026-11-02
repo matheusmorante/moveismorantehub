@@ -15,9 +15,10 @@ export const PriceLabelEditorHeader: React.FC<PriceLabelEditorHeaderProps> = ({
   onRedo,
   onBackToErp,
 }) => {
+  const embedded = typeof window !== 'undefined' && window.location.pathname === '/mobile/etiquetas';
   return (
-    <div className="flex items-center justify-between px-4 sm:px-6 lg:px-10 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 relative z-30">
-      <div className="flex items-center gap-3.5">
+    <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 lg:px-10 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 relative z-30">
+      <div className="flex min-w-0 flex-1 items-center gap-3.5">
         <div className="w-8 h-8 rounded-xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center font-black">
           <i className="bi bi-palette-fill text-sm" />
         </div>
@@ -56,7 +57,7 @@ export const PriceLabelEditorHeader: React.FC<PriceLabelEditorHeaderProps> = ({
           className="h-8 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 text-slate-500 hover:text-red-500 flex items-center justify-center gap-1.5 transition-colors cursor-pointer ml-1 text-xs font-black"
         >
           <i className="bi bi-arrow-left text-xs" />
-          <span>Voltar ao ERP</span>
+          <span>{embedded ? 'Voltar' : 'Voltar ao ERP'}</span>
         </button>
       </div>
     </div>

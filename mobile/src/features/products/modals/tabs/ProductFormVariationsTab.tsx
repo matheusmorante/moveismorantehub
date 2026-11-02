@@ -39,6 +39,7 @@ import { generateVariationSku } from '../../domain/productSku';
 import { getMobileProductReadiness } from '../../domain/productRegistrationRules';
 import { getEffectiveProductForVariationReadiness } from '../../../../../../shared-utils/productErpLegibility';
 import { checkMobileProductVariationHasMoves } from '../../services/mobileProductMutationService';
+import { useMobileProductVariationUsage } from '../../hooks/useMobileProductVariationUsage';
 import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
 import { ProductFormCompositionTab } from './ProductFormCompositionTab';
@@ -98,46 +99,11 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
   const shouldCheckVariationUsage = Boolean(
     isExistingProduct && formData.id && variationCount > 1
   );
-  const [variationUsageById, setVariationUsageById] = useState<
-    Record<string, boolean | undefined>
-  >({});
-
-  useEffect(() => {
-    if (!shouldCheckVariationUsage) {
-      setVariationUsageById({});
-      return;
-    }
-
-    const ids = variationIds.split('|');
-    const persistedIds = ids.filter(Boolean);
-    let isCurrent = true;
-    setVariationUsageById(
-      Object.fromEntries(ids.map((id) => [id, id ? undefined : false]))
-    );
-
-    void Promise.all(
-      persistedIds.map(async (id) => [
-        id,
-        await checkMobileProductVariationHasMoves(formData.id, id),
-      ] as const)
-    )
-      .then((entries) => {
-        if (isCurrent) {
-          setVariationUsageById((current) => ({ ...current, ...Object.fromEntries(entries) }));
-        }
-      })
-      .catch(() => {
-        if (isCurrent) {
-          setVariationUsageById(
-            Object.fromEntries(ids.map((id) => [id, id ? true : false]))
-          );
-        }
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [formData.id, shouldCheckVariationUsage, variationIds]);
+  const variationUsageById = useMobileProductVariationUsage(
+    formData.id,
+    shouldCheckVariationUsage,
+    variationIds
+  );
 
   useEffect(() => {
     if (!selectedVariationId) return;

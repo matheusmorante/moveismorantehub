@@ -1,6 +1,7 @@
 import React from 'react';
 import { PreviewSectionProps } from '../types/LabelPrintingSections.types';
 import LabelGrid from '../components/LabelGrid';
+import { getLabelPaperDimensions } from '../utils/labelGridLayout';
 
 export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
   const [actionsOpen, setActionsOpen] = React.useState(false);
@@ -34,6 +35,10 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
       ? logoItems.reduce((acc, curr) => acc + curr.quantity, 0)
       : labelItems.reduce((acc, curr) => acc + curr.quantity, 0);
   const totalPagesCount = Math.ceil(Math.max(count, 1) / totalCells);
+  const embedded = typeof window !== 'undefined' && window.location.pathname === '/mobile/etiquetas';
+  const paperSize = getLabelPaperDimensions(config);
+  const paperWidthPx = Number.parseFloat(paperSize.w) * 96 / 25.4;
+  const paperHeightPx = Number.parseFloat(paperSize.h) * 96 / 25.4;
 
   return (
     <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-4 sm:p-6 lg:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col animate-fade-in transition-all flex-1 min-w-0 overflow-hidden">
@@ -139,10 +144,15 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
         }`}
       >
         <div
+          className={embedded ? 'shrink-0' : 'contents'}
+          style={embedded ? { width: paperWidthPx * previewZoom, height: paperHeightPx * previewZoom } : undefined}
+        >
+        <div
           ref={previewScaleRef}
           style={{
+            ...(embedded ? { width: paperWidthPx } : {}),
             transform: `scale(${previewZoom})`,
-            transformOrigin: 'top center',
+            transformOrigin: embedded ? 'top left' : 'top center',
             transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
           className="relative mb-6 origin-top"
@@ -173,6 +183,7 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
               );
             })()}
           </div>
+        </div>
         </div>
       </div>
     </section>

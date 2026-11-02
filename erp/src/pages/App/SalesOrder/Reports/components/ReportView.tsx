@@ -25,6 +25,10 @@ import ReportConfigModal from '../modals/ReportConfigModal';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { salesReportViewFormSchema, erpReportPrepareFormSchema, salesReportSaleItemsSchema } from '../../../../../../../shared-utils/salesReportFormSchemas';
 import { mappedCsvItems } from '../utils/reportCsvInput';
+import {
+  normalizeSavedReportProducts,
+  normalizeSavedReportResults,
+} from '../utils/savedSalesReportHydration';
 import SupplierPerformanceView from './SupplierPerformanceView';
 
 const ReportView = () => {
@@ -213,44 +217,12 @@ const ReportView = () => {
         setReportName(data.name);
         if (data.source === 'erp' || data.source === 'csv') setReportSource(data.source);
         configRef.current = data.config; setReportConfig(data.config);
-        const mCount = rd.monthCount || 1;
-        let aProfit = rd.avgProfitPerItem || 0;
-        let aTurnover = rd.avgTurnoverPerItem || 0;
-
-        // Se as médias vieram zeradas (relatórios antigos), recalcular a partir dos resultados
-        if (aProfit === 0 || aTurnover === 0) {
-          const tempResults = rd.results || [];
-          if (tempResults.length > 0) {
-            const sumP = tempResults.reduce(
-              (acc: number, curr: any) => acc + (curr.monthlyProfit ?? curr.totalProfit / mCount),
-              0
-            );
-            const sumT = tempResults.reduce(
-              (acc: number, curr: any) =>
-                acc + (curr.monthlyTurnover ?? curr.totalQuantity / mCount),
-              0
-            );
-            aProfit = sumP / tempResults.length;
-            aTurnover = sumT / tempResults.length;
-          }
-        }
-
-        const resultsWithMonthly = rd.results.map((r: any) => {
-          const mP = r.monthlyProfit ?? r.totalProfit / mCount;
-          const mT = r.monthlyTurnover ?? r.totalQuantity / mCount;
-
-          let q: 1 | 2 | 3 | 4 = 4;
-          if (mT >= aTurnover && mP >= aProfit) q = 1;
-          else if (mT < aTurnover && mP >= aProfit) q = 2;
-          else if (mT >= aTurnover && mP < aProfit) q = 3;
-
-          return {
-            ...r,
-            monthlyProfit: mP,
-            monthlyTurnover: mT,
-            quadrant: q,
-          };
-        });
+        const {
+          monthCount: mCount,
+          avgProfitPerItem: aProfit,
+          avgTurnoverPerItem: aTurnover,
+          results: resultsWithMonthly,
+        } = normalizeSavedReportResults(rd);
 
         setRawResults(resultsWithMonthly);
         setResults(resultsWithMonthly);
@@ -259,29 +231,13 @@ const ReportView = () => {
         setAvgTurnoverPerItem(aTurnover);
 
         // Normalizar allProducts para sempre ser um array de objetos enriquecidos
-        let baseAllProducts = rd.allProducts || [];
-
-        if (
-          baseAllProducts.length === 0 ||
-          (baseAllProducts.length > 0 && typeof baseAllProducts[0] === 'string')
-        ) {
-          baseAllProducts = resultsWithMonthly.map((r: any) => ({
-            product: r.product,
-            qty: r.totalQuantity,
-            profit: r.totalProfit,
-            supplier: r.supplier,
-          }));
-        }
-
-        const enrichedAllProducts = baseAllProducts.map((p: any) => {
-          const mP = (p.profit || 0) / mCount;
-          const mT = (p.qty || 0) / mCount;
-          let q: 1 | 2 | 3 | 4 = 4;
-          if (mT >= aTurnover && mP >= aProfit) q = 1;
-          else if (mT < aTurnover && mP >= aProfit) q = 2;
-          else if (mT >= aTurnover && mP < aProfit) q = 3;
-          return { ...p, quadrant: q };
-        });
+        const enrichedAllProducts = normalizeSavedReportProducts(
+          rd.allProducts,
+          resultsWithMonthly,
+          mCount,
+          aProfit,
+          aTurnover
+        );
 
         setAllProducts(enrichedAllProducts);
         setTotalProfit(rd.totalProfit);

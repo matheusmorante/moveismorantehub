@@ -14,6 +14,7 @@ export interface HeaderSectionProps {
   config: LabelConfig;
   setGridModalOpen: (open: boolean) => void;
   setIsModelManagerModalOpen: (open: boolean) => void;
+  setIsPriceLabelArtEditorOpen?: (open: boolean) => void;
   DEFAULT_LAYOUT_MODELS: GridModel[];
   customLayouts: GridModel[];
 }

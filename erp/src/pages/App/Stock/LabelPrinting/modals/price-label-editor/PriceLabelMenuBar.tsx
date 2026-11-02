@@ -32,7 +32,7 @@ export const PriceLabelMenuBar: React.FC<PriceLabelMenuBarProps> = ({
 
   return (
     <div className="flex items-center justify-start gap-3 bg-slate-200/80 dark:bg-slate-900 border-b border-slate-300 dark:border-slate-800 px-4 sm:px-6 lg:px-8 py-1.5 shrink-0 overflow-visible relative z-[1000]">
-      <div className="flex items-center gap-3 shrink-0 flex-nowrap">
+      <div className="flex min-w-0 flex-wrap items-center gap-3 lg:flex-nowrap">
         {/* ARQUIVO DROPDOWN */}
         <div className="relative shrink-0">
           <button

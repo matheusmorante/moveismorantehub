@@ -2,6 +2,7 @@ import html2canvas from 'html2canvas';
 import type { z } from 'zod';
 import { labelArtworkExportFormSchema } from '../../../../../../../shared-utils/labelArtworkFormSchemas';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { hasMobileLabelBridge, requestMobileLabelAction } from './mobileLabelBridge';
 
 /** The owner validates the intent with RHF and keeps its preview stable until completion. */
 export async function exportLabelImage(
@@ -17,7 +18,7 @@ export async function exportLabelImage(
   };
   const operation = async () => {
     check();
-    if (command.action === 'copy' && (!navigator.clipboard?.write || !window.ClipboardItem)) {
+    if (command.action === 'copy' && !hasMobileLabelBridge() && (!navigator.clipboard?.write || !window.ClipboardItem)) {
       throw new Error('Copiar não suportado neste navegador. Use Baixar PNG.');
     }
     const canvas = await html2canvas(element, {
@@ -26,7 +27,14 @@ export async function exportLabelImage(
       ignoreElements: (candidate) => candidate.getAttribute('data-hide-export') === 'true',
     });
     check();
-    if (command.action === 'copy') {
+    if (hasMobileLabelBridge()) {
+      await requestMobileLabelAction({
+        action: command.action === 'copy' ? 'copy-image' : 'share-image',
+        dataUrl: canvas.toDataURL('image/png'),
+        fileName: `etiqueta_preco_${encodeURIComponent(command.snapshot.selectedOppId || 'arte')}_${Date.now()}.png`,
+      });
+      check();
+    } else if (command.action === 'copy') {
       const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => {
         if (value) resolve(value);
         else reject(new Error('Não foi possível gerar a imagem PNG.'));
@@ -44,7 +52,7 @@ export async function exportLabelImage(
     return true;
   };
   try {
-    const completed = await withTimeout(operation(), 30000, false, 'etiquetas:exportar-png');
+    const completed = await withTimeout(operation(), hasMobileLabelBridge() ? 120000 : 30000, false, 'etiquetas:exportar-png');
     if (!completed) throw new Error('A exportação excedeu o prazo. Tente novamente.');
   } finally { accepting = false; }
 }

@@ -9,8 +9,8 @@ import {
 } from 'lucide-react-native';
 import type React from 'react';
 import { useState } from 'react';
-import { Alert, Linking, Text, TouchableOpacity, View } from 'react-native';
-import { WEB_URL } from '../../../services/supabaseClient';
+import { Alert, Text, TouchableOpacity, View } from 'react-native';
+import { useMobileLabels } from '../../stock/labels/MobileLabelsProvider';
 import { useMobileProductCardState } from '../hooks/useMobileProductCardState';
 import { MobileProductCardIdentity } from './MobileProductCardIdentity';
 import { MobileProductCardSummary } from './MobileProductCardSummary';
@@ -21,10 +21,6 @@ import { MergedBadge } from './MergedBadge';
 import { styles } from './MobileProductCard.styles';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { productRestoreFromTrashFormSchema } from '../../../../../shared-utils/productVariationOperationFormSchemas';
-import {
-  buildProductIdentificationLabelUrl,
-  buildProductPriceLabelUrl,
-} from '../domain/productLabelLinks';
 import { getMobileProductCompositionCardItems } from '../domain/mobileProductCardDisplay';
 import {
   canShowMobileProductPriceLabel,
@@ -93,6 +89,7 @@ export const MobileProductCard: React.FC<Props> = ({
   onMergeVariation,
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const { openLabels } = useMobileLabels();
   const [menuVisible, setMenuVisible] = useState(false);
   const [variationMenuVisible, setVariationMenuVisible] = useState(false);
   const restoreForm = useZodForm(productRestoreFromTrashFormSchema, {
@@ -154,24 +151,21 @@ export const MobileProductCard: React.FC<Props> = ({
     const parentId = product.id || singleVariation?.productId || singleVariation?.id;
     const variationId =
       singleVariation && !singleVariation.isVirtual ? singleVariation.id : undefined;
-    const url = buildProductIdentificationLabelUrl(WEB_URL, parentId, variationId);
-    Linking.openURL(url).catch((error) => {
-      console.warn('Falha ao abrir tela de etiquetas:', error);
-      Alert.alert('Erro', 'Não foi possível abrir a tela de etiquetas.');
-    });
+    if (!parentId) {
+      Alert.alert('Produto indisponível', 'Não foi possível identificar o produto para a etiqueta.');
+      return;
+    }
+    openLabels({ category: 'identificacao', productId: String(parentId), variationId, fillSheet: true });
   };
 
-  const handlePrintPriceLabel = (targetProduct: any) => {
+  const handlePrintPriceLabel = (targetProduct: any, variationId?: string) => {
     const productId = typeof targetProduct?.id === 'string' ? targetProduct.id.trim() : '';
     if (!productId) {
       Alert.alert('Produto indisponível', 'Não foi possível identificar o produto para a etiqueta.');
       return;
     }
 
-    Linking.openURL(buildProductPriceLabelUrl(WEB_URL, productId)).catch((error) => {
-      console.warn('Falha ao abrir etiqueta de preço:', error);
-      Alert.alert('Erro', 'Não foi possível abrir a tela de etiquetas de preço.');
-    });
+    openLabels({ category: 'precos', productId, variationId });
   };
 
   return (
@@ -462,7 +456,7 @@ export const MobileProductCard: React.FC<Props> = ({
               showTrash,
               isMergedVariation: isSingleVariationMerged,
             })
-              ? () => handlePrintPriceLabel(product)
+              ? () => handlePrintPriceLabel(product, !singleVariation.isVirtual ? singleVariation.id : undefined)
               : undefined
           }
           onEdit={

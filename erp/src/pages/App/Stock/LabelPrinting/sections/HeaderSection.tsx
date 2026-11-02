@@ -6,6 +6,7 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
   config,
   setGridModalOpen,
   setIsModelManagerModalOpen,
+  setIsPriceLabelArtEditorOpen,
   DEFAULT_LAYOUT_MODELS,
   customLayouts,
 }) => {
@@ -176,7 +177,11 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
                             type="button"
                             onClick={() => {
                               setIsMenuOpen(false);
-                              window.open('/templates/price-label', '_blank');
+                              if (window.location.pathname === '/mobile/etiquetas') {
+                                setIsPriceLabelArtEditorOpen?.(true);
+                              } else {
+                                window.open('/templates/price-label', '_blank');
+                              }
                             }}
                             className="w-full flex items-center gap-3 py-2 px-1 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-sm font-semibold group"
                           >

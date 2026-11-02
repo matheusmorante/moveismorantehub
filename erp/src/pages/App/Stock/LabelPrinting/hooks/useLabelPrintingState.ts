@@ -13,6 +13,7 @@ import { useLabelQueue } from './useLabelQueue';
 import { useLabelLayouts } from './useLabelLayouts';
 import { useLabelModalsAndAssets } from './useLabelModalsAndAssets';
 import { useLabelPreview } from './useLabelPreview';
+import { prepareIdentificationLabelProductsForReceipt } from '../services/identificationLabelPrefillService';
 
 /**
  * useLabelPrintingState - Fachada Orquestradora de Estado para Impressão de Etiquetas
@@ -50,6 +51,57 @@ export const useLabelPrintingState = () => {
     printingMode,
     config: layouts.config,
   });
+  const queueProductRef = useRef(queue.handleProductSelect);
+  queueProductRef.current = queue.handleProductSelect;
+
+  const receiptIdParam = searchParams.get('receiptId')?.trim() || null;
+  const completedReceiptPrefillsRef = useRef(new Set<string>());
+  const activeReceiptPrefillRef = useRef<string | null>(null);
+  const [receiptPrefillLoading, setReceiptPrefillLoading] = useState(false);
+  const [receiptPrefillError, setReceiptPrefillError] = useState('');
+  useEffect(() => {
+    if (!receiptIdParam || selectedCategory !== 'identificacao') return;
+    if (
+      completedReceiptPrefillsRef.current.has(receiptIdParam) ||
+      activeReceiptPrefillRef.current === receiptIdParam
+    ) return;
+
+    let active = true;
+    activeReceiptPrefillRef.current = receiptIdParam;
+    setReceiptPrefillLoading(true);
+    setReceiptPrefillError('');
+    void prepareIdentificationLabelProductsForReceipt(receiptIdParam)
+      .then(async (batchProducts) => {
+        if (!active) return;
+        const results = await Promise.all(batchProducts.map((product) =>
+          queueProductRef.current(product, product.labelQty || 1)
+        ));
+        if (active && results.some((result) => result === false)) {
+          throw new Error('Não foi possível adicionar todos os produtos vinculados à fila de etiquetas.');
+        }
+        if (active) completedReceiptPrefillsRef.current.add(receiptIdParam);
+      })
+      .catch((cause) => {
+        if (!active) return;
+        completedReceiptPrefillsRef.current.delete(receiptIdParam);
+        const message = cause instanceof Error ? cause.message : 'Não foi possível preparar as etiquetas deste recebimento.';
+        setReceiptPrefillError(message);
+        toast.error(message);
+      })
+      .finally(() => {
+        if (!active) return;
+        if (activeReceiptPrefillRef.current === receiptIdParam) {
+          activeReceiptPrefillRef.current = null;
+        }
+        setReceiptPrefillLoading(false);
+      });
+    return () => {
+      active = false;
+      if (activeReceiptPrefillRef.current === receiptIdParam) {
+        activeReceiptPrefillRef.current = null;
+      }
+    };
+  }, [receiptIdParam, selectedCategory]);
 
   // 5. Modais, Assets e Imagens Customizadas
   const modalsAndAssets = useLabelModalsAndAssets({
@@ -216,6 +268,8 @@ export const useLabelPrintingState = () => {
     // Fila e Impressão
     labelItems: queue.labelItems,
     setLabelItems: queue.setLabelItems,
+    receiptPrefillLoading,
+    receiptPrefillError,
     logoItems: queue.logoItems,
     setLogoItems: queue.setLogoItems,
     handleProductSelect: queue.handleProductSelect,
