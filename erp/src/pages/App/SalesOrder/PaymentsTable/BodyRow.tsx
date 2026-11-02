@@ -10,6 +10,10 @@ import { PixPaymentModal } from './PixPaymentModal';
 import DropdownPortal from '../../../../components/shared/DropdownPortal';
 import { formatCurrency } from '../../../utils/formatters';
 import { ValidationErrors } from '../../../utils/validations';
+import {
+  getOrderPaymentDueDate,
+  isPromissoryPaymentMethod,
+} from '../../../../../../shared-utils/orderPaymentState';
 
 interface Props {
   payment: Payment;
@@ -38,6 +42,9 @@ const BodyRow = ({
 }: Props) => {
   const statusError = errors[`payment_${idx}_status`];
   const methodError = errors[`payment_${idx}_method`];
+  const paymentDueDate = getOrderPaymentDueDate(payment, undefined);
+  const dueDateError = paymentDueDate ? undefined : errors[`payment_${idx}_dueDate`];
+  const isPromissoryPayment = isPromissoryPaymentMethod(payment.method);
   const [isPixModalOpen, setIsPixModalOpen] = useState(false);
 
   const otherPaymentAmounts = payments.reduce(
@@ -58,6 +65,16 @@ const BodyRow = ({
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectPaymentMethod = (method: string) => {
+    onChange(idx, 'method', method);
+    if (isPromissoryPaymentMethod(method)) {
+      onChange(idx, 'status', 'N/A');
+    } else if (payment.status === 'N/A') {
+      onChange(idx, 'status', '');
+    }
+    setIsDropdownOpen(false);
+  };
 
   const feeReaisVal =
     payment.feeType === 'fixed'
@@ -155,8 +172,17 @@ const BodyRow = ({
       >
         <div className="flex flex-col gap-4">
           {/* Header: Method & Delete */}
-          <div className="flex justify-between items-center gap-2">
-            <div className="flex-1 relative" ref={dropdownRef}>
+          <div
+            className={
+              isPromissoryPayment
+                ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-start gap-3'
+                : 'flex items-center justify-between gap-2'
+            }
+          >
+            <div
+              className={`relative ${isPromissoryPayment ? 'min-w-0' : 'flex-1'}`}
+              ref={dropdownRef}
+            >
               <label className="mb-1 block text-[9px] font-black uppercase text-slate-400">
                 Forma de pagamento <span className="text-red-500">*</span>
               </label>
@@ -178,8 +204,7 @@ const BodyRow = ({
                       key={method}
                       type="button"
                       onClick={() => {
-                        onChange(idx, 'method', method);
-                        setIsDropdownOpen(false);
+                        selectPaymentMethod(method);
                       }}
                       className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 ${payment.method === method ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : ''}`}
                     >
@@ -190,10 +215,28 @@ const BodyRow = ({
               </DropdownPortal>
               {methodError && <p className="mt-1 text-[10px] text-red-600">{methodError}</p>}
             </div>
+            {isPromissoryPayment && (
+              <div className="min-w-0 space-y-1">
+                <label
+                  htmlFor={`payment-${idx}-first-installment-due-date`}
+                  className={`block text-[9px] font-black uppercase ${dueDateError ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`}
+                >
+                  Vencimento da 1ª parcela <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id={`payment-${idx}-first-installment-due-date`}
+                  type="date"
+                  value={paymentDueDate || ''}
+                  onChange={(event) => onChange(idx, 'dueDate', event.target.value)}
+                  className={`w-full min-w-0 border-b-2 bg-slate-50 px-3 py-2 text-xs text-slate-700 outline-none transition-colors focus:border-blue-600 dark:bg-slate-800 dark:text-slate-200 dark:focus:border-blue-500 ${dueDateError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
+                />
+                {dueDateError && <p className="text-[10px] text-red-600">{dueDateError}</p>}
+              </div>
+            )}
             <button
               type="button"
               onClick={onDelete}
-              className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl transition-all grow-0 shrink-0"
+              className={`p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-2xl transition-all grow-0 shrink-0 ${isPromissoryPayment ? 'self-start' : ''}`}
             >
               <i className="bi bi-trash text-lg" />
             </button>
@@ -252,8 +295,9 @@ const BodyRow = ({
               </label>
               <div className="relative">
                 <select
-                  className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-xs font-bold leading-4 outline-none transition-colors focus:border-blue-600 dark:text-slate-200 dark:focus:border-blue-500 ${statusError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
-                  value={payment.status}
+                  className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-xs font-bold leading-4 outline-none transition-colors focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-70 dark:text-slate-200 dark:focus:border-blue-500 ${statusError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
+                  value={isPromissoryPayment ? 'N/A' : payment.status}
+                  disabled={isPromissoryPayment}
                   onChange={async (e) => {
                     const val = e.target.value;
                     if (val && await requestConfirmation({
@@ -270,6 +314,7 @@ const BodyRow = ({
                   <option value="" disabled>
                     Selecionar status...
                   </option>
+                  {isPromissoryPayment && <option value="N/A">N/A</option>}
                   <option value="Pago">Pago</option>
                   <option value="Pendente">
                     Pendente - na {deliveryMethod === 'delivery' ? 'entrega' : 'retirada'}
@@ -326,39 +371,61 @@ const BodyRow = ({
       className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0"
     >
       <td className="px-4 py-3">
-        <div className="relative group/method min-w-[200px]" ref={dropdownRef}>
-          <button
-            type="button"
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className={`w-full flex items-center justify-between gap-3 border-b-2 bg-transparent px-3 py-2 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500 ${methodError ? 'border-red-500' : 'border-slate-200'}`}
+        <div className={isPromissoryPayment ? 'flex items-end gap-3' : ''}>
+          <div
+            className={`relative group/method ${isPromissoryPayment ? 'min-w-0 flex-1' : 'min-w-[200px]'}`}
+            ref={dropdownRef}
           >
-            {renderMethodItem(payment.method)}
-            <i
-              className={`bi bi-chevron-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
-            />
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className={`w-full flex items-center justify-between gap-3 border-b-2 bg-transparent px-3 py-2 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500 ${methodError ? 'border-red-500' : 'border-slate-200'}`}
+            >
+              {renderMethodItem(payment.method)}
+              <i
+                className={`bi bi-chevron-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
 
-          <DropdownPortal
-            anchorRef={dropdownRef}
-            isOpen={isDropdownOpen}
-            className="fixed shadow-2xl z-[9000]"
-          >
-            <div className="mt-1 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-80 overflow-y-auto custom-scrollbar flex flex-col p-2 z-[9000]">
-              {paymentMethods.map((method) => (
-                <button
-                  key={method}
-                  type="button"
-                  onClick={() => {
-                    onChange(idx, 'method', method);
-                    setIsDropdownOpen(false);
-                  }}
-                  className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 ${payment.method === method ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : ''}`}
-                >
-                  {renderMethodItem(method)}
-                </button>
-              ))}
+            <DropdownPortal
+              anchorRef={dropdownRef}
+              isOpen={isDropdownOpen}
+              className="fixed shadow-2xl z-[9000]"
+            >
+              <div className="mt-1 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-80 overflow-y-auto custom-scrollbar flex flex-col p-2 z-[9000]">
+                {paymentMethods.map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => {
+                      selectPaymentMethod(method);
+                    }}
+                    className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 ${payment.method === method ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : ''}`}
+                  >
+                    {renderMethodItem(method)}
+                  </button>
+                ))}
+              </div>
+            </DropdownPortal>
+          </div>
+          {isPromissoryPayment && (
+            <div className="min-w-[180px] flex-1 space-y-1">
+              <label
+                htmlFor={`payment-${idx}-first-installment-due-date`}
+                className={`block text-[9px] font-black uppercase ${dueDateError ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}`}
+              >
+                Vencimento da 1ª parcela <span className="text-red-500">*</span>
+              </label>
+              <input
+                id={`payment-${idx}-first-installment-due-date`}
+                type="date"
+                value={paymentDueDate || ''}
+                onChange={(event) => onChange(idx, 'dueDate', event.target.value)}
+                className={`w-full border-b-2 bg-slate-50 px-3 py-2 text-xs text-slate-700 outline-none transition-colors focus:border-blue-600 dark:bg-slate-800 dark:text-slate-200 dark:focus:border-blue-500 ${dueDateError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
+              />
+              {dueDateError && <p className="text-[10px] text-red-600">{dueDateError}</p>}
             </div>
-          </DropdownPortal>
+          )}
         </div>
         {methodError && <p className="mt-1 text-[10px] text-red-600">{methodError}</p>}
 
@@ -431,8 +498,9 @@ const BodyRow = ({
       <td className="px-4 py-2">
         <div className="relative group/status min-w-[140px]">
           <select
-            className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-blue-600 dark:text-slate-200 dark:focus:border-blue-500 ${statusError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
-            value={payment.status}
+            className={`w-full appearance-none border-b-2 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-blue-600 disabled:cursor-not-allowed disabled:opacity-70 dark:text-slate-200 dark:focus:border-blue-500 ${statusError ? 'border-red-500 focus:border-red-500' : 'border-slate-200 dark:border-slate-700'}`}
+            value={isPromissoryPayment ? 'N/A' : payment.status}
+            disabled={isPromissoryPayment}
             onChange={async (e) => {
               const val = e.target.value;
               if (val && await requestConfirmation({
@@ -449,6 +517,7 @@ const BodyRow = ({
             <option value="" disabled className="text-slate-400">
               Status...
             </option>
+            {isPromissoryPayment && <option value="N/A">N/A</option>}
             <option value="Pago">Pago</option>
             <option value="Pendente">
               Pendente - na {deliveryMethod === 'delivery' ? 'entrega' : 'retirada'}

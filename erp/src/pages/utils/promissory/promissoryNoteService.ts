@@ -4,7 +4,7 @@ import type Shipping from '@/pages/types/Shipping.type';
 import { isPromissoryPaymentMethod } from '../../../../../shared-utils/orderPaymentState';
 import { getOrderIndex, formatOrderCode } from '../orderCode';
 import { currencyToWordsPtBr } from '../currencyToWords';
-import { formatCurrency } from '../formatters';
+import { formatCurrency, formatToBRDate } from '../formatters';
 import { getSettings } from '../settingsService';
 import type { AppSettings } from '../settings/types';
 
@@ -19,6 +19,8 @@ export interface PromissoryNoteItem {
   installmentText: string;
   installmentIndex: number;
   totalInstallments: number;
+  dueDate?: string;
+  dueDateFormatted?: string;
   amount: number;
   amountFormatted: string;
   amountInWords: string;
@@ -154,6 +156,55 @@ const MONTH_NAMES_PT = [
   'dezembro',
 ];
 
+function addMonthsKeepingDay(dateValue: unknown, monthOffset: number): string | undefined {
+  if (typeof dateValue !== 'string') return undefined;
+  const match = dateValue.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:$|T|\s)/);
+  if (!match) return undefined;
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, monthIndex, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== monthIndex ||
+    parsed.getUTCDate() !== day
+  ) {
+    return undefined;
+  }
+
+  const targetMonthIndex = monthIndex + monthOffset;
+  const targetYear = year + Math.floor(targetMonthIndex / 12);
+  const normalizedMonthIndex = ((targetMonthIndex % 12) + 12) % 12;
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(targetYear, normalizedMonthIndex + 1, 0)
+  ).getUTCDate();
+  const targetDay = Math.min(day, lastDayOfTargetMonth);
+
+  return `${targetYear}-${String(normalizedMonthIndex + 1).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+}
+
+function getInstallmentDueDate(firstDueDate: unknown, installmentIndex: number) {
+  const dueDate = addMonthsKeepingDay(firstDueDate, installmentIndex - 1);
+  return {
+    dueDate,
+    dueDateFormatted: dueDate ? formatToBRDate(dueDate) : undefined,
+  };
+}
+
+function buildPromissoryLegalText(
+  creditorName: string,
+  creditorCnpj: string,
+  amountFormatted: string,
+  amountInWords: string,
+  dueDateFormatted?: string
+) {
+  const dueDateText = dueDateFormatted
+    ? `com vencimento em ${dueDateFormatted}.`
+    : 'com vencimento na data indicada neste título.';
+  return `Por esta única via de NOTA PROMISSÓRIA, prometo pagar, pura e simplesmente, à ${creditorName}, CNPJ ${creditorCnpj}, ou à sua ordem, a quantia de ${amountFormatted} (${amountInWords}), ${dueDateText}`;
+}
+
 /**
  * Converte data em texto por extenso com cidade/UF: "Colombo/PR, 17 de outubro de 2026"
  */
@@ -244,8 +295,14 @@ export function buildPromissoryNotesFromOrder(
 
       const noteNumber = `${baseNoteNumber}/${String(installmentIndex).padStart(2, '0')}`;
       const installmentText = `Parcela ${installmentIndex} de ${total}`;
-
-      const legalText = `Por esta única via de NOTA PROMISSÓRIA, prometo pagar, pura e simplesmente, à ${creditorName}, CNPJ ${creditorCnpj}, ou à sua ordem, a quantia de ${amountFormatted} (${amountInWords}), no dia do mês indicado neste título.`;
+      const { dueDate, dueDateFormatted } = getInstallmentDueDate(payment.dueDate, 1);
+      const legalText = buildPromissoryLegalText(
+        creditorName,
+        creditorCnpj,
+        amountFormatted,
+        amountInWords,
+        dueDateFormatted
+      );
 
       notes.push({
         id: `promissory-${order.id || baseNoteNumber}-${installmentIndex}`,
@@ -253,6 +310,8 @@ export function buildPromissoryNotesFromOrder(
         installmentText,
         installmentIndex,
         totalInstallments: total,
+        dueDate,
+        dueDateFormatted,
         amount,
         amountFormatted,
         amountInWords,
@@ -304,7 +363,14 @@ export function buildPromissoryNotesFromOrder(
 
       const noteNumber = `${baseNoteNumber}/${String(i).padStart(2, '0')}`;
       const installmentText = `Parcela ${i} de ${numInstallments}`;
-      const legalText = `Por esta única via de NOTA PROMISSÓRIA, prometo pagar, pura e simplesmente, à ${creditorName}, CNPJ ${creditorCnpj}, ou à sua ordem, a quantia de ${amountFormatted} (${amountInWords}), no dia do mês indicado neste título.`;
+      const { dueDate, dueDateFormatted } = getInstallmentDueDate(singlePayment.dueDate, i);
+      const legalText = buildPromissoryLegalText(
+        creditorName,
+        creditorCnpj,
+        amountFormatted,
+        amountInWords,
+        dueDateFormatted
+      );
 
       notes.push({
         id: `promissory-${order.id || baseNoteNumber}-${i}`,
@@ -312,6 +378,8 @@ export function buildPromissoryNotesFromOrder(
         installmentText,
         installmentIndex: i,
         totalInstallments: numInstallments,
+        dueDate,
+        dueDateFormatted,
         amount: instAmount,
         amountFormatted,
         amountInWords,
@@ -338,7 +406,14 @@ export function buildPromissoryNotesFromOrder(
   const amountInWords = currencyToWordsPtBr(totalAmount);
 
   const noteNumber = baseNoteNumber;
-  const legalText = `Por esta única via de NOTA PROMISSÓRIA, prometo pagar, pura e simplesmente, à ${creditorName}, CNPJ ${creditorCnpj}, ou à sua ordem, a quantia de ${amountFormatted} (${amountInWords}), no dia do mês indicado neste título.`;
+  const { dueDate, dueDateFormatted } = getInstallmentDueDate(singlePayment.dueDate, 1);
+  const legalText = buildPromissoryLegalText(
+    creditorName,
+    creditorCnpj,
+    amountFormatted,
+    amountInWords,
+    dueDateFormatted
+  );
 
   notes.push({
     id: `promissory-${order.id || baseNoteNumber}-1`,
@@ -346,6 +421,8 @@ export function buildPromissoryNotesFromOrder(
     installmentText: '',
     installmentIndex: 1,
     totalInstallments: 1,
+    dueDate,
+    dueDateFormatted,
     amount: totalAmount,
     amountFormatted,
     amountInWords,

@@ -97,6 +97,10 @@ export const useOrderFormSubmission = ({
       }
       if (firstKey?.startsWith('shipping_') || firstKey?.startsWith('deliveryAddress_')) {
         setCurrentStep(4);
+      } else if (
+        Object.keys(fields).some((key) => key.startsWith('payment_') || key === 'payments_summary')
+      ) {
+        setCurrentStep(5);
       }
       toast.error(Object.values(fields)[0] || 'Confira os dados do pedido.');
     },

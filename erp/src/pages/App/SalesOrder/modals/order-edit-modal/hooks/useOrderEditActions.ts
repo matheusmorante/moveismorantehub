@@ -44,6 +44,12 @@ export function useOrderEditActions({
         }
         if (firstKey?.startsWith('shipping_') || firstKey?.startsWith('deliveryAddress_')) {
           formActions.jumpToStep(4);
+        } else if (
+          Object.keys(validationErrors).some(
+            (key) => key.startsWith('payment_') || key === 'payments_summary'
+          )
+        ) {
+          formActions.jumpToStep(5);
         }
         toast.error(
           Object.values(validationErrors)[0] || 'Existem campos obrigatórios não preenchidos.'

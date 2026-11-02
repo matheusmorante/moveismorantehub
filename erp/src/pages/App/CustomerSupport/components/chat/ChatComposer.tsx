@@ -17,7 +17,6 @@ import { ProductCatalogPanel } from '@/components/catalog/ProductCatalogPanel';
 import { getSettings } from '@/pages/utils/settingsService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import {
-  formatBRL,
   formatDate,
   getCustomerOrders,
   type SupportOrderSummary,
@@ -34,6 +33,11 @@ import {
   type WhatsAppLineFormatKind,
 } from './chatMessageFormatting';
 import { SupportOrderPickerDialog } from './SupportOrderPickerDialog';
+import {
+  createOrderSummaryPdf,
+  formatSupportOrderMoney,
+  isQuoteOrder,
+} from './supportOrderSummaryPdf';
 
 type SupportChatComposerAttachment = z.input<typeof supportChatComposerDraftSchema>['attachments'][number];
 type AttachmentKind = SupportChatComposerAttachment['kind'];
@@ -117,11 +121,6 @@ const normalizedFileType = (file: File) => {
   return FILE_TYPES[extension] || null;
 };
 
-const money = (value: number) => formatBRL(Number.isFinite(value) ? value : 0);
-
-const isQuoteOrder = (order: SupportOrderSummary) =>
-  order.orderType === 'budget' || /quoted|budget|orçamento|orcamento/i.test(order.status || '');
-
 const toCatalogSendSelection = (selection: ProductCatalogPrepareInput): ProductCatalogSendSelection => ({
   items: selection.items.map(({ productId, variationId }) => ({
     productId,
@@ -135,49 +134,6 @@ const toCatalogSendSelection = (selection: ProductCatalogPrepareInput): ProductC
   hidePrices: selection.hidePrices,
   deliveryMode: selection.deliveryMode,
 });
-
-async function createOrderSummaryPdf(order: SupportOrderSummary, customerName: string, companyName: string) {
-  const { jsPDF } = await import('jspdf');
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const quote = isQuoteOrder(order);
-  const documentTitle = quote ? 'Resumo de orçamento' : 'Resumo de pedido';
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  pdf.setFillColor(15, 118, 110);
-  pdf.roundedRect(14, 14, pageWidth - 28, 30, 3, 3, 'F');
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(18);
-  pdf.setTextColor(255, 255, 255);
-  pdf.text(companyName || 'Móveis Morante', 20, 26);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(10);
-  pdf.text(documentTitle, 20, 37);
-
-  pdf.setTextColor(15, 23, 42);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(15);
-  pdf.text(`${quote ? 'Orçamento' : 'Pedido'} #${order.orderNumber}`, 16, 58);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(11);
-  const rows = [
-    `Cliente: ${customerName}`,
-    `Data: ${formatDate(order.createdAt)}`,
-    `Status: ${order.status || 'Em andamento'}`,
-    `Itens: ${order.itemsCount}`,
-    `Resumo: ${order.itemsPreview}`,
-  ];
-  pdf.text(pdf.splitTextToSize(rows.join('\n'), pageWidth - 32), 16, 70);
-  pdf.setDrawColor(226, 232, 240);
-  pdf.line(16, 126, pageWidth - 16, 126);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(15);
-  pdf.setTextColor(15, 118, 110);
-  pdf.text(`Total: ${money(order.totalAmount)}`, 16, 140);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(9);
-  pdf.setTextColor(100, 116, 139);
-  pdf.text('Documento de consulta gerado pela Central de Atendimento.', 16, 153);
-  return pdf.output('blob') as Blob;
-}
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
   conversation = EMPTY_CONVERSATION,
@@ -1088,7 +1044,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           }}
           orderFieldError={orderErrors.orderId?.message}
           isCreatingPdf={isCreatingOrderPdf}
-          formatMoney={money}
+          formatMoney={formatSupportOrderMoney}
           formatDate={formatDate}
           onClose={() => setIsOrderPickerOpen(false)}
           onSubmit={(event) => { event.preventDefault(); void submitOrderDocument(); }}

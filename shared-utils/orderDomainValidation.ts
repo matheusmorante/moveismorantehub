@@ -41,7 +41,7 @@ export const createOrderDomainSchema = (requiredFields: CommercialRequiredFields
   payments: z.array(z.object({
     method: z.string().optional(), status: z.string().optional(),
     amount: z.number().nonnegative(), fee: z.number().nonnegative().default(0),
-    feeType: z.enum(['fixed', 'percentage']).default('fixed'),
+    feeType: z.enum(['fixed', 'percentage']).default('fixed'), dueDate: z.string().optional(),
   }).passthrough()).default([]),
 }).passthrough().superRefine((value, ctx) => {
   if (value.status !== 'draft') {

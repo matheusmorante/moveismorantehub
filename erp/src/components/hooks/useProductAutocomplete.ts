@@ -225,6 +225,7 @@ export function useProductAutocomplete({
         });
 
         if (active) {
+          setSearchError('');
           setSuggestions(items.slice(0, 5));
         }
         }, (errors) => { if (active) setSearchError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da busca.'); });
@@ -276,6 +277,6 @@ export function useProductAutocomplete({
     wrapperRef,
     searchError,
     retrySearch: () => { generation.current += 1; setSuggestions([]); setIsLoading(true); setRefreshKey((value) => value + 1); },
-    isCurrentSuggestion: (item: SuggestionItem) => !disabled && renderedGeneration === generation.current && latest.current.context === context && latest.current.localProducts === localProducts && !isLoading && !searchError && suggestions.includes(item),
+    isCurrentSuggestion: (item: SuggestionItem) => !disabled && renderedGeneration === generation.current && latest.current.context === context && latest.current.localProducts === localProducts && !isLoading && suggestions.includes(item),
   };
 }

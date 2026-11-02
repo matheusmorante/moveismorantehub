@@ -139,7 +139,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
 
   return (
     <div ref={wrapperRef} className={`relative ${className}`}>
-      {searchError && <p role="alert" className="text-xs text-red-600">{searchError} <button type="button" disabled={disabled || isLoading} onClick={retrySearch}>Tentar buscar novamente</button></p>}
+      {searchError && suggestions.length === 0 && <p role="alert" className="text-xs text-red-600">{searchError} <button type="button" disabled={disabled || isLoading} onClick={retrySearch}>Tentar buscar novamente</button></p>}
       <div className="flex gap-1.5">
         <div className="relative flex-1">
           {multiline ? (

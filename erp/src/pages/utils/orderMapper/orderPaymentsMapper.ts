@@ -23,14 +23,21 @@ export function mapPaymentsAndSummary(
   // Pagamentos: Prioriza tabela normalizada order_payments, com fallback para o JSON legado.
   let payments: any[] = [];
   if (Array.isArray(row.order_payments) && row.order_payments.length > 0) {
-    payments = row.order_payments.map((p: any) => ({
-      method: p.payment_method || p.method || '',
-      amount: Number(p.amount || 0),
-      fee: Number(p.fee || 0),
-      feeType: p.fee_type || p.feeType || 'fixed',
-      status: p.status || 'PAGO',
-      installments: p.installments != null ? Number(p.installments) : 1,
-    }));
+    const legacyPayments = Array.isArray(rawLegacy.payments) ? rawLegacy.payments : [];
+    payments = row.order_payments.map((p: any, index: number) => {
+      const legacyPaymentIndex = Number(p.payment_index) - 1;
+      const legacyPayment =
+        legacyPayments[legacyPaymentIndex >= 0 ? legacyPaymentIndex : index] || {};
+      return {
+        method: p.payment_method || p.method || '',
+        amount: Number(p.amount || 0),
+        fee: Number(p.fee || 0),
+        feeType: p.fee_type || p.feeType || 'fixed',
+        status: p.status || 'PAGO',
+        installments: p.installments != null ? Number(p.installments) : 1,
+        dueDate: p.due_date || p.dueDate || legacyPayment.dueDate,
+      };
+    });
   } else if (Array.isArray(rawLegacy.payments) && rawLegacy.payments.length > 0) {
     payments = rawLegacy.payments;
   }

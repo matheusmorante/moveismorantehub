@@ -6,6 +6,7 @@ import type Order from '../erp/src/pages/types/order.type';
 import { validateCustomerData, validateShipping } from './commercialShippingRules';
 import { validateAssistanceOrder, validateReviews } from './commercialAssistanceRules';
 import type { ValidationErrors } from './commercialSchedulingRules';
+import { getOrderPaymentDueDate, isPromissoryPaymentMethod } from './orderPaymentState';
 
 export type { ValidationErrors } from './commercialSchedulingRules';
 export * from './commercialShippingRules';
@@ -78,6 +79,13 @@ export const validatePayments = (
     }
     if (!payment.status) {
       errors[`payment_${idx}_status`] = 'O status do pagamento é obrigatório.';
+    }
+    if (
+      isPromissoryPaymentMethod(payment.method) &&
+      !getOrderPaymentDueDate(payment, undefined)
+    ) {
+      errors[`payment_${idx}_dueDate`] =
+        'Informe o vencimento da primeira parcela da nota promissória.';
     }
   });
 

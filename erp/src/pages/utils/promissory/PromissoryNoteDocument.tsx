@@ -77,19 +77,9 @@ export const PromissoryNoteCard: React.FC<PromissoryNoteCardProps> = ({
         </p>
       </div>
 
-      {/* Campo único para registrar o dia mensal de vencimento à caneta */}
+      {/* Vencimento definido no pagamento do pedido */}
       <div className="border border-slate-300 rounded-lg px-3.5 py-3 my-3 text-sm font-bold text-slate-900">
-        <div className="flex flex-wrap items-center gap-2">
-          <span>Vencimento: todo dia</span>
-          <span className="inline-block min-w-12 border-b-2 border-slate-700 text-center font-mono">
-            &nbsp;
-          </span>
-          <span>de cada mês, a partir de</span>
-          <span className="inline-block min-w-20 border-b-2 border-slate-700 text-center font-mono">
-            &nbsp;
-          </span>
-          <span className="text-xs font-normal">(mês/ano)</span>
-        </div>
+        Vencimento: {note.dueDateFormatted || 'Não informado'}
       </div>
 
       {/* Grade de Dados do Emitente, Pagamento e Referência */}
@@ -146,9 +136,8 @@ export const PromissoryNoteCard: React.FC<PromissoryNoteCardProps> = ({
         </div>
       </div>
 
-      {/* Área de Assinaturas: Loja (Carimbo do Certificado Digital) e Cliente (Emitente Devedora) */}
-      <footer className="mt-6 pt-4 border-t-2 border-slate-800 flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
-        {/* Assinatura da Loja / Credora: Carimbo do Certificado Digital */}
+      {/* Assinatura da Loja / Credora: Carimbo do Certificado Digital */}
+      <footer className="mt-6 pt-4 border-t-2 border-slate-800 flex flex-col items-start">
         <div className="w-full md:w-auto flex flex-col items-start">
           <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1.5 block">
             Assinatura da Credora (Loja)
@@ -163,20 +152,6 @@ export const PromissoryNoteCard: React.FC<PromissoryNoteCardProps> = ({
             }
             sellerName={note.sellerName}
           />
-        </div>
-
-        {/* Assinatura da Cliente (Devedora) */}
-        <div className="w-full md:w-72 flex flex-col items-center text-center">
-          <div className="w-full border-b-2 border-slate-900 mb-2"></div>
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-            Assinatura da emitente (devedora)
-          </span>
-          <span className="text-xs font-bold text-slate-900 mt-0.5">
-            {note.debtorName || 'Consumidor'}
-          </span>
-          <span className="text-[9px] font-mono text-slate-500 mt-0.5">
-            {note.debtorDocLabel} {note.debtorDocValue || ''}
-          </span>
         </div>
       </footer>
     </article>
