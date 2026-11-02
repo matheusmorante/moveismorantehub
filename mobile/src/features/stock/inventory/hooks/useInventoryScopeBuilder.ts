@@ -1,5 +1,9 @@
 import { useState, useMemo } from 'react';
 import { isTestProduct } from '../../../../../../shared-utils/isTestProduct';
+import {
+  getAssignedInventoryScopeSupplier,
+  getInventoryScopeSupplierNames,
+} from '../services/inventoryScopeSuppliers';
 
 export interface ScopeProduct {
   id: string;
@@ -72,31 +76,6 @@ export const useInventoryScopeBuilder = (
   const [responsibleError, setResponsibleError] = useState(false);
   const [customProducts, setCustomProducts] = useState<Array<{ product: ScopeProduct }>>([]);
 
-  const getSupplierNames = (product: ScopeProduct) => {
-    const ids = [
-      ...new Set(
-        [product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])]
-          .filter(Boolean)
-          .map(String)
-      ),
-    ];
-    const names = ids
-      .map((id) => suppliers.find((s) => String(s.id) === id)?.full_name)
-      .filter(Boolean);
-    return (names as string[]).join(' / ') || 'Fábrica não informada';
-  };
-
-  const getAssignedSupplier = (product: ScopeProduct) => {
-    const id = [
-      product.main_supplier_id,
-      product.supplier_id,
-      ...(product.supplier_ids || []),
-    ].find(Boolean);
-    return (
-      (id && suppliers.find((s) => String(s.id) === String(id))?.full_name) || 'Sem fornecedor'
-    );
-  };
-
   const matchingItems = useMemo(() => {
     const items: ScopeConfiguration['itemsSnapshot'] = [];
 
@@ -105,13 +84,13 @@ export const useInventoryScopeBuilder = (
         isTestProduct({ ...product, title: product.parent_name }) ||
         isTestProduct({ id: product.variation_id, name: product.name, sku: product.sku })
       ) return;
-      const supplierName = getSupplierNames(product);
+      const supplierName = getInventoryScopeSupplierNames(product, suppliers);
       items.push({
         productId: String(product.id),
         variationId: product.variation_id ? String(product.variation_id) : undefined,
         name: product.name || product.description || 'Produto',
         supplierNames: supplierName,
-        assignedSupplier: getAssignedSupplier(product),
+        assignedSupplier: getAssignedInventoryScopeSupplier(product, suppliers),
         systemStock: Number(product.stock ?? 0),
         unit: product.unit || 'UN',
         sku: product.sku || product.code || '',

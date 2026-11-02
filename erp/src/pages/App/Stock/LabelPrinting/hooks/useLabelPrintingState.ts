@@ -53,6 +53,8 @@ export const useLabelPrintingState = () => {
   });
   const queueProductRef = useRef(queue.handleProductSelect);
   queueProductRef.current = queue.handleProductSelect;
+  const setLabelItemsRef = useRef(queue.setLabelItems);
+  setLabelItemsRef.current = queue.setLabelItems;
 
   const receiptIdParam = searchParams.get('receiptId')?.trim() || null;
   const completedReceiptPrefillsRef = useRef(new Set<string>());
@@ -75,7 +77,7 @@ export const useLabelPrintingState = () => {
         if (!active) return;
         // A fila deste fluxo representa os itens do recebimento atual. Substituir
         // evita reaproveitar itens de uma abertura anterior e duplicá-los ao reabrir.
-        queue.setLabelItems([]);
+        setLabelItemsRef.current([]);
         const results = await Promise.all(batchProducts.map((product) =>
           queueProductRef.current(product, product.labelQty || 1)
         ));

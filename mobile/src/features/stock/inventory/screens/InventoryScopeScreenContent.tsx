@@ -42,6 +42,10 @@ import {
   resolveInventoryScopeCopy,
   type InventoryScopeCopySource,
 } from '../services/inventoryScopeCopy';
+import {
+  getAssignedInventoryScopeSupplier,
+  getInventoryScopeSupplierNames,
+} from '../services/inventoryScopeSuppliers';
 
 interface Props {
   isDarkMode: boolean;
@@ -258,31 +262,14 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
                 )
           );
           const items: ScopeConfiguration['itemsSnapshot'] = selectedProducts.map((product) => {
-            const supplierIds = [
-              ...new Set(
-                [product.main_supplier_id, product.supplier_id, ...(product.supplier_ids || [])]
-                  .filter(Boolean)
-                  .map(String)
-              ),
-            ];
-            const supplierNames = supplierIds
-              .map((id) => suppliers.find((supplier) => String(supplier.id) === id)?.full_name)
-              .filter(Boolean);
-            const assignedSupplierId = [
-              product.main_supplier_id,
-              product.supplier_id,
-              ...(product.supplier_ids || []),
-            ].find(Boolean);
-            const assignedSupplier =
-              (assignedSupplierId &&
-                suppliers.find((supplier) => String(supplier.id) === String(assignedSupplierId))
-                  ?.full_name) || 'Sem fornecedor';
+            const supplierNames = getInventoryScopeSupplierNames(product, suppliers);
+            const assignedSupplier = getAssignedInventoryScopeSupplier(product, suppliers);
 
             return {
               productId: String(product.id),
               variationId: product.variation_id ? String(product.variation_id) : undefined,
               name: product.name || product.description || 'Produto',
-              supplierNames: supplierNames.join(' / ') || 'Fábrica não informada',
+              supplierNames,
               assignedSupplier,
               systemStock: Number(product.stock ?? 0),
               unit: product.unit || 'UN',
