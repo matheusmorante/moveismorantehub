@@ -2,10 +2,29 @@ import { useState } from 'react';
 import { Alert, Platform, Share } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system/legacy';
+import type { DocumentPickerAsset } from 'expo-document-picker';
 import type { Invoice, InvoiceDetail } from '../../../types/stock.types';
 import * as stockService from '../../../../../services/stockService';
 import { normalizeFiscalIdentifier } from '../../../../../../../shared-utils/fiscalIdentifiers';
 import { extractNfeAccessKey } from '../../utils/accessKey';
+
+const showInvoiceImportAlert = (title: string, message: string) => {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n\n${message}`);
+    return;
+  }
+  Alert.alert(title, message);
+};
+
+const readInvoiceXml = async (file: DocumentPickerAsset) => {
+  if (Platform.OS !== 'web') {
+    return FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.UTF8 });
+  }
+  if (file.file) return file.file.text();
+  const response = await fetch(file.uri);
+  if (!response.ok) throw new Error('Não foi possível ler o arquivo XML selecionado.');
+  return response.text();
+};
 
 export const useInvoiceScreenActions = (reload: () => void) => {
   const [activeInvoice, setActiveInvoice] = useState<Invoice | null>(null);
@@ -90,15 +109,13 @@ export const useInvoiceScreenActions = (reload: () => void) => {
   };
 
   const importXml = async (
-    file: { uri: string; name?: string },
+    file: DocumentPickerAsset,
     onStatusChange: (message: string) => void,
     expectedAccessKey?: string
   ) => {
     try {
       onStatusChange('Lendo o arquivo XML...');
-      const response = await fetch(file.uri);
-      if (!response.ok) throw new Error('Não foi possível ler o arquivo XML selecionado.');
-      const xmlText = await response.text();
+      const xmlText = await readInvoiceXml(file);
 
       if (expectedAccessKey !== undefined) {
         const expectedKey = normalizeFiscalIdentifier(expectedAccessKey);
@@ -119,39 +136,39 @@ export const useInvoiceScreenActions = (reload: () => void) => {
         totalValue: result.totalValue,
         itemsCount: result.itemsCount,
         status: result.status,
-        hasPendingBindings: result.hasPendingBindings,
+        hasPendingBindings: Boolean(result.hasPendingBindings),
         sefazStatus: 'pending',
       };
       setShowImportModal(false);
       reload();
       if (result.outcome === 'unchanged') {
-        Alert.alert(
+        showInvoiceImportAlert(
           'NF-e já cadastrada',
           'Esta nota fiscal já está cadastrada com os mesmos dados. Nenhuma alteração foi feita.'
         );
         return;
       }
-      Alert.alert(
-        result.outcome === 'updated' ? 'Nota fiscal atualizada' : 'Nota Fiscal Adicionada!',
-        `${result.outcome === 'updated' ? `A NF-e já estava cadastrada; o XML trouxe dados novos e ela foi atualizada.${result.hasConflicts ? ' Campos com valores divergentes foram preservados.' : ''}\n\n` : ''}NF-e #${result.number} · Série ${result.series}\nFornecedor: ${result.supplierName}\nTotal: R$ ${result.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nItens: ${result.itemsCount}${result.hasPendingBindings ? '\n\nDeseja gerenciar os vínculos dos produtos desta nota agora?' : ''}`,
-        [
+      const title = result.outcome === 'updated' ? 'Nota fiscal atualizada' : 'Nota Fiscal Adicionada!';
+      const message = `${result.outcome === 'updated' ? `A NF-e já estava cadastrada; o XML trouxe dados novos e ela foi atualizada.${result.hasConflicts ? ' Campos com valores divergentes foram preservados.' : ''}\n\n` : ''}NF-e #${result.number} · Série ${result.series}\nFornecedor: ${result.supplierName}\nTotal: R$ ${result.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\nItens: ${result.itemsCount}`;
+      if (Platform.OS === 'web') {
+        if (result.hasPendingBindings) {
+          if (window.confirm(`${title}\n\n${message}\n\nDeseja gerenciar os vínculos dos produtos desta nota agora?`)) {
+            setMappingInvoice(importedInvoice);
+          }
+        } else {
+          showInvoiceImportAlert(title, message);
+        }
+      } else {
+        Alert.alert(title, message, [
           ...(result.hasPendingBindings
             ? [{ text: 'Gerenciar vínculos', onPress: () => setMappingInvoice(importedInvoice) }]
             : []),
           { text: 'Fechar', style: 'cancel' as const },
-        ]
-      );
+        ]);
+      }
     } catch (importError) {
       console.error('Failed to import invoice XML:', importError);
-      const message =
-        importError instanceof Error
-          ? importError.message
-          : 'Verifique se selecionou um XML válido de NF-e.';
-      const isDuplicate = message.startsWith('Nota Fiscal Já Cadastrada:');
-      Alert.alert(
-        isDuplicate ? 'Nota Fiscal Já Cadastrada' : 'Não foi possível importar o XML',
-        isDuplicate ? message.slice('Nota Fiscal Já Cadastrada:'.length).trim() : message
-      );
+      throw importError;
     }
   };
 

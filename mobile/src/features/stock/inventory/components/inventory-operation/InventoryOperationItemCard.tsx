@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { Minus, Plus, Search, Maximize2 } from 'lucide-react-native';
 import type { AuditItem } from '../../hooks/useInventoryAuditWorkflow';
 
@@ -120,7 +121,7 @@ export const InventoryOperationItemCard: React.FC<Props> = ({
           </TouchableOpacity>
 
           <View style={{ alignItems: 'center', width: 60, overflow: 'hidden' }}>
-            <TextInput
+            <FormTextInput
               testID="count-input"
               style={[styles.countInput, { color: textPrimary }]}
               keyboardType="numeric"

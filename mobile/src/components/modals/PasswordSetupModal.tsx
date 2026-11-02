@@ -9,7 +9,6 @@ import {
   Platform,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -17,6 +16,7 @@ import type { PasswordCredentialStatus } from '../../contexts/AuthContext';
 import { flattenFormErrors, useZodForm } from '../../hooks/useZodForm';
 import { passwordSetupFormSchema } from '../../../../shared-utils/authFormSchemas';
 
+import { FormTextInput } from '../shared/FormTextInput';
 type Props = {
   visible: boolean;
   status: PasswordCredentialStatus;
@@ -87,7 +87,7 @@ export function PasswordSetupModal({ visible, status, email, onCreatePassword, o
           {email ? <Text style={styles.email}>{email}</Text> : null}
 
           <View style={styles.fields}>
-            <TextInput
+            <FormTextInput
               accessibilityLabel="Nova senha"
               autoComplete="new-password"
               onChangeText={setPassword}
@@ -97,7 +97,7 @@ export function PasswordSetupModal({ visible, status, email, onCreatePassword, o
               style={styles.input}
               value={password}
             />
-            <TextInput
+            <FormTextInput
               accessibilityLabel="Confirmar senha"
               autoComplete="new-password"
               onChangeText={setConfirmation}

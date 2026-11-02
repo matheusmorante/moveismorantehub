@@ -4,7 +4,7 @@ export interface ReceiptPayloadContext {
   purchaseId?: string;
   supplierName: string;
   safeReceivedAt: string;
-  status?: 'received' | 'draft';
+  status?: 'received' | 'draft' | 'estornado';
   isDraft?: boolean;
 }
 

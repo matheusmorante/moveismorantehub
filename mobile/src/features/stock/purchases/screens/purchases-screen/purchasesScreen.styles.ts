@@ -117,8 +117,9 @@ export const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 13, minHeight: 40, paddingVertical: 6 },
   supplierFilter: {
-    borderWidth: 1,
-    borderRadius: 10,
+    borderWidth: 0,
+    borderBottomWidth: 1,
+    borderRadius: 0,
     paddingHorizontal: 12,
     minHeight: 40,
     flexDirection: 'row',

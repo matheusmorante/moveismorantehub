@@ -105,7 +105,7 @@ export const ReceiptFiscalDocumentsSection: React.FC<ReceiptFiscalDocumentsSecti
     <section className="border-t border-slate-100 pt-6 dark:border-slate-800">
       <div className="flex flex-col gap-2">
         <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-          Anexos (PDF ou imagens, máximo {MAX_FILES})
+          Anexos do recebimento (PDF ou imagem, máximo {MAX_FILES})
         </label>
         <label
           className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-4 text-center transition-all ${
@@ -120,10 +120,10 @@ export const ReceiptFiscalDocumentsSection: React.FC<ReceiptFiscalDocumentsSecti
           <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
             {isUploading
               ? 'Enviando arquivos...'
-              : 'Clique para anexar documento (ex: comprovante, pedido)'}
+              : 'Adicionar documento ou imagem'}
           </span>
           <span className="mt-0.5 text-[10px] text-slate-400">
-            PDF, PNG ou JPG ({attachments.length}/{MAX_FILES})
+            PDF ou imagem ({attachments.length}/{MAX_FILES})
           </span>
           <input
             type="file"

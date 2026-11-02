@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { Check, Eye, MoreVertical, Pencil, Play, Plus, RotateCcw, Trash2, X } from 'lucide-react-native';
+import { Eye, MoreVertical, Pencil, Play, Plus, RotateCcw, Trash2, X } from 'lucide-react-native';
 import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
 import { useAuth } from '../../../../../contexts/AuthContext';
 import { usePurchases } from '../../hooks/usePurchases';
@@ -22,7 +22,6 @@ import {
   discardMobilePurchaseDraft,
   MobilePurchase,
   PurchaseStatus,
-  purchaseStatusLabel,
   updateMobilePurchase,
 } from '../../mobilePurchaseService';
 import { PurchaseFormModal } from '../../modals/PurchaseFormModal';
@@ -33,6 +32,7 @@ import { PurchaseCard } from './PurchaseCard';
 import { PurchasesListStates } from './PurchasesListStates';
 import { PurchasesScreenHeader } from './PurchasesScreenHeader';
 import { PurchaseSupplierFilterModal } from './PurchaseSupplierFilterModal';
+import { PurchaseStatusMenu } from './PurchaseStatusMenu';
 
 interface Props {
   isDarkMode: boolean;
@@ -411,59 +411,14 @@ export const PurchasesScreen: React.FC<Props> = ({ isDarkMode, renderHeader }) =
           </View>
         </View>
       </Modal>
-      <Modal
-        visible={Boolean(statusMenuPurchase)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setStatusMenuPurchase(null)}
-      >
-        <View style={styles.statusMenuOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setStatusMenuPurchase(null)}
-            accessibilityRole="button"
-            accessibilityLabel="Fechar opções de status"
-          />
-          <View style={[styles.statusMenuCard, isDarkMode && styles.headerMenuDark]}>
-            <Text style={[styles.statusMenuTitle, isDarkMode && styles.headerMenuTextDark]}>
-              Alterar status
-            </Text>
-            {statusMenuPurchase ? (
-              <Text style={[styles.statusMenuSubtitle, { color: colors.muted }]}>
-                Pedido #{formatPurchaseNumber(statusMenuPurchase.purchaseNumber) || statusMenuPurchase.id.slice(0, 8).toUpperCase()}
-              </Text>
-            ) : null}
-            {statusOptions.map((status) => {
-              const isCurrent = statusMenuPurchase?.status === status;
-              return (
-                <TouchableOpacity
-                  key={status}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isCurrent, disabled: isCurrent }}
-                  disabled={isCurrent}
-                  onPress={() => selectPurchaseStatus(status)}
-                  style={[
-                    styles.statusMenuOption,
-                    { borderColor: colors.border },
-                  ]}
-                >
-                  <Text style={[styles.statusMenuOptionText, { color: colors.text }]}>
-                    {purchaseStatusLabel(status)}
-                  </Text>
-                  {isCurrent ? <Check size={17} color="#2563eb" /> : null}
-                </TouchableOpacity>
-              );
-            })}
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => setStatusMenuPurchase(null)}
-              style={styles.statusMenuClose}
-            >
-              <Text style={[styles.statusMenuCloseText, { color: colors.muted }]}>Fechar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <PurchaseStatusMenu
+        purchase={statusMenuPurchase}
+        isDarkMode={isDarkMode}
+        colors={colors}
+        options={statusOptions}
+        onClose={() => setStatusMenuPurchase(null)}
+        onSelectStatus={selectPurchaseStatus}
+      />
       <PurchaseFormModal
         visible={formVisible}
         isDarkMode={isDarkMode}

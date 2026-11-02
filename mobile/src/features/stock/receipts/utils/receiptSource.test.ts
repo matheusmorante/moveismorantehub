@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { mobileReceiptFormSchema } from '../../../../../../shared-utils/receiptFormSchemas';
 import {
+  calculateMobileReceiptItems,
   inboundReceiptOrigin,
   purchaseReceiptOrigin,
   receiptItemWithCosts,
-  remainingInvoiceReceiptOrigin,
 } from './receiptSource';
 
 const invoice = (items: unknown[], overrides: Record<string, unknown> = {}) => ({
@@ -23,6 +23,42 @@ const invoice = (items: unknown[], overrides: Record<string, unknown> = {}) => (
 });
 
 describe('origens de recebimento no aplicativo', () => {
+  it('rateia desconto e frete percentuais proporcionalmente entre os itens', () => {
+    const items = calculateMobileReceiptItems(
+      [
+        { productId: 'a', description: 'Mesa', quantity: 2, baseCost: 100, unitCost: 100, totalCost: 200 },
+        { productId: 'b', description: 'Cadeira', quantity: 1, baseCost: 50, unitCost: 50, totalCost: 50 },
+      ],
+      { discountMode: 'percent', discountValue: 10, freightMode: 'percent', freightValue: 5 },
+    );
+
+    expect(items[0].discountNonFiscalUnit).toBe(10);
+    expect(items[0].freightNonFiscalUnit).toBe(5);
+    expect(items[0].unitCost).toBe(95);
+    expect(items[0].totalCost).toBe(190);
+    expect(items[1].discountNonFiscalUnit).toBe(5);
+    expect(items[1].freightNonFiscalUnit).toBe(2.5);
+    expect(items[1].unitCost).toBe(47.5);
+    expect(items[1].totalCost).toBe(47.5);
+  });
+
+  it('rateia valores fixos proporcionalmente e preserva os centavos', () => {
+    const items = calculateMobileReceiptItems(
+      [
+        { productId: 'a', description: 'Mesa', quantity: 2, baseCost: 100, unitCost: 100, totalCost: 200 },
+        { productId: 'b', description: 'Cadeira', quantity: 1, baseCost: 50, unitCost: 50, totalCost: 50 },
+      ],
+      { discountMode: 'fixed', discountValue: 15, freightMode: 'fixed', freightValue: 6 },
+    );
+
+    expect(items[0].discountNonFiscalUnit).toBe(6);
+    expect(items[0].freightNonFiscalUnit).toBe(2.4);
+    expect(items[0].totalCost).toBe(192.8);
+    expect(items[1].discountNonFiscalUnit).toBe(3);
+    expect(items[1].freightNonFiscalUnit).toBe(1.2);
+    expect(items[1].totalCost).toBe(48.2);
+  });
+
   it('traz o pedido e calcula os custos por item para conferência', () => {
     const origin = purchaseReceiptOrigin({
       id: 'purchase',
@@ -158,11 +194,9 @@ describe('origens de recebimento no aplicativo', () => {
     expect(origin.items.map((item) => item.totalCost)).toEqual([33.33, 33.33, 33.34]);
   });
 
-  it('bloqueia nota recebida, fornecedor sem estoque normal, XML incompleto e vínculo pendente', () => {
+  it('ignora vínculo antigo da NF e valida fornecedor, XML e vínculos', () => {
     const linked = [{ matchedProductId: 'p', quantity: 1, unitCost: 10, totalCost: 10 }];
-    expect(() => inboundReceiptOrigin(invoice(linked, { receipt_id: 'receipt' }))).toThrow(
-      'já está vinculada',
-    );
+    expect(() => inboundReceiptOrigin(invoice(linked, { receipt_id: 'receipt', status_recebimento: 'received' }))).not.toThrow();
     expect(() =>
       inboundReceiptOrigin(invoice(linked, { supplierStockOrigins: ['salvados'] })),
     ).toThrow('estoque normal');
@@ -173,36 +207,6 @@ describe('origens de recebimento no aplicativo', () => {
     expect(() =>
       inboundReceiptOrigin(invoice([{ matchedProductId: 'p', quantity: 1, unitCost: -10 }])),
     ).toThrow('Confira os valores');
-  });
-
-  it('oferece somente o saldo de uma NF parcialmente recebida e bloqueia repetição integral', () => {
-    const origin = inboundReceiptOrigin(
-      invoice([
-        {
-          matchedProductId: 'p',
-          matchedVariationId: 'v',
-          quantity: 5,
-          unitCost: 100,
-          totalCost: 500,
-        },
-      ]),
-    );
-    const previous = [{ product_id: 'p', variation_id: 'v', quantity: 2 }];
-    const remaining = remainingInvoiceReceiptOrigin(origin, previous);
-    expect(remaining.items[0]).toMatchObject({
-      quantity: 3,
-      expectedQuantity: 3,
-      totalCost: 345,
-    });
-    expect(() => remainingInvoiceReceiptOrigin(origin, [{ ...previous[0], quantity: 5 }])).toThrow(
-      'já foram recebidos',
-    );
-    expect(() => remainingInvoiceReceiptOrigin(origin, [{ ...previous[0], quantity: 6 }])).toThrow(
-      'ultrapassa',
-    );
-    expect(() =>
-      remainingInvoiceReceiptOrigin(origin, [{ ...previous[0], product_id: 'outro' }]),
-    ).toThrow('recebimentos anteriores');
   });
 
   it('valida data, fornecedor, quantidade e custo antes de confirmar', () => {

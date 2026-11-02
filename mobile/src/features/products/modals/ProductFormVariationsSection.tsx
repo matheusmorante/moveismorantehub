@@ -1,9 +1,10 @@
 import { Layers, Plus } from 'lucide-react-native';
 import type React from 'react';
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { generateVariationSku } from '../domain/productSku';
 
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 interface Props {
   formData: any;
   setFormData: React.Dispatch<React.SetStateAction<any>>;
@@ -57,7 +58,7 @@ export const ProductFormVariationsSection: React.FC<Props> = ({ formData, setFor
         <View style={styles.row}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
             <Text style={[styles.label, dark && styles.lightText]}>Característica</Text>
-            <TextInput
+            <FormTextInput
               value={attrName}
               onChangeText={setAttrName}
               placeholder="Ex: Cor"
@@ -67,7 +68,7 @@ export const ProductFormVariationsSection: React.FC<Props> = ({ formData, setFor
           </View>
           <View style={[styles.fieldGroup, { flex: 1.5 }]}>
             <Text style={[styles.label, dark && styles.lightText]}>Valor *</Text>
-            <TextInput
+            <FormTextInput
               value={attrVal}
               onChangeText={setAttrVal}
               placeholder="Ex: Preto Fosco"
@@ -80,7 +81,7 @@ export const ProductFormVariationsSection: React.FC<Props> = ({ formData, setFor
         <View style={styles.row}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
             <Text style={[styles.label, dark && styles.lightText]}>SKU da Variação</Text>
-            <TextInput
+            <FormTextInput
               value={varSku}
               onChangeText={setVarSku}
               placeholder={generateVariationSku((formData.code || 'PRD').trim(), variations)}
@@ -90,7 +91,7 @@ export const ProductFormVariationsSection: React.FC<Props> = ({ formData, setFor
           </View>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
             <Text style={[styles.label, dark && styles.lightText]}>Preço (R$)</Text>
-            <TextInput
+            <FormTextInput
               value={varPrice}
               onChangeText={setVarPrice}
               keyboardType="numeric"
@@ -101,7 +102,7 @@ export const ProductFormVariationsSection: React.FC<Props> = ({ formData, setFor
           </View>
           <View style={[styles.fieldGroup, { flex: 0.8 }]}>
             <Text style={[styles.label, dark && styles.lightText]}>Estoque</Text>
-            <TextInput
+            <FormTextInput
               value={varStock}
               onChangeText={setVarStock}
               keyboardType="numeric"

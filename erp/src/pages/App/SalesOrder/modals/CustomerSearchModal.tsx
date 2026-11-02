@@ -2,24 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import CustomerData from '@/pages/types/customerData.type';
 import Person from '@/pages/types/person.type';
 import Order from '@/pages/types/order.type';
-import { getRecentPeople, searchPeople, isTestPerson } from '@/pages/utils/personService';
+import { getRecentPeople, searchPeople } from '@/pages/utils/personService';
 import { getOrdersByCustomerInfo } from '@/pages/utils/orderSearchQueries';
-import { isTestOrder } from '@/pages/utils/hmlTestData';
 import {
   canSearchCustomers,
   getCustomerSearchQuery,
   matchesCustomerSearch,
 } from '@/pages/utils/customerSearch';
-
-interface CustomerSearchEntry {
-  id: string;
-  fullName: string;
-  phone: string;
-  source: 'cadastro' | 'pedido';
-  totalOrders: number;
-  lastOrder?: string;
-  customerData: CustomerData;
-}
+import { buildCustomerSearchEntries, type CustomerSearchEntry } from './customerSearchList';
 
 interface Props {
   readonly onSelect: (customer: CustomerData) => void;
@@ -97,100 +87,10 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = '' }
 
   // Orders are now loaded in the search effect.
   // Build unified customer list: merge cadastro + order history
-  const customerList = useMemo<CustomerSearchEntry[]>(() => {
-    const map = new Map<string, CustomerSearchEntry>();
-
-    // Add from People registry
-    people.forEach((p) => {
-      if (isTestPerson(p)) return;
-      const name = (p.fullName || p.tradeName || '').trim();
-      if (!name) return;
-      const key = name.toLowerCase();
-
-      map.set(key, {
-        id: p.id || key,
-        fullName: name,
-        phone: p.phone || '',
-        source: 'cadastro',
-        totalOrders: 0,
-        customerData: {
-          id: p.id,
-          personType: p.personType || (p.cpfCnpj && p.cpfCnpj.length > 14 ? 'PJ' : 'PF'),
-          cpfCnpj: p.cpfCnpj || '',
-          ie: p.ie || p.rgIe || '',
-          rgIe: p.rgIe || p.ie || '',
-          ieIndicator: p.ieIndicator || '9',
-          email: p.email || '',
-          fullName: name,
-          phone: p.phone || '',
-          noPhone: p.noPhone || false,
-          fullAddress: p.fullAddress || {
-            cep: '',
-            street: '',
-            number: '',
-            complement: '',
-            neighborhood: '',
-            city: '',
-            observation: '',
-          },
-        },
-      });
-    });
-
-    // Enrich from order history
-    orders.forEach((o) => {
-      if (isTestOrder(o)) return;
-      const name = (o.customerData?.fullName || '').trim();
-      if (!name) return;
-      const key = name.toLowerCase();
-
-      const existing = map.get(key);
-      if (existing) {
-        existing.totalOrders += 1;
-        if (!existing.lastOrder || o.date > (existing.lastOrder || '')) {
-          existing.lastOrder = o.date;
-        }
-        // Update address if order has more complete data
-        if (o.customerData?.fullAddress?.street && !existing.customerData.fullAddress.street) {
-          existing.customerData = {
-            ...existing.customerData,
-            ...o.customerData,
-          };
-        }
-      } else {
-        map.set(key, {
-          id: key,
-          fullName: name,
-          phone: o.customerData?.phone || '',
-          source: 'pedido',
-          totalOrders: 1,
-          lastOrder: o.date,
-          customerData: {
-            fullName: name,
-            phone: o.customerData?.phone || '',
-            noPhone: o.customerData?.noPhone || false,
-            fullAddress: o.customerData?.fullAddress || {
-              cep: '',
-              street: '',
-              number: '',
-              complement: '',
-              neighborhood: '',
-              city: '',
-              observation: '',
-            },
-          },
-        });
-      }
-    });
-
-    // Sort: registered first, then by total orders desc, then alphabetically
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.source === 'cadastro' && b.source !== 'cadastro') return -1;
-      if (b.source === 'cadastro' && a.source !== 'cadastro') return 1;
-      if (b.totalOrders !== a.totalOrders) return b.totalOrders - a.totalOrders;
-      return a.fullName.localeCompare(b.fullName);
-    });
-  }, [people, orders]);
+  const customerList = useMemo<CustomerSearchEntry[]>(
+    () => buildCustomerSearchEntries(people, orders),
+    [people, orders],
+  );
 
   const [selectedType, setSelectedType] = useState<'all' | 'customer' | 'employee' | 'supplier'>(
     'all'

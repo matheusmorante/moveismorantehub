@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 import type { Composition } from '../types/composition.type';
 
 interface ThemeColors {
@@ -36,7 +37,7 @@ export const CompositionInfoTab: React.FC<CompositionInfoTabProps> = ({
       <Text style={{ color: themeColors.textMuted, fontSize: 12, marginBottom: 4, marginTop: 8 }}>
         Nome da Composição *
       </Text>
-      <TextInput
+      <FormTextInput
         style={{
           backgroundColor: themeColors.surface,
           color: themeColors.text,
@@ -54,7 +55,7 @@ export const CompositionInfoTab: React.FC<CompositionInfoTabProps> = ({
       <Text style={{ color: themeColors.textMuted, fontSize: 12, marginBottom: 4, marginTop: 16 }}>
         SKU Base
       </Text>
-      <TextInput
+      <FormTextInput
         style={{
           backgroundColor: themeColors.surface,
           color: themeColors.text,
@@ -127,7 +128,7 @@ export const CompositionInfoTab: React.FC<CompositionInfoTabProps> = ({
           <Text style={{ color: themeColors.textMuted, fontSize: 12, marginBottom: 4 }}>
             Preço Fixo de Venda
           </Text>
-          <TextInput
+          <FormTextInput
             style={{
               backgroundColor: themeColors.surface,
               color: themeColors.text,

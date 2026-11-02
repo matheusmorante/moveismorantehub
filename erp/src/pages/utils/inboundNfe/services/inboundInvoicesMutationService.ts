@@ -185,9 +185,14 @@ export const markInvoiceAsReceived = async (nfeKey: string, receiptId: string): 
   const local = getLocalInvoices();
   const invoice = local.find((inv) => normalizeFiscalIdentifier(inv.nfeKey) === normalizeFiscalIdentifier(nfeKey));
   if (invoice) {
+    const { data, error } = await supabase.rpc('link_received_goods_receipt_to_invoice', {
+      p_invoice_id: invoice.id,
+      p_receipt_id: receiptId,
+    });
+    if (error || data !== true) throw new Error('A entrada foi registrada, mas não foi possível atualizar o vínculo da nota.');
     invoice.status = 'received';
     invoice.receiptId = receiptId;
     invoice.receivedAt = new Date().toISOString();
-    await saveInboundInvoice(invoice);
+    saveLocalInvoices(local);
   }
 };

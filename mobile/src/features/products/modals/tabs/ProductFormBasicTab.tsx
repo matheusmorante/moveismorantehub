@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Alert, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, Settings } from 'lucide-react-native';
 import {
   fetchMobileCategories,
@@ -27,6 +27,7 @@ import { inheritMobileSimpleVariationFromParent } from '../../domain/productVari
 import { getMobileVariationColorSummary } from '../../domain/productCharacteristics';
 import { styles } from './productFormBasicTab.styles';
 
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
@@ -474,7 +475,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
           </Text>
         </View>
 
-        <TextInput
+        <FormTextInput
           value={formData.name || ''}
           accessibilityLabel="Nome do produto"
           accessibilityHint={nameError ? PRODUCT_NAME_REQUIRED_MESSAGE : undefined}
@@ -594,7 +595,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
       {/* OBSERVAÇÕES INTERNAS */}
       <View style={styles.field}>
         <Text style={[styles.label, dark && styles.lightLabel]}>OBSERVAÇÕES INTERNAS</Text>
-        <TextInput
+        <FormTextInput
           value={formData.observations || ''}
           onChangeText={(val) => set('observations', val)}
           placeholder="Digite notas internas sobre este produto, processos ou detalhes específicos..."

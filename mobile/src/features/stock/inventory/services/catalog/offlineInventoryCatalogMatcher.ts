@@ -10,6 +10,7 @@ import type {
 import { OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION } from './offlineInventoryCatalogTypes';
 import { isStockInventorySupplierEligible } from '../../../../../../../shared-utils/inventorySupplierEligibility';
 import { isTestProduct } from '../../../../../../../shared-utils/isTestProduct';
+import { isProductComposition } from '../../../../../../../shared-utils/productCompositionRequirements';
 
 const productSupplierIds = (product: CatalogRow): string[] =>
   [
@@ -73,6 +74,7 @@ export const buildScopeProductsFromCatalog = (
       !product ||
       isTestProduct(product) ||
       isTestProduct(variation) ||
+      isProductComposition(product) ||
       product.item_type !== 'product' ||
       product.deleted ||
       product.deleted_at ||
@@ -157,6 +159,7 @@ export const resolveOfflineInventoryMatch = (
       !product ||
       isTestProduct(product) ||
       isTestProduct(variation) ||
+      isProductComposition(product) ||
       ((product.item_type !== 'product' ||
         product.deleted ||
         product.deleted_at ||
@@ -191,6 +194,7 @@ export const resolveOfflineInventoryMatch = (
     !product ||
     isTestProduct(product) ||
     isTestProduct(variation) ||
+    isProductComposition(product) ||
     product.item_type !== 'product' ||
     product.deleted ||
     product.deleted_at ||

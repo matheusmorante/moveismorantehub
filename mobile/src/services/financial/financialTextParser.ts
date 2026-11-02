@@ -1,6 +1,7 @@
 import type { ParsedFinancialIntent } from './financialTypes';
 import { parsePtBrWrittenNumbers } from './wordToNumberPtBr';
 import { extractUnknownFieldsFromText } from './financialUnknownFieldExtractor';
+import { classifyFinancialMovement } from './financialMovementClassification';
 
 export interface FinancialCategoryType {
   id?: string;
@@ -397,113 +398,11 @@ export const fallbackHeuristicParser = (
     }
   }
 
-  const isExplicitStore =
-    /da loja|do depósito|do deposito|da fábrica|da fabrica|da empresa|do comércio|do comercio|loja|escritório|escritorio|pra loja|para a loja|na loja|para o negócio|para o negocio/i.test(
-      text
-    );
-  const isExplicitPersonal =
-    /da minha casa|para minha casa|pra casa|minha casa|da casa|minha|pessoal|uso pessoal|da casa da gerente|gerente|do sócio|do socio|casa/i.test(
-      text
-    );
-  const isUtilityBill =
-    /luz|energia|eletricidade|água|agua|sanepar|internet|telefone|telefonia|aluguel|condomínio|condominio/i.test(
-      text
-    );
-  const dualItemMatch = text.match(
-    /\b(televisão|televisao|tv|geladeira|refrigerador|freezer|micro-ondas|microondas|ar-condicionado|ar\s+condicionado|computador|notebook|laptop|celular|smartphone|impressora|móveis|moveis|móvel|movel|eletrodoméstico|eletrodomesticos|eletrônico|eletronicos|equipamento|equipamentos|utensílio|utensilios|fogão|fogao|filtro|mesa|cadeira)\b/i
-  );
-  const isDualItem = Boolean(dualItemMatch);
-  const isAmbiguous = isUtilityBill || isDualItem;
-
-  let businessPurpose: 'BUSINESS' | 'PERSONAL' | 'PERSONAL_PARTNER' | 'UNKNOWN' | null =
-    activeDraft?.businessPurpose || null;
-  let catName = activeDraft?.categoryName || null;
-
-  if (movementType === 'expense') {
-    if (
-      text.includes('combustível') ||
-      text.includes('combustivel') ||
-      text.includes('gasolina') ||
-      text.includes('etanol') ||
-      text.includes('diesel') ||
-      text.includes('abasteci') ||
-      text.includes('abastecimento') ||
-      text.includes('posto')
-    ) {
-      catName = 'Combustível';
-      businessPurpose = 'BUSINESS';
-    } else if (
-      text.includes('manutenção') ||
-      text.includes('manutencao') ||
-      text.includes('oficina') ||
-      text.includes('troca de óleo') ||
-      text.includes('troca de oleo') ||
-      text.includes('pneus') ||
-      text.includes('peças') ||
-      text.includes('pecas') ||
-      text.includes('revisão') ||
-      text.includes('revisao') ||
-      text.includes('mecânico') ||
-      text.includes('mecanico') ||
-      text.includes('bateria') ||
-      text.includes('alinhamento') ||
-      text.includes('balanceamento')
-    ) {
-      catName = 'Manutenção de Veículos';
-      businessPurpose = 'BUSINESS';
-    } else if (
-      text.includes('salário') ||
-      text.includes('salario') ||
-      text.includes('folha de pagamento') ||
-      text.includes('adiantamento') ||
-      text.includes('comissão') ||
-      text.includes('comissao') ||
-      text.includes('13º') ||
-      text.includes('férias') ||
-      text.includes('ferias')
-    ) {
-      catName = 'Salários';
-      businessPurpose = 'BUSINESS';
-    } else if (
-      text.includes('imposto') ||
-      text.includes('tributo') ||
-      text.includes('das') ||
-      text.includes('simples nacional') ||
-      text.includes('fgts') ||
-      text.includes('inss') ||
-      text.includes('darf')
-    ) {
-      catName = 'Impostos e Tributos';
-      businessPurpose = 'BUSINESS';
-    } else if (text.includes('frete')) {
-      catName = 'Frete';
-      businessPurpose = 'BUSINESS';
-    } else if (
-      text.includes('mercadoria') ||
-      text.includes('estoque') ||
-      text.includes('revenda') ||
-      text.includes('revender')
-    ) {
-      catName = 'Compra de estoque';
-      businessPurpose = 'BUSINESS';
-    } else if (isAmbiguous) {
-      if (isExplicitStore || businessPurpose === 'BUSINESS') {
-        businessPurpose = 'BUSINESS';
-        catName = isDualItem ? 'Equipamentos da Empresa' : 'Contas de Consumo';
-      } else if (isExplicitPersonal || businessPurpose === 'PERSONAL') {
-        businessPurpose = 'PERSONAL';
-        catName = 'Pró-labore';
-      } else {
-        businessPurpose = 'UNKNOWN';
-        catName = 'UNKNOWN';
-      }
-    } else {
-      catName = 'Despesa não classificada';
-    }
-  } else {
-    const isVenda = text.includes('vendi') || text.includes('venda') || text.includes('vendas');
-    catName = isVenda ? 'Vendas' : 'Outras receitas';
-  }
+  const {
+    businessPurpose,
+    categoryName: catName,
+    isAmbiguous,
+  } = classifyFinancialMovement(text, movementType, activeDraft);
 
   const isEstimated = /uns\b|acho que|aproximadamente|cerca de|em torno de/i.test(text);
 

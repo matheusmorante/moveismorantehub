@@ -1,6 +1,23 @@
 import { z } from 'zod';
 import { documentFilesFormSchema } from './fileFormSchemas';
 
+export interface PurchaseConfirmationItem {
+  readonly productId?: string | null;
+}
+
+export function getPurchaseConfirmationBlockReasons(
+  supplierId: string | null | undefined,
+  items: readonly PurchaseConfirmationItem[]
+): string[] {
+  const reasons: string[] = [];
+  if (!supplierId?.trim()) reasons.push('Selecione um fornecedor.');
+  if (items.length === 0) reasons.push('Adicione pelo menos um item com produto selecionado.');
+  else if (items.some((item) => !item.productId?.trim())) {
+    reasons.push('Selecione um produto para cada item ou remova as linhas incompletas.');
+  }
+  return reasons;
+}
+
 const purchaseItem = z.object({
   productId: z.string(), variationId: z.string().optional(), description: z.string(),
   quantity: z.number().nonnegative(), baseCost: z.number().nonnegative().optional(),

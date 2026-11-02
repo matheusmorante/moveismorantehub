@@ -48,7 +48,7 @@ export const InventoryOperationHeader: React.FC<Props> = ({
         </TouchableOpacity>
       )}
       <View style={styles.titleCol}>
-        <Text style={[styles.headerTitle, { color: textPrimary }]} numberOfLines={1}>
+        <Text style={[styles.headerTitle, { color: textPrimary }]}>
           {title}
         </Text>
         {showCount && (
@@ -75,7 +75,7 @@ export const InventoryOperationHeader: React.FC<Props> = ({
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Cancelar etapa"
-                style={[styles.cancelActionButton, { backgroundColor: isDarkMode ? '#451a24' : '#fff1f2', borderColor: isDarkMode ? '#881337' : '#fecdd3' }]}
+                style={styles.cancelInventoryActionButton}
                 onPress={onRequestCancelStage}
               >
                 <Text style={[styles.cancelActionLabel, { color: isDarkMode ? '#fda4af' : '#be123c' }]}>Cancelar etapa</Text>
@@ -85,7 +85,7 @@ export const InventoryOperationHeader: React.FC<Props> = ({
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Cancelar inventário"
-                style={[styles.cancelActionButton, { backgroundColor: isDarkMode ? '#451a24' : '#fff1f2', borderColor: isDarkMode ? '#881337' : '#fecdd3' }]}
+                style={styles.cancelInventoryActionButton}
                 onPress={onRequestCancelInventory}
               >
                 <Text style={[styles.cancelActionLabel, { color: isDarkMode ? '#fda4af' : '#be123c' }]}>Cancelar inventário</Text>
@@ -107,9 +107,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   backBtn: { marginRight: 12, padding: 4 },
-  titleCol: { flex: 1, paddingRight: 16 },
+  titleCol: { flex: 1, minWidth: 0, paddingRight: 16 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
+  headerTitle: { fontSize: 18, fontWeight: '800', flexShrink: 1 },
   countedText: { fontSize: 12, fontWeight: '700', marginTop: 4 },
   scanActionBtn: {
     width: 44,
@@ -125,6 +125,6 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cancelActions: { alignItems: 'flex-end', justifyContent: 'center', gap: 4 },
-  cancelActionButton: { minHeight: 28, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, justifyContent: 'center' },
+  cancelInventoryActionButton: { minHeight: 28, paddingVertical: 4, justifyContent: 'center' },
   cancelActionLabel: { fontSize: 10, fontWeight: '800' },
 });

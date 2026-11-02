@@ -160,20 +160,20 @@ export const PurchaseOrderItemsView = ({
           const confirmingRemove = pendingRemoveIndex === index;
           return (
             <article key={index} onClick={() => { if (!expanded && !confirmingRemove) onActiveItemChange?.(index); }}
-              className="purchase-order-card relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+              className={`purchase-order-card relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900 ${!expanded && !confirmingRemove ? 'cursor-pointer' : ''}`}>
               <div className={`purchase-order-card-content${confirmingRemove ? ' is-blurred' : ''}`} aria-hidden={confirmingRemove}>
               <div className="min-w-0">
                 <div className="flex items-center justify-between gap-3 pb-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Item {String(index + 1).padStart(2, '0')} · Produto</span>
                   <div className="flex shrink-0 items-center gap-1">
-                    <button type="button" aria-label={`Remover item ${name}`} disabled={!canRemoveItems || confirmingRemove}
+                    {expanded && <button type="button" aria-label={`Remover item ${name}`} disabled={!canRemoveItems || confirmingRemove}
                       onClick={(event) => {
                         event.stopPropagation();
                         if (canRemoveItems) setPendingRemoveIndex(index);
                       }}
                       className="inline-flex min-h-9 items-center justify-center rounded-lg px-2 py-1.5 text-[11px] font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-red-400 dark:hover:bg-red-950/30">
                       Remover item
-                    </button>
+                    </button>}
                     <button type="button" aria-label={`${expanded ? 'Recolher' : 'Expandir'} item ${name}`}
                       aria-expanded={expanded} onClick={(event) => {
                         event.stopPropagation();

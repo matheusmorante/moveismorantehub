@@ -1,15 +1,13 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   ScrollView,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Keyboard,
   Platform,
 } from 'react-native';
 import { Check, Search, X } from 'lucide-react-native';
@@ -37,6 +35,7 @@ import {
   clearInventoryScopeCache,
 } from '../../../../services/stockService';
 import type { SearchableProduct } from '../modals/InventoryProductSearchModal';
+import { InventoryProductSearchModal } from '../modals/InventoryProductSearchModal';
 import { InventoryScopeTypeSelector } from '../components/InventoryScopeTypeSelector';
 import { InventoryResponsibleSelector } from '../components/InventoryResponsibleSelector';
 import {
@@ -75,7 +74,7 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
   const [isLoadingProductCatalog, setIsLoadingProductCatalog] = useState(false);
   const [productCatalogError, setProductCatalogError] = useState('');
   const [productScopeProducts, setProductScopeProducts] = useState<ScopeProduct[]>([]);
-  const [productSearch, setProductSearch] = useState('');
+  const [isProductSearchOpen, setIsProductSearchOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('');
   const responsibleInitialized = useRef(false);
   const scopeForm = useZodForm(mobileInventoryAuditScopeSchema, {
@@ -108,14 +107,24 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
     return [...byId.values()].sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
   }, [productScopeProducts]);
   const selectedProduct = productParents.find((product) => product.id === selectedProductId);
-
-  const filteredProductParents = useMemo(() => {
-    const query = productSearch.trim();
-    if (query.length < 2) return [];
-    return productParents
+  const searchProductParents = useCallback(async (query: string): Promise<SearchableProduct[]> => (
+    productParents
       .filter((product) => matchesSearchText(`${product.name} ${product.code}`, query))
-      .slice(0, 30);
-  }, [productParents, productSearch]);
+      .slice(0, 5)
+      .map((product) => ({
+        id: product.id,
+        name: product.name,
+        sku: product.code,
+        code: product.code,
+        stock: 0,
+        unit: 'UN',
+        resultMeta: [
+          product.code ? `Código: ${product.code}` : '',
+          `${product.variationCount} variações ativas`,
+        ].filter(Boolean).join(' · '),
+        active: true,
+      }))
+  ), [productParents]);
 
   useEffect(() => connectivityService.subscribe(setIsOnline), []);
 
@@ -327,7 +336,7 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
   const beginProductSelection = async () => {
     setIsSelectingProduct(true);
     setProductCatalogError('');
-    setProductSearch('');
+    setIsProductSearchOpen(false);
     setSelectedProductId('');
     if (productScopeProducts.length > 0) return;
     setIsLoadingProductCatalog(true);
@@ -414,27 +423,18 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
                 Pesquise nos produtos ativos do ERP. A próxima etapa mostrará as variações para contar.
               </Text>
             </View>
-            <View style={[styles.productSearchBox, { backgroundColor: selectedProduct ? (isDarkMode ? '#0f172a' : '#f1f5f9') : surface, borderColor: border }]}>
-              <Search size={19} color={muted} />
-              <TextInput
+            {!selectedProduct && (
+              <TouchableOpacity
                 testID="scope-product-parent-search"
+                accessibilityRole="button"
                 accessibilityLabel="Buscar produto pai ativo"
-                value={productSearch}
-                onChangeText={setProductSearch}
-                editable={!selectedProduct}
-                accessibilityState={{ disabled: Boolean(selectedProduct) }}
-                placeholder="Nome ou código do produto..."
-                placeholderTextColor={muted}
-                style={[styles.productSearchInput, { color: textPrimary }]}
-                autoCapitalize="none"
-                returnKeyType="search"
-              />
-              {productSearch.length > 0 && (
-                <TouchableOpacity accessibilityLabel="Limpar busca" onPress={() => setProductSearch('')}>
-                  <X size={18} color={muted} />
-                </TouchableOpacity>
-              )}
-            </View>
+                onPress={() => setIsProductSearchOpen(true)}
+                style={[styles.productSearchBox, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: border }]}
+              >
+                <Search size={19} color={muted} />
+                <Text style={[styles.productSearchInput, { color: muted }]}>Nome ou código do produto...</Text>
+              </TouchableOpacity>
+            )}
             {selectedProduct && (
               <View style={[styles.selectedProductCard, { backgroundColor: isDarkMode ? '#2e1065' : '#f5f3ff', borderColor: isDarkMode ? '#6d28d9' : '#c4b5fd' }]}>
                 <View style={styles.selectedProductIcon}><Check size={18} color="#ffffff" /></View>
@@ -452,7 +452,6 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
                   accessibilityLabel={`Desselecionar ${selectedProduct.name}`}
                   onPress={() => {
                     setSelectedProductId('');
-                    setProductSearch('');
                   }}
                   style={styles.clearSelectedProductButton}
                 >
@@ -472,40 +471,7 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
                   <Text style={styles.retryText}>Tentar novamente</Text>
                 </TouchableOpacity>
               </View>
-            ) : productSearch.trim().length < 2 ? (
-              <Text style={{ color: muted, fontSize: 13, textAlign: 'center', padding: 18 }}>
-                Digite pelo menos duas letras para pesquisar.
-              </Text>
-            ) : filteredProductParents.length > 0 ? (
-              <View style={{ gap: 8 }}>
-                {filteredProductParents.map((product) => (
-                  <TouchableOpacity
-                    key={product.id}
-                    testID="scope-product-parent-option"
-                    accessibilityRole="button"
-                    onPress={() => {
-                      setSelectedProductId(product.id);
-                      setProductSearch('');
-                      Keyboard.dismiss();
-                    }}
-                    style={[styles.productParentOption, { backgroundColor: surface, borderColor: border }]}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: textPrimary, fontSize: 14, fontWeight: '800' }} numberOfLines={2}>
-                        {product.name}
-                      </Text>
-                      <Text style={{ color: muted, fontSize: 12, marginTop: 4 }}>
-                        {product.code ? `${product.code} · ` : ''}{product.variationCount} variações ativas
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : (
-              <Text style={{ color: muted, fontSize: 13, textAlign: 'center', padding: 18 }}>
-                Nenhum produto pai ativo com variações corresponde à busca.
-              </Text>
-            ))}
+            ) : null)}
             {!isLoadingProductCatalog && !productCatalogError && productParents.length === 0 && (
               <Text style={{ color: '#b45309', fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 16 }}>
                 Não há produtos ativos com variações disponíveis para contar.
@@ -556,7 +522,7 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
             onPress={() => {
               setIsSelectingProduct(false);
               setSelectedProductId('');
-              setProductSearch('');
+              setIsProductSearchOpen(false);
               setProductCatalogError('');
             }}
             style={[styles.productBackButton, { borderColor: border }]}
@@ -573,6 +539,18 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
             <Text style={styles.productNextButtonText}>Próxima etapa</Text>
           </TouchableOpacity>
         </View>
+      )}
+
+      {isSelectingProduct && !isLoadingProductCatalog && !productCatalogError && (
+        <InventoryProductSearchModal
+          isDarkMode={isDarkMode}
+          visible={isProductSearchOpen}
+          activeOnly
+          subtitle="Selecione um produto pai com variações ativas"
+          searchProvider={searchProductParents}
+          onClose={() => setIsProductSearchOpen(false)}
+          onSelect={(product) => setSelectedProductId(product.id)}
+        />
       )}
 
     </KeyboardAvoidingView>
@@ -605,7 +583,6 @@ const styles = StyleSheet.create({
   selectedProductCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 16, padding: 14 },
   selectedProductIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: '#7c3aed', alignItems: 'center', justifyContent: 'center' },
   clearSelectedProductButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
-  productParentOption: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, padding: 14 },
   productStepFooter: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1 },
   productBackButton: { minHeight: 48, flex: 1, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   productNextButton: { minHeight: 48, flex: 1.4, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#7c3aed' },

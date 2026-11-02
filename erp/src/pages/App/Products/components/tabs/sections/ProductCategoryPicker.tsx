@@ -1,5 +1,9 @@
 import React from 'react';
 import {
+  PRODUCT_CATEGORY_SEARCH_MAX_SUGGESTIONS,
+  PRODUCT_CATEGORY_SEARCH_MIN_LENGTH,
+} from '../../../../../../../../shared-utils/productCategorySearch';
+import {
   filterProductSelectableCategories,
   searchProductCategories,
   type ProductCategoryOption,
@@ -35,7 +39,7 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
   );
   React.useEffect(() => {
     const trimmed = categorySearch.trim();
-    if (trimmed.length < 3) {
+    if (trimmed.length < PRODUCT_CATEGORY_SEARCH_MIN_LENGTH) {
       setDebouncedCategorySearch('');
       return;
     }
@@ -46,7 +50,8 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
 
   const suggestedCategories = React.useMemo(
     () => categorySearch.trim() === debouncedCategorySearch
-      ? searchProductCategories(selectableCategories, [...availableCategories], debouncedCategorySearch).slice(0, 5)
+      ? searchProductCategories(selectableCategories, [...availableCategories], debouncedCategorySearch)
+          .slice(0, PRODUCT_CATEGORY_SEARCH_MAX_SUGGESTIONS)
       : [],
     [selectableCategories, availableCategories, categorySearch, debouncedCategorySearch]
   );
@@ -180,7 +185,7 @@ const ProductCategoryPicker: React.FC<ProductCategoryPickerProps> = ({
                   : 'border-slate-200/80 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30'
             }`}
           >
-            {categorySearch.trim().length < 3 ? (
+            {categorySearch.trim().length < PRODUCT_CATEGORY_SEARCH_MIN_LENGTH ? (
               <div className="py-5 px-3 text-center text-xs text-slate-400 dark:text-slate-500">
                 Digite pelo menos 3 caracteres para buscar.
               </div>

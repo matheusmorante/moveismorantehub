@@ -2,13 +2,13 @@ import React from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { RotateCcw } from 'lucide-react-native';
 import { StockMove } from '../../../types/stock.types';
 import { isPurchaseEntry } from '../../domain/inventoryTimelineBalance';
@@ -56,7 +56,7 @@ export const InventoryMoveDeleteModalContent: React.FC<InventoryMoveDeleteModalC
           <Text style={[styles.label, isDarkMode && styles.labelDark]}>
             Justificativa / Observação *
           </Text>
-          <TextInput
+          <FormTextInput
             style={[styles.input, isDarkMode && styles.inputDark, isDarkMode && styles.textLight]}
             placeholder="Informe a observação do estorno..."
             placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}

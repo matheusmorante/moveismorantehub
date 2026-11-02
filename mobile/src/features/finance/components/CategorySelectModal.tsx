@@ -1,6 +1,7 @@
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 import React, { useState, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, FlatList } from 'react-native';
 import { X, Search, Check, Folder } from 'lucide-react-native';
 import type { FinancialCategory } from '../../../services/mobileFinanceService';
 import { sortCategoriesWithOthersAtEnd } from '../../../services/financial/mobileCategoryService';
@@ -75,7 +76,7 @@ export const CategorySelectModal: React.FC<Props> = ({
           {/* Search Input */}
           <View style={[styles.searchContainer, isDarkMode && styles.searchContainerDark]}>
             <Search size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-            <TextInput
+            <FormTextInput
               style={[styles.searchInput, isDarkMode && styles.searchInputDark]}
               placeholder="Pesquisar categoria..."
               placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}

@@ -8,10 +8,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { X, Tag, Layers, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -153,7 +153,7 @@ export const MobileCategoryEnvironmentModal: React.FC<Props> = ({
             {/* Campo Nome */}
             <View style={styles.formGroup}>
               <Text style={styles.label}>Nome d{isEnv ? 'o Ambiente' : 'a Categoria'} *</Text>
-              <TextInput
+              <FormTextInput
                 value={nameInput}
                 onChangeText={(text) => onChangeNameInput(text.toUpperCase())}
                 editable={!isSubmitting}

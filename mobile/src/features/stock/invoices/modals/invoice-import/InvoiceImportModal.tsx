@@ -59,6 +59,7 @@ export const InvoiceImportModal: React.FC<Props> = ({
   const [showScanner, setShowScanner] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
+  const [importError, setImportError] = useState('');
   const summaryAccessKey = normalizeFiscalIdentifier(summaryInvoice?.accessKey);
   const expectedAccessKey = summaryInvoice ? summaryAccessKey : undefined;
   const keyForm = useZodForm(inboundAccessKeyFormSchema, { accessKey });
@@ -66,6 +67,7 @@ export const InvoiceImportModal: React.FC<Props> = ({
 
   useEffect(() => {
     setAccessKey(visible ? summaryAccessKey : '');
+    if (visible) setImportError('');
   }, [visible, summaryAccessKey]);
 
   const withLoading = async (status: string, action: () => Promise<void>) => {
@@ -84,7 +86,12 @@ export const InvoiceImportModal: React.FC<Props> = ({
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/xml', 'text/xml'],
       });
-      if (result.canceled || !result.assets?.length || !onUploadXml) return;
+      if (result.canceled || !result.assets?.length) return;
+      if (!onUploadXml) {
+        setImportError('A importação do XML não está disponível no momento. Feche e abra esta tela novamente.');
+        return;
+      }
+      setImportError('');
 
       await fileForm.validateAndRun(
         { ...result.assets[0] },
@@ -94,11 +101,13 @@ export const InvoiceImportModal: React.FC<Props> = ({
               onUploadXml(values as DocumentPickerAsset, setStatusMessage, expectedAccessKey)
             )
           ),
-        (errors) => Alert.alert('Arquivo inválido', Object.values(flattenFormErrors(errors))[0])
+        (errors) => setImportError(Object.values(flattenFormErrors(errors))[0] || 'Selecione um arquivo XML válido.')
       );
     } catch (err) {
       console.error(err);
-      Alert.alert('Não foi possível abrir o arquivo', 'Tente selecionar o XML novamente.');
+      setImportError(
+        err instanceof Error ? err.message : 'Não foi possível abrir o arquivo. Tente selecionar o XML novamente.'
+      );
     }
   };
 
@@ -212,6 +221,20 @@ export const InvoiceImportModal: React.FC<Props> = ({
                     </View>
                   </View>
                 )}
+
+                {importError ? (
+                  <View
+                    style={[styles.importErrorCard, isDarkMode && styles.importErrorCardDark]}
+                    accessibilityRole="alert"
+                  >
+                    <Text style={[styles.importErrorTitle, isDarkMode && styles.importErrorTitleDark]}>
+                      Não foi possível importar o XML
+                    </Text>
+                    <Text style={[styles.importErrorText, isDarkMode && styles.textMutedDark]}>
+                      {importError}
+                    </Text>
+                  </View>
+                ) : null}
 
                 {summaryInvoice ? (
                   <View style={[styles.summaryNotice, isDarkMode && styles.summaryNoticeDark]}>

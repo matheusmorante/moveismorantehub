@@ -45,7 +45,7 @@ describe('TechnicalFieldInput para Cor', () => {
       />
     );
 
-    const input = screen.getByPlaceholderText('Digite pelo menos 2 caracteres para pesquisar...');
+    const input = screen.getByPlaceholderText('Digite pelo menos 3 caracteres para pesquisar...');
     fireEvent.change(input, { target: { value: 'Cedar/Cinza Soft' } });
     fireEvent.blur(input);
     fireEvent.click(await screen.findByRole('button', { name: 'Cadastrar cor' }));

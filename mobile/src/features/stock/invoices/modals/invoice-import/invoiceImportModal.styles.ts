@@ -91,6 +91,18 @@ export const styles = StyleSheet.create({
   loadingCopy: { flex: 1, gap: 3 },
   loadingTitle: { color: '#1e3a8a', fontSize: 13, fontWeight: '800' },
   loadingSubtitle: { color: '#475569', fontSize: 11, lineHeight: 16 },
+  importErrorCard: {
+    backgroundColor: '#fef2f2',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    padding: 14,
+    marginBottom: 18,
+  },
+  importErrorCardDark: { backgroundColor: '#450a0a', borderColor: '#7f1d1d' },
+  importErrorTitle: { color: '#b91c1c', fontSize: 13, fontWeight: '800', marginBottom: 4 },
+  importErrorTitleDark: { color: '#fecaca' },
+  importErrorText: { color: '#7f1d1d', fontSize: 12, lineHeight: 18 },
   sectionCard: {
     backgroundColor: '#ffffff',
     borderRadius: 16,

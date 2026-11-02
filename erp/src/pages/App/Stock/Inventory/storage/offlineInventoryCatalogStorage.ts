@@ -1,6 +1,7 @@
-import type {
-  OfflineInventoryCatalog,
-  OfflineInventoryCatalogRow,
+import {
+  OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
+  type OfflineInventoryCatalog,
+  type OfflineInventoryCatalogRow,
 } from '../types/offlineInventoryCatalog.types';
 
 const DATABASE_NAME = 'morante-inventory';
@@ -9,6 +10,7 @@ const LEGACY_CATALOG_KEY = 'inventory-identification-index';
 const CATALOG_KEY = 'inventory-identification-index-v2';
 
 export const createEmptyOfflineInventoryCatalog = (): OfflineInventoryCatalog => ({
+  formatVersion: OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
   products: {},
   variations: {},
   labels: {},

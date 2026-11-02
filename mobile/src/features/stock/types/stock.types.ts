@@ -9,6 +9,7 @@ export interface Invoice {
   totalValue: number;
   itemsCount: number;
   status: 'received' | 'manifested' | 'pending';
+  isInUse?: boolean;
   hasPendingBindings: boolean;
   supplierStockOrigins?: string[];
   sefazStatus: 'authorized' | 'cancelled' | 'denied' | 'pending';
@@ -106,6 +107,7 @@ export interface StockMove {
   created_at: string;
   observation?: string;
   reversalReason?: string;
+  sourceReceiptId?: string;
   relatedEntityType?: string;
   relatedEntityId?: string;
 }

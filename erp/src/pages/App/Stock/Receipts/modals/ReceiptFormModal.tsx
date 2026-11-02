@@ -7,7 +7,7 @@ import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import type Purchase from '@/pages/types/purchase.type';
 import ReceiptFiscalDocumentsSection from '../components/ReceiptFiscalDocumentsSection';
 import ReturnObservationTags from '@/pages/App/SalesOrder/OrderActions/ReturnObservationTags';
-import InboundNfeItemsSection from '../components/InboundNfeItemsSection';
+import { ReceiptReadOnlyItemsSection } from '../components/ReceiptReadOnlyItemsSection';
 import { formatGoodsReceiptCode } from '@/pages/utils/goodsReceiptCode';
 import { InboundInvoiceFiscalReview } from '@/pages/App/Stock/InboundInvoices/components/InboundInvoiceFiscalReview';
 import { useReceiptForm } from '../hooks/useReceiptForm';
@@ -24,22 +24,18 @@ interface ReceiptFormModalProps {
 }
 
 export function ReceiptFormModal(props: ReceiptFormModalProps) {
-  const { isOpen, onClose, initialReceipt, copyReceipt, initialInboundInvoice, initialPurchase } =
-    props;
+  const { isOpen, initialReceipt, copyReceipt, initialInboundInvoice, initialPurchase } = props;
 
   const {
     suppliers,
     supplierId,
     setSupplierId,
+    handleSupplierChange,
     items,
     setItems,
     inboundItems,
     ipiPercent,
     freightPercent,
-    nonFiscalDiscountMode,
-    setNonFiscalDiscountMode,
-    nonFiscalDiscountValue,
-    setNonFiscalDiscountValue,
     nonFiscalFreightMode,
     setNonFiscalFreightMode,
     nonFiscalFreightValue,
@@ -58,6 +54,7 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
     observations,
     setObservations,
     isSaving,
+    isEditingReceipt,
     isAttachingInboundDocument,
     isDraftSaved,
     receiptIndex,
@@ -65,21 +62,31 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
     totalValue,
     baseValueForRateio,
     handleFinalize,
-    handleInboundItemChange,
+    handleClose,
   } = useReceiptForm(props);
 
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') void handleClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, handleClose]);
 
   if (!isOpen) return null;
 
   const supplier = suppliers.find((person) => person.id === supplierId);
+  const hasIncompleteItems = items.some((item) => !item.productId?.trim());
+  const hasPendingInboundLinks = Boolean(inboundItems?.some((item) => {
+    if (item.linkMode === 'not_applicable') return false;
+    if (item.linkMode === 'composition') return !item.compositionLinks?.length ||
+      item.compositionLinks.some((link) => !link.productId?.trim());
+    return !item.linkedProductId?.trim();
+  }));
+  const isInvoiceLinkedReceipt = Boolean(
+    initialInboundInvoice || (!copyReceipt && initialReceipt?.fiscalKey),
+  );
 
   const content = (
     <div
@@ -92,7 +99,7 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
         type="button"
         aria-label="Fechar modal"
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-default"
-        onClick={onClose}
+        onClick={() => void handleClose()}
       />
       <section className="relative flex flex-col overflow-hidden bg-white shadow-2xl dark:bg-slate-900 h-full w-full xl:h-auto xl:max-h-[90vh] xl:max-w-7xl xl:rounded-[2.5rem]">
         <header className="flex shrink-0 items-center justify-between bg-emerald-600 px-5 py-3 text-white xl:px-8 shadow-sm">
@@ -108,7 +115,9 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
                 id="receipt-form-modal-title"
                 className="text-base sm:text-lg font-black uppercase tracking-wide"
               >
-                {fiscalKey || initialInboundInvoice
+                {isEditingReceipt
+                  ? 'Alterar Recebimento de Mercadoria'
+                  : fiscalKey || initialInboundInvoice
                   ? 'Registrar Recebimento com NF de Entrada'
                   : initialPurchase
                     ? 'Registrar Recebimento com Pedido de Compra'
@@ -143,7 +152,7 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => void handleClose()}
             className="rounded-xl p-2 hover:bg-white/10 transition-colors"
             title="Fechar"
             aria-label="Fechar"
@@ -159,36 +168,16 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
             initialInboundInvoice={initialInboundInvoice}
             initialPurchase={initialPurchase}
             initialReceipt={initialReceipt}
+            isEditingReceipt={isEditingReceipt}
             copyReceipt={copyReceipt}
+            isInvoiceLinkedReceipt={isInvoiceLinkedReceipt}
             items={items}
             suppliers={suppliers}
             supplierId={supplierId}
             setSupplierId={setSupplierId}
+            onSupplierChange={handleSupplierChange}
             receiptDate={receiptDate}
             setReceiptDate={setReceiptDate}
-          />
-
-          <ReceiptFormCosts
-            baseValueForRateio={baseValueForRateio}
-            nonFiscalDiscountMode={nonFiscalDiscountMode}
-            setNonFiscalDiscountMode={setNonFiscalDiscountMode}
-            nonFiscalDiscountValue={nonFiscalDiscountValue}
-            setNonFiscalDiscountValue={setNonFiscalDiscountValue}
-            nonFiscalFreightMode={nonFiscalFreightMode}
-            setNonFiscalFreightMode={setNonFiscalFreightMode}
-            nonFiscalFreightValue={nonFiscalFreightValue}
-            setNonFiscalFreightValue={setNonFiscalFreightValue}
-            nonFiscalOtherExpensesMode={nonFiscalOtherExpensesMode}
-            setNonFiscalOtherExpensesMode={setNonFiscalOtherExpensesMode}
-            nonFiscalOtherExpensesValue={nonFiscalOtherExpensesValue}
-            setNonFiscalOtherExpensesValue={setNonFiscalOtherExpensesValue}
-          />
-
-          <ReceiptFiscalDocumentsSection
-            attachments={attachments}
-            fiscalKey={fiscalKey}
-            onAttachmentsChange={setAttachments}
-            onFiscalKeyChange={setFiscalKey}
           />
 
           <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
@@ -199,14 +188,29 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
             />
           </div>
 
-          {inboundItems ? (
-            <InboundNfeItemsSection
-              items={inboundItems}
-              processedItems={processedItems}
-              supplierId={supplierId}
-              onChange={handleInboundItemChange}
-              formatCurrency={formatCurrency}
-            />
+          <ReceiptFiscalDocumentsSection
+            attachments={attachments}
+            fiscalKey={fiscalKey}
+            onAttachmentsChange={setAttachments}
+            onFiscalKeyChange={setFiscalKey}
+          />
+
+          <ReceiptFormCosts
+            readOnly={isEditingReceipt && isInvoiceLinkedReceipt}
+            isInvoiceLinkedReceipt={isInvoiceLinkedReceipt}
+            baseValueForRateio={baseValueForRateio}
+            nonFiscalFreightMode={nonFiscalFreightMode}
+            setNonFiscalFreightMode={setNonFiscalFreightMode}
+            nonFiscalFreightValue={nonFiscalFreightValue}
+            setNonFiscalFreightValue={setNonFiscalFreightValue}
+            nonFiscalOtherExpensesMode={nonFiscalOtherExpensesMode}
+            setNonFiscalOtherExpensesMode={setNonFiscalOtherExpensesMode}
+            nonFiscalOtherExpensesValue={nonFiscalOtherExpensesValue}
+            setNonFiscalOtherExpensesValue={setNonFiscalOtherExpensesValue}
+          />
+
+          {isInvoiceLinkedReceipt ? (
+            <ReceiptReadOnlyItemsSection items={processedItems} formatCurrency={formatCurrency} />
           ) : (
             <PurchaseItemsSection
               items={processedItems}
@@ -215,7 +219,11 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
                 setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
               }
               onUpdateItem={(index, updatedItem) =>
-                setItems((current) => current.map((item, i) => (i === index ? updatedItem : item)))
+                setItems((current) => current.map((item, i) => (
+                  i === index
+                    ? { ...updatedItem, receiptItemId: updatedItem.receiptItemId || item.receiptItemId }
+                    : item
+                )))
               }
               ipiPercent={ipiPercent}
               freightPercent={freightPercent}
@@ -229,7 +237,7 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
         <footer className="flex shrink-0 flex-col items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-955/40 sm:flex-row xl:px-8 shadow-inner">
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm font-black text-slate-700 dark:text-slate-100">
-              Total final:{' '}
+              Valor total do recebimento:{' '}
               <span className="text-emerald-600 dark:text-emerald-400 text-lg font-black">
                 {formatCurrency(totalValue)}
               </span>
@@ -245,22 +253,29 @@ export function ReceiptFormModal(props: ReceiptFormModalProps) {
           <div className="flex w-full gap-3 sm:w-auto">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => void handleClose()}
               className="flex-1 sm:flex-initial rounded-2xl px-5 py-3 text-xs font-black uppercase text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               Cancelar
             </button>
             <button
               type="button"
-              disabled={isSaving || isAttachingInboundDocument}
+              disabled={isSaving || isAttachingInboundDocument || hasIncompleteItems || hasPendingInboundLinks}
+              title={hasIncompleteItems
+                ? 'Selecione um produto para cada item ou remova os itens incompletos.'
+                : hasPendingInboundLinks
+                  ? 'Vincule os itens pendentes da NF-e antes de confirmar.'
+                  : undefined}
               onClick={handleFinalize}
               className="flex-1 sm:flex-initial rounded-2xl bg-emerald-600 px-6 py-3 text-xs font-black uppercase text-white hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-md"
             >
               {isAttachingInboundDocument
                 ? 'Anexando XML...'
                 : isSaving
-                  ? 'Confirmando...'
-                  : 'Confirmar recebimento'}
+                  ? isEditingReceipt ? 'Salvando...' : 'Confirmando...'
+                  : isEditingReceipt
+                    ? 'Salvar alteração'
+                    : 'Confirmar recebimento'}
             </button>
           </div>
         </footer>

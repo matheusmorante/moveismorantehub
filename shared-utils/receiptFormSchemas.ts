@@ -11,7 +11,7 @@ export const receiptDraftFormSchema = z.object({
   fiscalKey: z.string().transform(normalizeFiscalIdentifier).refine((value) => !value || validateNfeAccessKey(value).valid, 'Informe uma chave NF-e válida com 44 caracteres e dígito verificador.'),
   ipiPercent: z.number().nonnegative(), freightPercent: z.number().nonnegative(),
   invoiceNumber: z.string().default(''), invoiceDate: z.string().refine((value) => !value || !Number.isNaN(Date.parse(value)), 'Informe uma data de nota válida.').default(''),
-  attachments: z.array(z.string()).default([]), observations: z.array(z.string()).default([]),
+  attachments: z.array(z.string()).max(5, 'Você pode anexar no máximo 5 arquivos.').default([]), observations: z.array(z.string()).default([]),
   nonFiscalDiscountMode: z.enum(['percent', 'fixed']).default('percent'), nonFiscalDiscountValue: z.number().nonnegative().default(0),
   nonFiscalFreightMode: z.enum(['percent', 'fixed']).default('percent'), nonFiscalFreightValue: z.number().nonnegative().default(0),
   nonFiscalOtherExpensesMode: z.enum(['percent', 'fixed']).default('percent'), nonFiscalOtherExpensesValue: z.number().nonnegative().default(0),

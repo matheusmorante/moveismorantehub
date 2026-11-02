@@ -18,6 +18,7 @@ vi.mock('../../supabaseConfig', () => {
   return {
     supabase: {
       from: () => chainable,
+      rpc: () => Promise.resolve({ data: true, error: null }),
       functions: { invoke: () => Promise.resolve({ data: { success: true }, error: null }) },
     },
   };

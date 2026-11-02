@@ -139,6 +139,7 @@ export function InboundCompositionManager({
       <ProductAutocomplete
         value=""
         clearOnSelect={true}
+        productsOnly
         onSelect={handleAdd}
         placeholder="Buscar produto para compor o item..."
       />

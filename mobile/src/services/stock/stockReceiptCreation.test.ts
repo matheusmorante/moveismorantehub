@@ -16,7 +16,13 @@ vi.mock('../offline/offlineStorageService', () => ({
   generateUUID: () => 'id',
 }));
 
-import { createMobileGoodsReceipt, fetchInvoiceReceiptItems } from './stockReceiptsService';
+import {
+  createMobileGoodsReceipt,
+  assertInvoiceAvailableForReceipt,
+  reverseMobileGoodsReceipt,
+  unreverseMobileGoodsReceipt,
+} from './stockReceiptsService';
+import { IN_USE_INVOICE_MESSAGE } from '../../../../shared-utils/receiptInvoiceAvailability';
 
 const receipt = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -84,9 +90,9 @@ describe('confirmação mobile de recebimento', () => {
     );
   });
 
-  it('marca a nota após a entrada completa e não altera a nota em uma entrada parcial', async () => {
-    const update = builder({ data: { id: 'invoice' }, error: null });
-    mocks.from.mockReturnValue(update);
+  it('vincula a nota à entrada recebida também quando ela é parcial', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: { receiptId: receipt.id }, error: null })
+      .mockResolvedValueOnce({ data: true, error: null });
     await expect(
       createMobileGoodsReceipt({
         ...receipt,
@@ -95,26 +101,23 @@ describe('confirmação mobile de recebimento', () => {
         fiscalKey: 'key',
       }),
     ).resolves.toEqual({ invoiceUpdated: true });
-    expect(update.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status_recebimento: 'received',
-        receipt_id: receipt.id,
-      }),
-    );
-    expect(update.is).toHaveBeenCalledWith('receipt_id', null);
-    mocks.from.mockClear();
+    expect(mocks.rpc).toHaveBeenCalledWith('link_received_goods_receipt_to_invoice', {
+      p_invoice_id: 'invoice', p_receipt_id: receipt.id,
+    });
+    mocks.rpc.mockResolvedValueOnce({ data: { receiptId: receipt.id }, error: null })
+      .mockResolvedValueOnce({ data: true, error: null });
     await createMobileGoodsReceipt({
       ...receipt,
       invoiceId: 'invoice',
       invoiceComplete: false,
       fiscalKey: 'key',
     });
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledTimes(4);
   });
 
   it('informa falha na atualização da nota sem declarar que a entrada confirmada falhou', async () => {
-    const update = builder({ data: null, error: new Error('falhou') });
-    mocks.from.mockReturnValue(update);
+    mocks.rpc.mockResolvedValueOnce({ data: { receiptId: receipt.id }, error: null })
+      .mockResolvedValueOnce({ data: null, error: new Error('falhou') });
     await expect(
       createMobileGoodsReceipt({
         ...receipt,
@@ -138,18 +141,65 @@ describe('confirmação mobile de recebimento', () => {
     expect(check.eq).toHaveBeenCalledWith('id', receipt.id);
   });
 
-  it('impede confirmação offline e consulta entradas anteriores sem incluir a tentativa atual', async () => {
+  it('impede confirmação offline', async () => {
     mocks.connected.connected = false;
     await expect(createMobileGoodsReceipt(receipt)).rejects.toThrow('internet');
     expect(mocks.rpc).not.toHaveBeenCalled();
-    const previous = builder({
-      data: [{ goods_receipt_items: [{ product_id: 'product', quantity: 1 }] }],
-      error: null,
+  });
+
+  it('bloqueia a reutilização da NF e exclui o recebimento que está sendo editado', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: [{ fiscal_key: 'KEY' }], error: null });
+    await expect(assertInvoiceAvailableForReceipt('k-e.y', receipt.id)).rejects.toThrow(IN_USE_INVOICE_MESSAGE);
+    expect(mocks.rpc).toHaveBeenCalledWith('in_use_goods_receipt_keys', {
+      p_keys: ['KEY'], p_exclude_receipt_id: receipt.id,
     });
-    mocks.from.mockReturnValue(previous);
-    await expect(fetchInvoiceReceiptItems('key', receipt.id)).resolves.toEqual([
-      { product_id: 'product', quantity: 1 },
-    ]);
-    expect(previous.neq).toHaveBeenCalledWith('id', receipt.id);
+    mocks.rpc.mockResolvedValueOnce({ data: [], error: null });
+    await expect(assertInvoiceAvailableForReceipt('key', receipt.id)).resolves.toBeUndefined();
+  });
+
+  it('impede o avanço quando não consegue conferir a nota', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: 'falhou' } });
+    await expect(assertInvoiceAvailableForReceipt('key')).rejects.toThrow('Não foi possível conferir');
+  });
+
+  it('mostra o conflito quando outra confirmação vence a disputa no banco', async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { code: '23505', message: 'goods_receipts_received_fiscal_key_unique' } });
+    await expect(createMobileGoodsReceipt(receipt)).rejects.toThrow(IN_USE_INVOICE_MESSAGE);
+  });
+});
+
+describe('status da movimentação mobile do recebimento', () => {
+  it('estorna a entrada e depois restaura o recebimento como recebido', async () => {
+    const receiptWithIndex = { ...receipt, receiptIndex: 5 };
+
+    await reverseMobileGoodsReceipt(receiptWithIndex);
+    await unreverseMobileGoodsReceipt(receipt.id);
+
+    expect(mocks.rpc).toHaveBeenNthCalledWith(
+      1,
+      'set_goods_receipt_inventory_status_checked_transaction',
+      {
+        p_receipt_id: receipt.id,
+        p_status: 'estornado',
+        p_reason: 'Estorno do Recebimento #5',
+      },
+    );
+    expect(mocks.rpc).toHaveBeenNthCalledWith(
+      2,
+      'set_goods_receipt_inventory_status_checked_transaction',
+      {
+        p_receipt_id: receipt.id,
+        p_status: 'received',
+        p_reason: null,
+      },
+    );
+  });
+
+  it('não solicita mudanças de status quando está offline', async () => {
+    mocks.connected.connected = false;
+
+    await expect(reverseMobileGoodsReceipt(receipt)).rejects.toThrow('internet');
+    await expect(unreverseMobileGoodsReceipt(receipt.id)).rejects.toThrow('internet');
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 });

@@ -13,7 +13,9 @@ export const InventoryProductSearchModal: React.FC<InventoryProductSearchModalPr
   onSelect,
   onClose,
 }) => {
-  const { search, setSearch, loading, filtered } = useProductSearch_new('cost');
+  const { search, setSearch, loading, filtered } = useProductSearch_new('cost', {
+    resolveProductItemTypes: true,
+  });
 
   const handleSelect = (product: Product, variation?: Variation) => {
     onSelect(product, variation);
@@ -89,8 +91,16 @@ export const InventoryProductSearchModal: React.FC<InventoryProductSearchModalPr
           {!loading &&
             filtered
               .filter(({ p }) => {
+                const itemType = p.itemType || (p as any).item_type || 'product';
                 const kind = p.productKind || ('product_kind' in p ? p.product_kind : undefined);
-                return kind !== 'salvado' && kind !== 'usado';
+                return (
+                  itemType === 'product' &&
+                  !p.isComposition &&
+                  !p.isCombo &&
+                  !(p as any).is_combo &&
+                  kind !== 'salvado' &&
+                  kind !== 'usado'
+                );
               })
               .map(({ p, v, key }) => {
                 const displayName =

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { Check, ChevronDown, Link2, Lock, Plus, Search, Trash2 } from 'lucide-react-native';
 import type { CompositionLink, InboundScorerProduct, MappingItem, ProductSuggestion } from './types';
 import { amount, formatMoney, landedUnitCost } from './inboundCostUtils';
@@ -265,7 +266,7 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
                         {formatMoney(allocated)}
                       </Text>
                     </View>
-                    <TextInput
+                    <FormTextInput
                       key={`${item.itemNumber}:${link.id}:${link.quantityMultiplier}`}
                       defaultValue={String(link.quantityMultiplier || 1)}
                       keyboardType="decimal-pad"
@@ -326,7 +327,7 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
 
                 <View style={[styles.searchBox, isDarkMode && styles.searchBoxDark]}>
                   <Search size={17} color="#94a3b8" />
-                  <TextInput
+                  <FormTextInput
                     value={query}
                     onChangeText={onSearchChange}
                     placeholder={

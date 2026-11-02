@@ -13,7 +13,7 @@ export type InventoryMove = {
   unitPrice?: number;
   parentMoveId?: string; // Links withdrawal to original entry for FIFO
   relatedEntityId?: string; // e.g., orderId, purchaseId
-  relatedEntityType?: 'sales_order' | 'purchase_order' | 'adjustment' | 'manual';
+  relatedEntityType?: 'sales_order' | 'purchase_order' | 'goods_receipt' | 'adjustment' | 'manual';
   sourceReceiptId?: string;
   sourceItemIndex?: number;
   observation?: string;

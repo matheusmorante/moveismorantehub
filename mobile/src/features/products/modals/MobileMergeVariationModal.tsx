@@ -11,7 +11,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -22,6 +21,7 @@ import {
   searchMobileCanonicalVariations,
 } from '../services/mobileProductVariationActionsService';
 
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 interface Props {
   visible: boolean;
   dark: boolean;
@@ -169,7 +169,7 @@ export const MobileMergeVariationModal: React.FC<Props> = ({
               <Text style={[styles.label, dark && styles.textDark]}>
                 Variação canônica de destino
               </Text>
-              <TextInput
+              <FormTextInput
                 value={query}
                 onChangeText={(value) => {
                   setQuery(value);

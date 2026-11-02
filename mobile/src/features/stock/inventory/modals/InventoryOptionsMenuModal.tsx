@@ -10,7 +10,6 @@ interface Props {
   onClose: () => void;
   onContinue: (session: InventorySession) => void;
   onViewDetails: (session: InventorySession) => void;
-  onDuplicate: (session: InventorySession) => void;
   onReverse: (session: InventorySession) => void;
   onApplyAdjustments: (session: InventorySession) => void;
   onDeleteDraft: (session: InventorySession) => void;
@@ -23,7 +22,6 @@ export const InventoryOptionsMenuModal: React.FC<Props> = ({
   onClose,
   onContinue,
   onViewDetails,
-  onDuplicate,
   onReverse,
   onApplyAdjustments,
   onDeleteDraft,
@@ -64,12 +62,6 @@ export const InventoryOptionsMenuModal: React.FC<Props> = ({
               </Text>
             </TouchableOpacity>
           )}
-
-          <TouchableOpacity style={styles.modalOption} onPress={() => onDuplicate(session)}>
-            <Text style={[styles.modalOptionText, isDarkMode && styles.modalOptionTextDark]}>
-              Duplicar inventário
-            </Text>
-          </TouchableOpacity>
 
           {canRevert && (
             <TouchableOpacity style={styles.modalOption} onPress={() => onReverse(session)}>

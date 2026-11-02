@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InboundInvoice } from '../inboundNfeTypes';
-const mocks = vi.hoisted(() => ({ local: [] as InboundInvoice[], upsert: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn(), from: vi.fn() }));
-vi.mock('../../supabaseConfig', () => ({ supabase: { from: mocks.from } }));
+const mocks = vi.hoisted(() => ({ local: [] as InboundInvoice[], upsert: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn(), from: vi.fn(), rpc: vi.fn() }));
+vi.mock('../../supabaseConfig', () => ({ supabase: { from: mocks.from, rpc: mocks.rpc } }));
 vi.mock('../services/inboundInvoicesCache', () => ({
   getLocalInvoices: () => mocks.local,
   saveLocalInvoices: (value: InboundInvoice[]) => { mocks.local = value; },
@@ -23,6 +23,7 @@ beforeEach(() => {
   query.eq = mocks.eq.mockReturnValue(query); query.upsert = mocks.upsert;
   query.maybeSingle = mocks.maybeSingle; mocks.from.mockReturnValue(query);
   mocks.upsert.mockResolvedValue({ error: null }); mocks.maybeSingle.mockResolvedValue({ data: null, error: null });
+  mocks.rpc.mockResolvedValue({ data: true, error: null });
 });
 
 describe('chave alfanumérica nos serviços ativos de entrada', () => {
@@ -33,10 +34,10 @@ describe('chave alfanumérica nos serviços ativos de entrada', () => {
     await saveInboundInvoice({ ...invoice(), nfeKey: key, totalInvoice: 30 });
     expect(mocks.local).toHaveLength(1); expect(mocks.local[0].totalInvoice).toBe(30);
   });
-  it('encontra duplicidade no cache com a mesma normalização e preserva exclusão por id', async () => {
+  it('consulta o banco e encontra duplicidade no cache com a mesma normalização', async () => {
     await saveInboundInvoice(invoice()); mocks.from.mockClear();
     expect((await checkInboundInvoiceKeyExists(formatted))?.nfeKey).toBe(key);
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.from).toHaveBeenCalledWith('inbound_invoices');
     expect(await checkInboundInvoiceKeyExists(formatted, invoice().id)).toBeNull();
     expect(mocks.eq).toHaveBeenCalledWith('chave_acesso', key);
   });
@@ -54,6 +55,6 @@ describe('chave alfanumérica nos serviços ativos de entrada', () => {
     mocks.local = [{ ...invoice(), nfeKey: key }];
     await markInvoiceAsReceived(formatted, 'receipt');
     expect(mocks.local[0]).toMatchObject({ nfeKey: key, status: 'received', receiptId: 'receipt' });
-    expect(mocks.upsert).toHaveBeenCalledWith(expect.objectContaining({ chave_acesso: key, receipt_id: 'receipt' }), { onConflict: 'chave_acesso' });
+    expect(mocks.rpc).toHaveBeenCalledWith('link_received_goods_receipt_to_invoice', { p_invoice_id: invoice().id, p_receipt_id: 'receipt' });
   });
 });

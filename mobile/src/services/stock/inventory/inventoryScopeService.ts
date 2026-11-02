@@ -1,4 +1,5 @@
 import { supabase } from '../../supabaseClient';
+import { fetchMobileProductsPage } from '../../../features/products/services/mobileProductFetchService';
 import { ITEMS_PER_PAGE } from '../stockMovesService';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import {
@@ -11,9 +12,10 @@ import {
 } from '../../../features/stock/inventory/services/offlineInventoryCatalog';
 import { filterInventoryResponsibleCandidates } from '../../../../../shared-utils/inventoryResponsible';
 import { isStockInventorySupplierEligible } from '../../../../../shared-utils/inventorySupplierEligibility';
+import { isProductComposition } from '../../../../../shared-utils/productCompositionRequirements';
+import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import { OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION } from '../../../features/stock/inventory/services/catalog/offlineInventoryCatalogTypes';
 import {
-  buildPostgrestAccentInsensitiveOrFilter,
   buildPostgrestAccentInsensitivePattern,
   matchesSearchText,
 } from '../../../../../shared-utils/searchText';
@@ -106,6 +108,89 @@ export const fetchInventoryScopeProducts = async (
   return products;
 };
 
+export const searchInventoryScopeProducts = async (query: string, supplierId?: string) => {
+  const searchTerm = query.trim();
+  if (searchTerm.length < 3) return [];
+
+  // Consulta sob demanda e limitada para a abertura da busca não carregar o
+  // catálogo offline inteiro e travar o Expo Web em catálogos grandes.
+  const { data } = await fetchMobileProductsPage(1, 20, {
+    search: searchTerm,
+    supplierId,
+    statusFilter: 'all',
+    itemType: 'standard',
+    generalType: 'product',
+    throwOnError: true,
+  });
+  const words = searchTerm.split(/\s+/).filter(Boolean);
+
+  return data
+    .flatMap((product: any) => {
+      if (
+        !product?.id ||
+        product.deleted ||
+        product.deleted_at ||
+        product.isDraft ||
+        product.is_draft ||
+        String(product.status || '').toLowerCase() === 'draft' ||
+        (product.itemType || product.item_type || 'product') !== 'product' ||
+        ['salvado', 'usado'].includes(String(product.product_kind || '').toLowerCase()) ||
+        isTestProduct(product) ||
+        isProductComposition(product)
+      ) {
+        return [];
+      }
+
+      const supplierIds = [
+        product.supplierId,
+        product.mainSupplierId,
+        product.supplier_id,
+        product.main_supplier_id,
+        ...(Array.isArray(product.supplierIds) ? product.supplierIds : []),
+        ...(Array.isArray(product.supplier_ids) ? product.supplier_ids : []),
+      ]
+        .filter(Boolean)
+        .map(String);
+      if (supplierId && !supplierIds.includes(String(supplierId))) return [];
+
+      const parentCode = `${product.code || ''} ${product.sku || ''}`;
+      const variations = Array.isArray(product.variations) ? product.variations : [];
+      return variations
+        .filter((variation: any) =>
+          variation?.id &&
+          !String(variation.id).startsWith('virtual-') &&
+          !variation.deleted &&
+          !isTestProduct(variation) &&
+          !variation.merged_to_variation_id &&
+          !variation.mergedToVariationId
+        )
+        .filter((variation: any) => {
+          const variationName = variation.name || product.name || '';
+          const variationSku = variation.sku || '';
+          return words.every(
+            (word) =>
+              matchesSearchText(variationName, word) ||
+              matchesSearchText(variationSku, word) ||
+              matchesSearchText(parentCode, word),
+          );
+        })
+        .map((variation: any) => ({
+          id: String(product.id),
+          variation_id: String(variation.id),
+          name: String(variation.name || product.name || 'Produto'),
+          sku: String(variation.sku || product.code || ''),
+          code: String(product.code || ''),
+          stock: Number(variation.stock ?? product.stock ?? 0),
+          unit: String(product.unit || 'UN'),
+          supplier_id: product.supplier_id ? String(product.supplier_id) : undefined,
+          main_supplier_id: product.main_supplier_id ? String(product.main_supplier_id) : undefined,
+          supplier_ids: supplierIds,
+          active: product.active !== false && variation.active !== false,
+        }));
+    })
+    .slice(0, 5);
+};
+
 export const clearInventoryScopeCache = () => clearOfflineInventoryCatalogCache();
 
 export const fetchInventoryItems = async (
@@ -136,48 +221,46 @@ export const fetchInventoryItems = async (
 };
 
 export const searchProducts = async (query: string) => {
-  if (!query || query.length < 2) return [];
+  const searchTerm = query.trim();
+  if (searchTerm.length < 3) return [];
 
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, name, sku, stock, product_variations(id, name, sku, stock)')
-      .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], query))
-      .limit(10);
+  const { data } = await fetchMobileProductsPage(1, 5, {
+    search: searchTerm,
+    statusFilter: 'active',
+    throwOnError: true,
+  });
+  const searchWords = searchTerm.split(/\s+/).filter(Boolean);
 
-    if (error) throw error;
-    return (data || []).flatMap((product: any) => {
-      const variations = Array.isArray(product.product_variations)
-        ? product.product_variations
-        : [];
-      if (variations.length === 0) return [];
-      return variations.map((variation: any) => ({
-        ...product,
-        variation_id: variation.id,
-        name: variation.name,
-        variationName: variation.name,
-        sku: variation.sku || product.sku,
-        stock: Number(
-          variation.stock !== undefined && variation.stock !== null
-            ? variation.stock
-            : product.stock || 0
-        ),
-      }));
-    });
-  } catch {
-    // Fallback offline usando o catálogo local SQLite
-    const localProducts = await getOfflineInventoryScopeProducts().catch(() => []);
-    return localProducts
-      .filter((item) =>
-        matchesSearchText(
-          `${item.name || ''} ${item.sku || ''} ${item.code || ''} ${item.barcode || ''}`,
-          query
+  return data
+    .flatMap((product: any) => {
+      const variations = Array.isArray(product.variations) ? product.variations : [];
+      return variations
+        .filter(
+          (variation: any) =>
+            variation.id &&
+            !String(variation.id).startsWith('virtual-') &&
+            variation.active !== false &&
+            !variation.mergedToVariationId
         )
-      )
-      .slice(0, 10)
-      .map((item) => ({
-        ...item,
-        variationName: item.name,
-      }));
-  }
+        .filter((variation: any) => {
+          const variationName = variation.name || product.name || '';
+          const variationSku = variation.sku || '';
+          const parentCode = `${product.code || ''} ${product.sku || ''}`;
+          return searchWords.every(
+            (word) =>
+              matchesSearchText(variationName, word) ||
+              matchesSearchText(variationSku, word) ||
+              matchesSearchText(parentCode, word)
+          );
+        })
+        .map((variation: any) => ({
+          id: String(product.id),
+          name: String(variation.name || product.name || 'Produto'),
+          variationName: String(variation.name || product.name || 'Produto'),
+          sku: String(variation.sku || product.code || ''),
+          stock: Number(variation.stock ?? product.stock ?? 0),
+          variation_id: String(variation.id),
+        }));
+    })
+    .slice(0, 5);
 };

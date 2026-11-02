@@ -91,6 +91,7 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
     draftSaveStatus,
     handleClose,
     handleSave,
+    confirmationBlockReasons,
   } = usePurchaseForm({
     visible,
     purchase,
@@ -111,6 +112,12 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
         : draftSaveStatus === 'saved' || purchase?.status === 'draft'
           ? 'Rascunho salvo'
           : 'Preencha um campo para iniciar o rascunho';
+  const [showConfirmationBlockReasons, setShowConfirmationBlockReasons] = React.useState(false);
+  const confirmationBlockKey = confirmationBlockReasons.join('|');
+
+  React.useEffect(() => {
+    setShowConfirmationBlockReasons(false);
+  }, [visible, confirmationBlockKey]);
 
   const handleOpenAttachment = async (url: string) => {
     try {
@@ -232,12 +239,45 @@ export const PurchaseFormModalContent: React.FC<Props> = ({
               {draftStatusText}
             </Text>
           ) : null}
+          {showConfirmationBlockReasons && confirmationBlockReasons.length > 0 ? (
+            <View
+              nativeID="purchase-confirmation-block-reasons"
+              accessibilityRole="text"
+              accessibilityLiveRegion="polite"
+              accessibilityLabel={confirmationBlockReasons.join(' ')}
+              style={[
+                styles.confirmationTooltip,
+                {
+                  backgroundColor: isDarkMode ? '#450a0a' : '#fef2f2',
+                  borderColor: isDarkMode ? '#7f1d1d' : '#fecaca',
+                },
+              ]}
+            >
+              {confirmationBlockReasons.map((reason) => (
+                <Text key={reason} style={{ color: isDarkMode ? '#fecaca' : '#991b1b', fontWeight: '700' }}>
+                  {reason}
+                </Text>
+              ))}
+            </View>
+          ) : null}
           <View style={styles.footerButtons}>
             <TouchableOpacity
               accessibilityRole="button"
               disabled={saving || isUploading}
-              onPress={() => void handleSave()}
-              style={[styles.saveButton, (saving || isUploading) && styles.disabled]}
+              accessibilityState={{ disabled: saving || isUploading }}
+              accessibilityHint={confirmationBlockReasons.length > 0
+                ? `Confirmação indisponível. ${confirmationBlockReasons.join(' ')} Toque para ver os pré-requisitos.`
+                : undefined}
+              onPress={() => {
+                if (saving || isUploading) return;
+                if (confirmationBlockReasons.length > 0) {
+                  setShowConfirmationBlockReasons(true);
+                  return;
+                }
+                setShowConfirmationBlockReasons(false);
+                void handleSave();
+              }}
+              style={[styles.saveButton, (saving || isUploading || confirmationBlockReasons.length > 0) && styles.disabled]}
             >
               {saving ? (
                 <ActivityIndicator color="#fff" />
@@ -313,6 +353,7 @@ const styles = StyleSheet.create({
   },
   footer: { borderTopWidth: 1, padding: 12, gap: 8 },
   footerButtons: { flexDirection: 'row', gap: 10 },
+  confirmationTooltip: { borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 9, gap: 3 },
   draftStatus: { fontSize: 11, fontWeight: '700', paddingHorizontal: 2 },
   saveButton: {
     flex: 1.3,

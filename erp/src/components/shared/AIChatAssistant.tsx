@@ -11,8 +11,8 @@ import {
 import { withTimeout } from '../../../../shared-utils/withTimeout';
 import { useAuth } from '@/context/AuthContext';
 import { GeminiAgentService } from '@/services/aiAgent/geminiAgentService';
+import { getAgentPageContext } from '@/services/aiAgent/getAgentPageContext';
 import { AIChatAssistantMessages, type ChatMessage } from './AIChatAssistantMessages';
-import type { AgentPageContext } from '@/services/aiAgent/geminiAgentTypes';
 
 export interface AIChatAssistantProps {
   isFloating?: boolean;
@@ -55,33 +55,6 @@ export default function AIChatAssistant({
     return () => window.removeEventListener('morante:open-agent', handleGlobalOpen);
   }, []);
 
-  const getPageContext = (): AgentPageContext & { currentPath: string } => {
-    const path = location.pathname;
-    let currentModule = 'Geral';
-    if (path.startsWith('/finance')) currentModule = 'Financeiro';
-    else if (path.startsWith('/estoque') || path.startsWith('/inventory'))
-      currentModule = 'Estoque';
-    else if (path.startsWith('/orders') || path.startsWith('/pedidos'))
-      currentModule = 'Vendas & Pedidos';
-    else if (path.startsWith('/purchases') || path.startsWith('/compras'))
-      currentModule = 'Compras';
-    else if (path.startsWith('/customers') || path.startsWith('/clientes'))
-      currentModule = 'Clientes';
-    else if (path.startsWith('/deliveries') || path.startsWith('/logistica'))
-      currentModule = 'Logística & Entregas';
-    else if (path.startsWith('/catalog')) currentModule = 'Catálogo Digital';
-    else if (path === '/' || path === '/dashboard') currentModule = 'Dashboard';
-
-    const segments = path.split('/').filter(Boolean);
-    const pageName = segments.length > 1 ? segments.slice(1).join('/') : segments[0] || 'Início';
-
-    return {
-      currentModule,
-      currentPage: pageName,
-      currentPath: path,
-    };
-  };
-
   const [settings, setSettings] = useState<AppSettings>(getSettings());
 
   useEffect(() => {
@@ -118,7 +91,7 @@ export default function AIChatAssistant({
   const [isCallMode, setIsCallMode] = useState(false);
   const [isAutoSpeakEnabled, setIsAutoSpeakEnabled] = useState(initialCache.enabled);
   const [error, setError] = useState(initialCache.error);
-  const inputForm = useZodForm(agentSendFormSchema, { text: input, history: geminiHistory, pageContext: getPageContext() });
+  const inputForm = useZodForm(agentSendFormSchema, { text: input, history: geminiHistory, pageContext: getAgentPageContext(location.pathname) });
   const historyForm = useZodForm(agentHistoryFormSchema, { messages: [], history: [] });
   const clearForm = useZodForm(agentClearHistoryFormSchema, { intent: 'clear_history', confirmed: true, autoSpeak: isAutoSpeakEnabled });
   const preferenceForm = useZodForm(agentVoicePreferenceFormSchema, { enabled: isAutoSpeakEnabled });
@@ -290,7 +263,7 @@ export default function AIChatAssistant({
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     recognitionRef.current?.stop(); setIsListening(false);
     try {
-      await inputForm.validateAndRun({ text: originalInput, history: geminiHistory, pageContext: getPageContext() }, async parsed => {
+      await inputForm.validateAndRun({ text: originalInput, history: geminiHistory, pageContext: getAgentPageContext(location.pathname) }, async parsed => {
         if (!isCurrent()) return false;
         const nextMessages: ChatMessage[] = [...messages, { id: crypto.randomUUID(), role: 'user', content: parsed.text, timestamp: new Date() }];
         setMessages(nextMessages);
@@ -359,7 +332,7 @@ export default function AIChatAssistant({
     finally { busyRef.current = false; if (mountedRef.current) setIsLoading(false); }
   };
 
-  const activePageContext = getPageContext();
+  const activePageContext = getAgentPageContext(location.pathname);
 
   // Modo Drawer Lateral Global (Slide-over panel)
   if (mode === 'drawer') {

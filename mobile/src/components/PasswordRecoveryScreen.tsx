@@ -5,10 +5,10 @@ import {
   Platform,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FormTextInput } from './shared/FormTextInput';
 import { Lock, Mail, ShieldAlert } from 'lucide-react-native';
 import { styles } from './LoginScreen.styles';
 
@@ -110,7 +110,7 @@ export function PasswordRecoveryScreen({
               <Text style={[styles.fieldLabel, isDarkMode && styles.fieldLabelDark]}>E-mail</Text>
               <View style={[styles.inputShell, isDarkMode && styles.inputShellDark]}>
                 <Mail size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                <TextInput
+                <FormTextInput
                   accessibilityLabel="E-mail para recuperação"
                   autoCapitalize="none"
                   autoComplete="email"
@@ -143,7 +143,7 @@ export function PasswordRecoveryScreen({
               </Text>
               <View style={[styles.inputShell, isDarkMode && styles.inputShellDark]}>
                 <ShieldAlert size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                <TextInput
+                <FormTextInput
                   accessibilityLabel="Código de recuperação"
                   autoCapitalize="none"
                   autoComplete="one-time-code"
@@ -187,7 +187,7 @@ export function PasswordRecoveryScreen({
                 </Text>
                 <View style={[styles.inputShell, isDarkMode && styles.inputShellDark]}>
                   <Lock size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                  <TextInput
+                  <FormTextInput
                     accessibilityLabel="Nova senha"
                     autoComplete="new-password"
                     onChangeText={onNewPasswordChange}
@@ -205,7 +205,7 @@ export function PasswordRecoveryScreen({
                 </Text>
                 <View style={[styles.inputShell, isDarkMode && styles.inputShellDark]}>
                   <Lock size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                  <TextInput
+                  <FormTextInput
                     accessibilityLabel="Confirmar nova senha"
                     autoComplete="new-password"
                     onChangeText={onConfirmNewPasswordChange}

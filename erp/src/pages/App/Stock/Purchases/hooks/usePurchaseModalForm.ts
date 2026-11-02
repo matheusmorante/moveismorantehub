@@ -3,7 +3,10 @@ import Purchase from '../../../../types/purchase.type';
 import { savePurchase, updatePurchase } from '../../../../utils/purchaseService';
 import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
-import { purchaseFormSchema } from '../../../../../../../shared-utils/purchaseFormSchemas';
+import {
+  getPurchaseConfirmationBlockReasons,
+  purchaseFormSchema,
+} from '../../../../../../../shared-utils/purchaseFormSchemas';
 import { usePurchaseSubscriptions } from './usePurchaseSubscriptions';
 import { usePurchaseItemsManager } from './usePurchaseItemsManager';
 import { usePurchaseDraftSync } from './usePurchaseDraftSync';
@@ -205,18 +208,16 @@ export function usePurchaseModalForm({
   const handleSave = async () => {
     if (actionRef.current || completedRef.current) return;
     const validItems = itemsManager.processedItems.filter((item) => Boolean(item.productId && item.productId.trim()));
-    if (!selectedSupplierId || validItems.length === 0) {
+    const confirmationBlockReasons = getPurchaseConfirmationBlockReasons(
+      selectedSupplierId,
+      itemsManager.processedItems
+    );
+    if (confirmationBlockReasons.length > 0) {
       itemsManager.setValidationErrors({
         supplier: !selectedSupplierId,
-        items: validItems.length === 0,
+        items: validItems.length === 0 || itemsManager.processedItems.some((item) => !item.productId?.trim()),
       });
-      toast.error(
-        !selectedSupplierId && validItems.length === 0
-          ? 'Selecione o fornecedor e adicione pelo menos um item.'
-          : !selectedSupplierId
-            ? 'Selecione um fornecedor para salvar o pedido.'
-            : 'Adicione pelo menos um item com produto selecionado ao pedido.'
-      );
+      toast.error(confirmationBlockReasons.join(' '));
       return;
     }
 

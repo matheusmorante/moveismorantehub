@@ -1,3 +1,5 @@
+export const OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION = 4 as const;
+
 export interface OfflineInventoryCatalogRow {
   [column: string]: unknown;
   id?: string | number;
@@ -10,6 +12,7 @@ export interface OfflineInventoryCatalogRow {
   deleted_at?: string;
   is_draft?: boolean;
   item_type?: string;
+  is_combo?: boolean;
   product_kind?: string;
   supplier_id?: string | number;
   main_supplier_id?: string | number;
@@ -33,7 +36,7 @@ export interface OfflineInventoryCatalogRow {
 }
 
 export interface OfflineInventoryCatalog {
-  formatVersion?: 2 | 3;
+  formatVersion?: 2 | 3 | typeof OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION;
   products: Record<string, OfflineInventoryCatalogRow>;
   variations: Record<string, OfflineInventoryCatalogRow>;
   labels: Record<string, OfflineInventoryCatalogRow>;

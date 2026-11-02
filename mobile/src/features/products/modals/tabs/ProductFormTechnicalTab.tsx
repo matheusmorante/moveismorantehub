@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -73,6 +72,7 @@ import { ProductAiCharacteristicsAssistant } from '../components/ProductAiCharac
 import { ProductTechnicalFieldInput } from './ProductTechnicalFieldInput';
 import { styles } from './productFormTechnicalTab.styles';
 
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
@@ -792,7 +792,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
         <Text style={[styles.searchLabel, dark && styles.dimText]}>Pesquisar característica</Text>
         <View style={[styles.searchInputWrap, dark && styles.darkInput]}>
           <Search size={16} color={dark ? '#94a3b8' : '#64748b'} />
-          <TextInput
+          <FormTextInput
             value={characteristicSearchTerm}
             onChangeText={setCharacteristicSearchTerm}
             placeholder="Digite pelo menos 3 caracteres"

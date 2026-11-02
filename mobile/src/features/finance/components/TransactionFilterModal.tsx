@@ -1,3 +1,4 @@
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 import React, { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -7,7 +8,6 @@ import {
   Modal,
   StyleSheet,
   ScrollView,
-  TextInput,
   Alert,
 } from 'react-native';
 import { X, Check } from 'lucide-react-native';
@@ -95,7 +95,7 @@ export const TransactionFilterModal: React.FC<Props> = ({
             <Text style={[styles.sectionLabel, isDarkMode && styles.sectionLabelDark]}>
               Busca por texto
             </Text>
-            <TextInput
+            <FormTextInput
               style={[styles.searchInput, isDarkMode && styles.searchInputDark]}
               placeholder="Descrição, observação ou contraparte..."
               placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}

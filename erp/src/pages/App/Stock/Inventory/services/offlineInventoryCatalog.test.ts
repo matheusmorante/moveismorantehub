@@ -3,12 +3,16 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {} }));
 
 import { resolveOfflineInventoryMatch } from './offlineInventoryCatalog';
-import type { OfflineInventoryCatalog } from '../types/offlineInventoryCatalog.types';
+import {
+  OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
+  type OfflineInventoryCatalog,
+} from '../types/offlineInventoryCatalog.types';
 import { selectOfflineInventoryCatalogSuppliers } from '../domain/offlineInventoryCatalogSelectors';
 
 const labelId = '22222222-2222-4222-8222-222222222222';
 const legacyUnlinkedLabelId = '44444444-4444-4444-8444-444444444444';
 const catalog: OfflineInventoryCatalog = {
+  formatVersion: OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
   products: {
     'product-old': { id: 'product-old', item_type: 'product', deleted: true, active: false },
     'product-current': {

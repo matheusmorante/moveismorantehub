@@ -8,11 +8,10 @@ import { useInventoryAuditSessions } from '../hooks/useInventoryAuditSessions';
 import { ReceiptsPagination } from '../../Receipts/components/ReceiptsPagination';
 
 interface InventoryAuditProps {
-  readonly onCopy: (items: readonly InventorySnapshotItem[]) => void;
   readonly onOpen: (session: InventoryAuditSession) => void;
 }
 
-export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onCopy, onOpen }) => {
+export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onOpen }) => {
   const {
     sessions,
     loading,
@@ -93,7 +92,6 @@ export const InventoryAudit: React.FC<InventoryAuditProps> = ({ onCopy, onOpen }
         menuPos={menuPos}
         onClose={closeMenu}
         onOpen={onOpen}
-        onCopy={onCopy}
         onDeleteDraft={deleteDraft}
         onConfirmReversal={(session, type) => setConfirmAction({ session, type })}
       />

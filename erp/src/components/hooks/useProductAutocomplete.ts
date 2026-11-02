@@ -137,7 +137,13 @@ export function useProductAutocomplete({
 
         (productsData || []).forEach((p: Product) => {
           const itemType = p.itemType || (p as any).item_type || 'product';
-          if (productsOnly && (itemType !== 'product' || (p as any).isComposition)) return;
+          if (
+            productsOnly &&
+            (itemType !== 'product' ||
+              (p as any).isComposition ||
+              p.isCombo ||
+              (p as any).is_combo)
+          ) return;
 
           const productKind = getProductKind(p);
           const isSalvado = productKind === 'salvado';

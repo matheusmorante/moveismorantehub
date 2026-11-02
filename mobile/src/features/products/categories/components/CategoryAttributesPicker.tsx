@@ -1,5 +1,6 @@
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Switch, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Switch} from 'react-native';
 import { Sliders, Check, X, Search } from 'lucide-react-native';
 import { fetchMobileAttributes, MobileAttribute } from '../../services/mobileAttributeService';
 import { toggleCategoryAttribute } from '../domain/categoryEnvironmentRules';
@@ -91,7 +92,7 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
 
       <View style={[styles.searchBox, dark && styles.searchBoxDark]}>
         <Search size={16} color={dark ? '#94a3b8' : '#64748b'} />
-        <TextInput
+        <FormTextInput
           value={attributeQuery}
           onChangeText={setAttributeQuery}
           placeholder="Buscar característica (mínimo 2 letras)..."

@@ -3,7 +3,6 @@ import { Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { stockUnavailabilityFormSchema } from '../../../../../../shared-utils/operationsFormSchemas';
 import { createStockUnavailability } from '../../../../services/stock/stockUnavailabilitiesService';
-import { searchProducts } from '../../../../services/stockService';
 import { supabase } from '../../../../services/supabaseClient';
 import {
   type ProductVariationSuggestion,
@@ -28,9 +27,6 @@ interface UseMobileUnavailabilityFormProps {
 export interface UseMobileUnavailabilityFormReturn {
   state: {
     isLoading: boolean;
-    productQuery: string;
-    productSuggestions: ProductVariationSuggestion[];
-    isSearchingProduct: boolean;
     selectedProductVariation: ProductVariationSuggestion | null;
     quantity: string;
     reason: string;
@@ -41,7 +37,6 @@ export interface UseMobileUnavailabilityFormReturn {
     isFieldsDisabled: boolean;
   };
   actions: {
-    setProductQuery: (query: string) => void;
     setSelectedProductVariation: (item: ProductVariationSuggestion | null) => void;
     setQuantity: (quantity: string) => void;
     setReason: (reason: string) => void;
@@ -60,9 +55,6 @@ export function useMobileUnavailabilityForm({
   onSuccess,
 }: UseMobileUnavailabilityFormProps): UseMobileUnavailabilityFormReturn {
   const [isLoading, setIsLoading] = useState(false);
-  const [productQuery, setProductQuery] = useState('');
-  const [productSuggestions, setProductSuggestions] = useState<ProductVariationSuggestion[]>([]);
-  const [isSearchingProduct, setIsSearchingProduct] = useState(false);
   const [selectedProductVariation, setSelectedProductVariation] =
     useState<ProductVariationSuggestion | null>(null);
 
@@ -157,31 +149,8 @@ export function useMobileUnavailabilityForm({
     };
   }, [isOpen, selectedProductVariation?.id]);
 
-  // Debounced search de produtos com variação
-  useEffect(() => {
-    if (productQuery.trim().length < 2 || selectedProductVariation) {
-      setProductSuggestions([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setIsSearchingProduct(true);
-      try {
-        const results = (await searchProducts(productQuery)) as ProductVariationSuggestion[];
-        setProductSuggestions(results);
-      } catch (e) {
-        console.warn('Erro na busca de produtos:', e);
-      } finally {
-        setIsSearchingProduct(false);
-      }
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [productQuery, selectedProductVariation]);
-
   const resetForm = useCallback(() => {
     setSelectedProductVariation(null);
-    setProductQuery('');
     setQuantity('1');
     setReason(REASONS[0]);
     setTreatment(TREATMENTS[0]);
@@ -239,9 +208,6 @@ export function useMobileUnavailabilityForm({
   return {
     state: {
       isLoading,
-      productQuery,
-      productSuggestions,
-      isSearchingProduct,
       selectedProductVariation,
       quantity,
       reason,
@@ -252,7 +218,6 @@ export function useMobileUnavailabilityForm({
       isFieldsDisabled,
     },
     actions: {
-      setProductQuery,
       setSelectedProductVariation,
       setQuantity,
       setReason,

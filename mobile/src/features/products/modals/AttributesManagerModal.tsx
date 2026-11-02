@@ -15,10 +15,10 @@ import {
   Modal,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { useZodForm, flattenFormErrors } from '../../../hooks/useZodForm';
@@ -328,7 +328,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.addBar}>
-              <TextInput
+              <FormTextInput
                 value={newAttrName}
                 onChangeText={setNewAttrName}
                 placeholder="Nova característica (ex: Cor, Tamanho)..."
@@ -412,7 +412,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                 <View style={styles.configurationRow}>
                   <View style={styles.configurationField}>
                     <Text style={[styles.configurationLabel, dark && styles.light]}>Mínimo</Text>
-                    <TextInput
+                    <FormTextInput
                       value={newConfigurationInputs.minValue}
                       onChangeText={(value) => setNewConfigurationInputs((previous) => ({ ...previous, minValue: value }))}
                       keyboardType={newFillType === 'integer' ? 'numeric' : 'decimal-pad'}
@@ -424,7 +424,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                   </View>
                   <View style={styles.configurationField}>
                     <Text style={[styles.configurationLabel, dark && styles.light]}>Máximo</Text>
-                    <TextInput
+                    <FormTextInput
                       value={newConfigurationInputs.maxValue}
                       onChangeText={(value) => setNewConfigurationInputs((previous) => ({ ...previous, maxValue: value }))}
                       keyboardType={newFillType === 'integer' ? 'numeric' : 'decimal-pad'}
@@ -443,7 +443,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                 <View style={styles.configurationRow}>
                   <View style={styles.configurationField}>
                     <Text style={[styles.configurationLabel, dark && styles.light]}>Mínimo de seleções</Text>
-                    <TextInput
+                    <FormTextInput
                       value={newConfigurationInputs.minSelections}
                       onChangeText={(value) => setNewConfigurationInputs((previous) => ({ ...previous, minSelections: value }))}
                       keyboardType="numeric"
@@ -455,7 +455,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                   </View>
                   <View style={styles.configurationField}>
                     <Text style={[styles.configurationLabel, dark && styles.light]}>Máximo de seleções</Text>
-                    <TextInput
+                    <FormTextInput
                       value={newConfigurationInputs.maxSelections}
                       onChangeText={(value) => setNewConfigurationInputs((previous) => ({ ...previous, maxSelections: value }))}
                       keyboardType="numeric"
@@ -474,7 +474,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                   Valores (Enter ou adicionar)
                 </Text>
                 <View style={styles.addValRow}>
-                  <TextInput
+                  <FormTextInput
                     value={newOptionInput}
                     onChangeText={setNewOptionInput}
                     onSubmitEditing={handleAddNewOption}
@@ -517,7 +517,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
               </View>
             )}
             <View style={[styles.searchBox, dark && styles.darkInput]}>
-              <TextInput
+              <FormTextInput
                 value={searchTerm}
                 onChangeText={setSearchTerm}
                 placeholder="Buscar características..."
@@ -604,7 +604,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                                 ))}
                               </View>
                               <View style={styles.addValRow}>
-                                <TextInput
+                                <FormTextInput
                                   value={newValText}
                                   onChangeText={setNewValText}
                                   placeholder={`Adicionar valor para ${attr.name}...`}

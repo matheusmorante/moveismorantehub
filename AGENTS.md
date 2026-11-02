@@ -186,3 +186,18 @@ Por determinação do usuário, **todos os formulários do sistema** (ERP, aplic
 * Aplicar a normalização tanto à consulta quanto aos valores comparados, em buscas locais, offline e remotas. Em consultas remotas, filtrar no servidor antes da paginação, do limite e da contagem; não carregar apenas uma página para depois remover acentos no cliente.
 * Preservar os textos exibidos e armazenados, os campos cobertos pela busca, os filtros existentes e a pesquisa por códigos numéricos. A normalização vale somente para comparação e não altera cadastros.
 * Ao alterar uma busca existente nos dois clientes, conferir os caminhos reais do ERP e do app e manter a regra equivalente em ambos. Reutilizar os utilitários compartilhados quando aplicável, sem enfraquecer os limites de caracteres, debounce, cancelamento e quantidade de sugestões definidos na seção 19.
+
+## 21. Máscaras para valores monetários e percentuais
+
+* Campos monetários devem reutilizar o padrão de máscara do projeto: a digitação começa pelos centavos à direita e cada novo dígito desloca os anteriores para a esquerda. Para valores em reais, manter duas casas decimais e a formatação local (`0,01`, `0,12`, `1,23`), sem tratar o primeiro dígito digitado como reais inteiros.
+* Campos percentuais também devem usar máscara numérica, com a precisão adequada ao domínio e o sufixo visual correspondente. Ao alternar entre percentual e valor monetário, preservar a conversão numérica e aplicar a máscara do modo atual.
+* Reutilizar `CurrencyInput`, `MaskedNumericInput` ou o componente mascarado equivalente do ERP; não deixar esses valores em `TextInput`/`input` sem máscara nem duplicar parsers locais quando houver componente padrão.
+* Manter no estado e nas operações os valores numéricos já interpretados; a string formatada pertence somente à apresentação. Conferir digitação, exclusão, colagem e troca de modo antes de considerar uma máscara concluída.
+
+## 22. Refatoração modular orientada a princípios
+
+* Aplicar responsabilidade única, coesão e baixo acoplamento ao revisar arquivos grandes. O limite de 500 linhas prioriza a inspeção; a refatoração deve se apoiar numa responsabilidade distinta e demonstrável.
+* Antes de concluir que não há refatoração segura, mapear as responsabilidades do arquivo e avaliar pelo menos um limite concreto, como estado e hidratação, transformação/mapeamento, acesso a dados, configuração estática ou apresentação. Preservar interfaces públicas com fachadas, reexports ou adaptadores quando isso permitir extrair a unidade sem mudar o contrato.
+* Muitos `useState`, setters, consumidores, tipos compartilhados ou um objeto de retorno amplo não provam, por si só, que o código é inseparável. Tratar esses elementos como dependências a mapear; avaliar a extração de uma unidade coesa mantendo a forma pública e verificando ordem, fallbacks, validação e tratamento de erros.
+* Declarar um alvo bloqueado somente diante de evidência concreta: diff local no próprio alvo ou dependência diretamente acoplada, ou uma incompatibilidade de comportamento/contrato que permaneça após avaliar uma fachada compatível. Alterações locais não relacionadas não bloqueiam o trabalho. Se não houver limite seguro, registrar no inventário qual responsabilidade foi avaliada e a causa específica da recusa, e avançar para outro candidato disponível.
+* Usar as skills `ponytail` e `safe-refactor` como método de trabalho, não apenas citá-las: escolher a menor extração completa, conferir chamadores/dependências/exports e comparar o comportamento antes e depois. Usar `investigate-first` quando comportamento ou fronteira não estiverem claros. Respeitar a política de testes vigente e não alegar validação dinâmica sem executá-la.

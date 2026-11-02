@@ -1,5 +1,7 @@
 import { normalizeSearchTerm, removeAccents } from './productText';
 
+export { normalizeSearchTerm } from './productText';
+
 const latinRanges = [
   [0x00c0, 0x024f],
   [0x1e00, 0x1eff],

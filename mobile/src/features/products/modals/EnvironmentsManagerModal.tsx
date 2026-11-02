@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -16,6 +15,7 @@ import { z } from 'zod';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { catalogNameFormSchema } from '../../../../../shared-utils/catalogFormSchemas';
 
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 const environmentFormSchema = catalogNameFormSchema.extend({ linkedIds: z.array(z.string().min(1)), id: z.string().optional() });
 import {
   fetchMobileCategories,
@@ -119,7 +119,7 @@ export const EnvironmentsManagerModal: React.FC<Props> = ({ visible, dark, onClo
             </TouchableOpacity>
           </View>
           <View style={styles.form}>
-            <TextInput
+            <FormTextInput
               value={name}
               onChangeText={setName}
               placeholder="Nome do ambiente..."

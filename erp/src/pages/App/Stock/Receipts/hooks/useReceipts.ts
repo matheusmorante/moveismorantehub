@@ -140,14 +140,14 @@ export const useReceipts = (): UseReceiptsReturn => {
   const handleDelete = useCallback(async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (!await requestConfirmation({
-      title: 'Excluir rascunho de recebimento?',
-      message: 'Deseja excluir este registro de rascunho?',
-      confirmLabel: 'Excluir rascunho',
+      title: 'Descartar rascunho de recebimento?',
+      message: 'O rascunho deste recebimento será apagado.',
+      confirmLabel: 'Descartar rascunho',
       type: 'danger',
     })) return;
     try {
       await deleteGoodsReceipt(id);
-      toast.success('Rascunho excluído com sucesso!');
+      toast.success('Rascunho descartado com sucesso!');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao excluir rascunho';
       toast.error(`Falha ao excluir rascunho: ${message}`);

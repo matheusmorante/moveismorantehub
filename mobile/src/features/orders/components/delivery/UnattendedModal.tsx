@@ -8,10 +8,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { X, AlertTriangle, Camera, Check } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
@@ -217,7 +217,7 @@ export const UnattendedModal: React.FC<Props> = ({
                 <Text style={[styles.sectionLabel, isDarkMode && styles.textLight]}>
                   {isPreparation ? 'Descreva o motivo *:' : 'Detalhes / Observações:'}
                 </Text>
-                <TextInput
+                <FormTextInput
                   style={[styles.input, isDarkMode && styles.inputDark]}
                   placeholder={
                     isPreparation

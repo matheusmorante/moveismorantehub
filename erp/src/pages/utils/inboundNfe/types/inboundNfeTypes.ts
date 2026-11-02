@@ -141,6 +141,8 @@ export interface InboundInvoice {
   rawExtraction?: Record<string, unknown>;
   totalInvoice: number;
   status: InboundInvoiceStatus;
+  /** Indica que algum recebimento (rascunho, recebido ou estornado) já reservou esta NF. */
+  isInUse?: boolean;
   itemsCount: number;
   receiptId?: string;
   receivedAt?: string;

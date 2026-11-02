@@ -8,12 +8,16 @@ import {
   hasUnlinkedInvoiceItems,
   normalizeInvoiceStatus,
 } from './invoiceList';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../shared-utils/searchText';
 
 describe('invoice list helpers', () => {
   it('preserves letters when searching fiscal identifiers', () => {
     const filters = buildInboundInvoiceSearchFilter('12.ABC.345/0001-90');
-    expect(filters).toContain('emitente_cnpj.ilike.*12ABC345000190*');
-    expect(filters).toContain('chave_acesso.ilike.*12ABC345000190*');
+    const normalizedIdentifierFilter = buildPostgrestAccentInsensitiveOrFilter(
+      ['emitente_cnpj', 'chave_acesso'],
+      '12ABC345000190',
+    );
+    expect(filters).toContain(normalizedIdentifierFilter);
   });
   it('defaults to the ERP current month and previous-to-current range', () => {
     const filter = getDefaultInvoiceDateFilter(new Date(2026, 8, 23));
@@ -54,9 +58,14 @@ describe('invoice list helpers', () => {
 
   it('builds a safe search filter without applying text operators to the integer invoice number', () => {
     expect(buildInboundInvoiceSearchFilter('133744')).toBe(
-      'emitente_nome.ilike.*133744*,emitente_cnpj.ilike.*133744*,chave_acesso.ilike.*133744*,numero_nfe.eq.133744'
+      `${buildPostgrestAccentInsensitiveOrFilter(
+        ['emitente_nome', 'emitente_cnpj', 'chave_acesso'],
+        '133744',
+      )},numero_nfe.eq.133744`,
     );
-    expect(buildInboundInvoiceSearchFilter('HORFRAN')).toBe('emitente_nome.ilike.*HORFRAN*');
+    expect(buildInboundInvoiceSearchFilter('HORFRAN')).toBe(
+      buildPostgrestAccentInsensitiveOrFilter(['emitente_nome'], 'HORFRAN'),
+    );
     expect(buildInboundInvoiceSearchFilter('')).toBeNull();
   });
 

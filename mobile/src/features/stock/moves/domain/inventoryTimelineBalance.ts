@@ -1,3 +1,5 @@
+import { formatInventoryAuditObservation } from '../../../../../../shared-utils/inventoryMoveObservation';
+
 export interface InventoryMoveLike {
   id?: string;
   type?: string;
@@ -12,6 +14,8 @@ export interface InventoryMoveLike {
   related_entity_type?: string;
   relatedEntityId?: string;
   related_entity_id?: string;
+  sourceReceiptId?: string;
+  source_receipt_id?: string;
   reversalReason?: string;
   reversal_reason?: string;
 }
@@ -26,14 +30,17 @@ export const getTargetStockFromObservation = (observation?: string): number | nu
   }
 };
 
+export const isReversedMoveStatus = (status?: string | null): boolean => {
+  const normalizedStatus = String(status || '').toLowerCase();
+  return normalizedStatus === 'reversed' || normalizedStatus === 'cancelled';
+};
+
 export const isEffectiveMove = (move: InventoryMoveLike): boolean => {
-  const st = (move.status || '').toLowerCase();
-  if (st === 'reversed' || st === 'cancelled') return false;
+  if (isReversedMoveStatus(move.status)) return false;
   if (move.observation && move.observation.trim().startsWith('{')) {
     try {
       const meta = JSON.parse(move.observation);
-      const metaStatus = (meta.status || '').toLowerCase();
-      if (metaStatus === 'reversed' || metaStatus === 'cancelled') return false;
+      if (isReversedMoveStatus(meta.status)) return false;
     } catch {
       // Ignora erro de parse
     }
@@ -67,18 +74,41 @@ export const isOrderLinked = (move: InventoryMoveLike): boolean => {
  */
 export const getCleanObservation = (move: InventoryMoveLike): string => {
   let obsText = move.observation || '';
+  let metadata: Record<string, unknown> | undefined;
   if (obsText.startsWith('{') || obsText.startsWith('[')) {
     try {
       const parsed = JSON.parse(obsText) as Record<string, unknown>;
+      metadata = parsed;
       const note = parsed.note || parsed.observation || parsed.reason;
-      if (typeof note === 'string') obsText = note;
+      if (typeof note === 'string') obsText = note.trim();
     } catch {
       // Formato não JSON
     }
   }
 
+  if (metadata) {
+    const auditObservation = formatInventoryAuditObservation(metadata);
+    if (auditObservation) return auditObservation;
+    if (obsText === move.observation) obsText = '';
+  }
+
   const relType = move.relatedEntityType || move.related_entity_type;
   const rawLabel = String(move.label || '');
+
+  if (
+    relType === 'goods_receipt' ||
+    move.sourceReceiptId ||
+    move.source_receipt_id ||
+    typeof metadata?.goodsReceiptId === 'string'
+  ) {
+    if (obsText && !obsText.trim().startsWith('{') && !obsText.trim().startsWith('[')) {
+      return obsText;
+    }
+    const invoiceReference = rawLabel && rawLabel !== 'Recebimento de Mercadorias'
+      ? ` da NF-e ${rawLabel}`
+      : '';
+    return `Entrada gerada pelo recebimento${invoiceReference}`;
+  }
 
   if (
     relType === 'sales_order' ||

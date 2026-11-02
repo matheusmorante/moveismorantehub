@@ -1,5 +1,6 @@
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ArrowLeft, Search, X } from 'lucide-react-native';
 import type { MobileOrderType } from '../domain/types';
 
@@ -63,7 +64,7 @@ export function OrdersHeader({
 
       <View style={[styles.search, dark && styles.darkCard]}>
         <Search size={16} color="#94a3b8" />
-        <TextInput
+        <FormTextInput
           value={search}
           onChangeText={onSearch}
           placeholder="Buscar por cliente, código ou cidade..."

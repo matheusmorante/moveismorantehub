@@ -316,7 +316,7 @@ describe('sincronização do catálogo local de inventário', () => {
     });
 
     expect((await syncOfflineInventoryCatalog()).success).toBe(true);
-    expect(state.snapshot.formatVersion).toBe(3);
+    expect(state.snapshot.formatVersion).toBe(5);
     expect(state.snapshot.products.stale).toBeUndefined();
     expect(state.snapshot.suppliers['supplier-salvados'].stock_origins).toEqual(['salvados']);
     expect(

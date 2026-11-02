@@ -3,12 +3,14 @@ import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import {
   PRODUCT_TECHNICAL_CHOICE_INLINE_OPTION_LIMIT,
   PRODUCT_TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS,
+  PRODUCT_TECHNICAL_CHOICE_SEARCH_MAX_RESULTS,
   PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS,
 } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
+import { searchProductTechnicalChoiceOptions } from '../../../../../../../../../shared-utils/productTechnicalChoiceSearch';
 
 export const SIMPLE_CHOICE_DROPDOWN_LIMIT = PRODUCT_TECHNICAL_CHOICE_INLINE_OPTION_LIMIT;
 export const MIN_CHOICE_SEARCH_CHARACTERS = PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS;
-export const MAX_CHOICE_SEARCH_RESULTS = 5;
+export const MAX_CHOICE_SEARCH_RESULTS = PRODUCT_TECHNICAL_CHOICE_SEARCH_MAX_RESULTS;
 export const CHOICE_SEARCH_DEBOUNCE_MS = PRODUCT_TECHNICAL_CHOICE_SEARCH_DEBOUNCE_MS;
 
 interface ChoiceSearchProps {
@@ -76,17 +78,12 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
 
   const isSearchActive = term.length >= MIN_CHOICE_SEARCH_CHARACTERS && debouncedTerm === term;
   const matchingOptions = useMemo(() => {
-    if (isSearchActive) {
-      return availableOptions.filter((option) => normalizeSearchTerm(option.value).includes(debouncedTerm));
-    }
-    // When not filtering, if multiple or few options, show all available options
-    if (multiple || availableOptions.length <= SIMPLE_CHOICE_DROPDOWN_LIMIT) {
-      return availableOptions;
-    }
-    return [];
-  }, [availableOptions, debouncedTerm, isSearchActive, multiple]);
+    return isSearchActive
+      ? searchProductTechnicalChoiceOptions(availableOptions, debouncedTerm)
+      : [];
+  }, [availableOptions, debouncedTerm, isSearchActive]);
 
-  const filtered = matchingOptions.slice(0, Math.max(MAX_CHOICE_SEARCH_RESULTS, availableOptions.length));
+  const filtered = matchingOptions;
   const isSelected =
     term.length === 0
       ? selected.length > 0
@@ -130,9 +127,9 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
 
   const inputPlaceholder = multiple
     ? selected.length > 0
-      ? 'Adicionar mais opções...'
-      : 'Selecione ou pesquise...'
-    : 'Digite pelo menos 2 caracteres para pesquisar...';
+      ? `Digite pelo menos ${MIN_CHOICE_SEARCH_CHARACTERS} caracteres para adicionar opções...`
+      : `Digite pelo menos ${MIN_CHOICE_SEARCH_CHARACTERS} caracteres para pesquisar...`
+    : `Digite pelo menos ${MIN_CHOICE_SEARCH_CHARACTERS} caracteres para pesquisar...`;
 
   const displayInputValue = multiple ? query : query || selected.join(', ');
 
@@ -218,7 +215,13 @@ export const ChoiceSearch: React.FC<ChoiceSearchProps> = ({
 
       {isOpen && (
         <div className="absolute left-0 right-0 top-full z-40 mt-1 flex max-h-48 flex-col gap-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-top-1">
-          {filtered.length === 0 ? (
+          {!isSearchActive ? (
+            <span className="text-[10px] text-slate-400 p-1">
+              {term.length < MIN_CHOICE_SEARCH_CHARACTERS
+                ? `Digite pelo menos ${MIN_CHOICE_SEARCH_CHARACTERS} caracteres para pesquisar.`
+                : 'Aguarde para exibir as opções...'}
+            </span>
+          ) : filtered.length === 0 ? (
             <span className="text-[10px] text-slate-400 p-1">Nenhuma opção encontrada.</span>
           ) : (
             filtered.map((option) =>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 import { Plus, X } from 'lucide-react-native';
 
 interface Props {
@@ -36,7 +37,7 @@ export const ProductFormPriceStockSection: React.FC<Props> = ({ formData, setFor
       <View style={styles.row}>
         <View style={[styles.fieldGroup, { flex: 1 }]}>
           <Text style={[styles.label, dark && styles.lightText]}>Preço de Venda (R$) *</Text>
-          <TextInput
+          <FormTextInput
             value={String(formData.unitPrice ?? '')}
             onChangeText={(v) => update('unitPrice', v)}
             keyboardType="numeric"
@@ -48,7 +49,7 @@ export const ProductFormPriceStockSection: React.FC<Props> = ({ formData, setFor
 
         <View style={[styles.fieldGroup, { flex: 1 }]}>
           <Text style={[styles.label, dark && styles.lightText]}>Preço Promo (R$)</Text>
-          <TextInput
+          <FormTextInput
             value={String(formData.promoPrice ?? '')}
             onChangeText={(v) => update('promoPrice', v)}
             keyboardType="numeric"
@@ -62,7 +63,7 @@ export const ProductFormPriceStockSection: React.FC<Props> = ({ formData, setFor
       <View style={styles.row}>
         <View style={[styles.fieldGroup, { flex: 1 }]}>
           <Text style={[styles.label, dark && styles.lightText]}>Preço de Custo (R$)</Text>
-          <TextInput
+          <FormTextInput
             value={String(formData.costPrice ?? '')}
             onChangeText={(v) => update('costPrice', v)}
             keyboardType="numeric"
@@ -74,7 +75,7 @@ export const ProductFormPriceStockSection: React.FC<Props> = ({ formData, setFor
 
         <View style={[styles.fieldGroup, { flex: 1 }]}>
           <Text style={[styles.label, dark && styles.lightText]}>Estoque Atual</Text>
-          <TextInput
+          <FormTextInput
             value={String(formData.stock ?? '')}
             onChangeText={(v) => update('stock', v)}
             keyboardType="numeric"
@@ -88,7 +89,7 @@ export const ProductFormPriceStockSection: React.FC<Props> = ({ formData, setFor
       <View style={styles.row}>
         <View style={[styles.fieldGroup, { flex: 1 }]}>
           <Text style={[styles.label, dark && styles.lightText]}>Largura (cm)</Text>
-          <TextInput
+          <FormTextInput
             value={String(formData.width ?? '')}
             onChangeText={(v) => update('width', v)}
             keyboardType="numeric"
@@ -99,7 +100,7 @@ export const ProductFormPriceStockSection: React.FC<Props> = ({ formData, setFor
         </View>
         <View style={[styles.fieldGroup, { flex: 1 }]}>
           <Text style={[styles.label, dark && styles.lightText]}>Altura (cm)</Text>
-          <TextInput
+          <FormTextInput
             value={String(formData.height ?? '')}
             onChangeText={(v) => update('height', v)}
             keyboardType="numeric"
@@ -110,7 +111,7 @@ export const ProductFormPriceStockSection: React.FC<Props> = ({ formData, setFor
         </View>
         <View style={[styles.fieldGroup, { flex: 1 }]}>
           <Text style={[styles.label, dark && styles.lightText]}>Profundidade (cm)</Text>
-          <TextInput
+          <FormTextInput
             value={String(formData.depth ?? '')}
             onChangeText={(v) => update('depth', v)}
             keyboardType="numeric"
@@ -125,7 +126,7 @@ export const ProductFormPriceStockSection: React.FC<Props> = ({ formData, setFor
       <View style={styles.fieldGroup}>
         <Text style={[styles.label, dark && styles.lightText]}>Fotos do Produto (URL)</Text>
         <View style={styles.addImageRow}>
-          <TextInput
+          <FormTextInput
             value={newImageUrl}
             onChangeText={setNewImageUrl}
             placeholder="Cole a URL da imagem aqui..."

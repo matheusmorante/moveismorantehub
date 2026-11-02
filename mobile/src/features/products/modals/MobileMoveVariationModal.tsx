@@ -26,10 +26,10 @@ import {
   Platform,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   checkMobileVariationAttributeConflict,
@@ -508,7 +508,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
 
             <View>
               <Text style={[styles.label, dark && styles.textDark]}>Novo produto pai</Text>
-              <TextInput
+              <FormTextInput
                 value={familyQuery}
                 onChangeText={(value) => {
                   setFamilyQuery(value);
@@ -621,7 +621,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               ) : (
                 attributes.map((attribute, index) => (
                   <View style={styles.attributeRow} key={attribute.rowId}>
-                    <TextInput
+                    <FormTextInput
                       value={attribute.name}
                       onChangeText={(value) => updateAttribute(index, 'name', value)}
                       editable={!saving && !mutationBlocked}
@@ -630,7 +630,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                       style={[styles.attributeInput, dark && styles.inputDark]}
                       accessibilityLabel={`Nome da característica ${index + 1}`}
                     />
-                    <TextInput
+                    <FormTextInput
                       value={attribute.value}
                       onChangeText={(value) => updateAttribute(index, 'value', value)}
                       editable={!saving && !mutationBlocked}

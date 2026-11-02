@@ -137,6 +137,7 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
   const countItems = isShowingStages || isShowingSupplierSummary ? items : activeItems;
   const countedQuantityTotal = sumInventoryCountedQuantities(countItems);
   const isCustom = scopeType === 'custom';
+  const hasIncompleteItems = items.some((item) => !item.productId?.trim());
 
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recentErrorFeedbackAtRef = useRef(new Map<string, number>());
@@ -445,8 +446,11 @@ export const InventoryOperationScreen: React.FC<InventoryOperationScreenProps> =
 
           {(!isSupplierSpecific || Boolean(activeStage)) && (
             <button
+              type="button"
               onClick={onReview}
-              className="bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-8 py-2 rounded-xl font-black shadow-sm transition-colors flex items-center gap-2"
+              disabled={hasIncompleteItems}
+              title={hasIncompleteItems ? 'Selecione um produto para cada item antes de revisar o inventário.' : undefined}
+              className="bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-8 py-2 rounded-xl font-black shadow-sm transition-colors flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Revisar e Concluir
               <i className="bi bi-arrow-right"></i>

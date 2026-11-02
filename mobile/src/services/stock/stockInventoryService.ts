@@ -6,6 +6,7 @@ export {
   fetchInventoryScopeSuppliers,
   fetchInventoryScopeEmployees,
   fetchInventoryScopeProducts,
+  searchInventoryScopeProducts,
   clearInventoryScopeCache,
   fetchInventoryItems,
   searchProducts,

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   calculateInventoryTimelineBalance,
   isEffectiveMove,
+  isReversedMoveStatus,
   isInventoryAuditMarker,
   isOrderLinked,
   isPurchaseEntry,
@@ -9,6 +10,17 @@ import {
 } from './inventoryTimelineBalance';
 
 describe('Regras de Negócio e Cálculo de Saldo de Movimentações (ERP ↔ Mobile)', () => {
+  it.each(['reversed', 'cancelled'])('identifica %s como movimentação estornada', (status) => {
+    expect(isReversedMoveStatus(status)).toBe(true);
+  });
+
+  it.each(['effective', 'active', undefined, null])(
+    'não identifica %s como movimentação estornada',
+    (status) => {
+      expect(isReversedMoveStatus(status)).toBe(false);
+    }
+  );
+
   it('deve calcular o saldo cronológico somando entradas e subtraindo saídas', () => {
     const moves = [
       { id: '1', date: '2026-09-01T10:00:00Z', type: 'entry', quantity: 10, status: 'effective' },
@@ -84,5 +96,31 @@ describe('Regras de Negócio e Cálculo de Saldo de Movimentações (ERP ↔ Mob
       label: 'Saída - Pedido #10045',
       observation: JSON.stringify({ status: 'effective', note: 'Ajuste do pedido de venda #10045' }),
     })).toBe('Ajuste do pedido de venda #10045');
+  });
+
+  it('identifica a origem das entradas legadas de recebimento sem nota legível', () => {
+    expect(getCleanObservation({
+      label: '8481',
+      observation: JSON.stringify({ goodsReceiptId: 'receipt-id', status: 'reversed' }),
+    })).toBe('Entrada gerada pelo recebimento da NF-e 8481');
+  });
+
+  it('formata os metadados técnicos do inventário como uma observação legível', () => {
+    expect(getCleanObservation({
+      label: 'Inventário #000054',
+      observation: JSON.stringify({
+        source: 'inventory_audit',
+        status: 'effective',
+        targetStock: 0,
+        previousStock: -2,
+      }),
+    })).toBe('Saldo anterior: -2 un. | Saldo após inventário: 0 un.');
+  });
+
+  it('não exibe JSON bruto quando a movimentação não tem uma nota legível', () => {
+    expect(getCleanObservation({
+      label: 'Movimentação manual',
+      observation: JSON.stringify({ source: 'manual', status: 'effective' }),
+    })).toBe('Movimentação manual');
   });
 });

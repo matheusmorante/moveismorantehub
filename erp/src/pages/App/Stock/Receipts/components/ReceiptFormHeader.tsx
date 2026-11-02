@@ -9,11 +9,14 @@ interface ReceiptFormHeaderProps {
   initialInboundInvoice?: InboundInvoice | null;
   initialPurchase?: Purchase | null;
   initialReceipt?: GoodsReceipt | null;
+  isEditingReceipt?: boolean;
   copyReceipt?: boolean;
+  isInvoiceLinkedReceipt?: boolean;
   items: PurchaseItem[];
   suppliers: Person[];
   supplierId: string;
   setSupplierId: (id: string) => void;
+  onSupplierChange?: (id: string) => void;
   receiptDate: string;
   setReceiptDate: (date: string) => void;
 }
@@ -22,15 +25,24 @@ export function ReceiptFormHeader({
   initialInboundInvoice,
   initialPurchase,
   initialReceipt,
+  isEditingReceipt = false,
   copyReceipt,
+  isInvoiceLinkedReceipt = false,
   items,
   suppliers,
   supplierId,
   setSupplierId,
+  onSupplierChange,
   receiptDate,
   setReceiptDate,
 }: ReceiptFormHeaderProps) {
-  if (initialInboundInvoice) {
+  if (isInvoiceLinkedReceipt) {
+    const linkedSupplierName =
+      suppliers.find((supplier) => supplier.id === supplierId)?.fullName ||
+      initialReceipt?.supplierName ||
+      initialInboundInvoice?.emitterName ||
+      'Fornecedor';
+
     return (
       <section className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-2 dark:border-slate-800">
@@ -39,11 +51,14 @@ export function ReceiptFormHeader({
               Dados da NF-e e Fornecedor
             </h3>
             <p className="text-xs text-slate-500">
-              Emitente: <b>{initialInboundInvoice.emitterName || 'Emitente não identificado'}</b> ·
-              CNPJ: {initialInboundInvoice.emitterCnpj || '—'}
+              {initialInboundInvoice ? (
+                <>Emitente: <b>{initialInboundInvoice.emitterName || 'Emitente não identificado'}</b> · CNPJ: {initialInboundInvoice.emitterCnpj || '—'}</>
+              ) : (
+                <>Fornecedor vinculado ao recebimento com NF-e.</>
+              )}
             </p>
           </div>
-          {initialInboundInvoice.nfeKey && (
+          {initialInboundInvoice?.nfeKey && (
             <span className="font-mono text-[11px] bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
               Chave: {initialInboundInvoice.nfeKey.replace(/(\d{4})/g, '$1 ').trim()}
             </span>
@@ -52,15 +67,15 @@ export function ReceiptFormHeader({
 
         <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-3 pt-1">
           <div className="md:col-span-2">
-            <SupplierAutocomplete
-              suppliers={suppliers}
-              selectedSupplierId={supplierId}
-              onSelect={setSupplierId}
-              disabled={true}
-              disabledReason="O fornecedor foi vinculado automaticamente a partir dos dados do emitente da NF-e."
-              customLabel="Fornecedor Vinculado no ERP"
-              placeholder="Fornecedor do ERP..."
-            />
+            <span className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Fornecedor
+            </span>
+            <p
+              className="min-h-10 bg-slate-100 px-2 py-2 text-sm font-bold text-slate-800 dark:bg-slate-800 dark:text-slate-100"
+              aria-label={`Fornecedor: ${linkedSupplierName}`}
+            >
+              {linkedSupplierName}
+            </p>
           </div>
           <label className="flex flex-col gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
             Data do recebimento
@@ -82,18 +97,21 @@ export function ReceiptFormHeader({
         <SupplierAutocomplete
           suppliers={suppliers}
           selectedSupplierId={supplierId}
-          onSelect={setSupplierId}
+          onSelect={onSupplierChange || setSupplierId}
           disabled={
             Boolean(initialPurchase) ||
-            (Boolean(initialReceipt) && !copyReceipt) ||
-            items.length > 0
+            (Boolean(initialReceipt) && !copyReceipt && !isEditingReceipt) ||
+            (Boolean(initialReceipt?.fiscalKey) && isEditingReceipt) ||
+            (items.length > 0 && !isEditingReceipt)
           }
           disabledReason={
-            initialPurchase || (initialReceipt && !copyReceipt)
-              ? 'O fornecedor foi pré-definido pelo documento/pedido de origem.'
-              : items.length > 0
-                ? 'Para alterar o fornecedor, remova os itens adicionados e selecione o fornecedor correto.'
-                : undefined
+            initialReceipt?.fiscalKey && isEditingReceipt
+              ? 'O fornecedor está vinculado à NF-e deste recebimento.'
+              : initialPurchase || (initialReceipt && !copyReceipt && !isEditingReceipt)
+                ? 'O fornecedor foi pré-definido pelo documento/pedido de origem.'
+                : items.length > 0 && !isEditingReceipt
+                  ? 'Para alterar o fornecedor, remova os itens adicionados e selecione o fornecedor correto.'
+                  : undefined
           }
           customLabel="Fornecedor"
           placeholder="Digite pelo menos 3 caracteres para buscar fornecedor..."

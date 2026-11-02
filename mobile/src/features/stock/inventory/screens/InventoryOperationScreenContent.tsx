@@ -98,6 +98,7 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
   const countItems = isShowingStages ? items : activeItems;
   const countedItems = countItems.filter((i) => typeof i.physicalCount === 'number');
   const countedQuantityTotal = sumInventoryCountedQuantities(countItems);
+  const hasIncompleteProduct = items.some((item) => !item.productId?.trim());
 
   React.useEffect(() => {
     if (!isSupplierSpecific || activeStage) return;
@@ -247,7 +248,7 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
         showCount={!isShowingSupplierSelection}
         showScanner={!isShowingStages && !(scopeType === 'general' && activeStage)}
         showStageActions={scopeType === 'full' && Boolean(activeStage && onResetSupplierStage)}
-        onRequestCancelInventory={() => {
+        onRequestCancelInventory={scopeType === 'full' && Boolean(activeStage) ? undefined : () => {
           setCancelInventoryError('');
           setShowCancelInventoryConfirm(true);
         }}
@@ -311,6 +312,7 @@ export const InventoryOperationScreenContent: React.FC<Props> = ({
           activeStage={activeStage}
           supplierSpecific={isSupplierSpecific}
           supplierSelected={Boolean(activeStage)}
+          hasIncompleteProduct={hasIncompleteProduct}
           onBack={activeStage ? () => setActiveStage(null) : onCancel || (() => {})}
           onReview={onReview}
         />

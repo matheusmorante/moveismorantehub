@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { Check, ChevronDown, Plus } from 'lucide-react-native';
 import { CurrencyInput } from '../../../../../components/shared/CurrencyInput';
 import { formatMoney, parseNumber } from '../../hooks/usePurchaseForm';
@@ -8,7 +9,25 @@ import type { PurchaseItemsSectionProps } from './PurchaseItemsSection';
 
 const ITEM_EXPANSION_DURATION_MS = 260;
 
-const AnimatedPurchaseItemDetails: React.FC<{ expanded: boolean; children: React.ReactNode; reduceMotion: boolean }> = ({ expanded, children, reduceMotion }) => {
+export const usePurchaseItemReduceMotion = () => {
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (active) setReduceMotion(enabled);
+    }).catch(() => undefined);
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return reduceMotion;
+};
+
+export const AnimatedPurchaseItemDetails: React.FC<{ expanded: boolean; children: React.ReactNode; reduceMotion: boolean }> = ({ expanded, children, reduceMotion }) => {
   const progress = useRef(new Animated.Value(expanded ? 1 : 0)).current;
   const mountedRef = useRef(expanded);
   const [mounted, setMounted] = useState(expanded);
@@ -59,24 +78,12 @@ export const PurchaseOrderItems: React.FC<PurchaseItemsSectionProps> = ({
   allowAdd = true, addDisabled = false, isDarkMode = false,
 }) => {
   const [width, setWidth] = useState(0);
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const reduceMotion = usePurchaseItemReduceMotion();
   const [pendingRemoveIndex, setPendingRemoveIndex] = useState<number | null>(null);
   const wide = width >= 768;
   const table = width >= 1200;
   const fieldWidth = width > 0 && width < 260 ? '100%' : '48%';
   const compositionWidth = width >= 768 ? '23%' : '48%';
-
-  useEffect(() => {
-    let active = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (active) setReduceMotion(enabled);
-    }).catch(() => undefined);
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => {
-      active = false;
-      subscription.remove();
-    };
-  }, []);
 
   const addItem = () => {
     onSelectedItemChange?.(items.length);
@@ -168,7 +175,7 @@ export const PurchaseOrderItems: React.FC<PurchaseItemsSectionProps> = ({
                   {hasProduct && <Check size={15} color={isDarkMode ? '#34d399' : '#059669'} />}
                 </View>
               </TouchableOpacity>
-              <View style={styles.tableQuantity}><TextInput accessibilityLabel={`Quantidade de ${name}`} value={String(item.quantity ?? '')}
+              <View style={styles.tableQuantity}><FormTextInput accessibilityLabel={`Quantidade de ${name}`} value={String(item.quantity ?? '')}
                 onChangeText={(value) => onUpdateItem(index, { quantity: parseNumber(value) })} keyboardType="decimal-pad"
                 style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.bg }]} /></View>
               <View style={styles.tableMoney}><CurrencyInput accessibilityLabel={`Custo base por unidade de ${name}`} value={Number(item.baseCost || 0)}
@@ -191,7 +198,7 @@ export const PurchaseOrderItems: React.FC<PurchaseItemsSectionProps> = ({
         );
         return (
           <Pressable key={`${item.productId}-${item.variationId || index}`} accessible={false}
-            onPress={() => { if (!expanded && !confirmingRemove) onSelectedItemChange?.(index); }}
+            onPress={!expanded && !confirmingRemove ? () => onSelectedItemChange?.(index) : undefined}
             style={[styles.item, styles.confirmationHost, { borderColor: expanded ? '#2563eb' : colors.border, backgroundColor: colors.surface }]}>
             <View pointerEvents={confirmingRemove ? 'none' : 'auto'} accessibilityElementsHidden={confirmingRemove}
               importantForAccessibility={confirmingRemove ? 'no-hide-descendants' : 'auto'}
@@ -201,16 +208,16 @@ export const PurchaseOrderItems: React.FC<PurchaseItemsSectionProps> = ({
                 <View style={styles.itemLabelRow}>
                   <Text style={[styles.eyebrow, { color: colors.muted }]}>Item {String(index + 1).padStart(2, '0')} · Produto</Text>
                   <View style={styles.itemActions}>
-                    <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Remover item ${name}`} onPress={(event) => {
+                    {expanded && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Remover item ${name}`} onPress={(event) => {
                       event.stopPropagation();
                       requestRemoveItem(index);
                     }}>
                       <Text style={styles.removeText}>Remover item</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity>}
                     <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${expanded ? 'Recolher' : 'Expandir'} item ${name}`}
                       accessibilityState={{ expanded }} onPress={() => onSelectedItemChange?.(expanded ? null : index)}
                       style={styles.toggleButton}>
-                      {expanded ? <Text style={[styles.toggleText, { color: colors.muted }]}>Recolher</Text> : <ChevronDown size={18} color={colors.muted} />}
+                      {expanded ? <Text style={[styles.toggleText, { color: colors.muted }]}>Recolher</Text> : <ChevronDown size={24} color={colors.muted} />}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -238,7 +245,7 @@ export const PurchaseOrderItems: React.FC<PurchaseItemsSectionProps> = ({
               <View style={styles.fields}>
                 <View style={{ width: fieldWidth }}>
                   <Text style={[styles.label, { color: colors.muted }]}>Quantidade</Text>
-                  <TextInput accessibilityLabel={`Quantidade de ${name}`} value={String(item.quantity ?? '')}
+                  <FormTextInput accessibilityLabel={`Quantidade de ${name}`} value={String(item.quantity ?? '')}
                     onChangeText={(value) => onUpdateItem(index, { quantity: parseNumber(value) })} keyboardType="decimal-pad"
                     style={[styles.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.bg }]} />
                 </View>

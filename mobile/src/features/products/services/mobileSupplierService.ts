@@ -24,10 +24,11 @@ export const fetchMobileProductSuppliersWithStatus = async (): Promise<MobilePro
     const query = supabase
       .from('people')
       .select(
-        'id, full_name, social_name, nickname, address, observation, stock_origins, default_ipi_percent, default_freight_cost, default_freight_type'
+        'id, full_name, social_name, nickname, address, observation, stock_origins'
       )
-      .or('deleted.eq.false,deleted.is.null')
-      .or('person_type.ilike.suppliers,person_type.ilike.supplier')
+      .or(
+        'and(or(deleted.eq.false,deleted.is.null),or(person_type.ilike.suppliers,person_type.ilike.supplier))'
+      )
       .order('full_name', { ascending: true })
       .order('id', { ascending: true });
     const queryPromise = Promise.resolve(query);
@@ -50,6 +51,9 @@ export const fetchMobileProductSuppliersWithStatus = async (): Promise<MobilePro
       .filter((supplier) => !isTestPerson({ ...supplier, fullName: supplier.full_name || '' }))
       .map((supplier) => ({
         ...supplier,
+        // Keep the legacy consumer shape without selecting columns absent from `people`.
+        default_ipi_percent: supplier.default_ipi_percent ?? null,
+        default_freight_cost: supplier.default_freight_cost ?? null,
         default_freight_type: supplier.default_freight_type || 'none',
       })) as MobileProductSupplier[];
 

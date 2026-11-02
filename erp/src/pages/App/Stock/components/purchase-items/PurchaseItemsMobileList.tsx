@@ -21,20 +21,20 @@ export const PurchaseItemsMobileList = ({
   handleDiscountChange,
 }: PurchaseItemsViewProps) => {
   const [expandedItemIndex, setExpandedItemIndex] = React.useState<number | null>(() => {
+    if (isReceiptMode) return null;
     const firstUnselectedItem = items.findIndex((item) => !item.productId);
     if (firstUnselectedItem >= 0) return firstUnselectedItem;
     return items.length > 0 ? items.length - 1 : null;
   });
   const previousItemCount = React.useRef(items.length);
+  const previousReceiptMode = React.useRef(isReceiptMode);
 
   React.useEffect(() => {
-    if (isReceiptMode) {
-      previousItemCount.current = items.length;
-      return;
+    if (isReceiptMode && !previousReceiptMode.current) {
+      setExpandedItemIndex(null);
     }
-
     if (items.length > previousItemCount.current) {
-      setExpandedItemIndex(items.length - 1);
+      if (!isReceiptMode) setExpandedItemIndex(items.length - 1);
     } else if (items.length === 0) {
       setExpandedItemIndex(null);
     } else if (items.length < previousItemCount.current) {
@@ -43,15 +43,14 @@ export const PurchaseItemsMobileList = ({
       );
     }
     previousItemCount.current = items.length;
+    previousReceiptMode.current = isReceiptMode;
   }, [isReceiptMode, items.length]);
 
   const handleRemoveItem = (index: number) => {
-    if (!isReceiptMode) {
-      setExpandedItemIndex((current) => {
-        if (current === null || current === index) return null;
-        return current > index ? current - 1 : current;
-      });
-    }
+    setExpandedItemIndex((current) => {
+      if (current === null || current === index) return null;
+      return current > index ? current - 1 : current;
+    });
     onRemoveItem(index);
   };
 
@@ -64,14 +63,18 @@ export const PurchaseItemsMobileList = ({
           : calculatePurchaseItemCostBreakdown(item, discountPercent, ipiPercent, freightPercent);
         const unitIpi = costs?.ipiValue ?? 0;
         const unitFreight = costs?.freightValue ?? item.freightUnit ?? (item.baseCost || 0) * (freightPercent / 100);
-        const unitOther = item.otherExpensesUnit ?? (item.additionalCostUnit || 0);
+        const unitOtherExpenses = Number(
+          item.otherExpensesUnit ??
+            Number(item.otherExpensesFiscalUnit || 0) +
+              Number(item.otherExpensesNonFiscalUnit || 0) +
+              Number(item.additionalCostUnit || 0),
+        );
         const isRowEditing = isReceiptMode ? !item.productId : true;
-        const isCollapsed = !isReceiptMode && expandedItemIndex !== idx;
+        const isCollapsed = expandedItemIndex !== idx;
         const collapsedProductLabel = item.productId && item.description?.trim()
           ? item.description
           : 'Produto não informado';
         const summaryTotalCost = formatCurrency(costs?.totalCost ?? item.totalCost ?? 0);
-        const itemSubtotal = costs?.subtotal ?? item.quantity * (item.baseCost || 0);
         const finalUnitCost = costs?.unitCost ?? item.unitCost;
         const finalTotalCost = costs?.totalCost ?? item.totalCost;
         const quantityInput = (
@@ -84,13 +87,24 @@ export const PurchaseItemsMobileList = ({
             className={`${isReceiptMode ? 'w-24 sm:w-32' : 'w-full'} h-11 bg-white dark:bg-slate-800 text-center font-black text-base text-slate-800 dark:text-slate-100 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none rounded-none transition-colors`}
           />
         );
+        const receiptRemoveButton = isReceiptMode && (
+          <button
+            type="button"
+            onClick={() => handleRemoveItem(idx)}
+            className="shrink-0 rounded-lg py-1.5 text-[11px] font-semibold text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+            title="Remover item"
+            aria-label={`Remover ${item.description || 'item'}`}
+          >
+            Remover item
+          </button>
+        );
 
         return (
           <div
             key={idx}
             className="bg-white dark:bg-slate-955 p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm"
           >
-            {!isReceiptMode && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setExpandedItemIndex(isCollapsed ? idx : null)}
@@ -98,31 +112,54 @@ export const PurchaseItemsMobileList = ({
                 aria-label={isCollapsed
                   ? `Expandir item ${collapsedProductLabel}, quantidade ${item.quantity} un, custo total ${summaryTotalCost}`
                   : `Recolher item ${collapsedProductLabel}`}
-                className={`flex h-10 shrink-0 items-center rounded-xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${isCollapsed ? 'w-full justify-between gap-2 px-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-900/60' : 'ml-auto mb-2 gap-1.5 border border-slate-200 bg-slate-50 px-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-900'}`}
+                className={`flex shrink-0 rounded-xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 ${isCollapsed
+                  ? isReceiptMode
+                    ? 'min-h-10 w-full flex-col items-stretch gap-1.5 px-2.5 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-900/60'
+                    : 'h-10 min-w-0 flex-1 items-center justify-between gap-2 px-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-900/60'
+                  : 'ml-auto mb-2 h-10 items-center gap-1.5 border border-slate-200 bg-slate-50 px-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-900'}`}
               >
-                {isCollapsed && (
-                  <span className="min-w-0 flex-1 truncate text-sm font-black text-slate-800 dark:text-slate-100">
-                    {collapsedProductLabel}
-                  </span>
+                {isCollapsed && isReceiptMode ? (
+                  <>
+                    <span className="min-w-0 break-words whitespace-normal text-sm font-black text-slate-800 dark:text-slate-100">
+                      {collapsedProductLabel}
+                    </span>
+                    <span className="flex w-full items-center justify-end gap-2">
+                      <span className="whitespace-nowrap text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                        {item.quantity} un
+                      </span>
+                      <span className="whitespace-nowrap text-[11px] font-black text-slate-700 dark:text-slate-200" title="Custo total">
+                        Custo total {summaryTotalCost}
+                      </span>
+                      <i className="bi bi-chevron-down shrink-0 text-2xl text-slate-500 dark:text-slate-400" aria-hidden="true" />
+                    </span>
+                  </>
+                ) : isCollapsed ? (
+                  <>
+                    <span className="min-w-0 flex-1 truncate text-sm font-black text-slate-800 dark:text-slate-100">
+                      {collapsedProductLabel}
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                      {item.quantity} un
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-[11px] font-black text-slate-700 dark:text-slate-200" title="Total">
+                      Total {summaryTotalCost}
+                    </span>
+                    <i className="bi bi-chevron-down shrink-0 text-2xl text-slate-500 dark:text-slate-400" aria-hidden="true" />
+                  </>
+                ) : (
+                  <>
+                    <span>Recolher item</span>
+                    <i className="bi bi-chevron-down shrink-0 rotate-180 text-2xl text-slate-600 transition-transform dark:text-slate-300" aria-hidden="true" />
+                  </>
                 )}
-                {isCollapsed && (
-                  <span className="shrink-0 whitespace-nowrap text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                    {item.quantity} un
-                  </span>
-                )}
-                {isCollapsed && (
-                  <span className="shrink-0 whitespace-nowrap text-[11px] font-black text-slate-700 dark:text-slate-200" title="Custo total">
-                    Total {summaryTotalCost}
-                  </span>
-                )}
-                {!isCollapsed && <span>Recolher item</span>}
-                <i
-                  className={`bi bi-chevron-down shrink-0 text-sm transition-transform ${isCollapsed ? 'text-slate-500 dark:text-slate-400' : 'rotate-180 text-slate-600 dark:text-slate-300'}`}
-                  aria-hidden="true"
-                />
               </button>
-            )}
-            <div className={isCollapsed ? 'hidden' : 'space-y-4'}>
+            </div>
+            <div
+              aria-hidden={isCollapsed}
+              inert={isCollapsed}
+              className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-in-out motion-reduce:transition-none ${isCollapsed ? 'pointer-events-none max-h-0 opacity-0' : 'max-h-[1200px] opacity-100'}`}
+            >
+            <div className="space-y-4">
             <div className={isReceiptMode ? 'flex justify-between items-start gap-4' : 'grid grid-cols-1 min-[420px]:grid-cols-[minmax(0,1fr)_minmax(5.5rem,0.32fr)] items-stretch gap-3'}>
               <div className={isReceiptMode ? 'min-w-0 flex-1' : 'min-w-0 flex-1 rounded-xl border border-slate-100 bg-white p-2.5 shadow-sm dark:border-slate-800 dark:bg-slate-900'}>
                 {isRowEditing ? (
@@ -134,7 +171,7 @@ export const PurchaseItemsMobileList = ({
                       supplierId={supplierId || undefined}
                       value={item.description || ''}
                       isSelected={Boolean(item.productId)}
-                      autoFocus={!item.productId}
+                      autoFocus={!item.productId && !isCollapsed}
                       onChange={(desc) => {
                         if (onUpdateItem) {
                           onUpdateItem(idx, {
@@ -161,18 +198,24 @@ export const PurchaseItemsMobileList = ({
                     />
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 p-1.5 px-2.5 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100 dark:border-slate-800/60">
-                    <span className="min-w-0 flex-1 truncate text-sm font-black text-slate-800 dark:text-slate-100">
+                  <div className={isReceiptMode
+                    ? 'flex min-w-0 items-center gap-2 border-0 border-b-2 border-emerald-500 bg-slate-50 px-2 py-1.5 dark:bg-slate-900/40'
+                    : 'flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-1.5 px-2.5 dark:border-slate-800/60 dark:bg-slate-900/40'}>
+                    <span className={isReceiptMode
+                      ? 'min-w-0 flex-1 whitespace-normal break-words text-sm font-black leading-snug text-slate-900 dark:text-slate-100'
+                      : 'min-w-0 flex-1 truncate text-sm font-black text-slate-800 dark:text-slate-100'}>
                       {item.description}
                     </span>
                     {isReceiptMode && <button
                       type="button"
                       onClick={() => handleEditProductInRow(idx)}
-                      className="text-xs text-slate-400 hover:text-blue-600 p-1 hover:bg-white dark:hover:bg-slate-800 rounded transition-colors"
+                      className="shrink-0 rounded p-1 text-xs text-slate-400 transition-colors hover:bg-white hover:text-blue-600 dark:hover:bg-slate-800"
                       title="Trocar produto"
+                      aria-label={`Trocar produto: ${item.description}`}
                     >
                       <i className="bi bi-pencil-square" />
                     </button>}
+                    {isReceiptMode && <i className="bi bi-check-lg shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />}
                   </div>
                 )}
               </div>
@@ -184,14 +227,6 @@ export const PurchaseItemsMobileList = ({
                   {quantityInput}
                 </div>
               )}
-              {isReceiptMode && <button
-                onClick={() => handleRemoveItem(idx)}
-                className="text-slate-400 hover:text-red-500 p-1.5 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors shrink-0"
-                title="Remover Item"
-                aria-label="Remover item"
-              >
-                <i className="bi bi-trash text-base" />
-              </button>}
             </div>
 
             {/* Campo de Quantidade em Destaque: Editável -> Fundo Branco, borda apenas embaixo cinza, focus azul */}
@@ -219,7 +254,7 @@ export const PurchaseItemsMobileList = ({
             </div>}
 
             {/* Métricas em grade fluida para não forçar largura mínima em telas estreitas. */}
-            <div className={`grid grid-cols-2 ${isReceiptMode ? 'min-[480px]:grid-cols-3 min-[768px]:grid-cols-4' : 'min-[700px]:grid-cols-4'} gap-2 text-xs border-t border-slate-100 dark:border-slate-800/50 pt-3`}>
+            <div className={`grid grid-cols-2 ${!isReceiptMode ? 'min-[700px]:grid-cols-4' : ''} gap-2 text-xs border-t border-slate-100 dark:border-slate-800/50 pt-3`}>
               {/* Custo Unitário: Editável -> Fundo Branco, borda apenas embaixo cinza, focus azul */}
               <div className={`${!isReceiptMode ? 'min-[700px]:col-span-2' : ''} min-w-0 p-2 sm:p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center`}>
                 <label htmlFor={`purchase-item-base-mobile-${idx}`} className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
@@ -235,15 +270,11 @@ export const PurchaseItemsMobileList = ({
                 />
               </div>
 
-              <div className={`${isReceiptMode ? 'bg-slate-100/70 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700/60' : 'min-[700px]:col-span-2 bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-sm'} min-w-0 p-2 sm:p-2.5 rounded-xl border flex flex-col justify-center`}>
-                <label htmlFor={`purchase-item-discount-mobile-${idx}`} className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                  {isReceiptMode ? 'Desconto por unidade' : 'Desconto unitário'}
-                </label>
-                {isReceiptMode ? (
-                  <span className="min-w-0 break-words font-bold text-amber-600 dark:text-amber-400 block text-xs leading-normal">
-                    {unitDiscount > 0 ? `- ${formatCurrency(unitDiscount)}` : '—'}
-                  </span>
-                ) : (
+              {!isReceiptMode && (
+                <div className="min-w-0 p-2 sm:p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-center min-[700px]:col-span-2">
+                  <label htmlFor={`purchase-item-discount-mobile-${idx}`} className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
+                    Desconto unitário
+                  </label>
                   <CurrencyInput
                     id={`purchase-item-discount-mobile-${idx}`}
                     showBadge={false}
@@ -252,8 +283,32 @@ export const PurchaseItemsMobileList = ({
                     onChange={(value) => handleDiscountChange(idx, value)}
                     className="w-full min-w-0 bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none text-xs font-bold text-amber-700 dark:text-amber-400 px-1 py-1 mt-0.5 rounded-none transition-colors text-right"
                   />
-                )}
-              </div>
+                </div>
+              )}
+
+              {isReceiptMode && (
+                <>
+                  <p className="col-span-full pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Composição do custo
+                  </p>
+                  <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-center">
+                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
+                      Frete por unidade
+                    </span>
+                    <span className="min-w-0 break-words font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">
+                      {formatCurrency(unitFreight)}
+                    </span>
+                  </div>
+                  <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-center">
+                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
+                      Outras despesas por unidade
+                    </span>
+                    <span className="min-w-0 break-words font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">
+                      {formatCurrency(unitOtherExpenses)}
+                    </span>
+                  </div>
+                </>
+              )}
 
               {!isReceiptMode && (
                 <p className="col-span-full pt-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -271,62 +326,52 @@ export const PurchaseItemsMobileList = ({
                 </div>
               )}
 
-              {/* Frete: Não-Editável -> Fundo Cinza */}
-              <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-center">
-                <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                  {isReceiptMode ? 'Frete' : 'Frete por unidade'}
-                </span>
-                <span className="min-w-0 break-words font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">
-                  {isReceiptMode && unitFreight <= 0 ? '—' : formatCurrency(unitFreight)}
-                </span>
-              </div>
-
-              {/* Outras despesas: Não-Editável -> Fundo Cinza */}
-              {isReceiptMode && (
+              {!isReceiptMode && (
                 <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-center">
                   <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                    Outras despesas
+                    Frete por unidade
                   </span>
                   <span className="min-w-0 break-words font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal">
-                    {unitOther > 0 ? formatCurrency(unitOther) : '—'}
+                    {formatCurrency(unitFreight)}
                   </span>
                 </div>
               )}
 
               {/* Custo unitário final: Não-Editável -> Fundo Cinza */}
-              <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-center">
-                <span className="text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                  Custo unitário final
-                </span>
-                <span className="min-w-0 break-words font-black text-emerald-600 dark:text-emerald-400 block text-xs leading-normal">
-                  {formatCurrency(finalUnitCost || 0)}
-                </span>
-              </div>
-
-              {/* Subtotal: Não-Editável -> Fundo Cinza */}
-              {isReceiptMode && (
-                <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex flex-col justify-center">
-                  <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                    Subtotal
+              {!isReceiptMode && (
+                <div className="min-w-0 p-2 sm:p-2.5 bg-slate-100/80 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-center">
+                  <span className="text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
+                    Custo unitário final
                   </span>
-                  <span
-                    className="min-w-0 break-words font-bold text-slate-800 dark:text-slate-200 block text-xs leading-normal"
-                    title="Valor total antes do frete, desconto e outras despesas"
-                  >
-                    {formatCurrency(itemSubtotal)}
+                  <span className="min-w-0 break-words font-black text-emerald-600 dark:text-emerald-400 block text-xs leading-normal">
+                    {formatCurrency(finalUnitCost || 0)}
                   </span>
                 </div>
               )}
 
               {/* Total do item final: Não-Editável -> Fundo Cinza */}
-              <div className={`${isReceiptMode ? 'bg-slate-100/80 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/80' : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900'} min-w-0 p-2 sm:p-2.5 rounded-xl border flex flex-col justify-center`}>
-                <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
-                  {isReceiptMode ? 'Total do item final' : 'Total do item'}
-                </span>
-                <span className="min-w-0 break-words font-black text-slate-800 dark:text-slate-100 block text-sm leading-normal">
-                  {formatCurrency(finalTotalCost || 0)}
-                </span>
-              </div>
+              {isReceiptMode ? (
+                <div className="col-span-2 flex items-center justify-between gap-2 pt-1">
+                  {!isCollapsed && receiptRemoveButton}
+                  <div className="ml-auto w-fit max-w-full min-w-0 bg-slate-100/80 dark:bg-slate-800/60 border-slate-200/80 dark:border-slate-700/80 p-2 sm:p-2.5 rounded-xl border flex flex-col justify-center">
+                    <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
+                      Custo total
+                    </span>
+                    <span className="min-w-0 break-words font-black text-slate-800 dark:text-slate-100 block text-sm leading-normal">
+                      {formatCurrency(finalTotalCost || 0)}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="min-w-0 p-2 sm:p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900 rounded-xl border flex flex-col justify-center">
+                  <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black block mb-0.5 break-words leading-tight">
+                    Total do item
+                  </span>
+                  <span className="min-w-0 break-words font-black text-slate-800 dark:text-slate-100 block text-sm leading-normal">
+                    {formatCurrency(finalTotalCost || 0)}
+                  </span>
+                </div>
+              )}
             </div>
             {!isReceiptMode && (
               <button
@@ -338,7 +383,8 @@ export const PurchaseItemsMobileList = ({
                 Remover item
               </button>
             )}
-                </div>
+            </div>
+            </div>
           </div>
         );
       })}

@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type Person from '@/pages/types/person.type';
 import type Product from '@/pages/types/product.type';
 import InventoryResponsibleSelect from '../components/InventoryResponsibleSelect';
 import type { InventoryScopeType } from '../types/inventoryScope.types';
 import { matchesSearchText } from '@/pages/utils/textUtils';
+import { PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS } from '../../../../../../../shared-utils/productAutocompleteFormSchema';
 
 interface InventoryScopeConfigFormProps {
   readonly scopeType: InventoryScopeType | null;
@@ -29,17 +30,31 @@ export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> =
   employees,
 }) => {
   const [productSearch, setProductSearch] = useState('');
+  const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
   const selectedProduct = productParents.find((product) => String(product.id) === selectedProductId);
+  const productSearchQuery = productSearch.trim();
+
+  useEffect(() => {
+    if (productSearchQuery.length < 3) {
+      setDebouncedProductSearch('');
+      return;
+    }
+    const timeoutId = setTimeout(
+      () => setDebouncedProductSearch(productSearchQuery),
+      PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS
+    );
+    return () => clearTimeout(timeoutId);
+  }, [productSearchQuery]);
+
   const matchingProductParents = useMemo(() => {
-    const query = productSearch.trim();
-    if (query.length < 2) return [];
+    if (productSearchQuery.length < 3 || productSearchQuery !== debouncedProductSearch) return [];
     return productParents
       .filter((product) => matchesSearchText(
         `${product.description || ''} ${product.name || ''} ${product.sku || ''} ${product.code || ''}`,
-        query
+        debouncedProductSearch
       ))
-      .slice(0, 10);
-  }, [productParents, productSearch]);
+      .slice(0, 5);
+  }, [debouncedProductSearch, productParents, productSearchQuery]);
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -102,9 +117,13 @@ export const InventoryScopeConfigForm: React.FC<InventoryScopeConfigFormProps> =
                 </button>
               </div>
             )}
-            {!selectedProduct && (productSearch.trim().length < 2 ? (
+            {!selectedProduct && (productSearchQuery.length < 3 ? (
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Digite pelo menos duas letras para localizar um produto com variações ativas.
+                Digite pelo menos três caracteres para localizar um produto com variações ativas.
+              </p>
+            ) : productSearchQuery !== debouncedProductSearch ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400" role="status">
+                Buscando produtos...
               </p>
             ) : matchingProductParents.length > 0 ? (
               <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl">

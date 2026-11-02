@@ -9,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -26,6 +25,7 @@ import {
   updateAuthenticatedPassword,
 } from '../../services/authPasswordRecovery';
 
+import { FormTextInput } from '../shared/FormTextInput';
 interface Props {
   visible: boolean;
   isDarkMode: boolean;
@@ -158,7 +158,7 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
               {currentPasswordRequired ? (
                 <>
                   <Text style={[styles.label, isDarkMode && styles.labelDark]}>Senha atual</Text>
-                  <TextInput
+                  <FormTextInput
                     accessibilityLabel="Senha atual"
                     autoComplete="current-password"
                     onChangeText={setCurrentPassword}
@@ -172,7 +172,7 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
               ) : null}
 
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Nova senha</Text>
-              <TextInput
+              <FormTextInput
                 accessibilityLabel="Nova senha"
                 autoComplete="new-password"
                 onChangeText={setPassword}
@@ -184,7 +184,7 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
               />
 
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Confirmar senha</Text>
-              <TextInput
+              <FormTextInput
                 accessibilityLabel="Confirmar senha"
                 autoComplete="new-password"
                 onChangeText={setConfirmation}
@@ -202,7 +202,7 @@ export const PasswordChangeModal: React.FC<Props> = ({ visible, isDarkMode, emai
                   <Text style={[styles.label, isDarkMode && styles.labelDark]}>
                     Código de confirmação
                   </Text>
-                  <TextInput
+                  <FormTextInput
                     accessibilityLabel="Código de confirmação"
                     autoComplete="one-time-code"
                     keyboardType="number-pad"

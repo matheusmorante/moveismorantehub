@@ -18,6 +18,7 @@ import {
   sortOrders,
 } from './useOrderHistoryFilters';
 import { createOrderHistoryOperations } from './useOrderHistoryOperations';
+import { useOrderHistorySelection } from './useOrderHistorySelection';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
 import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules';
@@ -56,7 +57,13 @@ export const useOrderHistory = (filters?: any) => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPageState] = useState(15);
-  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const {
+    selectedOrders,
+    setSelectedOrders,
+    toggleSelection,
+    selectAll: selectCurrentPage,
+    clearSelection,
+  } = useOrderHistorySelection();
   const setItemsPerPage = useCallback((size: number) => {
     setItemsPerPageState(size);
     setCurrentPage(1);
@@ -487,25 +494,6 @@ export const useOrderHistory = (filters?: any) => {
     }
   };
 
-  const toggleSelection = (id: string) => {
-    setSelectedOrders((prev) =>
-      prev.includes(id) ? prev.filter((selectedId) => selectedId !== id) : [...prev, id]
-    );
-  };
-
-  const selectAll = () => {
-    const allIdsOnPage = filteredOrders.map((o) => o.id!).filter(Boolean);
-    const allSelected = allIdsOnPage.every((id) => selectedOrders.includes(id));
-    if (allSelected) {
-      setSelectedOrders((prev) => prev.filter((id) => !allIdsOnPage.includes(id)));
-    } else {
-      const newSelections = allIdsOnPage.filter((id) => !selectedOrders.includes(id));
-      setSelectedOrders((prev) => [...prev, ...newSelections]);
-    }
-  };
-
-  const clearSelection = () => setSelectedOrders([]);
-
   return {
     orders: filteredOrders,
     fiscalBadgeStatusByOrderId,
@@ -535,7 +523,7 @@ export const useOrderHistory = (filters?: any) => {
     cancelReturnCancellation: () => { if (!returnTransitionInFlight.current) { pendingReturnCancellationOwner.current = null; setPendingReturnCancellation(null); } },
     selectedOrders,
     toggleSelection,
-    selectAll,
+    selectAll: () => selectCurrentPage(filteredOrders),
     clearSelection,
     handleBulkTrash: operations.handleBulkTrash,
     handleBulkRestore: operations.handleBulkRestore,

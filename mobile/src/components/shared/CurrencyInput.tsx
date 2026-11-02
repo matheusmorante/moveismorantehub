@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { TextInput, TextInputProps, StyleSheet, View, Text } from 'react-native';
+import { TextInputProps, StyleSheet, View, Text } from 'react-native';
+import { FormTextInput } from './FormTextInput';
 
 export interface CurrencyInputProps
   extends Omit<TextInputProps, 'value' | 'onChangeText' | 'onChange'> {
@@ -95,7 +96,7 @@ export function CurrencyInput({
   };
 
   return (
-    <TextInput
+    <FormTextInput
       style={[
         styles.input,
         { color: disabled ? '#94a3b8' : color },

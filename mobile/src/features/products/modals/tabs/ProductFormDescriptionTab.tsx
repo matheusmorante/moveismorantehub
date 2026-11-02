@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Sparkles } from 'lucide-react-native';
 import { useZodForm, flattenFormErrors } from '../../../../hooks/useZodForm';
 import { productDescriptionAiFormSchema } from '../../../../../../shared-utils/productAiFormSchemas';
@@ -12,6 +12,7 @@ import {
 } from '../../services/mobileProductAiService';
 import { ProductDescriptionAiModal } from '../components/ProductDescriptionAiModal';
 
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
@@ -130,7 +131,7 @@ export const ProductFormDescriptionTab: React.FC<Props> = ({
         Descreva o produto, seus diferenciais e informações importantes para o catálogo.
       </Text>
     </View>
-    <TextInput
+    <FormTextInput
       value={formData.description || ''}
       onFocus={() => onFieldFocus?.('description')}
       onBlur={() => onFieldBlur?.('description')}

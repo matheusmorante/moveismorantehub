@@ -1,5 +1,6 @@
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Tag, LayoutGrid, Plus, AlertTriangle, Search, X } from 'lucide-react-native';
 import { ActiveViewType } from '../types/mobileCategory.types';
 
@@ -133,7 +134,7 @@ export const MobileCategoriesHeader: React.FC<Props> = ({
       {/* Barra de Busca */}
       <View style={[styles.searchBox, dark && styles.searchBoxDark]}>
         <Search size={15} color="#94a3b8" />
-        <TextInput
+        <FormTextInput
           value={searchTerm}
           onChangeText={onSearchChange}
           placeholder={searchPlaceholder}

@@ -40,6 +40,9 @@ vi.mock('lucide-react-native', () => ({
   Trash2: () => null,
 }));
 vi.mock('../../../../../components/shared/CurrencyInput', () => ({ CurrencyInput: () => null }));
+vi.mock('../../../../../components/shared/FormTextInput', () => ({
+  FormTextInput: (props: any) => React.createElement('input', props),
+}));
 vi.mock('../../hooks/usePurchaseForm', () => ({
   formatMoney: (value: number) => `R$ ${value.toFixed(2)}`,
   parseNumber: (value: string) => Number(value) || 0,
@@ -58,6 +61,7 @@ describe('composição do item de compra no aplicativo', () => {
         discountPercent="0"
         ipiPercent="3"
         freightPercent="7"
+        selectedItemIndex={0}
         onOpenProductPicker={vi.fn()}
         onAddItemRow={vi.fn()}
         onUpdateItem={vi.fn()}
@@ -88,6 +92,7 @@ describe('composição do item de compra no aplicativo', () => {
           baseCost: 100, discountUnit: 5, unitCost: 115, totalCost: 230,
         }]}
         receiptMode
+        selectedItemIndex={0}
         onOpenProductPicker={vi.fn()}
         onAddItemRow={vi.fn()}
         onUpdateItem={vi.fn()}
@@ -97,10 +102,67 @@ describe('composição do item de compra no aplicativo', () => {
     );
 
     expect(markup).toContain('Custo unitário');
-    expect(markup).toContain('Desconto por unidade');
+    expect(markup).not.toContain('Desconto por unidade');
     expect(markup).toContain('Subtotal:');
     expect(markup).toContain('R$ 230.00');
     expect(markup).not.toContain('IPI por unidade');
     expect(markup).not.toContain('Composição e total');
+  });
+
+  it('mostra frete rateado na composição do recebimento sem NF sem campo de desconto', () => {
+    const markup = renderToStaticMarkup(
+      <PurchaseItemsSection
+        items={[{
+          productId: 'produto', description: 'Mesa', quantity: 2,
+          baseCost: 100, discountUnit: 5, freightUnit: 3, unitCost: 98, totalCost: 196,
+        }]}
+        receiptMode
+        simplifiedReceiptMode
+        showReceiptCostComposition
+        selectedItemIndex={0}
+        onOpenProductPicker={vi.fn()}
+        onAddItemRow={vi.fn()}
+        onUpdateItem={vi.fn()}
+        onRemoveItem={vi.fn()}
+        colors={{ bg: '#fff', surface: '#fff', border: '#ddd', text: '#000', muted: '#666' }}
+      />
+    );
+
+    expect(markup).toContain('Composição do custo por unidade');
+    expect(markup).not.toContain('Desconto por unidade');
+    expect(markup).toContain('Frete por unidade');
+    expect(markup).not.toContain('R$ 5.00');
+    expect(markup).toContain('R$ 3.00');
+    expect(markup).toContain('Custo total');
+    expect(markup).not.toContain('IPI por unidade');
+  });
+
+  it('exibe os itens de recebimento com NF como informação, sem campos ou ações de edição', () => {
+    const markup = renderToStaticMarkup(
+      <PurchaseItemsSection
+        items={[{
+          productId: 'produto', description: 'Roupeiro Seridó', quantity: 4,
+          baseCost: 151, discountUnit: 2.5, unitCost: 148.5, totalCost: 594,
+        }]}
+        receiptMode
+        readOnly
+        selectedItemIndex={0}
+        simplifiedReceiptMode={false}
+        onOpenProductPicker={vi.fn()}
+        onAddItemRow={vi.fn()}
+        onUpdateItem={vi.fn()}
+        onRemoveItem={vi.fn()}
+        colors={{ bg: '#f8fafc', surface: '#fff', border: '#ddd', text: '#000', muted: '#666' }}
+      />
+    );
+
+    expect(markup).toContain('Roupeiro Seridó');
+    expect(markup).toContain('R$ 151.00');
+    expect(markup).not.toContain('R$ 2.50');
+    expect(markup).not.toContain('Desconto por unidade');
+    expect(markup).not.toContain('<input');
+    expect(markup).not.toContain('Alterar produto');
+    expect(markup).not.toContain('Remover item');
+    expect(markup).not.toContain('Adicionar item');
   });
 });

@@ -11,13 +11,7 @@ import { getSettings } from '@/pages/utils/settingsService';
 import { isGenericHandlingLabel } from '@/pages/utils/handlingMigration';
 import { BodyRowViewProps } from './BodyRowMobile';
 import DiscountInput from './DiscountInput';
-
-const STOCK_ORIGIN_PRODUCT_KINDS = {
-  '': ['normal', 'salvado', 'usado'],
-  novo: ['normal'],
-  salvado: ['salvado'],
-  usado: ['usado'],
-} as const;
+import { STOCK_ORIGIN_PRODUCT_KINDS } from './stockOriginProductKinds';
 
 export const BodyRowDesktop: React.FC<BodyRowViewProps> = ({
   item,

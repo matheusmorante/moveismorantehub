@@ -1,5 +1,6 @@
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Search, Package, Minus, Plus, Trash2 } from 'lucide-react-native';
 import type { CompositionVariationItem } from '../types/composition.type';
 
@@ -76,7 +77,7 @@ export const CompositionItemsTab: React.FC<CompositionItemsTabProps> = ({
           }}
         >
           <Search size={16} color={themeColors.textMuted} />
-          <TextInput
+          <FormTextInput
             style={{ flex: 1, padding: 12, color: themeColors.text }}
             placeholder="Buscar por nome ou código..."
             placeholderTextColor={themeColors.textMuted}

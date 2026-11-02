@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { Routes, Route, BrowserRouter, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Routes, Route, BrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SupabaseHistoryRecorder } from './components/layout/SupabaseHistoryRecorder';
 import { ERPListPaginationPreferenceContext } from './components/shared/ERPListPaginationPreferenceContext';
@@ -60,7 +60,7 @@ import OrderEditModal from './pages/App/SalesOrder/modals/OrderEditModal';
 import FiscalDocumentsPage from './pages/App/FiscalDocuments';
 import { canPerform } from './pages/utils/permissionService';
 import { getProfileRoles } from './pages/utils/accessRoles';
-import { buildIdentificationOnlyLabelSearch } from './pages/App/Stock/LabelPrinting/utils/identificationLabelRoute';
+import ProductIdentificationLabelRoute from './pages/App/Stock/LabelPrinting/ProductIdentificationLabelRoute';
 
 const LoadingFallback = () => (
   <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
@@ -135,35 +135,6 @@ const PermissionRoute = ({
   }
 
   return <>{children || <Outlet />}</>;
-};
-
-const ProductIdentificationLabelRoute = () => {
-  const { profile, loading } = useAuth();
-  const location = useLocation();
-  const roles = profile ? getProfileRoles(profile) : [];
-
-  if (loading) return null;
-  if (canPerform('viewStockLabels', roles)) return <LabelPrinting />;
-  if (!canPerform('printProductIdentificationLabels', roles)) {
-    return <Navigate to="/" replace />;
-  }
-
-  const searchParams = new URLSearchParams(location.search);
-  const category = searchParams.get('cat') || searchParams.get('category');
-  if (category !== 'identificacao') {
-    return (
-      <Navigate
-        to={{
-          pathname: location.pathname,
-          search: buildIdentificationOnlyLabelSearch(location.search),
-        }}
-        replace
-        state={location.state}
-      />
-    );
-  }
-
-  return <LabelPrinting />;
 };
 
 import ResetPassword from './pages/ResetPassword';

@@ -236,6 +236,7 @@ const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
     (item) => item.physicalCount !== null && item.difference !== 0
   );
   const hasUncountedItems = reconciledItems.some((item) => typeof item.physicalCount !== 'number');
+  const hasIncompleteProduct = items.some((item) => !item.productId?.trim());
 
   return (
     <div role="dialog" aria-modal="true" aria-label="Revisão do Inventário" aria-busy={loading || isConfirming} className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
@@ -393,10 +394,12 @@ const InventoryReviewEditor: React.FC<InventoryReviewModalProps> = ({
             <button
               type="button"
               onClick={() => void handleConfirm()}
-              disabled={!canFinalize || loading || isConfirming || sourceInvalid || blocked || reconciledItems.every((item) => item.physicalCount === null)}
+              disabled={!canFinalize || loading || isConfirming || sourceInvalid || blocked || hasIncompleteProduct || reconciledItems.every((item) => item.physicalCount === null)}
               title={
                 !canFinalize
                   ? 'Seu perfil precisa da permissão “Finalizar inventários”.'
+                  : hasIncompleteProduct
+                    ? 'Selecione um produto para cada item antes de concluir o inventário.'
                   : reconciledItems.every((item) => item.physicalCount === null)
                     ? hasStages
                       ? 'Inicie ao menos uma etapa de fornecedor para confirmar o inventário.'

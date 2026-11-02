@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { Plus, Minus } from 'lucide-react-native';
 import type { AuditItem } from '../hooks/useInventoryAuditWorkflow';
 
@@ -97,7 +98,7 @@ export const InventoryFocusItemCard: React.FC<Props> = ({
             </TouchableOpacity>
 
             <View style={styles.inputWrapper}>
-              <TextInput
+              <FormTextInput
                 accessibilityLabel={`Quantidade contada de ${item.name}`}
                 style={[
                   styles.bigInput,

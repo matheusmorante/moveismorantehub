@@ -1,7 +1,16 @@
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Check, Search, X } from 'lucide-react-native';
+import {
+  PRODUCT_CATEGORY_SEARCH_MAX_SUGGESTIONS,
+  PRODUCT_CATEGORY_SEARCH_MIN_LENGTH,
+  searchProductCategories,
+} from '../../../../../../shared-utils/productCategorySearch';
+import { normalizeSearchTerm } from '../../../../../../shared-utils/productText';
 import { MobileCategory } from '../../services/mobileCategoryService';
+
+const MIN_CATEGORY_SEARCH_LENGTH = PRODUCT_CATEGORY_SEARCH_MIN_LENGTH;
 
 interface CategoryMultiSelectListProps {
   categories: MobileCategory[];
@@ -11,13 +20,6 @@ interface CategoryMultiSelectListProps {
   dark: boolean;
   hasValidationError?: boolean;
 }
-
-const normalizeSearchTerm = (value: string) =>
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pt-BR')
-    .trim();
 
 export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = ({
   categories,
@@ -33,15 +35,11 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
     [filteredCategories, selectedCategoryIds]
   );
   const normalizedSearch = normalizeSearchTerm(search);
-  const matchingCategories = useMemo(() => {
-    if (normalizedSearch.length < 2) return [];
-    return filteredCategories.filter((category) => {
-      const parentNames = (category.parents || [])
-        .map((id) => categories.find((item) => item.id === id)?.name || '')
-        .join(' ');
-      return normalizeSearchTerm(`${category.name} ${parentNames}`).includes(normalizedSearch);
-    });
-  }, [categories, filteredCategories, normalizedSearch]);
+  const matchingCategories = useMemo(
+    () => searchProductCategories(filteredCategories, categories, search)
+      .slice(0, PRODUCT_CATEGORY_SEARCH_MAX_SUGGESTIONS),
+    [categories, filteredCategories, search]
+  );
 
   return (
     <View
@@ -53,7 +51,7 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
     >
       <View style={styles.searchBox}>
         <Search size={16} color={dark ? '#94a3b8' : '#64748b'} />
-        <TextInput
+        <FormTextInput
           value={search}
           onChangeText={setSearch}
           placeholder="Pesquisar categorias..."
@@ -102,7 +100,7 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
           })}
         </View>
       )}
-      {normalizedSearch.length >= 2 ? (
+      {normalizedSearch.length >= MIN_CATEGORY_SEARCH_LENGTH ? (
         <ScrollView
           nestedScrollEnabled
           style={styles.categoriesScroll}
@@ -160,7 +158,7 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
           )}
         </ScrollView>
       ) : (
-        <Text style={styles.emptyCategoriesText}>Digite ao menos 2 caracteres para pesquisar.</Text>
+        <Text style={styles.emptyCategoriesText}>Digite ao menos 3 caracteres para pesquisar.</Text>
       )}
     </View>
   );

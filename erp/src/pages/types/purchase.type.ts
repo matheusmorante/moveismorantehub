@@ -28,6 +28,7 @@ export type PurchaseItem = {
   otherExpensesUnit?: number;
   netBaseCost?: number;
   inventoryMoveId?: string;
+  receiptItemId?: string;
 };
 
 export type Purchase = {

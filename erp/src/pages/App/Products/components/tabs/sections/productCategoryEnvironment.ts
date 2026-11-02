@@ -1,7 +1,7 @@
-import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { getProductCategoryRootNames } from '../../../../../../../../shared-utils/productCategoryResolution';
+import { searchProductCategories } from '../../../../../../../../shared-utils/productCategorySearch';
 
-export { getProductCategoryRootNames };
+export { getProductCategoryRootNames, searchProductCategories };
 
 export interface ProductCategoryOption {
   id: string;
@@ -17,27 +17,5 @@ export function filterProductSelectableCategories(
     const isEnvironment = isRootCategory;
 
     return !isEnvironment;
-  });
-}
-
-export function searchProductCategories(
-  selectableCategories: ProductCategoryOption[],
-  allCategories: ProductCategoryOption[],
-  searchTerm: string
-): ProductCategoryOption[] {
-  const term = normalizeSearchTerm(searchTerm);
-  if (term.length < 3) {
-    return [];
-  }
-
-  return selectableCategories.filter((cat) => {
-    const catNameMatches = normalizeSearchTerm(cat.name).includes(term);
-    if (catNameMatches) return true;
-
-    const parentNames = (cat.parents || [])
-      .map((pid) => allCategories.find((item) => item.id === pid)?.name || '')
-      .filter(Boolean);
-
-    return parentNames.some((pName) => normalizeSearchTerm(pName).includes(term));
   });
 }

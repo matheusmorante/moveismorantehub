@@ -1,3 +1,5 @@
+import { removeAccents } from './productText';
+
 export interface EnvironmentSearchCategory {
   id: string;
   name: string;
@@ -19,16 +21,17 @@ export function filterEnvironmentsBySearch<TEnvironment extends EnvironmentSearc
 ): TEnvironment[] {
   if (!searchTerm.trim()) return environments;
 
-  const normalizedTerm = normalizeSearchTerm(searchTerm);
+  // Keep leading/trailing spaces meaningful while comparing case- and accent-insensitively.
+  const normalizeForSearch = (value: string) => removeAccents(value).toLowerCase();
+  const normalizedTerm = normalizeForSearch(searchTerm);
   return environments.filter((environment) => {
-    if (normalizeSearchTerm(environment.name).includes(normalizedTerm)) return true;
+    if (normalizeForSearch(environment.name).includes(normalizedTerm)) return true;
 
     return categories.some(
       (category) =>
         environment.categories?.includes(category.id) &&
-        normalizeSearchTerm(category.name).includes(normalizedTerm)
+        normalizeForSearch(category.name).includes(normalizedTerm)
     );
   });
 }
-import { normalizeSearchTerm } from './productText';
 

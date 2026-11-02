@@ -241,7 +241,7 @@ describe('sincronização incremental do índice offline web', () => {
       'inventory-identification-index',
       'inventory-identification-index-v2',
     ]);
-    expect(stored.find((row) => row.id.endsWith('-v2')).snapshot.formatVersion).toBe(3);
+    expect(stored.find((row) => row.id.endsWith('-v2')).snapshot.formatVersion).toBe(4);
     expect(verifyDb.objectStoreNames.contains('outbox')).toBe(true);
     expect((await getWebInventoryDraft('audit-legacy'))?.items[0].physicalCount).toBe(7);
   });

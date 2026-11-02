@@ -1,10 +1,10 @@
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import React, { useRef, useState } from 'react';
 import {
   Modal,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   useWindowDimensions,
@@ -83,7 +83,7 @@ export const InvoicesPageHeader: React.FC<InvoicesPageHeaderProps> = ({
         <View style={styles.filtersRow}>
           <View style={[styles.searchWrapper, isDarkMode && styles.searchWrapperDark]}>
             <Search size={18} color={isDarkMode ? '#64748b' : '#94a3b8'} />
-            <TextInput
+            <FormTextInput
               style={[styles.searchInput, isDarkMode && styles.textDark]}
               placeholder="Pesquisar por fornecedor, número da NF de entrada ou chave de acesso de 44 caracteres..."
               placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
@@ -127,7 +127,7 @@ export const InvoicesPageHeader: React.FC<InvoicesPageHeaderProps> = ({
         <SefazSyncStatusBadge isDarkMode={isDarkMode} onSyncSuccess={onSyncSuccess} />
 
         {dateFilter.mode === 'custom_month' && (
-          <TextInput
+          <FormTextInput
             value={dateFilter.customMonth}
             onChangeText={(customMonth) => onChangeDateFilter({ ...dateFilter, customMonth })}
             placeholder="AAAA-MM"
@@ -139,7 +139,7 @@ export const InvoicesPageHeader: React.FC<InvoicesPageHeaderProps> = ({
         {dateFilter.mode === 'custom_range' && (
           <View style={styles.customRange}>
             <Text style={styles.rangeLabel}>De:</Text>
-            <TextInput
+            <FormTextInput
               value={dateFilter.startMonth}
               onChangeText={(startMonth) => onChangeDateFilter({ ...dateFilter, startMonth })}
               placeholder="AAAA-MM"
@@ -148,7 +148,7 @@ export const InvoicesPageHeader: React.FC<InvoicesPageHeaderProps> = ({
               style={[styles.monthInput, isDarkMode && styles.monthInputDark]}
             />
             <Text style={styles.rangeLabel}>Até:</Text>
-            <TextInput
+            <FormTextInput
               value={dateFilter.endMonth}
               onChangeText={(endMonth) => onChangeDateFilter({ ...dateFilter, endMonth })}
               placeholder="AAAA-MM"

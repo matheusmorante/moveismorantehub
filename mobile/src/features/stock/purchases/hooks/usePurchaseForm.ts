@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
-import { mobilePurchaseFormSchema } from '../../../../../../shared-utils/purchaseFormSchemas';
+import {
+  getPurchaseConfirmationBlockReasons,
+  mobilePurchaseFormSchema,
+} from '../../../../../../shared-utils/purchaseFormSchemas';
 import { fetchMobileSuppliers } from '../../../products/services/mobileSupplierService';
 import {
   MobilePurchase,
@@ -251,16 +254,10 @@ export function usePurchaseForm({
     draftManager.autoSaveTimerRef.current = null;
 
     const validItems = itemsManager.items.filter((item) => Boolean(item.productId && item.productId.trim()));
-    if (!supplierId || validItems.length === 0) {
+    const confirmationBlockReasons = getPurchaseConfirmationBlockReasons(supplierId, itemsManager.items);
+    if (confirmationBlockReasons.length > 0) {
       actionRef.current = false;
-      Alert.alert(
-        'Campos obrigatórios',
-        !supplierId && validItems.length === 0
-          ? 'Selecione o fornecedor e adicione pelo menos um item.'
-          : !supplierId
-            ? 'Selecione o fornecedor.'
-            : 'Adicione pelo menos um item com produto selecionado ao pedido.'
-      );
+      Alert.alert('Campos obrigatórios', confirmationBlockReasons.join(' '));
       return;
     }
 
@@ -385,6 +382,7 @@ export function usePurchaseForm({
     hasDraftChanges: draftManager.hasDraftChanges,
     isDraftSession: draftManager.isDraftSession,
     draftSaveStatus: draftManager.draftSaveStatus,
+    confirmationBlockReasons: getPurchaseConfirmationBlockReasons(supplierId, itemsManager.items),
     handleClose,
     handleSave,
   };

@@ -41,6 +41,21 @@ export const mapInventoryMoveFromDB = (data: any): InventoryMove => {
   const reversalReason =
     data.reversal_reason || meta.reversalReason || (isReversed ? data.reason : undefined);
   const reversedAt = data.reversed_at || meta.reversedAt;
+  const relatedEntityType = ['sales_order', 'purchase_order', 'goods_receipt', 'adjustment', 'manual'].includes(
+    data.related_entity_type
+  )
+    ? data.related_entity_type
+    : undefined;
+  const inferredRelatedEntityType =
+    data.order_id &&
+    (/^(Entrada (a partir )?do Pedido|Entrada NF-)/i.test(data.label || '') ||
+      /Pedido de Compra\s*#/i.test(data.observation || ''))
+      ? 'purchase_order'
+      : data.order_id &&
+          isExitType(data.type) &&
+          (/^Saída - Pedido/i.test(data.label || '') || /^Pedido #/i.test(data.label || ''))
+        ? 'sales_order'
+        : undefined;
   const variationRecord = Array.isArray(data.product_variations)
     ? data.product_variations[0]
     : data.product_variations;
@@ -62,22 +77,13 @@ export const mapInventoryMoveFromDB = (data: any): InventoryMove => {
       data.unit_cost === null || data.unit_cost === undefined ? undefined : Number(data.unit_cost),
     unitPrice: data.unit_price == null ? undefined : Number(data.unit_price),
     observation: cleanObservation,
-    relatedEntityId: data.order_id,
+    relatedEntityId: data.related_entity_id || data.source_receipt_id || data.order_id,
     sourceReceiptId: data.source_receipt_id || undefined,
     sourceItemIndex:
       data.source_item_index === null || data.source_item_index === undefined
         ? undefined
         : Number(data.source_item_index),
-    relatedEntityType:
-      data.order_id &&
-      (/^(Entrada (a partir )?do Pedido|Entrada NF-)/i.test(data.label || '') ||
-        /Pedido de Compra\s*#/i.test(data.observation || ''))
-        ? 'purchase_order'
-        : data.order_id &&
-            isExitType(data.type) &&
-            (/^Saída - Pedido/i.test(data.label || '') || /^Pedido #/i.test(data.label || ''))
-          ? 'sales_order'
-          : undefined,
+    relatedEntityType: relatedEntityType || inferredRelatedEntityType,
     status: normalizedStatus,
     reversalReason: reversalReason,
     reversedAt: reversedAt,

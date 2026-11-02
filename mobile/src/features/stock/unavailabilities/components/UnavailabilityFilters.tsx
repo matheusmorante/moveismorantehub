@@ -1,13 +1,12 @@
 import type React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import type { UnavailabilityProductKindFilter, UnavailabilityStatusFilter } from '../types';
+import type { UnavailabilityStatusFilter } from '../types';
 
 interface Props {
   isDarkMode: boolean;
   statusFilter: UnavailabilityStatusFilter;
-  productKindFilter: UnavailabilityProductKindFilter;
+  totalCount: number;
   onStatusChange: (status: UnavailabilityStatusFilter) => void;
-  onProductKindChange: (kind: UnavailabilityProductKindFilter) => void;
 }
 
 const STATUS_OPTIONS: { key: UnavailabilityStatusFilter; label: string }[] = [
@@ -16,87 +15,55 @@ const STATUS_OPTIONS: { key: UnavailabilityStatusFilter; label: string }[] = [
   { key: 'cancelled', label: 'Desfeitas' },
 ];
 
-const KIND_OPTIONS: { key: UnavailabilityProductKindFilter; label: string }[] = [
-  { key: 'all', label: 'Todos' },
-  { key: 'normal', label: 'Normal' },
-  { key: 'salvado', label: 'Salvados' },
-  { key: 'usado', label: 'Usados' },
-];
-
 export const UnavailabilityFilters: React.FC<Props> = ({
   isDarkMode,
   statusFilter,
-  productKindFilter,
+  totalCount,
   onStatusChange,
-  onProductKindChange,
 }) => {
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-      >
-        <View style={styles.group}>
-          {STATUS_OPTIONS.map((opt) => {
-            const active = statusFilter === opt.key;
-            return (
-              <TouchableOpacity
-                key={opt.key}
-                onPress={() => onStatusChange(opt.key)}
-                style={[
-                  styles.chip,
-                  isDarkMode && styles.chipDark,
-                  active && styles.chipActive,
-                  active && isDarkMode && styles.chipActiveDark,
-                ]}
-                hitSlop={4}
-              >
-                <Text
+      <View style={styles.row}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.statusScroll}
+          contentContainerStyle={styles.scroll}
+        >
+          <View style={styles.group}>
+            {STATUS_OPTIONS.map((opt) => {
+              const active = statusFilter === opt.key;
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  onPress={() => onStatusChange(opt.key)}
                   style={[
-                    styles.chipText,
-                    isDarkMode && styles.chipTextDark,
-                    active && styles.chipTextActive,
+                    styles.chip,
+                    isDarkMode && styles.chipDark,
+                    active && styles.chipActive,
+                    active && isDarkMode && styles.chipActiveDark,
                   ]}
+                  hitSlop={4}
                 >
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                  <Text
+                    style={[
+                      styles.chipText,
+                      isDarkMode && styles.chipTextDark,
+                      active && styles.chipTextActive,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
 
-        <View style={styles.divider} />
-
-        <View style={styles.group}>
-          {KIND_OPTIONS.map((opt) => {
-            const active = productKindFilter === opt.key;
-            return (
-              <TouchableOpacity
-                key={opt.key}
-                onPress={() => onProductKindChange(opt.key)}
-                style={[
-                  styles.chip,
-                  isDarkMode && styles.chipDark,
-                  active && styles.chipActive,
-                  active && isDarkMode && styles.chipActiveDark,
-                ]}
-                hitSlop={4}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    isDarkMode && styles.chipTextDark,
-                    active && styles.chipTextActive,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
+        <Text style={[styles.countText, isDarkMode && styles.countTextDark]}>
+          {totalCount} {totalCount === 1 ? 'registro' : 'registros'}
+        </Text>
+      </View>
     </View>
   );
 };
@@ -113,21 +80,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     borderBottomColor: '#1e293b',
   },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusScroll: {
+    flex: 1,
+    minWidth: 0,
+  },
   scroll: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
+  countText: {
+    flexShrink: 0,
+    fontSize: 11,
+    color: '#64748b',
+  },
+  countTextDark: {
+    color: '#94a3b8',
+  },
   group: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  divider: {
-    width: 1,
-    height: 18,
-    backgroundColor: '#cbd5e1',
-    marginHorizontal: 4,
   },
   chip: {
     paddingHorizontal: 10,

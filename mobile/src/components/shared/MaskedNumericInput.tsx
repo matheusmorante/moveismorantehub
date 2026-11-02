@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { TextInput, TextInputProps, StyleSheet, View, Text } from 'react-native';
+import { TextInputProps, StyleSheet, View, Text } from 'react-native';
+import { FormTextInput } from './FormTextInput';
 
 export interface MaskedNumericInputProps
   extends Omit<TextInputProps, 'value' | 'onChangeText' | 'onChange'> {
@@ -92,7 +93,7 @@ export function MaskedNumericInput({
   };
 
   return (
-    <TextInput
+    <FormTextInput
       style={[
         styles.input,
         { color: disabled ? '#94a3b8' : color },

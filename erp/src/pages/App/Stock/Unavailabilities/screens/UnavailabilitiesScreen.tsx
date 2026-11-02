@@ -10,7 +10,6 @@ import {
   fetchStockUnavailabilities,
   STOCK_UNAVAILABILITIES_PAGE_SIZE,
   type StockUnavailability,
-  type UnavailabilityProductKindFilter,
   type UnavailabilityStatusFilter,
   undoStockUnavailability,
 } from '@/pages/utils/stockUnavailabilityService';
@@ -28,8 +27,6 @@ export default function UnavailabilitiesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = STOCK_UNAVAILABILITIES_PAGE_SIZE;
   const [statusFilter, setStatusFilter] = useState<UnavailabilityStatusFilter>('all');
-  const [productKindFilter, setProductKindFilter] =
-    useState<UnavailabilityProductKindFilter>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [labelItem, setLabelItem] = useState<StockUnavailability | null>(null);
@@ -44,7 +41,7 @@ export default function UnavailabilitiesPage() {
         page: currentPage,
         pageSize: itemsPerPage,
         status: statusFilter,
-        productKind: productKindFilter,
+        productKind: 'all',
         id: id && id !== 'undefined' && id.trim() !== '' ? id : undefined,
       });
       if (revision !== requestRevision.current) return;
@@ -63,7 +60,7 @@ export default function UnavailabilitiesPage() {
     } finally {
       if (revision === requestRevision.current) setIsLoading(false);
     }
-  }, [currentPage, itemsPerPage, id, productKindFilter, statusFilter]);
+  }, [currentPage, itemsPerPage, id, statusFilter]);
 
   useEffect(() => {
     void fetchPage();
@@ -117,26 +114,10 @@ export default function UnavailabilitiesPage() {
             <option value="cancelled">Desfeitas</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Tipo do produto
-          <select
-            aria-label="Filtrar por tipo do produto"
-            value={productKindFilter}
-            onChange={(event) => {
-              setProductKindFilter(event.target.value as UnavailabilityProductKindFilter);
-              setCurrentPage(1);
-            }}
-          >
-            <option value="all">Todos</option>
-            <option value="normal">Normal</option>
-            <option value="salvado">Salvados</option>
-            <option value="usado">Usados</option>
-          </select>
-        </label>
       </div>
 
       {/* Estado vazio para estoque sem indisponibilidades cadastradas */}
-      {!isLoading && totalCount === 0 && statusFilter === 'all' && productKindFilter === 'all' ? (
+      {!isLoading && totalCount === 0 && statusFilter === 'all' ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center my-4">
           <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 size={32} />
@@ -192,7 +173,6 @@ export default function UnavailabilitiesPage() {
                       type="button"
                       onClick={() => {
                         setStatusFilter('all');
-                        setProductKindFilter('all');
                         setCurrentPage(1);
                       }}
                       className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium"

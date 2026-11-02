@@ -58,10 +58,8 @@ describe('fetchMobileProductSuppliers', () => {
     expect(query.select).toHaveBeenCalledWith(
       expect.stringContaining('social_name')
     );
-    expect(query.or).toHaveBeenNthCalledWith(1, 'deleted.eq.false,deleted.is.null');
-    expect(query.or).toHaveBeenNthCalledWith(
-      2,
-      'person_type.ilike.suppliers,person_type.ilike.supplier'
+    expect(query.or).toHaveBeenCalledWith(
+      'and(or(deleted.eq.false,deleted.is.null),or(person_type.ilike.suppliers,person_type.ilike.supplier))'
     );
     expect(query.order).toHaveBeenNthCalledWith(1, 'full_name', { ascending: true });
     expect(query.order).toHaveBeenNthCalledWith(2, 'id', { ascending: true });

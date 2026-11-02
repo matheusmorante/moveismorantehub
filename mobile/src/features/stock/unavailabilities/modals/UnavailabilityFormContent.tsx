@@ -5,10 +5,10 @@ import {
   Platform,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { Check, X } from 'lucide-react-native';
 import { UnavailabilityProductPicker } from '../components/UnavailabilityProductPicker';
 import { useMobileUnavailabilityForm } from '../hooks/useMobileUnavailabilityForm';
@@ -35,7 +35,7 @@ export const UnavailabilityFormContent: React.FC<UnavailabilityFormContentProps>
         {/* Header */}
         <View style={[styles.modalHeader, isDarkMode && styles.modalHeaderDark]}>
           <Text style={[styles.modalTitle, isDarkMode && styles.modalTitleDark]}>
-            Nova Indisponibilidade
+            Adicionar Produto Indisponível
           </Text>
           <TouchableOpacity onPress={actions.handleClose} hitSlop={8}>
             <X size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
@@ -46,12 +46,9 @@ export const UnavailabilityFormContent: React.FC<UnavailabilityFormContentProps>
           {/* Produto / Variação */}
           <UnavailabilityProductPicker
             isDarkMode={isDarkMode}
+            disabled={state.isLoading}
             selectedProductVariation={state.selectedProductVariation}
-            productQuery={state.productQuery}
-            isSearchingProduct={state.isSearchingProduct}
-            productSuggestions={state.productSuggestions}
             onSelectProductVariation={actions.setSelectedProductVariation}
-            onProductQueryChange={actions.setProductQuery}
           />
 
           {/* Quantidade */}
@@ -59,7 +56,7 @@ export const UnavailabilityFormContent: React.FC<UnavailabilityFormContentProps>
             <Text style={[styles.label, isDarkMode && styles.labelDark]}>
               Quantidade <Text style={styles.requiredMark}>*</Text>
             </Text>
-            <TextInput
+            <FormTextInput
               style={[
                 styles.input,
                 isDarkMode && styles.inputDark,
@@ -185,7 +182,7 @@ export const UnavailabilityFormContent: React.FC<UnavailabilityFormContentProps>
           {/* Observação */}
           <View style={[styles.inputGroup, state.isFieldsDisabled && styles.disabledGroup]}>
             <Text style={[styles.label, isDarkMode && styles.labelDark]}>Observação</Text>
-            <TextInput
+            <FormTextInput
               style={[
                 styles.input,
                 styles.textArea,

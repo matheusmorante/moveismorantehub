@@ -16,8 +16,11 @@ export interface SearchableProduct {
   supplier_ids?: string[];
   supplierNames?: string;
   assignedSupplier?: string;
+  resultMeta?: string;
   active?: boolean;
 }
+
+export type ProductSearchProvider = (query: string) => Promise<SearchableProduct[]>;
 
 export interface InventoryProductSearchModalProps {
   isDarkMode: boolean;
@@ -27,6 +30,7 @@ export interface InventoryProductSearchModalProps {
   subtitle?: string;
   supplierId?: string;
   activeOnly?: boolean;
+  searchProvider?: ProductSearchProvider;
 }
 
 export const InventoryProductSearchModal: React.FC<InventoryProductSearchModalProps> = (props) => {

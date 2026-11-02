@@ -57,7 +57,6 @@ export const InventoryScreen: React.FC<Props> = ({
     closeAuditFlow,
     handleOptionsPress,
     handleContinueInventory,
-    handleDuplicateInventory,
     handleReverseInventory,
     handleApplyAdjustments,
     handleDeleteDraft,
@@ -208,7 +207,6 @@ export const InventoryScreen: React.FC<Props> = ({
           setSelectedSession(null);
           setTimeout(() => setViewDetailsSession(s), 300);
         }}
-        onDuplicate={(s) => void handleDuplicateInventory(s)}
         onReverse={handleReverseInventory}
         onApplyAdjustments={handleApplyAdjustments}
         onDeleteDraft={handleDeleteDraft}

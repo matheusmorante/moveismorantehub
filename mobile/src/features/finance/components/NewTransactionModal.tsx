@@ -7,7 +7,6 @@ import {
   Modal,
   StyleSheet,
   ScrollView,
-  TextInput,
   ActivityIndicator,
 } from 'react-native';
 import { X } from 'lucide-react-native';
@@ -26,6 +25,7 @@ import { useTransactionForm } from '../hooks/useTransactionForm';
 import { CurrencyInput } from '../../../components/shared/CurrencyInput';
 import { PAYMENT_METHODS, VEHICLES } from './transactionModalUtils';
 
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -134,7 +134,7 @@ export const NewTransactionModal: React.FC<Props> = ({
                   <Text style={[styles.label, isDarkMode && styles.labelDark]}>
                     Descrição <Text style={styles.requiredAsterisk}>*</Text>
                   </Text>
-                  <TextInput
+                  <FormTextInput
                     testID="input-description"
                     editable={!form.saving}
                     style={[

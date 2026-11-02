@@ -168,7 +168,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
         if (previous.syncedAt) throw error;
         deletions = null;
       }
-      // Version 4 removes test products from the offline projection and refreshes old caches.
+      // Version 5 stores the composition marker so old offline catalogs can exclude composed products.
       const fullRefresh =
         deletions === null ||
         previous.formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION;
@@ -176,7 +176,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
         awaitCatalogQuery(
           fetchChangedRows(
             'products',
-            'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, product_kind, supplier_id, main_supplier_id, supplier_ids, technical_specs_is_test:technical_specs->>is_test, technical_specs_is_test_camel:technical_specs->>isTest, test_artifact_is_test:technical_specs->testArtifact->>is_test, test_artifact_is_test_camel:technical_specs->testArtifact->>isTest, updated_at',
+            'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, is_combo, product_kind, supplier_id, main_supplier_id, supplier_ids, technical_specs_is_test:technical_specs->>is_test, technical_specs_is_test_camel:technical_specs->>isTest, test_artifact_is_test:technical_specs->testArtifact->>is_test, test_artifact_is_test_camel:technical_specs->testArtifact->>isTest, updated_at',
             fullRefresh ? undefined : previous.cursors.products,
             ['item_type', 'product']
           ),

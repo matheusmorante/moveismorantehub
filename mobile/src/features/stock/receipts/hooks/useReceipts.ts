@@ -54,6 +54,7 @@ export const useReceipts = () => {
       const data = await stockService.fetchReceipts(pageNum);
 
       const formattedData = (data || []).map((receipt: any) => ({
+        ...receipt,
         id: receipt.id,
         receipt_index: receipt.receipt_index ?? receipt.receiptIndex,
         receiptIndex: receipt.receiptIndex ?? receipt.receipt_index,

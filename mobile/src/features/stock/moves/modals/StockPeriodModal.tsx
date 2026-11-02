@@ -1,5 +1,6 @@
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import React from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { reportDateRangeFormSchema } from '../../../../../../shared-utils/scheduleFormSchemas';
 
@@ -69,7 +70,7 @@ export const StockPeriodModal: React.FC<Props> = ({
 
           {selectedPeriod === 'Personalizado' && (
             <View style={styles.customBox}>
-              <TextInput
+              <FormTextInput
                 value={customStartDate}
                 onChangeText={onChangeCustomStartDate}
                 placeholder="Início AAAA-MM-DD"
@@ -80,7 +81,7 @@ export const StockPeriodModal: React.FC<Props> = ({
                   isDarkMode && styles.textLight,
                 ]}
               />
-              <TextInput
+              <FormTextInput
                 value={customEndDate}
                 onChangeText={onChangeCustomEndDate}
                 placeholder="Fim AAAA-MM-DD"

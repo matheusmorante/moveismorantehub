@@ -1,5 +1,6 @@
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import React, { useEffect, useMemo, useState } from 'react';
-import { FlatList, Modal, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Modal, Text, TouchableOpacity, View } from 'react-native';
 import { X } from 'lucide-react-native';
 import { fetchMobileSuppliers } from '../../../../products/services/mobileSupplierService';
 import { styles } from './purchasesScreen.styles';
@@ -42,7 +43,7 @@ export const PurchaseSupplierFilterModal: React.FC<PurchaseSupplierFilterModalPr
             <X size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
-        <TextInput
+        <FormTextInput
           autoFocus
           value={supplierSearch}
           onChangeText={setSupplierSearch}

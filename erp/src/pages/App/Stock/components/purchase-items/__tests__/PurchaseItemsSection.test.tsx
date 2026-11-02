@@ -222,10 +222,10 @@ describe('PurchaseItemsSection inline item inputs', () => {
     expect(onRemove).toHaveBeenCalledWith(0);
   });
 
-  it('keeps subtotal and other expenses visible in receipt mode', () => {
+  it('shows unit cost, freight and total cost without a discount field in receipt mode', () => {
     render(
       <PurchaseItemsSection
-        items={[{ productId: 'prod-1', description: 'Mesa', quantity: 2, baseCost: 100, unitCost: 105, totalCost: 210, otherExpensesUnit: 2 }]}
+        items={[{ productId: 'prod-1', description: 'Mesa', quantity: 2, baseCost: 100, unitCost: 105, totalCost: 210, discountUnit: 3, freightUnit: 8, otherExpensesUnit: 2 }]}
         onAddItem={vi.fn()}
         onRemoveItem={vi.fn()}
         onUpdateItem={vi.fn()}
@@ -237,7 +237,13 @@ describe('PurchaseItemsSection inline item inputs', () => {
       />
     );
 
-    expect(screen.getAllByText('Subtotal')).toHaveLength(2);
-    expect(screen.getAllByText('Outras despesas')).toHaveLength(2);
+    expect(screen.getAllByText('Custo total')).toHaveLength(2);
+    expect(screen.queryAllByText('Subtotal')).toHaveLength(0);
+    expect(screen.queryAllByText('Desconto por unidade')).toHaveLength(0);
+    expect(screen.getAllByText('Frete por unidade')).toHaveLength(2);
+    expect(screen.queryAllByText('R$ 3.00')).toHaveLength(0);
+    expect(screen.getAllByText('R$ 8.00')).toHaveLength(2);
+    expect(screen.queryAllByText('IPI por unidade')).toHaveLength(0);
+    expect(screen.queryAllByText('Outras despesas')).toHaveLength(0);
   });
 });

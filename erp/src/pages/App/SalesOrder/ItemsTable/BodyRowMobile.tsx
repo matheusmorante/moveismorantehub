@@ -11,13 +11,7 @@ import { BodyRowPricing } from './useBodyRowPricing';
 import { getSettings, AppSettings } from '@/pages/utils/settingsService';
 import { isGenericHandlingLabel } from '@/pages/utils/handlingMigration';
 import DiscountInput from './DiscountInput';
-
-const STOCK_ORIGIN_PRODUCT_KINDS = {
-  '': ['normal', 'salvado', 'usado'],
-  novo: ['normal'],
-  salvado: ['salvado'],
-  usado: ['usado'],
-} as const;
+import { STOCK_ORIGIN_PRODUCT_KINDS } from './stockOriginProductKinds';
 
 export interface BodyRowViewProps {
   item: Item;

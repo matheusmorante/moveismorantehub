@@ -6,7 +6,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { requestConfirmation } from '@/components/shared/confirmationService';
-import type { Category } from '@/pages/utils/categoryService';
+import { flattenCategories, type CategoryOption, type CategoryRelation } from './productCatalogCategoryTree';
 import { buildProductCatalogUrl } from '../../../../shared-utils/productCatalogLinks';
 import {
   productCatalogFiltersSchema,
@@ -30,8 +30,6 @@ const PDF_LIMIT_WITH_IMAGES_NOTICE = 20;
 
 type CatalogItem = ProductCatalogPrepareInput['items'][number];
 type BulkScope = NonNullable<ProductCatalogPrepareInput['bulkScope']>;
-type CategoryRelation = { parent_id: string; child_id: string };
-type CategoryOption = Pick<Category, 'id' | 'name' | 'slug'>;
 type PreviewTab = 'cards' | 'link' | 'pdf';
 type CatalogPresentation = 'fullscreen' | 'modal' | 'drawer';
 
@@ -43,41 +41,6 @@ interface ProductCatalogPanelProps {
   selectionActionLabel?: string;
   availableSpaceRef?: React.RefObject<HTMLElement | null>;
 }
-
-const flattenCategories = (
-  categories: CategoryOption[],
-  relations: CategoryRelation[],
-): Array<{ category: CategoryOption; depth: number }> => {
-  const allowed = new Set(categories.map((category) => category.id));
-  const byId = new Map(categories.map((category) => [category.id, category]));
-  const children = new Map<string, string[]>();
-  const childIds = new Set<string>();
-  for (const relation of relations) {
-    if (!allowed.has(relation.child_id) || !allowed.has(relation.parent_id)) continue;
-    childIds.add(relation.child_id);
-    children.set(relation.parent_id, [...(children.get(relation.parent_id) || []), relation.child_id]);
-  }
-
-  const sortIds = (ids: string[]) => ids.sort((a, b) =>
-    (byId.get(a)?.name || '').localeCompare(byId.get(b)?.name || '', 'pt-BR')
-  );
-  const result: Array<{ category: CategoryOption; depth: number }> = [];
-  const visited = new Set<string>();
-  const addTree = (id: string, depth: number) => {
-    if (visited.has(id)) return;
-    const category = byId.get(id);
-    if (!category) return;
-    visited.add(id);
-    result.push({ category, depth });
-    for (const childId of sortIds([...(children.get(id) || [])])) addTree(childId, depth + 1);
-  };
-
-  for (const category of categories) {
-    if (!childIds.has(category.id)) addTree(category.id, 0);
-  }
-  for (const category of categories) addTree(category.id, 0);
-  return result;
-};
 
 const scopeKey = (scope: Pick<BulkScope, 'filters'>) =>
   JSON.stringify([scope.filters.categoryId, scope.filters.search.trim().toLocaleLowerCase(), scope.filters.brand]);

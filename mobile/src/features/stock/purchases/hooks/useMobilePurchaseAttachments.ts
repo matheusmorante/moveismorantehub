@@ -16,13 +16,17 @@ export type PickedPurchaseAttachment = {
 
 export interface UseMobilePurchaseAttachmentsOptions {
   readonly onAttachmentChange?: () => void;
+  readonly storageFolder?: 'purchases' | 'receipts';
+  readonly recordLabel?: 'pedido' | 'recebimento';
 }
 
 /**
- * Sub-hook responsável pela seleção, envio ao Supabase Storage e remoção
- * de anexos em pedidos de compra no mobile.
+ * Sub-hook de anexos para pedidos de compra e recebimentos no app.
  */
 export function useMobilePurchaseAttachments(options?: UseMobilePurchaseAttachmentsOptions) {
+  const onAttachmentChange = options?.onAttachmentChange;
+  const storageFolder = options?.storageFolder || 'purchases';
+  const recordLabel = options?.recordLabel || 'pedido';
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -58,7 +62,7 @@ export function useMobilePurchaseAttachments(options?: UseMobilePurchaseAttachme
                     }),
                     20_000,
                     null,
-                    'pedido-de-compra:ler-anexo'
+                    `mobile:${recordLabel}:ler-anexo`
                   );
               if (!responseBlob) throw new Error('A leitura do arquivo demorou demais. Selecione-o novamente.');
 
@@ -71,7 +75,7 @@ export function useMobilePurchaseAttachments(options?: UseMobilePurchaseAttachme
               const contentType = asset.mimeType && asset.mimeType !== 'application/octet-stream'
                 ? asset.mimeType
                 : responseBlob.type || (extension === 'pdf' ? 'application/pdf' : `image/${extension === 'jpg' ? 'jpeg' : extension}`);
-              const filePath = `purchases/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${extension}`;
+              const filePath = `${storageFolder}/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${extension}`;
               const uploadResult = await withTimeout(
                 supabase.storage
                   .from('purchase-attachments')
@@ -79,7 +83,7 @@ export function useMobilePurchaseAttachments(options?: UseMobilePurchaseAttachme
                   .then(({ error }) => ({ error })),
                 30_000,
                 null,
-                'pedido-de-compra:enviar-anexo'
+                `mobile:${recordLabel}:enviar-anexo`
               );
               if (!uploadResult) throw new Error('O envio do arquivo demorou demais. Confira sua conexão e tente novamente.');
               if (uploadResult.error) throw uploadResult.error;
@@ -88,11 +92,11 @@ export function useMobilePurchaseAttachments(options?: UseMobilePurchaseAttachme
               if (!data.publicUrl) throw new Error('Não foi possível obter o link do anexo enviado.');
               uploadedUrls.push(data.publicUrl);
               setAttachments([...uploadedUrls]);
-              options?.onAttachmentChange?.();
+              onAttachmentChange?.();
             }
-            Alert.alert('Anexos adicionados', 'Os arquivos foram anexados ao pedido.');
+            Alert.alert('Anexos adicionados', `Os arquivos foram anexados ao ${recordLabel}.`);
           } catch (cause: any) {
-            console.error('[Purchases] Falha ao enviar anexo:', cause);
+            console.error(`[Stock] Falha ao anexar arquivo ao ${recordLabel}:`, cause);
             Alert.alert('Não foi possível anexar', cause?.message || 'Confira sua conexão e tente novamente.');
           } finally {
             setIsUploading(false);
@@ -102,16 +106,16 @@ export function useMobilePurchaseAttachments(options?: UseMobilePurchaseAttachme
         (errors) => Alert.alert('Arquivo inválido', Object.values(flattenFormErrors(errors))[0])
       );
     } catch (cause: any) {
-      console.error('[Purchases] Falha ao selecionar anexos:', cause);
+      console.error(`[Stock] Falha ao selecionar anexos do ${recordLabel}:`, cause);
       Alert.alert('Não foi possível abrir os arquivos', cause?.message || 'Tente selecionar os arquivos novamente.');
     }
-  }, [attachments, isUploading, attachmentUploadForm, options]);
+  }, [attachments, isUploading, attachmentUploadForm, onAttachmentChange, recordLabel, storageFolder]);
 
   const removeAttachment = useCallback((index: number) => {
     if (isUploading) return;
     setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    options?.onAttachmentChange?.();
-  }, [isUploading, options]);
+    onAttachmentChange?.();
+  }, [isUploading, onAttachmentChange]);
 
   return {
     attachments,

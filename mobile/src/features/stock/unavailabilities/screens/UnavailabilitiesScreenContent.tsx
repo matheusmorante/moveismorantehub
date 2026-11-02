@@ -1,15 +1,22 @@
-import { Plus } from 'lucide-react-native';
+import { MoreVertical, Plus } from 'lucide-react-native';
 import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  getProductProfileRoles,
+  normalizePermissionRoles,
+} from '../../../../../../shared-utils/productPermissions';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import {
   fetchStockUnavailabilities,
@@ -21,14 +28,13 @@ import { UnavailabilityFilters } from '../components/UnavailabilityFilters';
 import { UnavailabilityFormModal } from '../modals/UnavailabilityFormModal';
 import type {
   StockUnavailability,
-  UnavailabilityProductKindFilter,
   UnavailabilityStatusFilter,
 } from '../types';
 
 export interface UnavailabilitiesScreenProps {
   isDarkMode: boolean;
   userProfile?: any;
-  renderHeader?: () => React.ReactNode;
+  renderHeader?: (rightAction?: React.ReactNode) => React.ReactElement;
 }
 
 export const UnavailabilitiesScreenContent: React.FC<UnavailabilitiesScreenProps> = ({
@@ -40,19 +46,17 @@ export const UnavailabilitiesScreenContent: React.FC<UnavailabilitiesScreenProps
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<UnavailabilityStatusFilter>('all');
-  const [productKindFilter, setProductKindFilter] =
-    useState<UnavailabilityProductKindFilter>('all');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 16 });
+  const menuAnchorRef = useRef<View>(null);
+  const { width: viewportWidth } = useWindowDimensions();
 
   // Permissão: admin, manager, stockist
-  const userRoles = Array.isArray(userProfile?.roles)
-    ? userProfile.roles
-    : userProfile?.role
-      ? [userProfile.role]
-      : [];
+  const userRoles = normalizePermissionRoles(getProductProfileRoles(userProfile));
   const canManageStock =
     userRoles.includes('administrator') ||
     userRoles.includes('manager') ||
@@ -65,7 +69,7 @@ export const UnavailabilitiesScreenContent: React.FC<UnavailabilitiesScreenProps
         const result = await fetchStockUnavailabilities({
           page,
           status: statusFilter,
-          productKind: productKindFilter,
+          productKind: 'all',
         });
 
         if (shouldAppend) {
@@ -83,7 +87,7 @@ export const UnavailabilitiesScreenContent: React.FC<UnavailabilitiesScreenProps
         setIsRefreshing(false);
       }
     },
-    [productKindFilter, statusFilter]
+    [statusFilter]
   );
 
   useEffect(() => {
@@ -124,44 +128,48 @@ export const UnavailabilitiesScreenContent: React.FC<UnavailabilitiesScreenProps
     );
   };
 
-  const hasFiltersApplied = statusFilter !== 'all' || productKindFilter !== 'all';
+  const hasFiltersApplied = statusFilter !== 'all';
+
+  const openMenu = () => {
+    menuAnchorRef.current?.measureInWindow((x, y, width, height) => {
+      setMenuPosition({
+        top: y + height + 4,
+        right: Math.max(8, viewportWidth - x - width),
+      });
+      setIsMenuOpen(true);
+    });
+  };
+
+  const addUnavailability = () => {
+    setIsMenuOpen(false);
+    setIsModalOpen(true);
+  };
+
+  const menuTrigger = canManageStock ? (
+    <View ref={menuAnchorRef} collapsable={false}>
+      <TouchableOpacity
+        style={styles.menuTrigger}
+        onPress={openMenu}
+        accessibilityRole="button"
+        accessibilityLabel="Mais opções de indisponíveis"
+        accessibilityHint="Abre as ações disponíveis para indisponíveis"
+      >
+        <MoreVertical size={19} color={isDarkMode ? '#cbd5e1' : '#475569'} />
+      </TouchableOpacity>
+    </View>
+  ) : null;
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
-      {renderHeader?.()}
-
-      {/* Action bar superior com botão de cadastro */}
-      <View style={[styles.actionBar, isDarkMode && styles.actionBarDark]}>
-        <View>
-          <Text style={[styles.title, isDarkMode && styles.titleDark]}>Indisponibilidades</Text>
-          <Text style={[styles.countText, isDarkMode && styles.textMutedDark]}>
-            {totalCount} {totalCount === 1 ? 'registro' : 'registros'}
-          </Text>
-        </View>
-
-        {canManageStock && (
-          <TouchableOpacity
-            style={styles.newBtn}
-            onPress={() => setIsModalOpen(true)}
-            activeOpacity={0.8}
-          >
-            <Plus size={16} color="#ffffff" />
-            <Text style={styles.newBtnText}>Nova</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {renderHeader?.(menuTrigger)}
 
       {/* Filtros touch-friendly */}
       <UnavailabilityFilters
         isDarkMode={isDarkMode}
         statusFilter={statusFilter}
-        productKindFilter={productKindFilter}
+        totalCount={totalCount}
         onStatusChange={(status) => {
           setStatusFilter(status);
-          setCurrentPage(1);
-        }}
-        onProductKindChange={(kind) => {
-          setProductKindFilter(kind);
           setCurrentPage(1);
         }}
       />
@@ -207,13 +215,41 @@ export const UnavailabilitiesScreenContent: React.FC<UnavailabilitiesScreenProps
               canManageStock={canManageStock}
               onClearFilters={() => {
                 setStatusFilter('all');
-                setProductKindFilter('all');
               }}
               onNewUnavailability={() => setIsModalOpen(true)}
             />
           }
         />
       )}
+
+      <Modal
+        visible={isMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsMenuOpen(false)}
+      >
+        <View style={styles.menuOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setIsMenuOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Fechar menu de indisponíveis"
+          />
+          <View style={[styles.actionMenu, isDarkMode && styles.actionMenuDark, menuPosition]}>
+            <TouchableOpacity
+              style={styles.actionMenuItem}
+              onPress={addUnavailability}
+              accessibilityRole="button"
+              accessibilityLabel="Adicionar indisponibilidade"
+            >
+              <Plus size={17} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
+              <Text style={[styles.actionMenuText, isDarkMode && styles.actionMenuTextDark]}>
+                Adicionar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal de cadastro de indisponibilidade */}
       <UnavailabilityFormModal
@@ -237,50 +273,35 @@ const styles = StyleSheet.create({
   containerDark: {
     backgroundColor: '#0f172a',
   },
-  actionBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  actionBarDark: {
-    backgroundColor: '#1e293b',
-    borderBottomColor: '#334155',
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  titleDark: {
-    color: '#f8fafc',
-  },
-  countText: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 1,
-  },
   textMutedDark: {
     color: '#94a3b8',
   },
-  newBtn: {
+  menuTrigger: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  menuOverlay: { flex: 1 },
+  actionMenu: {
+    position: 'absolute',
+    minWidth: 228,
+    padding: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  actionMenuDark: { borderColor: '#334155', backgroundColor: '#1e293b' },
+  actionMenuItem: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#dc2626',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
+    gap: 10,
+    paddingHorizontal: 10,
   },
-  newBtnText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  actionMenuText: { color: '#0f172a', fontSize: 13, fontWeight: '700' },
+  actionMenuTextDark: { color: '#f8fafc' },
   listContainer: {
     paddingVertical: 8,
   },

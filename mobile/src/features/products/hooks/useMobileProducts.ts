@@ -4,7 +4,6 @@ import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { isProductDraft } from '../../../../../shared-utils/productDraftSnapshot';
 import {
   productListFormSchema,
-  productListSearchFormSchema,
   type ProductListPageSize,
 } from '../../../../../shared-utils/listingFormSchemas';
 import { validateCatalogPublication } from '../../../../../shared-utils/catalogPublicationValidation';
@@ -13,13 +12,11 @@ import { resolveProductCatalogParentStatus } from '../../../../../shared-utils/p
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import {
   isProductVariationSearchTooBroadError,
-  PRODUCT_LIST_SEARCH_DEBOUNCE_MS,
 } from '../../../../../shared-utils/productListSearch';
 import { validateProductActivationRequirements } from '../../../../../shared-utils/productActivationValidation';
 import {
   DEFAULT_MOBILE_PRODUCT_LIST_FILTERS,
   canShowMobileTestProducts,
-  resolveAppliedMobileProductSearch,
   resolveMobileProductListResetState,
   resolveMobileProductStatusFilter,
 } from '../domain/mobileProductListFilters';
@@ -45,6 +42,7 @@ import {
   toggleMobileProductCatalog,
 } from '../services/mobileProductMutationService';
 import { triggerMobileProductMetaCatalogSync } from '../services/mobileProductMetaCatalogSyncService';
+import { useMobileProductListSearch } from './useMobileProductListSearch';
 
 const DEFAULT_ITEMS_PER_PAGE: ProductListPageSize = 15;
 
@@ -59,10 +57,13 @@ export function useMobileProducts(
   const [loading, setLoading] = useState(enabled);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.searchTerm);
-  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
-  const searchDebounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchValidationSequenceRef = useRef(0);
+  const {
+    searchTerm,
+    appliedSearchTerm,
+    setSearchTerm,
+    submitSearchTerm,
+    resetSearchTerm,
+  } = useMobileProductListSearch();
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'draft'>(
     DEFAULT_MOBILE_PRODUCT_LIST_FILTERS.statusFilter
   );
@@ -125,62 +126,6 @@ export function useMobileProducts(
     showTestProducts: canShowTestProducts,
     showMergedProducts,
   });
-  const { validateValues: validateProductSearch } = useZodForm(
-    productListSearchFormSchema,
-    { input: '', intent: 'debounced' },
-  );
-
-  const applyValidatedProductSearch = useCallback(async (
-    input: string,
-    intent: 'debounced' | 'submitted',
-    sequence: number,
-  ) => {
-    const parsed = await validateProductSearch({ input, intent });
-    if (
-      parsed === false ||
-      sequence !== searchValidationSequenceRef.current ||
-      parsed.search === null
-    ) return;
-    setAppliedSearchTerm(parsed.search);
-  }, [validateProductSearch]);
-
-  useEffect(() => {
-    const trimmedSearch = searchTerm.trim();
-    const nextSearch = resolveAppliedMobileProductSearch(searchTerm);
-    const sequence = ++searchValidationSequenceRef.current;
-    if (nextSearch === appliedSearchTerm) return;
-
-    if (trimmedSearch.length > 0) {
-      const timeout = setTimeout(
-        () => void applyValidatedProductSearch(searchTerm, 'debounced', sequence),
-        PRODUCT_LIST_SEARCH_DEBOUNCE_MS
-      );
-      searchDebounceTimeoutRef.current = timeout;
-      return () => {
-        clearTimeout(timeout);
-        if (searchDebounceTimeoutRef.current === timeout) {
-          searchDebounceTimeoutRef.current = null;
-        }
-      };
-    }
-
-    void applyValidatedProductSearch(searchTerm, 'debounced', sequence);
-  }, [searchTerm, appliedSearchTerm, applyValidatedProductSearch]);
-
-  const handleSearchTermChange = useCallback((value: string) => {
-    searchValidationSequenceRef.current += 1;
-    setSearchTerm(value);
-  }, []);
-
-  const submitSearchTerm = useCallback(() => {
-    if (searchDebounceTimeoutRef.current) {
-      clearTimeout(searchDebounceTimeoutRef.current);
-      searchDebounceTimeoutRef.current = null;
-    }
-    const sequence = ++searchValidationSequenceRef.current;
-    void applyValidatedProductSearch(searchTerm, 'submitted', sequence);
-  }, [applyValidatedProductSearch, searchTerm]);
-
   const loadProducts = useCallback(
     async (pull = false, page = 1) => {
       const requestId = loadRequestGuardRef.current.begin();
@@ -336,9 +281,7 @@ export function useMobileProducts(
       showTestProducts,
       showMergedProducts,
     });
-    searchValidationSequenceRef.current += 1;
-    setSearchTerm(resetState.searchTerm);
-    setAppliedSearchTerm(resetState.searchTerm);
+    resetSearchTerm(resetState.searchTerm);
     setStatusFilter(resetState.statusFilter);
     setShowDeactivated(resetState.showDeactivated);
     setCategoryFilter(resetState.categoryFilter);
@@ -347,7 +290,7 @@ export function useMobileProducts(
     setShowTestProducts(resetState.showTestProducts);
     setShowMergedProducts(resetState.showMergedProducts);
     setCurrentPage(resetState.currentPage);
-  }, [showMergedProducts, showTestProducts]);
+  }, [resetSearchTerm, showMergedProducts, showTestProducts]);
 
   const handleToggleCatalog = async (
     productId: string,
@@ -640,7 +583,7 @@ export function useMobileProducts(
     totalItems: profileReady ? totalItems : 0,
     totalPages,
     itemsPerPage,
-    setSearchTerm: handleSearchTermChange,
+    setSearchTerm,
     submitSearchTerm,
     resetFilters,
     setStatusFilter,

@@ -33,6 +33,7 @@ import {
   WHATSAPP_LINE_FORMATS,
   type WhatsAppLineFormatKind,
 } from './chatMessageFormatting';
+import { SupportOrderPickerDialog } from './SupportOrderPickerDialog';
 
 type SupportChatComposerAttachment = z.input<typeof supportChatComposerDraftSchema>['attachments'][number];
 type AttachmentKind = SupportChatComposerAttachment['kind'];
@@ -1071,43 +1072,27 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       )}
 
       {isOrderPickerOpen && (
-        <div role="dialog" aria-modal="true" aria-labelledby="support-order-picker-title" className="fixed inset-0 z-[999999] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm">
-          <form onSubmit={(event) => { event.preventDefault(); void submitOrderDocument(); }} className="flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <header className="flex items-center justify-between border-b border-slate-100 p-4 dark:border-slate-800">
-              <div><h2 id="support-order-picker-title" className="text-sm font-bold">Pedidos e orçamentos</h2><p className="mt-1 text-xs text-slate-500">Selecione um documento recente para preparar um resumo em PDF.</p></div>
-              <button type="button" onClick={() => setIsOrderPickerOpen(false)} aria-label="Fechar documentos comerciais" className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><i className="bi bi-x-lg" /></button>
-            </header>
-            {!conversation.customerId && <p className="m-4 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">Vincule um cliente à conversa para consultar os documentos comerciais.</p>}
-            <div className="flex gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-              {(['all', 'orders', 'quotes'] as const).map((filter) => (
-                <button key={filter} type="button" aria-pressed={orderFilter === filter} onClick={() => setOrderFilter(filter)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${orderFilter === filter ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
-                  {filter === 'all' ? 'Todos' : filter === 'orders' ? 'Pedidos' : 'Orçamentos'}
-                </button>
-              ))}
-            </div>
-            <div className="min-h-28 flex-1 space-y-2 overflow-y-auto p-4">
-              {isLoadingOrders && <p className="py-8 text-center text-xs text-slate-500">Carregando documentos…</p>}
-              {ordersError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-300">{ordersError}</p>}
-              {!isLoadingOrders && !ordersError && orders.filter((order) => orderFilter === 'all' || (orderFilter === 'quotes' ? isQuoteOrder(order) : !isQuoteOrder(order))).length === 0 && <p className="py-8 text-center text-xs text-slate-500">Nenhum documento encontrado para este cliente.</p>}
-              {orders.filter((order) => orderFilter === 'all' || (orderFilter === 'quotes' ? isQuoteOrder(order) : !isQuoteOrder(order))).map((order) => {
-                const quote = isQuoteOrder(order);
-                const selected = selectedOrderId === order.id;
-                return (
-                  <button key={order.id} type="button" aria-pressed={selected} onClick={() => { setSelectedOrderId(order.id); setOrderValue('orderId', order.id, { shouldDirty: true, shouldValidate: true }); setOrdersError(''); }} className={`w-full rounded-xl border p-3 text-left transition-colors ${selected ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'}`}>
-                    <span className="flex items-center justify-between gap-2"><span className="text-xs font-bold">{quote ? 'Orçamento' : 'Pedido'} #{order.orderNumber}</span><span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">{money(order.totalAmount)}</span></span>
-                    <span className="mt-1 block truncate text-[11px] text-slate-500">{order.status} · {formatDate(order.createdAt)} · {order.itemsCount} itens</span>
-                    <span className="mt-1 block truncate text-[10px] text-slate-500">{order.itemsPreview}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {orderErrors.orderId && <p role="alert" className="px-4 pb-2 text-xs text-red-600">{orderErrors.orderId.message}</p>}
-            <footer className="flex items-center justify-between gap-3 border-t border-slate-100 p-4 dark:border-slate-800">
-              <span className="text-[10px] text-slate-500">São exibidos até 20 documentos recentes.</span>
-              <button type="submit" disabled={isCreatingOrderPdf || !selectedOrderId} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{isCreatingOrderPdf ? 'Preparando PDF…' : 'Adicionar ao rascunho'}</button>
-            </footer>
-          </form>
-        </div>
+        <SupportOrderPickerDialog
+          customerId={conversation.customerId}
+          orderFilter={orderFilter}
+          onOrderFilterChange={setOrderFilter}
+          isLoading={isLoadingOrders}
+          error={ordersError}
+          orders={orders}
+          isQuoteOrder={isQuoteOrder}
+          selectedOrderId={selectedOrderId}
+          onSelectOrder={(orderId) => {
+            setSelectedOrderId(orderId);
+            setOrderValue('orderId', orderId, { shouldDirty: true, shouldValidate: true });
+            setOrdersError('');
+          }}
+          orderFieldError={orderErrors.orderId?.message}
+          isCreatingPdf={isCreatingOrderPdf}
+          formatMoney={money}
+          formatDate={formatDate}
+          onClose={() => setIsOrderPickerOpen(false)}
+          onSubmit={(event) => { event.preventDefault(); void submitOrderDocument(); }}
+        />
       )}
     </div>
   );

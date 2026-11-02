@@ -1,5 +1,6 @@
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import React from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Check, Copy, Edit2 } from 'lucide-react-native';
 import { ChatMessage } from '../../../../services/financialAiAssistantService';
 
@@ -57,7 +58,7 @@ export const ChatMessageItem: React.FC<Props> = ({
         {isUser && isEditingThis ? (
           /* Modo de Edição Inline da Mensagem */
           <View style={styles.inlineEditContainer}>
-            <TextInput
+            <FormTextInput
               style={[styles.inlineEditInput, isDarkMode && styles.inlineEditInputDark]}
               value={editText}
               onChangeText={setEditText}

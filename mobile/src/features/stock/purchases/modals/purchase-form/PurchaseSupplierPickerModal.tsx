@@ -1,9 +1,9 @@
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import React from 'react';
 import {
   Modal,
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -50,7 +50,7 @@ export const PurchaseSupplierPickerModal: React.FC<PurchaseSupplierPickerModalPr
             <X size={24} color={colors.text} />
           </TouchableOpacity>
         </View>
-        <TextInput
+        <FormTextInput
           autoFocus
           value={supplierSearch}
           onChangeText={setSupplierSearch}

@@ -9,7 +9,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  TextInput,
 } from 'react-native';
 import { Lock, Mail, ShieldAlert } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
@@ -33,6 +32,7 @@ import { PasswordRecoveryScreen, type PasswordRecoveryMessage, type PasswordReco
 import { flattenFormErrors, useZodForm } from '../hooks/useZodForm';
 import { loginFormSchema, passwordRecoveryEmailSchema, passwordRecoveryCodeSchema, passwordSetupFormSchema } from '../../../shared-utils/authFormSchemas';
 
+import { FormTextInput } from './shared/FormTextInput';
 interface Props {
   isDarkMode: boolean;
   onLoginSuccess: (session: any) => void;
@@ -289,7 +289,7 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
                   </Text>
                   <View style={[styles.inputShell, isDarkMode && styles.inputShellDark]}>
                     <Mail size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                    <TextInput
+                    <FormTextInput
                       accessibilityLabel="E-mail"
                       autoCapitalize="none"
                       autoComplete="email"
@@ -310,7 +310,7 @@ export const LoginScreen: React.FC<Props> = ({ isDarkMode, onLoginSuccess }) => 
                   </Text>
                   <View style={[styles.inputShell, isDarkMode && styles.inputShellDark]}>
                     <Lock size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                    <TextInput
+                    <FormTextInput
                       accessibilityLabel="Senha"
                       autoComplete="password"
                       onChangeText={setPassword}

@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
-  TextInput,
   ScrollView,
   Alert,
   ActivityIndicator,
@@ -16,6 +15,7 @@ import { createCalendarEvent, CalendarEvent } from '../../../services/scheduleEv
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { calendarEventFormSchema } from '../../../../../shared-utils/scheduleFormSchemas';
 
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -107,7 +107,7 @@ export const CreateEventModal: React.FC<Props> = ({
               <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
                 Título do Evento *
               </Text>
-              <TextInput
+              <FormTextInput
                 style={[styles.input, isDarkMode && styles.inputDark]}
                 placeholder="Ex: Reunião de alinhamento ou Vistoria"
                 placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
@@ -121,7 +121,7 @@ export const CreateEventModal: React.FC<Props> = ({
               <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
                 Data (AAAA-MM-DD) *
               </Text>
-              <TextInput
+              <FormTextInput
                 style={[styles.input, isDarkMode && styles.inputDark]}
                 placeholder="2026-09-10"
                 placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
@@ -153,7 +153,7 @@ export const CreateEventModal: React.FC<Props> = ({
                   </TouchableOpacity>
                 ))}
               </View>
-              <TextInput
+              <FormTextInput
                 style={[styles.input, { marginTop: 8 }, isDarkMode && styles.inputDark]}
                 placeholder="Ou digite o horário fixo ex: 14:30"
                 placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
@@ -193,7 +193,7 @@ export const CreateEventModal: React.FC<Props> = ({
               <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
                 Observações / Notas
               </Text>
-              <TextInput
+              <FormTextInput
                 style={[styles.input, styles.textArea, isDarkMode && styles.inputDark]}
                 placeholder="Detalhes adicionais do compromisso..."
                 placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}

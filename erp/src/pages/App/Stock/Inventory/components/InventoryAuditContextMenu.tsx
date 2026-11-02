@@ -1,14 +1,12 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import type { InventoryAuditSession, InventorySnapshotItem } from '../types/inventoryAudit.types';
-import { toast } from 'react-toastify';
+import type { InventoryAuditSession } from '../types/inventoryAudit.types';
 
 interface Props {
   readonly activeSession: InventoryAuditSession | null;
   readonly menuPos: { top?: number; bottom?: number; right: number } | null;
   readonly onClose: () => void;
   readonly onOpen: (session: InventoryAuditSession) => void;
-  readonly onCopy: (items: readonly InventorySnapshotItem[]) => void;
   readonly onDeleteDraft: (session: InventoryAuditSession) => void;
   readonly onConfirmReversal: (session: InventoryAuditSession, type: 'reverse' | 'apply') => void;
 }
@@ -18,7 +16,6 @@ export const InventoryAuditContextMenu: React.FC<Props> = ({
   menuPos,
   onClose,
   onOpen,
-  onCopy,
   onDeleteDraft,
   onConfirmReversal,
 }) => {
@@ -69,23 +66,6 @@ export const InventoryAuditContextMenu: React.FC<Props> = ({
             : activeSession.status === 'in_progress'
               ? 'Retomar inventário'
               : 'Ver detalhes'}
-        </button>
-        <button
-          type="button"
-          role="menuitem"
-          onClick={(event) => {
-            event.stopPropagation();
-            const targetItems = activeSession.items;
-            onClose();
-            onCopy(targetItems);
-            toast.info(
-              'Itens selecionados para um novo inventário. Confira o escopo e os saldos atuais antes de iniciar.'
-            );
-          }}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer"
-        >
-          <i className="bi bi-copy" aria-hidden="true" />
-          Duplicar inventário
         </button>
         {activeSession.status === 'in_progress' && (
           <button

@@ -77,7 +77,7 @@ export const PurchaseItemsSection = ({
     const quantity = currentItem?.quantity || 1;
     const unitCost = Math.max(
       0,
-      Number((cost + tempIpi + tempFreight - Number(currentItem?.discountUnit || 0)).toFixed(2))
+      Number((cost + tempIpi + tempFreight - (isReceiptMode ? 0 : Number(currentItem?.discountUnit || 0))).toFixed(2))
     );
 
     if (onUpdateItem) {
@@ -119,7 +119,7 @@ export const PurchaseItemsSection = ({
     const tempFreight = baseCost * (freightPercent / 100);
     const unitCost = Math.max(
       0,
-      Number((baseCost + tempIpi + tempFreight - Number(item.discountUnit || 0)).toFixed(2))
+      Number((baseCost + tempIpi + tempFreight - (isReceiptMode ? 0 : Number(item.discountUnit || 0))).toFixed(2))
     );
     const updated: PurchaseItem = {
       ...item,
@@ -140,7 +140,7 @@ export const PurchaseItemsSection = ({
     const tempFreight = validCost * (freightPercent / 100);
     const unitCost = Math.max(
       0,
-      Number((validCost + tempIpi + tempFreight - Number(item.discountUnit || 0)).toFixed(2))
+      Number((validCost + tempIpi + tempFreight - (isReceiptMode ? 0 : Number(item.discountUnit || 0))).toFixed(2))
     );
     const updated: PurchaseItem = {
       ...item,

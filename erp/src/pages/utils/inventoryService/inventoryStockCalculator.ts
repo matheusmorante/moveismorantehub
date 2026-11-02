@@ -2,6 +2,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import InventoryMove from '../../types/inventoryMove.type';
 import { mapFromDB as mapProductFromDB, updateProduct } from '@/pages/utils/productService';
 import { applyInventoryMoveToStockProjection } from '../../../../../shared-utils/inventoryStockProjection';
+import { isAdjustmentType, isEntryType, isExitType } from './inventoryTypeRules';
 
 export const recalculateProductStockOnMove = async (move: InventoryMove): Promise<void> => {
   const { data: p, error } = await supabase

@@ -11,6 +11,7 @@ import { usePurchaseAttachmentUpload } from '../hooks/usePurchaseAttachmentUploa
 import { usePurchaseModalForm } from '../hooks/usePurchaseModalForm';
 import { supplierProvidesStockOrigin } from '../../../../../../../shared-utils/productSupplierStockOrigin';
 import { formatPurchaseNumber } from '../../../../../../../shared-utils/purchaseNumber';
+import { getPurchaseConfirmationBlockReasons } from '../../../../../../../shared-utils/purchaseFormSchemas';
 
 export interface PurchaseFormModalProps {
   readonly isOpen: boolean;
@@ -30,6 +31,7 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
 }) => {
   const activePurchase = purchase || initialPurchase;
   const [activeItemIndex, setActiveItemIndex] = React.useState<number | null>(null);
+  const [showConfirmationBlockReasons, setShowConfirmationBlockReasons] = React.useState(false);
   useBodyScrollLock(isOpen);
 
   React.useEffect(() => {
@@ -78,6 +80,13 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
     attachments,
     setAttachments,
   });
+
+  const confirmationBlockReasons = getPurchaseConfirmationBlockReasons(selectedSupplierId, items);
+  const confirmationBlockKey = confirmationBlockReasons.join('|');
+
+  React.useEffect(() => {
+    setShowConfirmationBlockReasons(false);
+  }, [isOpen, confirmationBlockKey]);
 
   if (!isOpen) return null;
 
@@ -271,14 +280,42 @@ export const PurchaseFormModal: React.FC<PurchaseFormModalProps> = ({
               </p>
             )}
             <div className="flex w-full justify-between gap-3">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex-1 sm:flex-none sm:min-w-[180px] px-3 sm:px-6 py-3.5 bg-blue-600 text-white text-xs sm:text-sm font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none text-center"
-              >
-                {activePurchase?.id && activePurchase.status !== 'draft' ? 'Salvar Alterações' : 'Confirmar Pedido'}
-              </button>
+              <div className="relative flex-1 sm:flex-none sm:min-w-[180px]">
+                {showConfirmationBlockReasons && confirmationBlockReasons.length > 0 && (
+                  <div
+                    id="purchase-confirmation-block-reasons"
+                    role="tooltip"
+                    aria-live="polite"
+                    className="absolute bottom-full left-0 z-20 mb-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-left text-xs font-semibold text-red-800 shadow-lg dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+                  >
+                    {confirmationBlockReasons.map((reason) => <p key={reason}>{reason}</p>)}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isSaving) return;
+                    if (confirmationBlockReasons.length > 0) {
+                      setShowConfirmationBlockReasons(true);
+                      return;
+                    }
+                    setShowConfirmationBlockReasons(false);
+                    void handleSave();
+                  }}
+                  disabled={isSaving}
+                  aria-disabled={isSaving || confirmationBlockReasons.length > 0}
+                  aria-describedby={showConfirmationBlockReasons && confirmationBlockReasons.length > 0
+                    ? 'purchase-confirmation-block-reasons'
+                    : undefined}
+                  className={`w-full rounded-2xl bg-blue-600 px-3 py-3.5 text-center text-xs font-bold text-white transition-all shadow-lg shadow-blue-200 dark:shadow-none sm:px-6 sm:text-sm ${
+                    confirmationBlockReasons.length > 0
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'hover:bg-blue-700'
+                  } ${isSaving ? 'cursor-not-allowed opacity-50' : ''}`}
+                >
+                  {activePurchase?.id && activePurchase.status !== 'draft' ? 'Salvar Alterações' : 'Confirmar Pedido'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

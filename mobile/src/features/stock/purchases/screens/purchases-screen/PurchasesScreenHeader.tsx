@@ -1,5 +1,6 @@
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import React from 'react';
-import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, Search, X } from 'lucide-react-native';
 import { styles } from './purchasesScreen.styles';
 
@@ -31,7 +32,7 @@ export const PurchasesScreenHeader: React.FC<PurchasesScreenHeaderProps> = ({
           style={[styles.searchBox, { backgroundColor: colors.bg, borderColor: colors.border }]}
         >
           <Search size={17} color={colors.muted} />
-          <TextInput
+          <FormTextInput
             value={search}
             onChangeText={onSearchChange}
             placeholder="Fornecedor ou número do pedido"

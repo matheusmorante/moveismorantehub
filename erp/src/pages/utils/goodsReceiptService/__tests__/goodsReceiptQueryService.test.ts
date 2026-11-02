@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest';
 import { fetchGoodsReceiptsPage, subscribeToGoodsReceipts } from '../goodsReceiptQueryService';
 import { GoodsReceipt } from '../goodsReceipt.types';
 import * as storage from '../goodsReceiptStorage';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../shared-utils/searchText';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -129,7 +130,7 @@ describe('goodsReceiptQueryService', () => {
 
       expect(currentBuilder.eq).toHaveBeenCalledWith('status', 'draft');
       expect(currentBuilder.or).toHaveBeenCalledWith(
-        'supplier_name.ilike.%Madeira%,invoice_number.ilike.%Madeira%'
+        buildPostgrestAccentInsensitiveOrFilter(['supplier_name', 'invoice_number'], 'Madeira')
       );
     });
 
@@ -194,10 +195,11 @@ describe('goodsReceiptQueryService', () => {
           error: null,
         });
         await newResponse;
-        await Promise.resolve();
-        expect(callback.mock.lastCall?.[0].map((receipt: GoodsReceipt) => receipt.id)).toEqual([
-          'dddddddd-4444-3333-4444-555555555555',
-        ]);
+        await vi.waitFor(() => {
+          expect(callback.mock.lastCall?.[0].map((receipt: GoodsReceipt) => receipt.id)).toEqual([
+            'dddddddd-4444-3333-4444-555555555555',
+          ]);
+        });
 
         resolveOld({
           data: [{
@@ -213,7 +215,7 @@ describe('goodsReceiptQueryService', () => {
           error: null,
         });
         await oldResponse;
-        await Promise.resolve();
+        await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
 
         expect(callback).toHaveBeenCalledTimes(1);
         expect(storage.getStoredReceipts().map((receipt) => receipt.id)).toEqual([

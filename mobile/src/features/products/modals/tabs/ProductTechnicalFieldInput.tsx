@@ -4,7 +4,6 @@ import {
   Modal,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -19,6 +18,7 @@ import {
 } from '../../domain/technicalFieldInputRules';
 import { isQuantityCharacteristic } from '../../../../../../shared-utils/productCharacteristicDependencies';
 import { normalizeSearchTerm } from '../../../../../../shared-utils/productText';
+import { searchProductTechnicalChoiceOptions } from '../../../../../../shared-utils/productTechnicalChoiceSearch';
 import { isProductTechnicalFieldYesNo } from '../../../../../../shared-utils/productTechnicalFieldYesNo';
 import { parseProductBooleanCharacteristicValue } from '../../../../../../shared-utils/productBooleanCharacteristicValue';
 import {
@@ -28,6 +28,7 @@ import {
 } from '../../../../../../shared-utils/productTechnicalFieldRules';
 import { styles } from './productTechnicalFieldInput.styles';
 
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 type TechnicalOption = { id?: string; value: string };
 
 type Props = {
@@ -162,7 +163,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
 
   if (disabled && placeholder) {
     return (
-      <TextInput
+      <FormTextInput
         editable={false}
         value=""
         placeholder={placeholder}
@@ -176,7 +177,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
   if (type === 'integer' || type === 'number') {
     const maxValue = getTechnicalFieldIntegerMaxValue(field.name);
     return (
-      <TextInput
+      <FormTextInput
         editable={!disabled}
         value={stringValue}
         maxLength={15}
@@ -206,7 +207,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
 
   if (type === 'decimal' || type === 'measure' || type === 'weight' || isWeight) {
     return (
-      <TextInput
+      <FormTextInput
         editable={!disabled}
         value={decimalDraft}
         maxLength={18}
@@ -248,7 +249,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
 
   if (type === 'percentage') {
     return (
-      <TextInput
+      <FormTextInput
         editable={!disabled}
         value={decimalDraft}
         onChangeText={(text) => {
@@ -375,11 +376,11 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
     const isSearchActive =
       normalizedSearch.length >= TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS &&
       debouncedSearch === normalizedSearch;
+    const isSearchDebouncing =
+      normalizedSearch.length >= TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS && !isSearchActive;
     const visibleOptions = isSearchActive
-      ? options.filter((option) => normalizeSearchTerm(option.value).includes(debouncedSearch))
-      : multiple
-        ? options
-        : [];
+      ? searchProductTechnicalChoiceOptions(options, debouncedSearch)
+      : [];
     return (
       <View style={styles.selectionWrap}>
         {multiple && selectedValues.length > 0 && (
@@ -422,14 +423,15 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
               <Text style={[styles.modalTitle, dark && styles.lightText]}>
                 {multiple ? `Selecionar ${field.name}` : `Escolher ${field.name}`}
               </Text>
-              <TextInput
+              <FormTextInput
+                editable={!disabled}
                 value={search}
                 onChangeText={setSearch}
                 placeholder={
                   multiple
                     ? selectedValues.length > 0
-                      ? 'Adicionar mais opções...'
-                      : 'Selecione ou pesquise...'
+                      ? `Digite pelo menos ${TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS} caracteres para adicionar opções...`
+                      : `Digite pelo menos ${TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS} caracteres para pesquisar...`
                     : `Digite pelo menos ${TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS} caracteres para pesquisar...`
                 }
                 placeholderTextColor="#94a3b8"
@@ -443,6 +445,10 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
                     return (
                       <TouchableOpacity
                         key={option.id || option.value}
+                        disabled={disabled}
+                        accessibilityRole={multiple ? 'checkbox' : undefined}
+                        accessibilityLabel={multiple ? `${field.name}: ${option.value}` : undefined}
+                        accessibilityState={multiple ? { checked: selected, disabled } : { disabled }}
                         onPress={() => {
                           if (multiple) {
                             onChange(
@@ -466,9 +472,11 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
                   })}
                 {visibleOptions.length === 0 && (
                   <Text style={[styles.emptyText, dark && styles.lightText]}>
-                    {!multiple && normalizedSearch.length < TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS
+                    {normalizedSearch.length < TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS
                       ? `Digite pelo menos ${TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS} caracteres para pesquisar.`
-                      : 'Nenhuma opção encontrada.'}
+                      : isSearchDebouncing
+                        ? 'Aguarde para exibir as opções...'
+                        : 'Nenhuma opção encontrada.'}
                   </Text>
                 )}
               </ScrollView>
@@ -483,7 +491,7 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
   }
 
   return (
-    <TextInput
+    <FormTextInput
       editable={!disabled}
       value={stringValue}
       onChangeText={(text) => onChange(text)}

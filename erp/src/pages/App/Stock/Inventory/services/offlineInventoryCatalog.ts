@@ -10,10 +10,11 @@ import {
   readOfflineInventoryCatalogSnapshot,
   writeOfflineInventoryCatalogSnapshot,
 } from '../storage/offlineInventoryCatalogStorage';
-import type {
-  OfflineInventoryCatalog,
-  OfflineInventoryCatalogRow,
-  OfflineInventoryMatch,
+import {
+  OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
+  type OfflineInventoryCatalog,
+  type OfflineInventoryCatalogRow,
+  type OfflineInventoryMatch,
 } from '../types/offlineInventoryCatalog.types';
 
 type CatalogRow = OfflineInventoryCatalogRow;
@@ -88,11 +89,13 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
   syncInFlight = (async () => {
     try {
       const previous = await getOfflineInventoryCatalog();
+      const productProjectionIsCurrent =
+        previous.formatVersion === OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION;
       const [products, variations, labels, suppliers, deletions] = await Promise.all([
         fetchChangedRows(
           'products',
-          'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, product_kind, supplier_id, main_supplier_id, supplier_ids, updated_at',
-          previous.cursors.products,
+          'id, name, code, unit, active, deleted, deleted_at, is_draft, item_type, is_combo, product_kind, supplier_id, main_supplier_id, supplier_ids, updated_at',
+          productProjectionIsCurrent ? previous.cursors.products : undefined,
           ['item_type', 'product']
         ),
         fetchChangedRows(
@@ -108,13 +111,15 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
         fetchChangedRows(
           'people',
           'id, person_type, full_name, social_name, nickname, stock_origins, active, deleted, updated_at',
-          previous.formatVersion === 3 ? previous.cursors.suppliers : undefined,
+          previous.formatVersion && previous.formatVersion >= 3
+            ? previous.cursors.suppliers
+            : undefined,
           ['person_type', 'suppliers']
         ),
         fetchDeletions(previous.deletionCursor || 0),
       ]);
       const next: OfflineInventoryCatalog = {
-        products: { ...previous.products },
+        products: productProjectionIsCurrent ? { ...previous.products } : {},
         variations: { ...previous.variations },
         labels: { ...previous.labels },
         suppliers: { ...previous.suppliers },
@@ -154,7 +159,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
       );
       const compact: OfflineInventoryCatalog = {
         ...next,
-        formatVersion: 3,
+        formatVersion: OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
         products: compactOfflineInventoryCatalogRows(next.products, [
           'id',
           'name',
@@ -165,6 +170,7 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
           'deleted_at',
           'is_draft',
           'item_type',
+          'is_combo',
           'product_kind',
           'supplier_id',
           'main_supplier_id',
@@ -206,7 +212,10 @@ export const syncOfflineInventoryCatalog = async (): Promise<{
       };
       await writeOfflineInventoryCatalogSnapshot(compact);
       const verified = await readOfflineInventoryCatalogSnapshot();
-      if (verified?.formatVersion !== 3 || verified.syncedAt !== compact.syncedAt) {
+      if (
+        verified?.formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION ||
+        verified.syncedAt !== compact.syncedAt
+      ) {
         throw new Error('Não foi possível confirmar a gravação do novo índice no navegador.');
       }
       cachedCatalog = compact;

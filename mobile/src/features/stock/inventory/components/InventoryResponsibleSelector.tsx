@@ -1,5 +1,6 @@
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Check } from 'lucide-react-native';
 import type { ScopeEmployee } from '../hooks/useInventoryScopeBuilder';
 import {
@@ -39,7 +40,8 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
   const selected = eligibleEmployees.find((employee) => String(employee.id) === selectedId);
   const selectedName = selected ? getInventoryResponsibleDisplayName(selected) : '';
   const selectionGreen = isDarkMode ? '#4ade80' : '#16a34a';
-  const inputColor = hasError ? '#f43f5e' : selected ? selectionGreen : text;
+  const inputColor = hasError ? '#f43f5e' : text;
+  const inputBorderColor = hasError ? inputColor : selected ? selectionGreen : border;
   const filteredEmployees = eligibleEmployees.filter((employee) =>
     matchesSearchText(getInventoryResponsibleDisplayName(employee), query)
   );
@@ -48,7 +50,7 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
     <View style={styles.fieldContainer}>
       <Text style={[styles.label, { color: text }]}>Responsável pelo Inventário</Text>
       <View style={styles.inputRow}>
-        <TextInput
+        <FormTextInput
           accessibilityLabel="Buscar responsável pelo inventário"
           testID="inventory-responsible-search"
           value={isOpen ? query || selectedName : selectedName || query}
@@ -65,7 +67,8 @@ export const InventoryResponsibleSelector: React.FC<Props> = ({
           placeholder="Buscar responsável (digite 2+ letras)"
           placeholderTextColor={muted}
           autoCapitalize="none"
-          style={[styles.input, { color: inputColor, borderBottomColor: inputColor === text ? border : inputColor }]}
+          focusedBorderBottomColor={hasError ? '#f43f5e' : selected ? selectionGreen : undefined}
+          style={[styles.input, { color: inputColor, borderBottomColor: inputBorderColor }]}
         />
         {selected && !hasError ? (
           <View

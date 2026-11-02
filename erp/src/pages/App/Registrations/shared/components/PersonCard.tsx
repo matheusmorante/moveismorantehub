@@ -1,7 +1,6 @@
 import React from 'react';
 import Person from '../../../../types/person.type';
-import DropdownPortal from '../../../../../components/shared/DropdownPortal';
-import SupplierDeleteMenuItem from './SupplierDeleteMenuItem';
+import PersonCardActionsMenu from './PersonCardActionsMenu';
 import type { SupplierDeletionCounts } from '../../../../../../../shared-utils/supplierDeletion';
 
 interface PersonCardProps {
@@ -88,13 +87,8 @@ const PersonCard = ({
   supplierDeletionCountError,
   allowsSelection = true,
 }: PersonCardProps) => {
-  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-  const menuAnchorRef = React.useRef<HTMLButtonElement>(null);
-  const isSupplier = person.type === 'suppliers';
   const isCustomer = person.type === 'customers';
-  const canSelect = allowsSelection && person.type !== 'employees' && !isSupplier;
-
-  const hasActions = showTrash || person.type !== 'employees' || Boolean(onViewPurchaseHistory);
+  const canSelect = allowsSelection && person.type !== 'employees' && person.type !== 'suppliers';
 
   if (isCustomer) {
     return (
@@ -189,128 +183,18 @@ const PersonCard = ({
               </button>
             )}
 
-            <button
-              ref={menuAnchorRef}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsMenuOpen(!isMenuOpen);
-              }}
-              className={`w-7 h-7 flex items-center justify-center transition-colors shrink-0 ${
-                isMenuOpen
-                  ? 'text-indigo-600 dark:text-indigo-400'
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-              }`}
-              title="Mais Ações"
-            >
-              <i className="bi bi-three-dots text-xs" />
-            </button>
-
-            <DropdownPortal
-              isOpen={isMenuOpen}
-              onClose={() => setIsMenuOpen(false)}
-              anchorRef={menuAnchorRef}
-              className="min-w-[190px]"
-            >
-              <div
-                className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
-                onMouseLeave={() => setIsMenuOpen(false)}
-              >
-                {showTrash ? (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMenuOpen(false);
-                        onRestore(person.id!);
-                      }}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
-                    >
-                      <i className="bi bi-arrow-counterclockwise text-emerald-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                        Restaurar
-                      </span>
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMenuOpen(false);
-                        onPermanentDelete(person.id!);
-                      }}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                    >
-                      <i className="bi bi-trash3-fill text-red-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
-                        Excluir Permanentemente
-                      </span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMenuOpen(false);
-                        onEdit(person);
-                      }}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
-                    >
-                      <i className="bi bi-pencil-fill text-blue-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                        Editar
-                      </span>
-                    </button>
-
-                    {onViewPurchaseHistory && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsMenuOpen(false);
-                          onViewPurchaseHistory(person);
-                        }}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
-                      >
-                        <i className="bi bi-bag-check-fill text-amber-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                          Histórico de Pedidos
-                        </span>
-                      </button>
-                    )}
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMenuOpen(false);
-                        import('../../../../utils/whatsapp').then(
-                          ({ sendDirectPersonGroupInviteMessage }) => {
-                            sendDirectPersonGroupInviteMessage(person);
-                          }
-                        );
-                      }}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors text-left group"
-                    >
-                      <i className="bi bi-person-lines-fill text-indigo-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">
-                        Enviar Convite VIP
-                      </span>
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMenuOpen(false);
-                        onDelete(person.id!);
-                      }}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                    >
-                      <i className="bi bi-trash-fill text-red-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
-                        Mover para Lixeira
-                      </span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </DropdownPortal>
+            <PersonCardActionsMenu
+              person={person}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onRestore={onRestore}
+              onPermanentDelete={onPermanentDelete}
+              onViewPurchaseHistory={onViewPurchaseHistory}
+              showTrash={showTrash}
+              supplierDeletionCounts={supplierDeletionCounts}
+              supplierDeletionCountLoading={supplierDeletionCountLoading}
+              supplierDeletionCountError={supplierDeletionCountError}
+            />
           </div>
         </div>
       </div>
@@ -369,158 +253,18 @@ const PersonCard = ({
             ).map((r) => <React.Fragment key={r}>{getRoleBadge(r)}</React.Fragment>)}
         </div>
 
-        {hasActions && (
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
-            <button
-              ref={menuAnchorRef}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsMenuOpen(!isMenuOpen);
-              }}
-              className={`w-8 h-8 flex items-center justify-center transition-colors shrink-0 ${isMenuOpen ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-              title="Mais Ações"
-            >
-              <i className="bi bi-three-dots text-xs" />
-            </button>
-
-            <DropdownPortal
-              isOpen={isMenuOpen}
-              onClose={() => setIsMenuOpen(false)}
-              anchorRef={menuAnchorRef}
-              className="min-w-[190px]"
-            >
-              <div
-                className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl py-2 flex flex-col z-[9999] animate-slide-up"
-                onMouseLeave={() => setIsMenuOpen(false)}
-              >
-                {showTrash ? (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMenuOpen(false);
-                        onRestore(person.id!);
-                      }}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
-                    >
-                      <i className="bi bi-arrow-counterclockwise text-emerald-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                        Restaurar
-                      </span>
-                    </button>
-                    {isSupplier ? (
-                      <SupplierDeleteMenuItem
-                        counts={supplierDeletionCounts}
-                        loading={supplierDeletionCountLoading}
-                        error={supplierDeletionCountError}
-                        onDelete={() => {
-                          setIsMenuOpen(false);
-                          onPermanentDelete(person.id!);
-                        }}
-                      />
-                    ) : (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsMenuOpen(false);
-                          onPermanentDelete(person.id!);
-                        }}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                      >
-                        <i className="bi bi-trash3-fill text-red-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
-                          Excluir Permanentemente
-                        </span>
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {person.type !== 'employees' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsMenuOpen(false);
-                          onEdit(person);
-                        }}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
-                      >
-                        <i className="bi bi-pencil-fill text-blue-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                          Editar
-                        </span>
-                      </button>
-                    )}
-
-                    {onViewPurchaseHistory && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsMenuOpen(false);
-                          onViewPurchaseHistory(person);
-                        }}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-955 transition-colors text-left group"
-                      >
-                        <i className="bi bi-bag-check-fill text-amber-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-                          Histórico de Pedidos
-                        </span>
-                      </button>
-                    )}
-
-                    {isSupplier && (
-                      <SupplierDeleteMenuItem
-                        counts={supplierDeletionCounts}
-                        loading={supplierDeletionCountLoading}
-                        error={supplierDeletionCountError}
-                        onDelete={() => {
-                          setIsMenuOpen(false);
-                          onPermanentDelete(person.id!);
-                        }}
-                      />
-                    )}
-
-                    {person.type !== 'employees' && !isSupplier && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsMenuOpen(false);
-                          import('../../../../utils/whatsapp').then(
-                            ({ sendDirectPersonGroupInviteMessage }) => {
-                              sendDirectPersonGroupInviteMessage(person);
-                            }
-                          );
-                        }}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors text-left group"
-                      >
-                        <i className="bi bi-person-lines-fill text-indigo-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300">
-                          Enviar Convite VIP
-                        </span>
-                      </button>
-                    )}
-
-                    {person.type !== 'employees' && !isSupplier && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsMenuOpen(false);
-                          onDelete(person.id!);
-                        }}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-955/20 transition-colors text-left group border-t border-slate-50 dark:border-slate-800/50"
-                      >
-                        <i className="bi bi-trash-fill text-red-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400">
-                          Mover para Lixeira
-                        </span>
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </DropdownPortal>
-          </div>
-        )}
+        <PersonCardActionsMenu
+          person={person}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onRestore={onRestore}
+          onPermanentDelete={onPermanentDelete}
+          onViewPurchaseHistory={onViewPurchaseHistory}
+          showTrash={showTrash}
+          supplierDeletionCounts={supplierDeletionCounts}
+          supplierDeletionCountLoading={supplierDeletionCountLoading}
+          supplierDeletionCountError={supplierDeletionCountError}
+        />
       </div>
 
       <div className="mb-3">

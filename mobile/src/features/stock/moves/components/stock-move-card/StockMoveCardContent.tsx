@@ -9,6 +9,7 @@ import {
   Tag,
 } from 'lucide-react-native';
 import { StockMove } from '../../../types/stock.types';
+import { isReversedMoveStatus } from '../../domain/inventoryTimelineBalance';
 import { styles } from './stockMoveCard.styles';
 import {
   getTypeVisualConfig,
@@ -30,7 +31,7 @@ export const StockMoveCardContent: React.FC<Props> = ({
 }) => {
   const [expandedObservation, setExpandedObservation] = React.useState(false);
 
-  const isReversed = move.status === 'reversed';
+  const isReversed = isReversedMoveStatus(move.status);
   const isEffective = move.status === 'effective' || move.status === 'active';
 
   const { TypeIcon, typeText, typeColor, typeBg, typeBorder, isEntry, isExit } =

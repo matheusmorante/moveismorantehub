@@ -6,9 +6,23 @@ export interface MobileReceiptItem extends MobilePurchaseItem {
   [key: string]: unknown;
   expectedQuantity?: number;
   freightFiscalUnit?: number;
+  freightNonFiscalUnit?: number;
+  freightUnit?: number;
+  discountFiscalUnit?: number;
+  discountNonFiscalUnit?: number;
   discountUnit?: number;
   otherExpensesFiscalUnit?: number;
+  otherExpensesNonFiscalUnit?: number;
   ipiUnit?: number;
+}
+
+export interface MobileReceiptRateioOptions {
+  discountMode: 'percent' | 'fixed';
+  discountValue: number;
+  freightMode: 'percent' | 'fixed';
+  freightValue: number;
+  otherExpensesMode?: 'percent' | 'fixed';
+  otherExpensesValue?: number;
 }
 
 export interface ReceiptOrigin {
@@ -46,10 +60,89 @@ export function receiptItemWithCosts(item: MobileReceiptItem): MobileReceiptItem
         (item.discountUnit || 0) +
         (item.ipiUnit || 0) +
         (item.freightFiscalUnit || 0) +
-        (item.otherExpensesFiscalUnit || 0),
+        (item.freightNonFiscalUnit || 0) +
+        (item.otherExpensesFiscalUnit || 0) +
+        (item.otherExpensesNonFiscalUnit || 0) +
+        (item.additionalCostUnit || 0),
     ),
   );
   return { ...item, unitCost, totalCost: round2(item.quantity * unitCost) };
+}
+
+function amountForRateio(mode: 'percent' | 'fixed', value: number, baseTotal: number): number {
+  const safeValue = Math.max(0, Number.isFinite(value) ? value : 0);
+  return round2(mode === 'percent' ? (baseTotal * safeValue) / 100 : safeValue);
+}
+
+/** Calcula o custo dos itens de recebimento após aplicar os rateios operacionais. */
+export function calculateMobileReceiptItems(
+  items: readonly MobileReceiptItem[],
+  options: MobileReceiptRateioOptions,
+): MobileReceiptItem[] {
+  const itemBases = items.map((item) => {
+    const baseCost = Math.max(0, Number(item.fiscalBaseCost ?? item.baseCost ?? item.unitCost ?? 0));
+    const quantity = Math.max(1, Number(item.quantity || 0));
+    return round2(baseCost * quantity);
+  });
+  const baseTotal = round2(itemBases.reduce((total, itemBase) => total + itemBase, 0));
+  const discountAllocations = allocate(
+    amountForRateio(options.discountMode, options.discountValue, baseTotal),
+    itemBases,
+  );
+  const freightAllocations = allocate(
+    amountForRateio(options.freightMode, options.freightValue, baseTotal),
+    itemBases,
+  );
+  const otherExpensesAllocations = allocate(
+    amountForRateio(options.otherExpensesMode ?? 'percent', options.otherExpensesValue ?? 0, baseTotal),
+    itemBases,
+  );
+
+  return items.map((item, index) => {
+    const baseCost = Math.max(0, Number(item.fiscalBaseCost ?? item.baseCost ?? item.unitCost ?? 0));
+    const quantity = Math.max(1, Number(item.quantity || 0));
+    const discountNonFiscalUnit = round4(discountAllocations[index] / quantity);
+    const discountFiscalUnit = round4(
+      Number(
+        item.discountFiscalUnit ??
+          Math.max(0, Number(item.discountUnit || 0) - Number(item.discountNonFiscalUnit || 0)),
+      ),
+    );
+    const discountUnit = round4(
+      discountFiscalUnit + discountNonFiscalUnit,
+    );
+    const freightNonFiscalUnit = round4(freightAllocations[index] / quantity);
+    const freightUnit = round4(
+      Number(item.freightFiscalUnit ?? 0) + freightNonFiscalUnit,
+    );
+    const otherExpensesNonFiscalUnit = round4(otherExpensesAllocations[index] / quantity);
+    const otherExpensesUnit = round4(
+      Number(item.otherExpensesFiscalUnit ?? 0) +
+        otherExpensesNonFiscalUnit +
+        Number(item.additionalCostUnit ?? 0),
+    );
+    const unitCost = round2(
+      Math.max(
+        0,
+        baseCost - discountUnit +
+          Number(item.ipiUnit ?? 0) + freightUnit + otherExpensesUnit,
+      ),
+    );
+
+    return {
+      ...item,
+      baseCost: round2(baseCost),
+      discountFiscalUnit,
+      discountNonFiscalUnit,
+      discountUnit,
+      freightNonFiscalUnit,
+      freightUnit,
+      otherExpensesNonFiscalUnit,
+      otherExpensesUnit,
+      unitCost,
+      totalCost: round2(quantity * unitCost),
+    };
+  });
 }
 
 export function purchaseReceiptOrigin(purchase: MobilePurchase): ReceiptOrigin {
@@ -91,13 +184,6 @@ function allocate(total: number, weights: number[]): number[] {
 
 /** Recebe os dados de vínculo já persistidos; não altera a NF nem cria vínculos. */
 export function inboundReceiptOrigin(invoice: any): ReceiptOrigin {
-  if (
-    invoice.status_recebimento === 'received' ||
-    invoice.status_recebimento === 'recebida' ||
-    invoice.receipt_id
-  ) {
-    throw new Error('Esta nota já está vinculada a um recebimento concluído.');
-  }
   if (!supplierProvidesStockOrigin(invoice.supplierStockOrigins, 'normal')) {
     throw new Error('Este fornecedor não gera recebimento de estoque normal.');
   }
@@ -235,58 +321,4 @@ export function inboundReceiptOrigin(invoice: any): ReceiptOrigin {
       number(invoice.valor_icms_st),
     items,
   };
-}
-
-/** Desconta entradas já confirmadas da mesma NF antes de oferecer o saldo restante. */
-export function remainingInvoiceReceiptOrigin(
-  origin: ReceiptOrigin,
-  previousItems: Array<{
-    product_id?: string | null;
-    variation_id?: string | null;
-    quantity?: number | string | null;
-  }>,
-): ReceiptOrigin {
-  const received = new Map<string, number>();
-  const keyFor = (item: MobileReceiptItem) => `${item.productId}:${item.variationId || ''}`;
-  for (const previous of previousItems) {
-    if (!previous.product_id) continue;
-    const candidates = origin.items.filter(
-      (item) =>
-        item.productId === previous.product_id &&
-        (!previous.variation_id || item.variationId === previous.variation_id),
-    );
-    const keys = [...new Set(candidates.map(keyFor))];
-    if (keys.length !== 1 || new Set(candidates.map((item) => item.unitCost)).size > 1) {
-      throw new Error('Confira no ERP os recebimentos anteriores desta nota antes de continuar.');
-    }
-    const amount = Number(previous.quantity);
-    if (!Number.isFinite(amount) || amount < 0)
-      throw new Error('A quantidade de um recebimento anterior é inválida.');
-    received.set(keys[0], (received.get(keys[0]) || 0) + amount);
-  }
-
-  const items = origin.items.flatMap((item) => {
-    const key = keyFor(item);
-    const alreadyReceived = received.get(key) || 0;
-    const consumed = Math.min(item.quantity, alreadyReceived);
-    received.set(key, round4(alreadyReceived - consumed));
-    const remaining = round4(item.quantity - consumed);
-    return remaining > 0
-      ? [
-          receiptItemWithCosts({
-            ...item,
-            quantity: remaining,
-            expectedQuantity: remaining,
-          }),
-        ]
-      : [];
-  });
-  if ([...received.values()].some((quantity) => quantity > 0.0001)) {
-    throw new Error(
-      'A quantidade já recebida ultrapassa a quantidade vinculada na nota. Confira no ERP.',
-    );
-  }
-  if (!items.length)
-    throw new Error('Os itens desta nota já foram recebidos. Confira a lista de recebimentos.');
-  return { ...origin, items };
 }

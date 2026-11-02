@@ -1,10 +1,10 @@
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import React from 'react';
 import {
   ActivityIndicator,
   Modal,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -103,7 +103,7 @@ export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> =
             </Text>
             <View style={[styles.searchBox, isDarkMode && styles.searchBoxDark]}>
               <Search size={17} color="#94a3b8" />
-              <TextInput
+              <FormTextInput
                 value={parentSearch}
                 onChangeText={onParentSearchChange}
                 placeholder="Buscar produto pai por nome ou SKU"

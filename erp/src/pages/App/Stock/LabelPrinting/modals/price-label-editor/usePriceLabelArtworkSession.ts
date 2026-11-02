@@ -3,18 +3,13 @@ import { toast } from 'react-toastify';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { labelPartialConfigFormSchema } from '../../../../../../../../shared-utils/labelDesignFormSchemas';
 import {
-  labelArtConfigSchema,
-  labelArtLayoutSelectionSchema,
   labelArtworkTitleFormSchema,
   labelArtworkExportFormSchema,
 } from '../../../../../../../../shared-utils/labelArtworkFormSchemas';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
-import {
-  fetchPriceLabelArtConfigResult,
-  fetchOpportunitiesResult,
-} from '../../services/priceLabelPersistenceService';
 import { buildPriceLabelAutoSaveConfig } from '../../services/priceLabelAutoSaveConfig';
 import { exportLabelImage } from '../../services/priceLabelExportService';
+import { usePriceLabelArtworkQueries } from './usePriceLabelArtworkQueries';
 import type { LabelConfig } from '../../utils/LabelConstants';
 import type { Opportunity } from '../../types/PriceLabelArtEditorTypes';
 
@@ -134,23 +129,12 @@ export function usePriceLabelArtworkSession({
     snapshot: {},
   });
   const { validateAndRun: validateTitle } = useZodForm(labelArtworkTitleFormSchema, { title: '' });
-  const { validateValues: validateArtQuery } = useZodForm(labelArtLayoutSelectionSchema, {
-    layoutId: String(config.layoutId || 'preco_2x5_restored'),
-  });
-  const { validateValues: validateOpportunityQuery } = useZodForm(labelArtLayoutSelectionSchema, {
-    layoutId: String(config.layoutId || 'preco_2x5_restored'),
-  });
 
   const active = useRef(true);
   const sessionId = useRef(Symbol('price-artwork'));
-  const loadedArtConfig = useRef(config.artConfig);
   const confirmedSnapshot = useRef('');
   const saveFailure = useRef<Error | null>(saveGuard.error);
   const [saveError, setSaveError] = useState(saveGuard.error?.message || '');
-  const [artQueryError, setArtQueryError] = useState('');
-  const [opportunityQueryError, setOpportunityQueryError] = useState('');
-  const [queryRevision, setQueryRevision] = useState(0);
-  const [opportunityQueryRevision, setOpportunityQueryRevision] = useState(0);
   const [isClosing, setIsClosing] = useState(false);
   const closing = useRef(false);
   const actionInFlight = useRef(false);
@@ -158,7 +142,6 @@ export function usePriceLabelArtworkSession({
   const [actionError, setActionError] = useState('');
   const historyEditingAllowed = useRef(false);
   const opportunitySelectionRevision = useRef(0);
-  const isInitializedRef = useRef(false);
   const latestSnapshot = useRef(getSnapshot);
   latestSnapshot.current = getSnapshot;
 
@@ -188,147 +171,33 @@ export function usePriceLabelArtworkSession({
     };
   }, [saveGuard]);
 
-  historyEditingAllowed.current = !isArtConfigLoading && !artQueryError && !saveGuard.error && !actionBusy;
-  const initialArtworkQuery = useRef({ artConfig: config.artConfig, selectedOppId, applySnapshot, onArtConfigLoaded });
-
-  // Carrega um único layout global. A oportunidade altera somente as cores.
-  useEffect(() => {
-    if (!isOpen) {
-      isInitializedRef.current = false;
-      setIsArtConfigLoading(true);
-      return;
-    }
-    let cancelled = false;
-    setIsArtConfigLoading(true);
-    setArtQueryError('');
-
-    const loadArtConfigFromSupabase = async () => {
-      try {
-        const query = await validateArtQuery(
-          { layoutId: String(config.layoutId || 'preco_2x5_restored') },
-          (errors) => {
-            throw new Error(Object.values(flattenFormErrors(errors))[0]);
-          }
-        );
-        if (!query || cancelled) return;
-        const result = await withTimeout(
-          fetchPriceLabelArtConfigResult(query.layoutId),
-          16000,
-          { data: null, error: new Error('A consulta da arte excedeu o prazo. Tente consultar novamente.') },
-          'etiquetas:consultar-arte-editor'
-        );
-        if (cancelled || !active.current) return;
-        if (result.error) throw result.error;
-        const fallback = initialArtworkQuery.current.artConfig;
-        const dbArtConfig = result.data ?? (fallback ? labelArtConfigSchema.parse(fallback) : undefined);
-        loadedArtConfig.current = dbArtConfig;
-
-        if (dbArtConfig) {
-          initialArtworkQuery.current.onArtConfigLoaded?.(dbArtConfig, () => !cancelled && active.current);
-          if (dbArtConfig.oppColorsMap && typeof dbArtConfig.oppColorsMap === 'object') {
-            setOppColorsMap(dbArtConfig.oppColorsMap);
-          }
-
-          const snapshotToApply =
-            dbArtConfig.opportunities?.['none'] ||
-            dbArtConfig.opportunities?.['default'] ||
-            dbArtConfig.opportunities?.['salvado'] ||
-            dbArtConfig.globalSnapshot ||
-            Object.values(dbArtConfig.opportunities || {})[0];
-
-          if (snapshotToApply) {
-            const { selectedOppId: _savedContext, ...globalLayout } = snapshotToApply as Record<string, any>;
-            initialArtworkQuery.current.applySnapshot(globalLayout, isInitializedRef.current);
-          } else {
-            const initialBg =
-              initialArtworkQuery.current.selectedOppId === 'none'
-                ? '#ffffff'
-                : initialArtworkQuery.current.selectedOppId === 'salvado'
-                  ? '#ff7900'
-                  : '#ffffff';
-            setBgColor(initialBg);
-          }
-        } else {
-          const initialBg =
-            initialArtworkQuery.current.selectedOppId === 'none'
-              ? '#ffffff'
-              : initialArtworkQuery.current.selectedOppId === 'salvado'
-                ? '#ff7900'
-                : '#ffffff';
-          setBgColor(initialBg);
-        }
-
-        isInitializedRef.current = true;
-        confirmedSnapshot.current = '';
-        lastQueuedSnapshotRef.current = '';
-        latestRequestedSnapshotRef.current = '';
-      } catch (error) {
-        if (!cancelled && active.current) {
-          setArtQueryError(error instanceof Error ? error.message : 'Não foi possível consultar a arte. Tente novamente.');
-        }
-      } finally {
-        if (!cancelled && active.current) setIsArtConfigLoading(false);
-      }
-    };
-
-    loadArtConfigFromSupabase();
-    return () => {
-      cancelled = true;
-    };
-  }, [
+  const {
+    loadedArtConfig,
+    artQueryError,
+    opportunityQueryError,
+    setQueryRevision,
+    setOpportunityQueryRevision,
+  } = usePriceLabelArtworkQueries({
     isOpen,
-    config.layoutId,
-    queryRevision,
-    validateArtQuery,
+    layoutId: config.layoutId,
+    initialArtConfig: config.artConfig,
+    initialOpportunityId,
+    selectedOppId,
+    applySnapshot,
+    onArtConfigLoaded,
+    activeRef: active,
+    confirmedSnapshotRef: confirmedSnapshot,
     lastQueuedSnapshotRef,
     latestRequestedSnapshotRef,
-    setBgColor,
+    opportunitySelectionRevision,
     setIsArtConfigLoading,
     setOppColorsMap,
-  ]);
-
-  // Carrega oportunidades cadastradas no Supabase
-  useEffect(() => {
-    if (!isOpen) return;
-    let cancelled = false;
-    const selectionRevision = opportunitySelectionRevision.current;
-    setOpportunityQueryError('');
-
-    async function fetchOpps() {
-      try {
-        const query = await validateOpportunityQuery({ layoutId: String(config.layoutId || 'preco_2x5_restored') });
-        if (!query || cancelled) return;
-        const { data, error } = await withTimeout(
-          fetchOpportunitiesResult(),
-          16000,
-          { data: [], error: new Error('A consulta das oportunidades excedeu o prazo. Tente novamente.') },
-          'etiquetas:consultar-oportunidades-editor'
-        );
-        if (cancelled || !active.current) return;
-        if (error) throw error;
-        setDbOpportunities(data);
-        if (initialOpportunityId && opportunitySelectionRevision.current === selectionRevision) {
-          setSelectedOppId(initialOpportunityId);
-        }
-      } catch (err) {
-        if (!cancelled && active.current) {
-          setOpportunityQueryError(err instanceof Error ? err.message : 'Não foi possível consultar as oportunidades.');
-        }
-      }
-    }
-    fetchOpps();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    isOpen,
-    config.layoutId,
-    initialOpportunityId,
-    opportunityQueryRevision,
-    validateOpportunityQuery,
     setDbOpportunities,
     setSelectedOppId,
-  ]);
+    setBgColor,
+  });
+
+  historyEditingAllowed.current = !isArtConfigLoading && !artQueryError && !saveGuard.error && !actionBusy;
 
   const queueAutoSave = useCallback(
     (snapshot: Record<string, any>, serialized: string, force = false) => {

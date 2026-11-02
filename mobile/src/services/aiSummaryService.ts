@@ -128,7 +128,15 @@ export const generateDeliveryAISummary = async (
     if (!pending) {
       pending = (async () => {
         // 2. Verificar se já existe um resumo persistido para a mesma fingerprint
-        const savedRecord = await getSavedSummaryRecord(mode, currentFingerprint);
+        const savedResponse = await withTimeout(
+          getSavedSummaryRecord(mode, currentFingerprint).then((record) => ({ record })),
+          15_000,
+          null,
+          'resumo:registro'
+        );
+        // Timeout não comprova ausência de cache ou lease: não iniciar outra geração.
+        if (!savedResponse) throw new Error('Tempo de leitura do resumo excedido.');
+        const savedRecord = savedResponse.record;
 
         if (!forceRefresh && savedRecord) {
           if (savedRecord.text_status === 'READY' && savedRecord.text) {

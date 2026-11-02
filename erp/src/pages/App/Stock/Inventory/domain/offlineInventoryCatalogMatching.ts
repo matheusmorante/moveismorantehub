@@ -1,9 +1,11 @@
 import { extractLabelIdentity, extractScannedCodes } from '@/pages/utils/barcodeScannerUtils';
-import type {
-  OfflineInventoryCatalog,
-  OfflineInventoryCatalogRow,
-  OfflineInventoryMatch,
+import {
+  OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
+  type OfflineInventoryCatalog,
+  type OfflineInventoryCatalogRow,
+  type OfflineInventoryMatch,
 } from '../types/offlineInventoryCatalog.types';
+import { isProductComposition } from '../../../../../../../shared-utils/productCompositionRequirements';
 
 const canonicalVariation = (catalog: OfflineInventoryCatalog, initialId: string) => {
   let current = catalog.variations[initialId];
@@ -20,6 +22,10 @@ export const resolveOfflineInventoryMatch = (
   catalog: OfflineInventoryCatalog,
   rawCode: string
 ): OfflineInventoryMatch | null => {
+  if (catalog.formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION) {
+    return null;
+  }
+
   const { labelId } = extractLabelIdentity(rawCode);
   const label = labelId ? catalog.labels[labelId] : undefined;
   const candidateIds = new Set<string>();
@@ -57,6 +63,7 @@ export const resolveOfflineInventoryMatch = (
     const product = catalog.products[String(variation.product_id)];
     if (
       !product ||
+      isProductComposition(product) ||
       ((product.item_type !== 'product' ||
         product.deleted ||
         product.deleted_at ||
@@ -90,6 +97,7 @@ export const resolveOfflineInventoryMatch = (
   if (
     !variation ||
     !product ||
+    isProductComposition(product) ||
     product.item_type !== 'product' ||
     product.deleted ||
     product.deleted_at ||

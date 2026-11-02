@@ -6,6 +6,7 @@ import { inferBusinessPurpose } from './financialPurposeReply';
 import { detectFinancialPaymentMethod } from './financialPaymentMethodDetector';
 import { isBankFinancialInstitution } from './bankKeywords';
 import { tryPatchInstallmentSlots } from './patchers/installmentSlotPatcher';
+import { tryPatchUnknownFinancialAnswer } from './patchers/unknownAnswerPatcher';
 import { extractUnknownFieldsFromText } from './financialUnknownFieldExtractor';
 
 export { extractUnknownFieldsFromText };
@@ -18,34 +19,8 @@ export const trySlotFillingFallback = (
   const text = msg.toLowerCase().trim();
   const draft: ParsedFinancialIntent = JSON.parse(JSON.stringify(activeDraft));
 
-  // 0. Detecção de Desconhecimento do Usuário ("não lembro", "não sei", "consulta aí", "procura aí", "vê pra mim", "não tenho certeza")
-  const isUnknown =
-    text.includes('não lembro') ||
-    text.includes('nao lembro') ||
-    text.includes('sem lembrar') ||
-    text.includes('não sei') ||
-    text.includes('nao sei') ||
-    text.includes('consulta aí') ||
-    text.includes('consulta ai') ||
-    text.includes('procura aí') ||
-    text.includes('procura ai') ||
-    text.includes('vê pra mim') ||
-    text.includes('ve pra mim') ||
-    text.includes('não tenho certeza') ||
-    text.includes('nao tenho certeza');
-
-  if (isUnknown) {
-    draft.unknownByUser = extractUnknownFieldsFromText(text, draft);
-
-    // Altera a intenção para busca no ERP
-    draft.intentType = 'QUERY_OR_UPDATE';
-    draft.missingFields = (draft.missingFields || []).filter(
-      (f) => !draft.unknownByUser?.includes(f)
-    );
-    draft.questionToUser = null;
-
-    return validateParsedIntent(draft, todayStr);
-  }
+  const unknownAnswerPatch = tryPatchUnknownFinancialAnswer(text, draft, todayStr);
+  if (unknownAnswerPatch) return unknownAnswerPatch;
 
   // Uma resposta pode preencher vários campos de uma vez (ex.: "R$ 500, da
   // loja, pago no Pix"). Esses campos precisam ser acumulados antes da primeira

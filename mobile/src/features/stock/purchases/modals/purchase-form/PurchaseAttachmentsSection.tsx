@@ -14,6 +14,7 @@ interface PurchaseAttachmentsSectionProps {
   attachments: string[];
   isUploading: boolean;
   colors: ThemeColors;
+  recordLabel?: 'pedido' | 'recebimento';
   onAdd: () => void;
   onOpen: (url: string) => void;
   onRemove: (index: number) => void;
@@ -30,6 +31,7 @@ export const PurchaseAttachmentsSection: React.FC<PurchaseAttachmentsSectionProp
   attachments,
   isUploading,
   colors,
+  recordLabel = 'pedido',
   onAdd,
   onOpen,
   onRemove,
@@ -38,7 +40,7 @@ export const PurchaseAttachmentsSection: React.FC<PurchaseAttachmentsSectionProp
     <View style={styles.heading}>
       <View style={styles.titleRow}>
         <Paperclip size={16} color={colors.muted} />
-        <Text style={[styles.title, { color: colors.text }]}>Anexos do pedido</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Anexos do {recordLabel}</Text>
       </View>
       <Text style={[styles.counter, { color: colors.muted }]}>{attachments.length}/5</Text>
     </View>
@@ -46,7 +48,7 @@ export const PurchaseAttachmentsSection: React.FC<PurchaseAttachmentsSectionProp
     <TouchableOpacity
       accessibilityRole="button"
       accessibilityLabel="Anexar documento PDF ou imagem"
-      accessibilityHint="Você pode anexar até cinco arquivos ao pedido."
+      accessibilityHint={`Você pode anexar até cinco arquivos ao ${recordLabel}.`}
       disabled={isUploading || attachments.length >= 5}
       onPress={onAdd}
       style={[

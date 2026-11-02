@@ -1,4 +1,4 @@
-import type Shipping from '../erp/src/pages/types/Shipping.type';
+import type Shipping from '../../erp/src/pages/types/Shipping.type';
 
 export type ValidationErrors = Record<string, string>;
 

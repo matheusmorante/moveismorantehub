@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -25,6 +24,7 @@ import {
   resolveMobileServiceCfopLabel,
 } from '../../domain/mobileProductFiscalOptions';
 
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
@@ -245,7 +245,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
               <Text style={[styles.label, dark && styles.dimText]}>
                 Código Municipal / Serviço (LC 116/03) <Text style={{ color: '#ef4444' }}>*</Text>
               </Text>
-              <TextInput
+              <FormTextInput
                 value={fiscal.codigoServico || ''}
                 onChangeText={(value) =>
                   setFiscalField('codigoServico', value.replace(/\D/g, '').slice(0, 8))
@@ -262,7 +262,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
               <Text style={[styles.label, dark && styles.dimText]}>
                 Código NCM (8 dígitos) <Text style={{ color: '#ef4444' }}>*</Text>
               </Text>
-              <TextInput
+              <FormTextInput
                 value={ncmSearch}
                 onChangeText={(v) => {
                   setNcmSearch(v);
@@ -429,7 +429,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
                 ))}
               </View>
             )}
-            <TextInput
+            <FormTextInput
               value={fiscal.cest || ''}
               onChangeText={(v) => setFiscalField('cest', v.replace(/\D/g, '').slice(0, 7))}
               keyboardType="numeric"
@@ -591,7 +591,7 @@ export const ProductFormFiscalTab: React.FC<Props> = ({
             <Text style={[styles.label, dark && styles.dimText]}>
               {formData.itemType === 'service' ? 'Alíquota ISS (%)' : 'Alíquota ICMS (%)'}
             </Text>
-            <TextInput
+            <FormTextInput
               editable={canConfigureProductTaxes}
               accessibilityState={{ disabled: !canConfigureProductTaxes }}
               value={

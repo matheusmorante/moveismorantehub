@@ -50,6 +50,7 @@ export const useStockMoves = () => {
             observation: move.observation || undefined,
             relatedEntityType: move.related_entity_type || move.relatedEntityType || undefined,
             relatedEntityId: move.related_entity_id || move.relatedEntityId || undefined,
+            sourceReceiptId: move.source_receipt_id || move.sourceReceiptId || undefined,
           });
 
           return {
@@ -86,6 +87,7 @@ export const useStockMoves = () => {
             reversalReason: move.reversalReason || move.reversal_reason || metadata.reversalReason,
             relatedEntityType: move.related_entity_type || move.relatedEntityType || undefined,
             relatedEntityId: move.related_entity_id || move.relatedEntityId || undefined,
+            sourceReceiptId: move.source_receipt_id || move.sourceReceiptId || undefined,
           };
         });
 

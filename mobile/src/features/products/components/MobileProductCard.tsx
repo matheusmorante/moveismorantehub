@@ -12,8 +12,8 @@ import { useState } from 'react';
 import { Alert, Linking, Text, TouchableOpacity, View } from 'react-native';
 import { WEB_URL } from '../../../services/supabaseClient';
 import { useMobileProductCardState } from '../hooks/useMobileProductCardState';
-import { MobileChannelBadges } from './MobileChannelBadges';
 import { MobileProductCardIdentity } from './MobileProductCardIdentity';
+import { MobileProductCardSummary } from './MobileProductCardSummary';
 import { MobileProductActionsMenu } from './MobileProductActionsMenu';
 import { MobileProductVariationActionsMenu } from './MobileProductVariationActionsMenu';
 import { MobileProductVariationList } from './MobileProductVariationList';
@@ -21,7 +21,6 @@ import { MergedBadge } from './MergedBadge';
 import { styles } from './MobileProductCard.styles';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { productRestoreFromTrashFormSchema } from '../../../../../shared-utils/productVariationOperationFormSchemas';
-import { formatBrlCurrency } from '../../../../../shared-utils/productCurrencyFormatting';
 import {
   buildProductIdentificationLabelUrl,
   buildProductPriceLabelUrl,
@@ -348,60 +347,36 @@ export const MobileProductCard: React.FC<Props> = ({
         oppBadgeInfo={oppBadgeInfo}
       />
 
-      {/* Linha Inferior: Preço/Estoque e Status de Canais Bipartido */}
-      <View style={styles.bottomRow}>
-        {(!isParent || isSingleVariationCard) && (
-          <View style={styles.priceCol}>
-            {hasCardPromo && (
-              <Text style={styles.oldPrice}>{formatBrlCurrency(cardUnitPrice)}</Text>
-            )}
-            <Text style={[styles.price, dark && styles.priceDark]}>
-              {formatBrlCurrency(cardPrice)}
-            </Text>
-            {product.itemType !== 'service' && (
-              <Text style={styles.stockText}>
-                Estoque:{' '}
-                <Text
-                  style={[
-                    styles.stockVal,
-                    isLowStock && (dark ? styles.stockValLowDark : styles.stockValLow),
-                  ]}
-                >
-                  {cardStock} {cardUnit}
-                </Text>
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Status de Canais Bipartido */}
-        <MobileChannelBadges
-          dark={dark}
-          isParent={isParent && !isSingleVariationCard}
-          isSalvado={isSalvado}
-          isNonConventional={isNonConventional}
-          isActive={isActive}
-          isPublished={isPublished}
-          isDraft={isDraft}
-          showCatalog={(!isParent || isSingleVariationCard) && showCatalogStatus}
-          canToggleActive={canDelete && !isNonConventional}
-          canToggleCatalog={canChangeCatalog}
-          disabled={isMerged}
-          disabledReason={
-            isMerged
-              ? 'Esta variação foi mesclada e seu status não pode ser alterado diretamente.'
-              : undefined
-          }
-          onToggleActive={() =>
-            onToggleActive(singleVariation ? singleVariation.id : product.id, isActive)
-          }
-          onToggleCatalog={() =>
-            singleVariation && !singleVariation.isVirtual
-              ? onToggleCatalog(product.id, cardStatus, true, singleVariation.id)
-              : onToggleCatalog(product.id, cardStatus)
-          }
-        />
-      </View>
+      <MobileProductCardSummary
+        product={product}
+        dark={dark}
+        isParent={isParent}
+        isSingleVariationCard={isSingleVariationCard}
+        hasCardPromo={hasCardPromo}
+        cardUnitPrice={cardUnitPrice}
+        cardPrice={cardPrice}
+        cardStock={cardStock}
+        cardUnit={cardUnit}
+        isLowStock={isLowStock}
+        isSalvado={isSalvado}
+        isNonConventional={isNonConventional}
+        isActive={isActive}
+        isPublished={isPublished}
+        isDraft={isDraft}
+        showCatalog={(!isParent || isSingleVariationCard) && showCatalogStatus}
+        canDelete={canDelete}
+        canChangeCatalog={canChangeCatalog}
+        isMerged={isMerged}
+        cardStatus={cardStatus}
+        onToggleActive={() =>
+          onToggleActive(singleVariation ? singleVariation.id : product.id, isActive)
+        }
+        onToggleCatalog={() =>
+          singleVariation && !singleVariation.isVirtual
+            ? onToggleCatalog(product.id, cardStatus, true, singleVariation.id)
+            : onToggleCatalog(product.id, cardStatus)
+        }
+      />
 
       {/* Variações Filhas Expandidas */}
       {hasExpandableVars && expanded && (

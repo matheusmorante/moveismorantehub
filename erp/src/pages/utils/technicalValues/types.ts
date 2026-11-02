@@ -6,7 +6,7 @@ import type {
   CharacteristicDependency,
   CharacteristicDefinitionConfiguration,
   CharacteristicDependencyLogic,
-} from '@/pages/types/variation.type';
+} from '../../types/variation.type';
 
 export interface TechnicalFieldDefinition {
   id: string;

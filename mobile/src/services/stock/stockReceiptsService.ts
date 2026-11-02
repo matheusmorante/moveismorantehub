@@ -3,6 +3,14 @@ import { ITEMS_PER_PAGE } from './stockPagination';
 import { offlineStorageService, generateUUID } from '../offline/offlineStorageService';
 import { connectivityService } from '../offline/connectivityService';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
+import { normalizeFiscalIdentifier } from '../../../../shared-utils/fiscalIdentifiers';
+import {
+  fetchInUseInvoiceKeys,
+  fetchReceivedInvoiceKeys,
+  effectiveInvoiceReceiptStatus,
+  receiptInvoiceConflictError,
+  IN_USE_INVOICE_MESSAGE,
+} from '../../../../shared-utils/receiptInvoiceAvailability';
 import { mapInboundInvoiceListRow } from './invoices/inboundInvoiceMappers';
 import {
   buildInboundInvoiceSearchFilter,
@@ -34,10 +42,12 @@ export interface PendingGoodsReceiptCheck {
 
 export interface NewMobileGoodsReceipt {
   id: string;
+  receiptIndex?: number;
   purchaseId?: string;
   supplierId: string;
   supplierName: string;
   receivedAt: string;
+  reversedAt?: string;
   totalValue: number;
   observation?: string;
   invoiceId?: string;
@@ -45,8 +55,15 @@ export interface NewMobileGoodsReceipt {
   invoiceNumber?: string;
   invoiceDate?: string;
   fiscalKey?: string;
+  attachments?: string[];
   ipiPercent?: number;
   freightPercent?: number;
+  nonFiscalDiscountMode?: 'percent' | 'fixed';
+  nonFiscalDiscountValue?: number;
+  nonFiscalFreightMode?: 'percent' | 'fixed';
+  nonFiscalFreightValue?: number;
+  nonFiscalOtherExpensesMode?: 'percent' | 'fixed';
+  nonFiscalOtherExpensesValue?: number;
   fiscalIpi?: number;
   fiscalFreight?: number;
   fiscalDiscount?: number;
@@ -54,6 +71,7 @@ export interface NewMobileGoodsReceipt {
   items: Array<{
     productId: string;
     variationId?: string;
+    receiptItemId?: string;
     description: string;
     quantity: number;
     baseCost: number;
@@ -69,6 +87,120 @@ export interface NewMobileGoodsReceipt {
   }>;
 }
 
+export type MobileGoodsReceiptDraft = Omit<NewMobileGoodsReceipt, 'supplierId' | 'supplierName'> & {
+  supplierId?: string;
+  supplierName?: string;
+};
+
+const isUuid = (value?: string) =>
+  Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value));
+
+/** Persiste o formulário sem movimentar estoque; só a RPC de confirmação efetiva a entrada. */
+export const saveMobileGoodsReceiptDraft = async (
+  receipt: MobileGoodsReceiptDraft,
+): Promise<{ id: string; receiptIndex?: number }> => {
+  if (!connectivityService.connected) {
+    throw new Error('Conecte-se à internet para salvar o rascunho do recebimento.');
+  }
+
+  const header = await withTimeout<any | null>(
+    Promise.resolve(
+      supabase.from('goods_receipts').upsert({
+        id: receipt.id,
+        receipt_index: receipt.receiptIndex ?? null,
+        purchase_id: receipt.purchaseId || null,
+        supplier_id: receipt.supplierId || null,
+        supplier_name: receipt.supplierName || 'Fornecedor',
+        received_at: receipt.receivedAt,
+        invoice_number: receipt.invoiceNumber || null,
+        invoice_date: receipt.invoiceDate || null,
+        items: receipt.items || [],
+        total_value: receipt.totalValue || 0,
+        observation: receipt.observation || '',
+        fiscal_key: receipt.fiscalKey || null,
+        attachments: receipt.attachments || [],
+        status: 'draft',
+        is_draft: true,
+        ipi_percent: receipt.ipiPercent || 0,
+        freight_percent: receipt.freightPercent || 0,
+        non_fiscal_discount_mode: receipt.nonFiscalDiscountMode || null,
+        non_fiscal_discount_value: receipt.nonFiscalDiscountValue || 0,
+        non_fiscal_freight_mode: receipt.nonFiscalFreightMode || null,
+        non_fiscal_freight_value: receipt.nonFiscalFreightValue || 0,
+        non_fiscal_other_expenses_mode: receipt.nonFiscalOtherExpensesMode || null,
+        non_fiscal_other_expenses_value: receipt.nonFiscalOtherExpensesValue || 0,
+        fiscal_ipi: receipt.fiscalIpi || 0,
+        fiscal_freight: receipt.fiscalFreight || 0,
+        fiscal_discount: receipt.fiscalDiscount || 0,
+        fiscal_other_expenses: receipt.fiscalOtherExpenses || 0,
+        updated_at: new Date().toISOString(),
+      }).select('receipt_index').single(),
+    ),
+    15_000,
+    null,
+    'mobile:goods-receipt-draft-header',
+  );
+  if (!header) throw new Error('O salvamento do rascunho demorou. Tente novamente.');
+  if (header.error) {
+    throw receiptInvoiceConflictError(header.error) || new Error(header.error.message || 'Não foi possível salvar o rascunho.');
+  }
+
+  const deletedItems = await withTimeout<any | null>(
+    Promise.resolve(supabase.from('goods_receipt_items').delete().eq('receipt_id', receipt.id)),
+    15_000,
+    null,
+    'mobile:goods-receipt-draft-items-delete',
+  );
+  if (!deletedItems) {
+    throw new Error('A atualização dos itens do rascunho demorou. Tente novamente.');
+  }
+  if (deletedItems.error) {
+    throw new Error(
+      deletedItems.error.message || 'Não foi possível atualizar os itens do rascunho.',
+    );
+  }
+
+  if (receipt.items.length > 0) {
+    const rows = receipt.items.map((item, index) => ({
+      receipt_id: receipt.id,
+      item_index: index + 1,
+      product_id: isUuid(item.productId) ? item.productId : null,
+      variation_id: isUuid(item.variationId) ? item.variationId : null,
+      description: item.description || 'Item de Recebimento',
+      quantity: Number(item.quantity ?? 1),
+      base_cost: Number(item.baseCost || 0),
+      unit_cost: Number(item.unitCost || 0),
+      freight_fiscal_unit: Number(item.freightFiscalUnit || 0),
+      freight_non_fiscal_unit: Number(item.freightNonFiscalUnit || 0),
+      discount_unit: Number(item.discountUnit || 0),
+      other_expenses_fiscal_unit: Number(item.otherExpensesFiscalUnit || 0),
+      other_expenses_non_fiscal_unit: Number(item.otherExpensesNonFiscalUnit || 0),
+      additional_cost_unit: Number(item.additionalCostUnit || 0),
+      item_snapshot: item,
+    }));
+    const insertedItems = await withTimeout<any | null>(
+      Promise.resolve(supabase.from('goods_receipt_items').insert(rows)),
+      15_000,
+      null,
+      'mobile:goods-receipt-draft-items-insert',
+    );
+    if (!insertedItems) {
+      throw new Error('O salvamento dos itens do rascunho demorou. Tente novamente.');
+    }
+    if (insertedItems.error) {
+      throw new Error(
+        insertedItems.error.message || 'Não foi possível salvar os itens do rascunho.',
+      );
+    }
+  }
+
+  const receiptIndex = Number(header.data?.receipt_index);
+  return {
+    id: receipt.id,
+    receiptIndex: Number.isInteger(receiptIndex) && receiptIndex > 0 ? receiptIndex : undefined,
+  };
+};
+
 /** Confirma uma nova entrada usando a mesma transação atômica do ERP. */
 export const createMobileGoodsReceipt = async (receipt: NewMobileGoodsReceipt): Promise<{ invoiceUpdated: boolean }> => {
   if (!connectivityService.connected) {
@@ -78,7 +210,7 @@ export const createMobileGoodsReceipt = async (receipt: NewMobileGoodsReceipt): 
   const rpcPromise = supabase.rpc('confirm_goods_receipt_checked_transaction', {
     p_receipt: {
       id: receipt.id,
-      receipt_index: null,
+      receipt_index: receipt.receiptIndex ?? null,
       purchase_id: receipt.purchaseId || null,
       supplier_id: receipt.supplierId,
       supplier_name: receipt.supplierName,
@@ -88,17 +220,17 @@ export const createMobileGoodsReceipt = async (receipt: NewMobileGoodsReceipt): 
       total_value: receipt.totalValue,
       observation: receipt.observation || '',
       fiscal_key: receipt.fiscalKey || null,
-      attachments: [],
+      attachments: receipt.attachments || [],
       status: 'received',
       is_draft: false,
       ipi_percent: receipt.ipiPercent || 0,
       freight_percent: receipt.freightPercent || 0,
-      non_fiscal_discount_mode: null,
-      non_fiscal_discount_value: 0,
-      non_fiscal_freight_mode: null,
-      non_fiscal_freight_value: 0,
-      non_fiscal_other_expenses_mode: null,
-      non_fiscal_other_expenses_value: 0,
+      non_fiscal_discount_mode: receipt.nonFiscalDiscountMode || null,
+      non_fiscal_discount_value: receipt.nonFiscalDiscountValue || 0,
+      non_fiscal_freight_mode: receipt.nonFiscalFreightMode || null,
+      non_fiscal_freight_value: receipt.nonFiscalFreightValue || 0,
+      non_fiscal_other_expenses_mode: receipt.nonFiscalOtherExpensesMode || null,
+      non_fiscal_other_expenses_value: receipt.nonFiscalOtherExpensesValue || 0,
       fiscal_ipi: receipt.fiscalIpi || 0,
       fiscal_freight: receipt.fiscalFreight || 0,
       fiscal_discount: receipt.fiscalDiscount || 0,
@@ -132,20 +264,85 @@ export const createMobileGoodsReceipt = async (receipt: NewMobileGoodsReceipt): 
       throw new Error('A confirmação demorou. Confira a lista de recebimentos antes de tentar novamente.');
     }
   }
-  if (result.error) throw new Error(result.error.message || 'Não foi possível confirmar o recebimento.');
+  if (result.error) throw receiptInvoiceConflictError(result.error) || new Error(result.error.message || 'Não foi possível confirmar o recebimento.');
   if (result.data?.receiptId !== receipt.id) {
     throw new Error('A confirmação não retornou o resultado esperado. Confira a lista de recebimentos.');
   }
-  if (!receipt.invoiceId || !receipt.invoiceComplete) return { invoiceUpdated: true };
+  if (!receipt.invoiceId) return { invoiceUpdated: true };
 
   try {
-    const update = supabase.from('inbound_invoices').update({
-      status_recebimento: 'received', receipt_id: receipt.id, updated_at: new Date().toISOString(),
-    }).eq('id', receipt.invoiceId).is('receipt_id', null).select('id').maybeSingle();
+    const update = supabase.rpc('link_received_goods_receipt_to_invoice', {
+      p_invoice_id: receipt.invoiceId,
+      p_receipt_id: receipt.id,
+    });
     const updated = await withTimeout<any | null>(Promise.resolve(update), 10_000, null, 'mobile:receipt-invoice-link');
-    return { invoiceUpdated: Boolean(updated && !updated.error && updated.data) };
+    return { invoiceUpdated: Boolean(updated && !updated.error && updated.data === true) };
   } catch {
     return { invoiceUpdated: false };
+  }
+};
+
+/** Atualiza recebimento existente e reconcilia itens/movimentos sem trocar seu status. */
+export const editMobileGoodsReceipt = async (
+  receipt: NewMobileGoodsReceipt & { status: 'received' },
+): Promise<void> => {
+  if (!connectivityService.connected) {
+    throw new Error('Conecte-se à internet para salvar a alteração do recebimento.');
+  }
+  const rpcPromise = supabase.rpc('edit_goods_receipt_checked_transaction', {
+    p_receipt: {
+      id: receipt.id,
+      receipt_index: receipt.receiptIndex ?? null,
+      purchase_id: receipt.purchaseId || null,
+      supplier_id: receipt.supplierId,
+      supplier_name: receipt.supplierName,
+      received_at: receipt.receivedAt,
+      reversed_at: receipt.reversedAt || null,
+      invoice_number: receipt.invoiceNumber || null,
+      invoice_date: receipt.invoiceDate || null,
+      total_value: receipt.totalValue,
+      observation: receipt.observation || '',
+      fiscal_key: receipt.fiscalKey || null,
+      attachments: receipt.attachments || [],
+      status: receipt.status,
+      is_draft: false,
+      ipi_percent: receipt.ipiPercent || 0,
+      freight_percent: receipt.freightPercent || 0,
+      non_fiscal_discount_mode: receipt.nonFiscalDiscountMode || null,
+      non_fiscal_discount_value: receipt.nonFiscalDiscountValue || 0,
+      non_fiscal_freight_mode: receipt.nonFiscalFreightMode || null,
+      non_fiscal_freight_value: receipt.nonFiscalFreightValue || 0,
+      non_fiscal_other_expenses_mode: receipt.nonFiscalOtherExpensesMode || null,
+      non_fiscal_other_expenses_value: receipt.nonFiscalOtherExpensesValue || 0,
+      fiscal_ipi: receipt.fiscalIpi || 0,
+      fiscal_freight: receipt.fiscalFreight || 0,
+      fiscal_discount: receipt.fiscalDiscount || 0,
+      fiscal_other_expenses: receipt.fiscalOtherExpenses || 0,
+    },
+    p_items: receipt.items.map((item) => ({
+      ...item,
+      freightFiscalUnit: item.freightFiscalUnit || 0,
+      freightNonFiscalUnit: item.freightNonFiscalUnit || 0,
+      discountUnit: item.discountUnit || 0,
+      otherExpensesFiscalUnit: item.otherExpensesFiscalUnit || 0,
+      otherExpensesNonFiscalUnit: item.otherExpensesNonFiscalUnit || 0,
+      additionalCostUnit: item.additionalCostUnit || 0,
+    })),
+  });
+  const result = await withTimeout<any | null>(
+    Promise.resolve(rpcPromise),
+    20_000,
+    null,
+    'mobile:goods-receipt-edit',
+  );
+  if (!result) {
+    throw new Error('A alteração demorou. Atualize a lista de recebimentos antes de tentar novamente.');
+  }
+  if (result.error) {
+    throw receiptInvoiceConflictError(result.error) || new Error(result.error.message || 'Não foi possível alterar o recebimento.');
+  }
+  if (result.data?.receiptId !== receipt.id || result.data?.status !== receipt.status) {
+    throw new Error('A alteração não retornou o resultado esperado. Atualize a lista de recebimentos.');
   }
 };
 
@@ -172,21 +369,29 @@ export const fetchReceiptInvoiceSources = async (
   if (!response) throw new Error('A busca de notas demorou. Tente novamente.');
   if (response.error) throw response.error;
   const data = (response.data || []).map(mapInboundInvoiceListRow);
+  const keys = data.map((invoice: any) => invoice.accessKey);
+  const [receivedKeys, inUseKeys] = await Promise.all([
+    fetchReceivedInvoiceKeys(supabase, keys),
+    fetchInUseInvoiceKeys(supabase, keys),
+  ]);
   return {
-    data: data.filter((invoice: any) => invoice.supplierStockOrigins?.includes('normal')),
+    data: data
+      .filter((invoice: any) => invoice.supplierStockOrigins?.includes('normal'))
+      .map((invoice: any) => {
+        const status = effectiveInvoiceReceiptStatus(invoice.status, invoice.accessKey, receivedKeys);
+        return {
+          ...invoice,
+          status,
+          isInUse: inUseKeys.has(normalizeFiscalIdentifier(invoice.accessKey)) || status === 'received',
+        };
+      }),
     count: response.count || 0,
   };
 };
 
-export const fetchInvoiceReceiptItems = async (fiscalKey: string, exceptReceiptId?: string) => {
-  let query = supabase.from('goods_receipts')
-    .select('goods_receipt_items(product_id,variation_id,quantity)')
-    .eq('fiscal_key', fiscalKey).eq('status', 'received');
-  if (exceptReceiptId) query = query.neq('id', exceptReceiptId);
-  const response = await withTimeout<any | null>(Promise.resolve(query), 12_000, null, 'mobile:invoice-previous-receipts');
-  if (!response) throw new Error('Não foi possível conferir os recebimentos anteriores. Tente novamente.');
-  if (response.error) throw new Error('Não foi possível conferir os recebimentos anteriores.');
-  return (response.data || []).flatMap((receipt: any) => receipt.goods_receipt_items || []);
+export const assertInvoiceAvailableForReceipt = async (fiscalKey: string, exceptReceiptId?: string): Promise<void> => {
+  const inUseKeys = await fetchInUseInvoiceKeys(supabase, [fiscalKey], exceptReceiptId);
+  if (inUseKeys.has(normalizeFiscalIdentifier(fiscalKey))) throw new Error(IN_USE_INVOICE_MESSAGE);
 };
 
 const resolveSessionUserId = async (explicitUserId?: string | null): Promise<string | null> => {
@@ -420,6 +625,12 @@ export const fetchReceipts = async (page: number) => {
 
   return (data || []).map((r) => {
     const pendingLocal = r?.id ? pendingByReceiptId.get(String(r.id)) : undefined;
+    const receiptItems =
+      Array.isArray(r.goods_receipt_items) && r.goods_receipt_items.length > 0
+        ? r.goods_receipt_items
+        : Array.isArray(r.items)
+          ? r.items
+          : [];
     return {
       ...r,
       status: pendingLocal && r.status !== 'estornado' ? 'received' : r.status,
@@ -427,7 +638,149 @@ export const fetchReceipts = async (page: number) => {
       receiptIndex: r.receipt_index ? Number(r.receipt_index) : undefined,
       supplierName: r.supplier_name || 'Fornecedor',
       totalValue: r.total_value || 0,
-      items: Array.isArray(r.goods_receipt_items) ? r.goods_receipt_items : [],
+      items: receiptItems,
     };
   });
+};
+
+export const fetchGoodsReceiptByFiscalKey = async (fiscalKey: string) => {
+  const originalKey = String(fiscalKey || '').trim();
+  const normalizedKey = normalizeFiscalIdentifier(originalKey);
+  const fiscalKeys = Array.from(new Set([originalKey, normalizedKey].filter(Boolean)));
+  if (fiscalKeys.length === 0) return null;
+
+  const response = await withTimeout<any | null>(
+    Promise.resolve(
+      supabase
+        .from('goods_receipts')
+        .select('*, goods_receipt_items(*)')
+        .in('fiscal_key', fiscalKeys)
+        .maybeSingle(),
+    ),
+    12_000,
+    null,
+    'mobile:receipt-by-fiscal-key',
+  );
+  if (!response) throw new Error('O recebimento vinculado demorou para carregar. Tente novamente.');
+  if (response.error) throw response.error;
+  const receipt = response.data;
+  if (!receipt) return null;
+
+  const pendingChecks = await getPendingGoodsReceiptChecks();
+  const pendingLocal = pendingChecks.find((pending) => pending?.receiptId === String(receipt.id));
+  const receiptItems =
+    Array.isArray(receipt.goods_receipt_items) && receipt.goods_receipt_items.length > 0
+      ? receipt.goods_receipt_items
+      : Array.isArray(receipt.items)
+        ? receipt.items
+        : [];
+
+  return {
+    ...receipt,
+    status: pendingLocal && receipt.status !== 'estornado' ? 'received' : receipt.status,
+    checkedVolumes: pendingLocal?.checkedVolumes,
+    receiptIndex: receipt.receipt_index ? Number(receipt.receipt_index) : undefined,
+    supplierName: receipt.supplier_name || 'Fornecedor',
+    totalValue: receipt.total_value || 0,
+    items: receiptItems,
+  };
+};
+
+export const fetchReceiptInvoiceIdByFiscalKey = async (fiscalKey: string): Promise<string | null> => {
+  const normalizedKey = String(fiscalKey || '').replace(/\D/g, '');
+  if (normalizedKey.length !== 44) return null;
+  const response = await withTimeout<any | null>(
+    Promise.resolve(
+      supabase
+        .from('inbound_invoices')
+        .select('id')
+        .eq('chave_acesso', normalizedKey)
+        .maybeSingle(),
+    ),
+    12_000,
+    null,
+    'mobile:receipt-resume-invoice',
+  );
+  if (!response) throw new Error('A nota de origem demorou para carregar. Tente novamente.');
+  if (response.error) throw response.error;
+  return response.data?.id || null;
+};
+
+export const discardMobileGoodsReceiptDraft = async (receiptId: string): Promise<void> => {
+  if (!connectivityService.connected) {
+    throw new Error('Conecte-se à internet para descartar o rascunho.');
+  }
+  const response = await withTimeout<any | null>(
+    Promise.resolve(
+      supabase.rpc('delete_goods_receipt_draft_transaction', { p_receipt_id: receiptId }),
+    ),
+    15_000,
+    null,
+    'mobile:receipt-draft-discard',
+  );
+  if (!response) {
+    const check = await withTimeout<any | null>(
+      Promise.resolve(
+        supabase.from('goods_receipts').select('id').eq('id', receiptId).maybeSingle(),
+      ),
+      8_000,
+      null,
+      'mobile:receipt-draft-discard-check',
+    );
+    if (check && !check.error && !check.data) return;
+    throw new Error('O descarte demorou. Atualize a lista antes de tentar novamente.');
+  }
+  if (response.error) throw response.error;
+};
+
+const setMobileGoodsReceiptStatus = async (
+  receiptId: string,
+  status: 'received' | 'estornado',
+  reason: string | null,
+): Promise<void> => {
+  if (!connectivityService.connected) {
+    throw new Error('Conecte-se à internet para alterar o recebimento.');
+  }
+  const response = await withTimeout<any | null>(
+    Promise.resolve(
+      supabase.rpc('set_goods_receipt_inventory_status_checked_transaction', {
+        p_receipt_id: receiptId,
+        p_status: status,
+        p_reason: reason,
+      }),
+    ),
+    20_000,
+    null,
+    `mobile:receipt-status-${status}`,
+  );
+  if (!response) {
+    const check = await withTimeout<any | null>(
+      Promise.resolve(
+        supabase.from('goods_receipts').select('status').eq('id', receiptId).maybeSingle(),
+      ),
+      8_000,
+      null,
+      `mobile:receipt-status-${status}-check`,
+    );
+    if (check && !check.error && check.data?.status === status) return;
+    throw new Error('A alteração demorou. Atualize a lista antes de tentar novamente.');
+  }
+  if (response.error) throw receiptInvoiceConflictError(response.error) || response.error;
+};
+
+export const reverseMobileGoodsReceipt = async (receipt: {
+  id: string;
+  receipt_index?: number | null;
+  receiptIndex?: number | null;
+}): Promise<void> => {
+  const index = receipt.receipt_index ?? receipt.receiptIndex;
+  await setMobileGoodsReceiptStatus(
+    receipt.id,
+    'estornado',
+    `Estorno do Recebimento #${index || receipt.id}`,
+  );
+};
+
+export const unreverseMobileGoodsReceipt = async (receiptId: string): Promise<void> => {
+  await setMobileGoodsReceiptStatus(receiptId, 'received', null);
 };

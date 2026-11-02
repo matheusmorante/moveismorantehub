@@ -1,13 +1,8 @@
 import type { ParsedFinancialIntent } from './financialTypes';
 
-export const extractUnknownFieldsFromText = (
-  text: string,
-  activeDraft?: ParsedFinancialIntent | null
-): string[] => {
+export const hasUnknownFinancialAnswerPhrase = (text: string): boolean => {
   const lower = text.toLowerCase();
-  const unknownSet = new Set<string>(activeDraft?.unknownByUser || []);
-
-  const isGeneralUnknown =
+  return (
     lower.includes('não lembro') ||
     lower.includes('nao lembro') ||
     lower.includes('sem lembrar') ||
@@ -20,9 +15,18 @@ export const extractUnknownFieldsFromText = (
     lower.includes('procura aí') ||
     lower.includes('procura ai') ||
     lower.includes('vê pra mim') ||
-    lower.includes('ve pra mim');
+    lower.includes('ve pra mim')
+  );
+};
 
-  if (isGeneralUnknown) {
+export const extractUnknownFieldsFromText = (
+  text: string,
+  activeDraft?: ParsedFinancialIntent | null
+): string[] => {
+  const lower = text.toLowerCase();
+  const unknownSet = new Set<string>(activeDraft?.unknownByUser || []);
+
+  if (hasUnknownFinancialAnswerPhrase(lower)) {
     if (
       lower.includes('dia') ||
       lower.includes('data') ||

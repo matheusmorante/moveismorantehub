@@ -15,6 +15,7 @@ interface Props {
   max?: number;
   showBadge?: boolean;
   badgeText?: string;
+  digitMaskFromRight?: boolean;
 }
 
 const CurrencyOrPercentInput = ({
@@ -31,8 +32,44 @@ const CurrencyOrPercentInput = ({
   max = 100,
   showBadge = true,
   badgeText,
+  digitMaskFromRight = false,
 }: Props) => {
   const displayBadge = badgeText || suffix.trim() || '%';
+
+  if (digitMaskFromRight) {
+    const numericValue = Number(value);
+    const formattedValue = new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number.isFinite(numericValue) ? numericValue : 0);
+
+    return (
+      <input
+        id={id}
+        type="text"
+        inputMode="decimal"
+        className={className || 'w-full min-w-[90px] text-right bg-transparent border border-slate-100 dark:border-slate-800 focus:border-blue-500 px-3 py-1 rounded-xl outline-none transition-all text-sm'}
+        style={style}
+        value={`${prefix}${formattedValue}${suffix}`}
+        disabled={disabled}
+        placeholder={placeholder}
+        onFocus={(event) => event.currentTarget.select()}
+        onBlur={onBlur}
+        onChange={(event) => {
+          const input = event.currentTarget;
+          const digits = event.currentTarget.value.replace(/\D/g, '');
+          let nextValue = digits ? Number.parseInt(digits, 10) / 100 : 0;
+          if (max !== undefined && max > 0 && nextValue > max) nextValue = max;
+          onChange(nextValue);
+          requestAnimationFrame(() => {
+            if (document.activeElement === input) {
+              input.setSelectionRange(input.value.length, input.value.length);
+            }
+          });
+        }}
+      />
+    );
+  }
 
   if (showBadge) {
     const isLeftBadge = displayBadge.includes('R$') || displayBadge.includes('$');

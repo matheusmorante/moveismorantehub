@@ -7,7 +7,6 @@ import {
   Image as RNImage,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -59,6 +58,7 @@ import { ProductVariationGenerationModal } from '../ProductVariationGenerationMo
 import { variationToSimpleConfirmationSchema } from '../../../../../../shared-utils/productVariationOperationFormSchemas';
 import { isSingleProductVariationFormMode } from '../../../../../../shared-utils/productVariationMode';
 
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 type VariationTabId = 'identificacao' | 'tecnico' | 'descricao' | 'fotos' | 'compostos' | 'estoque';
 
 interface Props {
@@ -1016,7 +1016,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                         >
                                           {parentPrefix}
                                         </Text>
-                                        <TextInput
+                                        <FormTextInput
                                           value={suffix}
                                           onChangeText={(value) =>
                                             updateVarName(
@@ -1039,7 +1039,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                       <Text style={[styles.label, dark && styles.dimText]}>
                                         Título no Catálogo
                                       </Text>
-                                      <TextInput
+                                      <FormTextInput
                                         value={String(v.title || v.marketplaceTitle || '')}
                                         onChangeText={(value) => {
                                           updateVar(idx, 'title', value);
@@ -1130,7 +1130,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 </Text>
                               </View>
                             ) : (
-                              <TextInput
+                              <FormTextInput
                                 value={String(v.description || '')}
                                 onChangeText={(value) => updateVar(idx, 'description', value)}
                                 placeholder="Descrição específica desta variação..."
@@ -1249,7 +1249,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 <Text style={[styles.label, dark && styles.dimText]}>
                                   Preço de Venda
                                 </Text>
-                                <TextInput
+                                <FormTextInput
                                   value={String(
                                     effectivePricing.unitPrice ?? ''
                                   )}
@@ -1270,7 +1270,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 <Text style={[styles.label, dark && styles.dimText]}>
                                   Desconto (%)
                                 </Text>
-                                <TextInput
+                                <FormTextInput
                                   value={String(discountPercent)}
                                   onChangeText={(val) => updateVariationPricing(idx, 'discountPercent', val)}
                                   editable={v.syncPromoPrice === false}
@@ -1289,7 +1289,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 <Text style={[styles.label, dark && styles.dimText]}>
                                   Desconto (R$)
                                 </Text>
-                                <TextInput
+                                <FormTextInput
                                   value={String(discountFixed)}
                                   onChangeText={(val) => updateVariationPricing(idx, 'discountFixed', val)}
                                   editable={v.syncPromoPrice === false}
@@ -1308,7 +1308,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 <Text style={[styles.label, dark && styles.dimText]}>
                                   Preço Promocional
                                 </Text>
-                                <TextInput
+                                <FormTextInput
                                   value={String(
                                     effectivePricing.promoPrice ?? ''
                                   )}

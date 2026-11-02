@@ -10,6 +10,7 @@ export type GoodsReceipt = {
   supplierId?: string;
   supplierName: string;
   receivedAt: string;
+  reversedAt?: string;
   invoiceNumber?: string;
   invoiceDate?: string;
   items: PurchaseItem[];

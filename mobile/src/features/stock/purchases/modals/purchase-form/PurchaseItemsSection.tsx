@@ -1,11 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { Check, Plus, Search, ChevronDown } from 'lucide-react-native';
 import { CurrencyInput } from '../../../../../components/shared/CurrencyInput';
 import type { MobilePurchaseItem } from '../../mobilePurchaseService';
 import { formatMoney, parseNumber } from '../../hooks/usePurchaseForm';
 import { calculateMobilePurchaseItemCostBreakdown } from '../../hooks/useMobilePurchaseItems';
-import { PurchaseOrderItems } from './PurchaseOrderItems';
+import {
+  AnimatedPurchaseItemDetails,
+  PurchaseOrderItems,
+  usePurchaseItemReduceMotion,
+} from './PurchaseOrderItems';
 
 interface ThemeColors {
   bg: string;
@@ -32,6 +37,9 @@ export interface PurchaseItemsSectionProps {
   addDisabled?: boolean;
   isDarkMode?: boolean;
   receiptMode?: boolean;
+  simplifiedReceiptMode?: boolean;
+  showReceiptCostComposition?: boolean;
+  readOnly?: boolean;
   selectedItemIndex?: number | null;
   onSelectedItemChange?: (index: number | null) => void;
 }
@@ -59,18 +67,19 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
   addDisabled = false,
   isDarkMode = false,
   receiptMode = false,
+  simplifiedReceiptMode = false,
+  showReceiptCostComposition = false,
+  readOnly = false,
+  selectedItemIndex = null,
 }) => {
-  const [expandedItemIndex, setExpandedItemIndex] = useState<number | null>(() => {
-    const firstUnselectedItem = items.findIndex((item) => !item.productId);
-    if (firstUnselectedItem >= 0) return firstUnselectedItem;
-    return items.length > 0 ? items.length - 1 : null;
-  });
+  const [expandedItemIndex, setExpandedItemIndex] = useState<number | null>(selectedItemIndex);
+  const reduceMotion = usePurchaseItemReduceMotion();
   const previousItemCount = useRef(items.length);
+  const canAdd = allowAdd && !readOnly;
+  const canRemove = allowRemove && !readOnly;
 
   useEffect(() => {
-    if (items.length > previousItemCount.current) {
-      setExpandedItemIndex(items.length - 1);
-    } else if (items.length === 0) {
+    if (items.length === 0) {
       setExpandedItemIndex(null);
     } else if (items.length < previousItemCount.current) {
       setExpandedItemIndex((current) =>
@@ -81,7 +90,6 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
   }, [items.length]);
 
   const handleAddItemRow = () => {
-    setExpandedItemIndex(items.length);
     onAddItemRow();
   };
 
@@ -104,7 +112,7 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Itens ({items.length})
         </Text>
-        {allowAdd && (
+        {canAdd && (
           <TouchableOpacity
             style={[styles.addButton, addDisabled && { opacity: 0.5 }]}
             onPress={handleAddItemRow}
@@ -121,12 +129,12 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
           <Text style={[styles.emptyText, { color: colors.muted }]}>
             Nenhum item adicionado ao pedido.
           </Text>
-          {allowAdd && addDisabled ? (
+          {canAdd && addDisabled ? (
             <Text style={[styles.emptyText, { color: colors.muted }]}>
               Selecione o fornecedor acima para liberar a inclusão de itens.
             </Text>
           ) : null}
-          {allowAdd && showEmptyAddButton && (
+          {canAdd && showEmptyAddButton && (
             <TouchableOpacity
               style={[styles.emptyAddButton, addDisabled && { opacity: 0.5 }]}
               onPress={handleAddItemRow}
@@ -150,6 +158,26 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
             ipiPercent,
             freightPercent
           );
+          const receiptItem = item as MobilePurchaseItem & {
+            freightUnit?: number;
+            freightFiscalUnit?: number;
+            freightNonFiscalUnit?: number;
+            otherExpensesUnit?: number;
+            otherExpensesFiscalUnit?: number;
+            otherExpensesNonFiscalUnit?: number;
+            additionalCostUnit?: number;
+          };
+          const receiptFreightUnit = Number(
+            receiptItem.freightUnit ??
+              Number(receiptItem.freightFiscalUnit || 0) +
+                Number(receiptItem.freightNonFiscalUnit || 0),
+          );
+          const receiptOtherExpensesUnit = Number(
+            receiptItem.otherExpensesUnit ??
+              Number(receiptItem.otherExpensesFiscalUnit || 0) +
+                Number(receiptItem.otherExpensesNonFiscalUnit || 0) +
+                Number(receiptItem.additionalCostUnit || 0),
+          );
           const itemTotal = itemCosts
             ? Number((Number(item.quantity || 0) * itemCosts.unitCost).toFixed(2))
             : Number(item.totalCost || 0);
@@ -157,8 +185,10 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
           const isExpanded = expandedItemIndex === index;
 
           return (
-            <View
+            <Pressable
               key={`${item.productId}-${item.variationId || index}`}
+              accessible={false}
+              onPress={!isExpanded ? () => setExpandedItemIndex(index) : undefined}
               style={[
                 styles.item,
                 {
@@ -170,7 +200,10 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
               {/* Linha compacta expansível do item */}
               <View style={styles.itemHeader}>
                 <TouchableOpacity
-                  style={[styles.itemSummary, { justifyContent: isExpanded ? 'flex-end' : 'space-between' }]}
+                  style={[
+                    styles.itemSummary,
+                    isExpanded ? styles.itemSummaryExpanded : styles.itemSummaryCollapsed,
+                  ]}
                   onPress={() => setExpandedItemIndex(isExpanded ? null : index)}
                   activeOpacity={0.7}
                   accessibilityRole="button"
@@ -180,43 +213,52 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
                   accessibilityState={{ expanded: isExpanded }}
                 >
                   {!isExpanded && (
-                    <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={1}>
+                    <Text style={[styles.itemName, { color: colors.text }]}>
                       {summaryProduct}
                     </Text>
                   )}
                   {!isExpanded && (
-                    <Text style={[styles.itemSummaryMeta, { color: colors.muted }]} numberOfLines={1}>
-                      {item.quantity} un
-                    </Text>
-                  )}
-                  {!isExpanded && (
-                    <Text style={[styles.itemSummaryTotal, { color: colors.text }]} numberOfLines={1}>
-                      Total {summaryTotalCost}
-                    </Text>
+                    <View style={styles.itemSummaryMetaRow}>
+                      <Text style={[styles.itemSummaryMeta, { color: colors.muted }]} numberOfLines={1}>
+                        {item.quantity} un
+                      </Text>
+                      <Text style={[styles.itemSummaryTotal, { color: colors.text }]} numberOfLines={1}>
+                        {simplifiedReceiptMode ? summaryTotalCost : `Total ${summaryTotalCost}`}
+                      </Text>
+                      <ChevronDown size={24} color={colors.muted} />
+                    </View>
                   )}
                   {isExpanded && (
-                    <Text style={[styles.collapseActionText, { color: colors.muted }]}>
-                      Recolher item
-                    </Text>
+                    <View style={styles.collapseAction}>
+                      <Text style={[styles.collapseActionText, { color: colors.muted }]}>
+                        Recolher item
+                      </Text>
+                      <ChevronDown
+                        size={24}
+                        color={colors.muted}
+                        style={{ transform: [{ rotate: '180deg' }] }}
+                      />
+                    </View>
                   )}
-                  <ChevronDown
-                    size={16}
-                    color={colors.muted}
-                    style={isExpanded ? { transform: [{ rotate: '180deg' }] } : undefined}
-                  />
                 </TouchableOpacity>
-
               </View>
 
-              {isExpanded && (
+              <AnimatedPurchaseItemDetails expanded={isExpanded} reduceMotion={reduceMotion}>
                 <>
-                  {hasProduct ? (
+                  {readOnly ? (
+                    <View style={[styles.productInfo, { backgroundColor: colors.bg }]}>
+                      <Text style={[styles.productInfoText, { color: colors.text }]}>
+                        {summaryProduct}
+                      </Text>
+                    </View>
+                  ) : hasProduct ? (
                     <TouchableOpacity
                       style={[
                         styles.productSearchTrigger,
+                        styles.productSearchTriggerSelected,
                         {
                           backgroundColor: colors.bg,
-                          borderColor: isDarkMode ? '#4ade80' : '#16a34a',
+                          borderBottomColor: isDarkMode ? '#4ade80' : '#10b981',
                         },
                       ]}
                       onPress={() => onOpenProductPicker(index)}
@@ -227,9 +269,14 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
                       <Text
                         style={[
                           styles.productSearchTriggerText,
-                          { color: isDarkMode ? '#4ade80' : '#15803d', flex: 1 },
+                          {
+                            color: colors.text,
+                            flex: 1,
+                            minWidth: 0,
+                            flexShrink: 1,
+                            fontWeight: '900',
+                          },
                         ]}
-                        numberOfLines={1}
                       >
                         {item.description}
                       </Text>
@@ -258,64 +305,124 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
               <View style={[styles.row, responsiveFieldRows && styles.responsiveRow]}>
                 <View style={[styles.half, responsiveFieldRows && styles.responsiveHalf]}>
                   <Text style={[styles.label, { color: colors.muted }]}>Quantidade</Text>
-                  <TextInput
-                    value={String(item.quantity ?? '')}
-                    accessibilityLabel={`Quantidade de ${item.description || 'item'}`}
-                    onChangeText={(value) =>
-                      onUpdateItem(index, { quantity: parseNumber(value) })
-                    }
-                    keyboardType="decimal-pad"
-                    placeholder="1"
-                    placeholderTextColor={colors.muted}
-                    style={[
-                      styles.input,
-                      {
-                        color: colors.text,
-                        borderColor: colors.border,
-                        backgroundColor: colors.bg,
-                      },
-                    ]}
-                  />
+                  {readOnly ? (
+                    <View style={[styles.informationalValue, { backgroundColor: colors.bg }]}>
+                      <Text style={[styles.informationalValueText, { color: colors.text }]}>
+                        {item.quantity}
+                      </Text>
+                    </View>
+                  ) : (
+                    <FormTextInput
+                      value={String(item.quantity ?? '')}
+                      accessibilityLabel={`Quantidade de ${item.description || 'item'}`}
+                      onChangeText={(value) =>
+                        onUpdateItem(index, { quantity: parseNumber(value) })
+                      }
+                      keyboardType="decimal-pad"
+                      placeholder="1"
+                      placeholderTextColor={colors.muted}
+                      style={[
+                        styles.input,
+                        {
+                          color: colors.text,
+                          borderColor: colors.border,
+                          backgroundColor: colors.bg,
+                        },
+                      ]}
+                    />
+                  )}
                 </View>
 
                 <View style={[styles.half, responsiveFieldRows && styles.responsiveHalf]}>
                   <Text style={[styles.label, { color: colors.muted }]}>
                     {receiptMode ? 'Custo unitário' : 'Custo base por unidade'}
                   </Text>
-                  <CurrencyInput
-                    value={Number(item.baseCost) || null}
-                    accessibilityLabel={`${receiptMode ? 'Custo unitário' : 'Custo base por unidade'} de ${item.description || 'item'}`}
-                    onChangeValue={(value) =>
-                      onUpdateItem(index, { baseCost: value || 0, unitCost: value || 0 })
-                    }
-                    placeholder="0,00"
-                    style={[
-                      styles.input,
-                      { borderColor: colors.border, backgroundColor: colors.bg },
-                    ]}
-                    color={colors.text}
-                  />
+                  {readOnly ? (
+                    <View style={[styles.informationalValue, { backgroundColor: colors.bg }]}>
+                      <Text style={[styles.informationalValueText, { color: colors.text }]}>
+                        {formatMoney(Number(item.baseCost ?? item.unitCost ?? 0))}
+                      </Text>
+                    </View>
+                  ) : (
+                    <CurrencyInput
+                      value={Number(item.baseCost) || null}
+                      accessibilityLabel={`${receiptMode ? 'Custo unitário' : 'Custo base por unidade'} de ${item.description || 'item'}`}
+                      onChangeValue={(value) =>
+                        onUpdateItem(index, { baseCost: value || 0, unitCost: value || 0 })
+                      }
+                      placeholder="0,00"
+                      style={[
+                        styles.input,
+                        { borderColor: colors.border, backgroundColor: colors.bg },
+                      ]}
+                      color={colors.text}
+                    />
+                  )}
                 </View>
               </View>
 
-              <View style={styles.full}>
-                <Text style={[styles.label, { color: colors.muted }]}>
-                  {receiptMode ? 'Desconto por unidade' : 'Desconto unitário'}
-                </Text>
-                <CurrencyInput
-                  value={Number(item.discountUnit || 0)}
-                  onChangeValue={(value) =>
-                    onUpdateItem(index, { discountUnit: Math.max(0, value || 0) })
-                  }
-                  placeholder="0,00"
-                  accessibilityLabel={`${receiptMode ? 'Desconto por unidade' : 'Desconto unitário'} de ${item.description || 'item'}`}
-                  style={[
-                    styles.input,
-                    { borderColor: colors.border, backgroundColor: colors.bg },
-                  ]}
-                  color={colors.text}
-                />
-              </View>
+              {receiptMode && showReceiptCostComposition && (
+                <>
+                  <Text style={[styles.label, { color: colors.muted }]}>
+                    Composição do custo
+                  </Text>
+                  <View style={styles.metricsGrid}>
+                    <View
+                      style={[
+                        styles.metricCard,
+                        { backgroundColor: colors.bg, borderColor: colors.border },
+                      ]}
+                    >
+                      <Text style={[styles.metricLabel, { color: colors.muted }]}>
+                        Frete por unidade
+                      </Text>
+                      <Text style={[styles.metricValue, { color: colors.text }]}>
+                        {formatMoney(receiptFreightUnit)}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.metricCard,
+                        { backgroundColor: colors.bg, borderColor: colors.border },
+                      ]}
+                    >
+                      <Text style={[styles.metricLabel, { color: colors.muted }]}>
+                        Outras despesas por unidade
+                      </Text>
+                      <Text style={[styles.metricValue, { color: colors.text }]}>
+                        {formatMoney(receiptOtherExpensesUnit)}
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {!receiptMode && !simplifiedReceiptMode && (
+                <View style={styles.full}>
+                  <Text style={[styles.label, { color: colors.muted }]}>Desconto por unidade</Text>
+                  {readOnly ? (
+                    <View style={[styles.informationalValue, { backgroundColor: colors.bg }]}>
+                      <Text style={[styles.informationalValueText, { color: colors.text }]}>
+                        {formatMoney(Number(item.discountUnit || 0))}
+                      </Text>
+                    </View>
+                  ) : (
+                    <CurrencyInput
+                      value={Number(item.discountUnit || 0)}
+                      onChangeValue={(value) =>
+                        onUpdateItem(index, { discountUnit: Math.max(0, value || 0) })
+                      }
+                      placeholder="0,00"
+                      accessibilityLabel={`Desconto por unidade de ${item.description || 'item'}`}
+                      style={[
+                        styles.input,
+                        { borderColor: colors.border, backgroundColor: colors.bg },
+                      ]}
+                      color={colors.text}
+                    />
+                  )}
+                </View>
+              )}
 
               {itemCosts ? (
                 <>
@@ -347,12 +454,14 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
                     </View>
                   </View>
                 </>
-              ) : (
-                <Text style={styles.receiptItemTotal}>Subtotal: {formatMoney(itemTotal)}</Text>
-              )}
-                  {allowRemove && (
+              ) : receiptMode ? (
+                <View style={styles.receiptItemFooter}>
+                  {canRemove && isExpanded && (
                     <TouchableOpacity
-                      onPress={() => handleRemoveItem(index)}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        handleRemoveItem(index);
+                      }}
                       style={styles.removeItemButton}
                       accessibilityRole="button"
                       accessibilityLabel={`Remover ${item.description || 'item'}`}
@@ -360,15 +469,24 @@ const ReceiptItemsSection: React.FC<PurchaseItemsSectionProps> = ({
                       <Text style={styles.removeItemText}>Remover item</Text>
                     </TouchableOpacity>
                   )}
-                </>
+                  <Text style={[styles.receiptItemTotal, { marginTop: 0, flexShrink: 1 }]}>
+                    {simplifiedReceiptMode ? 'Custo total' : 'Subtotal'}: {formatMoney(itemTotal)}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.receiptItemTotal}>
+                  {simplifiedReceiptMode ? 'Custo total' : 'Subtotal'}: {formatMoney(itemTotal)}
+                </Text>
               )}
-            </View>
+                </>
+              </AnimatedPurchaseItemDetails>
+            </Pressable>
           );
         })
       )}
 
       {/* Botão para adicionar mais itens quando a lista já tem elementos */}
-      {items.length > 0 && allowAdd && (
+      {items.length > 0 && canAdd && (
         <TouchableOpacity
           style={[
             styles.bottomAddButton,
@@ -398,6 +516,7 @@ const styles = StyleSheet.create({
   responsiveHalf: { minWidth: 132 },
   full: { width: '100%' },
   metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  receiptItemFooter: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 2 },
   metricCard: { flex: 1, minWidth: 108, minHeight: 56, justifyContent: 'center', borderWidth: 1, borderRadius: 10, padding: 10 },
   metricLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 0.4, textTransform: 'uppercase' },
   metricValue: { fontSize: 13, fontWeight: '800', marginTop: 4 },
@@ -423,14 +542,18 @@ const styles = StyleSheet.create({
   },
   emptyAddButtonText: { color: '#2563eb', fontWeight: '900', fontSize: 13 },
   item: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 8 },
-  itemHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  itemHeader: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 8 },
   itemSummary: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  itemSummaryExpanded: { width: 0, justifyContent: 'flex-end' },
+  itemSummaryCollapsed: { justifyContent: 'space-between', flexDirection: 'column', alignItems: 'stretch', gap: 4 },
+  itemSummaryMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 8 },
   itemSummaryMeta: { fontSize: 10, fontWeight: '700', flexShrink: 0 },
   itemSummaryTotal: { fontSize: 10, fontWeight: '900', flexShrink: 0 },
-  collapseActionText: { fontSize: 11, fontWeight: '800' },
+  collapseAction: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginLeft: 'auto' },
+  collapseActionText: { flex: 1, textAlign: 'right', fontSize: 11, fontWeight: '800' },
   changeProductButton: { minHeight: 34, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 5 },
   itemName: { fontWeight: '900', fontSize: 13, flexShrink: 1 },
-  removeItemButton: { alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 4 },
+  removeItemButton: { alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 0 },
   removeItemText: { color: '#dc2626', fontSize: 12, fontWeight: '800' },
   productSearchTrigger: {
     flex: 1,
@@ -442,11 +565,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
+  productSearchTriggerSelected: {
+    borderWidth: 0,
+    borderBottomWidth: 2,
+    borderRadius: 0,
+    paddingHorizontal: 2,
+    paddingVertical: 6,
+  },
   productSearchTriggerText: {
     color: '#2563eb',
     fontWeight: '800',
     fontSize: 13,
   },
+  productInfo: { minHeight: 42, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, justifyContent: 'center' },
+  productInfoText: { fontSize: 13, fontWeight: '900', flexShrink: 1, minWidth: 0 },
+  informationalValue: { minHeight: 44, borderRadius: 8, paddingHorizontal: 12, justifyContent: 'center' },
+  informationalValueText: { fontSize: 14, fontWeight: '700' },
   bottomAddButton: {
     flexDirection: 'row',
     alignItems: 'center',

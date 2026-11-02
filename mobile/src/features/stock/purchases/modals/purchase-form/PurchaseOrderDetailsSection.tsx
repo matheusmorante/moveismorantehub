@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { Check, LockKeyhole } from 'lucide-react-native';
 import { PercentInput } from '../../../../../components/shared/PercentInput';
 import { parseNumber } from '../../hooks/useMobilePurchaseItems';
@@ -73,7 +74,7 @@ export const PurchaseOrderDetailsSection: React.FC<PurchaseOrderDetailsSectionPr
             styles.selector,
             {
               borderBottomColor: supplierSelected ? '#10b981' : colors.border,
-              backgroundColor: 'transparent',
+              backgroundColor: colors.bg,
             },
           ]}
           onPress={() => supplierLocked
@@ -106,14 +107,14 @@ export const PurchaseOrderDetailsSection: React.FC<PurchaseOrderDetailsSectionPr
       <View style={styles.row}>
         <View style={styles.half}>
           <Text style={[styles.label, { color: colors.muted }]}>Data do pedido</Text>
-          <TextInput
+          <FormTextInput
             value={date}
             onChangeText={setDate}
             placeholder="AAAA-MM-DD"
             placeholderTextColor={colors.muted}
             style={[
               styles.input,
-              { color: colors.text, borderBottomColor: colors.border, backgroundColor: 'transparent' },
+                { color: colors.text, borderBottomColor: colors.border, backgroundColor: colors.bg },
             ]}
           />
         </View>
@@ -126,7 +127,7 @@ export const PurchaseOrderDetailsSection: React.FC<PurchaseOrderDetailsSectionPr
             color={colors.text}
             style={[
               styles.input,
-              { color: colors.text, borderBottomColor: colors.border, backgroundColor: 'transparent' },
+                { color: colors.text, borderBottomColor: colors.border, backgroundColor: colors.bg },
             ]}
           />
         </View>
@@ -139,7 +140,7 @@ export const PurchaseOrderDetailsSection: React.FC<PurchaseOrderDetailsSectionPr
             color={colors.text}
             style={[
               styles.input,
-              { color: colors.text, borderBottomColor: colors.border, backgroundColor: 'transparent' },
+                { color: colors.text, borderBottomColor: colors.border, backgroundColor: colors.bg },
             ]}
           />
         </View>
@@ -152,7 +153,7 @@ export const PurchaseOrderDetailsSection: React.FC<PurchaseOrderDetailsSectionPr
             color={colors.text}
             style={[
               styles.input,
-              { color: colors.text, borderBottomColor: colors.border, backgroundColor: 'transparent' },
+                { color: colors.text, borderBottomColor: colors.border, backgroundColor: colors.bg },
             ]}
           />
         </View>

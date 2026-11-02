@@ -52,6 +52,7 @@ export async function waitForMetaDeliveryConfirmation(
 
   return new Promise<WebhookWaitResult>((resolve) => {
     let finished = false;
+    let pollInFlight = false;
     let pollTimer: any = null;
     let timeoutTimer: any = null;
     let channel: any = null;
@@ -115,7 +116,8 @@ export async function waitForMetaDeliveryConfirmation(
 
     // 2. Failsafe Polling regular
     const checkCurrentDbStatus = async () => {
-      if (finished) return;
+      if (finished || pollInFlight) return;
+      pollInFlight = true;
       try {
         const { data } = await supabase
           .from('whatsapp_dispatches')
@@ -128,6 +130,8 @@ export async function waitForMetaDeliveryConfirmation(
         }
       } catch (err) {
         console.warn('[whatsappDispatchTracker] Erro no checkCurrentDbStatus:', err);
+      } finally {
+        pollInFlight = false;
       }
     };
 

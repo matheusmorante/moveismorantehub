@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import type { GridModel } from '../../types/LabelGridModelTypes';
 import type { LabelGridModelEditorState } from '../../services/labelGridModelFactory';
+import { useLabelGridModelSessionState } from './useLabelGridModelSessionState';
 
 export const PAPER_OPTIONS = [
   { id: 'A4', name: 'Folha A4 (210x297mm)', w: 210, h: 297 },
@@ -25,288 +26,174 @@ export function useLabelGridModelSession({
   currentType,
   previewImage,
 }: UseLabelGridModelSessionProps) {
-  const [name, setName] = useState('');
-  const [paperSize, setPaperSize] = useState('A4');
-  const [customWidth, setCustomWidth] = useState(210);
-  const [customHeight, setCustomHeight] = useState(297);
-  const [columns, setColumns] = useState(3);
-  const [rows, setRows] = useState(7);
-  const [marginT, setMarginT] = useState(10);
-  const [marginB, setMarginB] = useState(10);
-  const [marginL, setMarginL] = useState(10);
-  const [marginR, setMarginR] = useState(10);
-  const [gapH, setGapH] = useState(2);
-  const [gapV, setGapV] = useState(2);
-  const [layoutType, setLayoutType] = useState<'round' | 'rect'>(currentType || 'rect');
-
-  const [imageScale, setImageScale] = useState(1);
-  const [customPreviewImage, setCustomPreviewImage] = useState<string | null>(null);
-
-  // Tipografia do Nome
-  const [nameFontSize, setNameFontSize] = useState(7);
-  const [nameColor, setNameColor] = useState('#1e293b');
-  const [nameBold, setNameBold] = useState(true);
-  const [nameAlign, setNameAlign] = useState<'left' | 'center' | 'right'>('center');
-  const [nameVAlign, setNameVAlign] = useState<'top' | 'middle' | 'bottom'>('middle');
-  const [namePos, setNamePos] = useState({ x: 50, y: 30 });
-  const [nameWidth, setNameWidth] = useState(80);
-  const [nameHeight, setNameHeight] = useState(20);
-  const [nameBgColor, setNameBgColor] = useState('transparent');
-
-  // Tipografia Normal (Preço)
-  const [priceFontSize, setPriceFontSize] = useState(11);
-  const [priceColor, setPriceColor] = useState('#1e293b');
-  const [priceBold, setPriceBold] = useState(true);
-  const [priceAlign, setPriceAlign] = useState<'left' | 'center' | 'right'>('center');
-  const [priceVAlign, setPriceVAlign] = useState<'top' | 'middle' | 'bottom'>('middle');
-  const [pricePos, setPricePos] = useState({ x: 50, y: 60 });
-  const [priceWidth, setPriceWidth] = useState(80);
-  const [priceHeight, setPriceHeight] = useState(30);
-  const [priceBgColor, setPriceBgColor] = useState('transparent');
-
-  // Preço Promocional
-  const [promoPriceFontSize, setPromoPriceFontSize] = useState(24);
-  const [promoPriceColor, setPromoPriceColor] = useState('#2563eb');
-  const [promoPriceBold, setPromoPriceBold] = useState(true);
-  const [promoPriceAlign, setPromoPriceAlign] = useState<'left' | 'center' | 'right'>('center');
-  const [promoPriceVAlign, setPromoPriceVAlign] = useState<'top' | 'middle' | 'bottom'>('middle');
-  const [promoPos, setPromoPos] = useState({ x: 50, y: 75 });
-  const [promoWidth, setPromoWidth] = useState(80);
-  const [promoHeight, setPromoHeight] = useState(40);
-  const [promoBgColor, setPromoBgColor] = useState('transparent');
-  const [promoFontSize, setPromoFontSize] = useState(9);
-  const [promoColor, setPromoColor] = useState('#dc2626');
-
-  // Preço Antigo
-  const [oldPriceFontSize, setOldPriceFontSize] = useState(7);
-  const [oldPriceColor, setOldPriceColor] = useState('#94a3b8');
-  const [oldPriceBold, setOldPriceBold] = useState(false);
-  const [oldPriceAlign, setOldPriceAlign] = useState<'left' | 'center' | 'right'>('center');
-  const [oldPriceVAlign, setOldPriceVAlign] = useState<'top' | 'middle' | 'bottom'>('middle');
-  const [oldPricePos, setOldPricePos] = useState({ x: 50, y: 60 });
-  const [oldPriceWidth, setOldPriceWidth] = useState(80);
-  const [oldPriceHeight, setOldPriceHeight] = useState(30);
-
-  // Código de Barras
-  const [barcodePos, setBarcodePos] = useState({ x: 50, y: 90 });
-  const [promoBarcodePos, setPromoBarcodePos] = useState({ x: 50, y: 85 });
-
-  // Nome Promocional
-  const [promoNamePos, setPromoNamePos] = useState({ x: 50, y: 25 });
-  const [promoNameFontSize, setPromoNameFontSize] = useState(9);
-  const [promoNameAlign, setPromoNameAlign] = useState<'left' | 'center' | 'right'>('center');
-  const [promoNameVAlign, setPromoNameVAlign] = useState<'top' | 'middle' | 'bottom'>('middle');
-  const [promoNameColor, setPromoNameColor] = useState('#1e293b');
-  const [promoNameBold, setPromoNameBold] = useState(false);
-  const [promoNameWidth, setPromoNameWidth] = useState(80);
-  const [promoNameHeight, setPromoNameHeight] = useState(20);
-  const [promoNameBgColor, setPromoNameBgColor] = useState('transparent');
-
-  // Background Geral
-  const [bgColor, setBgColor] = useState('#ffffff');
-
-  // Multi-escala de fontes
-  const [priceFontSizeTens, setPriceFontSizeTens] = useState<number | undefined>(undefined);
-  const [priceFontSizeHundreds, setPriceFontSizeHundreds] = useState<number | undefined>(undefined);
-  const [priceFontSizeThousands, setPriceFontSizeThousands] = useState<number | undefined>(undefined);
-  const [priceFontSizeTenThousands, setPriceFontSizeTenThousands] = useState<number | undefined>(undefined);
-
-  // Formato do Preço e Tipografia Geral
-  const [priceFormat, setPriceFormat] = useState<'standard' | 'split'>('split');
-  const [fontFamily, setFontFamily] = useState('Inter');
-
-  // Preço Dividido (Normal)
-  const [priceSymbolFontSize, setPriceSymbolFontSize] = useState(8);
-  const [priceSymbolColor, setPriceSymbolColor] = useState('#1e293b');
-  const [priceSymbolBold, setPriceSymbolBold] = useState(true);
-  const [priceSymbolPos, setPriceSymbolPos] = useState({ x: 35, y: 55 });
-
-  const [priceDecimalsFontSize, setPriceDecimalsFontSize] = useState(8);
-  const [priceDecimalsColor, setPriceDecimalsColor] = useState('#1e293b');
-  const [priceDecimalsBold, setPriceDecimalsBold] = useState(true);
-  const [priceDecimalsPos, setPriceDecimalsPos] = useState({ x: 65, y: 55 });
-
-  // Preço Dividido (Promoção)
-  const [promoPriceSymbolFontSize, setPromoPriceSymbolFontSize] = useState(12);
-  const [promoPriceSymbolColor, setPromoPriceSymbolColor] = useState('#2563eb');
-  const [promoPriceSymbolBold, setPromoPriceSymbolBold] = useState(true);
-  const [promoPriceSymbolPos, setPromoPriceSymbolPos] = useState({ x: 35, y: 70 });
-
-  const [promoPriceDecimalsFontSize, setPromoPriceDecimalsFontSize] = useState(12);
-  const [promoPriceDecimalsColor, setPromoPriceDecimalsColor] = useState('#2563eb');
-  const [promoPriceDecimalsBold, setPromoPriceDecimalsBold] = useState(true);
-  const [promoPriceDecimalsPos, setPromoPriceDecimalsPos] = useState({ x: 65, y: 70 });
-
-  // Campos Extras
-  const [extraFields, setExtraFields] = useState<any[]>([]);
-  const [extraFieldsPromo, setExtraFieldsPromo] = useState<any[]>([]);
+  const { state, setters } = useLabelGridModelSessionState(currentType);
 
   // Sincronização inicial com o modelo ou reset
   useEffect(() => {
     if (isOpen) {
       if (editingModel) {
-        setName(editingModel.name || '');
-        setLayoutType(editingModel.type || 'rect');
-        setPaperSize(editingModel.paperSize);
-        if (editingModel.paperWidth !== undefined) setCustomWidth(editingModel.paperWidth);
-        if (editingModel.paperHeight !== undefined) setCustomHeight(editingModel.paperHeight);
-        setColumns(editingModel.columns);
-        setRows(editingModel.rows);
-        setMarginT(editingModel.marginT);
-        setMarginB(editingModel.marginB);
-        setMarginL(editingModel.marginL);
-        setMarginR(editingModel.marginR);
-        setGapH(editingModel.gapH);
-        setGapV(editingModel.gapV);
-        if (editingModel.bg_color !== undefined) setBgColor(editingModel.bg_color);
-        if (editingModel.nameFontSize !== undefined) setNameFontSize(editingModel.nameFontSize);
-        if (editingModel.nameColor !== undefined) setNameColor(editingModel.nameColor);
-        if (editingModel.nameBold !== undefined) setNameBold(editingModel.nameBold);
-        if (editingModel.nameAlign !== undefined) setNameAlign(editingModel.nameAlign);
-        if (editingModel.nameVAlign !== undefined) setNameVAlign(editingModel.nameVAlign);
-        if (editingModel.priceFontSize !== undefined) setPriceFontSize(editingModel.priceFontSize);
-        if (editingModel.priceColor !== undefined) setPriceColor(editingModel.priceColor);
-        if (editingModel.priceBold !== undefined) setPriceBold(editingModel.priceBold);
-        if (editingModel.priceAlign !== undefined) setPriceAlign(editingModel.priceAlign);
-        if (editingModel.priceVAlign !== undefined) setPriceVAlign(editingModel.priceVAlign);
-        if (editingModel.promoPriceFontSize !== undefined) setPromoPriceFontSize(editingModel.promoPriceFontSize);
-        if (editingModel.promoPriceColor !== undefined) setPromoPriceColor(editingModel.promoPriceColor);
-        if (editingModel.promoPriceBold !== undefined) setPromoPriceBold(editingModel.promoPriceBold);
-        if (editingModel.promoPriceAlign !== undefined) setPromoPriceAlign(editingModel.promoPriceAlign);
-        if (editingModel.promoPriceVAlign !== undefined) setPromoPriceVAlign(editingModel.promoPriceVAlign);
+        setters.setName(editingModel.name || '');
+        setters.setLayoutType(editingModel.type || 'rect');
+        setters.setPaperSize(editingModel.paperSize);
+        if (editingModel.paperWidth !== undefined) setters.setCustomWidth(editingModel.paperWidth);
+        if (editingModel.paperHeight !== undefined) setters.setCustomHeight(editingModel.paperHeight);
+        setters.setColumns(editingModel.columns);
+        setters.setRows(editingModel.rows);
+        setters.setMarginT(editingModel.marginT);
+        setters.setMarginB(editingModel.marginB);
+        setters.setMarginL(editingModel.marginL);
+        setters.setMarginR(editingModel.marginR);
+        setters.setGapH(editingModel.gapH);
+        setters.setGapV(editingModel.gapV);
+        if (editingModel.bg_color !== undefined) setters.setBgColor(editingModel.bg_color);
+        if (editingModel.nameFontSize !== undefined) setters.setNameFontSize(editingModel.nameFontSize);
+        if (editingModel.nameColor !== undefined) setters.setNameColor(editingModel.nameColor);
+        if (editingModel.nameBold !== undefined) setters.setNameBold(editingModel.nameBold);
+        if (editingModel.nameAlign !== undefined) setters.setNameAlign(editingModel.nameAlign);
+        if (editingModel.nameVAlign !== undefined) setters.setNameVAlign(editingModel.nameVAlign);
+        if (editingModel.priceFontSize !== undefined) setters.setPriceFontSize(editingModel.priceFontSize);
+        if (editingModel.priceColor !== undefined) setters.setPriceColor(editingModel.priceColor);
+        if (editingModel.priceBold !== undefined) setters.setPriceBold(editingModel.priceBold);
+        if (editingModel.priceAlign !== undefined) setters.setPriceAlign(editingModel.priceAlign);
+        if (editingModel.priceVAlign !== undefined) setters.setPriceVAlign(editingModel.priceVAlign);
+        if (editingModel.promoPriceFontSize !== undefined) setters.setPromoPriceFontSize(editingModel.promoPriceFontSize);
+        if (editingModel.promoPriceColor !== undefined) setters.setPromoPriceColor(editingModel.promoPriceColor);
+        if (editingModel.promoPriceBold !== undefined) setters.setPromoPriceBold(editingModel.promoPriceBold);
+        if (editingModel.promoPriceAlign !== undefined) setters.setPromoPriceAlign(editingModel.promoPriceAlign);
+        if (editingModel.promoPriceVAlign !== undefined) setters.setPromoPriceVAlign(editingModel.promoPriceVAlign);
 
-        if (editingModel.oldPriceColor !== undefined) setOldPriceColor(editingModel.oldPriceColor);
-        if (editingModel.oldPriceFontSize !== undefined) setOldPriceFontSize(editingModel.oldPriceFontSize);
-        if (editingModel.oldPriceBold !== undefined) setOldPriceBold(editingModel.oldPriceBold);
-        if (editingModel.oldPriceAlign !== undefined) setOldPriceAlign(editingModel.oldPriceAlign);
-        if (editingModel.oldPriceVAlign !== undefined) setOldPriceVAlign(editingModel.oldPriceVAlign);
-        if (editingModel.nameWidth !== undefined) setNameWidth(editingModel.nameWidth);
-        if (editingModel.nameHeight !== undefined) setNameHeight(editingModel.nameHeight);
-        if (editingModel.priceWidth !== undefined) setPriceWidth(editingModel.priceWidth);
-        if (editingModel.priceHeight !== undefined) setPriceHeight(editingModel.priceHeight);
-        if (editingModel.promoWidth !== undefined) setPromoWidth(editingModel.promoWidth);
-        if (editingModel.promoHeight !== undefined) setPromoHeight(editingModel.promoHeight);
-        if (editingModel.priceFontSizeTens !== undefined) setPriceFontSizeTens(editingModel.priceFontSizeTens);
-        if (editingModel.priceFontSizeHundreds !== undefined) setPriceFontSizeHundreds(editingModel.priceFontSizeHundreds);
-        if (editingModel.priceFontSizeThousands !== undefined) setPriceFontSizeThousands(editingModel.priceFontSizeThousands);
-        if (editingModel.priceFontSizeTenThousands !== undefined) setPriceFontSizeTenThousands(editingModel.priceFontSizeTenThousands);
-        if (editingModel.promoFontSize !== undefined) setPromoFontSize(editingModel.promoFontSize);
-        if (editingModel.promoColor) setPromoColor(editingModel.promoColor);
-        if (editingModel.bg_color) setBgColor(editingModel.bg_color);
-        if (editingModel.nameBgColor) setNameBgColor(editingModel.nameBgColor);
-        if (editingModel.priceBgColor) setPriceBgColor(editingModel.priceBgColor);
-        if (editingModel.promoBgColor) setPromoBgColor(editingModel.promoBgColor);
+        if (editingModel.oldPriceColor !== undefined) setters.setOldPriceColor(editingModel.oldPriceColor);
+        if (editingModel.oldPriceFontSize !== undefined) setters.setOldPriceFontSize(editingModel.oldPriceFontSize);
+        if (editingModel.oldPriceBold !== undefined) setters.setOldPriceBold(editingModel.oldPriceBold);
+        if (editingModel.oldPriceAlign !== undefined) setters.setOldPriceAlign(editingModel.oldPriceAlign);
+        if (editingModel.oldPriceVAlign !== undefined) setters.setOldPriceVAlign(editingModel.oldPriceVAlign);
+        if (editingModel.nameWidth !== undefined) setters.setNameWidth(editingModel.nameWidth);
+        if (editingModel.nameHeight !== undefined) setters.setNameHeight(editingModel.nameHeight);
+        if (editingModel.priceWidth !== undefined) setters.setPriceWidth(editingModel.priceWidth);
+        if (editingModel.priceHeight !== undefined) setters.setPriceHeight(editingModel.priceHeight);
+        if (editingModel.promoWidth !== undefined) setters.setPromoWidth(editingModel.promoWidth);
+        if (editingModel.promoHeight !== undefined) setters.setPromoHeight(editingModel.promoHeight);
+        if (editingModel.priceFontSizeTens !== undefined) setters.setPriceFontSizeTens(editingModel.priceFontSizeTens);
+        if (editingModel.priceFontSizeHundreds !== undefined) setters.setPriceFontSizeHundreds(editingModel.priceFontSizeHundreds);
+        if (editingModel.priceFontSizeThousands !== undefined) setters.setPriceFontSizeThousands(editingModel.priceFontSizeThousands);
+        if (editingModel.priceFontSizeTenThousands !== undefined) setters.setPriceFontSizeTenThousands(editingModel.priceFontSizeTenThousands);
+        if (editingModel.promoFontSize !== undefined) setters.setPromoFontSize(editingModel.promoFontSize);
+        if (editingModel.promoColor) setters.setPromoColor(editingModel.promoColor);
+        if (editingModel.bg_color) setters.setBgColor(editingModel.bg_color);
+        if (editingModel.nameBgColor) setters.setNameBgColor(editingModel.nameBgColor);
+        if (editingModel.priceBgColor) setters.setPriceBgColor(editingModel.priceBgColor);
+        if (editingModel.promoBgColor) setters.setPromoBgColor(editingModel.promoBgColor);
 
-        setNamePos({ x: editingModel.namePosX ?? 50, y: editingModel.namePosY ?? 30 });
-        setPricePos({ x: editingModel.pricePosX ?? 50, y: editingModel.pricePosY ?? 60 });
-        setPromoPos({ x: editingModel.promoPosX ?? 50, y: editingModel.promoPosY ?? 75 });
-        setBarcodePos({ x: editingModel.barcodePosX ?? 50, y: editingModel.barcodePosY ?? 90 });
+        setters.setNamePos({ x: editingModel.namePosX ?? 50, y: editingModel.namePosY ?? 30 });
+        setters.setPricePos({ x: editingModel.pricePosX ?? 50, y: editingModel.pricePosY ?? 60 });
+        setters.setPromoPos({ x: editingModel.promoPosX ?? 50, y: editingModel.promoPosY ?? 75 });
+        setters.setBarcodePos({ x: editingModel.barcodePosX ?? 50, y: editingModel.barcodePosY ?? 90 });
 
-        setPriceFormat(editingModel.priceFormat || 'split');
-        if (editingModel.priceSymbolFontSize !== undefined) setPriceSymbolFontSize(editingModel.priceSymbolFontSize);
-        if (editingModel.priceSymbolColor) setPriceSymbolColor(editingModel.priceSymbolColor);
-        if (editingModel.priceSymbolBold !== undefined) setPriceSymbolBold(editingModel.priceSymbolBold);
-        setPriceSymbolPos({
+        setters.setPriceFormat(editingModel.priceFormat || 'split');
+        if (editingModel.priceSymbolFontSize !== undefined) setters.setPriceSymbolFontSize(editingModel.priceSymbolFontSize);
+        if (editingModel.priceSymbolColor) setters.setPriceSymbolColor(editingModel.priceSymbolColor);
+        if (editingModel.priceSymbolBold !== undefined) setters.setPriceSymbolBold(editingModel.priceSymbolBold);
+        setters.setPriceSymbolPos({
           x: editingModel.priceSymbolPosX ?? 35,
           y: editingModel.priceSymbolPosY ?? 55,
         });
 
-        if (editingModel.priceDecimalsFontSize !== undefined) setPriceDecimalsFontSize(editingModel.priceDecimalsFontSize);
-        if (editingModel.priceDecimalsColor) setPriceDecimalsColor(editingModel.priceDecimalsColor);
-        if (editingModel.priceDecimalsBold !== undefined) setPriceDecimalsBold(editingModel.priceDecimalsBold);
-        setPriceDecimalsPos({
+        if (editingModel.priceDecimalsFontSize !== undefined) setters.setPriceDecimalsFontSize(editingModel.priceDecimalsFontSize);
+        if (editingModel.priceDecimalsColor) setters.setPriceDecimalsColor(editingModel.priceDecimalsColor);
+        if (editingModel.priceDecimalsBold !== undefined) setters.setPriceDecimalsBold(editingModel.priceDecimalsBold);
+        setters.setPriceDecimalsPos({
           x: editingModel.priceDecimalsPosX ?? 65,
           y: editingModel.priceDecimalsPosY ?? 55,
         });
 
         // Carregar Estados Promocionais
-        setPromoNamePos({
+        setters.setPromoNamePos({
           x: editingModel.promoNamePosX ?? 50,
           y: editingModel.promoNamePosY ?? 25,
         });
-        if (editingModel.promoNameFontSize !== undefined) setPromoNameFontSize(editingModel.promoNameFontSize);
-        if (editingModel.promoNameAlign) setPromoNameAlign(editingModel.promoNameAlign);
-        if (editingModel.promoNameVAlign) setPromoNameVAlign(editingModel.promoNameVAlign);
-        if (editingModel.promoNameColor) setPromoNameColor(editingModel.promoNameColor);
-        if (editingModel.promoNameBold !== undefined) setPromoNameBold(editingModel.promoNameBold);
-        if (editingModel.promoNameWidth !== undefined) setPromoNameWidth(editingModel.promoNameWidth);
-        if (editingModel.promoNameHeight !== undefined) setPromoNameHeight(editingModel.promoNameHeight);
-        if (editingModel.promoNameBgColor) setPromoNameBgColor(editingModel.promoNameBgColor);
+        if (editingModel.promoNameFontSize !== undefined) setters.setPromoNameFontSize(editingModel.promoNameFontSize);
+        if (editingModel.promoNameAlign) setters.setPromoNameAlign(editingModel.promoNameAlign);
+        if (editingModel.promoNameVAlign) setters.setPromoNameVAlign(editingModel.promoNameVAlign);
+        if (editingModel.promoNameColor) setters.setPromoNameColor(editingModel.promoNameColor);
+        if (editingModel.promoNameBold !== undefined) setters.setPromoNameBold(editingModel.promoNameBold);
+        if (editingModel.promoNameWidth !== undefined) setters.setPromoNameWidth(editingModel.promoNameWidth);
+        if (editingModel.promoNameHeight !== undefined) setters.setPromoNameHeight(editingModel.promoNameHeight);
+        if (editingModel.promoNameBgColor) setters.setPromoNameBgColor(editingModel.promoNameBgColor);
 
-        setOldPricePos({ x: editingModel.oldPricePosX ?? 50, y: editingModel.oldPricePosY ?? 60 });
-        if (editingModel.oldPriceWidth !== undefined) setOldPriceWidth(editingModel.oldPriceWidth);
-        if (editingModel.oldPriceHeight !== undefined) setOldPriceHeight(editingModel.oldPriceHeight);
-        if (editingModel.oldPriceFontSize !== undefined) setOldPriceFontSize(editingModel.oldPriceFontSize);
-        if (editingModel.oldPriceColor) setOldPriceColor(editingModel.oldPriceColor);
-        if (editingModel.oldPriceBold !== undefined) setOldPriceBold(editingModel.oldPriceBold);
-        if (editingModel.oldPriceAlign) setOldPriceAlign(editingModel.oldPriceAlign);
-        if (editingModel.oldPriceVAlign) setOldPriceVAlign(editingModel.oldPriceVAlign);
+        setters.setOldPricePos({ x: editingModel.oldPricePosX ?? 50, y: editingModel.oldPricePosY ?? 60 });
+        if (editingModel.oldPriceWidth !== undefined) setters.setOldPriceWidth(editingModel.oldPriceWidth);
+        if (editingModel.oldPriceHeight !== undefined) setters.setOldPriceHeight(editingModel.oldPriceHeight);
+        if (editingModel.oldPriceFontSize !== undefined) setters.setOldPriceFontSize(editingModel.oldPriceFontSize);
+        if (editingModel.oldPriceColor) setters.setOldPriceColor(editingModel.oldPriceColor);
+        if (editingModel.oldPriceBold !== undefined) setters.setOldPriceBold(editingModel.oldPriceBold);
+        if (editingModel.oldPriceAlign) setters.setOldPriceAlign(editingModel.oldPriceAlign);
+        if (editingModel.oldPriceVAlign) setters.setOldPriceVAlign(editingModel.oldPriceVAlign);
 
-        setPromoBarcodePos({
+        setters.setPromoBarcodePos({
           x: editingModel.promoBarcodePosX ?? 50,
           y: editingModel.promoBarcodePosY ?? 85,
         });
-        if (editingModel.extraFields) setExtraFields(editingModel.extraFields);
-        if (editingModel.extraFieldsPromo) setExtraFieldsPromo(editingModel.extraFieldsPromo);
-        if (editingModel.fontFamily) setFontFamily(editingModel.fontFamily);
-        if (editingModel.priceFormat) setPriceFormat(editingModel.priceFormat);
+        if (editingModel.extraFields) setters.setExtraFields(editingModel.extraFields);
+        if (editingModel.extraFieldsPromo) setters.setExtraFieldsPromo(editingModel.extraFieldsPromo);
+        if (editingModel.fontFamily) setters.setFontFamily(editingModel.fontFamily);
+        if (editingModel.priceFormat) setters.setPriceFormat(editingModel.priceFormat);
 
-        if (editingModel.imageScale !== undefined) setImageScale(editingModel.imageScale);
-        if (editingModel.previewImage) setCustomPreviewImage(editingModel.previewImage);
+        if (editingModel.imageScale !== undefined) setters.setImageScale(editingModel.imageScale);
+        if (editingModel.previewImage) setters.setCustomPreviewImage(editingModel.previewImage);
 
         // Carregar Split Price Promoção
         if (editingModel.promoPriceSymbolPosX !== undefined) {
-          setPromoPriceSymbolPos({
+          setters.setPromoPriceSymbolPos({
             x: editingModel.promoPriceSymbolPosX,
             y: editingModel.promoPriceSymbolPosY ?? 70,
           });
         }
         if (editingModel.promoPriceSymbolFontSize !== undefined) {
-          setPromoPriceSymbolFontSize(editingModel.promoPriceSymbolFontSize);
+          setters.setPromoPriceSymbolFontSize(editingModel.promoPriceSymbolFontSize);
         }
         if (editingModel.promoPriceSymbolColor) {
-          setPromoPriceSymbolColor(editingModel.promoPriceSymbolColor);
+          setters.setPromoPriceSymbolColor(editingModel.promoPriceSymbolColor);
         }
         if (editingModel.promoPriceSymbolBold !== undefined) {
-          setPromoPriceSymbolBold(editingModel.promoPriceSymbolBold);
+          setters.setPromoPriceSymbolBold(editingModel.promoPriceSymbolBold);
         }
 
         if (editingModel.promoPriceDecimalsPosX !== undefined) {
-          setPromoPriceDecimalsPos({
+          setters.setPromoPriceDecimalsPos({
             x: editingModel.promoPriceDecimalsPosX,
             y: editingModel.promoPriceDecimalsPosY ?? 70,
           });
         }
         if (editingModel.promoPriceDecimalsFontSize !== undefined) {
-          setPromoPriceDecimalsFontSize(editingModel.promoPriceDecimalsFontSize);
+          setters.setPromoPriceDecimalsFontSize(editingModel.promoPriceDecimalsFontSize);
         }
         if (editingModel.promoPriceDecimalsColor) {
-          setPromoPriceDecimalsColor(editingModel.promoPriceDecimalsColor);
+          setters.setPromoPriceDecimalsColor(editingModel.promoPriceDecimalsColor);
         }
         if (editingModel.promoPriceDecimalsBold !== undefined) {
-          setPromoPriceDecimalsBold(editingModel.promoPriceDecimalsBold);
+          setters.setPromoPriceDecimalsBold(editingModel.promoPriceDecimalsBold);
         }
       } else {
-        setLayoutType(currentType || 'rect');
-        setName('');
-        setPaperSize('A4');
-        setColumns(3);
-        setRows(7);
-        setMarginT(10);
-        setMarginB(10);
-        setMarginL(10);
-        setMarginR(10);
-        setGapH(2);
-        setGapV(2);
-        setBgColor('#ffffff');
-        setNamePos({ x: 50, y: 30 });
-        setPricePos({ x: 50, y: 60 });
-        setPromoPos({ x: 50, y: 75 });
-        setBarcodePos({ x: 50, y: 90 });
-        setExtraFields([]);
-        setExtraFieldsPromo([]);
+        setters.setLayoutType(currentType || 'rect');
+        setters.setName('');
+        setters.setPaperSize('A4');
+        setters.setColumns(3);
+        setters.setRows(7);
+        setters.setMarginT(10);
+        setters.setMarginB(10);
+        setters.setMarginL(10);
+        setters.setMarginR(10);
+        setters.setGapH(2);
+        setters.setGapV(2);
+        setters.setBgColor('#ffffff');
+        setters.setNamePos({ x: 50, y: 30 });
+        setters.setPricePos({ x: 50, y: 60 });
+        setters.setPromoPos({ x: 50, y: 75 });
+        setters.setBarcodePos({ x: 50, y: 90 });
+        setters.setExtraFields([]);
+        setters.setExtraFieldsPromo([]);
         if (currentCategory === 'precos') {
-          setExtraFields([
+          setters.setExtraFields([
             {
               id: 'extra_default',
               text: 'DESCRIÇÃO EXTRA',
@@ -324,291 +211,110 @@ export function useLabelGridModelSession({
         }
       }
     }
-  }, [isOpen, editingModel, currentType, currentCategory]);
+  }, [isOpen, editingModel, currentType, currentCategory, setters]);
 
-  const formatLabel = layoutType === 'round' ? 'Redonda' : 'Retangular';
+  const formatLabel = state.layoutType === 'round' ? 'Redonda' : 'Retangular';
   const generatedName =
     currentCategory === 'logos'
-      ? `${columns * rows} Etiquetas (${formatLabel}) (${columns}x${rows})`
-      : `${columns * rows} ${columns * rows === 1 ? 'Etiqueta' : 'Etiquetas'} (${columns}x${rows})`;
+      ? `${state.columns * state.rows} Etiquetas (${formatLabel}) (${state.columns}x${state.rows})`
+      : `${state.columns * state.rows} ${state.columns * state.rows === 1 ? 'Etiqueta' : 'Etiquetas'} (${state.columns}x${state.rows})`;
 
-  const selectedPaper = PAPER_OPTIONS.find((option) => option.id === paperSize) || PAPER_OPTIONS[0];
-  const effectivePreviewImage = customPreviewImage || previewImage || null;
+  const selectedPaper = PAPER_OPTIONS.find((option) => option.id === state.paperSize) || PAPER_OPTIONS[0];
+  const effectivePreviewImage = state.customPreviewImage || previewImage || null;
 
   const buildEditorState = (): LabelGridModelEditorState => ({
     editingModel,
-    name,
+    name: state.name,
     generatedName,
     currentCategory,
-    columns,
-    rows,
-    marginT,
-    marginB,
-    marginL,
-    marginR,
-    gapH,
-    gapV,
-    paperSize,
-    customWidth,
-    customHeight,
-    layoutType,
-    nameFontSize,
-    nameColor,
-    nameBold,
-    nameAlign,
-    nameVAlign,
-    priceFontSize,
-    priceColor,
-    priceBold,
-    priceAlign,
-    priceVAlign,
-    promoFontSize,
-    promoColor,
-    promoPriceFontSize,
-    promoPriceColor,
-    promoPriceBold,
-    promoPriceAlign,
-    promoPriceVAlign,
-    oldPriceFontSize,
-    oldPriceColor,
-    oldPriceBold,
-    oldPriceAlign,
-    oldPriceVAlign,
-    namePos,
-    pricePos,
-    promoPos,
-    barcodePos,
-    nameWidth,
-    nameHeight,
-    priceWidth,
-    priceHeight,
-    promoWidth,
-    promoHeight,
-    priceFontSizeTens,
-    priceFontSizeHundreds,
-    priceFontSizeThousands,
-    priceFontSizeTenThousands,
-    bg_color: bgColor,
-    nameBgColor,
-    priceBgColor,
-    promoBgColor,
-    priceFormat,
-    priceSymbolFontSize,
-    priceSymbolColor,
-    priceSymbolBold,
-    priceSymbolPos,
-    priceDecimalsFontSize,
-    priceDecimalsColor,
-    priceDecimalsBold,
-    priceDecimalsPos,
-    promoNamePos,
-    promoNameFontSize,
-    promoNameAlign,
-    promoNameVAlign,
-    promoNameColor,
-    promoNameBold,
-    promoNameWidth,
-    promoNameHeight,
-    promoNameBgColor,
-    oldPricePos,
-    oldPriceWidth,
-    oldPriceHeight,
-    promoBarcodePos,
-    extraFields,
-    extraFieldsPromo,
-    fontFamily,
-    promoPriceSymbolPos,
-    promoPriceSymbolFontSize,
-    promoPriceSymbolColor,
-    promoPriceSymbolBold,
-    promoPriceDecimalsPos,
-    promoPriceDecimalsFontSize,
-    promoPriceDecimalsColor,
-    promoPriceDecimalsBold,
-    imageScale,
-    customPreviewImage,
+    columns: state.columns,
+    rows: state.rows,
+    marginT: state.marginT,
+    marginB: state.marginB,
+    marginL: state.marginL,
+    marginR: state.marginR,
+    gapH: state.gapH,
+    gapV: state.gapV,
+    paperSize: state.paperSize,
+    customWidth: state.customWidth,
+    customHeight: state.customHeight,
+    layoutType: state.layoutType,
+    nameFontSize: state.nameFontSize,
+    nameColor: state.nameColor,
+    nameBold: state.nameBold,
+    nameAlign: state.nameAlign,
+    nameVAlign: state.nameVAlign,
+    priceFontSize: state.priceFontSize,
+    priceColor: state.priceColor,
+    priceBold: state.priceBold,
+    priceAlign: state.priceAlign,
+    priceVAlign: state.priceVAlign,
+    promoFontSize: state.promoFontSize,
+    promoColor: state.promoColor,
+    promoPriceFontSize: state.promoPriceFontSize,
+    promoPriceColor: state.promoPriceColor,
+    promoPriceBold: state.promoPriceBold,
+    promoPriceAlign: state.promoPriceAlign,
+    promoPriceVAlign: state.promoPriceVAlign,
+    oldPriceFontSize: state.oldPriceFontSize,
+    oldPriceColor: state.oldPriceColor,
+    oldPriceBold: state.oldPriceBold,
+    oldPriceAlign: state.oldPriceAlign,
+    oldPriceVAlign: state.oldPriceVAlign,
+    namePos: state.namePos,
+    pricePos: state.pricePos,
+    promoPos: state.promoPos,
+    barcodePos: state.barcodePos,
+    nameWidth: state.nameWidth,
+    nameHeight: state.nameHeight,
+    priceWidth: state.priceWidth,
+    priceHeight: state.priceHeight,
+    promoWidth: state.promoWidth,
+    promoHeight: state.promoHeight,
+    priceFontSizeTens: state.priceFontSizeTens,
+    priceFontSizeHundreds: state.priceFontSizeHundreds,
+    priceFontSizeThousands: state.priceFontSizeThousands,
+    priceFontSizeTenThousands: state.priceFontSizeTenThousands,
+    bg_color: state.bgColor,
+    nameBgColor: state.nameBgColor,
+    priceBgColor: state.priceBgColor,
+    promoBgColor: state.promoBgColor,
+    priceFormat: state.priceFormat,
+    priceSymbolFontSize: state.priceSymbolFontSize,
+    priceSymbolColor: state.priceSymbolColor,
+    priceSymbolBold: state.priceSymbolBold,
+    priceSymbolPos: state.priceSymbolPos,
+    priceDecimalsFontSize: state.priceDecimalsFontSize,
+    priceDecimalsColor: state.priceDecimalsColor,
+    priceDecimalsBold: state.priceDecimalsBold,
+    priceDecimalsPos: state.priceDecimalsPos,
+    promoNamePos: state.promoNamePos,
+    promoNameFontSize: state.promoNameFontSize,
+    promoNameAlign: state.promoNameAlign,
+    promoNameVAlign: state.promoNameVAlign,
+    promoNameColor: state.promoNameColor,
+    promoNameBold: state.promoNameBold,
+    promoNameWidth: state.promoNameWidth,
+    promoNameHeight: state.promoNameHeight,
+    promoNameBgColor: state.promoNameBgColor,
+    oldPricePos: state.oldPricePos,
+    oldPriceWidth: state.oldPriceWidth,
+    oldPriceHeight: state.oldPriceHeight,
+    promoBarcodePos: state.promoBarcodePos,
+    extraFields: state.extraFields,
+    extraFieldsPromo: state.extraFieldsPromo,
+    fontFamily: state.fontFamily,
+    promoPriceSymbolPos: state.promoPriceSymbolPos,
+    promoPriceSymbolFontSize: state.promoPriceSymbolFontSize,
+    promoPriceSymbolColor: state.promoPriceSymbolColor,
+    promoPriceSymbolBold: state.promoPriceSymbolBold,
+    promoPriceDecimalsPos: state.promoPriceDecimalsPos,
+    promoPriceDecimalsFontSize: state.promoPriceDecimalsFontSize,
+    promoPriceDecimalsColor: state.promoPriceDecimalsColor,
+    promoPriceDecimalsBold: state.promoPriceDecimalsBold,
+    imageScale: state.imageScale,
+    customPreviewImage: state.customPreviewImage,
   });
 
-  return {
-    name,
-    setName,
-    paperSize,
-    setPaperSize,
-    customWidth,
-    setCustomWidth,
-    customHeight,
-    setCustomHeight,
-    columns,
-    setColumns,
-    rows,
-    setRows,
-    marginT,
-    setMarginT,
-    marginB,
-    setMarginB,
-    marginL,
-    setMarginL,
-    marginR,
-    setMarginR,
-    gapH,
-    setGapH,
-    gapV,
-    setGapV,
-    layoutType,
-    setLayoutType,
-    imageScale,
-    setImageScale,
-    customPreviewImage,
-    setCustomPreviewImage,
-    nameFontSize,
-    setNameFontSize,
-    nameColor,
-    setNameColor,
-    nameBold,
-    setNameBold,
-    nameAlign,
-    setNameAlign,
-    nameVAlign,
-    setNameVAlign,
-    namePos,
-    setNamePos,
-    nameWidth,
-    setNameWidth,
-    nameHeight,
-    setNameHeight,
-    nameBgColor,
-    setNameBgColor,
-    priceFontSize,
-    setPriceFontSize,
-    priceColor,
-    setPriceColor,
-    priceBold,
-    setPriceBold,
-    priceAlign,
-    setPriceAlign,
-    priceVAlign,
-    setPriceVAlign,
-    pricePos,
-    setPricePos,
-    priceWidth,
-    setPriceWidth,
-    priceHeight,
-    setPriceHeight,
-    priceBgColor,
-    setPriceBgColor,
-    promoPriceFontSize,
-    setPromoPriceFontSize,
-    promoPriceColor,
-    setPromoPriceColor,
-    promoPriceBold,
-    setPromoPriceBold,
-    promoPriceAlign,
-    setPromoPriceAlign,
-    promoPriceVAlign,
-    setPromoPriceVAlign,
-    promoPos,
-    setPromoPos,
-    promoWidth,
-    setPromoWidth,
-    promoHeight,
-    setPromoHeight,
-    promoBgColor,
-    setPromoBgColor,
-    promoFontSize,
-    setPromoFontSize,
-    promoColor,
-    setPromoColor,
-    oldPriceFontSize,
-    setOldPriceFontSize,
-    oldPriceColor,
-    setOldPriceColor,
-    oldPriceBold,
-    setOldPriceBold,
-    oldPriceAlign,
-    setOldPriceAlign,
-    oldPriceVAlign,
-    setOldPriceVAlign,
-    oldPricePos,
-    setOldPricePos,
-    oldPriceWidth,
-    setOldPriceWidth,
-    oldPriceHeight,
-    setOldPriceHeight,
-    barcodePos,
-    setBarcodePos,
-    promoBarcodePos,
-    setPromoBarcodePos,
-    promoNamePos,
-    setPromoNamePos,
-    promoNameFontSize,
-    setPromoNameFontSize,
-    promoNameAlign,
-    setPromoNameAlign,
-    promoNameVAlign,
-    setPromoNameVAlign,
-    promoNameColor,
-    setPromoNameColor,
-    promoNameBold,
-    setPromoNameBold,
-    promoNameWidth,
-    setPromoNameWidth,
-    promoNameHeight,
-    setPromoNameHeight,
-    promoNameBgColor,
-    setPromoNameBgColor,
-    bgColor,
-    setBgColor,
-    priceFontSizeTens,
-    setPriceFontSizeTens,
-    priceFontSizeHundreds,
-    setPriceFontSizeHundreds,
-    priceFontSizeThousands,
-    setPriceFontSizeThousands,
-    priceFontSizeTenThousands,
-    setPriceFontSizeTenThousands,
-    priceFormat,
-    setPriceFormat,
-    fontFamily,
-    setFontFamily,
-    priceSymbolFontSize,
-    setPriceSymbolFontSize,
-    priceSymbolColor,
-    setPriceSymbolColor,
-    priceSymbolBold,
-    setPriceSymbolBold,
-    priceSymbolPos,
-    setPriceSymbolPos,
-    priceDecimalsFontSize,
-    setPriceDecimalsFontSize,
-    priceDecimalsColor,
-    setPriceDecimalsColor,
-    priceDecimalsBold,
-    setPriceDecimalsBold,
-    priceDecimalsPos,
-    setPriceDecimalsPos,
-    promoPriceSymbolFontSize,
-    setPromoPriceSymbolFontSize,
-    promoPriceSymbolColor,
-    setPromoPriceSymbolColor,
-    promoPriceSymbolBold,
-    setPromoPriceSymbolBold,
-    promoPriceSymbolPos,
-    setPromoPriceSymbolPos,
-    promoPriceDecimalsFontSize,
-    setPromoPriceDecimalsFontSize,
-    promoPriceDecimalsColor,
-    setPromoPriceDecimalsColor,
-    promoPriceDecimalsBold,
-    setPromoPriceDecimalsBold,
-    promoPriceDecimalsPos,
-    setPromoPriceDecimalsPos,
-    extraFields,
-    setExtraFields,
-    extraFieldsPromo,
-    setExtraFieldsPromo,
-    generatedName,
-    selectedPaper,
-    effectivePreviewImage,
-    buildEditorState,
-  };
+  return { ...state, generatedName, selectedPaper, effectivePreviewImage, buildEditorState };
 }

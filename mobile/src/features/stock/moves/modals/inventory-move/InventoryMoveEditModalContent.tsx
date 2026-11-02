@@ -3,7 +3,6 @@ import {
   Modal,
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StockMove } from '../../../types/stock.types';
@@ -134,7 +134,7 @@ export const InventoryMoveEditModalContent: React.FC<InventoryMoveEditModalProps
           <View style={styles.form}>
             <View style={styles.formGroup}>
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Quantidade *</Text>
-              <TextInput
+              <FormTextInput
                 style={[
                   styles.input,
                   isDarkMode && styles.inputDark,
@@ -153,7 +153,7 @@ export const InventoryMoveEditModalContent: React.FC<InventoryMoveEditModalProps
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>
                 Data (AAAA-MM-DD) *
               </Text>
-              <TextInput
+              <FormTextInput
                 style={[
                   styles.input,
                   isDarkMode && styles.inputDark,
@@ -171,7 +171,7 @@ export const InventoryMoveEditModalContent: React.FC<InventoryMoveEditModalProps
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>
                 Motivo / Observação *
               </Text>
-              <TextInput
+              <FormTextInput
                 style={[
                   styles.textArea,
                   isDarkMode && styles.inputDark,

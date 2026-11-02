@@ -530,30 +530,22 @@
     "name": "18-custos-recebimento",
     "file": "18-custos-recebimento.png",
     "width": 565,
-    "height": 383,
+    "height": 210,
     "boxes": [
       {
         "n": 1,
-        "label": "Desconto",
+        "label": "Frete",
         "x": 30,
-        "y": 111,
-        "w": 505,
+        "y": 146,
+        "w": 234,
         "h": 34
       },
       {
         "n": 2,
-        "label": "Frete",
-        "x": 30,
-        "y": 222,
-        "w": 505,
-        "h": 34
-      },
-      {
-        "n": 3,
         "label": "Outras despesas",
-        "x": 30,
-        "y": 333,
-        "w": 505,
+        "x": 302,
+        "y": 146,
+        "w": 233,
         "h": 34
       }
     ]

@@ -7,6 +7,7 @@ interface Props {
   activeStage: string | null;
   onBack: () => void;
   onReview: () => void;
+  hasIncompleteProduct: boolean;
   supplierSpecific?: boolean;
   supplierSelected?: boolean;
 }
@@ -16,6 +17,7 @@ export const InventoryOperationFooter: React.FC<Props> = ({
   activeStage,
   onBack,
   onReview,
+  hasIncompleteProduct,
   supplierSpecific = false,
   supplierSelected = false,
 }) => {
@@ -35,7 +37,14 @@ export const InventoryOperationFooter: React.FC<Props> = ({
       )}
 
       {(!supplierSpecific || supplierSelected) && (
-        <TouchableOpacity testID="footer-review-btn" style={styles.reviewBtn} onPress={onReview}>
+        <TouchableOpacity
+          testID="footer-review-btn"
+          style={[styles.reviewBtn, hasIncompleteProduct && styles.disabledReviewBtn]}
+          onPress={onReview}
+          disabled={hasIncompleteProduct}
+          accessibilityState={{ disabled: hasIncompleteProduct }}
+          accessibilityHint={hasIncompleteProduct ? 'Selecione um produto em cada item antes de revisar o inventário.' : undefined}
+        >
           <Text style={styles.reviewBtnText}>Revisar</Text>
           <ArrowRight size={18} color="#ffffff" />
         </TouchableOpacity>
@@ -84,4 +93,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 15,
   },
+  disabledReviewBtn: { opacity: 0.5 },
 });

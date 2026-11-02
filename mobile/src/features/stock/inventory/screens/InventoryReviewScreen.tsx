@@ -51,10 +51,11 @@ export const InventoryReviewScreen: React.FC<Props> = ({
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
   const countedItems = reviewItems.filter((i) => typeof i.physicalCount === 'number');
+  const hasIncompleteProduct = items.some((item) => !item.productId?.trim());
   const itemsWithDifferences = reconciledItems.filter(
     (i) => i.physicalCount !== null && i.difference !== 0
   );
-  const isBlocked = countedItems.length === 0 || loading || !canFinalize;
+  const isBlocked = countedItems.length === 0 || loading || !canFinalize || hasIncompleteProduct;
 
   const handleConfirm = () => {
     if (isBlocked) return;
@@ -136,7 +137,9 @@ export const InventoryReviewScreen: React.FC<Props> = ({
           >
             {!canFinalize
               ? 'Seu perfil precisa da permissão “Finalizar inventários” para concluir.'
-              : countedItems.length === 0
+              : hasIncompleteProduct
+                ? 'Selecione um produto para cada item antes de concluir o inventário.'
+                : countedItems.length === 0
                 ? hasStages
                   ? 'Inicie ao menos uma etapa de fornecedor para finalizar o inventário.'
                   : 'Você precisa contar pelo menos 1 item para finalizar o inventário.'

@@ -25,28 +25,33 @@ export const fetchStockMoves = async (
   const { from, to } = getInvoicePageRange(page, ITEMS_PER_PAGE);
   const period = getStockPeriod(startDate, endDate);
 
-  let query = supabase
-    .from('inventory_moves')
-    // Keep the base query compatible with installations that have not yet
-    // applied the optional reversal/status migration.
-    .select(
-      'id, product_id, variation_id, type, quantity, unit_cost, date, created_at, label, observation, product_description, product_name, reason, order_id',
-      { count: 'exact' }
-    )
-    .order('date', { ascending: false })
-    .range(from, to);
+  const baseColumns =
+    'id, product_id, variation_id, type, quantity, unit_cost, date, created_at, label, observation, product_description, product_name, reason, order_id';
+  const columnsWithReceiptStatus =
+    `${baseColumns}, status, reversal_reason, reversed_at, related_entity_type, related_entity_id, source_receipt_id`;
+  const createQuery = (columns: string) => {
+    let query = supabase
+      .from('inventory_moves')
+      .select(columns, { count: 'exact' })
+      .order('date', { ascending: false })
+      .range(from, to);
 
-  if (period.start) query = query.gte('date', period.start);
-  if (period.end) query = query.lte('date', period.end);
+    if (period.start) query = query.gte('date', period.start);
+    if (period.end) query = query.lte('date', period.end);
+    if (productId) query = query.eq('product_id', productId);
+    if (variationId) query = query.eq('variation_id', variationId);
+    return query;
+  };
 
-  if (productId) {
-    query = query.eq('product_id', productId);
+  let response = await createQuery(columnsWithReceiptStatus);
+  if (
+    response.error &&
+    ['PGRST204', '42703'].includes(response.error.code || '')
+  ) {
+    // Older app installations may not have the optional status columns yet.
+    response = await createQuery(baseColumns);
   }
-  if (variationId) {
-    query = query.eq('variation_id', variationId);
-  }
-
-  const { data, error, count } = await query;
+  const { data, error, count } = response;
 
   if (error) throw error;
   const rows = data || [];

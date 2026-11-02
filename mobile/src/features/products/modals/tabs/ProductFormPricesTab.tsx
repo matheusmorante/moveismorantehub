@@ -19,7 +19,7 @@ import {
   getProductSupplierStockOrigin,
   supplierProvidesStockOrigin,
 } from '../../../../../../shared-utils/productSupplierStockOrigin';
-import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { Truck, DollarSign, Search, X, Plus } from 'lucide-react-native';
 import { saveSupplier as persistSupplier } from '../../../../services/stockService';
 import { SupplierFormModal } from '../../../stock/suppliers/SupplierFormModal';
@@ -31,6 +31,7 @@ import {
 } from '../../services/mobileSupplierService';
 import { styles } from './productFormPricesTab.styles';
 
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
@@ -56,6 +57,9 @@ const syncInheritedVariationPrices = (
     ...(variation.syncPromoPrice !== false ? { promoPrice: promoPrice ?? '' } : {}),
   })),
 });
+
+const MIN_SUPPLIER_SEARCH_LENGTH = 3;
+const MAX_VISIBLE_SUPPLIER_SUGGESTIONS = 5;
 
 export const ProductFormPricesTab: React.FC<Props> = ({
   formData,
@@ -126,17 +130,17 @@ export const ProductFormPricesTab: React.FC<Props> = ({
     [setFormData]
   );
 
-  // Regra: exige 2 ou mais caracteres para pesquisar fornecedores
+  // Sugestões locais seguem o mínimo e o limite do autocomplete do ERP.
   const visibleSuppliers = useMemo(() => {
     const q = supplierSearch.trim().toLowerCase();
-    if (q.length < 2) return [];
+    if (q.length < MIN_SUPPLIER_SEARCH_LENGTH) return [];
     return suppliers.filter((sup) => {
       if (selectedSupplierIds.includes(sup.id)) return false;
       return (
         supplierProvidesStockOrigin(sup.stock_origins, selectedStockOrigin) &&
         matchesProductSupplierSearch(sup, q)
       );
-    });
+    }).slice(0, MAX_VISIBLE_SUPPLIER_SUGGESTIONS);
   }, [
     suppliers,
     supplierSearch,
@@ -400,13 +404,13 @@ export const ProductFormPricesTab: React.FC<Props> = ({
           ]}
         >
           <Search size={14} color={supplierError ? '#ef4444' : dark ? '#94a3b8' : '#64748b'} />
-          <TextInput
+          <FormTextInput
             style={[styles.searchInput, dark && styles.darkSearchInput, dark && styles.lightText]}
             accessibilityLabel="Buscar fornecedor por nome ou razão social"
             accessibilityHint={
-              supplierError ? 'Adicione ao menos um fornecedor.' : 'Digite 2 ou mais letras para buscar.'
+              supplierError ? 'Adicione ao menos um fornecedor.' : 'Digite 3 ou mais letras para buscar.'
             }
-            placeholder="Digite 2 ou mais letras para buscar..."
+            placeholder="Digite 3 ou mais letras para buscar..."
             placeholderTextColor={dark ? '#64748b' : '#94a3b8'}
             value={supplierSearch}
             onChangeText={setSupplierSearch}
@@ -428,9 +432,9 @@ export const ProductFormPricesTab: React.FC<Props> = ({
           </Text>
         )}
 
-        {supplierSearch.trim().length > 0 && supplierSearch.trim().length < 2 && (
+        {supplierSearch.trim().length > 0 && supplierSearch.trim().length < MIN_SUPPLIER_SEARCH_LENGTH && (
           <Text style={[styles.helperText, dark && styles.dimText]}>
-            Digite pelo menos 2 caracteres para exibir as sugestões.
+            Digite pelo menos 3 caracteres para exibir as sugestões.
           </Text>
         )}
 
@@ -459,9 +463,9 @@ export const ProductFormPricesTab: React.FC<Props> = ({
             <Text style={[styles.emptySupplierText, dark && styles.dimText]}>
               Nenhum fornecedor cadastrado
             </Text>
-          ) : supplierSearch.trim().length < 2 ? (
+          ) : supplierSearch.trim().length < MIN_SUPPLIER_SEARCH_LENGTH ? (
             <Text style={[styles.emptySupplierText, dark && styles.dimText]}>
-              Digite 2 ou mais caracteres para buscar fornecedores.
+              Digite 3 ou mais caracteres para buscar fornecedores.
             </Text>
           ) : visibleSuppliers.length === 0 ? (
             <Text style={[styles.emptySupplierText, dark && styles.dimText]}>
@@ -527,7 +531,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
           <Text style={[styles.label, dark && styles.dimText, costPriceError && styles.invalidLabel]}>
             Custo de aquisição (R$) <Text style={{ color: '#ef4444' }}>*</Text>
           </Text>
-          <TextInput
+          <FormTextInput
             value={f(formData.costPrice)}
             onChangeText={handleInboundCostPriceChange}
             keyboardType="decimal-pad"
@@ -561,7 +565,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
                 <Text style={{ color: '#ef4444' }}>*</Text>
               )}
             </Text>
-            <TextInput
+            <FormTextInput
               value={f(formData.unitPrice)}
               onChangeText={handleUnitPriceChange}
               onBlur={handleUnitPriceBlur}
@@ -580,7 +584,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
         <View style={styles.row}>
           <View style={styles.flex1}>
             <Text style={[styles.label, dark && styles.dimText]}>% Desconto</Text>
-            <TextInput
+            <FormTextInput
               value={f(formData.discountPercent)}
               onChangeText={handleDiscountPercentChange}
               keyboardType="numeric"
@@ -592,7 +596,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
           </View>
           <View style={styles.flex1}>
             <Text style={[styles.label, dark && styles.dimText]}>R$ Desconto</Text>
-            <TextInput
+            <FormTextInput
               value={f(formData.discountFixed)}
               onChangeText={handleDiscountFixedChange}
               keyboardType="numeric"
@@ -604,7 +608,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
           </View>
           <View style={styles.flex1}>
             <Text style={[styles.label, dark && styles.dimText]}>Preço Promo (R$)</Text>
-            <TextInput
+            <FormTextInput
               value={f(formData.promoPrice)}
               onChangeText={handlePromoChange}
               keyboardType="numeric"
@@ -620,7 +624,7 @@ export const ProductFormPricesTab: React.FC<Props> = ({
       {!formData.hasVariations && (
         <View style={[styles.card, dark && styles.darkCard]}>
           <Text style={[styles.label, dark && styles.dimText]}>Estoque Mínimo</Text>
-          <TextInput
+          <FormTextInput
             value={getProductMinimumStockInputDisplayValue(formData.minStock)}
             onChangeText={(value) => set('minStock', parseProductMinimumStockInput(value))}
             accessibilityLabel="Estoque mínimo do produto"

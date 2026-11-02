@@ -1,5 +1,6 @@
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import {
   ArrowDownAZ,
   ArrowUpAZ,
@@ -53,7 +54,7 @@ export const SupplierToolbar: React.FC<SupplierToolbarProps> = ({
         ]}
       >
         <Search size={17} color={colors.muted} />
-        <TextInput
+        <FormTextInput
           value={search}
           onChangeText={setSearch}
           placeholder="Pesquisar fornecedor por nome, razão social ou CPF/CNPJ"

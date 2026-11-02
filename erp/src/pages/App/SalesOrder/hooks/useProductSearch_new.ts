@@ -6,7 +6,7 @@ import type { SelectableCatalogItem } from './productSearchDeepFetch';
 interface ProductSearchOptions {
   /** Busca cada palavra separadamente e une os resultados, para frases que não são contíguas no nome. */
   matchTermsIndividually?: boolean;
-  /** A RPC não retorna products.item_type; consulta o tipo para classificar composições antigas do catálogo. */
+  /** A RPC não retorna o tipo nem o marcador de composição de products; busca esses campos para classificar cadastros antigos. */
   resolveProductItemTypes?: boolean;
 }
 
@@ -66,6 +66,7 @@ export const useProductSearch_new = (
 
         if (isMounted && !controller.signal.aborted) {
           const productItemTypeById = new Map<string, string>();
+          const productIsComboById = new Map<string, boolean>();
           const productIds = resolveProductItemTypes
             ? Array.from(new Set(data.map((row: any) => row.product_id).filter(Boolean)))
             : [];
@@ -74,7 +75,7 @@ export const useProductSearch_new = (
             try {
               const { data: products, error: productsError } = await supabase
                 .from('products')
-                .select('id, item_type')
+                .select('id, item_type, is_combo')
                 .in('id', productIds)
                 .abortSignal(controller.signal);
 
@@ -82,7 +83,8 @@ export const useProductSearch_new = (
                 console.error('[useProductSearch_new] Erro ao identificar tipos de produto:', productsError);
               } else {
                 for (const product of products ?? []) {
-                  productItemTypeById.set(product.id, product.item_type || 'product');
+                  productItemTypeById.set(String(product.id), product.item_type || 'product');
+                  productIsComboById.set(String(product.id), product.is_combo === true);
                 }
               }
             } catch {
@@ -128,8 +130,11 @@ export const useProductSearch_new = (
 
           const mapped: SelectableCatalogItem[] = data.map((row: any) => {
             const isComp = row.entity_type.startsWith('composition');
-            const productItemType = row.item_type || productItemTypeById.get(row.product_id);
-            const isProductComposition = isComp || productItemType === 'composition';
+            const productItemType =
+              row.item_type || productItemTypeById.get(String(row.product_id));
+            const isCombo = productIsComboById.get(String(row.product_id)) === true;
+            const isProductComposition =
+              isComp || productItemType === 'composition' || isCombo;
             const hasVar = row.entity_type.includes('variation');
 
             const p: any = {
@@ -141,6 +146,7 @@ export const useProductSearch_new = (
               unitPrice: Number(row.unit_price || 0),
               costPrice: Number(row.cost_price || 0),
               isComposition: isProductComposition,
+              isCombo,
               itemType: isProductComposition ? 'composition' : productItemType || 'product',
             };
 

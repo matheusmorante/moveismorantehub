@@ -1,5 +1,6 @@
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import React from 'react';
-import { ActivityIndicator, Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
 import { Check, ChevronRight, Lock, Search, X } from 'lucide-react-native';
 import type { Supplier } from './types';
 import { styles } from './inboundMappings.styles';
@@ -95,7 +96,7 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
         ]}
       >
         <Search size={17} color="#94a3b8" />
-        <TextInput
+        <FormTextInput
           value={searchValue}
           onChangeText={handleSearchChange}
           placeholder={inputLocked ? 'Fornecedor bloqueado' : 'Digite 2 ou mais letras para buscar fornecedor'}

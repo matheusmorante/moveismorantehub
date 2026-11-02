@@ -3,8 +3,8 @@ import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useReceiptForm } from './useReceiptForm';
 
-const mocks = vi.hoisted(() => ({ saveDraft: vi.fn(), finalize: vi.fn(), markReceived: vi.fn(), error: vi.fn() }));
-vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn(), info: vi.fn() } }));
+const mocks = vi.hoisted(() => ({ saveDraft: vi.fn(), finalize: vi.fn(), markReceived: vi.fn(), error: vi.fn(), warning: vi.fn() }));
+vi.mock('react-toastify', () => ({ toast: { error: mocks.error, success: vi.fn(), info: vi.fn(), warning: mocks.warning } }));
 vi.mock('@/pages/utils/personService', () => ({ subscribeToPeople: (_collection: string, callback: (people: unknown[]) => void) => { callback([{ id: 'supplier', fullName: 'Fornecedor', type: 'suppliers' }]); return () => {}; } }));
 vi.mock('@/pages/utils/goodsReceiptService', () => ({ saveGoodsReceiptDraft: mocks.saveDraft, finalizeGoodsReceipt: mocks.finalize }));
 vi.mock('@/pages/utils/inboundNfe/inboundInvoicesService', () => ({ markInvoiceAsReceived: mocks.markReceived }));
@@ -37,6 +37,17 @@ describe('receipt form resolver and persistence', () => {
     await act(async () => { await result.current.handleFinalize(); });
     expect(mocks.finalize).toHaveBeenCalledWith(expect.objectContaining({ supplierId: 'supplier', fiscalKey: '41260802216300000138550010000040201276092641', attachments: ['arquivo.xml'], nonFiscalFreightValue: 0 }));
     expect(mocks.markReceived).toHaveBeenCalledWith('41260802216300000138550010000040201276092641', expect.any(String));
+  });
+
+  it('informa que o recebimento foi confirmado quando a atualização da nota falha', async () => {
+    mocks.markReceived.mockRejectedValueOnce(new Error('falhou'));
+    const onClose = vi.fn();
+    const { result } = renderHook(() => useReceiptForm({ isOpen: true, onClose }));
+    act(() => { result.current.setSupplierId('supplier'); result.current.setItems([item]); result.current.setFiscalKey('41260802216300000138550010000040201276092641'); });
+    await act(async () => { await result.current.handleFinalize(); });
+    expect(mocks.finalize).toHaveBeenCalledTimes(1);
+    expect(mocks.warning).toHaveBeenCalledWith(expect.stringContaining('Recebimento confirmado'));
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('waits for the draft and reuses its identity when finalizing, suppressing simultaneous final submissions', async () => {

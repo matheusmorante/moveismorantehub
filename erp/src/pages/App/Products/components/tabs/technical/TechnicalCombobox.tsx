@@ -1,5 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import {
+  PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS,
+} from '../../../../../../../../shared-utils/productTechnicalFieldRules';
+import { searchProductTechnicalChoiceOptions } from '../../../../../../../../shared-utils/productTechnicalChoiceSearch';
 
 interface TechnicalValueOption {
   readonly id?: string;
@@ -52,18 +56,18 @@ export const TechnicalCombobox: React.FC<TechnicalComboboxProps> = ({
   }, [value]);
 
   const cleanedSearch = searchTerm.trim();
-  const isSearchAllowed = cleanedSearch.length >= 2;
+  const normalizedSearch = normalizeSearchTerm(cleanedSearch);
+  const isSearchAllowed =
+    normalizedSearch.length >= PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS;
+  const missingSearchCharacters =
+    PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS - normalizedSearch.length;
 
   const filteredOptions = useMemo(() => {
     if (!isSearchAllowed) {
       return [];
     }
-    const term = normalizeSearchTerm(cleanedSearch);
-    return options.filter((opt) => {
-      const optVal = opt?.value ? String(opt.value) : '';
-      return normalizeSearchTerm(optVal).includes(term);
-    });
-  }, [options, cleanedSearch, isSearchAllowed]);
+    return searchProductTechnicalChoiceOptions(options, normalizedSearch);
+  }, [options, normalizedSearch, isSearchAllowed]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -131,7 +135,10 @@ export const TechnicalCombobox: React.FC<TechnicalComboboxProps> = ({
           onFocus={disabled ? undefined : () => setIsOpen(true)}
           onChange={disabled ? undefined : handleInputChange}
           onKeyDown={disabled ? undefined : handleKeyDown}
-          placeholder={placeholder || `Busque e selecione ${fieldName}...`}
+          placeholder={
+            placeholder ||
+            `Digite pelo menos ${PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS} caracteres para pesquisar ${fieldName}...`
+          }
           className={`w-full pl-6 pr-2 py-2 border-b-2 border-t-0 border-x-0 rounded-none text-xs outline-none transition-all ${
             disabled || isNotApplicable
               ? 'bg-slate-100 dark:bg-slate-800/60 border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold cursor-not-allowed'
@@ -152,8 +159,8 @@ export const TechnicalCombobox: React.FC<TechnicalComboboxProps> = ({
                 <i className="bi bi-keyboard text-base text-blue-500 opacity-60 mb-1 block" />
                 <span className="font-bold text-slate-500 dark:text-slate-400">
                   {cleanedSearch.length === 0
-                    ? 'Digite no mínimo 2 caracteres para pesquisar'
-                    : 'Digite mais 1 caractere para pesquisar'}
+                    ? `Digite no mínimo ${PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS} caracteres para pesquisar`
+                    : `Digite mais ${missingSearchCharacters} ${missingSearchCharacters === 1 ? 'caractere' : 'caracteres'} para pesquisar`}
                 </span>
               </div>
             ) : filteredOptions.length === 0 ? (

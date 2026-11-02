@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { ScanBarcode, ExternalLink } from 'lucide-react-native';
 import { styles } from './invoiceImportModal.styles';
 
@@ -35,7 +36,7 @@ export const InvoiceImportAccessKeySection: React.FC<InvoiceImportAccessKeySecti
 
       <View style={styles.inputRow}>
         <View style={[styles.inputWrapper, isDarkMode && styles.inputWrapperDark]}>
-          <TextInput
+          <FormTextInput
             editable={!isLoading}
             style={[styles.input, isDarkMode && styles.textDark]}
             placeholder="Digite os 44 caracteres..."

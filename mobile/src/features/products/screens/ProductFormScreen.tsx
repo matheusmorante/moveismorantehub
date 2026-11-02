@@ -63,7 +63,6 @@ import {
   isMobileProductDescriptionTabDisabled,
   resolveMobileProductFormErrorNavigation,
   resolveMobileProductFormErrorMessage,
-  resolveMobileProductReadinessTab,
   type MobileProductFormErrorNavigation,
   type MobileProductFormTabId,
 } from '../domain/mobileProductFormErrorNavigation';
@@ -100,6 +99,10 @@ import { ProductFormPhotosTab } from '../modals/tabs/ProductFormPhotosTab';
 import { ProductFormPricesTab } from '../modals/tabs/ProductFormPricesTab';
 import { ProductFormTechnicalTab } from '../modals/tabs/ProductFormTechnicalTab';
 import { ProductFormVariationsTab } from '../modals/tabs/ProductFormVariationsTab';
+import {
+  ProductFormReadinessChecklist,
+  type ProductFormReadinessItem,
+} from './ProductFormReadinessChecklist';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 import { fetchMobileProductFiscalDefaults } from '../services/mobileProductFiscalService';
 
@@ -1150,7 +1153,7 @@ export const ProductFormScreen: React.FC<Props> = ({
     formData.merchandiseOrigin === 'own_production' ||
     formData.isOwnProduction === true ||
     formData.fiscal?.merchandiseOrigin === 'own_production';
-  const erpReadinessItems = [
+  const erpReadinessItems: ProductFormReadinessItem[] = [
     {
       id: 'name',
       label: 'Nome do Produto (Mínimo 2 letras)',
@@ -1188,7 +1191,7 @@ export const ProductFormScreen: React.FC<Props> = ({
       tab: 'variacoes' as TabId,
     },
   ];
-  const catalogReadinessItems = [
+  const catalogReadinessItems: ProductFormReadinessItem[] = [
     {
       id: 'marketplaceTitle',
       label: 'Nome do Produto',
@@ -1231,82 +1234,6 @@ export const ProductFormScreen: React.FC<Props> = ({
         : null;
   const activeReadinessItems =
     activeReadiness === 'erp' ? erpReadinessItems : catalogReadinessItems;
-  const resolveReadinessTab = (itemId: string, tab?: TabId) =>
-    resolveMobileProductReadinessTab(
-      itemId,
-      tab,
-      enabledTabs.map((enabledTab) => enabledTab.id)
-    );
-  const renderReadinessItem = (item: {
-    id: string;
-    label: string;
-    ready: boolean;
-    tab?: TabId;
-  }) => {
-    const targetTab = resolveReadinessTab(item.id, item.tab);
-    const contents = (
-      <>
-        <View
-          style={[
-            styles.readinessStatusIcon,
-            item.ready ? styles.readinessStatusIconReady : styles.readinessStatusIconPending,
-          ]}
-        >
-          <Text
-            style={[
-              styles.readinessStatusIconText,
-              item.ready ? styles.readinessStatusIconTextReady : styles.readinessStatusIconTextPending,
-            ]}
-          >
-            {item.ready ? '✓' : '!'}
-          </Text>
-        </View>
-        <Text
-          style={[
-            styles.readinessItemLabel,
-            item.ready ? styles.readinessItemLabelReady : styles.readinessItemLabelPending,
-            dark && styles.readinessItemLabelDark,
-          ]}
-        >
-          {item.label}
-        </Text>
-        <Text
-          style={[
-            styles.readinessItemStatus,
-            item.ready ? styles.readinessItemStatusReady : styles.readinessItemStatusPending,
-          ]}
-        >
-          {item.ready ? 'OK' : 'Pendente'}
-        </Text>
-        {targetTab ? <ChevronRight size={14} color={dark ? '#94a3b8' : '#94a3b8'} /> : null}
-      </>
-    );
-
-    if (!targetTab) {
-      return (
-        <View key={item.id} style={styles.readinessItem}>
-          {contents}
-        </View>
-      );
-    }
-
-    return (
-      <TouchableOpacity
-        key={item.id}
-        onPress={() => {
-          setOpenReadiness(null);
-          handleTabChange(targetTab);
-        }}
-        style={styles.readinessItem}
-        accessibilityRole="button"
-        accessibilityLabel={`${item.ready ? 'Concluído' : 'Pendente'}: ${item.label}`}
-        accessibilityHint={`Abre a aba ${targetTab}`}
-      >
-        {contents}
-      </TouchableOpacity>
-    );
-  };
-
   const renderTab = () => {
     switch (activeTab) {
       case 'geral':
@@ -1505,35 +1432,17 @@ export const ProductFormScreen: React.FC<Props> = ({
           </View>
 
           {activeReadiness ? (
-            <View style={[styles.readinessPanel, dark && styles.darkReadinessPanel]}>
-              <View style={styles.readinessPanelHeader}>
-                <View style={styles.readinessPanelTitleGroup}>
-                  <Text style={[styles.readinessPanelTitle, dark && styles.lightText]}>
-                    {activeReadiness === 'erp'
-                      ? 'Requisitos do ERP (Cadastro / Ativação)'
-                      : 'Requisitos do Catálogo'}
-                  </Text>
-                  <Text style={[styles.readinessPanelHint, dark && styles.dimText]}>
-                    Toque em um item para abrir a aba correspondente.
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setOpenReadiness(null)}
-                  style={styles.readinessCloseButton}
-                  accessibilityRole="button"
-                  accessibilityLabel="Fechar checklist de prontidão"
-                >
-                  <X size={16} color={dark ? '#94a3b8' : '#64748b'} />
-                </TouchableOpacity>
-              </View>
-              <ScrollView
-                style={styles.readinessList}
-                showsVerticalScrollIndicator
-                nestedScrollEnabled
-              >
-                {activeReadinessItems.map(renderReadinessItem)}
-              </ScrollView>
-            </View>
+            <ProductFormReadinessChecklist
+              activeReadiness={activeReadiness}
+              items={activeReadinessItems}
+              dark={dark}
+              enabledTabs={enabledTabs}
+              onClose={() => setOpenReadiness(null)}
+              onSelectTab={(targetTab) => {
+                setOpenReadiness(null);
+                handleTabChange(targetTab);
+              }}
+            />
           ) : null}
 
           {/* ── Tabs Scrolláveis ── */}

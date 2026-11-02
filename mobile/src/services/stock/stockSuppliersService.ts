@@ -7,6 +7,9 @@ import {
   buildPostgrestAccentInsensitivePattern,
 } from '../../../../shared-utils/searchText';
 
+const postgrestValue = (value: string) =>
+  `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+
 /**
  * Fornecedores
  */

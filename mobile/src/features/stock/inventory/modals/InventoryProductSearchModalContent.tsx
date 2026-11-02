@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   FlatList,
   ActivityIndicator,
   Modal,
@@ -14,12 +14,14 @@ import {
 } from 'react-native';
 import { X, Search } from 'lucide-react-native';
 import { matchesSearchText } from '../../../../../../shared-utils/searchText';
+import { productAutocompleteFormSchema } from '../../../../../../shared-utils/productAutocompleteFormSchema';
+import { useZodForm } from '../../../../hooks/useZodForm';
 
 import {
   fetchInventoryScopeSuppliers,
   fetchInventoryScopeProducts,
 } from '../../../../services/stockService';
-import type { SearchableProduct } from './InventoryProductSearchModal';
+import type { ProductSearchProvider, SearchableProduct } from './InventoryProductSearchModal';
 
 interface Props {
   isDarkMode: boolean;
@@ -29,6 +31,7 @@ interface Props {
   subtitle?: string;
   supplierId?: string;
   activeOnly?: boolean;
+  searchProvider?: ProductSearchProvider;
 }
 
 export const InventoryProductSearchModalContent: React.FC<Props> = ({
@@ -39,6 +42,7 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
   subtitle = 'Selecione para adicionar à contagem',
   supplierId,
   activeOnly = false,
+  searchProvider,
 }) => {
   const insets = useSafeAreaInsets();
   const topInset = Math.max(
@@ -50,6 +54,18 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [products, setProducts] = useState<SearchableProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [remoteProducts, setRemoteProducts] = useState<SearchableProduct[]>([]);
+  const [isRemoteSearching, setIsRemoteSearching] = useState(false);
+  const [remoteSearchError, setRemoteSearchError] = useState('');
+  const remoteSearchRevision = useRef(0);
+  const searchForm = useZodForm(productAutocompleteFormSchema, {
+    query: search,
+    parentsOnly: false,
+    variationsOnly: true,
+    includeDeactivated: !activeOnly,
+    excludeCombos: false,
+  });
+  const validateSearch = searchForm.validateValues;
 
   const bg = isDarkMode ? '#0f172a' : '#f8fafc';
   const surface = isDarkMode ? '#1e293b' : '#ffffff';
@@ -58,7 +74,7 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
   const muted = isDarkMode ? '#94a3b8' : '#64748b';
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || searchProvider) return;
     setLoading(true);
 
     Promise.all([
@@ -121,7 +137,55 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
         console.error('Erro ao buscar catálogo de produtos para escopo:', err);
         setLoading(false);
       });
-  }, [visible]);
+  }, [visible, searchProvider]);
+
+  useEffect(() => {
+    if (!searchProvider) return;
+
+    const query = search.trim();
+    const revision = ++remoteSearchRevision.current;
+    setRemoteProducts([]);
+    setRemoteSearchError('');
+
+    if (!visible || query.length < 3) {
+      setIsRemoteSearching(false);
+      return () => {
+        if (remoteSearchRevision.current === revision) remoteSearchRevision.current += 1;
+      };
+    }
+
+    setIsRemoteSearching(false);
+    const timeoutId = setTimeout(() => {
+      setIsRemoteSearching(true);
+      void validateSearch({
+        query,
+        parentsOnly: false,
+        variationsOnly: true,
+        includeDeactivated: !activeOnly,
+        excludeCombos: false,
+      })
+        .then((values) => {
+          if (!values || revision !== remoteSearchRevision.current) return [];
+          return searchProvider(values.query);
+        })
+        .then((results) => {
+          if (revision === remoteSearchRevision.current) setRemoteProducts(results.slice(0, 5));
+        })
+        .catch(() => {
+          if (revision === remoteSearchRevision.current) {
+            setRemoteSearchError('Não foi possível buscar produtos. Confira a conexão e tente novamente.');
+          }
+        })
+        .finally(() => {
+          if (revision === remoteSearchRevision.current) setIsRemoteSearching(false);
+        });
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (remoteSearchRevision.current === revision) remoteSearchRevision.current += 1;
+    };
+  }, [activeOnly, search, searchProvider, validateSearch, visible]);
 
   useEffect(() => {
     const term = search.trim();
@@ -147,20 +211,35 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
 
   const searchTerm = search.trim();
   const searchReady = searchTerm.length >= 3 && searchTerm === debouncedSearch;
-  const filtered = searchReady
+  const filtered = searchProvider
+    ? remoteProducts
+    : searchReady
     ? supplierScopedProducts
         .filter((p) => matchesSearchText(`${p.name || p.description || ''} ${p.sku || ''}`, debouncedSearch))
         .slice(0, 5)
     : [];
 
+  const resultsLoading = searchProvider ? isRemoteSearching : loading;
+
+  const handleClose = () => {
+    if (searchProvider) {
+      setSearch('');
+      setRemoteProducts([]);
+      setRemoteSearchError('');
+    }
+    onClose();
+  };
+
   const handleSelect = (product: SearchableProduct) => {
     onSelect(product);
     setSearch('');
+    setRemoteProducts([]);
+    setRemoteSearchError('');
     onClose();
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View
         style={[
           styles.container,
@@ -174,7 +253,7 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
             <Text style={styles.headerTitle}>Buscar Produto</Text>
             <Text style={styles.headerSubtitle}>{subtitle}</Text>
           </View>
-          <TouchableOpacity testID="close-modal-btn" onPress={onClose} style={styles.closeBtn}>
+          <TouchableOpacity testID="close-modal-btn" onPress={handleClose} style={styles.closeBtn}>
             <X size={24} color="#ffffff" />
           </TouchableOpacity>
         </View>
@@ -183,7 +262,7 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
         <View style={[styles.searchBar, { backgroundColor: surface, borderBottomColor: border }]}>
           <View style={[styles.searchBox, { backgroundColor: bg, borderColor: border }]}>
             <Search size={18} color={muted} />
-            <TextInput
+            <FormTextInput
               testID="search-product-input"
               style={[styles.searchInput, { color: textPrimary }]}
               autoFocus
@@ -201,7 +280,7 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
         </View>
 
         {/* Results */}
-        {loading ? (
+        {resultsLoading ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color="#7c3aed" />
           </View>
@@ -215,11 +294,11 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
             ListEmptyComponent={
               <View style={styles.centered}>
                 <Text style={{ color: muted, textAlign: 'center' }}>
-                  {searchTerm.length < 3
+                  {remoteSearchError || (searchTerm.length < 3
                     ? 'Digite ao menos 3 caracteres para buscar produtos'
-                    : !searchReady
+                    : (searchProvider && searchTerm !== debouncedSearch) || (!searchProvider && !searchReady)
                       ? 'Buscando produtos...'
-                      : 'Nenhum produto encontrado'}
+                      : 'Nenhum produto encontrado')}
                 </Text>
               </View>
             }
@@ -236,11 +315,13 @@ export const InventoryProductSearchModalContent: React.FC<Props> = ({
                     {item.name || item.description || 'Produto'}
                   </Text>
                   <Text style={[styles.productStock, { color: muted }]}>
-                    {item.supplierNames && item.supplierNames !== 'Fábrica não informada'
-                      ? `${item.supplierNames} · `
-                      : ''}
-                    {item.sku ? `SKU: ${item.sku} · ` : ''}Estoque: {item.stock ?? 0}{' '}
-                    {item.unit || 'UN'}
+                    {item.resultMeta || [
+                      item.supplierNames && item.supplierNames !== 'Fábrica não informada'
+                        ? item.supplierNames
+                        : '',
+                      item.sku ? `SKU: ${item.sku}` : '',
+                      `Estoque: ${item.stock ?? 0} ${item.unit || 'UN'}`,
+                    ].filter(Boolean).join(' · ')}
                   </Text>
                 </View>
               </TouchableOpacity>

@@ -7,6 +7,7 @@ import { subscribeToInventoryMoves, reverseInventoryMove } from '@/pages/utils/i
 import { calculateInventoryTimelineBalance } from '@/pages/utils/inventoryTimelineBalance';
 import { useInventoryOrdersLookup } from './useInventoryOrdersLookup';
 import { toast } from 'react-toastify';
+import { formatInventoryAuditObservation } from '../../../../../../../shared-utils/inventoryMoveObservation';
 
 interface UseInventoryMovesHistoryProps {
   externalSelectedProduct?: Product | null;
@@ -188,10 +189,24 @@ export function useInventoryMovesHistory({
       try {
         const parsed = JSON.parse(obsText) as Record<string, unknown>;
         const note = parsed.note || parsed.observation || parsed.reason;
-        if (typeof note === 'string') obsText = note;
+        if (typeof note === 'string') obsText = note.trim();
+        const auditObservation = formatInventoryAuditObservation(parsed);
+        if (auditObservation) return auditObservation;
+        if (obsText === move.observation) obsText = '';
       } catch {
         // Não é JSON válido
       }
+    }
+
+    if (move.relatedEntityType === 'goods_receipt' || move.sourceReceiptId) {
+      if (obsText && !obsText.trim().startsWith('{') && !obsText.trim().startsWith('[')) {
+        return obsText;
+      }
+      const invoiceReference =
+        move.label && move.label !== 'Recebimento de Mercadorias'
+          ? ` da NF-e ${move.label}`
+          : '';
+      return `Entrada gerada pelo recebimento${invoiceReference}`;
     }
 
     if (

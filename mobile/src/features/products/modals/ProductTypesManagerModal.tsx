@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -21,6 +20,7 @@ import {
   saveMobileProductType,
 } from '../services/mobileProductTypeService';
 
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 interface Props {
   visible: boolean;
   dark: boolean;
@@ -106,7 +106,7 @@ export const ProductTypesManagerModal: React.FC<Props> = ({ visible, dark, onClo
             </TouchableOpacity>
           </View>
           <View style={styles.form}>
-            <TextInput
+            <FormTextInput
               value={name}
               onChangeText={setName}
               placeholder="Ex.: BALCÃO DE PIA"

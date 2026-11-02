@@ -3,7 +3,6 @@ import {
   Modal,
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   Platform,
   Alert,
 } from 'react-native';
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { financialIntentEditFormSchema } from '../../../../../shared-utils/financialFormSchemas';
@@ -128,7 +128,7 @@ export const TransactionEditModal: React.FC<Props> = ({
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Descrição / Item</Text>
               <View style={[styles.inputWrapper, isDarkMode && styles.inputWrapperDark]}>
                 <Tag size={18} color="#64748B" style={styles.inputIcon} />
-                <TextInput
+                <FormTextInput
                   style={[styles.input, isDarkMode && styles.inputDark]}
                   value={description}
                   onChangeText={setDescription}
@@ -145,7 +145,7 @@ export const TransactionEditModal: React.FC<Props> = ({
               </Text>
               <View style={[styles.inputWrapper, isDarkMode && styles.inputWrapperDark]}>
                 <User size={18} color="#64748B" style={styles.inputIcon} />
-                <TextInput
+                <FormTextInput
                   style={[styles.input, isDarkMode && styles.inputDark]}
                   value={supplier}
                   onChangeText={setSupplier}
@@ -160,7 +160,7 @@ export const TransactionEditModal: React.FC<Props> = ({
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Valor Total (R$)</Text>
               <View style={[styles.inputWrapper, isDarkMode && styles.inputWrapperDark]}>
                 <DollarSign size={18} color="#64748B" style={styles.inputIcon} />
-                <TextInput
+                <FormTextInput
                   style={[styles.input, isDarkMode && styles.inputDark]}
                   value={totalAmount}
                   onChangeText={setTotalAmount}
@@ -176,7 +176,7 @@ export const TransactionEditModal: React.FC<Props> = ({
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Categoria</Text>
               <View style={[styles.inputWrapper, isDarkMode && styles.inputWrapperDark]}>
                 <Layers size={18} color="#64748B" style={styles.inputIcon} />
-                <TextInput
+                <FormTextInput
                   style={[styles.input, isDarkMode && styles.inputDark]}
                   value={category}
                   onChangeText={setCategory}
@@ -191,7 +191,7 @@ export const TransactionEditModal: React.FC<Props> = ({
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Forma de Pagamento</Text>
               <View style={[styles.inputWrapper, isDarkMode && styles.inputWrapperDark]}>
                 <CreditCard size={18} color="#64748B" style={styles.inputIcon} />
-                <TextInput
+                <FormTextInput
                   style={[styles.input, isDarkMode && styles.inputDark]}
                   value={paymentMethod}
                   onChangeText={setPaymentMethod}
@@ -206,7 +206,7 @@ export const TransactionEditModal: React.FC<Props> = ({
               <Text style={[styles.label, isDarkMode && styles.labelDark]}>Vencimento / Data</Text>
               <View style={[styles.inputWrapper, isDarkMode && styles.inputWrapperDark]}>
                 <Calendar size={18} color="#64748B" style={styles.inputIcon} />
-                <TextInput
+                <FormTextInput
                   style={[styles.input, isDarkMode && styles.inputDark]}
                   value={dueDate}
                   onChangeText={setDueDate}
@@ -227,14 +227,14 @@ export const TransactionEditModal: React.FC<Props> = ({
                     <Text style={[styles.instNum, isDarkMode && styles.instNumDark]}>
                       #{inst.number}
                     </Text>
-                    <TextInput
+                    <FormTextInput
                       style={[styles.instInput, isDarkMode && styles.instInputDark]}
                       value={String(inst.amount)}
                       onChangeText={(v) => handleUpdateInstallment(idx, 'amount', v)}
                       keyboardType="decimal-pad"
                       placeholder="Valor"
                     />
-                    <TextInput
+                    <FormTextInput
                       style={[styles.instInput, isDarkMode && styles.instInputDark]}
                       value={inst.dueDate || ''}
                       onChangeText={(v) => handleUpdateInstallment(idx, 'dueDate', v)}

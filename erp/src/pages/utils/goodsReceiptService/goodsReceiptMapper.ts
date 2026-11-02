@@ -45,6 +45,7 @@ export const mapGoodsReceiptRow = (row: any): GoodsReceipt => {
       ? row.goods_receipt_items
           .sort((a: any, b: any) => (a.item_index || 0) - (b.item_index || 0))
           .map((gri: any) => ({
+            receiptItemId: gri.id || gri.item_snapshot?.receiptItemId,
             productId: gri.product_id || gri.item_snapshot?.productId || '',
             variationId: gri.variation_id || gri.item_snapshot?.variationId || undefined,
             description: gri.description || gri.item_snapshot?.description || '',
@@ -67,6 +68,7 @@ export const mapGoodsReceiptRow = (row: any): GoodsReceipt => {
     supplierId: row.supplier_id || undefined,
     supplierName: row.supplier_name || 'Fornecedor',
     receivedAt: row.received_at || new Date().toISOString(),
+    reversedAt: row.reversed_at || undefined,
     invoiceNumber: row.invoice_number || undefined,
     invoiceDate: row.invoice_date || undefined,
     items: rawItems,
@@ -112,6 +114,7 @@ export const buildGoodsReceiptDbPayload = (receipt: GoodsReceipt, now: string) =
     supplier_id: isValidUuid(receipt.supplierId) ? receipt.supplierId : null,
     supplier_name: receipt.supplierName,
     received_at: receipt.receivedAt,
+    reversed_at: receipt.reversedAt || null,
     invoice_number: receipt.invoiceNumber || null,
     invoice_date: receipt.invoiceDate || null,
     total_value: receipt.totalValue,

@@ -4,9 +4,9 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   ScrollView,
 } from 'react-native';
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { Plus, Minus, Trash2, Search, Info } from 'lucide-react-native';
 import {
   searchMobileProductCompositionCandidates,
@@ -188,7 +188,7 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
         <View style={styles.searchRow}>
           <View style={[styles.searchBox, dark && styles.darkInput]}>
             <Search size={16} color="#94a3b8" />
-            <TextInput
+            <FormTextInput
               style={[styles.searchInput, dark && styles.lightText]}
               placeholder="Buscar por nome ou código..."
               placeholderTextColor="#94a3b8"
@@ -305,7 +305,7 @@ export const ProductFormCompositionTab: React.FC<Props> = ({
                     >
                       <Minus size={14} color="#64748b" />
                     </TouchableOpacity>
-                    <TextInput
+                    <FormTextInput
                       value={quantityInputs[idx] ?? String(item.quantity ?? 1)}
                       onChangeText={(val) => handleUpdateQuantity(idx, val)}
                       onBlur={() => commitQuantity(idx)}

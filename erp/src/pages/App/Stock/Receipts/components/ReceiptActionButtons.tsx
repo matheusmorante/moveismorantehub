@@ -11,7 +11,6 @@ export interface ReceiptActionButtonsProps {
  */
 export const ReceiptActionButtons: React.FC<ReceiptActionButtonsProps> = ({
   onSelectInboundNfe,
-  onSelectPurchase,
   onSelectManual,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -114,16 +113,14 @@ export const ReceiptActionButtons: React.FC<ReceiptActionButtonsProps> = ({
             <button
               type="button"
               role="menuitem"
-              onClick={() => {
-                handleClose();
-                onSelectPurchase();
-              }}
-              className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left text-xs font-bold text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              disabled
+              aria-label="Com pedido de compra, Beta, indisponível"
+              className="flex w-full cursor-not-allowed items-center gap-3 rounded-xl p-2.5 text-left text-xs font-bold text-slate-500 opacity-50 transition-colors dark:text-slate-400"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
                 <i className="bi bi-cart-check text-sm" />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="font-black text-slate-800 dark:text-slate-100">
                   Com pedido de compra
                 </p>
@@ -131,6 +128,9 @@ export const ReceiptActionButtons: React.FC<ReceiptActionButtonsProps> = ({
                   Receber itens de um pedido existente
                 </p>
               </div>
+              <span className="shrink-0 rounded-md bg-amber-100 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
+                Beta
+              </span>
             </button>
           </div>
         )}

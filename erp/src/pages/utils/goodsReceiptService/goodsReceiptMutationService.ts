@@ -9,6 +9,8 @@ import {
 } from './goodsReceiptMapper';
 import { syncGoodsReceiptItems } from './goodsReceiptItemsSync';
 import { getTestArtifactContext } from '../../../../../shared-utils/testArtifactContext';
+import { receiptInvoiceConflictError } from '../../../../../shared-utils/receiptInvoiceAvailability';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
 
 export const saveGoodsReceiptDraft = async (
   draftData: Partial<GoodsReceipt>
@@ -69,7 +71,7 @@ export const saveGoodsReceiptDraft = async (
     .upsert(buildGoodsReceiptDbPayload(draftReceipt, now))
     .select('receipt_index')
     .single();
-  if (error) throw error;
+  if (error) throw receiptInvoiceConflictError(error) || error;
   const persistedIndex = Number(savedRow?.receipt_index);
   if (!isTestReceipt && (!Number.isInteger(persistedIndex) || persistedIndex < 1 || persistedIndex > 999999))
     throw new Error('O banco não retornou o código do rascunho salvo.');
@@ -124,7 +126,7 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<Goods
       p_items: finalizedReceipt.items,
     }
   );
-  if (transactionError) throw transactionError;
+  if (transactionError) throw receiptInvoiceConflictError(transactionError) || transactionError;
   if (!isTestReceipt) {
     try {
       const { data } = await supabase
@@ -158,6 +160,67 @@ export const finalizeGoodsReceipt = async (receipt: GoodsReceipt): Promise<Goods
   saveStoredReceipts(localList);
   notifyListeners(localList);
   return finalizedReceipt;
+};
+
+export const editGoodsReceipt = async (receipt: GoodsReceipt): Promise<GoodsReceipt> => {
+  if (receipt.status !== 'received') {
+    throw new Error('Desfaça o estorno antes de alterar o recebimento.');
+  }
+  const localList = getStoredReceipts();
+  const existingIndex = localList.findIndex((item) => item.id === receipt.id);
+  const existing = existingIndex >= 0 ? localList[existingIndex] : null;
+  const testArtifact = existing
+    ? getGoodsReceiptTestArtifactIdentity(existing)
+    : getGoodsReceiptTestArtifactIdentity(receipt) || getTestArtifactContext();
+  const isTestReceipt = Boolean(testArtifact) || isTestGoodsReceipt(existing || receipt);
+  if (existing && !isTestGoodsReceipt(existing) && isTestGoodsReceipt(receipt)) {
+    throw new Error('Um recebimento operacional existente não pode ser convertido em artefato de teste.');
+  }
+
+  const now = new Date().toISOString();
+  const updatedReceipt: GoodsReceipt = {
+    ...receipt,
+    ...(testArtifact ? { testArtifact } : existing?.testArtifact ? { testArtifact: existing.testArtifact } : {}),
+    isDraft: false,
+    updatedAt: now,
+  };
+  const response = await withTimeout<any | null>(
+    Promise.resolve(supabase.rpc('edit_goods_receipt_checked_transaction', {
+      p_receipt: buildGoodsReceiptDbPayload(updatedReceipt, now),
+      p_items: updatedReceipt.items,
+    })),
+    20_000,
+    null,
+    'erp:goods-receipt-edit',
+  );
+  if (!response) {
+    throw new Error('A alteração demorou. Atualize a lista de recebimentos antes de tentar novamente.');
+  }
+  if (response.error) throw receiptInvoiceConflictError(response.error) || response.error;
+  if (response.data?.receiptId !== updatedReceipt.id || response.data?.status !== updatedReceipt.status) {
+    throw new Error('A alteração não retornou o resultado esperado. Atualize a lista de recebimentos.');
+  }
+
+  const moveByItemIndex = new Map<number, { inventoryMoveId: string; receiptItemId: string }>(
+    (response.data?.moves || []).map((move: { itemIndex: number; inventoryMoveId: string; receiptItemId: string }) => [
+      move.itemIndex,
+      { inventoryMoveId: move.inventoryMoveId, receiptItemId: move.receiptItemId },
+    ]),
+  );
+  updatedReceipt.items = updatedReceipt.items.map((item, index) => {
+    const savedItem = moveByItemIndex.get(index + 1);
+    return {
+      ...item,
+      receiptItemId: savedItem?.receiptItemId || item.receiptItemId,
+      inventoryMoveId: savedItem?.inventoryMoveId || item.inventoryMoveId,
+    };
+  });
+
+  if (existingIndex >= 0) localList[existingIndex] = updatedReceipt;
+  else localList.unshift(updatedReceipt);
+  saveStoredReceipts(localList);
+  notifyListeners(localList);
+  return updatedReceipt;
 };
 
 export const saveGoodsReceipt = async (data: Partial<GoodsReceipt>): Promise<GoodsReceipt> => {

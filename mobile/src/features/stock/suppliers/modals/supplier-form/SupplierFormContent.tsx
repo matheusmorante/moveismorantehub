@@ -3,12 +3,12 @@ import {
   View,
   Text,
   TouchableOpacity,
-  TextInput,
   ScrollView,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { FormTextInput } from '../../../../../components/shared/FormTextInput';
 import { Check, X } from 'lucide-react-native';
 import {
   PERSON_STOCK_ORIGIN_OPTIONS,
@@ -62,7 +62,7 @@ export const SupplierFormContent: React.FC<SupplierFormContentProps> = ({
   ) => (
     <View style={styles.inputGroup} key={key}>
       <Text style={[styles.label, { color: theme.muted }]}>{label}</Text>
-      <TextInput
+      <FormTextInput
         style={[
           styles.input,
           { color: theme.text, backgroundColor: theme.input, borderColor: theme.border },
@@ -243,7 +243,7 @@ export const SupplierFormContent: React.FC<SupplierFormContentProps> = ({
           </View>
         </View>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Observações importantes</Text>
-        <TextInput
+        <FormTextInput
           style={[
             styles.input,
             styles.multiline,

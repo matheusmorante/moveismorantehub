@@ -1,8 +1,8 @@
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
@@ -80,7 +80,7 @@ export const StockProductSearchFilter: React.FC<Props> = ({
     <View style={styles.container}>
       <View style={[styles.searchBox, isDarkMode && styles.searchBoxDark]}>
         <Search size={18} color={isDarkMode ? '#64748b' : '#94a3b8'} style={styles.searchIcon} />
-        <TextInput
+        <FormTextInput
           style={[styles.input, isDarkMode && styles.textDark]}
           placeholder="Buscar por produto ou variação..."
           placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}

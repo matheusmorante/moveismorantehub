@@ -104,6 +104,7 @@ export function ToggleValueField({
           prefix={isPercent ? '' : 'R$ '}
           suffix={isPercent ? '%' : ''}
           showBadge={false}
+          digitMaskFromRight
           className="w-full bg-white dark:bg-slate-900 border-0 border-b-2 border-slate-200 dark:border-slate-700 focus:border-blue-600 dark:focus:border-blue-500 outline-none py-1.5 px-1 text-sm font-bold text-slate-800 dark:text-slate-100 rounded-none transition-colors"
         />
       </div>
@@ -116,12 +117,9 @@ interface OmitBaseFields {
 }
 
 interface ReceiptFormCostsProps {
+  readonly readOnly?: boolean;
+  readonly isInvoiceLinkedReceipt?: boolean;
   baseValueForRateio: number;
-  nonFiscalDiscountMode: 'percent' | 'fixed';
-  setNonFiscalDiscountMode: (mode: 'percent' | 'fixed') => void;
-  nonFiscalDiscountValue: number;
-  setNonFiscalDiscountValue: (value: number) => void;
-
   nonFiscalFreightMode: 'percent' | 'fixed';
   setNonFiscalFreightMode: (mode: 'percent' | 'fixed') => void;
   nonFiscalFreightValue: number;
@@ -134,11 +132,9 @@ interface ReceiptFormCostsProps {
 }
 
 export function ReceiptFormCosts({
+  readOnly = false,
+  isInvoiceLinkedReceipt = false,
   baseValueForRateio,
-  nonFiscalDiscountMode,
-  setNonFiscalDiscountMode,
-  nonFiscalDiscountValue,
-  setNonFiscalDiscountValue,
   nonFiscalFreightMode,
   setNonFiscalFreightMode,
   nonFiscalFreightValue,
@@ -148,54 +144,96 @@ export function ReceiptFormCosts({
   nonFiscalOtherExpensesValue,
   setNonFiscalOtherExpensesValue,
 }: ReceiptFormCostsProps) {
+  const description = readOnly
+    ? 'Custos cobrados fora da nota fiscal, rateados entre os itens.'
+    : isInvoiceLinkedReceipt
+      ? 'Informe custos cobrados fora da nota fiscal; eles serão rateados entre os itens.'
+      : 'Os valores serão rateados entre os itens.';
+
   return (
     <div className="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/30 space-y-3">
       <div className="flex items-center justify-between border-b border-slate-200/60 pb-2 dark:border-slate-800">
         <div className="flex items-center gap-2">
           <i className="bi bi-calculator-fill text-emerald-600 text-sm" aria-hidden="true" />
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">
-            Despesas e Descontos do Recebimento
+            {isInvoiceLinkedReceipt ? 'Despesas não fiscais' : 'Despesas'}
           </h3>
         </div>
         <span className="group relative inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-700 cursor-help">
           <i className="bi bi-info-circle text-slate-500 text-xs" aria-hidden="true" />
           Rateio Operacional
           <span className="absolute right-0 top-full mt-1.5 hidden w-72 rounded-xl bg-slate-900 p-2.5 text-[11px] font-medium normal-case tracking-normal text-white shadow-xl group-hover:block z-50 border border-slate-800">
-            Estes valores são operacionais e serão rateados proporcionalmente entre os itens,
-            ajustando o custo unitário final e o estoque.
+            {readOnly
+              ? 'Os custos cobrados fora da nota fiscal foram rateados proporcionalmente entre os itens e compõem o custo unitário final.'
+              : isInvoiceLinkedReceipt
+                ? 'Informe custos cobrados fora da nota fiscal; eles serão rateados proporcionalmente entre os itens.'
+                : 'Os valores serão rateados proporcionalmente entre os itens.'}
           </span>
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <ToggleValueField
-          label="Desconto"
-          mode={nonFiscalDiscountMode}
-          value={nonFiscalDiscountValue}
-          baseTotal={baseValueForRateio}
-          onModeChange={setNonFiscalDiscountMode}
-          onValueChange={setNonFiscalDiscountValue}
-          color="amber"
-        />
-        <ToggleValueField
-          label="Frete"
-          mode={nonFiscalFreightMode}
-          value={nonFiscalFreightValue}
-          baseTotal={baseValueForRateio}
-          onModeChange={setNonFiscalFreightMode}
-          onValueChange={setNonFiscalFreightValue}
-          color="blue"
-        />
-        <ToggleValueField
-          label="Outras Despesas"
-          mode={nonFiscalOtherExpensesMode}
-          value={nonFiscalOtherExpensesValue}
-          baseTotal={baseValueForRateio}
-          onModeChange={setNonFiscalOtherExpensesMode}
-          onValueChange={setNonFiscalOtherExpensesValue}
-          color="slate"
-        />
+      <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{description}</p>
+
+      <div className="grid grid-cols-2 gap-3">
+        {readOnly ? (
+          <>
+            <ReadOnlyOperationalCost
+              label="Frete"
+              mode={nonFiscalFreightMode}
+              value={nonFiscalFreightValue}
+            />
+            <ReadOnlyOperationalCost
+              label="Outras Despesas"
+              mode={nonFiscalOtherExpensesMode}
+              value={nonFiscalOtherExpensesValue}
+            />
+          </>
+        ) : (
+          <>
+            <ToggleValueField
+              label="Frete"
+              mode={nonFiscalFreightMode}
+              value={nonFiscalFreightValue}
+              baseTotal={baseValueForRateio}
+              onModeChange={setNonFiscalFreightMode}
+              onValueChange={setNonFiscalFreightValue}
+              color="blue"
+            />
+            <ToggleValueField
+              label="Outras Despesas"
+              mode={nonFiscalOtherExpensesMode}
+              value={nonFiscalOtherExpensesValue}
+              baseTotal={baseValueForRateio}
+              onModeChange={setNonFiscalOtherExpensesMode}
+              onValueChange={setNonFiscalOtherExpensesValue}
+              color="slate"
+            />
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+function ReadOnlyOperationalCost({
+  label,
+  mode,
+  value,
+}: {
+  readonly label: string;
+  readonly mode: 'percent' | 'fixed';
+  readonly value: number;
+}) {
+  const formattedValue = mode === 'percent'
+    ? `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(value)}%`
+    : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+  return (
+    <div className="rounded-xl border border-slate-200/80 bg-slate-100 p-3 dark:border-slate-800 dark:bg-slate-800/70">
+      <p className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-bold text-slate-800 dark:text-slate-100">{formattedValue}</p>
     </div>
   );
 }

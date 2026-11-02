@@ -1,3 +1,4 @@
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 import {
   ArrowLeft,
   MoreVertical,
@@ -7,7 +8,6 @@ import {
 import { useRef, useState } from 'react';
 import {
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -167,7 +167,7 @@ export function ProductsHeader({
       {mode !== 'categories' && (
         <View style={[styles.searchBox, dark && styles.darkSearch]}>
           <Search size={16} color="#94a3b8" />
-          <TextInput
+          <FormTextInput
             value={search}
             onChangeText={onSearch}
             onSubmitEditing={onSubmitSearch}

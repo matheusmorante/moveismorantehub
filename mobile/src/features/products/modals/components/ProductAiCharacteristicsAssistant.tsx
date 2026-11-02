@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState } from 'react';
 import type React from 'react';
 import {
   Alert,
@@ -10,10 +14,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { Check, FileText, Search, Sparkles, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZodForm, flattenFormErrors } from '../../../../hooks/useZodForm';
@@ -229,7 +233,7 @@ export const ProductAiCharacteristicsAssistant: React.FC<Props> = ({
                     <Text style={[styles.helper, dark && styles.dimText]}>Categoria: {categoryName || 'Não informada'}</Text>
                     <Text style={[styles.helper, dark && styles.dimText]}>Fotos disponíveis: {Array.isArray(formData.images) ? formData.images.length : 0}</Text>
                     <Text style={[styles.label, dark && styles.dimText]}>Informações adicionais (opcional)</Text>
-                    <TextInput
+                    <FormTextInput
                       value={additionalInfoForm.watch('additionalInfo') || ''}
                       onChangeText={(value) => additionalInfoForm.setValue('additionalInfo', value)}
                       editable={!isGenerating && !isBlocked && !quotaError}
@@ -245,7 +249,7 @@ export const ProductAiCharacteristicsAssistant: React.FC<Props> = ({
                   <View style={[styles.card, dark && styles.cardDark]}>
                     <Text style={[styles.sectionTitle, dark && styles.lightText]}>Cole a ficha técnica recebida</Text>
                     <Text style={[styles.helper, dark && styles.dimText]}>A IA organiza nome, marca, modelo, medidas e características sem completar lacunas com suposições.</Text>
-                    <TextInput
+                    <FormTextInput
                       value={descriptiveTextForm.watch('descriptiveText')}
                       onChangeText={(value) => descriptiveTextForm.setValue('descriptiveText', value)}
                       editable={!isGenerating && !isBlocked && !quotaError}
@@ -257,7 +261,7 @@ export const ProductAiCharacteristicsAssistant: React.FC<Props> = ({
                       accessibilityLabel="Ficha técnica descritiva do produto"
                     />
                     <Text style={[styles.label, dark && styles.dimText]}>Instruções extras (opcional)</Text>
-                    <TextInput
+                    <FormTextInput
                       value={descriptiveTextForm.watch('additionalInfo') || ''}
                       onChangeText={(value) => descriptiveTextForm.setValue('additionalInfo', value)}
                       editable={!isGenerating && !isBlocked && !quotaError}
@@ -296,7 +300,7 @@ export const ProductAiCharacteristicsAssistant: React.FC<Props> = ({
                         <Text style={[styles.label, dark && styles.lightText]}>{row.label}</Text>
                         {row.confidence ? <Text style={styles.confidence}>{row.confidence}</Text> : null}
                       </TouchableOpacity>
-                      <TextInput
+                      <FormTextInput
                         value={editedValues[row.key] ?? row.value}
                         onChangeText={(value) => setEditedValues((previous) => ({ ...previous, [row.key]: value }))}
                         editable={!isGenerating}

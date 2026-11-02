@@ -1,7 +1,9 @@
-import type {
-  OfflineInventoryCatalog,
-  OfflineInventoryCatalogRow,
+import {
+  OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION,
+  type OfflineInventoryCatalog,
+  type OfflineInventoryCatalogRow,
 } from '../types/offlineInventoryCatalog.types';
+import { isProductComposition } from '../../../../../../../shared-utils/productCompositionRequirements';
 
 interface OfflineInventoryCatalogProductVariationOption {
   id: string;
@@ -44,6 +46,10 @@ interface OfflineInventoryCatalogSupplierOption {
 export const selectOfflineInventoryCatalogProducts = (
   catalog: OfflineInventoryCatalog
 ): OfflineInventoryCatalogProductOption[] => {
+  if (catalog.formatVersion !== OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION) {
+    return [];
+  }
+
   const labelsByVariation = new Map<string, OfflineInventoryCatalogRow[]>();
   for (const entry of Object.values(catalog.labels)) {
     if (!entry.variation_id) continue;
@@ -56,6 +62,7 @@ export const selectOfflineInventoryCatalogProducts = (
     const product = catalog.products[String(variation.product_id)];
     if (
       !product ||
+      isProductComposition(product) ||
       product.item_type !== 'product' ||
       product.deleted ||
       product.deleted_at ||

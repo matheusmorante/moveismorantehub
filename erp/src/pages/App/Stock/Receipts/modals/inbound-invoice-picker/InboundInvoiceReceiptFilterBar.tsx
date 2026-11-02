@@ -28,11 +28,12 @@ export const InboundInvoiceReceiptFilterBar: React.FC<InboundInvoiceReceiptFilte
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          aria-label="Filtrar notas fiscais"
           placeholder="Emitente, CNPJ, nº da nota ou chave de acesso"
           className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-4 text-xs font-medium text-slate-700 outline-none focus:bg-white focus:border-indigo-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 transition-colors"
         />
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-1.5 text-xs font-bold text-slate-700 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
           <div className="flex items-center gap-1.5 px-2 py-1">
             <i

@@ -1,6 +1,7 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { GoodsReceipt } from './goodsReceipt.types';
 import { getStoredReceipts, saveStoredReceipts, notifyListeners } from './goodsReceiptStorage';
+import { receiptInvoiceConflictError } from '../../../../../shared-utils/receiptInvoiceAvailability';
 
 export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => {
   const localList = getStoredReceipts();
@@ -24,7 +25,7 @@ export const reverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> => 
     p_status: 'estornado',
     p_reason: `Estorno do Recebimento #${receipt.receiptIndex || receipt.id}`,
   });
-  if (error) throw error;
+  if (error) throw receiptInvoiceConflictError(error) || error;
 
   // 2. Atualizar localmente
   localList[idx] = estornadoReceipt;
@@ -55,7 +56,7 @@ export const unreverseGoodsReceipt = async (id: string): Promise<GoodsReceipt> =
     p_status: 'received',
     p_reason: null,
   });
-  if (error) throw error;
+  if (error) throw receiptInvoiceConflictError(error) || error;
 
   // 2. Atualizar localmente
   localList[idx] = reactivatedReceipt;

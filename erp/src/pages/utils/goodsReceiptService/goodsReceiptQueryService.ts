@@ -14,6 +14,29 @@ import {
 } from './goodsReceiptStorage';
 import { mapGoodsReceiptRow } from './goodsReceiptMapper';
 import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
+import { normalizeFiscalIdentifier } from '../../../../../shared-utils/fiscalIdentifiers';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
+
+export const fetchGoodsReceiptByFiscalKey = async (fiscalKey: string): Promise<GoodsReceipt | null> => {
+  const originalKey = String(fiscalKey || '').trim();
+  const normalizedKey = normalizeFiscalIdentifier(originalKey);
+  const fiscalKeys = Array.from(new Set([originalKey, normalizedKey].filter(Boolean)));
+  if (fiscalKeys.length === 0) return null;
+
+  const response = await withTimeout<any | null>(
+    supabase
+      .from('goods_receipts')
+      .select('*, goods_receipt_items(*)')
+      .in('fiscal_key', fiscalKeys)
+      .maybeSingle(),
+    12_000,
+    null,
+    'erp:goods-receipt-by-fiscal-key',
+  );
+  if (!response) throw new Error('O recebimento vinculado demorou para carregar. Tente novamente.');
+  if (response.error) throw response.error;
+  return response.data ? mapGoodsReceiptRow(response.data) : null;
+};
 
 export const fetchGoodsReceiptsPage = async (
   options?: FetchGoodsReceiptsOptions

@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { GoodsReceipt } from '@/pages/utils/goodsReceiptService';
+import { supabase } from '@/pages/utils/supabaseConfig';
+import { normalizeFiscalIdentifier } from '../../../../../../../shared-utils/fiscalIdentifiers';
+import { fetchInUseInvoiceKeys, IN_USE_INVOICE_MESSAGE } from '../../../../../../../shared-utils/receiptInvoiceAvailability';
 
 export interface ReceiptsActionsMenuProps {
   readonly receipt: GoodsReceipt;
@@ -30,10 +33,31 @@ export const ReceiptsActionsMenu: React.FC<ReceiptsActionsMenuProps> = ({
   onDelete,
   onPrintIdentificationLabels,
 }) => {
+  const [unreverseCheck, setUnreverseCheck] = useState<{ id: string; state: 'checking' | 'available' | 'blocked' | 'error' } | null>(null);
+  useEffect(() => {
+    let active = true;
+    if (!isOpen || receipt.status !== 'estornado' || !receipt.fiscalKey) {
+      setUnreverseCheck(null);
+      return () => { active = false; };
+    }
+    setUnreverseCheck({ id: receipt.id, state: 'checking' });
+    void fetchInUseInvoiceKeys(supabase, [receipt.fiscalKey], receipt.id)
+      .then((keys) => {
+        if (active) setUnreverseCheck({ id: receipt.id, state: keys.has(normalizeFiscalIdentifier(receipt.fiscalKey)) ? 'blocked' : 'available' });
+      })
+      .catch(() => { if (active) setUnreverseCheck({ id: receipt.id, state: 'error' }); });
+    return () => { active = false; };
+  }, [isOpen, receipt.id, receipt.fiscalKey, receipt.status]);
+
   if (!isOpen) return null;
 
   const isDraft = receipt.isDraft || receipt.status === 'draft';
   const isEstornado = receipt.status === 'estornado';
+  const unreverseState = !receipt.fiscalKey ? 'available' : unreverseCheck?.id === receipt.id ? unreverseCheck.state : 'checking';
+  const unreverseBlocked = unreverseState !== 'available';
+  const unreverseReason = unreverseState === 'blocked' ? IN_USE_INVOICE_MESSAGE :
+    unreverseState === 'error' ? 'Não foi possível conferir a nota. Feche e abra o menu para tentar novamente.' :
+    'Conferindo o recebimento da nota...';
   const canPrintLabels = Boolean(
     receipt.status === 'received' &&
       !isDraft &&
@@ -98,6 +122,20 @@ export const ReceiptsActionsMenu: React.FC<ReceiptsActionsMenuProps> = ({
         </button>
       )}
 
+      {receipt.status === 'received' && !isDraft && onOpenEdit && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            onClose();
+            onOpenEdit(receipt);
+          }}
+          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 cursor-pointer"
+        >
+          <i className="bi bi-pencil-square" aria-hidden="true" /> Alterar recebimento
+        </button>
+      )}
+
       {onCopyReceipt && (
         <button
           type="button"
@@ -127,17 +165,22 @@ export const ReceiptsActionsMenu: React.FC<ReceiptsActionsMenuProps> = ({
       )}
 
       {!isDraft && isEstornado && onUnreverseRequest && (
+        <>
         <button
           type="button"
           role="menuitem"
+          disabled={unreverseBlocked}
+          title={unreverseBlocked ? unreverseReason : undefined}
           onClick={(e) => {
             onClose();
             onUnreverseRequest(e, receipt);
           }}
-          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer"
+          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
         >
           <i className="bi bi-arrow-clockwise" /> Desfazer Estorno
         </button>
+        {unreverseBlocked && <p className="px-3 pb-2 text-[11px] text-slate-500">{unreverseReason}</p>}
+        </>
       )}
 
       {isDraft && onDelete && (
@@ -150,7 +193,7 @@ export const ReceiptsActionsMenu: React.FC<ReceiptsActionsMenuProps> = ({
           }}
           className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
         >
-          <i className="bi bi-trash" /> Excluir Rascunho
+          <i className="bi bi-trash" /> Descartar rascunho
         </button>
       )}
     </div>

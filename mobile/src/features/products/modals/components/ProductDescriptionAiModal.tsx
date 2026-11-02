@@ -1,5 +1,7 @@
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import {
+  useEffect,
+  useState } from 'react';
 import { Controller } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -10,9 +12,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { ClipboardList, FileText, Sparkles, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { productAiDescriptiveTextFormSchema } from '../../../../../../shared-utils/productAiFormSchemas';
@@ -160,7 +162,7 @@ export const ProductDescriptionAiModal: React.FC<Props> = ({
                   control={control}
                   name="descriptiveText"
                   render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
+                    <FormTextInput
                       value={value}
                       onChangeText={onChange}
                       onBlur={onBlur}

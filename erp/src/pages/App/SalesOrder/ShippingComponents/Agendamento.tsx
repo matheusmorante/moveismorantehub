@@ -24,6 +24,7 @@ import { ScheduledDateCardsSection } from './agendamento/ScheduledDateCardsSecti
 import { ScheduledTimeCardsSection } from './agendamento/ScheduledTimeCardsSection';
 import { AlternativesAccordion } from './agendamento/AlternativesAccordion';
 import { SchedulingSummaryBox } from './agendamento/SchedulingSummaryBox';
+import { SchedulingControls } from './agendamento/SchedulingControls';
 
 export {
   createEmptySchedulingSessionMemory,
@@ -317,6 +318,28 @@ const Agendamento = ({
     forceRender();
   };
 
+  const handlePendingSchedulingToggle = () => {
+    const isPending = !isPendingScheduling;
+    onChangeScheduling('immediatePickup', false);
+    onChangeScheduling('pendingScheduling', isPending);
+    if (isPending) {
+      memory.dateMode = null;
+      memory.timeMode = null;
+      onChangeScheduling('date', '');
+      onChangeScheduling('endDate', '');
+      onChangeScheduling('startTime', '');
+      onChangeScheduling('endTime', '');
+      onChangeScheduling('notInformed', false);
+    }
+    forceRender();
+  };
+
+  const handleScheduleModeChange = (mode: 'defined' | 'alternatives') => {
+    setScheduleMode(mode);
+    onChangeScheduling('scheduleMode', mode);
+    if (mode === 'alternatives' && !expandedOptionId) setExpandedOptionId('primary');
+  };
+
   const customDateValue =
     effectiveDateMode === 'custom_date'
       ? normalizeScheduleDate(activeScheduling.date) || memory.customDate
@@ -367,116 +390,17 @@ const Agendamento = ({
 
   return (
     <div className="flex-1 flex flex-col min-w-0 gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 ml-1">
-        <label className="text-sm font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-          {title || (isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega')}
-        </label>
-
-        {!hideSchedulingShortcuts && (
-          <div
-            className={`grid items-center gap-x-4 ${
-              isPickup ? 'grid-cols-[max-content_max-content]' : 'grid-cols-[max-content]'
-            }`}
-          >
-            <div
-              aria-hidden={isImmediatePickup}
-              className={`flex items-center gap-2 ${isImmediatePickup ? 'invisible' : ''}`}
-            >
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                Agendamento pendente?
-              </span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={isPendingScheduling}
-                aria-label="Marcar agendamento como pendente"
-                disabled={isImmediatePickup}
-                onClick={() => {
-                  const isPending = !isPendingScheduling;
-                  onChangeScheduling('immediatePickup', false);
-                  onChangeScheduling('pendingScheduling', isPending);
-                  if (isPending) {
-                    memory.dateMode = null;
-                    memory.timeMode = null;
-                    onChangeScheduling('date', '');
-                    onChangeScheduling('endDate', '');
-                    onChangeScheduling('startTime', '');
-                    onChangeScheduling('endTime', '');
-                    onChangeScheduling('notInformed', false);
-                  }
-                  forceRender();
-                }}
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
-                  isPendingScheduling
-                    ? 'border-orange-500 bg-orange-500'
-                    : 'border-slate-300 bg-slate-200 hover:bg-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                    isPendingScheduling ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {isPickup && (
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                  Retirada imediata?
-                </span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={Boolean(scheduling.immediatePickup)}
-                  aria-label="Retirada imediata"
-                  onClick={handleImmediatePickupToggle}
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${
-                    scheduling.immediatePickup
-                      ? 'border-emerald-500 bg-emerald-500'
-                      : 'border-slate-300 bg-slate-200 hover:bg-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                      scheduling.immediatePickup ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {!hideSchedulingShortcuts && (
-        <div
-          className="mb-4 ml-1 flex w-fit rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800"
-          role="tablist"
-          aria-label="Tipo de agendamento"
-        >
-          {(['defined', 'alternatives'] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              role="tab"
-              aria-selected={scheduleMode === mode}
-              onClick={() => {
-                setScheduleMode(mode);
-                onChangeScheduling('scheduleMode', mode);
-                if (mode === 'alternatives' && !expandedOptionId) setExpandedOptionId('primary');
-              }}
-              className={`rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
-                scheduleMode === mode
-                  ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
-              }`}
-            >
-              {mode === 'defined' ? 'Data definida' : 'Datas alternativas'}
-            </button>
-          ))}
-        </div>
-      )}
+      <SchedulingControls
+        title={title || (isPickup ? 'Agendamento da Retirada' : 'Agendamento da Entrega')}
+        isPickup={isPickup}
+        hideSchedulingShortcuts={hideSchedulingShortcuts}
+        isImmediatePickup={isImmediatePickup}
+        isPendingScheduling={isPendingScheduling}
+        scheduleMode={scheduleMode}
+        onTogglePending={handlePendingSchedulingToggle}
+        onToggleImmediatePickup={handleImmediatePickupToggle}
+        onSelectScheduleMode={handleScheduleModeChange}
+      />
 
       {scheduleMode === 'alternatives' && (
         <AlternativesAccordion

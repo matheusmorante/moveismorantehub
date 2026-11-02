@@ -114,4 +114,23 @@ describe('inventory mapper status and monetary zero', () => {
     expect(mapInventoryMoveFromDB({ ...row, observation: '', reason: 'Estorno legado' }).status).toBe('reversed');
     expect(mapInventoryMoveFromDB({ ...row, observation: '{"status":"reversed"}' }).status).toBe('reversed');
   });
+  it('reads receipt origin and reversal details from the inventory columns', () => {
+    expect(mapInventoryMoveFromDB({
+      ...row,
+      related_entity_type: 'goods_receipt',
+      related_entity_id: 'receipt-1',
+      source_receipt_id: 'receipt-1',
+      status: 'reversed',
+      reversal_reason: 'Estorno do Recebimento #000002',
+      reversed_at: '2026-11-01T12:00:00Z',
+      observation: '{"goodsReceiptId":"receipt-1","status":"effective"}',
+    })).toMatchObject({
+      relatedEntityType: 'goods_receipt',
+      relatedEntityId: 'receipt-1',
+      sourceReceiptId: 'receipt-1',
+      status: 'reversed',
+      reversalReason: 'Estorno do Recebimento #000002',
+      reversedAt: '2026-11-01T12:00:00Z',
+    });
+  });
 });

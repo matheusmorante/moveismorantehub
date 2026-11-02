@@ -227,26 +227,19 @@ describe('UnavailabilitiesPage', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
-  it('renders the list and applies status and product-kind filters', async () => {
+  it('renders the list with status filtering and no product-kind filter', async () => {
     renderPage();
     expect(await screen.findByText(/Variação azul/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Nova indisponibilidade' }));
     expect(screen.getByRole('button', { name: 'Registrar' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Filtrar por tipo do produto')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Filtrar por status'), {
       target: { value: 'cancelled' },
     });
     await waitFor(() =>
       expect(fetchStockUnavailabilities).toHaveBeenLastCalledWith(
-        expect.objectContaining({ status: 'cancelled', page: 1 })
-      )
-    );
-    fireEvent.change(screen.getByLabelText('Filtrar por tipo do produto'), {
-      target: { value: 'salvado' },
-    });
-    await waitFor(() =>
-      expect(fetchStockUnavailabilities).toHaveBeenLastCalledWith(
-        expect.objectContaining({ productKind: 'salvado', page: 1 })
+        expect.objectContaining({ status: 'cancelled', productKind: 'all', page: 1 })
       )
     );
   });

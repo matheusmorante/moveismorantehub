@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supportFolderDeleteSchema, type SupportFolderDeleteInput } from '../../../../../shared-utils/customerSupportFormSchemas';
@@ -17,6 +17,7 @@ import {
   useCustomerSupportMessages,
   useCustomerSupportActions,
   useCustomerSupportFolders,
+  useCustomerSupportPanelLayout,
 } from './hooks';
 import {
   NavigationRail,
@@ -29,12 +30,7 @@ import {
   UsageConsumptionModal,
 } from './components';
 import { CustomerSupportResizeHandle } from './components/CustomerSupportResizeHandle';
-import {
-  CUSTOMER_SUPPORT_LAYOUT_DEFAULTS,
-  loadCustomerSupportLayoutPreferences,
-  saveCustomerSupportLayoutPreferences,
-} from './customerSupportLayoutPreferences';
-import { getCustomerSupportPanelStyles } from './customerSupportPanelStyles';
+import { CUSTOMER_SUPPORT_LAYOUT_DEFAULTS } from './customerSupportLayoutPreferences';
 
 export default function CustomerSupport() {
   const { user, profile, isAdmin } = useAuth();
@@ -43,15 +39,6 @@ export default function CustomerSupport() {
   const folderDeleteLock = useRef(false);
   const folderDeleteForm = useForm<SupportFolderDeleteInput>({ resolver: zodResolver(supportFolderDeleteSchema) });
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
-  const [isInboxSidebarOpen, setIsInboxSidebarOpen] = useState(true);
-  const [inboxSidebarWidth, setInboxSidebarWidth] = useState(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.inboxWidth);
-  const [isConversationSidebarOpen, setIsConversationSidebarOpen] = useState(true);
-  const [conversationSidebarWidth, setConversationSidebarWidth] = useState(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.conversationsWidth);
-  const [isMobileInboxOpen, setIsMobileInboxOpen] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(() =>
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
-  );
-  const [isDraggingSupportPanel, setIsDraggingSupportPanel] = useState(false);
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [shareOrderRequest, setShareOrderRequest] = useState<{ conversationId: string; requestId: string; record: SupportOrderSummary } | null>(null);
@@ -60,11 +47,6 @@ export default function CustomerSupport() {
   const [agentsError, setAgentsError] = useState<string | null>(null);
   const [agentReloadKey, setAgentReloadKey] = useState(0);
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
-  const supportLayoutRef = useRef<HTMLDivElement>(null);
-  const inboxPanelRef = useRef<HTMLDivElement>(null);
-  const conversationPanelRef = useRef<HTMLDivElement>(null);
-  const preferencesLoadedForUser = useRef<string | null>(null);
-  const skipLayoutPreferenceSave = useRef(false);
   const roles = profile ? getProfileRoles(profile) : [];
   const canViewCommercialInfo = canPerform('viewCustomerCommercialInfo', roles);
   const {
@@ -78,55 +60,30 @@ export default function CustomerSupport() {
     loadFolders,
   } = useCustomerSupportFolders(user?.id);
 
-  useEffect(() => {
-    const preferences = loadCustomerSupportLayoutPreferences(user?.id);
-    preferencesLoadedForUser.current = user?.id || null;
-    skipLayoutPreferenceSave.current = true;
-    setInboxSidebarWidth(preferences.inboxWidth);
-    setConversationSidebarWidth(preferences.conversationsWidth);
-    setIsInboxSidebarOpen(preferences.isInboxOpen);
-    setIsConversationSidebarOpen(preferences.isConversationsOpen);
-  }, [user?.id]);
-
-  useEffect(() => {
-    const media = window.matchMedia('(max-width: 767px)');
-    const updateViewport = () => {
-      setIsMobileViewport(media.matches);
-    };
-    updateViewport();
-    media.addEventListener('change', updateViewport);
-    window.addEventListener('resize', updateViewport);
-    return () => {
-      media.removeEventListener('change', updateViewport);
-      window.removeEventListener('resize', updateViewport);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isMobileViewport) setIsMobileInboxOpen(false);
-  }, [isMobileViewport]);
-
-  useEffect(() => {
-    if (skipLayoutPreferenceSave.current) {
-      skipLayoutPreferenceSave.current = false;
-      return;
-    }
-    if (!user?.id || preferencesLoadedForUser.current !== user.id || isMobileViewport || isDraggingSupportPanel) return;
-    saveCustomerSupportLayoutPreferences(user.id, {
-      inboxWidth: inboxSidebarWidth,
-      conversationsWidth: conversationSidebarWidth,
-      isInboxOpen: isInboxSidebarOpen,
-      isConversationsOpen: isConversationSidebarOpen,
-    });
-  }, [
-    user?.id,
+  const {
+    supportLayoutRef,
+    inboxPanelRef,
+    conversationPanelRef,
+    isInboxSidebarOpen,
+    setIsInboxSidebarOpen,
+    inboxSidebarWidth,
+    setInboxSidebarWidth,
+    isConversationSidebarOpen,
+    setIsConversationSidebarOpen,
+    conversationSidebarWidth,
+    setConversationSidebarWidth,
+    isMobileInboxOpen,
+    setIsMobileInboxOpen,
     isMobileViewport,
     isDraggingSupportPanel,
-    inboxSidebarWidth,
-    conversationSidebarWidth,
-    isInboxSidebarOpen,
-    isConversationSidebarOpen,
-  ]);
+    setIsDraggingSupportPanel,
+    inboxPanelVisible,
+    inboxPanelStyle,
+    conversationPanelStyle,
+    handleToggleInboxPanel,
+    handleCloseInboxPanel,
+    handleResetLayout,
+  } = useCustomerSupportPanelLayout(user?.id);
 
   // 1. Gerenciamento de conversas, filtros, busca e sincronização Realtime
   const {
@@ -233,16 +190,6 @@ export default function CustomerSupport() {
     setSelectedFolder(folder);
   };
 
-  const handleToggleInboxPanel = () => {
-    if (isMobileViewport) setIsMobileInboxOpen((open) => !open);
-    else setIsInboxSidebarOpen((open) => !open);
-  };
-
-  const handleCloseInboxPanel = () => {
-    if (isMobileViewport) setIsMobileInboxOpen(false);
-    else setIsInboxSidebarOpen(false);
-  };
-
   const handleToggleConversationPanel = () => {
     if (isMobileViewport) {
       setIsMobileInboxOpen(false);
@@ -250,28 +197,10 @@ export default function CustomerSupport() {
     } else setIsConversationSidebarOpen((open) => !open);
   };
 
-  const handleResetLayout = () => {
-    setInboxSidebarWidth(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.inboxWidth);
-    setConversationSidebarWidth(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.conversationsWidth);
-    setIsInboxSidebarOpen(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.isInboxOpen);
-    setIsConversationSidebarOpen(CUSTOMER_SUPPORT_LAYOUT_DEFAULTS.isConversationsOpen);
-  };
-
   const handleSelectConversation = (conversation: WhatsAppConversation) => {
     setSelectedConversation(conversation);
     if (isMobileViewport) setIsMobileInboxOpen(false);
   };
-
-  const inboxPanelVisible = isMobileViewport ? isMobileInboxOpen : isInboxSidebarOpen;
-  const { inboxPanelStyle, conversationPanelStyle } = getCustomerSupportPanelStyles({
-    isMobileViewport,
-    isMobileInboxOpen,
-    isInboxSidebarOpen,
-    inboxSidebarWidth,
-    isConversationSidebarOpen,
-    conversationSidebarWidth,
-    isDraggingSupportPanel,
-  });
 
   const handleDeleteFolder = async (folder: CustomerSupportFolder) => {
     if (folderDeleteLock.current) return;

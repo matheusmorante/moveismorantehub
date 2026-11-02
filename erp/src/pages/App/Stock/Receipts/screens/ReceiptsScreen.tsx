@@ -20,6 +20,7 @@ import { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import { fetchInboundInvoices } from '@/pages/utils/inboundNfe/inboundInvoicesService';
 import Purchase from '@/pages/types/purchase.type';
 import type { GoodsReceipt } from '@/pages/utils/goodsReceiptService';
+import { fetchGoodsReceiptByFiscalKey } from '@/pages/utils/goodsReceiptService';
 import { prepareIdentificationLabelProducts } from '@/pages/App/Stock/LabelPrinting/services/identificationLabelPrefillService';
 import { LabelPrintSelectionModal } from '@/pages/App/Products/components/modals/product/LabelPrintSelectionModal';
 import type { IdentificationLabelProduct } from '@/pages/App/Stock/LabelPrinting/services/identificationLabelPrefillService';
@@ -35,6 +36,8 @@ export default function ReceiptsPage() {
   const inboundKeyParam = searchParams.get('inboundKey');
 
   const [isInboundPickerOpen, setIsInboundPickerOpen] = useState(false);
+  const [focusedReceipt, setFocusedReceipt] = useState<GoodsReceipt | null>(null);
+  const focusedReceiptRef = React.useRef<HTMLDivElement | null>(null);
   const [isPurchasePickerOpen, setIsPurchasePickerOpen] = useState(false);
   const [selectedInboundInvoice, setSelectedInboundInvoice] = useState<InboundInvoice | null>(null);
   const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
@@ -108,6 +111,37 @@ export default function ReceiptsPage() {
     setIsFormOpen(true);
   };
 
+  const handleManageInUseReceipt = async (invoice: InboundInvoice) => {
+    if (!canAccessReceipts) {
+      toast.error('Seu usuário não tem acesso aos recebimentos de mercadorias.');
+      return;
+    }
+    try {
+      const receipt = await fetchGoodsReceiptByFiscalKey(invoice.nfeKey);
+      if (!receipt) {
+        toast.error('Não foi possível localizar o recebimento vinculado a esta nota fiscal.');
+        return;
+      }
+      setIsInboundPickerOpen(false);
+      setSelectedInboundInvoice(null);
+      setSelectedPurchase(null);
+      setSelectedReceipt(null);
+      setIsFormOpen(false);
+      setFocusedReceipt(receipt);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível localizar o recebimento vinculado a esta nota fiscal.'
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (!focusedReceipt) return;
+    focusedReceiptRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [focusedReceipt]);
+
   const handleSelectPurchase = (purchase: Purchase) => {
     setSelectedInboundInvoice(null);
     setSelectedPurchase(purchase);
@@ -178,7 +212,35 @@ export default function ReceiptsPage() {
       />
 
       <section>
-        {filteredReceipts.length === 0 ? (
+        {focusedReceipt ? (
+          <div className="px-4 py-4">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/40">
+              <p className="text-sm font-bold text-blue-900 dark:text-blue-100">
+                Recebimento vinculado à NF-e{focusedReceipt.invoiceNumber ? ` #${focusedReceipt.invoiceNumber}` : ''}
+              </p>
+              <button
+                type="button"
+                onClick={() => setFocusedReceipt(null)}
+                className="text-xs font-black text-blue-700 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-100"
+              >
+                Limpar filtro
+              </button>
+            </div>
+            <div ref={focusedReceiptRef} className="rounded-2xl ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-50 dark:ring-offset-slate-950">
+              <ReceiptCard
+                receipt={focusedReceipt}
+                onClick={handleRowClick}
+                onEdit={handleOpenEdit}
+                onCopyReceipt={handleCopyReceipt}
+                onDelete={handleDelete}
+                onReverse={handleReverseRequest}
+                onUnreverse={handleUnreverseRequest}
+                onViewDetails={handleOpenDetails}
+                onPrintIdentificationLabels={canPrintLabels ? handlePrintIdentificationLabels : undefined}
+              />
+            </div>
+          </div>
+        ) : filteredReceipts.length === 0 ? (
           <div className="rounded-[2rem] border border-slate-100 bg-white p-12 text-center shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <i className="bi bi-box2-heart text-3xl text-slate-300 dark:text-slate-600" />
             <p className="mt-3 text-sm font-bold text-slate-600 dark:text-slate-300">
@@ -299,6 +361,7 @@ export default function ReceiptsPage() {
         onClose={() => setIsInboundPickerOpen(false)}
         onSelect={handleSelectInboundInvoice}
         onCreate={handleSelectInboundInvoice}
+        onManageReceipt={handleManageInUseReceipt}
       />
 
       <PurchaseReceiptPickerModal

@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FormTextInput } from '../../../components/shared/FormTextInput';
 
 interface Props {
   formData: any;
@@ -22,7 +23,7 @@ export const ProductFormBasicSection: React.FC<Props> = ({
     <View style={styles.container}>
       <View style={styles.fieldGroup}>
         <Text style={[styles.label, dark && styles.lightText]}>Nome do Produto *</Text>
-        <TextInput
+        <FormTextInput
           value={formData.name}
           onChangeText={(v) => update('name', v)}
           placeholder="Ex: Guarda-Roupa Casal 6 Portas"
@@ -34,7 +35,7 @@ export const ProductFormBasicSection: React.FC<Props> = ({
       <View style={styles.row}>
         <View style={[styles.fieldGroup, { flex: 1 }]}>
           <Text style={[styles.label, dark && styles.lightText]}>Código / Ref</Text>
-          <TextInput
+          <FormTextInput
             value={formData.code}
             onChangeText={(v) => update('code', v)}
             placeholder="Ex: 00123"
@@ -45,7 +46,7 @@ export const ProductFormBasicSection: React.FC<Props> = ({
 
         <View style={[styles.fieldGroup, { flex: 1 }]}>
           <Text style={[styles.label, dark && styles.lightText]}>SKU Principal</Text>
-          <TextInput
+          <FormTextInput
             value={formData.sku}
             onChangeText={(v) => update('sku', v)}
             placeholder="Ex: GUA-001"
@@ -118,7 +119,7 @@ export const ProductFormBasicSection: React.FC<Props> = ({
 
       <View style={styles.fieldGroup}>
         <Text style={[styles.label, dark && styles.lightText]}>Descrição do Produto</Text>
-        <TextInput
+        <FormTextInput
           value={formData.description}
           onChangeText={(v) => update('description', v)}
           placeholder="Detalhes, características, etc..."

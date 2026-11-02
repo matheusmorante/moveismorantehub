@@ -116,6 +116,7 @@ export function InboundReceiptItemRow({
               ) : (
                 <ProductAutocomplete
                   value={item.linkedProductName || ''}
+                  productsOnly
                   onSelect={(prod, variation) => {
                     onChange(item.itemNumber, {
                       linkedProductId: prod.id,
