@@ -73,6 +73,9 @@ export const useLabelPrintingState = () => {
     void prepareIdentificationLabelProductsForReceipt(receiptIdParam)
       .then(async (batchProducts) => {
         if (!active) return;
+        // A fila deste fluxo representa os itens do recebimento atual. Substituir
+        // evita reaproveitar itens de uma abertura anterior e duplicá-los ao reabrir.
+        queue.setLabelItems([]);
         const results = await Promise.all(batchProducts.map((product) =>
           queueProductRef.current(product, product.labelQty || 1)
         ));
