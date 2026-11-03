@@ -951,3 +951,7 @@
 ### Etiquetas de identificação — abertura pelo aplicativo — 03/11/2026
 - [x] Ciclo 634: a rota compartilhada adiava o download do gerador até terminar sessão, perfil e confirmação remota de permissões; a importação sem timeout podia manter “Carregando etiquetas…” indefinidamente. O código agora importa o gerador no início da rota, em paralelo a essas etapas, e mostra erro recuperável após 20 s. Os gates de identidade/permissão continuam bloqueando a renderização do módulo.
 - [ ] Validar o fluxo autenticado na instalação Android/iOS. Playwright abriu apenas Expo Web sem sessão e não comprova comportamento nativo. A WebView nativa usa `WEB_URL` publicado: nenhuma publicação ERP/OTA foi feita; confirmar o efeito no app instalado depois que a rota ERP for publicada.
+
+### Build do Catálogo Meta — correção de import no ERP — 03/11/2026
+- [x] Ciclo 635: o import de `shared-utils/withTimeout` em `metaCatalogDataService.ts` subia cinco níveis, mas precisava subir sete até a raiz. `shared-utils` está incluído no contexto da Vercel. Corrigi o caminho; `npm run build --prefix erp` local passou com saída 0.
+- [ ] Reexecutar/verificar o build na Vercel depois que a alteração chegar ao pipeline; não houve commit, push ou deploy nesta execução. O build local ainda reporta, sem falha, que `LabelPrinting/Index.tsx` tem imports dinâmico e estático e pode não formar chunk separado (ver pendência de etiquetas acima).

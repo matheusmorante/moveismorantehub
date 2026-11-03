@@ -5,7 +5,7 @@ import {
   type MetaCatalogVariationSource,
 } from './metaCatalogPayload';
 import { calculateMetaCatalogStats, type MetaCatalogStats } from './metaCatalogStats';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 
 const META_SYNC_PAGE_SIZE = 500;
 const META_SYNC_QUERY_TIMEOUT_MS = 15_000;
