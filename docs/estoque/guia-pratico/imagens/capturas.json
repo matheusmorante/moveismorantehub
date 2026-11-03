@@ -381,28 +381,28 @@
     "height": 760,
     "boxes": [
       {
-        "n": 1,
+        "h": 38,
         "label": "Fornecedor",
-        "x": 56,
-        "y": 196,
-        "w": 912,
-        "h": 40
+        "n": 1,
+        "w": 910,
+        "x": 57,
+        "y": 197
       },
       {
-        "n": 2,
+        "h": 27,
         "label": "Modo e Cadastro rápido",
-        "x": 726,
-        "y": 445,
-        "w": 218,
-        "h": 37
+        "n": 2,
+        "w": 144,
+        "x": 789,
+        "y": 305
       },
       {
-        "n": 3,
+        "h": 36,
         "label": "Gerar recebimento",
-        "x": 786,
-        "y": 599,
-        "w": 180,
-        "h": 44
+        "n": 3,
+        "w": 172,
+        "x": 790,
+        "y": 639
       }
     ]
   },
@@ -489,16 +489,16 @@
   {
     "name": "04b-fornecedor",
     "file": "04b-fornecedor.png",
-    "width": 815,
-    "height": 52,
+    "width": 820,
+    "height": 38,
     "boxes": [
       {
-        "n": 1,
+        "h": 38,
         "label": "Pesquisar fornecedor",
-        "x": 8.5,
-        "y": 6,
-        "w": 795,
-        "h": 38
+        "n": 1,
+        "w": 820,
+        "x": 0,
+        "y": 0
       }
     ]
   },

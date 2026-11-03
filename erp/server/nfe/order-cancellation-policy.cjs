@@ -252,7 +252,6 @@ function getFiscalCancellationPolicy(input) {
 }
 
 // api/nfe/fiscalXmlAudit.ts
-var import_xmldom = require("@xmldom/xmldom");
 var import_xml_crypto = require("xml-crypto");
 
 // shared-utils/fiscal-cfop-model/data/cfopBaseCatalog.ts
@@ -747,6 +746,9 @@ var CSOSN_CODES = ["101", "102", "103", "201", "202", "203", "300", "400", "500"
 
 // shared-utils/fiscalItemSelections.ts
 var csosns = new Set(CSOSN_CODES);
+
+// api/nfe/fiscalXmlAuditDom.ts
+var import_xmldom = require("@xmldom/xmldom");
 
 // api/nfe/cancellationPreflight.ts
 function validateCancellationDocumentRecord(doc, productionConfirmed) {

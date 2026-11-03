@@ -11,7 +11,7 @@ type RecordOfflineEvent = (
 
 export function createDeliveryFlowRollbackActions(recordOfflineEvent: RecordOfflineEvent) {
   return {
-    /** Retrocede o status de Em Rota para Preparação/Conferência. */
+    /** Retrocede o status de Deslocamento para Preparação/Conferência. */
     async stepBackToPreparation(orderId: string, currentData: Record<string, any>) {
       const now = new Date().toISOString();
       const updatedData = { ...currentData, deliveryPreparationStartedAt: now };
@@ -47,7 +47,7 @@ export function createDeliveryFlowRollbackActions(recordOfflineEvent: RecordOffl
       return { updatedData };
     },
 
-    /** Retrocede o status de Chegada para Em Rota. */
+    /** Retrocede o status de Chegada para Deslocamento. */
     async stepBackToRoute(orderId: string, currentData: Record<string, any>) {
       const now = new Date().toISOString();
       const updatedData: Record<string, any> = {

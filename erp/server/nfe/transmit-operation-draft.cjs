@@ -2421,7 +2421,6 @@ function parseAuthorizedInvoiceLines(xml) {
 }
 
 // api/nfe/fiscalXmlAudit.ts
-var import_xmldom5 = require("@xmldom/xmldom");
 var import_xml_crypto2 = require("xml-crypto");
 
 // shared-utils/fiscalIcmsGroups.ts
@@ -2430,7 +2429,8 @@ var CSOSN_CODES = ["101", "102", "103", "201", "202", "203", "300", "400", "500"
 // shared-utils/fiscalItemSelections.ts
 var csosns = new Set(CSOSN_CODES);
 
-// api/nfe/fiscalXmlAudit.ts
+// api/nfe/fiscalXmlAuditDom.ts
+var import_xmldom5 = require("@xmldom/xmldom");
 function createStrictXmlParser(parseErrors) {
   return new import_xmldom5.DOMParser({
     errorHandler: (level, message) => {
@@ -2452,6 +2452,8 @@ var allDescendants = (node, name) => {
   visit(node);
   return result;
 };
+
+// api/nfe/fiscalXmlAudit.ts
 function assertNfeSignature(xml, expectedCertificatePem) {
   const parseErrors = [];
   const parsed = createStrictXmlParser(parseErrors).parseFromString(xml, "application/xml");
@@ -3185,6 +3187,35 @@ async function reconcileStoredDraftAttempt(params) {
   });
 }
 
+// api/nfe/operation-draft/returnAllocationValidation.ts
+function validateReturnDraftAllocationLinks(params) {
+  const {
+    allocationsByNumber,
+    sourceLineByNumber,
+    draftLineByOriginalId,
+    lines,
+    allocationLinks
+  } = params;
+  for (const [originalItemNumber, allocations] of allocationsByNumber) {
+    const originalLine = sourceLineByNumber.get(originalItemNumber);
+    const draftLine = originalLine && draftLineByOriginalId.get(originalLine.id);
+    const linksForLine = draftLine ? (allocationLinks || []).filter((link) => link.draft_line_id === draftLine.id) : [];
+    const expectedAllocationIds = allocations.map((allocation) => allocation.id).sort();
+    const linkedAllocationIds = linksForLine.map((link) => link.allocation_id).sort();
+    const expectedQuantity = allocations.reduce(
+      (sum, allocation) => sum + allocation.quantity,
+      0
+    );
+    if (!draftLine || Math.abs(Number(draftLine.quantity) - expectedQuantity) > 5e-5 || JSON.stringify(expectedAllocationIds) !== JSON.stringify(linkedAllocationIds)) {
+      return "Os itens e quantidades do rascunho n\xE3o correspondem \xE0s aloca\xE7\xF5es persistidas da devolu\xE7\xE3o.";
+    }
+  }
+  if (allocationsByNumber.size !== lines.length) {
+    return "O rascunho cont\xE9m item sem aloca\xE7\xE3o fiscal correspondente \xE0 devolu\xE7\xE3o.";
+  }
+  return null;
+}
+
 // api/nfe/transmit-operation-draft.ts
 var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
 var serviceKey = getSupabaseSecretKey() || "";
@@ -3366,27 +3397,17 @@ async function handler(req, res) {
           error: "N\xE3o foi poss\xEDvel validar a aloca\xE7\xE3o dos itens da devolu\xE7\xE3o."
         });
       }
-      for (const [originalItemNumber, allocations] of allocationsByNumber) {
-        const originalLine = sourceLineByNumber.get(originalItemNumber);
-        const draftLine = originalLine && draftLineByOriginalId.get(originalLine.id);
-        const linksForLine = draftLine ? (allocationLinks || []).filter((link) => link.draft_line_id === draftLine.id) : [];
-        const expectedAllocationIds = allocations.map((allocation) => allocation.id).sort();
-        const linkedAllocationIds = linksForLine.map((link) => link.allocation_id).sort();
-        const expectedQuantity = allocations.reduce(
-          (sum, allocation) => sum + allocation.quantity,
-          0
-        );
-        if (!draftLine || Math.abs(Number(draftLine.quantity) - expectedQuantity) > 5e-5 || JSON.stringify(expectedAllocationIds) !== JSON.stringify(linkedAllocationIds)) {
-          return res.status(409).json({
-            success: false,
-            error: "Os itens e quantidades do rascunho n\xE3o correspondem \xE0s aloca\xE7\xF5es persistidas da devolu\xE7\xE3o."
-          });
-        }
-      }
-      if (allocationsByNumber.size !== lines.length) {
+      const allocationValidationError = validateReturnDraftAllocationLinks({
+        allocationsByNumber,
+        sourceLineByNumber,
+        draftLineByOriginalId,
+        lines,
+        allocationLinks
+      });
+      if (allocationValidationError) {
         return res.status(409).json({
           success: false,
-          error: "O rascunho cont\xE9m item sem aloca\xE7\xE3o fiscal correspondente \xE0 devolu\xE7\xE3o."
+          error: allocationValidationError
         });
       }
     }

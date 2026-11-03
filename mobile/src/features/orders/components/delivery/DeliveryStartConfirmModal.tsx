@@ -1,8 +1,7 @@
 import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { Radio, Play, X, Shield } from 'lucide-react-native';
-import { DeliveryFlowIcon } from '../../../../components/shared/DeliveryFlowIcon';
+import { Radio, Play, Route, X, Shield } from 'lucide-react-native';
 
 interface Props {
   visible: boolean;
@@ -14,6 +13,7 @@ interface Props {
   gpsEnabled: boolean;
   checkingGps?: boolean;
   enablingGps?: boolean;
+  startRouteError?: string | null;
   onConfirm: () => void;
   onEnableGps: () => Promise<boolean>;
   onCancel: () => void;
@@ -29,6 +29,7 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
   gpsEnabled,
   checkingGps = false,
   enablingGps = false,
+  startRouteError,
   onConfirm,
   onEnableGps,
   onCancel,
@@ -63,11 +64,13 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
 
           {/* Ícone de Destaque */}
           <View style={[styles.iconCircle, isDarkMode && styles.iconCircleDark]}>
-            <DeliveryFlowIcon size={32} color="#2563eb" />
+            <Route size={32} color="#2563eb" strokeWidth={2} />
           </View>
 
           {/* Título & Identificação */}
-          <Text style={[styles.title, isDarkMode && styles.textLight]}>Iniciar Fluxo de Entrega</Text>
+          <Text style={[styles.title, isDarkMode && styles.textLight]}>
+            Prosseguir para etapa de deslocamento
+          </Text>
 
           {orderNumber ? (
             <Text style={[styles.orderSubtitle, isDarkMode && styles.textMuted]}>
@@ -105,10 +108,18 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
             </Text>
             <Text style={[styles.noticeText, isDarkMode && styles.noticeTextDark]}>
               {gpsEnabled
-                ? 'Ao iniciar a rota, sua posição ficará visível no mapa para a equipe até a finalização da entrega.'
-                : 'Ative a localização do aparelho para iniciar a rota e compartilhar sua posição com a equipe.'}
+                ? 'Ao prosseguir para o deslocamento, sua posição ficará visível no mapa para a equipe até a finalização da entrega.'
+                : 'Ative a localização do aparelho para prosseguir para o deslocamento e compartilhar sua posição com a equipe.'}
             </Text>
           </View>
+
+          {startRouteError ? (
+            <View style={[styles.errorBox, isDarkMode && styles.errorBoxDark]}>
+              <Text style={[styles.errorText, isDarkMode && styles.errorTextDark]}>
+                {startRouteError}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Ações */}
           <View style={styles.actionsContainer}>
@@ -133,9 +144,9 @@ export const DeliveryStartConfirmModal: React.FC<Props> = ({
                   : enablingGps
                     ? 'Ativando GPS…'
                     : loading
-                      ? 'Iniciando rota…'
+                      ? 'Prosseguindo para deslocamento…'
                       : gpsEnabled
-                        ? 'Iniciar e Compartilhar'
+                        ? 'Prosseguir e Compartilhar'
                         : 'Ativar GPS'}
               </Text>
             </TouchableOpacity>
@@ -301,6 +312,28 @@ const styles = StyleSheet.create({
   },
   noticeTextDark: {
     color: '#cbd5e1',
+  },
+  errorBox: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    backgroundColor: '#fef2f2',
+    padding: 10,
+    marginBottom: 12,
+  },
+  errorBoxDark: {
+    borderColor: '#7f1d1d',
+    backgroundColor: '#451a1a',
+  },
+  errorText: {
+    color: '#b91c1c',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  errorTextDark: {
+    color: '#fecaca',
   },
   gpsStatus: {
     alignSelf: 'flex-start',

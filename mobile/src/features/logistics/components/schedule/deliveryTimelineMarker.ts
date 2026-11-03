@@ -8,7 +8,7 @@ export interface DeliveryTimelineMarker {
 
 const deliveryStages: Record<number, { label: string; light: string; dark: string }> = {
   1: { label: 'Preparação', light: '#D97706', dark: '#fdba74' },
-  2: { label: 'Em rota', light: '#2563EB', dark: '#93c5fd' },
+  2: { label: 'Deslocamento', light: '#2563EB', dark: '#93c5fd' },
   3: { label: 'Chegada', light: '#7C3AED', dark: '#c4b5fd' },
   4: { label: 'Em atendimento', light: '#16A34A', dark: '#86efac' },
 };

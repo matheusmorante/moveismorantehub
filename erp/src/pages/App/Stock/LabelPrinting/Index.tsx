@@ -6,6 +6,7 @@ import { QueueSection } from './sections/QueueSection';
 import { PreviewSection } from './sections/PreviewSection';
 import { PrintPortalSection } from './sections/PrintPortalSection';
 import { ModalsSection } from './sections/ModalsSection';
+import { LabelPrintAgentPanel } from './components/LabelPrintAgentPanel';
 
 const LabelPrinting: React.FC = () => {
   const state = useLabelPrintingState();
@@ -13,9 +14,10 @@ const LabelPrinting: React.FC = () => {
   return (
     <>
       <div
-        className={`flex flex-col gap-2 max-w-[1600px] mx-auto pt-2 pb-4 px-3 sm:px-6 min-h-screen no-print transition-all`}
+        className={`flex w-full min-w-0 flex-col gap-2 max-w-[1600px] mx-auto pt-2 pb-4 px-2 sm:px-6 min-h-screen no-print transition-all`}
       >
         <HeaderSection {...state} />
+        {(state.selectedCategory === 'identificacao' || state.selectedCategory === 'precos') && <LabelPrintAgentPanel />}
         {state.receiptPrefillLoading && <p role="status" className="flex items-center gap-2 text-sm text-blue-700">Carregando os produtos vinculados ao recebimento…</p>}
         {state.receiptPrefillError && <p role="alert" className="text-sm text-red-700">{state.receiptPrefillError}</p>}
         {state.layoutsLoading && <p role="status" className="flex items-center gap-2 text-sm text-blue-700"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Consultando modelos de etiquetas…</p>}
@@ -27,7 +29,7 @@ const LabelPrinting: React.FC = () => {
             onSelectCategory={state.setSelectedCategory}
           />
         ) : (
-          <div className="flex flex-col gap-6 animate-fade-in lg:flex-row lg:items-start">
+          <div className="flex w-full min-w-0 flex-col gap-4 animate-fade-in sm:gap-6 lg:flex-row lg:items-start">
             {/* SEÇÃO DA FILA (PRODUTOS OU LOGOS) */}
             <QueueSection {...state} />
 

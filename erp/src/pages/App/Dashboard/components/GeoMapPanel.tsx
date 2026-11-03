@@ -21,7 +21,7 @@ const GeoMapPanel: React.FC<GeoMapPanelProps> = ({ orders }) => {
               Radar Geográfico
             </h3>
             <p className="text-[10px] text-slate-400 font-semibold">
-              Concentração de vendas por região
+              Amostra dos últimos 50 pedidos; regiões aproximadas quando faltam coordenadas
             </p>
           </div>
         </div>

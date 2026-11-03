@@ -12,12 +12,15 @@ import {
 } from './orderSyncConstants';
 import {
   DashboardOrdersDateRange,
-  DashboardAggregatesResponse,
 } from './orderSyncTypes';
 import { isValidOrderRow } from './orderPeopleEnrichment';
+import { parseDashboardOrderDate } from '../../App/Dashboard/dashboardOrderDate';
 
 /** Fonte C: Busca leve de apenas 5 pedidos recentes para o card da interface */
-export const fetchRecentOrders = async (limit: number = 5): Promise<RecentOrderProjection[]> => {
+export const fetchRecentOrders = async (
+  limit: number = 5,
+  options: { throwOnError?: boolean } = {}
+): Promise<RecentOrderProjection[]> => {
   try {
     const { data, error } = await excludeTestOrders(supabase
       .from(TABLE_NAME)
@@ -28,8 +31,7 @@ export const fetchRecentOrders = async (limit: number = 5): Promise<RecentOrderP
       .limit(limit);
 
     if (error) {
-      console.error('[OrdersSync] Erro ao buscar pedidos recentes:', error);
-      return [];
+      throw error;
     }
 
     return (data || []).filter((row) => !isHmlFiscalTestOrder(row)).map(
@@ -48,12 +50,16 @@ export const fetchRecentOrders = async (limit: number = 5): Promise<RecentOrderP
     );
   } catch (err) {
     console.error('[OrdersSync] Falha em fetchRecentOrders:', err);
+    if (options.throwOnError) throw err;
     return [];
   }
 };
 
 /** Fonte B: Busca leve de até 50 pedidos para radar geográfico (sem order_items pesados) */
-export const fetchGeoMapOrders = async (limit: number = 50): Promise<GeoMapOrderProjection[]> => {
+export const fetchGeoMapOrders = async (
+  limit: number = 50,
+  options: { throwOnError?: boolean } = {}
+): Promise<GeoMapOrderProjection[]> => {
   try {
     const { data, error } = await excludeTestOrders(supabase
       .from(TABLE_NAME)
@@ -65,8 +71,7 @@ export const fetchGeoMapOrders = async (limit: number = 50): Promise<GeoMapOrder
       .limit(limit);
 
     if (error) {
-      console.error('[OrdersSync] Erro ao buscar pedidos do mapa:', error);
-      return [];
+      throw error;
     }
 
     return (data || []).filter((row) => !isHmlFiscalTestOrder(row.order_data)).map(
@@ -88,13 +93,15 @@ export const fetchGeoMapOrders = async (limit: number = 50): Promise<GeoMapOrder
     );
   } catch (err) {
     console.error('[OrdersSync] Falha em fetchGeoMapOrders:', err);
+    if (options.throwOnError) throw err;
     return [];
   }
 };
 
 /** Fonte A: Leitura otimizada para indicadores e gráficos do dashboard por período */
 export const fetchAllOrdersForDashboard = async (
-  range?: DashboardOrdersDateRange
+  range?: DashboardOrdersDateRange,
+  options: { throwOnError?: boolean } = {}
 ): Promise<Order[]> => {
   const pageSize = 1000;
   const rows: any[] = [];
@@ -102,16 +109,18 @@ export const fetchAllOrdersForDashboard = async (
 
   try {
     while (true) {
-      let query = excludeTestOrders(supabase
-        .from(TABLE_NAME)
-        .select(DASHBOARD_ORDERS_COLUMNS))
-        .order('created_at', { ascending: false });
-
+      let query: any;
       if (range) {
-        query = query
-          .gte('created_at', range.start.toISOString())
-          .lte('created_at', range.end.toISOString());
+        query = supabase.rpc('get_dashboard_orders_by_effective_date', {
+          p_start: range.start.toISOString(),
+          p_end: range.end.toISOString(),
+        }).select(DASHBOARD_ORDERS_COLUMNS);
+      } else {
+        query = supabase.from(TABLE_NAME).select(DASHBOARD_ORDERS_COLUMNS);
       }
+      query = excludeTestOrders(query)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true });
 
       const { data, error } = await query.range(from, from + pageSize - 1);
       if (error) throw error;
@@ -126,36 +135,20 @@ export const fetchAllOrdersForDashboard = async (
       .filter((row: any) => !isHmlFiscalTestOrder(row))
       .map((row: any) => {
         try {
-          return mapOrderFromDatabase(row);
+          const mapped = mapOrderFromDatabase(row);
+          if (!parseDashboardOrderDate(mapped.date)) {
+            mapped.date = row.created_at || '';
+          }
+          return mapped;
         } catch {
-          return capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order);
+          const fallback = capitalizeOrder({ ...(row.order_data || {}), id: String(row.id) } as Order);
+          if (!parseDashboardOrderDate(fallback.date)) fallback.date = row.created_at || '';
+          return fallback;
         }
       });
   } catch (error) {
     console.error('[OrdersSync] Erro ao buscar dados do dashboard:', error);
+    if (options.throwOnError) throw error;
     return [];
-  }
-};
-
-/** Fonte A Server-Side: RPC agregada com payload consolidado < 5 KB */
-export const fetchDashboardAggregates = async (
-  start: Date,
-  end: Date,
-  groupBy: 'hour' | 'day' | 'month' = 'month'
-): Promise<DashboardAggregatesResponse | null> => {
-  try {
-    const { data, error } = await supabase.rpc('get_dashboard_aggregates', {
-      p_start: start.toISOString(),
-      p_end: end.toISOString(),
-      p_group_by: groupBy,
-    });
-    if (error) {
-      console.warn('[OrdersSync] Falha na RPC agregada, fallback ativado:', error);
-      return null;
-    }
-    return data as DashboardAggregatesResponse;
-  } catch (err) {
-    console.warn('[OrdersSync] Erro ao invocar RPC agregada:', err);
-    return null;
   }
 };

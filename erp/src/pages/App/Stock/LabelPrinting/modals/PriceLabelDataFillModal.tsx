@@ -102,22 +102,22 @@ const PriceLabelDataFillDialog: React.FC<PriceLabelDataFillModalProps> = (props)
       aria-busy={pending}
       onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); close(); } }}
       style={{ zIndex: 9999 }}
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[9999] flex items-stretch justify-center bg-slate-950/70 p-0 backdrop-blur-sm animate-fade-in sm:items-center sm:p-4"
     >
-      <fieldset disabled={pending} className="m-0 min-w-0 bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-2xl border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[85vh]">
+      <fieldset disabled={pending} className="m-0 flex h-[100dvh] w-full min-w-0 max-w-2xl flex-col rounded-none border-0 bg-white p-3 shadow-2xl dark:border-slate-800 dark:bg-slate-900 sm:h-auto sm:max-h-[85vh] sm:rounded-3xl sm:border sm:p-6">
         {(error || queryError) && <p role="alert" className="text-sm text-red-700">{error || queryError}</p>}
         {pending && <p role="status" className="flex items-center gap-2 text-sm text-blue-700"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Validando e aplicando dados…</p>}
         {/* Topo do Modal */}
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-4 shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="mb-3 flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800 sm:mb-4 sm:pb-4">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg font-black">
               <i className="bi bi-pencil-square" />
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+              <h3 className="break-words text-xs font-black uppercase tracking-tight text-slate-800 dark:text-white sm:text-base">
                 Produto Modelo & Dados
               </h3>
-              <p className="text-xs text-slate-500 font-bold">
+              <p className="line-clamp-2 text-[10px] font-bold text-slate-500 sm:text-xs">
                 Preencha manualmente os campos ou selecione um produto do catálogo
               </p>
             </div>
@@ -126,18 +126,18 @@ const PriceLabelDataFillDialog: React.FC<PriceLabelDataFillModalProps> = (props)
             type="button"
             onClick={close}
             aria-label="Fechar dados da etiqueta"
-            className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white flex items-center justify-center cursor-pointer transition"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 transition hover:text-slate-600 dark:bg-slate-800 dark:hover:text-white"
           >
             <i className="bi bi-x-lg text-sm" />
           </button>
         </div>
 
         {/* Navegação por Abas do Modal */}
-        <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl mb-4 shrink-0 border border-slate-200 dark:border-slate-800">
+        <div className="mb-3 flex shrink-0 flex-col gap-1 rounded-2xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-800 dark:bg-slate-950 sm:mb-4 sm:flex-row sm:gap-2">
           <button
             type="button"
             onClick={() => setDataFillTab('search')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl px-2 py-2 text-[9px] font-black uppercase tracking-wide transition-all sm:px-4 sm:text-xs ${
               dataFillTab === 'search'
                 ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-md'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -149,7 +149,7 @@ const PriceLabelDataFillDialog: React.FC<PriceLabelDataFillModalProps> = (props)
           <button
             type="button"
             onClick={() => setDataFillTab('manual')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl px-2 py-2 text-[9px] font-black uppercase tracking-wide transition-all sm:px-4 sm:text-xs ${
               dataFillTab === 'manual'
                 ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-md'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'

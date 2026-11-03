@@ -140,7 +140,6 @@ async function handleFinalizeAction({
 }
 
 // api/nfe/fiscalXmlAudit.ts
-var import_xmldom = require("@xmldom/xmldom");
 var import_xml_crypto = require("xml-crypto");
 
 // shared-utils/fiscal-cfop-model/data/cfopBaseCatalog.ts
@@ -974,13 +973,13 @@ function getOrderPaymentActualDate(payment) {
   return parseDateOnly(payment.paymentDate);
 }
 
+// shared-utils/fiscalItemSelections.ts
+var csosns = new Set(CSOSN_CODES);
+
 // shared-utils/fiscalIdentifiers.ts
 function normalizeFiscalIdentifier(value) {
   return String(value ?? "").trim().toUpperCase().replace(/[.\-/\s]/g, "");
 }
-
-// shared-utils/fiscalItemSelections.ts
-var csosns = new Set(CSOSN_CODES);
 
 // api/nfe/fiscalSnapshot.ts
 var NF_PAYMENT_SETTLEMENT_POLICY = "NF_HANDED_OVER_AFTER_PAYMENT";
@@ -1130,7 +1129,8 @@ function resolveNormalSalePayments(params) {
   return { payments, payment, billingInstallments };
 }
 
-// api/nfe/fiscalXmlAudit.ts
+// api/nfe/fiscalXmlAuditDom.ts
+var import_xmldom = require("@xmldom/xmldom");
 function createStrictXmlParser(parseErrors) {
   return new import_xmldom.DOMParser({
     errorHandler: (level, message) => {
@@ -1140,16 +1140,6 @@ function createStrictXmlParser(parseErrors) {
     }
   });
 }
-var FiscalXmlAuditError = class extends Error {
-  mismatches;
-  constructor(mismatches) {
-    const detail = mismatches.map(({ field, expected, actual }) => `${field}: esperado ${expected}; encontrado ${actual}`).join("\n");
-    super(`O XML assinado diverge do snapshot fiscal confirmado:
-${detail}`);
-    this.name = "FiscalXmlAuditError";
-    this.mismatches = mismatches;
-  }
-};
 var localName = (node) => (node.localName || node.tagName).split(":").at(-1) || "";
 var children = (node) => node ? Array.from(node.childNodes).filter((child2) => child2.nodeType === 1) : [];
 var child = (node, name) => node ? children(node).find((candidate) => localName(candidate) === name) || null : null;
@@ -1163,6 +1153,18 @@ var allDescendants = (node, name) => {
   };
   visit(node);
   return result;
+};
+
+// api/nfe/fiscalXmlAudit.ts
+var FiscalXmlAuditError = class extends Error {
+  mismatches;
+  constructor(mismatches) {
+    const detail = mismatches.map(({ field, expected, actual }) => `${field}: esperado ${expected}; encontrado ${actual}`).join("\n");
+    super(`O XML assinado diverge do snapshot fiscal confirmado:
+${detail}`);
+    this.name = "FiscalXmlAuditError";
+    this.mismatches = mismatches;
+  }
 };
 function normalizeTaxId(value) {
   return normalizeFiscalIdentifier(value);

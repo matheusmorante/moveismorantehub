@@ -77,7 +77,6 @@ vi.mock('../domain/mobileProductCardDisplay', () => ({
   getMobileProductCompositionCardItems: () => [],
 }));
 vi.mock('../domain/mobileProductCardRules', () => ({
-  canShowMobileProductPriceLabel: () => false,
   canShowMobileSingleVariationReorganizationActions: () => false,
   canToggleProductActivationFromCardMenu: () => false,
 }));

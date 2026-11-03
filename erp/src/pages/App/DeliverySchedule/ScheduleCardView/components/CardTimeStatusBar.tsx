@@ -104,7 +104,7 @@ export const CardTimeStatusBar: React.FC<CardTimeStatusBarProps> = ({
       TRANSIT_DELIVERY_STATUSES.has(deliveryStatus) ||
       (canUseTimestampFallback && startedAt)
     ) {
-      return { label: 'EM ROTA', icon: 'bi-truck', style: 'bg-orange-500 border-orange-400' };
+      return { label: 'DESLOCAMENTO', icon: 'bi-truck', style: 'bg-orange-500 border-orange-400' };
     }
     if (deliveryStatus === 'unattended') return null;
     if (canUseTimestampFallback && preparationStartedAt) {

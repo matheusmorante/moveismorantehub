@@ -236,7 +236,7 @@ export const DeliveryMapView: React.FC<Props> = ({
           iconAnchor: [18, 18]
         });
         driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon, zIndexOffset: 1200 })
-          .bindPopup('<div style="font-family:sans-serif;padding:4px;"><b>Sua Posição</b><br><span style="color:#0f172a;font-weight:700;font-size:12px;">🧭 Você (Navegação em Rota)</span></div>')
+          .bindPopup('<div style="font-family:sans-serif;padding:4px;"><b>Sua Posição</b><br><span style="color:#0f172a;font-weight:700;font-size:12px;">🧭 Você (Navegação em Deslocamento)</span></div>')
           .addTo(map);
         bounds.push([driverLat, driverLng]);
       }
@@ -297,7 +297,7 @@ export const DeliveryMapView: React.FC<Props> = ({
 
         const statusText = tm.isDisconnectedOrNoGps
           ? '<span style="color:#ef4444;font-weight:800;font-size:11px;">⚠️ Sem sinal de GPS / Desligado</span><br><span style="color:#64748b;font-size:11px;">Visto pela última vez às ' + tm.lastSeenTime + '</span>'
-          : '<span style="color:#16a34a;font-weight:800;font-size:11px;">🟢 GPS Ativo em Rota</span><br><span style="color:#64748b;font-size:11px;">Atualizado às ' + tm.lastSeenTime + '</span>';
+          : '<span style="color:#16a34a;font-weight:800;font-size:11px;">🟢 GPS Ativo em Deslocamento</span><br><span style="color:#64748b;font-size:11px;">Atualizado às ' + tm.lastSeenTime + '</span>';
 
         L.marker([tm.lat, tm.lng], { icon, zIndexOffset: 1100 }).addTo(map)
           .bindPopup(

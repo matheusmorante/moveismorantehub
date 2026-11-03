@@ -1,6 +1,7 @@
 import type Order from '@/pages/types/order.type';
 import { getSaoPauloDayInfo } from '../../../../../../../../shared-utils/commercialOrderRules';
 import { shouldAutoFulfillScheduledSaleOnEdit } from '@/pages/utils/orderHistoryService';
+import { resolveFirstItemHandlingType } from '../../../orderItemHandling';
 
 interface BuildUpdatedOrderParams {
   effectiveOrder: Order;
@@ -20,8 +21,7 @@ export function buildUpdatedOrder({
   effectiveOrder,
   formState,
 }: BuildUpdatedOrderParams): Order {
-  const firstHandling =
-    (formState.items || []).find((i: any) => i.handlingType?.trim())?.handlingType || '';
+  const firstHandling = resolveFirstItemHandlingType(formState.items);
   const currentShipping = formState.shipping || ({} as any);
   let resolvedScheduling = currentShipping.scheduling;
   const sessionDateMode = formState.schedulingSessionRef?.current?.dateMode;

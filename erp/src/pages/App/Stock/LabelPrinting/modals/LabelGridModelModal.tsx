@@ -202,7 +202,7 @@ const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
       onKeyDown={(e) => {
         if (e.key === 'Escape') close();
       }}
-      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[500] flex items-stretch justify-center p-0 sm:items-center sm:p-4"
     >
       <link rel="stylesheet" href={GOOGLE_FONTS_URL} />
       <link rel="stylesheet" href={BOOTSTRAP_ICONS_URL} />
@@ -235,15 +235,15 @@ const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
         }}
         className={`relative m-0 min-w-0 p-0 bg-white dark:bg-slate-900 w-full ${
           interactions.isDesignMode ? 'max-w-7xl' : 'max-w-5xl'
-        } h-[95vh] rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in zoom-in duration-500`}
+        } h-[100dvh] rounded-none shadow-[0_40px_100px_-20px_rgba(0,0,0,0.5)] border-0 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in zoom-in duration-500 sm:h-[95vh] sm:rounded-[3rem] sm:border`}
       >
         {(error || saveError) && (
-          <p role="alert" className="px-8 pt-4 text-sm text-red-600">
+          <p role="alert" className="px-3 pt-3 text-sm text-red-600 sm:px-8 sm:pt-4">
             {error || saveError}
           </p>
         )}
         {busy && (
-          <p role="status" className="flex items-center gap-2 px-8 pt-4 text-sm text-blue-600">
+          <p role="status" className="flex items-center gap-2 px-3 pt-3 text-sm text-blue-600 sm:px-8 sm:pt-4">
             <span
               aria-hidden="true"
               className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"
@@ -375,7 +375,7 @@ const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
             />
           </>
         ) : (
-          <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50 dark:bg-slate-950 flex flex-col gap-8 items-center">
+          <div className="flex-1 overflow-y-auto bg-slate-50 p-2 dark:bg-slate-950 sm:gap-6 sm:p-6 md:p-8 lg:gap-8 flex flex-col gap-4 items-center">
             <LabelGridModelSettingsPanel
               state={settingsPanelState}
               handlers={settingsPanelHandlers}
@@ -383,24 +383,24 @@ const LabelGridModelDialog: React.FC<LabelGridModelModalProps> = ({
 
             {/* Botão de Edição de Design (Oculto em categorias de imagem) */}
             {currentCategory !== 'logos' && currentCategory !== 'posts' && (
-              <div className="relative group shrink-0">
+              <div className="relative group w-full max-w-xl shrink-0">
                 <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-[2rem] blur opacity-25 group-hover:opacity-50 transition duration-1000" />
                 <button
                   onClick={() => interactions.setIsDesignMode(true)}
-                  className="relative px-12 py-6 bg-white dark:bg-slate-900 border-2 border-blue-500/20 rounded-[2rem] flex items-center gap-6 shadow-2xl hover:scale-105 transition-all"
+                  className="relative flex w-full items-center gap-3 rounded-2xl border-2 border-blue-500/20 bg-white p-3 shadow-2xl transition-all hover:scale-[1.01] dark:bg-slate-900 sm:gap-6 sm:rounded-[2rem] sm:px-8 sm:py-6 lg:px-12"
                 >
-                  <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
-                    <i className="bi bi-palette2 text-3xl" />
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 sm:h-16 sm:w-16 sm:rounded-2xl">
+                    <i className="bi bi-palette2 text-2xl sm:text-3xl" />
                   </div>
-                  <div className="text-left">
+                  <div className="min-w-0 flex-1 text-left">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
                       Aparência da Etiqueta
                     </p>
-                    <h4 className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tighter">
+                    <h4 className="break-words text-sm font-black uppercase tracking-tight text-slate-800 dark:text-white sm:text-xl sm:tracking-tighter">
                       Editar Design Visual
                     </h4>
                   </div>
-                  <i className="bi bi-chevron-right text-2xl text-blue-300 ml-4" />
+                  <i className="bi bi-chevron-right ml-auto shrink-0 text-lg text-blue-300 sm:ml-4 sm:text-2xl" />
                 </button>
               </div>
             )}

@@ -6,6 +6,7 @@ import type {
   PriceLabelLayerKey,
 } from '../types/PriceLabelArtEditorTypes';
 import { usePriceLabelHistory } from './usePriceLabelHistory';
+import { buildPriceLabelStateSnapshot } from './priceLabelStateSnapshot';
 
 export function usePriceLabelState(
   initialProduct: PriceLabelArtEditorModalProps['initialProduct'],
@@ -622,118 +623,19 @@ export function usePriceLabelState(
   // SNAPSHOT COMPLETO DO TIPO DE ETIQUETA (INCLUINDO AS 3 ORDENS DE GRANDEZA)
   const getSnapshot = useCallback(() => {
     const curMagState = getMagnitudeSnapshot();
-    const sharedLayout = {
-      titlePos,
-      dePos,
-      normalPricePos,
-      porPos,
-      currencyPos,
-      promoPricePos,
-      centsPos,
-      installmentsPos,
-      dePricePorGroupPos,
-      titleFontFamily,
-      deFontFamily,
-      normalPriceFontFamily,
-      porFontFamily,
-      currencyFontFamily,
-      centsFontFamily,
-      installmentsFontFamily,
-      titleFontSizeTens,
-      titleFontSizeHundreds,
-      titleFontSizeThousands,
-      deFontSizeTens,
-      deFontSizeHundreds,
-      deFontSizeThousands,
-      normalPriceFontSizeTens,
-      normalPriceFontSizeHundreds,
-      normalPriceFontSizeThousands,
-      porFontSizeTens,
-      porFontSizeHundreds,
-      porFontSizeThousands,
-      currencyFontSizeTens,
-      currencyFontSizeHundreds,
-      currencyFontSizeThousands,
-      scaleTens,
-      scaleHundreds,
-      scaleThousands,
-      scaleTenThousands,
-      centsFontSizeTens,
-      centsFontSizeHundreds,
-      centsFontSizeThousands,
-      installmentsFontSizeTens,
-      installmentsFontSizeHundreds,
-      installmentsFontSizeThousands,
-    };
-    const fullTemplates = {
-      ...Object.fromEntries(
-        Object.entries(magnitudeTemplates).map(([magnitude, template]) => {
-          const {
-            fabricTemplateJson: _legacyFabricTemplate,
-            fabricDataUrl: _legacyFabricImage,
-            ...templateData
-          } = template || {};
-          return [magnitude, { ...templateData, ...sharedLayout }];
-        })
-      ),
-      [selectedMagnitude]: curMagState,
-    };
-    return {
+    return buildPriceLabelStateSnapshot({
       selectedOppId,
       selectedMagnitude,
-      magnitudeTemplates: fullTemplates,
+      magnitudeTemplates,
       oppColorsMap,
-      ...curMagState,
-    };
+      currentMagnitudeSnapshot: curMagState,
+    });
   }, [
     selectedOppId,
     selectedMagnitude,
     magnitudeTemplates,
     getMagnitudeSnapshot,
-    magnitudeTemplates,
-    setMagnitudeTemplates,
     oppColorsMap,
-    titlePos,
-    dePos,
-    normalPricePos,
-    porPos,
-    currencyPos,
-    promoPricePos,
-    centsPos,
-    installmentsPos,
-    dePricePorGroupPos,
-    titleFontFamily,
-    deFontFamily,
-    normalPriceFontFamily,
-    porFontFamily,
-    currencyFontFamily,
-    centsFontFamily,
-    installmentsFontFamily,
-    titleFontSizeTens,
-    titleFontSizeHundreds,
-    titleFontSizeThousands,
-    deFontSizeTens,
-    deFontSizeHundreds,
-    deFontSizeThousands,
-    normalPriceFontSizeTens,
-    normalPriceFontSizeHundreds,
-    normalPriceFontSizeThousands,
-    porFontSizeTens,
-    porFontSizeHundreds,
-    porFontSizeThousands,
-    currencyFontSizeTens,
-    currencyFontSizeHundreds,
-    currencyFontSizeThousands,
-    scaleTens,
-    scaleHundreds,
-    scaleThousands,
-    scaleTenThousands,
-    centsFontSizeTens,
-    centsFontSizeHundreds,
-    centsFontSizeThousands,
-    installmentsFontSizeTens,
-    installmentsFontSizeHundreds,
-    installmentsFontSizeThousands,
   ]);
 
   const {

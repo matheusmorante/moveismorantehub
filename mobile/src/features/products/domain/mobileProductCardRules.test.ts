@@ -4,7 +4,6 @@ import { isSalvadoStockOrigin } from '../../../../../shared-utils/productStockOr
 import {
   canShowMobileLinkedProductOrders,
   canShowMobileProductDeletionActions,
-  canShowMobileProductPriceLabel,
   canShowMobileSingleVariationReorganizationActions,
   canToggleProductActivationFromCardMenu,
   getMobileCatalogStatusBadgeAccessibilityHint,
@@ -144,27 +143,6 @@ describe('canShowMobileLinkedProductOrders', () => {
     { showTrash: true },
   ])('hides linked orders outside the ERP action-menu context (%o)', (override) => {
     expect(canShowMobileLinkedProductOrders({ ...allowed, ...override })).toBe(false);
-  });
-});
-
-describe('canShowMobileProductPriceLabel', () => {
-  const allowed = {
-    canEditProducts: true,
-    isLabelOnlyProfile: false,
-    showTrash: false,
-  };
-
-  it('allows editable products regardless of the separate stock-label permission', () => {
-    expect(canShowMobileProductPriceLabel(allowed)).toBe(true);
-  });
-
-  it.each([
-    { canEditProducts: false },
-    { isLabelOnlyProfile: true },
-    { showTrash: true },
-    { isMergedVariation: true },
-  ])('hides price labels outside the ERP eligible product action (%o)', (override) => {
-    expect(canShowMobileProductPriceLabel({ ...allowed, ...override })).toBe(false);
   });
 });
 

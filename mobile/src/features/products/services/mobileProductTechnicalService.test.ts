@@ -22,6 +22,12 @@ const missingCategoryApplicationsQuery = () => ({
   }),
 });
 
+const queryWith = (data: unknown, error: unknown = null) => ({
+  select: vi.fn().mockReturnValue({
+    limit: vi.fn().mockResolvedValue({ data, error }),
+  }),
+});
+
 describe('mobileProductTechnicalService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,11 +100,6 @@ describe('mobileProductTechnicalService', () => {
         error: null,
       }),
     };
-    const queryWith = (data: unknown, error: unknown = null) => ({
-      select: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue({ data, error }),
-      }),
-    });
     supabaseMock.from.mockImplementation((table: string) => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values' || table === 'category_attributes') return queryWith([]);
@@ -140,11 +141,6 @@ describe('mobileProductTechnicalService', () => {
         error: null,
       }),
     };
-    const queryWith = (data: unknown, error: unknown = null) => ({
-      select: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue({ data, error }),
-      }),
-    });
     supabaseMock.from.mockImplementation((table: string) => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values' || table === 'category_attributes') return queryWith([]);
@@ -187,11 +183,6 @@ describe('mobileProductTechnicalService', () => {
         error: null,
       }),
     };
-    const queryWith = (data: unknown, error: unknown = null) => ({
-      select: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue({ data, error }),
-      }),
-    });
     const accessError = { code: '42501', message: 'permission denied for table attribute_dependency_alternatives' };
     supabaseMock.from.mockImplementation((table: string) => {
       if (table === 'attributes') return attributesQuery;
@@ -215,11 +206,6 @@ describe('mobileProductTechnicalService', () => {
         error: null,
       }),
     };
-    const queryWith = (data: unknown, error: unknown = null) => ({
-      select: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue({ data, error }),
-      }),
-    });
     supabaseMock.from.mockImplementation((table: string) => {
       if (table === 'attributes') return attributesQuery;
       if (table === 'attribute_values' || table === 'category_attributes') return queryWith([]);
@@ -249,11 +235,6 @@ describe('mobileProductTechnicalService', () => {
         error: null,
       }),
     };
-    const queryWith = (data: unknown) => ({
-      select: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue({ data, error: null }),
-      }),
-    });
     const valuesQuery = queryWith([]);
     const categoryLinksQuery = queryWith([
       { attribute_id: 'attr-finish', category_id: 'cat-unavailable', is_required: true },
@@ -285,11 +266,6 @@ describe('mobileProductTechnicalService', () => {
   });
 
   it('propaga falha de permissão da tabela de aplicações sem ativar fallback legado', async () => {
-    const queryWith = (data: unknown, error: unknown = null) => ({
-      select: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue({ data, error }),
-      }),
-    });
     const attributesQuery = {
       select: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({ data: [], error: null }),

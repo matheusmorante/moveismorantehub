@@ -7,7 +7,7 @@ interface AttentionPanelProps {
 }
 
 const AttentionPanel: React.FC<AttentionPanelProps> = ({ stockData }) => {
-  const { zeroStockCount, lowStockCount, lowStockItems, pendingInventory, loading } = stockData;
+  const { zeroStockCount, lowStockCount, lowStockItems, pendingInventory, loading, error, retry } = stockData;
   const hasAlerts = zeroStockCount > 0 || lowStockCount > 0 || pendingInventory !== null;
 
   if (loading)
@@ -19,6 +19,25 @@ const AttentionPanel: React.FC<AttentionPanelProps> = ({ stockData }) => {
             <div key={i} className="h-14 bg-slate-100 dark:bg-slate-800 rounded-xl" />
           ))}
         </div>
+      </div>
+    );
+
+  if (error)
+    return (
+      <div role="alert" className="bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/50 rounded-3xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-amber-50 dark:bg-amber-950/40">
+            <i className="bi bi-exclamation-triangle-fill text-amber-600 text-base" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">Central de Atenção</h3>
+            <p className="text-[10px] text-slate-400 font-semibold">Estoque · Inventário</p>
+          </div>
+        </div>
+        <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Não foi possível verificar os alertas de estoque e inventário.</p>
+        <button type="button" onClick={() => void retry()} className="rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-800">
+          Tentar novamente
+        </button>
       </div>
     );
 

@@ -27,6 +27,7 @@ export {
   searchInboundInvoiceProducts,
   getInboundInvoiceProductById,
   fetchInboundInvoiceProductDetails,
+  fetchInboundInvoiceProductForEdit,
   searchInboundInvoiceProductParents,
   fetchInboundInvoiceSupplierCatalog,
 } from './invoices/inboundInvoiceCatalogLookupService';

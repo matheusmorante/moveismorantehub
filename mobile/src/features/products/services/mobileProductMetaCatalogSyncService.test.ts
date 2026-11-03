@@ -31,6 +31,7 @@ const createQuery = (result: unknown) => {
   const query: any = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
+    in: vi.fn(() => query),
     maybeSingle: vi.fn(async () => result),
     then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) =>
       Promise.resolve(result).then(resolve, reject),
@@ -108,16 +109,22 @@ describe('mobileProductMetaCatalogSyncService', () => {
   });
 
   it('envia pai e variação pelo proxy autenticado usando o contrato do ERP', async () => {
-    const fetchMock = vi.fn(async (_url: RequestInfo | URL, _request?: RequestInit) => ({
-      ok: true,
-      json: async () => ({ handles: ['batch-1'] }),
-    }));
+    const fetchMock = vi.fn(async (_url: RequestInfo | URL, request?: RequestInit) => {
+      const body = JSON.parse(String(request?.body || '{}'));
+      return {
+        ok: true,
+        json: async () =>
+          body.operation === 'check_catalog_batch'
+            ? { data: [{ handle: 'batch-1', status: 'finished', errors_total_count: 0 }] }
+            : { handles: ['batch-1'] },
+      };
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     const result = await syncMobileProductToMetaCatalog(product.id);
 
     expect(result).toEqual({ success: true, count: 2 });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     const [url, request] = fetchMock.mock.calls[0];
     expect(url).toBe('https://erp.example.test/api/meta-graph');
     expect(request?.headers).toMatchObject({ Authorization: 'Bearer session-token' });
@@ -144,6 +151,10 @@ describe('mobileProductMetaCatalogSyncService', () => {
     expect(description).toContain('Base institucional personalizada');
     expect(description).toContain('Descrição específica do produto');
     expect(description.split(globalPrefix)).toHaveLength(2);
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
+      operation: 'check_catalog_batch',
+      handle: 'batch-1',
+    });
   });
 
   it('não usa produção como fallback em desenvolvimento sem URL configurada', async () => {

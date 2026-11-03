@@ -45,7 +45,7 @@ import { DeliveryPreparationStep } from '../delivery/DeliveryPreparationStep';
 import { DeliveryStepActionFooter } from '../delivery/DeliveryStepActionFooter';
 import { isDeliveryChecklistComplete } from '../../screens/delivery-preparation/deliveryFlowStepRules';
 
-describe('DeliveryPreparationStep & DeliveryStepActionFooter — Checklist e Ativação do Botão Iniciar Rota', () => {
+describe('DeliveryPreparationStep & DeliveryStepActionFooter — Checklist e Ativação do Botão Iniciar Deslocamento', () => {
   const checklist = [
     { id: 'item-1', label: 'Carregado: 1x Cadeira' },
     { id: 'item-2', label: 'Carregado: Máquina de cartão' },

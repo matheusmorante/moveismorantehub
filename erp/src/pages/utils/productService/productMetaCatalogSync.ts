@@ -6,13 +6,19 @@ import {
   fetchMetaCatalogSyncSources,
   type MetaCatalogSyncSources,
 } from '@/pages/App/Products/MetaCatalog/services/metaCatalogDataService';
-import { buildMetaCatalogItems } from '@/pages/App/Products/MetaCatalog/services/metaCatalogPayload';
 import type {
   MetaCatalogOpportunitySource,
   MetaCatalogProductSource,
   MetaCatalogVariationSource,
 } from '../../../../../shared-utils/metaCatalogPayload';
-import { buildProductMetaCatalogSyncItems } from '../../../../../shared-utils/productMetaCatalogSyncItems';
+import {
+  buildMetaCatalogSyncItems,
+  buildProductMetaCatalogSyncItems,
+  excludeMetaCatalogDeleteCollisions,
+} from '../../../../../shared-utils/productMetaCatalogSyncItems';
+import { withTimeout } from '../../../../../shared-utils/withTimeout';
+
+const DATA_TIMEOUT_MS = 15_000;
 
 /**
  * Cache de temporizadores para debounce por productId,
@@ -52,7 +58,7 @@ export async function syncAllProductsToMetaCatalog(
   }
 
   const { products, variations, opportunities } = await fetchMetaCatalogSyncSources();
-  const allItems = buildMetaCatalogItems(products, variations, opportunities);
+  const allItems = buildMetaCatalogSyncItems(products, variations, opportunities);
 
   const result = await whatsappGraphService.syncBatchProductsToCatalog(allItems, onProgress);
   return result;
@@ -112,8 +118,52 @@ export async function syncProductToMetaCatalog(
     );
     if (itemsToSend.length === 0) return { success: true, count: 0 };
 
-    const result = await whatsappGraphService.syncBatchProductsToCatalog(itemsToSend);
-    return { success: true, count: itemsToSend.length };
+    const candidateCodes = Array.from(
+      new Set(
+        itemsToSend
+          .filter((item) => 'deleted' in item && item.deleted === true)
+          .map((item) => item.code)
+      )
+    );
+    let protectedCodes = new Set<string>();
+    if (candidateCodes.length > 0) {
+      const collisionResults = await withTimeout(
+        Promise.all([
+          supabase.from('products').select('id, code').in('code', candidateCodes),
+          supabase
+            .from('product_variations')
+            .select('id, product_id, sku')
+            .in('sku', candidateCodes),
+        ]),
+        DATA_TIMEOUT_MS,
+        null,
+        'erp:meta-catalog-delete-collision-check'
+      );
+      if (!collisionResults) {
+        throw new Error('A verificação de identificadores do catálogo excedeu o tempo limite.');
+      }
+      const [productCodeResult, variationSkuResult] = collisionResults;
+      if (productCodeResult.error) throw productCodeResult.error;
+      if (variationSkuResult.error) throw variationSkuResult.error;
+
+      protectedCodes = new Set<string>([
+        ...((productCodeResult.data || []) as Array<{ id: string; code: string | null }>)
+          .filter((row) => row.id !== productId)
+          .map((row) => String(row.code || '').trim()),
+        ...((variationSkuResult.data || []) as Array<{ id: string; product_id: string; sku: string | null }>)
+          .filter((row) => row.product_id !== productId)
+          .map((row) => String(row.sku || '').trim()),
+      ]);
+    }
+    const safeItemsToSend = excludeMetaCatalogDeleteCollisions(itemsToSend, protectedCodes);
+    if (safeItemsToSend.length !== itemsToSend.length) {
+      throw new Error(
+        'A sincronização foi bloqueada para não remover um identificador do catálogo que pertence a outro produto.'
+      );
+    }
+
+    const result = await whatsappGraphService.syncBatchProductsToCatalog(safeItemsToSend);
+    return { success: result.success, count: result.success ? safeItemsToSend.length : 0 };
   } catch (err: any) {
     console.warn(`[MetaCatalogSync] Falha ao sincronizar produto ${productId}:`, err);
     return { success: false, count: 0, error: err.message };
@@ -135,6 +185,8 @@ export function triggerProductMetaCatalogSync(productId: string): void {
     void syncProductToMetaCatalog(productId).then((res) => {
       if (res.success && res.count > 0) {
         console.log(`[MetaCatalogSync] Produto ${productId} sincronizado automaticamente com a Meta (${res.count} itens).`);
+      } else if (!res.success) {
+        console.warn(`[MetaCatalogSync] Falha ao sincronizar produto ${productId}:`, res.error);
       }
     }).catch((err) => {
       console.warn(`[MetaCatalogSync] Erro no background sync de ${productId}:`, err);

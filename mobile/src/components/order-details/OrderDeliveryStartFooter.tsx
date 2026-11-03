@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Truck, MapPin } from 'lucide-react-native';
-import { DeliveryFlowIcon } from '../shared/DeliveryFlowIcon';
+import { Play, Route } from 'lucide-react-native';
 
 export interface OrderDeliveryStartFooterOrder {
   status?: string;
@@ -10,6 +9,7 @@ export interface OrderDeliveryStartFooterOrder {
   order_data?: {
     status?: string;
     deliveryStatus?: string;
+    deliveryPreparationStartedAt?: string | null;
     deliveryStartedAt?: string | null;
     deliveryArrivedAt?: string | null;
     deliveryServiceStartedAt?: string | null;
@@ -22,6 +22,7 @@ export interface OrderDeliveryStartFooterOrder {
     deliveryMethod?: string;
   };
   deliveryMethod?: string;
+  deliveryPreparationStartedAt?: string | null;
   deliveryStartedAt?: string | null;
   deliveryArrivedAt?: string | null;
   deliveryServiceStartedAt?: string | null;
@@ -32,41 +33,6 @@ export interface OrderDeliveryStartFooterProps {
   onStart?: () => void;
   onViewDelivery?: () => void;
   allowed?: boolean;
-}
-
-interface ActiveDeliveryStatusConfig {
-  label: string;
-  icon: React.ReactNode;
-  bgColor: string;
-}
-
-function resolveActiveDeliveryStatusConfig(
-  isInService: boolean,
-  isInArrival: boolean,
-  isInTransit: boolean
-): ActiveDeliveryStatusConfig | null {
-  if (isInService) {
-    return {
-      label: 'EM ATENDIMENTO',
-      icon: <MapPin size={18} color="#fff" />,
-      bgColor: '#15803d',
-    };
-  }
-  if (isInArrival) {
-    return {
-      label: 'CHEGADA NO LOCAL',
-      icon: <MapPin size={18} color="#fff" />,
-      bgColor: '#0284c7',
-    };
-  }
-  if (isInTransit) {
-    return {
-      label: 'EM ROTA',
-      icon: <Truck size={18} color="#fff" />,
-      bgColor: '#1d4ed8',
-    };
-  }
-  return null;
 }
 
 function AnimatedDeliveryStatusButton({
@@ -146,34 +112,38 @@ export function OrderDeliveryStartFooter({
   if (!allowed || pickup || isFulfilled || !isScheduled) return null;
 
   const isInService =
-    deliveryStatus === 'in_service' || Boolean(data.deliveryServiceStartedAt);
+    deliveryStatus === 'in_service' ||
+    Boolean(data.deliveryServiceStartedAt || order.deliveryServiceStartedAt);
   const isInArrival =
-    (deliveryStatus === 'arrived' || Boolean(data.deliveryArrivedAt)) && !isInService;
+    (deliveryStatus === 'arrived' ||
+      Boolean(data.deliveryArrivedAt || order.deliveryArrivedAt)) &&
+    !isInService;
   const isInTransit =
-    (deliveryStatus === 'in_progress' || Boolean(data.deliveryStartedAt)) &&
+    (deliveryStatus === 'in_progress' ||
+      Boolean(data.deliveryStartedAt || order.deliveryStartedAt)) &&
     !isInArrival &&
     !isInService;
+  const isPreparationStarted =
+    deliveryStatus === 'preparing' ||
+    Boolean(data.deliveryPreparationStartedAt || order.deliveryPreparationStartedAt);
 
-  // Botões de status em andamento: Em Atendimento, Chegada no Local ou Em Rota
-  if (onViewDelivery) {
-    const statusConfig = resolveActiveDeliveryStatusConfig(
-      isInService,
-      isInArrival,
-      isInTransit
+  // Qualquer etapa iniciada reabre a operação no ponto em que foi interrompida.
+  const hasStartedOperation =
+    isPreparationStarted || isInTransit || isInArrival || isInService;
+  if (hasStartedOperation) {
+    if (!onViewDelivery) return null;
+
+    return (
+      <AnimatedDeliveryStatusButton
+        label="Retomar Operação"
+        icon={<Play size={18} color="#fff" fill="#fff" strokeWidth={1.5} />}
+        bgColor="#2563eb"
+        onPress={onViewDelivery}
+      />
     );
-    if (statusConfig) {
-      return (
-        <AnimatedDeliveryStatusButton
-          label={statusConfig.label}
-          icon={statusConfig.icon}
-          bgColor={statusConfig.bgColor}
-          onPress={onViewDelivery}
-        />
-      );
-    }
   }
 
-  // Não iniciado → Botão 'Iniciar fluxo de entrega'
+  // Não iniciado → Botão 'Iniciar fluxo operacional'
   if (onStart) {
     return (
       <TouchableOpacity
@@ -181,10 +151,10 @@ export function OrderDeliveryStartFooter({
         style={[styles.baseButton, styles.startButton]}
         activeOpacity={0.85}
         accessibilityRole="button"
-        accessibilityLabel="Iniciar fluxo de entrega"
+        accessibilityLabel="Iniciar fluxo operacional"
       >
-        <DeliveryFlowIcon size={36} color="#ffffff" />
-        <Text style={styles.text}>Iniciar fluxo de entrega</Text>
+        <Route size={36} color="#ffffff" strokeWidth={2} />
+        <Text style={styles.text}>Iniciar fluxo operacional</Text>
       </TouchableOpacity>
     );
   }
@@ -218,7 +188,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 200,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   text: {
     color: '#fff',

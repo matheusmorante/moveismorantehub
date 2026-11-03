@@ -11,6 +11,7 @@ import { DeliveryRouteDateScope, DeliveryRouteItem } from '../../hooks/useDelive
 import { useDriverLocation } from '../../hooks/useDriverLocation';
 import { useRoutesApi } from '../../hooks/useRoutesApi';
 import { useTeamLocations } from '../../hooks/useTeamLocations';
+import { getPrimaryDeliveryResponsibleId } from '../../domain/deliveryRouteBuilder';
 import { classifyDeliveryService } from '../../domain/deliveryServiceClassification';
 import { DeliveryBottomSheet } from './DeliveryBottomSheet';
 import { DeliveryMapView } from './DeliveryMapView';
@@ -79,9 +80,20 @@ export const DeliveriesMapExperience: React.FC<Props> = ({
   );
 
   const { coords: driverCoords, gpsEnabled } = useDriverLocation();
-  const isDelivering = Boolean(currentDelivery);
-  const activeOrder = currentDelivery
-    ? { id: currentDelivery.id, code: currentDelivery.orderIndex }
+  const primaryResponsibleId = getPrimaryDeliveryResponsibleId(currentDelivery);
+  const isCurrentUserPrimaryResponsible = Boolean(
+    currentDelivery &&
+      primaryResponsibleId &&
+      userProfile?.id &&
+      userProfile.id === primaryResponsibleId
+  );
+  const isDelivering = Boolean(currentDelivery && isCurrentUserPrimaryResponsible);
+  const activeOrder = currentDelivery && primaryResponsibleId
+    ? {
+        id: currentDelivery.id,
+        code: currentDelivery.orderIndex,
+        responsibleId: primaryResponsibleId,
+      }
     : null;
   const { teamMembers } = useTeamLocations({
     userProfile,
@@ -89,7 +101,11 @@ export const DeliveriesMapExperience: React.FC<Props> = ({
     isGpsActive: gpsEnabled && Boolean(driverCoords),
     isDelivering,
     activeOrder,
+    canBroadcastLocation: isDelivering,
   });
+  const primaryResponsibleCoords = isCurrentUserPrimaryResponsible
+    ? driverCoords
+    : teamMembers[0]?.coords || null;
 
   // Coordenadas padrão do depósito Morante (Curitiba/Colombo - PR - R. Cascavel, 306 - Loja Física)
   const storeCoords = useMemo(
@@ -97,7 +113,7 @@ export const DeliveriesMapExperience: React.FC<Props> = ({
     []
   );
   const { polylineCoords, distanceKm, durationMin } = useRoutesApi({
-    origin: driverCoords || storeCoords,
+    origin: primaryResponsibleCoords || storeCoords,
     destination: selectedMarkerItem?.coords || null,
     enabled: active && !!selectedMarkerItem?.coords,
   });
@@ -118,7 +134,7 @@ export const DeliveriesMapExperience: React.FC<Props> = ({
               <MapErrorBoundary isDarkMode={isDarkMode}>
                 <DeliveryMapView
                   items={mapItems}
-                  driverCoords={driverCoords}
+                  driverCoords={isDelivering ? driverCoords : null}
                   storeCoords={storeCoords}
                   polylineCoords={polylineCoords}
                   selectedItem={selectedMarkerItem}

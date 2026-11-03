@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { generateNfeAccessKey } from '../../erp/src/pages/utils/nfe/nfeAccessKey';
 import { resolveNfeSequenceSettings } from '../../erp/src/pages/utils/nfe/nfeSequenceSettings';
 import {
@@ -27,7 +27,7 @@ import { validateParanaIssuerIe } from './paranaIssuerIe';
 import { fiscalNumberConflict } from '../../shared-utils/fiscalNumbering';
 import { isValidRecipientTaxId, normalizeRecipientTaxId } from '../../shared-utils/recipientTaxId';
 import { isSameFiscalModelDecision } from '../../shared-utils/fiscalDocumentModel';
-import type { ApprovedFiscalRuleSet } from './fiscalCore';
+import { deriveNfeRandomCode, type ApprovedFiscalRuleSet } from './fiscalCore';
 import type { Database, Result } from './hml-technical/types';
 import { failure, saoPauloTimestamp } from './hml-technical/constants';
 import {
@@ -410,8 +410,7 @@ export async function emitHmlTechnical(
     );
   }
   const issuedAt = saoPauloTimestamp(reservation.issuedAt);
-  const cNf = createHash('sha256').update(command.emissionRequestId).digest('hex');
-  const randomCode = String(parseInt(cNf.slice(0, 10), 16) % 100000000).padStart(8, '0');
+  const randomCode = deriveNfeRandomCode(command.emissionRequestId);
   const accessKey = generateNfeAccessKey({
     ufCode: '41',
     yearMonth: issuedAt.slice(2, 4) + issuedAt.slice(5, 7),

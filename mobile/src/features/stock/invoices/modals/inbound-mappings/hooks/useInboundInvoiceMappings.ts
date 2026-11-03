@@ -29,7 +29,7 @@ import { markInboundInvoiceItemsNotApplicable } from '../../../../../../../../sh
 interface UseInboundInvoiceMappingsParams {
   invoice: Invoice | null;
   visible: boolean;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
 }
 
 export const useInboundInvoiceMappings = ({
@@ -42,11 +42,15 @@ export const useInboundInvoiceMappings = ({
   const [supplierId, setSupplierId] = useState('');
   const [supplierStockOrigins, setSupplierStockOrigins] = useState<string[] | undefined>();
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [loadRevision, setLoadRevision] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [hasUncertainWrite, setHasUncertainWrite] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
   const [supplierFormVisible, setSupplierFormVisible] = useState(false);
   const uncertainSupplierCodeOperation = useRef('');
+  const uncertainMappingOperation = useRef('');
+  const savingInFlight = useRef(false);
 
   const mappingForm = useZodForm(mobileInboundMappingsFormSchema, {
     invoiceId: '',
@@ -68,6 +72,7 @@ export const useInboundInvoiceMappings = ({
   const searchState = useInboundMappingSearches({
     visible: visible && !isSalvadosSupplier,
     supplierId: isSalvadosSupplier ? '' : supplierId,
+    items,
   });
   const suggestionState = useInboundMappingSuggestions({
     visible: visible && !isSalvadosSupplier,
@@ -79,43 +84,52 @@ export const useInboundInvoiceMappings = ({
     if (!visible || !invoice) return;
     let active = true;
     uncertainSupplierCodeOperation.current = '';
+    setLoadError('');
     setLoading(true);
     setErrorMessage('');
     setSupplierStockOrigins(invoice.supplierStockOrigins);
     setSupplierId('');
     setItems([]);
-    void stockService
-      .fetchInboundInvoiceForMappings(invoice.id)
-      .then(async (result) => {
+    setDetails(null);
+    void (async () => {
+      try {
+        const result = await withTimeout(
+          stockService.fetchInboundInvoiceForMappings(invoice.id),
+          15_000,
+          null,
+          'entrada:consultar-nota-para-vinculos'
+        );
+        if (!result || String(result.id) !== String(invoice.id)) {
+          throw new Error('Não foi possível confirmar a nota fiscal selecionada.');
+        }
         if (!active) return;
         const resolvedOrigins = result.supplierStockOrigins ?? invoice.supplierStockOrigins;
         const salvadosOnly = isSalvadosOnlySupplier(resolvedOrigins);
         if (salvadosOnly) result.items = markInboundInvoiceItemsNotApplicable(result.items);
         let mappings = new Map<string, any>();
         if (!salvadosOnly && result.supplier_id && result.items.length) {
-          try {
-            mappings = await stockService.findInboundSupplierProductCodes(
+          const resolvedMappings = await withTimeout(
+            stockService.findInboundSupplierProductCodes(
               result.supplier_id,
               result.items.map((item: MappingItem) => item.productCode)
-            );
-          } catch (error) {
-            console.warn(
-              '[InboundInvoiceMappings] existing supplier mappings could not be loaded',
-              error
-            );
-          }
+            ),
+            15_000,
+            null,
+            'entrada:consultar-memoria-de-vinculos'
+          );
+          if (!resolvedMappings) throw new Error('Não foi possível confirmar os vínculos existentes.');
+          mappings = resolvedMappings;
         }
         if (!salvadosOnly) {
           const linkedRefs = extractLinkedProductRefs(result.items, mappings);
-          try {
-            const productDetails = await stockService.fetchInboundInvoiceProductDetails(linkedRefs);
-            result.items = hydrateMappingItemsWithDetails(result.items, mappings, productDetails);
-          } catch (error) {
-            console.warn(
-              '[InboundInvoiceMappings] linked product details could not be loaded',
-              error
-            );
-          }
+          const productDetails = await withTimeout(
+            stockService.fetchInboundInvoiceProductDetails(linkedRefs),
+            15_000,
+            null,
+            'entrada:consultar-produtos-vinculados'
+          );
+          if (!productDetails) throw new Error('Não foi possível confirmar os produtos vinculados.');
+          result.items = hydrateMappingItemsWithDetails(result.items, mappings, productDetails);
         }
         if (!active) return;
         setDetails(result);
@@ -124,17 +138,23 @@ export const useInboundInvoiceMappings = ({
         setSupplierStockOrigins(resolvedOrigins);
         searchState.setSuppliers(result.supplier ? [result.supplier as Supplier] : []);
         searchState.setSupplierSearch(result.supplier?.full_name || '');
-      })
-      .catch((error: any) =>
-        setErrorMessage(error?.message || 'Não foi possível carregar os dados da nota.')
-      )
-      .finally(() => {
+        uncertainSupplierCodeOperation.current = '';
+        uncertainMappingOperation.current = '';
+        setHasUncertainWrite(false);
+      } catch (error: any) {
+        if (active) {
+          const message = error?.message || 'Não foi possível carregar os dados da nota.';
+          setLoadError(message);
+          setErrorMessage('');
+        }
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    })();
     return () => {
       active = false;
     };
-  }, [visible, invoice?.id]);
+  }, [visible, invoice?.id, loadRevision]);
 
   type MappingValues = {
     invoiceId: string;
@@ -143,22 +163,58 @@ export const useInboundInvoiceMappings = ({
   };
 
   const saveValidatedMappings = async (values: MappingValues) => {
-    try {
-      const effectiveSupplierId = isSalvadosSupplier ? supplierId : values.supplierId;
-      const effectiveItems = isSalvadosSupplier
-        ? markInboundInvoiceItemsNotApplicable(values.items)
-        : values.items;
-      await stockService.updateInboundInvoiceMappings(
-        values.invoiceId,
-        effectiveSupplierId || null,
-        effectiveItems
+    if (uncertainSupplierCodeOperation.current || uncertainMappingOperation.current) {
+      setErrorMessage(
+        uncertainSupplierCodeOperation.current || uncertainMappingOperation.current
       );
-      setItems(effectiveItems);
+      return false;
+    }
+    const effectiveSupplierId = isSalvadosSupplier ? supplierId : values.supplierId;
+    const effectiveItems = isSalvadosSupplier
+      ? markInboundInvoiceItemsNotApplicable(values.items)
+      : values.items;
+    try {
+      const persistedItems = await withTimeout(
+        stockService
+          .updateInboundInvoiceMappings(
+            values.invoiceId,
+            effectiveSupplierId || null,
+            effectiveItems
+          ),
+        30_000,
+        null,
+        'entrada:salvar-mapeamentos'
+      );
+      if (!Array.isArray(persistedItems)) throw new Error('A gravação dos vínculos não foi confirmada no prazo.');
+      setItems(persistedItems);
       setSupplierId(effectiveSupplierId);
-      onSaved();
+      try {
+        const refreshed = await withTimeout(
+          Promise.resolve(onSaved()).then(() => true),
+          15_000,
+          false,
+          'entrada:atualizar-lista'
+        );
+        if (!refreshed) setErrorMessage('Vínculos salvos. A atualização da lista demorou demais; recarregue a lista.');
+      } catch {
+        setErrorMessage('Vínculos salvos. Não foi possível atualizar a lista; recarregue a lista.');
+      }
       return true;
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Não foi possível salvar os vínculos.');
+      const message = `${error?.message || 'Não foi possível salvar os vínculos.'} Confira a nota antes de repetir.`;
+      uncertainMappingOperation.current = message;
+      setHasUncertainWrite(true);
+      setErrorMessage(message);
+      try {
+        await withTimeout(
+          Promise.resolve(onSaved()).then(() => true),
+          15_000,
+          false,
+          'entrada:atualizar-lista-incerta'
+        );
+      } catch {
+        // A lista ainda pode ser atualizada quando a escrita da NF fica incerta.
+      }
       return false;
     }
   };
@@ -174,15 +230,30 @@ export const useInboundInvoiceMappings = ({
   };
 
   const persist = async (nextItems: MappingItem[], nextSupplierId = supplierId) => {
+    const uncertainMessage = uncertainSupplierCodeOperation.current || uncertainMappingOperation.current;
+    if (savingInFlight.current) return false;
+    if (uncertainMessage) {
+      setErrorMessage(uncertainMessage);
+      return false;
+    }
     const values = await validateMappings(nextItems, nextSupplierId);
     if (!values) return false;
+    savingInFlight.current = true;
     setSaving(true);
     setErrorMessage('');
     try {
       return await saveValidatedMappings(values);
     } finally {
+      savingInFlight.current = false;
       setSaving(false);
     }
+  };
+
+  const clearSupplier = async () => {
+    if (isSalvadosSupplier) return false;
+    const cleared = await persist(clearAllMappingItemLinks(items), '');
+    if (cleared) setSupplierStockOrigins(undefined);
+    return cleared;
   };
 
   const chooseSupplier = async (supplier: Supplier) => {
@@ -193,6 +264,7 @@ export const useInboundInvoiceMappings = ({
       : clearAllMappingItemLinks(items);
     if (await persist(cleared, supplier.id)) {
       setSupplierStockOrigins(supplier.stock_origins || undefined);
+      searchState.clearProductSearches();
       searchState.setSupplierSearch(supplier.full_name);
       searchState.setSuppliers([supplier]);
       return true;
@@ -208,12 +280,22 @@ export const useInboundInvoiceMappings = ({
     setSupplierFormVisible(false);
   };
 
-  const linkProduct = async (item: MappingItem, product: Product) => {
+  const linkProduct = async (
+    item: MappingItem,
+    product: Product,
+    rememberSupplierCode = false
+  ) => {
     if (isSalvadosSupplier) return false;
+    const uncertainMessage = uncertainSupplierCodeOperation.current || uncertainMappingOperation.current;
+    if (savingInFlight.current) return false;
+    if (uncertainMessage) {
+      setErrorMessage(uncertainMessage);
+      return false;
+    }
     const nextItems = applyProductLinkToMappingItems(items, item, product);
-    if (item.linkMode === 'composition') {
+    if (item.linkMode === 'composition' || !rememberSupplierCode) {
       const saved = await persist(nextItems);
-      if (saved) searchState.setQueries((current) => ({ ...current, [item.itemNumber]: '' }));
+      if (saved) searchState.setQueries(item.itemNumber, '');
       return saved;
     }
 
@@ -244,6 +326,7 @@ export const useInboundInvoiceMappings = ({
     const validatedMappings = await validateMappings(nextItems);
     if (!validatedMappings) return false;
 
+    savingInFlight.current = true;
     setSaving(true);
     setErrorMessage('');
     try {
@@ -289,7 +372,7 @@ export const useInboundInvoiceMappings = ({
         setErrorMessage(uncertainSupplierCodeOperation.current);
         return false;
       }
-      searchState.setQueries((current) => ({ ...current, [item.itemNumber]: '' }));
+      searchState.setQueries(item.itemNumber, '');
       return true;
     } catch (error: any) {
       uncertainSupplierCodeOperation.current =
@@ -301,13 +384,16 @@ export const useInboundInvoiceMappings = ({
       );
       return false;
     } finally {
+      savingInFlight.current = false;
       setSaving(false);
     }
   };
 
   const registrationState = useInboundQuickRegistration({
     supplierId,
-    linkProduct,
+    linkProduct: (item, product) => linkProduct(item, product, true),
+    retryProductSearch: searchState.retryProductSearch,
+    setErrorMessage,
   });
 
   const toggleLinkMode = async (
@@ -356,79 +442,14 @@ export const useInboundInvoiceMappings = ({
 
   const removeLink = async (item: MappingItem) => {
     if (isSalvadosSupplier) return false;
-    if (uncertainSupplierCodeOperation.current) {
-      setErrorMessage(uncertainSupplierCodeOperation.current);
-      return false;
-    }
+    return persist(clearSingleItemLinkFromItems(items, item));
+  };
 
-    const nextItems = clearSingleItemLinkFromItems(items, item);
-    const validatedMappings = await validateMappings(nextItems);
-    if (!validatedMappings) return false;
-
-    const link = await supplierCodeForm.validateAndRun(
-      {
-        itemNumber: item.itemNumber,
-        productId: item.matchedProductId || '',
-        variationId: item.matchedVariationId,
-        supplierId,
-        supplierProductCode: item.productCode,
-        supplierDescription: item.productDescription,
-      },
-      (values) => values,
-      (errors) =>
-        setErrorMessage(
-          Object.values(flattenFormErrors(errors))[0] ||
-            'Confira o código do fornecedor e o vínculo.'
-        )
-    );
-    if (!link) return false;
-
-    setSaving(true);
+  const retryLoad = () => {
+    setLoadError('');
     setErrorMessage('');
-    try {
-      const deleted = await withTimeout(
-        stockService
-          .deleteInboundSupplierProductCode(link.supplierId, link.supplierProductCode)
-          .then(() => true),
-        20_000,
-        false,
-        'entrada:remover-codigo-fornecedor'
-      );
-      if (!deleted) throw new Error('A remoção do código do fornecedor não foi confirmada no prazo.');
-
-      const mappings = await withTimeout(
-        stockService.findInboundSupplierProductCodes(link.supplierId, [link.supplierProductCode]),
-        15_000,
-        null,
-        'entrada:confirmar-remocao-codigo-fornecedor'
-      );
-      if (
-        !mappings ||
-        mappings.has(link.supplierProductCode.trim().toLocaleUpperCase('pt-BR'))
-      ) {
-        throw new Error('A remoção da memória do código do fornecedor não foi confirmada.');
-      }
-
-      const savedInvoiceLink = await saveValidatedMappings(validatedMappings);
-      if (!savedInvoiceLink) {
-        uncertainSupplierCodeOperation.current =
-          'A memória do código foi removida, mas a alteração da nota não foi confirmada. Feche e reabra Gerenciar vínculos para conferir antes de tentar novamente.';
-        setErrorMessage(uncertainSupplierCodeOperation.current);
-        return false;
-      }
-      return true;
-    } catch (error: any) {
-      uncertainSupplierCodeOperation.current =
-        'Não foi possível confirmar a remoção da memória do código do fornecedor. Feche e reabra Gerenciar vínculos para conferir a nota antes de tentar novamente.';
-      setErrorMessage(uncertainSupplierCodeOperation.current);
-      console.warn(
-        '[InboundInvoiceMappings] supplier product code removal could not be confirmed',
-        error
-      );
-      return false;
-    } finally {
-      setSaving(false);
-    }
+    setLoading(true);
+    setLoadRevision((current) => current + 1);
   };
 
   return {
@@ -440,29 +461,34 @@ export const useInboundInvoiceMappings = ({
     setSupplierId,
     supplierSearch: searchState.supplierSearch,
     setSupplierSearch: searchState.setSupplierSearch,
+    searchSuppliers: searchState.searchSuppliers,
     suppliers: searchState.suppliers,
     supplierSearchError: searchState.supplierSearchError,
     supplierSearchLoading: searchState.supplierSearchLoading,
+    retrySupplierSearch: searchState.retrySupplierSearch,
     queries: searchState.queries,
     setQueries: searchState.setQueries,
     products: searchState.products,
     productSearchLoading: searchState.productSearchLoading,
     productSearchErrors: searchState.productSearchErrors,
+    retryProductSearch: searchState.retryProductSearch,
     suggestions: suggestionState.suggestions,
     dismissedSuggestions: suggestionState.dismissedSuggestions,
     setDismissedSuggestions: suggestionState.setDismissedSuggestions,
     suggestionsLoading: suggestionState.suggestionsLoading,
     suggestionsError: suggestionState.suggestionsError,
     loading,
+    loadError,
+    retryLoad,
     saving,
+    hasUncertainWrite: hasUncertainWrite || Boolean(uncertainSupplierCodeOperation.current || uncertainMappingOperation.current),
     errorMessage,
     setErrorMessage,
-    expandedItems,
-    setExpandedItems,
     supplierFormVisible,
     setSupplierFormVisible,
     ...registrationState,
     chooseSupplier,
+    clearSupplier,
     createSupplier,
     linkProduct,
     toggleLinkMode,

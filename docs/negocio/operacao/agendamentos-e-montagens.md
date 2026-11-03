@@ -29,6 +29,7 @@ flowchart LR
 ## 🗺️ Rotas e Geolocalização
 
 - **API Oficial Google Maps**: Cálculo exclusivo de distâncias e rotas via API oficial do Google Maps Platform, com fallback geográfico padrão para o Paraná (`PR`).
+- **Localização ao vivo no app**: durante um fluxo operacional iniciado, o mapa exibe somente a localização do responsável principal registrada no pedido (`deliveryResponsibleId`, com fallback para o primeiro ID em `deliveryResponsibles`) e vinculada ao mesmo pedido. Abrir ou observar o mapa não transforma outro usuário em responsável nem publica sua posição nesse fluxo. Se não for possível confirmar o responsável ou o vínculo da posição com o pedido, o mapa não exibe marcador pessoal. O mapa do ERP não possui rastreamento ao vivo da equipe; seus marcadores representam os endereços das operações.
 
 ---
 

@@ -20,6 +20,7 @@ interface Props {
   onAddResponsible: (responsible: DeliveryResponsibleItem) => void;
   onRemoveResponsible: (index: number) => void;
   availableStaff?: Array<{ id: string; fullName: string; role?: string }>;
+  loadingStaff?: boolean;
   userProfile?: any;
   onStartDelivery?: () => void;
   onOpenUnattendedModal?: () => void;
@@ -43,6 +44,7 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
   onAddResponsible,
   onRemoveResponsible,
   availableStaff = [],
+  loadingStaff = false,
   userProfile,
   onOpenUnattendedModal,
   isDarkMode,
@@ -63,6 +65,7 @@ export const DeliveryPreparationStep: React.FC<Props> = ({
         onAddResponsible={onAddResponsible}
         onRemoveResponsible={onRemoveResponsible}
         availableStaff={availableStaff}
+        loadingStaff={loadingStaff}
         userProfile={userProfile}
         isDarkMode={isDarkMode}
       />

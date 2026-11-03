@@ -5,7 +5,7 @@ appId: com.morante.mobile
     stopApp: false
 - runFlow:
     when:
-      visible: "Fluxo de Entrega"
+      visible: "Fluxo Operacional"
     commands:
       - tapOn: "Voltar"
 - extendedWaitUntil:
@@ -18,7 +18,7 @@ appId: com.morante.mobile
 - tapOn: "Entregas"
 - tapOn: "Dias Seguintes"
 - extendedWaitUntil:
-    visible: "Iniciar fluxo de entrega - preparação"
+    visible: "Iniciar fluxo operacional - preparação"
     timeout: 30000
 - tapOn:
     text: "ENTREGA"
@@ -28,9 +28,9 @@ appId: com.morante.mobile
     timeout: 20000
 - runFlow:
     when:
-      visible: "Iniciar fluxo de entrega"
+      visible: "Iniciar fluxo operacional"
     commands:
-      - tapOn: "Iniciar fluxo de entrega"
+      - tapOn: "Iniciar fluxo operacional"
       - extendedWaitUntil:
           visible: "ETAPA 1 DE 4"
           timeout: 20000

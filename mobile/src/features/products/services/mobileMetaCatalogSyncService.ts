@@ -1,9 +1,9 @@
 import {
-  buildMetaCatalogItems,
   type MetaCatalogOpportunitySource,
   type MetaCatalogProductSource,
   type MetaCatalogVariationSource,
 } from '../../../../../shared-utils/metaCatalogPayload';
+import { buildMetaCatalogSyncItems } from '../../../../../shared-utils/productMetaCatalogSyncItems';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { supabase } from '../../../services/supabaseClient';
 import {
@@ -156,7 +156,7 @@ export async function syncMobileMetaCatalog(
   try {
     onProgress?.(0, 0);
     const { products, variations, opportunities } = await fetchMetaCatalogSyncSources();
-    const items = buildMetaCatalogItems(products, variations, opportunities);
+    const items = buildMetaCatalogSyncItems(products, variations, opportunities);
     return await syncMobileMetaCatalogItems(items, onProgress);
   } catch (error) {
     return {

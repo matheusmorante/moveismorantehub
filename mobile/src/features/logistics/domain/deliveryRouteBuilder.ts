@@ -54,6 +54,21 @@ export interface DeliveryRouteItem {
 
 export type DeliveryRouteDateScope = 'today' | 'tomorrow' | 'next_days';
 
+/** Identifica o responsável principal salvo no fluxo operacional. */
+export const getPrimaryDeliveryResponsibleId = (
+  delivery: DeliveryRouteItem | null | undefined
+): string | null => {
+  const order = delivery?.order || {};
+  const orderData = order.order_data || order;
+  const primaryId =
+    orderData.deliveryResponsibleId ||
+    order.deliveryResponsibleId ||
+    orderData.deliveryResponsibles?.[0]?.id ||
+    order.deliveryResponsibles?.[0]?.id;
+
+  return typeof primaryId === 'string' && primaryId.trim() ? primaryId.trim() : null;
+};
+
 const filterOrdersByDateScope = (
   orders: any[],
   dateScope: DeliveryRouteDateScope,

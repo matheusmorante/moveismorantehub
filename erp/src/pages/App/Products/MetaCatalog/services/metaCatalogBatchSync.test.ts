@@ -31,6 +31,10 @@ vi.mock('@/pages/utils/settingsService', () => ({
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 
 const readProxyRequest = (init?: RequestInit) => JSON.parse(String(init?.body || '{}'));
+const batchResponse = (request: Record<string, any>, handle: string) =>
+  request.operation === 'check_catalog_batch'
+    ? { data: [{ handle, status: 'finished', errors_total_count: 0 }] }
+    : { handles: [handle] };
 
 describe('whatsappGraphService - Meta Catalog items_batch sync', () => {
   beforeEach(() => {
@@ -40,6 +44,9 @@ describe('whatsappGraphService - Meta Catalog items_batch sync', () => {
   it('sincroniza itens com endpoint items_batch e item_type PRODUCT_ITEM', async () => {
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
       const body = readProxyRequest(init);
+      if (body.operation === 'check_catalog_batch') {
+        return { ok: true, status: 200, json: async () => batchResponse(body, 'handle-test-12345') } as any;
+      }
       expect(body.operation).toBe('sync_catalog_batch');
       expect(body.payload.item_type).toBe('PRODUCT_ITEM');
       expect(Array.isArray(body.payload.requests)).toBe(true);
@@ -72,7 +79,7 @@ describe('whatsappGraphService - Meta Catalog items_batch sync', () => {
     expect(result.success).toBe(true);
     expect(result.count).toBe(1);
     expect(result.handles).toContain('handle-test-12345');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     const calledUrl = fetchMock.mock.calls[0][0];
     expect(calledUrl).toBe('/api/meta-graph');
@@ -125,11 +132,14 @@ describe('whatsappGraphService - Meta Catalog items_batch sync', () => {
   });
 
   it('envia a categoria real no product_type e custom_label_0, e condition refurbished para salvados', async () => {
-    const fetchMock = vi.fn(async () => ({
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = readProxyRequest(init);
+      return {
       ok: true,
       status: 200,
-      json: async () => ({ handles: ['handle-cat-123'] }),
-    } as any));
+        json: async () => batchResponse(body, 'handle-cat-123'),
+      } as any;
+    });
 
     vi.stubGlobal('fetch', fetchMock);
 
@@ -171,10 +181,11 @@ describe('whatsappGraphService - Meta Catalog items_batch sync', () => {
 
   it('mapeia custom_label_1 com preco promocional e custom_label_2 com preco antigo quando houver promocao', async () => {
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = readProxyRequest(init);
       return {
         ok: true,
         status: 200,
-        json: async () => ({ handles: ['handle-promo-123'] }),
+        json: async () => batchResponse(body, 'handle-promo-123'),
       } as any;
     });
 
@@ -210,6 +221,9 @@ describe('whatsappGraphService - Meta Catalog items_batch sync', () => {
   it('envia DELETE quando o item está inativo ou deletado', async () => {
     const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
       const body = readProxyRequest(init);
+      if (body.operation === 'check_catalog_batch') {
+        return { ok: true, status: 200, json: async () => batchResponse(body, 'handle-del-999') } as any;
+      }
       expect(body.operation).toBe('sync_catalog_batch');
       expect(body.payload.requests[0].method).toBe('DELETE');
       expect(body.payload.requests[0].retailer_id).toBe('SKU-DELETADO');

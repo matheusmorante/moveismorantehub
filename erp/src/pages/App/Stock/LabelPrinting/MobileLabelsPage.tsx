@@ -6,7 +6,6 @@ import { canPerform } from '../../../utils/permissionService';
 import { subscribeToSettings } from '../../../utils/settingsService';
 import { supabase } from '../../../utils/supabaseConfig';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
-import LabelPrinting from './Index';
 
 type SessionMessage = {
   type: 'morante-label-session';
@@ -18,6 +17,8 @@ type SessionMessage = {
 type NativeWindow = Window & {
   ReactNativeWebView?: { postMessage: (message: string) => void };
 };
+
+const LABEL_MODULE_LOAD_TIMEOUT_MS = 20_000;
 
 const isSessionMessage = (value: unknown): value is SessionMessage => {
   if (!value || typeof value !== 'object') return false;
@@ -41,6 +42,9 @@ export default function MobileLabelsPage() {
   const [profileError, setProfileError] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [permissionRevision, setPermissionRevision] = useState(0);
+  const [labelModule, setLabelModule] = useState<React.ComponentType | null>(null);
+  const [labelModuleError, setLabelModuleError] = useState(false);
+  const [labelModuleRevision, setLabelModuleRevision] = useState(0);
   const [, refreshPermissions] = useState(0);
   const pendingSession = useRef<{ message: SessionMessage; revision: number } | null>(null);
   const sessionRevision = useRef(0);
@@ -149,6 +153,26 @@ export default function MobileLabelsPage() {
   const canIdentify = canViewAll || canPerform('printProductIdentificationLabels', roles);
   const allowed = category === 'identificacao' ? canIdentify : category === 'precos' && canViewAll;
 
+  useEffect(() => {
+    if (labelModule) return;
+    let active = true;
+    setLabelModuleError(false);
+    const timer = window.setTimeout(() => {
+      if (active) setLabelModuleError(true);
+    }, LABEL_MODULE_LOAD_TIMEOUT_MS);
+    void import('./Index').then(({ default: Component }) => {
+      if (!active) return;
+      setLabelModuleError(false);
+      setLabelModule(() => Component);
+    }).catch(() => {
+      if (active) setLabelModuleError(true);
+    }).finally(() => window.clearTimeout(timer));
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [labelModule, labelModuleRevision]);
+
   if (hasDirectAuthParams) {
     return <p role="alert" className="p-6 text-sm text-red-700">Não foi possível abrir as etiquetas com esta sessão.</p>;
   }
@@ -166,5 +190,21 @@ export default function MobileLabelsPage() {
   if (isPending || !allowed) {
     return <p role="alert" className="p-6 text-sm text-slate-700">Seu perfil não tem acesso a esta etiqueta.</p>;
   }
+  if (labelModuleError) {
+    return (
+      <div className="p-6 text-sm text-slate-700">
+        <p role="alert">Não foi possível carregar as etiquetas. Verifique sua conexão e tente novamente.</p>
+        <button
+          type="button"
+          className="mt-3 text-blue-600 underline"
+          onClick={() => setLabelModuleRevision((value) => value + 1)}
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+  if (!labelModule) return <p role="status" className="p-6 text-sm text-slate-600">Carregando etiquetas…</p>;
+  const LabelPrinting = labelModule;
   return <LabelPrinting />;
 }

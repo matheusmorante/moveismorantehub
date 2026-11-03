@@ -2987,8 +2987,10 @@ function validateOrdinaryOutboundEnvelope(input) {
 }
 
 // api/nfe/fiscalXmlAudit.ts
-var import_xmldom3 = require("@xmldom/xmldom");
 var import_xml_crypto2 = require("xml-crypto");
+
+// api/nfe/fiscalXmlAuditDom.ts
+var import_xmldom3 = require("@xmldom/xmldom");
 function createStrictXmlParser(parseErrors) {
   return new import_xmldom3.DOMParser({
     errorHandler: (level, message) => {
@@ -2998,16 +3000,6 @@ function createStrictXmlParser(parseErrors) {
     }
   });
 }
-var FiscalXmlAuditError = class extends Error {
-  mismatches;
-  constructor(mismatches) {
-    const detail = mismatches.map(({ field, expected, actual }) => `${field}: esperado ${expected}; encontrado ${actual}`).join("\n");
-    super(`O XML assinado diverge do snapshot fiscal confirmado:
-${detail}`);
-    this.name = "FiscalXmlAuditError";
-    this.mismatches = mismatches;
-  }
-};
 var localName = (node) => (node.localName || node.tagName).split(":").at(-1) || "";
 var children = (node) => node ? Array.from(node.childNodes).filter((child2) => child2.nodeType === 1) : [];
 var child = (node, name) => node ? children(node).find((candidate) => localName(candidate) === name) || null : null;
@@ -3021,6 +3013,18 @@ var allDescendants = (node, name) => {
   };
   visit(node);
   return result;
+};
+
+// api/nfe/fiscalXmlAudit.ts
+var FiscalXmlAuditError = class extends Error {
+  mismatches;
+  constructor(mismatches) {
+    const detail = mismatches.map(({ field, expected, actual }) => `${field}: esperado ${expected}; encontrado ${actual}`).join("\n");
+    super(`O XML assinado diverge do snapshot fiscal confirmado:
+${detail}`);
+    this.name = "FiscalXmlAuditError";
+    this.mismatches = mismatches;
+  }
 };
 function normalizeTaxId(value) {
   return normalizeFiscalIdentifier(value);

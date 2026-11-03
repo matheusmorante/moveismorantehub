@@ -8,6 +8,7 @@ import {
 } from '../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../shared-utils/inboundInvoiceSupplierRules';
 import { hasInboundItemCommercialData } from '../../../../../shared-utils/inboundInvoiceCompleteness';
+import { getCurrentInboundInvoiceMappingItems } from '../../../../../shared-utils/inboundInvoiceMappingState';
 
 export const normalizeTaxId = (value: unknown) => String(value || '').replace(/\D/g, '');
 
@@ -24,6 +25,7 @@ export const mapInboundInvoiceListRow = (row: any) => {
     : [];
   const legacyItems = Array.isArray(row.itens) ? row.itens : [];
   const sourceItems = linkedItems.length ? linkedItems : legacyItems;
+  const mappingItems = getCurrentInboundInvoiceMappingItems(row);
   const supplierStockOrigins = getSupplierStockOriginsFromRelation(row.supplier);
   const items = isSalvadosOnlySupplier(supplierStockOrigins)
     ? markInboundInvoiceItemsNotApplicable(sourceItems)
@@ -43,7 +45,7 @@ export const mapInboundInvoiceListRow = (row: any) => {
     status: normalizeInvoiceStatus(row.status_recebimento),
     hasPendingBindings: isSalvadosOnlySupplier(supplierStockOrigins)
       ? false
-      : hasUnlinkedInvoiceItems(items),
+      : hasUnlinkedInvoiceItems(mappingItems),
     supplierStockOrigins,
     sefazStatus: 'pending' as const,
     isSummaryOnly,
@@ -83,6 +85,7 @@ export const mapInboundInvoiceDetailRow = (data: any) => {
   const sourceItems = rows.length
     ? rows.map((item: any) => ({ ...(item.raw_item || {}), ...item }))
     : legacyItems;
+  const mappingItems = getCurrentInboundInvoiceMappingItems(data);
   const supplierStockOrigins = getSupplierStockOriginsFromRelation(data.supplier);
   const normalizedItems = isSalvadosOnlySupplier(supplierStockOrigins)
     ? markInboundInvoiceItemsNotApplicable(sourceItems)
@@ -103,7 +106,7 @@ export const mapInboundInvoiceDetailRow = (data: any) => {
     status: normalizeInvoiceStatus(data.status_recebimento),
     hasPendingBindings: isSalvadosOnlySupplier(supplierStockOrigins)
       ? false
-      : hasUnlinkedInvoiceItems(normalizedItems),
+      : hasUnlinkedInvoiceItems(mappingItems),
     supplierStockOrigins,
     sefazStatus: 'pending' as const,
     recipientName: data.destinatario_nome || '',

@@ -60,9 +60,11 @@ export interface UseDeliveryFlowActionsReturn {
   setShowCancelModal: (show: boolean) => void;
   showStartConfirmModal: boolean;
   setShowStartConfirmModal: (show: boolean) => void;
+  routeStartError: string | null;
+  clearRouteStartError: () => void;
 
   // Ações de fluxo (workflow handlers)
-  handleStartRoute: () => Promise<void>;
+  handleStartRoute: () => Promise<boolean>;
   handleConfirmStartRoute: () => Promise<void>;
   handleArriveAtDestination: () => Promise<void>;
   handleStartService: () => Promise<void>;

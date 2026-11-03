@@ -1,4 +1,4 @@
-import { Copy, Eye, EyeOff, Link2, Pencil, Tag, Trash2 } from 'lucide-react-native';
+import { Copy, Eye, EyeOff, Link2, Pencil, Trash2 } from 'lucide-react-native';
 import type React from 'react';
 import {
   Alert,
@@ -31,7 +31,6 @@ interface MobileProductActionsMenuProps {
   onMoveToTrash?: (id: string) => void;
   onDuplicate?: (product: any) => void;
   onShowOrders?: (product: any) => void;
-  onPrintPriceLabel?: (product: any) => void;
 }
 
 export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> = ({
@@ -50,7 +49,6 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
   onMoveToTrash,
   onDuplicate,
   onShowOrders,
-  onPrintPriceLabel,
 }) => {
   const draftDiscardForm = useZodForm(productDraftDiscardFormSchema, {
     productId: String(product?.id ?? ''),
@@ -180,23 +178,6 @@ export const MobileProductActionsMenu: React.FC<MobileProductActionsMenuProps> =
                   <Link2 size={16} color="#2563eb" />
                   <Text style={[styles.menuItemText, dark && styles.lightText]}>
                     Pedidos Vinculados
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {onPrintPriceLabel && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    onClose();
-                    onPrintPriceLabel(product);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Imprimir etiqueta de preço"
-                >
-                  <Tag size={16} color="#059669" />
-                  <Text style={[styles.menuItemText, dark && styles.lightText]}>
-                    Etiqueta de Preço
                   </Text>
                 </TouchableOpacity>
               )}

@@ -20,13 +20,13 @@ import { isQuantityCharacteristic } from '../../../../../../shared-utils/product
 import { normalizeSearchTerm } from '../../../../../../shared-utils/productText';
 import { searchProductTechnicalChoiceOptions } from '../../../../../../shared-utils/productTechnicalChoiceSearch';
 import { isProductTechnicalFieldYesNo } from '../../../../../../shared-utils/productTechnicalFieldYesNo';
-import { parseProductBooleanCharacteristicValue } from '../../../../../../shared-utils/productBooleanCharacteristicValue';
 import {
   getTechnicalFieldIntegerMaxValue,
   isWeightCapacityCharacteristic,
   isWeightCharacteristicName,
 } from '../../../../../../shared-utils/productTechnicalFieldRules';
 import { styles } from './productTechnicalFieldInput.styles';
+import { ProductTechnicalFieldRadioOptions } from './ProductTechnicalFieldRadioOptions';
 
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
 type TechnicalOption = { id?: string; value: string };
@@ -44,14 +44,6 @@ type Props = {
   placeholder?: string;
   onChange: (value: unknown) => void;
 };
-
-const normalizeValue = (value: unknown) =>
-  String(value ?? '')
-    .trim()
-    .toLocaleLowerCase('pt-BR');
-
-const normalizeYesNoValue = (value: unknown) =>
-  normalizeValue(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 const formatDecimal = (value: unknown, decimalPlaces: 1 | 2 | 3) => {
   if (value === '' || value === null || value === undefined) return '';
@@ -117,47 +109,17 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
     );
   }, [value, decimalPlaces, type]);
 
-  const renderRadioOption = (
-    key: string,
-    label: string,
-    selected: boolean,
-    outputValue: unknown
-  ) => (
-    <TouchableOpacity
-      key={key}
-      disabled={disabled}
-      onPress={() => onChange(outputValue)}
-      accessibilityRole="radio"
-      accessibilityLabel={`${field.name}: ${label}`}
-      accessibilityState={{ selected, disabled }}
-      style={[styles.radioOption, disabled && styles.disabled]}
-    >
-      <View
-        style={[
-          styles.radioCircle,
-          dark && styles.darkRadioCircle,
-          selected && styles.radioCircleSelected,
-        ]}
-      >
-        {selected ? <View style={styles.radioDot} /> : null}
-      </View>
-      <Text style={[styles.chipText, dark && styles.lightText, selected && styles.selectedText]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-
   if (type === 'boolean' || field.data_type === 'boolean') {
-    const answer = parseProductBooleanCharacteristicValue(value);
     return (
-      <View
-        accessibilityRole="radiogroup"
-        accessibilityLabel={field.name}
-        style={styles.booleanOptions}
-      >
-        {renderRadioOption('yes', 'Sim', answer === true, true)}
-        {renderRadioOption('no', 'Não', answer === false, false)}
-      </View>
+      <ProductTechnicalFieldRadioOptions
+        variant="boolean"
+        fieldName={field.name}
+        options={options}
+        value={value}
+        disabled={disabled}
+        dark={dark}
+        onChange={onChange}
+      />
     );
   }
 
@@ -287,46 +249,16 @@ export const ProductTechnicalFieldInput: React.FC<Props> = ({
       dataType: field.data_type,
       options: field.options,
     })) {
-    const yesValue =
-      options.find((option) => normalizeYesNoValue(option.value) === 'sim')?.value || 'Sim';
-    const noValue =
-      options.find((option) => normalizeYesNoValue(option.value) === 'nao')?.value || 'Não';
-    const notApplicableValue = options.find((option) => normalizeYesNoValue(option.value) === 'nao se aplica')?.value;
-    const normalizedValue = normalizeYesNoValue(value);
-    const currentValue =
-      value === true || value === 1 || ['true', '1', 'sim', 's', 'yes', 'ligado'].includes(normalizedValue)
-        ? 'yes'
-        : value === false || value === 0 || ['false', '0', 'nao', 'no', 'desligado'].includes(normalizedValue)
-          ? 'no'
-          : notApplicableValue !== undefined && String(value ?? '') === notApplicableValue
-            ? 'not_applicable'
-            : '';
-    const yesNoOptions = [
-      { key: 'yes', label: yesValue, outputValue: yesValue },
-      { key: 'no', label: noValue, outputValue: noValue },
-      ...(notApplicableValue
-        ? [
-            {
-              key: 'not_applicable',
-              label: notApplicableValue,
-              outputValue: notApplicableValue,
-            },
-          ]
-        : []),
-    ];
     return (
-      <View style={styles.selectionWrap}>
-        <View
-          accessibilityRole="radiogroup"
-          accessibilityLabel={field.name}
-          style={styles.booleanOptions}
-        >
-          {yesNoOptions.map((option) => {
-            const selected = currentValue === option.key;
-            return renderRadioOption(option.key, option.label, selected, option.outputValue);
-          })}
-        </View>
-      </View>
+      <ProductTechnicalFieldRadioOptions
+        variant="yes-no"
+        fieldName={field.name}
+        options={options}
+        value={value}
+        disabled={disabled}
+        dark={dark}
+        onChange={onChange}
+      />
     );
   }
 

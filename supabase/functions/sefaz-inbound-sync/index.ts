@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { decompressGzipBase64 } from "./utils/compression.ts";
 import { buildSoapEnvelope } from "./utils/soap.ts";
 import { extractXmlTag, extractAllXmlTags, extractDocZipEntries, parseNfeXml } from "./utils/xmlParser.ts";
+import { findMissingNsuRanges, normalizeNsu } from "./utils/nsuRecoveryRanges.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,6 @@ const corsHeaders = {
 const NSU_POINT_QUERY_INTERVAL_MS = 5 * 60 * 1000;
 const DIST_NSU_INTERVAL_MS = 60 * 60 * 1000;
 
-type MissingNsuRange = { startNsu: string; endNsu: string };
 type RecoveryClaim = {
   range_start_nsu: string;
   range_end_nsu: string;
@@ -20,54 +20,6 @@ type RecoveryClaim = {
   environment: string;
   claim_token: string;
 };
-
-function normalizeNsu(value: string): string | null {
-  const digits = String(value || "").replace(/\D/g, "");
-  if (!digits || digits.length > 15) return null;
-  return digits.replace(/^0+(?=\d)/, "");
-}
-
-function findMissingNsuRanges(
-  requestedNsu: string,
-  entries: Array<{ nsu: string }>,
-  returnedUltNsu: string,
-): MissingNsuRange[] {
-  if (!entries.length) return [];
-
-  const knownNsus = entries
-    .map((entry) => normalizeNsu(entry.nsu))
-    .filter((nsu): nsu is string => nsu !== null)
-    .map((nsu) => BigInt(nsu))
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-  if (!knownNsus.length) return [];
-
-  const ranges: MissingNsuRange[] = [];
-  let previousNsu = BigInt(normalizeNsu(requestedNsu) || "0");
-  let hasKnownPreviousNsu = previousNsu > 0n;
-  for (const receivedNsu of knownNsus) {
-    if (hasKnownPreviousNsu && receivedNsu > previousNsu + 1n) {
-      ranges.push({
-        startNsu: (previousNsu + 1n).toString(),
-        endNsu: (receivedNsu - 1n).toString(),
-      });
-    }
-    if (receivedNsu > previousNsu) previousNsu = receivedNsu;
-    hasKnownPreviousNsu = true;
-  }
-
-  const returnedNsu = normalizeNsu(returnedUltNsu);
-  if (returnedNsu) {
-    const returnedNsuBigInt = BigInt(returnedNsu);
-    if (returnedNsuBigInt > previousNsu) {
-      ranges.push({
-        startNsu: (previousNsu + 1n).toString(),
-        endNsu: returnedNsuBigInt.toString(),
-      });
-    }
-  }
-
-  return ranges;
-}
 
 async function persistParsedInvoice(supabaseClient: any, parsed: any): Promise<boolean> {
   const sourceXml = String(parsed.xml_conteudo || "");

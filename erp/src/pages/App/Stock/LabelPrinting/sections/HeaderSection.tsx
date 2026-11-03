@@ -40,11 +40,11 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
       : null;
 
   return (
-    <header className="mb-2 animate-slide-in relative">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+    <header className="relative mb-2 min-w-0 animate-slide-in">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center">
           <div
-            className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm transition-all ${
+            className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-sm transition-all sm:mt-0 ${
               selectedCategory === 'identificacao'
                 ? 'bg-slate-900 shadow-slate-900/20'
                 : selectedCategory === 'precos'
@@ -70,8 +70,8 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
               } text-white text-sm`}
             />
           </div>
-          <div className="flex flex-col justify-center">
-            <h1 className="text-sm font-black text-slate-800 dark:text-white tracking-tight uppercase leading-none mb-0.5 flex items-center gap-2">
+          <div className="flex min-w-0 flex-col justify-center">
+            <h1 className="mb-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 break-words text-xs font-black uppercase leading-tight tracking-tight text-slate-800 dark:text-white sm:text-sm">
               {selectedCategory === 'identificacao'
                 ? 'Etiquetas de Identificação'
                 : selectedCategory === 'precos'
@@ -82,7 +82,7 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
                       ? 'Posts para Redes Sociais'
                       : 'Gerador de Etiquetas'}
             </h1>
-            <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 tracking-widest uppercase">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[8px] font-bold uppercase leading-relaxed tracking-wide text-slate-400 sm:text-[9px] sm:tracking-widest">
               {activeModel ? (
                 <>
                   <span>Modelo: {activeModel.name || 'Personalizado'}</span>
@@ -97,11 +97,11 @@ export const HeaderSection: React.FC<HeaderSectionProps> = ({
         </div>
 
         {/* 3 PONTINHOS NO LADO DIREITO COM OPÇÕES */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="w-8 h-8 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+              className="flex h-10 w-10 items-center justify-center text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
             >
               <i className="bi bi-three-dots-vertical text-base" />
             </button>

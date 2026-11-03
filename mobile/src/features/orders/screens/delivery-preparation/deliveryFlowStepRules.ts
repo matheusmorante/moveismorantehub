@@ -15,7 +15,7 @@ export interface DeliveryStepState {
 /**
  * Determina a etapa atual e títulos da entrega a partir do snapshot do pedido.
  * 1. Preparação (preparar saída e conferência de itens)
- * 2. Em Rota (deslocamento até o cliente)
+ * 2. Deslocamento até o cliente
  * 3. Chegada (no local do cliente / botão não foi possível entregar)
  * 4. Em Atendimento (início do atendimento, conferência final e recebimento de pagamentos)
  */
@@ -31,7 +31,7 @@ export function resolveDeliveryStep(data: any): DeliveryStepState {
   const isInArrival =
     (deliveryStatus === 'arrived' || Boolean(safeData.deliveryArrivedAt)) && !isInService;
 
-  // Etapa 2: Em Rota (deslocamento para o endereço)
+  // Etapa 2: Deslocamento para o endereço
   const isInTransit =
     (deliveryStatus === 'in_progress' || Boolean(safeData.deliveryStartedAt)) &&
     !isInArrival &&
@@ -44,8 +44,8 @@ export function resolveDeliveryStep(data: any): DeliveryStepState {
     : isInArrival
       ? 'Chegada no Local'
       : isInTransit
-        ? 'Em Rota'
-        : 'Preparar Saída';
+        ? 'Deslocamento'
+        : 'Preparação';
 
   return {
     currentStep,

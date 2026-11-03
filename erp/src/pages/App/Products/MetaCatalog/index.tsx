@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/context/AuthContext';
-import { buildMetaCatalogItems } from './services/metaCatalogPayload';
+import { buildMetaCatalogSyncItems } from '../../../../../../shared-utils/productMetaCatalogSyncItems';
 import { fetchMetaCatalogStats, fetchMetaCatalogSyncSources } from './services/metaCatalogDataService';
 
 export default function MetaCatalog() {
@@ -45,7 +45,7 @@ export default function MetaCatalog() {
       const { products, variations, opportunities } = await fetchMetaCatalogSyncSources();
 
       // 3. Montar a lista completa de itens para o Meta Catalog (Pai + Variações como itens individuais)
-      const allItems = buildMetaCatalogItems(products, variations, opportunities);
+      const allItems = buildMetaCatalogSyncItems(products, variations, opportunities);
 
       // 4. Executar sync em lote via Graph API com callback de progresso
       const res = await whatsappGraphService.syncBatchProductsToCatalog(

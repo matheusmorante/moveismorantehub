@@ -10,8 +10,12 @@ import type {
   MetaCatalogProductSource,
   MetaCatalogVariationSource,
 } from '../../../../../shared-utils/metaCatalogPayload';
-import { buildProductMetaCatalogSyncItems } from '../../../../../shared-utils/productMetaCatalogSyncItems';
+import {
+  buildProductMetaCatalogSyncItems,
+  excludeMetaCatalogDeleteCollisions,
+} from '../../../../../shared-utils/productMetaCatalogSyncItems';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { waitForMetaCatalogBatchHandles } from '../../../../../shared-utils/metaCatalogBatchStatus';
 import { getAppSettings } from '../../../services/appSettingsCache';
 import { supabase } from '../../../services/supabaseClient';
 
@@ -67,7 +71,7 @@ const postCatalogBatch = async (
   proxyUrl: string,
   accessToken: string,
   payload: ReturnType<typeof buildMetaCatalogBatchPayload>
-): Promise<void> => {
+): Promise<string[]> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
@@ -88,6 +92,43 @@ const postCatalogBatch = async (
         ? (result as { error?: unknown }).error
         : undefined;
     if (!response.ok || error) throw new Error(getErrorMessage(error));
+    const handles =
+      result && typeof result === 'object' && 'handles' in result
+        ? (result as { handles?: unknown }).handles
+        : undefined;
+    return Array.isArray(handles)
+      ? handles.filter((handle): handle is string => typeof handle === 'string' && Boolean(handle.trim()))
+      : [];
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const checkCatalogBatchStatus = async (
+  proxyUrl: string,
+  accessToken: string,
+  handle: string
+): Promise<unknown> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ operation: 'check_catalog_batch', handle }),
+      signal: controller.signal,
+    });
+    const result: unknown = await response.json().catch(() => null);
+    const error =
+      result && typeof result === 'object' && 'error' in result
+        ? (result as { error?: unknown }).error
+        : undefined;
+    if (!response.ok || error) throw new Error(getErrorMessage(error));
+    return result;
   } finally {
     clearTimeout(timeout);
   }
@@ -126,7 +167,10 @@ async function postMetaCatalogItems(
       items.slice(offset, offset + META_CATALOG_BATCH_LIMIT),
       whatsappBaseDescription
     );
-    await postCatalogBatch(proxyUrl, accessToken, payload);
+    const handles = await postCatalogBatch(proxyUrl, accessToken, payload);
+    await waitForMetaCatalogBatchHandles(handles, (handle) =>
+      checkCatalogBatchStatus(proxyUrl, accessToken, handle)
+    );
     processed += payload.requests.length;
     onProgress?.(processed, total);
   }
@@ -207,7 +251,46 @@ export async function syncMobileProductToMetaCatalog(
       (variationResult.data || []) as MetaCatalogVariationSource[],
       opportunities
     );
-    const count = await postMetaCatalogItems(proxyUrl, accessToken, items);
+    const candidateCodes = Array.from(
+      new Set(items.filter((item) => 'deleted' in item && item.deleted === true).map((item) => item.code))
+    );
+    let protectedCodes = new Set<string>();
+    if (candidateCodes.length > 0) {
+      const collisionResults = await withTimeout(
+        Promise.all([
+          supabase.from('products').select('id, code').in('code', candidateCodes),
+          supabase
+            .from('product_variations')
+            .select('id, product_id, sku')
+            .in('sku', candidateCodes),
+        ]),
+        DATA_TIMEOUT_MS,
+        null,
+        'mobile:meta-catalog-delete-collision-check'
+      );
+      if (!collisionResults) {
+        throw new Error('A verificação de identificadores do catálogo excedeu o tempo limite.');
+      }
+      const [productCodeResult, variationSkuResult] = collisionResults;
+      if (productCodeResult.error) throw productCodeResult.error;
+      if (variationSkuResult.error) throw variationSkuResult.error;
+
+      protectedCodes = new Set<string>([
+        ...((productCodeResult.data || []) as Array<{ id: string; code: string | null }>)
+          .filter((row) => row.id !== productId)
+          .map((row) => String(row.code || '').trim()),
+        ...((variationSkuResult.data || []) as Array<{ id: string; product_id: string; sku: string | null }>)
+          .filter((row) => row.product_id !== productId)
+          .map((row) => String(row.sku || '').trim()),
+      ]);
+    }
+    const safeItems = excludeMetaCatalogDeleteCollisions(items, protectedCodes);
+    if (safeItems.length !== items.length) {
+      throw new Error(
+        'A sincronização foi bloqueada para não remover um identificador do catálogo que pertence a outro produto.'
+      );
+    }
+    const count = await postMetaCatalogItems(proxyUrl, accessToken, safeItems);
     return { success: true, count };
   } catch (error) {
     return { success: false, count: 0, error: getErrorMessage(error) };

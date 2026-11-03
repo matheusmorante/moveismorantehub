@@ -3,7 +3,10 @@ import path from 'path';
 
 export interface PrintPreset {
   printerName: string;
-  paperSize: 'A4' | 'Letter';
+  paperSize?: 'A4' | 'Letter';
+  paperWidthMm?: number;
+  paperHeightMm?: number;
+  assetOrigin?: string;
   orientation: 'portrait' | 'landscape';
   copies: number;
   scale: number;

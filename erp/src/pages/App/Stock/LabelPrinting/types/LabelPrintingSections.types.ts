@@ -55,6 +55,7 @@ export interface PreviewSectionProps {
   setCurrentPage: Dispatch<SetStateAction<number>>;
   handleDownloadImage: () => void;
   printLabels: () => void;
+  printLabelsNormally: () => void;
   isPrinting?: boolean;
   isDownloading: boolean;
   selectedCategory: CategoryType | null;

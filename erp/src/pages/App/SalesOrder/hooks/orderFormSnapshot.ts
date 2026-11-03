@@ -8,6 +8,7 @@ import { formatToStorageDate, parseStorageDateToLocal } from './orderDateFormatt
 import { resolveInitialUseCustomerAddress } from './customerAddressRules';
 import { getSaoPauloDayInfo } from '../../../../../../shared-utils/commercialOrderRules';
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
+import { resolveFirstItemHandlingType } from '../orderItemHandling';
 
 export const buildSalesOrderSnapshot = (
   stateSnapshot: any,
@@ -17,8 +18,7 @@ export const buildSalesOrderSnapshot = (
 ): Order => {
   const s = stateSnapshot;
   const currentItemsSummary = calcItemsSummary(s.items);
-  const firstHandling =
-    (s.items || []).find((i: any) => i.handlingType?.trim())?.handlingType || '';
+  const firstHandling = resolveFirstItemHandlingType(s.items);
   const isTestArtifact = s.isTestMode === true;
 
   let resolvedScheduling = s.shipping?.scheduling;

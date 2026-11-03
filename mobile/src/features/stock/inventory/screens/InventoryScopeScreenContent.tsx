@@ -15,7 +15,6 @@ import { useAuth } from '../../../../contexts/AuthContext';
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import { mobileInventoryAuditScopeSchema } from '../../../../../../shared-utils/inventoryAuditFormSchemas';
-import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 import {
   filterInventoryResponsibleCandidates,
   findDefaultInventoryResponsibleId,
@@ -46,6 +45,10 @@ import {
   getAssignedInventoryScopeSupplier,
   getInventoryScopeSupplierNames,
 } from '../services/inventoryScopeSuppliers';
+import {
+  buildInventoryScopeProductParents,
+  searchInventoryScopeProductParents,
+} from '../services/inventoryScopeProductSearch';
 
 interface Props {
   isDarkMode: boolean;
@@ -91,44 +94,15 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
     itemsSnapshot: [],
   });
 
-  const productParents = useMemo(() => {
-    const byId = new Map<string, { id: string; name: string; code: string; variationCount: number }>();
-    for (const item of productScopeProducts) {
-      if (!item.id || !item.variation_id || item.active !== true) continue;
-      const id = String(item.id);
-      const parent = byId.get(id);
-      if (parent) {
-        parent.variationCount += 1;
-      } else {
-        byId.set(id, {
-          id,
-          name: item.parent_name || item.description || item.name || 'Produto',
-          code: item.code || item.sku || '',
-          variationCount: 1,
-        });
-      }
-    }
-    return [...byId.values()].sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'));
-  }, [productScopeProducts]);
+  const productParents = useMemo(
+    () => buildInventoryScopeProductParents(productScopeProducts),
+    [productScopeProducts]
+  );
   const selectedProduct = productParents.find((product) => product.id === selectedProductId);
-  const searchProductParents = useCallback(async (query: string): Promise<SearchableProduct[]> => (
-    productParents
-      .filter((product) => matchesSearchText(`${product.name} ${product.code}`, query))
-      .slice(0, 5)
-      .map((product) => ({
-        id: product.id,
-        name: product.name,
-        sku: product.code,
-        code: product.code,
-        stock: 0,
-        unit: 'UN',
-        resultMeta: [
-          product.code ? `Código: ${product.code}` : '',
-          `${product.variationCount} variações ativas`,
-        ].filter(Boolean).join(' · '),
-        active: true,
-      }))
-  ), [productParents]);
+  const searchProductParents = useCallback(
+    (query: string) => searchInventoryScopeProductParents(productParents, query),
+    [productParents]
+  );
 
   useEffect(() => connectivityService.subscribe(setIsOnline), []);
 

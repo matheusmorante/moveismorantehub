@@ -16,7 +16,7 @@ interface Props {
 }
 
 /**
- * Etapa 2 do Fluxo de Entrega: Em Rota (Deslocamento).
+ * Etapa 2 do Fluxo Operacional: Deslocamento.
  * Modularizado e desacoplado respeitando os princípios de SRP e Clean Architecture.
  * As ações de transição foram alocadas no rodapé fixo `DeliveryStepActionFooter`.
  */
@@ -29,7 +29,7 @@ export const DeliveryRouteStep: React.FC<Props> = ({
 }) => {
   return (
     <View style={styles.container}>
-      {/* 1. Banner Em Rota */}
+      {/* 1. Banner de Deslocamento */}
       <DeliveryRouteBanner startedAt={startedAt} isDarkMode={isDarkMode} />
 
       {/* 2. Cartão do Cliente e Endereço */}

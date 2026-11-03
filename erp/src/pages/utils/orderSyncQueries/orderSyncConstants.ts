@@ -24,6 +24,7 @@ export const DASHBOARD_ORDERS_COLUMNS = `
     id, order_number, order_index, status, order_type, customer_id, customer_name,
     total_amount, marketing_origin, scheduled_date, delivery_method, delivery_status,
     deleted, deleted_at, created_at, updated_at,
+    order_date:order_data->>date,
     shipping_data:order_data->shipping,
     is_test:order_data->>is_test, test_environment:order_data->>test_environment,
     test_run_id:order_data->>testRunId,

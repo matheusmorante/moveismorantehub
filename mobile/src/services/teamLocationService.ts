@@ -20,16 +20,23 @@ export interface TeamMemberLocation {
   activeOrderCode?: string;
 }
 
-/**
- * Busca todas as localizações de membros da equipe que estão EM ENTREGA ATIVA.
- * Se o usuário não iniciou uma entrega ou já finalizou, ele não aparece no mapa para os colegas.
- */
-export async function fetchTeamLocations(excludeUserId?: string): Promise<TeamMemberLocation[]> {
+/** Busca a localização ativa do responsável principal vinculada a um pedido específico. */
+export async function fetchTeamLocations(
+  excludeUserId: string | undefined,
+  activeOrder: { id: string; responsibleId: string }
+): Promise<TeamMemberLocation[]> {
+  if (!excludeUserId || !activeOrder?.id || !activeOrder?.responsibleId) return [];
+  if (activeOrder.responsibleId === excludeUserId) return [];
+
   try {
     const { data, error } = await supabase
       .from('team_locations')
-      .select('user_id, latitude, longitude, is_delivering, active_order_code, updated_at')
+      .select(
+        'user_id, user_name, role, latitude, longitude, is_gps_active, is_delivering, active_order_id, active_order_code, last_seen, updated_at'
+      )
       .eq('is_delivering', true)
+      .eq('user_id', activeOrder.responsibleId)
+      .eq('active_order_id', activeOrder.id)
       .order('updated_at', { ascending: false });
 
     if (error || !data) return [];

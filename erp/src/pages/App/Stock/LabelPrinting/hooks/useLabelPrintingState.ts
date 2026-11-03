@@ -210,7 +210,6 @@ export const useLabelPrintingState = () => {
           };
           queue.setLabelItems((prev: any) => [...prev, newItem]);
         }
-        toast.success('Imagem adicionada à fila.');
       }
     }, (errors) => fail(Object.values(flattenFormErrors(errors))[0] || 'Confira a imagem.'));
     } catch (cause) {
@@ -282,6 +281,7 @@ export const useLabelPrintingState = () => {
     handleAddBlankLabel: queue.handleAddBlankLabel,
     isPrinting: queue.isPrinting,
     printLabels: queue.handlePrintLabels,
+    printLabelsNormally: queue.handlePrintLabelsNormally,
 
     // Preview, Paginação e Download
     isDownloading: preview.isDownloading,

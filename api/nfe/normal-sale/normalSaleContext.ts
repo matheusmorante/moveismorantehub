@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { resolveNfeSequenceSettings } from '../../../erp/src/pages/utils/nfe/nfeSequenceSettings';
 import type {
   FiscalEmissionCommand,
@@ -18,6 +17,7 @@ import { withNfeEmissionStage } from '../nfeEmissionPerformance';
 import { obj } from './values';
 import { createNormalSaleRuleSet, loadNormalSaleInputs } from '../normalSaleRuleSet';
 import { validateParanaIssuerIe } from '../paranaIssuerIe';
+import { deriveNfeRandomCode } from '../fiscalCore';
 import {
   getResponsibleTechnicianConfig,
   getResponsibleTechnicianConfigurationIssues,
@@ -191,8 +191,7 @@ export async function resolveNormalSaleCredentials(
   );
 
   const issuedAt = saoPauloEmissionTimestamp(facts.capturedAt);
-  const code = createHash('sha256').update(command.emissionRequestId).digest('hex');
-  const randomCode = String(Number.parseInt(code.slice(0, 10), 16) % 100000000).padStart(8, '0');
+  const randomCode = deriveNfeRandomCode(command.emissionRequestId);
 
   return {
     outcome: {

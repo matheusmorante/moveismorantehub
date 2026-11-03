@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/pages/utils/supabaseConfig';
 import Order from '../../../types/order.type';
-import { dashboardRevenueFactor, isDashboardSaleOrder } from '../dashboardRevenue';
+import { dashboardRevenueFactor } from '../dashboardRevenue';
 
 export interface ProductStat {
   productId: string;
@@ -10,6 +13,7 @@ export interface ProductStat {
   revenue: number;
   profit: number;
   margin: number;
+  lastSoldAt?: string | null;
 }
 
 export type StalledPeriod = 30 | 60 | 90;
@@ -21,13 +25,36 @@ export interface ProductsData {
   stalled: ProductStat[];
   stalledPeriod: StalledPeriod;
   setStalledPeriod: (p: StalledPeriod) => void;
+  stalledLoading: boolean;
+  stalledError: boolean;
+  retryStalled: () => Promise<unknown>;
 }
 
-export const useDashboardProducts = (
-  filteredOrders: Order[],
-  allActiveOrders: Order[]
-): ProductsData => {
+export const useDashboardProducts = (filteredOrders: Order[]): ProductsData => {
   const [stalledPeriod, setStalledPeriod] = useState<StalledPeriod>(60);
+  const { user, profile } = useAuth();
+  const userId = user?.id ?? '';
+  const roleScope = [profile?.role ?? '', ...(profile?.roles ?? [])].sort().join(',');
+  const stalledQuery = useQuery({
+    queryKey: ['dashboard-stalled-products', userId, roleScope, stalledPeriod],
+    enabled: Boolean(userId && profile?.id === userId),
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<ProductStat[]> => {
+      const { data, error } = await supabase.rpc('get_dashboard_stalled_products', { p_days: stalledPeriod });
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error('Resposta inválida dos produtos sem venda.');
+      return data.map((row: any) => ({
+        productId: String(row.product_id),
+        variationId: row.variation_id ? String(row.variation_id) : undefined,
+        name: String(row.product_name || 'Produto'),
+        quantity: 0,
+        revenue: 0,
+        profit: 0,
+        margin: 0,
+        lastSoldAt: row.last_sold_at ?? null,
+      }));
+    },
+  });
 
   const productMap = useMemo(() => {
     const map = new Map<string, ProductStat>();
@@ -64,24 +91,6 @@ export const useDashboardProducts = (
     return result;
   }, [filteredOrders]);
 
-  const stalledProductIds = useMemo(() => {
-    const now = new Date();
-    const cutoff = new Date(now);
-    cutoff.setDate(cutoff.getDate() - stalledPeriod);
-
-    const activeInPeriod = new Set<string>();
-    for (const order of allActiveOrders) {
-      const orderDate = order.date ? new Date(order.date) : null;
-      if (!orderDate || orderDate < cutoff) continue;
-      if (!isDashboardSaleOrder(order)) continue;
-      for (const item of order.items || []) {
-        if (item.productId) activeInPeriod.add(item.variationId || item.productId);
-      }
-    }
-
-    return productMap.filter((p) => !activeInPeriod.has(p.variationId || p.productId));
-  }, [productMap, allActiveOrders, stalledPeriod]);
-
   const top5 = (arr: ProductStat[], key: 'quantity' | 'revenue' | 'profit'): ProductStat[] =>
     [...arr].sort((a, b) => b[key] - a[key]).slice(0, 5);
 
@@ -89,8 +98,11 @@ export const useDashboardProducts = (
     topByQuantity: top5(productMap, 'quantity'),
     topByRevenue: top5(productMap, 'revenue'),
     topByProfit: top5(productMap, 'profit'),
-    stalled: stalledProductIds.slice(0, 10),
+    stalled: stalledQuery.data ?? [],
     stalledPeriod,
     setStalledPeriod,
+    stalledLoading: stalledQuery.isLoading,
+    stalledError: stalledQuery.isError,
+    retryStalled: () => stalledQuery.refetch(),
   };
 };

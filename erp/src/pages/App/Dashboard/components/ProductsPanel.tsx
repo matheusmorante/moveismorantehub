@@ -31,7 +31,11 @@ const ProductsPanel: React.FC<ProductsPanelProps> = ({ data }) => {
   const formatValue = (item: any) => {
     if (tab === 'topByQuantity') return `${item.quantity} un.`;
     if (tab === 'topByProfit') return formatCurrency(item.profit);
-    if (tab === 'stalled') return `${item.quantity} un. vendidas`;
+    if (tab === 'stalled') {
+      return item.lastSoldAt
+        ? `Última venda ${new Date(item.lastSoldAt).toLocaleDateString('pt-BR')}`
+        : 'Nunca vendeu';
+    }
     return formatCurrency(item.revenue);
   };
 
@@ -87,7 +91,14 @@ const ProductsPanel: React.FC<ProductsPanelProps> = ({ data }) => {
       )}
 
       {/* Items list */}
-      {items.length === 0 ? (
+      {tab === 'stalled' && data.stalledLoading ? (
+        <div role="status" className="py-6 text-center text-xs font-semibold text-slate-400">Consultando produtos do catálogo…</div>
+      ) : tab === 'stalled' && data.stalledError ? (
+        <div role="alert" className="py-6 text-center">
+          <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Não foi possível verificar os produtos parados.</p>
+          <button type="button" onClick={() => void data.retryStalled()} className="mt-2 text-xs font-black text-blue-600 hover:text-blue-700">Tentar novamente</button>
+        </div>
+      ) : items.length === 0 ? (
         <div className="text-center py-8">
           <i className="bi bi-inbox text-3xl text-slate-200 dark:text-slate-700 block mb-2" />
           <p className="text-xs text-slate-400 font-semibold">

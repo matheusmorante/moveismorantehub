@@ -326,9 +326,9 @@ export const PriceLabelArtEditorPreview: React.FC<PriceLabelArtEditorPreviewProp
         setSelectedElement(null);
         setSelectedElements(new Set());
       }}
-      className="flex-1 w-full h-full flex flex-col items-center justify-center p-6 sm:p-10 lg:p-14 bg-slate-200/50 dark:bg-slate-950/80 overflow-y-auto custom-scrollbar relative z-20"
+      className="relative z-20 flex h-full w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-slate-200/50 p-2 custom-scrollbar dark:bg-slate-950/80 sm:p-6 lg:p-14"
     >
-      <div className="w-full max-w-full lg:max-w-4xl xl:max-w-5xl flex flex-col items-center justify-center my-auto p-4 sm:p-6 overflow-visible">
+      <div className="my-auto flex w-full max-w-full flex-col items-center justify-center overflow-visible p-1 sm:p-4 lg:max-w-4xl lg:p-6 xl:max-w-5xl">
         {/* Etiqueta de Preço: Renderizador Unificado 1:1 */}
         <PriceLabelArtRenderer
           containerRefOut={previewRef}

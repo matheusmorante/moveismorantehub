@@ -14,13 +14,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  FileText,
-  Grid3X3,
-  Images,
-  Info,
   Lock,
-  Package,
-  Receipt,
   Save,
   X,
 } from 'lucide-react-native';
@@ -49,8 +43,6 @@ import {
 import {
   initializeMobileProductCode,
   resolveMobileProductFormHasVariations,
-  shouldShowMobileProductCompositionTab,
-  shouldShowMobileProductVariationsTab,
 } from '../domain/mobileProductVariationMode';
 import { resolveMobileVariationImages } from '../domain/mobileVariationImages';
 import {
@@ -64,7 +56,6 @@ import {
   resolveMobileProductFormErrorNavigation,
   resolveMobileProductFormErrorMessage,
   type MobileProductFormErrorNavigation,
-  type MobileProductFormTabId,
 } from '../domain/mobileProductFormErrorNavigation';
 import {
   getPersistableProductTechnicalValues,
@@ -103,64 +94,9 @@ import {
   ProductFormReadinessChecklist,
   type ProductFormReadinessItem,
 } from './ProductFormReadinessChecklist';
+import { TABS, type TabId } from './productFormTabs';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 import { fetchMobileProductFiscalDefaults } from '../services/mobileProductFiscalService';
-
-// ─── Tabs ────────────────────────────────────────────────────────────────────
-type TabId = MobileProductFormTabId;
-
-interface Tab {
-  id: TabId;
-  label: string;
-  Icon?: React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
-  condition?: (formData: any, isStockistOnly: boolean) => boolean;
-}
-
-const TABS: Tab[] = [
-  { id: 'geral', label: 'Informações Básicas' },
-  {
-    id: 'fotos',
-    label: 'Fotos',
-    Icon: Images,
-    condition: (formData, isStockistOnly) => formData.itemType !== 'service' && !isStockistOnly,
-  },
-  {
-    id: 'technical',
-    label: 'Características',
-    Icon: Info,
-    condition: (formData, isStockistOnly) => formData.itemType !== 'service' && !isStockistOnly,
-  },
-  {
-    id: 'description',
-    label: 'Descrição',
-    Icon: FileText,
-    condition: (formData, isStockistOnly) => formData.itemType !== 'service' && !isStockistOnly,
-  },
-  {
-    id: 'estoque',
-    label: 'Estoque e Precificação',
-    Icon: Package,
-    condition: (formData) => formData.itemType !== 'service',
-  },
-  {
-    id: 'variacoes',
-    label: 'Variações',
-    Icon: Grid3X3,
-    condition: (formData) => shouldShowMobileProductVariationsTab(formData),
-  },
-  {
-    id: 'composicao',
-    label: 'Composição',
-    Icon: Package,
-    condition: (formData) => shouldShowMobileProductCompositionTab(formData),
-  },
-  {
-    id: 'fiscal',
-    label: 'Tributário / NF',
-    Icon: Receipt,
-    condition: (formData) => formData.itemType !== 'composition',
-  },
-];
 
 // ─── Estado inicial ──────────────────────────────────────────────────────────
 const INITIAL_FORM = {

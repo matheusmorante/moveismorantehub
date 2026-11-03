@@ -53,8 +53,8 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
   state,
   handlers,
 }) => (
-  <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-3 lg:col-span-3">
+  <div className="grid w-full max-w-4xl grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3 lg:gap-6">
+    <div className="space-y-3 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl sm:p-6 lg:col-span-3">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
           Nome do Modelo
@@ -76,7 +76,7 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
       </p>
     </div>
 
-    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
+    <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl sm:p-6 lg:p-8">
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Papel</p>
       <select
         aria-label="Papel do modelo"
@@ -118,7 +118,7 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
       )}
     </div>
 
-    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
+    <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl sm:p-6 lg:p-8">
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
         Grade de Impressão
       </p>
@@ -150,7 +150,7 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
       </div>
     </div>
 
-    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
+    <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl sm:p-6 lg:p-8">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
           Escala da Imagem (Zoom)
@@ -188,7 +188,7 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
       </p>
     </div>
 
-    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4">
+    <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl sm:p-6 lg:p-8">
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
         Distância entre Etiquetas (Gaps mm)
       </p>
@@ -220,7 +220,7 @@ export const LabelGridModelSettingsPanel: React.FC<LabelGridModelSettingsPanelPr
       </div>
     </div>
 
-    <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-4 lg:col-span-3">
+    <div className="space-y-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl sm:p-6 lg:col-span-3 lg:p-8">
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
         Margens do Papel (Sangria mm)
       </p>

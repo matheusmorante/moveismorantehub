@@ -25,8 +25,10 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { useReceipts } from '../hooks/useReceipts';
-import { ReceiptCheckScreen } from './ReceiptCheckScreen';
 import { NewGoodsReceiptModal } from '../modals/NewGoodsReceiptModal';
+import type { Invoice } from '../../types/stock.types';
+import { ReceiptDetailsModal } from '../modals/ReceiptDetailsModal';
+import { ReceiptMovementDetailsModal } from '../modals/ReceiptMovementDetailsModal';
 import { supabase } from '../../../../services/supabaseClient';
 import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
 import { fetchInUseInvoiceKeys, IN_USE_INVOICE_MESSAGE } from '../../../../../../shared-utils/receiptInvoiceAvailability';
@@ -42,6 +44,8 @@ import {
 interface Props {
   isDarkMode: boolean;
   canPrintIdentificationLabels?: boolean;
+  startWithInvoice?: Invoice | null;
+  onStartWithInvoiceConsumed?: () => void;
   onBack: () => void;
   renderHeader: (rightAction?: ReactNode) => React.ReactElement;
 }
@@ -52,7 +56,14 @@ type ReceiptActionDialog =
   | { kind: 'confirm'; action: 'discard' | 'reverse' | 'unreverse'; receipt: any }
   | { kind: 'error'; title: string; message: string };
 
-export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, canPrintIdentificationLabels = false, onBack, renderHeader }) => {
+export const ReceiptsScreen: React.FC<Props> = ({
+  isDarkMode,
+  canPrintIdentificationLabels = false,
+  startWithInvoice = null,
+  onStartWithInvoiceConsumed,
+  onBack,
+  renderHeader,
+}) => {
   const { receipts, loading, loadingMore, loadMore, loadError, reload } = useReceipts();
   const { openLabels } = useMobileLabels();
   const { width } = useWindowDimensions();
@@ -60,9 +71,12 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, canPrintIdentifica
   const menuAnchor = useRef<View>(null);
   const [focusedReceipt, setFocusedReceipt] = useState<any | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<any | null>(null);
+  const [selectedMovementReceipt, setSelectedMovementReceipt] = useState<any | null>(null);
   const [receiptMenu, setReceiptMenu] = useState<any | null>(null);
   const [receiptToResume, setReceiptToResume] = useState<any | null>(null);
   const [receiptToEdit, setReceiptToEdit] = useState<any | null>(null);
+  const [invoiceToStart, setInvoiceToStart] = useState<Invoice | null>(startWithInvoice);
+  const consumedStartInvoiceRef = useRef('');
   const [isNewReceiptOpen, setIsNewReceiptOpen] = useState(false);
   const [isReceiptActionRunning, setIsReceiptActionRunning] = useState(false);
   const [receiptActionDialog, setReceiptActionDialog] = useState<ReceiptActionDialog | null>(null);
@@ -70,6 +84,15 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, canPrintIdentifica
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 16 });
   const [unreverseCheck, setUnreverseCheck] = useState<{ id: string; state: 'checking' | 'available' | 'blocked' | 'error' } | null>(null);
   const receiptMenuKey = receiptMenu?.fiscal_key || receiptMenu?.fiscalKey || '';
+  useEffect(() => {
+    if (!startWithInvoice || consumedStartInvoiceRef.current === startWithInvoice.id) return;
+    consumedStartInvoiceRef.current = startWithInvoice.id;
+    setInvoiceToStart(startWithInvoice);
+    setReceiptToResume(null);
+    setReceiptToEdit(null);
+    setIsNewReceiptOpen(true);
+    onStartWithInvoiceConsumed?.();
+  }, [startWithInvoice?.id]);
   useEffect(() => {
     let active = true;
     if (!receiptMenu || receiptMenu.status !== 'estornado' || !receiptMenuKey) {
@@ -174,19 +197,6 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, canPrintIdentifica
     if (!focusedReceipt) return;
     requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
   }, [focusedReceipt]);
-
-  if (selectedReceipt) {
-    return (
-      <ReceiptCheckScreen
-        isDarkMode={isDarkMode}
-        receipt={selectedReceipt}
-        onBack={() => setSelectedReceipt(null)}
-        onCompleted={() => {
-          void reload();
-        }}
-      />
-    );
-  }
 
   const data: any[] = [
     { type: 'MODULE_HEADER', id: 'MODULE_HEADER' },
@@ -309,7 +319,7 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, canPrintIdentifica
                     </Text>
                   </View>
                   <View style={styles.receiptStatusGroup}>
-                    <View
+                    <TouchableOpacity
                       style={[
                         styles.movementBadge,
                         isDraft
@@ -318,9 +328,13 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, canPrintIdentifica
                             ? styles.movementBadgeReversed
                             : styles.movementBadgeEffective,
                       ]}
-                      accessible
-                      accessibilityRole="image"
-                      accessibilityLabel={`Movimentação do recebimento: ${movementBadgeLabel}`}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        setSelectedMovementReceipt(r);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Movimentação do recebimento: ${movementBadgeLabel}. Abrir detalhes por item`}
+                      accessibilityHint="Mostra a situação da entrada de estoque para cada item"
                     >
                       {isEstornado ? (
                         <PackageX size={16} color="#ffffff" />
@@ -332,7 +346,7 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, canPrintIdentifica
                           <Check size={7} color="#ffffff" strokeWidth={3} />
                         </View>
                       )}
-                    </View>
+                    </TouchableOpacity>
                     <View
                       style={[
                         styles.badge,
@@ -702,9 +716,23 @@ export const ReceiptsScreen: React.FC<Props> = ({ isDarkMode, canPrintIdentifica
           setIsNewReceiptOpen(false);
           setReceiptToResume(null);
           setReceiptToEdit(null);
+          setInvoiceToStart(null);
         }}
         onSaved={() => void reload()}
         onManageInUseInvoice={handleManageInUseInvoice}
+        initialInvoice={invoiceToStart}
+      />
+      <ReceiptDetailsModal
+        visible={Boolean(selectedReceipt)}
+        isDarkMode={isDarkMode}
+        receipt={selectedReceipt}
+        onClose={() => setSelectedReceipt(null)}
+      />
+      <ReceiptMovementDetailsModal
+        visible={Boolean(selectedMovementReceipt)}
+        isDarkMode={isDarkMode}
+        receipt={selectedMovementReceipt}
+        onClose={() => setSelectedMovementReceipt(null)}
       />
     </View>
   );

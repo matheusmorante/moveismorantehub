@@ -32,7 +32,7 @@ __export(inbound_manifestation_exports, {
   default: () => handler
 });
 module.exports = __toCommonJS(inbound_manifestation_exports);
-var import_node_crypto4 = require("node:crypto");
+var import_node_crypto5 = require("node:crypto");
 
 // api/supabaseSecretKey.ts
 var import_dotenv = __toESM(require("dotenv"));
@@ -852,10 +852,8 @@ function parseInboundManifestationBatchResponse(xml) {
   }));
 }
 
-// api/nfe/inbound-manifestation.ts
-var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
-var serviceKey = getSupabaseSecretKey() || "";
-var isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+// api/nfe/inbound-manifestation/processAutomaticScienceBatch.ts
+var import_node_crypto4 = require("node:crypto");
 async function processAutomaticScienceBatch(db, candidates, hasMore, configuredCnpj, userId, pfxBase64) {
   const environment = Number(candidates[0]?.ambiente);
   let certificate;
@@ -1052,6 +1050,11 @@ async function processAutomaticScienceBatch(db, candidates, hasMore, configuredC
     }
   };
 }
+
+// api/nfe/inbound-manifestation.ts
+var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
+var serviceKey = getSupabaseSecretKey() || "";
+var isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "OPTIONS,POST");
@@ -1067,7 +1070,7 @@ async function handler(req, res) {
   if (!authorization.ok)
     return res.status(authorization.status).json({ success: false, error: authorization.message });
   const automatic = req.body?.action === "process-auto";
-  const requestId = automatic ? (0, import_node_crypto4.randomUUID)() : String(req.body?.requestId || "");
+  const requestId = automatic ? (0, import_node_crypto5.randomUUID)() : String(req.body?.requestId || "");
   let accessKey = normalizeFiscalIdentifier(req.body?.accessKey);
   if (!automatic && !ACCESS_KEY_PATTERN.test(accessKey))
     return res.status(400).json({ success: false, error: "Chave de acesso inv\xE1lida." });

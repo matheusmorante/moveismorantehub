@@ -8,7 +8,6 @@ import {
   PackageX,
   ShoppingBag,
   QrCode,
-  Tag,
   Users,
 } from 'lucide-react-native';
 import stockGuide from '../../../../../../shared-utils/stockGuide.json';
@@ -68,12 +67,6 @@ export const STOCK_MODULES: StockModuleItem[] = [
     title: 'Etiquetas de identificação',
     description: 'Identifique produtos e variações',
     Icon: QrCode,
-  },
-  {
-    key: 'labels-price',
-    title: 'Etiquetas de preço',
-    description: 'Prepare etiquetas para exposição e venda',
-    Icon: Tag,
   },
   {
     key: 'guide',

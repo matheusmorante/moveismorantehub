@@ -29,6 +29,7 @@ import {
   normalizeSavedReportProducts,
   normalizeSavedReportResults,
 } from '../utils/savedSalesReportHydration';
+import { sortSalesReportResults } from '../utils/sortSalesReportResults';
 import SupplierPerformanceView from './SupplierPerformanceView';
 
 const ReportView = () => {
@@ -155,29 +156,10 @@ const ReportView = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
-  const sortedResults = useMemo(() => {
-    const items = [...results];
-    if (sortConfig.key) {
-      items.sort((a: any, b: any) => {
-        let aVal = a[sortConfig.key];
-        let bVal = b[sortConfig.key];
-
-        if (sortConfig.key === 'giroMensal') {
-          aVal = a.totalQuantity / (monthCount || 1);
-          bVal = b.totalQuantity / (monthCount || 1);
-        }
-        if (sortConfig.key === 'lucroMensal') {
-          aVal = a.totalProfit / (monthCount || 1);
-          bVal = b.totalProfit / (monthCount || 1);
-        }
-
-        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-    return items;
-  }, [results, sortConfig, monthCount]);
+  const sortedResults = useMemo(
+    () => sortSalesReportResults(results, sortConfig, monthCount),
+    [results, sortConfig, monthCount],
+  );
 
   const handleSort = (key: string) => {
     setSortConfig((prev) => ({

@@ -3,6 +3,7 @@ import { QueryClient } from '@tanstack/react-query';
 
 const mockDb = vi.hoisted(() => ({
   from: vi.fn(),
+  rpc: vi.fn(),
   channel: vi.fn(),
   removeChannel: vi.fn(),
   realtimeCallback: { current: undefined as (() => void) | undefined },
@@ -27,6 +28,7 @@ afterEach(() => {
 describe('dashboard order projections', () => {
   beforeEach(() => {
     mockDb.from.mockReset();
+    mockDb.rpc.mockReset();
   });
 
   it('returns the narrow recent-order fields consumed by the dashboard card', async () => {
@@ -89,6 +91,42 @@ describe('dashboard order projections', () => {
     expect(query.or.mock.invocationCallOrder[0]).toBeLessThan(
       query.limit.mock.invocationCallOrder[0]
     );
+  });
+
+  it('propagates dashboard read errors instead of caching an empty result', async () => {
+    const error = new Error('leitura indisponível');
+    const query: any = {};
+    query.select = vi.fn(() => query);
+    query.in = vi.fn(() => query);
+    query.or = vi.fn(() => query);
+    query.order = vi.fn(() => query);
+    query.limit = vi.fn(() => query);
+    query.gte = vi.fn(() => query);
+    query.lte = vi.fn(() => query);
+    query.range = vi.fn().mockResolvedValue({ data: null, error });
+    query.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: null, error }).then(resolve);
+    mockDb.from.mockReturnValue(query);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(fetchRecentOrders()).resolves.toEqual([]);
+    await expect(fetchRecentOrders(5, { throwOnError: true })).rejects.toBe(error);
+    await expect(fetchGeoMapOrders(50, { throwOnError: true })).rejects.toBe(error);
+    await expect(fetchAllOrdersForDashboard(undefined, { throwOnError: true })).rejects.toBe(error);
+  });
+
+  it('preserves the scheduled-order fallback and supports strict dashboard reads', async () => {
+    const error = new Error('agendamentos indisponíveis');
+    const query: any = {};
+    query.select = vi.fn(() => query);
+    query.in = vi.fn(() => query);
+    query.or = vi.fn(() => query);
+    query.order = vi.fn(() => query);
+    query.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: null, error }).then(resolve);
+    mockDb.from.mockReturnValue(query);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(fetchScheduledAndDraftOrders()).resolves.toEqual([]);
+    await expect(fetchScheduledAndDraftOrders({ throwOnError: true })).rejects.toBe(error);
   });
 });
 
@@ -198,6 +236,7 @@ describe('fetchOrdersPage', () => {
     query.not = vi.fn(() => query);
     query.eq = vi.fn(() => query);
     query.ilike = vi.fn(() => query);
+    query.filter = vi.fn(() => query);
     query.order = vi.fn(() => query);
     query.range = vi
       .fn()
@@ -335,6 +374,7 @@ describe('fetchScheduledAndDraftOrders', () => {
 describe('fetchAllOrdersForDashboard', () => {
   beforeEach(() => {
     mockDb.from.mockReset();
+    mockDb.rpc.mockReset();
   });
 
   it('excludes marked HML fiscal fixtures from dashboard reads', async () => {
@@ -346,8 +386,6 @@ describe('fetchAllOrdersForDashboard', () => {
     });
     query.or = vi.fn(() => query);
     query.order = vi.fn(() => query);
-    query.gte = vi.fn(() => query);
-    query.lte = vi.fn(() => query);
     query.range = vi.fn(() => query);
     query.then = (resolve: (value: unknown) => unknown) =>
       Promise.resolve({
@@ -365,13 +403,15 @@ describe('fetchAllOrdersForDashboard', () => {
             id: 'regular-order',
             status: 'scheduled',
             order_type: 'sale',
+            created_at: '2026-10-02T01:00:00.000Z',
+            order_date: '2026-10-01T03:00:00.000Z',
             shipping_data: { distance: 12.5 },
             order_items: [],
           },
         ],
         error: null,
       }).then(resolve);
-    mockDb.from.mockReturnValue(query);
+    mockDb.rpc.mockReturnValue(query);
 
     const orders = await fetchAllOrdersForDashboard({
       start: new Date('2026-10-01T00:00:00.000Z'),
@@ -380,7 +420,13 @@ describe('fetchAllOrdersForDashboard', () => {
 
     expect(selectedColumns[0]).toContain('test_run_id:order_data->>testRunId');
     expect(selectedColumns[0]).toContain('shipping_data:order_data->shipping');
+    expect(selectedColumns[0]).toContain('order_date:order_data->>date');
+    expect(mockDb.rpc).toHaveBeenCalledWith('get_dashboard_orders_by_effective_date', {
+      p_start: '2026-10-01T00:00:00.000Z',
+      p_end: '2026-10-05T23:59:59.999Z',
+    });
     expect(orders.map((order) => order.id)).toEqual(['regular-order']);
+    expect(orders[0].date).toBe('2026-10-01T03:00:00.000Z');
     expect(orders[0].shipping.distance).toBe(12.5);
   });
 });

@@ -17,12 +17,10 @@ interface InboundItemSingleModeProps {
   linked: boolean;
   displayName?: string;
   displayCode?: string;
-  displaySellingPrice: number;
   onSelectProduct: (itemNumber: number, product: Product, variation?: Variation) => void;
   onAcceptSuggestion: (item: InboundInvoiceItem, suggestion: InboundSuggestion) => void;
   onRejectSuggestion: (item: InboundInvoiceItem) => void;
   onRemoveLink: (item: InboundInvoiceItem) => void;
-  onRequestEditProduct: (product: Product, variation?: Variation) => void;
 }
 
 export const InboundItemSingleMode: React.FC<InboundItemSingleModeProps> = ({
@@ -35,12 +33,10 @@ export const InboundItemSingleMode: React.FC<InboundItemSingleModeProps> = ({
   linked,
   displayName,
   displayCode,
-  displaySellingPrice,
   onSelectProduct,
   onAcceptSuggestion,
   onRejectSuggestion,
   onRemoveLink,
-  onRequestEditProduct,
 }) => {
   if (linked) {
     return (
@@ -55,10 +51,6 @@ export const InboundItemSingleMode: React.FC<InboundItemSingleModeProps> = ({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
               <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
                 SKU: {displayCode}
-              </span>
-              <span className="text-emerald-400/50 hidden sm:inline">•</span>
-              <span className="text-[10px] text-emerald-700 dark:text-emerald-300">
-                Venda: <b>{formatCurrency(displaySellingPrice)}</b>
               </span>
               <span className="text-emerald-400/50 hidden sm:inline">•</span>
               <span className="text-[10px] text-emerald-700 dark:text-emerald-300">
@@ -97,7 +89,6 @@ export const InboundItemSingleMode: React.FC<InboundItemSingleModeProps> = ({
             isSelected={false}
             placeholder="Digite pelo menos 3 caracteres para buscar..."
             onSelect={(product, variation) => onSelectProduct(item.itemNumber, product, variation)}
-            onEditClick={onRequestEditProduct}
           />
         </div>
       </div>

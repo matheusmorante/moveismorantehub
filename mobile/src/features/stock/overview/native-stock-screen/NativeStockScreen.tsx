@@ -16,6 +16,7 @@ import stockGuide from '../../../../../../shared-utils/stockGuide.json';
 import { getProductProfileRoles, normalizePermissionRoles } from '../../../../../../shared-utils/productPermissions';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useMobileLabels } from '../../labels/MobileLabelsProvider';
+import type { Invoice } from '../../types/stock.types';
 
 interface Props {
   isDarkMode: boolean;
@@ -27,14 +28,16 @@ export const NativeStockScreen: React.FC<Props> = ({
   userProfile,
 }) => {
   const [selectedModuleIndex, setSelectedModuleIndex] = useState<number | null>(null);
+  const [invoiceToReceive, setInvoiceToReceive] = useState<Invoice | null>(null);
   const selectedModule =
     selectedModuleIndex === null ? null : STOCK_MODULES[selectedModuleIndex];
   const roles = normalizePermissionRoles(getProductProfileRoles(userProfile));
   const canAccessReceipts = roles.includes('administrator') || roles.includes('stockist');
   const { canUsePermission, canUseProductPermission } = useAuth();
   const { openLabels } = useMobileLabels();
-  const canAccessLabels = canUsePermission('viewStockLabels', ['manager', 'deliverer', 'stockist']);
-  const canAccessIdentificationLabels = canAccessLabels || canUseProductPermission('printProductIdentificationLabels');
+  const canAccessIdentificationLabels =
+    canUsePermission('viewStockLabels', ['manager', 'deliverer', 'stockist']) ||
+    canUseProductPermission('printProductIdentificationLabels');
   const returnToMenu = () => setSelectedModuleIndex(null);
 
   const renderModuleHeader = (rightAction?: ReactNode) => (
@@ -87,8 +90,14 @@ export const NativeStockScreen: React.FC<Props> = ({
         return (
           <InvoicesScreen
             isDarkMode={isDarkMode}
+            canAccessReceipts={canAccessReceipts}
             renderHeader={renderModuleHeader}
             onBack={returnToMenu}
+            onGenerateReceipt={(invoice) => {
+              if (!canAccessReceipts) return;
+              setInvoiceToReceive(invoice);
+              setSelectedModuleIndex(STOCK_MODULES.findIndex((module) => module.key === 'receipts'));
+            }}
           />
         );
       case 'receipts':
@@ -97,6 +106,8 @@ export const NativeStockScreen: React.FC<Props> = ({
           <ReceiptsScreen
             isDarkMode={isDarkMode}
             canPrintIdentificationLabels={canAccessIdentificationLabels}
+            startWithInvoice={invoiceToReceive}
+            onStartWithInvoiceConsumed={() => setInvoiceToReceive(null)}
             renderHeader={renderModuleHeader}
             onBack={returnToMenu}
           />
@@ -132,8 +143,7 @@ export const NativeStockScreen: React.FC<Props> = ({
           </Text>
           {STOCK_MODULES.map(({ key, title, description, Icon }, index) =>
             (key === 'receipts' && !canAccessReceipts) ||
-            (key === 'labels-identification' && !canAccessIdentificationLabels) ||
-            (key === 'labels-price' && !canAccessLabels) ? null : (
+            (key === 'labels-identification' && !canAccessIdentificationLabels) ? null : (
             <TouchableOpacity
               key={key}
               testID={`stock-module-${key}`}
@@ -142,8 +152,8 @@ export const NativeStockScreen: React.FC<Props> = ({
                   void Linking.openURL(`${WEB_URL.replace(/\/$/, '')}${stockGuide.path}`).catch(() => {
                     Alert.alert('Guia do estoque', 'Não foi possível abrir o guia. Tente novamente.');
                   });
-                } else if (key === 'labels-identification' || key === 'labels-price') {
-                  openLabels({ category: key === 'labels-price' ? 'precos' : 'identificacao' });
+                } else if (key === 'labels-identification') {
+                  openLabels({ category: 'identificacao' });
                 } else {
                   setSelectedModuleIndex(index);
                 }

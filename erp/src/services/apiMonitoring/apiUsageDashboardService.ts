@@ -2,6 +2,7 @@ import { supabase } from '../../pages/utils/supabaseConfig';
 import { ApiConfigService } from './apiConfigService';
 import { getModuleDefinition } from './apiModuleMapper';
 import {
+  ApiProvider,
   ApiEnvironment,
   ApiDashboardMetrics,
   ApiModelUsageBreakdown,
@@ -19,71 +20,17 @@ export const getApiUsageDashboardMetrics = async (
 ): Promise<ApiDashboardMetrics> => {
   const configs = await ApiConfigService.getAllConfigurations();
 
-  let dailyRows: any[] = [];
-  try {
-    let query = supabase
-      .from('api_usage_daily')
-      .select('*')
-      .gte('usage_date', startDate)
-      .lte('usage_date', endDate);
-
-    if (environment !== 'all') {
-      query = query.eq('environment', environment);
-    }
-
-    const { data, error } = await query;
-
-    if (!error && data) {
-      dailyRows = data;
-    }
-  } catch (e) {
-    console.warn('Erro ao buscar api_usage_daily:', e);
+  const { data: aggregateData, error: aggregateError } = await supabase.rpc(
+    'get_api_usage_dashboard_aggregates',
+    { p_start_date: startDate, p_end_date: endDate, p_environment: environment },
+  );
+  if (aggregateError) throw aggregateError;
+  if (!aggregateData || typeof aggregateData !== 'object') {
+    throw new Error('Resposta inválida das métricas de uso de APIs.');
   }
-
-  // Fallback: Se api_usage_daily estiver vazia, consulta a tabela bruta api_usage_logs
-  if (dailyRows.length === 0) {
-    try {
-      let logsQuery = supabase
-        .from('api_usage_logs')
-        .select('service, units, cost_estimated, cache_hit, created_at')
-        .gte('created_at', `${startDate}T00:00:00.000Z`)
-        .lte('created_at', `${endDate}T23:59:59.999Z`);
-
-      if (environment !== 'all') {
-        logsQuery = logsQuery.eq('environment', environment);
-      }
-
-      const { data: rawLogs } = await logsQuery;
-
-      if (rawLogs && rawLogs.length > 0) {
-        const aggregated: Record<
-          string,
-          { total_requests: number; estimated_cost: number; cache_hits: number }
-        > = {};
-
-        rawLogs.forEach((log) => {
-          const s = log.service;
-          if (!aggregated[s]) {
-            aggregated[s] = { total_requests: 0, estimated_cost: 0, cache_hits: 0 };
-          }
-          aggregated[s].total_requests += Number(log.units || 1);
-          aggregated[s].estimated_cost += Number(log.cost_estimated || 0);
-          if (log.cache_hit) {
-            aggregated[s].cache_hits += Number(log.units || 1);
-          }
-        });
-
-        dailyRows = Object.entries(aggregated).map(([service, stats]) => ({
-          service,
-          total_requests: stats.total_requests,
-          estimated_cost: stats.estimated_cost,
-          cache_hits: stats.cache_hits,
-        }));
-      }
-    } catch (err) {
-      console.warn('Erro no fallback de busca em api_usage_logs:', err);
-    }
-  }
+  const aggregate = aggregateData as { daily?: any[]; details?: any[] };
+  const dailyRows = Array.isArray(aggregate.daily) ? aggregate.daily : [];
+  const detailedLogs = Array.isArray(aggregate.details) ? aggregate.details : [];
 
   const now = new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -189,29 +136,6 @@ export const getApiUsageDashboardMetrics = async (
     }
   });
 
-  // Buscar logs analíticos para obter quebra precisa por MÓDULO e MODELO
-  let detailedLogs: any[] = [];
-  try {
-    let logsQuery = supabase
-      .from('api_usage_logs')
-      .select(
-        'provider, service, operation, units, status, module_source, cost_estimated, created_at'
-      )
-      .gte('created_at', `${startDate}T00:00:00.000Z`)
-      .lte('created_at', `${endDate}T23:59:59.999Z`);
-
-    if (environment !== 'all') {
-      logsQuery = logsQuery.eq('environment', environment);
-    }
-
-    const { data } = await logsQuery;
-    if (data && data.length > 0) {
-      detailedLogs = data;
-    }
-  } catch (err) {
-    console.warn('Aviso ao buscar logs analíticos de módulos/modelos:', err);
-  }
-
   // Agregação por MODELO
   const modelMap: Record<
     string,
@@ -239,21 +163,14 @@ export const getApiUsageDashboardMetrics = async (
   detailedLogs.forEach((log) => {
     const sId = log.service || 'gemini_flash';
     const prov = (log.provider || 'gemini') as ApiProvider;
-    const units = Number(log.units || 1);
-    const cost = Number(log.cost_estimated || 0);
+    const units = Number(log.total_units || 0);
+    const requestCount = Number(log.total_requests || 0);
+    const cost = Number(log.estimated_cost || 0);
     const mod = log.module_source || 'general';
 
     const config = configs[sId];
     const sName = config?.service_name || sId;
-
-    // Extrair modelo específico da operação se existir (ex: "... [gemini-3.8-flash]")
-    let specificModel = sName;
-    if (log.operation && log.operation.includes('[') && log.operation.includes(']')) {
-      const match = log.operation.match(/\[(.*?)\]/);
-      if (match && match[1]) {
-        specificModel = match[1].trim();
-      }
-    }
+    const specificModel = String(log.model || sName);
 
     // Modelo
     if (!modelMap[specificModel]) {
@@ -266,7 +183,7 @@ export const getApiUsageDashboardMetrics = async (
         estimatedCostBrl: 0,
       };
     }
-    modelMap[specificModel].totalRequests += 1;
+    modelMap[specificModel].totalRequests += requestCount;
     modelMap[specificModel].estimatedCostBrl += cost;
     if (prov === 'gemini' && sId !== 'gemini_image') {
       modelMap[specificModel].totalTokens += units;
@@ -282,36 +199,14 @@ export const getApiUsageDashboardMetrics = async (
         modelCounts: {},
       };
     }
-    moduleMap[mod].totalRequests += 1;
+    moduleMap[mod].totalRequests += requestCount;
     moduleMap[mod].estimatedCostBrl += cost;
     if (prov === 'gemini' && sId !== 'gemini_image') {
       moduleMap[mod].totalTokens += units;
     }
     moduleMap[mod].modelCounts[specificModel] =
-      (moduleMap[mod].modelCounts[specificModel] || 0) + 1;
+      (moduleMap[mod].modelCounts[specificModel] || 0) + requestCount;
   });
-
-  // Se não houver logs na tabela analítica, derivar das summaries existentes
-  if (detailedLogs.length === 0) {
-    summaries.forEach((s) => {
-      if (s.currentMonthUsage > 0 || s.estimatedCost > 0) {
-        modelMap[s.service_id] = {
-          service_id: s.service_id,
-          service_name: s.service_name,
-          provider: s.provider,
-          totalRequests: s.currentMonthUsage,
-          totalTokens:
-            s.provider === 'gemini' && s.service_id !== 'gemini_image'
-              ? s.currentMonthUsage * 350
-              : 0,
-          estimatedCostBrl: s.estimatedCost,
-        };
-        if (s.provider === 'gemini' && s.service_id !== 'gemini_image') {
-          totalAiTokens += s.currentMonthUsage * 350;
-        }
-      }
-    });
-  }
 
   const safeTotalCost = totalCostBrl > 0 ? totalCostBrl : 0.01;
 

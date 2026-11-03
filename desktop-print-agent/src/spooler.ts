@@ -27,7 +27,7 @@ export const sendPdfToWindowsSpooler = async (
     await print(tempPdfPath, {
       printer: printerName,
       copies: preset.copies || 1,
-      paperSize: preset.paperSize || 'A4',
+      ...(preset.paperSize ? { paperSize: preset.paperSize } : {}),
       scale: 'noscale', // A escala exata já foi aplicada milimetricamente pelo Chromium na geração do PDF
       silent: true,
     });

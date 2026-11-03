@@ -8,7 +8,7 @@ export const PriceLabelEditorFooter: React.FC<PriceLabelEditorFooterProps> = ({
   autoSaveStatus,
 }) => {
   return (
-    <div className="flex items-center px-6 lg:px-10 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
+    <div className="flex shrink-0 items-center border-t border-slate-200 bg-white px-3 py-3 dark:border-slate-800 dark:bg-slate-900 sm:px-6 sm:py-3.5 lg:px-10">
       <div
         className={`flex items-center gap-2 text-xs font-bold ${
           autoSaveStatus === 'error' ? 'text-red-600' : 'text-slate-500'

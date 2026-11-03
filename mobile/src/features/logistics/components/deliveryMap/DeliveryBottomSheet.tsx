@@ -16,7 +16,7 @@ import {
   FileText,
   Navigation,
   Timer,
-  Truck,
+  Route,
 } from 'lucide-react-native';
 import { DeliveryRouteItem } from '../../hooks/useDeliveryRoute';
 import { styles } from './deliveryBottomSheet.styles';
@@ -242,10 +242,10 @@ export const DeliveryBottomSheet: React.FC<Props> = ({
                 onPress={handleOpenDeliveryFlow}
                 activeOpacity={0.85}
                 accessibilityRole="button"
-                accessibilityLabel="Iniciar fluxo de entrega"
+                accessibilityLabel="Iniciar fluxo operacional"
               >
-                <Truck size={20} color="#ffffff" strokeWidth={2} />
-                <Text style={styles.deliveryFlowActionText}>INICIAR FLUXO DE ENTREGA</Text>
+                <Route size={20} color="#ffffff" strokeWidth={2} />
+                <Text style={styles.deliveryFlowActionText}>INICIAR FLUXO OPERACIONAL</Text>
               </TouchableOpacity>
             )}
           </View>

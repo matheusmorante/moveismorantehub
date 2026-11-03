@@ -16,6 +16,8 @@ export type MappingItem = {
 export type Supplier = {
   id: string;
   full_name: string;
+  social_name?: string | null;
+  nickname?: string | null;
   cpf_cnpj?: string | null;
   stock_origins?: string[] | null;
 };

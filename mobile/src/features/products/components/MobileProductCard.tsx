@@ -23,7 +23,6 @@ import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
 import { productRestoreFromTrashFormSchema } from '../../../../../shared-utils/productVariationOperationFormSchemas';
 import { getMobileProductCompositionCardItems } from '../domain/mobileProductCardDisplay';
 import {
-  canShowMobileProductPriceLabel,
   canShowMobileSingleVariationReorganizationActions,
   canToggleProductActivationFromCardMenu,
 } from '../domain/mobileProductCardRules';
@@ -156,16 +155,6 @@ export const MobileProductCard: React.FC<Props> = ({
       return;
     }
     openLabels({ category: 'identificacao', productId: String(parentId), variationId, fillSheet: true });
-  };
-
-  const handlePrintPriceLabel = (targetProduct: any, variationId?: string) => {
-    const productId = typeof targetProduct?.id === 'string' ? targetProduct.id.trim() : '';
-    if (!productId) {
-      Alert.alert('Produto indisponível', 'Não foi possível identificar o produto para a etiqueta.');
-      return;
-    }
-
-    openLabels({ category: 'precos', productId, variationId });
   };
 
   return (
@@ -429,15 +418,6 @@ export const MobileProductCard: React.FC<Props> = ({
             : undefined
         }
         onShowOrders={cardActionAvailability.canShowLinkedOrders ? onShowOrders : undefined}
-        onPrintPriceLabel={
-          canShowMobileProductPriceLabel({
-            canEditProducts: canEdit,
-            isLabelOnlyProfile,
-            showTrash,
-          })
-            ? handlePrintPriceLabel
-            : undefined
-        }
       />
 
       {/* Modal de Ações da Variação Única */}
@@ -449,16 +429,6 @@ export const MobileProductCard: React.FC<Props> = ({
           isMerged={isSingleVariationMerged}
           onClose={() => setVariationMenuVisible(false)}
           onPrintLabel={canPrintIdentificationLabel ? handlePrintLabel : undefined}
-          onPrintPriceLabel={
-            canShowMobileProductPriceLabel({
-              canEditProducts: canEdit,
-              isLabelOnlyProfile,
-              showTrash,
-              isMergedVariation: isSingleVariationMerged,
-            })
-              ? () => handlePrintPriceLabel(product, !singleVariation.isVirtual ? singleVariation.id : undefined)
-              : undefined
-          }
           onEdit={
             canEdit && !isLabelOnlyProfile && !isSingleVariationMerged
               ? () => onEdit(product)

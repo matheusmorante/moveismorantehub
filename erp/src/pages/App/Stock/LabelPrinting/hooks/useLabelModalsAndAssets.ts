@@ -152,7 +152,9 @@ export const useLabelModalsAndAssets = ({
       if (!current()) return false;
       if (values.category === 'logos') onAddLogoItem(values.item as LogoItemConfig);
       else onAddLabelItem(values.item as LabelItemConfig);
-      setIsAssetManagerModalOpen(false); toast.success(`${values.item.name} adicionado à fila.`); return true;
+      setIsAssetManagerModalOpen(false);
+      if (values.category === 'logos') toast.success(`${values.item.name} adicionado à fila.`);
+      return true;
     }, (errors) => fail(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da etiqueta.'));
   });
 

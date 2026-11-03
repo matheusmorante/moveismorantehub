@@ -180,7 +180,7 @@ export function planMetaGraphRequest(
       const handle = typeof input.handle === 'string' ? input.handle.trim() : '';
       if (!/^[A-Za-z0-9_=-]{1,512}$/.test(handle)) throw new Error('Identificador do lote inválido.');
       return {
-        permission: 'viewChannelCatalog',
+        permission: 'productConfig',
         method: 'GET',
         path: `${configuredId(settings.catalogId)}/check_batch_request_status?handle=${encodeURIComponent(handle)}`,
       };

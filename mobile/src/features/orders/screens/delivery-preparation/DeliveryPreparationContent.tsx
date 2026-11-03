@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import {
   DeliveryPreparationStep,
   DeliveryRouteStep,
@@ -10,6 +10,7 @@ import { DeliveryResponsibleItem } from './deliveryPreparation.types';
 import { styles } from './deliveryPreparation.styles';
 
 export interface DeliveryPreparationContentProps {
+  topContent: React.ReactNode;
   isInArrival: boolean;
   isInService: boolean;
   isInTransit: boolean;
@@ -29,6 +30,7 @@ export interface DeliveryPreparationContentProps {
   onAddResponsible: (responsible: DeliveryResponsibleItem) => void;
   onRemoveResponsible: (index: number) => void;
   availableStaff: any[];
+  loadingStaff: boolean;
   userProfile?: any;
 }
 
@@ -36,11 +38,12 @@ export interface DeliveryPreparationContentProps {
  * Renderizador de Conteúdo das Etapas do Fluxo de Entrega (SRP).
  * Comuta entre:
  * - Etapa 1: Preparação
- * - Etapa 2: Em Rota
+ * - Etapa 2: Deslocamento
  * - Etapa 3: Chegada (No Local)
  * - Etapa 4: Em Atendimento
  */
 export const DeliveryPreparationContent: React.FC<DeliveryPreparationContentProps> = ({
+  topContent,
   isInArrival,
   isInService,
   isInTransit,
@@ -60,6 +63,7 @@ export const DeliveryPreparationContent: React.FC<DeliveryPreparationContentProp
   onAddResponsible,
   onRemoveResponsible,
   availableStaff,
+  loadingStaff,
   userProfile,
 }) => {
   return (
@@ -71,6 +75,7 @@ export const DeliveryPreparationContent: React.FC<DeliveryPreparationContentProp
         isInArrival && styles.arrivalContent,
       ]}
     >
+      <View style={{ marginHorizontal: -16, marginTop: -16 }}>{topContent}</View>
       {isInService ? (
         <DeliveryServiceStep
           order={order}
@@ -108,6 +113,7 @@ export const DeliveryPreparationContent: React.FC<DeliveryPreparationContentProp
           onAddResponsible={onAddResponsible}
           onRemoveResponsible={onRemoveResponsible}
           availableStaff={availableStaff}
+          loadingStaff={loadingStaff}
           userProfile={userProfile}
           onOpenUnattendedModal={onOpenUnattendedModal}
           isDarkMode={isDarkMode}

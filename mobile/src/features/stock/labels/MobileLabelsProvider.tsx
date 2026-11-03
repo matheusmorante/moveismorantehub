@@ -36,9 +36,7 @@ export function MobileLabelsProvider({ children, isDarkMode }: { children: React
             <TouchableOpacity onPress={close} style={styles.back} accessibilityRole="button" accessibilityLabel="Voltar">
               <ArrowLeft size={20} color={isDarkMode ? '#f8fafc' : '#334155'} />
             </TouchableOpacity>
-            <Text style={[styles.title, isDarkMode && styles.light]}>
-              {request?.category === 'precos' ? 'Etiquetas de preço' : 'Etiquetas de identificação'}
-            </Text>
+            <Text style={[styles.title, isDarkMode && styles.light]}>Etiquetas de identificação</Text>
           </View>
           {request && <LabelSurface request={request} />}
         </View>

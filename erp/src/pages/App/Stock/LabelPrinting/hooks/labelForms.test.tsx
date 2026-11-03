@@ -55,33 +55,54 @@ describe('label form boundaries', () => {
     await act(async () => { await result.current.handlePrintLabels(); });
     expect(mocks.generate).not.toHaveBeenCalled(); expect(mocks.print).not.toHaveBeenCalled(); expect(mocks.error).toHaveBeenCalled();
   });
-  it('não gera identificadores se o aplicativo não puder abrir a impressão', async () => {
-    window.history.replaceState({}, '', '/mobile/etiquetas?cat=identificacao');
-    (window as any).ReactNativeWebView = {
-      postMessage: (data: string) => {
-        const request = JSON.parse(data);
-        window.dispatchEvent(new CustomEvent('morante-label-action-result', {
-          detail: { id: request.id, ok: false, error: 'Impressão indisponível' },
-        }));
-      },
-    };
-    try {
-      const { result } = renderHook(() => useLabelQueue({ selectedCategory: 'identificacao', config: createInitialLabelConfig(), printingMode: 'simple' }));
-      act(() => result.current.setLabelItems([{ name: 'Mesa', price: 'R$ 100', quantity: 1, productId: 'product' }]));
-      await act(async () => { await result.current.handlePrintLabels(); });
-      expect(mocks.generate).not.toHaveBeenCalled();
-      expect(mocks.print).not.toHaveBeenCalled();
-      expect(mocks.error).toHaveBeenCalledWith('Impressão indisponível');
-    } finally {
-      delete (window as any).ReactNativeWebView;
-      window.history.replaceState({}, '', '/');
-    }
+  it('não gera identificadores se a verificação da impressão normal falhar', async () => {
+    mocks.print.mockImplementationOnce(async (method) => {
+      if (method === 'check') throw new Error('Impressão indisponível');
+    });
+    const { result } = renderHook(() => useLabelQueue({ selectedCategory: 'identificacao', config: createInitialLabelConfig(), printingMode: 'simple' }));
+    act(() => result.current.setLabelItems([{ name: 'Mesa', price: 'R$ 100', quantity: 1, productId: 'product' }]));
+    await act(async () => { await result.current.handlePrintLabelsNormally(); });
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.print).toHaveBeenCalledWith('check');
+    expect(mocks.error).toHaveBeenCalledWith('Impressão indisponível');
   });
   it('keeps valid price labels printable without generating inventory identifiers', async () => {
     const { result } = renderHook(() => useLabelQueue({ selectedCategory: 'precos', config: createInitialLabelConfig(), printingMode: 'simple' }));
     act(() => result.current.setLabelItems([{ name: 'Mesa', price: 'CONSULTE', quantity: 2 }]));
     await act(async () => { await result.current.handlePrintLabels(); });
-    expect(mocks.print).toHaveBeenCalledOnce(); expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.print).toHaveBeenCalledOnce(); expect(mocks.print).toHaveBeenCalledWith('advanced'); expect(mocks.generate).not.toHaveBeenCalled();
+  });
+  it('uses a impressão normal after creating identifiers for identification labels', async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.generate.mockResolvedValueOnce([['label-normal']]);
+      const { result } = renderHook(() => useLabelQueue({ selectedCategory: 'identificacao', config: createInitialLabelConfig(), printingMode: 'simple' }));
+      act(() => result.current.setLabelItems([{ name: 'Mesa', price: 'R$ 100', quantity: 1, productId: 'product' }]));
+      let pending!: Promise<unknown>;
+      await act(async () => { pending = result.current.handlePrintLabelsNormally(); });
+      expect(mocks.generate).toHaveBeenCalledOnce();
+      await act(async () => { await vi.advanceTimersByTimeAsync(800); await pending; });
+      expect(mocks.print).toHaveBeenCalledTimes(2);
+      expect(mocks.print).toHaveBeenNthCalledWith(1, 'check');
+      expect(mocks.print).toHaveBeenNthCalledWith(2, 'standard');
+      expect(result.current.labelItems[0].instances).toEqual(['label-normal']);
+      expect(result.current.isPrinting).toBe(false);
+    } finally { vi.useRealTimers(); }
+  });
+  it('mantém a impressão normal pelo sistema e gera identificadores antes da janela', async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.generate.mockResolvedValueOnce([['label-normal']]);
+      const { result } = renderHook(() => useLabelQueue({ selectedCategory: 'identificacao', config: createInitialLabelConfig(), printingMode: 'simple' }));
+      act(() => result.current.setLabelItems([{ name: 'Mesa', price: 'R$ 100', quantity: 1, productId: 'product' }]));
+      let pending!: Promise<unknown>;
+      await act(async () => { pending = result.current.handlePrintLabelsNormally(); });
+      expect(mocks.generate).toHaveBeenCalledOnce();
+      await act(async () => { await vi.advanceTimersByTimeAsync(800); await pending; });
+      expect(mocks.print).toHaveBeenCalledWith('standard');
+      expect(result.current.labelItems[0].instances).toEqual(['label-normal']);
+      expect(result.current.isPrinting).toBe(false);
+    } finally { vi.useRealTimers(); }
   });
   it('abre uma nova etiqueta de preço do aplicativo pronta para selecionar produto', async () => {
     window.history.replaceState({}, '', '/mobile/etiquetas?cat=precos');

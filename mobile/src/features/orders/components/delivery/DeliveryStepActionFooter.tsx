@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SlideHoldToStart } from './SlideHoldToStart';
 
 export interface DeliveryStepActionFooterProps {
-  currentStep: number; // 1: Preparação, 2: Em Rota, 3: Chegada, 4: Em Atendimento
+  currentStep: number; // 1: Preparação, 2: Deslocamento, 3: Chegada, 4: Em Atendimento
   isDarkMode: boolean;
   loading: boolean;
   isChecklistComplete: boolean;
@@ -23,9 +23,9 @@ export interface DeliveryStepActionFooterProps {
  * Posicionado no fim da tela, rigorosamente ancorado na Zona Segura (SafeAreaInsets),
  * sem sobrepor os botões de navegação do dispositivo (Android 3-buttons / Gesture bar).
  * 
- * - Etapa 1: Deslize para a esquerda para INICIAR ROTA (inicia na direita e arrasta para a esquerda).
+ * - Etapa 1: Deslize para a esquerda para INICIAR DESLOCAMENTO (inicia na direita e arrasta para a esquerda).
  * - Etapa 2: Deslize para a esquerda para CHEGUEI NO DESTINO e direita para VOLTAR AO PREPARO.
- * - Etapa 3: Deslize para a esquerda para INICIAR ATENDIMENTO e direita para VOLTAR PARA EM ROTA.
+ * - Etapa 3: Deslize para a esquerda para INICIAR ATENDIMENTO e direita para VOLTAR PARA DESLOCAMENTO.
  * - Etapa 4: Deslize para a esquerda para FINALIZAR ENTREGA e direita para VOLTAR À CHEGADA.
  */
 export const DeliveryStepActionFooter: React.FC<DeliveryStepActionFooterProps> = ({
@@ -60,15 +60,10 @@ export const DeliveryStepActionFooter: React.FC<DeliveryStepActionFooterProps> =
       {/* ETAPA 1: PREPARAÇÃO */}
       {currentStep === 1 && (
         <View style={styles.stepContainer}>
-          {!isChecklistComplete && (
-            <Text style={[styles.hintText, isDarkMode && styles.hintTextDark]}>
-              Confira todos os itens do checklist acima para iniciar a rota
-            </Text>
-          )}
           <SlideHoldToStart
-            actionText="« Deslize para INICIAR ROTA"
-            label="« Deslize para INICIAR ROTA"
-            loadingLabel="Iniciando Rota..."
+            actionText="« Deslize para INICIAR DESLOCAMENTO"
+            label="« Deslize para INICIAR DESLOCAMENTO"
+            loadingLabel="Iniciando deslocamento..."
             onComplete={onStartDelivery}
             onConfirm={onStartDelivery}
             loading={loading}
@@ -82,7 +77,7 @@ export const DeliveryStepActionFooter: React.FC<DeliveryStepActionFooterProps> =
         </View>
       )}
 
-      {/* ETAPA 2: EM ROTA */}
+      {/* ETAPA 2: DESLOCAMENTO */}
       {currentStep === 2 && (
         <View style={styles.stepContainer}>
           {/* Ação Primária: Avançar para Chegada (Esquerda) */}
@@ -132,13 +127,13 @@ export const DeliveryStepActionFooter: React.FC<DeliveryStepActionFooterProps> =
             isDarkMode={isDarkMode}
           />
 
-          {/* Ação Secundária: Voltar para Em Rota (Direita) */}
+          {/* Ação Secundária: Voltar para Deslocamento (Direita) */}
           <SlideHoldToStart
             disabled={loading}
             loading={loading}
             onComplete={onStepBackToRoute}
             onConfirm={onStepBackToRoute}
-            actionText="Deslize para VOLTAR PARA EM ROTA »"
+            actionText="Deslize para VOLTAR PARA DESLOCAMENTO »"
             trackColor="#64748b"
             knobColor="#334155"
             iconType="back"
@@ -211,16 +206,6 @@ const styles = StyleSheet.create({
   },
   stepContainer: {
     gap: 8,
-  },
-  hintText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748b',
-    textAlign: 'center',
-    marginBottom: 2,
-  },
-  hintTextDark: {
-    color: '#94a3b8',
   },
   warningText: {
     fontSize: 11,

@@ -1,96 +1,29 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/pages/utils/supabaseConfig';
-import { isTestProduct } from '../../../utils/hmlTestData';
+import React from 'react';
+import { useDashboardDigitalCatalog } from '../hooks/useDashboardDigitalCatalog';
 
 export default function DigitalCatalogPanel() {
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    products: 0,
-    published: 0,
-    draft: 0,
-    categories: 0,
-  });
-  const [analytics, setAnalytics] = useState<any[]>([]);
+  const { data, isLoading, isError, refetch } = useDashboardDigitalCatalog();
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      try {
-        const [productsRes, categoriesRes, analyticsRes] = await Promise.all([
-          supabase
-            .from('products')
-            .select('id, status, observations, product_variations(id, status)')
-            .is('deleted_at', null),
-          supabase.from('categories').select('id', { count: 'exact', head: true }),
-          supabase
-            .from('product_analytics')
-            .select('id, product_id, visitor_id, created_at')
-            .order('created_at', { ascending: false })
-            .limit(2000),
-        ]);
-
-        let totalProductsCount = 0;
-        let publishedCount = 0;
-        let draftCount = 0;
-
-        if (productsRes.data) {
-          productsRes.data
-            .filter((p: any) => !isTestProduct(p))
-            .forEach((p: any) => {
-              const variations = p.product_variations || [];
-              if (variations.length === 0) {
-                totalProductsCount += 1;
-                if (p.status === 'published') publishedCount += 1;
-                else draftCount += 1;
-              } else {
-                totalProductsCount += variations.length;
-                variations.forEach((v: any) => {
-                  if (v.status === 'published') publishedCount += 1;
-                  else draftCount += 1;
-                });
-              }
-            });
-        }
-
-        setStats({
-          products: totalProductsCount,
-          published: publishedCount,
-          draft: draftCount,
-          categories: categoriesRes.count || 0,
-        });
-
-        if (analyticsRes.data) {
-          setAnalytics(analyticsRes.data);
-        }
-      } catch (e) {
-        console.error('Erro ao carregar dados do catálogo', e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadData();
-  }, []);
-
-  const metrics = useMemo(() => {
-    if (!analytics || analytics.length === 0) {
-      return { views: 0, uniqueVisitors: 0, cartClicks: 0, conversionRate: 0 };
-    }
-    const views = analytics.length;
-    const uniqueVisitors = new Set(analytics.map((a) => a.visitor_id)).size;
-    // Mocking Cart Clicks/Conversion based on views like the original catalog did
-    const cartClicks = Math.round(uniqueVisitors * 0.035);
-    const conversionRate = 3.5;
-
-    return { views, uniqueVisitors, cartClicks, conversionRate };
-  }, [analytics]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 h-64 flex items-center justify-center">
         <i className="bi bi-arrow-repeat animate-spin text-4xl text-slate-300" />
       </div>
     );
   }
+
+  if (isError || !data) {
+    return (
+      <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+        <p className="text-sm font-black">Não foi possível carregar as métricas do Catálogo Digital.</p>
+        <button type="button" onClick={() => void refetch()} className="mt-3 rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-800">
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+
+  const metrics = data;
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col h-full animate-fade-in-up">
@@ -126,19 +59,22 @@ export default function DigitalCatalogPanel() {
           </div>
         </div>
         <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/30">
-          <div className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase mb-1">
-            Conversão Estimada
+            <div className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase mb-1">
+            Estimativa fixa
           </div>
           <div className="text-xl font-black text-indigo-700 dark:text-indigo-300">
             {metrics.conversionRate.toFixed(1)}%
           </div>
+          <p className="mt-1 text-[9px] leading-snug text-indigo-500 dark:text-indigo-300">
+            Referência fixa; não mede compras concluídas.
+          </p>
         </div>
         <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800/50">
           <div className="text-[10px] text-slate-500 font-bold uppercase mb-1">
             Total de Produtos
           </div>
           <div className="text-xl font-black text-slate-800 dark:text-slate-100">
-            {stats.products}
+              {metrics.products}
           </div>
         </div>
       </div>

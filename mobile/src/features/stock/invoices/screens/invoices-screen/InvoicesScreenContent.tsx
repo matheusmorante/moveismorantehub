@@ -31,11 +31,18 @@ type InvoiceListRow =
 
 interface Props {
   isDarkMode: boolean;
+  canAccessReceipts?: boolean;
   onBack: () => void;
   renderHeader: (rightAction?: React.ReactNode) => React.ReactElement;
+  onGenerateReceipt?: (invoice: Invoice) => void;
 }
 
-export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeader }) => {
+export const InvoicesScreenContent: React.FC<Props> = ({
+  isDarkMode,
+  canAccessReceipts = false,
+  renderHeader,
+  onGenerateReceipt,
+}) => {
   const listRef = useRef<FlatList<InvoiceListRow>>(null);
   const [summaryInvoiceForXmlImport, setSummaryInvoiceForXmlImport] = useState<Invoice | null>(null);
   const {
@@ -200,6 +207,8 @@ export const InvoicesScreenContent: React.FC<Props> = ({ isDarkMode, renderHeade
         isDarkMode={isDarkMode}
         onClose={() => setMappingInvoice(null)}
         onSaved={reload}
+        canAccessReceipts={canAccessReceipts}
+        onGenerateReceipt={onGenerateReceipt}
       />
       <InvoiceImportModal
         visible={showImportModal}

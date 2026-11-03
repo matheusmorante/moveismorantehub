@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { toast } from 'react-toastify';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
 import type Product from '@/pages/types/product.type';
 import type { Variation } from '@/pages/types/product.type';
@@ -14,9 +13,6 @@ import {
 } from '@/pages/utils/inboundNfe/inboundItemProductResolver';
 import ProductAutocomplete from '@/components/ProductAutocomplete';
 import type { ProductAutocompleteExcludedLink } from '@/components/productAutocompleteUtils';
-import { InboundInvoiceItemFiscalReview } from './InboundInvoiceItemFiscalReview';
-import { InboundInvoiceItemFinancials } from './InboundInvoiceItemFinancials';
-
 import { InboundItemLinkHeader } from './InboundItemLinkHeader';
 import { InboundItemSingleMode } from './InboundItemSingleMode';
 import { InboundItemCompositionMode } from './InboundItemCompositionMode';
@@ -34,7 +30,6 @@ interface InboundInvoiceItemRowProps {
   onRejectSuggestion: (item: InboundInvoiceItem) => void;
   onRemoveLink: (item: InboundInvoiceItem) => void;
   onRequestQuickRegister: (target: { itemNumber: number; item: QuickRegisterItem }) => void;
-  onRequestEditProduct: (product: Product, variation?: Variation) => void;
   onUpdateItem?: (itemNumber: number, update: Partial<InboundInvoiceItem>) => void;
 }
 
@@ -51,13 +46,11 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
   onRejectSuggestion,
   onRemoveLink,
   onRequestQuickRegister,
-  onRequestEditProduct,
   onUpdateItem,
 }) => {
   const isComposition = !lockToNotApplicable && item.linkMode === 'composition';
   const isNotApplicable = lockToNotApplicable || item.linkMode === 'not_applicable';
   const compositionLinks = item.compositionLinks || [];
-  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleAddComposition = (prod: Product, variation?: Variation) => {
     const exists = compositionLinks.some(
@@ -216,22 +209,6 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          aria-expanded={isExpanded}
-          className="flex items-center gap-1 mt-4 text-xs font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 w-fit"
-        >
-          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          {isExpanded ? 'Ocultar detalhes da NF' : 'Ver detalhes da NF'}
-        </button>
-
-        {isExpanded && (
-          <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-            <InboundInvoiceItemFinancials item={item} />
-            <InboundInvoiceItemFiscalReview item={item} />
-          </div>
-        )}
       </div>
 
       {/* Lado Direito: Vínculo com Produto do ERP */}
@@ -268,7 +245,6 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
             compositionLinks={compositionLinks}
             handleAddComposition={handleAddComposition}
             handleRemoveCompositionLink={handleRemoveCompositionLink}
-            onRequestEditProduct={onRequestEditProduct}
           />
         ) : (
           <InboundItemSingleMode
@@ -281,12 +257,10 @@ export const InboundInvoiceItemRow: React.FC<InboundInvoiceItemRowProps> = ({
             linked={linked}
             displayName={displayName}
             displayCode={displayCode}
-            displaySellingPrice={displaySellingPrice}
             onSelectProduct={onSelectProduct}
             onAcceptSuggestion={onAcceptSuggestion}
             onRejectSuggestion={onRejectSuggestion}
             onRemoveLink={onRemoveLink}
-            onRequestEditProduct={onRequestEditProduct}
           />
         )}
       </div>

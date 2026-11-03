@@ -1,4 +1,4 @@
-export type MobileLabelCategory = 'identificacao' | 'precos';
+export type MobileLabelCategory = 'identificacao';
 
 export interface MobileLabelRequest {
   category: MobileLabelCategory;

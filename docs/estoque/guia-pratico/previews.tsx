@@ -4,8 +4,8 @@ import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import '../../../erp/src/index.css';
 import { QuickRegisterVariationModal } from '@/pages/App/Stock/InboundInvoices/modals/QuickRegisterVariationModal';
-import { InboundItemLinkHeader } from '@/pages/App/Stock/InboundInvoices/components/InboundItemLinkHeader';
-import { InboundItemSingleMode } from '@/pages/App/Stock/InboundInvoices/components/InboundItemSingleMode';
+import { InboundInvoiceItemRow } from '@/pages/App/Stock/InboundInvoices/components/InboundInvoiceItemRow';
+import SupplierAutocomplete from '@/components/SupplierAutocomplete';
 import { InventoryManualMode } from '@/pages/App/Stock/Inventory/components/InventoryManualMode';
 import { LabelPrintSelectionModal } from '@/pages/App/Products/components/modals/product/LabelPrintSelectionModal';
 import { InboundInvoiceActionsMenu } from '@/pages/App/Stock/InboundInvoices/components/InboundInvoiceActionsMenu';
@@ -58,7 +58,7 @@ const mappingItems: InboundInvoiceItem[] = [
   },
 ];
 const mappings = (
-  <main className="mx-auto w-[950px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+  <main className="mx-auto w-full max-w-[950px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
     <header className="border-b border-slate-200 bg-slate-50 px-6 py-5">
       <h1 className="text-lg font-black text-slate-800">Gerenciar vínculos da NF-e</h1>
       <p className="mt-1 text-xs text-slate-500">NF-e de exemplo · dados fictícios</p>
@@ -73,54 +73,20 @@ const mappings = (
     </div>
     <div className="space-y-3 bg-slate-50/60 p-4">
       {mappingItems.map((item) => (
-        <article
+        <InboundInvoiceItemRow
           key={item.itemNumber}
-          className="grid grid-cols-2 gap-4 rounded-2xl border border-slate-200 bg-white p-4"
-        >
-          <div className="space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Produto da NF-e · Item {item.itemNumber}
-            </p>
-            <h2 className="text-sm font-black text-slate-800">{item.productDescription}</h2>
-            <p className="text-xs text-slate-500">
-              {item.quantity} {item.unit} · Cód. fornecedor: {item.productCode}
-            </p>
-          </div>
-          <div className="min-w-0 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3">
-            <InboundItemLinkHeader
-              item={item}
-              isComposition={item.linkMode === 'composition'}
-              supplierId="exemplo-fornecedor"
-              quickRegisterDisabled={item.linkMode === 'not_applicable'}
-              compositionLinks={item.compositionLinks || []}
-              displayName={item.productErpName}
-              displayCode={item.linkedProductCode}
-              displaySellingPrice={0}
-              onRequestQuickRegister={noop}
-              onUpdateItem={noop}
-            />
-            {item.linkMode === 'not_applicable' ? (
-              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
-                Não se aplica. Este item continuará na NF-e, mas não será lançado no estoque pelo recebimento.
-              </p>
-            ) : (
-              <InboundItemSingleMode
-                item={item}
-                supplierId="exemplo-fornecedor"
-                excludedProductLinks={[]}
-                acceptingSuggestion={null}
-                removingLink={null}
-                linked={false}
-                displaySellingPrice={0}
-                onSelectProduct={noop}
-                onAcceptSuggestion={noop}
-                onRejectSuggestion={noop}
-                onRemoveLink={noop}
-                onRequestEditProduct={noop}
-              />
-            )}
-          </div>
-        </article>
+          item={item}
+          supplierId="00000000-0000-4000-8000-000000000001"
+          excludedProductLinks={[]}
+          acceptingSuggestion={null}
+          removingLink={null}
+          onSelectProduct={noop}
+          onAcceptSuggestion={noop}
+          onRejectSuggestion={noop}
+          onRemoveLink={noop}
+          onRequestQuickRegister={noop}
+          onUpdateItem={noop}
+        />
       ))}
     </div>
     <footer className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
@@ -135,6 +101,20 @@ const mappings = (
       </button>
     </footer>
   </main>
+);
+const supplierSearch = (
+  <div className="mx-auto w-[815px] rounded-xl bg-white p-2">
+    <SupplierAutocomplete
+      suppliers={[]}
+      selectedSupplierId=""
+      onSelect={noop}
+      hideLabel={true}
+      showSelectedBadge={false}
+      placeholder="Digite pelo menos 3 caracteres para buscar fornecedor..."
+      minChars={3}
+      inputClassName="w-full rounded-xl border border-slate-200 bg-white p-2 text-sm text-slate-700 outline-none focus:border-blue-600"
+    />
+  </div>
 );
 const menus = <div className="mx-auto flex gap-12 rounded-2xl bg-white p-6" style={{width:560,height:290}}>
   <div className="relative w-56"><h2 className="text-xs font-bold">NF com vínculos concluídos</h2><InboundInvoiceActionsMenu invoice={{rawXml:'exemplo'} as InboundInvoice} canManageMappings canGenerateReceipt canPrintIdentificationLabels onClose={noop} onManageMappings={noop} onGenerateReceipt={noop} onPrintIdentificationLabels={noop} onDownloadXml={noop} /></div>
@@ -162,6 +142,6 @@ const purchase = <main className="mx-auto w-[950px] rounded-3xl border border-sl
     onActiveItemChange={noop}
   />
 </main>;
-createRoot(document.getElementById('root')!).render(<MemoryRouter><div className="min-h-screen bg-slate-100 p-8"><p className="mb-6 text-xs text-slate-500">Exemplo didático - dados fictícios. Nenhuma operação é gravada nesta prévia.</p>
-  {screen === 'mappings' ? mappings : screen === 'menus' ? menus : screen === 'inventory' ? <div className="mx-auto max-w-3xl"><h1 className="mb-5 text-xl font-bold">Contagem manual do inventário</h1><InventoryManualMode filteredItems={items} filter="all" setFilter={()=>{}} search="" setSearch={()=>{}} onUpdateCount={()=>{}} isCustom={false} /></div> : screen === 'labels' ? <LabelPrintSelectionModal isOpen onClose={()=>{}} labelType="identification" initialProducts={products} /> : screen === 'purchase' ? purchase : <QuickRegisterVariationModal isOpen item={{productDescription:'Mesa de jantar - exemplo',productCode:'EXEMPLO-01',unit:'UN',quantity:2,unitCost:100}} supplierId="00000000-0000-4000-8000-000000000001" onClose={()=>{}} onConfirmSelection={async()=>false} />}
+createRoot(document.getElementById('root')!).render(<MemoryRouter><div className="min-h-screen bg-slate-100 px-3 py-4 sm:p-8"><p className="mb-6 text-xs text-slate-500">Exemplo didático - dados fictícios. Nenhuma operação é gravada nesta prévia.</p>
+  {screen === 'mappings' ? mappings : screen === 'supplier-search' ? supplierSearch : screen === 'menus' ? menus : screen === 'inventory' ? <div className="mx-auto max-w-3xl"><h1 className="mb-5 text-xl font-bold">Contagem manual do inventário</h1><InventoryManualMode filteredItems={items} filter="all" setFilter={()=>{}} search="" setSearch={()=>{}} onUpdateCount={()=>{}} isCustom={false} /></div> : screen === 'labels' ? <LabelPrintSelectionModal isOpen onClose={()=>{}} labelType="identification" initialProducts={products} /> : screen === 'purchase' ? purchase : <QuickRegisterVariationModal isOpen item={{productDescription:'Mesa de jantar - exemplo',productCode:'EXEMPLO-01',unit:'UN',quantity:2,unitCost:100}} supplierId="00000000-0000-4000-8000-000000000001" onClose={()=>{}} onConfirmSelection={async()=>false} />}
 </div></MemoryRouter>);

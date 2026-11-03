@@ -94,7 +94,7 @@ describe('DeliveryStepActionFooter — Rodapé Fixo Ancorado na Zona Segura', ()
     expect(html).toContain('padding-bottom:12px');
   });
 
-  it('renderiza o slider de Iniciar Rota na Etapa 1', () => {
+  it('renderiza o slider de Iniciar Deslocamento na Etapa 1', () => {
     const html = renderToStaticMarkup(
       <DeliveryStepActionFooter
         currentStep={1}
@@ -106,7 +106,7 @@ describe('DeliveryStepActionFooter — Rodapé Fixo Ancorado na Zona Segura', ()
       />
     );
 
-    expect(html).toContain('Deslize para INICIAR ROTA');
+    expect(html).toContain('Deslize para INICIAR DESLOCAMENTO');
     expect(html).not.toContain('CHEGUEI NO DESTINO');
     expect(html).not.toContain('FINALIZAR');
   });
@@ -127,7 +127,7 @@ describe('DeliveryStepActionFooter — Rodapé Fixo Ancorado na Zona Segura', ()
     expect(html).toContain('Deslize para VOLTAR AO PREPARO');
   });
 
-  it('renderiza slider para a esquerda (Iniciar Atendimento) e para a direita (Voltar para Em Rota) na Etapa 3', () => {
+  it('renderiza slider para a esquerda (Iniciar Atendimento) e para a direita (Voltar para Deslocamento) na Etapa 3', () => {
     const html = renderToStaticMarkup(
       <DeliveryStepActionFooter
         currentStep={3}
@@ -140,7 +140,7 @@ describe('DeliveryStepActionFooter — Rodapé Fixo Ancorado na Zona Segura', ()
     );
 
     expect(html).toContain('Deslize para INICIAR ATENDIMENTO');
-    expect(html).toContain('Deslize para VOLTAR PARA EM ROTA');
+    expect(html).toContain('Deslize para VOLTAR PARA DESLOCAMENTO');
   });
 
   it('renderiza slider para a esquerda (Finalizar) e para a direita (Voltar à Chegada) na Etapa 4', () => {

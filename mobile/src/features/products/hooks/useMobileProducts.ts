@@ -28,6 +28,7 @@ import {
   resolveMobileProductListRequestPage,
   shouldClearMobileProductListSnapshot,
 } from '../domain/mobileProductListRequest';
+import { toMobileProductActivationCandidate } from '../domain/mobileProductActivationCandidate';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
   fetchMobileProductTechnicalFields,
@@ -386,30 +387,7 @@ export function useMobileProducts(
     );
     const isVariation = Boolean(targetVariation && !targetVariation.isVirtual);
     if (!currentActive && targetProd) {
-      const activationProduct = {
-        ...targetProd,
-        id: String(targetProd.id),
-        name: targetProd.name || targetProd.title || '',
-        unitPrice: Number(targetProd.unitPrice ?? targetProd.unit_price ?? targetProd.price ?? 0),
-        categoryIds:
-          targetProd.categoryIds ||
-          (Array.isArray(targetProd.product_categories)
-            ? targetProd.product_categories.map((relation: any) => relation.category_id).filter(Boolean)
-            : targetProd.category_id
-              ? [targetProd.category_id]
-              : []),
-        supplierId: targetProd.supplierId || targetProd.supplier_id || '',
-        mainSupplierId: targetProd.mainSupplierId || targetProd.main_supplier_id || '',
-        isDraft: Boolean(targetProd.isDraft || targetProd.is_draft || targetProd.status === 'draft'),
-        isCombo: Boolean(targetProd.isCombo || targetProd.is_combo),
-        comboItems: targetProd.comboItems || targetProd.combo_items || [],
-        variations: (targetProd.allVariations || targetProd.variations || []).map((variation: any) => ({
-          ...variation,
-          syncUnitPrice: variation.syncUnitPrice !== false,
-          unitPrice: Number(variation.unitPrice ?? variation.price ?? variation.unit_price ?? 0),
-          comboItems: variation.comboItems || variation.combo_items || [],
-        })),
-      };
+      const activationProduct = toMobileProductActivationCandidate(targetProd);
       const validationId = isVariation && targetVariation
         ? `${targetProd.id}_${targetVariation.sku || targetVariation.id}`
         : String(targetProd.id);
@@ -531,9 +509,9 @@ export function useMobileProducts(
     if (!isProductDraft(productData)) {
       triggerMobileProductMetaCatalogSync(productId);
     }
-    // A confirmed write succeeds independently from the list read, as in the ERP:
-    // preserve the saved result and refresh the current page in the background.
-    void loadProducts(true, currentPage);
+    // Aguarda a revalidação para o editor só fechar depois que a lista refletir o
+    // produto salvo. Falhas de leitura continuam tratadas separadamente do save.
+    await loadProducts(true, currentPage);
     return productId;
   }, [currentPage, loadProducts]);
 

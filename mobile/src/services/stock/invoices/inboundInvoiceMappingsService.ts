@@ -6,6 +6,11 @@ import {
   isSalvadosOnlySupplier,
 } from '../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../shared-utils/inboundInvoiceSupplierRules';
+import {
+  collectInboundInvoiceVariationIds,
+  isInboundInvoiceVariationUuid,
+  reconcileInboundInvoiceVariationReferences,
+} from '../../../../../shared-utils/inboundInvoiceVariationReferences';
 
 export const fetchInboundInvoiceForMappings = async (invoiceId: string) => {
   const { data, error } = await supabase
@@ -108,17 +113,107 @@ export const fetchInboundInvoiceForMappings = async (invoiceId: string) => {
   return { ...data, supplier, supplierStockOrigins, items };
 };
 
+const canonicalize = (value: unknown) =>
+  JSON.stringify(value, (_key, entry) =>
+    entry && typeof entry === 'object' && !Array.isArray(entry)
+      ? Object.fromEntries(Object.keys(entry).sort().map((key) => [key, entry[key]]))
+      : entry
+  );
+
+const getMappingState = (item: any) => {
+  const rawItem = item?.raw_item && typeof item.raw_item === 'object' ? item.raw_item : {};
+  const read = (...keys: string[]) => {
+    for (const source of [item || {}, rawItem]) {
+      for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) return source[key];
+      }
+    }
+    return undefined;
+  };
+  const links = read('compositionLinks', 'composition_links') || [];
+
+  return {
+    itemNumber: Number(read('itemNumber', 'item_number') || 0),
+    matchedProductId: read('matchedProductId', 'matched_product_id', 'product_id') || null,
+    matchedVariationId:
+      read('matchedVariationId', 'matched_variation_id', 'variation_id') || null,
+    linkMode: read('linkMode', 'link_mode') || null,
+    compositionLinks: Array.isArray(links)
+      ? links
+          .map((link: any) => ({
+            productId: link.productId || link.product_id || null,
+            variationId: link.variationId || link.variation_id || null,
+            quantityMultiplier: Number(link.quantityMultiplier ?? link.quantity_multiplier ?? 1),
+          }))
+          .sort((left, right) =>
+            `${left.productId}:${left.variationId}:${left.quantityMultiplier}`.localeCompare(
+              `${right.productId}:${right.variationId}:${right.quantityMultiplier}`
+            )
+          )
+      : [],
+  };
+};
+
+const fetchPersistedMappingState = async (invoiceId: string) => {
+  const { data, error } = await supabase
+    .from('inbound_invoices')
+    .select(
+      'id, supplier_id, itens, inbound_invoice_items(invoice_id, item_number, product_id, variation_id, raw_item)'
+    )
+    .eq('id', invoiceId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+};
+
+const isMappingSnapshotPersisted = (
+  invoice: any,
+  invoiceId: string,
+  supplierId: string | null,
+  items: any[]
+) => {
+  if (
+    !invoice ||
+    String(invoice.id) !== String(invoiceId) ||
+    (invoice.supplier_id || null) !== (supplierId || null) ||
+    !Array.isArray(invoice.itens) ||
+    canonicalize(invoice.itens.map(getMappingState)) !==
+      canonicalize(items.map(getMappingState))
+  ) {
+    return false;
+  }
+
+  const normalizedItems = Array.isArray(invoice.inbound_invoice_items)
+    ? invoice.inbound_invoice_items
+    : [];
+  return items.every((expected) => {
+    const normalized = normalizedItems.find(
+      (item: any) => Number(item.item_number) === Number(expected.itemNumber)
+    );
+    return Boolean(
+      normalized &&
+        String(normalized.invoice_id) === String(invoiceId) &&
+        canonicalize([getMappingState(normalized)]) ===
+          canonicalize([getMappingState(expected)])
+    );
+  });
+};
+
 export const updateInboundInvoiceMappings = async (
   invoiceId: string,
   supplierId: string | null,
   items: any[]
 ) => {
+  if (!invoiceId) throw new Error('Selecione uma nota fiscal válida.');
   const { data: currentInvoice, error: currentInvoiceError } = await supabase
     .from('inbound_invoices')
-    .select('supplier_id, supplier:people(stock_origins)')
+    .select('id, supplier_id, supplier:people(stock_origins), inbound_invoice_items(item_number, product_id, variation_id, raw_item)')
     .eq('id', invoiceId)
     .maybeSingle();
   if (currentInvoiceError) throw currentInvoiceError;
+  if (!currentInvoice || String(currentInvoice.id) !== String(invoiceId)) {
+    throw new Error('A nota fiscal não está mais disponível para editar os vínculos.');
+  }
 
   const currentOrigins = getSupplierStockOriginsFromRelation(currentInvoice?.supplier);
   const currentIsSalvados = isSalvadosOnlySupplier(currentOrigins);
@@ -143,23 +238,88 @@ export const updateInboundInvoiceMappings = async (
   if (isSalvadosSupplier && !effectiveSupplierId) {
     effectiveSupplierId = currentInvoice?.supplier_id || supplierId;
   }
-  const persistedItems = isSalvadosSupplier
+  const itemsToPersist = isSalvadosSupplier
     ? markInboundInvoiceItemsNotApplicable(items)
     : items;
+  const variationIds = collectInboundInvoiceVariationIds(itemsToPersist);
+  const queryableIds = variationIds.filter(isInboundInvoiceVariationUuid);
+  const validVariationIds = new Set<string>();
+  if (queryableIds.length) {
+    const { data: variations, error: variationsError } = await supabase
+      .from('product_variations')
+      .select('id')
+      .in('id', queryableIds);
+    if (variationsError) throw variationsError;
+    for (const variation of variations || []) {
+      if (variation?.id) validVariationIds.add(String(variation.id));
+    }
+  }
+  const persistedItems = reconcileInboundInvoiceVariationReferences(
+    itemsToPersist,
+    Array.isArray(currentInvoice.inbound_invoice_items)
+      ? currentInvoice.inbound_invoice_items
+      : [],
+    validVariationIds
+  );
 
-  const { error } = await supabase
+  const { data: savedInvoice, error } = await supabase
     .from('inbound_invoices')
     .update({ supplier_id: effectiveSupplierId, itens: persistedItems, updated_at: new Date().toISOString() })
-    .eq('id', invoiceId);
-  if (error) throw error;
+    .eq('id', invoiceId)
+    .select('id, supplier_id, itens')
+    .maybeSingle();
+  if (
+    error ||
+    !savedInvoice ||
+    String(savedInvoice.id) !== String(invoiceId) ||
+    (savedInvoice.supplier_id || null) !== (effectiveSupplierId || null) ||
+    canonicalize(savedInvoice.itens) !== canonicalize(persistedItems)
+  ) {
+    let currentInvoice: any;
+    try {
+      currentInvoice = await fetchPersistedMappingState(invoiceId);
+    } catch (readError) {
+      throw error || readError;
+    }
+    if (
+      !currentInvoice ||
+      String(currentInvoice.id) !== String(invoiceId) ||
+      (currentInvoice.supplier_id || null) !== (effectiveSupplierId || null) ||
+      canonicalize(currentInvoice.itens) !== canonicalize(persistedItems)
+    ) {
+      throw error || new Error('A gravação dos vínculos da nota não foi confirmada pelo servidor.');
+    }
+  }
 
   if (persistedItems.length) {
     const itemRows = buildInboundInvoiceItemRows(invoiceId, persistedItems);
-    const { error: itemsError } = await supabase
+    const { data: savedItemRows, error: itemsError } = await supabase
       .from('inbound_invoice_items')
-      .upsert(itemRows, { onConflict: 'invoice_id,item_number' });
-    if (itemsError) throw itemsError;
+      .upsert(itemRows, { onConflict: 'invoice_id,item_number' })
+      .select('invoice_id,item_number');
+    const returnedRowsConfirmed =
+      !itemsError &&
+      Array.isArray(savedItemRows) &&
+      savedItemRows.length === itemRows.length &&
+      !itemRows.some((expected) =>
+        !savedItemRows.some((saved) =>
+          String(saved.invoice_id) === String(invoiceId) &&
+          Number(saved.item_number) === Number(expected.item_number)
+        )
+      );
+    if (!returnedRowsConfirmed) {
+      let currentInvoice: any;
+      try {
+        currentInvoice = await fetchPersistedMappingState(invoiceId);
+      } catch (readError) {
+        throw itemsError || readError;
+      }
+      if (!isMappingSnapshotPersisted(currentInvoice, invoiceId, effectiveSupplierId, persistedItems)) {
+        throw itemsError || new Error('A gravação dos itens normalizados não foi confirmada pelo servidor.');
+      }
+    }
   }
+  return persistedItems;
 };
 
 export const saveInboundSupplierProductCode = async (

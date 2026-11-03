@@ -33,6 +33,7 @@ interface ProductAutocompleteProps {
   supplierId?: string;
   onlyName?: boolean;
   variationsOnly?: boolean;
+  compositionsOnly?: boolean;
   excludeCombos?: boolean;
   /** Limita a busca aos cadastros de produto, sem oferecer variações filhas. */
   parentsOnly?: boolean;
@@ -73,6 +74,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   supplierId,
   onlyName = false,
   variationsOnly = false,
+  compositionsOnly = false,
   excludeCombos = false,
   parentsOnly = false,
   productsOnly = false,
@@ -104,6 +106,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     parentsOnly,
     productsOnly,
     variationsOnly,
+    compositionsOnly,
     includeDeactivated,
     allowedProductKinds,
     excludedProductLinks,

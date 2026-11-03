@@ -158,7 +158,7 @@ it('renderiza o campo de busca limpo e livre para digitação, e exibe a sugest�
 
   // 1. O campo de busca (input) deve estar livre e vazio, não preenchido com a sugestão
   const input = view.getByPlaceholderText(
-    'Digite 2 ou mais letras para buscar...'
+    'Digite pelo menos 3 caracteres para buscar...'
   ) as HTMLInputElement;
   expect(input.disabled).toBe(false);
   expect(input.value).toBe('');
@@ -201,7 +201,7 @@ it('mantém o input livre para escrita e não exibe indicador de carregamento bl
 
   // O input permanece 100% livre e habilitado para escrita manual
   const input = view.getByPlaceholderText(
-    'Digite 2 ou mais letras para buscar...'
+    'Digite pelo menos 3 caracteres para buscar...'
   ) as HTMLInputElement;
   expect(input.disabled).toBe(false);
   fireEvent.change(input, { target: { value: 'Comoda Sapateira' } });

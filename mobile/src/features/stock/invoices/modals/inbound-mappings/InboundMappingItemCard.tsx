@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { FormTextInput } from '../../../../../components/shared/FormTextInput';
-import { Check, ChevronDown, Link2, Lock, Plus, Search, Trash2 } from 'lucide-react-native';
+import { Check, ChevronDown, Lock, Plus, Search, Trash2 } from 'lucide-react-native';
 import type { CompositionLink, InboundScorerProduct, MappingItem, ProductSuggestion } from './types';
 import { amount, formatMoney, landedUnitCost } from './inboundCostUtils';
 import { styles } from './inboundMappings.styles';
-import { InboundItemFiscalDetails } from './InboundItemFiscalDetails';
 import { InboundItemSuggestionsCard } from './InboundItemSuggestionsCard';
+import { hasInboundInvoiceProductSelection } from '../../../../../../../shared-utils/inboundInvoiceLinkModeRules';
 
 export interface InboundMappingItemCardProps {
   item: MappingItem;
   supplierId: string;
   lockToNotApplicable?: boolean;
   isDarkMode: boolean;
-  isExpanded: boolean;
   saving: boolean;
   query: string;
   searchProducts: InboundScorerProduct[];
@@ -21,7 +20,6 @@ export interface InboundMappingItemCardProps {
   searchError: string;
   itemSuggestions: ProductSuggestion[];
   isDismissedSuggestion: boolean;
-  onToggleExpand: () => void;
   onToggleMode: (mode: 'single' | 'composition' | 'not_applicable') => void;
   onRemoveLink: () => void;
   onRemoveCompositionLink: (linkId: string) => void;
@@ -29,6 +27,7 @@ export interface InboundMappingItemCardProps {
   onOpenQuickRegister: () => void;
   onDismissSuggestions: () => void;
   onSearchChange: (query: string) => void;
+  onRetrySearch: () => void;
   onLinkProduct: (product: InboundScorerProduct) => void;
 }
 
@@ -37,7 +36,6 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
   supplierId,
   lockToNotApplicable = false,
   isDarkMode,
-  isExpanded,
   saving,
   query,
   searchProducts,
@@ -45,7 +43,6 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
   searchError,
   itemSuggestions,
   isDismissedSuggestion,
-  onToggleExpand,
   onToggleMode,
   onRemoveLink,
   onRemoveCompositionLink,
@@ -53,12 +50,15 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
   onOpenQuickRegister,
   onDismissSuggestions,
   onSearchChange,
+  onRetrySearch,
   onLinkProduct,
 }) => {
   const composition: CompositionLink[] = item.compositionLinks || [];
   const isComposition = !lockToNotApplicable && item.linkMode === 'composition';
   const isNotApplicable = lockToNotApplicable || item.linkMode === 'not_applicable';
   const isSingle = !isComposition && !isNotApplicable;
+  const hasSelectedProduct = hasInboundInvoiceProductSelection(item, isComposition);
+  const isModeLocked = lockToNotApplicable || hasSelectedProduct;
   const quickRegisterDisabled =
     saving ||
     !supplierId.trim() ||
@@ -112,26 +112,6 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
         </View>
       </View>
 
-      <TouchableOpacity
-        style={styles.detailsToggle}
-        onPress={onToggleExpand}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: isExpanded }}
-      >
-        <Text style={styles.detailsToggleText}>
-          {isExpanded ? 'Ocultar detalhes da NF' : 'Ver detalhes da NF'}
-        </Text>
-      </TouchableOpacity>
-
-      <InboundItemFiscalDetails
-        item={item}
-        quantity={quantity}
-        totalLandedCost={totalLandedCost}
-        isDarkMode={isDarkMode}
-        isExpanded={isExpanded}
-        onToggleExpand={onToggleExpand}
-      />
-
       <View style={[styles.linkSection, isDarkMode && styles.linkSectionDark]}>
         {isModeMenuOpen ? (
           <TouchableOpacity
@@ -152,14 +132,21 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
                 style={[styles.modePickerTrigger, isDarkMode && styles.modePickerTriggerDark]}
                 accessibilityRole="button"
                 accessibilityLabel={`Modo de vínculo: ${selectedModeLabel}`}
-                accessibilityState={{ expanded: isModeMenuOpen, disabled: saving || lockToNotApplicable }}
-                disabled={saving || lockToNotApplicable}
+                accessibilityState={{ expanded: isModeMenuOpen, disabled: saving || isModeLocked }}
+                accessibilityHint={
+                  lockToNotApplicable
+                    ? 'Fornecedor exclusivo de Salvados: o modo Não se aplica é fixo.'
+                    : hasSelectedProduct
+                      ? 'Remova o produto vinculado antes de alterar o modo.'
+                      : undefined
+                }
+                disabled={saving || isModeLocked}
                 onPress={() => setIsModeMenuOpen((open) => !open)}
               >
                 <Text style={[styles.modePickerText, isDarkMode && styles.modePickerTextDark]}>{selectedModeLabel}</Text>
-                {lockToNotApplicable ? <Lock size={14} color={isDarkMode ? '#fcd34d' : '#92400e'} /> : <ChevronDown size={14} color={isDarkMode ? '#cbd5e1' : '#475569'} />}
+                {isModeLocked ? <Lock size={14} color={isDarkMode ? '#fcd34d' : '#92400e'} /> : <ChevronDown size={14} color={isDarkMode ? '#cbd5e1' : '#475569'} />}
               </TouchableOpacity>
-              {isModeMenuOpen && !lockToNotApplicable ? (
+              {isModeMenuOpen && !isModeLocked ? (
                 <View style={[styles.modeMenu, isDarkMode && styles.modeMenuDark]}>
                   <TouchableOpacity
                     style={[styles.modeMenuItem, isSingle && styles.modeMenuItemSelected]}
@@ -205,31 +192,31 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
                 </View>
               ) : null}
             </View>
-            <TouchableOpacity
-              style={[
-                styles.quickRegisterHeader,
-                quickRegisterDisabled && styles.quickRegisterHeaderDisabled,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Cadastro rápido"
-              accessibilityState={{ disabled: quickRegisterDisabled }}
-              accessibilityHint={
-                isNotApplicable
-                  ? 'Disponível nos modos Único ou Composto.'
-                  : !supplierId.trim()
+            {isSingle ? (
+              <TouchableOpacity
+                style={[
+                  styles.quickRegisterHeader,
+                  quickRegisterDisabled && styles.quickRegisterHeaderDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Cadastro rápido"
+                accessibilityState={{ disabled: quickRegisterDisabled }}
+                accessibilityHint={
+                  !supplierId.trim()
                     ? 'Vincule o fornecedor para usar esta ação.'
-                    : !isComposition && Boolean(item.matchedProductId || item.matchedVariationId)
+                    : Boolean(item.matchedProductId || item.matchedVariationId)
                       ? 'Este item já tem um produto vinculado.'
                       : undefined
-              }
-              disabled={quickRegisterDisabled}
-              onPress={onOpenQuickRegister}
-            >
-              <Plus size={15} color={isDarkMode ? '#bfdbfe' : '#1d4ed8'} />
-              <Text style={[styles.quickRegisterHeaderText, isDarkMode && styles.quickRegisterHeaderTextDark]}>
-                Cadastro rápido
-              </Text>
-            </TouchableOpacity>
+                }
+                disabled={quickRegisterDisabled}
+                onPress={onOpenQuickRegister}
+              >
+                <Plus size={15} color={isDarkMode ? '#bfdbfe' : '#1d4ed8'} />
+                <Text style={[styles.quickRegisterHeaderText, isDarkMode && styles.quickRegisterHeaderTextDark]}>
+                  Cadastro rápido
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
@@ -261,8 +248,7 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
                     <View style={{ flex: 1 }}>
                       <Text style={styles.linkedName}>{link.productErpName}</Text>
                       <Text style={styles.linkedCode}>
-                        SKU: {link.linkedProductCode || '—'} · Venda{' '}
-                        {formatMoney(amount(link.sellingPrice))} · Custo rateado{' '}
+                        SKU: {link.linkedProductCode || '—'} · Custo rateado{' '}
                         {formatMoney(allocated)}
                       </Text>
                     </View>
@@ -297,8 +283,7 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
                     {item.productErpName || 'Produto vinculado'}
                   </Text>
                   <Text style={styles.linkedCode}>
-                    SKU: {item.linkedProductCode || '—'} · Venda:{' '}
-                    {formatMoney(amount(item.sellingPrice))} · Custo:{' '}
+                    SKU: {item.linkedProductCode || '—'} · Custo:{' '}
                     {formatMoney(totalBaseCost)}
                   </Text>
                 </View>
@@ -330,43 +315,65 @@ export const InboundMappingItemCard: React.FC<InboundMappingItemCardProps> = ({
                   <FormTextInput
                     value={query}
                     onChangeText={onSearchChange}
+                    editable={!saving}
+                    accessibilityLabel={`Buscar variação para o item ${item.itemNumber}`}
+                    accessibilityHint="Digite pelo menos três caracteres. São exibidos até cinco resultados."
                     placeholder={
                       isComposition
-                        ? 'Adicionar produto à composição...'
-                        : 'Buscar produto por nome ou SKU'
+                        ? 'Buscar produto composto deste fornecedor'
+                        : 'Buscar variação por nome ou SKU'
                     }
                     placeholderTextColor="#94a3b8"
                     style={[styles.input, isDarkMode && styles.textDark]}
                   />
                 </View>
                 {searchError ? (
-                  <Text style={[styles.error, { marginTop: 8 }]}>
-                    {searchError}
-                  </Text>
+                  <View style={styles.searchErrorRow}>
+                    <Text style={[styles.error, { flex: 1 }]}>{searchError}</Text>
+                    <TouchableOpacity
+                      disabled={saving || searchLoading}
+                      onPress={onRetrySearch}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Tentar buscar produtos novamente para o item ${item.itemNumber}`}
+                    >
+                      <Text style={[styles.changeText, (saving || searchLoading) && styles.disabledAction]}>
+                        Tentar novamente
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 ) : null}
                 {searchLoading ? (
                   <ActivityIndicator style={{ margin: 12 }} color="#2563eb" />
                 ) : null}
                 {searchProducts.map((product) => (
-                  <TouchableOpacity
+                  <View
                     key={`${product.productId}:${product.variationId || 'product'}`}
-                    disabled={saving}
                     style={styles.resultRow}
-                    onPress={() => onLinkProduct(product)}
                   >
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.itemName, isDarkMode && styles.textDark]}>
-                        {product.name}
-                      </Text>
-                      <Text style={styles.muted}>
-                        SKU: {product.sku || '—'} · Venda:{' '}
-                        {formatMoney(amount(product.sellingPrice))}
-                      </Text>
-                    </View>
-                    <Link2 size={18} color="#2563eb" />
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      disabled={saving}
+                      style={styles.resultSelectButton}
+                      onPress={() => onLinkProduct(product)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Selecionar produto ${product.name}`}
+                      accessibilityHint={`SKU ${product.sku || 'não informado'}. Toque no resultado para vincular à nota.`}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.itemName, isDarkMode && styles.textDark]}>
+                          {product.name}
+                        </Text>
+                        <Text style={styles.muted}>
+                          SKU: {product.sku || '—'} · Venda:{' '}
+                          {formatMoney(amount(product.sellingPrice))}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
                 ))}
-                {query.trim().length >= 2 &&
+                {query.trim().length > 0 && query.trim().length < 3 && !saving ? (
+                  <Text style={[styles.muted, { marginTop: 10 }]}>Digite pelo menos 3 caracteres para buscar.</Text>
+                ) : null}
+                {query.trim().length >= 3 &&
                 !searchLoading &&
                 !searchError &&
                 searchProducts.length === 0 &&

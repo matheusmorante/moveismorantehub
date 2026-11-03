@@ -5,6 +5,8 @@ import { isJobAlreadyProcessed } from './idempotency';
 import { renderHtmlToPdfBuffer, warmupRenderer } from './renderer';
 import { sendPdfToWindowsSpooler } from './spooler';
 import { logPrintEvent } from './logger';
+import { clearAgentCredential, loadAgentCredential, saveAgentCredential } from './agentCredentials';
+import { startCloudPrintQueue } from './cloudQueue';
 import {
   loadMachineConfig,
   saveMachineConfig,
@@ -14,15 +16,39 @@ import {
 
 const PORT = 40405;
 const HOST = '127.0.0.1';
+const TRUSTED_ORIGINS = new Set([
+  'https://morantehub.vercel.app',
+  'https://morantehub.com',
+  'https://app.morantehub.com',
+  'https://www.morantehub.com',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:8081',
+  'http://127.0.0.1:8081',
+]);
 
-const setCorsHeaders = (res: http.ServerResponse) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+const isTrustedOrigin = (origin: string): boolean => {
+  if (TRUSTED_ORIGINS.has(origin)) return true;
+  try {
+    const url = new URL(origin);
+    return url.protocol === 'https:' && url.hostname.endsWith('.morantehub.com');
+  } catch {
+    return false;
+  }
+};
+
+const setCorsHeaders = (req: http.IncomingMessage, res: http.ServerResponse): boolean => {
+  const origin = req.headers.origin;
+  if (origin && isTrustedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Print-Client');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Print-Client');
+  return !origin || isTrustedOrigin(origin);
 };
 
 const sendJson = (res: http.ServerResponse, statusCode: number, data: any) => {
-  setCorsHeaders(res);
   res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(data));
 };
@@ -48,7 +74,15 @@ const readBodyJson = async (req: http.IncomingMessage): Promise<any> => {
 };
 
 const server = http.createServer(async (req, res) => {
-  setCorsHeaders(res);
+  const originAllowed = setCorsHeaders(req, res);
+  if (!['127.0.0.1:40405', 'localhost:40405'].includes(String(req.headers.host || '').toLowerCase())) {
+    sendJson(res, 403, { error: 'Host local não autorizado.' });
+    return;
+  }
+  if (!originAllowed) {
+    sendJson(res, 403, { error: 'Origem não autorizada.' });
+    return;
+  }
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -62,12 +96,49 @@ const server = http.createServer(async (req, res) => {
   try {
     // 1. Healthcheck
     if (req.method === 'GET' && pathname === '/health') {
+      const pairing = await loadAgentCredential();
       sendJson(res, 200, {
         status: 'ok',
         agent: 'morantehub-print-agent',
-        version: '1.0.0',
+        version: '1.1.0',
+        paired: Boolean(pairing),
         uptime: process.uptime(),
       });
+      return;
+    }
+
+    if (req.method === 'POST' && pathname === '/pair') {
+      if (!req.headers.origin || !isTrustedOrigin(req.headers.origin)) {
+        sendJson(res, 403, { error: 'Origem de pareamento não autorizada.' });
+        return;
+      }
+      const body = await readBodyJson(req);
+      let appUrl: URL;
+      try { appUrl = new URL(String(body.apiBaseUrl || '')); }
+      catch { appUrl = new URL('http://invalid.local'); }
+      const safeDomain = appUrl.hostname === 'morantehub.vercel.app' || appUrl.hostname === 'morantehub.com' ||
+        appUrl.hostname.endsWith('.morantehub.com') ||
+        (['localhost', '127.0.0.1'].includes(appUrl.hostname) && appUrl.port === '5173');
+      const token = typeof body.token === 'string' ? body.token : '';
+      const deviceId = typeof body.deviceId === 'string' ? body.deviceId : '';
+      if (!safeDomain || appUrl.origin !== req.headers.origin || appUrl.pathname.replace(/\/$/, '') !== '/api' ||
+          !['http:', 'https:'].includes(appUrl.protocol) || appUrl.username || appUrl.password || appUrl.search || appUrl.hash ||
+          !/^[0-9a-f]{64}$/i.test(token) || !/^[0-9a-f-]{36}$/i.test(deviceId)) {
+        sendJson(res, 400, { error: 'Dados de pareamento inválidos.' });
+        return;
+      }
+      await saveAgentCredential({ deviceId, token, apiBaseUrl: appUrl.toString().replace(/\/$/, '') });
+      sendJson(res, 200, { success: true });
+      return;
+    }
+
+    if (req.method === 'POST' && pathname === '/unpair') {
+      if (!req.headers.origin || !isTrustedOrigin(req.headers.origin)) {
+        sendJson(res, 403, { error: 'Origem não autorizada.' });
+        return;
+      }
+      clearAgentCredential();
+      sendJson(res, 200, { success: true });
       return;
     }
 
@@ -278,6 +349,7 @@ server.listen(PORT, HOST, () => {
   // Warmup assíncrono: pré-carrega impressoras e deixa o Chromium pronto em RAM
   warmupPrintersCache();
   warmupRenderer().catch((err) => console.warn('[Server] Warmup do Chromium falhou:', err));
+  startCloudPrintQueue();
 });
 
 export default server;

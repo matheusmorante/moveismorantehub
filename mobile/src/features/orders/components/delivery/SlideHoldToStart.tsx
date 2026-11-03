@@ -19,7 +19,7 @@ export type SlideHoldToStartProps = {
 
 /**
  * Botão deslizante com confirmação de um único deslize.
- * Usado nas etapas de transição do fluxo de entrega (Preparação -> Em Rota -> Atendimento -> Finalização).
+ * Usado nas etapas de transição do fluxo operacional (Preparação -> Deslocamento -> Atendimento -> Finalização).
  * Quando desativado, apresenta cor cinza meio transparente e bloqueia qualquer interação física.
  */
 export function SlideHoldToStart({

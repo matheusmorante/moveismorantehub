@@ -9,10 +9,48 @@ import {
   assertInboundInvoiceRecipientMatchesCompany,
   getInboundInvoiceRecipientGuardError,
 } from '../../../../../../shared-utils/inboundInvoiceRecipient';
+import {
+  collectInboundInvoiceVariationIds,
+  reconcileInboundInvoiceVariationReferences,
+} from '../../../../../../shared-utils/inboundInvoiceVariationReferences';
 import { getSettings } from '../../settingsService';
 
 export const deleteInboundInvoice = async (_invoiceIdOrKey: string): Promise<void> => {
   throw new Error('Notas fiscais de entrada não podem ser excluídas.');
+};
+
+const reconcileInvoiceItemVariationReferences = async (
+  invoiceId: string,
+  items: InboundInvoice['items']
+) => {
+  if (!items?.length) return items || [];
+  const variationIds = collectInboundInvoiceVariationIds(items);
+  if (!variationIds.length) return items;
+
+  const { data: normalizedItems, error: normalizedItemsError } = await supabase
+    .from('inbound_invoice_items')
+    .select('item_number, product_id, variation_id, raw_item')
+    .eq('invoice_id', invoiceId);
+  if (normalizedItemsError) throw normalizedItemsError;
+
+  const queryableIds = variationIds.filter(isValidUuid);
+  const validVariationIds = new Set<string>();
+  if (queryableIds.length) {
+    const { data: variations, error: variationsError } = await supabase
+      .from('product_variations')
+      .select('id')
+      .in('id', queryableIds);
+    if (variationsError) throw variationsError;
+    for (const variation of variations || []) {
+      if (variation?.id) validVariationIds.add(String(variation.id));
+    }
+  }
+
+  return reconcileInboundInvoiceVariationReferences(
+    items,
+    normalizedItems || [],
+    validVariationIds
+  );
 };
 
 export const saveInboundInvoice = async (invoice: InboundInvoice, options: { requireConfirmation?: boolean; assertCurrent?: () => void } = {}): Promise<InboundInvoice> => {
@@ -24,7 +62,7 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
   options.assertCurrent?.();
   const accessKey = normalizeFiscalIdentifier(invoice.nfeKey);
   const validId = isValidUuid(invoice.id) ? invoice.id : crypto.randomUUID();
-  const invoiceToSave: InboundInvoice = { ...invoice, id: validId, nfeKey: accessKey };
+  let invoiceToSave: InboundInvoice = { ...invoice, id: validId, nfeKey: accessKey };
   const local = getLocalInvoices().filter((inv) => !isSampleInvoice(inv));
   const existingIndex = accessKey
     ? local.findIndex((inv) => normalizeFiscalIdentifier(inv.nfeKey) === accessKey)
@@ -35,6 +73,19 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
     local.unshift(invoiceToSave);
   }
   try {
+    if (options.requireConfirmation) {
+      invoiceToSave = {
+        ...invoiceToSave,
+        items: await reconcileInvoiceItemVariationReferences(validId, invoiceToSave.items || []),
+      };
+      if (existingIndex >= 0) {
+        local[existingIndex] = invoiceToSave;
+      } else {
+        local[0] = invoiceToSave;
+      }
+      options.assertCurrent?.();
+    }
+
     const payload: Record<string, any> = {
       id: validId,
       chave_acesso: accessKey || null,
@@ -81,7 +132,7 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
             : 'pendente',
       receipt_id: invoice.receiptId || null,
       xml_conteudo: invoice.rawXml || null,
-      itens: invoice.items || [],
+      itens: invoiceToSave.items || [],
       updated_at: new Date().toISOString(),
     };
 
@@ -99,16 +150,16 @@ export const saveInboundInvoice = async (invoice: InboundInvoice, options: { req
         const row = header.data;
         const canonical = (value: unknown) => JSON.stringify(value, (_key, entry) => entry && typeof entry === 'object' && !Array.isArray(entry)
           ? Object.fromEntries(Object.keys(entry).sort().map((key) => [key, entry[key]])) : entry);
-        if (!row || row.id !== validId || (row.supplier_id || undefined) !== (invoice.supplierId || undefined) || canonical(row.itens) !== canonical(invoice.items)) {
+        if (!row || row.id !== validId || (row.supplier_id || undefined) !== (invoice.supplierId || undefined) || canonical(row.itens) !== canonical(invoiceToSave.items)) {
           throw new Error('A gravação dos vínculos da nota não foi confirmada pelo servidor.');
         }
     }
     if (error) {
       console.warn('Alerta upsert Supabase:', error);
-    } else if (Array.isArray(invoice.items) && invoice.items.length > 0) {
+    } else if (Array.isArray(invoiceToSave.items) && invoiceToSave.items.length > 0) {
       // Sincronizar itens na tabela normalizada inbound_invoice_items
       try {
-        const itemRows = invoice.items.map((item, idx) => {
+        const itemRows = invoiceToSave.items.map((item, idx) => {
           const normalized = normalizeInvoiceItem(item, idx);
           return {
             invoice_id: validId,

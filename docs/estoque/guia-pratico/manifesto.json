@@ -1,5 +1,5 @@
 {
-  "paginas": 27,
+  "paginas": 35,
   "titulos": [
     "Guia prático do estoque",
     "Onde encontrar cada operação",
@@ -18,7 +18,7 @@
     "Frete e despesas: confira sem duplicar",
     "Confirme uma vez e confira o resultado",
     "Escolha por onde imprimir as etiquetas",
-    "Confira a seleção antes de imprimir",
+    "Escolha a forma de imprimir",
     "Um móvel pode ter várias caixas",
     "Pedido de compra registra o combinado",
     "Defina o que será contado",
@@ -27,7 +27,15 @@
     "Descubra o que mudou no estoque",
     "Registre só o que sai do estoque",
     "A unidade vai voltar ao estoque?",
-    "Conferência final do estoque"
+    "Conferência final do estoque",
+    "O que você quer fazer?",
+    "Chegaram produtos?",
+    "Uma etiqueta por móvel",
+    "Conte antes de concluir",
+    "Registre o pedido de compra",
+    "O produto pode continuar disponível?",
+    "Algo não saiu como esperado?",
+    "A nota não pode ser escolhida?"
   ],
   "imagens": [
     "00-menu-estoque.png",
@@ -40,7 +48,6 @@
     "04c-gerar-recebimento.png",
     "05-cadastro-rapido.png",
     "05b-variacao-existente.png",
-    "06-opcoes-recebimento.png",
     "07-formulario-recebimento.png",
     "09-pedido-compra.png",
     "12-indisponibilidade.png",

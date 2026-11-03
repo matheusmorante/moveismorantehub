@@ -5,7 +5,6 @@ import {
   GitMerge,
   QrCode,
   Receipt,
-  Tag,
   Trash2,
   X,
 } from 'lucide-react-native';
@@ -32,7 +31,6 @@ interface Props {
   onMoveToAnotherFamily?: () => void;
   onMergeWithAnotherVariation?: () => void;
   onShowOrders?: () => void;
-  onPrintPriceLabel?: () => void;
   onMoveProductToTrash?: () => void;
   canMoveProductToTrash?: boolean;
   trashBlockReason?: string | null;
@@ -52,7 +50,6 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
   onMoveToAnotherFamily,
   onMergeWithAnotherVariation,
   onShowOrders,
-  onPrintPriceLabel,
   onMoveProductToTrash,
   canMoveProductToTrash = false,
   trashBlockReason,
@@ -180,20 +177,6 @@ export const MobileProductVariationActionsMenu: React.FC<Props> = ({
               >
                 <Receipt size={16} color="#2563eb" />
                 <Text style={[styles.itemText, dark && styles.textDark]}>Pedidos Vinculados</Text>
-              </TouchableOpacity>
-            ) : null}
-            {onPrintPriceLabel && !isMerged ? (
-              <TouchableOpacity
-                style={styles.item}
-                onPress={() => {
-                  onClose();
-                  onPrintPriceLabel();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Imprimir etiqueta de preço"
-              >
-                <Tag size={16} color="#059669" />
-                <Text style={[styles.itemText, dark && styles.textDark]}>Etiqueta de Preço</Text>
               </TouchableOpacity>
             ) : null}
             {onMoveProductToTrash && !isMerged ? (

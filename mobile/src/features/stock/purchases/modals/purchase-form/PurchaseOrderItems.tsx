@@ -5,7 +5,7 @@ import { Check, ChevronDown, Plus } from 'lucide-react-native';
 import { CurrencyInput } from '../../../../../components/shared/CurrencyInput';
 import { formatMoney, parseNumber } from '../../hooks/usePurchaseForm';
 import { calculateMobilePurchaseItemCostBreakdown } from '../../hooks/useMobilePurchaseItems';
-import type { PurchaseItemsSectionProps } from './PurchaseItemsSection';
+import type { PurchaseItemsSectionProps } from './purchaseItemsSection.types';
 
 const ITEM_EXPANSION_DURATION_MS = 260;
 

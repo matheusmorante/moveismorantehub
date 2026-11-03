@@ -5,6 +5,5 @@ export * from './inboundMappings.styles';
 export * from './InboundSupplierSection';
 export * from './InboundQuickProductModal';
 export * from './InboundMappingItemCard';
-export * from './InboundItemFiscalDetails';
 export * from './InboundItemSuggestionsCard';
 export * from './hooks/useInboundInvoiceMappings';

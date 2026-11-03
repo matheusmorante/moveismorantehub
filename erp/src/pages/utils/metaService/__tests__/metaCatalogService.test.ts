@@ -59,7 +59,11 @@ describe('metaCatalogService', () => {
 
   describe('syncProductToCatalog', () => {
     it('envia requisição com dados formatados para a Meta API', async () => {
-      vi.mocked(metaHttpClient.request).mockResolvedValue(response({ handles: ['h123'] }));
+      vi.mocked(metaHttpClient.request).mockImplementation(async (operation) =>
+        operation === 'check_catalog_batch'
+          ? response({ status: 'finished', errors_total_count: 0 })
+          : response({ handles: ['h123'] })
+      );
 
       const product = {
         id: 'prod-1',
@@ -83,7 +87,11 @@ describe('metaCatalogService', () => {
     });
 
     it('aplica a base configurada também no envio Graph em lote', async () => {
-      vi.mocked(metaHttpClient.request).mockResolvedValue(response({ handles: ['h_batch'] }));
+      vi.mocked(metaHttpClient.request).mockImplementation(async (operation) =>
+        operation === 'check_catalog_batch'
+          ? response({ status: 'finished', errors_total_count: 0 })
+          : response({ handles: ['h_batch'] })
+      );
 
       await metaCatalogService.syncBatchProductsToCatalog([
         {
@@ -107,7 +115,11 @@ describe('metaCatalogService', () => {
 
   describe('deleteProductFromCatalog', () => {
     it('executa syncProductToCatalog com a ação DELETE', async () => {
-      vi.mocked(metaHttpClient.request).mockResolvedValue(response({ handles: ['h_del'] }));
+      vi.mocked(metaHttpClient.request).mockImplementation(async (operation) =>
+        operation === 'check_catalog_batch'
+          ? response({ status: 'finished', errors_total_count: 0 })
+          : response({ handles: ['h_del'] })
+      );
 
       await metaCatalogService.deleteProductFromCatalog('SKU-001');
       expect(metaHttpClient.request).toHaveBeenCalledWith('sync_catalog_batch', expect.objectContaining({

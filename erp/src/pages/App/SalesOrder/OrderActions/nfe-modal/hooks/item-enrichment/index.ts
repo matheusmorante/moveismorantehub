@@ -4,3 +4,4 @@ export * from './itemFallbackBuilder';
 export * from './itemPriorDocumentBackfill';
 export * from './itemFiscalMerger';
 export * from './itemFiscalUpdateHandlers';
+export * from './itemNcmSuggestionResolver';

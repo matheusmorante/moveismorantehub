@@ -30,6 +30,7 @@ import { buildSalesOrderSnapshot, prepareOrderForFormEditing } from './orderForm
 import { useOrderFormSubmission } from './useOrderFormSubmission';
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
 import { requestConfirmation } from '@/components/shared/confirmationService';
+import { resolveFirstItemHandlingType } from '../orderItemHandling';
 
 export { parseStorageDateToLocal };
 
@@ -254,7 +255,7 @@ export const useSalesOrderForm = (
 
   // Sincronizar o manuseio operacional (shipping.orderType) a partir dos itens selecionados
   useEffect(() => {
-    const firstHandling = items.find((i) => i.handlingType?.trim())?.handlingType || '';
+    const firstHandling = resolveFirstItemHandlingType(items);
     if (firstHandling && firstHandling !== shipping.orderType) {
       setShipping((prev) => ({
         ...prev,
@@ -279,7 +280,7 @@ export const useSalesOrderForm = (
   }, []);
 
   const currentOrder = useMemo((): Order => {
-    const firstHandling = items.find((i) => i.handlingType?.trim())?.handlingType || '';
+    const firstHandling = resolveFirstItemHandlingType(items);
     return {
       id: currentOrderId,
       orderIndex: orderIndex || undefined,

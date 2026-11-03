@@ -32,7 +32,7 @@ describe('teamLocationStatus - Regras de Rastreamento de Equipe e Desconexão', 
   it('deve formatar rótulos e textos explicativos de status para o modal/tooltip', () => {
     const activeLabel = formatTeamMemberStatusLabel(false, '2026-09-12T14:30:00Z');
     expect(activeLabel.badge).toBe('active');
-    expect(activeLabel.title).toBe('GPS Ativo em Rota');
+    expect(activeLabel.title).toBe('GPS Ativo em Deslocamento');
 
     const disconnectedLabel = formatTeamMemberStatusLabel(true, '2026-09-12T14:30:00Z');
     expect(disconnectedLabel.badge).toBe('disconnected');

@@ -33,6 +33,7 @@ import type { DocumentPickerAsset } from 'expo-document-picker';
 import { extractNfeAccessKey } from '../../invoices/utils/accessKey';
 import * as stockService from '../../../../services/stockService';
 import { getDefaultInvoiceDateFilter } from '../../invoices/utils/invoiceList';
+import { formatMonthYear, MonthYearPickerModal } from './MonthYearPickerModal';
 import {
   InvoicePeriodFilterModal,
   periodOptions,
@@ -155,6 +156,7 @@ export const ReceiptSourcePicker: React.FC<PickerProps> = ({
     getDefaultInvoiceDateFilter(),
   );
   const [isPeriodModalVisible, setIsPeriodModalVisible] = useState(false);
+  const [isCustomMonthModalVisible, setIsCustomMonthModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -387,17 +389,17 @@ export const ReceiptSourcePicker: React.FC<PickerProps> = ({
             <ChevronDown size={15} color={colors.muted} />
           </TouchableOpacity>
           {dateFilter.mode === 'custom_month' && (
-            <FormTextInput
-              value={dateFilter.customMonth}
-              onChangeText={(customMonth) => {
-                setPage(0);
-                setDateFilter((current) => ({ ...current, customMonth }));
-              }}
-              placeholder="AAAA-MM"
-              maxLength={7}
-              accessibilityLabel="Mês da nota fiscal"
-              style={[styles.dateInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-            />
+            <TouchableOpacity
+              onPress={() => setIsCustomMonthModalVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`Mês da nota fiscal: ${formatMonthYear(dateFilter.customMonth)}. Escolher mês e ano.`}
+              style={[styles.datePickerButton, { borderColor: colors.border, backgroundColor: colors.surface }]}
+            >
+              <Text style={{ color: colors.text, fontSize: 12 }}>
+                {formatMonthYear(dateFilter.customMonth)}
+              </Text>
+              <Calendar size={16} color={colors.muted} />
+            </TouchableOpacity>
           )}
           {dateFilter.mode === 'custom_range' && (
             <View style={styles.dateRange}>
@@ -592,6 +594,17 @@ export const ReceiptSourcePicker: React.FC<PickerProps> = ({
           setIsPeriodModalVisible(false);
         }}
       />
+      <MonthYearPickerModal
+        visible={isCustomMonthModalVisible}
+        isDarkMode={isDarkMode}
+        value={dateFilter.customMonth}
+        onClose={() => setIsCustomMonthModalVisible(false)}
+        onSelect={(customMonth) => {
+          setPage(0);
+          setDateFilter((current) => ({ ...current, customMonth }));
+          setIsCustomMonthModalVisible(false);
+        }}
+      />
       <InboundInvoiceMappingsModal
         visible={Boolean(mappingInvoice)}
         invoice={mappingInvoice}
@@ -697,6 +710,16 @@ const styles = StyleSheet.create({
   },
   searchButtonText: { color: '#ffffff', fontWeight: '800', fontSize: 12 },
   dateFilterContainer: { gap: 8, paddingHorizontal: 12, paddingBottom: 4 },
+  datePickerButton: {
+    width: '100%',
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: 9,
+    paddingHorizontal: 10,
+  },
   dateFilterButton: {
     minHeight: 42,
     alignSelf: 'flex-end',

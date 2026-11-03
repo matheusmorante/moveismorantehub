@@ -15,6 +15,7 @@ export interface DeliveryPreparationModalsProps {
   loading?: boolean;
   cancelling?: boolean;
   showStartConfirmModal: boolean;
+  routeStartError?: string | null;
   onCloseStartConfirmModal: () => void;
   onConfirmStartRoute: () => void;
   gpsEnabled: boolean;
@@ -48,6 +49,7 @@ export const DeliveryPreparationModals: React.FC<DeliveryPreparationModalsProps>
   loading = false,
   cancelling = false,
   showStartConfirmModal,
+  routeStartError,
   onCloseStartConfirmModal,
   onConfirmStartRoute,
   gpsEnabled,
@@ -74,6 +76,7 @@ export const DeliveryPreparationModals: React.FC<DeliveryPreparationModalsProps>
         customerName={customerName}
         responsibles={responsibles}
         loading={isActionLoading}
+        startRouteError={routeStartError}
         isDarkMode={isDarkMode}
         gpsEnabled={gpsEnabled}
         checkingGps={checkingGps}

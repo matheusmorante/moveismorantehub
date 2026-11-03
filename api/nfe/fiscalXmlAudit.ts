@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { DOMParser } from '@xmldom/xmldom';
 import { SignedXml } from 'xml-crypto';
 import {
   HOMOLOGATION_FIRST_ITEM_DESCRIPTION,
@@ -17,26 +16,22 @@ import {
   resolvePaymentFeeRows,
 } from './normal-sale/paymentFeeVoutro';
 import { resolveNormalSalePayments } from './normal-sale/payments';
+import {
+  allDescendants,
+  child,
+  childElements,
+  children,
+  createStrictXmlParser,
+  localName,
+  text,
+  type XmlNode,
+} from './fiscalXmlAuditDom';
 import type {
   DeterminedFiscalItem,
   DeterminedTaxGroup,
   FiscalDocument,
   FiscalSnapshotCandidate,
 } from './fiscalSnapshot';
-
-function createStrictXmlParser(parseErrors: string[]) {
-  return new DOMParser({
-    errorHandler: (level, message) => {
-      if (
-        level === 'warning' &&
-        String(message).includes('errorHandler') &&
-        String(message).includes('deprecated')
-      )
-        return;
-      parseErrors.push(String(message));
-    },
-  });
-}
 
 export interface FiscalXmlAuditMismatch {
   field: string;
@@ -81,28 +76,6 @@ export function fiscalPreviewFingerprint(
     )
     .digest('hex');
 }
-
-type XmlDocument = ReturnType<InstanceType<typeof DOMParser>['parseFromString']>;
-type XmlNode = NonNullable<XmlDocument['documentElement']>;
-
-const localName = (node: XmlNode) => (node.localName || node.tagName).split(':').at(-1) || '';
-const children = (node: XmlNode | null | undefined): XmlNode[] =>
-  node ? Array.from(node.childNodes).filter((child): child is XmlNode => child.nodeType === 1) : [];
-const child = (node: XmlNode | null, name: string): XmlNode | null =>
-  node ? children(node).find((candidate) => localName(candidate) === name) || null : null;
-const childElements = (node: XmlNode | null, name: string): XmlNode[] =>
-  node ? children(node).filter((candidate) => localName(candidate) === name) : [];
-const text = (node: XmlNode | null, name: string): string =>
-  child(node, name)?.textContent?.trim() || '';
-const allDescendants = (node: XmlNode, name: string): XmlNode[] => {
-  const result: XmlNode[] = [];
-  const visit = (current: XmlNode) => {
-    if (localName(current) === name) result.push(current);
-    children(current).forEach(visit);
-  };
-  visit(node);
-  return result;
-};
 
 import { normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers.js';
 

@@ -10,6 +10,7 @@ import {
   META_CATALOG_FALLBACK_IMAGE_URL,
   sanitizeMetaCatalogImageUrl as sanitizeImageUrl,
 } from '../../../../../shared-utils/metaCatalogBatchPayload';
+import { waitForMetaCatalogBatchHandles } from '../../../../../shared-utils/metaCatalogBatchStatus';
 import { metaHttpClient } from './metaHttpClient';
 import { metaErrorHandler } from './metaErrorHandler';
 import type { WhatsAppProduct, MetaProductSet, MetaBatchSyncResult } from './types';
@@ -18,6 +19,18 @@ import type { WhatsAppProduct, MetaProductSet, MetaBatchSyncResult } from './typ
  * Serviço especializado na gestão de catálogo de produtos e coleções na Meta Catalog API.
  * Responsável por consultas de catálogo, sincronização individual e em lotes (items_batch).
  */
+async function checkMetaCatalogBatchStatus(handle: string) {
+  const { whatsappConfig } = getSettings();
+  if (!whatsappConfig?.catalogId) throw new Error('Catalog ID não configurado.');
+
+  const response = await metaHttpClient.request('check_catalog_batch', { handle });
+  const data = await response.json();
+  if (!response.ok || data.error) {
+    throw new Error(data.error?.message || 'Erro ao consultar status do lote.');
+  }
+  return data;
+}
+
 export const metaCatalogService = {
   /**
    * Busca todos os produtos ativos e visíveis no Catálogo da Meta
@@ -65,7 +78,8 @@ export const metaCatalogService = {
       product.status === 'hidden' ||
       product.status === 'draft' ||
       product.deleted === true ||
-      (product.deleted_at !== undefined && product.deleted_at !== null);
+      (product.deleted_at !== undefined && product.deleted_at !== null) ||
+      (product.active === false && product.is_salvado !== true && product.product_kind !== 'salvado');
     const targetAction = isInactiveOrHidden ? 'DELETE' : action;
 
     const cleanTitle =
@@ -190,6 +204,11 @@ export const metaCatalogService = {
         throw new Error('Erro desconhecido ao sincronizar com a Meta.');
       }
 
+      const handles = Array.isArray(data.handles)
+        ? data.handles.filter((handle: unknown): handle is string => typeof handle === 'string' && Boolean(handle.trim()))
+        : [];
+      await waitForMetaCatalogBatchHandles(handles, checkMetaCatalogBatchStatus);
+
       return data;
     } catch (error: any) {
       console.error('Erro fatal no sync WhatsApp/Meta:', error);
@@ -240,9 +259,11 @@ export const metaCatalogService = {
         throw new Error('Erro no envio em lote da Meta API.');
       }
 
-      if (data.handles && Array.isArray(data.handles)) {
-        handles.push(...data.handles);
-      }
+      const batchHandles = Array.isArray(data.handles)
+        ? data.handles.filter((handle: unknown): handle is string => typeof handle === 'string' && Boolean(handle.trim()))
+        : [];
+      handles.push(...batchHandles);
+      await waitForMetaCatalogBatchHandles(batchHandles, checkMetaCatalogBatchStatus);
 
       syncedCount += chunk.length;
       if (onProgress) onProgress(syncedCount, total);
@@ -254,15 +275,7 @@ export const metaCatalogService = {
   /**
    * Consulta o status assíncrono de um lote enviado ao Meta Catalog
    */
-  checkBatchStatus: async (handle: string) => {
-    const { whatsappConfig } = getSettings();
-    if (!whatsappConfig?.catalogId) throw new Error('Catalog ID não configurado.');
-
-    const response = await metaHttpClient.request('check_catalog_batch', { handle });
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message || 'Erro ao consultar status do lote.');
-    return data;
-  },
+  checkBatchStatus: checkMetaCatalogBatchStatus,
 
   /**
    * Lista as coleções (product sets) do catálogo na Meta

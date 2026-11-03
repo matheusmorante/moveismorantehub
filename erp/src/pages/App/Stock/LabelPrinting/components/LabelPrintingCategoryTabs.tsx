@@ -35,24 +35,24 @@ export const LabelPrintingCategoryTabs: React.FC<Props> = ({
   onSelectCategory,
 }) => {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <div className="mb-4 grid min-w-0 grid-cols-2 gap-2 sm:mb-6 sm:gap-3 md:grid-cols-4">
       {CATEGORIES.map((cat) => {
         const isActive = selectedCategory === cat.id;
         return (
           <button
             key={cat.id}
             onClick={() => onSelectCategory(cat.id)}
-            className={`p-3.5 rounded-2xl border text-left transition-all ${
+            className={`min-w-0 rounded-xl border p-2.5 text-left transition-all sm:rounded-2xl sm:p-3.5 ${
               isActive
                 ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 shadow-sm text-blue-900 dark:text-blue-200'
                 : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
             }`}
           >
-            <div className="flex items-center gap-2 font-bold text-sm mb-1">
-              <span>{cat.icon}</span>
-              <span>{cat.label}</span>
+            <div className="mb-1 flex min-w-0 items-start gap-1.5 font-bold sm:items-center sm:gap-2 sm:text-sm">
+              <span className="shrink-0">{cat.icon}</span>
+              <span className="min-w-0 break-words text-xs leading-tight sm:text-sm">{cat.label}</span>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+            <p className="line-clamp-2 text-[10px] leading-snug text-slate-500 dark:text-slate-400 sm:line-clamp-1 sm:text-[11px]">
               {cat.desc}
             </p>
           </button>

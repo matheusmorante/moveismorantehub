@@ -1,10 +1,13 @@
 import React from 'react';
 import { InvoicesScreenContent } from './invoices-screen/InvoicesScreenContent';
+import type { Invoice } from '../../types/stock.types';
 
 interface InvoicesScreenProps {
   isDarkMode: boolean;
+  canAccessReceipts?: boolean;
   onBack: () => void;
   renderHeader: (rightAction?: React.ReactNode) => React.ReactElement;
+  onGenerateReceipt?: (invoice: Invoice) => void;
 }
 
 /**

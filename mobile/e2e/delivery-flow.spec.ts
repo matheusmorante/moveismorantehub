@@ -200,14 +200,14 @@ test.describe('Fluxo de Entrega Completo (Online e Offline) — E2E Browser UI',
       timeout: 15000,
     });
     await expect(page.getByText('VER DETALHES').first()).toBeVisible();
-    await expect(page.getByText('FLUXO DE ENTREGA').first()).toBeVisible();
+    await expect(page.getByText('FLUXO OPERACIONAL').first()).toBeVisible();
 
     // 2. Testar botão "VER DETALHES" e depois iniciar fluxo pelo botão do modal
     await page.getByText('VER DETALHES').first().click();
-    await expect(page.getByText('Iniciar fluxo de entrega').first()).toBeVisible({
+    await expect(page.getByText('Iniciar fluxo operacional').first()).toBeVisible({
       timeout: 10000,
     });
-    await page.getByText('Iniciar fluxo de entrega').first().click();
+    await page.getByText('Iniciar fluxo operacional').first().click();
 
     // 3. ETAPA 1: Preparar Saída
     await expect(page.getByText(/Pedido #900101 • Preparar Saída/i)).toBeVisible({
@@ -515,8 +515,8 @@ test.describe('Fluxo de Entrega Completo (Online e Offline) — E2E Browser UI',
       window.dispatchEvent(new Event('offline'));
     });
 
-    // Clicar diretamente no botão "FLUXO DE ENTREGA" do card no Cronograma
-    await page.getByText('FLUXO DE ENTREGA').first().click();
+    // Clicar diretamente no botão "FLUXO OPERACIONAL" do card no Cronograma
+    await page.getByText('FLUXO OPERACIONAL').first().click();
 
     // Deve abrir direto na Etapa 1: Preparar Saída mesmo sem rede!
     await expect(page.getByText(/Pedido #900202 • Preparar Saída/i)).toBeVisible({
@@ -541,7 +541,7 @@ test.describe('Fluxo de Entrega Completo (Online e Offline) — E2E Browser UI',
     await page.getByRole('button', { name: 'Voltar' }).first().click();
     await expect(page.getByText('NO LOCAL').first()).toBeVisible({ timeout: 10000 });
 
-    await page.getByText('FLUXO DE ENTREGA').first().click();
+    await page.getByText('FLUXO OPERACIONAL').first().click();
     await expect(page.getByText(/Pedido #900202 • Chegada no Local/i)).toBeVisible({
       timeout: 10000,
     });
@@ -767,7 +767,7 @@ test.describe('Fluxo de Entrega Completo (Online e Offline) — E2E Browser UI',
 
     // 2. Clicar em "Cancelar Entrega" e confirmar no modal CancelDeliveryConfirmModal
     await page.getByText('Cancelar Entrega').first().click();
-    await expect(page.getByText('Cancelar Fluxo de Entrega')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Cancelar Fluxo Operacional')).toBeVisible({ timeout: 5000 });
     await page.getByText('Sim, Cancelar').click();
 
     // 3. Verificar que o pedido retornou ao status 'scheduled' e limpou delivery_status
@@ -832,7 +832,7 @@ test.describe('Fluxo de Entrega Completo (Online e Offline) — E2E Browser UI',
     const cronogramaTab = page.getByText('Cronograma', { exact: true }).first();
     await expect(cronogramaTab).toBeVisible({ timeout: 60000 });
     await cronogramaTab.click();
-    await page.getByText('FLUXO DE ENTREGA').first().click();
+    await page.getByText('FLUXO OPERACIONAL').first().click();
     await expect(page.getByText(/Pedido #900404 • Chegada no Local/i)).toBeVisible({
       timeout: 10000,
     });
@@ -945,7 +945,7 @@ test.describe('Fluxo de Entrega Completo (Online e Offline) — E2E Browser UI',
     const cronogramaTab = page.getByText('Cronograma', { exact: true }).first();
     await expect(cronogramaTab).toBeVisible({ timeout: 60000 });
     await cronogramaTab.click();
-    await page.getByText('FLUXO DE ENTREGA').first().click();
+    await page.getByText('FLUXO OPERACIONAL').first().click();
     await expect(page.getByText(/Pedido #900505 • Preparar Saída/i)).toBeVisible({
       timeout: 10000,
     });

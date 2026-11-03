@@ -76,7 +76,7 @@ export const DeliveryMarker: React.FC<Props> = ({
       <Marker
         coordinate={driverCoords!}
         title="Sua Posição"
-        description="Você (Navegação em Rota)"
+        description="Você (Navegação em Deslocamento)"
         anchor={{ x: 0.5, y: 0.5 }}
         tracksViewChanges={tracksViewChanges}
       >
@@ -105,7 +105,7 @@ export const DeliveryMarker: React.FC<Props> = ({
       : '';
     const statusDesc = teamMember.isDisconnectedOrNoGps
       ? `Última localização às ${lastSeenTime} • Sem sinal de GPS / Desligado`
-      : `Em rota • GPS Ativo (${lastSeenTime})`;
+      : `Em deslocamento • GPS Ativo (${lastSeenTime})`;
 
     return (
       <Marker

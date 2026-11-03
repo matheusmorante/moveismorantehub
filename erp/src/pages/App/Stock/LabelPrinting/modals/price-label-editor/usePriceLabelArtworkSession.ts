@@ -8,8 +8,8 @@ import {
 } from '../../../../../../../../shared-utils/labelArtworkFormSchemas';
 import { withTimeout } from '../../../../../../../../shared-utils/withTimeout';
 import { buildPriceLabelAutoSaveConfig } from '../../services/priceLabelAutoSaveConfig';
-import { exportLabelImage } from '../../services/priceLabelExportService';
 import { usePriceLabelArtworkQueries } from './usePriceLabelArtworkQueries';
+import { createPriceLabelArtworkActionHandlers } from './priceLabelArtworkActions';
 import type { LabelConfig } from '../../utils/LabelConstants';
 import type { Opportunity } from '../../types/PriceLabelArtEditorTypes';
 
@@ -437,79 +437,27 @@ export function usePriceLabelArtworkSession({
     }
   };
 
-  const runArtworkAction = async (operation: () => Promise<unknown>) => {
-    if (
-      !active.current ||
-      actionInFlight.current ||
-      closing.current ||
-      isArtConfigLoading ||
-      artQueryError ||
-      saveGuard.error
-    ) {
-      return;
-    }
-    actionInFlight.current = true;
-    setActionBusy(true);
-    setActionError('');
-    try {
-      await operation();
-    } catch (error) {
-      if (active.current) {
-        setActionError(error instanceof Error ? error.message : 'Não foi possível concluir a ação da arte.');
-      }
-    } finally {
-      actionInFlight.current = false;
-      if (active.current) setActionBusy(false);
-    }
-  };
-
-  const invalidArtworkAction = (errors: Parameters<typeof flattenFormErrors>[0]) => {
-    if (active.current) {
-      setActionError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da arte.');
-    }
-  };
-
-  const handleExport = (action: 'copy' | 'download') =>
-    runArtworkAction(async () => {
-      if (isTestValuesModalOpen) throw new Error('Conclua o teste de numeração antes de exportar a arte.');
-      const snapshot = structuredClone(getSnapshot());
-      const serialized = JSON.stringify(snapshot);
-      await validateExport(
-        { layoutId: String(config.layoutId || 'preco_2x5_restored'), action, snapshot },
-        async (values) => {
-          const stillCurrent = () => active.current && JSON.stringify(latestSnapshot.current()) === serialized;
-          if (!stillCurrent()) throw new Error('A arte mudou durante a exportação. Tente novamente.');
-          await exportLabelImage(previewRef.current, values, stillCurrent);
-          if (stillCurrent()) {
-            toast.success(
-              values.action === 'copy'
-                ? 'Imagem da etiqueta copiada para a área de transferência!'
-                : 'Download da imagem PNG iniciado!'
-            );
-          }
-          return true;
-        },
-        invalidArtworkAction
-      );
-    });
-
-  const handleRenameTitle = () =>
-    runArtworkAction(async () => {
-      const newTitle = window.prompt('Nome / Título da Arte:', title);
-      if (newTitle === null) return;
-      await validateTitle(
-        { title: newTitle },
-        (values) => {
-          if (!active.current) return false;
-          setSelectedElement('title');
-          setSelectedElements(new Set(['title']));
-          setTitle(values.title);
-          toast.success('Título da arte atualizado!');
-          return true;
-        },
-        invalidArtworkAction
-      );
-    });
+  const { handleExport, handleRenameTitle } = createPriceLabelArtworkActionHandlers({
+    active,
+    actionInFlight,
+    closing,
+    isArtConfigLoading,
+    artQueryError,
+    saveGuard,
+    isTestValuesModalOpen,
+    config,
+    getSnapshot,
+    latestSnapshot,
+    previewRef,
+    title,
+    setTitle,
+    setSelectedElement,
+    setSelectedElements,
+    setActionBusy,
+    setActionError,
+    validateExport,
+    validateTitle,
+  });
 
   return {
     active,

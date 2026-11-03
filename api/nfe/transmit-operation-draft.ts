@@ -64,6 +64,7 @@ import {
   persistDraftAuthorized,
   reconcileStoredDraftAttempt,
 } from './operation-draft/draftPersistence';
+import { validateReturnDraftAllocationLinks } from './operation-draft/returnAllocationValidation';
 
 const supabaseUrl =
   process.env.VITE_SUPABASE_URL ||
@@ -311,34 +312,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: 'Não foi possível validar a alocação dos itens da devolução.',
         });
       }
-      for (const [originalItemNumber, allocations] of allocationsByNumber) {
-        const originalLine = sourceLineByNumber.get(originalItemNumber);
-        const draftLine = originalLine && draftLineByOriginalId.get(originalLine.id);
-        const linksForLine = draftLine
-          ? (allocationLinks || []).filter((link) => link.draft_line_id === draftLine.id)
-          : [];
-        const expectedAllocationIds = allocations.map((allocation) => allocation.id).sort();
-        const linkedAllocationIds = linksForLine.map((link) => link.allocation_id).sort();
-        const expectedQuantity = allocations.reduce(
-          (sum, allocation) => sum + allocation.quantity,
-          0
-        );
-        if (
-          !draftLine ||
-          Math.abs(Number(draftLine.quantity) - expectedQuantity) > 0.00005 ||
-          JSON.stringify(expectedAllocationIds) !== JSON.stringify(linkedAllocationIds)
-        ) {
-          return res.status(409).json({
-            success: false,
-            error:
-              'Os itens e quantidades do rascunho não correspondem às alocações persistidas da devolução.',
-          });
-        }
-      }
-      if (allocationsByNumber.size !== lines.length) {
+      const allocationValidationError = validateReturnDraftAllocationLinks({
+        allocationsByNumber,
+        sourceLineByNumber,
+        draftLineByOriginalId,
+        lines,
+        allocationLinks,
+      });
+      if (allocationValidationError) {
         return res.status(409).json({
           success: false,
-          error: 'O rascunho contém item sem alocação fiscal correspondente à devolução.',
+          error: allocationValidationError,
         });
       }
     }

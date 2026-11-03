@@ -14,7 +14,7 @@ import {
   isSalvadosOnlySupplier,
 } from '../../../../../../shared-utils/productSupplierStockOrigin';
 import { markInboundInvoiceItemsNotApplicable } from '../../../../../../shared-utils/inboundInvoiceSupplierRules';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
+import { getCurrentInboundInvoiceMappingItems } from '../../../../../../shared-utils/inboundInvoiceMappingState';
 import {
   getMonthDateBounds,
   getCurrentYearMonthStr,
@@ -30,6 +30,7 @@ import {
   normalizeAdditionalCosts,
   toInboundInvoiceStatus,
 } from './inboundInvoicesMapper';
+import { resolveMissingSupplierOrigins } from './inboundInvoicesSupplierOrigins';
 
 export interface FetchInboundInvoicesOptions {
   page?: number;
@@ -45,97 +46,6 @@ export interface FetchInboundInvoicesResult {
   pageSize: number;
   totalPages: number;
 }
-
-interface SupplierOriginLookupRow {
-  id: string;
-  cpf_cnpj?: string | null;
-  stock_origins?: string[] | null;
-}
-
-interface SupplierOriginByCnpj {
-  readonly origins: Set<string>;
-  hasSalvadosOnlySupplier: boolean;
-}
-
-const resolveMissingSupplierOrigins = async (
-  invoices: InboundInvoice[]
-): Promise<InboundInvoice[]> => {
-  const invoicesWithoutOrigins = invoices.filter(
-    (invoice) => !Array.isArray(invoice.supplierStockOrigins) && invoice.emitterCnpj?.trim()
-  );
-  if (invoicesWithoutOrigins.length === 0) return invoices;
-
-  const supplierRows: SupplierOriginLookupRow[] = [];
-  try {
-    for (let firstRow = 0; ; firstRow += 1000) {
-      const result = await withTimeout(
-        supabase
-          .from('people')
-          .select('id, cpf_cnpj, stock_origins')
-          .or('deleted.eq.false,deleted.is.null')
-          .or('person_type.ilike.suppliers,person_type.ilike.supplier')
-          .order('id', { ascending: true })
-          .range(firstRow, firstRow + 999),
-        10000,
-        null,
-        'entrada:resolver-origem-fornecedor'
-      );
-      if (!result) throw new Error('A consulta de origem dos fornecedores excedeu o prazo.');
-      const { data, error } = result;
-      if (error) throw error;
-      const page = (data || []) as SupplierOriginLookupRow[];
-      supplierRows.push(...page);
-      if (page.length < 1000) break;
-    }
-  } catch (error) {
-    console.warn('Não foi possível classificar fornecedores pelo CNPJ da NF-e:', error);
-    // Sem a classificação remota, falha de forma segura e não expõe notas sem origem confirmada.
-    return invoices.map((invoice) =>
-      Array.isArray(invoice.supplierStockOrigins)
-        ? invoice
-        : { ...invoice, supplierStockOrigins: [] }
-    );
-  }
-
-  const originsByCnpj = new Map<string, SupplierOriginByCnpj>();
-  for (const row of supplierRows) {
-    const cnpj = normalizeFiscalIdentifier(row.cpf_cnpj);
-    if (!cnpj) continue;
-    const entry = originsByCnpj.get(cnpj) || {
-      origins: new Set<string>(),
-      hasSalvadosOnlySupplier: false,
-    };
-    const rowOrigins = Array.isArray(row.stock_origins) ? row.stock_origins : ['normal'];
-    for (const origin of rowOrigins) {
-      entry.origins.add(origin);
-    }
-    if (rowOrigins.includes('salvados') && !rowOrigins.includes('normal')) {
-      entry.hasSalvadosOnlySupplier = true;
-    }
-    originsByCnpj.set(cnpj, entry);
-  }
-
-  return invoices.map((invoice) => {
-    if (Array.isArray(invoice.supplierStockOrigins)) {
-      return isSalvadosOnlySupplier(invoice.supplierStockOrigins)
-        ? { ...invoice, items: markInboundInvoiceItemsNotApplicable(invoice.items) }
-        : invoice;
-    }
-    const cnpj = normalizeFiscalIdentifier(invoice.emitterCnpj);
-    const supplier = originsByCnpj.get(cnpj);
-    if (!supplier) return invoice;
-    const supplierStockOrigins = supplier.hasSalvadosOnlySupplier
-      ? ['salvados']
-      : Array.from(supplier.origins);
-    return {
-      ...invoice,
-      supplierStockOrigins,
-      ...(isSalvadosOnlySupplier(supplierStockOrigins)
-        ? { items: markInboundInvoiceItemsNotApplicable(invoice.items) }
-        : {}),
-    };
-  });
-};
 
 export const fetchInboundInvoicesPage = async (
   options?: FetchInboundInvoicesOptions
@@ -244,6 +154,7 @@ export const fetchInboundInvoicesPage = async (
         )
         .map((row: any) => {
           const supplierStockOrigins = getSupplierStockOriginsFromRelation(row.supplier);
+          const mappingItems = getCurrentInboundInvoiceMappingItems(row);
           const sources: any[][] = [];
           if (Array.isArray(row.inbound_invoice_items) && row.inbound_invoice_items.length > 0)
             sources.push(row.inbound_invoice_items);
@@ -300,10 +211,8 @@ export const fetchInboundInvoicesPage = async (
               normalized[0]?.unit ||
               'UN';
 
-          const matchedProductId = normalized.map((c) => c.matchedProductId).find(Boolean);
-          const matchedVariationId = normalized.map((c) => c.matchedVariationId).find(Boolean);
-          const productErpName = normalized.map((c) => c.productErpName).find(Boolean);
-          const linkedProductCode = normalized.map((c) => c.linkedProductCode).find(Boolean);
+          const mappingItem =
+            mappingItems.find((item) => item.itemNumber === idx + 1) || mappingItems[idx];
 
             childItems.push({
               ...normalized[0],
@@ -316,10 +225,17 @@ export const fetchInboundInvoicesPage = async (
               ncm,
               cfop,
               unit,
-              matchedProductId,
-              matchedVariationId,
-              productErpName,
-              linkedProductCode,
+              matchedProductId: mappingItem?.matchedProductId,
+              matched_product_id: mappingItem?.matchedProductId,
+              matchedVariationId: mappingItem?.matchedVariationId,
+              matched_variation_id: mappingItem?.matchedVariationId,
+              productErpName: mappingItem?.productErpName,
+              linkedProductCode: mappingItem?.linkedProductCode,
+              sellingPrice: mappingItem?.sellingPrice,
+              linkMode: mappingItem?.linkMode,
+              link_mode: mappingItem?.linkMode,
+              compositionLinks: mappingItem?.compositionLinks || [],
+              composition_links: mappingItem?.compositionLinks || [],
             });
           }
 

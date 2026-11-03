@@ -98,17 +98,6 @@ export const canShowMobileLinkedProductOrders = (options: {
   !options.showTrash &&
   options.canEditProducts;
 
-export const canShowMobileProductPriceLabel = (options: {
-  canEditProducts: boolean;
-  isLabelOnlyProfile: boolean;
-  showTrash: boolean;
-  isMergedVariation?: boolean;
-}): boolean =>
-  options.canEditProducts &&
-  !options.isLabelOnlyProfile &&
-  !options.showTrash &&
-  !options.isMergedVariation;
-
 export const canShowMobileProductDeletionActions = (options: {
   canEditProducts: boolean;
   canDeleteProducts: boolean;

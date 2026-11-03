@@ -8,10 +8,10 @@ import {
 import { getSettings } from '@/pages/utils/settingsService';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { buildMetaCatalogSyncItems } from '../../../../../shared-utils/productMetaCatalogSyncItems';
 import {
   fetchMetaCatalogSyncSources,
 } from '@/pages/App/Products/MetaCatalog/services/metaCatalogDataService';
-import { buildMetaCatalogItems } from '@/pages/App/Products/MetaCatalog/services/metaCatalogPayload';
 
 vi.mock('@/pages/utils/settingsService', () => ({
   getSettings: vi.fn(),
@@ -33,9 +33,12 @@ vi.mock('@/pages/App/Products/MetaCatalog/services/metaCatalogDataService', () =
   fetchMetaCatalogSyncSources: vi.fn(),
 }));
 
-vi.mock('@/pages/App/Products/MetaCatalog/services/metaCatalogPayload', () => ({
-  buildMetaCatalogItems: vi.fn(),
-}));
+vi.mock('../../../../../shared-utils/productMetaCatalogSyncItems', async () => {
+  const actual = await vi.importActual<typeof import('../../../../../shared-utils/productMetaCatalogSyncItems')>(
+    '../../../../../shared-utils/productMetaCatalogSyncItems'
+  );
+  return { ...actual, buildMetaCatalogSyncItems: vi.fn() };
+});
 
 describe('productMetaCatalogSync', () => {
   beforeEach(() => {
@@ -70,7 +73,7 @@ describe('productMetaCatalogSync', () => {
         opportunities: [],
       });
 
-      vi.mocked(buildMetaCatalogItems).mockReturnValue([
+      vi.mocked(buildMetaCatalogSyncItems).mockReturnValue([
         { id: 'p1', code: '001', name: 'Mesa' } as any,
       ]);
 
@@ -123,6 +126,7 @@ describe('productMetaCatalogSync', () => {
               error: null,
             }),
           }),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
         }),
       });
 

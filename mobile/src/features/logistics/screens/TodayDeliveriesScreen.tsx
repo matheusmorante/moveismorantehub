@@ -19,6 +19,7 @@ import {
 import { useDriverLocation } from '../hooks/useDriverLocation';
 import { useRoutesApi } from '../hooks/useRoutesApi';
 import { useTeamLocations } from '../hooks/useTeamLocations';
+import { getPrimaryDeliveryResponsibleId } from '../domain/deliveryRouteBuilder';
 import { DeliveryMapView } from '../components/deliveryMap/DeliveryMapView';
 import { MapErrorBoundary } from '../components/deliveryMap/MapErrorBoundary';
 import { NextDeliveryCard } from '../components/deliveryMap/NextDeliveryCard';
@@ -63,11 +64,31 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   const { routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } =
     useDeliveryRoute();
   const { coords: driverCoords, gpsEnabled, refreshLocation } = useDriverLocation();
+  const primaryResponsibleId = getPrimaryDeliveryResponsibleId(currentDelivery);
+  const isCurrentUserPrimaryResponsible = Boolean(
+    currentDelivery &&
+      primaryResponsibleId &&
+      userProfile?.id &&
+      userProfile.id === primaryResponsibleId
+  );
   const { teamMembers } = useTeamLocations({
     userProfile,
     myCoords: driverCoords,
     isGpsActive: gpsEnabled && Boolean(driverCoords),
+    isDelivering: false,
+    activeOrder:
+      currentDelivery && primaryResponsibleId
+        ? {
+            id: currentDelivery.id,
+            code: currentDelivery.orderIndex,
+            responsibleId: primaryResponsibleId,
+          }
+        : null,
+    canBroadcastLocation: false,
   });
+  const primaryResponsibleCoords = isCurrentUserPrimaryResponsible
+    ? driverCoords
+    : teamMembers[0]?.coords || null;
 
   // Coordenadas padrão do depósito Morante (Curitiba/Colombo - PR - R. Cascavel, 306, lado esquerdo)
   const storeCoords = useMemo(
@@ -89,7 +110,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
 
   // Polyline e métricas da Routes API entre motorista e parada selecionada (somente quando houver seleção explícita)
   const { polylineCoords, distanceKm, durationMin } = useRoutesApi({
-    origin: driverCoords || storeCoords,
+    origin: primaryResponsibleCoords || storeCoords,
     destination: activeDeliveryTarget?.coords || null,
     enabled: viewMode === 'map' && !!activeDeliveryTarget?.coords,
   });
@@ -165,7 +186,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
 
   // Ação de Otimizar Rota
   const handleOpenOptimization = () => {
-    const origin = driverCoords || storeCoords;
+    const origin = primaryResponsibleCoords || storeCoords;
     const result = calculateOptimizedRoute(routeItems, origin);
     setOptimizationResult(result);
     setShowOptimizationModal(true);
@@ -268,7 +289,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
           <MapErrorBoundary isDarkMode={isDarkMode}>
             <DeliveryMapView
               items={routeItems}
-              driverCoords={driverCoords}
+              driverCoords={isCurrentUserPrimaryResponsible ? driverCoords : null}
               storeCoords={storeCoords}
               polylineCoords={polylineCoords}
               selectedItem={selectedMarkerItem}

@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 
 export interface PreparedProductCropImageSource {
@@ -49,4 +50,63 @@ export async function downloadProductCropImageSource(
   } finally {
     signal.removeEventListener('abort', abortDownload);
   }
+}
+
+const getImageFetchCandidates = (url: string) => [
+  url,
+  `https://images.weserv.nl/?url=${encodeURIComponent(url)}`,
+  `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+];
+
+export async function prepareProductCropImageSource(
+  url: string,
+  signal: AbortSignal
+): Promise<PreparedProductCropImageSource> {
+  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('file://')) {
+    return { uri: url };
+  }
+
+  if (Platform.OS === 'web') {
+    for (const candidate of getImageFetchCandidates(url)) {
+      if (signal.aborted) throw Object.assign(new Error('O carregamento da foto foi cancelado.'), { name: 'AbortError' });
+      const candidateController = new AbortController();
+      const cancelCandidate = () => candidateController.abort();
+      signal.addEventListener('abort', cancelCandidate, { once: true });
+      try {
+        const response = await withTimeout(
+          fetch(candidate, { signal: candidateController.signal }),
+          12_000,
+          null,
+          'Carregar foto para recorte'
+        );
+        if (!response?.ok) {
+          candidateController.abort();
+          continue;
+        }
+        const blob = await withTimeout(response.blob(), 12_000, null, 'Preparar foto para recorte');
+        if (!blob || blob.size === 0) {
+          candidateController.abort();
+          continue;
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        return { uri: objectUrl, cleanup: () => URL.revokeObjectURL(objectUrl) };
+      } catch {
+        if (signal.aborted) throw Object.assign(new Error('O carregamento da foto foi cancelado.'), { name: 'AbortError' });
+        // URLs públicas alternativas permitem contornar CORS do armazenamento original.
+      } finally {
+        signal.removeEventListener('abort', cancelCandidate);
+      }
+    }
+    throw new Error('Não foi possível carregar a foto para recorte. Verifique sua conexão e tente novamente.');
+  }
+
+  return downloadProductCropImageSource(url, signal);
+}
+
+export async function deleteTemporaryProductPhotoUri(uri: string): Promise<void> {
+  if (uri.startsWith('blob:')) {
+    URL.revokeObjectURL(uri);
+    return;
+  }
+  await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
 }

@@ -1,4 +1,3 @@
-import paymentMethods from './paymentMethods';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import { PaymentsSummary, Payment } from '../../../types/payments.type';
 import CurrencyInput from '../../../../components/CurrencyInput';
@@ -7,7 +6,7 @@ import CurrencyDisplay from '../../../../components/CurrencyDisplay';
 import { calcPaymentTotalValue } from '../../../utils/calculations';
 import React, { useState, useRef, useEffect } from 'react';
 import { PixPaymentModal } from './PixPaymentModal';
-import DropdownPortal from '../../../../components/shared/DropdownPortal';
+import PaymentMethodSelector from './PaymentMethodSelector';
 import { formatCurrency } from '../../../utils/formatters';
 import { ValidationErrors } from '../../../utils/validations';
 import {
@@ -120,51 +119,6 @@ const BodyRow = ({
     };
   }, [isDropdownOpen]);
 
-  const getPaymentIcon = (method: string) => {
-    if (method === 'Pix') return 'bi-qr-code text-teal-500';
-    if (method === 'Dinheiro') return 'bi-cash-coin text-emerald-500';
-    if (method === 'Cartão de Débito') return 'bi-credit-card text-blue-500';
-    if (method.includes('Crédito')) return 'bi-credit-card-2-front text-indigo-500';
-    if (method.includes('Promissória')) return 'bi-journal-text text-amber-500';
-    return 'bi-question-circle text-slate-400';
-  };
-
-  const renderMethodItem = (method: string) => {
-    if (!method.trim()) {
-      return <span className="text-xs font-bold text-slate-400">Selecione</span>;
-    }
-
-    const icon = getPaymentIcon(method);
-    let detail = '';
-
-    if ((method.includes('Crédito') || method.includes('Promissória')) && payment.amount > 0) {
-      const match = method.match(/(\d+)x/);
-      if (match) {
-        const n = parseInt(match[1]);
-        if (n > 0) {
-          const installment = payment.amount / n;
-          detail = `${n}x de ${formatCurrency(installment)}`;
-        }
-      }
-    }
-
-    return (
-      <div className="flex items-center gap-3 w-full">
-        <i className={`bi ${icon} text-lg shrink-0`} />
-        <div className="flex flex-col items-start text-left min-w-0">
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
-            {method}
-          </span>
-          {detail && (
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
-              {detail}
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   if (isMobile) {
     return (
       <div
@@ -179,42 +133,17 @@ const BodyRow = ({
                 : 'flex items-center justify-between gap-2'
             }
           >
-            <div
-              className={`relative ${isPromissoryPayment ? 'min-w-0' : 'flex-1'}`}
-              ref={dropdownRef}
-            >
-              <label className="mb-1 block text-[9px] font-black uppercase text-slate-400">
-                Forma de pagamento <span className="text-red-500">*</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className={`w-full flex items-center justify-between gap-3 bg-transparent border-b-2 px-3 py-2.5 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500 ${methodError ? 'border-red-500' : 'border-slate-200'}`}
-              >
-                {renderMethodItem(payment.method)}
-                <i
-                  className={`bi bi-chevron-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
-                />
-              </button>
-
-              <DropdownPortal anchorRef={dropdownRef} isOpen={isDropdownOpen}>
-                <div className="mt-1 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-64 overflow-y-auto custom-scrollbar flex flex-col p-1 z-[9999]">
-                  {paymentMethods.map((method) => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => {
-                        selectPaymentMethod(method);
-                      }}
-                      className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 ${payment.method === method ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : ''}`}
-                    >
-                      {renderMethodItem(method)}
-                    </button>
-                  ))}
-                </div>
-              </DropdownPortal>
-              {methodError && <p className="mt-1 text-[10px] text-red-600">{methodError}</p>}
-            </div>
+            <PaymentMethodSelector
+              method={payment.method}
+              amount={payment.amount}
+              isPromissoryPayment={isPromissoryPayment}
+              isMobile
+              error={methodError}
+              isOpen={isDropdownOpen}
+              dropdownRef={dropdownRef}
+              onToggle={() => setIsDropdownOpen(!isDropdownOpen)}
+              onSelect={selectPaymentMethod}
+            />
             {isPromissoryPayment && (
               <div className="min-w-0 space-y-1">
                 <label
@@ -372,42 +301,16 @@ const BodyRow = ({
     >
       <td className="px-4 py-3">
         <div className={isPromissoryPayment ? 'flex items-end gap-3' : ''}>
-          <div
-            className={`relative group/method ${isPromissoryPayment ? 'min-w-0 flex-1' : 'min-w-[200px]'}`}
-            ref={dropdownRef}
-          >
-            <button
-              type="button"
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className={`w-full flex items-center justify-between gap-3 border-b-2 bg-transparent px-3 py-2 outline-none transition-colors focus:border-blue-600 dark:border-slate-700 dark:focus:border-blue-500 ${methodError ? 'border-red-500' : 'border-slate-200'}`}
-            >
-              {renderMethodItem(payment.method)}
-              <i
-                className={`bi bi-chevron-down text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            <DropdownPortal
-              anchorRef={dropdownRef}
-              isOpen={isDropdownOpen}
-              className="fixed shadow-2xl z-[9000]"
-            >
-              <div className="mt-1 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-80 overflow-y-auto custom-scrollbar flex flex-col p-2 z-[9000]">
-                {paymentMethods.map((method) => (
-                  <button
-                    key={method}
-                    type="button"
-                    onClick={() => {
-                      selectPaymentMethod(method);
-                    }}
-                    className={`flex items-center gap-3 w-full p-2.5 rounded-xl transition-all hover:bg-slate-50 dark:hover:bg-slate-800/50 ${payment.method === method ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600' : ''}`}
-                  >
-                    {renderMethodItem(method)}
-                  </button>
-                ))}
-              </div>
-            </DropdownPortal>
-          </div>
+          <PaymentMethodSelector
+            method={payment.method}
+            amount={payment.amount}
+            isPromissoryPayment={isPromissoryPayment}
+            error={methodError}
+            isOpen={isDropdownOpen}
+            dropdownRef={dropdownRef}
+            onToggle={() => setIsDropdownOpen(!isDropdownOpen)}
+            onSelect={selectPaymentMethod}
+          />
           {isPromissoryPayment && (
             <div className="min-w-[180px] flex-1 space-y-1">
               <label

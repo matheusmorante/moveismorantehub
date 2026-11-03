@@ -197,7 +197,10 @@ export const LabelItem: React.FC<LabelItemProps> = ({
     config.category === 'posts';
   const isAdvancedPriceMode =
     config.category === 'precos' && (config as any).printingMode === 'advanced';
-  const hasImage = config.category !== 'identificacao' && Boolean(image && !isBlank);
+  const hasImage =
+    config.category !== 'identificacao' &&
+    !isAdvancedPriceMode &&
+    Boolean(image && !isBlank);
   const isLogoOnly = isImageMode || hasImage;
 
   const renderModularElement = (el: any) => {

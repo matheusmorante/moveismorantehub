@@ -13,6 +13,7 @@ interface KpiCardProps {
   trendLabel?: string;
   warning?: string;
   secondary?: string;
+  loading?: boolean;
 }
 
 const KpiCard: React.FC<KpiCardProps> = ({
@@ -27,6 +28,7 @@ const KpiCard: React.FC<KpiCardProps> = ({
   trendLabel,
   warning,
   secondary,
+  loading = false,
 }) => (
   <div
     id={id}
@@ -38,7 +40,7 @@ const KpiCard: React.FC<KpiCardProps> = ({
       >
         <i className={`bi ${icon} text-lg ${color}`} />
       </div>
-      {trend && trendValue && (
+      {!loading && trend && trendValue && (
         <div
           className={`flex items-center gap-1 text-[9px] font-black px-2 py-1 rounded-xl ${trend === 'up' ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : 'text-rose-600 bg-rose-50 dark:bg-rose-900/20'}`}
         >
@@ -51,7 +53,13 @@ const KpiCard: React.FC<KpiCardProps> = ({
       {title}
     </p>
     <h3 className="break-words text-xl font-black leading-tight tracking-tight text-slate-800 dark:text-slate-100 sm:text-2xl xl:text-3xl">
-      {value}
+      {loading ? (
+        <span
+          role="status"
+          aria-label={`Carregando ${title.toLocaleLowerCase('pt-BR')}`}
+          className="inline-block h-7 w-2/3 animate-pulse rounded bg-slate-100 dark:bg-slate-800"
+        />
+      ) : value}
     </h3>
     {secondary && <p className="text-[10px] text-slate-400 mt-1 font-semibold">{secondary}</p>}
     {trendLabel && !trend && (
@@ -85,6 +93,7 @@ interface KpiRowProps {
     grossMargin: number;
     paidTrafficSalesValue: number;
   };
+  detailsLoading?: boolean;
 }
 
 const calcTrend = (
@@ -96,7 +105,7 @@ const calcTrend = (
   return { trend: diff >= 0 ? 'up' : 'down', value: `${Math.abs(diff).toFixed(1)}%` };
 };
 
-const KpiRow: React.FC<KpiRowProps> = ({ stats, prevStats }) => {
+const KpiRow: React.FC<KpiRowProps> = ({ stats, prevStats, detailsLoading = false }) => {
   const tSales = calcTrend(stats.totalSales, prevStats.totalSales);
   const tCount = calcTrend(stats.saleCount, prevStats.saleCount);
   const tTicket = calcTrend(stats.avgTicket, prevStats.avgTicket);
@@ -155,6 +164,7 @@ const KpiRow: React.FC<KpiRowProps> = ({ stats, prevStats }) => {
         trend={tProfit.trend}
         trendValue={tProfit.value}
         warning={stats.cmvPartial ? 'CMV parcialmente calculado' : undefined}
+        loading={detailsLoading}
       />
       <KpiCard
         id="kpi-margem"
@@ -163,6 +173,7 @@ const KpiRow: React.FC<KpiRowProps> = ({ stats, prevStats }) => {
         icon="bi-percent"
         color="text-indigo-600"
         iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+        loading={detailsLoading}
       />
       <KpiCard
         id="kpi-cmv"
@@ -172,6 +183,7 @@ const KpiRow: React.FC<KpiRowProps> = ({ stats, prevStats }) => {
         color="text-slate-600"
         iconBg="bg-slate-50 dark:bg-slate-800"
         warning={stats.cmvPartial ? 'Parcialmente calculado' : undefined}
+        loading={detailsLoading}
       />
     </div>
   );

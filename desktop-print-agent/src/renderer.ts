@@ -1,4 +1,4 @@
-import { chromium, Browser } from 'playwright-core';
+import { chromium, Browser } from 'playwright';
 import { PrintPreset } from './presets';
 
 let browserInstance: Browser | null = null;
@@ -45,27 +45,58 @@ export const renderHtmlToPdfBuffer = async (html: string, preset: PrintPreset): 
 
   try {
     // Bloqueia requisições externas desnecessárias para não travar a geração
+    const allowedOrigins = new Set([
+      preset.assetOrigin,
+      'https://hkoxhourxwlddgsfdgws.supabase.co',
+      'https://fonts.googleapis.com',
+      'https://fonts.gstatic.com',
+    ].filter(Boolean));
     await page.route('**/*', (route) => {
       const url = route.request().url();
-      if (
-        url.startsWith('data:') ||
-        url.startsWith('http://localhost') ||
-        url.startsWith('http://127.0.0.1')
-      ) {
+      let allowed = url.startsWith('data:') || url.startsWith('blob:');
+      if (!preset.paperWidthMm || !preset.paperHeightMm) {
+        allowed ||= url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
+      }
+      try {
+        allowed ||= allowedOrigins.has(new URL(url).origin);
+      } catch { /* Bloqueia URLs sem origem HTTP válida. */ }
+      if (allowed) {
         route.continue();
       } else {
         route.abort();
       }
     });
 
-    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 8000 });
+    let documentHtml = html;
+    if (preset.paperWidthMm && preset.paperHeightMm) {
+      const origin = preset.assetOrigin || 'https://morantehub.vercel.app';
+      const csp = `default-src 'none'; img-src data: ${origin} https://hkoxhourxwlddgsfdgws.supabase.co; style-src 'unsafe-inline' ${origin} https://fonts.googleapis.com; font-src data: ${origin} https://hkoxhourxwlddgsfdgws.supabase.co https://fonts.gstatic.com; connect-src 'none'; frame-src 'none'; object-src 'none'; script-src 'none'`;
+      documentHtml = documentHtml
+        .replace(/<base\b[^>]*>/gi, '')
+        .replace(/<meta\b[^>]*http-equiv\s*=\s*(["'])?refresh\1?[^>]*>/gi, '')
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
+        .replace(/<(iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '')
+        .replace(/<(iframe|object|embed)\b[^>]*\/?>/gi, '')
+        .replace(/\s+on[a-z0-9:_-]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+        .replace(/\s+(href|src|xlink:href)\s*=\s*(["'])\s*javascript:[\s\S]*?\2/gi, '')
+        .replace(/<head\b([^>]*)>/i, `<head$1><meta http-equiv="Content-Security-Policy" content="${csp}"><base href="${origin}/">`);
+    }
+    await page.setContent(documentHtml, { waitUntil: 'domcontentloaded', timeout: 8000 });
     await page.emulateMedia({ media: 'print' });
 
     const pdfBuffer = await page.pdf({
-      format: preset.paperSize || 'A4',
-      landscape: preset.orientation === 'landscape',
+      ...(preset.paperWidthMm && preset.paperHeightMm
+        ? {
+            width: `${preset.paperWidthMm}mm`,
+            height: `${preset.paperHeightMm}mm`,
+            preferCSSPageSize: true,
+          }
+        : { format: preset.paperSize || 'A4' }),
+      ...(!preset.paperWidthMm || !preset.paperHeightMm ? { landscape: preset.orientation === 'landscape' } : {}),
       scale: preset.scale || 1.0,
-      margin: preset.margins || { top: '5mm', right: '5mm', bottom: '5mm', left: '5mm' },
+      margin: preset.paperWidthMm && preset.paperHeightMm
+        ? { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' }
+        : preset.margins || { top: '5mm', right: '5mm', bottom: '5mm', left: '5mm' },
       printBackground: true,
     });
 

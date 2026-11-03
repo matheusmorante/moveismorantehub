@@ -37,7 +37,7 @@ export function formatTeamMemberStatusLabel(
 
   return {
     badge: 'active',
-    title: 'GPS Ativo em Rota',
-    subtitle: timeStr ? `Atualizado às ${timeStr}` : 'Em rota',
+    title: 'GPS Ativo em Deslocamento',
+    subtitle: timeStr ? `Atualizado às ${timeStr}` : 'Em deslocamento',
   };
 }

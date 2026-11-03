@@ -31,10 +31,21 @@ export function useDeliveryStaff({ order, userProfile }: UseDeliveryStaffOptions
   );
 
   const [availableStaff, setAvailableStaff] = useState<AvailableStaffMember[]>([]);
+  const [loadingStaff, setLoadingStaff] = useState(true);
+
+  useEffect(() => {
+    const initialResponsibles = resolveInitialDeliveryResponsibles(order, userProfile);
+    if (initialResponsibles.length === 0) return;
+
+    setResponsibles((current) =>
+      current.length > 0 ? current : initialResponsibles
+    );
+  }, [order, userProfile]);
 
   useEffect(() => {
     let alive = true;
     const loadStaff = async () => {
+      setLoadingStaff(true);
       try {
         const { data: profiles, error } = await supabase
           .from('profiles')
@@ -55,13 +66,17 @@ export function useDeliveryStaff({ order, userProfile }: UseDeliveryStaffOptions
               role: getGrantedNonAccountantAccessRoles(p)[0],
             }));
           setAvailableStaff(list);
+          setLoadingStaff(false);
           await offlineStorageService
             .cacheWorkingSet(DELIVERY_STAFF_CACHE_KEY, list)
             .catch(() => {});
           return;
         }
       } catch (err) {
-        console.warn('[useDeliveryStaff] Falha ao carregar colaboradores da equipe, tentando cache:', err);
+        console.warn(
+          '[useDeliveryStaff] Falha ao carregar colaboradores da equipe, tentando cache:',
+          err
+        );
       }
 
       try {
@@ -73,7 +88,11 @@ export function useDeliveryStaff({ order, userProfile }: UseDeliveryStaffOptions
             cached.data.filter((staff) => hasGrantedNonAccountantAccessProfile(staff))
           );
         }
-      } catch {}
+      } catch {
+        // Cache offline unavailable; keep the fetched list or empty state.
+      } finally {
+        if (alive) setLoadingStaff(false);
+      }
     };
 
     void loadStaff();
@@ -95,6 +114,7 @@ export function useDeliveryStaff({ order, userProfile }: UseDeliveryStaffOptions
     responsibles,
     setResponsibles,
     availableStaff,
+    loadingStaff,
     handleAddResponsible,
     handleRemoveResponsible,
   };

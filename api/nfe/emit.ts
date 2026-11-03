@@ -8,11 +8,11 @@ import { withNfeEmissionStage } from './nfeEmissionPerformance';
 import { randomUUID } from 'node:crypto';
 import { sefazTransportDiagnostic } from './sefazTransportDiagnostic';
 import { parseSefazAuthorization } from '../../erp/src/pages/utils/nfe/sefazResponseParser';
-import { parseAuthorizedInvoiceLines } from '../../erp/src/pages/utils/nfe/invoiceLineSnapshot';
 import { validateOrdinaryOutboundEnvelope } from '../../erp/src/pages/utils/nfe/fiscalEnvelope';
 import { getNfeAuthorizationEndpoint } from './fiscalEnvironmentPolicy';
 import { emitNormalSale } from './emitNormalSale';
 import { dispatchNormalEmission } from './normal-sale/normalEmissionDispatcher';
+import { syncRetryAuthorizedInvoiceItems } from './normal-sale/retryAuthorizedInvoiceItems';
 import { recoverNormalSale, reconcileNormalSale } from './normal-sale/outboundAttempt';
 import { NORMAL_SALE_RULESET_VERSION } from './normal-sale/constants';
 import { authorizeFiscalOperator } from './fiscalAuthorization';
@@ -621,37 +621,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let fiscalSnapshotSyncError = false;
     if (parsed.authorized) {
-      try {
-        const invoiceLines = parseAuthorizedInvoiceLines(signedXml);
-        const { error: linesError } = await supabase.from('nfe_document_items').upsert(
-          invoiceLines.map((line) => ({
-            document_id: documentId,
-            item_number: line.invoiceItemNumber,
-            product_code: line.productCode,
-            description: line.description,
-            billed_quantity: line.billedQuantity,
-            unit_value: line.unitValue,
-            gross_value: line.grossValue,
-            discount_value: line.discountValue,
-            product_xml: line.productXml,
-            taxes_xml: line.taxesXml,
-          })),
-          { onConflict: 'document_id,item_number' }
-        );
-        if (linesError) {
-          fiscalSnapshotSyncError = true;
-          console.error(
-            '[NF-e Emit] Nota autorizada, mas itens fiscais precisam de reconciliação:',
-            linesError.message
-          );
-        }
-      } catch (snapshotError: any) {
-        fiscalSnapshotSyncError = true;
-        console.error(
-          '[NF-e Emit] Nota autorizada sem snapshot fiscal de itens:',
-          snapshotError?.message || 'erro de leitura'
-        );
-      }
+      fiscalSnapshotSyncError = await syncRetryAuthorizedInvoiceItems({
+        db: supabase,
+        documentId,
+        signedXml,
+      });
     }
 
     return res.status(200).json({

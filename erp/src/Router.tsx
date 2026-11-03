@@ -1,13 +1,13 @@
 import React, { lazy, Suspense } from 'react';
-import { Routes, Route, BrowserRouter, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, BrowserRouter, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SupabaseHistoryRecorder } from './components/layout/SupabaseHistoryRecorder';
+import { AdminRoute, PermissionRoute, ProtectedRoute } from './components/auth/RouteAccessGuards';
 import { ERPListPaginationPreferenceContext } from './components/shared/ERPListPaginationPreferenceContext';
 import { PasswordSetupPrompt } from './components/auth/PasswordSetupPrompt';
 import SalesOrder from './pages/App/SalesOrder';
 import Dashboard from './pages/App/Dashboard/Index';
 import AppLayout from './AppLayout';
-import PendingApproval from './pages/PendingApproval';
 import ReceiptPage from './pages/ReceiptPage';
 import PromissoryNotePage from './pages/PromissoryNotePage';
 import WarrantyTermPage from './pages/WarrantyTermPage';
@@ -71,72 +71,6 @@ const LoadingFallback = () => (
     </p>
   </div>
 );
-
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, loading, isPending } = useAuth();
-  const searchParams = new URLSearchParams(window.location.search);
-  const isMobileAuth =
-    searchParams.has('auth_email') ||
-    searchParams.has('user_id') ||
-    window.location.search.includes('auth_email') ||
-    Boolean((window as any).ReactNativeWebView);
-
-  if (loading && !isMobileAuth) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-10">
-        <div className="w-16 h-16 border-4 border-blue-600/30 border-t-blue-600 rounded-full animate-spin mb-6" />
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 animate-pulse">
-          Sincronizando Sessão...
-        </p>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated && !isMobileAuth) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (isPending && !isMobileAuth) {
-    return <PendingApproval />;
-  }
-
-  return <>{children}</>;
-};
-
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAdmin, loading } = useAuth();
-  const searchParams = new URLSearchParams(window.location.search);
-  const isMobileAuth =
-    searchParams.has('auth_email') ||
-    searchParams.has('user_id') ||
-    window.location.search.includes('auth_email') ||
-    Boolean((window as any).ReactNativeWebView);
-
-  if (loading && !isMobileAuth) return null;
-
-  if (!isAdmin && !isMobileAuth) {
-    return <Navigate to="/" replace />;
-  }
-
-  return <>{children}</>;
-};
-
-const PermissionRoute = ({
-  action,
-  children,
-}: {
-  action: string;
-  children?: React.ReactNode;
-}) => {
-  const { profile, loading } = useAuth();
-
-  if (loading) return null;
-  if (!canPerform(action, profile ? getProfileRoles(profile) : [])) {
-    return <Navigate to="/" replace />;
-  }
-
-  return <>{children || <Outlet />}</>;
-};
 
 import ResetPassword from './pages/ResetPassword';
 

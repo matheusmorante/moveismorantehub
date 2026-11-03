@@ -1,15 +1,17 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { Users, UserCheck, X } from 'lucide-react-native';
-import { DeliveryResponsibleItem } from '../../../screens/delivery-preparation/deliveryPreparation.types';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { ChevronRight, Search, Users, UserCheck, X } from 'lucide-react-native';
+import type { DeliveryResponsibleItem } from '../../../screens/delivery-preparation/deliveryPreparation.types';
 import { filterUnaddedStaff } from '../../../screens/delivery-preparation/deliveryStaffRules';
 import { styles } from './deliveryPreparationStep.styles';
+import { DeliveryResponsibleSearchModal } from './DeliveryResponsibleSearchModal';
 
 interface Props {
   responsibles: DeliveryResponsibleItem[];
   onAddResponsible: (responsible: DeliveryResponsibleItem) => void;
   onRemoveResponsible: (index: number) => void;
   availableStaff?: Array<{ id: string; fullName: string; role?: string }>;
+  loadingStaff?: boolean;
   userProfile?: any;
   isDarkMode?: boolean;
 }
@@ -19,10 +21,11 @@ export const DeliveryResponsiblesSection: React.FC<Props> = ({
   onAddResponsible,
   onRemoveResponsible,
   availableStaff = [],
+  loadingStaff = false,
   userProfile,
   isDarkMode = false,
 }) => {
-  // Sugestões de colaboradores ainda não adicionados
+  const [searchVisible, setSearchVisible] = useState(false);
   const unaddedStaff = filterUnaddedStaff(availableStaff, responsibles);
 
   return (
@@ -34,9 +37,6 @@ export const DeliveryResponsiblesSection: React.FC<Props> = ({
             Responsáveis pela Entrega
           </Text>
         </View>
-        <Text style={[styles.responsiblesSubtext, isDarkMode && styles.textMuted]}>
-          Selecione quem está saindo para esta entrega. O operador atual é adicionado automaticamente.
-        </Text>
       </View>
 
       {/* Chips dos responsáveis atuais */}
@@ -78,38 +78,43 @@ export const DeliveryResponsiblesSection: React.FC<Props> = ({
         })}
       </View>
 
-      {/* Sugestões rápidas de colaboradores da equipe */}
-      {unaddedStaff.length > 0 && (
+      {/* Busca de colaboradores ainda não adicionados */}
+      {(loadingStaff || unaddedStaff.length > 0) && (
         <View style={styles.suggestionsContainer}>
           <Text style={[styles.suggestionsLabel, isDarkMode && styles.textMuted]}>
             Adicionar mais responsáveis pela entrega:
           </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.suggestionsScroll}
+          <TouchableOpacity
+            onPress={() => setSearchVisible(true)}
+            style={[
+              styles.responsibleSearchButton,
+              isDarkMode && styles.responsibleSearchButtonDark,
+            ]}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Pesquisar responsáveis pela entrega"
           >
-            {unaddedStaff.slice(0, 8).map((staff) => (
-              <TouchableOpacity
-                key={staff.id}
-                onPress={() =>
-                  onAddResponsible({ id: staff.id, name: staff.fullName, role: staff.role })
-                }
-                style={[styles.suggestionChip, isDarkMode && styles.suggestionChipDark]}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.suggestionText, isDarkMode && styles.textLight]}>
-                  {staff.fullName}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+            <Search size={17} color={isDarkMode ? '#93c5fd' : '#2563eb'} />
+            <Text style={[styles.responsibleSearchPlaceholder, isDarkMode && styles.textMuted]}>
+              Pesquisar responsável pela entrega
+            </Text>
+            <ChevronRight size={18} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+          </TouchableOpacity>
         </View>
       )}
 
-      <Text style={[styles.confirmationNotice, isDarkMode && styles.textMuted]}>
-        ℹ️ Os responsáveis só serão confirmados no pedido ao iniciar a rota abaixo.
-      </Text>
+      <DeliveryResponsibleSearchModal
+        visible={searchVisible}
+        isDarkMode={isDarkMode}
+        staff={unaddedStaff}
+        loadingStaff={loadingStaff}
+        onClose={() => setSearchVisible(false)}
+        onSelect={(staff) => {
+          onAddResponsible({ id: staff.id, name: staff.fullName, role: staff.role });
+          setSearchVisible(false);
+        }}
+      />
+
     </View>
   );
 };

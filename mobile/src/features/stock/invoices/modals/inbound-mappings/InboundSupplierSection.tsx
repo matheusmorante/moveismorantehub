@@ -10,11 +10,13 @@ interface InboundSupplierSectionProps {
   currentSupplier?: Supplier;
   details: any;
   hasMatches: boolean;
+  saving: boolean;
   supplierLocked?: boolean;
   isDarkMode: boolean;
   supplierSearch: string;
   supplierSearchLoading: boolean;
   supplierSearchError: string;
+  onRetrySupplierSearch: () => void;
   suppliers: Supplier[];
   onSearchChange: (text: string) => void;
   onClearSupplier: () => void;
@@ -27,20 +29,23 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
   currentSupplier,
   details,
   hasMatches,
+  saving,
   supplierLocked = false,
   isDarkMode,
   supplierSearch,
   supplierSearchLoading,
   supplierSearchError,
+  onRetrySupplierSearch,
   suppliers,
   onSearchChange,
   onClearSupplier,
   onSelectSupplier,
   onOpenNewSupplier,
 }) => {
-  const selectedSupplierName = currentSupplier?.full_name || supplierSearch;
+  const selectedSupplierName = currentSupplier?.full_name || currentSupplier?.social_name || currentSupplier?.nickname || supplierSearch;
   const searchValue = supplierSearch || (supplierId ? selectedSupplierName : '');
   const inputLocked = hasMatches || supplierLocked;
+  const inputDisabled = inputLocked || saving;
 
   const handleSearchChange = (value: string) => {
     if (inputLocked) return;
@@ -99,16 +104,16 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
         <FormTextInput
           value={searchValue}
           onChangeText={handleSearchChange}
-          placeholder={inputLocked ? 'Fornecedor bloqueado' : 'Digite 2 ou mais letras para buscar fornecedor'}
+          placeholder={inputLocked ? 'Fornecedor bloqueado' : 'Digite pelo menos 3 caracteres para buscar fornecedor'}
           placeholderTextColor="#94a3b8"
           accessibilityLabel="Buscar fornecedor para vincular à NF-e"
           accessibilityHint={
             inputLocked
               ? 'Toque no campo para ver por que o fornecedor está bloqueado.'
-              : 'Digite pelo menos duas letras e selecione um resultado.'
+              : 'Digite pelo menos três caracteres e selecione um resultado.'
           }
           accessible={!inputLocked}
-          editable={!inputLocked}
+          editable={!inputDisabled}
           returnKeyType="search"
           style={[styles.input, isDarkMode && styles.textDark]}
         />
@@ -119,6 +124,7 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
             <>
               <Check size={16} color="#16a34a" />
               <TouchableOpacity
+                disabled={saving}
                 onPress={clearSupplier}
                 accessibilityRole="button"
                 accessibilityLabel="Limpar fornecedor selecionado"
@@ -156,19 +162,31 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
           <Text style={styles.muted}>Buscando fornecedores...</Text>
         </View>
       ) : null}
-      {supplierSearchError ? <Text style={styles.errorText}>{supplierSearchError}</Text> : null}
+      {supplierSearchError ? (
+        <View style={styles.supplierSearchErrorRow}>
+          <Text style={[styles.errorText, { flex: 1 }]}>{supplierSearchError}</Text>
+          <TouchableOpacity
+            disabled={saving || supplierSearchLoading}
+            onPress={onRetrySupplierSearch}
+            accessibilityRole="button"
+            accessibilityLabel="Tentar buscar fornecedores novamente"
+          >
+            <Text style={[styles.changeText, (saving || supplierSearchLoading) && styles.disabledAction]}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {!supplierId &&
       !supplierSearchLoading &&
       !supplierSearchError &&
-      supplierSearch.trim().length < 2 ? (
+      supplierSearch.trim().length < 3 ? (
         <Text style={styles.supplierSearchHint}>
-          Digite ao menos 2 caracteres para iniciar a busca.
+          Digite ao menos 3 caracteres para iniciar a busca.
         </Text>
       ) : null}
       {!supplierId &&
       !supplierSearchLoading &&
       !supplierSearchError &&
-      supplierSearch.trim().length >= 2 &&
+      supplierSearch.trim().length >= 3 &&
       suppliers.length === 0 ? (
         <Text style={styles.supplierSearchHint}>
           Nenhum fornecedor encontrado. Use “Novo fornecedor” se ele ainda não estiver cadastrado.
@@ -184,6 +202,7 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
           <TouchableOpacity
             key={supplier.id}
             style={[styles.supplierOption, isDarkMode && styles.supplierOptionDark]}
+            disabled={saving}
             onPress={() => onSelectSupplier(supplier)}
             accessibilityRole="button"
             accessibilityLabel={`Selecionar fornecedor ${supplier.full_name}${supplier.cpf_cnpj ? `, ${supplier.cpf_cnpj}` : ''}`}
@@ -193,6 +212,12 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
               <Text style={[styles.supplierOptionName, isDarkMode && styles.textDark]}>
                 {supplier.full_name}
               </Text>
+              {(supplier.social_name || supplier.nickname) &&
+              (supplier.social_name || supplier.nickname) !== supplier.full_name ? (
+                <Text style={styles.supplierOptionMeta} numberOfLines={1}>
+                  Fantasia: {supplier.social_name || supplier.nickname}
+                </Text>
+              ) : null}
               {supplier.cpf_cnpj ? (
                 <Text style={styles.supplierOptionMeta}>{supplier.cpf_cnpj}</Text>
               ) : null}
@@ -206,12 +231,12 @@ export const InboundSupplierSection: React.FC<InboundSupplierSectionProps> = ({
 
       {!supplierLocked ? <TouchableOpacity
         style={styles.createAction}
-        disabled={inputLocked}
+        disabled={inputDisabled}
         onPress={onOpenNewSupplier}
         accessibilityRole="button"
-        accessibilityState={{ disabled: inputLocked }}
+        accessibilityState={{ disabled: inputDisabled }}
       >
-        <Text style={[styles.changeText, inputLocked && styles.disabledAction]}>
+        <Text style={[styles.changeText, inputDisabled && styles.disabledAction]}>
           + Novo fornecedor
         </Text>
       </TouchableOpacity> : null}

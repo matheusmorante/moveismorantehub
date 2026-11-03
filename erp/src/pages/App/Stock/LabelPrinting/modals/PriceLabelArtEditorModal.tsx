@@ -13,6 +13,7 @@ import { PriceLabelColorPickerPopup } from './price-label-editor/PriceLabelColor
 import { PriceLabelSelectedElementToolbar } from './price-label-editor/PriceLabelSelectedElementToolbar';
 import { PriceLabelEditorHeader } from './price-label-editor/PriceLabelEditorHeader';
 import { PriceLabelEditorFooter } from './price-label-editor/PriceLabelEditorFooter';
+import { PriceLabelEditorStatusMessages } from './price-label-editor/PriceLabelEditorStatusMessages';
 import { PriceLabelMenuBar } from './price-label-editor/PriceLabelMenuBar';
 import { PriceLabelArtEditorPreview } from './price-label-editor/PriceLabelArtEditorPreview';
 import { buildPriceLabelLayers } from './price-label-editor/priceLabelLayersConfig';
@@ -769,49 +770,18 @@ const PriceLabelArtEditorSession: React.FC<
     <div
       className={`fixed inset-0 z-50 flex flex-col animate-fade-in overflow-hidden w-screen h-screen ${isStandaloneTemplate ? 'bg-white dark:bg-slate-950' : 'bg-slate-900/90 backdrop-blur-md'}`}
     >
-      {(session.artQueryError || session.saveError || session.opportunityQueryError || session.actionError) && (
-        <div role="alert" className="shrink-0 bg-red-50 p-3 text-sm text-red-800">
-          {session.actionError && <p>{session.actionError}</p>}
-          {session.artQueryError && (
-            <p>
-              {session.artQueryError}{' '}
-              <button type="button" onClick={() => session.setQueryRevision((value) => value + 1)}>
-                Consultar arte novamente
-              </button>
-            </p>
-          )}
-          {session.saveError && (
-            <p>
-              {session.saveError}{' '}
-              {!saveGuard.error && (
-                <button type="button" onClick={() => void session.retrySave()}>
-                  Tentar salvar novamente
-                </button>
-              )}
-            </p>
-          )}
-          {session.opportunityQueryError && (
-            <p>
-              {session.opportunityQueryError}{' '}
-              <button type="button" onClick={() => session.setOpportunityQueryRevision((value) => value + 1)}>
-                Consultar oportunidades novamente
-              </button>
-            </p>
-          )}
-        </div>
-      )}
-      {isArtConfigLoading && (
-        <div role="status" className="shrink-0 bg-blue-50 p-3 text-sm text-blue-800">
-          <i aria-hidden="true" className="bi bi-arrow-repeat animate-spin mr-2" />
-          Consultando a arte da etiqueta...
-        </div>
-      )}
-      {session.actionBusy && (
-        <div role="status" className="shrink-0 bg-blue-50 p-3 text-sm text-blue-800">
-          <i aria-hidden="true" className="bi bi-arrow-repeat animate-spin mr-2" />
-          Preparando a ação da arte...
-        </div>
-      )}
+      <PriceLabelEditorStatusMessages
+        actionError={session.actionError}
+        artQueryError={session.artQueryError}
+        saveError={session.saveError}
+        opportunityQueryError={session.opportunityQueryError}
+        canRetrySave={!saveGuard.error}
+        isArtConfigLoading={isArtConfigLoading}
+        actionBusy={session.actionBusy}
+        onRetryArtQuery={() => session.setQueryRevision((value) => value + 1)}
+        onRetrySave={() => void session.retrySave()}
+        onRetryOpportunityQuery={() => session.setOpportunityQueryRevision((value) => value + 1)}
+      />
       <fieldset
         disabled={editingDisabled}
         className="contents"

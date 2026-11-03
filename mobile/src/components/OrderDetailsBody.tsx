@@ -3,6 +3,7 @@ import { ScrollView } from 'react-native';
 import { supabase } from '../services/supabaseClient';
 import { getOrderTotalValue } from '../utils/orderUtils';
 import { isAssemblyInternalType, isAssemblyOutsideType } from '../utils/aiSummaryHelper';
+import { classifyDeliveryService } from '../features/logistics/domain/deliveryServiceClassification';
 import { OrderDeliveryStartFooter } from './order-details/OrderDeliveryStartFooter';
 import {
   buildOrderObservations,
@@ -32,18 +33,34 @@ export function OrderDetailsBody({
   onViewDelivery,
 }: Props) {
   const [handlingOptions, setHandlingOptions] = useState<any[]>([]);
+  const [handlingOptionsLoaded, setHandlingOptionsLoaded] = useState(false);
   useEffect(() => {
-    supabase
-      .from('settings')
-      .select('*')
-      .limit(1)
-      .then(({ data }) => {
-        const settings = data?.[0]?.data || data?.[0] || {};
+    let active = true;
+    const loadHandlingOptions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('data')
+          .eq('id', 'app')
+          .maybeSingle();
+        if (error) throw error;
+        const settings = data?.data || {};
+        if (!active) return;
         setHandlingOptions([
           ...(settings.deliveryHandlingOptions || []),
           ...(settings.pickupHandlingOptions || []),
         ]);
-      });
+      } catch (error) {
+        console.warn('[OrderDetailsBody] Falha ao carregar opções de montagem:', error);
+      } finally {
+        if (active) setHandlingOptionsLoaded(true);
+      }
+    };
+    void loadHandlingOptions();
+
+    return () => {
+      active = false;
+    };
   }, []);
   if (!order) return null;
 
@@ -55,6 +72,7 @@ export function OrderDetailsBody({
   const payments = Array.isArray(data.payments) ? data.payments : [];
   const deliveryMethod = String(shipping.deliveryMethod || data.deliveryMethod || '').toLowerCase();
   const pickup = /pickup|retirada/.test(deliveryMethod);
+  const isDeliveryOrder = classifyDeliveryService(order).isDelivery && !pickup;
   const assistance =
     String(order.order_type || data.orderType || '').toLowerCase() === 'assistance';
   const handling = String(
@@ -67,15 +85,17 @@ export function OrderDetailsBody({
       ''
   );
   const outside =
-    isAssemblyOutsideType(handling, handlingOptions) ||
-    items.some((item: any) =>
-      isAssemblyOutsideType(String(item.handlingType || item.handling || ''), handlingOptions)
-    );
+    handlingOptionsLoaded &&
+    (isAssemblyOutsideType(handling, handlingOptions) ||
+      items.some((item: any) =>
+        isAssemblyOutsideType(String(item.handlingType || item.handling || ''), handlingOptions)
+      ));
   const internal =
-    isAssemblyInternalType(handling, handlingOptions) ||
-    items.some((item: any) =>
-      isAssemblyInternalType(String(item.handlingType || item.handling || ''), handlingOptions)
-    );
+    handlingOptionsLoaded &&
+    (isAssemblyInternalType(handling, handlingOptions) ||
+      items.some((item: any) =>
+        isAssemblyInternalType(String(item.handlingType || item.handling || ''), handlingOptions)
+      ));
 
   const seller = data.seller || order.seller || data.sellerName || data.sellerData?.fullName;
   const totalValue = getOrderTotalValue(order);
@@ -132,7 +152,7 @@ export function OrderDetailsBody({
         order={order}
         onStart={onStartDelivery}
         onViewDelivery={onViewDelivery}
-        allowed={canStartDelivery}
+        allowed={canStartDelivery && isDeliveryOrder}
       />
     </ScrollView>
   );

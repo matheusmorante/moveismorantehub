@@ -34,6 +34,7 @@ export const OrderDetailsModal: React.FC<Props> = ({
   const preparationStartRequestedOrderRef = React.useRef<string | null>(null);
   const {
     detailedOrder,
+    setDetailedOrder,
     preparingDelivery,
     setPreparingDelivery,
     canStartDelivery,
@@ -58,7 +59,27 @@ export const OrderDetailsModal: React.FC<Props> = ({
   }, [markPreparationStarted, order?.id, order?._openDeliveryPreparation]);
 
   const handleStartDelivery = () => {
-    markPreparationStarted(order, detailedOrder?.order_data || detailedOrder?.orderData);
+    const targetOrder = detailedOrder || order;
+    const nestedData =
+      targetOrder?.order_data && typeof targetOrder.order_data === 'object'
+        ? targetOrder.order_data
+        : targetOrder?.orderData && typeof targetOrder.orderData === 'object'
+          ? targetOrder.orderData
+          : null;
+    const currentData = nestedData || {};
+    const preparationStartedAt =
+      currentData.deliveryPreparationStartedAt ||
+      targetOrder?.deliveryPreparationStartedAt ||
+      new Date().toISOString();
+    const updatedData = { ...currentData, deliveryPreparationStartedAt: preparationStartedAt };
+    const updatedOrder = {
+      ...targetOrder,
+      deliveryPreparationStartedAt: preparationStartedAt,
+      ...(nestedData ? { order_data: updatedData } : {}),
+    };
+
+    setDetailedOrder(updatedOrder);
+    markPreparationStarted(targetOrder, updatedData);
     setPreparingDelivery(true);
   };
 

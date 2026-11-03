@@ -525,7 +525,7 @@ async function withNfeEmissionStage(stage, operation, attributes = {}) {
 }
 
 // api/nfe/emit.ts
-var import_node_crypto14 = require("node:crypto");
+var import_node_crypto13 = require("node:crypto");
 
 // erp/src/pages/utils/nfe/sefazResponseParser.ts
 function firstTag(xml, tag2) {
@@ -546,45 +546,6 @@ function parseSefazAuthorization(xml) {
   const authorized = cStat === "100" && Boolean(protocolNumber);
   const pending = !protocolXml && ["103", "104", "105"].includes(batchStatus);
   return { authorized, pending, cStat, xMotivo, protocolNumber, protocolDate };
-}
-
-// erp/src/pages/utils/nfe/invoiceLineSnapshot.ts
-var decodeXml = (value) => value.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
-var childText = (xml, tag2) => {
-  const found = xml.match(new RegExp(`<${tag2}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag2}>`, "i"));
-  return found ? decodeXml(found[1].replace(/<[^>]+>/g, "").trim()) : "";
-};
-var decimal = (value) => {
-  const parsed = Number(value.replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : NaN;
-};
-function parseAuthorizedInvoiceLines(xml) {
-  if (!/<(?:\w+:)?infNFe\b/i.test(xml)) throw new Error("XML n\xE3o cont\xE9m uma NF-e identific\xE1vel.");
-  const details = [...xml.matchAll(/<(?:\w+:)?det\b([^>]*)>([\s\S]*?)<\/(?:\w+:)?det>/gi)];
-  if (!details.length) throw new Error("XML autorizado n\xE3o cont\xE9m itens fiscais.");
-  return details.map(([, attributes, content]) => {
-    const itemNumber = attributes.match(/\bnItem=["'](\d+)["']/i)?.[1];
-    const productXml = content.match(/<(?:\w+:)?prod\b[^>]*>[\s\S]*?<\/(?:\w+:)?prod>/i)?.[0] || "";
-    const taxesXml = content.match(/<(?:\w+:)?imposto\b[^>]*>[\s\S]*?<\/(?:\w+:)?imposto>/i)?.[0] || "";
-    const billedQuantity = decimal(childText(productXml, "qCom"));
-    const unitValue = decimal(childText(productXml, "vUnCom"));
-    const grossValue = decimal(childText(productXml, "vProd"));
-    const discountValue = decimal(childText(productXml, "vDesc") || "0");
-    if (!itemNumber || !productXml || !Number.isFinite(billedQuantity) || billedQuantity <= 0 || !Number.isFinite(unitValue) || unitValue < 0 || !Number.isFinite(grossValue) || grossValue < 0 || !Number.isFinite(discountValue) || discountValue < 0) {
-      throw new Error(`Linha fiscal inv\xE1lida no item ${itemNumber || "sem nItem"}.`);
-    }
-    return {
-      invoiceItemNumber: Number(itemNumber),
-      productCode: childText(productXml, "cProd"),
-      description: childText(productXml, "xProd"),
-      billedQuantity,
-      unitValue,
-      grossValue,
-      discountValue,
-      productXml,
-      taxesXml
-    };
-  });
 }
 
 // erp/src/pages/utils/nfe/fiscalEnvelope.ts
@@ -1887,6 +1848,10 @@ function fiscalSnapshotHash(snapshot) {
   }
   return (0, import_node_crypto3.createHash)("sha256").update(JSON.stringify(snapshot)).digest("hex");
 }
+function deriveNfeRandomCode(emissionRequestId) {
+  const digest = (0, import_node_crypto3.createHash)("sha256").update(emissionRequestId).digest("hex");
+  return String(Number.parseInt(digest.slice(0, 10), 16) % 1e8).padStart(8, "0");
+}
 function validateFiscalDocument(snapshot, document, ruleSet) {
   if (document.snapshotHash !== fiscalSnapshotHash(snapshot) || document.ruleSetVersion !== ruleSet.version || document.environment !== snapshot.emissionRequest.environment || normalizeRecipientTaxId(document.issuer.cnpj) !== normalizeRecipientTaxId(ruleSet.issuerCnpj) || normalizeRecipientTaxId(document.issuer.cnpj) !== normalizeRecipientTaxId(String(snapshot.issuerProfile.companyCnpj || ""))) {
     throw new Error(
@@ -2103,8 +2068,7 @@ function determineWithApprovedRules(snapshot, ruleSet) {
   }
 }
 
-// api/nfe/fiscalSnapshot.ts
-var NF_PAYMENT_SETTLEMENT_POLICY = "NF_HANDED_OVER_AFTER_PAYMENT";
+// api/nfe/fiscalEmissionCommandParser.ts
 var UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 var SHA256_PATTERN = /^[0-9a-f]{64}$/;
 var CLIENT_AUTHORITY_FIELDS = [
@@ -2319,9 +2283,6 @@ function parseFiscalEmissionCommand(value) {
     }
   };
 }
-function resolveFiscalDocument(snapshot, ruleSet) {
-  return determineWithApprovedRules(snapshot, ruleSet);
-}
 function parseFiscalSnapshotReservation(value) {
   if (!value || typeof value !== "object") return null;
   const candidate = value;
@@ -2335,6 +2296,12 @@ function parseFiscalSnapshotReservation(value) {
     issuedAt: candidate.issuedAt,
     orderVersion: Number(candidate.orderVersion)
   };
+}
+
+// api/nfe/fiscalSnapshot.ts
+var NF_PAYMENT_SETTLEMENT_POLICY = "NF_HANDED_OVER_AFTER_PAYMENT";
+function resolveFiscalDocument(snapshot, ruleSet) {
+  return determineWithApprovedRules(snapshot, ruleSet);
 }
 
 // api/nfe/normal-sale/outboundTypes.ts
@@ -2351,6 +2318,45 @@ var metadata = (a) => ({
   environment: a.environment,
   numberReserved: true
 });
+
+// erp/src/pages/utils/nfe/invoiceLineSnapshot.ts
+var decodeXml = (value) => value.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+var childText = (xml, tag2) => {
+  const found = xml.match(new RegExp(`<${tag2}(?:\\s[^>]*)?>([\\s\\S]*?)</${tag2}>`, "i"));
+  return found ? decodeXml(found[1].replace(/<[^>]+>/g, "").trim()) : "";
+};
+var decimal = (value) => {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : NaN;
+};
+function parseAuthorizedInvoiceLines(xml) {
+  if (!/<(?:\w+:)?infNFe\b/i.test(xml)) throw new Error("XML n\xE3o cont\xE9m uma NF-e identific\xE1vel.");
+  const details = [...xml.matchAll(/<(?:\w+:)?det\b([^>]*)>([\s\S]*?)<\/(?:\w+:)?det>/gi)];
+  if (!details.length) throw new Error("XML autorizado n\xE3o cont\xE9m itens fiscais.");
+  return details.map(([, attributes, content]) => {
+    const itemNumber = attributes.match(/\bnItem=["'](\d+)["']/i)?.[1];
+    const productXml = content.match(/<(?:\w+:)?prod\b[^>]*>[\s\S]*?<\/(?:\w+:)?prod>/i)?.[0] || "";
+    const taxesXml = content.match(/<(?:\w+:)?imposto\b[^>]*>[\s\S]*?<\/(?:\w+:)?imposto>/i)?.[0] || "";
+    const billedQuantity = decimal(childText(productXml, "qCom"));
+    const unitValue = decimal(childText(productXml, "vUnCom"));
+    const grossValue = decimal(childText(productXml, "vProd"));
+    const discountValue = decimal(childText(productXml, "vDesc") || "0");
+    if (!itemNumber || !productXml || !Number.isFinite(billedQuantity) || billedQuantity <= 0 || !Number.isFinite(unitValue) || unitValue < 0 || !Number.isFinite(grossValue) || grossValue < 0 || !Number.isFinite(discountValue) || discountValue < 0) {
+      throw new Error(`Linha fiscal inv\xE1lida no item ${itemNumber || "sem nItem"}.`);
+    }
+    return {
+      invoiceItemNumber: Number(itemNumber),
+      productCode: childText(productXml, "cProd"),
+      description: childText(productXml, "xProd"),
+      billedQuantity,
+      unitValue,
+      grossValue,
+      discountValue,
+      productXml,
+      taxesXml
+    };
+  });
+}
 
 // api/nfe/normal-sale/outboundPersistence.ts
 async function persistResultToDatabase(db, a, token, state, reason, response, protocol = null, xml = "") {
@@ -2507,7 +2513,6 @@ var import_node_crypto5 = require("node:crypto");
 
 // api/nfe/fiscalXmlAudit.ts
 var import_node_crypto4 = require("node:crypto");
-var import_xmldom = require("@xmldom/xmldom");
 var import_xml_crypto2 = require("xml-crypto");
 
 // erp/src/pages/utils/nfe/serviceFiscalComposition.ts
@@ -2976,7 +2981,8 @@ function resolveNormalSalePayments(params) {
   return { payments, payment, billingInstallments };
 }
 
-// api/nfe/fiscalXmlAudit.ts
+// api/nfe/fiscalXmlAuditDom.ts
+var import_xmldom = require("@xmldom/xmldom");
 function createStrictXmlParser(parseErrors) {
   return new import_xmldom.DOMParser({
     errorHandler: (level, message) => {
@@ -2986,6 +2992,22 @@ function createStrictXmlParser(parseErrors) {
     }
   });
 }
+var localName = (node) => (node.localName || node.tagName).split(":").at(-1) || "";
+var children = (node) => node ? Array.from(node.childNodes).filter((child2) => child2.nodeType === 1) : [];
+var child = (node, name) => node ? children(node).find((candidate) => localName(candidate) === name) || null : null;
+var childElements = (node, name) => node ? children(node).filter((candidate) => localName(candidate) === name) : [];
+var text = (node, name) => child(node, name)?.textContent?.trim() || "";
+var allDescendants = (node, name) => {
+  const result = [];
+  const visit = (current) => {
+    if (localName(current) === name) result.push(current);
+    children(current).forEach(visit);
+  };
+  visit(node);
+  return result;
+};
+
+// api/nfe/fiscalXmlAudit.ts
 var FiscalXmlAuditError = class extends Error {
   mismatches;
   constructor(mismatches) {
@@ -3011,20 +3033,6 @@ function fiscalPreviewFingerprint(snapshot, document, identity, signedXml) {
     })
   ).digest("hex");
 }
-var localName = (node) => (node.localName || node.tagName).split(":").at(-1) || "";
-var children = (node) => node ? Array.from(node.childNodes).filter((child2) => child2.nodeType === 1) : [];
-var child = (node, name) => node ? children(node).find((candidate) => localName(candidate) === name) || null : null;
-var childElements = (node, name) => node ? children(node).filter((candidate) => localName(candidate) === name) : [];
-var text = (node, name) => child(node, name)?.textContent?.trim() || "";
-var allDescendants = (node, name) => {
-  const result = [];
-  const visit = (current) => {
-    if (localName(current) === name) result.push(current);
-    children(current).forEach(visit);
-  };
-  visit(node);
-  return result;
-};
 function normalizeTaxId(value) {
   return normalizeFiscalIdentifier(value);
 }
@@ -7439,8 +7447,7 @@ async function emitHmlTechnical(db, command, candidate, appSettings) {
     );
   }
   const issuedAt = saoPauloTimestamp(reservation.issuedAt);
-  const cNf = (0, import_node_crypto10.createHash)("sha256").update(command.emissionRequestId).digest("hex");
-  const randomCode = String(parseInt(cNf.slice(0, 10), 16) % 1e8).padStart(8, "0");
+  const randomCode = deriveNfeRandomCode(command.emissionRequestId);
   const accessKey = generateNfeAccessKey({
     ufCode: "41",
     yearMonth: issuedAt.slice(2, 4) + issuedAt.slice(5, 7),
@@ -7998,9 +8005,6 @@ async function executeCasPreparationLoop(ctx) {
   return { sequenceChanged: true };
 }
 
-// api/nfe/normal-sale/normalSaleContext.ts
-var import_node_crypto13 = require("node:crypto");
-
 // api/nfe/normal-sale/testOrderProductionGuard.ts
 var isSyntheticOrderBlockedInProduction = (environment, persistedOrderData) => {
   if (environment !== 1 || !persistedOrderData || typeof persistedOrderData !== "object") {
@@ -8121,8 +8125,7 @@ async function resolveNormalSaleCredentials(command, model, facts, appSettings) 
     { emissionRequestId: command.emissionRequestId }
   );
   const issuedAt = saoPauloEmissionTimestamp(facts.capturedAt);
-  const code = (0, import_node_crypto13.createHash)("sha256").update(command.emissionRequestId).digest("hex");
-  const randomCode = String(Number.parseInt(code.slice(0, 10), 16) % 1e8).padStart(8, "0");
+  const randomCode = deriveNfeRandomCode(command.emissionRequestId);
   return {
     outcome: {
       sequence,
@@ -8341,6 +8344,43 @@ async function dispatchNormalEmission(reqBody, authHeader, supabase, res) {
     { environment: command.environment }
   );
   return res.status(result.status).json(result.body);
+}
+
+// api/nfe/normal-sale/retryAuthorizedInvoiceItems.ts
+async function syncRetryAuthorizedInvoiceItems(params) {
+  const { db, documentId, signedXml } = params;
+  try {
+    const invoiceLines = parseAuthorizedInvoiceLines(signedXml);
+    const { error: linesError } = await db.from("nfe_document_items").upsert(
+      invoiceLines.map((line) => ({
+        document_id: documentId,
+        item_number: line.invoiceItemNumber,
+        product_code: line.productCode,
+        description: line.description,
+        billed_quantity: line.billedQuantity,
+        unit_value: line.unitValue,
+        gross_value: line.grossValue,
+        discount_value: line.discountValue,
+        product_xml: line.productXml,
+        taxes_xml: line.taxesXml
+      })),
+      { onConflict: "document_id,item_number" }
+    );
+    if (linesError) {
+      console.error(
+        "[NF-e Emit] Nota autorizada, mas itens fiscais precisam de reconcilia\xE7\xE3o:",
+        linesError.message
+      );
+      return true;
+    }
+    return false;
+  } catch (snapshotError) {
+    console.error(
+      "[NF-e Emit] Nota autorizada sem snapshot fiscal de itens:",
+      snapshotError?.message || "erro de leitura"
+    );
+    return true;
+  }
 }
 
 // api/nfe/emit.ts
@@ -8713,7 +8753,7 @@ async function handler(req, res) {
         { environment: selectedEnvironment, model }
       );
     } catch (soapErr) {
-      const diagnosticId = (0, import_node_crypto14.randomUUID)();
+      const diagnosticId = (0, import_node_crypto13.randomUUID)();
       const transportDiagnostic = sefazTransportDiagnostic(soapErr);
       const attemptDiagnostic = { diagnosticId, emissionRequestId, ...transportDiagnostic };
       console.error("[NF-e Emit] Falha de transporte:", { documentId, ...attemptDiagnostic });
@@ -8747,37 +8787,11 @@ async function handler(req, res) {
     }).eq("id", documentId);
     let fiscalSnapshotSyncError = false;
     if (parsed.authorized) {
-      try {
-        const invoiceLines = parseAuthorizedInvoiceLines(signedXml);
-        const { error: linesError } = await supabase.from("nfe_document_items").upsert(
-          invoiceLines.map((line) => ({
-            document_id: documentId,
-            item_number: line.invoiceItemNumber,
-            product_code: line.productCode,
-            description: line.description,
-            billed_quantity: line.billedQuantity,
-            unit_value: line.unitValue,
-            gross_value: line.grossValue,
-            discount_value: line.discountValue,
-            product_xml: line.productXml,
-            taxes_xml: line.taxesXml
-          })),
-          { onConflict: "document_id,item_number" }
-        );
-        if (linesError) {
-          fiscalSnapshotSyncError = true;
-          console.error(
-            "[NF-e Emit] Nota autorizada, mas itens fiscais precisam de reconcilia\xE7\xE3o:",
-            linesError.message
-          );
-        }
-      } catch (snapshotError) {
-        fiscalSnapshotSyncError = true;
-        console.error(
-          "[NF-e Emit] Nota autorizada sem snapshot fiscal de itens:",
-          snapshotError?.message || "erro de leitura"
-        );
-      }
+      fiscalSnapshotSyncError = await syncRetryAuthorizedInvoiceItems({
+        db: supabase,
+        documentId,
+        signedXml
+      });
     }
     return res.status(200).json({
       success: parsed.authorized,

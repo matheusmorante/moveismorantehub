@@ -22,6 +22,7 @@ interface UseProductAutocompleteProps {
   parentsOnly?: boolean;
   productsOnly?: boolean;
   variationsOnly?: boolean;
+  compositionsOnly?: boolean;
   includeDeactivated?: boolean;
   allowedProductKinds?: readonly ProductKind[];
   excludedProductLinks?: readonly ProductAutocompleteExcludedLink[];
@@ -38,6 +39,7 @@ export function useProductAutocomplete({
   parentsOnly = false,
   productsOnly = false,
   variationsOnly = false,
+  compositionsOnly = false,
   includeDeactivated = false,
   allowedProductKinds,
   excludedProductLinks,
@@ -59,6 +61,7 @@ export function useProductAutocomplete({
     parentsOnly,
     productsOnly,
     variationsOnly,
+    compositionsOnly,
     includeDeactivated,
     excludeCombos,
     allowedProductKinds,
@@ -67,7 +70,7 @@ export function useProductAutocomplete({
     isSelected,
   ]);
   const latest = useRef({ context, localProducts }); latest.current = { context, localProducts };
-  const { enqueueAndRun } = useZodForm(productAutocompleteFormSchema, { query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds: allowedProductKinds ? [...allowedProductKinds] : undefined });
+  const { enqueueAndRun } = useZodForm(productAutocompleteFormSchema, { query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, compositionsOnly, allowedProductKinds: allowedProductKinds ? [...allowedProductKinds] : undefined });
   const setQuery = (next: string) => {
     generation.current += 1; changeQuery(next); setSuggestions([]); setSearchError(''); setIsLoading(next.trim().length >= 3 && !disabled && !isSelected);
   };
@@ -113,9 +116,9 @@ export function useProductAutocomplete({
 
       if (active) setIsLoading(true);
       try {
-        await enqueueAndRun({ query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds: allowedProductKinds ? [...allowedProductKinds] : undefined }, async (values) => {
+        await enqueueAndRun({ query, supplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, compositionsOnly, allowedProductKinds: allowedProductKinds ? [...allowedProductKinds] : undefined }, async (values) => {
         if (!active) return;
-        const { query: trimmed, supplierId: parsedSupplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, allowedProductKinds } = values;
+        const { query: trimmed, supplierId: parsedSupplierId, parentsOnly, variationsOnly, includeDeactivated, excludeCombos, compositionsOnly, allowedProductKinds } = values;
         const words = trimmed.split(/\s+/).filter((w) => w.length > 0);
         const productsData = localProducts !== undefined
           ? localProducts
@@ -123,7 +126,8 @@ export function useProductAutocomplete({
               trimmed,
               parsedSupplierId,
               includeDeactivated,
-              25 + (excludedProductLinks?.length || 0)
+              25 + (excludedProductLinks?.length || 0),
+              compositionsOnly ? 'composition' : undefined,
             ), 10000, null, 'autocomplete:produtos');
         if (!active) return;
         if (!Array.isArray(productsData)) throw new Error('A busca de produtos não foi confirmada. Consulte novamente.');
@@ -137,6 +141,7 @@ export function useProductAutocomplete({
 
         (productsData || []).forEach((p: Product) => {
           const itemType = p.itemType || (p as any).item_type || 'product';
+          if (compositionsOnly && itemType !== 'composition') return;
           if (
             productsOnly &&
             (itemType !== 'product' ||
@@ -247,6 +252,7 @@ export function useProductAutocomplete({
     query,
     supplierId,
     variationsOnly,
+    compositionsOnly,
     parentsOnly,
     productsOnly,
     includeDeactivated,

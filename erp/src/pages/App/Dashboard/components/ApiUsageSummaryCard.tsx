@@ -5,29 +5,33 @@ import {
   ApiDashboardMetrics,
   ApiServiceSummary,
 } from '@/services/apiMonitoring/apiMonitoringTypes';
+import { toLocalDateInputValue } from '../dashboardDateRanges';
 
 export default function ApiUsageSummaryCard() {
   const [metrics, setMetrics] = useState<ApiDashboardMetrics | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
     const load = async () => {
+      if (isMounted) {
+        setLoading(true);
+        setError(false);
+      }
       try {
         const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-          .toISOString()
-          .split('T')[0];
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-          .toISOString()
-          .split('T')[0];
+        const startOfMonth = toLocalDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
+        const endOfMonth = toLocalDateInputValue(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
         const data = await ApiUsageTracker.getDashboardMetrics(startOfMonth, endOfMonth, 'all');
         if (isMounted) {
           setMetrics(data);
+          setError(false);
         }
-      } catch (e) {
-        console.warn('Aviso ao carregar resumo de APIs no dashboard:', e);
+      } catch {
+        if (isMounted) setError(true);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -37,7 +41,7 @@ export default function ApiUsageSummaryCard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [retryToken]);
 
   const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date());
   const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
@@ -68,7 +72,15 @@ export default function ApiUsageSummaryCard() {
             </div>
           </div>
 
-          {metrics && metrics.servicesNearLimitCount > 0 ? (
+          {error ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+              Indisponível
+            </span>
+          ) : loading ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+              Carregando
+            </span>
+          ) : metrics && metrics.servicesNearLimitCount > 0 ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
               {metrics.servicesNearLimitCount} Próxima
@@ -120,7 +132,14 @@ export default function ApiUsageSummaryCard() {
         </div>
 
         {/* Conteúdo Dinâmico */}
-        {loading ? (
+        {error ? (
+          <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
+            <p className="text-xs font-semibold">Não foi possível consultar o uso das APIs. Os valores não serão exibidos como zero.</p>
+            <button type="button" onClick={() => { setLoading(true); setRetryToken((value) => value + 1); }} className="mt-3 rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-800">
+              Tentar novamente
+            </button>
+          </div>
+        ) : loading ? (
           <div className="space-y-3 py-2">
             {[1, 2, 3].map((i) => (
               <div key={i} className="animate-pulse space-y-1.5">
@@ -236,7 +255,7 @@ export default function ApiUsageSummaryCard() {
       </div>
 
       {/* Rodapé do Card com Métricas de Economia e Acesso */}
-      <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+      {!error && <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
         <div className="text-[11px] text-slate-500 dark:text-slate-400 font-bold">
           Total:{' '}
           <strong className="text-slate-800 dark:text-slate-200">
@@ -252,7 +271,7 @@ export default function ApiUsageSummaryCard() {
           <span>Ver detalhes</span>
           <i className="bi bi-arrow-right text-[11px]" />
         </Link>
-      </div>
+      </div>}
     </div>
   );
 }

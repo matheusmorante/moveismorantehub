@@ -140,8 +140,8 @@ Retorne ESTRITAMENTE um JSON no seguinte formato (sem markdown em volta):
       contrastGrade: parsed.contrastGrade || 'Contraste Otimizado por Gemini Flash',
       rationale: parsed.rationale || 'Cores harmonizadas para contraste máximo com o cenário.',
     };
-  } catch (err) {
-    console.warn('[postHtmlStyleOptimizer] Fallback para paleta de contraste:', err);
+  } catch {
+    console.warn('[postHtmlStyleOptimizer] Fallback para paleta de contraste.');
     return defaultFallback;
   }
 }

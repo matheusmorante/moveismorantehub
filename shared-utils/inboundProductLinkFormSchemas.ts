@@ -1,6 +1,30 @@
 import { z } from 'zod';
 import { inboundInvoiceFormSchema } from './inboundInvoiceFormSchema';
 import { quickRegisterSelectionFormSchema } from './operationsFormSchemas';
+import { PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS } from './productAutocompleteFormSchema';
+
+export const INBOUND_INVOICE_SEARCH_MIN_CHARACTERS = 3;
+export const INBOUND_INVOICE_SEARCH_DEBOUNCE_MS = PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS;
+export const INBOUND_INVOICE_SEARCH_RESULT_LIMIT = 5;
+export const inboundInvoiceCatalogSearchFormSchema = z.object({
+  query: z.string().trim().min(
+    INBOUND_INVOICE_SEARCH_MIN_CHARACTERS,
+    'Digite pelo menos três caracteres para buscar.'
+  ),
+});
+const catalogSupplierId = z.string().trim().uuid('Selecione um fornecedor válido para buscar.');
+const inboundProductLinkRefSchema = z.object({
+  productId: z.string().trim().min(1),
+  variationId: z.string().trim().min(1).optional(),
+});
+export const inboundInvoiceProductSearchFormSchema = inboundInvoiceCatalogSearchFormSchema.extend({
+  supplierId: catalogSupplierId,
+  excludedLinks: z.array(inboundProductLinkRefSchema),
+  itemType: z.literal('composition').optional(),
+});
+export const inboundInvoiceProductParentSearchFormSchema = inboundInvoiceCatalogSearchFormSchema.extend({
+  supplierId: catalogSupplierId,
+});
 
 const identifier = z.string().trim().min(1, 'Selecione um cadastro válido.');
 export const inboundQuickRegisterItemSchema = z.object({

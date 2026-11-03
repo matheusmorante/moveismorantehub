@@ -17,6 +17,7 @@ from reportlab.platypus import Paragraph
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from pypdf import PdfReader
+from roteiros_visuais import desenhar_opcoes_recebimento, render_roteiros_visuais
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -293,12 +294,17 @@ for i, label in enumerate(labels):
         c.line(xx + 41, y - 23, xx + 94, y - 23)
 y -= 113
 y = note('A regra que evita saldo errado', 'Uma NF-e importada ou um pedido de compra <b>não coloca mercadoria no estoque</b>. A entrada acontece ao usar <b>Confirmar recebimento</b>, depois da conferência física.', y, fill=MINT)
-y = para('Leia na ordem na primeira utilização. Depois, use os capítulos como consulta rápida durante a operação.', y - 4, size=11.4, color=MUTED)
-para('Com telas reais, ampliações, setas e exemplos de contagem.<br/>Os menus disponíveis dependem das permissões do seu usuário.', y - 5, size=10.2, color=MUTED)
+quick_top = y - 4
+flow_card('COMECE PELOS ROTEIROS COM FIGURAS',
+          'Toque ou clique aqui para escolher sua tarefa. No papel, abra a página 28.',
+          M, quick_top, TW, 72, fill=PALE, title_size=13.5, body_size=12)
+c.linkRect('', 'p28', Rect=(M, quick_top - 72, W - M, quick_top), relative=0, thickness=0)
+para('As telas mostram exemplos. Os menus disponíveis dependem das permissões do seu usuário.',
+     quick_top - 84, size=10.5, color=MUTED)
 
 # 02 - Navegação e mapa
 y = base('Mapa do guia', 'Onde encontrar cada operação', 'No app, toque novamente em Estoque para voltar à lista. No ERP, abra Estoque pelo menu lateral.')
-shot('00-menu-estoque', y, width=172, max_height=447, x=M, caption='1 Nota Fiscal de Entrada  •  2 Recebimentos<br/>3 Abrir o guia em PDF')
+shot('00-menu-estoque', y, width=172, max_height=447, x=M, crop=(0, 0, 280, 560), caption='No app, use Etiquetas de identificação. Etiquetas de preço ficam no ERP.')
 xx, ww = M + 195, TW - 195
 yy = y
 for title, body in [
@@ -308,7 +314,7 @@ for title, body in [
     ('Inventário', 'Contar o estoque físico e revisar diferenças.'),
     ('Movimentações', 'Ver o que aumentou ou diminuiu o estoque e por quê.'),
     ('Indisponibilidades', 'Registrar produtos separados e retirados do estoque.'),
-    ('Identificação e Preços', 'Preparar a impressão do tipo de etiqueta correto.'),
+    ('Etiquetas de identificação', 'No app, prepare etiquetas de identificação. Etiquetas de preço ficam disponíveis no ERP.'),
     ('Fornecedores', 'Consulte ou mantenha os cadastros. Em três pontinhos, Excluir fornecedor só é liberado quando não há produtos, pedidos de compra, recebimentos, inventários registrados, notas fiscais ou indisponibilidades vinculados.'),
 ]:
     yy = para(title, yy, xx, ww, size=10.8, bold=True, gap=2)
@@ -319,14 +325,14 @@ y = table(['Procure por assunto', 'Páginas'], [
     ['Recebimento, custos e confirmação', '13 a 16'],
     ['Etiquetas e caixas de um mesmo produto', '17 a 19'],
     ['Compras e inventário', '20 a 23'],
-    ['Movimentações, indisponibilidades e checklist', '24 a 27'],
+    ['Movimentações, indisponibilidades, checklist e roteiros', '24 a 35'],
 ], y, widths=[TW - 90, 90], size=9.3)
 
 # 03 - Fluxo de recebimento
 y = base('Mapa de operação', 'Siga o caminho da carga', 'Confira a mercadoria primeiro. Depois siga o caminho conforme o documento que veio com ela.')
 common_top = y - 2
 flow_card('1. CONFERIR A ENTREGA',
-          'Compare produtos, modelos, quantidades e caixas com a nota fiscal. Sem nota, use o pedido de compra.',
+          'Compare produtos, modelos, quantidades e caixas com a nota fiscal. Sem nota, use o pedido ou peça ajuda ao responsável.',
           M, common_top, TW, 58, fill=MINT, accent=TEAL)
 arrow(W / 2, common_top - 59, W / 2, common_top - 70)
 branch_top = common_top - 76
@@ -346,7 +352,7 @@ invoice_steps = [
 ]
 manual_steps = [
     ('Confira o pedido de compra', 'Compare os produtos e as quantidades que foram combinados.'),
-    ('Abra Recebimentos', 'Use o pedido como origem quando houver um. Sem pedido, escolha Sem nota fiscal.'),
+    ('Abra Recebimentos', 'Sem nota, escolha Sem nota fiscal. A opção Com pedido de compra está desativada (Beta).'),
     ('Informe o que chegou', 'Selecione o fornecedor e os produtos. Digite as quantidades recebidas.'),
     ('Confira custos e despesas', 'Revise o custo, o frete e as outras despesas, sem duplicar valores.'),
     ('Confirme a entrada', 'Use Confirmar recebimento. Só então os produtos entram no estoque. Imprima etiquetas se necessário.'),
@@ -408,14 +414,14 @@ y = note('Ciência sem confirmação', 'Se aparecer “Comunicação sem confirm
 
 # 07 - Vínculos
 y = base('03 / Vínculos', 'Associe a nota aos cadastros corretos', 'Abra Gerenciar vínculos em Vinculações Pendentes ou nos três pontinhos. Aguarde o carregamento da nota e dos vínculos antes de editar.')
-y = shot('04-gerenciar-vinculos', y, max_height=290, caption='1 Fornecedor  •  2 seletor de modo à esquerda; Cadastro rápido ao lado, sem fundo ou borda  •  3 gerar recebimento. “Não se aplica” preserva a NF e ignora o item no estoque.')
+y = shot('04-gerenciar-vinculos', y, max_height=290, caption='1 Fornecedor  •  2 seletor de modo; Cadastro rápido apenas em Único  •  3 Gerar recebimento abre a NF no app. “Não se aplica” ignora o item no estoque.')
 y = shot('04b-fornecedor', y, max_height=65, caption='Ampliação do campo de fornecedor. Quando estiver bloqueado, clique ou toque para consultar o motivo.')
 y = step(1, 'Associe o fornecedor correto', 'Compare o Emitente e escolha o fornecedor correspondente. Se o campo estiver bloqueado, clique ou toque nele para consultar o motivo. Para trocar, desvincule todos os produtos antes. Use Novo fornecedor se necessário. Fornecedores exclusivos de Salvados ficam em “Não se aplica” e não geram recebimento nem movimentação de estoque.', y)
-y = step(2, 'Encontre o produto antes de criar outro', 'Pesquise por nome ou código. A lista mostra apenas variações disponíveis, mesmo ao buscar pelo nome do produto principal. Confira cor, medida ou modelo. Variações já vinculadas não aparecem. Marque “Não se aplica” para deixar a linha fora do estoque.', y)
-y = step(3, 'Aguarde a confirmação do salvamento', 'Os dados são salvos automaticamente. Aguarde “Salvando e confirmando vínculos...”. Após a confirmação, as abas atualizam a lista. Se não houver confirmação, reabra Gerenciar vínculos e confira o resultado.', y)
+y = step(2, 'Confira os dados e encontre o produto', 'Confira Unitário e Total; os dados fiscais ficam nas abas Itens e Fiscal da NF-e. Busque com 3 caracteres: Único mostra variações ativas do fornecedor; Composto, apenas produtos compostos dele (até 5 resultados). Toque no resultado para vincular. Para alterar o cadastro, abra Produtos fora deste modal. Para trocar o modo, remova o vínculo ou todos os componentes. “Não se aplica” não movimenta estoque.', y)
+y = step(3, 'Aguarde a confirmação do salvamento', 'Ao remover, a NF volta a “Vinculações Pendentes” até vincular os itens que faltam. Se salvar ficar incerto, consulte novamente antes de repetir.', y)
 
 # 08 - Cadastro rápido
-y = base('03 / Vínculos', 'Cadastro rápido: escolha o tipo certo', 'Abra Cadastro rápido na linha do item em Gerenciar vínculos quando não encontrar um produto correspondente. Pesquise primeiro para evitar outro cadastro igual.')
+y = base('03 / Vínculos', 'Cadastro rápido: escolha o tipo certo', 'Use no modo de vínculo Único quando não encontrar um produto. O botão fica oculto em Composto e Não se aplica. Pesquise antes de cadastrar.')
 y = shot('05-cadastro-rapido', y, max_height=70, caption='1 Produto simples  •  2 Variação de produto existente  •  3 Produto composto.')
 y = para('Produto simples tem uma única versão cadastrada. Variação é outra cor, medida ou versão do mesmo produto. O produto pai reúne dados comuns; cada versão é controlada separadamente. A quantidade de unidades não define o tipo do cadastro.', y, size=10.1, gap=8)
 y = product_structure_diagram(y)
@@ -480,23 +486,22 @@ for text in [
 ]:
     y = check(text, y)
 y = step(1, 'Resolva a pendência indicada', 'Se precisar trocar o fornecedor depois de vincular produtos, confira a orientação da tela e remova os vínculos necessários antes da troca.', y)
-y = step(2, 'Clique em Gerar recebimento', 'O formulário abre com fornecedor, itens, quantidades e custos da nota. O atalho também aparece nos três pontinhos quando a nota estiver apta.', y)
+y = step(2, 'Abra Gerar recebimento', 'No ERP, o atalho também aparece nos três pontinhos quando a nota estiver apta. No app, abra Gerenciar vínculos e toque em Gerar recebimento; Recebimentos abre com a NF selecionada. A ação exige acesso ao módulo, XML completo, fornecedor convencional, itens resolvidos e nota ainda sem recebimento concluído.', y)
 y = note('Ainda falta a conferência final', 'Gerar recebimento apenas prepara o formulário. Revise a entrega física e as despesas e use <b>Confirmar recebimento</b> para efetivar a entrada.', y, fill=MINT)
 
 # 11 - Receber caminhos
 y = base('04 / Recebimentos', 'Escolha o caminho de recebimento', 'ERP: Receber Mercadoria. App: três pontinhos > Novo.')
-y = shot('06-opcoes-recebimento', y, max_height=220, caption='Escolha uma das três origens. A entrada é registrada ao confirmar o recebimento.')
-y = step(1, 'Sem nota fiscal', 'Selecione o fornecedor, a data de chegada e as variações. Informe as quantidades e o custo unitário de cada item.', y)
-y = step(2, 'Com nota fiscal de entrada', 'ERP e app filtram pela data de emissão; escolha o período à direita da busca. Sem texto, as notas elegíveis aparecem em páginas de 15. A busca filtra após três caracteres; não há botão Buscar. No app, escolha também a data de chegada no calendário. Só fornecedores com origem Normal são aceitos; notas de Salvados ficam fora. Cartões indisponíveis ficam esmaecidos, mas avisos e ações permanecem visíveis. Para NF incompleta, use Obtenha o XML e importe o arquivo completo. Para vínculos pendentes, use Gerenciar vínculos; ao salvar e fechar, o aviso some quando todos forem concluídos. Em uso é um texto simples que indica NF já vinculada a rascunho, recebimento ou estorno; ela não pode ser reutilizada. Use Gerenciar para fechar o seletor e abrir o recebimento vinculado, filtrado, rolado até o cartão e destacado. Limpar filtro restaura a lista. Se estiver Recebido, estorne antes de editar. Linhas “Não se aplica” ficam fora do estoque.', y)
-y = step(3, 'Com pedido de compra', 'Selecione o pedido desta carga. Confira os itens e os custos preenchidos e ajuste as quantidades para o que chegou.', y)
-y = note('O pedido não substitui o recebimento', 'Mesmo que o pedido esteja como Atendido ou tenha sido conferido, registre a entrada em Recebimentos.', y, fill=AMBER)
+y = desenhar_opcoes_recebimento(c, y)
+y = step('A', 'Sem nota fiscal', 'Selecione o fornecedor, a data de chegada e as variações. Informe as quantidades e o custo unitário de cada item.', y)
+y = step('B', 'Com nota fiscal de entrada', 'Escolha a nota da carga e confira a data de chegada. Se a nota não aparecer, estiver incompleta, com vínculos pendentes ou Em uso, veja a página 35. Só notas de fornecedores com origem Normal podem iniciar esse recebimento; linhas “Não se aplica” ficam fora do estoque.', y)
+y = note('Com pedido de compra: indisponível (Beta)', 'Use o pedido para conferir a carga. Registre a entrada com nota se houver NF ou sem nota se não houver. O caminho sem nota não vincula o pedido automaticamente, e o pedido Atendido não substitui o recebimento.', y, fill=AMBER)
 
 # 12 - Recebimento
 y = base('04 / Recebimentos', 'Revise o formulário antes de confirmar', 'Fornecedor, data, produtos, quantidades e custos precisam corresponder à entrega real.')
 y = shot('17-recebimento-campos', y, max_height=110, crop=(0, 150, 600, 95), annotate=False, caption='Data do recebimento: exemplo de preenchimento, sem gravar uma entrada real.')
 y = step(1, 'Confira fornecedor e data de chegada', 'No cadastro com NF, o fornecedor aparece como informação. Ajuste a data para o dia em que a mercadoria chegou, não para a data de emissão. Na alteração de um recebimento já registrado com NF, fornecedor e itens continuam informativos; somente a data e as observações podem ser alteradas.', y)
-y = step(2, 'Revise cada produto e a quantidade recebida', 'No cadastro novo com NF, fornecedor, produtos, quantidades e custos são informativos. Antes dos itens, informe em Despesas não fiscais o frete e outras despesas fora da nota, em % ou R$, para rateá-los. Ao alterar recebimento com NF, essas despesas também são informativas. No recebimento manual, escolha o fornecedor antes dos itens; a busca mostra produtos individuais vinculados. Não há campo de desconto. O selo ao lado do status indica a movimentação: Entrada Efetivada (verde), Entrada Estornada (vermelho) ou Sem Movimentação (cinza). Os itens começam recolhidos; apenas um abre por vez, com animação. O ícone tem o tamanho do pedido. Expandido, Recolher fica à direita no cabeçalho; Remover item fica na linha inferior, à esquerda do custo total.', y)
-y = step(3, 'Registre observações e anexe documentos', 'Use as observações para explicar divergências. Antes da lista de itens, o ERP e o app permitem anexar até cinco arquivos PDF ou imagens, como fotos da entrega e comprovantes. Abra ou remova anexos para conferi-los antes de confirmar.', y)
+y = step(2, 'Revise cada produto e a quantidade recebida', 'No cadastro novo com NF, fornecedor, produtos, quantidades e custos são informativos. Antes dos itens, informe em Despesas não fiscais o frete e outras despesas fora da nota, em % ou R$, para rateá-los. Ao alterar recebimento com NF, essas despesas também são informativas. No recebimento manual, escolha o fornecedor antes dos itens; a busca mostra produtos individuais vinculados. Não há campo de desconto. O selo mostra o status geral (verde: entrada efetivada; vermelho: estornada; cinza: sem movimentação). Toque ou clique no selo para ver o status por item. Os itens começam recolhidos; apenas um abre por vez, com animação. O ícone tem o tamanho do pedido. Expandido, Recolher fica à direita no cabeçalho; Remover item fica na linha inferior, à esquerda do custo total.', y)
+y = step(3, 'Registre observações e anexe documentos', 'Use as observações para explicar divergências. Antes da lista de itens, o ERP e o app permitem anexar até cinco arquivos PDF ou imagens. Depois, consulte os dados salvos nas abas Resumo, Itens e Observações. Os detalhes não têm leitura de volumes, contagem conferida nem botão de concluir conferência.', y)
 y = note('Complete a seleção dos produtos', 'Cada item precisa ter um produto selecionado. Enquanto faltar, Confirmar recebimento fica desativado. Selecione o produto ou remova a linha incompleta antes de continuar.', y, fill=AMBER)
 y = note('Ações no ERP e no app', 'Rascunho: <b>Retomar</b> ou <b>Descartar</b>. Recebido: <b>Alterar recebimento</b> ou <b>Estornar recebimento</b>; salvar alteração mantém o status e o estorno reverte as movimentações. Estornado: <b>Desfazer estorno</b> reativa as movimentações; depois, Alterar recebimento fica disponível. A data ajusta a entrada. Remover item reverte o movimento; trocar produto reverte o anterior e cria outro; mudar quantidade ou custo atualiza o movimento. Ao trocar fornecedor, adicione os itens corretos. O estorno não libera a NF e não pode ser desfeito enquanto outro recebimento usa a nota. Rascunho não movimenta o estoque.', y, fill=MINT)
 
@@ -530,21 +535,23 @@ y = table(['Se acontecer...', 'Como agir'], [
 ], y, widths=[180, TW - 180], size=10)
 
 # 15 - Etiquetas
-y = base('05 / Etiquetas', 'Escolha por onde imprimir as etiquetas', 'Escolha um caminho para cada unidade e confira a seleção antes de imprimir.')
-y = shot('16-menus-de-acoes', y, max_height=205, caption='No ERP: 2 etiquetas pela NF-e  •  3 etiquetas pelo recebimento concluído. A opção 1 prepara o recebimento pela NF-e.')
+y = base('05 / Etiquetas', 'Escolha por onde imprimir as etiquetas', 'Imprimir abre a janela do sistema; Impressão avançada (BETA) usa a estação conectada e a fila compartilhada.')
+y = shot('16-menus-de-acoes', y, max_height=155, caption='No ERP: 2 etiquetas pela NF-e  •  3 etiquetas pelo recebimento concluído. A opção 1 prepara o recebimento pela NF-e.')
 y = step(1, 'Pela nota fiscal no ERP', 'Com o fornecedor e os produtos vinculados, abra os três pontinhos e escolha Imprimir etiquetas de identificação. Linhas “Não se aplica” não geram etiquetas.', y)
 y = step(2, 'Pelo recebimento no ERP', 'Com o recebimento no status Recebido, abra os três pontinhos e escolha a mesma ação. Em rascunho ou estornado, a impressão fica desativada.', y)
 y = step(3, 'Pelo recebimento no aplicativo', 'Nos três pontinhos de um recebimento Recebido, toque em Imprimir etiquetas de identificação. O app abre o gerador do ERP com o mesmo login e preenche a lista com os produtos vinculados e suas quantidades. Rascunhos, recebimentos estornados ou sem produtos vinculados não podem iniciar a impressão.', y)
-y = step(4, 'Pela área de etiquetas no aplicativo', 'Em Estoque, abra Etiquetas de identificação ou Etiquetas de preço. Também é possível usar a ação de etiqueta no menu do produto ou variação. Escolha produtos, quantidades e modelo; confira a prévia, abra os três pontos dela e toque em Imprimir para abrir a impressão do aparelho.', y)
-y = note('Identificação e preço têm usos diferentes', 'A etiqueta de identificação acompanha a unidade física. A etiqueta de preço serve à exposição e à venda; não use para contar estoque. Na lista Produtos, a ação Etiqueta de Preço exige permissão para editar Produtos. Perfis somente consulta devem solicitar a impressão a alguém autorizado.', y, fill=MINT)
+y = step(4, 'Conecte a estação para impressão avançada', 'No computador da loja, abra Etiquetas no ERP e clique em Conectar esta estação. Quando aparecer Online, confira produtos, quantidades e modelo e escolha Impressão avançada (BETA) no app ou no ERP. A estação imprime sem abrir PDF ou janela; Imprimir abre a impressão normal do dispositivo.', y)
+y = note('Etiquetas no app e no ERP', 'O app oferece etiquetas de identificação. No ERP, a etiqueta de identificação acompanha a unidade física e a de preço serve à exposição e à venda; no menu Produtos, a etiqueta de preço exige permissão para editar Produtos.', y, fill=MINT)
 
 # 16 - Preparar etiquetas
-y = base('05 / Etiquetas', 'Confira a seleção antes de imprimir', 'A janela mostra os produtos associados e as quantidades. Revise antes de imprimir.')
-y = shot('15-selecionar-etiquetas', y, max_height=310, caption='1 Confira a quantidade de cada produto  •  2 Imprimir Etiquetas abre a preparação da impressão. Dados fictícios de exemplo.')
+y = base('05 / Etiquetas', 'Escolha a forma de imprimir', 'Imprimir abre a janela do sistema. Impressão avançada (BETA) envia o trabalho à estação conectada.')
+y = shot('15-selecionar-etiquetas', y, max_height=165, caption='Confira quantidades, modelo e prévia. Dados fictícios de exemplo.')
 y = step(1, 'Confira o produto e a quantidade', 'A etiqueta usa o cadastro, não a descrição da nota. No app, toque no campo Produto para abrir a busca; no ERP, pesquise no próprio campo. Digite pelo menos 3 caracteres, aguarde e escolha entre até cinco resultados. Confira também a quantidade de unidades que vai identificar.', y)
-y = step(2, 'Confira o modelo e a prévia', 'Na preparação, Adicionar cria uma linha para buscar outro produto. Selecione-o; o campo fica verde com check. Sem produto, a etiqueta permanece em branco. A etiqueta de identificação mostra nome, SKU e QR, sem foto. Revise o modelo e a posição na folha antes de imprimir.', y)
-y = step(3, 'Imprima e confira cada etiqueta', 'Confira o produto escrito na etiqueta antes de colar. Cada móvel precisa de uma identificação, mesmo que tenha várias caixas.', y)
-y = note('Evite duas etiquetas para o mesmo móvel', 'Cada impressão cria uma nova identificação. Não imprima os mesmos itens pela nota e pelo recebimento. Para substituir uma etiqueta, peça orientação para não deixar duas etiquetas ativas no mesmo móvel.', y, fill=AMBER)
+y = step(2, 'Confira o modelo e a prévia', 'Na preparação, Adicionar cria uma linha para buscar outro produto. Selecione-o; o campo fica verde com check. Sem produto, a etiqueta permanece em branco. A etiqueta de identificação mostra nome, SKU e QR, sem foto. Revise o modelo e o tamanho da folha antes de imprimir.', y)
+y = step(3, 'Escolha como imprimir', 'Use Imprimir para abrir a janela de impressão do dispositivo e escolher uma impressora. Use Impressão avançada (BETA) para enviar à estação conectada; no app, ela imprime pela fila compartilhada sem abrir PDF ou janela. Confira o produto antes de colar.', y)
+y = step(4, 'Mantenha a estação pronta', 'No computador da loja, instale o agente e conecte a estação na tela Etiquetas. Mantenha computador e impressora ligados; se ficar offline, a tarefa aguarda na fila.', y)
+y = note('Modelo da folha e impressora', 'O arquivo usa o tamanho configurado no modelo e margem zero. No Windows, a impressora deve estar instalada e configurada para o mesmo tamanho de papel; a área física imprimível depende do driver e do papel.', y, fill=PALE)
+y = note('Evite duas etiquetas para o mesmo móvel', 'Cada impressão cria nova identificação. Não repita as mesmas unidades pela nota e pelo recebimento.', y, fill=AMBER)
 
 # 17 - Volumes
 y = base('05 / Etiquetas', 'Um móvel pode ter várias caixas', 'O estoque conta o móvel completo. Cada caixa dele é um volume.')
@@ -718,15 +725,18 @@ y = para('Se algo der errado', y - 6, size=15, bold=True)
 y = table(['O que aconteceu?', 'Onde ir'], [
     ['A nota aparece sem produtos', 'Abra XML incompleto e siga as instruções. Pág. 7.'],
     ['Não sei se crio ou associo um produto', 'Pesquise antes de criar. Págs. 8 a 11.'],
+    ['Removi um vínculo e a NF voltou a ficar pendente', 'Confira a lista atualizada e vincule novamente os itens aplicáveis. Pág. 8.'],
     ['Gerar recebimento está bloqueado', 'Leia o motivo e resolva o que falta. Pág. 12.'],
     ['Não sei se o recebimento foi salvo', 'Confira a lista antes de tentar de novo. Pág. 16.'],
     ['Estoque ou produto avariado não confere', 'Revise as movimentações e o fluxo de indisponibilidade. Págs. 24 a 26.'],
 ], y, widths=[190, TW - 190], size=10)
 para('Os números e setas azuis indicam onde clicar. Alguns dados comerciais foram ocultados e os exemplos são fictícios. No aplicativo, a tela pode estar organizada de outro jeito; procure os mesmos nomes de menus e botões.', y, size=9.4, color=MUTED)
 
+render_roteiros_visuais(c, base)
+
 c.save()
 reader = PdfReader(str(OUTPUT))
-if len(reader.pages) != 27:
+if len(reader.pages) != 35:
     raise ValueError(f'Paginação inesperada: {len(reader.pages)}')
 for index, page in enumerate(reader.pages, 1):
     if not (page.extract_text() or '').strip():

@@ -9,7 +9,7 @@ interface DeliveryRouteBannerProps {
 }
 
 /**
- * Banner informativo que exibe o estado "Em Rota" e o horário de saída registrada.
+ * Banner informativo que exibe a etapa de deslocamento e o horário de saída registrada.
  */
 export const DeliveryRouteBanner: React.FC<DeliveryRouteBannerProps> = ({
   startedAt,
@@ -25,7 +25,7 @@ export const DeliveryRouteBanner: React.FC<DeliveryRouteBannerProps> = ({
         <Text style={{ fontSize: 24 }}>🚚</Text>
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.bannerTitle, isDarkMode && styles.textLight]}>Em Rota</Text>
+        <Text style={[styles.bannerTitle, isDarkMode && styles.textLight]}>Deslocamento</Text>
         <View style={styles.timeRow}>
           <Clock size={12} color="#64748b" />
           <Text style={styles.bannerSubtitle}>Saída registrada às {formattedStartedTime}</Text>

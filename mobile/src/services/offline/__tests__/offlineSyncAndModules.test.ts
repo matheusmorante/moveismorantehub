@@ -920,10 +920,10 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
     state.activeSessionUserId = 'user-driver-1';
     offlineSyncManager.setCurrentUserId('user-driver-1');
 
-    // Etapa 1: Preparar Saída
+    // Etapa 1: Preparação
     expect(resolveDeliveryStep(initialOrder.order_data).currentStep).toBe(1);
 
-    // Etapa 1 -> Etapa 2 (Em Rota) OFFLINE
+    // Etapa 1 -> Etapa 2 (Deslocamento) OFFLINE
     const step2 = await deliveryFlowService.startRoute({
       orderId,
       currentData: initialOrder.order_data,
@@ -932,7 +932,7 @@ describe('Auditoria Offline End-to-End (7 Pontos Críticos: Operação, Sincroni
       userProfileId: 'user-driver-1',
     });
     expect(resolveDeliveryStep(step2.updatedData).currentStep).toBe(2);
-    expect(resolveDeliveryStep(step2.updatedData).headerTitle).toBe('Em Rota');
+    expect(resolveDeliveryStep(step2.updatedData).headerTitle).toBe('Deslocamento');
 
     // Etapa 2 -> Etapa 3 (Chegada no Local) OFFLINE
     const step3 = await deliveryFlowService.arriveAtDestination({

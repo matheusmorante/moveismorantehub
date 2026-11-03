@@ -106,6 +106,16 @@ export const normalizeInvoiceItem = (r: any, idx: number): InboundInvoiceItem =>
 
   const ncm = snap.ncm || r.ncm || '';
   const cfop = snap.cfop || r.cfop || '';
+  const readMappingReference = (keys: string[]) => {
+    for (const source of [r, snap]) {
+      for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(source || {}, key)) {
+          return source[key] || undefined;
+        }
+      }
+    }
+    return undefined;
+  };
 
   return {
     ...r,
@@ -161,20 +171,16 @@ export const normalizeInvoiceItem = (r: any, idx: number): InboundInvoiceItem =>
     icmsStBaseValue: Number(
       snap.icmsStBaseValue ?? r.icms_st_base_value ?? r.icmsStBaseValue ?? 0
     ),
-    matchedProductId:
-      snap.matchedProductId ||
-      snap.matched_product_id ||
-      r.product_id ||
-      r.matched_product_id ||
-      r.matchedProductId ||
-      undefined,
-    matchedVariationId:
-      snap.matchedVariationId ||
-      snap.matched_variation_id ||
-      r.variation_id ||
-      r.matched_variation_id ||
-      r.matchedVariationId ||
-      undefined,
+    matchedProductId: readMappingReference([
+      'matchedProductId',
+      'matched_product_id',
+      'product_id',
+    ]),
+    matchedVariationId: readMappingReference([
+      'matchedVariationId',
+      'matched_variation_id',
+      'variation_id',
+    ]),
     productErpName:
       snap.productErpName ||
       snap.product_erp_name ||

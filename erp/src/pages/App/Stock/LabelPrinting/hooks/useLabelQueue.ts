@@ -7,8 +7,7 @@ import { formatCurrency } from '@/pages/utils/formatters';
 import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
 import type { LabelItemConfig, LogoItemConfig } from '../types/LabelGridItem.types';
 import { LabelConfig } from '../utils/LabelConstants';
-import { useLabelPrintMode } from './useLabelPrintMode';
-import { hasMobileLabelBridge, requestMobileLabelAction } from '../services/mobileLabelBridge';
+import { useLabelPrintMode, type LabelPrintMethod } from './useLabelPrintMode';
 import {
   generateInventoryLabelsBatch,
   LabelBatchRequestItem,
@@ -102,7 +101,7 @@ const getProductLabelFields = (
 
 export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLabelQueueProps) => {
   const [isPrinting, setIsPrinting] = useState(false);
-  const rawPrintLabels = useLabelPrintMode(config);
+  const rawPrintLabels = useLabelPrintMode(config, selectedCategory);
 
   const [simpleLabelItems, setSimpleLabelItems] = useState<LabelItemConfig[]>([]);
   const [advancedLabelItems, setAdvancedLabelItems] = useState<LabelItemConfig[]>([]);
@@ -121,13 +120,23 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
   const blankQueueForm = useZodForm(labelBlankQueueFormSchema, { quantity: 1 });
   const printingForm = useZodForm(labelPrintingFormSchema, { config: { ...config }, items: labelItems.map((item) => ({ ...item })), logos: logoItems.map((item) => ({ ...item })) });
 
-  const handlePrintLabels = async () => {
+  const runPrintLabels = async (method: LabelPrintMethod) => {
     if (isPrinting) return;
     return printingForm.validateAndRun({ config: { ...config }, items: labelItems.map((item) => ({ ...item })), logos: logoItems.map((item) => ({ ...item })) }, async (values) => {
+    if (method === 'standard') {
+      setIsPrinting(true);
+      try {
+        await rawPrintLabels('check');
+      } catch (error: any) {
+        setIsPrinting(false);
+        toast.error(error?.message || 'A impressão não está disponível neste dispositivo.');
+        return;
+      }
+    }
+
     if (selectedCategory === 'identificacao' && values.items.length > 0) {
       setIsPrinting(true);
       try {
-        if (hasMobileLabelBridge()) await requestMobileLabelAction({ action: 'check-print' });
         const updatedItems = [...values.items];
 
         // Itens que necessitam de geração de novos UUIDs (não é reimpressão já preenchida)
@@ -165,7 +174,7 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
         setLabelItems(updatedItems);
 
         await new Promise<void>((resolve) => setTimeout(resolve, 800));
-        await rawPrintLabels();
+        await rawPrintLabels(method);
       } catch (err: any) {
         console.error('[useLabelQueue] Erro ao imprimir etiquetas com identificador único:', err);
         toast.error(
@@ -176,14 +185,20 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
         setIsPrinting(false);
       }
     } else {
+      setIsPrinting(true);
       try {
-        await rawPrintLabels();
+        await rawPrintLabels(method);
       } catch (error: any) {
-        toast.error(error?.message || 'Não foi possível abrir a impressão.');
+        toast.error(error?.message || 'Não foi possível enviar para impressão.');
+      } finally {
+        setIsPrinting(false);
       }
     }
     }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
   };
+
+  const handlePrintLabels = () => runPrintLabels('advanced');
+  const handlePrintLabelsNormally = () => runPrintLabels('standard');
 
   const handleProductSelect = (selectedProduct: Product, selectedQuantity: number = 1) => productQueueForm.enqueueAndRun<boolean>({ product: { ...selectedProduct, id: selectedProduct.id || '' }, quantity: selectedQuantity }, (values) => {
     const product = values.product as unknown as Product;
@@ -327,6 +342,7 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
     logoItems,
     setLogoItems,
     handlePrintLabels,
+    handlePrintLabelsNormally,
     handleProductSelect,
     handleReplaceProduct,
     handleAddBlankLabel,

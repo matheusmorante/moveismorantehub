@@ -24,7 +24,7 @@ Requisitos: OpenJDK 17, Android SDK `platform-tools` (ADB) e Maestro CLI 2.10.0.
 * `inventory/inventory-offline-custom.yaml` parte do escopo já aberto, exercita seleção personalizada e busca local de produto offline, verifica a retomada e exclui apenas o rascunho próprio `LOCAL-` pela UI.
 * Para compras, recebimentos e indisponibilidades, mantenha o teste em leitura: abra listas, detalhes e formulários e cancele antes de salvar, receber, desfazer ou cancelar registros existentes. Qualquer operação que altere o banco operacional exige fixture própria com `runId`, owner, vínculos e gates comprovados em [`docs/testing/SUPABASE_REMOTE_TEST_POLICY.md`](../../docs/testing/SUPABASE_REMOTE_TEST_POLICY.md).
 * `operations/operations-readonly.yaml` verifica as abas de Operações, o escopo Hoje/Dias Seguintes e os filtros de turno em Entregas. A montagem da tela também aciona a sincronização normal do próprio status em `team_locations`; execute somente com autorização do operador e com ownership/RLS já conferidos. O flow não inicia nem finaliza entregas ou montagens.
-* `operations/delivery-flow-readonly.yaml` valida os caminhos visíveis para abrir o Fluxo de Entrega, as quatro etapas e seus controles, sem avançar, voltar, finalizar ou cancelar pedidos.
+* `operations/delivery-flow-readonly.yaml` valida os caminhos visíveis para abrir o Fluxo Operacional, as quatro etapas e seus controles, sem avançar, voltar, finalizar ou cancelar pedidos.
 * `operations/delivery-details-readonly.yaml` testa em Dias Seguintes o botão de início apresentado nos detalhes, sem iniciar a rota.
 * `operations/delivery-start-gate-readonly.yaml` verifica que checklist incompleto mantém o início da rota bloqueado, sem gravar pedido.
 * Quando vários destinos ADB forem exibidos, selecione o serial do telefone explicitamente (`ANDROID_SERIAL` ou `--device`). Não deixe o Maestro escolher um destino ambíguo.
@@ -45,7 +45,7 @@ mobile/maestro/flows/
 │   └── inventory-offline-custom.yaml # Busca local e contagem personalizada offline
 └── operations/
     ├── operations-readonly.yaml # Abas e filtros de Operações em leitura
-    ├── delivery-flow-readonly.yaml # Abertura e controles do fluxo de entrega em leitura
+    ├── delivery-flow-readonly.yaml # Abertura e controles do fluxo operacional em leitura
     ├── delivery-details-readonly.yaml # Botão do detalhe em Dias Seguintes
     └── delivery-start-gate-readonly.yaml # Bloqueio de início com checklist incompleto
 ```

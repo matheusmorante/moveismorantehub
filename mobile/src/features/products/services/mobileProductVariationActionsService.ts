@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { toTitleCase } from '../../../../../shared-utils/productText';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
 import {
   sameFamilyAttributes,
   toFamilyAttributes,
@@ -26,15 +25,8 @@ export interface MobileVariationFamily {
   code?: string | null;
 }
 
-export interface MobileCanonicalVariation {
-  id: string;
-  name: string;
-  sku?: string | null;
-  product?: {
-    name?: string | null;
-    description?: string | null;
-  } | null;
-}
+export { searchMobileCanonicalVariations } from './mobileCanonicalVariationSearchService';
+export type { MobileCanonicalVariation } from './mobileCanonicalVariationSearchService';
 
 const VARIATION_FAMILY_PAGE_SIZE = 1000;
 const VARIATION_FAMILY_QUERY_TIMEOUT_MS = 10_000;
@@ -449,30 +441,6 @@ export const moveMobileVariationToFamily = async (
     }
     throw error;
   }
-};
-
-export const searchMobileCanonicalVariations = async (
-  term: string,
-  sourceId: string,
-  supplierId?: string
-): Promise<MobileCanonicalVariation[]> => {
-  const safeTerm = term
-    .trim()
-    .replace(/[%(),]/g, ' ')
-    .replace(/"/g, '""');
-  if (safeTerm.length < 2) return [];
-
-  let query = supabase
-    .from('product_variations')
-    .select('id, name, sku, product:products!inner(name, description, supplier_id)')
-    .neq('id', sourceId)
-    .is('merged_to_variation_id', null)
-    .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], safeTerm));
-  if (supplierId) query = query.eq('products.supplier_id', supplierId);
-
-  const { data, error } = await query.limit(12);
-  if (error) throw new Error('Não foi possível buscar variações.');
-  return (data || []) as unknown as MobileCanonicalVariation[];
 };
 
 export const mergeMobileVariationIntoCanonical = async (

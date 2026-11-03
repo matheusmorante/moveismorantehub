@@ -1,8 +1,33 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import legacy from '@vitejs/plugin-legacy';
 import path from 'path';
+
+const rewriteMobileLabelsEntry = (url?: string) => {
+  if (!url) return url;
+  const queryIndex = url.indexOf('?');
+  const pathname = queryIndex < 0 ? url : url.slice(0, queryIndex);
+  return pathname === '/mobile/etiquetas'
+    ? `/mobile-labels.html${queryIndex < 0 ? '' : url.slice(queryIndex)}`
+    : url;
+};
+
+const mobileLabelsEntryPlugin: Plugin = {
+  name: 'mobile-labels-entry',
+  configureServer(server) {
+    server.middlewares.use((request, _response, next) => {
+      request.url = rewriteMobileLabelsEntry(request.url);
+      next();
+    });
+  },
+  configurePreviewServer(server) {
+    server.middlewares.use((request, _response, next) => {
+      request.url = rewriteMobileLabelsEntry(request.url);
+      next();
+    });
+  },
+};
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -27,6 +52,7 @@ export default defineConfig({
   plugins: [
     react(), 
     tsconfigPaths(),
+    mobileLabelsEntryPlugin,
     legacy({
       targets: ['defaults', 'not IE 11']
     })
@@ -55,5 +81,11 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      input: {
+        app: path.resolve(__dirname, 'index.html'),
+        mobileLabels: path.resolve(__dirname, 'mobile-labels.html'),
+      },
+    },
   },
 });

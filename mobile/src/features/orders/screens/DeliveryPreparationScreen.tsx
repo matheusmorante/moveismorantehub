@@ -29,7 +29,7 @@ export type { DeliveryPreparationScreenProps, DeliveryResponsibleItem };
 
 /**
  * Tela do Fluxo de Entrega:
- * 1. Preparação -> 2. Em Rota -> 3. Chegada (No Local) -> 4. Em Atendimento.
+ * 1. Preparação -> 2. Deslocamento -> 3. Chegada (No Local) -> 4. Em Atendimento.
  * Refatorada sob os princípios de Single Responsibility (SRP) e Clean Architecture.
  * - Orquestração de pessoal: useDeliveryStaff
  * - Ciclo de vida e ações: useDeliveryFlowActions
@@ -55,6 +55,7 @@ export function DeliveryPreparationScreen({
   const {
     responsibles,
     availableStaff,
+    loadingStaff,
     handleAddResponsible,
     handleRemoveResponsible,
   } = useDeliveryStaff({ order, userProfile });
@@ -75,6 +76,8 @@ export function DeliveryPreparationScreen({
     setShowCancelModal,
     showStartConfirmModal,
     setShowStartConfirmModal,
+    routeStartError,
+    clearRouteStartError,
     isInArrival,
     isInService,
     isInTransit,
@@ -127,9 +130,10 @@ export function DeliveryPreparationScreen({
   }, []);
 
   const handleOpenStartConfirmModal = useCallback(async () => {
+    clearRouteStartError();
     await refreshLocationAccess();
     setShowStartConfirmModal(true);
-  }, [refreshLocationAccess, setShowStartConfirmModal]);
+  }, [clearRouteStartError, refreshLocationAccess, setShowStartConfirmModal]);
 
   const handleConfirmStartRouteWithGps = useCallback(async () => {
     const status = await refreshLocationAccess();
@@ -174,48 +178,46 @@ export function DeliveryPreparationScreen({
 
   return (
     <View style={[styles.container, isDarkMode && styles.dark]}>
-      {/* Cabeçalho Padronizado do Fluxo de Entrega */}
-      <DeliveryHeader
-        title={headerTitle}
-        orderId={order.id}
-        orderCode={formatOrderCode(order)}
-        isDarkMode={isDarkMode}
-        isInProgress={isInProgress}
-        onBack={() => onBack()}
-        onCancelDelivery={() => setShowCancelModal(true)}
-        cancelling={cancelling}
-      />
-
-      {currentStep > 1 && locationAccess && !gpsEnabled && (
-        <View style={[styles.gpsWarning, isDarkMode && styles.gpsWarningDark]}>
-          <AlertTriangle size={16} color={isDarkMode ? '#fbbf24' : '#b45309'} />
-          <Text style={[styles.gpsWarningText, isDarkMode && styles.gpsWarningTextDark]}>
-            {locationAccess.permissionGranted
-              ? 'GPS desligado. Habilite novamente para compartilhar sua localização.'
-              : 'Acesso à localização desligado. Habilite novamente para compartilhar sua localização.'}
-          </Text>
-          <TouchableOpacity
-            onPress={() => void handleEnableGps()}
-            disabled={enablingLocation}
-            accessibilityRole="button"
-            accessibilityLabel="Habilitar GPS"
-            style={styles.gpsWarningAction}
-          >
-            <Text style={styles.gpsWarningActionText}>
-              {enablingLocation ? 'Ativando…' : 'Habilitar'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Barra de Contato Rápido (Cliente e Vendedor) */}
-      <DeliveryQuickContactBar order={order} isDarkMode={isDarkMode} />
-
-      {/* Indicador Informativo da Etapa Atual (1 -> 2 -> 3 -> 4) */}
-      <DeliveryStepProgressIndicator currentStep={currentStep} isDarkMode={isDarkMode} />
-
-      {/* Renderizador Modular do Conteúdo da Etapa Atual (1, 2, 3 ou 4) */}
       <DeliveryPreparationContent
+        topContent={
+          <>
+            <DeliveryHeader
+              title={headerTitle}
+              orderId={order.id}
+              orderCode={formatOrderCode(order)}
+              isDarkMode={isDarkMode}
+              isInProgress={isInProgress}
+              onBack={() => onBack()}
+              onCancelDelivery={() => setShowCancelModal(true)}
+              cancelling={cancelling}
+            />
+
+            {currentStep > 1 && locationAccess && !gpsEnabled && (
+              <View style={[styles.gpsWarning, isDarkMode && styles.gpsWarningDark]}>
+                <AlertTriangle size={16} color={isDarkMode ? '#fbbf24' : '#b45309'} />
+                <Text style={[styles.gpsWarningText, isDarkMode && styles.gpsWarningTextDark]}>
+                  {locationAccess.permissionGranted
+                    ? 'GPS desligado. Habilite novamente para compartilhar sua localização.'
+                    : 'Acesso à localização desligado. Habilite novamente para compartilhar sua localização.'}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => void handleEnableGps()}
+                  disabled={enablingLocation}
+                  accessibilityRole="button"
+                  accessibilityLabel="Habilitar GPS"
+                  style={styles.gpsWarningAction}
+                >
+                  <Text style={styles.gpsWarningActionText}>
+                    {enablingLocation ? 'Ativando…' : 'Habilitar'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <DeliveryQuickContactBar order={order} isDarkMode={isDarkMode} />
+            <DeliveryStepProgressIndicator currentStep={currentStep} isDarkMode={isDarkMode} />
+          </>
+        }
         isInArrival={isInArrival}
         isInService={isInService}
         isInTransit={isInTransit}
@@ -235,6 +237,7 @@ export function DeliveryPreparationScreen({
         onAddResponsible={handleAddResponsible}
         onRemoveResponsible={handleRemoveResponsible}
         availableStaff={availableStaff}
+        loadingStaff={loadingStaff}
         userProfile={userProfile}
       />
 
@@ -263,6 +266,7 @@ export function DeliveryPreparationScreen({
         cancelling={cancelling}
         isDarkMode={isDarkMode}
         showStartConfirmModal={showStartConfirmModal}
+        routeStartError={routeStartError}
         onCloseStartConfirmModal={() => setShowStartConfirmModal(false)}
         onConfirmStartRoute={handleConfirmStartRouteWithGps}
         gpsEnabled={gpsEnabled}

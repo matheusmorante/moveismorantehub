@@ -89,7 +89,7 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
     orderType,
     orderIndex,
     orderNumber,
-    date: rawLegacy.date || row.created_at || new Date().toISOString(),
+    date: rawLegacy.date || row.order_date || row.created_at || new Date().toISOString(),
     customerData,
     seller,
     sellerId,

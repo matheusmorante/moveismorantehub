@@ -153,6 +153,7 @@ export function useOrderDetailsModal({ order, userRole }: UseOrderDetailsModalPr
 
   return {
     detailedOrder: detailedOrder || order,
+    setDetailedOrder,
     preparingDelivery,
     setPreparingDelivery,
     canStartDelivery,

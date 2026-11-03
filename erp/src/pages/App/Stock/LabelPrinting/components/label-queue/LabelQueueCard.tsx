@@ -59,15 +59,18 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
       onDragOver={(e) => handleDragOver(e, idx)}
       onDragLeave={handleDragLeave}
       onDrop={(e) => handleDrop(e, idx)}
-      className={`group relative w-full ${isIdentificationQueue ? 'label-queue-card-container' : ''} ${isPriceQueue ? 'max-w-none min-h-[132px] flex items-center' : 'max-w-2xl flex items-center'} bg-white dark:bg-slate-900 rounded-[1.75rem] p-3 transition-all duration-300 gap-3 cursor-grab active:cursor-grabbing ${
+      className={`group relative flex w-full min-w-0 items-center rounded-2xl bg-white p-2.5 transition-all duration-300 active:cursor-grabbing dark:bg-slate-900 sm:gap-3 sm:rounded-[1.75rem] sm:p-3 ${isIdentificationQueue ? 'label-queue-card-container' : ''} ${isPriceQueue ? `label-price-queue-card min-h-[132px] max-w-none flex-wrap gap-2 ${shouldShowThumbnail ? 'label-price-queue-card--thumbnail' : ''}` : 'max-w-2xl gap-3'} cursor-grab ${
         dragOverIdx === idx
           ? 'border-2 border-dashed border-blue-500 bg-blue-500/5 scale-[1.01] z-10'
           : ''
       }`}
     >
-      <div className="flex items-center gap-2 shrink-0">
-        <div className="text-slate-350 dark:text-slate-650 hover:text-slate-450 px-1 py-2 flex items-center justify-center pointer-events-none select-none">
-          <i className="bi bi-grip-vertical text-base opacity-60" />
+      <div
+        className={`flex shrink-0 items-center gap-2 ${isIdentificationQueue ? 'label-queue-card-drag-handle' : ''} ${isPriceQueue ? 'label-price-queue-controls' : ''}`}
+        title={isIdentificationQueue ? 'Arraste para reordenar esta etiqueta' : undefined}
+      >
+        <div className={`text-slate-350 dark:text-slate-650 hover:text-slate-450 px-1 py-2 flex items-center justify-center pointer-events-none select-none ${isIdentificationQueue ? 'label-queue-card-drag-target rounded-full border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900' : ''}`}>
+          <i className={`bi bi-grip-vertical text-base opacity-60 ${isIdentificationQueue ? 'label-queue-card-grip-icon' : ''}`} />
         </div>
         {isPriceQueue && (
           <div className="flex flex-col items-center gap-1">
@@ -114,9 +117,9 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
 
       {/* Miniatura Interativa */}
       {shouldShowThumbnail && (
-        <div className="flex flex-col gap-2 items-center">
+        <div className={`flex shrink-0 flex-col items-center gap-2 ${isPriceQueue ? 'label-price-queue-thumbnail' : ''}`}>
           <div
-            className={`relative shrink-0 rounded-xl flex items-center justify-center overflow-hidden group/thumb ${isPriceQueue ? 'w-32 sm:w-36' : 'w-16 h-16'}`}
+            className={`group/thumb relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl ${isPriceQueue ? 'h-auto w-24 sm:w-32 xl:w-36' : 'h-16 w-16'}`}
             style={
               isPriceQueue
                 ? {
@@ -214,7 +217,7 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
         </div>
       )}
 
-      <div className="flex-1 flex flex-col gap-3 min-w-0">
+      <div className={`flex min-w-0 flex-1 flex-col gap-3 ${isPriceQueue ? 'label-price-queue-details' : ''}`}>
         {/* CABEÇALHO DO ITEM (Produto / SKU) e AÇÕES (Qtd / Lixeira) */}
         <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isIdentificationQueue ? 'label-queue-card-details' : ''}`}>
           {/* Nome e SKU */}

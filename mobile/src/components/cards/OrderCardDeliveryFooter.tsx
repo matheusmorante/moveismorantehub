@@ -160,7 +160,7 @@ export const OrderCardDeliveryFooter: React.FC<Props> = ({
   });
 
   let config = {
-    label: 'EM ROTA',
+    label: 'DESLOCAMENTO',
     icon: <Truck size={14} color="#fff" />,
     bgColor: '#f97316',
     subtext: 'A caminho do destino',

@@ -1,97 +1,112 @@
 import { supabase } from '../../supabaseClient';
-import { buildPostgrestAccentInsensitiveOrFilter, buildPostgrestAccentInsensitivePattern } from '../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
+import { buildProductSearchTerms } from '../../../../../shared-utils/productListSearch';
+import {
+  inboundInvoiceCatalogSearchFormSchema,
+  inboundInvoiceProductParentSearchFormSchema,
+  inboundInvoiceProductSearchFormSchema,
+  INBOUND_INVOICE_SEARCH_RESULT_LIMIT,
+} from '../../../../../shared-utils/inboundProductLinkFormSchemas';
+import { fetchMobileProductsPage } from '../../../features/products/services/mobileProductFetchService';
 
 export const searchInboundInvoiceSuppliers = async (searchTerm: string) => {
-  const term = searchTerm.trim();
-  if (term.length < 2) return [];
+  const { query: term } = inboundInvoiceCatalogSearchFormSchema.parse({ query: searchTerm });
   const { data, error } = await supabase
     .from('people')
-    .select('id, full_name, cpf_cnpj')
+    .select('id, full_name, social_name, nickname, cpf_cnpj')
+    .or('deleted.eq.false,deleted.is.null')
     .or('person_type.ilike.suppliers,person_type.ilike.supplier')
-    .filter('full_name', 'imatch', buildPostgrestAccentInsensitivePattern(term))
-    .limit(20);
+    .or(buildPostgrestAccentInsensitiveOrFilter(
+      ['full_name', 'social_name', 'nickname', 'cpf_cnpj'],
+      term
+    ))
+    .order('full_name', { ascending: true })
+    .limit(INBOUND_INVOICE_SEARCH_RESULT_LIMIT);
   if (error) throw error;
-  return data || [];
+  return (data || []).slice(0, INBOUND_INVOICE_SEARCH_RESULT_LIMIT);
 };
 
-export const searchInboundInvoiceProducts = async (searchTerm: string) => {
-  const term = searchTerm.trim();
-  if (term.length < 2) return [];
-
-  const [productsResult, variationsResult] = await Promise.all([
-    supabase
-      .from('products')
-      .select('id, name, code, unit_price')
-      .eq('deleted', false)
-      .eq('active', true)
-      .not('is_draft', 'is', true)
-      .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'code'], term))
-      .limit(10),
-    supabase
-      .from('product_variations')
-      .select('id, product_id, name, sku, price, use_parent_price')
-      .eq('active', true)
-      .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], term))
-      .limit(10),
-  ]);
-  if (productsResult.error) throw productsResult.error;
-  if (variationsResult.error) throw variationsResult.error;
-
-  const matchingParentIds = [
-    ...new Set((productsResult.data || []).map((product: any) => String(product.id))),
-  ];
-  const parentVariationsResult = matchingParentIds.length
-    ? await supabase
-        .from('product_variations')
-        .select('id, product_id, name, sku, price, use_parent_price, active')
-        .eq('active', true)
-        .in('product_id', matchingParentIds)
-        .limit(50)
-    : { data: [], error: null };
-  if (parentVariationsResult.error) throw parentVariationsResult.error;
-
-  const variationById = new Map<string, any>();
-  [...(variationsResult.data || []), ...(parentVariationsResult.data || [])].forEach(
-    (variation: any) => {
-      variationById.set(String(variation.id), variation);
+export const searchInboundInvoiceProducts = async (
+  searchTerm: string,
+  supplierId: string,
+  excludedLinks: Array<{ productId: string; variationId?: string }> = [],
+  itemType?: 'composition'
+) => {
+  const values = inboundInvoiceProductSearchFormSchema.parse({
+    query: searchTerm,
+    supplierId,
+    excludedLinks,
+    itemType,
+  });
+  const excluded = new Set(
+    values.excludedLinks.map((link) => `${link.productId}:${link.variationId || ''}`)
+  );
+  const result = await fetchMobileProductsPage(
+    1,
+    INBOUND_INVOICE_SEARCH_RESULT_LIMIT + excluded.size,
+    {
+      search: values.query,
+      supplierId: values.supplierId,
+      statusFilter: 'active',
+      itemType: values.itemType,
+      includeMerged: false,
+      throwOnError: true,
     }
   );
-  const variations = [...variationById.values()];
-  const parentById = new Map<string, any>(
-    (productsResult.data || []).map((parent: any) => [String(parent.id), parent])
-  );
-  const parentIds = [...new Set(variations.map((variation: any) => String(variation.product_id)))];
-  const missingParentIds = parentIds.filter((parentId) => !parentById.has(parentId));
-  const { data: parents, error: parentsError } = missingParentIds.length
-    ? await supabase
-        .from('products')
-        .select('id, name, code, unit_price')
-        .eq('deleted', false)
-        .eq('active', true)
-        .not('is_draft', 'is', true)
-        .in('id', missingParentIds)
-    : { data: [], error: null };
-  if (parentsError) throw parentsError;
+  const searchWords = buildProductSearchTerms(values.query).wordTerms;
+  const normalize = (value: string) => value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleLowerCase('pt-BR');
 
-  (parents || []).forEach((parent: any) => parentById.set(String(parent.id), parent));
-  return variations
-    .flatMap((variation: any) => {
-      const parent = parentById.get(String(variation.product_id));
-      if (!parent) return [];
-      return [
-        {
-          id: String(variation.id),
-          productId: String(variation.product_id),
-          variationId: String(variation.id),
-          name: variation.name || parent.name,
-          sku: variation.sku || parent.code || '',
-          sellingPrice: Number(
-            variation.use_parent_price ? parent.unit_price || 0 : variation.price || 0
-          ),
-        },
-      ];
-    })
-    .slice(0, 20);
+  return result.data.flatMap((parent: any) => {
+    const variations = Array.isArray(parent.allVariations)
+      ? parent.allVariations
+      : Array.isArray(parent.variations)
+        ? parent.variations
+        : [];
+    return variations.flatMap((variation: any) => {
+      const productId = String(parent.id || '');
+      const variationId = String(variation.id || '');
+      if (
+        !productId ||
+        !variationId ||
+        variation.active === false ||
+        variation.isMerged ||
+        variation.mergedToVariationId ||
+        excluded.has(`${productId}:${variationId}`)
+      ) return [];
+
+      const name = String(variation.name || parent.name || '');
+      const sku = String(variation.sku || parent.code || '');
+      const normalizedName = normalize(name);
+      const normalizedSku = normalize(sku);
+      const matches = searchWords.every(({ value, alternative }) => {
+        const terms = [value, alternative].filter(Boolean) as string[];
+        return terms.some((word) =>
+          normalizedName.includes(normalize(word)) || normalizedSku.includes(normalize(word))
+        );
+      });
+      if (!matches) return [];
+
+      return [{
+        id: variationId,
+        productId,
+        variationId,
+        name,
+        sku,
+        sellingPrice: Number(variation.unitPrice ?? variation.price ?? parent.unitPrice ?? 0),
+      }];
+    });
+  })
+    .sort((left: any, right: any) =>
+      left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }) ||
+      left.sku.localeCompare(right.sku, 'pt-BR', { sensitivity: 'base' })
+    )
+    .slice(0, INBOUND_INVOICE_SEARCH_RESULT_LIMIT);
 };
 
 export const getInboundInvoiceProductById = async (
@@ -199,9 +214,11 @@ export const fetchInboundInvoiceProductDetails = async (
   return result;
 };
 
-export const searchInboundInvoiceProductParents = async (searchTerm: string) => {
-  const term = searchTerm.trim();
-  if (term.length < 2) return [];
+export const searchInboundInvoiceProductParents = async (searchTerm: string, supplierId: string) => {
+  const { query: term, supplierId: ownerId } = inboundInvoiceProductParentSearchFormSchema.parse({
+    query: searchTerm,
+    supplierId,
+  });
   const { data, error } = await supabase
     .from('products')
     .select(
@@ -210,11 +227,39 @@ export const searchInboundInvoiceProductParents = async (searchTerm: string) => 
     .eq('deleted', false)
     .eq('active', true)
     .not('is_draft', 'is', true)
+    .filter('status', 'isdistinct', 'draft')
+    .or(`supplier_id.eq.${ownerId},main_supplier_id.eq.${ownerId},supplier_ids.cs.{"${ownerId}"}`)
     .or(buildPostgrestAccentInsensitiveOrFilter(['name', 'code'], term))
     .order('name')
-    .limit(20);
+    .limit(INBOUND_INVOICE_SEARCH_RESULT_LIMIT);
   if (error) throw error;
   return data || [];
+};
+
+export const fetchInboundInvoiceProductForEdit = async (productId: string) => {
+  const normalizedId = String(productId || '').trim();
+  if (!normalizedId) throw new Error('Selecione um produto válido para editar.');
+  const { data, error } = await supabase
+    .from('products')
+    .select('*, product_variations(*), product_categories(*, categories(*)), product_images(*)')
+    .eq('id', normalizedId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  const variations = Array.isArray(data.product_variations) ? data.product_variations : [];
+  const relationalImages = Array.isArray(data.product_images)
+    ? [...data.product_images]
+        .sort((left: any, right: any) => Number(Boolean(right.is_main)) - Number(Boolean(left.is_main)))
+        .map((image: any) => image.image_url)
+        .filter(Boolean)
+    : [];
+  return {
+    ...data,
+    allVariations: variations,
+    variations,
+    images: Array.isArray(data.images) && data.images.length ? data.images : relationalImages,
+  };
 };
 
 export const fetchInboundInvoiceSupplierCatalog = async (supplierId: string) => {

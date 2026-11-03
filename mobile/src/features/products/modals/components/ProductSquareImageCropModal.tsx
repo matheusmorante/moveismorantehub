@@ -1,5 +1,4 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system/legacy';
 import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -9,7 +8,6 @@ import {
   Image,
   Modal,
   PanResponder,
-  Platform,
   Text,
   TouchableOpacity,
   View,
@@ -34,19 +32,12 @@ import {
   productImageReplacementFormSchema,
 } from '../../../../../../shared-utils/productImageFormSchemas';
 import {
-  downloadProductCropImageSource,
+  deleteTemporaryProductPhotoUri,
+  prepareProductCropImageSource,
   type PreparedProductCropImageSource,
 } from '../domain/productCropImageSource';
 import { ProductSquareCropControls } from './ProductSquareCropControls';
 import { styles } from './productSquareImageCropModal.styles';
-
-async function deleteTemporaryPhotoUri(uri: string) {
-  if (uri.startsWith('blob:')) {
-    URL.revokeObjectURL(uri);
-    return;
-  }
-  await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
-}
 
 interface Props {
   visible: boolean;
@@ -55,54 +46,6 @@ interface Props {
   dark: boolean;
   onCancel: () => void;
   onConfirm: (newUrl: string) => void | Promise<void>;
-}
-
-const getImageFetchCandidates = (url: string) => [
-  url,
-  `https://images.weserv.nl/?url=${encodeURIComponent(url)}`,
-  `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-];
-
-async function prepareImageSource(url: string, signal: AbortSignal): Promise<PreparedProductCropImageSource> {
-  if (url.startsWith('data:') || url.startsWith('blob:') || url.startsWith('file://')) {
-    return { uri: url };
-  }
-
-  if (Platform.OS === 'web') {
-    for (const candidate of getImageFetchCandidates(url)) {
-      if (signal.aborted) throw Object.assign(new Error('O carregamento da foto foi cancelado.'), { name: 'AbortError' });
-      const candidateController = new AbortController();
-      const cancelCandidate = () => candidateController.abort();
-      signal.addEventListener('abort', cancelCandidate, { once: true });
-      try {
-        const response = await withTimeout(
-          fetch(candidate, { signal: candidateController.signal }),
-          12_000,
-          null,
-          'Carregar foto para recorte'
-        );
-        if (!response?.ok) {
-          candidateController.abort();
-          continue;
-        }
-        const blob = await withTimeout(response.blob(), 12_000, null, 'Preparar foto para recorte');
-        if (!blob || blob.size === 0) {
-          candidateController.abort();
-          continue;
-        }
-        const objectUrl = URL.createObjectURL(blob);
-        return { uri: objectUrl, cleanup: () => URL.revokeObjectURL(objectUrl) };
-      } catch {
-        if (signal.aborted) throw Object.assign(new Error('O carregamento da foto foi cancelado.'), { name: 'AbortError' });
-        // URLs públicas alternativas permitem contornar CORS do armazenamento original.
-      } finally {
-        signal.removeEventListener('abort', cancelCandidate);
-      }
-    }
-    throw new Error('Não foi possível carregar a foto para recorte. Verifique sua conexão e tente novamente.');
-  }
-
-  return downloadProductCropImageSource(url, signal);
 }
 
 function readImageDimensions(uri: string): Promise<{ width: number; height: number }> {
@@ -177,7 +120,7 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
     void (async () => {
       let prepared: PreparedProductCropImageSource | null = null;
       try {
-        prepared = await prepareImageSource(imageUrl, loadController.signal);
+        prepared = await prepareProductCropImageSource(imageUrl, loadController.signal);
         if (!active) {
           await prepared.cleanup?.();
           return;
@@ -371,7 +314,7 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
                 keepForDerivativeGeneration = true;
               }
             } finally {
-              if (!keepForDerivativeGeneration) await deleteTemporaryPhotoUri(result.uri);
+              if (!keepForDerivativeGeneration) await deleteTemporaryProductPhotoUri(result.uri);
             }
             if (file.size <= 0.3 * 1024 * 1024) break;
           }
@@ -419,7 +362,7 @@ export const ProductSquareImageCropModal: React.FC<Props> = ({
     } catch (error) {
       Alert.alert('Erro ao recortar foto', error instanceof Error ? error.message : 'Tente novamente.');
     } finally {
-      if (croppedSourceUri) await deleteTemporaryPhotoUri(croppedSourceUri);
+      if (croppedSourceUri) await deleteTemporaryProductPhotoUri(croppedSourceUri);
       setApplying(false);
     }
   };

@@ -7,7 +7,6 @@ import {
   PRODUCT_CATEGORY_SEARCH_MIN_LENGTH,
   searchProductCategories,
 } from '../../../../../../shared-utils/productCategorySearch';
-import { normalizeSearchTerm } from '../../../../../../shared-utils/productText';
 import { MobileCategory } from '../../services/mobileCategoryService';
 
 const MIN_CATEGORY_SEARCH_LENGTH = PRODUCT_CATEGORY_SEARCH_MIN_LENGTH;
@@ -34,11 +33,11 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
     () => filteredCategories.filter((category) => selectedCategoryIds.includes(category.id)),
     [filteredCategories, selectedCategoryIds]
   );
-  const normalizedSearch = normalizeSearchTerm(search);
+  const trimmedSearch = search.trim();
   const matchingCategories = useMemo(
-    () => searchProductCategories(filteredCategories, categories, search)
+    () => searchProductCategories(filteredCategories, categories, trimmedSearch)
       .slice(0, PRODUCT_CATEGORY_SEARCH_MAX_SUGGESTIONS),
-    [categories, filteredCategories, search]
+    [categories, filteredCategories, trimmedSearch]
   );
 
   return (
@@ -100,7 +99,7 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
           })}
         </View>
       )}
-      {normalizedSearch.length >= MIN_CATEGORY_SEARCH_LENGTH ? (
+      {trimmedSearch.length >= MIN_CATEGORY_SEARCH_LENGTH ? (
         <ScrollView
           nestedScrollEnabled
           style={styles.categoriesScroll}
@@ -157,9 +156,9 @@ export const CategoryMultiSelectList: React.FC<CategoryMultiSelectListProps> = (
             </Text>
           )}
         </ScrollView>
-      ) : (
+      ) : trimmedSearch.length > 0 ? (
         <Text style={styles.emptyCategoriesText}>Digite ao menos 3 caracteres para pesquisar.</Text>
-      )}
+      ) : null}
     </View>
   );
 };

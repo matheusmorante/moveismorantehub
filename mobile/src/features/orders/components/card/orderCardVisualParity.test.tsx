@@ -210,7 +210,7 @@ describe('OrderCardDeliveryFooter route status', () => {
       />
     );
 
-    expect(markup).toContain('EM ROTA');
+    expect(markup).toContain('DESLOCAMENTO');
     expect(markup).toContain('data-bg="#f97316"');
     expect(markup).toContain('data-motion-band="true"');
   });

@@ -30,6 +30,7 @@ import {
   View,
 } from 'react-native';
 import { FormTextInput } from '../../../components/shared/FormTextInput';
+import { MobileMoveVariationAttributesEditor } from './MobileMoveVariationAttributesEditor';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   checkMobileVariationAttributeConflict,
@@ -588,61 +589,25 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               ) : null}
             </View>
 
-            <View>
-              <View style={styles.attributeHeader}>
-                <Text style={[styles.label, dark && styles.textDark]}>Características da variação</Text>
-                {canAddVariationFamilyAttribute(attributes) ? (
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (saving || mutationBlocked) return;
-                      setAttributes((current) =>
-                        canAddVariationFamilyAttribute(current)
-                          ? [
-                              ...current,
-                              { name: '', value: '', rowId: `attribute-${attributeRowId.current++}` },
-                            ]
-                          : current
-                      );
-                      setCountdown(5);
-                    }}
-                    disabled={saving || mutationBlocked}
-                    style={styles.addAttributeButton}
-                    accessibilityRole="button"
-                    accessibilityLabel="Adicionar característica"
-                  >
-                    <Text style={styles.addAttributeText}>＋ Adicionar característica</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-              {attributes.length === 0 ? (
-                <Text style={[styles.hint, dark && styles.subtitleDark]}>
-                  Informe ao menos uma característica e seu valor antes de mover.
-                </Text>
-              ) : (
-                attributes.map((attribute, index) => (
-                  <View style={styles.attributeRow} key={attribute.rowId}>
-                    <FormTextInput
-                      value={attribute.name}
-                      onChangeText={(value) => updateAttribute(index, 'name', value)}
-                      editable={!saving && !mutationBlocked}
-                      placeholder="Característica (ex.: Cor)"
-                      placeholderTextColor="#94a3b8"
-                      style={[styles.attributeInput, dark && styles.inputDark]}
-                      accessibilityLabel={`Nome da característica ${index + 1}`}
-                    />
-                    <FormTextInput
-                      value={attribute.value}
-                      onChangeText={(value) => updateAttribute(index, 'value', value)}
-                      editable={!saving && !mutationBlocked}
-                      placeholder="Valor (ex.: Azul)"
-                      placeholderTextColor="#94a3b8"
-                      style={[styles.attributeInput, dark && styles.inputDark]}
-                      accessibilityLabel={`Valor da característica ${index + 1}`}
-                    />
-                  </View>
-                ))
-              )}
-            </View>
+            <MobileMoveVariationAttributesEditor
+              dark={dark}
+              disabled={saving || mutationBlocked}
+              attributes={attributes}
+              canAddAttribute={canAddVariationFamilyAttribute(attributes)}
+              onAddAttribute={() => {
+                if (saving || mutationBlocked) return;
+                setAttributes((current) =>
+                  canAddVariationFamilyAttribute(current)
+                    ? [
+                        ...current,
+                        { name: '', value: '', rowId: `attribute-${attributeRowId.current++}` },
+                      ]
+                    : current
+                );
+                setCountdown(5);
+              }}
+              onUpdateAttribute={updateAttribute}
+            />
 
             {conflictState === 'conflict' ? (
               <View style={styles.conflict}>

@@ -12,7 +12,6 @@ export type {
   OrdersChangeSubscriber,
   FetchFulfilledOrdersOptions,
   DashboardOrdersDateRange,
-  DashboardAggregatesResponse,
 } from './orderSyncTypes';
 
 export {
@@ -37,5 +36,4 @@ export {
   fetchRecentOrders,
   fetchGeoMapOrders,
   fetchAllOrdersForDashboard,
-  fetchDashboardAggregates,
 } from './dashboardOrdersQueries';

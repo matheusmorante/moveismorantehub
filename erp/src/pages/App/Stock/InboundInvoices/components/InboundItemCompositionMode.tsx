@@ -13,7 +13,6 @@ interface InboundItemCompositionModeProps {
   compositionLinks: any[];
   handleAddComposition: (prod: Product, variation?: Variation) => void;
   handleRemoveCompositionLink: (id: string) => void;
-  onRequestEditProduct: (product: Product, variation?: Variation) => void;
 }
 
 export const InboundItemCompositionMode: React.FC<InboundItemCompositionModeProps> = ({
@@ -23,7 +22,6 @@ export const InboundItemCompositionMode: React.FC<InboundItemCompositionModeProp
   compositionLinks,
   handleAddComposition,
   handleRemoveCompositionLink,
-  onRequestEditProduct,
 }) => {
   return (
     /* ── Modo Composição ── */
@@ -74,10 +72,6 @@ export const InboundItemCompositionMode: React.FC<InboundItemCompositionModeProp
                         </>
                       )}
                       <span className="text-[10px] text-emerald-700 dark:text-emerald-300">
-                        Venda: <b>{formatCurrency(c.sellingPrice)}</b>
-                      </span>
-                      <span className="text-emerald-400/50 hidden sm:inline">•</span>
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-300">
                         Custo rateado: <b>{formatCurrency(apportionedCost)}</b>
                         {totalWeight > 0 && (
                           <span className="ml-1 text-emerald-500/70">
@@ -107,12 +101,12 @@ export const InboundItemCompositionMode: React.FC<InboundItemCompositionModeProp
             className="w-full"
             supplierId={supplierId}
             variationsOnly
+            compositionsOnly
             excludedProductLinks={excludedProductLinks}
             isSelected={false}
             clearOnSelect={true}
-            placeholder="Adicionar produto à composição..."
+            placeholder="Buscar produto composto deste fornecedor..."
             onSelect={handleAddComposition}
-            onEditClick={onRequestEditProduct}
           />
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { AiGateway } from '@/services/aiGateway/AiGateway';
 import { Layer } from '../types';
+import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import {
   CompositionFormat,
   CompositionPlan,
@@ -80,15 +81,39 @@ export async function generateRoom(
   instruction = '',
   aspectRatio = '4:5'
 ) {
-  const response = await fetch(imageUrl);
-  if (!response.ok) throw new Error('Não foi possível carregar a foto original.');
-  const blob = await response.blob();
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+  const controller = new AbortController();
+  const reader = new FileReader();
+  let image: { blob: Blob; dataUrl: string };
+  try {
+    const prepared = await withTimeout(
+      (async () => {
+        const response = await fetch(imageUrl, { signal: controller.signal });
+        if (!response.ok) throw new Error('Não foi possível carregar a foto original.');
+        const blob = await response.blob();
+        // A leitura tardia do corpo não pode iniciar outra etapa após o prazo.
+        if (controller.signal.aborted) throw new Error('Carregamento da foto interrompido.');
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error('Não foi possível ler a foto original.'));
+          reader.onabort = () => reject(new Error('Leitura da foto interrompida.'));
+          reader.readAsDataURL(blob);
+        });
+        return { blob, dataUrl };
+      })(),
+      30_000,
+      null,
+      'marketing:foto-ambiente'
+    );
+    if (!prepared) throw new Error('O carregamento da foto demorou demais. Tente novamente.');
+    image = prepared;
+  } finally {
+    controller.abort();
+    reader.abort();
+    reader.onload = null;
+    reader.onerror = null;
+    reader.onabort = null;
+  }
+  const { blob, dataUrl } = image;
   const result = await AiGateway.requestImage({
     operation: 'marketing_ambientation',
     payload: [

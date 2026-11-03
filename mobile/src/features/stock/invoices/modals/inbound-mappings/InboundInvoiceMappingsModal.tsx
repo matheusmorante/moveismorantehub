@@ -8,9 +8,11 @@ interface Props {
   isDarkMode: boolean;
   onClose: () => void;
   onSaved: () => void;
+  canAccessReceipts?: boolean;
+  onGenerateReceipt?: (invoice: Invoice) => void;
 }
 
 export const InboundInvoiceMappingsModal: React.FC<Props> = (props) => {
   // Wrapper component simply renders the extracted content component
-  return <InboundInvoiceMappingsModalContent {...props} />;
+  return <InboundInvoiceMappingsModalContent {...props} canAccessReceipts={props.canAccessReceipts ?? false} />;
 };

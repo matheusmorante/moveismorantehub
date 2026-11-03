@@ -1514,6 +1514,38 @@ async function loadReturnFiscalSourceContext(db, originalDocumentId, returnOrder
   };
 }
 
+// api/nfe/operation-draft/draftValidation.ts
+function validateEstornoDraftReviewItems(params) {
+  const { normalizedLines, draftLines, sourceItems, originalDocumentId, fiscalDefaults } = params;
+  const draftLinesById = new Map(draftLines.map((line) => [line.id, line]));
+  const sourceItemsById = new Map(sourceItems.map((line) => [line.id, line]));
+  for (const reviewed of normalizedLines) {
+    const draftLine = draftLinesById.get(reviewed.draft_line_id);
+    const sourceLine = draftLine && sourceItemsById.get(draftLine.original_document_item_id);
+    if (!draftLine || !sourceLine || sourceLine.document_id !== originalDocumentId) {
+      return "Item fiscal do estorno n\xE3o pertence \xE0 NF-e original.";
+    }
+    const sourceCfop = originalItemCfop(String(sourceLine.product_xml));
+    const allowedEstornoCfops = getEstornoCfopOptions(sourceCfop, fiscalDefaults);
+    const cfopIsValid = allowedEstornoCfops.some((option) => option.value === reviewed.cfop);
+    if (!/^[56]\d{3}$/.test(sourceCfop || "") || !cfopIsValid || Math.abs(Number(draftLine.quantity) - Number(sourceLine.billed_quantity)) > 5e-5 || Math.abs(Number(draftLine.gross_value) - Number(sourceLine.gross_value)) > 5e-3 || Math.abs(Number(draftLine.discount_value) - Number(sourceLine.discount_value)) > 5e-3) {
+      return "Item do estorno diverge da origem ou n\xE3o usa o CFOP inverso fiscalmente conferido.";
+    }
+    const expectedProduct = buildReturnProductXml({
+      originalProductXml: String(sourceLine.product_xml),
+      quantity: Number(sourceLine.billed_quantity),
+      originalQuantity: Number(sourceLine.billed_quantity),
+      grossValue: Number(sourceLine.gross_value),
+      discountValue: Number(sourceLine.discount_value),
+      cfop: reviewed.cfop
+    });
+    if (normalizeReviewedFiscalBlock(reviewed.product_xml, "prod") !== normalizeReviewedFiscalBlock(expectedProduct, "prod")) {
+      return "O item do estorno precisa preservar os dados fiscais e valores originais.";
+    }
+  }
+  return null;
+}
+
 // api/nfe/operation-drafts.ts
 var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
 var serviceKey = getSupabaseSecretKey() || "";
@@ -1808,40 +1840,18 @@ async function handler(req, res) {
           return res.status(409).json({ error: "N\xE3o foi poss\xEDvel conferir todos os itens originais do estorno." });
         }
         const fiscalDefaults = settingsRow?.data?.fiscalDefaults;
-        const draftLinesById = new Map(draftLines.map((line) => [line.id, line]));
-        const sourceItemsById = new Map(sourceItems.map((line) => [line.id, line]));
         const allSourceItems = await db.from("nfe_document_items").select("id").eq("document_id", draftForReview.original_document_id);
         if (allSourceItems.error || !allSourceItems.data || allSourceItems.data.length !== draftLines.length) {
           return res.status(409).json({ error: "O estorno precisa conter todos os itens fiscais originais." });
         }
-        for (const reviewed of normalizedLines) {
-          const draftLine = draftLinesById.get(reviewed.draft_line_id);
-          const sourceLine = draftLine && sourceItemsById.get(draftLine.original_document_item_id);
-          if (!draftLine || !sourceLine || sourceLine.document_id !== draftForReview.original_document_id) {
-            return res.status(409).json({ error: "Item fiscal do estorno n\xE3o pertence \xE0 NF-e original." });
-          }
-          const sourceCfop = originalItemCfop(String(sourceLine.product_xml));
-          const allowedEstornoCfops = getEstornoCfopOptions(sourceCfop, fiscalDefaults);
-          const cfopIsValid = allowedEstornoCfops.some((option) => option.value === reviewed.cfop);
-          if (!/^[56]\d{3}$/.test(sourceCfop || "") || !cfopIsValid || Math.abs(Number(draftLine.quantity) - Number(sourceLine.billed_quantity)) > 5e-5 || Math.abs(Number(draftLine.gross_value) - Number(sourceLine.gross_value)) > 5e-3 || Math.abs(Number(draftLine.discount_value) - Number(sourceLine.discount_value)) > 5e-3) {
-            return res.status(409).json({
-              error: "Item do estorno diverge da origem ou n\xE3o usa o CFOP inverso fiscalmente conferido."
-            });
-          }
-          const expectedProduct = buildReturnProductXml({
-            originalProductXml: String(sourceLine.product_xml),
-            quantity: Number(sourceLine.billed_quantity),
-            originalQuantity: Number(sourceLine.billed_quantity),
-            grossValue: Number(sourceLine.gross_value),
-            discountValue: Number(sourceLine.discount_value),
-            cfop: reviewed.cfop
-          });
-          if (normalizeReviewedFiscalBlock(reviewed.product_xml, "prod") !== normalizeReviewedFiscalBlock(expectedProduct, "prod")) {
-            return res.status(409).json({
-              error: "O item do estorno precisa preservar os dados fiscais e valores originais."
-            });
-          }
-        }
+        const estornoReviewError = validateEstornoDraftReviewItems({
+          normalizedLines,
+          draftLines,
+          sourceItems,
+          originalDocumentId: draftForReview.original_document_id,
+          fiscalDefaults
+        });
+        if (estornoReviewError) return res.status(409).json({ error: estornoReviewError });
       }
       const { data: savedId, error: reviewError } = await db.rpc(
         "save_nfe_operation_draft_review",

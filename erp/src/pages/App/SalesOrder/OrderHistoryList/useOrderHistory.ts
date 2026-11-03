@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircuitBreakerError } from '@/services/monitoring';
-import Order, { IsButtonsClicked } from '../../../types/order.type';
+import Order from '../../../types/order.type';
 import {
   subscribeToOrderChanges,
   fetchOrdersPage,
   fetchOrdersForClientFiltering,
-  updateOrder,
 } from '../../../utils/orderHistoryService';
 import { actionsMap, buttons } from '../OrderActions/orderActionsConfig';
+import { persistOrderHistoryActionClick } from './orderHistoryActionTracking';
 import { toast } from 'react-toastify';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
 import {
@@ -455,42 +455,7 @@ export const useOrderHistory = (filters?: any) => {
       // These actions open a new order; they do not change the source order.
       if (actionKey === 'duplicateOrder' || actionKey === 'generateSaleFromBudget') return;
 
-      const currentClicks = order.isButtonsClicked || {
-        printReceipt: false,
-        printShippingOrder: false,
-        printWarrantyTerm: false,
-        sendShippingOrder: false,
-        sendCustomerOrder: false,
-        sendCustomerReviews: false,
-        printShippingLabel: false,
-        printProductLabel: false,
-        generatePaymentLink: false,
-        printBudget: false,
-        sendCustomerOrderDetails: false,
-        sendAssistanceOS: false,
-        sendBudget: false,
-      };
-      const newClicks: IsButtonsClicked = { ...currentClicks, [actionKey]: true };
-
-      setOrders((prev) =>
-        prev.map((o) => (o.id === order.id ? { ...o, isButtonsClicked: newClicks } : o))
-      );
-
-      try {
-        await updateOrder(order.id!, { isButtonsClicked: newClicks }, order, undefined, {
-          metadataOnly: true,
-        });
-        if (actionKey === 'sendCustomerReviews' && !order.reviewRequested) {
-          await updateOrder(order.id, { reviewRequested: true }, order, undefined, {
-            metadataOnly: true,
-          });
-        }
-      } catch (error) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === order.id ? { ...o, isButtonsClicked: currentClicks } : o))
-        );
-        console.error('Erro ao registrar clique na ação:', error);
-      }
+      await persistOrderHistoryActionClick(actionKey, order.id, order, setOrders);
     }
   };
 

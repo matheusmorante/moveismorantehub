@@ -6,7 +6,9 @@ import { mapOrderFromDatabase } from '../orderMapper';
 import { TABLE_NAME } from './orderSyncConstants';
 import { isValidOrderRow, enrichOrdersWithPeopleOrigins } from './orderPeopleEnrichment';
 
-export const fetchScheduledAndDraftOrders = async (): Promise<Order[]> => {
+export const fetchScheduledAndDraftOrders = async (
+  options: { throwOnError?: boolean } = {}
+): Promise<Order[]> => {
   try {
     const { data, error } = await excludeTestOrders(supabase
       .from(TABLE_NAME)
@@ -28,6 +30,7 @@ export const fetchScheduledAndDraftOrders = async (): Promise<Order[]> => {
       .order('created_at', { ascending: false });
 
     if (error) {
+      if (options.throwOnError) throw error;
       console.error('[OrdersSync] Erro ao buscar pedidos agendados:', error);
       return [];
     }
@@ -44,6 +47,7 @@ export const fetchScheduledAndDraftOrders = async (): Promise<Order[]> => {
     return await enrichOrdersWithPeopleOrigins(mappedOrders);
   } catch (error) {
     console.error('[OrdersSync] Exception fetching scheduled orders:', error);
+    if (options.throwOnError) throw error;
     return [];
   }
 };

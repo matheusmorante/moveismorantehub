@@ -67,7 +67,7 @@ const LabelQueue: React.FC<LabelQueueProps> = ({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="label-queue-items-container flex flex-col gap-3">
       {imageError && <p role="alert" className="text-sm text-red-600">{imageError}</p>}
       {imageBusy && (
         <p role="status" className="flex items-center gap-2 text-sm text-blue-600">

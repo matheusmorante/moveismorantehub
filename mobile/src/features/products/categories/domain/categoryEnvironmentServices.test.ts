@@ -19,6 +19,12 @@ vi.mock('../../../../services/supabaseClient', () => {
   };
 });
 
+const makeCategoryProductCountQuery = (countResult: unknown, rowsResult: unknown) => ({
+  select: vi.fn().mockImplementation((_columns: string, options?: { head?: boolean }) => ({
+    eq: vi.fn().mockResolvedValue(options?.head ? countResult : rowsResult),
+  })),
+});
+
 describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes, Categorias e Características', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -348,15 +354,14 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
 
     it('informa produtos distintos quando a mesma referência aparece nas duas fontes', async () => {
       const categoryId = '00000000-0000-4000-8000-000000000016';
-      const makeQuery = (count: number, rows: unknown[]) => ({
-        select: vi.fn().mockImplementation((_columns: string, options?: { head?: boolean }) => ({
-          eq: vi.fn().mockResolvedValue(
-            options?.head ? { count, error: null } : { data: rows, error: null }
-          ),
-        })),
-      });
-      const relationQuery = makeQuery(2, [{ product_id: 'product-1' }, { product_id: 'product-2' }]);
-      const directQuery = makeQuery(1, [{ id: 'product-2' }]);
+      const relationQuery = makeCategoryProductCountQuery(
+        { count: 2, error: null },
+        { data: [{ product_id: 'product-1' }, { product_id: 'product-2' }], error: null }
+      );
+      const directQuery = makeCategoryProductCountQuery(
+        { count: 1, error: null },
+        { data: [{ id: 'product-2' }], error: null }
+      );
       (supabase.from as any).mockImplementation((table: string) =>
         table === 'product_categories' ? relationQuery : directQuery
       );
@@ -369,20 +374,14 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
     it('falha fechado se a leitura dos IDs para deduplicar falhar', async () => {
       const categoryId = '00000000-0000-4000-8000-000000000017';
       const detailError = new Error('Falha ao ler produtos vinculados');
-      const relationQuery = {
-        select: vi.fn().mockImplementation((_columns: string, options?: { head?: boolean }) => ({
-          eq: vi.fn().mockResolvedValue(
-            options?.head
-              ? { count: 1, error: null }
-              : { data: null, error: detailError }
-          ),
-        })),
-      };
-      const directQuery = {
-        select: vi.fn().mockImplementation((_columns: string, options?: { head?: boolean }) => ({
-          eq: vi.fn().mockResolvedValue(options?.head ? { count: 0, error: null } : { data: [], error: null }),
-        })),
-      };
+      const relationQuery = makeCategoryProductCountQuery(
+        { count: 1, error: null },
+        { data: null, error: detailError }
+      );
+      const directQuery = makeCategoryProductCountQuery(
+        { count: 0, error: null },
+        { data: [], error: null }
+      );
       (supabase.from as any).mockImplementation((table: string) =>
         table === 'product_categories' ? relationQuery : directQuery
       );
@@ -395,16 +394,16 @@ describe('Roteiro 1 & 2: Serviços de Persistência e Integridade — Ambientes,
     it('falha fechado quando uma das consultas de contagem retorna erro', async () => {
       const categoryId = '00000000-0000-4000-8000-000000000018';
       const checkError = new Error('Falha ao consultar vínculos de Produto');
-      const relationQuery = {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ count: null, error: checkError }),
-        }),
-      };
-      const directQuery = {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ count: 0, error: null }),
-        }),
-      };
+      const relationCountResult = { count: null, error: checkError };
+      const directCountResult = { count: 0, error: null };
+      const relationQuery = makeCategoryProductCountQuery(
+        relationCountResult,
+        relationCountResult
+      );
+      const directQuery = makeCategoryProductCountQuery(
+        directCountResult,
+        directCountResult
+      );
       (supabase.from as any).mockImplementation((table: string) =>
         table === 'product_categories' ? relationQuery : directQuery
       );

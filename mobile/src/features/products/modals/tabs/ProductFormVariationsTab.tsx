@@ -41,6 +41,7 @@ import { getEffectiveProductForVariationReadiness } from '../../../../../../shar
 import { checkMobileProductVariationHasMoves } from '../../services/mobileProductMutationService';
 import { useMobileProductVariationUsage } from '../../hooks/useMobileProductVariationUsage';
 import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
+import { ProductVariationIdentificationTab } from './ProductVariationIdentificationTab';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
 import { ProductFormCompositionTab } from './ProductFormCompositionTab';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -916,116 +917,23 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                             pointerEvents={showInheritedDataNotice ? 'none' : 'auto'}
                           >
                         {activeVariationTab === 'identificacao' && (
-                          <View style={styles.tabContent}>
-                            {(() => {
-                              const hasDistinctTitle = Boolean(
-                                v.differentiateTitle ||
-                                  (v.title && v.title !== v.name) ||
-                                  (v.marketplaceTitle && v.marketplaceTitle !== v.name)
-                              );
-                              return (
-                                <>
-                                  <View style={styles.cardHeader}>
-                                    <Text style={[styles.sectionTitle, dark && styles.lightText]}>
-                                      Identificação
-                                    </Text>
-                                    <Text style={[styles.varSku, dark && styles.lightText]}>
-                                      {v.sku}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.cardHeader}>
-                                    <Text style={[styles.label, dark && styles.dimText]}>
-                                      Nome <Text style={{ color: '#ef4444' }}>*</Text>
-                                    </Text>
-                                    <TouchableOpacity
-                                      onPress={() => {
-                                        const shouldDifferentiate = !hasDistinctTitle;
-                                        updateVar(idx, 'differentiateTitle', shouldDifferentiate);
-                                        updateVar(idx, 'title', shouldDifferentiate ? '' : v.name);
-                                        updateVar(
-                                          idx,
-                                          'marketplaceTitle',
-                                          shouldDifferentiate ? '' : v.name
-                                        );
-                                      }}
-                                      style={[
-                                        styles.titleToggle,
-                                        hasDistinctTitle && styles.distinctTitleToggle,
-                                      ]}
-                                      accessibilityRole="switch"
-                                      accessibilityState={{ checked: hasDistinctTitle }}
-                                    >
-                                      <Text style={styles.titleToggleText}>
-                                        {hasDistinctTitle
-                                          ? 'Usando título diferente'
-                                          : 'Diferenciar título no catálogo'}
-                                      </Text>
-                                    </TouchableOpacity>
-                                  </View>
-                                  {(() => {
-                                    const parentPrefix = String(
-                                      formData.name || formData.description || 'Produto'
-                                    ).trim();
-                                    const currentName = String(v.name || '');
-                                    const suffix = currentName
-                                      .toLocaleLowerCase('pt-BR')
-                                      .startsWith(parentPrefix.toLocaleLowerCase('pt-BR'))
-                                      ? currentName
-                                          .slice(parentPrefix.length)
-                                          .replace(/^[\s\-_:]+/, '')
-                                      : currentName;
-                                    return (
-                                      <View style={[styles.nameInputRow, dark && styles.darkInput]}>
-                                        <Text
-                                          style={[styles.parentName, dark && styles.dimText]}
-                                          numberOfLines={1}
-                                        >
-                                          {parentPrefix}
-                                        </Text>
-                                        <FormTextInput
-                                          value={suffix}
-                                          onChangeText={(value) =>
-                                            updateVarName(
-                                              idx,
-                                              value.trimStart()
-                                                ? `${parentPrefix} ${value.trimStart()}`
-                                                : parentPrefix
-                                            )
-                                          }
-                                          placeholder="Complemento da variação"
-                                          placeholderTextColor="#94a3b8"
-                                          style={[styles.nameSuffixInput, dark && styles.lightText]}
-                                          accessibilityLabel="Sufixo do nome da variação"
-                                        />
-                                      </View>
-                                    );
-                                  })()}
-                                  {hasDistinctTitle && (
-                                    <View>
-                                      <Text style={[styles.label, dark && styles.dimText]}>
-                                        Título no Catálogo
-                                      </Text>
-                                      <FormTextInput
-                                        value={String(v.title || v.marketplaceTitle || '')}
-                                        onChangeText={(value) => {
-                                          updateVar(idx, 'title', value);
-                                          updateVar(idx, 'marketplaceTitle', value);
-                                        }}
-                                        placeholder="Título exibido no catálogo digital"
-                                        placeholderTextColor="#94a3b8"
-                                        style={[
-                                          styles.catalogTitleInput,
-                                          dark && styles.darkInput,
-                                          dark && styles.lightText,
-                                        ]}
-                                        accessibilityLabel="Título da variação no catálogo"
-                                      />
-                                    </View>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </View>
+                          <ProductVariationIdentificationTab
+                            variation={v}
+                            parentPrefix={String(
+                              formData.name || formData.description || 'Produto'
+                            ).trim()}
+                            dark={dark}
+                            onDifferentTitleModeChange={(enabled) => {
+                              updateVar(idx, 'differentiateTitle', enabled);
+                              updateVar(idx, 'title', enabled ? '' : v.name);
+                              updateVar(idx, 'marketplaceTitle', enabled ? '' : v.name);
+                            }}
+                            onVariationNameChange={(name) => updateVarName(idx, name)}
+                            onCatalogTitleChange={(title) => {
+                              updateVar(idx, 'title', title);
+                              updateVar(idx, 'marketplaceTitle', title);
+                            }}
+                          />
                         )}
 
                         {activeVariationTab === 'tecnico' && (

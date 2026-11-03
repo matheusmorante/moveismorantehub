@@ -55,7 +55,7 @@
         "dev": "node ../scripts/run-vercel-env-dev.cjs erp",
         "dev:test": "vite --mode local-test",
         "start": "vite",
-        "build": "npm run build:fiscal && npm run build:support && vite build",
+        "build": "npm run build:fiscal && npm run build:support && node --max-old-space-size=3584 ./node_modules/vite/bin/vite.js build",
         "build:fiscal": "node scripts/build-fiscal.cjs && node scripts/check-fiscal-startup.cjs",
         "build:support": "node scripts/build-customer-support.cjs",
         "test:fiscal-startup": "node scripts/build-fiscal.cjs && node scripts/check-fiscal-startup.cjs",

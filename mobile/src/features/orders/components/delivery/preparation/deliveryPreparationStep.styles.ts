@@ -36,12 +36,6 @@ export const styles = StyleSheet.create({
   responsiblesSectionHeader: {
     gap: 4,
   },
-  responsiblesSubtext: {
-    fontSize: 12,
-    color: '#64748b',
-    fontWeight: '500',
-    lineHeight: 16,
-  },
   chipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -101,37 +95,27 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#64748b',
   },
-  suggestionsScroll: {
-    gap: 6,
-    paddingVertical: 2,
-  },
-  suggestionChip: {
+  responsibleSearchButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 9,
+    minHeight: 44,
     backgroundColor: '#f1f5f9',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
-  suggestionChipDark: {
+  responsibleSearchButtonDark: {
     backgroundColor: '#0f172a',
     borderColor: '#334155',
   },
-  suggestionText: {
-    fontSize: 11.5,
+  responsibleSearchPlaceholder: {
+    flex: 1,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
-  },
-  confirmationNotice: {
-    fontSize: 11,
     color: '#64748b',
-    fontWeight: '600',
-    fontStyle: 'italic',
   },
-
   item: {
     minHeight: 60,
     backgroundColor: '#fff',

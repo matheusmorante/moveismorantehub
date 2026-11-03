@@ -75,6 +75,7 @@
     { "source": "/api/meta-graph", "destination": "/api/secure-integrations?operation=meta-graph" },
     { "source": "/api/gemini-proxy", "destination": "/api/secure-integrations?operation=gemini-proxy" },
     { "source": "/api/google-routes", "destination": "/api/secure-integrations?operation=google-routes" },
+    { "source": "/mobile/etiquetas", "destination": "/mobile-labels.html" },
     {
       "source": "/(.*)",
       "destination": "/index.html"

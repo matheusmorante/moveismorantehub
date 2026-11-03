@@ -19,6 +19,7 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
     setCurrentPage,
     handleDownloadImage,
     printLabels,
+    printLabelsNormally,
     isPrinting,
     isDownloading,
     selectedCategory,
@@ -41,13 +42,13 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
   const paperHeightPx = Number.parseFloat(paperSize.h) * 96 / 25.4;
 
   return (
-    <section className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-[2.5rem] p-4 sm:p-6 lg:p-8 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col animate-fade-in transition-all flex-1 min-w-0 overflow-hidden">
-      <div className="flex flex-row items-center justify-between gap-1 sm:gap-3 mb-5 shrink-0 border-b border-slate-100 dark:border-slate-800 pb-4 min-w-0">
-        <h3 className="text-xs md:text-sm font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 shrink-0">
+    <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white p-3 shadow-xl shadow-slate-200/50 transition-all animate-fade-in dark:border-slate-800 dark:bg-slate-900 sm:p-6 lg:p-8">
+      <div className="mb-3 grid min-w-0 shrink-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto] gap-x-1 gap-y-2 border-b border-slate-100 pb-3 dark:border-slate-800 sm:mb-5 sm:flex sm:items-center sm:justify-between sm:gap-3 sm:pb-4">
+        <h3 className="min-w-0 break-words text-xs font-black uppercase tracking-widest text-slate-700 dark:text-slate-200 md:text-sm">
           Preview
         </h3>
 
-        <div className="flex flex-none items-center justify-center gap-0 sm:gap-1 min-w-0">
+        <div className="col-span-2 row-start-2 flex w-full min-w-0 items-center justify-between gap-0 sm:order-none sm:w-auto sm:flex-none sm:justify-center sm:gap-1">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -55,7 +56,7 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
             }}
             disabled={currentPage === 0}
             aria-label="Página anterior"
-            className="w-6 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-20 transition-all"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-slate-50 disabled:opacity-20 dark:hover:bg-slate-800 sm:h-8 sm:w-8"
           >
             <i className="bi bi-chevron-left text-[10px]" />
           </button>
@@ -69,7 +70,7 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
             }}
             disabled={currentPage >= totalPagesCount - 1}
             aria-label="Próxima página"
-            className="w-6 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-20 transition-all"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-slate-50 disabled:opacity-20 dark:hover:bg-slate-800 sm:h-8 sm:w-8"
           >
             <i className="bi bi-chevron-right text-[10px]" />
           </button>
@@ -77,7 +78,7 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
           <button
             onClick={() => setPreviewZoom((prev) => Math.max(0.1, prev - 0.1))}
             aria-label="Diminuir zoom"
-            className="w-6 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-slate-50 dark:hover:bg-slate-800 sm:h-8 sm:w-8"
           >
             <i className="bi bi-zoom-out text-[10px]" />
           </button>
@@ -87,19 +88,19 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
           <button
             onClick={() => setPreviewZoom((prev) => Math.min(2.0, prev + 0.1))}
             aria-label="Aumentar zoom"
-            className="w-6 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-slate-50 dark:hover:bg-slate-800 sm:h-8 sm:w-8"
           >
             <i className="bi bi-zoom-in text-[10px]" />
           </button>
         </div>
 
-        <div className="relative flex items-center justify-end shrink-0">
+        <div className="relative col-start-2 row-start-1 flex shrink-0 items-center justify-end sm:order-none">
           <button
             type="button"
             onClick={() => setActionsOpen((prev) => !prev)}
             aria-label="Ações do preview"
             aria-expanded={actionsOpen}
-            className="w-7 h-8 sm:w-9 sm:h-9 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+            className="flex h-10 w-10 items-center justify-center text-slate-500 transition-colors hover:text-slate-700 dark:hover:text-slate-300 sm:h-9 sm:w-9"
           >
             <i className="bi bi-three-dots-vertical" />
           </button>
@@ -115,10 +116,31 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
               >
                 <i className="bi bi-download" /> Download imagem
               </button>
+              {(selectedCategory === 'identificacao' || selectedCategory === 'precos') && (
+                <button
+                  type="button"
+                  aria-label="Impressão avançada beta"
+                  onClick={() => {
+                    setActionsOpen(false);
+                    printLabels();
+                  }}
+                  disabled={isPrinting}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[9px] font-black uppercase text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  {isPrinting ? (
+                    <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <i className="bi bi-printer-fill text-blue-600" />
+                  )}
+                  <span>Impressão avançada</span>
+                  <span className="rounded bg-amber-100 px-1 py-0.5 text-[8px] font-black text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">BETA</span>
+                </button>
+              )}
               <button
+                type="button"
                 onClick={() => {
                   setActionsOpen(false);
-                  printLabels();
+                  printLabelsNormally();
                 }}
                 disabled={isPrinting}
                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-[9px] font-black uppercase text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -128,7 +150,7 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
                 ) : (
                   <i className="bi bi-printer" />
                 )}
-                {isPrinting ? 'Gerando...' : 'Imprimir'}
+                {isPrinting ? 'Preparando...' : 'Imprimir'}
               </button>
             </div>
           )}
@@ -139,8 +161,8 @@ export const PreviewSection: React.FC<PreviewSectionProps> = (props) => {
         ref={previewContainerRef}
         className={`w-full flex-1 flex flex-col items-center relative transition-all duration-500 overflow-auto custom-scrollbar group/preview ${
           isPreviewFullscreen
-            ? 'fixed inset-0 z-[200] bg-white dark:bg-slate-900 p-6 sm:p-10'
-            : 'p-2 sm:p-4 min-h-[360px] sm:min-h-[500px]'
+            ? 'fixed inset-0 z-[200] bg-white p-2 dark:bg-slate-900 sm:p-10'
+            : 'min-h-[300px] p-1.5 sm:min-h-[500px] sm:p-4'
         }`}
       >
         <div

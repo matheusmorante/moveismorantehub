@@ -41,6 +41,7 @@ export function useDeliveryFlowActions({
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [routeStartError, setRouteStartError] = useState<string | null>(null);
 
   // 1. Modais de Confirmação e Registro
   const {
@@ -96,50 +97,61 @@ export function useDeliveryFlowActions({
     [order]
   );
 
-  // 6. Iniciar Rota (com validação Zod, guarda de checklist e serviço de persistência)
-  const handleStartRoute = useCallback(async () => {
-    if (saving) return;
+  // 6. Iniciar deslocamento (com validação Zod, guarda de checklist e serviço de persistência)
+  const handleStartRoute = useCallback(async (): Promise<boolean> => {
+    if (saving) return false;
+    setRouteStartError(null);
     if (!isChecklistComplete) {
-      Alert.alert(
-        'Checklist incompleto',
-        'Por favor, confira e marque todos os itens do checklist antes de iniciar a rota.'
-      );
-      return;
+      setRouteStartError('Confira todos os itens do checklist antes de iniciar o deslocamento.');
+      return false;
     }
-    await routeForm.validateAndRun(
-      {
-        orderId: String(order.id || ''),
-        checklist: checklist.map((item) => ({ ...item, checked: Boolean(checked[item.id]) })),
-        responsibles,
-      },
-      async (values) => {
-        setSaving(true);
-        try {
-          const { updatedData } = await deliveryFlowService.startRoute({
-            orderId: values.orderId,
-            currentData: data,
-            checklist: values.checklist,
-            responsibles,
-            userProfileId: userProfile?.id,
-          });
-
-          syncOrderSnapshot(updatedData);
-          setDeliveryData(updatedData);
-
-          if (userProfile?.id) {
-            void broadcastMyLocation(userProfile, null, true, true, {
-              id: order.id,
-              code: formatOrderCode(order),
+    try {
+      const started = await routeForm.validateAndRun(
+        {
+          orderId: String(order.id || ''),
+          checklist: checklist.map((item) => ({ ...item, checked: Boolean(checked[item.id]) })),
+          responsibles,
+        },
+        async (values) => {
+          setSaving(true);
+          try {
+            const { updatedData } = await deliveryFlowService.startRoute({
+              orderId: values.orderId,
+              currentData: data,
+              checklist: values.checklist,
+              responsibles,
+              userProfileId: userProfile?.id,
             });
+
+            syncOrderSnapshot(updatedData);
+            setDeliveryData(updatedData);
+
+            if (userProfile?.id && updatedData.deliveryResponsibleId === userProfile.id) {
+              void broadcastMyLocation(userProfile, null, true, true, {
+                id: order.id,
+                code: formatOrderCode(order),
+              });
+            }
+
+            return true;
+          } catch (error: any) {
+            setRouteStartError(error?.message || 'Não foi possível iniciar o deslocamento.');
+            return false;
+          } finally {
+            setSaving(false);
           }
-        } catch (error: any) {
-          Alert.alert('Erro ao iniciar rota', error?.message || 'Falha na operação.');
-        } finally {
-          setSaving(false);
+        },
+        (errors) => {
+          setRouteStartError(
+            Object.values(flattenFormErrors(errors))[0] || 'Revise os dados da entrega.'
+          );
         }
-      },
-      (errors) => Alert.alert('Revise a entrega', Object.values(flattenFormErrors(errors))[0])
-    );
+      );
+      return started === true;
+    } catch (error: any) {
+      setRouteStartError(error?.message || 'Não foi possível iniciar o deslocamento.');
+      return false;
+    }
   }, [
     saving,
     isChecklistComplete,
@@ -154,9 +166,11 @@ export function useDeliveryFlowActions({
   ]);
 
   const handleConfirmStartRoute = useCallback(async () => {
-    setShowStartConfirmModal(false);
-    await handleStartRoute();
+    const started = await handleStartRoute();
+    if (started) setShowStartConfirmModal(false);
   }, [handleStartRoute, setShowStartConfirmModal]);
+
+  const clearRouteStartError = useCallback(() => setRouteStartError(null), []);
 
   // 7. Chegada no Destino (Etapa 2 -> Etapa 3)
   const handleArriveAtDestination = useCallback(async () => {
@@ -304,7 +318,7 @@ export function useDeliveryFlowActions({
     }
   }, [saving, data, order.id, userProfile, syncOrderSnapshot]);
 
-  // 12. Retroceder Etapa 3 -> 2 (Chegada -> Em Rota)
+  // 12. Retroceder Etapa 3 -> 2 (Chegada -> Deslocamento)
   const handleStepBackToRoute = useCallback(async () => {
     if (saving) return;
     setSaving(true);
@@ -379,6 +393,8 @@ export function useDeliveryFlowActions({
     setShowCancelModal,
     showStartConfirmModal,
     setShowStartConfirmModal,
+    routeStartError,
+    clearRouteStartError,
     isInArrival,
     isInService,
     isInTransit,

@@ -88,6 +88,11 @@ export function fiscalSnapshotHash(snapshot: FiscalSnapshotCandidate): string {
   return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
 }
 
+export function deriveNfeRandomCode(emissionRequestId: string): string {
+  const digest = createHash('sha256').update(emissionRequestId).digest('hex');
+  return String(Number.parseInt(digest.slice(0, 10), 16) % 100000000).padStart(8, '0');
+}
+
 /** Structural and monetary gate; tax classification remains the approved matrix's responsibility. */
 export function validateFiscalDocument(
   snapshot: FiscalSnapshotCandidate,

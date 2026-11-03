@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { InboundInvoiceItem } from '@/pages/utils/inboundNfe/inboundNfeTypes';
+import { hasInboundInvoiceProductSelection } from '../../../../../../../shared-utils/inboundInvoiceLinkModeRules';
 
 interface InboundItemLinkHeaderProps {
   item: InboundInvoiceItem;
@@ -31,6 +32,8 @@ export const InboundItemLinkHeader: React.FC<InboundItemLinkHeaderProps> = ({
   const isNotApplicable = lockToNotApplicable || item.linkMode === 'not_applicable';
   const isSingle = !isComposition && !isNotApplicable;
   const selectedMode = isNotApplicable ? 'Não se aplica' : isComposition ? 'Composto' : 'Único';
+  const hasSelectedProduct = hasInboundInvoiceProductSelection(item, isComposition);
+  const isModeLocked = lockToNotApplicable || hasSelectedProduct;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRootRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +54,7 @@ export const InboundItemLinkHeader: React.FC<InboundItemLinkHeaderProps> = ({
   }, [isMenuOpen]);
 
   const selectMode = (mode: 'single' | 'composition' | 'not_applicable') => {
-    if (lockToNotApplicable) return;
+    if (isModeLocked) return;
     if (mode === 'single') {
       if (!isSingle) {
         const first = compositionLinks[0];
@@ -124,11 +127,17 @@ export const InboundItemLinkHeader: React.FC<InboundItemLinkHeaderProps> = ({
         <button
           type="button"
           aria-label={`Modo de vínculo: ${selectedMode}`}
-          aria-haspopup={lockToNotApplicable ? undefined : 'menu'}
+          aria-haspopup={isModeLocked ? undefined : 'menu'}
           aria-expanded={isMenuOpen}
-          aria-disabled={lockToNotApplicable}
-          disabled={lockToNotApplicable}
-          title={lockToNotApplicable ? 'Fornecedor exclusivo de Salvados: modo fixo em “Não se aplica”.' : undefined}
+          aria-disabled={isModeLocked}
+          disabled={isModeLocked}
+          title={
+            lockToNotApplicable
+              ? 'Fornecedor exclusivo de Salvados: modo fixo em “Não se aplica”.'
+              : hasSelectedProduct
+                ? 'Remova o produto vinculado antes de alterar o modo.'
+                : undefined
+          }
           onClick={() => setIsMenuOpen((open) => !open)}
           className={`inline-flex items-center gap-1.5 border-x-0 border-t-0 border-b px-1.5 py-1 text-left text-[10px] font-semibold transition-colors ${
             isNotApplicable
@@ -137,10 +146,10 @@ export const InboundItemLinkHeader: React.FC<InboundItemLinkHeaderProps> = ({
           }`}
         >
           {selectedMode}
-          <i className={`bi ${lockToNotApplicable ? 'bi-lock-fill' : 'bi-chevron-down'} text-[9px]`} aria-hidden="true" />
+          <i className={`bi ${isModeLocked ? 'bi-lock-fill' : 'bi-chevron-down'} text-[9px]`} aria-hidden="true" />
         </button>
 
-        {isMenuOpen && !lockToNotApplicable && (
+        {isMenuOpen && !isModeLocked && (
           <div
             role="menu"
             aria-label="Modo de vínculo"
@@ -187,25 +196,25 @@ export const InboundItemLinkHeader: React.FC<InboundItemLinkHeaderProps> = ({
         )}
       </div>
 
-      <button
-        type="button"
-        aria-label="Cadastro rápido"
-        title={
-          quickRegisterDisabled
-            ? isNotApplicable
-              ? 'Indisponível em “Não se aplica”'
-              : !supplierId?.trim()
+      {isSingle && (
+        <button
+          type="button"
+          aria-label="Cadastro rápido"
+          title={
+            quickRegisterDisabled
+              ? !supplierId?.trim()
                 ? 'Vincule o fornecedor para usar o Cadastro rápido'
                 : 'Este item já tem um produto vinculado'
-            : undefined
-        }
-        disabled={quickRegisterDisabled}
-        onClick={onRequestQuickRegister}
-        className="inline-flex shrink-0 items-center gap-1.5 border-0 bg-transparent px-1 py-1.5 text-[10px] font-semibold text-slate-600 transition-colors hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-400 dark:bg-transparent dark:text-slate-300 dark:hover:text-white dark:disabled:text-slate-500"
-      >
-        <i className="bi bi-lightning-fill" aria-hidden="true" />
-        Cadastro rápido
-      </button>
+              : undefined
+          }
+          disabled={quickRegisterDisabled}
+          onClick={onRequestQuickRegister}
+          className="inline-flex shrink-0 items-center gap-1.5 border-0 bg-transparent px-1 py-1.5 text-[10px] font-semibold text-slate-600 transition-colors hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-400 dark:bg-transparent dark:text-slate-300 dark:hover:text-white dark:disabled:text-slate-500"
+        >
+          <i className="bi bi-lightning-fill" aria-hidden="true" />
+          Cadastro rápido
+        </button>
+      )}
       </div>
     </div>
   );

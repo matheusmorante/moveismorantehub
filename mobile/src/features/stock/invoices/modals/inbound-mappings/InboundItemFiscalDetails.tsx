@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import type { MappingItem } from './types';
-import { amount, formatMoney, landedUnitCost } from './inboundCostUtils';
+import { amount, formatMoney } from './inboundCostUtils';
 import { styles } from './inboundMappings.styles';
 
 interface Props {
@@ -31,18 +31,10 @@ export const InboundItemFiscalDetails: React.FC<Props> = ({
       </Text>
       {[
         ['Mercadoria', amount(item.unitCost), amount(item.totalCost)],
-        [
-          'Desconto',
-          amount(item.discountValue) / quantity,
-          amount(item.discountValue),
-        ],
+        ['Desconto', amount(item.discountValue) / quantity, amount(item.discountValue)],
         ['Frete', amount(item.freightValue) / quantity, amount(item.freightValue)],
         ['IPI', amount(item.ipiValue) / quantity, amount(item.ipiValue)],
-        [
-          'Seguro',
-          amount(item.insuranceValue) / quantity,
-          amount(item.insuranceValue),
-        ],
+        ['Seguro', amount(item.insuranceValue) / quantity, amount(item.insuranceValue)],
         [
           'Outras despesas acessórias',
           amount(item.otherExpensesValue) / quantity,
@@ -143,9 +135,7 @@ export const InboundItemFiscalDetails: React.FC<Props> = ({
       <View style={styles.detailLine}>
         <Text style={styles.muted}>Custos adicionais rateados</Text>
         <Text style={[styles.detailValue, isDarkMode && styles.textDark]}>
-          {formatMoney(
-            amount(item.totalAdditionalCosts ?? item.allocatedAdditionalCosts)
-          )}
+          {formatMoney(amount(item.totalAdditionalCosts ?? item.allocatedAdditionalCosts))}
         </Text>
       </View>
     </View>

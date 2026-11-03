@@ -4,6 +4,7 @@ import type Item from '@/pages/types/items.type';
 import type Shipping from '@/pages/types/Shipping.type';
 import type { ValidationErrors } from '@/pages/utils/validations';
 import { requiresAssemblyResponsible } from '../../../../../../shared-utils/commercialOrderRules';
+import { resolveFirstItemHandlingType } from '../orderItemHandling';
 
 type DeliveryMethod = Shipping['deliveryMethod'];
 type RememberedItemHandling = {
@@ -105,8 +106,7 @@ export function useOrderItemHandlingByDeliveryMethod({
 
         return { ...item, handlingType, assemblyResponsible };
       });
-      const firstHandling =
-        nextItems.find((item) => item.handlingType?.trim())?.handlingType || '';
+      const firstHandling = resolveFirstItemHandlingType(nextItems);
 
       setItems(nextItems);
       setShipping((previous) => ({

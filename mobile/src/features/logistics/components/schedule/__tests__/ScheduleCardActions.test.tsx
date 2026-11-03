@@ -86,7 +86,7 @@ describe('ScheduleCard - cartões compactos do cronograma', () => {
     expect(html).not.toContain('Preparação');
     expect(html).toContain('Agendada');
     expect(html).not.toContain('ENTREGA');
-    expect(html).not.toContain('Iniciar fluxo de entrega');
+    expect(html).not.toContain('Iniciar fluxo operacional');
   });
 
   it('mantém o tipo de assistência sem botão de ação', () => {
@@ -101,7 +101,7 @@ describe('ScheduleCard - cartões compactos do cronograma', () => {
     expect(html).not.toContain('Abrir atividade');
   });
 
-  it('mostra a etapa atual de uma entrega em rota sem repetir um botão', () => {
+  it('mostra a etapa atual de uma entrega em deslocamento sem repetir um botão', () => {
     const html = renderToStaticMarkup(
       <ScheduleCard
         item={{ ...deliveryItem, status: 'in_progress' }}
@@ -109,7 +109,7 @@ describe('ScheduleCard - cartões compactos do cronograma', () => {
       />
     );
 
-    expect(html).toContain('Em rota');
-    expect(html).not.toContain('Iniciar fluxo de entrega');
+    expect(html).toContain('Deslocamento');
+    expect(html).not.toContain('Iniciar fluxo operacional');
   });
 });

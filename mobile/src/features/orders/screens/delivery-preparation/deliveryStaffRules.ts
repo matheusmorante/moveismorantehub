@@ -2,7 +2,6 @@ import {
   DeliveryResponsibleItem,
   AvailableStaffMember,
 } from './deliveryPreparation.types';
-import { hasGrantedNonAccountantAccessProfile } from '../../../../../../shared-utils/operationalCollaborators';
 
 /**
  * Resolve os responsáveis iniciais pela entrega a 0s.
@@ -20,10 +19,22 @@ export function resolveInitialDeliveryResponsibles(
   if (d.deliveryResponsibleName) {
     return [{ id: d.deliveryResponsibleId, name: d.deliveryResponsibleName }];
   }
-  if (!hasGrantedNonAccountantAccessProfile(userProfile || {})) return [];
-  const currentName =
-    userProfile?.fullName || userProfile?.name || userProfile?.email || 'Operador';
-  return [{ id: userProfile?.id, name: currentName, role: userProfile?.role || 'entregador' }];
+  if (!userProfile) return [];
+  const currentName = [
+    userProfile.fullName,
+    userProfile.full_name,
+    userProfile.name,
+    userProfile.email,
+  ].find((value) => typeof value === 'string' && value.trim())?.trim();
+  if (!currentName && !userProfile.id) return [];
+
+  return [
+    {
+      id: userProfile?.id,
+      name: currentName || 'Operador',
+      role: userProfile?.role || 'entregador',
+    },
+  ];
 }
 
 /**

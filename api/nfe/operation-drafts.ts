@@ -28,6 +28,7 @@ import {
   validateAuthorizedOutboundNfe,
   type ReturnFiscalSourceContext,
 } from './returnFiscalRules';
+import { validateEstornoDraftReviewItems } from './operation-draft/draftValidation';
 import {
   getReturnCfopOptionsForSourceItem,
   getFiscalFormXmlDefaults,
@@ -449,8 +450,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(409).json({ error: 'Não foi possível conferir todos os itens originais do estorno.' });
         }
         const fiscalDefaults = settingsRow?.data?.fiscalDefaults as FiscalCfopConfiguration | undefined;
-        const draftLinesById = new Map(draftLines.map((line) => [line.id, line]));
-        const sourceItemsById = new Map(sourceItems.map((line) => [line.id, line]));
         const allSourceItems = await db
           .from('nfe_document_items')
           .select('id')
@@ -458,43 +457,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (allSourceItems.error || !allSourceItems.data || allSourceItems.data.length !== draftLines.length) {
           return res.status(409).json({ error: 'O estorno precisa conter todos os itens fiscais originais.' });
         }
-        for (const reviewed of normalizedLines) {
-          const draftLine = draftLinesById.get(reviewed.draft_line_id);
-          const sourceLine = draftLine && sourceItemsById.get(draftLine.original_document_item_id);
-          if (!draftLine || !sourceLine || sourceLine.document_id !== draftForReview.original_document_id) {
-            return res.status(409).json({ error: 'Item fiscal do estorno não pertence à NF-e original.' });
-          }
-          const sourceCfop = originalItemCfop(String(sourceLine.product_xml));
-          const allowedEstornoCfops = getEstornoCfopOptions(sourceCfop, fiscalDefaults);
-          const cfopIsValid = allowedEstornoCfops.some((option) => option.value === reviewed.cfop);
-          if (
-            !/^[56]\d{3}$/.test(sourceCfop || '') ||
-            !cfopIsValid ||
-            Math.abs(Number(draftLine.quantity) - Number(sourceLine.billed_quantity)) > 0.00005 ||
-            Math.abs(Number(draftLine.gross_value) - Number(sourceLine.gross_value)) > 0.005 ||
-            Math.abs(Number(draftLine.discount_value) - Number(sourceLine.discount_value)) > 0.005
-          ) {
-            return res.status(409).json({
-              error: 'Item do estorno diverge da origem ou não usa o CFOP inverso fiscalmente conferido.',
-            });
-          }
-          const expectedProduct = buildReturnProductXml({
-            originalProductXml: String(sourceLine.product_xml),
-            quantity: Number(sourceLine.billed_quantity),
-            originalQuantity: Number(sourceLine.billed_quantity),
-            grossValue: Number(sourceLine.gross_value),
-            discountValue: Number(sourceLine.discount_value),
-            cfop: reviewed.cfop,
-          });
-          if (
-            normalizeReviewedFiscalBlock(reviewed.product_xml, 'prod') !==
-            normalizeReviewedFiscalBlock(expectedProduct, 'prod')
-          ) {
-            return res.status(409).json({
-              error: 'O item do estorno precisa preservar os dados fiscais e valores originais.',
-            });
-          }
-        }
+        const estornoReviewError = validateEstornoDraftReviewItems({
+          normalizedLines,
+          draftLines,
+          sourceItems,
+          originalDocumentId: draftForReview.original_document_id,
+          fiscalDefaults,
+        });
+        if (estornoReviewError) return res.status(409).json({ error: estornoReviewError });
       }
       const { data: savedId, error: reviewError } = await db.rpc(
         'save_nfe_operation_draft_review',

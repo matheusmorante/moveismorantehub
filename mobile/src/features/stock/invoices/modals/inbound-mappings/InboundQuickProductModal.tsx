@@ -18,12 +18,14 @@ interface InboundQuickProductModalProps {
   registrationItem: MappingItem | null;
   registrationOptionsVisible: boolean;
   registrationFormVisible: boolean;
+  editingProduct?: any | null;
   registrationParent: any | null;
   registrationDefaults?: Record<string, any>;
   parentSearch: string;
   parentSearchLoading: boolean;
   parentSearchError: string;
   parentResults: any[];
+  onRetryParentSearch: () => void;
   isDarkMode: boolean;
   insets: { top: number; bottom: number };
   onCloseOptions: () => void;
@@ -32,18 +34,21 @@ interface InboundQuickProductModalProps {
   onStartVariation: (parent: any) => void;
   onCloseForm: () => void;
   onSaveProduct: (productData: any) => Promise<string | undefined>;
+  onSaveEditedProduct: (productData: any) => Promise<string>;
 }
 
 export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> = ({
   registrationItem,
   registrationOptionsVisible,
   registrationFormVisible,
+  editingProduct = null,
   registrationParent,
   registrationDefaults,
   parentSearch,
   parentSearchLoading,
   parentSearchError,
   parentResults,
+  onRetryParentSearch,
   isDarkMode,
   insets,
   onCloseOptions,
@@ -52,6 +57,7 @@ export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> =
   onStartVariation,
   onCloseForm,
   onSaveProduct,
+  onSaveEditedProduct,
 }) => {
   return (
     <>
@@ -106,15 +112,35 @@ export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> =
               <FormTextInput
                 value={parentSearch}
                 onChangeText={onParentSearchChange}
-                placeholder="Buscar produto pai por nome ou SKU"
+                accessibilityLabel="Buscar produto existente para adicionar uma variação"
+                accessibilityHint="Digite pelo menos três caracteres. São exibidos até cinco produtos."
+                placeholder="Buscar produto por nome ou SKU"
                 placeholderTextColor="#94a3b8"
                 style={[styles.input, isDarkMode && styles.textDark]}
               />
             </View>
+            {parentSearch.trim().length > 0 && parentSearch.trim().length < 3 ? (
+              <Text style={[styles.muted, { marginTop: 8 }]}>Digite pelo menos 3 caracteres para buscar.</Text>
+            ) : null}
             {parentSearchLoading ? (
               <ActivityIndicator style={{ margin: 12 }} color="#2563eb" />
             ) : null}
-            {parentSearchError ? <Text style={styles.errorText}>{parentSearchError}</Text> : null}
+            {parentSearchError ? (
+              <View style={styles.searchErrorRow}>
+                <Text style={[styles.errorText, { flex: 1 }]}>{parentSearchError}</Text>
+                <TouchableOpacity
+                  disabled={parentSearchLoading}
+                  onPress={onRetryParentSearch}
+                  accessibilityRole="button"
+                  accessibilityLabel="Tentar buscar produtos novamente"
+                >
+                  <Text style={styles.changeText}>Tentar novamente</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+            {parentSearch.trim().length >= 3 && !parentSearchLoading && !parentSearchError && parentResults.length === 0 ? (
+              <Text style={[styles.muted, { marginTop: 8 }]}>Nenhum produto encontrado.</Text>
+            ) : null}
             {parentResults.map((parent) => (
               <TouchableOpacity
                 key={parent.id}
@@ -137,16 +163,16 @@ export const InboundQuickProductModal: React.FC<InboundQuickProductModalProps> =
       </Modal>
       <ProductFormScreen
         visible={registrationFormVisible}
-        product={registrationParent}
-        initialData={registrationDefaults}
-        showInboundCostPrice={!registrationParent}
+        product={editingProduct || registrationParent}
+        initialData={editingProduct ? undefined : registrationDefaults}
+        showInboundCostPrice={!editingProduct && !registrationParent}
         inboundVariationCostPrice={
           registrationParent && registrationItem ? landedUnitCost(registrationItem) : undefined
         }
         enableDraftAutoSave={false}
         dark={isDarkMode}
         onClose={onCloseForm}
-        onSave={onSaveProduct}
+        onSave={editingProduct ? onSaveEditedProduct : onSaveProduct}
       />
     </>
   );

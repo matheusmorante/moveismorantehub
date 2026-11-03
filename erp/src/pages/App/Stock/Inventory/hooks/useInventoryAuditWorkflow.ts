@@ -6,6 +6,10 @@ import type {
   InventoryAuditSession,
 } from '../types/inventoryAudit.types';
 import type { ScopeConfiguration } from '../types/inventoryScope.types';
+import {
+  createInventoryAuditItemsFromScope,
+  restoreInventoryAuditItems,
+} from '../domain/inventoryAuditItemMappers';
 import { getEmployeeDisplayName } from '../utils/employeeDisplayName';
 import { useInventoryAuditData } from './useInventoryAuditData';
 import {
@@ -110,8 +114,6 @@ export const useInventoryAuditWorkflow = (
   const { validateAndRun: validateCompletion } = useZodForm(inventoryAuditCompletionSchema, {
     id: '', code: '', items: [], adjustments: [],
   });
-
-  const createItemId = () => crypto.randomUUID();
 
   const getDraftSnapshot = useCallback((nextItems: AuditItem[]) => {
     const draft = draftRef.current;
@@ -302,28 +304,11 @@ export const useInventoryAuditWorkflow = (
           readyOwner.current = renderOwner; setIsRestoring(false);
           return;
         }
-        const restoredItems = editingSession.items.map((source) => {
-          const product = allProducts.find((item) => String(item.id) === String(source.productId));
-          return {
-            id: createItemId(),
-            key: `${source.productId}-${source.variationId || 'main'}`,
-            productId: source.productId,
-            variationId: source.variationId,
-            name: source.name,
-            supplierNames: product ? getSupplierNames(product) : 'Fábrica não informada',
-            assignedSupplier: source.assignedSupplier || 'Sem fornecedor',
-            systemStock: source.systemStock,
-            physicalCount: source.physicalCount,
-            supplierStageStarted: source.supplierStageStarted,
-            supplierStageReset: source.supplierStageReset,
-            scannedLabelIds: source.scannedLabelIds,
-            unit: product?.unit || 'UN',
-            countedAt: (source as AuditItem).countedAt,
-            sku: source.sku || product?.sku || product?.code || '',
-            code: source.code || product?.code || '',
-            barcode: source.barcode || product?.barcode || '',
-          } as AuditItem;
-        });
+        const restoredItems = restoreInventoryAuditItems(
+          editingSession.items,
+          allProducts,
+          getSupplierNames
+        );
         draftRef.current = {
           id: editingSession.id,
           code: editingSession.inventoryCode,
@@ -378,24 +363,7 @@ export const useInventoryAuditWorkflow = (
     frozenSubmissionRef.current = false;
     await withTimeout(ensureOfflineInventoryCatalogSynced(), 15_000, null, 'inventario:catalogo');
     if (!isCurrent(captured)) return false;
-    const productStageStartedAt = config.type === 'product' ? new Date().toISOString() : undefined;
-    const initialItems = config.itemsSnapshot.map((snapshot) => ({
-      id: createItemId(),
-      key: `${snapshot.productId}-${snapshot.variationId || 'main'}`,
-      productId: snapshot.productId,
-      variationId: snapshot.variationId,
-      name: snapshot.name,
-      supplierNames: snapshot.supplierNames,
-      assignedSupplier: snapshot.assignedSupplier,
-      systemStock: snapshot.systemStock,
-      physicalCount: productStageStartedAt ? 0 : null,
-      countedAt: productStageStartedAt,
-      unit: snapshot.unit,
-      sku: snapshot.sku,
-      code: snapshot.code,
-      barcode: snapshot.barcode,
-      isActive: snapshot.isActive,
-    }));
+    const initialItems = createInventoryAuditItemsFromScope(config.itemsSnapshot, config.type);
     const startedItems = config.type === 'general'
       ? initializeGeneralInventoryCounts(initialItems)
       : initialItems;

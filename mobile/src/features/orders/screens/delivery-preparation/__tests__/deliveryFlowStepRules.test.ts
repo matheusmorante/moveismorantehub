@@ -7,11 +7,11 @@ import {
 } from '../deliveryFlowStepRules';
 
 describe('deliveryFlowStepRules', () => {
-  it('resolveDeliveryStep retorna etapa 1 (Preparar Saída) para pedido sem saída registrada', () => {
+  it('resolveDeliveryStep retorna etapa 1 (Preparação) para pedido sem saída registrada', () => {
     const step = resolveDeliveryStep({});
     expect(step).toEqual({
       currentStep: 1,
-      headerTitle: 'Preparar Saída',
+      headerTitle: 'Preparação',
       isInArrival: false,
       isInService: false,
       isInTransit: false,
@@ -19,14 +19,14 @@ describe('deliveryFlowStepRules', () => {
     });
   });
 
-  it('resolveDeliveryStep retorna etapa 2 (Em Rota) quando deliveryStatus é in_progress ou tem deliveryStartedAt', () => {
+  it('resolveDeliveryStep retorna etapa 2 (Deslocamento) quando deliveryStatus é in_progress ou tem deliveryStartedAt', () => {
     const step = resolveDeliveryStep({
       deliveryStatus: 'in_progress',
       deliveryStartedAt: '2026-10-20T10:00:00Z',
     });
     expect(step).toEqual({
       currentStep: 2,
-      headerTitle: 'Em Rota',
+      headerTitle: 'Deslocamento',
       isInArrival: false,
       isInService: false,
       isInTransit: true,

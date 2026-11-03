@@ -12,7 +12,6 @@ import {
   DateScheduleMode,
   SchedulingSessionMemory,
   TimeScheduleMode,
-  buildSchedulingSignature,
   createEmptySchedulingSessionMemory,
   deriveSchedulingSessionMemory,
   resolveEffectiveDateMode,
@@ -25,6 +24,7 @@ import { ScheduledTimeCardsSection } from './agendamento/ScheduledTimeCardsSecti
 import { AlternativesAccordion } from './agendamento/AlternativesAccordion';
 import { SchedulingSummaryBox } from './agendamento/SchedulingSummaryBox';
 import { SchedulingControls } from './agendamento/SchedulingControls';
+import { useSchedulingMemoryHydration } from './agendamento/useSchedulingMemoryHydration';
 
 export {
   createEmptySchedulingSessionMemory,
@@ -105,34 +105,7 @@ const Agendamento = ({
     setScheduleMode(scheduling?.scheduleMode || 'defined');
   }, [scheduling?.scheduleMode]);
 
-  if (!activeMemoryRef.current || !activeMemoryRef.current.initialized) {
-    activeMemoryRef.current = deriveSchedulingSessionMemory(activeScheduling);
-  }
-
-  const [, setRenderTick] = useState(0);
-  const forceRender = () => setRenderTick((prev) => prev + 1);
-
-  const currentSignature = buildSchedulingSignature(activeScheduling);
-
-  useEffect(() => {
-    const mem = activeMemoryRef.current;
-    if (!mem) return;
-
-    if (mem.lastHydratedSignature !== currentSignature) {
-      const hasExternalData = Boolean(
-        normalizeScheduleDate(activeScheduling?.date) ||
-          normalizeScheduleDate(activeScheduling?.endDate) ||
-          extractScheduleTimes(activeScheduling || {}).startTime ||
-          extractScheduleTimes(activeScheduling || {}).endTime
-      );
-      if (hasExternalData && mem.dateMode === null && mem.timeMode === null) {
-        activeMemoryRef.current = deriveSchedulingSessionMemory(activeScheduling);
-        forceRender();
-      } else {
-        mem.lastHydratedSignature = currentSignature;
-      }
-    }
-  }, [currentSignature, activeScheduling, activeMemoryRef]);
+  const forceRender = useSchedulingMemoryHydration(activeMemoryRef, activeScheduling);
 
   if (!scheduling) return null;
 

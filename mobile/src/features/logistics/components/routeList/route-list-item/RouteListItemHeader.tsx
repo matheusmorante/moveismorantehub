@@ -69,7 +69,7 @@ export const RouteListItemHeader: React.FC<Props> = ({
                 : item.status === 'arrived'
                   ? 'NO LOCAL'
                   : isInProgress
-                    ? 'EM ROTA'
+                    ? 'DESLOCAMENTO'
                     : 'PENDENTE'}
         </Text>
       </View>

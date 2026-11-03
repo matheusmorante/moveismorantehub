@@ -12,7 +12,8 @@ interface UseTeamLocationsOptions {
   myCoords?: DriverCoordinates | null;
   isGpsActive?: boolean;
   isDelivering?: boolean;
-  activeOrder?: { id: string; code?: string } | null;
+  activeOrder?: { id: string; code?: string; responsibleId: string } | null;
+  canBroadcastLocation?: boolean;
 }
 
 export function useTeamLocations({
@@ -21,30 +22,47 @@ export function useTeamLocations({
   isGpsActive = true,
   isDelivering = false,
   activeOrder = null,
+  canBroadcastLocation = true,
 }: UseTeamLocationsOptions = {}) {
   const [teamMembers, setTeamMembers] = useState<TeamMemberLocation[]>([]);
   const [loading, setLoading] = useState(true);
 
   const myUserId = userProfile?.id;
+  const activeOrderId = activeOrder?.id;
+  const activeOrderCode = activeOrder?.code;
+  const activeOrderResponsibleId = activeOrder?.responsibleId;
   const lastBroadcastCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
   const lastBroadcastTimeRef = useRef<number>(0);
 
   const loadLocations = useCallback(async () => {
-    const list = await fetchTeamLocations(myUserId);
+    if (!activeOrderId || !activeOrderResponsibleId || !myUserId) {
+      setTeamMembers([]);
+      setLoading(false);
+      return;
+    }
+
+    const list = await fetchTeamLocations(myUserId, {
+      id: activeOrderId,
+      responsibleId: activeOrderResponsibleId,
+    });
     setTeamMembers(list);
     setLoading(false);
-  }, [myUserId]);
+  }, [activeOrderId, activeOrderResponsibleId, myUserId]);
 
   // Transmissão inteligente da localização do usuário atual
   const syncMyLocation = useCallback(async () => {
-    if (!userProfile?.id) return;
+    if (!userProfile?.id || !canBroadcastLocation) return;
 
+    const broadcastOrder =
+      activeOrderId && activeOrderResponsibleId
+        ? { id: activeOrderId, code: activeOrderCode }
+        : null;
     const lat = myCoords?.latitude;
     const lng = myCoords?.longitude;
     const accuracy = myCoords?.accuracy;
 
     if (!lat || !lng || !isGpsActive) {
-      await broadcastMyLocation(userProfile, null, false, isDelivering, activeOrder);
+      await broadcastMyLocation(userProfile, null, false, isDelivering, broadcastOrder);
       return;
     }
 
@@ -87,10 +105,19 @@ export function useTeamLocations({
         { latitude: lat, longitude: lng },
         true,
         isDelivering,
-        activeOrder
+        broadcastOrder
       );
     }
-  }, [userProfile, myCoords, isGpsActive, isDelivering, activeOrder]);
+  }, [
+    userProfile,
+    myCoords,
+    isGpsActive,
+    isDelivering,
+    activeOrderId,
+    activeOrderCode,
+    activeOrderResponsibleId,
+    canBroadcastLocation,
+  ]);
 
   // Broadcast imediato quando as coordenadas mudarem
   useEffect(() => {

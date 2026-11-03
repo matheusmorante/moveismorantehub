@@ -160,7 +160,7 @@ export const DeliveryMapView: React.FC<Props> = ({
             onPress={centerOnDriver}
             activeOpacity={0.85}
             accessibilityLabel="Minha localização"
-            accessibilityHint="Centraliza o mapa na sua posição atual em rota"
+            accessibilityHint="Centraliza o mapa na sua posição atual em deslocamento"
           >
             <Crosshair size={20} color="#2563eb" />
           </TouchableOpacity>

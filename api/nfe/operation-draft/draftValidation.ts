@@ -265,3 +265,72 @@ export function validateEstornoItems(params: {
 
   return null;
 }
+
+export function validateEstornoDraftReviewItems(params: {
+  normalizedLines: Array<{
+    draft_line_id: string;
+    cfop: string;
+    product_xml: string;
+    taxes_xml: string;
+  }>;
+  draftLines: Array<
+    Pick<
+      FiscalDatabase['public']['Tables']['nfe_operation_draft_lines']['Row'],
+      'id' | 'original_document_item_id' | 'quantity' | 'gross_value' | 'discount_value'
+    >
+  >;
+  sourceItems: Array<
+    Pick<
+      FiscalDatabase['public']['Tables']['nfe_document_items']['Row'],
+      | 'id'
+      | 'document_id'
+      | 'billed_quantity'
+      | 'gross_value'
+      | 'discount_value'
+      | 'product_xml'
+      | 'taxes_xml'
+    >
+  >;
+  originalDocumentId: string;
+  fiscalDefaults?: FiscalCfopConfiguration;
+}): string | null {
+  const { normalizedLines, draftLines, sourceItems, originalDocumentId, fiscalDefaults } = params;
+  const draftLinesById = new Map(draftLines.map((line) => [line.id, line]));
+  const sourceItemsById = new Map(sourceItems.map((line) => [line.id, line]));
+
+  for (const reviewed of normalizedLines) {
+    const draftLine = draftLinesById.get(reviewed.draft_line_id);
+    const sourceLine = draftLine && sourceItemsById.get(draftLine.original_document_item_id);
+    if (!draftLine || !sourceLine || sourceLine.document_id !== originalDocumentId) {
+      return 'Item fiscal do estorno não pertence à NF-e original.';
+    }
+    const sourceCfop = originalItemCfop(String(sourceLine.product_xml));
+    const allowedEstornoCfops = getEstornoCfopOptions(sourceCfop, fiscalDefaults);
+    const cfopIsValid = allowedEstornoCfops.some((option) => option.value === reviewed.cfop);
+    if (
+      !/^[56]\d{3}$/.test(sourceCfop || '') ||
+      !cfopIsValid ||
+      Math.abs(Number(draftLine.quantity) - Number(sourceLine.billed_quantity)) > 0.00005 ||
+      Math.abs(Number(draftLine.gross_value) - Number(sourceLine.gross_value)) > 0.005 ||
+      Math.abs(Number(draftLine.discount_value) - Number(sourceLine.discount_value)) > 0.005
+    ) {
+      return 'Item do estorno diverge da origem ou não usa o CFOP inverso fiscalmente conferido.';
+    }
+    const expectedProduct = buildReturnProductXml({
+      originalProductXml: String(sourceLine.product_xml),
+      quantity: Number(sourceLine.billed_quantity),
+      originalQuantity: Number(sourceLine.billed_quantity),
+      grossValue: Number(sourceLine.gross_value),
+      discountValue: Number(sourceLine.discount_value),
+      cfop: reviewed.cfop,
+    });
+    if (
+      normalizeReviewedFiscalBlock(reviewed.product_xml, 'prod') !==
+      normalizeReviewedFiscalBlock(expectedProduct, 'prod')
+    ) {
+      return 'O item do estorno precisa preservar os dados fiscais e valores originais.';
+    }
+  }
+
+  return null;
+}

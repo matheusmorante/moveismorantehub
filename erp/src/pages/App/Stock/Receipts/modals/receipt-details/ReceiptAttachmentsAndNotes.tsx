@@ -9,7 +9,13 @@ export const ReceiptAttachmentsAndNotes: React.FC<Props> = ({ receipt }) => {
   const hasAttachments = Boolean(receipt.attachments && receipt.attachments.length > 0);
   const hasObservations = Boolean(receipt.observation?.trim());
 
-  if (!hasAttachments && !hasObservations) return null;
+  if (!hasAttachments && !hasObservations) {
+    return (
+      <div className="rounded-2xl border border-slate-100 bg-white p-4 text-xs text-slate-400 dark:border-slate-800 dark:bg-slate-900">
+        Nenhuma observação ou anexo informado.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

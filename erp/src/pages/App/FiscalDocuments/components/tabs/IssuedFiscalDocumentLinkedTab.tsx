@@ -9,6 +9,7 @@ import { formatAccessKey } from '@/pages/utils/nfe/nfeAccessKey';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { downloadXml, printDanfe } from '../../services/fiscalDanfeXmlService';
 import { FiscalXmlViewer } from '../FiscalXmlViewer';
+import { getFiscalDocumentStatusBadgeClass } from './fiscalDocumentStatusBadge';
 
 interface IssuedFiscalDocumentLinkedTabProps {
   linkedDocuments?: NfeDocumentRecord[];
@@ -123,12 +124,7 @@ export function IssuedFiscalDocumentLinkedTab({
             {orderEmissions.map((doc, idx) => {
               const seq = idx + 1;
               const isCurrent = doc.id === currentDocumentId;
-              const isAuthorized = doc.status === 'autorizada' || doc.status === 'homologada';
-              const statusBadgeClass = isAuthorized
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
-                : doc.status === 'cancelada'
-                ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'
-                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300';
+              const statusBadgeClass = getFiscalDocumentStatusBadgeClass(doc.status);
 
               return (
                 <div
@@ -273,12 +269,7 @@ export function IssuedFiscalDocumentLinkedTab({
 
           {/* Documentos de Estorno Autorizados */}
           {estornoDocs.map((doc) => {
-            const isAuthorized = doc.status === 'autorizada' || doc.status === 'homologada';
-            const statusBadgeClass = isAuthorized
-              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
-              : doc.status === 'cancelada'
-                ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'
-                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300';
+            const statusBadgeClass = getFiscalDocumentStatusBadgeClass(doc.status);
 
             return (
               <div

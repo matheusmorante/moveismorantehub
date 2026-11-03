@@ -25,12 +25,16 @@ import {
 
 export { PERSON_QUERY_COLUMNS, isTestPerson };
 
+// Share only the same invalidation event. A later mutation must start a fresh read,
+// even while the previous event's request is still running.
+const peopleUpdateRequests = new WeakMap<Event, Map<string, Promise<Person[]>>>();
+
 export const subscribeToPeople = (
   collectionName: string,
   callback: (people: Person[]) => void,
   includeDeleted = false
 ) => {
-  const fetchAll = async (force = false) => {
+  const fetchAll = async (force = false, updateEvent?: Event) => {
     const currentUserEmail = collectionName === 'employees' ? await getCurrentUserEmail() : '';
     const cacheKey = `${collectionName}_${includeDeleted}_${currentUserEmail}`;
 
@@ -52,15 +56,23 @@ export const subscribeToPeople = (
       }
     }
 
-    const fetchPromise = (async () => {
-      if (collectionName === 'employees') {
-        await syncMissingEmployeesFromProfiles();
-      }
-      const rows = await fetchAllPeopleRows(collectionName, includeDeleted);
-      return mapAndSortPeople(collectionName, rows, includeDeleted, currentUserEmail);
-    })();
-
-    setCachedPeoplePromise(cacheKey, fetchPromise);
+    let eventRequests = updateEvent ? peopleUpdateRequests.get(updateEvent) : undefined;
+    if (updateEvent && !eventRequests) {
+      eventRequests = new Map();
+      peopleUpdateRequests.set(updateEvent, eventRequests);
+    }
+    let fetchPromise = eventRequests?.get(cacheKey);
+    if (!fetchPromise) {
+      fetchPromise = (async () => {
+        if (collectionName === 'employees') {
+          await syncMissingEmployeesFromProfiles();
+        }
+        const rows = await fetchAllPeopleRows(collectionName, includeDeleted);
+        return mapAndSortPeople(collectionName, rows, includeDeleted, currentUserEmail);
+      })();
+      eventRequests?.set(cacheKey, fetchPromise);
+      setCachedPeoplePromise(cacheKey, fetchPromise);
+    }
 
     try {
       const result = await fetchPromise;
@@ -78,8 +90,8 @@ export const subscribeToPeople = (
 
   fetchAll();
 
-  const handlePeopleUpdate = () => {
-    fetchAll(true); // force refresh
+  const handlePeopleUpdate = (event: Event) => {
+    fetchAll(true, event);
   };
 
   if (typeof window !== 'undefined') {

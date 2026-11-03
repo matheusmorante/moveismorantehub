@@ -224,9 +224,10 @@ export function ManageInboundInvoiceMappingsModal({
   }
 
   const hasMatchedProducts = invoice.items.some((item) => Boolean(item.matchedProductId || item.compositionLinks?.length));
+  const hasUncertainSave = uncertain.current.has(invoice.id);
   const receiptDisabledReason = saving || loading || reviewBusy
     ? 'Aguarde a consulta ou a gravação dos vínculos terminar.'
-    : uncertain.current.has(invoice.id)
+    : hasUncertainSave
       ? 'Há uma alteração sem confirmação. Consulte novamente os vínculos antes de gerar o recebimento.'
       : getInboundReceiptBlockedReason(
           { ...invoice, supplierStockOrigins: invoiceSupplierOrigins },
@@ -263,7 +264,19 @@ export function ManageInboundInvoiceMappingsModal({
         return true;
       }, (errors) => setErrorMessage(Object.values(flattenFormErrors(errors))[0] || 'Confira os vínculos.')));
     } catch (error) {
-      if (writing) uncertain.current.add(nextInvoice.id);
+      if (writing) {
+        uncertain.current.add(nextInvoice.id);
+        try {
+          await withTimeout(
+            Promise.resolve(onSaveSuccess()).then(() => true),
+            15000,
+            false,
+            'entrada:atualizar-lista-incerta'
+          );
+        } catch {
+          // A lista ainda pode ser atualizada quando a escrita da NF fica incerta.
+        }
+      }
       if (activeRef.current && context.current === submittedContext) {
         const message = `${error instanceof Error ? error.message : 'Não foi possível salvar o vínculo.'} ${writing ? 'Confira a nota antes de repetir.' : ''}`;
         setErrorMessage(message); toast.error(message);
@@ -330,7 +343,7 @@ export function ManageInboundInvoiceMappingsModal({
             {errorMessage && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">{errorMessage}</p>}
             {(loading || saving) && <p role="status" className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300"><i className="bi bi-arrow-repeat animate-spin" aria-hidden="true" />{saving ? 'Salvando e confirmando vínculos...' : 'Consultando fornecedores e vínculos...'}</p>}
             {errorMessage && !saving && <button type="button" onClick={() => { preparedMappingsKey.current = null; setErrorMessage(''); setLoading(true); setLoadRevision((value) => value + 1); }}>Consultar novamente</button>}
-            <fieldset disabled={saving || loading || reviewBusy} className="space-y-5">
+            <fieldset disabled={saving || loading || reviewBusy || hasUncertainSave} className="space-y-5">
             {/* Seção Fornecedor */}
             <section className="rounded-2xl border p-4 dark:border-slate-800">
               <h3 className="text-xs font-black uppercase text-slate-500">Fornecedor</h3>

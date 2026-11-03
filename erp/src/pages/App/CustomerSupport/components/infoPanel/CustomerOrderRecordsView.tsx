@@ -31,7 +31,7 @@ const STATUS_OPTIONS: Record<SupportCustomerOrderGroup, Array<{ value: string; l
   delivery: [
     { value: 'draft', label: 'Pendente de agendamento' },
     { value: 'scheduled', label: 'Agendado' },
-    { value: 'in_transit', label: 'Em rota' },
+    { value: 'in_transit', label: 'Em deslocamento' },
     { value: 'arrived', label: 'No local' },
     { value: 'fulfilled', label: 'Concluído' },
     { value: 'cancelled', label: 'Cancelado' },
@@ -60,7 +60,7 @@ const STATUS_LABELS: Record<string, string> = {
   expired: 'Vencido',
   vencido: 'Vencido',
   scheduled: 'Agendado',
-  in_transit: 'Em rota',
+  in_transit: 'Em deslocamento',
   arrived: 'No local',
   fulfilled: 'Atendido',
   cancelled: 'Cancelado',

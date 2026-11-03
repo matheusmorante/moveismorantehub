@@ -26,6 +26,7 @@ import { getSelectedProductStockKind } from '../../../../../../shared-utils/prod
 import { inheritMobileSimpleVariationFromParent } from '../../domain/productVariationParentSync';
 import { getMobileVariationColorSummary } from '../../domain/productCharacteristics';
 import { styles } from './productFormBasicTab.styles';
+import { ProductFormOriginAndModeFields } from './ProductFormOriginAndModeFields';
 
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
 interface Props {
@@ -334,139 +335,17 @@ export const ProductFormBasicTab: React.FC<Props> = ({
 
   return (
     <View style={styles.container}>
-      {/* ORIGEM DO ESTOQUE */}
-      {formData.itemType !== 'service' && (
-        <View style={styles.field}>
-          <Text style={[styles.label, dark && styles.lightLabel, nameError && styles.errorLabel]}>
-            ORIGEM DO ESTOQUE <Text style={styles.required}>*</Text>
-          </Text>
-          <View style={styles.originRow}>
-            <TouchableOpacity
-              onPress={() => handleSelectOrigin('normal')}
-              style={[
-                styles.originBtn,
-                isNormal
-                  ? styles.originBtnActive
-                  : dark
-                    ? styles.darkInput
-                    : styles.lightDiferenciarBtn,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Origem do estoque Convencional"
-            >
-              <Text
-                style={[
-                  styles.originBtnText,
-                  isNormal ? styles.originBtnTextActive : dark ? styles.lightText : styles.dimText,
-                ]}
-              >
-                Convencional
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => handleSelectOrigin('salvado')}
-              style={[
-                styles.originBtn,
-                isSalvado
-                  ? styles.originBtnActiveSalvado
-                  : dark
-                    ? styles.darkInput
-                    : styles.lightDiferenciarBtn,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Origem do estoque Salvados"
-            >
-              <Text
-                style={[
-                  styles.originBtnText,
-                  isSalvado
-                    ? styles.originBtnTextActiveSalvado
-                    : dark
-                      ? styles.lightText
-                      : styles.dimText,
-                ]}
-              >
-                Salvados
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => handleSelectOrigin('usado')}
-              style={[
-                styles.originBtn,
-                isUsado
-                  ? styles.originBtnActiveUsado
-                  : dark
-                    ? styles.darkInput
-                    : styles.lightDiferenciarBtn,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Origem do estoque Usados"
-            >
-              <Text
-                style={[
-                  styles.originBtnText,
-                  isUsado
-                    ? styles.originBtnTextActiveUsado
-                    : dark
-                      ? styles.lightText
-                      : styles.dimText,
-                ]}
-              >
-                Usados
-              </Text>
-            </TouchableOpacity>
-          </View>
-          {isSalvado && (
-            <Text style={styles.salvadoWarning}>
-              O produto e suas variações serão desativados no ERP.
-            </Text>
-          )}
-        </View>
-      )}
-
-      {formData.itemType !== 'service' && (
-        <View style={styles.field}>
-          <Text style={[styles.label, dark && styles.lightLabel]}>TIPO DE PRODUTO</Text>
-          <View style={styles.originRow}>
-            {[false, true].map((hasVariations) => {
-              const selected = isMultiVariationMode === hasVariations;
-              return (
-                <TouchableOpacity
-                  key={String(hasVariations)}
-                  onPress={() => handleSelectProductMode(hasVariations)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  style={[
-                    styles.originBtn,
-                    selected && styles.originBtnActive,
-                    dark && !selected && styles.darkInput,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.originBtnText,
-                      selected
-                        ? styles.originBtnTextActive
-                        : dark
-                          ? styles.lightText
-                          : styles.dimText,
-                    ]}
-                  >
-                    {hasVariations ? 'Com variações' : 'Simples'}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <Text style={[styles.dimText, { fontSize: 11, lineHeight: 16 }]}>
-            Produtos simples mantêm uma variação padrão. Para usar opções diferentes de cor,
-            tamanho ou modelo, escolha “Com variações”.
-          </Text>
-        </View>
-      )}
-
+      <ProductFormOriginAndModeFields
+        itemType={formData.itemType}
+        dark={dark}
+        nameError={nameError}
+        isNormal={isNormal}
+        isSalvado={isSalvado}
+        isUsado={isUsado}
+        isMultiVariationMode={isMultiVariationMode}
+        onSelectOrigin={handleSelectOrigin}
+        onSelectProductMode={handleSelectProductMode}
+      />
       {/* NOME DO PRODUTO */}
       <View style={styles.field}>
         <View style={styles.labelRow}>

@@ -41,7 +41,6 @@ vi.mock('lucide-react-native', () => {
     GitMerge: icon,
     QrCode: icon,
     Receipt: icon,
-    Tag: icon,
     Trash2: icon,
     X: icon,
   };
@@ -86,7 +85,6 @@ describe('MobileProductVariationActionsMenu', () => {
       onMoveToAnotherFamily: vi.fn(),
       onMergeWithAnotherVariation: vi.fn(),
       onShowOrders: vi.fn(),
-      onPrintPriceLabel: vi.fn(),
       onMoveProductToTrash: vi.fn(),
       canMoveProductToTrash: true,
     });
@@ -98,7 +96,6 @@ describe('MobileProductVariationActionsMenu', () => {
     expect(html).toContain('Mover para Outro Pai');
     expect(html).toContain('Mesclar Variação');
     expect(html).toContain('Pedidos Vinculados');
-    expect(html).toContain('Etiqueta de Preço');
     expect(html).toContain('Mover para lixeira');
   });
 
@@ -177,14 +174,12 @@ describe('MobileProductVariationActionsMenu', () => {
       onMoveToAnotherFamily: vi.fn(),
       onMergeWithAnotherVariation: vi.fn(),
       onShowOrders: vi.fn(),
-      onPrintPriceLabel: vi.fn(),
       onMoveProductToTrash: vi.fn(),
     });
     expect(merged.html).toContain('mantida apenas para histórico');
     expect(merged.html).not.toContain('Mover para Outro Pai');
     expect(merged.html).not.toContain('Mesclar Variação');
     expect(merged.html).not.toContain('Pedidos Vinculados');
-    expect(merged.html).not.toContain('Etiqueta de Preço');
     expect(merged.html).not.toContain('Mover para lixeira');
   });
 });
