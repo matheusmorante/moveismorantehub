@@ -28,6 +28,7 @@ import { getMobileVariationColorSummary } from '../../domain/productCharacterist
 import { styles } from './productFormBasicTab.styles';
 import { ProductFormOriginAndModeFields } from './ProductFormOriginAndModeFields';
 import { filterProductFormCategories } from './productFormCategoryFiltering';
+import { buildProductFormCategorySelection } from './productFormCategorySelection';
 
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
 interface Props {
@@ -119,45 +120,31 @@ export const ProductFormBasicTab: React.FC<Props> = ({
   );
 
   const handleToggleCategory = (cat: MobileCategory) => {
-    const currentIds: string[] =
-      Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0
-        ? formData.categoryIds
-        : formData.categoryId
-          ? [formData.categoryId]
-          : [];
-    const isChecked = currentIds.includes(cat.id);
-    let nextIds: string[];
-
-    if (isChecked) {
-      nextIds = currentIds.filter((id) => id !== cat.id);
-    } else {
-      nextIds = [...currentIds, cat.id];
-    }
-
-    const firstSelected = categories.find((c) => c.id === nextIds[0]);
-    const selectedCategoryNames = nextIds
-      .map((id) => categories.find((category) => category.id === id)?.name)
-      .filter((name): name is string => Boolean(name));
-    const availableEnvironments = categoryHierarchyReady
-      ? getProductCategoryRootNames(nextIds, categoryHierarchy)
-      : [];
+    const selection = buildProductFormCategorySelection({
+      categoryIds: formData.categoryIds,
+      categoryId: formData.categoryId,
+      categoryIdToToggle: cat.id,
+      categories,
+      categoryHierarchy,
+      categoryHierarchyReady,
+    });
 
     setFormData((prev) => ({
       ...prev,
-      categoryIds: nextIds,
-      categoryId: nextIds[0] || '',
-      category: firstSelected?.name || '',
-      categoryNames: selectedCategoryNames,
+      categoryIds: selection.nextIds,
+      categoryId: selection.nextIds[0] || '',
+      category: selection.categoryName,
+      categoryNames: selection.categoryNames,
       ...(categoryHierarchyReady
         ? {
             environment:
-              prev.environment && availableEnvironments.includes(prev.environment)
+              prev.environment && selection.availableEnvironments.includes(prev.environment)
                 ? prev.environment
-                : availableEnvironments[0] || '',
+                : selection.availableEnvironments[0] || '',
           }
         : {}),
     }));
-    if (nextIds.length > 0) onCategoryValidationCleared?.();
+    if (selection.nextIds.length > 0) onCategoryValidationCleared?.();
   };
 
   const selectedOpportunity = opportunities.find((o) => o.id === formData.opportunityId);
