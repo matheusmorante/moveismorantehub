@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { itemExclusionFormSchema } from './reportFormSchemas';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface ItemExclusionModalProps {
   isOpen: boolean;
@@ -61,9 +62,9 @@ const ItemExclusionModal: React.FC<ItemExclusionModalProps> = ({
   const filteredAndSortedItems = useMemo(() => {
     const result = items.filter((item) => {
       const matchesSearch =
-        normalizeSearchTerm(item.product).includes(normalizeSearchTerm(searchTerm)) ||
+        matchesSearchText(item.product, normalizeSearchTerm(searchTerm)) ||
         (item.supplier &&
-          normalizeSearchTerm(item.supplier).includes(normalizeSearchTerm(searchTerm)));
+          matchesSearchText(item.supplier, normalizeSearchTerm(searchTerm)));
       const matchesSupplier = selectedSupplier ? item.supplier === selectedSupplier : true;
 
       const itemQuadrant = item.quadrant;

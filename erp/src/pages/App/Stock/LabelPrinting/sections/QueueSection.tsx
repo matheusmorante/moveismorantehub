@@ -75,10 +75,10 @@ export const QueueSection: React.FC<QueueSectionProps> = (props) => {
               <button
                 type="button"
                 onClick={() => handleAddBlankLabel(1)}
-                className="p-2.5 px-4 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl transition-all font-black text-[9px] uppercase tracking-widest flex items-center gap-2 border border-blue-100 dark:border-blue-900/40 shadow-sm cursor-pointer"
+                className="min-h-10 px-2 bg-transparent border-0 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 font-black text-[9px] uppercase tracking-widest cursor-pointer"
                 title="Adicionar etiqueta"
               >
-                <i className="bi bi-plus-lg" /> Adicionar
+                Adicionar
               </button>
             )}
 

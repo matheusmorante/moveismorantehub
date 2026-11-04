@@ -9,7 +9,7 @@ import {
   duplicateProductMergeSearchSchema,
   DuplicateProductMergeUnconfirmedError,
 } from '../../../../../shared-utils/productDuplicateMergeFormSchemas';
-import { buildPostgrestAccentInsensitivePattern } from '../../../../../shared-utils/searchText';
+import { buildAccentInsensitiveWordsRegex } from '../../../../../shared-utils/searchText';
 
 export type DuplicateProductMergeOption = ReturnType<typeof duplicateProductMergeOptionSchema.parse>;
 
@@ -29,7 +29,7 @@ export async function searchDuplicateProductMergeTargets(
       .eq('has_variations', true)
       .eq('is_combo', false)
       .neq('id', parsed.data.sourceId)
-      .filter(column, 'imatch', buildPostgrestAccentInsensitivePattern(parsed.data.query))
+      .filter(column, 'imatch', buildAccentInsensitiveWordsRegex(parsed.data.query))
       .limit(12),
     10000,
     null,

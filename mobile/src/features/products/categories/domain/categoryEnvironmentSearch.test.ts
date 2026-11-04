@@ -34,7 +34,12 @@ describe('filterEnvironmentsBySearch', () => {
     expect(filterEnvironmentsBySearch(environments, categories, 'órfã')).toEqual([]);
   });
 
-  it('preserva espaços externos de um termo não vazio como o ERP', () => {
-    expect(filterEnvironmentsBySearch(environments, categories, '  sofá  ')).toEqual([]);
+  it('ignora espaços externos na busca', () => {
+    expect(filterEnvironmentsBySearch(environments, categories, '  sofá  ')).toEqual([environments[0]]);
+  });
+
+  it('encontra palavras em outra ordem', () => {
+    const rooms = [{ id: 'dining', name: 'Sala de Jantar', categories: [] }];
+    expect(filterEnvironmentsBySearch(rooms, categories, 'jantar sala')).toEqual(rooms);
   });
 });

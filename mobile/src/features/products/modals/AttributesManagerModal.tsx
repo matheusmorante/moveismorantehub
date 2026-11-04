@@ -18,20 +18,13 @@ import {
 import { FormTextInput } from '../../../components/shared/FormTextInput';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZodForm, flattenFormErrors } from '../../../hooks/useZodForm';
-import {
-  createCharacteristicFormSchema,
-  normalizeManagedCharacteristicType,
-  type CharacteristicFillConfigurationPayload,
-} from '../../../../../shared-utils/characteristicFormRules';
-import { getCharacteristicTextLimits } from '../../../../../shared-utils/characteristicTextLimits';
-import { normalizeProductAttributeOptionValue } from '../../../../../shared-utils/productAttributeOptionRules';
+import { createCharacteristicFormSchema } from '../../../../../shared-utils/characteristicFormRules';
 import {
   addMobileAttributeValue,
   deleteMobileAttribute,
   deleteMobileAttributeValue,
   fetchMobileAttributes,
   type MobileAttribute,
-  type MobileAttributeDataType,
   saveMobileAttributeDefinition,
 } from '../services/mobileAttributeService';
 import { ManagedAttributesList } from './ManagedAttributesList';
@@ -41,9 +34,9 @@ import {
   parseOptionalNumber,
   toCharacteristicOptionInput,
   type CharacteristicOptionInput,
-  type FillLimitInputValues,
 } from './attributesManagerFormModel';
 import { styles } from './attributesManagerModal.styles';
+import { useNewAttributeDefinitionDraft } from './useNewAttributeDefinitionDraft';
 
 interface Props {
   visible: boolean;
@@ -57,45 +50,31 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [newDataType, setNewDataType] = useState<MobileAttributeDataType>('radio');
-  const [newUnit, setNewUnit] = useState('cm');
-  const [newDecimalPlaces, setNewDecimalPlaces] = useState<1 | 2 | 3>(2);
-  const [isSavingNew, setIsSavingNew] = useState(false);
-  const [newAttrName, setNewAttrName] = useState('');
-  const [newOptionInput, setNewOptionInput] = useState('');
-  const [newOptions, setNewOptions] = useState<string[]>([]);
-  const [newConfigurationInputs, setNewConfigurationInputs] = useState<FillLimitInputValues>({
-    minValue: '',
-    maxValue: '',
-    minSelections: '',
-    maxSelections: '',
-  });
+  const {
+    newDataType,
+    setNewDataType,
+    newUnit,
+    setNewUnit,
+    newDecimalPlaces,
+    setNewDecimalPlaces,
+    isSavingNew,
+    setIsSavingNew,
+    newAttrName,
+    setNewAttrName,
+    newOptionInput,
+    setNewOptionInput,
+    newOptions,
+    setNewOptions,
+    newConfigurationInputs,
+    setNewConfigurationInputs,
+    newFillType,
+    newDefinition,
+  } = useNewAttributeDefinitionDraft();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [newValText, setNewValText] = useState('');
   const [savingValueId, setSavingValueId] = useState<string | null>(null);
   const optionsUpdateAttributeId = useRef<string | undefined>(undefined);
   const allCharacteristics = attributes.map((attribute) => ({ ...attribute, active: attribute.active !== false }));
-  const newFillType = normalizeManagedCharacteristicType(newDataType);
-  const newConfiguration: CharacteristicFillConfigurationPayload =
-    getCharacteristicTextLimits(newFillType) ??
-    (newFillType === 'integer' || newFillType === 'decimal'
-      ? {
-          minValue: parseOptionalNumber(newConfigurationInputs.minValue),
-          maxValue: parseOptionalNumber(newConfigurationInputs.maxValue),
-        }
-      : newFillType === 'multi_select'
-        ? {
-            minSelections: parseOptionalNumber(newConfigurationInputs.minSelections),
-            maxSelections: parseOptionalNumber(newConfigurationInputs.maxSelections),
-          }
-        : {});
-  const newDefinition = {
-    name: newAttrName, dataType: newDataType, unit: newDataType === 'measure' ? newUnit : '',
-    decimalPlaces: newDecimalPlaces, active: true,
-    configuration: newConfiguration,
-    options: [...newOptions, ...((newDataType === 'radio' || newDataType === 'multi_select') && newOptionInput.trim() ? [newOptionInput.trim()] : [])]
-      .map((value) => ({ id: '', value: normalizeProductAttributeOptionValue(value) })),
-  };
   const { validateAndRun: validateNewDefinition } = useZodForm(createCharacteristicFormSchema(allCharacteristics), newDefinition);
   const { validateAndRun: validateOptionsUpdate } = useZodForm(
     createCharacteristicFormSchema(allCharacteristics, () => optionsUpdateAttributeId.current),

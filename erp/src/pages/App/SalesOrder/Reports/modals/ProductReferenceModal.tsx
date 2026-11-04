@@ -7,6 +7,7 @@ import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface ProductReference {
   id: string;
@@ -122,8 +123,8 @@ const ProductReferenceModal: React.FC<ProductReferenceModalProps> = ({
   const normSearch = normalizeSearchTerm(searchTerm);
   const filteredReferences = references.filter(
     (r) =>
-      normalizeSearchTerm(r.master_name).includes(normSearch) ||
-      normalizeSearchTerm(r.reference_name).includes(normSearch)
+      matchesSearchText(r.master_name, normSearch) ||
+      matchesSearchText(r.reference_name, normSearch)
   );
 
   if (!isOpen) return null;

@@ -19,6 +19,7 @@ vi.mock('../sections/QueueSection', () => ({ QueueSection: () => null }));
 vi.mock('../sections/PreviewSection', () => ({ PreviewSection: () => null }));
 vi.mock('../sections/PrintPortalSection', () => ({ PrintPortalSection: () => null }));
 vi.mock('../sections/ModalsSection', () => ({ ModalsSection: () => null }));
+vi.mock('../components/LabelPrintAgentPanel', () => ({ LabelPrintAgentPanel: () => <section aria-label="Estação de impressão" /> }));
 
 type Response = { data: unknown; error: unknown };
 let finish!: (value: Response) => void;
@@ -34,8 +35,15 @@ beforeEach(() => {
   });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
-const page = () => render(<MemoryRouter initialEntries={['/stock/labels?cat=identificacao']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><LabelPrinting /></MemoryRouter>);
+const page = (category = 'identificacao') => render(<MemoryRouter initialEntries={[`/stock/labels?cat=${category}`]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><LabelPrinting /></MemoryRouter>);
 describe('consulta de modelos na página real', () => {
+  it('oculta a estação na identificação e a mantém nas etiquetas de preço', () => {
+    const identification = page();
+    expect(screen.queryByRole('region', { name: 'Estação de impressão' })).toBeNull();
+    identification.unmount();
+    page('precos');
+    expect(screen.getByRole('region', { name: 'Estação de impressão' })).toBeTruthy();
+  });
   it('exibe progresso e falha sem perder modelos locais', async () => {
     page(); expect(screen.getByRole('status').textContent).toContain('Consultando');
     await act(async () => { finish({ data: null, error: { code: '42501' } }); });

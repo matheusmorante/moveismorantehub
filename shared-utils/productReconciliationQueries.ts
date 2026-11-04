@@ -14,7 +14,7 @@ import {
 } from './productListSearch';
 import {
   buildPostgrestAccentInsensitiveOrFilter,
-  buildPostgrestAccentInsensitivePattern,
+  buildAccentInsensitiveWordsRegex,
 } from './searchText';
 
 const applyProductReconciliationSqlFilters = (
@@ -51,7 +51,7 @@ const fetchVariationSkuParentIds = async (client: any, search?: string): Promise
   const { data, error } = await client
     .from('product_variations')
     .select('product_id')
-    .filter('sku', 'imatch', buildPostgrestAccentInsensitivePattern(safeSearch))
+    .filter('sku', 'imatch', buildAccentInsensitiveWordsRegex(safeSearch))
     .limit(PRODUCT_VARIATION_SEARCH_MATCH_LIMIT + 1);
 
   if (error) throw error;

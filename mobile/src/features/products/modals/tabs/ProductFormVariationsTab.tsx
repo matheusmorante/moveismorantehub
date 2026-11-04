@@ -15,10 +15,6 @@ import {
   Link2,
   Unlink,
   Info,
-  Settings,
-  FileText,
-  Images,
-  Package,
   Network,
   X,
   Check,
@@ -62,7 +58,8 @@ import { variationToSimpleConfirmationSchema } from '../../../../../../shared-ut
 import { isSingleProductVariationFormMode } from '../../../../../../shared-utils/productVariationMode';
 
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
-type VariationTabId = 'identificacao' | 'tecnico' | 'descricao' | 'fotos' | 'compostos' | 'estoque';
+import { getMobileProductVariationTabs } from './productVariationTabs';
+import type { VariationTabId } from './productVariationTabs';
 
 interface Props {
   formData: any;
@@ -476,24 +473,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
     isSingleExistingVariation &&
     inheritedDataTabs.includes(activeVariationTab);
 
-  const variationTabs = [
-    { id: 'identificacao' as const, label: 'Informações Básicas', Icon: Info },
-    ...(!isStockistOnly
-      ? [
-          { id: 'fotos' as const, label: 'Fotos vinculadas', Icon: Images },
-        ]
-      : []),
-    ...(!isStockistOnly
-      ? [{ id: 'tecnico' as const, label: 'Características', Icon: Settings }]
-      : []),
-    ...(!isStockistOnly
-      ? [{ id: 'descricao' as const, label: 'Descrição', Icon: FileText }]
-      : []),
-    { id: 'estoque' as const, label: 'Estoque e Precificação', Icon: Package },
-    ...(isComposition
-      ? [{ id: 'compostos' as const, label: 'Produtos Componentes', Icon: Network }]
-      : []),
-  ];
+  const variationTabs = getMobileProductVariationTabs(isComposition, isStockistOnly);
 
   useEffect(() => {
     if (!variationTabs.some((tab) => tab.id === activeVariationTab)) {

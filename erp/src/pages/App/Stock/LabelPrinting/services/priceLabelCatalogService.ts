@@ -3,6 +3,7 @@ import { normalizeSearchTerm, buildAccentInsensitiveRegex } from '@/pages/utils/
 import { getLocalProducts } from '@/pages/utils/productService/productLocalCache';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { labelCatalogProductSchema, labelCatalogSearchFormSchema } from '../../../../../../../shared-utils/labelDataFillFormSchemas';
+import { buildPostgrestAccentInsensitiveOrFilter, matchesSearchText } from '../../../../../../../shared-utils/searchText';
 
 export interface PriceLabelCatalogProduct {
   id: string;
@@ -53,7 +54,7 @@ export async function searchProductsForLabelResult(searchTerm: string): Promise<
       if (!remote && term) {
         const description = normalizeSearchTerm(text(item.name || item.title || item.marketplaceTitle || item.description));
         const code = normalizeSearchTerm(text(item.code ?? item.sku));
-        if (!description.includes(term) && !code.includes(term)) continue;
+        if (!matchesSearchText(`${description} ${code}`, term)) continue;
       }
       const name = extractProductName(item);
       const images = remote && Array.isArray(item.product_images) && item.product_images.length
@@ -81,9 +82,13 @@ export async function searchProductsForLabelResult(searchTerm: string): Promise<
     if (term) {
       const regex = quoteFilter(`.*${buildAccentInsensitiveRegex(term)}.*`), like = quoteFilter(likePattern(term));
       // PostgREST aliases '*' to '%' for LIKE even inside quoted values.
-      query = query.or(term.includes('*')
+      const phraseFilters = term.includes('*')
         ? `name.imatch.${regex},description.imatch.${regex},code.imatch.${regex}`
-        : `name.imatch.${regex},description.imatch.${regex},name.ilike.${like},description.ilike.${like},code.ilike.${like}`);
+        : `name.imatch.${regex},description.imatch.${regex},name.ilike.${like},description.ilike.${like},code.ilike.${like}`;
+      const wordsFilter = term.split(/\s+/).length > 1
+        ? buildPostgrestAccentInsensitiveOrFilter(['name', 'description', 'code'], term.replace(/-/g, ' '), 'contains', { includeYAndIEquivalence: true })
+        : '';
+      query = query.or(wordsFilter || phraseFilters);
     }
     const response = await withTimeout(query, 15_000, null, 'etiquetas:buscar-produtos');
     if (!response || response.error || !Array.isArray(response.data)) throw new Error('Consulta não confirmada.');

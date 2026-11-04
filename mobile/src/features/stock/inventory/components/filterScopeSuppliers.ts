@@ -1,4 +1,5 @@
 import type { ScopeSupplier } from '../hooks/useInventoryScopeBuilder';
+import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 
 const normalize = (value: string) =>
   value
@@ -12,6 +13,6 @@ export const filterScopeSuppliers = (
 ): ScopeSupplier[] => {
   const query = normalize(search.trim());
   return query
-    ? suppliers.filter((supplier) => normalize(supplier.full_name).includes(query))
+    ? suppliers.filter((supplier) => matchesSearchText(supplier.full_name, query))
     : [...suppliers];
 };

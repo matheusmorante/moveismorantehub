@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { VariationOption } from '../../../types/variation.type';
 import { sortAttributeValuesNaturally } from '../../../utils/attributeValueSorting';
 import { normalizeCharacteristicText } from '../domain/characteristicFormRules';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface CharacteristicOptionsSectionProps {
   readonly options: readonly VariationOption[];
@@ -31,10 +32,7 @@ export function CharacteristicOptionsSection({
     return sortAttributeValuesNaturally(options)
       .filter((option) => {
         if (!searchEnabled || !normalizedSearch) return true;
-        return normalizeCharacteristicText(option.value)
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .includes(normalizedSearch);
+        return matchesSearchText(normalizeCharacteristicText(option.value), normalizedSearch);
       });
   }, [options, search, searchEnabled]);
 

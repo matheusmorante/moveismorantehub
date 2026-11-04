@@ -1,4 +1,5 @@
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 export interface LabelPrintProduct {
   readonly id: string;
@@ -74,9 +75,9 @@ export function orderLabelPrintProducts(
   const query = normalizeSearchTerm(search);
   const filteredProducts = (products || []).filter(
     (product) =>
-      normalizeSearchTerm(product.description || '').includes(query) ||
-      normalizeSearchTerm(product.code || '').includes(query) ||
-      normalizeSearchTerm(product.sku || '').includes(query)
+      matchesSearchText(product.description || '', query) ||
+      matchesSearchText(product.code || '', query) ||
+      matchesSearchText(product.sku || '', query)
   );
 
   return [

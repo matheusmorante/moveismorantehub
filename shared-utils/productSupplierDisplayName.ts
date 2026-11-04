@@ -1,4 +1,4 @@
-import { normalizeSearchTerm } from './productText';
+import { matchesSearchText } from './searchText';
 
 export interface ProductSupplierNameSource {
   fullName?: string | null;
@@ -27,6 +27,4 @@ export const matchesProductSupplierSearch = (
   supplier: ProductSupplierNameSource | null | undefined,
   query: string
 ): boolean =>
-  normalizeSearchTerm(getProductSupplierDisplayName(supplier)).includes(
-    normalizeSearchTerm(query)
-  );
+  matchesSearchText(getProductSupplierDisplayName(supplier), query);

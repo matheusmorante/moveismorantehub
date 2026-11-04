@@ -6,6 +6,7 @@ import {
   getCharacteristicSubtitle,
   isChoiceCharacteristicType,
 } from '../domain/characteristicFormRules';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const VALUE_PREVIEW_LIMIT = 15;
 
@@ -29,7 +30,7 @@ export function AttributeDetailsModal({
     const search = normalizeSearchTerm(valueSearch);
     if (!search) return attribute.options;
     return attribute.options.filter((option) =>
-      normalizeSearchTerm(option.value).includes(search)
+      matchesSearchText(option.value, search)
     );
   }, [attribute.options, valueSearch]);
 

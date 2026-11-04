@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
 import type { CharacteristicGroup } from '@/pages/types/variation.type';
@@ -353,7 +354,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     }
     return searchableOptionalFields
       .filter((field) =>
-        normalizeSearchTerm(getTechnicalFieldDisplayName(field.name)).includes(
+        matchesSearchText(getTechnicalFieldDisplayName(field.name),
           normalizedDebouncedSearchTerm
         )
       )

@@ -1,4 +1,5 @@
 import { removeAccents } from './productText';
+import { matchesSearchText } from './searchText';
 
 export interface EnvironmentSearchCategory {
   id: string;
@@ -12,7 +13,7 @@ export interface EnvironmentSearchItem {
 
 /**
  * Search environments by their own name or the name of a linked category.
- * Keep the raw non-empty query to match the ERP category-management screen.
+ * Match all typed words without depending on their order.
  */
 export function filterEnvironmentsBySearch<TEnvironment extends EnvironmentSearchItem>(
   environments: TEnvironment[],
@@ -21,16 +22,15 @@ export function filterEnvironmentsBySearch<TEnvironment extends EnvironmentSearc
 ): TEnvironment[] {
   if (!searchTerm.trim()) return environments;
 
-  // Keep leading/trailing spaces meaningful while comparing case- and accent-insensitively.
   const normalizeForSearch = (value: string) => removeAccents(value).toLowerCase();
   const normalizedTerm = normalizeForSearch(searchTerm);
   return environments.filter((environment) => {
-    if (normalizeForSearch(environment.name).includes(normalizedTerm)) return true;
+    if (matchesSearchText(normalizeForSearch(environment.name), normalizedTerm)) return true;
 
     return categories.some(
       (category) =>
         environment.categories?.includes(category.id) &&
-        normalizeForSearch(category.name).includes(normalizedTerm)
+        matchesSearchText(normalizeForSearch(category.name), normalizedTerm)
     );
   });
 }

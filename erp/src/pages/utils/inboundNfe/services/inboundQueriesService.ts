@@ -5,7 +5,7 @@ import { parseInboundNfeXml } from '../utils/inboundXmlParser';
 import { isValidUuid } from '../../uuidUtils';
 import {
   buildPostgrestAccentInsensitiveOrFilter,
-  buildPostgrestAccentInsensitivePattern,
+  buildAccentInsensitiveWordsRegex,
 } from '../../../../../../shared-utils/searchText';
 import { matchesSearchText } from '@/pages/utils/textUtils';
 import { getLocalInvoices } from './inboundCacheService';
@@ -116,13 +116,18 @@ export const fetchInboundInvoicesPage = async (
         // Busca exata pela chave (sem wildcards laterais desnecessários, mas mantém ilike para compatibilidade)
         query = query.or(`chave_acesso.ilike.%${cleanNum}%,chave_acesso.eq.${cleanNum}`);
       } else if (cleanNum.length > 0) {
-        query = query.or([
+        const filters = [
           buildPostgrestAccentInsensitiveOrFilter(['emitente_nome'], searchTerm),
           buildPostgrestAccentInsensitiveOrFilter(['chave_acesso'], cleanNum),
-          buildPostgrestAccentInsensitiveOrFilter(['numero_nfe', 'emitente_cnpj'], searchTerm),
-        ].join(','));
+          buildPostgrestAccentInsensitiveOrFilter(['emitente_cnpj'], searchTerm),
+        ];
+        const number = Number(searchTerm);
+        if (/^\d+$/.test(searchTerm) && Number.isSafeInteger(number) && number <= 2147483647) {
+          filters.push(`numero_nfe.eq.${number}`);
+        }
+        query = query.or(filters.join(','));
       } else {
-        query = query.filter('emitente_nome', 'imatch', buildPostgrestAccentInsensitivePattern(searchTerm));
+        query = query.filter('emitente_nome', 'imatch', buildAccentInsensitiveWordsRegex(searchTerm));
       }
     }
 

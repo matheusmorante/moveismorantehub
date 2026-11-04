@@ -14,6 +14,7 @@ import {
 } from '../../../../../shared-utils/variationFamilyFormSchemas';
 import { parseVariationImages } from '../../../../../shared-utils/productVariationImages';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { matchesSearchText } from '../../../../../shared-utils/searchText';
 
 const moveVariationFormSchema = variationFamilyCommandSchema.safeExtend({
   ready: z.boolean().refine(Boolean, 'Aguarde a validação da combinação antes de mover a variação.'),
@@ -141,10 +142,10 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
   const form = useZodForm(moveVariationFormSchema, formValues);
   const suggestions = useMemo(() => {
     const term = normalize(familyQuery.trim());
-    if (term.length < 2 || targetFamilyId) return [];
+    if (term.length < 3 || targetFamilyId) return [];
     return families
-      .filter((family) => normalize(`${familyName(family)} ${family.code || ''}`).includes(term))
-      .slice(0, 8);
+      .filter((family) => matchesSearchText(`${familyName(family)} ${family.code || ''}`, term))
+      .slice(0, 5);
   }, [families, familyQuery, targetFamilyId]);
 
   useEffect(() => {
@@ -520,7 +521,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                 }}
                 onFocus={() => setShowSuggestions(true)}
                 editable={!familiesLoading && !queryError && !saving && !mutationBlocked}
-                placeholder="Nome ou código (mín. 2 caracteres)"
+                placeholder="Nome ou código (mín. 3 caracteres)"
                 placeholderTextColor={dark ? '#94a3b8' : '#94a3b8'}
                 style={[
                   styles.input,
@@ -553,7 +554,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
                   </TouchableOpacity>
                 </View>
               ) : null}
-              {showSuggestions && !targetFamilyId && familyQuery.trim().length >= 2 ? (
+              {showSuggestions && !targetFamilyId && familyQuery.trim().length >= 3 ? (
                 <View style={[styles.suggestions, dark && styles.suggestionsDark]}>
                   {suggestions.length ? (
                     suggestions.map((family) => (

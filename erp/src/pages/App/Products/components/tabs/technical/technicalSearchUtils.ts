@@ -14,6 +14,7 @@ import {
   normalizeSearchTerm,
 } from './technicalTabUtils';
 import { getTechnicalFieldDisplayName } from '../../../../../../../../shared-utils/productTechnicalFieldScope';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 export interface GetDisplayedOptionalFieldsParams {
   readonly requiredFieldsOnly: boolean;
@@ -122,8 +123,8 @@ export const getMatchingTopicGroups = (
   return CHARACTERISTIC_TOPIC_GROUPS.filter((grp) =>
     grp.searchKeywords.some(
       (kw) =>
-        normalizeSearchTerm(kw).includes(normalizedDebouncedSearchTerm) ||
-        normalizedDebouncedSearchTerm.includes(normalizeSearchTerm(kw))
+        matchesSearchText(kw, normalizedDebouncedSearchTerm) ||
+        matchesSearchText(normalizedDebouncedSearchTerm, kw)
     )
   );
 };

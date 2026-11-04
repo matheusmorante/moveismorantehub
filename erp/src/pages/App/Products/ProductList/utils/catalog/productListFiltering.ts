@@ -1,6 +1,7 @@
 import Product from '../../../../../types/product.type';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import type { ProductListFilters } from '../../types';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 export type { ProductListFilters } from '../../types';
 
@@ -47,7 +48,7 @@ export function filterAndSortProducts(
       }
 
       const matchesSearch = (value?: string) =>
-        normalizeSearchTerm(value || '').includes(searchTerm);
+        matchesSearchText(value || '', searchTerm);
       const matchesSelf = matchesSearch(product.name);
       let matchesRelatedProduct: boolean;
 

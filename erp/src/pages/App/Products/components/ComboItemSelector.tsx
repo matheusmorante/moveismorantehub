@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import DropdownPortal from '@/components/shared/DropdownPortal';
 import { useRef } from 'react';
 import { getSelectedProductDisplayName } from '../../../utils/productVariationDefaults';
-import { buildPostgrestAccentInsensitivePattern } from '../../../../../../shared-utils/searchText';
+import { buildAccentInsensitiveWordsRegex } from '../../../../../../shared-utils/searchText';
 
 interface ProductSearchResult {
   id: string;
@@ -54,7 +54,7 @@ export const ComboItemSelector: React.FC<ComboItemSelectorProps> = ({
         const { data, error } = await supabase
           .from('products')
           .select('id, description, unitPrice, stock, hasVariations, variations')
-          .filter('description', 'imatch', buildPostgrestAccentInsensitivePattern(trimmedSearch))
+          .filter('description', 'imatch', buildAccentInsensitiveWordsRegex(trimmedSearch))
           .eq('is_combo', false) // Evitar combos recursivos
           .limit(5);
 

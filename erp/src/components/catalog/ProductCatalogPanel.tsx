@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import { flattenCategories, type CategoryOption, type CategoryRelation } from './productCatalogCategoryTree';
+import { ProductCatalogCategoryRail } from './ProductCatalogCategoryRail';
 import { buildProductCatalogUrl } from '../../../../shared-utils/productCatalogLinks';
 import {
   productCatalogFiltersSchema,
@@ -410,24 +411,12 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
           <>
             <div className="catalog-picker-container min-h-0 flex-1">
               <div className="catalog-picker-layout">
-                <aside className="catalog-category-rail" aria-label="Categorias do catálogo">
-                  <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">Categorias</p>
-                  <button type="button" aria-pressed={!categoryId} onClick={() => updateCategoryFilter('')} className={`catalog-category-option ${!categoryId ? 'is-active' : ''}`}>
-                    <span>Todos</span><span>{!categoryId ? total : ''}</span>
-                  </button>
-                  {flattenedCategories.map(({ category, depth }) => (
-                    <button
-                      key={category.id}
-                      type="button"
-                      aria-pressed={categoryId === category.id}
-                      onClick={() => updateCategoryFilter(category.id)}
-                      style={{ paddingLeft: `${12 + Math.min(depth, 5) * 12}px` }}
-                      className={`catalog-category-option ${categoryId === category.id ? 'is-active' : ''}`}
-                    >
-                      <span className="truncate">{category.name}</span>
-                    </button>
-                  ))}
-                </aside>
+                <ProductCatalogCategoryRail
+                  categories={flattenedCategories}
+                  categoryId={categoryId}
+                  total={total}
+                  onSelectCategory={updateCategoryFilter}
+                />
 
                 <section className="catalog-results-pane" aria-label="Produtos do catálogo">
                   <div className="catalog-filter-toolbar">

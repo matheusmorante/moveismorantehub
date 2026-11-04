@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Person from '@/pages/types/person.type';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface UseSupplierAutocompleteProps {
   suppliers: Person[];
@@ -95,9 +96,7 @@ export const useSupplierAutocomplete = ({
     const nameNorm = normalize(s.fullName);
     const tradeNorm = normalize(s.tradeName || '');
     const docNorm = normalize(s.cpfCnpj || (s as any).document || '');
-    return (
-      nameNorm.includes(queryNorm) || tradeNorm.includes(queryNorm) || docNorm.includes(queryNorm)
-    );
+    return matchesSearchText(`${nameNorm} ${tradeNorm} ${docNorm}`, queryNorm);
   }).slice(0, 5);
 
   const isSelected = Boolean(selectedSupplierId && selectedSupplier);

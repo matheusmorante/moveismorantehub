@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface TechnicalValueOption {
   readonly id?: string;
@@ -48,7 +49,7 @@ export const TechnicalValueSelectModal: React.FC<TechnicalValueSelectModalProps>
     const term = normalizeSearchTerm(cleanedSearch);
     return options.filter((opt) => {
       const optVal = opt?.value ? String(opt.value) : '';
-      return normalizeSearchTerm(optVal).includes(term);
+      return matchesSearchText(optVal, term);
     });
   }, [options, cleanedSearch, isSearchActive]);
 

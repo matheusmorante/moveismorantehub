@@ -156,8 +156,8 @@ export const useProductFormLoad = ({
         });
         initialFormDataRef.current = JSON.stringify(nextFormData);
         setFormData(nextFormData);
-        pricing.setDiscountFixed('');
-        pricing.setDiscountPercent('');
+        pricing.setDiscountFixed(null);
+        pricing.setDiscountPercent(null);
       }
 
       if (!isMounted) return;

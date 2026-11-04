@@ -36,11 +36,11 @@ function mockSupabase(results: Array<any> | ((column: string | null) => Array<an
   const client = {
     from: vi.fn(() => {
       const query: Record<string, any> = { column: null, filters: [], orders: [], result: results };
-      for (const method of ['select', 'eq', 'in', 'not', 'or', 'order', 'limit', 'ilike']) {
+      for (const method of ['select', 'eq', 'in', 'not', 'or', 'order', 'limit', 'ilike', 'filter']) {
         query[method] = vi.fn((...args: any[]) => {
-          if (method === 'ilike') query.column = args[0];
+          if (method === 'ilike' || method === 'filter') query.column = args[0];
           if (method === 'order') query.orders.push(args);
-          if (['eq', 'in', 'not', 'or', 'ilike'].includes(method)) query.filters.push([method, ...args]);
+          if (['eq', 'in', 'not', 'or', 'ilike', 'filter'].includes(method)) query.filters.push([method, ...args]);
           return query;
         });
       }
@@ -96,11 +96,14 @@ describe('Paginação do histórico da Central', () => {
     const page = await fetchConversationAttachmentPage(client as any, 'conversation-1', null, ' promo%_* ', 2);
 
     expect(queries).toHaveLength(3);
-    expect(queries.map((query) => query.filters.find((filter: unknown[]) => filter[0] === 'ilike')?.slice(1))).toEqual([
-      ['text_content', '%promo\\%\\_\\*%'],
-      ['media_filename', '%promo\\%\\_\\*%'],
-      ['media_caption', '%promo\\%\\_\\*%'],
+    expect(queries.map((query) => query.filters.find((filter: unknown[]) => filter[0] === 'filter')?.slice(1, 3))).toEqual([
+      ['text_content', 'imatch'], ['media_filename', 'imatch'], ['media_caption', 'imatch'],
     ]);
+    for (const query of queries) {
+      const pattern = query.filters.find((filter: unknown[]) => filter[0] === 'filter')[3];
+      expect(new RegExp(pattern, 'i').test('promo%_*')).toBe(true);
+      expect(new RegExp(pattern, 'i').test('promo123')).toBe(false);
+    }
     expect(page.messages.map((message) => message.id)).toEqual(['item-1', 'item-2']);
     expect(page.hasMore).toBe(true);
     expect(page.nextCursor?.id).toBe('item-2');
@@ -120,21 +123,22 @@ describe('Paginação do histórico da Central', () => {
   });
 
   it('pesquisa todo o histórico com termo literal antes do cursor e limite, incluindo legendas', async () => {
-    const resultsByColumn = {
-      text_content: [messageRow('text-result', '2026-10-23T15:00:00Z', 'text')],
-      media_filename: [messageRow('file-result', '2026-10-23T14:00:00Z', 'document')],
-      media_caption: [messageRow('text-result', '2026-10-23T15:00:00Z', 'text'), messageRow('caption-result', '2026-10-23T13:00:00Z', 'image')],
-    };
-    const { client, queries } = mockSupabase((column) => resultsByColumn[column as keyof typeof resultsByColumn] || []);
+    const rows = [messageRow('text-result', '2026-10-23T15:00:00Z', 'text'),
+      messageRow('file-result', '2026-10-23T14:00:00Z', 'document'),
+      messageRow('caption-result', '2026-10-23T13:00:00Z', 'image')];
+    const { client, queries } = mockSupabase(rows);
     const cursor = { timestamp: '2026-10-23T16:00:00.123+00:00', id: 'source-id' };
     const page = await fetchConversationMessageSearchPage(client as any, 'conversation-1', cursor, ' a%_*\\b ', 2);
     expect(page.messages.map((message) => message.id)).toEqual(['text-result', 'file-result']);
     expect(page.hasMore).toBe(true);
     expect(page.nextCursor).toEqual({ timestamp: '2026-10-23T14:00:00Z', id: 'file-result' });
-    expect(queries).toHaveLength(3);
-    queries.forEach((query, index) => {
+    expect(queries).toHaveLength(1);
+    queries.forEach((query) => {
       expect(query.filters[0]).toEqual(['eq', 'conversation_id', 'conversation-1']);
-      expect(query.filters[1]).toEqual(['ilike', ['text_content', 'media_filename', 'media_caption'][index], '%a\\%\\_\\*\\\\b%']);
+      expect(query.filters[1][0]).toBe('or');
+      expect(query.filters[1][1]).toContain('text_content.imatch.');
+      expect(query.filters[1][1]).toContain('media_filename.imatch.');
+      expect(query.filters[1][1]).toContain('media_caption.imatch.');
       expect(query.or).toHaveBeenCalledWith('timestamp.lt."2026-10-23T16:00:00.123+00:00",and(timestamp.eq."2026-10-23T16:00:00.123+00:00",id.lt.source-id)');
       expect(query.limit).toHaveBeenCalledWith(3);
       expect(query.in).not.toHaveBeenCalled();
@@ -151,6 +155,6 @@ describe('Paginação do histórico da Central', () => {
       .rejects.toThrow('A busca deve ter no máximo 100 caracteres.');
     expect(client.from).not.toHaveBeenCalled();
     await fetchConversationMessageSearchPage(client as any, 'conversation-1', null, 'consulta', 5000);
-    queries.forEach((query) => expect(query.limit).toHaveBeenCalledWith(51));
+    queries.forEach((query) => expect(query.limit).toHaveBeenCalledWith(6));
   });
 });

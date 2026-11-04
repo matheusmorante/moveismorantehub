@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 export interface CategoryItem {
   readonly id: string;
@@ -38,7 +39,7 @@ export const CategorySearchModal: React.FC<CategorySearchModalProps> = ({
   const filtered = useMemo(() => {
     const s = normalizeSearchTerm(search);
     return (categories || [])
-      .filter((c) => normalizeSearchTerm(c.name).includes(s))
+      .filter((c) => matchesSearchText(c.name, s))
       .sort((a, b) => a.name.localeCompare(b.name))
       .slice(0, 30);
   }, [categories, search]);

@@ -4,6 +4,7 @@ import { AccountReceivable } from '../../../types/finance.type';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import ReceivableModal from './ReceivableModal';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -100,8 +101,8 @@ export default function Receivables() {
   const normSearch = normalizeSearchTerm(search);
   const filtered = receivables.filter(
     (r) =>
-      normalizeSearchTerm(r.description || '').includes(normSearch) ||
-      normalizeSearchTerm(r.customer_name || '').includes(normSearch)
+      matchesSearchText(r.description || '', normSearch) ||
+      matchesSearchText(r.customer_name || '', normSearch)
   );
   const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);

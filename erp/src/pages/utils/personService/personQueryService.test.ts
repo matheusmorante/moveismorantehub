@@ -32,7 +32,7 @@ describe('person query projection', () => {
     const person = (id: string, metadata?: object) => ({ id, fullAddress: { testArtifact: metadata } });
     const own = person('owned', { is_test: true, ...identity });
     const chain: any = {
-      select: vi.fn(() => chain), or: vi.fn(() => chain), eq: vi.fn(() => chain), order: vi.fn(() => chain),
+      select: vi.fn(() => chain), or: vi.fn(() => chain), filter: vi.fn(() => chain), eq: vi.fn(() => chain), order: vi.fn(() => chain),
       limit: vi.fn().mockResolvedValue({ data: [
         own, person('operational'),
         person('other-run', { is_test: true, ...identity, runId: '18f29e44-f7f1-4caa-b640-5fdffbc0047a' }),
@@ -53,7 +53,7 @@ describe('person query projection', () => {
   it.each(['search', 'recent'] as const)('keeps test customers hidden in an ordinary query (%s)', async (kind) => {
     const normal = { id: 'operational' };
     const chain: any = {
-      select: vi.fn(() => chain), or: vi.fn(() => chain), eq: vi.fn(() => chain), order: vi.fn(() => chain),
+      select: vi.fn(() => chain), or: vi.fn(() => chain), filter: vi.fn(() => chain), eq: vi.fn(() => chain), order: vi.fn(() => chain),
       limit: vi.fn().mockResolvedValue({ data: [normal, { id: 'test', fullAddress: { testArtifact: { is_test: true } } }], error: null }),
     };
     mocks.from.mockReturnValue(chain);

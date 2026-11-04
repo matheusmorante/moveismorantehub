@@ -278,9 +278,6 @@ export const useLabelQueue = ({ selectedCategory, config, printingMode }: UseLab
       };
       setLabelItems((prev: any) => [...prev, newItem]);
     }
-    if (selectedCategory === 'logos') {
-      toast.success(`Etiqueta em branco (${quantity} un) adicionada à fila.`);
-    }
   }, (errors) => toast.error(Object.values(flattenFormErrors(errors))[0]));
 
   const handleReorderItems = (draggedIdx: number, targetIdx: number) => {

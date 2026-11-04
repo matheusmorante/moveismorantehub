@@ -1,4 +1,4 @@
-import { buildPostgrestAccentInsensitiveOrFilter } from './searchText';
+import { buildPostgrestAccentInsensitiveOrFilter, buildPostgrestAccentInsensitivePattern } from './searchText';
 
 export const PRODUCT_LIST_SEARCH_MIN_LENGTH = 3;
 export const PRODUCT_LIST_SEARCH_DEBOUNCE_MS = 350;
@@ -36,11 +36,23 @@ export const buildProductSearchTerms = (search: string): ProductSearchTerms => {
   return { safeSearch, searchTerms, wordTerms };
 };
 
-export const buildProductVariationSearchFilter = (searchTerms: readonly string[]): string =>
-  searchTerms
-    .map((term) => buildPostgrestAccentInsensitiveOrFilter(['name', 'sku'], term))
-    .filter(Boolean)
-    .join(',');
+const phraseFilter = (columns: readonly string[], term: string): string => {
+  const pattern = buildPostgrestAccentInsensitivePattern(term);
+  return pattern ? columns.map((column) => `${column}.imatch.${pattern}`).join(',') : '';
+};
+
+const wordConjunction = (columns: readonly string[], words: ProductSearchTerms['wordTerms']): string =>
+  `and(${words.map(({ value, alternative }) => {
+    const terms = [value, alternative, value.replace(/y/gi, 'i'), value.replace(/i/gi, 'y')].filter(Boolean) as string[];
+    const filters = Array.from(new Set(terms.map((term) => buildPostgrestAccentInsensitiveOrFilter(columns, term))));
+    return `or(${filters.join(',')})`;
+  }).join(',')})`;
+
+export const buildProductVariationSearchFilter = (searchTerms: readonly string[]): string => {
+  const words = buildProductSearchTerms(searchTerms[0] || '').wordTerms;
+  if (words.length > 1) return wordConjunction(['name', 'sku'], words);
+  return Array.from(new Set(searchTerms.map((term) => phraseFilter(['name', 'sku'], term)).filter(Boolean))).join(',');
+};
 
 export const buildProductParentSearchFilter = (
   search: Pick<ProductSearchTerms, 'searchTerms' | 'wordTerms'>,
@@ -48,19 +60,10 @@ export const buildProductParentSearchFilter = (
 ): string => {
   const conditions: string[] = [];
 
-  search.searchTerms.forEach((term) => {
-    conditions.push(buildPostgrestAccentInsensitiveOrFilter(['name', 'code'], term));
-  });
-
-  if (search.wordTerms.length > 0) {
-    const andConditions = search.wordTerms.map(({ value, alternative }) => {
-      const matchingTerms = Array.from(new Set([value, alternative].filter(Boolean))) as string[];
-      const matchingFields = matchingTerms.map((term) =>
-        buildPostgrestAccentInsensitiveOrFilter(['name', 'code'], term)
-      );
-      return `or(${matchingFields.join(',')})`;
-    });
-    conditions.push(`and(${andConditions.join(',')})`);
+  if (search.wordTerms.length > 1) {
+    conditions.push(wordConjunction(['name', 'code'], search.wordTerms));
+  } else {
+    conditions.push(...new Set(search.searchTerms.map((term) => phraseFilter(['name', 'code'], term)).filter(Boolean)));
   }
 
   variationParentIds.forEach((id) => conditions.push(`id.eq.${id}`));

@@ -10,7 +10,7 @@ export { normalizeSearchTerm, removeAccents, toTitleCase, matchesSearchText };
  * Constrói padrão Regex para busca insensível a acentuação em banco de dados ou filtros textuais
  */
 export function buildAccentInsensitiveRegex(term: string): string {
-  return buildSearchAccentRegex(term, { includeYAndIEquivalence: true }).replace(/ /g, '[- ]+');
+  return buildSearchAccentRegex(term, { includeYAndIEquivalence: true }).replace(/[- ]/g, '[- ]+');
 }
 
 /**

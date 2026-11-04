@@ -20,7 +20,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { useSalesReport } from '../hooks/useSalesReport';
-import { ABCResult, SaleItem } from '../utils/salesReportCalculations';
+import type { SaleItem } from '../utils/salesReportCalculations';
 import ReportConfigModal from '../modals/ReportConfigModal';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { salesReportViewFormSchema, erpReportPrepareFormSchema, salesReportSaleItemsSchema } from '../../../../../../../shared-utils/salesReportFormSchemas';
@@ -32,6 +32,7 @@ import {
 import { sortSalesReportResults } from '../utils/sortSalesReportResults';
 import SupplierPerformanceView from './SupplierPerformanceView';
 import { REPORT_QUADRANTS } from './reportQuadrantPresentation';
+import { deriveSalvadosBenchmark, deriveSupplierAverages } from './reportSupplierMetrics';
 
 const ReportView = () => {
   const { id } = useParams<{ id: string }>();
@@ -115,32 +116,11 @@ const ReportView = () => {
   }, [getProductMappings, sessionKey]);
   useEffect(() => { void fetchProductMappings(); }, [fetchProductMappings]);
 
-  const supplierAverages = useMemo(() => {
-    const map: Record<string, { totalProfit: number; totalQty: number; count: number }> = {};
-    results.forEach((r) => {
-      const s = r.supplier || 'N/A';
-      if (!map[s]) map[s] = { totalProfit: 0, totalQty: 0, count: 0 };
-      map[s].totalProfit += r.monthlyProfit;
-      map[s].totalQty += r.monthlyTurnover ?? 0;
-      map[s].count += 1;
-    });
-
-    const finalMap: Record<string, { avgProfit: number; avgTurnover: number }> = {};
-    Object.keys(map).forEach((s) => {
-      finalMap[s] = {
-        avgProfit: map[s].totalProfit / map[s].count,
-        avgTurnover: map[s].totalQty / map[s].count,
-      };
-    });
-    return finalMap;
-  }, [results]);
-
-  const salvadosBenchmark = useMemo(() => {
-    const items = rawResults.filter((r) => (r.supplier || '').toUpperCase().includes('SALVADOS'));
-    if (items.length === 0) return null;
-    const totalP = items.reduce((acc, r) => acc + (r.monthlyProfit || 0), 0);
-    return totalP / items.length;
-  }, [rawResults]);
+  const supplierAverages = useMemo(() => deriveSupplierAverages(results), [results]);
+  const salvadosBenchmark = useMemo(
+    () => deriveSalvadosBenchmark(rawResults),
+    [rawResults],
+  );
 
   const handleRowClick = (res: any) => {
     setHoveredResult(res);

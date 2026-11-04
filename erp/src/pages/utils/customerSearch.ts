@@ -1,4 +1,4 @@
-import { normalizeSearchTerm } from './textUtils';
+import { matchesSearchText, normalizeSearchTerm } from './textUtils';
 
 export const MIN_CUSTOMER_SEARCH_LENGTH = 2;
 export const MIN_CUSTOMER_AUTOCOMPLETE_SEARCH_LENGTH = 3;
@@ -34,7 +34,7 @@ export const matchesCustomerSearch = (
 
   const matchesText = [customer.name, customer.address]
     .filter(Boolean)
-    .some((value) => normalizeSearchTerm(value!).includes(query.text));
+    .some((value) => matchesSearchText(value, query.text));
   const phoneDigits = (customer.phone || '').replace(/\D/g, '');
   const matchesPhone =
     query.digits.length >= MIN_CUSTOMER_SEARCH_LENGTH && phoneDigits.includes(query.digits);

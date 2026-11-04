@@ -6,6 +6,7 @@ import { subscribeToProducts } from '@/pages/utils/productService';
 import QRScannerModal from '@/components/shared/QRScannerModal';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface StockListProps {
   readonly onLaunch: (product: Product, variation?: Variation) => void;
@@ -29,16 +30,16 @@ export const StockList: React.FC<StockListProps> = ({ onLaunch }) => {
   const filtered = products.filter((p) => {
     const searchLower = normalizeSearchTerm(search);
     const matchesParent =
-      normalizeSearchTerm(p.description).includes(searchLower) ||
-      normalizeSearchTerm(p.code || '').includes(searchLower) ||
-      normalizeSearchTerm(p.supplierRef || '').includes(searchLower);
+      matchesSearchText(p.description, searchLower) ||
+      matchesSearchText(p.code || '', searchLower) ||
+      matchesSearchText(p.supplierRef || '', searchLower);
 
     const matchesVariation =
       p.hasVariations &&
       p.variations?.some(
         (v) =>
-          normalizeSearchTerm(v.sku || '').includes(searchLower) ||
-          normalizeSearchTerm(v.name || '').includes(searchLower)
+          matchesSearchText(v.sku || '', searchLower) ||
+          matchesSearchText(v.name || '', searchLower)
       );
 
     return matchesParent || matchesVariation;

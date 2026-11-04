@@ -194,10 +194,6 @@ const PriceLabelDataFillDialog: React.FC<PriceLabelDataFillModalProps> = (props)
                 </div>
               ) : (
                 (searchResults || []).map((prod) => {
-                  const hasPromo = Number(prod.promo_price || 0) > 0;
-                  const mainImage =
-                    Array.isArray(prod.images) && prod.images.length > 0 ? prod.images[0] : null;
-
                   return (
                     <button
                       type="button"
@@ -205,67 +201,9 @@ const PriceLabelDataFillDialog: React.FC<PriceLabelDataFillModalProps> = (props)
                       onClick={() => { void apply(prod); }}
                       disabled={pending || blocked}
                       aria-label={`Aplicar nome de ${prod.name}`}
-                      className="p-3 bg-slate-50 dark:bg-slate-950 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 rounded-2xl flex items-center justify-between transition-all cursor-pointer group"
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-950 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 rounded-2xl text-left text-xs font-black uppercase text-slate-800 dark:text-white truncate transition-all cursor-pointer group"
                     >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden flex items-center justify-center shrink-0">
-                          {mainImage ? (
-                            <img
-                              src={mainImage}
-                              alt={prod.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <i className="bi bi-image text-slate-300 text-lg" />
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-black text-slate-800 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors uppercase">
-                            {prod.name}
-                          </h4>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {prod.code && (
-                              <span className="text-[9px] font-bold text-slate-400 bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded-md uppercase">
-                                CÓD: {prod.code}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-4 shrink-0 text-right">
-                        <div>
-                          {hasPromo ? (
-                            <>
-                              <span className="text-[10px] text-slate-400 line-through block font-bold">
-                                R${' '}
-                                {Number(prod.unit_price || 0).toLocaleString('pt-BR', {
-                                  minimumFractionDigits: 2,
-                                })}
-                              </span>
-                              <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 block">
-                                R${' '}
-                                {Number(prod.promo_price || 0).toLocaleString('pt-BR', {
-                                  minimumFractionDigits: 2,
-                                })}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-sm font-black text-slate-800 dark:text-white block">
-                              R${' '}
-                              {Number(prod.unit_price || 0).toLocaleString('pt-BR', {
-                                minimumFractionDigits: 2,
-                              })}
-                            </span>
-                          )}
-                        </div>
-
-                        <span
-                          className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider group-hover:bg-emerald-700 shadow-sm transition"
-                        >
-                          Puxar
-                        </span>
-                      </div>
+                      {prod.name}
                     </button>
                   );
                 })

@@ -5,7 +5,7 @@ import { splitNoticeTags } from './noticeTags';
 import { mapOrderFromDatabase } from './orderMapper';
 import { excludeTestOrders } from '../../../../shared-utils/testArtifactQueries';
 import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
-import { buildPostgrestAccentInsensitivePattern } from '../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitivePattern, buildAccentInsensitiveWordsRegex } from '../../../../shared-utils/searchText';
 import { normalizeSearchTerm } from './textUtils';
 
 const TABLE_NAME = 'orders';
@@ -239,7 +239,7 @@ export const getOrdersCustomerDataOnly = async (options?: {
       .limit(limit);
 
     if (options?.searchTerm?.trim()) {
-      query = query.filter('customer_name', 'imatch', buildPostgrestAccentInsensitivePattern(options.searchTerm.trim()));
+      query = query.filter('customer_name', 'imatch', buildAccentInsensitiveWordsRegex(options.searchTerm.trim()));
     }
 
     const { data: normalizedRows, error } = await query;

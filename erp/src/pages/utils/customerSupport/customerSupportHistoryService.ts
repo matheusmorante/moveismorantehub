@@ -2,7 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { WhatsAppConversation, WhatsAppMessage } from '@/pages/App/CustomerSupport/types';
 import { mapRowToConversation, mapRowToMessage } from './customerSupportMappers';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
-import { buildPostgrestAccentInsensitivePattern } from '../../../../../shared-utils/searchText';
+import { buildAccentInsensitiveWordsRegex, buildPostgrestAccentInsensitiveWordsPattern } from '../../../../../shared-utils/searchText';
 import {
   supportGlobalMessageSearchSchema,
   supportMessageSearchSchema,
@@ -101,7 +101,7 @@ function applyHistoryCursor(query: any, cursor: CustomerSupportHistoryCursor | n
 }
 
 function literalSupportSearchPattern(search: string): string {
-  return buildPostgrestAccentInsensitivePattern(search);
+  return buildPostgrestAccentInsensitiveWordsPattern(search);
 }
 
 function supportSearchOrFilters(filters: Array<{ column: string; pattern: string }>) {
@@ -163,7 +163,7 @@ export async function fetchConversationAttachmentPage(
       .order('timestamp', { ascending: false })
       .order('id', { ascending: false })
       .limit(pageSize + 1);
-    if (column && pattern) query = query.filter(column, 'imatch', pattern);
+    if (column && pattern) query = query.filter(column, 'imatch', buildAccentInsensitiveWordsRegex(trimmedSearch));
     return withTimeout<any>(query, 15_000, null, 'central:anexos');
   });
   const responses = await Promise.all(requests);

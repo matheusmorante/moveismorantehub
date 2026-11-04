@@ -1,4 +1,5 @@
 import { normalizeSearchTerm } from './productText';
+import { matchesSearchText } from './searchText';
 
 export const PRODUCT_CATEGORY_SEARCH_MIN_LENGTH = 3;
 export const PRODUCT_CATEGORY_SEARCH_MAX_SUGGESTIONS = 5;
@@ -19,11 +20,11 @@ export function searchProductCategories<T extends ProductCategorySearchOption>(
   if (term.length < PRODUCT_CATEGORY_SEARCH_MIN_LENGTH) return [];
 
   return selectableCategories.filter((category) => {
-    if (normalizeSearchTerm(category.name).includes(term)) return true;
+    if (matchesSearchText(category.name, term)) return true;
 
     return (category.parents || []).some((parentId) => {
       const parentName = allCategories.find((item) => item.id === parentId)?.name;
-      return Boolean(parentName && normalizeSearchTerm(parentName).includes(term));
+      return Boolean(parentName && matchesSearchText(parentName, term));
     });
   });
 }

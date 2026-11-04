@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Family, familyName, familySku, normalize } from './utils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface FamilySearchSelectorProps {
   readonly families: readonly Family[];
@@ -17,14 +18,12 @@ export const FamilySearchSelector: React.FC<FamilySearchSelectorProps> = ({
 
   const normalizedFamilySearch = normalize(familySearch);
   const familySuggestions =
-    normalizedFamilySearch.length >= 2
+    normalizedFamilySearch.length >= 3
       ? families
           .filter((family) =>
-            `${familyName(family)} ${familySku(family)}`
-              .toLocaleLowerCase('pt-BR')
-              .includes(normalizedFamilySearch)
+            matchesSearchText(`${familyName(family)} ${familySku(family)}`, normalizedFamilySearch)
           )
-          .slice(0, 8)
+          .slice(0, 5)
       : [];
 
   return (
@@ -57,7 +56,7 @@ export const FamilySearchSelector: React.FC<FamilySearchSelectorProps> = ({
           <i className="bi bi-check-lg absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 text-lg font-bold" />
         )}
       </div>
-      {isFamilySuggestionsOpen && !targetFamilyId && normalizedFamilySearch.length >= 2 && (
+      {isFamilySuggestionsOpen && !targetFamilyId && normalizedFamilySearch.length >= 3 && (
         <div className="absolute z-[10060] mt-1 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
           {familySuggestions.length > 0 ? (
             familySuggestions.map((family) => (

@@ -16,7 +16,7 @@ import { isProductComposition } from '../../../../../shared-utils/productComposi
 import { isTestProduct } from '../../../../../shared-utils/isTestProduct';
 import { OFFLINE_INVENTORY_CATALOG_FORMAT_VERSION } from '../../../features/stock/inventory/services/catalog/offlineInventoryCatalogTypes';
 import {
-  buildPostgrestAccentInsensitivePattern,
+  buildAccentInsensitiveWordsRegex,
   matchesSearchText,
 } from '../../../../../shared-utils/searchText';
 
@@ -208,7 +208,7 @@ export const fetchInventoryItems = async (
     .range(from, to);
 
   if (searchQuery) {
-    query = query.filter('name', 'imatch', buildPostgrestAccentInsensitivePattern(searchQuery));
+    query = query.filter('name', 'imatch', buildAccentInsensitiveWordsRegex(searchQuery));
   }
 
   const { data, error } = await query;

@@ -1,5 +1,5 @@
 import type { InboundInvoice } from '@/pages/utils/inboundNfe/inboundNfeTypes';
-import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText, normalizeSearchTerm } from '@/pages/utils/textUtils';
 import type { DateFilterConfig } from '@/pages/App/Stock/InboundInvoices/components/InboundInvoicesHeader';
 
 export const normalizeDigits = (value: string): string => value.replace(/\D/g, '');
@@ -85,7 +85,7 @@ export const filterInboundInvoicesForReceipt = (
       const key = normalizeDigits(inv.nfeKey || '');
       const number = normalizeDigits(inv.nfeNumber || '');
       return (
-        emitter.includes(term) ||
+        matchesSearchText(emitter, term) ||
         (termDigits.length > 0 &&
           (cnpj.includes(termDigits) || number.includes(termDigits) || key.includes(termDigits)))
       );

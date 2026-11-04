@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Person from '../../../../types/person.type';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 export interface SupplierSearchModalProps {
   readonly onSelect: (supplier: Person) => void;
@@ -41,8 +42,8 @@ export const SupplierSearchModal: React.FC<SupplierSearchModalProps> = ({ onSele
     const s = normalizeSearchTerm(search);
     return suppliers.filter(
       (e) =>
-        normalizeSearchTerm(e.fullName || '').includes(s) ||
-        normalizeSearchTerm(e.tradeName || '').includes(s) ||
+        matchesSearchText(e.fullName || '', s) ||
+        matchesSearchText(e.tradeName || '', s) ||
         (e.cpfCnpj || '').includes(s)
     );
   }, [suppliers, search]);

@@ -1,4 +1,5 @@
 import type { ProductTechnicalField } from './productCharacteristicDefinitions';
+import { matchesSearchText } from '../../../../../shared-utils/searchText';
 
 const normalizeTechnicalSearchText = (value: unknown) =>
   String(value ?? '')
@@ -21,7 +22,7 @@ export function getMobileProductTechnicalSearchMatches<T extends ProductTechnica
 
   const matchingGroupKeys = new Set(
     fields
-      .filter((field) => normalizeTechnicalSearchText(field.groupName).includes(normalizedTerm))
+      .filter((field) => matchesSearchText(normalizeTechnicalSearchText(field.groupName), normalizedTerm))
       .map((field) => field.groupId || normalizeTechnicalSearchText(field.groupName))
       .filter(Boolean),
   );
@@ -30,11 +31,11 @@ export function getMobileProductTechnicalSearchMatches<T extends ProductTechnica
     if (!field.groupName?.trim()) return false;
     const groupKey = field.groupId || normalizeTechnicalSearchText(field.groupName);
     return matchingGroupKeys.has(groupKey) ||
-      normalizeTechnicalSearchText(field.name).includes(normalizedTerm);
+      matchesSearchText(normalizeTechnicalSearchText(field.name), normalizedTerm);
   });
   const matchingLegacyFields = fields
     .filter((field) => !field.groupName?.trim())
-    .filter((field) => normalizeTechnicalSearchText(field.name).includes(normalizedTerm))
+    .filter((field) => matchesSearchText(normalizeTechnicalSearchText(field.name), normalizedTerm))
     .slice(0, legacyResultLimit);
 
   return [...matchingPersistedFields, ...matchingLegacyFields];

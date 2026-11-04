@@ -5,6 +5,7 @@ import { View, Text, TouchableOpacity, Modal, StyleSheet, FlatList } from 'react
 import { X, Search, Check, Folder } from 'lucide-react-native';
 import type { FinancialCategory } from '../../../services/mobileFinanceService';
 import { sortCategoriesWithOthersAtEnd } from '../../../services/financial/mobileCategoryService';
+import { matchesSearchText } from '../../../../../shared-utils/searchText';
 
 interface Props {
   visible: boolean;
@@ -46,7 +47,7 @@ export const CategorySelectModal: React.FC<Props> = ({
     let result = categories;
     if (searchText.trim()) {
       const term = normalize(searchText);
-      result = categories.filter((c) => normalize(c.name).includes(term));
+      result = categories.filter((c) => matchesSearchText(c.name, term));
     }
     return sortCategoriesWithOthersAtEnd(result);
   }, [categories, searchText]);

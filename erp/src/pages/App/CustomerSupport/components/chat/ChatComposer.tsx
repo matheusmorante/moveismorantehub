@@ -27,6 +27,7 @@ import type {
 } from '@/pages/utils/customerSupport/customerSupportService';
 import { ChatAudioRecordingControls, RecordedAudioPreview } from './ChatAudioRecordingPanels';
 import { ChatComposerAttachmentList } from './ChatComposerAttachmentList';
+import { ChatComposerAttachmentMenu } from './ChatComposerAttachmentMenu';
 import {
   formatFileSize,
   MAX_ATTACHMENTS,
@@ -824,24 +825,34 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,video/mp4,video/3gpp,.jpg,.jpeg,.png,.mp4,.3gp" multiple className="hidden" onChange={(event) => addFiles(event.target.files || [], 'media')} />
             <input ref={documentInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.aac,.m4a,.mp3,.amr,.ogg,application/pdf,text/plain,audio/aac,audio/mp4,audio/mpeg,audio/amr,audio/ogg" multiple className="hidden" onChange={(event) => addFiles(event.target.files || [], 'document')} />
 
-            <div ref={attachmentMenuRef} className="relative shrink-0 self-end">
-              <button type="button" onClick={() => { setIsAttachmentMenuOpen((open) => !open); setIsEmojiMenuOpen(false); }} aria-label="Abrir menu de anexos" aria-expanded={isAttachmentMenuOpen} title="Anexar conteúdo" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:text-slate-300 dark:hover:bg-slate-800">
-                <i className={`bi ${isAttachmentMenuOpen ? 'bi-x-lg' : 'bi-plus-lg'} text-xl`} />
-              </button>
-              {isAttachmentMenuOpen && (
-                <div role="menu" aria-label="Anexos e catálogo" className="absolute bottom-12 left-0 z-40 w-64 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                  <button type="button" role="menuitem" onClick={() => { setIsAttachmentMenuOpen(false); setIsCatalogOpen(true); }} className="flex w-full items-center gap-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-left text-sm font-semibold text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-950/70">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm dark:bg-slate-800 dark:text-emerald-300"><i className="bi bi-box-seam text-lg" /></span><span>Catálogo de produtos<small className="block text-xs font-normal opacity-75">Selecionar um ou vários produtos</small></span>
-                  </button>
-                  <button type="button" role="menuitem" onClick={() => { setIsAttachmentMenuOpen(false); photoInputRef.current?.click(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"><i className="bi bi-images w-9 text-center text-lg text-blue-600" /><span>Fotos e vídeos<small className="block text-xs text-slate-400">JPG, PNG ou MP4 · até 4 MB cada</small></span></button>
-                  <button type="button" role="menuitem" onClick={() => { setIsAttachmentMenuOpen(false); documentInputRef.current?.click(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"><i className="bi bi-file-earmark-text w-9 text-center text-lg text-rose-600" /><span>Documentos e áudio<small className="block text-xs text-slate-400">PDF, planilhas, OGG, MP3 e outros</small></span></button>
-                  <button type="button" role="menuitem" disabled={!canShareCommercialInfo || !conversation.customerId} onClick={() => { setIsAttachmentMenuOpen(false); setIsOrderPickerOpen(true); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45 dark:text-slate-200 dark:hover:bg-slate-800"><i className="bi bi-receipt w-9 text-center text-lg text-amber-600" /><span>Pedidos e orçamentos<small className="block text-xs text-slate-400">Preparar resumo em PDF</small></span></button>
-                  <button type="button" role="menuitem" onClick={addStoreContact} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"><i className="bi bi-person-vcard w-9 text-center text-lg text-violet-600" /><span>Contato da loja<small className="block text-xs text-slate-400">Compartilhar telefone comercial</small></span></button>
-                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
-                  <button type="button" role="menuitem" onClick={quickReplyAction} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"><i className="bi bi-lightning-charge w-9 text-center text-amber-500" />Respostas rápidas</button>
-                </div>
-              )}
-            </div>
+            <ChatComposerAttachmentMenu
+              menuRef={attachmentMenuRef}
+              isOpen={isAttachmentMenuOpen}
+              canShareCommercialInfo={canShareCommercialInfo}
+              hasCustomer={Boolean(conversation.customerId)}
+              onToggle={() => {
+                setIsAttachmentMenuOpen((open) => !open);
+                setIsEmojiMenuOpen(false);
+              }}
+              onOpenCatalog={() => {
+                setIsAttachmentMenuOpen(false);
+                setIsCatalogOpen(true);
+              }}
+              onChooseMedia={() => {
+                setIsAttachmentMenuOpen(false);
+                photoInputRef.current?.click();
+              }}
+              onChooseDocument={() => {
+                setIsAttachmentMenuOpen(false);
+                documentInputRef.current?.click();
+              }}
+              onOpenOrderPicker={() => {
+                setIsAttachmentMenuOpen(false);
+                setIsOrderPickerOpen(true);
+              }}
+              onAddStoreContact={addStoreContact}
+              onOpenSnippets={quickReplyAction}
+            />
 
             <div className="min-w-0 flex-1 py-1">
               {attachments.length > 0 && (

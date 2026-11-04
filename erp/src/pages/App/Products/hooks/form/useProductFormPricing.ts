@@ -22,12 +22,17 @@ export const parsePrice = (val: unknown): number => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
+const toOptionalPrice = (value: string | number | null | undefined): number | null => {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  return parsePrice(value);
+};
+
 export function useProductFormPricing(
   formData: Partial<Product>,
   setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>
 ) {
-  const [discountPercent, setDiscountPercent] = useState('');
-  const [discountFixed, setDiscountFixed] = useState('');
+  const [discountPercent, setDiscountPercent] = useState<number | null>(null);
+  const [discountFixed, setDiscountFixed] = useState<number | null>(null);
 
   const handlePriceChange = useCallback(
     (newPrice: string | number) => {
@@ -35,18 +40,17 @@ export function useProductFormPricing(
       setFormData((prev) => {
         const next: Partial<Product> = { ...prev, unitPrice: orig };
         if (orig <= 0) {
-          setDiscountPercent('');
-          setDiscountFixed('');
+          setDiscountPercent(null);
+          setDiscountFixed(null);
           next.promoPrice = undefined;
-        } else if (discountPercent) {
-          const pct = Number(discountPercent.replace(',', '.'));
-          const discount = calculateProductDiscountFromPercent(orig, pct);
-          setDiscountFixed(discount.discountFixed);
+        } else if (discountPercent !== null) {
+          const discount = calculateProductDiscountFromPercent(orig, discountPercent);
+          setDiscountFixed(toOptionalPrice(discount.discountFixed));
           next.promoPrice = discount.promoPrice;
         } else {
           const discount = calculateProductDiscountFromPromoPrice(orig, parsePrice(prev.promoPrice));
-          setDiscountFixed(discount.discountFixed);
-          setDiscountPercent(discount.discountPercent);
+          setDiscountFixed(toOptionalPrice(discount.discountFixed));
+          setDiscountPercent(toOptionalPrice(discount.discountPercent));
           next.promoPrice = discount.promoPrice;
         }
 
@@ -65,13 +69,12 @@ export function useProductFormPricing(
   );
 
   const handleDiscountPercentChange = useCallback(
-    (valStr: string) => {
-      setDiscountPercent(valStr);
+    (value: number | null) => {
+      setDiscountPercent(value);
       setFormData((prev) => {
         const orig = prev.unitPrice || 0;
-        const pct = valStr.trim() ? Number(valStr.replace(',', '.')) : 0;
-        const discount = calculateProductDiscountFromPercent(orig, pct);
-        setDiscountFixed(discount.discountFixed);
+        const discount = calculateProductDiscountFromPercent(orig, value ?? 0);
+        setDiscountFixed(toOptionalPrice(discount.discountFixed));
         const next: Partial<Product> = { ...prev, promoPrice: discount.promoPrice };
         if (next.variations?.length) {
           next.variations = syncVariationsWithParent(next.variations, {
@@ -85,13 +88,13 @@ export function useProductFormPricing(
   );
 
   const handleDiscountFixedChange = useCallback(
-    (valStr: string | number) => {
-      const fixed = parsePrice(valStr);
-      setDiscountFixed(String(valStr));
+    (value: number) => {
+      const fixed = value;
+      setDiscountFixed(fixed);
       setFormData((prev) => {
         const orig = prev.unitPrice || 0;
         const discount = calculateProductDiscountFromFixed(orig, fixed);
-        setDiscountPercent(discount.discountPercent);
+        setDiscountPercent(toOptionalPrice(discount.discountPercent));
         const next: Partial<Product> = { ...prev, promoPrice: discount.promoPrice };
         if (next.variations?.length) {
           next.variations = syncVariationsWithParent(next.variations, {
@@ -110,8 +113,8 @@ export function useProductFormPricing(
       setFormData((prev) => {
         const orig = prev.unitPrice || 0;
         const discount = calculateProductDiscountFromPromoPrice(orig, promo);
-        setDiscountFixed(discount.discountFixed);
-        setDiscountPercent(discount.discountPercent);
+        setDiscountFixed(toOptionalPrice(discount.discountFixed));
+        setDiscountPercent(toOptionalPrice(discount.discountPercent));
         const next: Partial<Product> = { ...prev, promoPrice: discount.promoPrice };
         if (next.variations?.length) {
           next.variations = syncVariationsWithParent(next.variations, {
@@ -126,8 +129,8 @@ export function useProductFormPricing(
 
   const initializeDiscounts = useCallback((unitPrice?: number, promoPrice?: number) => {
     const fields = deriveProductDiscountFields(unitPrice, promoPrice);
-    setDiscountFixed(fields.discountFixed);
-    setDiscountPercent(fields.discountPercent);
+    setDiscountFixed(toOptionalPrice(fields.discountFixed));
+    setDiscountPercent(toOptionalPrice(fields.discountPercent));
   }, []);
 
   return {

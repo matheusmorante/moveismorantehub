@@ -227,17 +227,18 @@ describe('priceLabelCatalogService', () => {
       expect(result.data.map((product) => product.id)).toEqual(['local']); expect(vi.getTimerCount()).toBe(0);
     });
 
-    it('mantém aspas, barras, vírgulas e curingas literais dentro de cinco filtros', async () => {
+    it('mantém caracteres literais ao buscar todas as palavras nos campos de produto', async () => {
       const query = queryWith(Promise.resolve({ data: [], error: null }));
       await searchProductsForLabelResult('Sofá (A,B) "50%_\\z"');
       const filters = query.or.mock.calls[0][0] as string;
-      const parts = filters.match(/(?:[^,"]|"(?:\\.|[^"\\])*")+/g)!;
-      expect(parts).toHaveLength(5);
-      expect(parts.every((part) => /^(name|description|code)\.(imatch|ilike)\."(?:\\.|[^"\\])*"$/.test(part))).toBe(true);
-      const like = JSON.parse(parts[2].slice('name.ilike.'.length));
-      expect(like).toBe('%sofa (a,b) "50\\%\\_\\\\z"%');
-      const regex = JSON.parse(parts[0].slice('name.imatch.'.length));
-      expect(new RegExp(regex).test('Sofá (A,B) "50%_\\z"'.toLowerCase())).toBe(true);
+      expect(filters.startsWith('and(or(')).toBe(true);
+      const parts = [...filters.matchAll(/(?:name|description|code)\.imatch\.("(?:\\.|[^"\\])*")/g)];
+      expect(parts).toHaveLength(9);
+      const patterns = parts.map((part) => new RegExp(JSON.parse(part[1]), 'i'));
+      expect(patterns[0].test('Sofá')).toBe(true);
+      expect(patterns[3].test('(A,B)')).toBe(true);
+      expect(patterns[6].test('"50%_\\z"')).toBe(true);
+      expect(patterns[6].test('"50XX\\z"')).toBe(false);
     });
 
     it('trata resposta sem lista como falha sem descartar o catálogo local', async () => {

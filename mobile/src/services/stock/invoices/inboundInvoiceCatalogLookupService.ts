@@ -1,5 +1,5 @@
 import { supabase } from '../../supabaseClient';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
+import { buildNormalizedWordsRegex, buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
 import { buildProductSearchTerms } from '../../../../../shared-utils/productListSearch';
 import {
   inboundInvoiceCatalogSearchFormSchema,
@@ -16,10 +16,7 @@ export const searchInboundInvoiceSuppliers = async (searchTerm: string) => {
     .select('id, full_name, social_name, nickname, cpf_cnpj')
     .or('deleted.eq.false,deleted.is.null')
     .or('person_type.ilike.suppliers,person_type.ilike.supplier')
-    .or(buildPostgrestAccentInsensitiveOrFilter(
-      ['full_name', 'social_name', 'nickname', 'cpf_cnpj'],
-      term
-    ))
+    .filter('search_people_inbound_text', 'imatch', buildNormalizedWordsRegex(term))
     .order('full_name', { ascending: true })
     .limit(INBOUND_INVOICE_SEARCH_RESULT_LIMIT);
   if (error) throw error;

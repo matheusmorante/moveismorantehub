@@ -8,7 +8,6 @@ import {
 } from '../../../../../shared-utils/listingFormSchemas';
 import { validateCatalogPublication } from '../../../../../shared-utils/catalogPublicationValidation';
 import { getProductCatalogMutationFailureNotice } from '../../../../../shared-utils/productCatalogPermission';
-import { resolveProductCatalogParentStatus } from '../../../../../shared-utils/productCatalogStatus';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import {
   isProductVariationSearchTooBroadError,
@@ -29,6 +28,7 @@ import {
   shouldClearMobileProductListSnapshot,
 } from '../domain/mobileProductListRequest';
 import { toMobileProductActivationCandidate } from '../domain/mobileProductActivationCandidate';
+import { applyMobileProductCatalogStatusToList } from '../domain/mobileProductListCatalogStatus';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
   fetchMobileProductTechnicalFields,
@@ -344,28 +344,8 @@ export function useMobileProducts(
       // atuais para remover famílias que deixaram de satisfazer o filtro publicado
       // e para recalcular contagem e paginação antes de aplicar o fallback otimista.
       await reloadCurrentProductPageRef.current();
-      setProducts((prev) =>
-        prev.map((p) => {
-          if (p.id === productId) {
-            if (isVar && varId) {
-              const nextVars = (p.allVariations || []).map((v: any) =>
-                v.id === varId ? { ...v, status: next } : v
-              );
-              const parentStatus = resolveProductCatalogParentStatus(nextVars);
-              return { ...p, status: parentStatus, allVariations: nextVars, variations: nextVars };
-            }
-            const nextVars = (p.allVariations || []).map((variation: any) =>
-              variation.isVirtual ? { ...variation, status: next } : variation
-            );
-            return {
-              ...p,
-              status: next,
-              allVariations: nextVars,
-              variations: nextVars,
-            };
-          }
-          return p;
-        })
+      setProducts((previous) =>
+        applyMobileProductCatalogStatusToList(previous, productId, next, isVar, varId)
       );
     } catch (err) {
       console.warn('Erro ao alterar catálogo:', err);

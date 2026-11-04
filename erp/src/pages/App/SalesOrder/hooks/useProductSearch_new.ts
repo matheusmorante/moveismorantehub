@@ -4,8 +4,6 @@ import { parseVariationAttributes } from '@/pages/utils/productService/productVa
 import type { SelectableCatalogItem } from './productSearchDeepFetch';
 
 interface ProductSearchOptions {
-  /** Busca cada palavra separadamente e une os resultados, para frases que não são contíguas no nome. */
-  matchTermsIndividually?: boolean;
   /** A RPC não retorna o tipo nem o marcador de composição de products; busca esses campos para classificar cadastros antigos. */
   resolveProductItemTypes?: boolean;
 }
@@ -17,7 +15,6 @@ export const useProductSearch_new = (
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [filtered, setFiltered] = useState<SelectableCatalogItem[]>([]);
-  const matchTermsIndividually = options?.matchTermsIndividually ?? false;
   const resolveProductItemTypes = options?.resolveProductItemTypes ?? false;
 
   useEffect(() => {
@@ -37,16 +34,9 @@ export const useProductSearch_new = (
 
       setLoading(true);
       try {
-        const queryTerms = matchTermsIndividually
-          ? Array.from(new Set([term, ...term.split(/\s+/).filter((word) => word.length >= 3)]))
-          : [term];
-        const searchResults = await Promise.all(
-          queryTerms.map((query) =>
-            supabase
-              .rpc('search_catalog_shallow', { p_query: query, p_limit: 15 })
-              .abortSignal(controller.signal)
-          )
-        );
+        const searchResults = [await supabase
+          .rpc('search_catalog_shallow', { p_query: term, p_limit: 15 })
+          .abortSignal(controller.signal)];
 
         const failedSearch = searchResults.find(({ error }) => error);
         if (failedSearch?.error) {
@@ -189,7 +179,7 @@ export const useProductSearch_new = (
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [search, matchTermsIndividually, resolveProductItemTypes]);
+  }, [search, resolveProductItemTypes]);
 
   return {
     search,

@@ -5,7 +5,7 @@ describe('buildMobileProductSearchTerms', () => {
   it('searches accented and unaccented names and splits hyphenated terms like the ERP', () => {
     expect(buildMobileProductSearchTerms('Sofá-Cama')).toEqual({
       safeSearch: 'Sofá-Cama',
-      searchTerms: ['Sofá-Cama', 'Sofa-Cama', 'Sofa Cama'],
+      searchTerms: ['Sofá-Cama', 'Sofa Cama'],
       wordTerms: [
         { value: 'Sofa', alternative: undefined },
         { value: 'Cama', alternative: undefined },

@@ -66,6 +66,7 @@ describe('invoice list helpers', () => {
     expect(buildInboundInvoiceSearchFilter('HORFRAN')).toBe(
       buildPostgrestAccentInsensitiveOrFilter(['emitente_nome'], 'HORFRAN'),
     );
+    expect(buildInboundInvoiceSearchFilter('99999999999999')).not.toContain('numero_nfe.eq.');
     expect(buildInboundInvoiceSearchFilter('')).toBeNull();
   });
 

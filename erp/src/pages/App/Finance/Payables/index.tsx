@@ -4,6 +4,7 @@ import { AccountPayable } from '../../../types/finance.type';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import PayableModal from './PayableModal';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -100,8 +101,8 @@ export default function Payables() {
   const normSearch = normalizeSearchTerm(search);
   const filtered = payables.filter(
     (p) =>
-      normalizeSearchTerm(p.description || '').includes(normSearch) ||
-      normalizeSearchTerm(p.supplier_name || '').includes(normSearch)
+      matchesSearchText(p.description || '', normSearch) ||
+      matchesSearchText(p.supplier_name || '', normSearch)
   );
   const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);

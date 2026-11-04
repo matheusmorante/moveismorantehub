@@ -18,7 +18,6 @@ const CompositionAutocomplete: React.FC<CompositionAutocompleteProps> = ({
   onSelect,
 }) => {
   const { search, setSearch, loading, filtered } = useProductSearch_new('unit', {
-    matchTermsIndividually: true,
     resolveProductItemTypes: true,
   });
   const [showResults, setShowResults] = useState(false);

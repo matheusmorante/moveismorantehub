@@ -9,7 +9,7 @@ import { PurchaseItemsMobileList } from './purchase-items/PurchaseItemsMobileLis
 import { PurchaseItemsTable } from './purchase-items/PurchaseItemsTable';
 import { PurchaseOrderItemsView } from './purchase-items/PurchaseOrderItemsView';
 import { calculatePurchaseCosts } from '../Purchases/utils/purchaseCalculationUtils';
-import { matchesSearchText } from '@/pages/utils/textUtils';
+import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 interface Props {
   items: PurchaseItem[];
@@ -66,7 +66,7 @@ export const PurchaseItemsSection = ({
   const handleSelectProductInRow = (idx: number, product: Product, variation?: Variation) => {
     const prodName = product.name || product.title || product.description || '';
     const description = variation
-      ? variation.name && matchesSearchText(variation.name, prodName)
+      ? variation.name && normalizeSearchTerm(variation.name).includes(normalizeSearchTerm(prodName))
         ? variation.name
         : `${prodName} - ${variation.name}`
       : prodName;

@@ -16,6 +16,7 @@ import { VariationFormModal } from './modals/VariationFormModal';
 import { CharacteristicGroupFormPanel } from './modals/CharacteristicGroupFormPanel';
 import { CharacteristicOptionsModal } from './modals/CharacteristicOptionsModal';
 import { getCharacteristicSubtitle } from './domain/characteristicFormRules';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 type EditorState =
   | { type: 'group'; groupId?: string }
@@ -60,11 +61,11 @@ const Variations = ({ focusAttributeName, autoOpenAttributeName, onClose }: Vari
       const groupCharacteristics = variations
         .filter((item) => item.groupId === group.id)
         .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR', { sensitivity: 'base' }));
-      const groupMatches = !search || normalizeSearchTerm(group.name).includes(search) || normalizeSearchTerm(group.description ?? '').includes(search);
+      const groupMatches = !search || matchesSearchText(group.name, search) || matchesSearchText(group.description ?? '', search);
       const matchingCharacteristics = groupMatches || !search
         ? groupCharacteristics
         : groupCharacteristics.filter((item) => {
-            return normalizeSearchTerm(`${item.name} ${getCharacteristicSubtitle(item)}`).includes(search);
+            return matchesSearchText(`${item.name} ${getCharacteristicSubtitle(item)}`, search);
           });
       return {
         group,

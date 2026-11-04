@@ -53,7 +53,10 @@ export const buildInboundInvoiceSearchFilter = (searchTerm: string): string | nu
   }
 
   // numero_nfe is INTEGER in the database, so ilike on it makes the query fail.
-  if (/^\d+$/.test(term)) filters.push(`numero_nfe.eq.${Number(term)}`);
+  const invoiceNumber = Number(term);
+  if (/^\d+$/.test(term) && Number.isSafeInteger(invoiceNumber) && invoiceNumber <= 2147483647) {
+    filters.push(`numero_nfe.eq.${invoiceNumber}`);
+  }
   return filters.join(',');
 };
 

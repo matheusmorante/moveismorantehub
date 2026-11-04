@@ -2,6 +2,8 @@ import React from 'react';
 import type { LabelConfig } from '../../utils/LabelConstants';
 import { QRCodeCanvas, QRPreviewPlaceholder } from './LabelQRCode';
 
+const IDENTIFICATION_QR_MARGIN_MM = 7;
+
 export interface LabelIdentificationLayoutProps {
   config: LabelConfig;
   previewMode?: boolean;
@@ -14,8 +16,11 @@ export const LabelIdentificationLayout: React.FC<LabelIdentificationLayoutProps>
   uuid,
 }) => {
   const labelHeightMm = config.labelHeight ?? 44;
-  const qrWidthLimitMm = config.labelWidth == null ? labelHeightMm - 4 : config.labelWidth - 35;
-  const qrSizeMm = Math.max(1, Math.min(labelHeightMm - 4, qrWidthLimitMm));
+  const labelWidthMm = config.labelWidth ?? 80;
+  const qrSizeMm = Math.max(
+    1,
+    Math.min(labelHeightMm - IDENTIFICATION_QR_MARGIN_MM * 2, labelWidthMm - 35)
+  );
   const barcodeValue =
     config.sku ||
     config.barcode ||
@@ -32,6 +37,8 @@ export const LabelIdentificationLayout: React.FC<LabelIdentificationLayoutProps>
         display: 'flex',
         width: '100%',
         height: '100%',
+        minWidth: 0,
+        minHeight: 0,
         padding: '4mm',
         boxSizing: 'border-box',
         backgroundColor: 'white',
@@ -41,10 +48,11 @@ export const LabelIdentificationLayout: React.FC<LabelIdentificationLayoutProps>
       <div
         style={{
           flex: 1,
+          minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          paddingRight: '0.5mm',
+          paddingRight: `${qrSizeMm + IDENTIFICATION_QR_MARGIN_MM}mm`,
           overflow: 'hidden',
         }}
       >
@@ -73,13 +81,20 @@ export const LabelIdentificationLayout: React.FC<LabelIdentificationLayoutProps>
           {barcodeValue}
         </div>
       </div>
+      {/* O QR fica sobre a etiqueta para seu tamanho não interferir na grade física. */}
       <div
         style={{
+          position: 'absolute',
+          right: `${IDENTIFICATION_QR_MARGIN_MM}mm`,
+          top: '50%',
+          transform: 'translateY(-50%)',
           width: `${qrSizeMm}mm`,
+          height: `${qrSizeMm}mm`,
+          boxSizing: 'border-box',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flexShrink: 0,
+          overflow: 'hidden',
         }}
       >
         <div
@@ -88,6 +103,7 @@ export const LabelIdentificationLayout: React.FC<LabelIdentificationLayoutProps>
             height: `${qrSizeMm}mm`,
             backgroundColor: 'white',
             boxSizing: 'border-box',
+            flex: '0 0 auto',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

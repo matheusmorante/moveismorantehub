@@ -1,4 +1,5 @@
 import { normalizeSearchTerm } from './productText';
+import { matchesSearchText } from './searchText';
 import {
   PRODUCT_TECHNICAL_CHOICE_SEARCH_MAX_RESULTS,
   PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS,
@@ -18,6 +19,6 @@ export const searchProductTechnicalChoiceOptions = <Option extends ProductTechni
   if (term.length < PRODUCT_TECHNICAL_CHOICE_SEARCH_MIN_CHARACTERS) return [];
 
   return options
-    .filter((option) => normalizeSearchTerm(String(option.value ?? '')).includes(term))
+    .filter((option) => matchesSearchText(option.value, term))
     .slice(0, PRODUCT_TECHNICAL_CHOICE_SEARCH_MAX_RESULTS);
 };

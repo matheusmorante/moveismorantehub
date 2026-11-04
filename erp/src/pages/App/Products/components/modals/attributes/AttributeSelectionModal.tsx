@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import VariationType from '../../../../../types/variation.type';
 import { subscribeToVariations } from '../../../../../utils/variationService';
 import { normalizeSearchTerm } from '../../../../../utils/textUtils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 export interface AttributeSelectionModalProps {
   readonly isOpen: boolean;
@@ -52,7 +53,7 @@ export const AttributeSelectionModal: React.FC<AttributeSelectionModalProps> = (
 
   const normSearch = normalizeSearchTerm(searchTerm);
   const filteredAttributes = availableVariations.filter((v) =>
-    normalizeSearchTerm(v.name).includes(normSearch)
+    matchesSearchText(v.name, normSearch)
   );
 
   return createPortal(

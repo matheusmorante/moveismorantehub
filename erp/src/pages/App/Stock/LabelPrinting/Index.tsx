@@ -17,7 +17,7 @@ const LabelPrinting: React.FC = () => {
         className={`flex w-full min-w-0 flex-col gap-2 max-w-[1600px] mx-auto pt-2 pb-4 px-2 sm:px-6 min-h-screen no-print transition-all`}
       >
         <HeaderSection {...state} />
-        {(state.selectedCategory === 'identificacao' || state.selectedCategory === 'precos') && <LabelPrintAgentPanel />}
+        {state.selectedCategory === 'precos' && <LabelPrintAgentPanel />}
         {state.receiptPrefillLoading && <p role="status" className="flex items-center gap-2 text-sm text-blue-700">Carregando os produtos vinculados ao recebimento…</p>}
         {state.receiptPrefillError && <p role="alert" className="text-sm text-red-700">{state.receiptPrefillError}</p>}
         {state.layoutsLoading && <p role="status" className="flex items-center gap-2 text-sm text-blue-700"><span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Consultando modelos de etiquetas…</p>}

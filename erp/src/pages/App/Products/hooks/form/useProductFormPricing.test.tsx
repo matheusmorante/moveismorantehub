@@ -38,11 +38,11 @@ describe('useProductFormPricing', () => {
   it('remove a promoção ao informar percentual zero e propaga a limpeza herdada', () => {
     const { result } = renderPricing(productWithInheritedPromo);
 
-    act(() => result.current.handleDiscountPercentChange('0'));
+    act(() => result.current.handleDiscountPercentChange(0));
 
     expect(result.current.formData.promoPrice).toBeUndefined();
-    expect(result.current.discountPercent).toBe('0');
-    expect(result.current.discountFixed).toBe('');
+    expect(result.current.discountPercent).toBe(0);
+    expect(result.current.discountFixed).toBeNull();
     expect(result.current.formData.variations?.[0].promoPrice).toBeUndefined();
   });
 
@@ -52,8 +52,8 @@ describe('useProductFormPricing', () => {
     act(() => result.current.handlePromoPriceFieldChange('100'));
 
     expect(result.current.formData.promoPrice).toBe(100);
-    expect(result.current.discountPercent).toBe('');
-    expect(result.current.discountFixed).toBe('');
+    expect(result.current.discountPercent).toBeNull();
+    expect(result.current.discountFixed).toBeNull();
     expect(result.current.formData.variations?.[0].promoPrice).toBe(100);
   });
 
@@ -63,8 +63,8 @@ describe('useProductFormPricing', () => {
     act(() => result.current.handlePromoPriceFieldChange('0'));
 
     expect(result.current.formData.promoPrice).toBeUndefined();
-    expect(result.current.discountPercent).toBe('');
-    expect(result.current.discountFixed).toBe('');
+    expect(result.current.discountPercent).toBeNull();
+    expect(result.current.discountFixed).toBeNull();
     expect(result.current.formData.variations?.[0].promoPrice).toBeUndefined();
   });
 
@@ -112,8 +112,8 @@ describe('useProductFormPricing', () => {
 
     act(() => result.current.handleDiscountFixedChange(-5));
 
-    expect(result.current.discountFixed).toBe('-5');
-    expect(result.current.discountPercent).toBe('');
+    expect(result.current.discountFixed).toBe(-5);
+    expect(result.current.discountPercent).toBeNull();
     expect(result.current.formData.promoPrice).toBeUndefined();
     expect(result.current.formData.variations?.[0].promoPrice).toBeUndefined();
   });
@@ -135,18 +135,18 @@ describe('useProductFormPricing', () => {
     act(() => result.current.handlePromoPriceFieldChange(-5));
 
     expect(result.current.formData.promoPrice).toBeUndefined();
-    expect(result.current.discountPercent).toBe('');
-    expect(result.current.discountFixed).toBe('');
+    expect(result.current.discountPercent).toBeNull();
+    expect(result.current.discountFixed).toBeNull();
     expect(result.current.formData.variations?.[0].promoPrice).toBeUndefined();
   });
 
   it('não aplica promoção quando o desconto percentual ultrapassa 100%', () => {
     const { result } = renderPricing(productWithInheritedPromo);
 
-    act(() => result.current.handleDiscountPercentChange('150'));
+    act(() => result.current.handleDiscountPercentChange(150));
 
-    expect(result.current.discountPercent).toBe('150');
-    expect(result.current.discountFixed).toBe('150.00');
+    expect(result.current.discountPercent).toBe(150);
+    expect(result.current.discountFixed).toBe(150);
     expect(result.current.formData.promoPrice).toBeUndefined();
     expect(result.current.formData.variations?.[0].promoPrice).toBeUndefined();
   });

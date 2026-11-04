@@ -9,6 +9,7 @@ import {
   FetchFulfilledOrdersOptions,
 } from '@/pages/utils/orderHistoryService';
 import OrderPagination from '../OrderHistoryList/OrderPagination';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 export interface OrderSelectionModalProps {
   orders?: Order[];
@@ -77,9 +78,9 @@ const OrderSelectionModal: React.FC<OrderSelectionModalProps> = ({
         .filter((o) => {
           if (!isFulfilledSalesOrder(o)) return false;
           if (!normTerm) return true;
-          const matchId = normalizeSearchTerm(o.id || '').includes(normTerm);
-          const matchCode = normalizeSearchTerm(formatOrderCode(o)).includes(normTerm);
-          const matchCustomer = normalizeSearchTerm(getOrderCustomerName(o)).includes(normTerm);
+          const matchId = matchesSearchText(o.id || '', normTerm);
+          const matchCode = matchesSearchText(formatOrderCode(o), normTerm);
+          const matchCustomer = matchesSearchText(getOrderCustomerName(o), normTerm);
           return matchId || matchCode || matchCustomer;
         })
         .sort((a, b) => {

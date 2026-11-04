@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Person from '@/pages/types/person.type';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface Props {
   onSelect: (sellerName: string) => void;
@@ -29,8 +30,8 @@ const EmployeeSearchModal = ({ onSelect, onClose }: Props) => {
     const s = normalizeSearchTerm(search);
     return employees.filter(
       (e) =>
-        normalizeSearchTerm(e.fullName || '').includes(s) ||
-        normalizeSearchTerm(e.position || '').includes(s)
+        matchesSearchText(e.fullName || '', s) ||
+        matchesSearchText(e.position || '', s)
     );
   }, [employees, search]);
 

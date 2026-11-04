@@ -3,6 +3,7 @@ import type Person from '@/pages/types/person.type';
 import { isValidEmployee } from '@/pages/utils/accessRoles';
 import { subscribeToPeople } from '@/pages/utils/personService';
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const findExactEmployee = (searchTerm: string, employees: Person[]): Person | undefined => {
   const normalizedTerm = normalizeSearchTerm(searchTerm);
@@ -80,9 +81,9 @@ export const SellerInput: FC<SellerInputProps> = ({
   const filtered = employees.filter((e) => {
     const term = normalizeSearchTerm(filterText);
     return (
-      normalizeSearchTerm(e.fullName || '').includes(term) ||
-      normalizeSearchTerm(e.nickname || '').includes(term) ||
-      normalizeSearchTerm(e.position || '').includes(term)
+      matchesSearchText(e.fullName || '', term) ||
+      matchesSearchText(e.nickname || '', term) ||
+      matchesSearchText(e.position || '', term)
     );
   });
   const exactEmployeeForValue = findExactEmployee(value, employees);

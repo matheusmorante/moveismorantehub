@@ -11,6 +11,7 @@ import {
 import { SecureDeleteButton } from '../components/SecureDeleteButton';
 import type { CharacteristicCategoryApplication } from '@/pages/utils/categoryService';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 interface CategoryEnvironmentModalProps {
   readonly showModal: ModalType | null;
@@ -78,7 +79,7 @@ export const CategoryEnvironmentModal: React.FC<CategoryEnvironmentModalProps> =
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLocaleLowerCase('pt-BR');
-    return normalizedName.includes(normalizedCharacteristicSearch);
+    return matchesSearchText(normalizedName, normalizedCharacteristicSearch);
   });
 
   return (

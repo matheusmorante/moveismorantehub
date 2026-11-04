@@ -4,7 +4,7 @@ import { TABLE_NAME, mapFromDB } from './personMapper';
 import { syncMissingEmployeesFromProfiles } from './personSyncService';
 import type { TestArtifactIdentity } from '../../../../../shared-utils/testArtifactPolicy';
 import { isTestOperatorVisibleToUser } from '../../../../../shared-utils/testOperatorVisibility';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
+import { buildNormalizedWordsRegex } from '../../../../../shared-utils/searchText';
 import {
   PERSON_QUERY_COLUMNS,
   type FetchPersonsOptions,
@@ -194,12 +194,7 @@ export const searchPeople = async (
     peopleQuery = peopleQuery.or(`person_type.ilike.suppliers,person_type.ilike.supplier`);
   }
 
-  peopleQuery = peopleQuery.or(
-    buildPostgrestAccentInsensitiveOrFilter(
-      ['full_name', 'social_name', 'cpf_cnpj', 'phone', 'email'],
-      query.trim()
-    )
-  );
+  peopleQuery = peopleQuery.filter('search_people_main_text', 'imatch', buildNormalizedWordsRegex(query));
 
   if (testContext) {
     peopleQuery = peopleQuery

@@ -22,6 +22,7 @@ import {
 } from '../../utils/attributeValueDraft';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import ManageAttributesExistingList from './ManageAttributesExistingList';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 export interface ManageAttributesModalProps {
   readonly isOpen: boolean;
@@ -178,8 +179,8 @@ export const ManageAttributesModal: React.FC<ManageAttributesModalProps> = ({
 
   const filteredVariations = variations.filter(
     (v) =>
-      normalizeSearchTerm(v.name).includes(normalizeSearchTerm(searchTerm)) ||
-      (v.id && normalizeSearchTerm(v.id).includes(normalizeSearchTerm(searchTerm)))
+      matchesSearchText(v.name, normalizeSearchTerm(searchTerm)) ||
+      (v.id && matchesSearchText(v.id, normalizeSearchTerm(searchTerm)))
   );
 
   return createPortal(

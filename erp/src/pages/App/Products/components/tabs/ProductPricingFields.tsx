@@ -5,12 +5,12 @@ import { PercentInput } from '@/components/PercentInput';
 
 interface ProductPricingFieldsProps {
   readonly formData: Partial<Product>;
-  readonly discountPercent: string;
-  readonly discountFixed: string;
-  readonly onPriceChange?: (value: string | number) => void;
-  readonly onDiscountPercentChange?: (value: string) => void;
-  readonly onDiscountFixedChange?: (value: string | number) => void;
-  readonly onPromoPriceChange?: (value: string | number) => void;
+  readonly discountPercent: number | null;
+  readonly discountFixed: number | null;
+  readonly onPriceChange?: (value: number) => void;
+  readonly onDiscountPercentChange?: (value: number | null) => void;
+  readonly onDiscountFixedChange?: (value: number) => void;
+  readonly onPromoPriceChange?: (value: number) => void;
   readonly validationErrors: Record<string, boolean>;
   readonly setValidationErrors?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
@@ -73,25 +73,16 @@ export function ProductPricingFields({
           >
             <span>Desconto (%)</span>
           </label>
-          <div className="relative">
-            <input
-              id="product-discount-percent-input"
-              type="number"
-              min="0"
-              max="100"
-              placeholder="0"
-              aria-label="Percentual de desconto"
-              value={discountPercent}
-              onChange={(event) => onDiscountPercentChange(event.target.value)}
-              className="w-full pl-1 pr-6 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-emerald-600 focus:border-emerald-600"
-            />
-            <span
-              className="absolute right-1 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none"
-              aria-hidden="true"
-            >
-              %
-            </span>
-          </div>
+          <PercentInput
+            id="product-discount-percent-input"
+            value={discountPercent}
+            onChangeValue={onDiscountPercentChange}
+            min={0}
+            max={100}
+            placeholder="0"
+            aria-label="Percentual de desconto"
+            className="w-full pl-1 pr-6 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-emerald-600 focus:border-emerald-600"
+          />
         </div>
         <div className="flex flex-col gap-2 p-2 rounded-2xl">
           <label
@@ -104,7 +95,7 @@ export function ProductPricingFields({
             id="product-discount-fixed-input"
             aria-label="Valor fixo de desconto em reais"
             value={discountFixed}
-            onChange={onDiscountFixedChange}
+            onChange={(value) => onDiscountFixedChange(value)}
             className="w-full text-left px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-emerald-600 focus:border-emerald-600"
           />
         </div>
@@ -120,7 +111,7 @@ export function ProductPricingFields({
             placeholder="Sem desconto"
             aria-label="Preço promocional com desconto aplicado"
             value={formData.promoPrice}
-            onChange={onPromoPriceChange}
+            onChange={(value) => onPromoPriceChange(value)}
             className="w-full text-left px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-amber-200 dark:border-amber-800 outline-none text-xs font-black text-amber-600 dark:text-amber-500 focus:border-amber-600"
           />
         </div>

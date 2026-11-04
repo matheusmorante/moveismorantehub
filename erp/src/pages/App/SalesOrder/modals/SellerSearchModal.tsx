@@ -12,6 +12,7 @@ interface Props {
 
 import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { isValidEmployee } from '@/pages/utils/accessRoles';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const SellerSearchModal = ({ onSelect, onClose, anchorRef, onAddNew }: Props) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,9 +36,9 @@ const SellerSearchModal = ({ onSelect, onClose, anchorRef, onAddNew }: Props) =>
     setFilteredEmployees(
       employees.filter(
         (e) =>
-          normalizeSearchTerm(e.fullName || '').includes(normTerm) ||
-          normalizeSearchTerm(e.nickname || '').includes(normTerm) ||
-          normalizeSearchTerm(e.position || '').includes(normTerm)
+          matchesSearchText(e.fullName || '', normTerm) ||
+          matchesSearchText(e.nickname || '', normTerm) ||
+          matchesSearchText(e.position || '', normTerm)
       )
     );
   }, [searchTerm, employees]);

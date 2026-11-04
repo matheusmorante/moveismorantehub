@@ -22,6 +22,7 @@ import { useOrderProductSelection } from './useOrderProductSelection';
 import { useOrderItemHandlingByDeliveryMethod } from './useOrderItemHandlingByDeliveryMethod';
 import { useOrderAutoSave } from './useOrderAutoSave';
 import { useOrderCustomerSelection } from './useOrderCustomerSelection';
+import { useOrderFormStepNavigation } from './useOrderFormStepNavigation';
 import { buildSalesOrderSnapshot, prepareOrderForFormEditing } from './orderFormSnapshot';
 import { useOrderFormSubmission } from './useOrderFormSubmission';
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
@@ -57,7 +58,8 @@ export const useSalesOrderForm = (
   const [assistanceCost, setAssistanceCost] = useState(0);
   const [linkedOrderId, setLinkedOrderId] = useState('');
   const [isButtonsClicked, setIsButtonsClicked] = useState<Order['isButtonsClicked']>(undefined);
-  const [currentStep, setCurrentStep] = useState(1);
+  const { currentStep, setCurrentStep, goToNextStep, goToPrevStep } =
+    useOrderFormStepNavigation(orderType);
   const [testModeFields, setTestModeFields] = useState<Pick<Order, 'is_test' | 'testArtifact'>>({});
   const [fiscalContext, setFiscalContext] = useState<Order['fiscalContext']>();
   const isTestMode = testModeFields.is_test === true;
@@ -465,20 +467,8 @@ export const useSalesOrderForm = (
       setErrors,
       validateOrder,
       setOrderDate,
-      goToNextStep: () => {
-        setCurrentStep((prev) => {
-          const isBudget = orderType === 'budget';
-          if (isBudget && prev === 4) return 6;
-          return Math.min(prev + 1, 6);
-        });
-      },
-      goToPrevStep: () => {
-        setCurrentStep((prev) => {
-          const isBudget = orderType === 'budget';
-          if (isBudget && prev === 6) return 4;
-          return Math.max(prev - 1, 1);
-        });
-      },
+      goToNextStep,
+      goToPrevStep,
       jumpToStep: (step: number) => {
         setCurrentStep(step);
       },
@@ -503,7 +493,8 @@ export const useSalesOrderForm = (
       handleSaveOrder,
       handleCompleteOrder,
       clearForm,
-      orderType,
+      goToNextStep,
+      goToPrevStep,
     ]
   );
 

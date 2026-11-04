@@ -1,5 +1,9 @@
 # Fonte do guia prático do estoque
 
+## Atualização de 04/11/2026
+
+Nas páginas 17 e 18, o pareamento da estação de impressão avançada é feito no ERP em **Estoque > Etiquetas de Preço**. A tela de etiquetas de identificação não mostra mais o painel de conexão.
+
 ## Atualização de 03/11/2026 — vínculos da NF-e no app
 
 Na página 8, o app agora oferece **Gerar recebimento** dentro de Gerenciar vínculos e abre Recebimentos com a nota escolhida. O botão fica bloqueado até que o perfil tenha acesso a Recebimentos, o XML esteja completo, o fornecedor convencional esteja associado, cada item aplicável esteja vinculado ou marcado “Não se aplica” e a nota ainda não tenha recebimento concluído. A explicação do bloqueio aparece junto ao botão. O cadastro ainda exige a conferência final e **Confirmar recebimento**; apenas abrir o formulário não movimenta o estoque.

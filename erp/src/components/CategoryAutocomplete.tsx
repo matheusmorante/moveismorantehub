@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../pages/utils/supabaseConfig';
-import { normalizeSearchTerm } from '../pages/utils/textUtils';
+import { matchesSearchText } from '../pages/utils/textUtils';
 import DropdownPortal from './shared/DropdownPortal';
-import { buildPostgrestAccentInsensitivePattern } from '../../../shared-utils/searchText';
+import { buildAccentInsensitiveWordsRegex } from '../../../shared-utils/searchText';
 
 interface CategoryNode {
   id: string;
@@ -106,7 +106,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
     let active = true;
     setIsLoading(true);
     setSearchFailed(false);
-    const pattern = buildPostgrestAccentInsensitivePattern(trimmedQuery);
+    const pattern = buildAccentInsensitiveWordsRegex(trimmedQuery);
 
     const searchCategories = async () => {
       try {
@@ -142,7 +142,6 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
         if (!active) return;
         const parentNames = new Map((parentResult.data || []).map((parent) => [parent.id, parent.name]));
 
-        const normalizedQuery = normalizeSearchTerm(trimmedQuery);
         const nodes: CategoryNode[] = [
           ...(environmentResult.data || []).map((environment) => ({
             id: environment.id,
@@ -165,7 +164,7 @@ const CategoryAutocomplete: React.FC<CategoryAutocompleteProps> = ({
         ];
         setSuggestions(
           nodes
-            .filter((node) => normalizeSearchTerm(node.name).includes(normalizedQuery))
+            .filter((node) => matchesSearchText(node.name, trimmedQuery))
             .sort((left, right) => left.name.localeCompare(right.name, 'pt-BR'))
             .slice(0, 5),
         );

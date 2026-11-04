@@ -3,7 +3,7 @@ import { toPersonStockOriginsRow } from '../../../../shared-utils/personStockOri
 import { ITEMS_PER_PAGE } from './stockPagination';
 import type { SupplierDeletionCounts } from '../../../../shared-utils/supplierDeletion';
 import {
-  buildPostgrestAccentInsensitiveOrFilter,
+  buildNormalizedWordsRegex,
   buildPostgrestAccentInsensitivePattern,
 } from '../../../../shared-utils/searchText';
 
@@ -27,12 +27,6 @@ export const fetchSuppliers = async (
     'or(deleted.eq.false,deleted.is.null)',
   ];
   const term = searchQuery.trim();
-  if (term) {
-    filters.push(
-      `or(${buildPostgrestAccentInsensitiveOrFilter(['full_name', 'nickname', 'cpf_cnpj', 'email'], term)})`
-    );
-  }
-
   let query = supabase
     .from('people')
     .select(
@@ -41,6 +35,7 @@ export const fetchSuppliers = async (
     .or(`and(${filters.join(',')})`)
     .order(sortBy, { ascending: sortOrder === 'asc' })
     .range(from, to);
+  if (term) query = query.filter('search_people_supplier_text', 'imatch', buildNormalizedWordsRegex(term));
   if (activeOnly !== undefined) query = query.eq('active', activeOnly);
 
   const { data, error } = await query;

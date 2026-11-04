@@ -3,7 +3,7 @@ import Product from '@/pages/types/product.type';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { processProductData } from '../utils/processLabelProductData';
 import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../../../shared-utils/searchText';
+import { buildPostgrestAccentInsensitiveOrFilter, matchesSearchText } from '../../../../../../../shared-utils/searchText';
 
 const LABEL_PRODUCT_COLUMNS =
   'id, name, description, code, unit_price, cost_price, price, promo_price, stock, active, deleted_at, has_variations, category, unit, images, is_combo';
@@ -228,13 +228,7 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
       const pSku = normalizeSearchText(p.sku);
       const pDesc = normalizeSearchText(p.description);
       const pCat = normalizeSearchText(p.category);
-      return (
-        pTitle.includes(term) ||
-        pDesc.includes(term) ||
-        pCode.includes(term) ||
-        pSku.includes(term) ||
-        pCat.includes(term)
-      );
+      return matchesSearchText(`${pTitle} ${pDesc} ${pCode} ${pSku} ${pCat}`, term);
     });
 
     // 2. Combinar com resultados remotos do Supabase evitando duplicatas por ID
@@ -248,13 +242,6 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
 
     return Array.from(map.values()).slice(0, 5);
   }, [products, dbSearchResults, filterText]);
-
-  const formatCurrency = (val: number | string | undefined) => {
-    if (!val) return 'R$ 0,00';
-    const num = typeof val === 'string' ? parseFloat(val.replace(',', '.')) : val;
-    if (isNaN(num)) return 'R$ 0,00';
-    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
 
   return (
     <div ref={containerRef} className={`relative flex-1 ${className}`}>
@@ -326,9 +313,6 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
               {combinedProducts.slice(0, 5).map((p) => {
                 const isSelected = selectedProduct?.id === p.id;
                 const title = getProductTitle(p);
-                const priceText = formatCurrency(
-                  p.unitPrice || (p as any).unit_price || (p as any).price
-                );
 
                 return (
                   <button
@@ -340,34 +324,13 @@ export const ProductSearchInput: React.FC<ProductSearchInputProps> = ({
                       onSelectProduct(p);
                       setIsOpen(false);
                     }}
-                    className={`flex items-center justify-between p-3 rounded-xl transition-all text-left w-full cursor-pointer ${
+                    className={`flex items-center p-3 rounded-xl transition-all text-left w-full cursor-pointer ${
                       isSelected
                         ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold'
                         : 'hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-black uppercase truncate">{title}</span>
-                        <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-tight">
-                          {(p.sku || p.code) && (
-                            <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500">
-                              SKU: {p.sku || p.code}
-                            </span>
-                          )}
-                          {p.category && <span>&bull; {p.category}</span>}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 shrink-0 ml-2">
-                      <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                        {priceText}
-                      </span>
-                      {isSelected && (
-                        <i className="bi bi-check-lg text-blue-600 dark:text-blue-400 text-base" />
-                      )}
-                    </div>
+                    <span className="min-w-0 text-xs font-black uppercase truncate">{title}</span>
                   </button>
                 );
               })}

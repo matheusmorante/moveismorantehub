@@ -6,6 +6,7 @@
 
 ## Referências atuais
 
+- [Busca textual sem dependência da ordem das palavras — 04/11](historico-correcoes-2026-11-04.md#busca-textual-sem-dependência-da-ordem-das-palavras): ERP e app compartilham a comparação por palavras; as consultas afetadas filtram antes do limite.
 - [Cálculo das lacunas de NSU extraído — 03/11](historico-correcoes-2026-11-03.md#calculo-das-lacunas-de-nsu-extraido): normalização e identificação dos intervalos faltantes ficam em utilitário puro; a fila, os cursores e os chamadores permanecem.
 - [Inspeção local de ambiente e certificados do auditor fiscal extraída — 03/11](historico-correcoes-2026-11-03.md#inspecao-local-de-ambiente-e-certificados-do-auditor-fiscal-extraida): o modo do auditor preserva campos, sanitização e hash HMAC usando helper interno; o runner continua com o mesmo entry point.
 - [Processamento automático de lote de Ciência extraído — 03/11](historico-correcoes-2026-11-03.md#processamento-automatico-de-lote-de-ciencia-extraido): a orquestração de reserva/transmissão/persistência do lote fica em helper interno; o handler e sua resposta permanecem.

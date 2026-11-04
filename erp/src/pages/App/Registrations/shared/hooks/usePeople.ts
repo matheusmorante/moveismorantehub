@@ -12,6 +12,7 @@ import type { PersonMutationOptions } from '@/pages/utils/personService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
 import { toast } from 'react-toastify';
 import { requestConfirmation } from '@/components/shared/confirmationService';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const EMPTY_PEOPLE: Awaited<ReturnType<typeof fetchPersons>> = [];
 
@@ -136,8 +137,8 @@ export const usePeople = (collectionName: string, filters?: any) => {
         const searchTerm = normalize(filters.search || '');
         const searchMatch =
           !filters.search ||
-          normalize(person.fullName || '').includes(searchTerm) ||
-          normalize(person.email || '').includes(searchTerm) ||
+          matchesSearchText(person.fullName, searchTerm) ||
+          matchesSearchText(person.email, searchTerm) ||
           person.cpfCnpj?.includes(filters.search);
 
         const activeMatch =

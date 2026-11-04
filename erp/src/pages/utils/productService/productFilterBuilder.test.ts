@@ -394,13 +394,14 @@ describe('productFilterBuilder', () => {
       { orderColumn: 'created_at', ascending: false, from: 10, to: 19 }
     );
 
-    expect(variationQuery.or).toHaveBeenCalledWith('name.ilike.%KTX%,sku.ilike.%KTX%');
+    expect(variationQuery.or).toHaveBeenCalledWith(expect.stringContaining('name.imatch.'));
+    expect(variationQuery.or).toHaveBeenCalledWith(expect.stringContaining('sku.imatch.'));
     expect(productQuery.eq).toHaveBeenCalledWith('item_type', 'composition');
     expect(productQuery.not).toHaveBeenCalledWith('is_draft', 'is', true);
     expect(productQuery.filter).toHaveBeenCalledWith('status', 'isdistinct', 'draft');
     expect(productQuery.eq).toHaveBeenCalledWith('status', 'hidden');
     expect(productQuery.or).toHaveBeenCalledWith(
-      expect.stringContaining('name.ilike.%KTX%,code.ilike.%KTX%')
+      expect.stringContaining('name.imatch.')
     );
     expect(productQuery.or).toHaveBeenCalledWith(expect.stringContaining('id.eq.composition-parent'));
     expect(productQuery.range).toHaveBeenCalledWith(10, 19);

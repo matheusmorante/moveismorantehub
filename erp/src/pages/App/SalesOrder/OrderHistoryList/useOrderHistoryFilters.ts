@@ -1,5 +1,5 @@
 import Order from '../../../types/order.type';
-import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText, normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 export const toComparableDate = (dateStr: string): string => {
   if (!dateStr || !dateStr.includes('/')) return dateStr;
@@ -29,7 +29,7 @@ export const filterOrder = (order: Order, filters?: any): boolean => {
 
   const customerNameQuery = normalizeSearchTerm(filters?.customerName || '');
   const orderCustomerName = normalizeSearchTerm(order.customerData?.fullName || '');
-  const matchesCustomer = orderCustomerName.includes(customerNameQuery);
+  const matchesCustomer = matchesSearchText(orderCustomerName, customerNameQuery);
 
   let dateMatch = true;
   if (filters.dateRange?.start && filters.dateRange?.end) {
@@ -49,8 +49,8 @@ export const filterOrder = (order: Order, filters?: any): boolean => {
   const prodQuery = normalizeSearchTerm(filters.productName || '');
   const productMatch =
     !filters.productName ||
-    order.items?.some((item) => normalizeSearchTerm(item.description).includes(prodQuery)) ||
-    normalizeSearchTerm(order.assistanceDescription || '').includes(prodQuery);
+    order.items?.some((item) => matchesSearchText(item.description, prodQuery)) ||
+    matchesSearchText(order.assistanceDescription || '', prodQuery);
 
   const isBudgetView = filters?.isBudgetView || false;
   const isAssistanceView = filters?.isAssistanceView || false;
@@ -72,7 +72,7 @@ export const filterOrder = (order: Order, filters?: any): boolean => {
 
   const sellerQuery = normalizeSearchTerm(filters.seller || '');
   const sellerMatch =
-    !filters.seller || normalizeSearchTerm(order.seller || '').includes(sellerQuery);
+    !filters.seller || matchesSearchText(order.seller || '', sellerQuery);
 
   const totalOrderValue = order.paymentsSummary?.totalOrderValue || 0;
   const valueMatch =

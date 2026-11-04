@@ -15,12 +15,22 @@ function setup(valid: boolean) {
   const select = vi.fn(async () => valid);
   function Owner() {
     const [items, setItems] = useState<LabelItemConfig[]>([{ name: 'Original', price: '', quantity: 1, isBlank: true }]);
-    return <><span>{items.length ? 'Original preservado' : 'Substituído'}</span><QueueSection selectedCategory="precos" printingMode="simple" config={createInitialLabelConfig()} products={[]} selectedProductToAdd={null} setSelectedProductToAdd={vi.fn()} productAddQty={1} setProductAddQty={vi.fn()} handleProductSelect={select} labelItems={items} setLabelItems={setItems} logoItems={[]} setLogoItems={vi.fn()} isDownloading={false} /></>;
+    return <><span>{items.length ? 'Original preservado' : 'Substituído'}</span><QueueSection selectedCategory="precos" printingMode="simple" config={createInitialLabelConfig()} products={[]} selectedProductToAdd={null} setSelectedProductToAdd={vi.fn()} productAddQty={1} setProductAddQty={vi.fn()} handleProductSelect={select} handleReplaceProduct={vi.fn()} labelItems={items} setLabelItems={setItems} logoItems={[]} setLogoItems={vi.fn()} isDownloading={false} /></>;
   }
   render(<Owner />);
   return select;
 }
 describe('queue replacement owner', () => {
+  it('adiciona uma etiqueta de identificação pelo botão textual', () => {
+    const add = vi.fn();
+    render(<QueueSection selectedCategory="identificacao" printingMode="advanced" config={createInitialLabelConfig()} products={[]} selectedProductToAdd={null} setSelectedProductToAdd={vi.fn()} productAddQty={1} setProductAddQty={vi.fn()} handleProductSelect={vi.fn()} handleReplaceProduct={vi.fn()} labelItems={[]} setLabelItems={vi.fn()} logoItems={[]} setLogoItems={vi.fn()} isDownloading={false} handleAddBlankLabel={add} />);
+    const button = screen.getByRole('button', { name: 'Adicionar' });
+    expect(button.querySelector('i')).toBeNull();
+    expect(button.className).toContain('bg-transparent');
+    expect(button.className).toContain('border-0');
+    fireEvent.click(button);
+    expect(add).toHaveBeenCalledWith(1);
+  });
   it('keeps the original label when product validation fails', async () => {
     const select = setup(false);
     fireEvent.click(screen.getByText('Substituir'));

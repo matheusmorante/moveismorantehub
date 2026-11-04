@@ -12,6 +12,7 @@ import {
   setCategoryAttributeRequirement,
   type CategoryAttributeSelection,
 } from '../../../../../../shared-utils/categoryAttributeSelection';
+import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 
 interface Props {
   dark: boolean;
@@ -41,7 +42,7 @@ export const CategoryAttributesPicker: React.FC<Props> = ({
   const hasSearchTerm = normalizedQuery.length >= 2;
   const matchingAttributes = hasSearchTerm
     ? selectableAttributes.filter((attribute) =>
-        normalizeSearchTerm(attribute.name).includes(normalizedQuery),
+        matchesSearchText(attribute.name, normalizedQuery),
       )
     : [];
   const selectionDisabled = isLoadingAttributes || attributeLoadFailed || isSubmitting;

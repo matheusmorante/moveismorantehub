@@ -1,4 +1,5 @@
 import { ArrowLeftRight, Check, Info, PlusCircle, Search } from 'lucide-react-native';
+import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -419,7 +420,7 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   const isPersistedGroupNameSearch = matchingOptionalFields.some(
     (field) =>
       field.groupName &&
-      normalizeSearchTerm(field.groupName).includes(normalizedDebouncedSearchTerm)
+      matchesSearchText(field.groupName, normalizedDebouncedSearchTerm)
   );
   const addSearchResultField = (field: MobileProductTechnicalField) => {
     const fieldsToActivate = isSimpleProduct

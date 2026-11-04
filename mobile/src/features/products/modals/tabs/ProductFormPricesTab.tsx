@@ -30,7 +30,9 @@ import {
 import { useProductFormSupplierSectionState } from '../../hooks/useProductFormSupplierSectionState';
 import { styles } from './productFormPricesTab.styles';
 
+import { CurrencyInput } from '../../../../components/shared/CurrencyInput';
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
+import { PercentInput } from '../../../../components/shared/PercentInput';
 interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
@@ -122,16 +124,16 @@ export const ProductFormPricesTab: React.FC<Props> = ({
 
   // Calcula desconto ao mudar preço promo
   const handlePromoChange = useCallback(
-    (promoStr: string) => {
+    (promoValue: number | null) => {
       setFormData((prev) => {
-        const promo = parsePrice(promoStr);
+        const promo = promoValue ?? 0;
         const orig = parsePrice(prev.unitPrice);
         const discount = calculateProductDiscountFromPromoPrice(orig, promo);
         const next: any = {
           ...prev,
-          promoPrice: discount.promoPrice === undefined ? '' : String(discount.promoPrice),
-          discountFixed: discount.discountFixed,
-          discountPercent: discount.discountPercent,
+          promoPrice: discount.promoPrice ?? '',
+          discountFixed: optionalNumber(discount.discountFixed) ?? '',
+          discountPercent: optionalNumber(discount.discountPercent) ?? '',
         };
         return syncInheritedVariationPrices(next, orig, promo > 0 ? promo : undefined);
       });
@@ -140,25 +142,25 @@ export const ProductFormPricesTab: React.FC<Props> = ({
   );
 
   const handleUnitPriceChange = useCallback(
-    (priceStr: string) => {
+    (price: number | null) => {
       setFormData((prev) => {
-        const orig = parsePrice(priceStr);
-        const next: any = { ...prev, unitPrice: priceStr };
+        const orig = price ?? 0;
+        const next: any = { ...prev, unitPrice: price ?? '' };
         if (orig <= 0) {
           next.promoPrice = '';
           next.discountFixed = '';
           next.discountPercent = '';
-        } else if (String(prev.discountPercent || '').trim()) {
-          const percent = Number(String(prev.discountPercent).replace(',', '.'));
+        } else if (optionalNumber(prev.discountPercent) !== null) {
+          const percent = optionalNumber(prev.discountPercent) ?? 0;
           const discount = calculateProductDiscountFromPercent(orig, percent);
-          next.discountFixed = discount.discountFixed;
-          next.promoPrice = discount.promoPrice === undefined ? '' : String(discount.promoPrice);
+          next.discountFixed = optionalNumber(discount.discountFixed) ?? '';
+          next.promoPrice = discount.promoPrice ?? '';
         } else {
           const previousPromo = parsePrice(prev.promoPrice);
           const discount = calculateProductDiscountFromPromoPrice(orig, previousPromo);
-          next.promoPrice = discount.promoPrice === undefined ? '' : String(discount.promoPrice);
-          next.discountFixed = discount.discountFixed;
-          next.discountPercent = discount.discountPercent;
+          next.promoPrice = discount.promoPrice ?? '';
+          next.discountFixed = optionalNumber(discount.discountFixed) ?? '';
+          next.discountPercent = optionalNumber(discount.discountPercent) ?? '';
         }
         return syncInheritedVariationPrices(
           next,
@@ -175,11 +177,11 @@ export const ProductFormPricesTab: React.FC<Props> = ({
   }, [formData.unitPrice, onUnitPriceValidationCleared]);
 
   const handleInboundCostPriceChange = useCallback(
-    (value: string) => {
+    (value: number | null) => {
       setFormData((prev) => ({
         ...prev,
-        costPrice: value,
-        finalPurchasePrice: resolveMobileProductFinalPurchasePrice({ costPrice: value }),
+        costPrice: value ?? '',
+        finalPurchasePrice: resolveMobileProductFinalPurchasePrice({ costPrice: value ?? '' }),
       }));
       onCostPriceValidationCleared?.();
     },
@@ -187,16 +189,16 @@ export const ProductFormPricesTab: React.FC<Props> = ({
   );
 
   const handleDiscountPercentChange = useCallback(
-    (pctStr: string) => {
+    (percent: number | null) => {
       setFormData((prev) => {
         const orig = parsePrice(prev.unitPrice);
-        const pct = pctStr.trim() ? Number(pctStr.replace(',', '.')) : 0;
+        const pct = percent ?? 0;
         const discount = calculateProductDiscountFromPercent(orig, pct);
         const next: any = {
           ...prev,
-          discountPercent: pctStr,
-          discountFixed: discount.discountFixed,
-          promoPrice: discount.promoPrice === undefined ? '' : String(discount.promoPrice),
+          discountPercent: percent ?? '',
+          discountFixed: optionalNumber(discount.discountFixed) ?? '',
+          promoPrice: discount.promoPrice ?? '',
         };
         return syncInheritedVariationPrices(
           next,
@@ -209,16 +211,15 @@ export const ProductFormPricesTab: React.FC<Props> = ({
   );
 
   const handleDiscountFixedChange = useCallback(
-    (fixedStr: string) => {
+    (fixed: number | null) => {
       setFormData((prev) => {
         const orig = parsePrice(prev.unitPrice);
-        const fixed = parsePrice(fixedStr);
-        const discount = calculateProductDiscountFromFixed(orig, fixed);
+        const discount = calculateProductDiscountFromFixed(orig, fixed ?? 0);
         const next: any = {
           ...prev,
-          discountFixed: fixedStr,
-          discountPercent: discount.discountPercent,
-          promoPrice: discount.promoPrice === undefined ? '' : String(discount.promoPrice),
+          discountFixed: fixed ?? '',
+          discountPercent: optionalNumber(discount.discountPercent) ?? '',
+          promoPrice: discount.promoPrice ?? '',
         };
         return syncInheritedVariationPrices(
           next,
@@ -230,7 +231,10 @@ export const ProductFormPricesTab: React.FC<Props> = ({
     [setFormData]
   );
 
-  const f = (v: any) => (v !== null && v !== undefined && v !== '' ? String(v) : '');
+  const optionalNumber = (value: unknown): number | null =>
+    value === null || value === undefined || String(value).trim() === ''
+      ? null
+      : parsePrice(value);
   const addSupplier = (supplier: any) => {
     if (
       !supplier?.id ||
@@ -374,10 +378,10 @@ export const ProductFormPricesTab: React.FC<Props> = ({
           <Text style={[styles.label, dark && styles.dimText, costPriceError && styles.invalidLabel]}>
             Custo de aquisição (R$) <Text style={{ color: '#ef4444' }}>*</Text>
           </Text>
-          <FormTextInput
-            value={f(formData.costPrice)}
-            onChangeText={handleInboundCostPriceChange}
-            keyboardType="decimal-pad"
+          <CurrencyInput
+            value={optionalNumber(formData.costPrice)}
+            onChangeValue={handleInboundCostPriceChange}
+            prefix=""
             accessibilityLabel="Custo de aquisição do produto"
             accessibilityHint={costPriceError ? 'Informe um custo de aquisição válido, maior ou igual a zero.' : 'Valor calculado a partir dos custos do item da NF-e.'}
             placeholder="0,00"
@@ -408,11 +412,11 @@ export const ProductFormPricesTab: React.FC<Props> = ({
                 <Text style={{ color: '#ef4444' }}>*</Text>
               )}
             </Text>
-            <FormTextInput
-              value={f(formData.unitPrice)}
-              onChangeText={handleUnitPriceChange}
+            <CurrencyInput
+              value={optionalNumber(formData.unitPrice)}
+              onChangeValue={handleUnitPriceChange}
               onBlur={handleUnitPriceBlur}
-              keyboardType="numeric"
+              prefix=""
               accessibilityLabel="Preço de venda do produto"
               accessibilityHint={unitPriceError ? 'Informe o Preço de Venda do produto na aba Estoque e Precificação.' : undefined}
               placeholder="0,00"
@@ -427,22 +431,21 @@ export const ProductFormPricesTab: React.FC<Props> = ({
         <View style={styles.row}>
           <View style={styles.flex1}>
             <Text style={[styles.label, dark && styles.dimText]}>% Desconto</Text>
-            <FormTextInput
-              value={f(formData.discountPercent)}
-              onChangeText={handleDiscountPercentChange}
-              keyboardType="numeric"
+            <PercentInput
+              value={optionalNumber(formData.discountPercent)}
+              onChangeValue={handleDiscountPercentChange}
               accessibilityLabel="Percentual de desconto"
-              placeholder="0,0"
+              placeholder="0,00"
               placeholderTextColor="#94a3b8"
               style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
             />
           </View>
           <View style={styles.flex1}>
             <Text style={[styles.label, dark && styles.dimText]}>R$ Desconto</Text>
-            <FormTextInput
-              value={f(formData.discountFixed)}
-              onChangeText={handleDiscountFixedChange}
-              keyboardType="numeric"
+            <CurrencyInput
+              value={optionalNumber(formData.discountFixed)}
+              onChangeValue={handleDiscountFixedChange}
+              prefix=""
               accessibilityLabel="Valor fixo de desconto em reais"
               placeholder="0,00"
               placeholderTextColor="#94a3b8"
@@ -451,10 +454,10 @@ export const ProductFormPricesTab: React.FC<Props> = ({
           </View>
           <View style={styles.flex1}>
             <Text style={[styles.label, dark && styles.dimText]}>Preço Promo (R$)</Text>
-            <FormTextInput
-              value={f(formData.promoPrice)}
-              onChangeText={handlePromoChange}
-              keyboardType="numeric"
+            <CurrencyInput
+              value={optionalNumber(formData.promoPrice)}
+              onChangeValue={handlePromoChange}
+              prefix=""
               accessibilityLabel="Preço promocional com desconto aplicado"
               placeholder="0,00"
               placeholderTextColor="#94a3b8"

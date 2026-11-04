@@ -8,6 +8,7 @@ import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import { useAssemblyListQuery } from './hooks/useAssemblyListQuery';
 import AssemblyCard from './components/AssemblyCard';
 import OrderDetailsModal from '../DeliverySchedule/OrderDetailsModal';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const getLocalDateKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -84,7 +85,7 @@ const AssemblyListPage = () => {
     ]
       .filter(Boolean)
       .join(' ');
-    return normalizeSearchTerm(searchableText).includes(normalizedSearchTerm);
+    return matchesSearchText(searchableText, normalizedSearchTerm);
   });
 
   useEffect(() => {

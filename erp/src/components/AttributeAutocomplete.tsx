@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../pages/utils/supabaseConfig';
-import { normalizeSearchTerm } from '../pages/utils/textUtils';
+import { matchesSearchText } from '../pages/utils/textUtils';
 import DropdownPortal from './shared/DropdownPortal';
 import { isCategoryAttributeSelectable } from '../../../shared-utils/categoryAttributeSelection';
 import { withCatalogAttributesLoadTimeout } from '../../../shared-utils/catalogAttributesLoadTimeout';
-import { buildPostgrestAccentInsensitivePattern } from '../../../shared-utils/searchText';
+import { buildAccentInsensitiveWordsRegex } from '../../../shared-utils/searchText';
 
 export interface AttributeNode {
   id: string;
@@ -76,7 +76,7 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
           supabase
             .from('attributes')
             .select('id, name')
-            .filter('name', 'imatch', buildPostgrestAccentInsensitivePattern(trimmed))
+            .filter('name', 'imatch', buildAccentInsensitiveWordsRegex(trimmed))
             .order('name')
             .limit(5),
           'erp:category-attributes:search',
@@ -84,10 +84,9 @@ const AttributeAutocomplete: React.FC<AttributeAutocompleteProps> = ({
         if (error) throw error;
         if (!active) return;
 
-        const normalizedQuery = normalizeSearchTerm(trimmed);
         const filtered = ((data || []) as AttributeRow[])
           .filter((attribute) => isCategoryAttributeSelectable(String(attribute.name)))
-          .filter((attribute) => normalizeSearchTerm(attribute.name).includes(normalizedQuery))
+          .filter((attribute) => matchesSearchText(attribute.name, trimmed))
           .slice(0, 5)
           .map(({ id, name }) => ({ id, name }));
         setSuggestions(filtered);

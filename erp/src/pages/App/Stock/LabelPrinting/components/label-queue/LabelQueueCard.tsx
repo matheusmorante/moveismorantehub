@@ -240,10 +240,11 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
                 variationsOnly
                 excludeCombos
                 maxSuggestions={5}
+                onlyName
                 placeholder={item.isBlank ? 'Buscar produto convencional...' : 'Alterar produto da etiqueta...'}
                 inputClassName={`w-full border-b-2 bg-transparent px-2 py-2 pr-8 text-xs font-bold outline-none ${
                   hasSelectedProduct
-                    ? 'border-emerald-500 text-emerald-700 focus:border-emerald-600 dark:border-emerald-500 dark:text-emerald-300'
+                    ? 'border-emerald-500 text-slate-800 focus:border-emerald-600 dark:border-emerald-500 dark:text-slate-100'
                     : 'border-slate-200 text-slate-800 focus:border-blue-500 dark:border-slate-800 dark:text-slate-100'
                 }`}
               />

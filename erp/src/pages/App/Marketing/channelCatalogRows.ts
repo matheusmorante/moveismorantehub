@@ -1,5 +1,5 @@
 import { pluralizeProductType } from '@/pages/utils/pluralize';
-import { normalizeSearchTerm } from '@/pages/utils/textUtils';
+import { matchesSearchText, normalizeSearchTerm } from '@/pages/utils/textUtils';
 
 export interface ChannelCatalogVariationRow {
   varId: string;
@@ -71,9 +71,9 @@ export function filterChannelCatalogRows(
   const query = normalizeSearchTerm(search);
   return rows.filter((row) => {
     const matchesSearch =
-      normalizeSearchTerm(row.varName).includes(query) ||
-      normalizeSearchTerm(row.varSku).includes(query) ||
-      normalizeSearchTerm(row.parentDescription).includes(query);
+      matchesSearchText(row.varName, query) ||
+      matchesSearchText(row.varSku, query) ||
+      matchesSearchText(row.parentDescription, query);
     const matchesChannel = channel === 'all' || (channel === 'whatsapp' && row.varWhatsappSync);
     return matchesSearch && matchesChannel && rowMatchesChannelCatalogCollection(row, collection);
   });

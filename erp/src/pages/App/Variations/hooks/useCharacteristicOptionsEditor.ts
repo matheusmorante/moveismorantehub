@@ -12,6 +12,7 @@ import {
   type CharacteristicSaveStatus,
   normalizeCharacteristicText,
 } from '../domain/characteristicFormRules';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const FORM_AUTOSAVE_DEBOUNCE_MS = 500;
 const OPTION_SEARCH_DEBOUNCE_MS = 300;
@@ -95,7 +96,7 @@ export const useCharacteristicOptionsEditor = ({
   const filteredOptions = useMemo(() => {
     if (!activeOptionSearch) return formData.options;
     return formData.options.filter((option) =>
-      normalizeSearchTerm(option.value).includes(activeOptionSearch)
+      matchesSearchText(option.value, activeOptionSearch)
     );
   }, [activeOptionSearch, formData.options]);
 

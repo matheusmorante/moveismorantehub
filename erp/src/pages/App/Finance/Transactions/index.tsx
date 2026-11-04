@@ -10,6 +10,7 @@ import type { z } from 'zod';
 import { useFinancialOperation } from '../useFinancialOperation';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -91,9 +92,7 @@ export default function Transactions() {
   };
 
   const filtered = transactions.filter((t) => {
-    const matchesSearch = normalizeSearchTerm(t.description || '').includes(
-      normalizeSearchTerm(search)
-    );
+    const matchesSearch = matchesSearchText(t.description || '', normalizeSearchTerm(search));
     const matchesType = typeFilter === 'all' || t.type === typeFilter;
     return matchesSearch && matchesType;
   });

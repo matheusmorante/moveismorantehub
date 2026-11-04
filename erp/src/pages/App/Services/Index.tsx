@@ -5,6 +5,7 @@ import ServiceTable from './ServiceTable';
 import { useServices } from './useServices';
 import type Service from '../../types/service.type';
 import { normalizeSearchTerm } from '../../utils/textUtils';
+import { matchesSearchText } from '@/pages/utils/textUtils';
 
 type VisibilityKey = keyof ServiceVisibilitySettings;
 
@@ -46,8 +47,8 @@ const Services = () => {
   const normSearch = normalizeSearchTerm(searchTerm);
   const filteredServices = services.filter(
     (s) =>
-      normalizeSearchTerm(s.description).includes(normSearch) ||
-      (s.id && normalizeSearchTerm(s.id).includes(normSearch))
+      matchesSearchText(s.description, normSearch) ||
+      (s.id && matchesSearchText(s.id, normSearch))
   );
 
   return (
