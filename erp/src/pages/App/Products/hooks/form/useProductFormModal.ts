@@ -288,6 +288,7 @@ export function useProductFormModal({
 
   const { handleSubmit } = useProductFormSubmit({
     formData,
+    categoryName: selectedCategoryName || formData.category || '',
     setFormData,
     product,
     isRegisteredProduct,

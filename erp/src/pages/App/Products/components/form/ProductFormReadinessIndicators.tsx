@@ -24,7 +24,7 @@ export const ProductFormReadinessIndicators: React.FC<ProductFormReadinessIndica
   const hasVariationPhotos = hasProductVariationPhotos(formData);
 
   return (
-    <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center">
+    <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:gap-2">
       {/* Pílula de Requisitos do ERP */}
       {!isSalvado && (
         <div className="relative group cursor-help">

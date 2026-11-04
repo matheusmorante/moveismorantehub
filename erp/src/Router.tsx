@@ -42,7 +42,6 @@ import Payables from './pages/App/Finance/Payables';
 import Receivables from './pages/App/Finance/Receivables';
 import Transactions from './pages/App/Finance/Transactions';
 import FinanceSettings from './pages/App/Finance/Settings';
-import LabelPrinting from './pages/App/Stock/LabelPrinting/Index';
 import SystemDocs from './pages/App/SystemDocs/Index';
 import ChannelCatalog from './pages/App/Marketing/ChannelCatalog';
 import MarketingPosts from './pages/App/Marketing/Posts';
@@ -51,6 +50,7 @@ import AssemblyPrintPage from './pages/App/Logistics/AssemblyPrintPage';
 import MobileAppLanding from './pages/App/MobileAppLanding';
 import ApiUsagePage from './pages/App/ApiUsage/Index';
 const SalesOrderReports = lazy(() => import('./pages/App/SalesOrder/Reports/Index'));
+const LabelPrinting = lazy(() => import('./pages/App/Stock/LabelPrinting/Index'));
 const SalesOrderReportView = lazy(
   () => import('./pages/App/SalesOrder/Reports/components/ReportView')
 );
@@ -373,8 +373,14 @@ function Router() {
             </Route>
             <Route path="/estoque/etiquetas" element={<ProductIdentificationLabelRoute />} />
             <Route element={<PermissionRoute action="viewStockLabels" />}>
-              <Route path="/design/labels" element={<LabelPrinting />} />
-              <Route path="/templates/price-label" element={<LabelPrinting />} />
+              <Route
+                path="/design/labels"
+                element={<Suspense fallback={<LoadingFallback />}><LabelPrinting /></Suspense>}
+              />
+              <Route
+                path="/templates/price-label"
+                element={<Suspense fallback={<LoadingFallback />}><LabelPrinting /></Suspense>}
+              />
             </Route>
             <Route element={<PermissionRoute action="viewNcmCatalog" />}>
               <Route path="/estoque/ncm" element={<NcmCatalogPage />} />

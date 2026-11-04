@@ -15,7 +15,10 @@ import {
   getCharacteristicDependencies,
 } from '../../../../../../../../../shared-utils/characteristicDependencyRules';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
-import { areTechnicalCharacteristicNamesEquivalent } from '../../../../../../../../../shared-utils/productTechnicalFieldScope';
+import {
+  areTechnicalCharacteristicNamesEquivalent,
+  isSofaRequiredCharacteristic,
+} from '../../../../../../../../../shared-utils/productTechnicalFieldScope';
 import {
   normalizeSearchTerm,
   isOptionalFieldSelected,
@@ -26,6 +29,7 @@ import {
   getMatchingTopicGroups,
 } from '../technicalSearchUtils';
 import {
+  SOFA_ONLY_DIMENSION_DEFAULTS,
   SOFA_RETRACTABLE_FIELD,
   isRetractableCharacteristic,
   isOpenClosedSofaDepth,
@@ -239,7 +243,7 @@ export const useTechnicalFieldApplicability = ({
       return {
         ...field,
         isRequired: required,
-        isRequiredForProductEntry: false,
+        isRequiredForProductEntry: isSofaCategorySelected && isSofaRequiredCharacteristic(field.name),
         characteristicActive: active,
         characteristicToggleDisabled: required,
       };
@@ -289,7 +293,7 @@ export const useTechnicalFieldApplicability = ({
           ...field,
           isRequired: required,
           isRequiredForCatalog: Boolean(field.isRequiredForCatalog),
-          isRequiredForProductEntry: false,
+          isRequiredForProductEntry: isSofaCategorySelected && isSofaRequiredCharacteristic(field.name),
           characteristicActive: active,
           characteristicToggleDisabled: required,
           dependencySatisfied: dependency.satisfied,
@@ -421,7 +425,7 @@ export const useTechnicalFieldApplicability = ({
               field: {
                 ...field,
                 isRequired: required,
-                isRequiredForProductEntry: false,
+                isRequiredForProductEntry: isSofaCategorySelected && isSofaRequiredCharacteristic(field.name),
                 characteristicActive: active,
                 characteristicToggleDisabled: required,
               },

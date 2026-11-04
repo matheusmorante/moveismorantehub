@@ -27,6 +27,7 @@ import { inheritMobileSimpleVariationFromParent } from '../../domain/productVari
 import { getMobileVariationColorSummary } from '../../domain/productCharacteristics';
 import { styles } from './productFormBasicTab.styles';
 import { ProductFormOriginAndModeFields } from './ProductFormOriginAndModeFields';
+import { filterProductFormCategories } from './productFormCategoryFiltering';
 
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
 interface Props {
@@ -40,24 +41,10 @@ interface Props {
   onNameValidationCleared?: () => void;
   categoryError?: boolean;
   onCategoryValidationCleared?: () => void;
+  onCategoryNamesResolved?: (categoryIds: string[], names: string[]) => void;
   onFieldFocus?: (fieldName: string) => void;
   onFieldBlur?: (fieldName: string) => void;
 }
-
-const FIXED_ENVIRONMENTS = [
-  'SALA DE JANTAR',
-  'SALA DE ESTAR',
-  'COZINHA',
-  'QUARTO',
-  'LAVANDERIA',
-  'BANHEIRO',
-  'LAVANDEIRA',
-  'ESCRITORIO',
-  'ESCRITÓRIO',
-  'VARANDA',
-  'ÁREA GOURMET',
-  'GARAGEM',
-];
 
 export const ProductFormBasicTab: React.FC<Props> = ({
   formData,
@@ -70,6 +57,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
   onNameValidationCleared,
   categoryError = false,
   onCategoryValidationCleared,
+  onCategoryNamesResolved,
   onFieldFocus,
   onFieldBlur,
 }) => {
@@ -125,19 +113,10 @@ export const ProductFormBasicTab: React.FC<Props> = ({
 
   const set = (field: string, val: any) => setFormData((prev) => ({ ...prev, [field]: val }));
 
-  const filteredCategories = useMemo(() => {
-    return categories.filter((cat) => {
-      const name = cat.name?.trim().toUpperCase() || '';
-      const isFixed = FIXED_ENVIRONMENTS.includes(name);
-      const hasChildren = categories.some((other) => other.parents?.includes(cat.id));
-      const isEnvironment =
-        isFixed ||
-        (hasChildren && (!cat.parents || cat.parents.length === 0)) ||
-        !cat.parents ||
-        cat.parents.length === 0;
-      return !isEnvironment;
-    });
-  }, [categories]);
+  const filteredCategories = useMemo(
+    () => filterProductFormCategories(categories),
+    [categories]
+  );
 
   const handleToggleCategory = (cat: MobileCategory) => {
     const currentIds: string[] =
@@ -156,6 +135,9 @@ export const ProductFormBasicTab: React.FC<Props> = ({
     }
 
     const firstSelected = categories.find((c) => c.id === nextIds[0]);
+    const selectedCategoryNames = nextIds
+      .map((id) => categories.find((category) => category.id === id)?.name)
+      .filter((name): name is string => Boolean(name));
     const availableEnvironments = categoryHierarchyReady
       ? getProductCategoryRootNames(nextIds, categoryHierarchy)
       : [];
@@ -165,6 +147,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
       categoryIds: nextIds,
       categoryId: nextIds[0] || '',
       category: firstSelected?.name || '',
+      categoryNames: selectedCategoryNames,
       ...(categoryHierarchyReady
         ? {
             environment:
@@ -188,6 +171,15 @@ export const ProductFormBasicTab: React.FC<Props> = ({
     [formData.categoryIds, formData.categoryId]
   );
   const selectedCategoryKey = selectedCategoryIds.join('|');
+
+  useEffect(() => {
+    if (selectedCategoryIds.length === 0) return;
+    const selectedCategoryNames = selectedCategoryIds
+      .map((id) => categories.find((category) => category.id === id)?.name)
+      .filter((name): name is string => Boolean(name));
+    if (selectedCategoryNames.length !== selectedCategoryIds.length) return;
+    onCategoryNamesResolved?.(selectedCategoryIds, selectedCategoryNames);
+  }, [categories, selectedCategoryIds, onCategoryNamesResolved]);
 
   useEffect(() => {
     if (!categoryHierarchyReady || selectedCategoryIds.length === 0) return;
@@ -250,6 +242,7 @@ export const ProductFormBasicTab: React.FC<Props> = ({
         categoryIds,
         categoryId: categoryIds[0] || '',
         category: category.name || '',
+        categoryNames: category.name ? [category.name] : [],
         ...(categoryHierarchyReady
           ? {
               environment:

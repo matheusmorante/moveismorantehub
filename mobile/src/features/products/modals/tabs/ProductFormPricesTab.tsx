@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   calculateProductDiscountFromFixed,
   calculateProductDiscountFromPercent,
@@ -23,14 +23,11 @@ import { SupplierFormModal } from '../../../stock/suppliers/SupplierFormModal';
 import { parseLocalizedNumber as parsePrice } from '../../domain/productNumbers';
 import { resolveMobileProductFinalPurchasePrice } from '../../domain/productPurchasePrice';
 import {
-  fetchMobileProductSuppliersWithStatus,
-  type MobileProductSupplier,
-} from '../../services/mobileSupplierService';
-import {
   MAX_VISIBLE_SUPPLIER_SUGGESTIONS,
   MIN_SUPPLIER_SEARCH_LENGTH,
   ProductFormSupplierSection,
 } from './ProductFormSupplierSection';
+import { useProductFormSupplierSectionState } from '../../hooks/useProductFormSupplierSectionState';
 import { styles } from './productFormPricesTab.styles';
 
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
@@ -72,40 +69,16 @@ export const ProductFormPricesTab: React.FC<Props> = ({
   supplierError = false,
   onSupplierValidationCleared,
 }) => {
-  const [suppliers, setSuppliers] = useState<MobileProductSupplier[]>([]);
-  const [supplierSearch, setSupplierSearch] = useState<string>('');
-  const [showSupplierForm, setShowSupplierForm] = useState(false);
-  const [supplierLoadState, setSupplierLoadState] = useState<'loading' | 'loaded' | 'error'>('loading');
-  const [supplierLoadAttempt, setSupplierLoadAttempt] = useState(0);
-  const [supplierLoadErrorMessage, setSupplierLoadErrorMessage] = useState('');
-
-  // Carrega fornecedores ativos sem confundir espera/falha com lista realmente vazia.
-  useEffect(() => {
-    let isCurrent = true;
-    setSupplierLoadState('loading');
-    setSupplierLoadErrorMessage('');
-    void fetchMobileProductSuppliersWithStatus()
-      .then((result) => {
-        if (!isCurrent) return;
-        setSuppliers(result.suppliers);
-        if ('errorMessage' in result) {
-          setSupplierLoadState('error');
-          setSupplierLoadErrorMessage(result.errorMessage);
-        } else {
-          setSupplierLoadState('loaded');
-          setSupplierLoadErrorMessage('');
-        }
-      })
-      .catch(() => {
-        if (!isCurrent) return;
-        setSuppliers([]);
-        setSupplierLoadState('error');
-        setSupplierLoadErrorMessage('Não foi possível carregar os fornecedores. Tente novamente.');
-      });
-    return () => {
-      isCurrent = false;
-    };
-  }, [supplierLoadAttempt]);
+  const {
+    suppliers,
+    supplierSearch,
+    setSupplierSearch,
+    showSupplierForm,
+    setShowSupplierForm,
+    supplierLoadState,
+    setSupplierLoadAttempt,
+    supplierLoadErrorMessage,
+  } = useProductFormSupplierSectionState();
 
   const selectedStockOrigin = getProductSupplierStockOrigin(formData.productKind);
   const selectedSupplierIds = useMemo(

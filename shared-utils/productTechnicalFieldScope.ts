@@ -7,14 +7,27 @@ const normalizeTechnicalRuleName = (value: string): string =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 
-const isSofaCategoryName = (name: string): boolean =>
+export const isSofaCategoryName = (name: string): boolean =>
   /(?:^|[^a-z0-9])sofas?(?=$|[^a-z0-9])/.test(normalizeTechnicalRuleName(name));
 
 export const isSofaRetractableCharacteristic = (name: string): boolean =>
   /^(?:(?:e|possui)\s+)?retratil$/.test(normalizeTechnicalRuleName(name));
 
-const isRecliningCharacteristic = (name: string): boolean =>
+export const isSofaRecliningCharacteristic = (name: string): boolean =>
   /^(?:(?:e|possui)\s+)?reclinavel$/.test(normalizeTechnicalRuleName(name));
+
+export const SOFA_REQUIRED_CHARACTERISTIC_NAMES = [
+  'É retrátil?',
+  'É reclinável?',
+] as const;
+
+export const isSofaRequiredCharacteristic = (name: string): boolean =>
+  isSofaRetractableCharacteristic(name) || isSofaRecliningCharacteristic(name);
+
+export const isCanonicalSofaRequiredCharacteristic = (name: string): boolean =>
+  SOFA_REQUIRED_CHARACTERISTIC_NAMES.some(
+    (canonicalName) => normalizeTechnicalRuleName(canonicalName) === normalizeTechnicalRuleName(name)
+  );
 
 export const isSofaRetractableDependentCharacteristic = (name: string): boolean => {
   const normalized = normalizeTechnicalRuleName(name);
@@ -49,6 +62,9 @@ export const isTechnicalFieldAllowedForCategories = (
   categoryIds: readonly string[] = []
 ): boolean => {
   const selectedIds = new Set(categoryIds.map(String));
+  if (isSofaRequiredCharacteristic(fieldName) && categoryNames.some(isSofaCategoryName)) {
+    return true;
+  }
   const configured = categoryApplications?.filter((item) =>
     selectedIds.has(String(item.categoryId))
   ) ?? [];
@@ -80,7 +96,7 @@ export const areTechnicalCharacteristicNamesEquivalent = (
   if (isSofaRetractableCharacteristic(left) && isSofaRetractableCharacteristic(right)) {
     return true;
   }
-  if (isRecliningCharacteristic(left) && isRecliningCharacteristic(right)) return true;
+  if (isSofaRecliningCharacteristic(left) && isSofaRecliningCharacteristic(right)) return true;
   if (
     isCountertopIncludedCharacteristic(left) &&
     isCountertopIncludedCharacteristic(right)
@@ -92,6 +108,6 @@ export const areTechnicalCharacteristicNamesEquivalent = (
 
 export const getTechnicalFieldDisplayName = (name: string): string => {
   if (isSofaRetractableCharacteristic(name)) return 'É retrátil?';
-  if (isRecliningCharacteristic(name)) return 'É reclinável?';
+  if (isSofaRecliningCharacteristic(name)) return 'É reclinável?';
   return name;
 };

@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import { FormTextInput } from '../../../components/shared/FormTextInput';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { z } from 'zod';
 import { useZodForm, flattenFormErrors } from '../../../hooks/useZodForm';
 import {
   createCharacteristicFormSchema,
@@ -26,7 +25,6 @@ import {
 } from '../../../../../shared-utils/characteristicFormRules';
 import { getCharacteristicTextLimits } from '../../../../../shared-utils/characteristicTextLimits';
 import { normalizeProductAttributeOptionValue } from '../../../../../shared-utils/productAttributeOptionRules';
-import { validateAttributeOption } from '../categories/domain/categoryEnvironmentRules';
 import {
   addMobileAttributeValue,
   deleteMobileAttribute,
@@ -37,6 +35,14 @@ import {
   saveMobileAttributeDefinition,
 } from '../services/mobileAttributeService';
 import { ManagedAttributesList } from './ManagedAttributesList';
+import {
+  ATTRIBUTE_TYPE_OPTIONS,
+  attributeOptionFormSchema,
+  parseOptionalNumber,
+  toCharacteristicOptionInput,
+  type CharacteristicOptionInput,
+  type FillLimitInputValues,
+} from './attributesManagerFormModel';
 import { styles } from './attributesManagerModal.styles';
 
 interface Props {
@@ -44,46 +50,6 @@ interface Props {
   dark: boolean;
   onClose: () => void;
 }
-
-const ATTRIBUTE_TYPE_OPTIONS: Array<[MobileAttributeDataType, string]> = [
-  ['radio', 'Escolha única'],
-  ['multi_select', 'Múltiplas escolhas'],
-  ['text_short', 'Texto curto'],
-  ['text_long', 'Texto longo'],
-  ['integer', 'Número inteiro'],
-  ['decimal', 'Número decimal'],
-  ['weight', 'Peso (kg)'],
-  ['percentage', 'Porcentagem'],
-  ['measure', 'Medida'],
-  ['boolean', 'Sim ou não'],
-];
-
-type FillLimitInputKey = 'minValue' | 'maxValue' | 'minSelections' | 'maxSelections';
-type FillLimitInputValues = Record<FillLimitInputKey, string>;
-
-const parseOptionalNumber = (value: string): number | undefined =>
-  value.trim() === '' ? undefined : Number(value);
-
-const attributeOptionFormSchema = z.object({
-  value: z.string()
-    .transform(normalizeProductAttributeOptionValue)
-    .refine((value) => value.length > 0, 'O valor da opção não pode estar vazio.'),
-  attributeId: z.string().min(1, 'Característica não encontrada.').optional(),
-  existingOptions: z.array(z.object({ id: z.string(), value: z.string() })),
-}).superRefine((values, ctx) => {
-  const result = validateAttributeOption(values.value, values.existingOptions);
-  if (!result.valid) ctx.addIssue({ code: 'custom', path: ['value'], message: result.error || 'Valor inválido.' });
-});
-
-type CharacteristicOptionInput = {
-  id: string;
-  value: string;
-  sortOrder?: number;
-  [key: string]: unknown;
-};
-
-const toCharacteristicOptionInput = (option: MobileAttribute['options'][number]): CharacteristicOptionInput =>
-  ({ ...option }) as CharacteristicOptionInput;
 
 export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose }) => {
   const insets = useSafeAreaInsets();

@@ -25,6 +25,7 @@ const PRODUCT_FORM_ERROR_TOAST_OPTIONS = { autoClose: 8000 } as const;
 
 interface SubmitProps {
   formData: Partial<Product>;
+  categoryName?: string;
   setFormData: React.Dispatch<React.SetStateAction<Partial<Product>>>;
   product?: Product | null;
   isRegisteredProduct: boolean;
@@ -46,6 +47,7 @@ interface SubmitProps {
 
 export const useProductFormSubmit = ({
   formData,
+  categoryName,
   setFormData,
   product,
   isRegisteredProduct,
@@ -64,7 +66,7 @@ export const useProductFormSubmit = ({
   closeAfterSuccessfulRegistration = false,
   isTestArtifact = false,
 }: SubmitProps) => {
-  const validationOptions = { isStockistOnly };
+  const validationOptions = { isStockistOnly, categoryName };
   const { validateAndRun: validateFinalProduct } = useZodForm(createProductFormSchema({ ...validationOptions, saveAsDraft: false }), formData);
   const { validateAndRun: validateDraftProduct } = useZodForm(createProductFormSchema({ ...validationOptions, saveAsDraft: true }), formData);
   const submissionInFlight = useRef(false);

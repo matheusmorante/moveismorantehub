@@ -134,7 +134,6 @@ export function OrderDetailsBody({
       />
       <ItemsSection
         items={items}
-        handlingOptions={handlingOptions}
         itemsSummary={itemsSummary}
         shippingValue={shippingValue}
         total={totalValue}

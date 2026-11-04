@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import React from 'react';
 import { ProductTechnicalTab } from './ProductTechnicalTab';
 import * as technicalFieldService from '../../../services/technicalFieldService';
@@ -199,7 +199,7 @@ describe('ProductTechnicalTab Component', () => {
     expect(screen.getByText(name).closest('label')?.querySelector('[aria-label="Obrigatória"]')).toBeNull();
   });
 
-  it('mantém É retrátil? obrigatória para sofás e mostra as opções radio Sim/Não', async () => {
+  it('exibe as duas perguntas de Sofás com opções Sim/Não independentes', async () => {
     vi.mocked(characteristicGroupService.fetchCharacteristicGroups).mockResolvedValueOnce({
       groups: [{ id: 'upholstery', name: 'Assentos e estofamento' }],
       categories: [],
@@ -226,12 +226,31 @@ describe('ProductTechnicalTab Component', () => {
       />
     );
 
-    expect(await screen.findByRole('radio', { name: 'Sim' })).toBeDefined();
-    expect(screen.getByRole('radio', { name: 'Não' })).toBeDefined();
+    const retractable = await screen.findByRole('group', { name: 'É retrátil?' });
+    const reclining = screen.getByRole('group', { name: 'É reclinável?' });
+    for (const field of [retractable, reclining]) {
+      expect(within(field).getByRole('radio', { name: 'Sim' })).toBeDefined();
+      expect(within(field).getByRole('radio', { name: 'Não' })).toBeDefined();
+    }
+    expect(screen.getAllByLabelText('Obrigatória')).toHaveLength(2);
     expect(screen.queryByRole('heading', { name: 'Características' })).toBeNull();
     expect(screen.queryByText('Categoria: Sofás')).toBeNull();
     expect(screen.queryByText(/preenchidas para o catálogo digital/)).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Ativar característica É retrátil?' })).toBeNull();
+  });
+
+  it('mantém a aba de Sofás disponível quando É retrátil? está em Sim', async () => {
+    vi.mocked(technicalFieldService.fetchTechnicalFieldDefinitions).mockResolvedValueOnce([]);
+    render(
+      <ProductTechnicalTab
+        categoryName="Sofás"
+        formData={{ categoryIds: ['sofas'], technicalValues: { 'É retrátil?': true } }}
+        setFormData={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByRole('group', { name: 'É retrátil?' })).toBeDefined();
+    expect(screen.getByRole('group', { name: 'É reclinável?' })).toBeDefined();
   });
 
   it('mantém a característica opcional fora do formulário até ativá-la na pesquisa', async () => {

@@ -67,6 +67,14 @@ export const ProductFormSubModals: React.FC<ProductFormSubModalsProps> = ({
   setIsAiCharacteristicsModalOpen,
   aiCharacteristicsInitialMode = 'web_search',
 }) => {
+  const parentProductForVariation = React.useMemo(() => {
+    const categoryName = availableCategories
+      .filter((category) => formData.categoryIds?.includes(category.id))
+      .map((category) => category.name)
+      .filter(Boolean)
+      .join(' / ');
+    return categoryName ? { ...formData, category: categoryName } : formData;
+  }, [availableCategories, formData]);
   const currentEditingVariation = variations.editingVariationId
     ? formData.variations?.find(
         (v) =>
@@ -82,7 +90,7 @@ export const ProductFormSubModals: React.FC<ProductFormSubModalsProps> = ({
           isOpen={Boolean(variations.editingVariationId)}
           onClose={handleCloseVariationModal}
           parentId={formData.id}
-          parentProduct={formData as any}
+          parentProduct={parentProductForVariation as Product}
           variation={currentEditingVariation}
           initialValidationError={variations.editingVariationIssue || undefined}
           onSave={handleSaveVariation}

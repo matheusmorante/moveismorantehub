@@ -9,6 +9,7 @@ import {
 } from './productVariationNameValidation';
 import { getProductDiscountValidationIssues } from './productDiscountFields';
 import { productNameInputSchema } from './productNameRequirement';
+import { getSofaCharacteristicRequirementIssues } from './productSofaCharacteristicRequirements';
 import {
   hasRequiredProductCategory,
   PRODUCT_CATEGORY_REQUIRED_MESSAGE,
@@ -71,6 +72,7 @@ export const createMobileProductFormSchema = (options: {
   itemType: z.string().optional(), productKind: z.string().optional(),
   environment: z.string().optional(),
   categoryIds: z.array(z.string()).optional(), categoryId: z.string().optional(),
+  categoryNames: z.array(z.string()).optional(),
   ...productNumbers,
   costPrice: options.requireInboundCostPrice
     ? inboundCostPriceInput.optional()
@@ -111,6 +113,9 @@ export const createMobileProductFormSchema = (options: {
   }
   if (options.draft) return;
   const issue = (tab: string, message: string) => ctx.addIssue({ code: 'custom', path: [tab], message });
+  getSofaCharacteristicRequirementIssues(data as Record<string, any>).forEach(({ path, message }) =>
+    ctx.addIssue({ code: 'custom', path, message })
+  );
   const compositionIssue = getActiveCompositionProductRequirementIssue({ ...data, variations });
   if (compositionIssue) issue(compositionIssue.tab, compositionIssue.message);
   if (options.requireInboundCostPrice && !String(data.costPrice ?? '').trim()) {

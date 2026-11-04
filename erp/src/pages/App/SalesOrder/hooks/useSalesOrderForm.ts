@@ -11,7 +11,6 @@ import { getTestArtifactContext } from '../../../../../../shared-utils/testArtif
 import { testArtifactMetadata } from '../../../../../../shared-utils/testArtifactPolicy';
 import { validateBase, validateOrder, ValidationErrors } from '@/pages/utils/validations';
 import Shipping from '@/pages/types/Shipping.type';
-import CustomerData from '@/pages/types/customerData.type';
 import {
   getCurrentDatetimeLocal,
   formatToStorageDate,
@@ -22,10 +21,7 @@ import { useOrderDistanceCalculator } from './useOrderDistanceCalculator';
 import { useOrderProductSelection } from './useOrderProductSelection';
 import { useOrderItemHandlingByDeliveryMethod } from './useOrderItemHandlingByDeliveryMethod';
 import { useOrderAutoSave } from './useOrderAutoSave';
-import {
-  computeCustomerAutoUseCustomerAddress,
-  detectCustomerLinkingChange,
-} from './customerAddressRules';
+import { useOrderCustomerSelection } from './useOrderCustomerSelection';
 import { buildSalesOrderSnapshot, prepareOrderForFormEditing } from './orderFormSnapshot';
 import { useOrderFormSubmission } from './useOrderFormSubmission';
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
@@ -119,6 +115,14 @@ export const useSalesOrderForm = (
 
   const { isCalculatingDistance, handleAutoCalculateDistance, cancelPendingDistanceCalculation } =
     useOrderDistanceCalculator(shipping, customerData, setShipping);
+  const handleCustomerDataChange = useOrderCustomerSelection({
+    customerData,
+    shipping,
+    setCustomerData,
+    setShipping,
+    setErrors,
+    handleAutoCalculateDistance,
+  });
 
   const { handleSelectProduct, handleItemChange } = useOrderProductSelection(items, setItems);
 
@@ -428,55 +432,7 @@ export const useSalesOrderForm = (
       },
       setDeliveryMethod,
       setPayments,
-      setCustomerData: (val: React.SetStateAction<CustomerData>) => {
-        const nextCustomer = typeof val === 'function' ? val(customerData) : val;
-        const { isCustomerLinked, isLinkingCustomer, addressChanged, customerChanged } =
-          detectCustomerLinkingChange({
-            nextCustomer,
-            currentCustomer: customerData,
-          });
-        setCustomerData(nextCustomer);
-
-        let nextUseCustomerAddress = shipping.useCustomerAddress;
-        if (isLinkingCustomer && isCustomerLinked) {
-          nextUseCustomerAddress = computeCustomerAutoUseCustomerAddress(nextCustomer);
-          setShipping((prev) => ({
-            ...prev,
-            useCustomerAddress: nextUseCustomerAddress,
-            noAddress:
-              prev.deliveryMethod === 'delivery' && nextUseCustomerAddress
-                ? false
-                : prev.noAddress,
-          }));
-        }
-
-        const address = nextCustomer.fullAddress;
-        const hasLocation = Boolean(
-          (address?.street?.trim() && address?.city?.trim()) ||
-            address?.mapsUrl?.trim() ||
-            address?.googleMapsUrl?.trim() ||
-            address?.mapsLink?.trim() ||
-            (Array.isArray(address?.coords) && address.coords.length === 2) ||
-            address?.placeId?.trim()
-        );
-        const routeAddress = hasLocation ? address : null;
-        if (
-          (customerChanged || addressChanged) &&
-          nextCustomer.id &&
-          routeAddress &&
-          shipping.deliveryMethod === 'delivery' &&
-          nextUseCustomerAddress !== false
-        ) {
-          void handleAutoCalculateDistance(routeAddress, { silentSuccess: true });
-        }
-        setErrors((prev) => {
-          const next = { ...prev };
-          Object.keys(next).forEach((key) => {
-            if (key.startsWith('customer_')) delete next[key];
-          });
-          return next;
-        });
-      },
+      setCustomerData: handleCustomerDataChange,
       setObservation,
       handleItemChange,
       setSeller: (val: string) => {
@@ -533,9 +489,7 @@ export const useSalesOrderForm = (
       setShipping,
       setDeliveryMethod,
       setPayments,
-      setCustomerData,
-      customerData,
-      shipping,
+      handleCustomerDataChange,
       setObservation,
       handleItemChange,
       setSeller,

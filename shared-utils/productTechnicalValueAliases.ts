@@ -158,17 +158,17 @@ export const getProductTechnicalValueCandidateKeys = (key: string): string[] => 
       normalizeTechnicalValueFieldName(candidate) !== questionName
     )];
   }
-  const retractableAliases = ['É retrátil?', 'Retrátil', 'Retrátil?', 'Possui retrátil'];
+  const retractableAliases = ['É retrátil?', 'É retrátil', 'Retrátil', 'Retrátil?', 'Possui retrátil', 'Possui retrátil?'];
   if (['retratil', 'e retratil', 'possui retratil'].includes(questionName)) {
     return [key, ...retractableAliases.filter((candidate) =>
-      normalizeTechnicalValueFieldName(candidate).replace(/[?¿!.,:;]/g, '').replace(/\s+/g, ' ').trim() !== questionName
+      normalizeTechnicalValueFieldName(candidate) !== normalizeTechnicalValueFieldName(key)
     )];
   }
 
-  const recliningAliases = ['É reclinável?', 'Reclinável', 'Reclinável?', 'Possui reclinável'];
+  const recliningAliases = ['É reclinável?', 'É reclinável', 'Reclinável', 'Reclinável?', 'Possui reclinável', 'Possui reclinável?'];
   if (['reclinavel', 'e reclinavel', 'possui reclinavel'].includes(questionName)) {
     return [key, ...recliningAliases.filter((candidate) =>
-      normalizeTechnicalValueFieldName(candidate).replace(/[?¿!.,:;]/g, '').replace(/\s+/g, ' ').trim() !== questionName
+      normalizeTechnicalValueFieldName(candidate) !== normalizeTechnicalValueFieldName(key)
     )];
   }
 

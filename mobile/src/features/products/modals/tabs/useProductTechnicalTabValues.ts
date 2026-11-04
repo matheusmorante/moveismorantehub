@@ -140,9 +140,15 @@ export const useProductTechnicalTabValues = ({
         : formData.categoryIds || (formData.categoryId ? [formData.categoryId] : []),
     [parentData?.categoryIds, parentData?.categoryId, formData.categoryIds, formData.categoryId]
   );
-  const selectedCategoryName = String(
-    (parentData || formData).categoryName || (parentData || formData).category || ''
-  );
+  const selectedCategoryData = parentData || formData;
+  const selectedCategoryName = [
+    ...(Array.isArray(selectedCategoryData.categoryNames)
+      ? selectedCategoryData.categoryNames
+      : []),
+    selectedCategoryData.categoryName || selectedCategoryData.category || '',
+  ]
+    .filter((name) => typeof name === 'string' && name.trim())
+    .join(' / ');
   const isSimpleProduct =
     !parentData &&
     !formData.hasVariations &&

@@ -2,7 +2,6 @@ import { ArrowLeftRight, Check, Info, PlusCircle, Search } from 'lucide-react-na
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Switch,
   Text,
   TouchableOpacity,
@@ -56,6 +55,10 @@ import {
   cleanupDependentVariationAttributesOnQuantityChange,
 } from '../../../../../../shared-utils/productDependentCharacteristicCleanup';
 import { removeProductTechnicalValueAliases } from '../../../../../../shared-utils/productTechnicalValueAliases';
+import {
+  isSofaCategoryName,
+  isSofaRequiredCharacteristic,
+} from '../../../../../../shared-utils/productTechnicalFieldScope';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import {
   fetchMobileProductTechnicalFields,
@@ -63,6 +66,7 @@ import {
 } from '../../services/mobileProductTechnicalService';
 import { ProductAiCharacteristicsAssistant } from '../components/ProductAiCharacteristicsAssistant';
 import { ProductTechnicalFieldInput } from './ProductTechnicalFieldInput';
+import { ProductTechnicalFieldsLoadStatus } from './ProductTechnicalFieldsLoadStatus';
 import { useProductTechnicalTabValues } from './useProductTechnicalTabValues';
 import { styles } from './productFormTechnicalTab.styles';
 
@@ -740,42 +744,14 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
           dark={dark}
         />
       )}
-      {technicalFieldsError && (
-        <View style={[styles.technicalLoadError, dark && styles.darkTechnicalLoadError]}>
-          <Text
-            style={[styles.technicalLoadErrorText, dark && styles.darkTechnicalLoadErrorText]}
-            accessibilityRole="alert"
-            accessibilityLiveRegion="assertive"
-          >
-            {technicalFieldsError}
-          </Text>
-          <TouchableOpacity
-            onPress={() => setTechnicalFieldsRefreshKey((key) => key + 1)}
-            disabled={loadingFields}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: loadingFields }}
-            style={styles.technicalLoadRetryButton}
-          >
-            <Text style={styles.technicalLoadRetryButtonText}>
-              Consultar características novamente
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <ProductTechnicalFieldsLoadStatus
+        error={technicalFieldsError}
+        loading={loadingFields}
+        dark={dark}
+        onRetry={() => setTechnicalFieldsRefreshKey((key) => key + 1)}
+      />
       {loadingFields ? (
-        <View
-          style={styles.technicalLoadingState}
-          accessible
-          accessibilityRole="progressbar"
-          accessibilityLabel="Carregando especificações técnicas..."
-          accessibilityState={{ busy: true }}
-          accessibilityLiveRegion="polite"
-        >
-          <ActivityIndicator color="#2563eb" />
-          <Text style={[styles.technicalLoadingText, dark && styles.dimText]}>
-            Carregando especificações técnicas...
-          </Text>
-        </View>
+        null
       ) : visibleTechnicalFields.length === 0 ? (
         <>
           {(!isVariationEditing || (requiredFieldsOnly && !technicalFieldsError)) && (
@@ -920,6 +896,9 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                           >
                             {getProductTechnicalFieldDisplayName(field.name)}
                             {field.unit ? ` (${field.unit})` : ''}
+                            {isSofaCategoryName(selectedCategoryName) && isSofaRequiredCharacteristic(field.name) && (
+                              <Text style={styles.requiredMark} accessibilityLabel="Obrigatória"> *</Text>
+                            )}
                           </Text>
                         </View>
                         <View style={styles.attributeActions}>

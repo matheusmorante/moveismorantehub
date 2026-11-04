@@ -13,7 +13,9 @@ export const LabelIdentificationLayout: React.FC<LabelIdentificationLayoutProps>
   previewMode = false,
   uuid,
 }) => {
-  const qrSizeMm = Math.max(1, Math.min(36, (config.labelHeight ?? 44) - 8));
+  const labelHeightMm = config.labelHeight ?? 44;
+  const qrWidthLimitMm = config.labelWidth == null ? labelHeightMm - 4 : config.labelWidth - 35;
+  const qrSizeMm = Math.max(1, Math.min(labelHeightMm - 4, qrWidthLimitMm));
   const barcodeValue =
     config.sku ||
     config.barcode ||
@@ -42,7 +44,7 @@ export const LabelIdentificationLayout: React.FC<LabelIdentificationLayoutProps>
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
-          paddingRight: '2mm',
+          paddingRight: '0.5mm',
           overflow: 'hidden',
         }}
       >

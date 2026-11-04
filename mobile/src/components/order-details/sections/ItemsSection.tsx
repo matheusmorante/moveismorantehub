@@ -1,14 +1,16 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { DollarSign, FileText } from 'lucide-react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ChevronDown, ChevronUp, DollarSign, FileText, PackageCheck } from 'lucide-react-native';
 import { SectionCard, SectionHeader } from './SectionCard';
-import { OrderItemChip } from '../../orders/OrderItemChip';
-import { StockOriginBadge } from '../../../features/products/components/StockOriginBadge';
-import { isAssemblyInternalType, isAssemblyOutsideType } from '../../../utils/aiSummaryHelper';
+import { formatItemDisplayName } from '../../../utils/productNameFormatters';
+import {
+  resolveOrderItemHandling,
+  resolveOrderItemTypeLabel,
+  summarizeOrderItemHandling,
+} from '../../../../../shared-utils/orderItemPresentation';
 
 interface ItemsSectionProps {
   items: any[];
-  handlingOptions?: any[];
   total?: number;
   itemsSummary?: any;
   shippingValue?: number;
@@ -17,12 +19,16 @@ interface ItemsSectionProps {
 
 export function ItemsSection({
   items,
-  handlingOptions,
   total,
   itemsSummary,
   shippingValue = 0,
   dark,
 }: ItemsSectionProps) {
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 640;
+  const [expandedHandlingItems, setExpandedHandlingItems] = React.useState<Set<number>>(
+    () => new Set()
+  );
   const calculatedItemsSubtotal = (items || []).reduce((acc: number, item: any) => {
     const qty = Number(item.quantity || item.qty || 1);
     const unitPrice = Number(item.unitPrice || item.price || item.total || 0);
@@ -43,24 +49,11 @@ export function ItemsSection({
         />
         <View style={styles.itemsListContainer}>
           {(items || []).map((item: any, index: number) => {
-            const handlingType = String(
-              item.handlingType || item.handling || item.manuseio || item.handling_type || ''
-            ).trim();
-            const rawStockOrigin = String(
-              item.stockOrigin ||
-                item.stock_origin ||
-                item.productKind ||
-                item.product_kind ||
-                item.condition ||
-                (item.is_salvado ? 'salvado' : 'normal')
-            ).toLocaleLowerCase('pt-BR');
-            const stockOriginKind = rawStockOrigin.includes('salvad')
-              ? 'salvado'
-              : rawStockOrigin.includes('usad')
-                ? 'usado'
-                : 'normal';
-            const isOutside = isAssemblyOutsideType(handlingType, handlingOptions);
-            const isInternal = isAssemblyInternalType(handlingType, handlingOptions);
+            const handlingType = resolveOrderItemHandling(item);
+            const handlingSummary = summarizeOrderItemHandling(handlingType);
+            const itemTypeLabel = resolveOrderItemTypeLabel(item);
+            const canExpandHandling = handlingType !== handlingSummary;
+            const isHandlingExpanded = expandedHandlingItems.has(index);
             const qty = Number(item.quantity || item.qty || 1);
             const unitPrice = Number(item.unitPrice || 0);
             const unitDiscount = Number(item.unitDiscount || 0);
@@ -81,50 +74,81 @@ export function ItemsSection({
             const displayOriginalPrice = hasDiscount ? unitPrice * qty : finalTotalPrice;
 
             return (
-              <View key={index} style={[styles.itemCard, dark && styles.itemCardDark]}>
+              <View
+                key={index}
+                style={[
+                  styles.itemCard,
+                  isNarrow && styles.itemCardNarrow,
+                  dark && styles.itemCardDark,
+                ]}
+              >
                 <View style={styles.itemInfo}>
-                  <OrderItemChip item={item} handlingOptions={handlingOptions} dark={dark} />
-                  {(handlingType || item.itemType !== 'service') && (
+                  <View style={styles.primaryRow}>
+                    <Text style={[styles.quantity, dark && styles.light]}>{qty}×</Text>
+                    <Text style={[styles.productName, dark && styles.light]}>
+                      {formatItemDisplayName(item)}
+                    </Text>
+                  </View>
+                  {(itemTypeLabel || handlingType) && (
                     <View style={styles.itemLabels}>
-                      {item.itemType !== 'service' && (
-                        <StockOriginBadge
-                          product={{ productKind: stockOriginKind }}
-                          dark={dark}
-                          size="xs"
-                        />
-                      )}
-                      {handlingType ? (
-                        <View
-                          style={[
-                            styles.handlingBadge,
-                            isOutside
-                              ? styles.handlingOutside
-                              : isInternal
-                                ? styles.handlingInternal
-                                : styles.handlingDefault,
-                            dark && styles.handlingBadgeDark,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.handlingText,
-                              isOutside
-                                ? styles.handlingOutsideText
-                                : isInternal
-                                  ? styles.handlingInternalText
-                                  : styles.handlingDefaultText,
-                              dark && styles.handlingTextDark,
-                            ]}
-                          >
-                            {handlingType}
+                      {itemTypeLabel ? (
+                        <View style={[styles.typeBadge, dark && styles.typeBadgeDark]}>
+                          <Text style={[styles.typeBadgeText, dark && styles.typeBadgeTextDark]}>
+                            {itemTypeLabel}
                           </Text>
                         </View>
+                      ) : null}
+                      {handlingType ? (
+                        canExpandHandling ? (
+                          <View style={styles.handlingGroup}>
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityState={{ expanded: isHandlingExpanded }}
+                              accessibilityLabel={
+                                isHandlingExpanded
+                                  ? 'Ocultar instrução completa de manuseio'
+                                  : `Ver instrução completa de manuseio: ${handlingType}`
+                              }
+                              onPress={() =>
+                                setExpandedHandlingItems((current) => {
+                                  const next = new Set(current);
+                                  if (next.has(index)) next.delete(index);
+                                  else next.add(index);
+                                  return next;
+                                })
+                              }
+                              style={styles.handlingInline}
+                            >
+                              <PackageCheck size={13} color={dark ? '#60a5fa' : '#3b82f6'} />
+                              <Text style={[styles.handlingText, dark && styles.handlingTextDark]}>
+                                {handlingSummary}
+                              </Text>
+                              {isHandlingExpanded ? (
+                                <ChevronUp size={13} color={dark ? '#94a3b8' : '#64748b'} />
+                              ) : (
+                                <ChevronDown size={13} color={dark ? '#94a3b8' : '#64748b'} />
+                              )}
+                            </Pressable>
+                            {isHandlingExpanded && (
+                              <Text style={[styles.handlingDetails, dark && styles.handlingTextDark]}>
+                                {handlingType}
+                              </Text>
+                            )}
+                          </View>
+                        ) : (
+                          <View style={styles.handlingInline}>
+                            <PackageCheck size={13} color={dark ? '#60a5fa' : '#3b82f6'} />
+                            <Text style={[styles.handlingText, dark && styles.handlingTextDark]}>
+                              {handlingSummary}
+                            </Text>
+                          </View>
+                        )
                       ) : null}
                     </View>
                   )}
                 </View>
 
-                <View style={styles.priceContainer}>
+                <View style={[styles.priceContainer, isNarrow && styles.priceContainerNarrow]}>
                   {hasDiscount && displayOriginalPrice > displayFinalPrice && (
                     <Text style={[styles.originalPrice, dark && styles.originalPriceDark]}>
                       R${' '}
@@ -206,30 +230,73 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  itemCardNarrow: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
   itemCardDark: {
     backgroundColor: '#0f172a',
     borderColor: '#334155',
   },
-  itemInfo: { flex: 1, gap: 4 },
-  itemLabels: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  handlingBadge: {
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-    borderWidth: 1,
-    borderRadius: 9999,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+  itemInfo: { flex: 1, minWidth: 0, gap: 5 },
+  primaryRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    minWidth: 0,
   },
-  handlingBadgeDark: { backgroundColor: '#1e293b', borderColor: '#475569' },
-  handlingOutside: { backgroundColor: '#fee2e2', borderColor: '#fca5a5' },
-  handlingInternal: { backgroundColor: '#fef3c7', borderColor: '#fcd34d' },
-  handlingDefault: { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' },
-  handlingText: { fontSize: 8, fontWeight: '900', textTransform: 'uppercase' },
-  handlingTextDark: { color: '#cbd5e1' },
-  handlingOutsideText: { color: '#b91c1c' },
-  handlingInternalText: { color: '#b45309' },
-  handlingDefaultText: { color: '#1e3a8a' },
+  quantity: {
+    flexShrink: 0,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '900',
+    color: '#334155',
+  },
+  productName: {
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  itemLabels: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+  typeBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  typeBadgeDark: { backgroundColor: '#1e293b' },
+  typeBadgeText: { fontSize: 9, fontWeight: '600', color: '#475569' },
+  typeBadgeTextDark: { color: '#cbd5e1' },
+  handlingGroup: { flexShrink: 1, minWidth: 0, gap: 2 },
+  handlingInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  handlingText: {
+    flexShrink: 1,
+    minWidth: 0,
+    fontSize: 10,
+    lineHeight: 14,
+    color: '#64748b',
+  },
+  handlingTextDark: { color: '#94a3b8' },
+  handlingDetails: {
+    marginLeft: 17,
+    flexShrink: 1,
+    fontSize: 9,
+    lineHeight: 13,
+    color: '#64748b',
+  },
   priceContainer: { alignItems: 'flex-end', justifyContent: 'center', gap: 1 },
+  priceContainerNarrow: { alignItems: 'flex-start' },
   price: { fontSize: 13, fontWeight: '900', color: '#16a34a' },
   financialCard: {
     backgroundColor: '#ffffff',

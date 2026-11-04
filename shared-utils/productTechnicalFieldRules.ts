@@ -35,21 +35,18 @@ export const getTechnicalFieldTextPlaceholder = (name: string): string | undefin
   return undefined;
 };
 
-export const isSofaCategoryName = (name: string): boolean => {
-  const normalized = String(name || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pt-BR');
-  return /(?:^|[^a-z0-9])sofas?(?=$|[^a-z0-9])/.test(normalized);
-};
-
 export {
   areTechnicalCharacteristicNamesEquivalent,
+  isCanonicalSofaRequiredCharacteristic,
   getTechnicalFieldDisplayName,
+  isSofaCategoryName,
+  isSofaRecliningCharacteristic,
+  isSofaRequiredCharacteristic,
+  isSofaRetractableCharacteristic,
+  SOFA_REQUIRED_CHARACTERISTIC_NAMES,
   isCountertopIncludedCharacteristic,
   isCountertopMaterialCharacteristic,
   isKitchenCountertopCategoryName,
-  isSofaRetractableCharacteristic,
   isSofaRetractableDependentCharacteristic,
   isTechnicalFieldAllowedForCategories,
 } from './productTechnicalFieldScope';

@@ -31,6 +31,10 @@ import {
 } from 'react-native';
 import { FormTextInput } from '../../../components/shared/FormTextInput';
 import { MobileMoveVariationAttributesEditor } from './MobileMoveVariationAttributesEditor';
+import {
+  prepareMobileMoveVariationAttributes,
+  type MobileMoveVariationAttributeRow,
+} from './mobileMoveVariationAttributes';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   checkMobileVariationAttributeConflict,
@@ -61,7 +65,7 @@ const normalize = (value: string) =>
     .toLocaleLowerCase('pt-BR');
 
 const familyName = (family: MobileVariationFamily) => family.name || family.description || '';
-type AttributeRow = MobileVariationAttribute & { rowId: string };
+type AttributeRow = MobileMoveVariationAttributeRow;
 
 export const MobileMoveVariationModal: React.FC<Props> = ({
   visible,
@@ -105,13 +109,9 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
   const lock = useRef(false);
   const completed = useRef(false);
 
-  const validAttributes = useMemo(
-    () => attributes.filter((attribute) => attribute.name.trim() && attribute.value.trim()),
+  const { validAttributes, formAttributes } = useMemo(
+    () => prepareMobileMoveVariationAttributes(attributes),
     [attributes]
-  );
-  const formAttributes = useMemo(
-    () => validAttributes.map(({ name, value, showName }) => ({ name, value, showName })),
-    [validAttributes]
   );
   const targetFamily = families.find((family) => family.id === targetFamilyId);
   const images = useMemo(() => {

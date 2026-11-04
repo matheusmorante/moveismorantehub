@@ -170,6 +170,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
+  requiredMark: { color: '#dc2626' },
   label: {
     fontSize: 10,
     fontWeight: '800',

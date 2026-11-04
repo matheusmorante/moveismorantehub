@@ -37,6 +37,7 @@ import {
   cleanupDependentVariationAttributesOnQuantityChange,
 } from '../tabs/technical/sync/dependentCleanup';
 import {
+  isSofaRequiredCharacteristic,
   isSofaCategoryName,
 } from '../../../../../../../shared-utils/productTechnicalFieldRules';
 import { getTechnicalFieldDisplayName } from '../../../../../../../shared-utils/productTechnicalFieldScope';
@@ -46,6 +47,7 @@ import {
   resolveVisibleVariationTechnicalFields,
 } from './variationTechnicalFieldResolution';
 import { useVariationTechnicalReferenceData } from './useVariationTechnicalReferenceData';
+import { getSofaRequiredTechnicalFields } from '../tabs/technical/hooks/sofaTechnicalConstants';
 
 export interface VariationTechnicalTabProps {
   readonly formData: Variation & { readonly material?: string | null };
@@ -183,19 +185,29 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
     variationAttributeValues,
   ]);
 
+  const isSofaCategorySelected = isSofaCategoryName(parentProduct.category || '');
+
+  const allFieldsForCategory = useMemo(() => {
+    if (!isSofaCategorySelected) return allTechnicalFields;
+    return [
+      ...allTechnicalFields.filter((field) => !isSofaRequiredCharacteristic(field.name)),
+      ...getSofaRequiredTechnicalFields(allTechnicalFields, parentProduct.categoryIds || []),
+    ];
+  }, [allTechnicalFields, isSofaCategorySelected, parentProduct.categoryIds]);
+
   // Todas as especificações técnicas ativas cadastradas aparecem na variação
   const fieldsWithGroupNames = useMemo(() => {
     const groupNameById = new Map(
       characteristicGroups.map((group) => [group.id, group.name] as const)
     );
-    return allTechnicalFields.map((field) => ({
+    return allFieldsForCategory.map((field) => ({
       ...field,
       ...(isCatalogNeverRequiredCharacteristicName(field.name)
         ? { isRequired: false, isRequiredForCatalog: false }
         : {}),
       groupName: field.groupId ? groupNameById.get(field.groupId) : undefined,
     }));
-  }, [allTechnicalFields, characteristicGroups]);
+  }, [allFieldsForCategory, characteristicGroups]);
 
   const applicableFields = useMemo(
     () =>
@@ -212,11 +224,9 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
   const isChairCategorySelected = /(?:^|[^a-z0-9])cadeiras?(?=$|[^a-z0-9])/i.test(
     normalizeSearchTerm(parentProduct.category || '')
   );
-  const isSofaCategorySelected = isSofaCategoryName(parentProduct.category || '');
-
   const visibleFields = useMemo(() => {
     return resolveVisibleVariationTechnicalFields({
-      allTechnicalFields,
+      allTechnicalFields: allFieldsForCategory,
       fieldsWithGroupNames,
       applicableFields,
       isChairCategorySelected,
@@ -229,7 +239,7 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
       dependencyValues,
     });
   }, [
-    allTechnicalFields,
+    allFieldsForCategory,
     fieldsWithGroupNames,
     characteristicGroups,
     applicableFields,

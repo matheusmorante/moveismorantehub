@@ -21,7 +21,6 @@ import {
   shouldHideProductCatalogPublicationStatus,
 } from '../../../../../shared-utils/productPermissions';
 import { MAX_VARIATION_IMAGES } from '../../../../../shared-utils/productImageLimits';
-import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { useAuth } from '../../../contexts/AuthContext';
 import { WEB_URL } from '../../../services/supabaseClient';
 import { NativeCategoriesScreen } from '../categories';
@@ -44,7 +43,6 @@ import { ProductLinkedOrdersModal } from '../modals/ProductLinkedOrdersModal';
 import { NativeMetaCatalogScreen } from './NativeMetaCatalogScreen';
 import { ProductModulesMenu } from './ProductModulesMenu';
 import { fetchMobileCategories } from '../services/mobileCategoryService';
-import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import { copyMobileProductImages } from '../services/mobileProductPhotoService';
 import {
   canShowMobileLinkedProductOrders,
@@ -54,6 +52,7 @@ import {
 } from '../domain/mobileProductCardRules';
 import { generateVariationSku } from '../domain/productSku';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
+import { loadFullProductForForm } from './loadFullProductForForm';
 
 interface Props {
   isDarkMode: boolean;
@@ -270,21 +269,11 @@ export const NativeProductsScreen: React.FC<Props> = ({
     autoSavedProductFormRef.current = false;
     setLoadingProductForEdit(true);
     try {
-      const result = await withTimeout(
-        fetchMobileProductsPage(1, 1, {
-          productId: String(prod.id),
-          statusFilter: 'all',
-          includeDeactivated: true,
-          includeMerged: true,
-          showTestProducts: productsHook.showTestProducts,
-          throwOnError: true,
-        }),
-        10_000,
-        null,
-        'mobile:carregar-produto-completo-para-edicao'
+      const fullProduct = await loadFullProductForForm(
+        String(prod.id),
+        productsHook.showTestProducts,
+        'edicao'
       );
-      const fullProduct = result?.data[0];
-      if (!fullProduct) throw new Error('O cadastro completo do produto não foi encontrado.');
       const requestedVariationId = String(prod.selectedVariationId || '');
       const selectedVariationExists = Boolean(
         requestedVariationId &&
@@ -313,21 +302,11 @@ export const NativeProductsScreen: React.FC<Props> = ({
     if (!canEditProducts) return;
     setLoadingProductForEdit(true);
     try {
-      const result = await withTimeout(
-        fetchMobileProductsPage(1, 1, {
-          productId: String(prod.id),
-          statusFilter: 'all',
-          includeDeactivated: true,
-          includeMerged: true,
-          showTestProducts: productsHook.showTestProducts,
-          throwOnError: true,
-        }),
-        10_000,
-        null,
-        'mobile:carregar-produto-completo-para-duplicacao'
+      const source = await loadFullProductForForm(
+        String(prod.id),
+        productsHook.showTestProducts,
+        'duplicacao'
       );
-      const source = result?.data[0];
-      if (!source) throw new Error('O cadastro completo do produto não foi encontrado.');
 
       const code = await getNextSequentialProductCode();
       const sourceImages = Array.isArray(source.images) ? source.images : [];

@@ -15,12 +15,14 @@ export type MobileProductFormTabId =
 export interface MobileProductFormErrorNavigation {
   tab: MobileProductFormTabId;
   variationIndex?: number;
-  variationPanel?: 'estoque' | 'fotos' | 'compostos';
+  variationPanel?: 'estoque' | 'fotos' | 'compostos' | 'tecnico';
 }
 
 export const hasMobileProductDescriptionTechnicalValidationError = (
   messages: Record<string, string>
-): boolean => Boolean(messages.technical || messages.technicalValues);
+): boolean => Object.keys(messages).some((path) =>
+  path === 'technical' || path === 'technicalValues' || path.startsWith('technicalValues_')
+);
 
 export const isMobileProductDescriptionTabDisabled = (input: {
   hasCategory: boolean;
@@ -62,7 +64,7 @@ const VARIATION_PHOTO_FIELDS = new Set(['images', 'image_url']);
 export const resolveMobileProductFormErrorNavigation = (
   fieldPath: string
 ): MobileProductFormErrorNavigation | undefined => {
-  const variationMatch = /^variacoes_(\d+)(?:_(.*))?$/.exec(fieldPath);
+  const variationMatch = /^(?:variacoes|variations)_(\d+)(?:_(.*))?$/.exec(fieldPath);
 
   if (variationMatch) {
     const variationField = variationMatch[2];
@@ -73,10 +75,16 @@ export const resolveMobileProductFormErrorNavigation = (
         variationField === 'combo_items' ||
         variationField.startsWith('combo_items_'))
     );
+    const isTechnicalField = Boolean(
+      variationField &&
+      (variationField === 'technicalValues' || variationField.startsWith('technicalValues_'))
+    );
     const variationPanel = variationField && VARIATION_PRICING_FIELDS.has(variationField)
       ? 'estoque'
       : variationField && VARIATION_PHOTO_FIELDS.has(variationField)
         ? 'fotos'
+        : isTechnicalField
+          ? 'tecnico'
         : isCompositionField
           ? 'compostos'
           : undefined;
@@ -97,6 +105,10 @@ export const resolveMobileProductFormErrorNavigation = (
 
   if (fieldPath === 'categoryIds') {
     return { tab: 'geral' };
+  }
+
+  if (fieldPath === 'technicalValues' || fieldPath.startsWith('technicalValues_')) {
+    return { tab: 'technical' };
   }
 
   if (

@@ -95,56 +95,9 @@ import {
   type ProductFormReadinessItem,
 } from './ProductFormReadinessChecklist';
 import { TABS, type TabId } from './productFormTabs';
+import { INITIAL_FORM } from './productFormInitialState';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 import { fetchMobileProductFiscalDefaults } from '../services/mobileProductFiscalService';
-
-// ─── Estado inicial ──────────────────────────────────────────────────────────
-const INITIAL_FORM = {
-  name: '',
-  title: '',
-  marketplaceTitle: '',
-  metaTitle: '',
-  metaDescription: '',
-  seoDescription: '',
-  code: '',
-  slug: '',
-  itemType: 'product',
-  environment: '',
-  includeEnvironment: true,
-  includeBrand: true,
-  titleOrder: ['type', 'environment', 'line', 'brand', 'complement'],
-  featured: false,
-  productKind: undefined,
-  condition: 'novo',
-  category: '',
-  categoryId: '',
-  categoryIds: [],
-  opportunityId: null,
-  mainSupplierId: '',
-  description: '',
-  observations: '',
-  unitPrice: '',
-  promoPrice: '',
-  discountPercent: '',
-  discountFixed: '',
-  costPrice: '',
-  ipiPercent: '',
-  freightType: 'fixed',
-  freightCost: '',
-  finalPurchasePrice: 0,
-  stock: '',
-  minStock: 0,
-  width: '',
-  height: '',
-  depth: '',
-  weight: '',
-  depthUseLength: false,
-  images: [],
-  variations: [],
-  hasVariations: false,
-  active: true,
-  isDraft: false,
-};
 
 const createUuid = () =>
   'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
@@ -301,6 +254,21 @@ export const ProductFormScreen: React.FC<Props> = ({
       const next = typeof fn === 'function' ? fn(prev) : { ...prev, ...fn };
       const variations = syncMobileVariationsWithParent(next.variations, next, prev);
       return variations === next.variations ? next : { ...next, variations };
+    });
+  }, []);
+
+  const handleCategoryNamesResolved = useCallback((resolvedIds: string[], names: string[]) => {
+    setFormDataRaw((previous: any) => {
+      const previousIds: string[] =
+        Array.isArray(previous.categoryIds) && previous.categoryIds.length > 0
+          ? previous.categoryIds
+          : previous.categoryId
+            ? [previous.categoryId]
+            : [];
+      if (previousIds.join('|') !== resolvedIds.join('|')) return previous;
+      const previousNames = Array.isArray(previous.categoryNames) ? previous.categoryNames : [];
+      if (previousNames.join('|') === names.join('|')) return previous;
+      return { ...previous, categoryNames: names };
     });
   }, []);
 
@@ -644,11 +612,13 @@ export const ProductFormScreen: React.FC<Props> = ({
       const isSalvado = validated.productKind === 'salvado' || validated.condition === 'salvado';
       const isUsado = validated.productKind === 'usado' || validated.condition === 'usado';
       const saveState = prepareMobileProductSaveState(product, validated, saveAsDraft);
+      const productDataForSave = { ...validated };
+      delete productDataForSave.categoryNames;
       const savedProductId = serverProductIdRef.current;
       const savedProductVersion = serverProductVersionRef.current;
 
       return {
-        ...validated,
+        ...productDataForSave,
         ...(savedProductId
           ? {
               id: savedProductId,
@@ -1185,6 +1155,7 @@ export const ProductFormScreen: React.FC<Props> = ({
             onNameValidationCleared={() => setNameError(false)}
             categoryError={categoryError}
             onCategoryValidationCleared={() => setCategoryError(false)}
+            onCategoryNamesResolved={handleCategoryNamesResolved}
             onFieldFocus={jev.onFieldFocus}
             onFieldBlur={jev.onFieldBlur}
           />

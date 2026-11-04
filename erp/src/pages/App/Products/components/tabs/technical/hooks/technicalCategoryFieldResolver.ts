@@ -5,12 +5,16 @@ import {
 } from '@/pages/utils/technicalValuesService';
 import { isCatalogCoreRequiredCharacteristicName } from '../../../../../../../../../shared-utils/catalogPublication/characteristicValues';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
-import { isTechnicalFieldAllowedForCategories } from '../../../../../../../../../shared-utils/productTechnicalFieldScope';
+import {
+  isSofaRequiredCharacteristic,
+  isTechnicalFieldAllowedForCategories,
+} from '../../../../../../../../../shared-utils/productTechnicalFieldScope';
 import { isSofaCategoryName } from '../../../../../../../../../shared-utils/productTechnicalFieldRules';
 import { normalizeSearchTerm } from '../technicalTabUtils';
 import {
   SOFA_ONLY_DIMENSION_NAMES,
   SOFA_ONLY_DIMENSION_DEFAULTS,
+  getSofaRequiredTechnicalFields,
 } from './sofaTechnicalConstants';
 import { resolveProductCharacteristicApplication } from '../productCharacteristicGroupRules';
 
@@ -38,6 +42,7 @@ export const resolveTechnicalCategoryFields = (
     );
 
   const categoryTechnicalFields = allTechnicalFields
+    .filter((field) => !isSofaCategorySelected || !isSofaRequiredCharacteristic(field.name))
     .map((field) => {
       if (isCatalogNeverRequiredCharacteristicName(field.name)) {
         return { ...field, isRequired: false, isRequiredForCatalog: false };
@@ -90,6 +95,7 @@ export const resolveTechnicalCategoryFields = (
   const sofaTechnicalFields = isSofaCategorySelected
     ? [
         ...categoryTechnicalFields,
+        ...getSofaRequiredTechnicalFields(allTechnicalFields, formData.categoryIds || []),
         ...SOFA_ONLY_DIMENSION_DEFAULTS.filter(
           (defaultField) =>
             !allTechnicalFields.some(

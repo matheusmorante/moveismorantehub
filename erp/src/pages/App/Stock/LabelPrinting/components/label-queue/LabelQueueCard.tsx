@@ -299,14 +299,14 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
 
           {/* Quantidade e Lixeira */}
           <div className={`flex items-center gap-2 shrink-0 self-end sm:self-auto ${isIdentificationQueue ? 'label-queue-card-actions' : ''}`}>
-            <div className={`flex items-center justify-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1.5 shrink-0 ${isIdentificationQueue ? 'label-queue-card-quantity' : ''}`}>
+            <div className={`flex items-center justify-center gap-2 shrink-0 bg-slate-50 dark:bg-slate-950 px-2 py-1.5 ${isIdentificationQueue ? 'label-queue-card-quantity border-0 rounded-none' : 'border border-slate-200 dark:border-slate-800 rounded-lg'}`}>
               <button
                 type="button"
                 onClick={() =>
                   updateItem(idx, { quantity: Math.max(1, (item.quantity || 1) - 1) })
                 }
                 aria-label="Diminuir quantidade de etiquetas"
-                className="text-slate-500 hover:text-blue-500 w-8 h-8 shrink-0 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm"
+                className={`text-slate-500 hover:text-blue-500 w-8 h-8 shrink-0 flex items-center justify-center bg-white dark:bg-slate-900 ${isIdentificationQueue ? 'border-0 rounded-none shadow-none' : 'border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm'}`}
               >
                 <i className="bi bi-dash text-base" />
               </button>
@@ -324,7 +324,7 @@ export const LabelQueueCard: React.FC<LabelQueueCardProps> = ({
                 type="button"
                 onClick={() => updateItem(idx, { quantity: (item.quantity || 1) + 1 })}
                 aria-label="Aumentar quantidade de etiquetas"
-                className="text-slate-500 hover:text-blue-500 w-8 h-8 shrink-0 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm"
+                className={`text-slate-500 hover:text-blue-500 w-8 h-8 shrink-0 flex items-center justify-center bg-white dark:bg-slate-900 ${isIdentificationQueue ? 'border-0 rounded-none shadow-none' : 'border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm'}`}
               >
                 <i className="bi bi-plus text-base" />
               </button>

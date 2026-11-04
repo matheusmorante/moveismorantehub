@@ -31,6 +31,7 @@ import {
 } from '../utils/savedSalesReportHydration';
 import { sortSalesReportResults } from '../utils/sortSalesReportResults';
 import SupplierPerformanceView from './SupplierPerformanceView';
+import { REPORT_QUADRANTS } from './reportQuadrantPresentation';
 
 const ReportView = () => {
   const { id } = useParams<{ id: string }>();
@@ -1037,48 +1038,7 @@ const ReportView = () => {
                         const q1AvgProfitPerItem =
                           q1ResTotal.length > 0 ? q1ProfitSum / q1ResTotal.length : 0;
 
-                        return [
-                          {
-                            id: 1,
-                            label: 'Q1: Estrelas',
-                            sub: 'Alto Giro Mensal + Alto Lucro Mensal',
-                            color: 'emerald',
-                            bg: 'bg-emerald-50 dark:bg-emerald-950/20',
-                            border: 'border-emerald-100 dark:border-emerald-900/50',
-                            text: 'text-emerald-600',
-                            valText: 'text-emerald-800 dark:text-emerald-400',
-                          },
-                          {
-                            id: 2,
-                            label: 'Q2: Potencial',
-                            sub: 'Baixo Giro Mensal + Alto Lucro Mensal',
-                            color: 'blue',
-                            bg: 'bg-blue-50 dark:bg-blue-955/20',
-                            border: 'border-blue-100 dark:border-blue-900/50',
-                            text: 'text-blue-600',
-                            valText: 'text-blue-800 dark:text-blue-400',
-                          },
-                          {
-                            id: 3,
-                            label: 'Q3: Volume',
-                            sub: 'Alto Giro Mensal + Baixo Lucro Mensal',
-                            color: 'amber',
-                            bg: 'bg-amber-50 dark:bg-amber-955/20',
-                            border: 'border-amber-100 dark:border-amber-900/50',
-                            text: 'text-amber-600',
-                            valText: 'text-amber-800 dark:text-amber-400',
-                          },
-                          {
-                            id: 4,
-                            label: 'Q4: Problemas',
-                            sub: 'Baixo Giro Mensal + Baixo Lucro Mensal',
-                            color: 'slate',
-                            bg: 'bg-slate-50 dark:bg-slate-950/40',
-                            border: 'border-slate-100 dark:border-slate-800/50',
-                            text: 'text-slate-500',
-                            valText: 'text-slate-800 dark:text-slate-400',
-                          },
-                        ].map((q) => {
+                        return REPORT_QUADRANTS.map((q) => {
                           const qResults = results.filter((r) => r.quadrant === q.id);
                           const qProfit = qResults.reduce(
                             (acc, curr) => acc + (curr.totalProfit || 0),
@@ -1349,41 +1309,29 @@ const ReportView = () => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12 pb-10">
-                    {[1, 2, 3, 4].map((q) => (
+                    {REPORT_QUADRANTS.map((q) => (
                       <div
-                        key={q}
+                        key={q.id}
                         className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-premium border border-slate-100 dark:border-slate-800 flex flex-col min-h-[400px] overflow-hidden"
                       >
                         <div
-                          className={`p-8 border-b ${q === 1 ? 'border-emerald-100 bg-emerald-50/30' : q === 2 ? 'border-blue-100 bg-blue-50/30' : q === 3 ? 'border-amber-100 bg-amber-50/30' : 'border-slate-100 bg-slate-50/30'}`}
+                          className={`p-8 border-b ${q.headerClass}`}
                         >
                           <h3 className="text-[10px] font-black uppercase tracking-widest">
-                            {q === 1
-                              ? 'Q1: ESTRELAS'
-                              : q === 2
-                                ? 'Q2: POTENCIAL'
-                                : q === 3
-                                  ? 'Q3: VOLUME'
-                                  : 'Q4: PROBLEMAS'}
+                            {q.headerTitle}
                           </h3>
                           <i
-                            className={`bi ${q === 1 ? 'bi-stars' : q === 2 ? 'bi-lightning-fill' : q === 3 ? 'bi-box-seam-fill' : 'bi-exclamation-triangle-fill'} text-xs opacity-50`}
+                            className={`bi ${q.icon} text-xs opacity-50`}
                           ></i>
                         </div>
                         <p className="text-[7px] font-black opacity-60 uppercase tracking-widest">
-                          {q === 1
-                            ? 'Alto Giro + Alto Lucro'
-                            : q === 2
-                              ? 'Baixo Giro + Alto Lucro'
-                              : q === 3
-                                ? 'Alto Giro + Baixo Lucro'
-                                : 'Baixo Giro + Baixo Lucro'}
+                          {q.shortDescription}
                         </p>
                         <div className="flex-1 overflow-y-auto">
                           <table className="w-full">
                             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                               {results
-                                .filter((r) => r.quadrant === q)
+                                .filter((r) => r.quadrant === q.id)
                                 .map((res, i) => (
                                   <tr
                                     key={i}

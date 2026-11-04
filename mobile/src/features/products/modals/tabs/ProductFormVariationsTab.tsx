@@ -42,6 +42,7 @@ import { checkMobileProductVariationHasMoves } from '../../services/mobileProduc
 import { useMobileProductVariationUsage } from '../../hooks/useMobileProductVariationUsage';
 import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
 import { ProductVariationIdentificationTab } from './ProductVariationIdentificationTab';
+import { ProductVariationReadinessPanel } from './ProductVariationReadinessPanel';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
 import { ProductFormCompositionTab } from './ProductFormCompositionTab';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -878,39 +879,11 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                           keyboardShouldPersistTaps="handled"
                         >
                           {openReadiness && (openReadiness === 'erp' || !isStockistOnly) && (
-                            <View style={[styles.readinessPanel, dark && styles.darkReadinessPanel]}>
-                              <Text style={[styles.readinessPanelTitle, dark && styles.lightText]}>
-                                {openReadiness === 'erp'
-                                  ? 'Requisitos do ERP (Variação / Ativação)'
-                                  : 'Requisitos para o Catálogo'}
-                              </Text>
-                              {readinessItems.map((item) => (
-                                <View
-                                  key={item.label}
-                                  accessible
-                                  accessibilityLabel={`${item.label}: ${item.complete ? 'atendido' : 'pendente'}`}
-                                  style={styles.readinessItem}
-                                >
-                                  {item.complete ? (
-                                    <Check size={14} color={openReadiness === 'erp' ? '#3b82f6' : '#10b981'} />
-                                  ) : (
-                                    <X size={14} color={openReadiness === 'erp' ? '#f59e0b' : '#94a3b8'} />
-                                  )}
-                                  <Text
-                                    style={[
-                                      styles.readinessItemText,
-                                      dark && styles.dimText,
-                                      item.complete && (openReadiness === 'erp'
-                                        ? styles.erpReadinessComplete
-                                        : styles.catalogReadinessComplete),
-                                      !item.complete && styles.readinessItemPending,
-                                    ]}
-                                  >
-                                    {item.label}
-                                  </Text>
-                                </View>
-                              ))}
-                            </View>
+                            <ProductVariationReadinessPanel
+                              mode={openReadiness}
+                              readinessItems={readinessItems}
+                              dark={dark}
+                            />
                           )}
                           <View
                             style={showInheritedDataNotice ? styles.inheritedNoticeDisabledContent : null}

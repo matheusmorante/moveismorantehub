@@ -35,7 +35,15 @@ import {
   getProductTechnicalValueCandidateKeys,
   removeProductTechnicalValueAliases,
 } from '../../../../../shared-utils/productTechnicalValueAliases';
-import { getTechnicalFieldDisplayName } from '../../../../../shared-utils/productTechnicalFieldScope';
+import {
+  getTechnicalFieldDisplayName,
+  isCanonicalSofaRequiredCharacteristic,
+  isSofaCategoryName,
+  isSofaRecliningCharacteristic,
+  isSofaRequiredCharacteristic,
+  isSofaRetractableCharacteristic,
+  SOFA_REQUIRED_CHARACTERISTIC_NAMES,
+} from '../../../../../shared-utils/productTechnicalFieldScope';
 import {
   isProductTechnicalAttributeRequiredByCategories,
 } from '../../../../../shared-utils/productCategoryRequiredAttributes';
@@ -130,9 +138,12 @@ export const isProductTechnicalFieldApplicableByCategory = (
   return Boolean(field.categoryIds?.some((id) => selectedCategoryIds.has(String(id))));
 };
 
-/** Mantém os campos operacionais/redundantes Reclinável, Linha e Modelo (isolado) ocultos, conforme a regra canônica do ERP. */
-export const isExcludedProductTechnicalField = (name: string): boolean =>
-  /^(reclin[aá]vel|linha|modelo)$/i.test(String(name || '').trim());
+/** Esconde aliases legados isolados; os nomes canônicos de sofá entram pelo escopo da categoria. */
+export const isExcludedProductTechnicalField = (name: string): boolean => {
+  if (/^(?:linha|modelo)$/i.test(String(name || '').trim())) return true;
+  if (!isSofaRequiredCharacteristic(name)) return false;
+  return !isCanonicalSofaRequiredCharacteristic(name);
+};
 
 export const isMattressCategory = (
   categoryIds: readonly string[] = [],
@@ -171,8 +182,9 @@ export const isRequiredCharacteristicName = (name: string): boolean => {
 export const isProductTechnicalFieldRequired = (
   field: ProductTechnicalField,
   categoryIds: readonly string[] = [],
-  _categoryName = ''
+  categoryName = ''
 ): boolean => {
+  if (isSofaCategoryName(categoryName) && isSofaRequiredCharacteristic(field.name)) return true;
   if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
   if (Array.isArray(field.categoryApplications)) {
     return resolveProductCharacteristicApplication(field, categoryIds) === 'required';
@@ -598,6 +610,7 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
   const isSink = isSinkCategory(categoryIds, safeFields);
 
   let applicable = safeFields.filter((field) => {
+    if (isSofaCategoryName(categoryName) && isSofaRequiredCharacteristic(field.name)) return false;
     const hasCatalogCategoryRequirement =
       !isCatalogNeverRequiredCharacteristicName(field.name) &&
       isProductTechnicalAttributeRequiredByCategories(field.requiredCategoryIds, categoryIds);
@@ -637,6 +650,28 @@ export const getApplicableProductTechnicalFields = <T extends ProductTechnicalFi
     if (isCharacteristicDependent(field.name)) return true;
     return Boolean(field.categoryIds?.some((id: string) => activeCategories.has(String(id))));
   });
+
+  if (isSofaCategoryName(categoryName)) {
+    const sofaRequiredFields = SOFA_REQUIRED_CHARACTERISTIC_NAMES.map((name) => {
+      const matches = isSofaRetractableCharacteristic(name)
+        ? isSofaRetractableCharacteristic
+        : isSofaRecliningCharacteristic;
+      const existing = safeFields.find((field) => matches(field.name));
+      return {
+        ...existing,
+        id: existing?.id || `sofa-required:${normalizeName(name)}`,
+        name,
+        data_type: 'boolean',
+        options: existing?.options || [],
+        active: true,
+        isRequired: true,
+        isRequiredForProduct: true,
+        categoryApplications: undefined,
+        categoryIds: existing?.categoryIds || [...categoryIds],
+      } as T;
+    });
+    applicable = [...applicable, ...sofaRequiredFields];
+  }
 
   const depthField = applicable.find((field) => isDepthCharacteristic(field.name));
   const lengthField = applicable.find((field) => isLengthCharacteristic(field.name));

@@ -17,6 +17,7 @@ import {
   PRODUCT_CATEGORY_REQUIRED_MESSAGE,
 } from './productCategoryRequirement';
 import { getActiveCompositionProductRequirementIssue } from './productCompositionRequirements';
+import { getSofaCharacteristicRequirementIssues } from './productSofaCharacteristicRequirements';
 
 const productNumericFields = productVariationDraftSchema.pick({
   unitPrice: true, promoPrice: true, costPrice: true, freightCost: true, ipiPercent: true,
@@ -31,6 +32,7 @@ const productFormVariationSchema = productVariationDraftSchema.partial().extend(
 export interface ProductFormValidationOptions {
   isStockistOnly: boolean;
   saveAsDraft: boolean;
+  categoryName?: string;
 }
 
 /**
@@ -79,6 +81,17 @@ export const createProductFormSchema = (options: ProductFormValidationOptions) =
       if (options.saveAsDraft) {
         return;
       }
+
+      getSofaCharacteristicRequirementIssues({
+        ...(data as Record<string, any>),
+        categoryName: options.categoryName ?? (data as Record<string, any>).categoryName,
+      }).forEach(({ path, message }) =>
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message,
+          path,
+        })
+      );
 
       const validProductKinds = ['normal', 'salvado', 'usado'];
       if (data.itemType !== 'service' && !validProductKinds.includes(data.productKind || '')) {

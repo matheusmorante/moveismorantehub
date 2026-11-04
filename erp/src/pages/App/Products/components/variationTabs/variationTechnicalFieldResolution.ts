@@ -9,6 +9,7 @@ import {
 } from '@/pages/utils/technicalValuesService';
 import {
   areTechnicalCharacteristicNamesEquivalent,
+  isSofaRequiredCharacteristic,
   isTechnicalFieldAllowedForCategories,
 } from '../../../../../../../shared-utils/productTechnicalFieldScope';
 import { isCatalogCoreRequiredCharacteristicName } from '../../../../../../../shared-utils/catalogPublication/characteristicValues';
@@ -62,6 +63,7 @@ export const resolveVisibleVariationTechnicalFields = ({
   );
   const hasExplicitActiveFieldIds = Array.isArray(parentProduct.activeCharacteristicIds);
   const isRequiredInCategory = (field: TechnicalFieldDefinition) => {
+    if (isSofaCategorySelected && isSofaRequiredCharacteristic(field.name)) return true;
     if (isCatalogNeverRequiredCharacteristicName(field.name)) return false;
     if (isCatalogCoreRequiredCharacteristicName(field.name)) return true;
     const application = resolveProductCharacteristicApplication(field, parentProduct.categoryIds || []);

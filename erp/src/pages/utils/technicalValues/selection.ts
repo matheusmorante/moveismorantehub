@@ -18,7 +18,11 @@ import {
 import type { TechnicalFieldDefinition, TechnicalValuesMap } from './types';
 import { deduplicateProductTechnicalValueAliasFields } from '../../../../../shared-utils/productTechnicalValueAliases';
 import { isProductTechnicalAttributeRequiredByCategories } from '../../../../../shared-utils/productCategoryRequiredAttributes';
-import { isTechnicalFieldAllowedForCategories } from '../../../../../shared-utils/productTechnicalFieldScope';
+import {
+  isSofaCategoryName,
+  isSofaRequiredCharacteristic,
+  isTechnicalFieldAllowedForCategories,
+} from '../../../../../shared-utils/productTechnicalFieldScope';
 import { resolveProductCharacteristicApplication } from '../../../../../shared-utils/productCharacteristicApplications';
 import { isCatalogCoreRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/characteristicValues';
 import { isCatalogNeverRequiredCharacteristicName } from '../../../../../shared-utils/catalogPublication/requiredCharacteristicPolicy';
@@ -205,6 +209,7 @@ export const getAvailableAdditionalFields = (
       ) &&
       isAvailableForSelectedCategories(f) &&
       !visibleNames.has(f.name.toLowerCase().trim()) &&
-      !isExcludedCharacteristic(f.name)
+      !isExcludedCharacteristic(f.name) &&
+      !(productCategoryNames.some(isSofaCategoryName) && isSofaRequiredCharacteristic(f.name))
   );
 };

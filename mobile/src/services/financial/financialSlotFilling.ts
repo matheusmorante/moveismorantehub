@@ -383,41 +383,6 @@ export const trySlotFillingFallback = (
   const dueDatePatch = tryPatchDueDateSlots(text, draft, todayStr);
   if (dueDatePatch) return dueDatePatch;
 
-  // C) Extração de valores detalhados de parcelas
-  let parsedAmounts: number[] = [];
-  const cleanText = text.replace(/^de\s*\d+\s*(?:mil)?\s*são/gi, '');
-  const amountsRegex =
-    /(?:(\d+|dois|três|quatro)\s*(?:boletos?|parcelas?)?\s*de\s*(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?)/gi;
-  let match;
-
-  while ((match = amountsRegex.exec(cleanText)) !== null) {
-    const rawQ = match[1].toLowerCase();
-    let qty =
-      rawQ === 'dois' ? 2 : rawQ === 'três' ? 3 : rawQ === 'quatro' ? 4 : parseInt(rawQ, 10);
-    let val = parsePtBrNumber(match[2], cleanText.includes('mil') || cleanText.includes('k'));
-    if (qty <= 10) {
-      for (let i = 0; i < qty; i++) parsedAmounts.push(val);
-    }
-  }
-
-  const singleLeftover = text.match(
-    /\be\s+(?:outro|um|1)\s+(?:de\s+)?(?:r\$\s*)?(\d+(?:\.\d{3})?)(?:\s*mil|\s*k)?/i
-  );
-  if (singleLeftover && parsedAmounts.length > 0) {
-    let val2 = parsePtBrNumber(singleLeftover[1], text.includes('mil') || text.includes('k'));
-    parsedAmounts.push(val2);
-  }
-
-  if (parsedAmounts.length > 0) {
-    draft.installmentsCount = parsedAmounts.length;
-    draft.installmentList = parsedAmounts.map((amt, idx) => ({
-      number: idx + 1,
-      amount: amt,
-      dueDate: draft.installmentList?.[idx]?.dueDate || null,
-    }));
-    return validateParsedIntent(draft, todayStr);
-  }
-
   // 6. Single transaction Date Patch
   const datePatchMatch = text.match(/(?:dia|no dia|para o dia)?\s*(\d{1,2})(?:\s*de\s*([a-z]+))?/i);
   if (

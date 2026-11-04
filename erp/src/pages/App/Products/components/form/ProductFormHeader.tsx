@@ -66,9 +66,9 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
 
   return (
     <>
-      <div className="px-3 py-3 sm:px-4 sm:py-4 lg:px-6 border-b border-slate-50 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shrink-0 bg-white dark:bg-slate-900">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4 flex-wrap">
-          <h2 className="min-w-0 text-lg sm:text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
+      <div className="px-3 py-2.5 sm:px-4 sm:py-4 lg:px-6 border-b border-slate-50 dark:border-slate-800/50 flex items-start justify-between gap-2 sm:items-center sm:gap-4 shrink-0 bg-white dark:bg-slate-900">
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-3 lg:gap-4">
+          <h2 className="min-w-0 max-w-full truncate text-base sm:text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
             {isDraftProduct
               ? product?.id
                 ? isComposition
@@ -95,14 +95,14 @@ export const ProductFormHeader: React.FC<ProductFormHeaderProps> = ({
           />
         </div>
 
-        <div className="flex items-center gap-2.5 self-end sm:self-auto">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
           {onOpenAiFillModal && (
             <button
               type="button"
               onClick={() => onOpenAiFillModal('web_search')}
               title="Preenchimento Inteligente com IA"
               aria-label="Preencher cadastro com IA"
-              className="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs hover:shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95"
+              className="px-2.5 py-2 sm:px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs hover:shadow-md flex items-center gap-2 transition-all cursor-pointer active:scale-95"
             >
               <i className="bi bi-stars text-sm" />
               <span className="hidden sm:inline">Preencher com IA</span>

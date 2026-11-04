@@ -34,10 +34,10 @@ export const ProductFormFooter: React.FC<ProductFormFooterProps> = ({
   const isBusy = loading || isAiProcessing;
 
   return (
-    <div className="px-3 py-3 sm:px-4 sm:py-4 lg:px-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4 shrink-0">
-      <div className="flex items-center gap-2 w-full md:w-auto">
+    <div className="px-3 py-2 sm:px-4 sm:py-4 lg:px-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col md:flex-row items-center justify-between gap-2 sm:gap-4 shrink-0">
+      <div className="flex w-full flex-wrap items-center gap-1.5 md:w-auto md:gap-2">
         {canMarkTestArtifact && onTestArtifactChange && (
-          <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+          <div className={`flex shrink-0 items-center gap-2 rounded-xl border px-2.5 py-1.5 sm:px-3 sm:py-2 ${
             isTestArtifact
               ? 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40'
               : 'border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-800/40'
@@ -66,7 +66,7 @@ export const ProductFormFooter: React.FC<ProductFormFooterProps> = ({
             role="status"
             aria-live="polite"
             aria-busy={autoSaveStatus === 'saving'}
-            className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 transition-colors ${
+            className={`flex shrink-0 items-center gap-2 rounded-xl border px-2.5 py-1.5 sm:px-3.5 sm:py-2 transition-colors ${
               autoSaveStatus === 'saving'
                 ? 'border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30'
                 : autoSaveStatus === 'saved'
@@ -101,20 +101,25 @@ export const ProductFormFooter: React.FC<ProductFormFooterProps> = ({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto">
+      <div className="flex w-full items-center justify-between gap-2 md:w-auto md:justify-end">
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all active:scale-95 flex-1 md:flex-initial text-center cursor-pointer"
+          className="shrink-0 px-2 py-2.5 sm:px-4 rounded-xl font-bold text-[10px] sm:text-xs uppercase tracking-widest text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all active:scale-95 text-center cursor-pointer"
         >
-          {!isDraftProduct ? 'Descartar alterações' : 'Cancelar'}
+          {!isDraftProduct ? (
+            <>
+              <span className="sm:hidden">Descartar</span>
+              <span className="hidden sm:inline">Descartar alterações</span>
+            </>
+          ) : 'Cancelar'}
         </button>
 
         {!isLastStep ? (
           <button
             type="button"
             onClick={onNextStep}
-            className="px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-xl w-full md:w-auto justify-center bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-none cursor-pointer"
+            className="min-w-0 px-3 sm:px-6 py-2.5 text-white rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2 shadow-xl justify-center bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-none cursor-pointer"
           >
             <span>Próxima etapa</span>
             <i className="bi bi-arrow-right text-sm" />
@@ -124,7 +129,7 @@ export const ProductFormFooter: React.FC<ProductFormFooterProps> = ({
             type="button"
             onClick={onSubmit}
             disabled={isBusy}
-            className="px-6 py-2.5 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xl w-full md:w-auto justify-center bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none cursor-pointer"
+            className="min-w-0 px-3 sm:px-6 py-2.5 text-white rounded-xl font-black text-[10px] sm:text-xs uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-xl justify-center bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none cursor-pointer"
           >
             {isBusy && (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
