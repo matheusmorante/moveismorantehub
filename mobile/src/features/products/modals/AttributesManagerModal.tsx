@@ -1,10 +1,4 @@
-import {
-  ChevronDown,
-  Plus,
-  Sliders,
-  Tag,
-  X,
-} from 'lucide-react-native';
+import { Plus, Sliders, Tag, X } from 'lucide-react-native';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -26,12 +20,11 @@ import {
   deleteMobileAttributeValue,
   fetchMobileAttributes,
   type MobileAttribute,
-  type MobileAttributeDataType,
   saveMobileAttributeDefinition,
 } from '../services/mobileAttributeService';
 import { ManagedAttributesList } from './ManagedAttributesList';
+import { AttributeTypeSelector } from './AttributeTypeSelector';
 import {
-  ATTRIBUTE_TYPE_OPTIONS,
   attributeOptionFormSchema,
   parseOptionalNumber,
   toCharacteristicOptionInput,
@@ -78,8 +71,6 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   const [savingValueId, setSavingValueId] = useState<string | null>(null);
   const optionsUpdateAttributeId = useRef<string | undefined>(undefined);
   const allCharacteristics = attributes.map((attribute) => ({ ...attribute, active: attribute.active !== false }));
-  const selectedDataTypeLabel =
-    ATTRIBUTE_TYPE_OPTIONS.find(([value]) => value === newDataType)?.[1] ?? 'Escolha única';
   const { validateAndRun: validateNewDefinition } = useZodForm(createCharacteristicFormSchema(allCharacteristics), newDefinition);
   const { validateAndRun: validateOptionsUpdate } = useZodForm(
     createCharacteristicFormSchema(allCharacteristics, () => optionsUpdateAttributeId.current),
@@ -299,44 +290,17 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              onPress={() => setShowTypeOptions((open) => !open)}
-              style={[styles.typeSelector, dark && styles.darkInput]}
-              accessibilityRole="button"
-              accessibilityLabel={`Tipo de preenchimento: ${selectedDataTypeLabel}`}
-              accessibilityState={{ expanded: showTypeOptions }}
-            >
-              <View>
-                <Text style={[styles.typeSelectorLabel, dark && styles.light]}>
-                  Tipo de preenchimento
-                </Text>
-                <Text style={[styles.typeSelectorValue, dark && styles.light]}>
-                  {selectedDataTypeLabel}
-                </Text>
-              </View>
-              <ChevronDown size={18} color={dark ? '#cbd5e1' : '#64748b'} />
-            </TouchableOpacity>
-            {showTypeOptions && (
-              <View style={styles.typeRow}>
-                {ATTRIBUTE_TYPE_OPTIONS.map(([value, label]) => (
-                  <TouchableOpacity
-                    key={value}
-                    onPress={() => {
-                      setNewDataType(value as MobileAttributeDataType);
-                      setNewConfigurationInputs({ minValue: '', maxValue: '', minSelections: '', maxSelections: '' });
-                      setShowTypeOptions(false);
-                    }}
-                    style={[styles.typeBtn, newDataType === value && styles.typeBtnActive]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: newDataType === value }}
-                  >
-                    <Text style={[styles.typeText, newDataType === value && styles.typeTextActive]}>
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            <AttributeTypeSelector
+              dark={dark}
+              dataType={newDataType}
+              expanded={showTypeOptions}
+              onToggle={() => setShowTypeOptions((open) => !open)}
+              onSelect={(dataType) => {
+                setNewDataType(dataType);
+                setNewConfigurationInputs({ minValue: '', maxValue: '', minSelections: '', maxSelections: '' });
+                setShowTypeOptions(false);
+              }}
+            />
 
             {newDataType === 'measure' && (
               <View style={styles.measureInputRow}>

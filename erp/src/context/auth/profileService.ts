@@ -31,6 +31,7 @@ export async function fetchUserProfile({
     const userEmail = (user.email || '').toLowerCase().trim();
     const isMaster = isMasterEmail(userEmail);
     const googleName = user.user_metadata?.full_name || user.user_metadata?.name;
+    const metadataAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture;
 
     // 1. Proativamente renova o token se expirado ou prestes a expirar (< 60s)
     try {
@@ -101,11 +102,12 @@ export async function fetchUserProfile({
       const cached = getCachedProfile(user.id);
       if (cached) {
         console.log('[Auth] Recuperando perfil do cache local após falha transitória de consulta');
-        return cached;
+        return { ...cached, avatar_url: metadataAvatarUrl || cached.avatar_url };
       }
 
       if (isMaster) {
         const masterProfile = createMasterProfile(user.id, user.email || '', googleName);
+        masterProfile.avatar_url = metadataAvatarUrl || undefined;
         setCachedProfile(user.id, masterProfile);
         return masterProfile;
       }
@@ -162,7 +164,10 @@ export async function fetchUserProfile({
     }
 
     if (data) {
-      const resolvedProfile = data as Profile;
+      const resolvedProfile: Profile = {
+        ...(data as Profile),
+        avatar_url: (data as Profile).avatar_url || metadataAvatarUrl || undefined,
+      };
       setCachedProfile(user.id, resolvedProfile);
       return resolvedProfile;
     }
@@ -174,7 +179,10 @@ export async function fetchUserProfile({
 
     const cached = getCachedProfile(user.id);
     if (cached) {
-      return cached;
+      return {
+        ...cached,
+        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || cached.avatar_url,
+      };
     }
 
     if (isMaster) {
@@ -183,6 +191,7 @@ export async function fetchUserProfile({
         user.email || '',
         user.user_metadata?.full_name
       );
+      masterProfile.avatar_url = user.user_metadata?.avatar_url || user.user_metadata?.picture || undefined;
       setCachedProfile(user.id, masterProfile);
       return masterProfile;
     }

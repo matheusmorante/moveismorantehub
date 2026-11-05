@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { getFixedLabelTextSize } from '../utils/fixedLabelTextSize';
 import type {
   Opportunity,
   PriceLabelArtEditorModalProps,
@@ -7,6 +6,7 @@ import type {
 import { usePriceLabelHistory } from './usePriceLabelHistory';
 import { buildPriceLabelStateSnapshot } from './priceLabelStateSnapshot';
 import { usePriceLabelEditorTransientState } from './usePriceLabelEditorTransientState';
+import { applyPriceLabelMagnitudeSnapshot } from './priceLabelMagnitudeSnapshot';
 
 export function usePriceLabelState(
   initialProduct: PriceLabelArtEditorModalProps['initialProduct'],
@@ -168,150 +168,96 @@ export function usePriceLabelState(
   // Sistema de Histórico (Undo / Redo)
   const isApplyingHistoryRef = useRef<boolean>(false);
 
-  const applyMagnitudeSnapshot = (s: any, preserveFixedTextStyles = false) => {
-    if (!s) return;
-    if (s.title !== undefined) setTitle(s.title);
-    if (s.showTitle !== undefined) setShowTitle(s.showTitle);
-    if (!preserveFixedTextStyles) {
-      const fixedTitleSize = getFixedLabelTextSize(s, 'title', 14);
-      setTitleFontSizeTens(fixedTitleSize);
-      setTitleFontSizeHundreds(fixedTitleSize);
-      setTitleFontSizeThousands(fixedTitleSize);
-    }
-
-    if (s.titleColor) setTitleColor(s.titleColor);
-    if (!preserveFixedTextStyles && s.titleFontFamily) setTitleFontFamily(s.titleFontFamily);
-    if (s.titlePos && (s.titlePos.x !== 0 || s.titlePos.y !== 0)) setTitlePos(s.titlePos);
-    else setTitlePos({ x: 0, y: -160 });
-    if (s.titleRotation !== undefined) setTitleRotation(s.titleRotation);
-    if (Number.isFinite(Number(s.titleWidth))) setTitleWidth(Number(s.titleWidth));
-
-    if (s.deText !== undefined) setDeText(s.deText);
-    if (s.showDe !== undefined) setShowDe(s.showDe);
-    if (!preserveFixedTextStyles) {
-      const fixedDeSize = getFixedLabelTextSize(s, 'de', 34);
-      setDeFontSizeTens(fixedDeSize);
-      setDeFontSizeHundreds(fixedDeSize);
-      setDeFontSizeThousands(fixedDeSize);
-    }
-
-    if (s.deColor) setDeColor(s.deColor);
-    if (!preserveFixedTextStyles && s.deFontFamily) setDeFontFamily(s.deFontFamily);
-    if (s.dePos) setDePos(s.dePos);
-    if (s.deRotation !== undefined) setDeRotation(s.deRotation);
-
-    if (s.normalPrice !== undefined) setNormalPrice(s.normalPrice);
-    if (s.showNormalPrice !== undefined) setShowNormalPrice(s.showNormalPrice);
-    if (!preserveFixedTextStyles) {
-      const fixedNormalPriceSize = getFixedLabelTextSize(s, 'normalPrice', 16);
-      setNormalPriceFontSizeTens(fixedNormalPriceSize);
-      setNormalPriceFontSizeHundreds(fixedNormalPriceSize);
-      setNormalPriceFontSizeThousands(fixedNormalPriceSize);
-    }
-
-    if (s.normalPriceColor) setNormalPriceColor(s.normalPriceColor);
-    if (!preserveFixedTextStyles && s.normalPriceFontFamily)
-      setNormalPriceFontFamily(s.normalPriceFontFamily);
-    if (s.normalPricePos) setNormalPricePos(s.normalPricePos);
-    if (s.normalPriceRotation !== undefined) setNormalPriceRotation(s.normalPriceRotation);
-
-    if (s.porText !== undefined) setPorText(s.porText);
-    if (s.showPor !== undefined) setShowPor(s.showPor);
-    if (!preserveFixedTextStyles) {
-      const fixedPorSize = getFixedLabelTextSize(s, 'por', 15);
-      setPorFontSizeTens(fixedPorSize);
-      setPorFontSizeHundreds(fixedPorSize);
-      setPorFontSizeThousands(fixedPorSize);
-    }
-
-    if (s.porColor) setPorColor(s.porColor);
-    if (!preserveFixedTextStyles && s.porFontFamily) setPorFontFamily(s.porFontFamily);
-    if (s.porPos) setPorPos(s.porPos);
-    if (s.porRotation !== undefined) setPorRotation(s.porRotation);
-
-    if (s.currencySymbol !== undefined) setCurrencySymbol(s.currencySymbol);
-    if (s.showCurrency !== undefined) setShowCurrency(s.showCurrency);
-    if (!preserveFixedTextStyles) {
-      const fixedCurrencySize = getFixedLabelTextSize(s, 'currency', 70);
-      setCurrencyFontSizeTens(fixedCurrencySize);
-      setCurrencyFontSizeHundreds(fixedCurrencySize);
-      setCurrencyFontSizeThousands(fixedCurrencySize);
-    }
-
-    if (s.currencyColor) setCurrencyColor(s.currencyColor);
-    if (!preserveFixedTextStyles && s.currencyFontFamily)
-      setCurrencyFontFamily(s.currencyFontFamily);
-    if (s.currencyPos && (s.currencyPos.x !== 0 || s.currencyPos.y !== 0))
-      setCurrencyPos(s.currencyPos);
-    else setCurrencyPos({ x: -280, y: 35 });
-    if (s.currencyRotation !== undefined) setCurrencyRotation(s.currencyRotation);
-
-    if (s.promoPrice !== undefined) setPromoPrice(s.promoPrice);
-    if (s.showPromoPrice !== undefined) setShowPromoPrice(s.showPromoPrice);
-    if (s.showPromoPriceTens !== undefined) setShowPromoPriceTens(s.showPromoPriceTens);
-    if (s.showPromoPriceHundreds !== undefined) setShowPromoPriceHundreds(s.showPromoPriceHundreds);
-    if (s.showPromoPriceThousands !== undefined)
-      setShowPromoPriceThousands(s.showPromoPriceThousands);
-    if (s.priceColor) setPriceColor(s.priceColor);
-    if (s.promoPriceFontFamily) setPromoPriceFontFamily(s.promoPriceFontFamily);
-    if (s.promoPricePos && (s.promoPricePos.x !== 0 || s.promoPricePos.y !== 0))
-      setPromoPricePos(s.promoPricePos);
-    else setPromoPricePos({ x: 0, y: 45 });
-    if (s.promoPriceRotation !== undefined) setPromoPriceRotation(s.promoPriceRotation);
-
-    const targetScaleTens = s.scaleTens && Number(s.scaleTens) >= 120 ? Number(s.scaleTens) : 240;
-    const targetScaleHundreds =
-      s.scaleHundreds && Number(s.scaleHundreds) >= 120 ? Number(s.scaleHundreds) : 210;
-    const targetScaleThousands =
-      s.scaleThousands && Number(s.scaleThousands) >= 120 ? Number(s.scaleThousands) : 170;
-    setScaleTens(targetScaleTens);
-    setScaleHundreds(targetScaleHundreds);
-    setScaleThousands(targetScaleThousands);
-    if (s.scaleTenThousands !== undefined) setScaleTenThousands(s.scaleTenThousands);
-
-    if (s.centsText !== undefined) setCentsText(s.centsText);
-    if (s.showCents !== undefined) setShowCents(s.showCents);
-    if (!preserveFixedTextStyles) {
-      const fixedCentsSize = getFixedLabelTextSize(s, 'cents', 70);
-      setCentsFontSizeTens(fixedCentsSize);
-      setCentsFontSizeHundreds(fixedCentsSize);
-      setCentsFontSizeThousands(fixedCentsSize);
-    }
-
-    if (s.centsColor) setCentsColor(s.centsColor);
-    if (!preserveFixedTextStyles && s.centsFontFamily) setCentsFontFamily(s.centsFontFamily);
-    if (s.centsPos && (s.centsPos.x !== 0 || s.centsPos.y !== 0)) setCentsPos(s.centsPos);
-    else setCentsPos({ x: 260, y: -10 });
-    if (s.centsRotation !== undefined) setCentsRotation(s.centsRotation);
-
-    if (s.showInstallments !== undefined) setShowInstallments(s.showInstallments);
-    if (s.installments) setInstallments(s.installments);
-    if (!preserveFixedTextStyles) {
-      const fixedInstallmentsSize = getFixedLabelTextSize(s, 'installments', 14);
-      setInstallmentsFontSizeTens(fixedInstallmentsSize);
-      setInstallmentsFontSizeHundreds(fixedInstallmentsSize);
-      setInstallmentsFontSizeThousands(fixedInstallmentsSize);
-    }
-
-    if (s.installmentsColor) setInstallmentsColor(s.installmentsColor);
-    if (!preserveFixedTextStyles && s.installmentsFontFamily)
-      setInstallmentsFontFamily(s.installmentsFontFamily);
-    if (s.installmentsPos) setInstallmentsPos(s.installmentsPos);
-    if (s.installmentsRotation !== undefined) setInstallmentsRotation(s.installmentsRotation);
-
-    // { x: 0, y: 0 } é uma posição válida do template, não ausência de
-    // configuração. O editor deve refletir exatamente o snapshot do BD.
-    setDePricePorGroupPos(s.dePricePorGroupPos ?? { x: 0, y: 0 });
-    if (s.dePricePorGroupRotation !== undefined)
-      setDePricePorGroupRotation(s.dePricePorGroupRotation);
-    if (s.dePricePorGroupGap !== undefined) setDePricePorGroupGap(s.dePricePorGroupGap);
-
-    if (s.bgColor && s.bgColor !== 'transparent') {
-      setBgColor(s.bgColor);
-    } else if (defaultBgColor) {
-      setBgColor(defaultBgColor);
-    }
+  const magnitudeSnapshotSetters = {
+    setTitle,
+    setShowTitle,
+    setTitleFontSizeTens,
+    setTitleFontSizeHundreds,
+    setTitleFontSizeThousands,
+    setTitleColor,
+    setTitleFontFamily,
+    setTitlePos,
+    setTitleRotation,
+    setTitleWidth,
+    setDeText,
+    setShowDe,
+    setDeFontSizeTens,
+    setDeFontSizeHundreds,
+    setDeFontSizeThousands,
+    setDeColor,
+    setDeFontFamily,
+    setDePos,
+    setDeRotation,
+    setNormalPrice,
+    setShowNormalPrice,
+    setNormalPriceFontSizeTens,
+    setNormalPriceFontSizeHundreds,
+    setNormalPriceFontSizeThousands,
+    setNormalPriceColor,
+    setNormalPriceFontFamily,
+    setNormalPricePos,
+    setNormalPriceRotation,
+    setPorText,
+    setShowPor,
+    setPorFontSizeTens,
+    setPorFontSizeHundreds,
+    setPorFontSizeThousands,
+    setPorColor,
+    setPorFontFamily,
+    setPorPos,
+    setPorRotation,
+    setCurrencySymbol,
+    setShowCurrency,
+    setCurrencyFontSizeTens,
+    setCurrencyFontSizeHundreds,
+    setCurrencyFontSizeThousands,
+    setCurrencyColor,
+    setCurrencyFontFamily,
+    setCurrencyPos,
+    setCurrencyRotation,
+    setPromoPrice,
+    setShowPromoPrice,
+    setShowPromoPriceTens,
+    setShowPromoPriceHundreds,
+    setShowPromoPriceThousands,
+    setPriceColor,
+    setPromoPriceFontFamily,
+    setPromoPricePos,
+    setPromoPriceRotation,
+    setScaleTens,
+    setScaleHundreds,
+    setScaleThousands,
+    setScaleTenThousands,
+    setCentsText,
+    setShowCents,
+    setCentsFontSizeTens,
+    setCentsFontSizeHundreds,
+    setCentsFontSizeThousands,
+    setCentsColor,
+    setCentsFontFamily,
+    setCentsPos,
+    setCentsRotation,
+    setShowInstallments,
+    setInstallments,
+    setInstallmentsFontSizeTens,
+    setInstallmentsFontSizeHundreds,
+    setInstallmentsFontSizeThousands,
+    setInstallmentsColor,
+    setInstallmentsFontFamily,
+    setInstallmentsPos,
+    setInstallmentsRotation,
+    setDePricePorGroupPos,
+    setDePricePorGroupRotation,
+    setDePricePorGroupGap,
+    setBgColor,
   };
+  const applyMagnitudeSnapshot = (s: any, preserveFixedTextStyles = false) =>
+    applyPriceLabelMagnitudeSnapshot(
+      s,
+      preserveFixedTextStyles,
+      magnitudeSnapshotSetters,
+      defaultBgColor,
+    );
 
   const applySnapshot = (s: any, preserveLayout = false) => {
     if (!s) return;

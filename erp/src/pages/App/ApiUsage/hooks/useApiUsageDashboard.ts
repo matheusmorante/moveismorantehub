@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ApiUsageTracker } from '@/services/apiMonitoring/apiUsageTracker';
+import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import {
   ApiConfiguration,
   ApiDashboardMetrics,
@@ -19,8 +20,18 @@ export function useApiUsageDashboard() {
   const [metrics, setMetrics] = useState<ApiDashboardMetrics | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [editingConfig, setEditingConfig] = useState<ApiConfiguration | null>(null);
+  const servicesVisible = viewMode !== 'supabase';
+  const scopeKey = JSON.stringify([period, environment, servicesVisible]);
+  const currentScope = useRef(scopeKey);
+  currentScope.current = scopeKey;
+  const requestSequence = useRef(0);
+  const mounted = useRef(false);
+  const [metricsScope, setMetricsScope] = useState('');
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    if (!mounted.current || !servicesVisible || currentScope.current !== scopeKey) return;
+    const sequence = ++requestSequence.current;
+    const isCurrent = () => mounted.current && sequence === requestSequence.current && currentScope.current === scopeKey;
     setLoading(true);
     try {
       const now = new Date();
@@ -41,20 +52,31 @@ export function useApiUsageDashboard() {
         endStr = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
       }
 
-      const data = await ApiUsageTracker.getDashboardMetrics(startStr, endStr, environment);
+      const data = await withTimeout<ApiDashboardMetrics | null>(
+        ApiUsageTracker.getDashboardMetrics(startStr, endStr, environment),
+        15_000, null, 'painel:metricas-servicos',
+      );
+      if (!data) throw new Error('Tempo esgotado ao carregar métricas de serviços.');
+      if (!isCurrent()) return;
       setMetrics(data);
+      setMetricsScope(scopeKey);
     } catch (e) {
-      console.error('Erro ao carregar dados de monitoramento de APIs:', e);
+      if (isCurrent()) console.error('Erro ao carregar dados de monitoramento de APIs:', e);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  };
+  }, [period, environment, servicesVisible, scopeKey]);
 
   useEffect(() => {
-    loadData();
-  }, [period, environment]);
+    mounted.current = true;
+    if (servicesVisible) void loadData();
+    else setLoading(false);
+    return () => { mounted.current = false; requestSequence.current += 1; };
+  }, [loadData, servicesVisible]);
 
-  const filteredSummaries = (metrics?.summaries || []).filter((s) => {
+  const currentMetrics = servicesVisible && metricsScope === scopeKey ? metrics : null;
+
+  const filteredSummaries = (currentMetrics?.summaries || []).filter((s) => {
     if (selectedProvider === 'all') return true;
     return s.provider === selectedProvider;
   });
@@ -95,8 +117,8 @@ export function useApiUsageDashboard() {
     setSelectedServiceId,
     viewMode,
     setViewMode,
-    metrics,
-    loading,
+    metrics: currentMetrics,
+    loading: servicesVisible && loading,
     editingConfig,
     setEditingConfig,
     loadData,

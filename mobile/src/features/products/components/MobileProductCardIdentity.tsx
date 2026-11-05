@@ -51,7 +51,6 @@ export function MobileProductCardIdentity({
       <View style={styles.titleCol}>
         <Text
           style={[styles.title, dark && styles.lightText, isParent && styles.parentTitle]}
-          numberOfLines={isSingleVariationCard ? 3 : 2}
         >
           {displayTitle}
         </Text>

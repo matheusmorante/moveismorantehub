@@ -11,7 +11,6 @@ import {
   type SupportOrderDocumentInput,
 } from '../../../../../../../shared-utils/customerSupportFormSchemas';
 import type { ProductCatalogPrepareInput } from '../../../../../../../shared-utils/productCatalogFormSchemas';
-import type { ProductCatalogSendSelection } from '../../../../../../../shared-utils/productCatalogFormSchemas';
 import type { WhatsAppConversation, WhatsAppMessage } from '../../types';
 import { ProductCatalogPanel } from '@/components/catalog/ProductCatalogPanel';
 import NewSaleOrder from '@/pages/App/SalesOrder/pages/NewSaleOrder';
@@ -30,6 +29,7 @@ import { ChatAudioRecordingControls, RecordedAudioPreview } from './ChatAudioRec
 import { ChatComposerAttachmentList } from './ChatComposerAttachmentList';
 import { ChatComposerAttachmentMenu } from './ChatComposerAttachmentMenu';
 import { createChatAudioRecordingActions } from './chatComposerAudioRecording';
+import { toCatalogSendSelection } from './chatComposerCatalogSelection';
 import {
   formatFileSize,
   MAX_ATTACHMENTS,
@@ -82,20 +82,6 @@ const EMPTY_CONVERSATION = {
   lastMessageAt: '', lastCustomerMessageAt: null, unreadCount: 0, isArchived: true,
   internalNotes: null, tags: [], assignedTo: null, createdAt: '', updatedAt: '',
 } as WhatsAppConversation;
-
-const toCatalogSendSelection = (selection: ProductCatalogPrepareInput): ProductCatalogSendSelection => ({
-  items: selection.items.map(({ productId, variationId }) => ({
-    productId,
-    ...(variationId ? { variationId } : {}),
-  })),
-  bulkScope: selection.bulkScope ? {
-    selectionMode: 'all_matching',
-    filters: selection.bulkScope.filters,
-    excludedProductIds: selection.bulkScope.excludedProductIds,
-  } : null,
-  hidePrices: selection.hidePrices,
-  deliveryMode: selection.deliveryMode,
-});
 
 export const ChatComposer: React.FC<ChatComposerProps> = ({
   conversation = EMPTY_CONVERSATION,

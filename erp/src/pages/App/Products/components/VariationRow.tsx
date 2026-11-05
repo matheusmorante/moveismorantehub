@@ -147,12 +147,9 @@ export const VariationRow: React.FC<VariationRowProps> = React.memo(
 									</button>
 								)}
 							</div>
-							<input
-								value={v.name || v.title || "Variação"}
-								readOnly
-								className="w-full bg-transparent border-none outline-none text-sm font-bold text-slate-700 dark:text-slate-200 cursor-default font-sans truncate"
-								placeholder="Sem nome"
-							/>
+							<span className="block w-full whitespace-normal break-words text-sm font-bold text-slate-700 dark:text-slate-200 font-sans">
+								{v.name || v.title || "Variação"}
+							</span>
 						</div>
 					</div>
 

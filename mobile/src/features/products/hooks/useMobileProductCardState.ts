@@ -77,7 +77,7 @@ export function useMobileProductCardState({
       ? product.images.split(',').find(Boolean)
       : null;
 
-  const cardImage = variationProductImage || parentProductImage;
+  const cardImage = singleVariation ? variationProductImage || null : parentProductImage;
 
   const { cardUnitPrice, cardPromoPrice, hasCardPromo, cardPrice } =
     resolveMobileProductCardPricing(product, singleVariation);

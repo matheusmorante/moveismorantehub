@@ -94,14 +94,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
     v.images && v.images.length > 0
       ? v.images
       : parseVariationImages((v as any).image_url);
-  const parentImages =
-    product.images && product.images.length > 0
-      ? product.images
-      : parseVariationImages((product as any).image_url);
-
-  const primaryImage =
-    (variationImages && variationImages.length > 0 && variationImages[0]) ||
-    (parentImages && parentImages.length > 0 && parentImages[0]);
+  const primaryImage = variationImages?.[0];
   const isMenuOpen = activeVarMenuId === (v.id || String(index));
   const isUsageChecking = checkingUsageId === v.id;
   const isUsed = usageCache[v.id || ''] === true;
@@ -123,7 +116,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
         </div>
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+            <span className="min-w-0 flex-1 whitespace-normal break-words text-xs font-bold leading-tight text-slate-700 dark:text-slate-200">
               {varName}
             </span>
             <ChannelStatusBadges

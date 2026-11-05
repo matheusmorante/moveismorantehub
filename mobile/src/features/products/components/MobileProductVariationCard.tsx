@@ -22,7 +22,6 @@ interface MobileProductVariationCardProps {
   opportunityName?: string;
   index: number;
   dark: boolean;
-  parentImage?: string | null;
   isParentDraft?: boolean;
   onToggleActive?: (varId: string, currentActive: boolean) => void;
   onToggleCatalog: (varId: string, currentStatus: string) => void;
@@ -45,7 +44,6 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   opportunityName,
   index,
   dark,
-  parentImage,
   isParentDraft = false,
   onToggleActive,
   onToggleCatalog,
@@ -83,7 +81,9 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
   const isNonConventional =
     isNonConventionalProduct(parentProduct) || isNonConventionalProduct(v);
   const imgUrl =
-    Array.isArray(v.images) && v.images[0] ? v.images[0] : v.imageUrl || parentImage || null;
+    Array.isArray(v.images) && v.images[0]
+      ? v.images[0]
+      : v.imageUrl || v.image_url || null;
   const normalPrice = Number(v.price ?? v.unit_price ?? 0);
   const promoPrice = Number(v.promo_price ?? v.promoPrice ?? 0);
   const hasPromo = promoPrice > 0 && promoPrice < normalPrice;
@@ -144,7 +144,7 @@ export const MobileProductVariationCard: React.FC<MobileProductVariationCardProp
 
         <View style={styles.infoCol}>
           <View style={styles.nameRow}>
-            <Text style={[styles.name, dark && styles.lightText]} numberOfLines={1}>
+            <Text style={[styles.name, dark && styles.lightText]}>
               {varName}
             </Text>
           </View>

@@ -40,6 +40,7 @@ import { useMobileProductVariationUsage } from '../../hooks/useMobileProductVari
 import { ProductFormTechnicalTab } from './ProductFormTechnicalTab';
 import { ProductVariationIdentificationTab } from './ProductVariationIdentificationTab';
 import { ProductVariationReadinessPanel } from './ProductVariationReadinessPanel';
+import { ProductVariationPricingPanel } from './ProductVariationPricingPanel';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
 import { ProductFormCompositionTab } from './ProductFormCompositionTab';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -59,8 +60,6 @@ import { variationToSimpleConfirmationSchema } from '../../../../../../shared-ut
 import { isSingleProductVariationFormMode } from '../../../../../../shared-utils/productVariationMode';
 
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
-import { CurrencyInput } from '../../../../components/shared/CurrencyInput';
-import { PercentInput } from '../../../../components/shared/PercentInput';
 import { getMobileProductVariationTabs } from './productVariationTabs';
 import type { VariationTabId } from './productVariationTabs';
 
@@ -645,7 +644,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                       )}
                     </View>
                     <Text style={styles.variationNameLabel}>NOME DA VARIAÇÃO</Text>
-                    <Text style={[styles.varAttr, dark && styles.lightText]} numberOfLines={2}>
+                    <Text style={[styles.varAttr, dark && styles.lightText]}>
                       {v.name || 'Variação'}
                     </Text>
                   </TouchableOpacity>
@@ -1001,158 +1000,35 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                         )}
 
                         {activeVariationTab === 'estoque' && (
-                          <View style={styles.tabContent}>
-                            <View style={styles.cardHeader}>
-                              <Text style={[styles.sectionTitle, dark && styles.lightText]}>
-                                Precificação de Venda
-                              </Text>
-                              <TouchableOpacity
-                                onPress={() => {
-                                  const sync = !effectivePricing.inheritsUnitPrice;
-                                  setFormData((prev) => {
-                                    const vars = [...(prev.variations || [])];
-                                    vars[idx] = {
-                                      ...vars[idx],
-                                      syncUnitPrice: sync,
-                                      syncPromoPrice: sync,
-                                      ...(sync
-                                        ? {
-                                            price: parseLocalizedPrice(prev.unitPrice),
-                                            promoPrice:
-                                              parseLocalizedPrice(prev.promoPrice) || undefined,
-                                          }
-                                        : {}),
-                                    };
-                                    return { ...prev, variations: vars };
-                                  });
-                                }}
-                                disabled={isSingleVariation}
-                                style={[
-                                  styles.inheritButton,
-                                  isSingleVariation && { opacity: 0.7 },
-                                  effectivePricing.hasMixedInheritance
-                                    ? styles.inheritButtonPartial
-                                    : effectivePricing.inheritsUnitPrice &&
-                                        styles.inheritButtonActive,
-                                ]}
-                                accessibilityRole="switch"
-                                accessibilityHint={
-                                  isSingleVariation
-                                    ? 'A única variação herda os dados do produto.'
-                                    : undefined
-                                }
-                                accessibilityLabel={
-                                  effectivePricing.hasMixedInheritance
-                                    ? effectivePricing.inheritsUnitPrice
-                                      ? 'Herança parcial: preço regular herdado e promoção própria. Toque para tornar ambos próprios, preservando os valores.'
-                                      : 'Herança parcial: preço regular próprio e promoção herdada. Toque para herdar ambos do pai.'
-                                    : effectivePricing.inheritsUnitPrice
-                                      ? 'Preço herdado do pai'
-                                      : 'Preço personalizado'
-                                }
-                                accessibilityState={{
-                                  disabled: isSingleVariation,
-                                  checked: effectivePricing.hasMixedInheritance
-                                    ? 'mixed'
-                                    : effectivePricing.inheritsUnitPrice,
-                                }}
-                              >
-                                <Text
-                                  style={[
-                                    styles.inheritButtonText,
-                                    effectivePricing.hasMixedInheritance
-                                      ? styles.inheritButtonTextPartial
-                                      : effectivePricing.inheritsUnitPrice &&
-                                          styles.inheritButtonTextActive,
-                                  ]}
-                                >
-                                  {effectivePricing.hasMixedInheritance
-                                    ? 'Herança Parcial'
-                                    : effectivePricing.inheritsUnitPrice
-                                      ? 'Preço Herdado do Pai'
-                                      : 'Preço Personalizado'}
-                                </Text>
-                              </TouchableOpacity>
-                            </View>
-                            <View style={styles.pricingGrid}>
-                              <View style={styles.flex1}>
-                                <Text style={[styles.label, dark && styles.dimText]}>
-                                  Preço de Venda
-                                </Text>
-                                <CurrencyInput
-                                  value={parseLocalizedPrice(effectivePricing.unitPrice)}
-                                  onChangeValue={(value) => updateVariationPricing(idx, 'price', value)}
-                                  editable={v.syncUnitPrice === false}
-                                  placeholder="Herdado do pai"
-                                  style={[
-                                    styles.input,
-                                    dark && styles.darkInput,
-                                    dark && styles.lightText,
-                                    effectivePricing.inheritsUnitPrice && styles.inheritedInput,
-                                  ]}
-                                  accessibilityLabel="Preço de venda da variação"
-                                />
-                              </View>
-                              <View style={styles.flex1}>
-                                <Text style={[styles.label, dark && styles.dimText]}>
-                                  Desconto (%)
-                                </Text>
-                                <PercentInput
-                                  value={discountPercent}
-                                  onChangeValue={(value) => updateVariationPricing(idx, 'discountPercent', value)}
-                                  editable={v.syncPromoPrice === false}
-                                  min={0}
-                                  max={100}
-                                  placeholder="0"
-                                  style={[
-                                    styles.input,
-                                    dark && styles.darkInput,
-                                    dark && styles.lightText,
-                                    effectivePricing.inheritsPromoPrice && styles.inheritedInput,
-                                  ]}
-                                  accessibilityLabel="Desconto em percentual da variação"
-                                />
-                              </View>
-                              <View style={styles.flex1}>
-                                <Text style={[styles.label, dark && styles.dimText]}>
-                                  Desconto (R$)
-                                </Text>
-                                <CurrencyInput
-                                  value={discountFixed}
-                                  onChangeValue={(value) => updateVariationPricing(idx, 'discountFixed', value)}
-                                  editable={v.syncPromoPrice === false}
-                                  placeholder="0,00"
-                                  style={[
-                                    styles.input,
-                                    dark && styles.darkInput,
-                                    dark && styles.lightText,
-                                    effectivePricing.inheritsPromoPrice && styles.inheritedInput,
-                                  ]}
-                                  accessibilityLabel="Desconto fixo em reais da variação"
-                                />
-                              </View>
-                              <View style={styles.flex1}>
-                                <Text style={[styles.label, dark && styles.dimText]}>
-                                  Preço Promocional
-                                </Text>
-                                <CurrencyInput
-                                  value={effectivePricing.promoPrice == null
-                                    ? null
-                                    : parseLocalizedPrice(effectivePricing.promoPrice)}
-                                  onChangeValue={(value) => updateVariationPricing(idx, 'promoPrice', value)}
-                                  editable={v.syncPromoPrice === false}
-                                  placeholder="Sem desconto"
-                                  style={[
-                                    styles.input,
-                                    dark && styles.darkInput,
-                                    dark && styles.lightText,
-                                    effectivePricing.inheritsPromoPrice && styles.inheritedInput,
-                                  ]}
-                                  accessibilityLabel="Preço promocional da variação"
-                                />
-                              </View>
-                            </View>
-                          </View>
+                          <ProductVariationPricingPanel
+                            variation={v}
+                            effectivePricing={effectivePricing}
+                            discountPercent={discountPercent}
+                            discountFixed={discountFixed}
+                            dark={dark}
+                            isSingleVariation={isSingleVariation}
+                            onToggleInheritance={() => {
+                              const sync = !effectivePricing.inheritsUnitPrice;
+                              setFormData((prev) => {
+                                const vars = [...(prev.variations || [])];
+                                vars[idx] = {
+                                  ...vars[idx],
+                                  syncUnitPrice: sync,
+                                  syncPromoPrice: sync,
+                                  ...(sync
+                                    ? {
+                                        price: parseLocalizedPrice(prev.unitPrice),
+                                        promoPrice: parseLocalizedPrice(prev.promoPrice) || undefined,
+                                      }
+                                    : {}),
+                                };
+                                return { ...prev, variations: vars };
+                              });
+                            }}
+                            onChangePricing={(field, value) =>
+                              updateVariationPricing(idx, field, value)
+                            }
+                          />
                         )}
                         </View>
                       </ScrollView>

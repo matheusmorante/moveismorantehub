@@ -3,7 +3,7 @@ import { offlineStorageService } from './offline/offlineStorageService';
 import { withTimeout as waitForProfileRequest } from '../../../shared-utils/withTimeout';
 
 const PROFILE_TIMEOUT_MS = 10000;
-const PROFILE_COLUMNS = 'id,email,full_name,role,roles,avatar_url';
+const PROFILE_COLUMNS = 'id,email,full_name,role,roles';
 
 const withProfileTimeout = <T,>(promise: PromiseLike<T>) =>
   waitForProfileRequest(
@@ -23,21 +23,10 @@ export const resolveMobileUserProfile = async (session: any) => {
     session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || null;
   const userEmail = session.user.email?.toLowerCase();
   if (userEmail === MASTER_DEFAULT_PROFILE.email.toLowerCase()) {
-    let storedAvatarUrl: string | null = null;
-    try {
-      const response = await withProfileTimeout(
-        Promise.resolve(
-          supabase.from('profiles').select('avatar_url').eq('id', session.user.id).maybeSingle()
-        )
-      );
-      storedAvatarUrl = response?.data?.avatar_url || null;
-    } catch {
-      storedAvatarUrl = null;
-    }
     return {
       ...MASTER_DEFAULT_PROFILE,
       fullName: googleName || MASTER_DEFAULT_PROFILE.fullName,
-      avatar_url: storedAvatarUrl || metadataAvatarUrl,
+      avatar_url: metadataAvatarUrl,
     };
   }
 
@@ -81,7 +70,7 @@ export const resolveMobileUserProfile = async (session: any) => {
         offlineStorageService.getWorkingSet<any>(getProfileCacheKey(session.user.id))
       );
       if (cached?.data && cached.data.id === session.user.id) {
-        return cached.data;
+        return { ...cached.data, avatar_url: metadataAvatarUrl || cached.data.avatar_url };
       }
     } catch {}
   }
@@ -123,7 +112,7 @@ export const resolveMobileUserProfile = async (session: any) => {
     id: profile?.id || session.user.id,
     fullName: googleName || profile?.full_name || session.user.email?.split('@')[0] || 'Usuário',
     email: profile?.email || session.user.email,
-    avatar_url: profile?.avatar_url || metadataAvatarUrl,
+    avatar_url: metadataAvatarUrl,
     role: profile?.role || mergedRoles[0] || 'pending',
     roles:
       mergedRoles.length > 0

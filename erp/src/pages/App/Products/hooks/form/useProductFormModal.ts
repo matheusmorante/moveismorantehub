@@ -23,10 +23,11 @@ import {
   scrollToRequirementField,
 } from '../../utils/form/productRequirementNavigation';
 import { useProductJevClassification } from '../fiscal/useProductJevClassification';
-import { isDraftSaveEligible, getEnteredProductName } from './rules/productDraftRules';
+import { getEnteredProductName } from './rules/productDraftRules';
 import { ensureDefaultVariation } from '@/pages/utils/productVariationDefaults';
 import { useProductFormAi } from './useProductFormAi';
 import { useProductFormDraft } from './useProductFormDraft';
+import { useProductFormModalClose } from './useProductFormModalClose';
 import { useProductFormImages } from './useProductFormImages';
 import { useProductFormLoad } from './useProductFormLoad';
 // Sub-hooks
@@ -306,66 +307,24 @@ export function useProductFormModal({
     isTestArtifact,
   });
 
-  const handleCloseWithAutoSave = useCallback(async () => {
-    const canSaveDraft = isDraftSaveEligible(formData);
-    const isBasicallyEmpty = isProductCreation && !canSaveDraft;
-    let hasUnsavedFormChanges = hasChanged.current;
-    if (initialFormDataRef.current) {
-      try {
-        const initialData = JSON.parse(initialFormDataRef.current) as Partial<Product>;
-        hasUnsavedFormChanges =
-          serializeProductFormForDirtyCheck(formData) !==
-          serializeProductFormForDirtyCheck(initialData);
-      } catch {
-        // Fall back to the interaction flag if a legacy snapshot cannot be parsed.
-      }
-    }
-
-    if (isDraftProduct && canSaveDraft) {
-      const hasScheduledSave = draftSaveTimerRef.current !== null;
-      if (draftSaveTimerRef.current) {
-        clearTimeout(draftSaveTimerRef.current);
-        draftSaveTimerRef.current = null;
-      }
-      if (
-        hasUnsavedFormChanges ||
-        hasScheduledSave ||
-        autoSaveStatus === 'saving' ||
-        autoSaveStatus === 'error'
-      ) {
-        const saved = await autoSaveDraft(getDraftSnapshotWithoutPendingVariation());
-        if (!saved) return;
-      }
-      onDraftSaved?.();
-      onClose();
-      return;
-    }
-
-    if (hasUnsavedFormChanges && !isBasicallyEmpty) {
-      setIsDiscardChangesConfirmOpen(true);
-    } else {
-      onClose();
-    }
-  }, [
-    hasChanged,
-    onClose,
-    onDraftSaved,
+  const {
+    handleCloseWithAutoSave,
+    cancelDiscardChanges,
+    confirmDiscardChanges,
+  } = useProductFormModalClose({
+    formData,
     isProductCreation,
     isDraftProduct,
-    formData,
+    hasChanged,
+    initialFormDataRef,
+    draftSaveTimerRef,
     autoSaveDraft,
     getDraftSnapshotWithoutPendingVariation,
     autoSaveStatus,
-  ]);
-
-  const cancelDiscardChanges = useCallback(() => {
-    setIsDiscardChangesConfirmOpen(false);
-  }, []);
-
-  const confirmDiscardChanges = useCallback(() => {
-    setIsDiscardChangesConfirmOpen(false);
-    onClose();
-  }, [onClose]);
+    onDraftSaved,
+    onClose,
+    setIsDiscardChangesConfirmOpen,
+  });
 
   useEffect(() => {
     if (!isOpen) return;

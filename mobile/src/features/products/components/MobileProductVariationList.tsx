@@ -6,7 +6,6 @@ interface Props {
   variations: any[];
   opportunityName?: string;
   dark: boolean;
-  parentImage?: string | null;
   isParentDraft?: boolean;
   onToggleCatalog: (varId: string, currentStatus: string) => void;
   onToggleActive?: (varId: string, currentActive: boolean) => void;
@@ -28,7 +27,6 @@ export const MobileProductVariationList: React.FC<Props> = ({
   variations,
   opportunityName,
   dark,
-  parentImage,
   isParentDraft = false,
   onToggleCatalog,
   onToggleActive,
@@ -56,7 +54,6 @@ export const MobileProductVariationList: React.FC<Props> = ({
           opportunityName={opportunityName}
           index={index}
           dark={dark}
-          parentImage={parentImage}
           isParentDraft={isParentDraft}
           onToggleActive={onToggleActive}
           onToggleCatalog={onToggleCatalog}

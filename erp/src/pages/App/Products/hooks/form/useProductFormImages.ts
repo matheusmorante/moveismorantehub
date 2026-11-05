@@ -106,7 +106,6 @@ export function useProductFormImages(
           : {}),
       }));
       onImagesSaved?.();
-      toast.success(`${urls.length} foto(s) otimizada(s) e enviada(s) com sucesso!`);
     } catch (error: unknown) {
       toast.error('Erro no upload e otimização das imagens.');
       console.error(error);

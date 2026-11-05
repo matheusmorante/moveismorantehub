@@ -21,6 +21,7 @@ import {
   subscribeWebInventoryDrafts,
   type WebInventoryDraft,
 } from '../services/inventoryLocalDrafts';
+import { listReservedLocalInventoryCodes } from '../services/listReservedLocalInventoryCodes';
 
 export const useInventoryAuditSessions = () => {
   const [moves, setMoves] = useState<InventoryMove[]>([]);
@@ -102,11 +103,7 @@ export const useInventoryAuditSessions = () => {
 
           let nextCode: string;
           try {
-            const localReservedCodes = (await listWebInventoryDrafts())
-              .filter((localDraft) => localDraft.id !== draft.id)
-              .map((localDraft) => localDraft.code.trim())
-              .filter((code) => /^\d{1,6}$/.test(code))
-              .map((code) => code.padStart(6, '0'));
+            const localReservedCodes = await listReservedLocalInventoryCodes(draft.id);
             const allReservedCodes = [...new Set([
               ...localReservedCodes,
               ...[...reservedCodes]

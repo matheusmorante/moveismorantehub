@@ -4,7 +4,9 @@ import { getPrimaryRole } from '../accessRoles';
 
 export const syncMissingEmployeesFromProfiles = async (): Promise<void> => {
   try {
-    const { data: profilesData, error: profError } = await supabase.from('profiles').select('*');
+    const { data: profilesData, error: profError } = await supabase
+      .from('profiles')
+      .select('email,full_name,roles,role,position,phone');
 
     if (profError || !profilesData || profilesData.length === 0) return;
 

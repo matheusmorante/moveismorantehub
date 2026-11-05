@@ -27,6 +27,7 @@ import {
   type CatalogItem,
 } from './productCatalogPresentation';
 import { ProductCatalogPreview, type ProductCatalogPreviewTab } from './ProductCatalogPreview';
+import { ProductCatalogCategorySidebar } from './ProductCatalogCategorySidebar';
 import { createProductCatalogSelectionActions } from './productCatalogSelection';
 import {
   itemKey,
@@ -366,38 +367,11 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
           <>
             <div className="catalog-picker-container min-h-0 flex-1">
               <div className="catalog-picker-layout">
-                <aside className="catalog-category-sidebar" aria-labelledby="support-catalog-categories-title">
-                  <h3 id="support-catalog-categories-title" className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Categorias</h3>
-                  <div className="catalog-category-options" role="radiogroup" aria-labelledby="support-catalog-categories-title">
-                    <label className={`catalog-category-option ${!categoryId ? 'is-selected' : ''}`}>
-                      <input
-                        type="radio"
-                        name="support-catalog-category-sidebar"
-                        className="sr-only"
-                        checked={!categoryId}
-                        onChange={() => updateCategoryFilter('')}
-                      />
-                      <span>Todas as categorias</span>
-                    </label>
-                    {flattenedCategories.map(({ category, depth }) => (
-                      <label
-                        key={category.id}
-                        className={`catalog-category-option ${categoryId === category.id ? 'is-selected' : ''}`}
-                        style={{ paddingInlineStart: `${0.75 + depth * 0.8}rem` }}
-                      >
-                        <input
-                          type="radio"
-                          name="support-catalog-category-sidebar"
-                          className="sr-only"
-                          value={category.id}
-                          checked={categoryId === category.id}
-                          onChange={() => updateCategoryFilter(category.id)}
-                        />
-                        <span className="truncate">{category.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </aside>
+                <ProductCatalogCategorySidebar
+                  categoryId={categoryId}
+                  flattenedCategories={flattenedCategories}
+                  onCategoryChange={updateCategoryFilter}
+                />
                 <section className="catalog-results-pane" aria-label="Produtos do catálogo">
                   <div className="catalog-filter-toolbar">
                     <label className="flex h-10 min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 dark:border-slate-700 dark:bg-slate-900">

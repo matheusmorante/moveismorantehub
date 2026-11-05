@@ -367,13 +367,6 @@ export const MobileProductCard: React.FC<Props> = ({
           variations={variations}
           opportunityName={oppName ?? undefined}
           dark={dark}
-          parentImage={
-            Array.isArray(product.images)
-              ? product.images[0]
-              : typeof product.images === 'string'
-                ? product.images
-                : null
-          }
           isParentDraft={isDraft}
           onToggleCatalog={(varId, st) => onToggleCatalog(product.id, st, true, varId)}
           onToggleActive={canDelete ? (varId, act) => onToggleActive(varId, act) : undefined}

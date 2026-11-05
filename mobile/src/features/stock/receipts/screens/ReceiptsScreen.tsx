@@ -27,9 +27,10 @@ import type { Invoice } from '../../types/stock.types';
 import { ReceiptDetailsModal } from '../modals/ReceiptDetailsModal';
 import { ReceiptMovementDetailsModal } from '../modals/ReceiptMovementDetailsModal';
 import { ReceiptCard } from './ReceiptCard';
-import { supabase } from '../../../../services/supabaseClient';
-import { normalizeFiscalIdentifier } from '../../../../../../shared-utils/fiscalIdentifiers';
-import { fetchInUseInvoiceKeys, IN_USE_INVOICE_MESSAGE } from '../../../../../../shared-utils/receiptInvoiceAvailability';
+import {
+  useReceiptUnreverseAvailability,
+  type ReceiptUnreverseCheck,
+} from '../hooks/useReceiptUnreverseAvailability';
 import { styles } from './receiptsScreen.styles';
 import { useMobileLabels } from '../../labels/MobileLabelsProvider';
 import {
@@ -80,8 +81,7 @@ export const ReceiptsScreen: React.FC<Props> = ({
   const [receiptActionDialog, setReceiptActionDialog] = useState<ReceiptActionDialog | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 16 });
-  const [unreverseCheck, setUnreverseCheck] = useState<{ id: string; state: 'checking' | 'available' | 'blocked' | 'error' } | null>(null);
-  const receiptMenuKey = receiptMenu?.fiscal_key || receiptMenu?.fiscalKey || '';
+  const [unreverseCheck, setUnreverseCheck] = useState<ReceiptUnreverseCheck | null>(null);
   useEffect(() => {
     if (!startWithInvoice || consumedStartInvoiceRef.current === startWithInvoice.id) return;
     consumedStartInvoiceRef.current = startWithInvoice.id;
@@ -91,26 +91,11 @@ export const ReceiptsScreen: React.FC<Props> = ({
     setIsNewReceiptOpen(true);
     onStartWithInvoiceConsumed?.();
   }, [startWithInvoice?.id]);
-  useEffect(() => {
-    let active = true;
-    if (!receiptMenu || receiptMenu.status !== 'estornado' || !receiptMenuKey) {
-      setUnreverseCheck(null);
-      return () => { active = false; };
-    }
-    const id = receiptMenu.id;
-    setUnreverseCheck({ id, state: 'checking' });
-    void fetchInUseInvoiceKeys(supabase, [receiptMenuKey], id)
-      .then((keys) => {
-        if (active) setUnreverseCheck({ id, state: keys.has(normalizeFiscalIdentifier(receiptMenuKey)) ? 'blocked' : 'available' });
-      })
-      .catch(() => { if (active) setUnreverseCheck({ id, state: 'error' }); });
-    return () => { active = false; };
-  }, [receiptMenu?.id, receiptMenu?.status, receiptMenuKey]);
-  const unreverseState = !receiptMenuKey ? 'available' : unreverseCheck?.id === receiptMenu?.id ? unreverseCheck.state : 'checking';
-  const unreverseBlocked = unreverseState !== 'available';
-  const unreverseReason = unreverseState === 'blocked' ? IN_USE_INVOICE_MESSAGE :
-    unreverseState === 'error' ? 'Não foi possível conferir a nota. Feche e abra o menu para tentar novamente.' :
-    'Conferindo o recebimento da nota...';
+  const { unreverseBlocked, unreverseReason } = useReceiptUnreverseAvailability({
+    receiptMenu,
+    unreverseCheck,
+    setUnreverseCheck,
+  });
   const receiptMenuHasLinkedProducts = Boolean(
     receiptMenu?.id &&
     receiptMenu?.items?.length &&

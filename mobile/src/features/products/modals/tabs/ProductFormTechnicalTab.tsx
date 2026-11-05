@@ -65,6 +65,7 @@ import {
 } from '../../services/mobileProductTechnicalService';
 import { ProductAiCharacteristicsAssistant } from '../components/ProductAiCharacteristicsAssistant';
 import { ProductTechnicalFieldInput } from './ProductTechnicalFieldInput';
+import { ProductTechnicalFieldScopeControl } from './ProductTechnicalFieldScopeControl';
 import { ProductTechnicalFieldsLoadStatus } from './ProductTechnicalFieldsLoadStatus';
 import {
   normalizeName,
@@ -973,58 +974,17 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
                             {dependencyState.disabledReason}
                           </Text>
                         )}
-                      {!parentData &&
-                        isSimpleProduct &&
-                        !alwaysApplicable &&
-                        !isDependencyVariable && (
-                        <Switch
-                          value={currentScope === 'global'}
-                          onValueChange={(enabled) =>
-                            setFieldScope(field.name, enabled ? 'global' : 'not_inform')
-                          }
-                          accessibilityRole="switch"
-                          accessibilityLabel={`Exibir característica ${field.name}`}
-                          trackColor={{ false: '#cbd5e1', true: '#2563eb' }}
-                          thumbColor={currentScope === 'global' ? '#fff' : '#f8fafc'}
-                        />
-                      )}
-                      {!parentData &&
-                        !isSimpleProduct &&
-                        !alwaysApplicable &&
-                        !isDependencyVariable && (
-                        <View style={styles.scopeRow}>
-                          {([
-                            ...(!requiredForCatalog ? [['not_inform', 'Não informar'] as const] : []),
-                            ['global', 'Global'] as const,
-                            ['variation', 'Por variação'] as const,
-                          ] as const).map(([scope, label]) => {
-                            const selected = currentScope === scope;
-                            return (
-                              <TouchableOpacity
-                                key={scope}
-                                onPress={() => setFieldScope(field.name, scope)}
-                                accessibilityRole="button"
-                                accessibilityState={{ selected }}
-                                style={[
-                                  styles.scopeButton,
-                                  dark && styles.darkScopeButton,
-                                  selected && styles.scopeButtonSelected,
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.scopeButtonText,
-                                    dark && styles.dimText,
-                                    selected && styles.scopeButtonTextSelected,
-                                  ]}
-                                >
-                                  {label}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
+                      <ProductTechnicalFieldScopeControl
+                        hasParentData={Boolean(parentData)}
+                        isSimpleProduct={isSimpleProduct}
+                        alwaysApplicable={alwaysApplicable}
+                        isDependencyVariable={isDependencyVariable}
+                        requiredForCatalog={requiredForCatalog}
+                        currentScope={currentScope}
+                        fieldName={field.name}
+                        dark={dark}
+                        onSetScope={(scope) => setFieldScope(field.name, scope)}
+                      />
                       {(parentData
                         ? isCurrentVariableField ||
                           hasOwnValue ||

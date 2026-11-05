@@ -31,6 +31,7 @@ import {
   View,
 } from 'react-native';
 import { MobileMoveVariationAttributesEditor } from './MobileMoveVariationAttributesEditor';
+import { MobileMoveVariationValidationNotice } from './MobileMoveVariationValidationNotice';
 import { MobileMoveVariationFamilySelector } from './MobileMoveVariationFamilySelector';
 import {
   prepareMobileMoveVariationAttributes,
@@ -556,32 +557,13 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               onUpdateAttribute={updateAttribute}
             />
 
-            {conflictState === 'conflict' ? (
-              <View style={styles.conflict}>
-                <Text style={styles.conflictTitle}>Combinação já existente</Text>
-                <Text style={styles.conflictText}>
-                  Este produto pai já tem uma variação com estas mesmas características. Altere um valor
-                  antes de continuar.
-                </Text>
-              </View>
-            ) : null}
-            {conflictState === 'error' ? (
-              <View style={styles.conflict}>
-                <Text style={styles.conflictTitle}>Não foi possível validar a combinação</Text>
-                <Text style={styles.conflictText}>
-                  {conflictError || 'Confira a conexão e tente novamente.'}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setConflictRevision((revision) => revision + 1)}
-                  disabled={saving || mutationBlocked}
-                  style={styles.retryButton}
-                  accessibilityRole="button"
-                  accessibilityLabel="Validar destino novamente"
-                >
-                  <Text style={styles.retryText}>Validar destino novamente</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
+            <MobileMoveVariationValidationNotice
+              hasConflict={conflictState === 'conflict'}
+              hasValidationError={conflictState === 'error'}
+              errorMessage={conflictError}
+              disabled={saving || mutationBlocked}
+              onRetry={() => setConflictRevision((revision) => revision + 1)}
+            />
           </ScrollView>
 
           <View style={[styles.footer, dark && styles.borderDark]}>

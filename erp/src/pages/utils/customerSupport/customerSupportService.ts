@@ -174,9 +174,12 @@ export async function fetchConversations(
     customerLinkStatus: CustomerLinkStatus;
     fullName: string;
   }>();
-  if (canViewCommercialInfo && listedConversations.length > 0) {
+  const conversationsNeedingAutoLink = listedConversations.filter(
+    (conversation) => !conversation.customerId && conversation.customerLinkStatus !== 'manually_linked'
+  );
+  if (canViewCommercialInfo && conversationsNeedingAutoLink.length > 0) {
     const identityResponse = await withTimeout<any>(supabase.rpc('customer_support_auto_link_conversations', {
-      p_conversation_ids: listedConversations.map((conversation) => conversation.id),
+      p_conversation_ids: conversationsNeedingAutoLink.map((conversation) => conversation.id),
     }), 15_000, null, 'central:vinculo-erp-por-telefone');
     const identityRows = identityResponse?.data;
     if (identityResponse?.error || !Array.isArray(identityRows)) {

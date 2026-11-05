@@ -25,8 +25,8 @@ import { useOrderFormStepNavigation } from './useOrderFormStepNavigation';
 import {
   buildCurrentOrder,
   buildSalesOrderSnapshot,
-  prepareOrderForFormEditing,
 } from './orderFormSnapshot';
+import { hydrateOrderFormForEditing } from './orderFormHydration';
 import { useOrderFormSubmission } from './useOrderFormSubmission';
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
 import { requestConfirmation } from '@/components/shared/confirmationService';
@@ -186,68 +186,36 @@ export const useSalesOrderForm = (
   });
 
   const loadOrderForEditing = useCallback(
-    (order: Order) => {
-      cancelPendingDistanceCalculation();
-      schedulingSessionRef.current = null;
-
-      const {
-        existingIndex,
-        isLoadedTestArtifact,
-        isExistingOrder,
-        loadedStatus,
-        normalizedItems,
-        normalizedShipping,
-        normalizedPayments,
-        normalizedCustomerData,
-        loadedTestFields,
-        formattedDate,
-      } = prepareOrderForFormEditing(order);
-
-      resetItemHandlingMemory(normalizedShipping.deliveryMethod, normalizedItems);
-
-      // O fluxo de edição pode exigir salvar usando a versão carregada do pedido.
-      setIsDraftAutoSaveEnabled(
-        !isExistingOrder || (autoSaveExistingDrafts && loadedStatus === 'draft')
-      );
-
-      if (isExistingOrder) {
-        const loadedIndex = isLoadedTestArtifact ? null : existingIndex;
-        setOrderIndex(loadedIndex);
-        setCurrentOrderId(order.id);
-        latestState.current.orderIndex = isLoadedTestArtifact ? undefined : existingIndex;
-        latestState.current.orderNumber = isLoadedTestArtifact ? undefined : existingIndex;
-        latestState.current.currentOrderId = order.id;
-      } else {
-        setCurrentOrderId(undefined);
-        setOrderIndex(null);
-        latestState.current.currentOrderId = undefined;
-        latestState.current.orderIndex = null;
-        generateCodeForCopyOrNew();
-      }
-
-      setItems(normalizedItems);
-      setShipping(normalizedShipping);
-      setPayments(normalizedPayments);
-      setCustomerData(normalizedCustomerData);
-      setObservation(order.observation || '');
-      setSeller((order as any).seller || '');
-      setSellerId((order as any).sellerId || undefined);
-      setMarketingOrigin(order.marketingOrigin || 'organic');
-      setStatus(loadedStatus);
-      setOrderType(order.orderType || 'sale');
-      setTestModeFields(loadedTestFields);
-      const loadedFiscalContext = order.fiscalContext ? { ...order.fiscalContext } : undefined;
-      setFiscalContext(loadedFiscalContext);
-      latestState.current.fiscalContext = loadedFiscalContext;
-      latestState.current.testModeFields = loadedTestFields;
-      latestState.current.isTestMode = loadedTestFields.is_test === true;
-      setAssistanceItems(order.assistanceItems || []);
-      setAssistanceServiceValue(order.assistanceServiceValue || 0);
-      setAssistanceCost(order.assistanceCost || 0);
-      setLinkedOrderId(order.linkedOrderId || '');
-      setIsButtonsClicked(order.isButtonsClicked);
-      setOrderDate(formattedDate);
-    },
+    (order: Order) =>
+      hydrateOrderFormForEditing(order, {
+        autoSaveExistingDrafts,
+        cancelPendingDistanceCalculation,
+        schedulingSessionRef,
+        resetItemHandlingMemory,
+        setIsDraftAutoSaveEnabled,
+        setOrderIndex,
+        setCurrentOrderId,
+        latestState,
+        generateCodeForCopyOrNew,
+        setItems,
+        setShipping,
+        setPayments,
+        setCustomerData,
+        setObservation,
+        setSeller,
+        setSellerId,
+        setMarketingOrigin,
+        setStatus,
+        setOrderType,
+        setTestModeFields,
+        setFiscalContext,
+        setAssistanceItems,
+        setAssistanceServiceValue,
+        setAssistanceCost,
+        setLinkedOrderId,
+        setIsButtonsClicked,
+        setOrderDate,
+      }),
     [
       setItems,
       setShipping,

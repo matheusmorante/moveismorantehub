@@ -37,14 +37,13 @@ import {
 } from '../services/mobileProductTechnicalService';
 import {
   deleteMobileProduct,
-  moveMobileProductToTrash,
-  restoreMobileProductFromTrash,
   saveMobileProduct,
   toggleMobileProductActive,
   toggleMobileProductCatalog,
 } from '../services/mobileProductMutationService';
 import { triggerMobileProductMetaCatalogSync } from '../services/mobileProductMetaCatalogSyncService';
 import { useMobileProductListSearch } from './useMobileProductListSearch';
+import { useMobileProductTrashActions } from './useMobileProductTrashActions';
 
 const DEFAULT_ITEMS_PER_PAGE: ProductListPageSize = 15;
 
@@ -439,23 +438,10 @@ export function useMobileProducts(
     setShowDeactivated(true);
   }, [showTrash]);
 
-  const handleMoveToTrash = async (productId: string) => {
-    try {
-      await moveMobileProductToTrash(productId);
-      await loadProducts(true, currentPage);
-    } catch (error: any) {
-      Alert.alert('Não foi possível mover para a lixeira', error?.message || 'Tente novamente.');
-    }
-  };
-
-  const handleRestoreFromTrash = async (productId: string) => {
-    try {
-      await restoreMobileProductFromTrash(productId);
-      await loadProducts(true, currentPage);
-    } catch (error: any) {
-      Alert.alert('Não foi possível restaurar o produto', error?.message || 'Tente novamente.');
-    }
-  };
+  const { handleMoveToTrash, handleRestoreFromTrash } = useMobileProductTrashActions({
+    currentPage,
+    loadProducts,
+  });
 
   const handleSave = useCallback(async (productData: any) => {
     const productId = await saveMobileProduct(productData);

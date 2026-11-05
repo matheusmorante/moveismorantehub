@@ -16,9 +16,9 @@ import { useInventoryAuditData } from './useInventoryAuditData';
 import {
   deleteWebInventoryDraft,
   getWebInventoryDraft,
-  listWebInventoryDrafts,
   saveWebInventoryDraft,
 } from '../services/inventoryLocalDrafts';
+import { listReservedLocalInventoryCodes } from '../services/listReservedLocalInventoryCodes';
 import { finalizeWebInventory } from '../services/finalizeWebInventory';
 import { getInventorySubmission } from '../services/inventoryOutbox';
 import { ensureOfflineInventoryCatalogSynced } from '../services/offlineInventoryCatalog';
@@ -41,12 +41,7 @@ const rejectInvalidSnapshot = (errors: Parameters<typeof flattenFormErrors>[0]) 
 };
 
 const reserveUnusedInventoryCode = async (auditId: string): Promise<string> => {
-  const localDrafts = await listWebInventoryDrafts();
-  const reservedCodes = localDrafts
-    .filter((draft) => draft.id !== auditId)
-    .map((draft) => draft.code.trim())
-    .filter((code) => /^\d{1,6}$/.test(code))
-    .map((code) => code.padStart(6, '0'));
+  const reservedCodes = await listReservedLocalInventoryCodes(auditId);
   return getNextInventoryCode([...new Set(reservedCodes)]);
 };
 

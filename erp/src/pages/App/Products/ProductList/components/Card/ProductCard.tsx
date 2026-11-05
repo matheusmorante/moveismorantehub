@@ -97,10 +97,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const cardPromoPrice = singleVariation ? singleVariation.promoPrice : product.promoPrice;
   const cardStock = singleVariation?.stock ?? product.stock ?? 0;
   const cardMinStock = singleVariation?.minStock ?? product.minStock ?? 0;
-  const cardImages =
-    singleVariation?.images && singleVariation.images.length > 0
-      ? singleVariation.images
-      : product.images;
+  const cardImages = singleVariation ? singleVariation.images || [] : product.images;
 
   const hasPromo = Boolean(
     cardPromoPrice &&
@@ -176,7 +173,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         )}
         <div className="flex-1 min-w-0">
           <h3
-            className={`leading-tight line-clamp-2 ${
+            className={`leading-tight break-words ${
               isParent
                 ? 'text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight'
                 : isVariation

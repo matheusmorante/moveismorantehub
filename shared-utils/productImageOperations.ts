@@ -2,7 +2,11 @@ import { parseVariationImages } from './productVariationImages';
 
 export interface ProductWithImageReferences {
   images?: string[];
-  variations?: Array<{ images?: string[]; image_url?: string | null }>;
+  variations?: Array<{
+    images?: string[];
+    image_url?: string | null;
+    imageUrl?: string | null;
+  }>;
 }
 
 /** Removes a parent gallery photo and its variation links, matching the ERP form behavior. */
@@ -12,7 +16,12 @@ export const removeProductImageGlobally = <T extends ProductWithImageReferences>
 ): T => {
   const updatedImages = product.images?.filter((image) => image !== imageUrl);
   const updatedVariations = product.variations?.map((variation) => {
-    const variationImages = parseVariationImages(variation.image_url, variation.images);
+    const variationImages = Array.from(
+      new Set([
+        ...parseVariationImages(variation.image_url, variation.images),
+        ...parseVariationImages(variation.imageUrl),
+      ])
+    );
     const hasImage = variationImages.includes(imageUrl);
     if (product.variations?.length === 1) {
       const inheritedImages = updatedImages || [];
@@ -21,6 +30,9 @@ export const removeProductImageGlobally = <T extends ProductWithImageReferences>
         images: inheritedImages,
         ...(variation.image_url !== undefined
           ? { image_url: inheritedImages.length > 0 ? inheritedImages.join(',') : null }
+          : {}),
+        ...(variation.imageUrl !== undefined
+          ? { imageUrl: inheritedImages.length > 0 ? inheritedImages.join(',') : null }
           : {}),
       };
     }
@@ -32,6 +44,9 @@ export const removeProductImageGlobally = <T extends ProductWithImageReferences>
       images: remainingImages,
       ...(variation.image_url !== undefined
         ? { image_url: remainingImages.length > 0 ? remainingImages.join(',') : null }
+        : {}),
+      ...(variation.imageUrl !== undefined
+        ? { imageUrl: remainingImages.length > 0 ? remainingImages.join(',') : null }
         : {}),
     };
   });

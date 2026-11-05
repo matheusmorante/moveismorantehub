@@ -1,4 +1,4 @@
-import { flattenFormErrors, useZodForm } from '../../../hooks/useZodForm';
+import { useZodForm } from '../../../hooks/useZodForm';
 import { createMobileProductFormSchema } from '../../../../../shared-utils/mobileProductFormSchema';
 import {
   hasRequiredProductName,
@@ -41,16 +41,7 @@ import {
 } from '../domain/mobileProductVariationMode';
 import { resolveMobileVariationImages } from '../domain/mobileVariationImages';
 import {
-  isMobileProductNameError,
-  isMobileProductCategoryError,
-  isMobileProductCostPriceError,
-  isMobileProductSupplierError,
-  isMobileProductUnitPriceError,
-  hasMobileProductDescriptionTechnicalValidationError,
   isMobileProductDescriptionTabDisabled,
-  resolveMobileProductFormErrorNavigation,
-  resolveMobileProductFormErrorMessage,
-  type MobileProductFormErrorNavigation,
 } from '../domain/mobileProductFormErrorNavigation';
 import {
   getPersistableProductTechnicalValues,
@@ -91,6 +82,7 @@ import {
 } from './ProductFormReadinessChecklist';
 import { ProductFormTabNavigation } from './ProductFormTabNavigation';
 import { ProductFormStepFooter } from './ProductFormStepFooter';
+import { useProductFormValidationFeedback } from './useProductFormValidationFeedback';
 import { TABS, type TabId } from './productFormTabs';
 import { INITIAL_FORM } from './productFormInitialState';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
@@ -149,20 +141,30 @@ export const ProductFormScreen: React.FC<Props> = ({
     hideCatalogPublicationStatus,
   } = useProductFormPermissions();
   const [activeTab, setActiveTab] = useState<TabId>('geral');
-  const [nameError, setNameError] = useState(false);
-  const [categoryError, setCategoryError] = useState(false);
-  const [costPriceError, setCostPriceError] = useState(false);
-  const [unitPriceError, setUnitPriceError] = useState(false);
-  const [supplierError, setSupplierError] = useState(false);
-  const [descriptionTechnicalValidationError, setDescriptionTechnicalValidationError] = useState(false);
-  const [variationValidationTarget, setVariationValidationTarget] =
-    useState<MobileProductFormErrorNavigation | null>(null);
   const [openReadiness, setOpenReadiness] = useState<'erp' | 'catalog' | null>(null);
   const [formData, setFormDataRaw] = useState<any>(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [autoSaveError, setAutoSaveError] = useState('');
-  const [ncmError, setNcmError] = useState(false);
+  const {
+    nameError,
+    setNameError,
+    categoryError,
+    setCategoryError,
+    costPriceError,
+    setCostPriceError,
+    unitPriceError,
+    setUnitPriceError,
+    supplierError,
+    setSupplierError,
+    descriptionTechnicalValidationError,
+    setDescriptionTechnicalValidationError,
+    variationValidationTarget,
+    ncmError,
+    clearVariationValidationTarget,
+    resetFieldValidationErrors,
+    presentValidationErrors,
+  } = useProductFormValidationFeedback({ setActiveTab, setAutoSaveError });
   const tabScrollRef = useRef<ScrollView>(null);
   const dirtyRef = useRef(false);
   const saveOperationIdRef = useRef<string | null>(null);
@@ -189,18 +191,8 @@ export const ProductFormScreen: React.FC<Props> = ({
 
   useEffect(() => {
     setOpenReadiness(null);
-    setNameError(false);
-    setCategoryError(false);
-    setCostPriceError(false);
-    setUnitPriceError(false);
-    setSupplierError(false);
-    setDescriptionTechnicalValidationError(false);
-  }, [visible, product?.id]);
-
-  const clearVariationValidationTarget = useCallback(
-    () => setVariationValidationTarget(null),
-    []
-  );
+    resetFieldValidationErrors();
+  }, [visible, product?.id, resetFieldValidationErrors]);
 
   const categoryIds: string[] =
     Array.isArray(formData.categoryIds) && formData.categoryIds.length
@@ -640,35 +632,6 @@ export const ProductFormScreen: React.FC<Props> = ({
     },
     [getSaveOperation, product]
   );
-
-  const presentValidationErrors = useCallback((
-    errors: Parameters<typeof flattenFormErrors>[0],
-    isDraft: boolean,
-    showAlert: boolean
-  ) => {
-    const messages = flattenFormErrors(errors);
-    if (showAlert) {
-      setDescriptionTechnicalValidationError(
-        !isDraft && hasMobileProductDescriptionTechnicalValidationError(messages)
-      );
-    }
-    const firstErrorPath = Object.keys(messages)[0] || '';
-    const fieldPath = isMobileProductNameError('name', messages) ? 'name' : firstErrorPath;
-    setNameError(fieldPath === 'name');
-    setCategoryError(isMobileProductCategoryError('categoryIds', messages));
-    setCostPriceError(isMobileProductCostPriceError(firstErrorPath, messages));
-    setUnitPriceError(isMobileProductUnitPriceError(firstErrorPath, messages));
-    setSupplierError(isMobileProductSupplierError(firstErrorPath, messages));
-    const navigation = resolveMobileProductFormErrorNavigation(fieldPath);
-    if (navigation) setActiveTab(navigation.tab);
-    setVariationValidationTarget(
-      navigation?.variationIndex !== undefined ? navigation : null
-    );
-    setNcmError(navigation?.tab === 'fiscal');
-    const message = resolveMobileProductFormErrorMessage(fieldPath, messages, isDraft);
-    if (showAlert) Alert.alert('Confira os campos', message);
-    else setAutoSaveError(message);
-  }, []);
 
   const runDraftAutoSave = useCallback(
     async (entry: MobileProductDraftSaveEntry<any>): Promise<boolean> => {

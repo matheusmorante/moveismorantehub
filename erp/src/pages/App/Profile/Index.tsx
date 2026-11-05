@@ -150,10 +150,13 @@ const Profile = () => {
       if (!files || files.length === 0) {
         throw new (window as any).Error('Você deve selecionar uma imagem para upload.');
       }
+      if (!user?.id || values.userId !== user.id) {
+        throw new (window as any).Error('Não foi possível confirmar o perfil autenticado para salvar a foto.');
+      }
 
       const file = files[0];
       const fileExt = file.name.split('.').pop();
-      const fileName = `${values.userId}.${fileExt}`;
+      const fileName = `${user.id}.${fileExt}`;
       const filePath = `${fileName}`;
 
       // Upload to Supabase Storage
@@ -168,11 +171,11 @@ const Profile = () => {
         data: { publicUrl },
       } = supabase.storage.from('avatars').getPublicUrl(filePath);
 
-      // Update profile
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('id', values.userId);
+      // Persist the avatar in the authenticated user's metadata. The profiles
+      // table intentionally does not own this field.
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl },
+      });
 
       if (updateError) throw updateError;
 

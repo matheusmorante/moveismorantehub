@@ -6,18 +6,12 @@ import { ACCESS_KEY_PATTERN, hasValidAccessKeyDigit, normalizeFiscalIdentifier }
 import { formatRecipientTaxId, isValidRecipientTaxId, normalizeRecipientTaxId } from '../../../../../../shared-utils/recipientTaxId';
 import { DANFE_NFCE_A4_PAGINATION_SCRIPT } from './danfeNfceA4PaginationScript';
 import { generateQrCodeSvg, getQrPayload } from './danfeNfceQrCode';
+import {
+  buildDanfeNfceA4ItemTable,
+  formatDanfeNfceA4Currency as formatCurrency,
+} from './danfeNfceA4Presentation';
 
 const DEFAULT_DANFE_NFCE_LOGO_URL = '/images/logo-morante.svg';
-
-/**
- * Formata um valor numérico ou string como moeda brasileira (R$ 0,00).
- */
-function formatCurrency(raw: string | number | undefined | null): string {
-  if (raw === undefined || raw === null || raw === '') return 'R$ 0,00';
-  const num = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
-  if (!Number.isFinite(num)) return escapeDanfeHtml(String(raw));
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
-}
 
 /**
  * Formata CPF ou CNPJ para exibição visual.
@@ -185,46 +179,14 @@ export function generateDanfeNfceA4Html(data: DanfeData): string {
   const issueDateTimeStr = issueTime ? `${formattedIssueDate} às ${issueTime}` : formattedIssueDate;
 
   // Itens
-  const homologationDescription = 'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL';
   const rawItems = fiscalDetails?.items || [];
-  const hasNcm = rawItems.some((item) => Boolean(item.ncm?.trim()));
-  const hasCfop = rawItems.some((item) => Boolean(item.cfop?.trim()));
-  const itemColumnWidths = hasNcm && hasCfop
-    ? ['4%', '11%', '34%', '8%', '7%', '7%', '5%', '12%', '12%']
-    : hasNcm || hasCfop
-      ? ['4%', '12%', '39%', '9%', '8%', '6%', '11%', '11%']
-      : ['4%', '13%', '48%', '8%', '6%', '11%', '10%'];
-  const itemsColumnCount = 7 + Number(hasNcm) + Number(hasCfop);
-  const itemsHtml = rawItems
-    .map((item, index) => {
-      const displayDescription =
-        item.description === homologationDescription && item.additionalInfo
-          ? item.additionalInfo
-          : item.description;
-
-      const quantity = item.quantity || '1';
-      const unit = item.unit || 'UN';
-      const unitVal = formatCurrency(item.unitValue);
-      const totalVal = formatCurrency(item.total);
-
-      return `
-        <tr>
-          <td class="text-center">${index + 1}</td>
-          <td class="text-mono">${escapeDanfeHtml(item.code || '-')}</td>
-          <td>
-            <div class="item-name">${escapeDanfeHtml(displayDescription)}</div>
-            ${item.additionalInfo && item.description !== homologationDescription ? `<div class="item-extra">${escapeDanfeHtml(item.additionalInfo)}</div>` : ''}
-          </td>
-          ${hasNcm ? `<td class="text-center text-mono">${escapeDanfeHtml(item.ncm || '-')}</td>` : ''}
-          ${hasCfop ? `<td class="text-center text-mono">${escapeDanfeHtml(item.cfop || '-')}</td>` : ''}
-          <td class="text-center">${escapeDanfeHtml(quantity)}</td>
-          <td class="text-center">${escapeDanfeHtml(unit)}</td>
-          <td class="text-right">${unitVal}</td>
-          <td class="text-right font-bold">${totalVal}</td>
-        </tr>
-      `;
-    })
-    .join('');
+  const {
+    hasNcm,
+    hasCfop,
+    itemColumnWidths,
+    itemsColumnCount,
+    itemsHtml,
+  } = buildDanfeNfceA4ItemTable(rawItems);
 
   // Totais
   const totalItemsCount = rawItems.length;

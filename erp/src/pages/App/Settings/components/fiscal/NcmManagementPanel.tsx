@@ -10,16 +10,12 @@ import { requestConfirmation } from '@/components/shared/confirmationService';
 import { Metric, StatusPill } from './NcmManagementPanelIndicators';
 import { NcmManagementSyncPreview } from './NcmManagementSyncPreview';
 import type { NcmPreview, NcmPreviewChange } from './NcmManagementSyncPreview';
+import {
+  NcmCatalogFilters,
+  type NcmFilter,
+  type StoreFilter,
+} from './NcmCatalogFilters';
 
-type NcmFilter =
-  | 'all'
-  | 'vigentes'
-  | 'encerrados'
-  | 'alterados'
-  | 'com_produtos'
-  | 'revisar'
-  | 'futuros';
-type StoreFilter = 'active' | 'inactive' | 'all';
 interface NcmRow {
   code: string;
   official_description: string;
@@ -59,15 +55,6 @@ interface StoreSummary {
 }
 const PAGE_SIZE = 15;
 const NCM_PAGE_SIZES = [15] as const;
-const filterOptions: Array<{ id: NcmFilter; label: string }> = [
-  { id: 'all', label: 'Todos' },
-  { id: 'vigentes', label: 'Vigentes' },
-  { id: 'encerrados', label: 'Encerrados' },
-  { id: 'alterados', label: 'Alterados' },
-  { id: 'com_produtos', label: 'Com produtos' },
-  { id: 'revisar', label: 'Precisam revisão' },
-  { id: 'futuros', label: 'Futuros' },
-];
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
@@ -527,58 +514,20 @@ export function NcmManagementPanel() {
       )}
 
       <div className="p-5 md:p-7">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <label className="relative block w-full lg:max-w-md">
-            <i className="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={searchDraft}
-              onChange={(event) => setSearchDraft(event.target.value)}
-              placeholder="Pesquisar por código ou descrição"
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-            />
-          </label>
-          <div className="flex gap-1 overflow-x-auto pb-1">
-            {filterOptions.map((option) => (
-              <button
-                type="button"
-                key={option.id}
-                onClick={() => {
-                  setPage(0);
-                  setFilter(option.id);
-                }}
-                className={`shrink-0 rounded-lg px-3 py-2 text-xs font-bold transition ${filter === option.id ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div
-          className="mt-3 flex flex-wrap items-center gap-2"
-          aria-label="Filtrar por ativação na loja"
-        >
-          <span className="text-xs font-bold text-slate-500">Uso na loja:</span>
-          {(
-            [
-              { id: 'active', label: 'Ativos' },
-              { id: 'inactive', label: 'Desativados' },
-              { id: 'all', label: 'Todos' },
-            ] as const
-          ).map((option) => (
-            <button
-              type="button"
-              key={option.id}
-              onClick={() => {
-                setPage(0);
-                setStoreFilter(option.id);
-              }}
-              className={`rounded-lg px-3 py-2 text-xs font-bold ${storeFilter === option.id ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <NcmCatalogFilters
+          searchDraft={searchDraft}
+          onSearchDraftChange={setSearchDraft}
+          filter={filter}
+          onFilterChange={(nextFilter) => {
+            setPage(0);
+            setFilter(nextFilter);
+          }}
+          storeFilter={storeFilter}
+          onStoreFilterChange={(nextFilter) => {
+            setPage(0);
+            setStoreFilter(nextFilter);
+          }}
+        />
 
         <div className="mt-4 space-y-2 md:hidden">
           {isLoading ? (

@@ -19,7 +19,6 @@ import {
   isStockistOnlyProductProfile,
   shouldHideProductCatalogPublicationStatus,
 } from '../../../../../shared-utils/productPermissions';
-import { MAX_VARIATION_IMAGES } from '../../../../../shared-utils/productImageLimits';
 import { useAuth } from '../../../contexts/AuthContext';
 import { WEB_URL } from '../../../services/supabaseClient';
 import { NativeCategoriesScreen } from '../categories';
@@ -47,7 +46,7 @@ import {
   runMobileProductDeleteAction,
   runMobileProductRestoreAction,
 } from '../domain/mobileProductCardRules';
-import { generateVariationSku } from '../domain/productSku';
+import { buildMobileProductDuplicationDraft } from '../domain/mobileProductDuplication';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
 import { loadFullProductForForm } from './loadFullProductForForm';
 import { styles } from './nativeProductsScreen.styles';
@@ -305,43 +304,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
           Alert.alert('Fotos mantidas', 'Não foi possível copiar as fotos; as originais foram mantidas.');
         }
       }
-      const sourceVariations = source.allVariations || source.variations || [];
-      const variationImages =
-        sourceVariations.length === 1 ? images : images.slice(0, MAX_VARIATION_IMAGES);
-      const variations = sourceVariations.map((variation: any, index: number) => {
-        const copy = {
-          ...variation,
-          id: crypto.randomUUID(),
-          isVirtual: false,
-          mergedToVariationId: undefined,
-          sku: generateVariationSku(code, index),
-          images: [...variationImages],
-          status: 'draft',
-          active: false,
-        };
-        delete (copy as any).image_url;
-        delete (copy as any).imageUrl;
-        return copy;
-      });
-      setEditingProduct({
-        ...source,
-        id: undefined,
-        code,
-        sku: code,
-        createdAt: undefined,
-        created_at: undefined,
-        updatedAt: undefined,
-        updated_at: undefined,
-        parentId: undefined,
-        selectedVariationId: undefined,
-        isDraft: true,
-        is_draft: true,
-        active: false,
-        status: 'draft',
-        images,
-        allVariations: variations,
-        variations,
-      });
+      setEditingProduct(buildMobileProductDuplicationDraft(source, code, images));
       setNewProductInitialData(undefined);
       setShowFormModal(true);
     } catch (error: any) {
