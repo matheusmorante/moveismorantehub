@@ -9,13 +9,20 @@ import { FinancialCategory, ResultNature } from './mobileFinanceTypes';
 export const sortCategoriesWithOthersAtEnd = (
   categories: FinancialCategory[]
 ): FinancialCategory[] => {
-  return [...categories].sort((a, b) => {
+  const compare = (a: FinancialCategory, b: FinancialCategory) => {
     const isAOther = a.name.trim().toLowerCase().startsWith('outra');
     const isBOther = b.name.trim().toLowerCase().startsWith('outra');
     if (isAOther && !isBOther) return 1;
     if (!isAOther && isBOther) return -1;
     return a.name.localeCompare(b.name, 'pt-BR');
-  });
+  };
+  const roots = [...categories.filter((category) => !category.parent_id)].sort(compare);
+  const ordered = roots.flatMap((root) => [
+    root,
+    ...categories.filter((category) => category.parent_id === root.id).sort(compare),
+  ]);
+  const placed = new Set(ordered.map((category) => category.id));
+  return [...ordered, ...categories.filter((category) => !placed.has(category.id)).sort(compare)];
 };
 
 export const DEFAULT_FINANCIAL_CATEGORIES: FinancialCategory[] = [
@@ -137,7 +144,7 @@ export const fetchFinancialCategories = async (): Promise<FinancialCategory[]> =
   try {
     const { data, error } = await supabase
       .from('financial_categories')
-      .select('*')
+      .select('id,name,type,result_nature,parent_id')
       .order('name', { ascending: true });
 
     if (!error && data && data.length > 0) {

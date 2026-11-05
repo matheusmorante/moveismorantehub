@@ -62,7 +62,7 @@ export const financialAgentTools = {
         filtered = filtered.filter((t) => {
           const desc = normalizeSearchTerm(t.description || '');
           const notes = normalizeSearchTerm(t.notes || '');
-          const catName = normalizeSearchTerm((t as any).financial_categories?.name || '');
+          const catName = normalizeSearchTerm(t.category_name || '');
           return desc.includes(normTerm) || notes.includes(normTerm) || catName.includes(normTerm);
         });
       }
@@ -75,7 +75,7 @@ export const financialAgentTools = {
         data: t.date,
         descricao: t.description,
         formaPagamento: t.payment_method,
-        categoria: (t as any).financial_categories?.name || 'Sem categoria',
+        categoria: t.category_name || 'Sem categoria',
         observacoes: t.notes || null,
       }));
 

@@ -7,7 +7,6 @@ import {
   Modal,
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -16,6 +15,7 @@ import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { ReceiptRateioField, parseRateioInputValue } from './ReceiptRateioField';
 import type { RateioMode } from './ReceiptRateioField';
 import { ReceiptTotalSummary } from './ReceiptTotalSummary';
+import { styles } from './newGoodsReceiptModal.styles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, CalendarDays, Check, LockKeyhole, X } from 'lucide-react-native';
 import {
@@ -1261,118 +1261,3 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  header: {
-    minHeight: 76,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerCopy: { flex: 1 },
-  headerTitle: { color: '#ffffff', fontSize: 17, fontWeight: '900' },
-  headerSubtitle: {
-    color: 'rgba(255,255,255,.82)',
-    marginTop: 3,
-    fontSize: 12,
-  },
-  content: { padding: 16, paddingBottom: 24, gap: 14 },
-  section: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 8 },
-  rateioSectionHeader: { gap: 4 },
-  rateioSectionTitle: { fontSize: 14, fontWeight: '900' },
-  rateioHint: { fontSize: 11, lineHeight: 16 },
-  rateioGrid: { flexDirection: 'row', gap: 10 },
-  label: {
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    marginTop: 3,
-  },
-  selectButton: {
-    minHeight: 46,
-    borderWidth: 0,
-    borderBottomWidth: 1,
-    borderRadius: 0,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  supplierFieldContainer: { position: 'relative', zIndex: 5 },
-  informationalField: {
-    minHeight: 46,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  supplierIcons: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  lockedTooltip: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    elevation: 10,
-    marginTop: 6,
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 10,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.14,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  lockedTooltipText: { fontSize: 11, fontWeight: '700', lineHeight: 16 },
-  input: {
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 14,
-  },
-  dateField: {
-    minHeight: 44,
-    borderWidth: 0,
-    borderBottomWidth: 1,
-    borderRadius: 0,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  hint: { fontSize: 11, marginTop: -3 },
-  errorText: { color: '#dc2626', fontSize: 12, fontWeight: '700' },
-  resumeNotice: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  resumeError: { padding: 12, borderRadius: 10, backgroundColor: '#fef2f2' },
-  observationInput: {
-    minHeight: 88,
-    borderWidth: 0,
-    borderBottomWidth: 1,
-    borderRadius: 0,
-    padding: 12,
-    textAlignVertical: 'top',
-  },
-  footer: { borderTopWidth: 1, padding: 12, flexDirection: 'row', gap: 10 },
-  cancelButton: {
-    flex: 1,
-    minHeight: 46,
-    borderWidth: 1,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmButton: {
-    flex: 1.5,
-    minHeight: 46,
-    borderRadius: 11,
-    backgroundColor: '#059669',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  confirmButtonDisabled: { opacity: 0.55 },
-  confirmText: { color: '#ffffff', fontWeight: '900', fontSize: 12 },
-});

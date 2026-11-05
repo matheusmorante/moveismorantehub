@@ -1,5 +1,6 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
-import type Order, { AssistanceItem } from '@/pages/types/order.type';
+import type Order from '@/pages/types/order.type';
+import type { AssistanceItem } from '@/pages/types/order.type';
 import type Item from '@/pages/types/items.type';
 import type Shipping from '@/pages/types/Shipping.type';
 import type CustomerData from '@/pages/types/customerData.type';

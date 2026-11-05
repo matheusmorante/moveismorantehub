@@ -133,11 +133,13 @@ export const CategorySelectModal: React.FC<Props> = ({
                   <Text
                     style={[
                       styles.itemText,
+                      item.parent_id && styles.childCategoryText,
+                      item.name === 'Despesas Operacionais' && styles.parentCategoryText,
                       isDarkMode && styles.itemTextDark,
                       isSelected && styles.itemTextSelected,
                     ]}
                   >
-                    {item.name}
+                    {item.parent_id ? `↳ ${item.name}` : item.name}
                   </Text>
                   {isSelected && <Check size={18} color="#3b82f6" />}
                 </TouchableOpacity>
@@ -242,6 +244,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#334155',
+  },
+  childCategoryText: {
+    paddingLeft: 14,
+  },
+  parentCategoryText: {
+    fontWeight: '700',
   },
   itemTextDark: {
     color: '#cbd5e1',

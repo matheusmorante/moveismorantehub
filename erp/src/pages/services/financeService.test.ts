@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   rangeCalls: [[0, 0]],
   statusFilters: [''],
   dateFilters: [['', '']],
+  selectColumns: [''],
   failingPage: -1,
   queryError: new Error('falha financeira simulada'),
 }));
@@ -22,12 +23,13 @@ describe('finance list services', () => {
     mocks.rangeCalls.length = 0;
     mocks.statusFilters.length = 0;
     mocks.dateFilters.length = 0;
+    mocks.selectColumns.length = 0;
     mocks.failingPage = -1;
     mocks.queryError = new Error('falha financeira simulada');
     mocks.from.mockReset().mockImplementation(() => {
       let pageIndex = -1;
       const query: any = {
-        select: vi.fn(() => query),
+        select: vi.fn((columns: string) => { mocks.selectColumns.push(columns); return query; }),
         order: vi.fn(() => query),
         eq: vi.fn((_column: string, value: string) => {
           mocks.statusFilters.push(value);
@@ -82,17 +84,20 @@ describe('finance list services', () => {
       id: `transaction-${index}`,
       type: 'income',
       amount: 10,
-      financial_categories: { name: 'Aporte de sócio' },
+      category_id: 'category-aporte',
     }));
     const lastTransaction = {
       id: 'transaction-after-first-page',
       type: 'income',
       amount: 25,
-      financial_categories: { name: 'Venda' },
+      category_id: 'category-vendas',
     };
     mocks.pages = [firstPage, [lastTransaction]];
 
-    const rows = await financeService.getTransactions('2026-01-01', '2026-12-31');
+    const rows = await financeService.getTransactions('2026-01-01', '2026-12-31', [
+      { id: 'category-aporte', name: 'Aporte de sócio', type: 'income' },
+      { id: 'category-vendas', name: 'Venda', type: 'income' },
+    ]);
 
     expect(rows).toHaveLength(501);
     expect(rows.at(-1)).toMatchObject({ id: lastTransaction.id, result_nature: 'RECEITA' });
@@ -104,6 +109,43 @@ describe('finance list services', () => {
       ['date', 'gte', '2026-01-01'],
       ['date', 'lte', '2026-12-31'],
     ]);
+    expect(mocks.selectColumns[0]).toContain('category_name');
+    expect(mocks.selectColumns[0]).not.toContain('financial_categories(');
+  });
+
+  it('gets one server-filtered transaction page with its aggregate totals', async () => {
+    mocks.rpc.mockResolvedValue({
+      data: {
+        rows: [{ id: 'transaction-1', type: 'expense', amount: '25.5', description: 'Compra de mercadorias' }],
+        total_count: 31,
+        income_total: '100.00',
+        expense_total: '75.50',
+      },
+      error: null,
+    });
+
+    const result = await financeService.getTransactionPage({
+      type: 'expense', categoryId: 'category-1', paymentMethod: 'PIX', accountId: 'Caixa Geral', search: 'mercadorias compra',
+    }, 2);
+
+    expect(mocks.rpc).toHaveBeenCalledWith('get_financial_transaction_page', {
+      p_start_date: null,
+      p_end_date: null,
+      p_type: 'expense',
+      p_category_id: 'category-1',
+      p_payment_method: 'PIX',
+      p_account_id: 'Caixa Geral',
+      p_created_by: null,
+      p_search: 'mercadorias compra',
+      p_limit: 15,
+      p_offset: 15,
+    });
+    expect(result).toMatchObject({
+      rows: [{ id: 'transaction-1', amount: 25.5 }],
+      total_count: 31,
+      income_total: 100,
+      expense_total: 75.5,
+    });
   });
 });
 

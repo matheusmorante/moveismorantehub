@@ -33,7 +33,11 @@ import { sortSalesReportResults } from '../utils/sortSalesReportResults';
 import SupplierPerformanceView from './SupplierPerformanceView';
 import { REPORT_QUADRANTS } from './reportQuadrantPresentation';
 import { deriveReportAbcChartData, deriveReportScatterData } from './reportChartData';
-import { deriveSalvadosBenchmark, deriveSupplierAverages } from './reportSupplierMetrics';
+import {
+  deriveReportRefinementMetrics,
+  deriveSalvadosBenchmark,
+  deriveSupplierAverages,
+} from './reportSupplierMetrics';
 import ReportProductDetailModal from './ReportProductDetailModal';
 
 const ReportView = () => {
@@ -347,19 +351,10 @@ const ReportView = () => {
   );
 
   // Métricas dinâmicas para o refinamento (respeitando fornecedores selecionados)
-  const refinementMetrics = useMemo(() => {
-    const base = allProducts.filter(
-      (i) => selectedSuppliers.includes(i.supplier || 'N/A') || selectedSuppliers.length === 0
-    );
-    const excluded = (reportConfig?.excludedItems || []).filter((name: string) =>
-      base.some((i) => i.product === name)
-    );
-    return {
-      total: base.length,
-      excluded: excluded.length,
-      active: base.length - excluded.length,
-    };
-  }, [allProducts, selectedSuppliers, reportConfig?.excludedItems]);
+  const refinementMetrics = useMemo(
+    () => deriveReportRefinementMetrics(allProducts, selectedSuppliers, reportConfig?.excludedItems),
+    [allProducts, selectedSuppliers, reportConfig?.excludedItems],
+  );
 
   if (loading && !reportName) {
     return (

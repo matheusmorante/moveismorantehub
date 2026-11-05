@@ -2,15 +2,14 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { financeService } from '@/pages/services/financeService';
 import { FinancialTransaction, FinancialCategory } from '../../../types/finance.type';
-import { normalizeSearchTerm } from '@/pages/utils/textUtils';
 import CurrencyInput from '../../../../components/CurrencyInput';
 import { useZodForm } from '@/hooks/useZodForm';
-import { financialTransactionFormSchema, financialToday } from '../../../../../../shared-utils/financialFormSchemas';
-import type { z } from 'zod';
+import { financialTransactionWriteSchema, financialToday } from '../../../../../../shared-utils/financialFormSchemas';
+import { z } from 'zod';
 import { useFinancialOperation } from '../useFinancialOperation';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
-import { matchesSearchText } from '@/pages/utils/textUtils';
+import { useAuth } from '@/context/AuthContext';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -18,23 +17,56 @@ const formatCurrency = (value: number) => {
 
 const formatToBRDate = (dateString: string) => {
   if (!dateString) return '-';
-  const date = new Date(dateString);
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' }).format(date);
 };
 
+const paymentMethods = ['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Dinheiro', 'TED', 'Não informado'];
+const accounts = ['Caixa Geral', 'Banco do Brasil', 'Itaú', 'Bradesco', 'Outro'];
+const vehicles = ['Strada', 'HR', 'Outro', 'Não informado'];
+const PAGE_SIZE = 15;
+const normalizeCategoryName = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const requiresVehicle = (name = '') => ['combustivel', 'gasolina', 'veiculo', 'pedagio', 'manutencao de veiculos', 'manutencao do carro'].some((term) => normalizeCategoryName(name).includes(term));
+const requiresCollaborator = (name = '') => ['salario', 'adiantamento', 'comissao', 'beneficio', 'reembolso'].some((term) => normalizeCategoryName(name).includes(term));
+const isProLabore = (name = '') => ['pro-labore', 'prolabore', 'pro labore', 'retirada', 'socio', 'particular'].some((term) => normalizeCategoryName(name).includes(term));
+const directTransactionFormSchema = financialTransactionWriteSchema.extend({
+  category_id: z.string().trim().min(1, 'Selecione uma categoria.'),
+  category_name: z.string().trim().min(1, 'Selecione uma categoria.'),
+  payment_method: z.string().trim().min(1, 'Informe a forma de pagamento.'),
+  purpose: z.enum(['BUSINESS', 'PERSONAL', 'PERSONAL_PARTNER']).nullish(),
+}).superRefine((values, context) => {
+  if (values.type === 'expense' && !values.purpose) {
+    context.addIssue({ code: 'custom', path: ['purpose'], message: 'Informe a finalidade da saída.' });
+  }
+});
+
 export default function Transactions() {
+  const { isAdmin, profile, user } = useAuth();
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [incomeTotal, setIncomeTotal] = useState(0);
+  const [expenseTotal, setExpenseTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestId = useRef(0);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('');
+  const [accountFilter, setAccountFilter] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
 
-  // Modal Nova Transação Manual
+  // Cadastro, edição e detalhe de movimentação
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<FinancialTransaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<FinancialTransaction | null>(null);
   const [categories, setCategories] = useState<FinancialCategory[]>([]);
+  const categoriesRef = useRef<FinancialCategory[]>(categories);
+  categoriesRef.current = categories;
+  const [collaborators, setCollaborators] = useState<{ id: string; name: string }[]>([]);
+  const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
   const operation = useFinancialOperation();
   const saving = operation.busy;
   const closeModal = () => { if (!operation.isBusy()) setIsModalOpen(false); };
@@ -43,20 +75,70 @@ export default function Transactions() {
     amount: 0,
     date: financialToday(),
     description: '',
-    payment_method: 'Manual',
+    payment_method: '',
     category_id: '',
+    category_name: '',
+    purpose: 'BUSINESS' as 'BUSINESS' | 'PERSONAL_PARTNER',
+    vehicle_id: '',
+    collaborator_id: '',
+    collaborator_name: '',
+    account_id: 'Caixa Geral',
+    origin: 'MANUAL' as const,
     notes: '',
   });
-  const form = useZodForm(financialTransactionFormSchema, formData);
+  const form = useZodForm(directTransactionFormSchema, formData);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  const selectedCategory = categories.find((category) => category.id === formData.category_id);
+  const needsCollaborator = formData.type === 'expense' && requiresCollaborator(selectedCategory?.name);
+  const needsVehicle = formData.type === 'expense' && requiresVehicle(selectedCategory?.name);
+
+  useEffect(() => {
+    if (!isModalOpen || !needsCollaborator || collaborators.length > 0) return;
+    let current = true;
+    setCollaboratorsLoading(true);
+    void financeService.getCollaborators().then(setCollaborators).catch(() => setCollaborators([])).finally(() => {
+      if (current) setCollaboratorsLoading(false);
+    });
+    return () => { current = false; };
+  }, [isModalOpen, needsCollaborator, collaborators.length]);
+
+  useEffect(() => {
+    let current = true;
+    void financeService.getCategories().then((data) => {
+      if (current) setCategories(data);
+    }).catch(() => {
+      if (current) setLoadError('Não foi possível carregar as categorias. Tente novamente.');
+    });
+    return () => { current = false; };
+  }, []);
 
   const fetchTransactions = useCallback(async () => {
     const currentRequestId = ++requestId.current;
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await withTimeout(financeService.getTransactions(), 15_000, null, 'financeiro:movimentacoes');
-      if (!data) throw new Error('Prazo de consulta excedido.');
-      if (currentRequestId === requestId.current) setTransactions(data);
+      const result = await withTimeout(financeService.getTransactionPage({
+        type: typeFilter,
+        categoryId: categoryFilter,
+        paymentMethod: paymentFilter,
+        accountId: accountFilter,
+        search: debouncedSearch,
+      }, page), 15_000, null, 'financeiro:movimentacoes');
+      if (currentRequestId !== requestId.current) return;
+      if (!result) throw new Error('Prazo de consulta excedido.');
+      const categoryNames = new Map(categoriesRef.current.map((category) => [category.id, category.name]));
+      setTransactions(result.rows.map((transaction) => ({
+        ...transaction,
+        category_name: transaction.category_name || categoryNames.get(transaction.category_id || '') || null,
+      })));
+      setTotalCount(result.total_count);
+      setIncomeTotal(result.income_total);
+      setExpenseTotal(result.expense_total);
     } catch {
       if (currentRequestId === requestId.current) {
         setLoadError('Não foi possível carregar as movimentações. Tente novamente.');
@@ -64,15 +146,7 @@ export default function Transactions() {
     } finally {
       if (currentRequestId === requestId.current) setLoading(false);
     }
-
-    try {
-      const cats = await withTimeout(financeService.getCategories(), 15_000, null, 'financeiro:categorias');
-      if (!cats) throw new Error('Prazo de consulta excedido.');
-      if (currentRequestId === requestId.current) setCategories(cats);
-    } catch {
-      if (currentRequestId === requestId.current) setLoadError('Não foi possível carregar as categorias. Tente novamente.');
-    }
-  }, []);
+  }, [accountFilter, categoryFilter, debouncedSearch, page, paymentFilter, typeFilter]);
 
   useEffect(() => {
     void fetchTransactions();
@@ -81,32 +155,96 @@ export default function Transactions() {
     };
   }, [fetchTransactions]);
 
-  const handleSaveTransaction = async (data: z.output<typeof financialTransactionFormSchema>) => {
+  const handleSaveTransaction = async (data: z.output<typeof directTransactionFormSchema>) => {
     if (!operation.current()) return;
-    await operation.wait(financeService.createTransaction(data));
+    const category = categories.find((item) => item.id === data.category_id);
+    const editableFields = {
+      type: data.type,
+      amount: data.amount,
+      date: data.date,
+      description: data.description,
+      payment_method: data.payment_method,
+      category_id: data.category_id,
+      category_name: category?.name || data.category_name,
+      result_nature: category?.result_nature,
+      purpose: data.type === 'expense' ? data.purpose : null,
+      vehicle_id: needsVehicle ? data.vehicle_id || null : null,
+      collaborator_id: needsCollaborator ? data.collaborator_id || null : null,
+      collaborator_name: needsCollaborator ? data.collaborator_name || null : null,
+    };
+    await operation.wait(editingTransaction
+      ? financeService.updateTransaction(editingTransaction.id, editableFields)
+      : financeService.createTransaction({
+        ...data,
+        ...editableFields,
+        account_id: data.account_id || 'Caixa Geral',
+        origin: 'MANUAL',
+        created_by: profile?.full_name || user?.email || 'Operador',
+        status: 'ACTIVE',
+      }));
     if (!operation.current()) return;
-    toast.success('Movimentação registrada!');
+    toast.success(editingTransaction ? 'Movimentação atualizada!' : 'Movimentação registrada!');
     setIsModalOpen(false);
-    setFormData({ type: 'expense', amount: 0, date: financialToday(), description: '', payment_method: 'Manual', category_id: '', notes: '' });
+    setEditingTransaction(null);
+    setFormData({ type: 'expense', amount: 0, date: financialToday(), description: '', payment_method: '', category_id: '', category_name: '', purpose: 'BUSINESS', vehicle_id: '', collaborator_id: '', collaborator_name: '', account_id: 'Caixa Geral', origin: 'MANUAL', notes: '' });
     void fetchTransactions();
   };
 
-  const filtered = transactions.filter((t) => {
-    const matchesSearch = matchesSearchText(t.description || '', normalizeSearchTerm(search));
-    const matchesType = typeFilter === 'all' || t.type === typeFilter;
-    return matchesSearch && matchesType;
-  });
-  const safePage = Math.min(page, Math.max(1, Math.ceil(filtered.length / pageSize)));
-  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const visible = transactions;
+  const availableCategories = categories.filter((category) =>
+    category.type === formData.type && (
+      formData.type !== 'expense' || (formData.purpose === 'PERSONAL_PARTNER'
+        ? isProLabore(category.name)
+        : !isProLabore(category.name))
+    )
+  );
 
   // Calcula Totais
-  const totalEntradas = filtered
-    .filter((t) => t.type === 'income')
-    .reduce((acc, curr) => acc + curr.amount, 0);
-  const totalSaidas = filtered
-    .filter((t) => t.type === 'expense')
-    .reduce((acc, curr) => acc + curr.amount, 0);
-  const saldoPeriodo = totalEntradas - totalSaidas;
+  const saldoPeriodo = incomeTotal - expenseTotal;
+
+  const openNewTransaction = () => {
+    setEditingTransaction(null);
+    setFormData({ type: 'expense', amount: 0, date: financialToday(), description: '', payment_method: '', category_id: '', category_name: '', purpose: 'BUSINESS', vehicle_id: '', collaborator_id: '', collaborator_name: '', account_id: 'Caixa Geral', origin: 'MANUAL', notes: '' });
+    setIsModalOpen(true);
+  };
+
+  const openEditTransaction = (transaction: FinancialTransaction) => {
+    setEditingTransaction(transaction);
+    setFormData({
+      type: transaction.type,
+      amount: Number(transaction.amount) || 0,
+      date: transaction.date || financialToday(),
+      description: transaction.description || '',
+      payment_method: transaction.payment_method || '',
+      category_id: transaction.category_id || '',
+      category_name: transaction.category_name || categories.find((category) => category.id === transaction.category_id)?.name || '',
+      purpose: transaction.purpose === 'PERSONAL_PARTNER' ? 'PERSONAL_PARTNER' : 'BUSINESS',
+      vehicle_id: transaction.vehicle_id || '',
+      collaborator_id: transaction.collaborator_id || '',
+      collaborator_name: transaction.collaborator_name || '',
+      account_id: transaction.account_id || 'Caixa Geral',
+      origin: transaction.origin || 'MANUAL',
+      notes: transaction.notes || '',
+    });
+    setSelectedTransaction(null);
+    setIsModalOpen(true);
+  };
+
+  const runTransactionAction = async (action: 'delete' | 'reverse', transaction: FinancialTransaction) => {
+    const accepted = window.confirm(action === 'delete'
+      ? `Excluir definitivamente a movimentação “${transaction.description}”?`
+      : `Estornar a movimentação “${transaction.description}”?`);
+    if (!accepted) return;
+    await operation.run(async () => {
+      await operation.wait(action === 'delete'
+        ? financeService.deleteTransaction(transaction.id)
+        : financeService.reverseTransaction(transaction.id));
+      if (!operation.current()) return;
+      toast.success(action === 'delete' ? 'Movimentação excluída.' : 'Movimentação estornada.');
+      setSelectedTransaction(null);
+      await fetchTransactions();
+    });
+  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] xl:h-[calc(100vh-80px)] overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
@@ -129,7 +267,7 @@ export default function Transactions() {
 
           <div className="flex gap-4">
             <button
-              onClick={() => setIsModalOpen(true)}
+              onClick={openNewTransaction}
               disabled={operation.blocked}
               className="flex items-center justify-center gap-2 xl:gap-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 xl:px-8 xl:py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-xl shadow-blue-200 dark:shadow-none transition-all active:scale-95 w-full sm:w-auto"
             >
@@ -151,7 +289,7 @@ export default function Transactions() {
               </h3>
             </div>
             <p className="text-2xl font-black text-slate-800 dark:text-slate-100">
-              {formatCurrency(totalEntradas)}
+              {formatCurrency(incomeTotal)}
             </p>
           </div>
 
@@ -165,7 +303,7 @@ export default function Transactions() {
               </h3>
             </div>
             <p className="text-2xl font-black text-slate-800 dark:text-slate-100">
-              {formatCurrency(totalSaidas)}
+              {formatCurrency(expenseTotal)}
             </p>
           </div>
 
@@ -224,6 +362,40 @@ export default function Transactions() {
             </div>
           </div>
 
+          <div className="px-6 pb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <select
+              aria-label="Filtrar movimentações por categoria"
+              value={categoryFilter}
+              onChange={(event) => { setCategoryFilter(event.target.value); setPage(1); }}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+            >
+              <option value="">Todas as categorias</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.parent_id ? `↳ ${category.name}` : category.name}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Filtrar movimentações por forma de pagamento"
+              value={paymentFilter}
+              onChange={(event) => { setPaymentFilter(event.target.value); setPage(1); }}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+            >
+              <option value="">Todas as formas de pagamento</option>
+              {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
+            </select>
+            <select
+              aria-label="Filtrar movimentações por conta ou caixa"
+              value={accountFilter}
+              onChange={(event) => { setAccountFilter(event.target.value); setPage(1); }}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+            >
+              <option value="">Todas as contas e caixas</option>
+              {accounts.map((account) => <option key={account} value={account}>{account}</option>)}
+            </select>
+          </div>
+
           {loadError && (
             <div
               role="alert"
@@ -263,6 +435,9 @@ export default function Transactions() {
                   <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-50 dark:border-slate-800 text-right">
                     Valor
                   </th>
+                  <th className="px-4 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-50 dark:border-slate-800 text-right">
+                    Ações
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -285,7 +460,7 @@ export default function Transactions() {
                         </span>
                         {transaction.category_id && (
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 inline-block">
-                            {categories.find((c) => c.id === transaction.category_id)?.name ||
+                            {transaction.category_name || categories.find((c) => c.id === transaction.category_id)?.name ||
                               'Outros'}
                           </span>
                         )}
@@ -306,6 +481,14 @@ export default function Transactions() {
                         {isIncome ? '+ ' : '- '}
                         {formatCurrency(transaction.amount)}
                       </td>
+                      <td className="px-4 py-5 text-right whitespace-nowrap">
+                        <button type="button" onClick={() => setSelectedTransaction(transaction)} className="mr-2 text-xs font-bold text-blue-600 hover:underline">Detalhes</button>
+                        <button type="button" onClick={() => openEditTransaction(transaction)} className="mr-2 text-xs font-bold text-slate-600 hover:underline dark:text-slate-300">Editar</button>
+                        {isAdmin && transaction.status !== 'REVERSED' && (
+                          <button type="button" onClick={() => void runTransactionAction('reverse', transaction)} className="mr-2 text-xs font-bold text-amber-700 hover:underline">Estornar</button>
+                        )}
+                        <button type="button" onClick={() => void runTransactionAction('delete', transaction)} className="text-xs font-bold text-rose-600 hover:underline">Excluir</button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -313,9 +496,9 @@ export default function Transactions() {
             </table>
           </div>
 
-          <ERPListPagination ariaLabel="Paginação de movimentações financeiras" page={page} pageSize={pageSize}
-            totalItems={filtered.length} onPageChange={setPage} onPageSizeChange={(size) => { setPage(1); setPageSize(size); }}
-            preferenceKey="finance-transactions" itemLabel="movimentações" loading={loading} className="px-4 py-3" />
+          <ERPListPagination ariaLabel="Paginação de movimentações financeiras" page={page} pageSize={PAGE_SIZE} fixedPageSize={PAGE_SIZE}
+            totalItems={totalCount} onPageChange={setPage}
+            itemLabel="movimentações" loading={loading} className="px-4 py-3" />
 
           {loading && (
             <div className="p-20 flex flex-col items-center justify-center flex-1">
@@ -326,13 +509,13 @@ export default function Transactions() {
             </div>
           )}
 
-          {filtered.length === 0 && !loading && !loadError && (
+          {totalCount === 0 && !loading && !loadError && (
             <div className="p-20 flex flex-col items-center justify-center text-center flex-1">
               <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-[2rem] flex items-center justify-center text-slate-200 dark:text-slate-800 mb-6 border border-slate-100 dark:border-slate-800">
                 <i className="bi bi-clock-history text-4xl"></i>
               </div>
               <h4 className="text-xl font-black text-slate-400">
-                Nenhuma movimentação no período.
+                Nenhuma movimentação encontrada com esses filtros.
               </h4>
             </div>
           )}
@@ -351,7 +534,7 @@ export default function Transactions() {
               {operation.error && <p role="alert" className="p-4 text-red-700">{operation.error}</p>}
               {saving && <p role="status" className="p-4 animate-pulse">Validando e registrando a movimentação…</p>}
               <h2 id="financial-transaction-title" className="text-xl font-black text-slate-800 dark:text-slate-100">
-                Lançamento Direto no Caixa
+                {editingTransaction ? 'Editar movimentação' : 'Lançamento Direto no Caixa'}
               </h2>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                 Sem vínculo com Contas a Pagar/Receber
@@ -360,7 +543,7 @@ export default function Transactions() {
             <fieldset disabled={operation.blocked} className="p-6 xl:p-8 space-y-4">
               <div className="flex gap-4 mb-4">
                 <button
-                  onClick={() => setFormData({ ...formData, type: 'income', category_id: '' })}
+                  onClick={() => setFormData({ ...formData, type: 'income', category_id: '', category_name: '', purpose: 'BUSINESS', vehicle_id: '', collaborator_id: '', collaborator_name: '' })}
                   className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                     formData.type === 'income'
                       ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-none'
@@ -370,7 +553,7 @@ export default function Transactions() {
                   Entrada
                 </button>
                 <button
-                  onClick={() => setFormData({ ...formData, type: 'expense', category_id: '' })}
+                  onClick={() => setFormData({ ...formData, type: 'expense', category_id: '', category_name: '', purpose: 'BUSINESS', vehicle_id: '', collaborator_id: '', collaborator_name: '' })}
                   className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                     formData.type === 'expense'
                       ? 'bg-rose-500 text-white shadow-lg shadow-rose-200 dark:shadow-none'
@@ -380,6 +563,42 @@ export default function Transactions() {
                   Saída
                 </button>
               </div>
+
+              {formData.type === 'expense' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-2">Finalidade</label>
+                  <div role="group" aria-label="Finalidade da saída" className="flex gap-2">
+                    {[
+                      { value: 'BUSINESS', label: '🏢 Operação da Empresa' },
+                      { value: 'PERSONAL_PARTNER', label: '👤 Uso Particular' },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={formData.purpose === option.value}
+                        onClick={() => {
+                          const purpose = option.value as 'BUSINESS' | 'PERSONAL_PARTNER';
+                          const proLabore = purpose === 'PERSONAL_PARTNER'
+                            ? categories.find((category) => category.type === 'expense' && isProLabore(category.name))
+                            : undefined;
+                          setFormData({
+                            ...formData,
+                            purpose,
+                            category_id: proLabore?.id || '',
+                            category_name: proLabore?.name || '',
+                            vehicle_id: '',
+                            collaborator_id: '',
+                            collaborator_name: '',
+                          });
+                        }}
+                        className={`flex-1 rounded-xl px-3 py-3 text-xs font-bold ${formData.purpose === option.value ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <input
                 type="text"
@@ -406,18 +625,57 @@ export default function Transactions() {
 
               <select
                 value={formData.category_id}
-                onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                onChange={(e) => {
+                  const category = availableCategories.find((item) => item.id === e.target.value);
+                  setFormData({ ...formData, category_id: e.target.value, category_name: category?.name || '', vehicle_id: '', collaborator_id: '', collaborator_name: '' });
+                }}
                 className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Sem categoria</option>
-                {categories
-                  .filter((c) => c.type === formData.type)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
+                <option value="">Selecione uma categoria</option>
+                {availableCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.parent_id ? `↳ ${category.name}` : category.name}
+                  </option>
+                ))}
               </select>
+
+              <select
+                aria-label="Forma de pagamento"
+                value={formData.payment_method}
+                onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Selecione a forma de pagamento</option>
+                {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
+              </select>
+
+              {needsVehicle && (
+                <select
+                  aria-label="Veículo"
+                  value={formData.vehicle_id}
+                  onChange={(e) => setFormData({ ...formData, vehicle_id: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Selecione o veículo (opcional)</option>
+                  {vehicles.map((vehicle) => <option key={vehicle} value={vehicle}>{vehicle}</option>)}
+                </select>
+              )}
+
+              {needsCollaborator && (
+                <select
+                  aria-label="Colaborador / Funcionário"
+                  value={formData.collaborator_id}
+                  onChange={(e) => {
+                    const collaborator = collaborators.find((item) => item.id === e.target.value);
+                    setFormData({ ...formData, collaborator_id: collaborator?.id || '', collaborator_name: collaborator?.name || '' });
+                  }}
+                  disabled={collaboratorsLoading}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                >
+                  <option value="">{collaboratorsLoading ? 'Carregando colaboradores…' : 'Selecione um colaborador (opcional)'}</option>
+                  {collaborators.map((collaborator) => <option key={collaborator.id} value={collaborator.id}>{collaborator.name}</option>)}
+                </select>
+              )}
             </fieldset>
             <div className="p-6 xl:p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex gap-4">
               <button
@@ -438,10 +696,66 @@ export default function Transactions() {
                 ) : (
                   <i className="bi bi-check-lg"></i>
                 )}
-                Registrar
+                {editingTransaction ? 'Salvar alterações' : 'Registrar'}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {selectedTransaction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setSelectedTransaction(null);
+        }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="transaction-details-title" className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="transaction-details-title" className="text-xl font-black text-slate-900 dark:text-slate-100">Detalhes da movimentação</h2>
+                <p className="mt-1 text-sm text-slate-500">#{selectedTransaction.id.slice(0, 8)} · {formatToBRDate(selectedTransaction.date)}</p>
+              </div>
+              <button type="button" aria-label="Fechar detalhes" onClick={() => setSelectedTransaction(null)} className="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">×</button>
+            </div>
+            <div className="mb-5 rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
+              <p className={`text-2xl font-black ${selectedTransaction.type === 'income' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {selectedTransaction.type === 'income' ? '+ ' : '- '}{formatCurrency(selectedTransaction.amount)}
+              </p>
+              <p className="mt-1 font-bold text-slate-800 dark:text-slate-100">{selectedTransaction.description}</p>
+            </div>
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[
+                ['Categoria', selectedTransaction.category_name || categories.find((category) => category.id === selectedTransaction.category_id)?.name || 'Sem categoria'],
+                ['Natureza', selectedTransaction.result_nature === 'NAO_AFETA_RESULTADO' ? 'Não afeta resultado' : selectedTransaction.result_nature === 'RECEITA' ? 'Receita' : 'Despesa'],
+                ['Tipo', selectedTransaction.type === 'income' ? 'Entrada' : 'Saída'],
+                ['Forma de pagamento', selectedTransaction.payment_method || 'Não informada'],
+                ['Conta / Caixa', selectedTransaction.account_id || 'Caixa Geral'],
+                ['Finalidade', selectedTransaction.purpose === 'PERSONAL_PARTNER' ? 'Uso particular' : 'Operação da empresa'],
+                ['Pessoa / Empresa', selectedTransaction.counterparty || '—'],
+                ['Colaborador', selectedTransaction.collaborator_name || '—'],
+                ['Veículo', selectedTransaction.vehicle_id || '—'],
+                ['Origem', selectedTransaction.origin === 'AI_ASSISTANT' ? 'IA Assistente' : selectedTransaction.origin || 'Manual'],
+                ['Registrado por', selectedTransaction.created_by || 'Sistema'],
+                ['Status', selectedTransaction.status || 'ACTIVE'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-xl border border-slate-100 p-3 dark:border-slate-700">
+                  <dt className="text-[10px] font-black uppercase tracking-wider text-slate-400">{label}</dt>
+                  <dd className="mt-1 break-words text-sm font-semibold text-slate-700 dark:text-slate-200">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            {selectedTransaction.notes && (
+              <div className="mt-3 rounded-xl border border-slate-100 p-3 dark:border-slate-700">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Observações</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">{selectedTransaction.notes}</p>
+              </div>
+            )}
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => openEditTransaction(selectedTransaction)} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white">Editar</button>
+              {isAdmin && selectedTransaction.status !== 'REVERSED' && (
+                <button type="button" onClick={() => void runTransactionAction('reverse', selectedTransaction)} className="rounded-xl border border-amber-300 px-4 py-2.5 text-sm font-bold text-amber-800">Estornar</button>
+              )}
+              <button type="button" onClick={() => setSelectedTransaction(null)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 dark:border-slate-700 dark:text-slate-300">Fechar</button>
+            </div>
+          </section>
         </div>
       )}
     </div>

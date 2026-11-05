@@ -125,7 +125,6 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   onJumpComplete,
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const previousLastMessageIdRef = useRef<string | null>(null);
   const previousConversationIdRef = useRef<string | null>(null);
   const loadingOlderRef = useRef(false);
@@ -141,7 +140,9 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   useLayoutEffect(() => {
     const conversationChanged = previousConversationIdRef.current !== conversationId;
     const latestId = timelineMessages[timelineMessages.length - 1]?.id || null;
-    const latestChanged = previousLastMessageIdRef.current !== latestId;
+    const previousLatestId = previousLastMessageIdRef.current;
+    const latestChanged = previousLatestId !== latestId;
+    const firstMessagesLoaded = previousLatestId === null && latestId !== null;
     previousConversationIdRef.current = conversationId;
     previousLastMessageIdRef.current = latestId;
 
@@ -150,7 +151,11 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
       container.scrollTop = preserveScroll.top + container.scrollHeight - preserveScroll.height;
       setPreserveScroll(null);
     } else if (conversationChanged || latestChanged) {
-      messagesEndRef.current?.scrollIntoView({ behavior: conversationChanged ? 'auto' : 'smooth' });
+      const container = timelineRef.current;
+      if (container) {
+        if (conversationChanged || firstMessagesLoaded) container.scrollTop = container.scrollHeight;
+        else container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      }
     }
   }, [timelineMessages, conversationId, preserveScroll]);
 
@@ -266,7 +271,6 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
           {search.isLoading ? 'Pesquisando mensagens…' : search.error ? 'Tentar pesquisar novamente' : 'Ver mais 5 resultados'}
         </button>
       )}
-      <div ref={messagesEndRef} />
     </div>
   );
 };

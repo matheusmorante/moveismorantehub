@@ -25,6 +25,22 @@ const confirmedFinancialRow = <T extends { id: string }>(data: unknown, expected
   return data as T;
 };
 
+export interface FinancialTransactionPageFilters {
+  type?: 'income' | 'expense' | 'all';
+  categoryId?: string;
+  paymentMethod?: string;
+  accountId?: string;
+  createdBy?: string;
+  search?: string;
+}
+
+export interface FinancialTransactionPage {
+  rows: FinancialTransaction[];
+  total_count: number;
+  income_total: number;
+  expense_total: number;
+}
+
 const fetchAllFinancePages = async <T>(buildQuery: (from: number, to: number) => any) => {
   const rows: T[] = [];
   for (let from = 0; ; from += FINANCE_LIST_PAGE_SIZE) {
@@ -100,7 +116,7 @@ export const financeService = {
 
   // --- Categorias ---
   async getCategories(type?: 'income' | 'expense') {
-    let query = supabase.from('financial_categories').select('*');
+    let query = supabase.from('financial_categories').select('id,name,type,result_nature,parent_id');
     if (type) query = query.eq('type', type);
     const { data, error } = await query;
     if (error) throw error;
@@ -109,13 +125,20 @@ export const financeService = {
       result_nature: c.result_nature || determineResultNature(c.name, c.type),
     })) as FinancialCategory[];
 
-    return list.sort((a, b) => {
+    const compare = (a: FinancialCategory, b: FinancialCategory) => {
       const isAOther = a.name.trim().toLowerCase().startsWith('outra');
       const isBOther = b.name.trim().toLowerCase().startsWith('outra');
       if (isAOther && !isBOther) return 1;
       if (!isAOther && isBOther) return -1;
       return a.name.localeCompare(b.name, 'pt-BR');
-    });
+    };
+    const roots = list.filter((category) => !category.parent_id).sort(compare);
+    const ordered = roots.flatMap((root) => [
+      root,
+      ...list.filter((category) => category.parent_id === root.id).sort(compare),
+    ]);
+    const placed = new Set(ordered.map((category) => category.id));
+    return [...ordered, ...list.filter((category) => !placed.has(category.id)).sort(compare)];
   },
 
   // --- Contas a Pagar ---
@@ -234,23 +257,34 @@ export const financeService = {
   },
 
   // --- Fluxo de Caixa / Transações ---
-  async getTransactions(startDate?: string, endDate?: string) {
+  async getTransactions(startDate?: string, endDate?: string, categories?: FinancialCategory[]) {
+    const transactionColumns = 'id,type,amount,date,description,payment_method,category_id,category_name,result_nature,purpose,transaction_time,account_id,counterparty,collaborator_id,collaborator_name,vehicle_id,due_date,due_day,is_recurring,installments_total,installment_number,origin,created_by,status,idempotency_key,payable_id,receivable_id,notes,created_at,updated_at';
     const transactions = await fetchAllFinancePages<FinancialTransaction>((from, to) => {
       let query = supabase
         .from('financial_transactions')
-        .select('*, financial_categories(name)')
+        .select(transactionColumns)
         .order('date', { ascending: false })
         .order('id', { ascending: true });
       if (startDate) query = query.gte('date', startDate);
       if (endDate) query = query.lte('date', endDate);
       return query.range(from, to);
     });
+
+    const categoryList = categories ?? await financeService.getCategories();
+    const categoryNames = new Map(categoryList.map((category) => [category.id, category.name]));
     return transactions.map((t: any) => ({
       ...t,
+      category_name: t.category_name || categoryNames.get(t.category_id) || null,
       result_nature:
         t.result_nature ||
-        determineResultNature(t.financial_categories?.name || t.category_name, t.type),
+        determineResultNature(t.category_name || categoryNames.get(t.category_id), t.type),
     }));
+  },
+
+  async getCollaborators() {
+    const { data, error } = await supabase.from('profiles').select('id,full_name,role').limit(50);
+    if (error) throw error;
+    return (data || []).map((profile) => ({ id: profile.id, name: profile.full_name || 'Colaborador' }));
   },
 
   async getReportTransactions(startDate?: string, endDate?: string) {
@@ -265,6 +299,38 @@ export const financeService = {
       result_nature:
         t.result_nature || determineResultNature(t.category_name, t.type),
     }));
+  },
+
+  async getTransactionPage(filters: FinancialTransactionPageFilters, page: number): Promise<FinancialTransactionPage> {
+    const { data, error } = await supabase.rpc('get_financial_transaction_page', {
+      p_start_date: null,
+      p_end_date: null,
+      p_type: filters.type || 'all',
+      p_category_id: filters.categoryId || null,
+      p_payment_method: filters.paymentMethod || null,
+      p_account_id: filters.accountId || null,
+      p_created_by: filters.createdBy || null,
+      p_search: filters.search?.trim() || null,
+      p_limit: 15,
+      p_offset: Math.max(0, Math.floor(page - 1)) * 15,
+    });
+    if (error) throw error;
+    if (!data || typeof data !== 'object' || !Array.isArray((data as any).rows)) {
+      throw new Error('Resposta inválida ao carregar movimentações.');
+    }
+    const result = data as FinancialTransactionPage;
+    return {
+      ...result,
+      rows: result.rows.map((transaction) => ({
+        ...transaction,
+        amount: Number(transaction.amount) || 0,
+        category_name: transaction.category_name || null,
+        result_nature: transaction.result_nature || determineResultNature(transaction.category_name, transaction.type),
+      })),
+      total_count: Number(result.total_count) || 0,
+      income_total: Number(result.income_total) || 0,
+      expense_total: Number(result.expense_total) || 0,
+    };
   },
 
   async getReportPayables(status?: string) {
@@ -304,6 +370,7 @@ export const financeService = {
 
     const payload = {
       ...transaction,
+      category_name: catName || transaction.category_name || null,
       result_nature: transaction.result_nature || categoryNature || determineResultNature(catName, transaction.type),
     };
 
@@ -317,14 +384,27 @@ export const financeService = {
   },
 
   async updateTransaction(id: string, updates: Partial<FinancialTransaction>) {
+    const payload = financialTransactionWriteSchema.partial().parse(updates);
     const { data, error } = await supabase
       .from('financial_transactions')
-      .update(updates)
+      .update(payload)
       .eq('id', id)
-      .select()
+      .select('id')
       .single();
-    if (error) throw error;
-    return data as FinancialTransaction;
+    if (error) throwFinancialWriteError(error);
+    return confirmedFinancialRow<{ id: string }>(data, id);
+  },
+
+  async reverseTransaction(id: string) {
+    const { data, error } = await supabase
+      .from('financial_transactions')
+      .update({ status: 'REVERSED', updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .neq('status', 'REVERSED')
+      .select('id')
+      .single();
+    if (error) throwFinancialWriteError(error);
+    return confirmedFinancialRow<{ id: string }>(data, id);
   },
 
   async deleteTransaction(id: string) {
@@ -332,10 +412,10 @@ export const financeService = {
       .from('financial_transactions')
       .delete()
       .eq('id', id)
-      .select()
+      .select('id')
       .single();
-    if (error) throw error;
-    return data as FinancialTransaction;
+    if (error) throwFinancialWriteError(error);
+    return confirmedFinancialRow<{ id: string }>(data, id);
   },
 
   async getFinancialSummary(startDate?: string, endDate?: string) {

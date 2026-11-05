@@ -162,7 +162,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = (props) => {
       aria-modal="true"
       aria-labelledby="product-form-title"
       tabIndex={-1}
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen z-[1000010] flex items-center justify-center p-0 m-0 bg-white dark:bg-slate-900 overflow-hidden"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-dvh z-[1000010] flex items-center justify-center p-0 m-0 bg-white dark:bg-slate-900 overflow-hidden"
     >
       <button
         type="button"

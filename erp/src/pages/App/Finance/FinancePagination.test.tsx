@@ -8,7 +8,10 @@ import Transactions from './Transactions';
 import { financeService } from '@/pages/services/financeService';
 
 vi.mock('@/pages/services/financeService', () => ({
-  financeService: { getPayables: vi.fn(), getReceivables: vi.fn(), getTransactions: vi.fn(), getCategories: vi.fn() },
+  financeService: { getPayables: vi.fn(), getReceivables: vi.fn(), getTransactionPage: vi.fn(), getCategories: vi.fn() },
+}));
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({ isAdmin: true, profile: { full_name: 'Operador' }, user: { email: 'operador@example.com' } }),
 }));
 vi.mock('./Payables/PayableModal', () => ({ default: () => null }));
 vi.mock('./Receivables/ReceivableModal', () => ({ default: () => null }));
@@ -22,7 +25,11 @@ const records = Array.from({ length: 20 }, (_, index) => ({
 beforeEach(() => {
   vi.mocked(financeService.getPayables).mockResolvedValue(records as any);
   vi.mocked(financeService.getReceivables).mockResolvedValue(records as any);
-  vi.mocked(financeService.getTransactions).mockResolvedValue(records as any);
+  vi.mocked(financeService.getTransactionPage).mockImplementation(async (filters: any, page: number) => {
+    const matches = records.filter((record) => !filters.search || record.description.toLowerCase().includes(filters.search.toLowerCase()));
+    const rows = matches.slice((page - 1) * 15, page * 15).map((record) => ({ ...record, status: 'ACTIVE' }));
+    return { rows: rows as any, total_count: matches.length, income_total: matches.reduce((sum, item) => sum + item.amount, 0), expense_total: 0 };
+  });
   vi.mocked(financeService.getCategories).mockResolvedValue([]);
 });
 afterEach(cleanup);

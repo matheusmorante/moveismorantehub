@@ -10,6 +10,7 @@ import {
   createInventoryAuditItemsFromScope,
   restoreInventoryAuditItems,
 } from '../domain/inventoryAuditItemMappers';
+import { buildInventoryAuditDraftSnapshot } from '../domain/inventoryAuditDraftSnapshot';
 import { buildInventoryAuditObservation } from '../domain/inventoryAuditObservation';
 import { getEmployeeDisplayName } from '../utils/employeeDisplayName';
 import { useInventoryAuditData } from './useInventoryAuditData';
@@ -112,24 +113,12 @@ export const useInventoryAuditWorkflow = (
   });
 
   const getDraftSnapshot = useCallback((nextItems: AuditItem[]) => {
-    const draft = draftRef.current;
-    const scope = scopeConfigRef.current;
-    if (!draft.id || !draft.code || !scope) return;
-    return {
-      id: draft.id,
-      code: draft.code,
-      date: draft.date || new Date().toISOString(),
-      name: scope.name,
-      responsibleId: scope.responsibleId,
-      responsibleName: scope.responsibleName,
-      hasStages: Boolean(scope.hasStages),
-      scopeType: scope.scopeType,
-      supplierId: scope.supplierId,
-      status: 'in_progress' as const,
-      items: nextItems.map((item) => ({ ...item })),
-      scannedLabelIds: [...scannedLabelsRef.current],
-      updatedAt: new Date().toISOString(),
-    };
+    return buildInventoryAuditDraftSnapshot(
+      draftRef.current,
+      scopeConfigRef.current,
+      nextItems,
+      scannedLabelsRef.current,
+    );
   }, []);
 
   const persistItems = useCallback((nextItems: AuditItem[]) => {

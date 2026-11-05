@@ -94,7 +94,7 @@ export const ProductFormTabContent: React.FC<ProductFormTabContentProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-3 sm:p-4 lg:p-6">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-3 sm:p-4 lg:p-6">
       {activeTab === 'geral' && (
         <ProductGeneralTab
           onOpenCategorySearch={onOpenCategorySearch}

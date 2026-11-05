@@ -101,3 +101,28 @@ A formatação monetária e a construção da tabela HTML foram movidas para `da
 - O módulo ficou com 1.183 linhas e a extração tem 55. O inventário foi reconciliado em 63 arquivos TypeScript acima de 500 linhas.
 
 Nenhum teste foi adicionado ou executado; build, typecheck e conferência dinâmica do HTML/impressão permanecem pendentes. Nenhuma regra fiscal, dado persistido, consulta, emissão ou transmissão foi modificada ou executada.
+
+## Estilos do modal de recebimento isolados
+
+### Causa
+
+`NewGoodsReceiptModal.tsx` reunia a configuração estática de apresentação do modal com o formulário, seu estado e seus efeitos. A mudança é somente estrutural.
+
+### Solução
+
+O objeto `StyleSheet.create` foi movido para `newGoodsReceiptModal.styles.ts`; o modal importa e consome o mesmo objeto de estilos, sem mudança nos campos ou nas ações.
+
+### Arquivos afetados
+
+- `mobile/src/features/stock/receipts/modals/NewGoodsReceiptModal.tsx`
+- `mobile/src/features/stock/receipts/modals/newGoodsReceiptModal.styles.ts` (novo)
+- `docs/auditorias/inventario-arquivos-grandes.md`
+- `docs/fiscal/README.md`
+
+### Revisão estática
+
+- O bloco de estilos foi comparado ao baseline e movido sem alteração; nomes, propriedades e valores permanecem iguais, e as referências no JSX seguem no mesmo arquivo.
+- O export e as props de `NewGoodsReceiptModal` e o chamador `ReceiptsScreen.tsx` permaneceram iguais. Schemas RHF/Zod, cálculos, consultas, efeitos, payloads e ações não foram alterados.
+- O modal ficou com 1.263 linhas, o módulo de estilos tem 116 e o catálogo foi reconciliado em 63 arquivos TypeScript acima de 500 linhas.
+
+Nenhum teste foi adicionado ou executado; build e validação dinâmica permanecem pendentes. Não houve alteração nos passos de operação do estoquista, portanto o guia prático não precisou de atualização. Nenhuma consulta, chamada externa ou operação fiscal foi executada.

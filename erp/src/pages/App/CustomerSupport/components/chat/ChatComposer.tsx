@@ -5,7 +5,6 @@ import { requestConfirmation } from '@/components/shared/confirmationService';
 import { z } from 'zod';
 import {
   supportChatComposerDraftSchema,
-  supportInternalCommentSchema,
   supportOrderDocumentSchema,
   type SupportChatComposerDraft,
   type SupportOrderDocumentInput,
@@ -26,6 +25,7 @@ import type {
   CustomerSupportSendResult,
 } from '@/pages/utils/customerSupport/customerSupportService';
 import { ChatAudioRecordingControls, RecordedAudioPreview } from './ChatAudioRecordingPanels';
+import { ChatInternalCommentsPanel } from './ChatInternalCommentsPanel';
 import { ChatComposerAttachmentList } from './ChatComposerAttachmentList';
 import { ChatComposerAttachmentMenu } from './ChatComposerAttachmentMenu';
 import { createChatAudioRecordingActions } from './chatComposerAudioRecording';
@@ -160,17 +160,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   useEffect(() => {
     if (replyTarget && composerMode === 'whatsapp') requestAnimationFrame(() => textareaRef.current?.focus());
   }, [replyTarget?.id, composerMode]);
-
-  const {
-    register: registerComment,
-    handleSubmit: submitCommentForm,
-    reset: resetComment,
-    setError: setCommentError,
-    formState: { errors: commentErrors, isSubmitting: isCommentSubmitting },
-  } = useForm<{ comment: string }>({
-    resolver: zodResolver(supportInternalCommentSchema),
-    defaultValues: { comment: '' },
-  });
 
   const {
     setValue: setOrderValue,
@@ -412,21 +401,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     setOrdersError('Selecione um pedido ou orçamento antes de preparar o PDF.');
   });
 
-  const handleCommentSubmit = submitCommentForm(async (data) => {
-    if (!onAddInternalNote) return;
-    try {
-      const saved = await onAddInternalNote(data.comment);
-      if (saved === false) {
-        setCommentError('root.server', { message: 'Não foi possível salvar o comentário.' });
-        return;
-      }
-      resetComment({ comment: '' });
-      setComposerMode('whatsapp');
-    } catch {
-      setCommentError('root.server', { message: 'Não foi possível salvar o comentário. Tente novamente.' });
-    }
-  });
-
   const insertEmoji = (emoji: string) => {
     const textarea = textareaRef.current;
     const start = textarea?.selectionStart ?? message.length;
@@ -655,56 +629,16 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
 
   return (
     <div className="shrink-0 border-t border-slate-200/80 bg-white/95 p-3 transition-colors dark:border-slate-800 dark:bg-slate-900/95">
-      {composerMode === 'comment' ? (
-        <form onSubmit={handleCommentSubmit} className="flex flex-col gap-2 rounded-2xl border-2 border-amber-400/80 bg-amber-50/80 p-3 shadow-md dark:border-amber-600/70 dark:bg-amber-950/30">
-          <div className="flex items-center justify-between gap-3 border-b border-amber-200/70 pb-1.5 text-xs font-bold text-amber-900 dark:border-amber-800/60 dark:text-amber-200">
-            <span className="flex items-center gap-1.5"><i className="bi bi-lock-fill text-amber-600" />Comentário interno da equipe</span>
-            <button type="button" onClick={() => setComposerMode('whatsapp')} className="text-[11px] text-amber-700 underline dark:text-amber-300">Voltar ao atendimento</button>
-          </div>
-          <div aria-label="Comentários internos salvos" className="max-h-36 space-y-2 overflow-y-auto">
-            {canShareCommercialInfo && conversation.internalNotes?.trim() && (
-              <article className="rounded-xl border border-amber-200 bg-white/80 p-2.5 dark:border-amber-800/60 dark:bg-slate-900/60">
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">Anotação interna salva</p>
-                <p className="whitespace-pre-wrap break-words text-xs text-slate-700 dark:text-slate-200">{conversation.internalNotes}</p>
-              </article>
-            )}
-            {[...internalComments].sort((left, right) => right.timestamp.localeCompare(left.timestamp)).map((comment) => (
-              <article key={comment.id} className="rounded-xl border border-amber-200 bg-white/80 p-2.5 dark:border-amber-800/60 dark:bg-slate-900/60">
-                <div className="mb-1 flex items-center justify-between gap-2 text-[10px] text-amber-800 dark:text-amber-300">
-                  <span className="font-bold">{comment.authorName || 'Equipe'}</span>
-                  <time dateTime={comment.timestamp}>{new Date(comment.timestamp).toLocaleString('pt-BR')}</time>
-                </div>
-                <p className="whitespace-pre-wrap break-words text-xs text-slate-700 dark:text-slate-200">{comment.textContent}</p>
-              </article>
-            ))}
-            {(!canShareCommercialInfo || !conversation.internalNotes?.trim()) && internalComments.length === 0 && (
-              <p className="rounded-xl border border-dashed border-amber-200 px-3 py-2 text-xs text-amber-800/80 dark:border-amber-800/60 dark:text-amber-300/80">Nenhum comentário interno salvo nesta conversa.</p>
-            )}
-          </div>
-          <textarea
-            {...registerComment('comment')}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                event.preventDefault();
-                void handleCommentSubmit();
-              }
-            }}
-            rows={3}
-            autoFocus
-            placeholder="Escreva uma anotação visível apenas para a equipe…"
-            className="w-full resize-none rounded-xl border border-amber-200 bg-white p-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-amber-700/60 dark:bg-slate-900 dark:text-slate-100"
-          />
-          {commentErrors.comment && <p role="alert" className="text-[11px] text-red-600">{commentErrors.comment.message}</p>}
-          {commentErrors.root?.server && <p role="alert" className="text-[11px] text-red-600">{commentErrors.root.server.message}</p>}
-          <div className="flex items-center justify-between gap-3">
-            <button type="button" onClick={quickReplyAction} className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300"><i className="bi bi-lightning-charge-fill" />Inserir resposta rápida</button>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setComposerMode('whatsapp')} className="rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">Cancelar</button>
-              <button type="submit" disabled={isCommentSubmitting || !onAddInternalNote} className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"><i className="bi bi-check-lg" />{isCommentSubmitting ? 'Salvando…' : 'Salvar comentário'}</button>
-            </div>
-          </div>
-        </form>
-      ) : (
+      <ChatInternalCommentsPanel
+        isActive={composerMode === 'comment'}
+        canShareCommercialInfo={canShareCommercialInfo}
+        internalNotes={conversation.internalNotes}
+        internalComments={internalComments}
+        onAddInternalNote={onAddInternalNote}
+        onReturnToChat={() => setComposerMode('whatsapp')}
+        onQuickReply={quickReplyAction}
+      />
+      {composerMode !== 'comment' && (
         <div className="flex flex-col gap-2">
           {replyTarget && (
             <div className="flex items-center gap-3 rounded-xl border-l-4 border-emerald-600 bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">

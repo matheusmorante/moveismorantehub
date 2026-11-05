@@ -14,7 +14,6 @@ import {
 } from '../../../../../shared-utils/variationFamilyFormSchemas';
 import { parseVariationImages } from '../../../../../shared-utils/productVariationImages';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
-import { matchesSearchText } from '../../../../../shared-utils/searchText';
 
 const moveVariationFormSchema = variationFamilyCommandSchema.safeExtend({
   ready: z.boolean().refine(Boolean, 'Aguarde a validação da combinação antes de mover a variação.'),
@@ -33,6 +32,10 @@ import {
 import { MobileMoveVariationAttributesEditor } from './MobileMoveVariationAttributesEditor';
 import { MobileMoveVariationValidationNotice } from './MobileMoveVariationValidationNotice';
 import { MobileMoveVariationFamilySelector } from './MobileMoveVariationFamilySelector';
+import {
+  getMobileVariationFamilyName,
+  getMobileVariationFamilySuggestions,
+} from './mobileMoveVariationFamilySuggestions';
 import {
   prepareMobileMoveVariationAttributes,
   type MobileMoveVariationAttributeRow,
@@ -60,13 +63,6 @@ interface Props {
   onMoved: () => void | Promise<void>;
 }
 
-const normalize = (value: string) =>
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pt-BR');
-
-const familyName = (family: MobileVariationFamily) => family.name || family.description || '';
 type AttributeRow = MobileMoveVariationAttributeRow;
 
 export const MobileMoveVariationModal: React.FC<Props> = ({
@@ -121,7 +117,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
     return variationImages.length > 0 ? variationImages : parseVariationImages(undefined, parentProduct?.images);
   }, [variation?.images, variation?.image_url, parentProduct?.images]);
   const variationName = targetFamily
-    ? [familyName(targetFamily), ...validAttributes.map((attribute) => attribute.value)]
+    ? [getMobileVariationFamilyName(targetFamily), ...validAttributes.map((attribute) => attribute.value)]
         .filter(Boolean)
         .join(' ')
     : '';
@@ -141,13 +137,10 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
     attributes: formAttributes,
   });
   const form = useZodForm(moveVariationFormSchema, formValues);
-  const suggestions = useMemo(() => {
-    const term = normalize(familyQuery.trim());
-    if (term.length < 3 || targetFamilyId) return [];
-    return families
-      .filter((family) => matchesSearchText(`${familyName(family)} ${family.code || ''}`, term))
-      .slice(0, 5);
-  }, [families, familyQuery, targetFamilyId]);
+  const suggestions = useMemo(
+    () => getMobileVariationFamilySuggestions(families, familyQuery, targetFamilyId),
+    [families, familyQuery, targetFamilyId],
+  );
 
   useEffect(() => {
     const currentToken = Symbol('move-family');
@@ -350,7 +343,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               canonicalAttributes.push({ ...attribute, ...stored });
             }
             if (!stillCurrent()) throw new VariationFamilyUnconfirmedError();
-            const newName = [familyName(targetFamily), ...canonicalAttributes.map(({ value }) => value)]
+            const newName = [getMobileVariationFamilyName(targetFamily), ...canonicalAttributes.map(({ value }) => value)]
               .filter(Boolean)
               .join(' ');
             return moveMobileVariationToFamily(
@@ -519,7 +512,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               targetFamilyId={targetFamilyId}
               showSuggestions={showSuggestions}
               suggestions={suggestions}
-              familyName={familyName}
+              familyName={getMobileVariationFamilyName}
               onQueryChange={(value) => {
                 setFamilyQuery(value);
                 setTargetFamilyId('');
@@ -531,7 +524,7 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
               onRetry={() => setQueryRevision((revision) => revision + 1)}
               onSelectFamily={(family) => {
                 setTargetFamilyId(family.id);
-                setFamilyQuery(`${familyName(family)}${family.code ? ` — ${family.code}` : ''}`);
+                setFamilyQuery(`${getMobileVariationFamilyName(family)}${family.code ? ` — ${family.code}` : ''}`);
                 setShowSuggestions(false);
                 setCountdown(5);
               }}

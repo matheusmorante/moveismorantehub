@@ -3,17 +3,20 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  getTransactions: vi.fn(),
+  getTransactionPage: vi.fn(),
   getCategories: vi.fn(),
   createTransaction: vi.fn(),
 }));
 
 vi.mock('@/pages/services/financeService', () => ({
   financeService: {
-    getTransactions: mocks.getTransactions,
+    getTransactionPage: mocks.getTransactionPage,
     getCategories: mocks.getCategories,
     createTransaction: mocks.createTransaction,
   },
+}));
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({ isAdmin: true, profile: { full_name: 'Operador' }, user: { email: 'operador@example.com' } }),
 }));
 
 import Transactions from '../index';
@@ -21,15 +24,15 @@ import Transactions from '../index';
 describe('Transactions list', () => {
   afterEach(cleanup);
   beforeEach(() => {
-    mocks.getTransactions.mockReset();
+    mocks.getTransactionPage.mockReset();
     mocks.getCategories.mockReset().mockResolvedValue([]);
     mocks.createTransaction.mockReset();
   });
 
   it('shows a retryable error instead of reporting an empty transaction history', async () => {
-    mocks.getTransactions
+    mocks.getTransactionPage
       .mockRejectedValueOnce(new Error('falha de conexão'))
-      .mockResolvedValueOnce([]);
+      .mockResolvedValueOnce({ rows: [], total_count: 0, income_total: 0, expense_total: 0 });
     render(<Transactions />);
 
     expect((await screen.findByRole('alert')).textContent).toContain(
@@ -40,6 +43,6 @@ describe('Transactions list', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
 
     expect(await screen.findByText('Nenhuma movimentação no período.')).not.toBeNull();
-    expect(mocks.getTransactions).toHaveBeenCalledTimes(2);
+    expect(mocks.getTransactionPage).toHaveBeenCalledTimes(2);
   });
 });

@@ -9,12 +9,16 @@ import type { AccountPayable } from '../../types/finance.type';
 const mocks = vi.hoisted(() => ({
   createTransaction: vi.fn(), createPayable: vi.fn(), updatePayable: vi.fn(),
   bulkCreatePayables: vi.fn(), createRecurringPayableExpense: vi.fn(), settleAccount: vi.fn(), error: vi.fn(),
+  getTransactionPage: vi.fn(),
 }));
 vi.mock('@/pages/services/financeService', () => ({ financeService: {
   ...mocks,
-  getTransactions: async () => [],
+  getTransactionPage: mocks.getTransactionPage,
   getCategories: async () => [{ id: 'category-1', name: 'Expense category', type: 'expense' }],
 } }));
+vi.mock('@/context/AuthContext', () => ({
+  useAuth: () => ({ isAdmin: true, profile: { full_name: 'Operador' }, user: { email: 'operador@example.com' } }),
+}));
 vi.mock('@/components/CurrencyInput', () => ({ default: ({ value, onChangeValue }: {
   value: number; onChangeValue: (value: number) => void;
 }) => <input aria-label="Amount" value={value} onChange={(event) => onChangeValue(Number(event.target.value))} /> }));
@@ -25,6 +29,7 @@ beforeEach(() => {
   for (const mock of [mocks.createTransaction, mocks.createPayable, mocks.updatePayable, mocks.bulkCreatePayables, mocks.createRecurringPayableExpense, mocks.settleAccount]) {
     mock.mockResolvedValue({});
   }
+  mocks.getTransactionPage.mockResolvedValue({ rows: [], total_count: 0, income_total: 0, expense_total: 0 });
 });
 
 async function fillPayable(view: ReturnType<typeof render>) {
@@ -38,7 +43,7 @@ function renderPayable(payable?: AccountPayable) {
 }
 
 describe('financial form resolver submits', () => {
-  it('blocks invalid transaction and saves parsed values while allowing no category', async () => {
+  it('blocks invalid transaction and saves the app-compatible transaction fields', async () => {
     render(<Transactions />);
     fireEvent.click(screen.getByRole('button', { name: 'Novo Lançamento' }));
     fireEvent.click(screen.getByRole('button', { name: 'Registrar' }));
@@ -46,9 +51,12 @@ describe('financial form resolver submits', () => {
     expect(mocks.createTransaction).not.toHaveBeenCalled();
     fireEvent.change(screen.getByPlaceholderText('Descrição'), { target: { value: ' Manual transaction ' } });
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '12' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Forma de pagamento' }), { target: { value: 'PIX' } });
+    fireEvent.change(screen.getByDisplayValue('Selecione uma categoria'), { target: { value: 'category-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar' }));
     await waitFor(() => expect(mocks.createTransaction).toHaveBeenCalledWith(expect.objectContaining({
-      description: 'Manual transaction', amount: 12, category_id: '', type: 'expense',
+      description: 'Manual transaction', amount: 12, category_id: 'category-1',
+      category_name: 'Expense category', type: 'expense', payment_method: 'PIX', purpose: 'BUSINESS',
     })));
   });
   it('shows uncertain transaction feedback inside the open modal and disables replay', async () => {
@@ -57,6 +65,9 @@ describe('financial form resolver submits', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Novo Lançamento' }));
     fireEvent.change(screen.getByPlaceholderText('Descrição'), { target: { value: 'Test' } });
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '12' } });
+    await screen.findByRole('option', { name: 'Expense category' });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Forma de pagamento' }), { target: { value: 'PIX' } });
+    fireEvent.change(screen.getByDisplayValue('Selecione uma categoria'), { target: { value: 'category-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar' }));
     const dialog = within(screen.getByRole('dialog'));
     await waitFor(() => expect(dialog.getByRole('alert').textContent).toContain('Consulte a conta'));

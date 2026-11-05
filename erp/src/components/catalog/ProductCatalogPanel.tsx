@@ -29,6 +29,7 @@ import {
 import { ProductCatalogPreview, type ProductCatalogPreviewTab } from './ProductCatalogPreview';
 import { ProductCatalogCategorySidebar } from './ProductCatalogCategorySidebar';
 import { createProductCatalogSelectionActions } from './productCatalogSelection';
+import { getProductCatalogPresentation, type CatalogPresentation } from './productCatalogPresentationMode';
 import {
   itemKey,
   makeCatalogItem,
@@ -42,7 +43,6 @@ const PDF_LIMIT_WITH_IMAGES_NOTICE = 20;
 
 type BulkScope = NonNullable<ProductCatalogPrepareInput['bulkScope']>;
 type PreviewTab = ProductCatalogPreviewTab;
-type CatalogPresentation = 'fullscreen' | 'modal' | 'drawer';
 
 interface ProductCatalogPanelProps {
   isOpen: boolean;
@@ -105,18 +105,7 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
     const measurePresentation = () => {
       const viewportWidth = window.visualViewport?.width || window.innerWidth;
       const contentWidth = availableSpace?.getBoundingClientRect().width || viewportWidth;
-      if (viewportWidth < 768) {
-        setPresentation('fullscreen');
-        return;
-      }
-      if (viewportWidth >= 1440) {
-        const drawerWidth = viewportWidth >= 1920
-          ? Math.min(900, Math.max(800, viewportWidth * 0.44))
-          : Math.min(760, Math.max(680, viewportWidth * 0.46));
-        setPresentation(contentWidth >= drawerWidth + 360 ? 'drawer' : 'modal');
-        return;
-      }
-      setPresentation('modal');
+      setPresentation(getProductCatalogPresentation(viewportWidth, contentWidth));
     };
 
     measurePresentation();

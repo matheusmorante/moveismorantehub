@@ -7,6 +7,7 @@ export const PAYMENT_METHODS = [
   'Boleto',
   'Dinheiro',
   'TED',
+  'Não informado',
 ];
 export const VEHICLES = ['Strada', 'HR', 'Outro', 'Não informado'];
 

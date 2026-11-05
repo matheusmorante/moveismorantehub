@@ -111,6 +111,7 @@ export const createFinancialTransaction = async (
     type: payload.type,
     amount: payload.amount,
     date: payload.date || new Date().toISOString().split('T')[0],
+    transaction_time: payload.transaction_time || null,
     description: payload.description.trim(),
     payment_method: payload.payment_method || null,
     category_id: payload.category_id || null,
@@ -121,43 +122,24 @@ export const createFinancialTransaction = async (
     collaborator_name: payload.collaborator_name || null,
     purpose: payload.purpose || null,
     vehicle_id: payload.vehicle_id || null,
+    account_id: payload.account_id || 'Caixa Geral',
     due_date: payload.due_date || null,
     due_day: payload.due_day || null,
     is_recurring: payload.is_recurring || false,
     installments_total: payload.installments_total || null,
+    installment_number: payload.installment_number || null,
+    notes: payload.notes || null,
     idempotency_key: (payload as any).idempotency_key || null,
     origin: payload.origin || 'MANUAL',
     created_by: payload.created_by || 'Operador',
     status: payload.status || 'ACTIVE',
   };
 
-  let insertRes = await supabase
+  const insertRes = await supabase
     .from('financial_transactions')
     .insert([fullRecord])
     .select()
     .single();
-
-  if (insertRes.error && insertRes.error.message?.includes('column')) {
-    const basicRecord: any = {
-      type: fullRecord.type,
-      amount: fullRecord.amount,
-      date: fullRecord.date,
-      description: fullRecord.description,
-      payment_method: fullRecord.payment_method,
-      category_id: fullRecord.category_id,
-      notes:
-        fullRecord.notes || (fullRecord.category_name ? `[${fullRecord.category_name}]` : null),
-    };
-    if (fullRecord.idempotency_key) {
-      basicRecord.idempotency_key = fullRecord.idempotency_key;
-    }
-
-    insertRes = await supabase
-      .from('financial_transactions')
-      .insert([basicRecord])
-      .select()
-      .single();
-  }
 
   if (insertRes.error) {
     console.error('Erro ao salvar movimentação financeira:', insertRes.error);
@@ -176,12 +158,17 @@ export const createFinancialTransaction = async (
     category_id: data.category_id || null,
     category_name: data.category_name || 'Despesa',
     result_nature: data.result_nature || resultNature,
-    account_id: 'Caixa Geral',
+    account_id: data.account_id || 'Caixa Geral',
     counterparty: data.counterparty || null,
     collaborator_id: data.collaborator_id || null,
     collaborator_name: data.collaborator_name || null,
     purpose: data.purpose || 'BUSINESS',
     vehicle_id: data.vehicle_id || null,
+    due_date: data.due_date || null,
+    due_day: data.due_day || null,
+    is_recurring: data.is_recurring ?? false,
+    installments_total: data.installments_total || null,
+    installment_number: data.installment_number || null,
     notes: data.notes || null,
     origin: data.origin || 'MANUAL',
     created_by: data.created_by || null,
@@ -222,6 +209,17 @@ export const updateFinancialTransaction = async (
   if (payload.payment_method !== undefined) updatePayload.payment_method = payload.payment_method;
   if (payload.category_id !== undefined) updatePayload.category_id = payload.category_id || null;
   if (payload.notes !== undefined) updatePayload.notes = payload.notes || null;
+  if (payload.transaction_time !== undefined) updatePayload.transaction_time = payload.transaction_time || null;
+  if (payload.account_id !== undefined) updatePayload.account_id = payload.account_id || null;
+  if (payload.counterparty !== undefined) updatePayload.counterparty = payload.counterparty || null;
+  if (payload.due_date !== undefined) updatePayload.due_date = payload.due_date || null;
+  if (payload.due_day !== undefined) updatePayload.due_day = payload.due_day || null;
+  if (payload.is_recurring !== undefined) updatePayload.is_recurring = payload.is_recurring;
+  if (payload.installments_total !== undefined) updatePayload.installments_total = payload.installments_total || null;
+  if (payload.installment_number !== undefined) updatePayload.installment_number = payload.installment_number || null;
+  if (payload.origin !== undefined) updatePayload.origin = payload.origin;
+  if (payload.created_by !== undefined) updatePayload.created_by = payload.created_by || null;
+  if (payload.status !== undefined) updatePayload.status = payload.status;
 
   const fullUpdate = {
     ...updatePayload,
@@ -233,11 +231,7 @@ export const updateFinancialTransaction = async (
     collaborator_name: payload.collaborator_name || null,
   };
 
-  let updateRes = await supabase.from('financial_transactions').update(fullUpdate).eq('id', id);
-
-  if (updateRes.error && updateRes.error.message?.includes('column')) {
-    updateRes = await supabase.from('financial_transactions').update(updatePayload).eq('id', id);
-  }
+  const updateRes = await supabase.from('financial_transactions').update(fullUpdate).eq('id', id);
 
   return updateRes.error ? { success: false, error: updateRes.error.message } : { success: true };
 };

@@ -6,6 +6,7 @@ export interface FinancialCategory {
   type: 'income' | 'expense';
   active?: boolean;
   movement_type?: 'income' | 'expense';
+  parent_id?: string | null;
   result_nature?: ResultNature;
 }
 
