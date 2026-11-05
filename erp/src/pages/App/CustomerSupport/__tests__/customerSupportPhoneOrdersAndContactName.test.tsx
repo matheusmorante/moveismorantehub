@@ -123,7 +123,7 @@ describe('Central de Atendimento — Nome do WhatsApp e Pedidos por Telefone', (
     expect(screen.getByRole('button', { name: /Orçamentos/i })).toBeTruthy();
   });
 
-  it('CustomerOrderRecordsView carrega e exibe pedidos pelo telefone mesmo com isLinked=false e mostra customerName do snapshot', async () => {
+  it('CustomerOrderRecordsView carrega e exibe pedidos pelo telefone da conversa e mostra customerName do snapshot', async () => {
     const mockOrder: supportOrdersService.SupportOrderSummary = {
       id: 'ord-snapshot-999',
       orderNumber: 'PED-7788',
@@ -150,21 +150,19 @@ describe('Central de Atendimento — Nome do WhatsApp e Pedidos por Telefone', (
         <CustomerOrderRecordsView
           contactPhone="5511999998888"
           orderGroup="sales"
-          isLinked={false}
           canViewCommercial={true}
-          selectedRecord={null}
-          onSelectRecord={vi.fn()}
+          onOpenRecord={vi.fn()}
         />
       </MemoryRouter>
     );
 
-    // Confirma que chamou a consulta pelo telefone do contato mesmo com isLinked=false
+    // Confirma que a consulta usa o telefone da conversa
     await waitFor(() => {
       expect(spyGetRecords).toHaveBeenCalledWith(
         expect.anything(),
         '5511999998888',
         'sales',
-        expect.objectContaining({ page: 1, pageSize: 15 })
+        expect.objectContaining({ page: 1, pageSize: 5 })
       );
     });
 

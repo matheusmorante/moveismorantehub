@@ -1234,27 +1234,6 @@ function buildProportionalReturnTaxesXml(originalTaxesXml, quantity, originalQua
   return normalizeReviewedFiscalBlock(new import_xmldom2.XMLSerializer().serializeToString(taxes), "imposto");
 }
 
-// erp/src/pages/utils/nfe/sefazResponseParser.ts
-function firstTag(xml, tag) {
-  const qualifiedTag = `(?:[\\w.-]+:)?${tag}`;
-  return xml.match(new RegExp(`<${qualifiedTag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${qualifiedTag}>`, "i"))?.[1]?.trim() || "";
-}
-function decodeXmlText(value) {
-  return value.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
-}
-function parseSefazAuthorization(xml) {
-  const protocolXml = xml.match(/<(?:[\w.-]+:)?protNFe\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?protNFe>/i)?.[1] || "";
-  const batchStatus = firstTag(xml, "cStat");
-  const protocolStatus = protocolXml ? firstTag(protocolXml, "cStat") : "";
-  const cStat = protocolStatus || batchStatus;
-  const xMotivo = decodeXmlText(firstTag(protocolXml || xml, "xMotivo"));
-  const protocolNumber = firstTag(protocolXml, "nProt") || void 0;
-  const protocolDate = firstTag(protocolXml, "dhRecbto") || void 0;
-  const authorized = cStat === "100" && Boolean(protocolNumber);
-  const pending = !protocolXml && ["103", "104", "105"].includes(batchStatus);
-  return { authorized, pending, cStat, xMotivo, protocolNumber, protocolDate };
-}
-
 // erp/src/pages/utils/nfe/fiscalAuthorization.ts
 var FISCAL_OPERATOR_ROLES = ["manager", "administrator"];
 var fiscalOperatorRoles = new Set(FISCAL_OPERATOR_ROLES);
@@ -1305,6 +1284,27 @@ function isAutomaticReturnWorkerAuthorized(header, expectedSecret = process.env.
   const supplied = Buffer.from(suppliedSecret);
   const expected = Buffer.from(expectedSecret);
   return supplied.length === expected.length && (0, import_node_crypto.timingSafeEqual)(supplied, expected);
+}
+
+// erp/src/pages/utils/nfe/sefazResponseParser.ts
+function firstTag(xml, tag) {
+  const qualifiedTag = `(?:[\\w.-]+:)?${tag}`;
+  return xml.match(new RegExp(`<${qualifiedTag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${qualifiedTag}>`, "i"))?.[1]?.trim() || "";
+}
+function decodeXmlText(value) {
+  return value.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+}
+function parseSefazAuthorization(xml) {
+  const protocolXml = xml.match(/<(?:[\w.-]+:)?protNFe\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?protNFe>/i)?.[1] || "";
+  const batchStatus = firstTag(xml, "cStat");
+  const protocolStatus = protocolXml ? firstTag(protocolXml, "cStat") : "";
+  const cStat = protocolStatus || batchStatus;
+  const xMotivo = decodeXmlText(firstTag(protocolXml || xml, "xMotivo"));
+  const protocolNumber = firstTag(protocolXml, "nProt") || void 0;
+  const protocolDate = firstTag(protocolXml, "dhRecbto") || void 0;
+  const authorized = cStat === "100" && Boolean(protocolNumber);
+  const pending = !protocolXml && ["103", "104", "105"].includes(batchStatus);
+  return { authorized, pending, cStat, xMotivo, protocolNumber, protocolDate };
 }
 
 // api/nfe/returnFiscalRules.ts
@@ -1546,14 +1546,135 @@ function validateEstornoDraftReviewItems(params) {
   return null;
 }
 
-// api/nfe/operation-drafts.ts
-var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
-var serviceKey = getSupabaseSecretKey() || "";
-var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// api/nfe/operation-draft/readOperationDraft.ts
 function extractFiscalBlock(xml, name) {
   const prefix = "(?:[\\w.-]+:)?";
   return xml.match(new RegExp(`<${prefix}${name}\\b[^>]*>[\\s\\S]*?<\\/${prefix}${name}>`, "i"))?.[0] || "";
 }
+async function readFiscalOperationDraft(db, draftId, automaticReturnWorker, res) {
+  const { data: draft, error: draftError } = await db.from("nfe_operation_drafts").select(
+    "id,operation_kind,finalidade,original_document_id,original_access_key,return_order_id,environment,status,reason,nature_of_operation,review_data,generated_xml,signed_xml,sefaz_response_xml,protocol_number,access_key,document_id,created_at,updated_at"
+  ).eq("id", draftId).maybeSingle();
+  if (draftError) throw draftError;
+  if (!draft) return res.status(404).json({ error: "Rascunho fiscal n\xE3o encontrado." });
+  if (automaticReturnWorker && draft.operation_kind !== "return") {
+    return res.status(403).json({ error: "O worker s\xF3 pode consultar rascunhos de devolu\xE7\xE3o." });
+  }
+  const { data: lines, error: linesError } = await db.from("nfe_operation_draft_lines").select(
+    "id,original_document_item_id,fiscal_item_number,quantity,gross_value,discount_value,reviewed_cfop,reviewed_product_xml,reviewed_taxes_xml"
+  ).eq("draft_id", draftId).order("fiscal_item_number");
+  if (linesError) throw linesError;
+  if (!lines?.length)
+    return res.status(409).json({ error: "Rascunho fiscal sem itens de origem." });
+  const sourceIds = lines.map((line) => line.original_document_item_id);
+  const [sourceResult, settingsResult, sourceDocumentResult] = await Promise.all([
+    db.from("nfe_document_items").select(
+      "id,document_id,item_number,product_code,description,billed_quantity,unit_value,gross_value,discount_value,product_xml,taxes_xml"
+    ).in("id", sourceIds),
+    db.from("settings").select("data").eq("id", "app").maybeSingle(),
+    db.from("nfe_documents").select("id,order_id,document_type,status,ambiente,modelo,chave_acesso,numero_nfe,serie,numero_protocolo,xml_protocolo,xml_nfe").eq("id", draft.original_document_id).maybeSingle()
+  ]);
+  if (sourceResult.error || settingsResult.error || sourceDocumentResult.error || !sourceDocumentResult.data) {
+    throw sourceResult.error || settingsResult.error || sourceDocumentResult.error || new Error("Documento fiscal original ausente.");
+  }
+  const originalById = new Map((sourceResult.data || []).map((item) => [item.id, item]));
+  const fiscalSettings = settingsResult.data?.data?.fiscalDefaults;
+  const reviewedLines = lines.map((line) => {
+    const original = originalById.get(line.original_document_item_id);
+    if (!original || original.document_id !== draft.original_document_id) {
+      throw new Error("Linha fiscal de origem inconsistente no rascunho.");
+    }
+    const originalCfop = originalItemCfop(original.product_xml);
+    const allowedReturnCfops = draft.operation_kind === "return" ? getReturnCfopOptionsForSourceItem(originalCfop || "", original.taxes_xml) : [];
+    const allowedEstornoCfops = draft.operation_kind === "estorno" ? getEstornoCfopOptions(originalCfop, fiscalSettings) : [];
+    return {
+      ...line,
+      originalItemNumber: original.item_number,
+      originalDescription: original.description,
+      originalProductCode: original.product_code,
+      originalQuantity: original.billed_quantity,
+      originalUnitValue: original.unit_value,
+      originalGrossValue: original.gross_value,
+      originalDiscountValue: original.discount_value,
+      originalProductXml: original.product_xml,
+      originalTaxesXml: original.taxes_xml,
+      originalCfop,
+      allowedCfops: draft.operation_kind === "estorno" ? allowedEstornoCfops : allowedReturnCfops.map(({ value, label }) => ({ value, label })),
+      suggestedCfop: draft.operation_kind === "estorno" ? suggestEstornoCfop(originalCfop, fiscalSettings) : suggestReturnCfopForSourceItem(
+        originalCfop || "",
+        original.taxes_xml,
+        fiscalSettings?.returnCfop
+      )
+    };
+  });
+  const originalXml = String(sourceDocumentResult.data.xml_nfe || "");
+  let fiscalReturnContext = null;
+  if (draft.operation_kind === "return" && draft.return_order_id) {
+    const sourceContext = await loadReturnFiscalSourceContext(
+      db,
+      draft.original_document_id,
+      draft.return_order_id,
+      Number(draft.environment),
+      { allowConsumedAllocations: draft.status === "authorized" }
+    );
+    if ("error" in sourceContext)
+      return res.status(409).json({ error: sourceContext.error });
+    fiscalReturnContext = sourceContext.context;
+  }
+  const returnFormRules = fiscalReturnContext ? getFiscalFormRules("return", fiscalReturnContext.operationContext) : null;
+  const returnXmlDefaults = returnFormRules ? getFiscalFormXmlDefaults(returnFormRules) : null;
+  if (draft.operation_kind === "return" && !returnXmlDefaults) {
+    return res.status(409).json({
+      error: returnFormRules?.blockReason || "UNSUPPORTED_BY_ERP: contexto fiscal da devolu\xE7\xE3o incompleto."
+    });
+  }
+  if (draft.operation_kind === "return" && (!fiscalReturnContext || !returnXmlDefaults)) {
+    return res.status(409).json({
+      error: "O cen\xE1rio da devolu\xE7\xE3o n\xE3o possui op\xE7\xF5es fiscais aprovadas para revis\xE3o."
+    });
+  }
+  const lastSefazResult = draft.sefaz_response_xml ? parseSefazAuthorization(String(draft.sefaz_response_xml)) : null;
+  return res.status(200).json({
+    success: true,
+    draft,
+    lastSefazResult: lastSefazResult ? { cStat: lastSefazResult.cStat, xMotivo: lastSefazResult.xMotivo } : null,
+    source: {
+      id: sourceDocumentResult.data.id,
+      order_id: sourceDocumentResult.data.order_id,
+      modelo: sourceDocumentResult.data.modelo,
+      ambiente: sourceDocumentResult.data.ambiente,
+      chave_acesso: sourceDocumentResult.data.chave_acesso,
+      numero_nfe: sourceDocumentResult.data.numero_nfe,
+      serie: sourceDocumentResult.data.serie
+    },
+    returnOrder: fiscalReturnContext ? {
+      id: fiscalReturnContext.returnOrder.id,
+      orderIndex: fiscalReturnContext.returnOrder.order_index,
+      returnMethod: fiscalReturnContext.returnOrder.returnMethod,
+      operationContext: {
+        issuerUf: fiscalReturnContext.operationContext.issuerUf,
+        recipientUf: fiscalReturnContext.operationContext.recipientUf,
+        scope: fiscalReturnContext.operationContext.scope,
+        returnMethod: fiscalReturnContext.operationContext.returnMethod,
+        recipientFiscalStatus: fiscalReturnContext.operationContext.recipientFiscalStatus,
+        isFinalConsumer: fiscalReturnContext.operationContext.isFinalConsumer,
+        taxRegime: fiscalReturnContext.operationContext.taxRegime
+      }
+    } : null,
+    lines: reviewedLines,
+    reviewTemplate: {
+      recipient_xml: extractFiscalBlock(originalXml, "dest"),
+      totals_xml: extractFiscalBlock(originalXml, "total"),
+      transport_xml: returnXmlDefaults?.transportXml || (draft.operation_kind === "return" ? "" : "<transp><modFrete>9</modFrete></transp>"),
+      payment_xml: returnXmlDefaults?.paymentXml || (draft.operation_kind === "return" ? "" : "<pag><detPag><tPag>90</tPag><vPag>0.00</vPag></detPag></pag>")
+    }
+  });
+}
+
+// api/nfe/operation-drafts.ts
+var supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://hkoxhourxwlddgsfdgws.supabase.co";
+var serviceKey = getSupabaseSecretKey() || "";
+var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "OPTIONS,GET,POST,PUT");
@@ -1574,123 +1695,7 @@ async function handler(req, res) {
     if (req.method === "GET") {
       const draftId2 = String(req.query.id || "");
       if (!uuid.test(draftId2)) return res.status(400).json({ error: "Rascunho fiscal inv\xE1lido." });
-      const { data: draft, error: draftError } = await db.from("nfe_operation_drafts").select(
-        "id,operation_kind,finalidade,original_document_id,original_access_key,return_order_id,environment,status,reason,nature_of_operation,review_data,generated_xml,signed_xml,sefaz_response_xml,protocol_number,access_key,document_id,created_at,updated_at"
-      ).eq("id", draftId2).maybeSingle();
-      if (draftError) throw draftError;
-      if (!draft) return res.status(404).json({ error: "Rascunho fiscal n\xE3o encontrado." });
-      if (automaticReturnWorker && draft.operation_kind !== "return") {
-        return res.status(403).json({ error: "O worker s\xF3 pode consultar rascunhos de devolu\xE7\xE3o." });
-      }
-      const { data: lines, error: linesError } = await db.from("nfe_operation_draft_lines").select(
-        "id,original_document_item_id,fiscal_item_number,quantity,gross_value,discount_value,reviewed_cfop,reviewed_product_xml,reviewed_taxes_xml"
-      ).eq("draft_id", draftId2).order("fiscal_item_number");
-      if (linesError) throw linesError;
-      if (!lines?.length)
-        return res.status(409).json({ error: "Rascunho fiscal sem itens de origem." });
-      const sourceIds = lines.map((line) => line.original_document_item_id);
-      const [sourceResult, settingsResult, sourceDocumentResult] = await Promise.all([
-        db.from("nfe_document_items").select(
-          "id,document_id,item_number,product_code,description,billed_quantity,unit_value,gross_value,discount_value,product_xml,taxes_xml"
-        ).in("id", sourceIds),
-        db.from("settings").select("data").eq("id", "app").maybeSingle(),
-        db.from("nfe_documents").select("id,order_id,document_type,status,ambiente,modelo,chave_acesso,numero_nfe,serie,numero_protocolo,xml_protocolo,xml_nfe").eq("id", draft.original_document_id).maybeSingle()
-      ]);
-      if (sourceResult.error || settingsResult.error || sourceDocumentResult.error || !sourceDocumentResult.data) {
-        throw sourceResult.error || settingsResult.error || sourceDocumentResult.error || new Error("Documento fiscal original ausente.");
-      }
-      const originalById = new Map((sourceResult.data || []).map((item) => [item.id, item]));
-      const fiscalSettings = settingsResult.data?.data?.fiscalDefaults;
-      const reviewedLines = lines.map((line) => {
-        const original = originalById.get(line.original_document_item_id);
-        if (!original || original.document_id !== draft.original_document_id) {
-          throw new Error("Linha fiscal de origem inconsistente no rascunho.");
-        }
-        const originalCfop = originalItemCfop(original.product_xml);
-        const allowedReturnCfops = draft.operation_kind === "return" ? getReturnCfopOptionsForSourceItem(originalCfop || "", original.taxes_xml) : [];
-        const allowedEstornoCfops = draft.operation_kind === "estorno" ? getEstornoCfopOptions(originalCfop, fiscalSettings) : [];
-        return {
-          ...line,
-          originalItemNumber: original.item_number,
-          originalDescription: original.description,
-          originalProductCode: original.product_code,
-          originalQuantity: original.billed_quantity,
-          originalUnitValue: original.unit_value,
-          originalGrossValue: original.gross_value,
-          originalDiscountValue: original.discount_value,
-          originalProductXml: original.product_xml,
-          originalTaxesXml: original.taxes_xml,
-          originalCfop,
-          allowedCfops: draft.operation_kind === "estorno" ? allowedEstornoCfops : allowedReturnCfops.map(({ value, label }) => ({ value, label })),
-          suggestedCfop: draft.operation_kind === "estorno" ? suggestEstornoCfop(originalCfop, fiscalSettings) : suggestReturnCfopForSourceItem(
-            originalCfop || "",
-            original.taxes_xml,
-            fiscalSettings?.returnCfop
-          )
-        };
-      });
-      const originalXml = String(sourceDocumentResult.data.xml_nfe || "");
-      let fiscalReturnContext = null;
-      if (draft.operation_kind === "return" && draft.return_order_id) {
-        const sourceContext = await loadReturnFiscalSourceContext(
-          db,
-          draft.original_document_id,
-          draft.return_order_id,
-          Number(draft.environment),
-          { allowConsumedAllocations: draft.status === "authorized" }
-        );
-        if ("error" in sourceContext)
-          return res.status(409).json({ error: sourceContext.error });
-        fiscalReturnContext = sourceContext.context;
-      }
-      const returnFormRules = fiscalReturnContext ? getFiscalFormRules("return", fiscalReturnContext.operationContext) : null;
-      const returnXmlDefaults = returnFormRules ? getFiscalFormXmlDefaults(returnFormRules) : null;
-      if (draft.operation_kind === "return" && !returnXmlDefaults) {
-        return res.status(409).json({
-          error: returnFormRules?.blockReason || "UNSUPPORTED_BY_ERP: contexto fiscal da devolu\xE7\xE3o incompleto."
-        });
-      }
-      if (draft.operation_kind === "return" && (!fiscalReturnContext || !returnXmlDefaults)) {
-        return res.status(409).json({
-          error: "O cen\xE1rio da devolu\xE7\xE3o n\xE3o possui op\xE7\xF5es fiscais aprovadas para revis\xE3o."
-        });
-      }
-      const lastSefazResult = draft.sefaz_response_xml ? parseSefazAuthorization(String(draft.sefaz_response_xml)) : null;
-      return res.status(200).json({
-        success: true,
-        draft,
-        lastSefazResult: lastSefazResult ? { cStat: lastSefazResult.cStat, xMotivo: lastSefazResult.xMotivo } : null,
-        source: {
-          id: sourceDocumentResult.data.id,
-          order_id: sourceDocumentResult.data.order_id,
-          modelo: sourceDocumentResult.data.modelo,
-          ambiente: sourceDocumentResult.data.ambiente,
-          chave_acesso: sourceDocumentResult.data.chave_acesso,
-          numero_nfe: sourceDocumentResult.data.numero_nfe,
-          serie: sourceDocumentResult.data.serie
-        },
-        returnOrder: fiscalReturnContext ? {
-          id: fiscalReturnContext.returnOrder.id,
-          orderIndex: fiscalReturnContext.returnOrder.order_index,
-          returnMethod: fiscalReturnContext.returnOrder.returnMethod,
-          operationContext: {
-            issuerUf: fiscalReturnContext.operationContext.issuerUf,
-            recipientUf: fiscalReturnContext.operationContext.recipientUf,
-            scope: fiscalReturnContext.operationContext.scope,
-            returnMethod: fiscalReturnContext.operationContext.returnMethod,
-            recipientFiscalStatus: fiscalReturnContext.operationContext.recipientFiscalStatus,
-            isFinalConsumer: fiscalReturnContext.operationContext.isFinalConsumer,
-            taxRegime: fiscalReturnContext.operationContext.taxRegime
-          }
-        } : null,
-        lines: reviewedLines,
-        reviewTemplate: {
-          recipient_xml: extractFiscalBlock(originalXml, "dest"),
-          totals_xml: extractFiscalBlock(originalXml, "total"),
-          transport_xml: returnXmlDefaults?.transportXml || (draft.operation_kind === "return" ? "" : "<transp><modFrete>9</modFrete></transp>"),
-          payment_xml: returnXmlDefaults?.paymentXml || (draft.operation_kind === "return" ? "" : "<pag><detPag><tPag>90</tPag><vPag>0.00</vPag></detPag></pag>")
-        }
-      });
+      return await readFiscalOperationDraft(db, draftId2, automaticReturnWorker, res);
     }
     if (req.method === "PUT") {
       const draftId2 = String(req.body?.draftId || "");

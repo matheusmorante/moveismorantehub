@@ -5,8 +5,8 @@ import { splitNoticeTags } from './noticeTags';
 import { mapOrderFromDatabase } from './orderMapper';
 import { excludeTestOrders } from '../../../../shared-utils/testArtifactQueries';
 import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
-import { buildPostgrestAccentInsensitivePattern, buildAccentInsensitiveWordsRegex } from '../../../../shared-utils/searchText';
-import { normalizeSearchTerm } from './textUtils';
+import { fetchServerOrderPage } from '../../../../shared-utils/orderListServerQuery';
+import { fetchOrdersPage } from './orderSyncQueries/orderListQueries';
 
 const TABLE_NAME = 'orders';
 
@@ -93,7 +93,7 @@ export const getOrdersByProductId = async (
       .from(TABLE_NAME)
       .select(`
                 id, order_number, order_index, status, order_type,
-                customer_id, customer_name, customer_phone, customer_email,
+                customer_id, customer_name,
                 seller_id, seller_name, total_amount, items_subtotal,
                 total_discount, total_cost, payment_method, channel, notes,
                 scheduled_date, scheduled_start_time, scheduled_end_time,
@@ -131,92 +131,52 @@ export const getOrdersByProductId = async (
   return ordersData?.map((row: any) => mapOrderFromDatabase(row)) || [];
 };
 
-/**
- * Busca todos os pedidos de um cliente específico (consultando customer_name e customer_id normalizados)
- */
+/** Consulta o histórico de um cliente com critérios e totais calculados no servidor. */
+export const getOrdersByCustomerInfoPage = async (
+  fullName: string,
+  phone?: string,
+  email?: string,
+  options: { page?: number; pageSize?: number; signal?: AbortSignal; partialName?: boolean } = {},
+): Promise<{ orders: Order[]; total: number; totalAmount: number }> => {
+  const name = String(fullName || '').trim();
+  const customerPhone = String(phone || '').trim();
+  const customerEmail = String(email || '').trim();
+  if (!name && !customerPhone && !customerEmail) {
+    return { orders: [], total: 0, totalAmount: 0 };
+  }
+
+  const common = {
+    includeAllTypes: true,
+    showTestOrders: true,
+    multiSort: [{ key: 'createdAt', order: 'desc' }],
+  };
+  const page = options.page || 1;
+  const pageSize = options.pageSize || 15;
+  const requestOptions = { throwOnError: true, signal: options.signal };
+  if (options.partialName) {
+    return fetchOrdersPage(page, pageSize, { ...common, customerName: name }, requestOptions);
+  }
+
+  const contact = { customerExactName: name, customerPhone, customerEmail };
+  if (name) {
+    const strict = await fetchOrdersPage(page, pageSize, {
+      ...common, ...contact, customerContactMode: 'strict',
+    }, requestOptions);
+    if (strict.total > 0) return strict;
+  }
+  return fetchOrdersPage(page, pageSize, {
+    ...common, ...contact, customerContactMode: 'any',
+  }, requestOptions);
+};
+
+/** Fachada legada: mantém a leitura dos primeiros registros do cliente. */
 export const getOrdersByCustomerInfo = async (
   fullName: string,
   phone?: string,
-  email?: string
+  email?: string,
 ): Promise<Order[]> => {
   try {
-    // Sem um nome normalizado, a consulta anterior buscava todos os pedidos
-    // para filtrar telefone/e-mail no navegador. Nesses casos, use apenas
-    // os filtros legados abaixo, que são executados no banco.
-    if (fullName.trim()) {
-      const { data, error } = await supabase
-        .from(TABLE_NAME)
-        .select(`
-          id, order_number, order_index, status, order_type,
-          customer_id, customer_name, customer_phone, customer_email,
-          seller_id, seller_name, total_amount, payment_method, channel,
-          notes, scheduled_date, scheduled_start_time, scheduled_end_time,
-          delivery_method, delivery_status, items_subtotal, total_discount,
-          total_cost, stock_processed, is_stock_checked, deleted, deleted_at,
-          created_at, updated_at, order_data
-        `)
-        .filter('customer_name', 'imatch', buildPostgrestAccentInsensitivePattern(fullName.trim()))
-        .order('created_at', { ascending: false })
-        .limit(30);
-
-      if (!error && data && data.length > 0) {
-        const filtered = data
-          .filter((r: any) => !r.deleted)
-          .map((row: any) => mapOrderFromDatabase(row))
-          .filter((o) => {
-            const matchName = Boolean(o.customerData?.fullName) &&
-              normalizeSearchTerm(o.customerData?.fullName || '') === normalizeSearchTerm(fullName);
-            const matchPhone = !phone || o.customerData?.phone === phone;
-            const matchEmail = !email || o.customerData?.email === email;
-            return matchName && matchPhone && matchEmail;
-          });
-
-        if (filtered.length > 0) return filtered;
-      }
-    }
-
-    // Fallback de compatibilidade se busca relacional não retornar resultados
-    const queryPromises: any[] = [];
-    const baseQuery = () =>
-      supabase
-        .from(TABLE_NAME)
-        .select('id, created_at, order_data, status, deleted')
-        .order('created_at', { ascending: false })
-        .limit(30);
-
-    if (fullName) {
-      queryPromises.push(baseQuery().contains('order_data', { customerData: { fullName } }));
-    }
-    if (phone && phone.trim() !== '') {
-      queryPromises.push(baseQuery().contains('order_data', { customerData: { phone } }));
-    }
-    if (email && email.trim() !== '') {
-      queryPromises.push(baseQuery().contains('order_data', { customerData: { email } }));
-    }
-
-    if (queryPromises.length === 0) return [];
-    const results = await Promise.all(queryPromises);
-    const uniqueOrders = new Map<string, Order>();
-
-    results.forEach((res) => {
-      if (res.data) {
-        res.data.forEach((row: any) => {
-          const mapped = mapOrderFromDatabase(row);
-          if (!mapped.deleted && !uniqueOrders.has(mapped.id!)) {
-            uniqueOrders.set(mapped.id!, mapped);
-          }
-        });
-      }
-    });
-
-    const finalOrders = Array.from(uniqueOrders.values()).filter(
-      (o) =>
-        o.customerData?.fullName?.toLowerCase() === fullName.toLowerCase() ||
-        (phone && o.customerData?.phone === phone) ||
-        (email && o.customerData?.email === email)
-    );
-
-    return finalOrders.sort((a, b) => Number(b.id) - Number(a.id));
+    return (await getOrdersByCustomerInfoPage(fullName, phone, email)).orders;
   } catch (error) {
     console.error('Erro ao buscar pedidos por cliente:', error);
     return [];
@@ -231,52 +191,21 @@ export const getOrdersCustomerDataOnly = async (options?: {
   searchTerm?: string;
 }): Promise<{ id: string; date: string; customerData: any; deleted: boolean }[]> => {
   try {
-    const limit = options?.limit ?? 50;
-    let query = supabase
-      .from(TABLE_NAME)
-      .select('id, created_at, customer_id, customer_name, deleted')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (options?.searchTerm?.trim()) {
-      query = query.filter('customer_name', 'imatch', buildAccentInsensitiveWordsRegex(options.searchTerm.trim()));
-    }
-
-    const { data: normalizedRows, error } = await query;
-
+    const selected = await fetchServerOrderPage(supabase, {
+      filters: { includeAllTypes: true, customerName: options?.searchTerm || '', multiSort: [{ key: 'createdAt', order: 'desc' }] },
+      page: 1, pageSize: Math.min(options?.limit || 15, 15), mode: 'erp',
+    });
+    if (!selected.ids.length) return [];
+    const { data, error } = await withAbortTimeout(supabase.from(TABLE_NAME)
+      .select('id,created_at,customer_id,customer_name,deleted,legacy_customer:order_data->customerData')
+      .in('id', selected.ids), 'pedidos:clientes-do-resultado', 15_000);
     if (error) throw error;
-
-    // Mantém a compatibilidade com pedidos realmente legados, sem baixar
-    // snapshots de todos os pedidos que já possuem cliente normalizado.
-    let legacyQuery = supabase
-      .from(TABLE_NAME)
-      .select('id, created_at, customer_id, customer_name, deleted, order_data')
-      .is('customer_name', null)
-      .order('created_at', { ascending: false })
-      .limit(Math.min(limit, 20));
-
-    const { data: legacyRows, error: legacyError } = await legacyQuery;
-
-    if (legacyError) throw legacyError;
-
-    const rows = [
-      ...(normalizedRows || []).filter((row: any) => row.customer_name != null),
-      ...(legacyRows || []),
-    ];
-
-    return rows.map((row: any) => {
-      const rawLegacy = row.order_data || {};
-      const customerData = {
-        ...(rawLegacy.customerData || {}),
-        id: row.customer_id || rawLegacy.customerData?.id || '',
-        fullName: row.customer_name || rawLegacy.customerData?.fullName || '',
-      };
-      return {
-        id: String(row.id),
-        date: row.created_at || rawLegacy.date || '',
-        customerData,
-        deleted: row.deleted != null ? Boolean(row.deleted) : Boolean(rawLegacy.deleted),
-      };
+    const byId = new Map((data || []).map((row: any) => [String(row.id), row]));
+    return selected.ids.flatMap((id) => {
+      const row: any = byId.get(id);
+      return row ? [{ id, date: row.created_at || '', deleted: Boolean(row.deleted),
+        customerData: { ...row.legacy_customer, id: row.customer_id || row.legacy_customer?.id || '',
+          fullName: row.customer_name || row.legacy_customer?.fullName || '' } }] : [];
     });
   } catch (e) {
     console.error('Erro ao buscar dados enxutos de clientes nos pedidos:', e);
@@ -286,7 +215,7 @@ export const getOrdersCustomerDataOnly = async (options?: {
 
 export const fetchOrderById = async (id: string): Promise<Order | null> => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await withAbortTimeout(supabase
       .from(TABLE_NAME)
       .select(`
                 id, order_number, order_index, status, order_type,
@@ -298,19 +227,21 @@ export const fetchOrderById = async (id: string): Promise<Order | null> => {
                 delivery_started_at, delivery_finished_at, marketing_origin,
                 stock_processed, is_stock_checked,
                 deleted, deleted_at, return_order_id, linked_order_id,
+                returned_total_amount, original_sold_total, return_kind, version,
                 created_at, updated_at, items, order_data,
                 order_items (
                     id, order_id, item_index, product_id, variation_id,
                     code, description, quantity, unit_price, unit_discount,
                     discount_type, cost_price, condition, handling_type,
-                    observation, is_temporary_product, item_snapshot
+                    observation, is_temporary_product, item_snapshot,
+                    returned_quantity, returned_unit_price, returned_total_value, original_unit_price, original_total_value
                 ),
                 order_payments (
                     payment_index, payment_method, amount, fee, fee_type, status, installments, paid_at
                 )
             `)
       .eq('id', id)
-      .single();
+      .single(), 'pedidos:detalhe-completo', 15_000);
     if (error || !data) return null;
     return mapOrderFromDatabase(data);
   } catch (e) {

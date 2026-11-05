@@ -32,6 +32,7 @@ import {
 import { sortSalesReportResults } from '../utils/sortSalesReportResults';
 import SupplierPerformanceView from './SupplierPerformanceView';
 import { REPORT_QUADRANTS } from './reportQuadrantPresentation';
+import { deriveReportAbcChartData, deriveReportScatterData } from './reportChartData';
 import { deriveSalvadosBenchmark, deriveSupplierAverages } from './reportSupplierMetrics';
 
 const ReportView = () => {
@@ -335,36 +336,14 @@ const ReportView = () => {
   }, [allProducts]);
 
   const scatterData = useMemo(
-    () =>
-      results.map((r) => ({
-        x: r.monthlyTurnover || r.totalQuantity / (monthCount || 1),
-        y: r.monthlyProfit,
-        name: r.product,
-        quadrant: r.quadrant,
-      })),
+    () => deriveReportScatterData(results, monthCount),
     [results, monthCount]
   );
 
-  const chartData = useMemo(() => {
-    let accValor = 0;
-    const totalItems = results.length;
-    const divider = monthCount || 1;
-
-    return results.map((i_item, i) => {
-      const val = abcBasis === 'revenue' ? i_item.totalRevenue / divider : i_item.monthlyProfit;
-      accValor += val;
-
-      return {
-        name: i_item.product.substring(0, 20),
-        valor: val,
-        lucroAcumulado: accValor,
-        numeroItens: i + 1,
-        percItens: ((i + 1) / (totalItems || 1)) * 100,
-        perc: i_item.accumulatedPercentage,
-        class: i_item.classification,
-      };
-    });
-  }, [results, abcBasis, monthCount]);
+  const chartData = useMemo(
+    () => deriveReportAbcChartData(results, abcBasis, monthCount),
+    [results, abcBasis, monthCount]
+  );
 
   // Métricas dinâmicas para o refinamento (respeitando fornecedores selecionados)
   const refinementMetrics = useMemo(() => {

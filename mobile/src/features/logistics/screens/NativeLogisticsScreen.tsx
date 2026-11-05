@@ -39,7 +39,7 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
   onSelectOrder,
   title,
 }) => {
-  const { orders, loading, refreshing, handlingOptions, onRefresh } = useLogisticsScheduleData();
+  const { orders, loading, refreshing, handlingOptions, showingOffline, error, onRefresh } = useLogisticsScheduleData();
   const selectedPeriod = 'today_and_following';
   const todayStr = getLocalDateString(new Date());
   const [showTodayMap, setShowTodayMap] = useState<boolean>(false);
@@ -209,6 +209,8 @@ export const NativeLogisticsScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
+      {showingOffline ? <Text style={styles.loadingText}>Sem conexão. Exibindo os pedidos salvos neste aparelho.</Text> : null}
+      {error ? <Text accessibilityRole="alert" style={styles.loadingText}>{error}</Text> : null}
       {loading && !refreshing ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#2563eb" />

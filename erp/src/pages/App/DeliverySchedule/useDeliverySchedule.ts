@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Order from '../../types/order.type';
 import {
   subscribeToOrderChanges,
@@ -13,6 +13,8 @@ import {
   normalizeScheduleStatus,
 } from '@/pages/utils/operationalSchedule';
 import { resolveEffectiveSchedule } from '../../../../../shared-utils/commercialOrderRules';
+import { schedulePeriodFilters } from '../../../../../shared-utils/schedulePeriodFilters';
+import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
 
 export type ScheduleFilter = 'custom' | 'default' | 'week' | 'month' | 'year' | 'all';
 export type OrderTypeFilter = 'delivery' | 'pickup' | 'assistance' | 'assembly';
@@ -260,6 +262,9 @@ export const useDeliverySchedule = () => {
   const [scheduleType, setScheduleType] = useState<ScheduleType>('delivery');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [settings, setSettings] = useState(getSettings());
+  const queryFilters = useMemo(() => ({
+    ...schedulePeriodFilters(filter, new Date(), { start: startDate, end: endDate }), types: typeFilter,
+  }), [filter, startDate, endDate, typeFilter]);
 
   // Subscribe to settings for real-time reactivity (important for public/anon users)
   useEffect(() => {
@@ -272,11 +277,14 @@ export const useDeliverySchedule = () => {
   useEffect(() => {
     let isMounted = true;
     let latestLoadSequence = 0;
+    let controller: AbortController | undefined;
 
     const loadOrders = async (silent = false) => {
       const sequence = ++latestLoadSequence;
+      controller?.abort();
+      controller = new AbortController();
       if (!silent) setLoading(true);
-      const orders = await fetchScheduledAndDraftOrders();
+      const orders = await fetchScheduledAndDraftOrders({ filters: queryFilters, signal: controller.signal });
       if (!isMounted || sequence !== latestLoadSequence) return;
       setAllOrders(orders);
       setLoading(false);
@@ -291,15 +299,26 @@ export const useDeliverySchedule = () => {
     return () => {
       isMounted = false;
       latestLoadSequence += 1;
+      controller?.abort();
       unsubscribe();
     };
-  }, []);
+  }, [queryFilters, settings]);
 
   // Fetch Showroom Assemblies
   useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
     const fetchShowroom = async () => {
-      const { data } = await supabase.from('showroom_assemblies').select('*');
-      if (data) setShowroomAssemblies(data);
+      if (!typeFilter.includes('assembly')) { setShowroomAssemblies([]); return; }
+      try {
+        let query = supabase.from('showroom_assemblies').select('*');
+        if (queryFilters.startDate) query = query.gte('date', queryFilters.startDate);
+        if (queryFilters.endDate) query = query.lte('date', queryFilters.endDate);
+        const { data, error } = await withAbortTimeout(query, 'agenda:montagens-mostruario', 15_000, controller.signal);
+        if (active && !error && data) setShowroomAssemblies(data);
+      } catch (error) {
+        if (active) console.error('[Agenda] Falha ao consultar mostruário:', error);
+      }
     };
     fetchShowroom();
 
@@ -321,12 +340,14 @@ export const useDeliverySchedule = () => {
       .subscribe();
 
     return () => {
+      active = false;
+      controller.abort();
       if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [queryFilters, typeFilter]);
 
-  // Re-process when filter changes locally
+  // Transforma apenas os pedidos já selecionados pelo servidor em tarefas e grupos.
   useEffect(() => {
     if (!loading) {
       const showroomOrders = showroomAssemblies.map(mapShowroomToOrder) as Order[];

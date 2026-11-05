@@ -92,6 +92,7 @@ export interface ModalsSectionProps {
   setModelToDelete: Dispatch<SetStateAction<string | null>>;
   confirmDeleteLayout: (stillCurrent?: () => boolean) => Promise<boolean>;
   layoutsBusy?: boolean;
+  ensureLayoutModel?: (model: GridModel) => Promise<GridModel>;
   layoutsError?: string;
   layoutsBlocked?: boolean;
   logoInputRef: RefObject<HTMLInputElement>;

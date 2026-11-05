@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Order from '../../../../types/order.type';
 import Person from '../../../../types/person.type';
-import { getOrdersByCustomerInfo } from '../../../../utils/orderHistoryService';
+import { getOrdersByCustomerInfoPage } from '../../../../utils/orderHistoryService';
 import { formatCurrency, formatToBRDate } from '../../../../utils/formatters';
 import { getOrderTypeClasses, resolveOrderColor } from '../../../../utils/orderTypeColorUtils';
 import { getSettings } from '@/pages/utils/settingsService';
+import { ERPListPagination } from '@/components/shared/ERPListPagination';
 
 interface PersonPurchaseHistoryModalProps {
   readonly isOpen: boolean;
@@ -19,6 +20,11 @@ const PersonPurchaseHistoryModal = ({
 }: PersonPurchaseHistoryModalProps) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalSpent, setTotalSpent] = useState(0);
+  const [loadError, setLoadError] = useState(false);
+  const [retry, setRetry] = useState(0);
   const settings = getSettings();
 
   useEffect(() => {
@@ -30,25 +36,35 @@ const PersonPurchaseHistoryModal = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  useEffect(() => setPage(1), [isOpen, person.id, person.fullName]);
+
   useEffect(() => {
     if (!isOpen) return;
 
+    const controller = new AbortController();
     setLoading(true);
-    getOrdersByCustomerInfo(person.fullName, person.phone, person.email)
+    setLoadError(false);
+    getOrdersByCustomerInfoPage(person.fullName, person.phone, person.email, { page, signal: controller.signal })
       .then((data) => {
-        setOrders(data);
+        if (controller.signal.aborted) return;
+        setOrders(data.orders);
+        setTotalOrders(data.total);
+        setTotalSpent(data.totalAmount);
         setLoading(false);
       })
       .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
         console.error('Erro ao buscar histórico do cliente:', err);
         setOrders([]);
+        setTotalOrders(0);
+        setTotalSpent(0);
+        setLoadError(true);
         setLoading(false);
       });
-  }, [isOpen, person]);
+    return () => controller.abort();
+  }, [isOpen, page, person.fullName, person.phone, person.email, retry]);
 
   if (!isOpen) return null;
-
-  const totalSpent = orders.reduce((acc, o) => acc + (o.paymentsSummary?.totalOrderValue || 0), 0);
 
   return (
     <div
@@ -100,7 +116,7 @@ const PersonPurchaseHistoryModal = ({
                 Total de Pedidos
               </span>
               <span className="text-sm font-black text-slate-700 dark:text-slate-200">
-                {orders.length}
+                {totalOrders}
               </span>
             </div>
             <div className="flex flex-col">
@@ -116,7 +132,12 @@ const PersonPurchaseHistoryModal = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-          {loading ? (
+          {loadError ? (
+            <div role="alert" className="py-12 text-center text-sm text-red-700">
+              Não foi possível carregar o histórico.{' '}
+              <button type="button" onClick={() => setRetry((value) => value + 1)} className="font-bold underline">Tentar novamente</button>
+            </div>
+          ) : loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -203,13 +224,24 @@ const PersonPurchaseHistoryModal = ({
         </div>
 
         {/* Footer */}
-        <div className="p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex justify-end shrink-0">
+        <div className="p-8 border-t border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 flex flex-col gap-4 shrink-0">
+          <ERPListPagination
+            ariaLabel="Paginação do histórico de pedidos do cliente"
+            page={page}
+            pageSize={15}
+            totalItems={totalOrders}
+            onPageChange={setPage}
+            itemLabel="pedidos"
+            loading={loading}
+          />
+          <div className="flex justify-end">
           <button
             onClick={onClose}
             className="px-8 py-3 bg-slate-800 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-slate-200 dark:shadow-none"
           >
             Fechar
           </button>
+          </div>
         </div>
       </div>
 

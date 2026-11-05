@@ -15,6 +15,8 @@ import {
   OrderHistoryLoadingView,
 } from './OrderHistoryStateViews';
 import { useOrderHistoryConfirmations } from './useOrderHistoryConfirmations';
+import { loadCompleteOrder } from '@/pages/utils/orderDetailsLoader';
+import { toast } from 'react-toastify';
 
 type OrderHistoryListProps = {
   onEdit: (
@@ -142,7 +144,20 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
       type: 'withdrawal' | 'entry';
     } | null>(null);
 
-    const onAction = (actionKey: string, order: Order) => {
+    const [openingOrder, setOpeningOrder] = React.useState(false);
+    const openRequest = React.useRef(0);
+    React.useEffect(() => () => { openRequest.current++; }, []);
+    const withCompleteOrder = async (order: Order, action: (full: Order) => unknown) => {
+      const request = ++openRequest.current;
+      setOpeningOrder(true);
+      try {
+        const full = await loadCompleteOrder(order);
+        if (request === openRequest.current) await action(full);
+      } catch (cause) {
+        if (request === openRequest.current) toast.error(cause instanceof Error ? cause.message : 'Não foi possível abrir o pedido.');
+      } finally { if (request === openRequest.current) setOpeningOrder(false); }
+    };
+    const onAction = (actionKey: string, summary: Order) => withCompleteOrder(summary, async (order) => {
       if (onActionProp) {
         onActionProp(actionKey, order);
       }
@@ -155,8 +170,8 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
         setStockModal({ order, type: 'entry' });
         return;
       }
-      handleAction(actionKey, order);
-    };
+      await handleAction(actionKey, order);
+    });
 
     const [showTroubleshoot, setShowTroubleshoot] = React.useState(false);
 
@@ -184,6 +199,7 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
 
       return (
         <div className="flex flex-col gap-4 flex-1">
+          {openingOrder && <div role="status" className="text-sm text-blue-600"><i className="bi bi-arrow-repeat animate-spin mr-2" />Carregando pedido…</div>}
           {orders.length === 0 ? (
             <OrderHistoryEmptyPageNotice />
           ) : (
@@ -191,11 +207,11 @@ const OrderHistoryList = forwardRef<OrderHistoryListRef, OrderHistoryListProps>(
               orders={orders}
               fiscalBadgeStatusByOrderId={fiscalBadgeStatusByOrderId}
               fiscalBadgeLoadingByOrderId={fiscalBadgeLoadingByOrderId}
-              onEdit={onEdit}
-              onViewDetails={onViewDetails}
+              onEdit={(order, ...args) => { void withCompleteOrder(order, (full) => onEdit(full, ...args)); }}
+              onViewDetails={onViewDetails ? (order) => { void withCompleteOrder(order, onViewDetails); } : undefined}
               onViewFiscalDocument={onViewFiscalDocument}
-              onShowPostSaleActions={onShowPostSaleActions}
-              onIssueNfe={onIssueNfe}
+              onShowPostSaleActions={onShowPostSaleActions ? (order) => { void withCompleteOrder(order, onShowPostSaleActions); } : undefined}
+              onIssueNfe={onIssueNfe ? (order, environment) => { void withCompleteOrder(order, (full) => onIssueNfe(full, environment)); } : undefined}
               onDelete={handleDelete}
               onRestore={handleRestore}
               onPermanentDelete={handlePermanentDelete}

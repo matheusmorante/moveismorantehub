@@ -25,8 +25,10 @@ import { toast } from 'react-toastify';
 import { formatOrderCode } from '../../utils/orderCode';
 import { splitNoticeTags } from '../../utils/noticeTags';
 import { useState, useEffect } from 'react';
+import { loadCompleteOrder } from '../../utils/orderDetailsLoader';
+import { isOrderSummary } from '../../../../../shared-utils/orderSummaryQuery';
 
-const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }: Props) => {
+const CompleteOrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }: Props) => {
   const [order, setOrder] = useState(initialOrder);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const isPickup = order.shipping?.deliveryMethod === 'pickup';
@@ -204,4 +206,24 @@ const OrderDetailsModal = ({ order: initialOrder, onClose, onEdit, isReadOnly }:
   );
 };
 
-export default OrderDetailsModal;
+export default function OrderDetailsModal(props: Props) {
+  const [full, setFull] = useState<Order | null>(() => isOrderSummary(props.order) ? null : props.order);
+  const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setError(''); setFull(isOrderSummary(props.order) ? null : props.order);
+    void loadCompleteOrder(props.order).then((order) => { if (active) setFull(order); }).catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : 'Não foi possível carregar o pedido.');
+    });
+    return () => { active = false; };
+  }, [props.order, attempt]);
+  if (full && full.id === props.order.id) return <CompleteOrderDetailsModal key={`${full.id}-${full.updatedAt}`} {...props} order={full} />;
+  return <div className="fixed inset-0 z-[350] bg-slate-900/40 flex items-center justify-center p-4">
+    <div role="dialog" aria-modal="true" aria-label="Detalhes do pedido" className="rounded-2xl bg-white dark:bg-slate-900 p-6 space-y-4">
+      <p role="status">{error || 'Carregando pedido…'}</p>
+      {error && <button type="button" onClick={() => setAttempt((value) => value + 1)}>Tentar novamente</button>}
+      <button type="button" onClick={props.onClose}>Fechar</button>
+    </div>
+  </div>;
+}

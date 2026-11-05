@@ -76,7 +76,10 @@ export const fetchFromERP = async (options: { isCurrent?: () => boolean } = {}):
   const fallbackResponse = await withTimeout(excludeTestOrders(supabase
     .from('orders')
     .select('id, status, order_type, deleted, order_data'))
-    .is('order_data->deleted', null), 15_000, null, 'Consultar relatório no histórico ERP');
+    .or('deleted.is.null,deleted.eq.false')
+    .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
+    .or('order_data->>orderType.is.null,order_data->>orderType.neq.budget')
+    .or('order_data->>status.is.null,order_data->>status.not.in.(draft,cancelled)'), 15_000, null, 'Consultar relatório no histórico ERP');
   checkCurrent(); if (!fallbackResponse) throw expired();
   const { data, error } = fallbackResponse;
 
@@ -86,14 +89,6 @@ export const fetchFromERP = async (options: { isCurrent?: () => boolean } = {}):
   data.forEach((row: any) => {
     const order = row.order_data;
     if (!order) return;
-
-    if (
-      order.deleted ||
-      order.orderType === 'budget' ||
-      order.status === 'draft' ||
-      order.status === 'cancelled'
-    )
-      return;
 
     const date = order.date
       ? order.date.includes('/')

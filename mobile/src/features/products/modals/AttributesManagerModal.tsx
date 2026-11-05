@@ -1,4 +1,5 @@
 import {
+  ChevronDown,
   Plus,
   Sliders,
   Tag,
@@ -25,6 +26,7 @@ import {
   deleteMobileAttributeValue,
   fetchMobileAttributes,
   type MobileAttribute,
+  type MobileAttributeDataType,
   saveMobileAttributeDefinition,
 } from '../services/mobileAttributeService';
 import { ManagedAttributesList } from './ManagedAttributesList';
@@ -50,6 +52,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showTypeOptions, setShowTypeOptions] = useState(false);
   const {
     newDataType,
     setNewDataType,
@@ -75,6 +78,8 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
   const [savingValueId, setSavingValueId] = useState<string | null>(null);
   const optionsUpdateAttributeId = useRef<string | undefined>(undefined);
   const allCharacteristics = attributes.map((attribute) => ({ ...attribute, active: attribute.active !== false }));
+  const selectedDataTypeLabel =
+    ATTRIBUTE_TYPE_OPTIONS.find(([value]) => value === newDataType)?.[1] ?? 'Escolha única';
   const { validateAndRun: validateNewDefinition } = useZodForm(createCharacteristicFormSchema(allCharacteristics), newDefinition);
   const { validateAndRun: validateOptionsUpdate } = useZodForm(
     createCharacteristicFormSchema(allCharacteristics, () => optionsUpdateAttributeId.current),
@@ -100,6 +105,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
 
   useEffect(() => {
     if (visible) load();
+    else setShowTypeOptions(false);
   }, [visible]);
 
   const handleAddAttr = async () => {
@@ -120,6 +126,7 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
       });
       setNewAttrName('');
       setNewDataType('radio');
+      setShowTypeOptions(false);
       setNewUnit('cm');
       setNewDecimalPlaces(2);
       setNewConfigurationInputs({ minValue: '', maxValue: '', minSelections: '', maxSelections: '' });
@@ -292,6 +299,45 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
               </TouchableOpacity>
             </View>
 
+            <TouchableOpacity
+              onPress={() => setShowTypeOptions((open) => !open)}
+              style={[styles.typeSelector, dark && styles.darkInput]}
+              accessibilityRole="button"
+              accessibilityLabel={`Tipo de preenchimento: ${selectedDataTypeLabel}`}
+              accessibilityState={{ expanded: showTypeOptions }}
+            >
+              <View>
+                <Text style={[styles.typeSelectorLabel, dark && styles.light]}>
+                  Tipo de preenchimento
+                </Text>
+                <Text style={[styles.typeSelectorValue, dark && styles.light]}>
+                  {selectedDataTypeLabel}
+                </Text>
+              </View>
+              <ChevronDown size={18} color={dark ? '#cbd5e1' : '#64748b'} />
+            </TouchableOpacity>
+            {showTypeOptions && (
+              <View style={styles.typeRow}>
+                {ATTRIBUTE_TYPE_OPTIONS.map(([value, label]) => (
+                  <TouchableOpacity
+                    key={value}
+                    onPress={() => {
+                      setNewDataType(value as MobileAttributeDataType);
+                      setNewConfigurationInputs({ minValue: '', maxValue: '', minSelections: '', maxSelections: '' });
+                      setShowTypeOptions(false);
+                    }}
+                    style={[styles.typeBtn, newDataType === value && styles.typeBtnActive]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: newDataType === value }}
+                  >
+                    <Text style={[styles.typeText, newDataType === value && styles.typeTextActive]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
             {newDataType === 'measure' && (
               <View style={styles.measureInputRow}>
                 {(['cm', 'mm', 'm'] as const).map((unit) => (
@@ -332,22 +378,6 @@ export const AttributesManagerModal: React.FC<Props> = ({ visible, dark, onClose
                 ))}
               </View>
             )}
-            <View style={styles.typeRow}>
-              {ATTRIBUTE_TYPE_OPTIONS.map(([value, label]) => (
-                <TouchableOpacity
-                  key={value}
-                  onPress={() => {
-                    setNewDataType(value as MobileAttributeDataType);
-                    setNewConfigurationInputs({ minValue: '', maxValue: '', minSelections: '', maxSelections: '' });
-                  }}
-                  style={[styles.typeBtn, newDataType === value && styles.typeBtnActive]}
-                >
-                  <Text style={[styles.typeText, newDataType === value && styles.typeTextActive]}>
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
             {(newFillType === 'integer' || newFillType === 'decimal') && (
               <View style={styles.configurationArea}>
                 <Text style={[styles.newValuesLabel, dark && styles.light]}>Configurações do tipo</Text>

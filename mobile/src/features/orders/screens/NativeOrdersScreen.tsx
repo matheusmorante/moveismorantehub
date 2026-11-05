@@ -183,6 +183,11 @@ function OrdersList({
         onSelectStatus={orders.setStatusFilter}
         totalOrders={orders.totalItems}
       />
+      {orders.showingOffline && (
+        <Text accessibilityRole="alert" style={[styles.offlineNotice, dark && styles.offlineNoticeDark]}>
+          Sem conexão. Exibindo os pedidos salvos neste aparelho.
+        </Text>
+      )}
 
       {orders.paginatedOrders.length === 0 ? (
         <View style={styles.empty}>
@@ -217,6 +222,17 @@ function OrdersList({
 }
 
 const styles = StyleSheet.create({
+  offlineNotice: {
+    color: '#92400e',
+    backgroundColor: '#fffbeb',
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 12,
+  },
+  offlineNoticeDark: {
+    color: '#fcd34d',
+    backgroundColor: '#451a03',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',

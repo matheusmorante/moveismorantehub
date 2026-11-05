@@ -2,6 +2,11 @@ import { chromium, expect, test, type Request, type Route } from '@playwright/te
 
 // Prova somente de leitura: permite apenas RPCs agregadas de consulta e bloqueia gravações.
 test('Dashboard conserva os indicadores e navega entre períodos', async () => {
+  const origin = process.env.DASHBOARD_VERIFY_ORIGIN || 'http://localhost:5173';
+  const remote = origin !== 'http://localhost:5173';
+  if (remote && !/^https:\/\/morantehub(?:-[a-z0-9]+-matheusmorantes-projects)?\.vercel\.app$/.test(origin)) {
+    throw new Error('Origem de verificação não pertence ao ERP esperado.');
+  }
   const email = process.env.NFE_HML_TEST_OPERATOR_EMAIL?.trim();
   const password = process.env.NFE_HML_TEST_OPERATOR_PASSWORD;
   if (!email || email.toLowerCase() !== 'matheusmorante002@gmail.com' || !password) {
@@ -13,7 +18,7 @@ test('Dashboard conserva os indicadores e navega entre períodos', async () => {
   }
 
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9225');
-  const context = browser.contexts()[0];
+  const context = remote ? await browser.newContext() : browser.contexts()[0];
   if (!context) throw new Error('Navegador visível não encontrado.');
   const page = context.pages()[0] || await context.newPage();
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -37,10 +42,19 @@ test('Dashboard conserva os indicadores e navega entre períodos', async () => {
   const guard = async (route: Route) => {
     const request = route.request();
     const url = new URL(request.url());
+    const continueRead = () => {
+      if (remote && url.origin === origin && process.env.DASHBOARD_PROTECTION_BYPASS) {
+        return route.continue({ headers: {
+          ...request.headers(), 'x-vercel-protection-bypass': process.env.DASHBOARD_PROTECTION_BYPASS,
+        } });
+      }
+      return route.continue();
+    };
     const read = ['GET', 'HEAD', 'OPTIONS'].includes(request.method());
     const login = request.method() === 'POST' && (url.pathname === '/auth/v1/token'
       || (url.pathname === '/auth/v1/logout' && url.searchParams.get('scope') === 'local'));
     const dashboardReadRpcs = new Set([
+      'get_dashboard_metrics',
       'get_dashboard_sales_summary',
       'get_dashboard_orders_by_effective_date',
       'get_dashboard_digital_catalog_metrics',
@@ -53,7 +67,7 @@ test('Dashboard conserva os indicadores e navega entre períodos', async () => {
     const readOnlyAuthorizationCheck = request.method() === 'POST'
       && (url.pathname === '/api/testing/test-artifact-operator'
         || url.pathname === '/rest/v1/rpc/current_user_has_password');
-    if (read || login || dashboardRead || readOnlyAuthorizationCheck) return route.continue();
+    if (read || login || dashboardRead || readOnlyAuthorizationCheck) return continueRead();
     blockedWrites++;
     blockedWritePaths.push(`${request.method()} ${url.pathname}`);
     return route.abort('blockedbyclient');
@@ -75,6 +89,7 @@ test('Dashboard conserva os indicadores e navega entre períodos', async () => {
         const value = JSON.parse(body.toString('utf8'));
         if (Array.isArray(value)) rows = value.length;
         else if (value && typeof value === 'object' && Array.isArray(value.data)) rows = value.data.length;
+        else if (value && new URL(request.url()).pathname.endsWith('/get_dashboard_metrics')) rows = 1;
       } catch {
         // Bodies without JSON rows still contribute transfer size and latency.
       }
@@ -102,8 +117,8 @@ test('Dashboard conserva os indicadores e navega entre períodos', async () => {
   });
 
   try {
-    await page.goto('http://localhost:5173/login', { waitUntil: 'domcontentloaded' });
-    const alreadySignedIn = await page.evaluate(async (expected) => {
+    await page.goto(`${origin}/login`, { waitUntil: 'domcontentloaded' });
+    const alreadySignedIn = !remote && await page.evaluate(async (expected) => {
       const modulePath = '/src/pages/utils/supabaseConfig.ts';
       const { supabase } = await import(modulePath);
       const result = await supabase.auth.getUser();
@@ -111,43 +126,59 @@ test('Dashboard conserva os indicadores e navega entre períodos', async () => {
       if (!matches && result.data.user) await supabase.auth.signOut({ scope: 'local' });
       return matches;
     }, email);
+    let remoteOperatorMatches = false;
     if (!alreadySignedIn) {
+      const authentication = remote ? page.waitForResponse((response) =>
+        new URL(response.url()).pathname === '/auth/v1/token' && response.request().method() === 'POST'
+      ) : undefined;
       await page.getByRole('textbox', { name: 'exemplo@email.com' }).fill(email);
       await page.getByRole('textbox', { name: '••••••••' }).fill(password);
       await page.getByRole('button', { name: /Entrar no Sistema/ }).click();
       await page.waitForURL((url) => url.pathname !== '/login', { timeout: 30_000 });
+      if (authentication) {
+        const response = await authentication;
+        remoteOperatorMatches = response.ok()
+          && (await response.json()).user?.email?.trim().toLowerCase() === email.toLowerCase();
+      }
     }
-    const operatorMatches = await page.evaluate(async (expected) => {
+    const operatorMatches = remote ? remoteOperatorMatches : await page.evaluate(async (expected) => {
       const modulePath = '/src/pages/utils/supabaseConfig.ts';
       const { supabase } = await import(modulePath);
       const result = await supabase.auth.getUser();
       return result.data.user?.email?.trim().toLowerCase() === expected.toLowerCase();
     }, email);
     expect(operatorMatches, 'A sessão deve pertencer ao operador esperado.').toBe(true);
-    const legacyDailyRead = await page.evaluate(async () => {
-      const { supabase } = await import('/src/pages/utils/supabaseConfig.ts');
-      const { data, error } = await supabase.rpc('get_dashboard_daily_metrics', {
-        p_start: '2026-10-01', p_end: '2026-11-02',
+    if (remote) {
+      await expect(page.locator('#kpi-faturamento h3')).toBeVisible({ timeout: 45_000 });
+      productAnalyticsRequests = 0;
+      digitalMetricsRequests = 0;
+    }
+    if (!remote) {
+      const legacyDailyRead = await page.evaluate(async () => {
+        const { supabase } = await import('/src/pages/utils/supabaseConfig.ts');
+        const { data, error } = await supabase.rpc('get_dashboard_daily_metrics', {
+          p_start: '2026-10-01', p_end: '2026-11-02',
+        });
+        return {
+          ok: !error,
+          code: error?.code ?? null,
+          message: error?.message?.slice(0, 160) ?? null,
+          rows: Array.isArray(data) ? data.length : 0,
+        };
       });
-      return {
-        ok: !error,
-        code: error?.code ?? null,
-        message: error?.message?.slice(0, 160) ?? null,
-        rows: Array.isArray(data) ? data.length : 0,
-      };
-    });
-    expect(legacyDailyRead.ok, `RPC legada recusou administrador: ${legacyDailyRead.code} ${legacyDailyRead.message}`).toBe(true);
-    expect(legacyDailyRead.rows).toBeGreaterThan(0);
+      expect(legacyDailyRead.ok, `RPC legada recusou administrador: ${legacyDailyRead.code} ${legacyDailyRead.message}`).toBe(true);
+      expect(legacyDailyRead.rows).toBeGreaterThan(0);
+    }
 
     const initialSummary = page.waitForResponse((response) =>
-      response.url().includes('/rest/v1/rpc/get_dashboard_sales_summary') && response.request().method() === 'POST'
+      response.url().includes('/rest/v1/rpc/get_dashboard_metrics') && response.request().method() === 'POST'
     );
     measurementPhase = 'initial';
     const stockRead = page.waitForResponse((response) =>
       new URL(response.url()).pathname === '/rest/v1/inventory_moves' && response.request().method() === 'GET'
     );
     const initialUiStartedAt = Date.now();
-    await page.goto('http://localhost:5173/', { waitUntil: 'domcontentloaded' });
+    await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#kpi-faturamento h3')).toBeVisible({ timeout: 45_000 });
     await expect(page.getByText('Métricas da Loja Online')).toBeVisible({ timeout: 45_000 });
     await expect(page.getByText('Desempenho de Vendas')).toBeVisible({ timeout: 45_000 });
@@ -160,7 +191,7 @@ test('Dashboard conserva os indicadores e navega entre períodos', async () => {
     const first = await initialSummary;
     expect(first.ok(), 'O resumo consolidado deve responder para o operador.').toBe(true);
     const firstData = await first.json();
-    expect(firstData?.ready, 'O resumo inicial deve estar pronto.').toBe(true);
+    expect(firstData?.current, 'O resumo inicial deve estar completo.').toBeDefined();
     await expect.poll(async () => (await page.locator('#kpi-vendas h3').textContent())?.trim())
       .toBe(String(firstData.current.saleCount));
     const normalizedText = (value: string) => value.replace(/\s/g, '');
@@ -173,7 +204,7 @@ test('Dashboard conserva os indicadores e navega entre períodos', async () => {
       'O faturamento de tráfego pago deve coincidir com o consolidado.').toBe(true);
 
     const monthSummary = page.waitForResponse((response) =>
-      response.url().includes('/rest/v1/rpc/get_dashboard_sales_summary') && response.request().method() === 'POST'
+      response.url().includes('/rest/v1/rpc/get_dashboard_metrics') && response.request().method() === 'POST'
     );
     measurementPhase = 'period-change';
     const periodChangeStartedAt = Date.now();
@@ -181,7 +212,7 @@ test('Dashboard conserva os indicadores e navega entre períodos', async () => {
     const month = await monthSummary;
     expect(month.ok(), 'O resumo do período deve responder.').toBe(true);
     const monthData = await month.json();
-    expect(monthData?.ready).toBe(true);
+    expect(monthData?.current).toBeDefined();
     await expect.poll(async () => (await page.locator('#kpi-vendas h3').textContent())?.trim())
       .toBe(String(monthData.current.saleCount));
     await expect(page.getByText('Métricas da Loja Online')).toBeVisible();
@@ -199,6 +230,7 @@ test('Dashboard conserva os indicadores e navega entre períodos', async () => {
     measurementPhase = 'off';
     const orderEndpoints = measurements.filter((entry) =>
       entry.path.includes('/rpc/get_dashboard_orders_by_effective_date')
+      || entry.path.includes('/rpc/get_dashboard_metrics')
       || entry.path === '/rest/v1/orders'
       || entry.path === '/rest/v1/order_items'
     );
@@ -213,7 +245,11 @@ test('Dashboard conserva os indicadores e navega entre períodos', async () => {
     const initialDetailedOrderReads = orderEndpoints.filter((entry) =>
       entry.phase === 'initial' && entry.path.includes('/rpc/get_dashboard_orders_by_effective_date')
     );
-    expect(initialDetailedOrderReads, 'A carga inicial deve buscar o mesmo período apenas uma vez.').toHaveLength(1);
+    expect(initialDetailedOrderReads, 'O Dashboard não deve baixar pedidos detalhados para calcular indicadores.').toHaveLength(0);
+    const initialAggregates = orderEndpoints.filter((entry) => entry.phase === 'initial' && entry.path.endsWith('/get_dashboard_metrics'));
+    expect(initialAggregates, 'A carga inicial deve usar uma única resposta agregada.').toHaveLength(1);
+    expect(initialAggregates[0].rows).toBe(1);
+    expect(initialAggregates[0].payloadBytes).toBeLessThan(30_000);
     const measuredSummary = (phase: 'initial' | 'period-change') => {
       const entries = orderEndpoints.filter((entry) => entry.phase === phase);
       return {

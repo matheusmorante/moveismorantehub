@@ -21,7 +21,17 @@ describe('Consulta de pedidos — falha não é lista vazia', () => {
   it('mantém o vazio legítimo e o contrato da consulta restrita', async () => {
     const supabase = client(Promise.resolve({ data: [], error: null }));
     expect(await getCustomerOrders(supabase, 'legacy-person-id')).toEqual([]);
-    expect(supabase.rpc).toHaveBeenCalledWith('customer_support_list_customer_orders', { p_customer_id: 'legacy-person-id' });
+    expect(supabase.rpc).toHaveBeenCalledWith('customer_support_list_customer_orders_filtered', {
+      p_customer_id: 'legacy-person-id', p_order_filter: 'all',
+    });
+  });
+
+  it.each(['orders', 'quotes'] as const)('consulta o grupo %s no servidor', async (filter) => {
+    const supabase = client(Promise.resolve({ data: [], error: null }));
+    await getCustomerOrders(supabase, 'customer', filter);
+    expect(supabase.rpc).toHaveBeenCalledWith('customer_support_list_customer_orders_filtered', {
+      p_customer_id: 'customer', p_order_filter: filter,
+    });
   });
 
   it('não consulta sem contexto de cliente', async () => {

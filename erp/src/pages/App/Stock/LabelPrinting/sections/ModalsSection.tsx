@@ -166,6 +166,7 @@ export const ModalsSection: React.FC<ModalsSectionProps> = (props) => {
         isSaving={layoutsBusy}
         error={layoutsError}
         blocked={layoutsBlocked}
+        ensureLayoutModel={props.ensureLayoutModel}
         isOpen={isModelManagerModalOpen}
         onClose={() => setIsModelManagerModalOpen(false)}
         selectedCategory={selectedCategory}

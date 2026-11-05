@@ -28,7 +28,6 @@ import { MobileProductPagination } from '../components/MobileProductPagination';
 import { ProductsHeader } from '../components/ProductsHeader';
 import type { ProductListMode } from '../components/header/ProductsHeaderModeSelector';
 import { useMobileProducts } from '../hooks/useMobileProducts';
-import { canShowMobileProductCategoryFilter } from '../domain/mobileProductListFilters';
 import {
   getMobileCompositionEmptyHint,
   shouldShowMobileProductPagination,
@@ -36,12 +35,11 @@ import {
 import { MobileMergeVariationModal } from '../modals/MobileMergeVariationModal';
 import { MobileMoveVariationModal } from '../modals/MobileMoveVariationModal';
 import { MobileProductDetailsModal } from '../modals/MobileProductDetailsModal';
-import { ProductConfigModal } from '../modals/ProductConfigModal';
+import { AttributesManagerModal } from '../modals/AttributesManagerModal';
 import { ProductFormModal } from '../modals/ProductFormModal';
 import { ProductLinkedOrdersModal } from '../modals/ProductLinkedOrdersModal';
 import { NativeMetaCatalogScreen } from './NativeMetaCatalogScreen';
 import { ProductModulesMenu } from './ProductModulesMenu';
-import { fetchMobileCategories } from '../services/mobileCategoryService';
 import { copyMobileProductImages } from '../services/mobileProductPhotoService';
 import {
   canShowMobileLinkedProductOrders,
@@ -67,6 +65,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const [screenMode, setScreenMode] = useState<ProductListMode>(mode ?? 'standard');
   const [selectedMode, setSelectedMode] = useState<ProductListMode | null>(mode ?? null);
   const [showMetaCatalog, setShowMetaCatalog] = useState(false);
+  const [showAttributesModal, setShowAttributesModal] = useState(false);
   const { canUseProductPermission, canUsePermission, isAdmin, userProfile, loadingProfile } = useAuth();
   const isStockistOnly = isStockistOnlyProductProfile(userProfile);
   const canViewCatalog = canUseProductPermission('viewProducts');
@@ -91,10 +90,12 @@ export const NativeProductsScreen: React.FC<Props> = ({
   const availableModes = useMemo(() => {
     const modes: ProductListMode[] = [];
     if (canViewCatalog) modes.push('standard');
-    if (canViewCompositions) modes.push('composition');
+    else if (canViewCompositions) modes.push('composition');
     if (canViewCategories) modes.push('categories');
     return modes;
   }, [canViewCatalog, canViewCategories, canViewCompositions]);
+  const hasProductModules =
+    availableModes.length > 0 || canViewCharacteristics || canViewMetaCatalog;
   const activeMode = availableModes.includes(screenMode)
     ? screenMode
     : (availableModes[0] ?? screenMode);
@@ -175,13 +176,11 @@ export const NativeProductsScreen: React.FC<Props> = ({
       productsHook.showTrash,
     ]
   );
-  const [categories, setCategories] = useState<any[]>([]);
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [newProductInitialData, setNewProductInitialData] = useState<
     Record<string, any> | undefined
   >(undefined);
   const [showFormModal, setShowFormModal] = useState(false);
-  const [showConfigModal, setShowConfigModal] = useState(false);
   const [ordersProduct, setOrdersProduct] = useState<any | null>(null);
   const [detailsProduct, setDetailsProduct] = useState<any | null>(null);
   const [loadingProductForEdit, setLoadingProductForEdit] = useState(false);
@@ -223,19 +222,6 @@ export const NativeProductsScreen: React.FC<Props> = ({
 
   const topInset =
     Math.max(insets.top, Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0) + 8;
-
-  const loadCategories = useCallback(async () => {
-    const cats = await fetchMobileCategories();
-    setCategories(cats);
-  }, []);
-
-  useEffect(() => {
-    if (canViewCategories || canEditProducts) {
-      void loadCategories();
-    } else {
-      setCategories([]);
-    }
-  }, [canEditProducts, canViewCategories, loadCategories]);
 
   useEffect(() => {
     if (activeMode !== screenMode) setScreenMode(activeMode);
@@ -391,30 +377,12 @@ export const NativeProductsScreen: React.FC<Props> = ({
           onBack={() => setShowMetaCatalog(false)}
           onOpenErpPanel={handleOpenMetaCatalogInErp}
         />
-      ) : availableModes.length === 0 ? (
+      ) : !hasProductModules ? (
         <View style={styles.empty}>
           <Package size={40} color="#2563eb" />
           <Text style={[styles.emptyText, isDarkMode && styles.loading]}>
             Recursos de produtos disponíveis para este perfil
           </Text>
-          {canViewCharacteristics && (
-            <TouchableOpacity
-              onPress={() => setShowConfigModal(true)}
-              style={styles.retryButton}
-              accessibilityRole="button"
-            >
-              <Text style={styles.retryButtonText}>Abrir características e configurações</Text>
-            </TouchableOpacity>
-          )}
-          {canViewMetaCatalog && (
-            <TouchableOpacity
-              onPress={handleOpenMetaCatalog}
-              style={styles.retryButton}
-              accessibilityRole="button"
-            >
-              <Text style={styles.retryButtonText}>Abrir Catálogo Meta</Text>
-            </TouchableOpacity>
-          )}
           {canViewWhatsAppMarketplace && (
             <TouchableOpacity
               onPress={handleOpenWhatsAppMarketplace}
@@ -430,13 +398,15 @@ export const NativeProductsScreen: React.FC<Props> = ({
           availableModes={availableModes}
           isDarkMode={isDarkMode}
           selectMode={selectMode}
+          canViewCharacteristics={canViewCharacteristics}
+          canViewMetaCatalog={canViewMetaCatalog}
+          onOpenCharacteristics={() => setShowAttributesModal(true)}
+          onOpenMetaCatalog={handleOpenMetaCatalog}
         />
       ) : activeMode === 'categories' ? (
         <View style={{ flex: 1, paddingHorizontal: 16 }}>
           <ProductsHeader
             mode={activeMode}
-            availableModes={availableModes}
-            onModeChange={selectMode}
             onBack={returnToMenu}
             dark={isDarkMode}
             search=""
@@ -445,26 +415,13 @@ export const NativeProductsScreen: React.FC<Props> = ({
             onNewProduct={handleOpenNew}
             canCreateProduct={canEditProducts}
             canCreateComposition={canCreateComposition}
-            onOpenConfigs={() => {
-              if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
-            }}
-            canOpenConfigs={canViewCategories || canViewCharacteristics}
-            canViewMetaCatalog={canViewMetaCatalog}
             canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
-            canFilterByCategory={canShowMobileProductCategoryFilter(canViewCategories, canEditProducts)}
-            onOpenMetaCatalog={handleOpenMetaCatalog}
             onOpenWhatsAppMarketplace={handleOpenWhatsAppMarketplace}
-            categories={categories}
             statusFilter="all"
-            categoryFilter="all"
-            catalogStatusFilter="all"
-            onStatusFilterChange={() => {}}
-            onCategoryFilterChange={() => {}}
-            onCatalogStatusFilterChange={() => {}}
             showDeactivated={false}
             onToggleDeactivated={() => {}}
           />
-          <NativeCategoriesScreen dark={isDarkMode} onCategoriesUpdated={loadCategories} />
+          <NativeCategoriesScreen dark={isDarkMode} />
         </View>
       ) : (
         <ScrollView
@@ -478,9 +435,7 @@ export const NativeProductsScreen: React.FC<Props> = ({
           }
         >
           <ProductsHeader
-            mode={activeMode}
-            availableModes={availableModes}
-            onModeChange={selectMode}
+            mode={activeMode === 'composition' ? 'standard' : activeMode}
             onBack={returnToMenu}
             dark={isDarkMode}
             search={productsHook.searchTerm}
@@ -497,30 +452,11 @@ export const NativeProductsScreen: React.FC<Props> = ({
               setShowFormModal(true);
             }}
             canCreateComposition={canCreateComposition}
-            onOpenConfigs={() => {
-              if (canViewCategories || canViewCharacteristics) setShowConfigModal(true);
-            }}
-            canOpenConfigs={canViewCategories || canViewCharacteristics}
-            canViewMetaCatalog={canViewMetaCatalog}
             canViewWhatsAppMarketplace={canViewWhatsAppMarketplace}
-            canFilterByCategory={canShowMobileProductCategoryFilter(canViewCategories, canEditProducts)}
-            onOpenMetaCatalog={handleOpenMetaCatalog}
             onOpenWhatsAppMarketplace={handleOpenWhatsAppMarketplace}
-            categories={categories}
             statusFilter={productsHook.statusFilter}
-            categoryFilter={productsHook.categoryFilter}
-            catalogStatusFilter={productsHook.catalogStatusFilter}
-            generalTypeFilter={productsHook.generalTypeFilter}
             showMergedProducts={productsHook.showMergedProducts}
             onToggleMergedProducts={productsHook.onToggleMergedProducts}
-            isAdministrator={isAdmin}
-            showTestProducts={productsHook.showTestProducts}
-            onToggleTestProducts={productsHook.onToggleTestProducts}
-            onStatusFilterChange={productsHook.setStatusFilter}
-            onCategoryFilterChange={productsHook.setCategoryFilter}
-            onCatalogStatusFilterChange={productsHook.setCatalogStatusFilter}
-            onGeneralTypeFilterChange={productsHook.setGeneralTypeFilter}
-            onResetFilters={productsHook.resetFilters}
             showDeactivated={productsHook.showDeactivated}
             onToggleDeactivated={() => productsHook.setShowDeactivated((value) => !value)}
             showTrash={productsHook.showTrash}
@@ -642,18 +578,10 @@ export const NativeProductsScreen: React.FC<Props> = ({
         </View>
       )}
 
-      {/* Modal de Configurações (Categorias, Características e Variações) */}
-      <ProductConfigModal
-        visible={showConfigModal && (canViewCategories || canViewCharacteristics)}
+      <AttributesManagerModal
+        visible={showAttributesModal && canViewCharacteristics}
         dark={isDarkMode}
-        onClose={() => setShowConfigModal(false)}
-        onCategoriesUpdated={loadCategories}
-        onNavigateToCategories={() => {
-          setShowConfigModal(false);
-          selectMode('categories');
-        }}
-        canManageCategories={canViewCategories}
-        canManageCharacteristics={canViewCharacteristics}
+        onClose={() => setShowAttributesModal(false)}
       />
       <ProductLinkedOrdersModal
         visible={Boolean(ordersProduct) && canViewLinkedProductOrders}

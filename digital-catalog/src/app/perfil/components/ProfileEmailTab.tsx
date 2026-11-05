@@ -51,7 +51,6 @@ export default function ProfileEmailTab({
   onVerifyEmailCode: handleVerifyEmailCode,
 }: ProfileEmailTabProps) {
   return (
-    {/* ── ABA 2: ALTERAÇÃO DE E-MAIL ── */}
     <TabsContent value="email">
       <Card className="border-gray-100 shadow-sm rounded-3xl overflow-hidden bg-white">
         <CardHeader className="border-b bg-gray-50/50 p-6">

@@ -1,4 +1,6 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
+import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
+import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../shared-utils/searchText';
 
 const TABLE_NAME = 'showcase_assemblies';
 
@@ -13,7 +15,7 @@ export interface ShowcaseAssembly {
   deleted?: boolean;
 }
 
-export const getShowcaseAssemblies = async (limit?: number) => {
+export const getShowcaseAssemblies = async (limit?: number, filters: { search?: string; startDate?: string; endDate?: string } = {}, signal?: AbortSignal) => {
   let query = supabase
     .from(TABLE_NAME)
     .select('*')
@@ -21,8 +23,16 @@ export const getShowcaseAssemblies = async (limit?: number) => {
     .order('date', { ascending: false });
 
   if (limit != null) query = query.limit(limit);
+  if (filters.startDate) query = query.gte('date', filters.startDate);
+  if (filters.endDate) query = query.lte('date', filters.endDate);
+  if (filters.search?.trim()) {
+    for (const word of filters.search.trim().split(/\s+/)) {
+      const wordsFilter = buildPostgrestAccentInsensitiveOrFilter(['description', 'observation'], word);
+      query = query.or(/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(word) ? `${wordsFilter},id.eq.${word}` : wordsFilter);
+    }
+  }
 
-  const { data, error } = await query;
+  const { data, error } = await withAbortTimeout(query, 'agenda:montagens-mostruario', 15_000, signal);
 
   if (error) {
     // Tabela pode não existir ainda (404 do PostgREST)

@@ -1,42 +1,21 @@
 import React from 'react';
-import { useAuth } from '@/context/AuthContext';
 import { NavigationRailItem, NavigationRailFooter } from './navigationRail/index';
-import type { CustomerSupportRealtimeStatus } from '../hooks/useCustomerSupportConversations';
 
 export interface NavigationRailProps {
   unreadCountTotal: number;
-  onOpenPolicy: () => void;
-  realtimeStatus: CustomerSupportRealtimeStatus;
-  onReconnectRealtime: () => void;
   isInboxSidebarOpen?: boolean;
   onToggleInboxSidebar?: () => void;
   isConversationSidebarOpen?: boolean;
   onToggleConversationSidebar?: () => void;
-  isMobileViewport?: boolean;
-  onResetLayout?: () => void;
 }
 
 export const NavigationRail: React.FC<NavigationRailProps> = ({
   unreadCountTotal,
-  onOpenPolicy,
-  realtimeStatus,
-  onReconnectRealtime,
   isInboxSidebarOpen = true,
   onToggleInboxSidebar,
   isConversationSidebarOpen = true,
   onToggleConversationSidebar,
-  isMobileViewport = false,
-  onResetLayout,
 }) => {
-  const { profile, user, logout } = useAuth();
-
-  const userInitials = (profile?.full_name || 'Usuário')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
-
   return (
     <aside
       aria-label="Barra de navegação da Central de Atendimento"
@@ -78,19 +57,8 @@ export const NavigationRail: React.FC<NavigationRailProps> = ({
         )}
       </div>
 
-      {/* Perfil, opções da Central e estado da conexão de dados em tempo real */}
-      <NavigationRailFooter
-        userInitials={userInitials}
-        userName={profile?.full_name}
-        userRole={profile?.role}
-        userEmail={user?.email}
-        onLogout={logout}
-        onOpenPolicy={onOpenPolicy}
-        onResetLayout={onResetLayout}
-        isMobileViewport={isMobileViewport}
-        realtimeStatus={realtimeStatus}
-        onReconnectRealtime={onReconnectRealtime}
-      />
+      {/* Opções da Central */}
+      <NavigationRailFooter />
     </aside>
   );
 };

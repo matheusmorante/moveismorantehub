@@ -1,4 +1,5 @@
 import React from 'react';
+import ProductImage from '@/components/ProductImage';
 import type { UseFormRegisterReturn } from 'react-hook-form';
 import type { ProductCatalogPrepareInput } from '../../../../shared-utils/productCatalogFormSchemas';
 import { catalogItemUrl, formatPrice } from './productCatalogPresentation';
@@ -100,7 +101,7 @@ export const ProductCatalogPreview: React.FC<ProductCatalogPreviewProps> = ({
           )}
           {preparedSelection.items.map((item) => (
             <article key={itemKey(item)} className="flex gap-3 rounded-2xl border border-slate-200 p-3 dark:border-slate-800">
-              {item.imageUrl ? <img src={item.imageUrl} alt="" className="h-16 w-16 rounded-xl bg-slate-100 object-cover dark:bg-slate-800" /> : <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-400 dark:bg-slate-800"><i className="bi bi-image" /></div>}
+              {item.imageUrl ? <ProductImage src={item.imageUrl} size="thumbnail" loading="lazy" decoding="async" alt="" className="h-16 w-16 rounded-xl bg-slate-100 object-cover dark:bg-slate-800" /> : <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-400 dark:bg-slate-800"><i className="bi bi-image" /></div>}
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold">{item.name}</p>
                 {item.variationName && <p className="text-xs text-slate-500">{item.variationName}</p>}

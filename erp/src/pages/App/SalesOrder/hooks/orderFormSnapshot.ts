@@ -10,6 +10,63 @@ import { getSaoPauloDayInfo } from '../../../../../../shared-utils/commercialOrd
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
 import { resolveFirstItemHandlingType } from '../orderItemHandling';
 
+type CurrentOrderFormValues = Pick<
+  Order,
+  | 'orderType'
+  | 'items'
+  | 'itemsSummary'
+  | 'shipping'
+  | 'payments'
+  | 'paymentsSummary'
+  | 'customerData'
+  | 'observation'
+  | 'seller'
+  | 'marketingOrigin'
+  | 'assistanceItems'
+  | 'assistanceServiceValue'
+  | 'assistanceCost'
+  | 'linkedOrderId'
+  | 'isButtonsClicked'
+  | 'fiscalContext'
+> & {
+  currentOrderId: Order['id'];
+  orderIndex: number | null;
+  status: string;
+  orderDate: string;
+  testModeFields: Pick<Order, 'is_test' | 'testArtifact'>;
+};
+
+export const buildCurrentOrder = (state: CurrentOrderFormValues): Order => {
+  const firstHandling = resolveFirstItemHandlingType(state.items);
+  return {
+    id: state.currentOrderId,
+    orderIndex: state.orderIndex || undefined,
+    orderNumber: state.orderIndex || undefined,
+    orderType: state.orderType,
+    status: state.status as any,
+    items: state.items,
+    itemsSummary: state.itemsSummary,
+    shipping: {
+      ...state.shipping,
+      orderType: firstHandling || state.shipping.orderType || '',
+    },
+    payments: state.payments,
+    paymentsSummary: state.paymentsSummary,
+    customerData: state.customerData,
+    observation: state.observation,
+    seller: state.seller,
+    marketingOrigin: state.marketingOrigin,
+    date: formatToStorageDate(state.orderDate),
+    assistanceItems: state.assistanceItems,
+    assistanceServiceValue: state.assistanceServiceValue,
+    assistanceCost: state.assistanceCost,
+    linkedOrderId: state.linkedOrderId,
+    isButtonsClicked: state.isButtonsClicked,
+    fiscalContext: state.fiscalContext,
+    ...state.testModeFields,
+  };
+};
+
 export const buildSalesOrderSnapshot = (
   stateSnapshot: any,
   orderIndex: string | null | undefined,

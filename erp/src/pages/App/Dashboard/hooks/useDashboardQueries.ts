@@ -2,54 +2,42 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import type Order from '../../../types/order.type';
 import type { GeoMapOrderProjection, RecentOrderProjection } from '../../../types/dashboardOrderProjection.type';
 import {
-  fetchAllOrdersForDashboard,
   fetchGeoMapOrders,
   fetchRecentOrders,
-  fetchScheduledAndDraftOrders,
 } from '../../../utils/orderHistoryService';
-import { isHmlFiscalTestOrder } from '../../../utils/hmlTestData';
-import { parseDashboardSalesRollup } from '../dashboardSalesRollup';
+import { fetchDashboardMetrics, type DashboardMetricsRange } from '../dashboardMetrics';
 
-const EMPTY_ORDERS: Order[] = [];
 const EMPTY_RECENT: RecentOrderProjection[] = [];
 const EMPTY_GEO: GeoMapOrderProjection[] = [];
 const REALTIME_READY_TIMEOUT_MS = 1_000;
 
 /** Consultas independentes permitem trocar o período sem recarregar os outros painéis. */
-export function useDashboardQueries(start: Date, end: Date, currentStart?: Date, previousEnd?: Date) {
+export function useDashboardQueries(range: DashboardMetricsRange) {
   const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const userId = user?.id ?? '';
   const roleScope = [profile?.role ?? '', ...(profile?.roles ?? [])].sort().join(',');
-  const scopeKey = useMemo(() => ['dashboard-orders', userId, roleScope] as const, [userId, roleScope]);
+  const scopeKey = useMemo(() => ['dashboard-metrics', userId, roleScope] as const, [userId, roleScope]);
   const identityReady = Boolean(userId && profile?.id === userId);
   const scopeId = `${userId}:${roleScope}`;
   const [realtimeGate, setRealtimeGate] = useState<{ scopeId: string; ready: boolean }>({ scopeId: '', ready: false });
   const realtimeReady = realtimeGate.scopeId === scopeId && realtimeGate.ready;
   const enabled = identityReady && realtimeReady;
-  const startIso = start.toISOString();
-  const endIso = end.toISOString();
-  const currentStartIso = currentStart?.toISOString();
-  const previousEndIso = previousEnd?.toISOString();
   const options = {
     enabled,
-    staleTime: Infinity,
-    refetchOnWindowFocus: 'always' as const,
-    refetchOnReconnect: 'always' as const,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    retry: false,
   };
 
-  const period = useQuery({
+  const metrics = useQuery({
     ...options,
-    queryKey: [...scopeKey, 'period', startIso, endIso],
-    queryFn: () => fetchAllOrdersForDashboard({ start: new Date(startIso), end: new Date(endIso) }, { throwOnError: true }),
-  });
-  const scheduled = useQuery({
-    ...options,
-    queryKey: [...scopeKey, 'scheduled'],
-    queryFn: () => fetchScheduledAndDraftOrders({ throwOnError: true }),
+    queryKey: [...scopeKey, 'period', range.previousStart.toISOString(), range.previousEnd.toISOString(),
+      range.currentStart.toISOString(), range.currentEnd.toISOString(), range.bucket, range.timezone],
+    queryFn: ({ signal }) => fetchDashboardMetrics(range, signal),
   });
   const recent = useQuery({
     ...options,
@@ -60,20 +48,6 @@ export function useDashboardQueries(start: Date, end: Date, currentStart?: Date,
     ...options,
     queryKey: [...scopeKey, 'geo'],
     queryFn: () => fetchGeoMapOrders(50, { throwOnError: true }),
-  });
-  const salesRollup = useQuery({
-    ...options,
-    enabled: enabled && Boolean(currentStartIso && previousEndIso),
-    retry: false,
-    queryKey: [...scopeKey, 'sales-rollup', startIso, endIso, currentStartIso, previousEndIso],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_dashboard_sales_summary', {
-        p_current_start: currentStartIso, p_current_end: endIso,
-        p_previous_start: startIso, p_previous_end: previousEndIso,
-      });
-      if (error) return null;
-      return parseDashboardSalesRollup(data);
-    },
   });
 
   useEffect(() => {
@@ -127,31 +101,14 @@ export function useDashboardQueries(start: Date, end: Date, currentStart?: Date,
     };
   }, [identityReady, queryClient, scopeId, scopeKey]);
 
-  const periodOrders = period.data ?? EMPTY_ORDERS;
-  const scheduledOrders = scheduled.data ?? EMPTY_ORDERS;
-  const orders = useMemo(() => {
-    const orderMap = new Map<string, Order>();
-    for (const order of periodOrders) {
-      if (order?.id && !isHmlFiscalTestOrder(order)) orderMap.set(String(order.id), order);
-    }
-    for (const order of scheduledOrders) {
-      if (order?.id && !isHmlFiscalTestOrder(order) && !orderMap.has(String(order.id))) {
-        orderMap.set(String(order.id), order);
-      }
-    }
-    return Array.from(orderMap.values());
-  }, [periodOrders, scheduledOrders]);
-
   return {
-    orders,
+    metrics: metrics.data,
     recentOrders: recent.data ?? EMPTY_RECENT,
     geoMapOrders: geo.data ?? EMPTY_GEO,
-    salesRollup: salesRollup.data ?? null,
-    salesSummaryLoading: salesRollup.isLoading,
-    ordersQueryError: [period, scheduled, recent, geo].some((query) => query.isError),
+    ordersQueryError: [metrics, recent, geo].some((query) => query.isError),
     retryOrderQueries: () => Promise.all([
-      period.refetch(), scheduled.refetch(), recent.refetch(), geo.refetch(),
+      metrics.refetch(), recent.refetch(), geo.refetch(),
     ]),
-    loading: (identityReady && !realtimeReady) || [period, scheduled, recent, geo].some((query) => query.isLoading),
+    loading: (identityReady && !realtimeReady) || [metrics, recent, geo].some((query) => query.isLoading),
   };
 }

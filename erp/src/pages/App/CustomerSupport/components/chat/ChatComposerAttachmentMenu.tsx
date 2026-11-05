@@ -4,12 +4,15 @@ interface ChatComposerAttachmentMenuProps {
   menuRef: React.RefObject<HTMLDivElement | null>;
   isOpen: boolean;
   canShareCommercialInfo: boolean;
+  canCreateOrders: boolean;
   hasCustomer: boolean;
   onToggle: () => void;
   onOpenCatalog: () => void;
   onChooseMedia: () => void;
   onChooseDocument: () => void;
   onOpenOrderPicker: () => void;
+  onNewSalesOrder: () => void;
+  onNewBudget: () => void;
   onAddStoreContact: () => void;
   onOpenSnippets: () => void;
 }
@@ -18,12 +21,15 @@ export const ChatComposerAttachmentMenu: React.FC<ChatComposerAttachmentMenuProp
   menuRef,
   isOpen,
   canShareCommercialInfo,
+  canCreateOrders,
   hasCustomer,
   onToggle,
   onOpenCatalog,
   onChooseMedia,
   onChooseDocument,
   onOpenOrderPicker,
+  onNewSalesOrder,
+  onNewBudget,
   onAddStoreContact,
   onOpenSnippets,
 }) => (
@@ -42,8 +48,11 @@ export const ChatComposerAttachmentMenu: React.FC<ChatComposerAttachmentMenuProp
       <div
         role="menu"
         aria-label="Anexos e catálogo"
-        className="absolute bottom-12 left-0 z-40 w-64 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        className={`absolute bottom-12 left-0 z-40 rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 ${canCreateOrders
+          ? 'grid w-[36rem] max-w-[calc(100vw-4.5rem)] grid-cols-1 gap-2 p-2 sm:grid-cols-2'
+          : 'w-64 p-1.5'}`}
       >
+        <div role="group" aria-label="Anexar conteúdo" className={canCreateOrders ? 'min-w-0 sm:border-r sm:border-slate-100 sm:pr-2 dark:border-slate-800' : ''}>
         <button
           type="button"
           role="menuitem"
@@ -113,6 +122,30 @@ export const ChatComposerAttachmentMenu: React.FC<ChatComposerAttachmentMenuProp
           <i className="bi bi-lightning-charge w-9 text-center text-amber-500" />
           Respostas rápidas
         </button>
+        </div>
+        {canCreateOrders && (
+          <div role="group" aria-label="Criar pedido ou orçamento" className="flex min-w-0 flex-col gap-1 border-t border-slate-100 pt-2 dark:border-slate-800 sm:border-t-0 sm:pl-2 sm:pt-0">
+            <p className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Criar novo</p>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={onNewSalesOrder}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-200 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-200"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"><i className="bi bi-cart-plus text-lg" aria-hidden="true" /></span>
+              <span>Novo pedido de venda<small className="block text-xs font-normal text-slate-400">Abrir formulário de venda</small></span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={onNewBudget}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-800 dark:text-slate-200 dark:hover:bg-blue-950/40 dark:hover:text-blue-200"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"><i className="bi bi-file-earmark-plus text-lg" aria-hidden="true" /></span>
+              <span>Novo orçamento<small className="block text-xs font-normal text-slate-400">Abrir formulário de orçamento</small></span>
+            </button>
+          </div>
+        )}
       </div>
     )}
   </div>

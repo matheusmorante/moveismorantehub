@@ -9,24 +9,10 @@ const { supabaseMock } = vi.hoisted(() => ({
 vi.mock('../../../services/supabaseClient', () => ({ supabase: supabaseMock }));
 
 import { fetchMobileProductTechnicalFields } from './mobileProductTechnicalService';
-
-const missingCategoryApplicationsQuery = () => ({
-  select: () => ({
-    limit: async () => ({
-      data: null,
-      error: {
-        code: 'PGRST205',
-        message: 'Could not find table attribute_category_applications',
-      },
-    }),
-  }),
-});
-
-const queryWith = (data: unknown, error: unknown = null) => ({
-  select: vi.fn().mockReturnValue({
-    limit: vi.fn().mockResolvedValue({ data, error }),
-  }),
-});
+import {
+  missingCategoryApplicationsQuery,
+  queryWith,
+} from './mobileProductTechnicalService.testUtils';
 
 describe('mobileProductTechnicalService', () => {
   beforeEach(() => {

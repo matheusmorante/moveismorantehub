@@ -1,22 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { supportFolderDeleteSchema, type SupportFolderDeleteInput } from '../../../../../shared-utils/customerSupportFormSchemas';
-import { getTestArtifactContext } from '../../../../../shared-utils/testArtifactContext';
-import { toast } from 'react-toastify';
-import { requestConfirmation } from '@/components/shared/confirmationService';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
 import { fetchTeamProfiles, sendCustomerSupportMessage } from '@/pages/utils/customerSupport/customerSupportService';
 import { supabase } from '@/pages/utils/supabaseConfig';
-import { AssignedProfileSummary, CustomerSupportFolder, WhatsAppConversation } from './types';
+import { AssignedProfileSummary, WhatsAppConversation } from './types';
 import type { SupportOrderSummary } from '@/pages/utils/customerSupport/supportOrdersService';
 import {
   useCustomerSupportConversations,
   useCustomerSupportMessages,
   useCustomerSupportActions,
-  useCustomerSupportFolders,
   useCustomerSupportPanelLayout,
 } from './hooks';
 import {
@@ -27,18 +20,12 @@ import {
   CustomerInfoPanel,
   ActivityTimelineDrawer,
   EmptyChatState,
-  UsageConsumptionModal,
 } from './components';
 import { CustomerSupportResizeHandle } from './components/CustomerSupportResizeHandle';
 import { CUSTOMER_SUPPORT_LAYOUT_DEFAULTS } from './customerSupportLayoutPreferences';
 
 export default function CustomerSupport() {
-  const { user, profile, isAdmin } = useAuth();
-  const currentTestIdentity = import.meta.env.DEV && isAdmin ? getTestArtifactContext() : null;
-  const folderTestIdentity = currentTestIdentity?.ownerId === user?.id ? currentTestIdentity : null;
-  const folderDeleteLock = useRef(false);
-  const folderDeleteForm = useForm<SupportFolderDeleteInput>({ resolver: zodResolver(supportFolderDeleteSchema) });
-  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
+  const { user, profile } = useAuth();
   const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [shareOrderRequest, setShareOrderRequest] = useState<{ conversationId: string; requestId: string; record: SupportOrderSummary } | null>(null);
@@ -49,17 +36,6 @@ export default function CustomerSupport() {
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
   const roles = profile ? getProfileRoles(profile) : [];
   const canViewCommercialInfo = canPerform('viewCustomerCommercialInfo', roles);
-  const {
-    folders,
-    selectedFolder,
-    setSelectedFolder,
-    saveFolder,
-    removeFolder,
-    isLoadingFolders,
-    foldersError,
-    loadFolders,
-  } = useCustomerSupportFolders(user?.id);
-
   const {
     supportLayoutRef,
     inboxPanelRef,
@@ -82,7 +58,6 @@ export default function CustomerSupport() {
     conversationPanelStyle,
     handleToggleInboxPanel,
     handleCloseInboxPanel,
-    handleResetLayout,
   } = useCustomerSupportPanelLayout(user?.id);
 
   // 1. Gerenciamento de conversas, filtros, busca e sincronização Realtime
@@ -94,10 +69,7 @@ export default function CustomerSupport() {
     filter,
     setFilter,
     sortOrder,
-    setSortOrder,
     isLoadingConversations,
-    realtimeStatus,
-    reconnectRealtime,
     loadConversations,
     totalAll,
     unreadCountTotal,
@@ -110,7 +82,6 @@ export default function CustomerSupport() {
     loadMoreConversations,
   } = useCustomerSupportConversations({
     agentId: activeAgentId,
-    folderCriteria: selectedFolder?.criteria || null,
     canViewCommercialInfo,
   });
 
@@ -169,25 +140,13 @@ export default function CustomerSupport() {
   }, [user?.id, agentReloadKey]);
 
   const handleFilterChange = (nextFilter: typeof filter) => {
-    setSelectedFolder(null);
     setActiveAgentId(null);
     setFilter(nextFilter);
   };
 
   const handleSelectAgent = (agentId: string | null) => {
-    setSelectedFolder(null);
     setActiveAgentId(agentId);
     setFilter('all');
-  };
-
-  const handleSelectFolder = (folder: CustomerSupportFolder) => {
-    if (folder.criteria.orders !== 'all' && !canViewCommercialInfo) {
-      toast.error('Esta pasta exige a permissão de informações comerciais para consultar pedidos.');
-      return;
-    }
-    setActiveAgentId(null);
-    setFilter('all');
-    setSelectedFolder(folder);
   };
 
   const handleToggleConversationPanel = () => {
@@ -202,29 +161,6 @@ export default function CustomerSupport() {
     if (isMobileViewport) setIsMobileInboxOpen(false);
   };
 
-  const handleDeleteFolder = async (folder: CustomerSupportFolder) => {
-    if (folderDeleteLock.current) return;
-    folderDeleteLock.current = true;
-    folderDeleteForm.reset({ folderId: folder.id, createdBy: folder.createdBy, currentUserId: user?.id || '' });
-    try {
-      await folderDeleteForm.handleSubmit(async (data) => {
-        if (!await requestConfirmation({
-          title: 'Excluir pasta compartilhada?',
-          message: `Excluir a pasta compartilhada "${folder.name}"?`,
-          confirmLabel: 'Excluir pasta',
-          type: 'danger',
-        })) return;
-        const error = await removeFolder(data.folderId);
-        if (error) toast.error(error);
-        else toast.success(`Pasta "${folder.name}" excluída.`);
-      }, () => toast.error('Não foi possível validar a pasta e seu autor para exclusão.'))();
-    } catch {
-      toast.error('Não foi possível excluir a pasta. Tente novamente.');
-    } finally {
-      folderDeleteLock.current = false;
-    }
-  };
-
   const activityRefreshKey = messages
     .filter((message) => message.messageType === 'internal_note' || message.messageType === 'system_event')
     .map((message) => message.id)
@@ -236,22 +172,17 @@ export default function CustomerSupport() {
       <div className="flex h-full shrink-0 relative z-20">
         <NavigationRail
           unreadCountTotal={unreadCountTotal}
-          onOpenPolicy={() => setIsPolicyModalOpen(true)}
-          realtimeStatus={realtimeStatus}
-          onReconnectRealtime={reconnectRealtime}
           isInboxSidebarOpen={inboxPanelVisible}
           onToggleInboxSidebar={handleToggleInboxPanel}
           isConversationSidebarOpen={isMobileViewport ? !selectedConversation : isConversationSidebarOpen}
           onToggleConversationSidebar={handleToggleConversationPanel}
-          isMobileViewport={isMobileViewport}
-          onResetLayout={handleResetLayout}
         />
       </div>
 
       {isMobileViewport && isMobileInboxOpen && (
         <button
           type="button"
-          aria-label="Fechar pastas e filas"
+          aria-label="Fechar filas e atendentes"
           onClick={() => setIsMobileInboxOpen(false)}
           className="absolute inset-y-0 left-[56px] right-0 z-30 bg-slate-950/30 md:hidden"
         />
@@ -279,25 +210,6 @@ export default function CustomerSupport() {
           onReloadAgents={() => setAgentReloadKey((key) => key + 1)}
           activeAgentId={activeAgentId}
           onSelectAgent={handleSelectAgent}
-          folders={folders}
-          isLoadingFolders={isLoadingFolders}
-          foldersError={foldersError}
-          onReloadFolders={loadFolders}
-          selectedFolder={selectedFolder}
-          currentUserId={user?.id}
-          onSelectFolder={handleSelectFolder}
-          onClearFolder={() => setSelectedFolder(null)}
-          onSaveFolder={async (name, criteria, folderId) => {
-            const error = await saveFolder({ id: folderId, name, criteria });
-            if (!error && !folderId) {
-              setActiveAgentId(null);
-              setFilter('all');
-            }
-            return error;
-          }}
-          onDeleteFolder={handleDeleteFolder}
-          canViewCommercialInfo={canViewCommercialInfo}
-          testIdentity={folderTestIdentity}
         />
       </div>
       <CustomerSupportResizeHandle
@@ -305,7 +217,7 @@ export default function CustomerSupport() {
         panelRef={inboxPanelRef}
         layoutRef={supportLayoutRef}
         siblingPanelRef={conversationPanelRef}
-        label="Pastas e filas"
+        label="Filas e atendentes"
         isOpen={isInboxSidebarOpen}
         width={inboxSidebarWidth}
         minWidth={180}
@@ -336,7 +248,6 @@ export default function CustomerSupport() {
           onRefresh={loadConversations}
           currentUserId={user?.id}
           sortOrder={sortOrder}
-          onSortChange={setSortOrder}
           hasMore={hasMoreConversations}
           isLoadingMore={isLoadingMore}
           error={conversationsError}
@@ -438,12 +349,6 @@ export default function CustomerSupport() {
         </div>
       )}
 
-      {/* Aviso de política do módulo */}
-      <UsageConsumptionModal
-        isOpen={isPolicyModalOpen}
-        onClose={() => setIsPolicyModalOpen(false)}
-        enableDevelopmentTestMode={import.meta.env.DEV}
-      />
     </div>
   );
 }

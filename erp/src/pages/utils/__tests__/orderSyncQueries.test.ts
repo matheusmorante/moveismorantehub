@@ -15,7 +15,6 @@ import {
   fetchAllOrdersForDashboard,
   fetchGeoMapOrders,
   fetchOrdersPage,
-  fetchOrdersForClientFiltering,
   fetchRecentOrders,
   fetchScheduledAndDraftOrders,
   subscribeToOrderChanges,
@@ -116,6 +115,7 @@ describe('dashboard order projections', () => {
 
   it('preserves the scheduled-order fallback and supports strict dashboard reads', async () => {
     const error = new Error('agendamentos indisponíveis');
+    mockDb.rpc.mockResolvedValue({ data: null, error });
     const query: any = {};
     query.select = vi.fn(() => query);
     query.in = vi.fn(() => query);
@@ -133,239 +133,74 @@ describe('dashboard order projections', () => {
 describe('fetchOrdersPage', () => {
   beforeEach(() => {
     mockDb.from.mockReset();
+    mockDb.rpc.mockReset();
   });
 
-  it('selects mapper fields explicitly and projects only consumed child columns', async () => {
-    const query: any = {};
-    query.select = vi.fn(() => query);
-    query.or = vi.fn(() => query);
-    query.not = vi.fn(() => query);
-    query.eq = vi.fn(() => query);
-    query.gte = vi.fn(() => query);
-    query.lte = vi.fn(() => query);
-    query.ilike = vi.fn(() => query);
-    query.order = vi.fn(() => query);
-    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
-    mockDb.from.mockReturnValue(query);
-
-    await fetchOrdersPage(1, 15, {
-      status: 'fulfilled',
-      valueRange: { min: 50, max: 500 },
-    });
-
-    const [columns, options] = query.select.mock.calls[0];
-    expect(options).toEqual({ count: 'exact' });
-    expect(columns).toContain('items, order_data');
-    expect(columns).toContain('order_items(');
-    expect(columns).toMatch(/order_items\(\s*id, item_index,/);
-    expect(columns).toContain('item_snapshot');
-    expect(columns).toContain('original_total_value');
-    expect(columns).toContain('order_payments(payment_method, amount, fee, fee_type, status, installments)');
-    expect(columns).not.toMatch(/order_items\s*\(\s*\*\s*\)/);
-    expect(columns).not.toMatch(/order_payments\s*\(\s*\*\s*\)/);
-    expect(query.eq).toHaveBeenCalledWith('status', 'fulfilled');
-    expect(query.gte).toHaveBeenCalledWith('total_amount', 50);
-    expect(query.lte).toHaveBeenCalledWith('total_amount', 500);
-    expect(query.or).toHaveBeenCalledWith(expect.stringContaining('order_data->>is_test'));
-    expect(query.or.mock.invocationCallOrder.at(-1)).toBeLessThan(
-      query.range.mock.invocationCallOrder[0]
-    );
-    expect(query.order.mock.calls).toEqual([
-      ['created_at', { ascending: false }],
-      ['id', { ascending: true }],
-    ]);
+  it('preserva ordem e total do servidor e carrega somente resumos dos IDs selecionados', async () => {
+    mockDb.rpc.mockResolvedValueOnce({
+      data: { ids: ['order-2', 'order-1'], total: 31, totalAmount: 2900 }, error: null,
+    }).mockResolvedValueOnce({ data: [
+      { id: 'order-1', __orderSummary: true, status: 'scheduled', order_type: 'sale', order_number: '1', customer_name: 'Ana', order_data: { __orderSummary: true } },
+      { id: 'order-2', __orderSummary: true, status: 'scheduled', order_type: 'sale', order_number: '2', customer_name: 'Bia', order_data: { __orderSummary: true } },
+    ], error: null });
+    const filters = { customerName: 'bia ana', productName: 'mesa', seller: 'joao', dateRange: { start: '2026-01-01', end: '2026-12-31' } };
+    const result = await fetchOrdersPage(2, 100, filters, { throwOnError: true });
+    expect(mockDb.rpc).toHaveBeenCalledWith('list_order_page_ids', { p_filters: filters, p_page: 2, p_page_size: 15, p_mode: 'erp' });
+    expect(mockDb.rpc).toHaveBeenCalledWith('read_order_summaries', { p_ids: ['order-2', 'order-1'] });
+    expect(result.orders.map((order) => order.id)).toEqual(['order-2', 'order-1']);
+    expect(result.orders.every((order) => order.__orderSummary)).toBe(true);
+    expect(result).toMatchObject({ total: 31, totalAmount: 2900 });
   });
 
-  it('includes test orders before pagination only when explicitly requested', async () => {
-    const query: any = {};
-    query.select = vi.fn(() => query);
-    query.or = vi.fn(() => query);
-    query.not = vi.fn(() => query);
-    query.eq = vi.fn(() => query);
-    query.ilike = vi.fn(() => query);
-    query.order = vi.fn(() => query);
-    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
-    mockDb.from.mockReturnValue(query);
-
-    await fetchOrdersPage(1, 15, { showTestOrders: true });
-
-    expect(query.or).toHaveBeenCalledTimes(1);
-    expect(query.or).toHaveBeenCalledWith('deleted.is.null,deleted.eq.false');
+  it('não consulta os detalhes quando a página filtrada está vazia', async () => {
+    mockDb.rpc.mockResolvedValue({ data: { ids: [], total: 0, totalAmount: 0 }, error: null });
+    await expect(fetchOrdersPage(1, 15, { customerName: 'não encontrado' }, { throwOnError: true }))
+      .resolves.toEqual({ orders: [], total: 0, totalAmount: 0 });
+    expect(mockDb.from).not.toHaveBeenCalled();
   });
 
-  it('combines draft and status constraints before calculating a page', async () => {
-    const query: any = {};
-    query.select = vi.fn(() => query);
-    query.or = vi.fn(() => query);
-    query.not = vi.fn(() => query);
-    query.eq = vi.fn(() => query);
-    query.ilike = vi.fn(() => query);
-    query.order = vi.fn(() => query);
-    query.range = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
-    mockDb.from.mockReturnValue(query);
-
-    await fetchOrdersPage(1, 15, { isDraft: true, status: 'fulfilled' });
-
-    expect(query.eq.mock.calls).toEqual([
-      ['status', 'draft'],
-      ['status', 'fulfilled'],
-    ]);
+  it('propaga falha e resposta inválida sem carregar todos os pedidos', async () => {
+    const failure = new Error('falha de leitura');
+    mockDb.rpc.mockResolvedValueOnce({ data: null, error: failure });
+    await expect(fetchOrdersPage(1, 15, {}, { throwOnError: true })).rejects.toBe(failure);
+    mockDb.rpc.mockResolvedValueOnce({ data: { ids: ['duplicado', 'duplicado'], total: 2, totalAmount: 0 }, error: null });
+    await expect(fetchOrdersPage(1, 15, {}, { throwOnError: true })).rejects.toThrow('página inválida');
+    expect(mockDb.from).not.toHaveBeenCalled();
   });
 
-  it('preserves the legacy empty result by default and propagates failures for query hooks', async () => {
-    const queryError = new Error('falha de leitura');
-    const query: any = {};
-    query.select = vi.fn(() => query);
-    query.or = vi.fn(() => query);
-    query.not = vi.fn(() => query);
-    query.eq = vi.fn(() => query);
-    query.ilike = vi.fn(() => query);
-    query.order = vi.fn(() => query);
-    query.range = vi.fn().mockResolvedValue({ data: null, count: null, error: queryError });
-    mockDb.from.mockReturnValue(query);
-
-    await expect(fetchOrdersPage()).resolves.toEqual({ orders: [], total: 0 });
-    await expect(fetchOrdersPage(1, 15, undefined, { throwOnError: true })).rejects.toBe(queryError);
-  });
-
-  it('recovers a failed order query when it is invalidated and retried', async () => {
-    const queryError = new Error('falha temporária ao carregar pedidos');
-    const query: any = {};
-    query.select = vi.fn(() => query);
-    query.or = vi.fn(() => query);
-    query.not = vi.fn(() => query);
-    query.eq = vi.fn(() => query);
-    query.ilike = vi.fn(() => query);
-    query.filter = vi.fn(() => query);
-    query.order = vi.fn(() => query);
-    query.range = vi
-      .fn()
-      .mockResolvedValueOnce({ data: null, count: null, error: queryError })
-      .mockResolvedValueOnce({ data: [], count: 0, error: null });
-    mockDb.from.mockReturnValue(query);
-
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: 0 } },
-    });
+  it('permite nova tentativa após falha da consulta filtrada', async () => {
+    const failure = new Error('falha temporária');
+    mockDb.rpc.mockResolvedValueOnce({ data: null, error: failure })
+      .mockResolvedValueOnce({ data: { ids: [], total: 0, totalAmount: 0 }, error: null });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
     const queryOptions = {
       queryKey: ['orders', { customerName: 'cliente-sintetico' }],
       queryFn: () => fetchOrdersPage(1, 15, { customerName: 'cliente-sintetico' }, { throwOnError: true }),
     };
-
-    await expect(queryClient.fetchQuery(queryOptions)).rejects.toBe(queryError);
+    await expect(queryClient.fetchQuery(queryOptions)).rejects.toBe(failure);
     await queryClient.invalidateQueries({ queryKey: ['orders'] });
-    await expect(queryClient.fetchQuery(queryOptions)).resolves.toEqual({ orders: [], total: 0 });
-    expect(query.range).toHaveBeenCalledTimes(2);
-  });
-
-  it('carrega todas as páginas antes dos filtros locais da lista', async () => {
-    const firstPage = Array.from({ length: 1000 }, (_, index) => ({
-      id: `order-${String(index).padStart(4, '0')}`,
-      order_number: index + 1,
-      status: 'scheduled',
-      order_type: 'sale',
-      order_data: { date: '2026-10-10', customerData: { fullName: 'Cliente sintético' } },
-    }));
-    const queryRanges: number[][] = [];
-    const customerFilters: string[] = [];
-    const responses = [
-      { data: firstPage, count: 1001, error: null },
-      {
-        data: [
-          {
-            id: 'order-after-api-cap',
-            order_number: 1001,
-            status: 'scheduled',
-            order_type: 'sale',
-            order_data: { date: '2026-10-11', customerData: { fullName: 'Cliente sintético' } },
-          },
-        ],
-        count: 1001,
-        error: null,
-      },
-    ];
-    mockDb.from.mockImplementation(() => {
-      const query: any = {};
-      query.select = vi.fn(() => query);
-      query.or = vi.fn(() => query);
-      query.not = vi.fn(() => query);
-      query.eq = vi.fn(() => query);
-      query.ilike = vi.fn((column: string) => {
-        customerFilters.push(column);
-        return query;
-      });
-      query.order = vi.fn(() => query);
-      query.range = vi.fn((from: number, to: number) => {
-        queryRanges.push([from, to]);
-        return Promise.resolve(responses.shift());
-      });
-      return query;
-    });
-
-    const orders = await fetchOrdersForClientFiltering(
-      { orderType: 'sale', customerName: 'Cliente' },
-      { throwOnError: true }
-    );
-
-    expect(orders).toHaveLength(1001);
-    expect(orders.at(-1)?.id).toBe('order-after-api-cap');
-    expect(queryRanges).toEqual([
-      [0, 999],
-      [1000, 1999],
-    ]);
-    expect(customerFilters).toEqual([]);
+    await expect(queryClient.fetchQuery(queryOptions)).resolves.toEqual({ orders: [], total: 0, totalAmount: 0 });
+    expect(mockDb.rpc).toHaveBeenCalledTimes(2);
   });
 });
 
 describe('fetchScheduledAndDraftOrders', () => {
   beforeEach(() => {
     mockDb.from.mockReset();
+    mockDb.rpc.mockReset();
   });
 
-  it('carrega as formas de pagamento da agenda e calcula corretamente pago e em aberto', async () => {
-    let selectedColumns = '';
-    const query: any = {
-      select: vi.fn((columns: string) => {
-        selectedColumns = columns;
-        return query;
-      }),
-      or: vi.fn(() => query),
-      in: vi.fn(() => query),
-      order: vi.fn(() => query),
-      then: (resolve: (value: unknown) => unknown) =>
-        Promise.resolve({
-          data: [
-            {
-              id: 'scheduled-order-1',
-              order_number: '1042',
-              status: 'scheduled',
-              order_type: 'sale',
-              total_amount: 1045,
-              order_items: [],
-              order_payments: [
-                {
-                  payment_index: 1,
-                  payment_method: 'Pix',
-                  amount: '600.00',
-                  fee: '5.00',
-                  fee_type: 'fixed',
-                  status: 'PAGO',
-                  installments: 1,
-                },
-              ],
-            },
-          ],
-          error: null,
-        }).then(resolve),
-    };
-    mockDb.from.mockReturnValue(query);
-
-    const orders = await fetchScheduledAndDraftOrders();
-
-    expect(selectedColumns).toContain('order_payments(');
-    expect(orders[0].payments).toEqual([
-      expect.objectContaining({ method: 'Pix', amount: 600, fee: 5, status: 'PAGO' }),
-    ]);
+  it('preserva pagamentos normalizados e valores pago/em aberto na agenda compacta', async () => {
+    mockDb.rpc.mockResolvedValueOnce({ data: { ids: ['scheduled-order-1'], total: 1 }, error: null })
+      .mockResolvedValueOnce({ data: [{
+        id: 'scheduled-order-1', __orderSummary: true, order_number: '1042', status: 'scheduled',
+        order_type: 'sale', total_amount: 1045, order_data: { __orderSummary: true },
+        order_payments: [{ payment_index: 1, payment_method: 'Pix', amount: '600.00', fee: '5.00', fee_type: 'fixed', status: 'PAGO', installments: 1 }],
+      }], error: null });
+    const orders = await fetchScheduledAndDraftOrders({ throwOnError: true });
+    expect(mockDb.rpc).toHaveBeenCalledWith('list_order_schedule_ids', expect.objectContaining({ p_scope: 'erp_schedule', p_filters: { types: ['delivery', 'pickup', 'assistance'] } }));
+    expect(mockDb.rpc).toHaveBeenCalledWith('read_order_summaries', { p_ids: ['scheduled-order-1'] });
+    expect(orders[0].payments).toEqual([expect.objectContaining({ method: 'Pix', amount: 600, fee: 5, status: 'PAGO' })]);
     expect(orders[0].paymentsSummary.totalAmountPaid).toBe(605);
     expect(orders[0].paymentsSummary.amountRemaining).toBe(440);
   });

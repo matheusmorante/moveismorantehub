@@ -63,7 +63,7 @@ function summarizeInternalDescription(
     seenTerms.add(normalizedTerm);
     seenCategories.add(category);
     examples.push(term.trim());
-    if (examples.length === 3) break;
+    if (examples.length === 8) break;
   }
 
   if (examples.length === 0) return null;

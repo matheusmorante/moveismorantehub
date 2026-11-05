@@ -3,14 +3,13 @@ import { formatOrderCode, formatOrderTotal, getOrderTotalValue } from '../../../
 
 const query = {
   select: vi.fn(),
-  neq: vi.fn(),
-  order: vi.fn(),
-  range: vi.fn(),
-  or: vi.fn(),
+  in: vi.fn(),
 };
 
+const rpc = vi.fn();
+
 vi.mock('../../../services/supabaseClient', () => ({
-  supabase: { from: vi.fn(() => query) },
+  supabase: { from: vi.fn(() => query), rpc: (...args: any[]) => rpc(...args) },
 }));
 
 vi.mock('../../../repositories/OrderRepository', () => ({
@@ -18,9 +17,14 @@ vi.mock('../../../repositories/OrderRepository', () => ({
     init: vi.fn().mockResolvedValue(undefined),
     list: vi.fn().mockResolvedValue([]),
     saveLocal: vi.fn().mockResolvedValue(undefined),
+    overlayPendingLocalOrders: vi.fn(async (items) => items),
   },
 }));
 
+vi.mock('../../../services/offline/offlineStorageService', () => ({
+  offlineStorageService: { getWorkingSet: vi.fn().mockResolvedValue(null), cacheWorkingSet: vi.fn().mockResolvedValue(undefined) },
+}));
+vi.mock('../../../services/offline/orderSnapshotCache', () => ({ refreshOfflineOrderSnapshots: async () => undefined }));
 import { fetchMobileOrdersPage } from './mobileOrderListService';
 
 describe('Mobile Orders Resilience & Zero-Value Prevention', () => {
@@ -28,10 +32,10 @@ describe('Mobile Orders Resilience & Zero-Value Prevention', () => {
     vi.clearAllMocks();
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     query.select.mockReturnValue(query);
-    query.neq.mockReturnValue(query);
-    query.order.mockReturnValue(query);
-    query.range.mockResolvedValue({
-      count: 2,
+    rpc.mockImplementation(async (name) => name === 'list_order_page_ids'
+      ? { data: { ids: ['order-1'], total: 1, totalAmount: 2206 }, error: null }
+      : { ...(await query.in()), data: (await query.in()).data.map((row: any) => ({ ...row, __orderSummary: true, order_data: { ...row.order_data, __orderSummary: true } })) });
+    query.in.mockResolvedValue({
       error: null,
       data: [
         {
@@ -49,21 +53,11 @@ describe('Mobile Orders Resilience & Zero-Value Prevention', () => {
             items: [{ name: 'Guarda Roupa', unitPrice: 2206, quantity: 1 }],
           },
         },
-        {
-          id: 'order-deleted',
-          order_number: '9999',
-          status: 'scheduled',
-          order_type: 'sale',
-          customer_name: 'Cliente Lixeira',
-          total_value: 500,
-          deleted: true,
-          order_data: { deleted: true },
-        },
       ],
     });
   });
 
-  it('filters out soft-deleted orders and computes order codes and totals accurately', async () => {
+  it('usa os pedidos selecionados pelo servidor e preserva códigos e totais', async () => {
     const result = await fetchMobileOrdersPage({
       page: 1,
       pageSize: 15,
@@ -72,6 +66,7 @@ describe('Mobile Orders Resilience & Zero-Value Prevention', () => {
     });
 
     expect(result.items.length).toBe(1);
+    expect(rpc).toHaveBeenCalledWith('read_order_summaries', { p_ids: ['order-1'] });
     expect(result.items[0].id).toBe('order-1');
     expect(result.items[0].customer_name).toBe('Andreia Fernandes');
     expect(result.items[0].total_value).toBe(2206);

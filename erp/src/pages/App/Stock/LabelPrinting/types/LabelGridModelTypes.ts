@@ -1,6 +1,8 @@
 import type { LabelConfig } from '../utils/LabelConstants';
 
 interface GridModelBase {
+  __layoutSummary?: boolean;
+  remoteUpdatedAt?: string;
   id: string;
   baseModelId?: string;
   name: string;

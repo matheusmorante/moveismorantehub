@@ -5,19 +5,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  tableResults: {} as Record<string, { data: unknown[] | null; error: unknown | null }>,
+  rpc: vi.fn(),
   from: vi.fn(),
   channel: vi.fn(),
   removeChannel: vi.fn(),
   subscriptionStatus: undefined as ((status: string) => void) | undefined,
-  fromCalls: [] as string[],
 }));
 
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 'operator-1' }, profile: { id: 'operator-1', role: 'administrator' } }),
 }));
 vi.mock('@/pages/utils/supabaseConfig', () => ({
-  supabase: { from: mocks.from, channel: mocks.channel, removeChannel: mocks.removeChannel },
+  supabase: { rpc: mocks.rpc, from: mocks.from, channel: mocks.channel, removeChannel: mocks.removeChannel },
 }));
 
 import { useDashboardStock } from './useDashboardStock';
@@ -31,22 +30,16 @@ function setup() {
 }
 
 beforeEach(() => {
-  mocks.tableResults = {
-    products: { data: [], error: null },
-    inventory_moves: { data: [], error: null },
-  };
-  mocks.fromCalls = [];
+  mocks.rpc.mockReset().mockResolvedValue({ data: {
+    zeroStockCount: 37, lowStockCount: 13,
+    lowStockItems: [
+      { productId: 'product-1', variationId: 'variation-1', name: 'Mesa — Branca', stock: 0, minStock: 2, isZero: true },
+      { productId: 'product-2', name: 'Cadeira', stock: 1, minStock: 3, isZero: false },
+    ],
+    pendingInventory: { code: 'INV-1', date: '2026-11-04T10:00:00+00:00', responsibleName: 'Operador' },
+  }, error: null });
   mocks.subscriptionStatus = undefined;
-  mocks.from.mockReset().mockImplementation((table: string) => {
-    mocks.fromCalls.push(table);
-    const query: Record<string, any> = {};
-    for (const method of ['select', 'is', 'eq', 'or', 'order', 'range', 'in', 'limit']) {
-      query[method] = () => query;
-    }
-    query.then = (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
-      Promise.resolve(mocks.tableResults[table] ?? { data: [], error: null }).then(resolve, reject);
-    return query;
-  });
+  mocks.from.mockReset().mockImplementation(() => { throw new Error('O painel não deve baixar tabelas de produtos.'); });
   mocks.channel.mockReset().mockImplementation(() => {
     const channel: any = {
       on: vi.fn(() => channel),
@@ -63,7 +56,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('consulta de estoque do Dashboard', () => {
   it('propaga falhas da leitura para o estado de erro', async () => {
-    mocks.tableResults.products = { data: null, error: new Error('leitura indisponível') };
+    mocks.rpc.mockResolvedValue({ data: null, error: new Error('leitura indisponível') });
     const { wrapper } = setup();
     const { result } = renderHook(() => useDashboardStock(), { wrapper });
 
@@ -75,9 +68,39 @@ describe('consulta de estoque do Dashboard', () => {
     const { wrapper } = setup();
     const { result } = renderHook(() => useDashboardStock(), { wrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(mocks.fromCalls.filter((table) => table === 'products')).toHaveLength(1);
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
 
     act(() => mocks.subscriptionStatus?.('SUBSCRIBED'));
-    await waitFor(() => expect(mocks.fromCalls.filter((table) => table === 'products')).toHaveLength(2), { timeout: 1000 });
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledTimes(2), { timeout: 1000 });
+  });
+
+  it('usa totais globais do servidor, preservando variações e inventário sem baixar candidatos', async () => {
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useDashboardStock(), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mocks.rpc).toHaveBeenCalledWith('get_dashboard_stock_summary');
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(result.current).toMatchObject({ zeroStockCount: 37, lowStockCount: 13, error: false,
+      lowStockItems: [expect.objectContaining({ variationId: 'variation-1', name: 'Mesa — Branca' }), expect.objectContaining({ stock: 1 })],
+      pendingInventory: { code: 'INV-1', responsibleName: 'Operador' },
+    });
+  });
+
+  it('não transforma uma resposta incompleta em estoque sem pendências', async () => {
+    mocks.rpc.mockResolvedValue({ data: {}, error: null });
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useDashboardStock(), { wrapper });
+    await waitFor(() => expect(result.current.error).toBe(true));
+    expect(result.current.loading).toBe(false);
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it('recusa uma resposta fora do limite de oito itens, mantendo erro visível', async () => {
+    const data = (await mocks.rpc()).data;
+    mocks.rpc.mockResolvedValue({ data: { ...data, lowStockItems: Array.from({ length: 9 }, () => data.lowStockItems[0]) }, error: null });
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useDashboardStock(), { wrapper });
+    await waitFor(() => expect(result.current.error).toBe(true));
+    expect(result.current.loading).toBe(false);
   });
 });

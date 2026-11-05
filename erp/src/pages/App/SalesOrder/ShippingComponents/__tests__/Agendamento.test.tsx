@@ -1,14 +1,11 @@
 // @vitest-environment happy-dom
-import React, { useState } from 'react';
+import React from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import Agendamento from '../Agendamento';
-import Shipping from '@/pages/types/Shipping.type';
-import { ValidationErrors } from '@/pages/utils/validations';
+import { createDefaultScheduling, StatefulAgendamentoHarness } from './AgendamentoTestUtils';
 import {
   getSaoPauloDayInfo,
-  validateShipping,
   validateShippingScheduling,
 } from '../../../../../../../shared-utils/commercialOrderRules';
 import { buildOrderPersistencePayload } from '@/pages/utils/orderPersistencePayload';
@@ -17,59 +14,6 @@ import { mapOrderFromDatabase } from '@/pages/utils/orderMapper';
 afterEach(() => {
   cleanup();
 });
-
-const createDefaultScheduling = (
-  overrides: Partial<Shipping['scheduling']> = {}
-): Shipping['scheduling'] => ({
-  date: '',
-  endDate: '',
-  dateType: 'fixed',
-  time: '',
-  startTime: '',
-  endTime: '',
-  type: 'fixed',
-  ...overrides,
-});
-
-const StatefulAgendamentoHarness = ({
-  initialScheduling,
-  errors = {},
-}: {
-  initialScheduling?: Partial<Shipping['scheduling']>;
-  errors?: ValidationErrors;
-}) => {
-  const [scheduling, setScheduling] = useState<Shipping['scheduling']>(() =>
-    createDefaultScheduling(initialScheduling)
-  );
-
-  const handleChangeScheduling = (
-    key: keyof Shipping['scheduling'],
-    value: string | Date | boolean
-  ) => {
-    setScheduling((prev) => {
-      const next = { ...prev, [key]: value };
-      if (next.type === 'fixed') {
-        next.time = next.startTime || '';
-      } else {
-        const start = next.startTime || '';
-        const end = next.endTime || '';
-        next.time = start && end ? `${start} às ${end}` : '';
-      }
-      return next;
-    });
-  };
-
-  return (
-    <div>
-      <Agendamento
-        scheduling={scheduling}
-        onChangeScheduling={handleChangeScheduling}
-        errors={errors}
-      />
-      <output data-testid="raw-scheduling-json">{JSON.stringify(scheduling)}</output>
-    </div>
-  );
-};
 
 describe('Agendamento — Cards selecionáveis e expansíveis de Data e Horário', () => {
   it('inicia compacto em nova programação com Resumo da programação definido como "Não definido"', () => {
@@ -364,83 +308,6 @@ describe('Agendamento — Cards selecionáveis e expansíveis de Data e Horário
     expect((screen.getByLabelText('Data desejada') as HTMLInputElement).value).toBe('2026-11-12');
     saved = JSON.parse(screen.getByTestId('raw-scheduling-json').textContent || '{}');
     expect(saved.date).toBe('2026-11-12');
-  });
-
-  it('retorna as mensagens exatas de validação em todos os cenários obrigatórios e destaca a borda inferior em erro', () => {
-    expect(
-      validateShipping({
-        deliveryMethod: 'delivery',
-        scheduling: createDefaultScheduling({ dateType: 'fixed', date: '' }),
-      }).shipping_date
-    ).toBe('Selecione uma data específica.');
-
-    expect(
-      validateShipping({
-        deliveryMethod: 'delivery',
-        scheduling: createDefaultScheduling({ dateType: 'range', date: '2026-10-20', endDate: '' }),
-      }).shipping_date
-    ).toBe('Preencha a data inicial e a data final.');
-
-    expect(
-      validateShipping({
-        deliveryMethod: 'delivery',
-        scheduling: createDefaultScheduling({
-          dateType: 'range',
-          date: '2026-10-20',
-          endDate: '2026-10-19',
-        }),
-      }).shipping_date
-    ).toBe('A data final não pode ser anterior à data inicial.');
-
-    expect(
-      validateShipping({
-        deliveryMethod: 'delivery',
-        scheduling: createDefaultScheduling({
-          date: '2026-10-20',
-          type: 'fixed',
-          startTime: '',
-        }),
-      }).shipping_time
-    ).toBe('Selecione um horário específico.');
-
-    expect(
-      validateShipping({
-        deliveryMethod: 'delivery',
-        scheduling: createDefaultScheduling({
-          date: '2026-10-20',
-          type: 'range',
-          startTime: '10:00',
-          endTime: '',
-        }),
-      }).shipping_time
-    ).toBe('Preencha o horário inicial e o horário final.');
-
-    expect(
-      validateShipping({
-        deliveryMethod: 'delivery',
-        scheduling: createDefaultScheduling({
-          date: '2026-10-20',
-          type: 'range',
-          startTime: '14:00',
-          endTime: '13:00',
-        }),
-      }).shipping_time
-    ).toBe('O horário final deve ser posterior ao horário inicial.');
-
-    // Verifica destaque visual na borda inferior quando há erro
-    render(
-      <StatefulAgendamentoHarness
-        initialScheduling={{ dateType: 'range', date: '2026-10-20', endDate: '2026-10-18' }}
-        errors={{ shipping_date: 'A data final não pode ser anterior à data inicial.' }}
-      />
-    );
-
-    const endInput = screen.getByLabelText('Data final');
-    expect(endInput).toHaveAttribute('aria-invalid', 'true');
-    expect(endInput.className).toContain('border-red-500');
-    expect(
-      screen.getByText('A data final não pode ser anterior à data inicial.')
-    ).toBeInTheDocument();
   });
 
   it('abre pedidos existentes selecionando e expandindo automaticamente a modalidade correspondente', () => {

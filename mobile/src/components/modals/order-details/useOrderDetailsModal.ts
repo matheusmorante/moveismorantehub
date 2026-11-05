@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Platform, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../../services/supabaseClient';
-import { OrderRepository } from '../../../repositories/OrderRepository';
-import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { loadMobileOrderDetails } from '../../../services/orderDetailsReadService';
+import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
 
 const DEFAULT_ALLOWED_DELIVERY_ROLES = [
   'administrator',
@@ -32,97 +32,41 @@ export function useOrderDetailsModal({ order, userRole }: UseOrderDetailsModalPr
   const [preparingDelivery, setPreparingDelivery] = useState(false);
   const [canStartDelivery, setCanStartDelivery] = useState(false);
   const [detailedOrder, setDetailedOrder] = useState<any>(order);
+  const [detailsLoading, setDetailsLoading] = useState(Boolean(order?.id));
+  const [detailsError, setDetailsError] = useState('');
+  const [detailsAttempt, setDetailsAttempt] = useState(0);
 
   const topInset = Math.max(
     insets.top,
     Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0
   );
 
-  // 1. Carregamento sob demanda de itens completos do pedido caso venha incompleto da listagem
   useEffect(() => {
+    const controller = new AbortController();
     setDetailedOrder(order);
-    if (!order?.id) {
-      setPreparingDelivery(false);
-      return;
-    }
-    setPreparingDelivery(Boolean(order._openDeliveryPreparation));
-
-    let alive = true;
-    const loadFullOrder = async () => {
-      // Aplica sempre qualquer estado local pendente (ex: transição offline de etapa da entrega)
-      try {
-        const overlaidInitial = await OrderRepository.overlayPendingLocalOrders([order]);
-        if (alive && overlaidInitial[0]) {
-          setDetailedOrder(overlaidInitial[0]);
-        }
-      } catch {}
-
-      const existingItems = order.order_data?.items || order.items || [];
-      const hasFullItems =
-        Array.isArray(existingItems) &&
-        existingItems.length > 0 &&
-        existingItems.some((i: any) => i.name || i.description || i.productName || i.title);
-      if (hasFullItems) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', order.id)
-          .maybeSingle();
-        if (!error && data && alive) {
-          const overlaidRemote = await OrderRepository.overlayPendingLocalOrders([data]);
-          if (alive) {
-            setDetailedOrder(overlaidRemote[0] || data);
-          }
-          return;
-        }
-      } catch (err) {
-        console.warn('[useOrderDetailsModal] Falha ao carregar detalhes remotos, tentando cache:', err);
-      }
-
-      // Fallback offline: tenta recuperar do OrderRepository ou de logistics_orders
-      try {
-        const local = await OrderRepository.getById(order.id);
-        if (local && alive) {
-          setDetailedOrder({
-            ...order,
-            id: local.id,
-            status: local.status,
-            order_data: local.orderData,
-          });
-          return;
-        }
-      } catch {}
-
-      try {
-        const cached = await offlineStorageService.getWorkingSet<any[]>('logistics_orders');
-        const found = cached?.data?.find((item) => item?.id === order.id);
-        if (found && alive) {
-          const overlaidCached = await OrderRepository.overlayPendingLocalOrders([found]);
-          if (alive) {
-            setDetailedOrder(overlaidCached[0] || found);
-          }
-        }
-      } catch {}
-    };
-
-    void loadFullOrder();
-
-    return () => {
-      alive = false;
-    };
-  }, [order]);
+    setPreparingDelivery(false);
+    setDetailsLoading(Boolean(order?.id));
+    setDetailsError('');
+    if (!order?.id) return () => controller.abort();
+    void loadMobileOrderDetails(order, controller.signal).then((full) => {
+      if (controller.signal.aborted) return;
+      setDetailedOrder(full);
+      setPreparingDelivery(Boolean(order._openDeliveryPreparation));
+    }).catch((cause) => {
+      if (!controller.signal.aborted) setDetailsError(cause instanceof Error ? cause.message : 'Não foi possível carregar os detalhes.');
+    }).finally(() => { if (!controller.signal.aborted) setDetailsLoading(false); });
+    return () => controller.abort();
+  }, [order, detailsAttempt]);
 
   // 2. Consulta de permissão para iniciar entrega com fallback resiliente para equipe
   useEffect(() => {
     let alive = true;
     const loadPermission = async () => {
       try {
-        const { data } = await supabase.from('settings').select('data').eq('id', 'app').maybeSingle();
+        const { data } = await withAbortTimeout(supabase.from('settings').select('roles:data->rolePermissions').eq('id', 'app').maybeSingle(), 'app:permissoes-entrega', 15_000);
         if (!alive) return;
 
-        const configuredRoles = data?.data?.rolePermissions?.startDelivery;
+        const configuredRoles = (data?.roles as { startDelivery?: unknown } | null)?.startDelivery;
         const allowedRoles =
           Array.isArray(configuredRoles) && configuredRoles.length > 0
             ? configuredRoles
@@ -153,10 +97,11 @@ export function useOrderDetailsModal({ order, userRole }: UseOrderDetailsModalPr
 
   return {
     detailedOrder: detailedOrder || order,
+    detailsLoading, detailsError, retryDetails: () => setDetailsAttempt((value) => value + 1),
     setDetailedOrder,
     preparingDelivery,
     setPreparingDelivery,
-    canStartDelivery,
+    canStartDelivery: canStartDelivery && !detailsLoading && !detailsError,
     topInset,
   };
 }

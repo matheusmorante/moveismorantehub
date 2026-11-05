@@ -12,6 +12,7 @@ type TestChannel = {
   status?: (status: string) => void;
 };
 const mocks = vi.hoisted(() => ({ channel: vi.fn(), removeChannel: vi.fn(),
+  fetchChanges: vi.fn(),
   fetchConversations: vi.fn(), fetchConversationCounts: vi.fn(),
   fetchConversationMessages: vi.fn(), fetchPreviousConversationMessages: vi.fn(),
   fetchConversationReplyTarget: vi.fn(), markConversationAsRead: vi.fn(), channels: [] as TestChannel[] }));
@@ -19,6 +20,8 @@ vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: {
   channel: mocks.channel, removeChannel: mocks.removeChannel,
 } }));
 vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({
+  fetchInitialConversationMessagePage: async (...args: any[]) => ({ messages: await mocks.fetchConversationMessages(...args), watermark: '2026-11-04T12:00:00Z' }),
+  fetchConversationMessageChanges: mocks.fetchChanges,
   fetchConversations: mocks.fetchConversations, fetchConversationCounts: mocks.fetchConversationCounts,
   fetchConversationMessages: mocks.fetchConversationMessages,
   fetchPreviousConversationMessages: mocks.fetchPreviousConversationMessages,
@@ -27,6 +30,7 @@ vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({
 }));
 
 beforeEach(() => {
+  mocks.fetchChanges.mockResolvedValue({ messages: [], watermark: '2026-11-04T12:00:30Z' });
   vi.useFakeTimers();
   mocks.channels.length = 0;
   mocks.channel.mockImplementation(() => {
@@ -49,7 +53,7 @@ afterEach(() => { cleanup(); vi.clearAllTimers(); vi.useRealTimers(); vi.resetAl
 const cases = [
   { name: 'conversas', delay: 3000, useHook: () => useCustomerSupportConversations({}) },
   { name: 'mensagens', delay: 5000, useHook: () => useCustomerSupportMessages({
-    selectedConversation: { id: 'a', unreadCount: 0 } as WhatsAppConversation, onClearUnread: vi.fn(),
+    selectedConversation: { id: 'a', unreadCount: 0 } as WhatsAppConversation,
   }) },
 ];
 

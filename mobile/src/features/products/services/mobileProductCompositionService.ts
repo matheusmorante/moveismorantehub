@@ -1,5 +1,6 @@
 import { fetchMobileProductsPage } from './mobileProductFetchService';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
+import { PRODUCT_AUTOCOMPLETE_MAX_SUGGESTIONS } from '../../../../../shared-utils/productAutocompleteFormSchema';
 
 export interface MobileProductCompositionCandidate {
   id: string;
@@ -24,6 +25,8 @@ export const searchMobileProductCompositionCandidates = async (
   const selectedSupplierId = supplierId?.trim();
   if (selectedSupplierId && !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(selectedSupplierId)) return [];
 
+  // Overfetch before local filtering and variation expansion; only the first
+  // five suggestions are exposed, matching the ERP ProductAutocomplete.
   const response = await withTimeout(
     fetchMobileProductsPage(1, 25, {
       search: searchTerm,
@@ -107,5 +110,5 @@ export const searchMobileProductCompositionCandidates = async (
         stock: Number(product.stock ?? 0),
       }];
     })
-    .slice(0, 15);
+    .slice(0, PRODUCT_AUTOCOMPLETE_MAX_SUGGESTIONS);
 };

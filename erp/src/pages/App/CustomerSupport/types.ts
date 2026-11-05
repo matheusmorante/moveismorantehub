@@ -82,6 +82,7 @@ export type WhatsAppMessageDeliveryStatus =
   | 'received';
 
 export interface WhatsAppMessage {
+  changedAt?: string;
   id: string;
   conversationId: string;
   apiMessageId: string | null;

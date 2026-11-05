@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS = 300;
+export const PRODUCT_AUTOCOMPLETE_MAX_SUGGESTIONS = 5;
 
 export const productAutocompleteFormSchema = z.object({
   query: z.string().trim().min(3, 'Digite pelo menos três caracteres para buscar.'),

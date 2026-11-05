@@ -16,6 +16,7 @@ interface UseNativeBottomNavProps {
   currentTab: string;
   canSeeReports: boolean;
   canSeeProducts?: boolean;
+  isBetaApp?: boolean;
   canSeeFinance?: boolean;
   isAdmin?: boolean;
   WEB_URL: string;
@@ -26,6 +27,7 @@ export function useNativeBottomNav({
   currentTab,
   canSeeReports,
   canSeeProducts,
+  isBetaApp = false,
   canSeeFinance = true,
   isAdmin = false,
   WEB_URL,
@@ -85,6 +87,7 @@ export function useNativeBottomNav({
         icon: Package,
         url: `${WEB_URL}/products`,
         visible: Boolean(canSeeProducts),
+        disabled: isBetaApp,
       },
       {
         key: 'relatorios',
@@ -101,15 +104,21 @@ export function useNativeBottomNav({
         visible: true,
       },
     ],
-    [WEB_URL, isAdmin, canSeeFinance, canSeeProducts, canSeeReports]
+    [WEB_URL, isAdmin, isBetaApp, canSeeFinance, canSeeProducts, canSeeReports]
   );
 
   // Filtra apenas abas visíveis para o perfil do usuário
   const visibleTabs = useMemo(() => {
     return (customTabs || allTabs)
       .filter((t) => t.visible !== false)
-      .map((tab) => (tab.key === 'agente' ? { ...tab, disabled: !isAdmin } : tab));
-  }, [customTabs, allTabs, isAdmin]);
+      .map((tab) =>
+        tab.key === 'agente'
+          ? { ...tab, disabled: !isAdmin }
+          : tab.key === 'produtos' && isBetaApp
+            ? { ...tab, disabled: true }
+            : tab
+      );
+  }, [customTabs, allTabs, isAdmin, isBetaApp]);
 
   const hasOverflow = visibleTabs.length > 5;
   const primaryTabs = useMemo(

@@ -16,12 +16,35 @@ import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/whatsapp-icon';
 import { CatalogProductImage } from '@/components/ui/CatalogProductImage';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useState } from 'react';
+import { useZodForm, flattenFormErrors } from '@/hooks/useZodForm';
+import { cartQuoteFormSchema, reconcileCartQuote } from '@/features/products/cart-quote';
+import { supabase } from '@/lib/supabase/client';
+import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
 
 export function CartDrawer({ children }: { children: React.ReactNode }) {
-  const { items, removeItem, updateQuantity, totalPrice, totalItems } = useCart();
+  const { items, removeItem, updateQuantity, totalPrice, totalItems, refreshPrices } = useCart();
+  const [checking, setChecking] = useState(false), [checkoutError, setCheckoutError] = useState('');
+  const form = useZodForm(cartQuoteFormSchema, { items });
 
-  const handleCheckout = () => {
-    sendCartInterest(items, totalPrice());
+  const handleCheckout = async () => {
+    if (checking) return;
+    setChecking(true); setCheckoutError('');
+    try {
+      await form.validateAndRun({ items }, async (values) => {
+        const { data, error } = await withAbortTimeout(supabase.rpc('catalog_cart_quote', { p_item_ids: values.items.map((item) => item.id) }), 'catalogo:conferir-carrinho', 15_000);
+        if (error) throw error;
+        if (!Array.isArray(data)) throw new Error('Não foi possível conferir o carrinho. Tente novamente.');
+        const quoted = reconcileCartQuote(values.items, data);
+        refreshPrices(quoted);
+        if (quoted.some((item, index) => item.price !== values.items[index].price)) {
+          setCheckoutError('Os preços foram atualizados. Confira o subtotal e finalize novamente.');
+          return;
+        }
+        sendCartInterest(quoted, quoted.reduce((total, item) => total + item.price * item.quantity, 0));
+      }, (errors) => setCheckoutError(Object.values(flattenFormErrors(errors))[0] || 'Confira o carrinho.'));
+    } catch (cause) { setCheckoutError(cause instanceof Error ? cause.message : 'Não foi possível conferir o carrinho. Tente novamente.'); }
+    finally { setChecking(false); }
   };
 
   return (
@@ -101,12 +124,14 @@ export function CartDrawer({ children }: { children: React.ReactNode }) {
               <p className="text-xs text-muted-foreground text-center">
                 O fechamento do pedido será realizado via WhatsApp.
               </p>
+              {checkoutError && <p role="alert" className="text-sm text-destructive">{checkoutError}</p>}
               <Button
                 className="w-full gap-3 bg-[#25D366] hover:bg-[#128C7E] text-white py-6 text-lg font-bold"
                 onClick={handleCheckout}
+                disabled={checking}
               >
                 <WhatsAppIcon className="h-6 w-6" />
-                Finalizar Pedido
+                {checking ? 'Conferindo carrinho…' : 'Finalizar Pedido'}
               </Button>
             </SheetFooter>
           </>

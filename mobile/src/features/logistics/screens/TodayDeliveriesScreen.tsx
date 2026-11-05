@@ -61,7 +61,7 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
   const [applyingOptimization, setApplyingOptimization] = useState(false);
 
   // Hooks de Dados e Localização
-  const { routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, onRefresh } =
+  const { routeItems, currentDelivery, nextDelivery, stats, loading, refreshing, showingOffline, error, onRefresh } =
     useDeliveryRoute();
   const { coords: driverCoords, gpsEnabled, refreshLocation } = useDriverLocation();
   const primaryResponsibleId = getPrimaryDeliveryResponsibleId(currentDelivery);
@@ -209,6 +209,8 @@ export const TodayDeliveriesScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
+      {showingOffline ? <Text>Sem conexão. Exibindo os pedidos salvos neste aparelho.</Text> : null}
+      {error ? <Text accessibilityRole="alert">{error}</Text> : null}
       {/* Barra de Topo */}
       <View style={[styles.topBar, { paddingTop: topInset }, isDarkMode && styles.topBarDark]}>
         <View style={styles.topRow}>

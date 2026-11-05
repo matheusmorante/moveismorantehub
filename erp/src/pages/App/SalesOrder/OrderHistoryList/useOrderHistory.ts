@@ -1,28 +1,21 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircuitBreakerError } from '@/services/monitoring';
 import Order from '../../../types/order.type';
 import {
   subscribeToOrderChanges,
   fetchOrdersPage,
-  fetchOrdersForClientFiltering,
 } from '../../../utils/orderHistoryService';
 import { actionsMap, buttons } from '../OrderActions/orderActionsConfig';
 import { persistOrderHistoryActionClick } from './orderHistoryActionTracking';
+import { shouldRetryOrderRead } from './orderHistoryQueryRetry';
 import { toast } from 'react-toastify';
 import { useWindowSize } from '../../../../hooks/useWindowSize';
-import {
-  filterOrder,
-  requiresGlobalOrderFiltering,
-  selectFilteredOrderHistoryPage,
-  sortOrders,
-} from './useOrderHistoryFilters';
 import { createOrderHistoryOperations } from './useOrderHistoryOperations';
 import { useOrderHistorySelection } from './useOrderHistorySelection';
 import { fetchOrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeService';
+import { loadCompleteOrder } from '@/pages/utils/orderDetailsLoader';
 import type { OrderFiscalBadgeStatuses } from '@/pages/utils/nfe/orderFiscalBadgeRules';
 import { canCancelOrderDirectly } from '@/pages/utils/orderStatusTransitionRules';
-import { isTestOrder } from '@/pages/utils/hmlTestData';
 import { shouldClearQueryListSnapshot } from '@/pages/utils/queryListSnapshot';
 import { isIdentifiedTestArtifact } from '../../../../../../shared-utils/testArtifactPolicy';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
@@ -38,25 +31,11 @@ import {
 const CARD_VIEW_BREAKPOINT = 1024;
 const EMPTY_ORDERS: Order[] = [];
 
-const isCircuitBreakerFailure = (error: unknown) => {
-  if (error instanceof CircuitBreakerError) return true;
-  if (!error || typeof error !== 'object') return false;
-  const candidate = error as { name?: unknown; message?: unknown };
-  return (
-    candidate.name === 'CircuitBreakerError' ||
-    (typeof candidate.message === 'string' &&
-      candidate.message.includes('Requisição bloqueada pelo Query Guard (Loop Detectado)'))
-  );
-};
-
-const shouldRetryOrderRead = (failureCount: number, error: unknown) =>
-  !isCircuitBreakerFailure(error) && failureCount < 1;
-
 export const useOrderHistory = (filters?: any) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPageState] = useState(15);
+  const itemsPerPage = 15;
   const {
     selectedOrders,
     setSelectedOrders,
@@ -64,8 +43,7 @@ export const useOrderHistory = (filters?: any) => {
     selectAll: selectCurrentPage,
     clearSelection,
   } = useOrderHistorySelection();
-  const setItemsPerPage = useCallback((size: number) => {
-    setItemsPerPageState(size);
+  const setItemsPerPage = useCallback((_size: number) => {
     setCurrentPage(1);
     setSelectedOrders([]);
   }, []);
@@ -140,26 +118,8 @@ export const useOrderHistory = (filters?: any) => {
     error: queryError,
   } = useQuery({
     queryKey: ['orders', filters, currentPage, itemsPerPage],
-    queryFn: async () => {
-      let result: { orders: Order[]; total: number };
-      if (requiresGlobalOrderFiltering(filters)) {
-        const candidateOrders = await queryClient.fetchQuery({
-          queryKey: ['orders', 'client-filter-candidates', filters],
-          queryFn: () => fetchOrdersForClientFiltering(filters, { throwOnError: true }),
-          retry: shouldRetryOrderRead,
-          staleTime: 30 * 1000,
-        });
-        result = selectFilteredOrderHistoryPage(
-          candidateOrders.filter(
-            (order) => Boolean(filters?.showTestOrders) || !isTestOrder(order)
-          ),
-          filters,
-          currentPage,
-          itemsPerPage
-        );
-      } else {
-        result = await fetchOrdersPage(currentPage, itemsPerPage, filters, { throwOnError: true });
-      }
+    queryFn: async ({ signal }) => {
+      const result = await fetchOrdersPage(currentPage, itemsPerPage, filters, { throwOnError: true, signal });
       const { orders: pageOrders, total } = result;
       const orderIds = pageOrders
         .map((order) => order.id)
@@ -232,16 +192,7 @@ export const useOrderHistory = (filters?: any) => {
     setSelectedOrders([]);
   }, [filters]);
 
-  const filteredOrders = useMemo(() => {
-    return sortOrders(
-      ordersForCurrentQuery.filter(
-        (order) =>
-          (Boolean(filters?.showTestOrders) || !isTestOrder(order)) &&
-          filterOrder(order, filters)
-      ),
-      filters
-    );
-  }, [ordersForCurrentQuery, filters]);
+  const filteredOrders = ordersForCurrentQuery;
 
   const totalItems = failedWithoutCurrentData ? 0 : totalDatabaseItems || filteredOrders.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
@@ -296,8 +247,12 @@ export const useOrderHistory = (filters?: any) => {
     newStatus: Order['status'],
     options?: { productionConfirmed?: boolean; isCurrent?: () => boolean }
   ): Promise<boolean> => {
-    const currentOrder = ordersForCurrentQuery.find((order) => order.id === id);
-    if (!currentOrder) return false;
+    const summary = ordersForCurrentQuery.find((order) => order.id === id);
+    if (!summary) return false;
+    let currentOrder: Order;
+    try { currentOrder = await loadCompleteOrder(summary); }
+    catch (cause) { toast.error(cause instanceof Error ? cause.message : 'Não foi possível carregar o pedido.'); return false; }
+    if (options?.isCurrent?.() === false) return false;
     if (currentOrder.orderType === 'return' && currentOrder.status === 'fulfilled' && newStatus === 'fulfilled') return false;
     if (currentOrder.status === 'draft') {
       toast.warning(
@@ -432,6 +387,7 @@ export const useOrderHistory = (filters?: any) => {
   };
 
   const handleAction = async (actionKey: string, order: Order) => {
+    order = await loadCompleteOrder(order);
     if (actionKey === 'retryOrderFiscalCancellation') {
       await operations.retryFiscalCancellation(order);
       return;

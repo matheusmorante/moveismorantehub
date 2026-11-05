@@ -14,6 +14,7 @@ export interface NativeBottomNavProps {
   currentTab: string;
   canSeeReports: boolean;
   canSeeProducts?: boolean;
+  isBetaApp?: boolean;
   canSeeFinance?: boolean;
   isAdmin?: boolean;
   handleTabChange: (tab: string, url: string) => void;

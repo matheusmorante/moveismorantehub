@@ -12,6 +12,8 @@ import { processOrderCancellationFiscalEffects } from '@/pages/utils/nfe/nfeServ
 import { canUndoFulfillment } from '@/pages/utils/orderStatusTransitionRules';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import { requestConfirmation } from '@/components/shared/confirmationService';
+import { loadCompleteOrder } from '@/pages/utils/orderDetailsLoader';
+import { isOrderSummary } from '../../../../../../shared-utils/orderSummaryQuery';
 
 interface OrderHistoryOperationsParams {
   orders: Order[];
@@ -327,11 +329,17 @@ export const createOrderHistoryOperations = ({
     updatedItems?: readonly Item[],
     updatedAssistanceItems?: readonly AssistanceItem[]
   ) => {
-    const currentOrder = orders.find((o) => o.id === id);
-    if (!currentOrder) return;
+    const summary = orders.find((o) => o.id === id);
+    if (!summary) return;
+    const currentOrder = await loadCompleteOrder(summary);
+    if (isOrderSummary(summary) && summary.updatedAt && summary.updatedAt !== currentOrder.updatedAt) {
+      throw new Error('O pedido mudou. Atualize a lista antes de confirmar a checagem.');
+    }
 
     const updatePayload: any = { isStockChecked: value };
-    if (updatedItems) updatePayload.items = [...updatedItems];
+    if (updatedItems) updatePayload.items = isOrderSummary(summary)
+      ? currentOrder.items.map((item, index) => ({ ...item, isStockChecked: Boolean((updatedItems[index] as Item & { isStockChecked?: boolean })?.isStockChecked) }))
+      : [...updatedItems];
     if (updatedAssistanceItems) updatePayload.assistanceItems = [...updatedAssistanceItems];
 
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, ...updatePayload } : o)));

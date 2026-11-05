@@ -1,5 +1,5 @@
 {
-  "paginas": 35,
+  "paginas": 44,
   "titulos": [
     "Guia prático do estoque",
     "Onde encontrar cada operação",
@@ -22,8 +22,8 @@
     "Um móvel pode ter várias caixas",
     "Pedido de compra registra o combinado",
     "Defina o que será contado",
-    "Conte os produtos que encontrou",
-    "Revise as diferenças antes de concluir",
+    "Registre o que contou",
+    "Revise antes de concluir",
     "Descubra o que mudou no estoque",
     "Registre só o que sai do estoque",
     "A unidade vai voltar ao estoque?",
@@ -35,7 +35,16 @@
     "Registre o pedido de compra",
     "O produto pode continuar disponível?",
     "Algo não saiu como esperado?",
-    "A nota não pode ser escolhida?"
+    "A nota não pode ser escolhida?",
+    "Sem NF: confira antes de lançar",
+    "Sem NF: preencha, anexe e confirme",
+    "Com NF: da chave ao XML completo",
+    "Com NF: importe, vincule e receba",
+    "Inventário: escolha o escopo e conte",
+    "Inventário: revise cada diferença",
+    "Imprima uma etiqueta por móvel",
+    "Pedido de compra: registre o combinado",
+    "Produto com problema: decida antes"
   ],
   "imagens": [
     "00-menu-estoque.png",
@@ -48,14 +57,18 @@
     "04c-gerar-recebimento.png",
     "05-cadastro-rapido.png",
     "05b-variacao-existente.png",
+    "06-opcoes-recebimento.png",
     "07-formulario-recebimento.png",
     "09-pedido-compra.png",
     "12-indisponibilidade.png",
     "13-movimentacoes.png",
+    "14-contagem-manual.png",
     "15-selecionar-etiquetas.png",
     "16-menus-de-acoes.png",
     "17-recebimento-campos.png",
-    "18-custos-recebimento.png"
+    "18-custos-recebimento.png",
+    "19-app-inventory-list.png",
+    "20-inventory-scan-demo.png"
   ],
   "validacao": "Paginação, texto, limites de layout e cópias idênticas; revisar renderização final."
 }

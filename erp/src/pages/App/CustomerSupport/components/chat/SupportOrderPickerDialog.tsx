@@ -38,10 +38,6 @@ export const SupportOrderPickerDialog: React.FC<SupportOrderPickerDialogProps> =
   onClose,
   onSubmit,
 }) => {
-  const visibleOrders = orders.filter((order) =>
-    orderFilter === 'all' || (orderFilter === 'quotes' ? isQuoteOrder(order) : !isQuoteOrder(order))
-  );
-
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="support-order-picker-title" className="fixed inset-0 z-[999999] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm">
       <form onSubmit={onSubmit} className="flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
@@ -60,8 +56,8 @@ export const SupportOrderPickerDialog: React.FC<SupportOrderPickerDialogProps> =
         <div className="min-h-28 flex-1 space-y-2 overflow-y-auto p-4">
           {isLoading && <p className="py-8 text-center text-xs text-slate-500">Carregando documentos…</p>}
           {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
-          {!isLoading && !error && visibleOrders.length === 0 && <p className="py-8 text-center text-xs text-slate-500">Nenhum documento encontrado para este cliente.</p>}
-          {visibleOrders.map((order) => {
+          {!isLoading && !error && orders.length === 0 && <p className="py-8 text-center text-xs text-slate-500">Nenhum documento encontrado para este cliente.</p>}
+          {orders.map((order) => {
             const quote = isQuoteOrder(order);
             const selected = selectedOrderId === order.id;
             return (
@@ -75,7 +71,7 @@ export const SupportOrderPickerDialog: React.FC<SupportOrderPickerDialogProps> =
         </div>
         {orderFieldError && <p role="alert" className="px-4 pb-2 text-xs text-red-600">{orderFieldError}</p>}
         <footer className="flex items-center justify-between gap-3 border-t border-slate-100 p-4 dark:border-slate-800">
-          <span className="text-[10px] text-slate-500">São exibidos até 20 documentos recentes.</span>
+          <span className="text-[10px] text-slate-500">São exibidos até 15 documentos recentes.</span>
           <button type="submit" disabled={isCreatingPdf || !selectedOrderId} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{isCreatingPdf ? 'Preparando PDF…' : 'Adicionar ao rascunho'}</button>
         </footer>
       </form>

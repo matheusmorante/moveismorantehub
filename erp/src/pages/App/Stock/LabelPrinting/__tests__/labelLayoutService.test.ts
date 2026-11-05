@@ -4,6 +4,7 @@ import { supabase } from '@/pages/utils/supabaseConfig';
 import {
   deleteRemoteLabelLayout,
   fetchRemoteLabelLayouts,
+  loadCompleteLabelModel,
   insertRemoteLabelLayout,
   updateRemoteLabelLayoutArtwork,
   updateRemoteLabelLayout,
@@ -33,6 +34,26 @@ const model: GridModelDraft = {
 describe('labelLayoutService', () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.useRealTimers());
+
+  it('lista sem arte/amostra e carrega o conteúdo completo pelo ID antes de editar', async () => {
+    const row = { ...mapModelToDb(model), id: 'layout-1', updated_at: '2026-11-04T12:00:00Z' };
+    const full = { ...row, art_config: { globalSnapshot: { title: 'Arte preservada' } }, preview_image: 'data:image/png;base64,amostra' };
+    const query: any = { eq: vi.fn(() => query), single: vi.fn().mockResolvedValue({ data: full, error: null }) };
+    query.select = vi.fn().mockResolvedValueOnce({ data: [row], error: null }).mockReturnValue(query);
+    vi.mocked(supabase.from).mockReturnValue(query);
+    const result = await fetchRemoteLabelLayouts({ summary: true });
+    expect(result.error).toBeNull();
+    expect(query.select.mock.calls[0][0].split(',')).not.toContain('art_config');
+    expect(query.select.mock.calls[0][0].split(',')).not.toContain('preview_image');
+    const summary = result.data![0];
+    expect(summary).toMatchObject({ __layoutSummary: true, remoteUpdatedAt: row.updated_at });
+    const loaded = await loadCompleteLabelModel(summary);
+    expect(loaded.artConfig?.globalSnapshot?.title).toBe('Arte preservada');
+    expect(loaded.previewImage).toBe(full.preview_image);
+    expect(loaded.__layoutSummary).toBeUndefined();
+    expect(query.eq).toHaveBeenCalledWith('id', 'layout-1');
+    expect((await updateRemoteLabelLayout('layout-1', summary)).error).toBeTruthy();
+  });
 
   it('busca layouts remotos e converte os registros para o modelo da tela', async () => {
     const row = {

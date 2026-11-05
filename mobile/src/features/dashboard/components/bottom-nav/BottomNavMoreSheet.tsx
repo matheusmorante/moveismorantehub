@@ -85,6 +85,7 @@ export const BottomNavMoreSheet: React.FC<BottomNavMoreSheetProps> = ({
                     }}
                     accessibilityRole="button"
                     accessibilityLabel={tab.label}
+                    accessibilityState={{ disabled: Boolean(tab.disabled) }}
                   >
                     {tab.key === 'agente' ? (
                       <View style={styles.agentAvatarFrame}>

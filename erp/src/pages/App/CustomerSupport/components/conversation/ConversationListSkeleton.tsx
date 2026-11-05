@@ -19,7 +19,6 @@ export const ConversationListSkeleton: React.FC<ConversationListSkeletonProps> =
             key={n}
             className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 animate-pulse mx-2"
           >
-            <div className="w-11 h-11 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0" />
             <div className="flex-1 space-y-2">
               <div className="h-3.5 bg-slate-200 dark:bg-slate-800 rounded w-2/3" />
               <div className="h-3 bg-slate-100 dark:bg-slate-800/60 rounded w-full" />

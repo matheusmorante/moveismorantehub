@@ -6,9 +6,13 @@ import { useCustomerSupportMessages } from '../hooks/useCustomerSupportMessages'
 import type { WhatsAppConversation, WhatsAppMessage } from '../types';
 
 const mocks = vi.hoisted(() => ({ fetchConversations: vi.fn(), fetchConversationCounts: vi.fn(),
+  fetchChanges: vi.fn(), fetchContext: vi.fn(),
   fetchConversationMessages: vi.fn(), fetchPreviousConversationMessages: vi.fn(), fetchConversationReplyTarget: vi.fn(), markConversationAsRead: vi.fn(),
   messageListener: undefined as undefined | ((payload: any) => unknown) }));
 vi.mock('@/pages/utils/customerSupport/customerSupportService', () => ({ fetchConversations: mocks.fetchConversations,
+  fetchInitialConversationMessagePage: async (...args: any[]) => ({ messages: await mocks.fetchConversationMessages(...args), watermark: '2026-11-04T12:00:00Z' }),
+  fetchConversationMessageChanges: mocks.fetchChanges,
+  fetchConversationMessageContext: mocks.fetchContext,
   fetchConversationCounts: mocks.fetchConversationCounts, fetchConversationMessages: mocks.fetchConversationMessages,
   fetchPreviousConversationMessages: mocks.fetchPreviousConversationMessages, markConversationAsRead: mocks.markConversationAsRead,
   fetchConversationReplyTarget: mocks.fetchConversationReplyTarget,
@@ -30,6 +34,7 @@ const messages = (count: number, prefix = 'message') => Array.from({ length: cou
   id: `${prefix}-${index}`, conversationId: 'a', timestamp: `2026-10-21T12:${String(index).padStart(2, '0')}:00Z`,
 } as WhatsAppMessage));
 beforeEach(() => {
+  mocks.fetchChanges.mockResolvedValue({ messages: [], watermark: '2026-11-04T12:00:30Z' });
   mocks.fetchConversations.mockResolvedValue({ conversations: Array.from({ length: 50 }, (_, index) => conversation(`a-${index}`)), totalCount: 51 });
   mocks.fetchConversationCounts.mockResolvedValue({ all: 51, mine: 0, unassigned: 0, unread: 0 });
   mocks.fetchConversationMessages.mockResolvedValue(messages(80));
@@ -43,9 +48,10 @@ describe('Paginação da Inbox', () => {
   it('resolve citações só na conversa ativa e injeta a origem na timeline ao saltar', async () => {
     const source = { id: 'source', conversationId: 'a', timestamp: '2026-10-21T11:00:00Z' } as WhatsAppMessage;
     mocks.fetchConversationReplyTarget.mockResolvedValue(source);
+    mocks.fetchContext.mockResolvedValueOnce({ messages: [source], hasOlderMessages: true });
     mocks.fetchConversationMessages.mockResolvedValueOnce(messages(5));
     const { result } = renderHook(() => useCustomerSupportMessages({
-      selectedConversation: conversation('a'), onClearUnread: vi.fn(),
+      selectedConversation: conversation('a'), 
     }));
     await waitFor(() => expect(result.current.messages).toHaveLength(5));
 
@@ -192,11 +198,12 @@ describe('Paginação do histórico', () => {
         || (message.timestamp === before.timestamp && message.id < before.id)).slice(-limit)
     );
     const { result } = renderHook(() => useCustomerSupportMessages({
-      selectedConversation: conversation(), onClearUnread: vi.fn(),
+      selectedConversation: conversation(), 
     }));
     await waitFor(() => expect(result.current.messages).toHaveLength(80));
 
-    act(() => result.current.jumpToMessage(history[19]));
+    mocks.fetchContext.mockResolvedValueOnce({ messages: [history[19]], hasOlderMessages: true });
+    await act(async () => { result.current.jumpToMessage(history[19]); });
     expect(result.current.jumpToMessageId).toBe('m020');
     expect(result.current.messages[0].id).toBe('m020');
     await act(() => result.current.refreshMessages());
@@ -223,7 +230,7 @@ describe('Paginação do histórico', () => {
   it('não usa o cursor anterior enquanto a nova conversa ainda carrega o histórico inicial', async () => {
     const nextHistory = deferred<WhatsAppMessage[]>();
     const { result, rerender } = renderHook(({ id }) => useCustomerSupportMessages({
-      selectedConversation: conversation(id), onClearUnread: vi.fn(),
+      selectedConversation: conversation(id), 
     }), { initialProps: { id: 'a' } });
     await waitFor(() => expect(result.current.messages).toHaveLength(80));
     expect(result.current.hasOlderMessages).toBe(true);
@@ -241,86 +248,53 @@ describe('Paginação do histórico', () => {
     expect(result.current.hasOlderMessages).toBe(true);
   });
 
-  it('confirma novas não lidas da conversa aberta mesmo quando o INSERT em tempo real não chega', async () => {
-    const read = deferred<boolean>();
-    const clear = vi.fn();
+  it('atualiza mensagens não lidas sem marcar a conversa como lida automaticamente', async () => {
     const { result, rerender } = renderHook(({ unreadCount }) => useCustomerSupportMessages({
-      selectedConversation: { ...conversation(), unreadCount }, onClearUnread: clear,
+      selectedConversation: { ...conversation(), unreadCount },
     }), { initialProps: { unreadCount: 0 } });
     await waitFor(() => expect(result.current.messages).toHaveLength(80));
-    mocks.markConversationAsRead.mockReturnValueOnce(read.promise);
     rerender({ unreadCount: 2 });
-    await waitFor(() => expect(mocks.markConversationAsRead).toHaveBeenCalledWith(expect.anything(), 'a'));
-    expect(clear).not.toHaveBeenCalled();
-    expect(mocks.fetchConversationMessages).toHaveBeenCalledTimes(1);
-    await act(async () => { read.resolve(true); });
-    expect(clear).toHaveBeenCalledWith('a');
-    expect(result.current.messages).toHaveLength(80);
-    rerender({ unreadCount: 2 });
-    expect(mocks.markConversationAsRead).toHaveBeenCalledTimes(1);
-  });
-
-  it('a consulta automática não apaga uma falha de leitura e trocar conversa limpa o aviso', async () => {
-    mocks.markConversationAsRead.mockResolvedValueOnce(false);
-    const clear = vi.fn();
-    const { result, rerender } = renderHook(({ id }) => useCustomerSupportMessages({
-      selectedConversation: { ...conversation(id), unreadCount: id === 'a' ? 1 : 0 }, onClearUnread: clear,
-    }), { initialProps: { id: 'a' } });
-    await waitFor(() => expect(result.current.messages).toHaveLength(80));
-    expect(result.current.messagesError).toContain('Não foi possível confirmar a leitura');
-    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
-    await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
-    expect(mocks.fetchConversationMessages).toHaveBeenCalledTimes(2);
-    expect(result.current.messagesError).toContain('Não foi possível confirmar a leitura');
-    expect(clear).not.toHaveBeenCalled();
-    rerender({ id: 'b' });
-    expect(result.current.messagesError).toBe('');
-  });
-
-  it('só limpa o contador depois da confirmação de leitura e permite repetir após erro', async () => {
-    const read = deferred<boolean>();
-    const clear = vi.fn();
-    mocks.markConversationAsRead.mockReturnValueOnce(read.promise);
-    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: { ...conversation(), unreadCount: 2 }, onClearUnread: clear }));
-    await waitFor(() => expect(result.current.messages).toHaveLength(80));
-    expect(clear).not.toHaveBeenCalled();
-    await act(async () => { read.resolve(false); });
-    expect(clear).not.toHaveBeenCalled();
-    expect(result.current.messagesError).toContain('Não foi possível confirmar a leitura');
     await act(() => result.current.refreshMessages());
-    expect(clear).toHaveBeenCalledWith('a');
+    expect(mocks.fetchChanges).toHaveBeenCalledOnce();
+    expect(mocks.markConversationAsRead).not.toHaveBeenCalled();
+  });
+
+  it('a sincronização usa o watermark confirmado e mantém o histórico após erro', async () => {
+    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation() }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    mocks.fetchChanges.mockRejectedValueOnce(new Error('Falha de rede.'));
+    await act(() => result.current.refreshMessages());
+    expect(result.current.messagesError).toBe('Falha de rede.');
+    expect(result.current.messages).toHaveLength(80);
+    await act(() => result.current.refreshMessages());
+    expect(mocks.fetchChanges.mock.calls[1][2]).toBe('2026-11-04T12:00:00Z');
     expect(result.current.messagesError).toBe('');
   });
 
-  it('mostra o inbound em tempo real sem aguardar a confirmação de leitura', async () => {
-    const read = deferred<boolean>();
-    const clear = vi.fn();
-    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation(), onClearUnread: clear }));
+  it('recebe inclusões em tempo real sem efetuar escrita de leitura', async () => {
+    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation() }));
     await waitFor(() => expect(result.current.messages).toHaveLength(80));
-    mocks.markConversationAsRead.mockReturnValueOnce(read.promise);
     act(() => { void mocks.messageListener!({ eventType: 'INSERT', new: { ...messages(1, 'inbound')[0], direction: 'inbound' } }); });
     expect(result.current.messages.some(row => row.id === 'inbound-0')).toBe(true);
-    expect(clear).not.toHaveBeenCalled();
-    await act(async () => { read.resolve(true); });
-    expect(clear).toHaveBeenCalledWith('a');
+    expect(mocks.markConversationAsRead).not.toHaveBeenCalled();
   });
 
-  it('uma leitura da conversa anterior não altera o contador ou erro da conversa atual', async () => {
-    const read = deferred<boolean>();
-    const clear = vi.fn();
-    mocks.markConversationAsRead.mockReturnValueOnce(read.promise);
+  it('ignora uma sincronização concluída após trocar a conversa', async () => {
+    const pending = deferred<{ messages: WhatsAppMessage[]; watermark: string }>();
     const { result, rerender } = renderHook(({ id }) => useCustomerSupportMessages({
-      selectedConversation: { ...conversation(id), unreadCount: id === 'a' ? 1 : 0 }, onClearUnread: clear,
+      selectedConversation: conversation(id),
     }), { initialProps: { id: 'a' } });
     await waitFor(() => expect(result.current.messages).toHaveLength(80));
+    mocks.fetchChanges.mockReturnValueOnce(pending.promise);
+    let syncing!: Promise<void>;
+    act(() => { syncing = result.current.refreshMessages(); });
     rerender({ id: 'b' });
-    await act(async () => { read.resolve(false); });
-    expect(clear).not.toHaveBeenCalled();
-    expect(result.current.messagesError).toBe('');
+    await act(async () => { pending.resolve({ messages: messages(1, 'obsolete'), watermark: '2026-11-04T12:01:00Z' }); await syncing; });
+    expect(result.current.messages.some(row => row.id === 'obsolete-0')).toBe(false);
   });
 
   it('não reabre o fim do histórico nem descarta mensagens antigas na atualização', async () => {
-    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation(), onClearUnread: vi.fn() }));
+    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation() }));
     await waitFor(() => expect(result.current.messages).toHaveLength(80));
     const older = [{ ...messages(1, 'older')[0], timestamp: '2026-10-20T10:00:00Z' }];
     mocks.fetchPreviousConversationMessages.mockResolvedValueOnce(older);
@@ -334,7 +308,7 @@ describe('Paginação do histórico', () => {
   });
 
   it('mantém o cursor e o histórico após erro, permitindo repetir a página', async () => {
-    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation(), onClearUnread: vi.fn() }));
+    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation() }));
     await waitFor(() => expect(result.current.messages).toHaveLength(80));
     mocks.fetchPreviousConversationMessages.mockRejectedValueOnce(new Error('Falha nas anteriores.'));
     await act(() => result.current.loadOlderMessages());
@@ -349,7 +323,7 @@ describe('Paginação do histórico', () => {
   it('descarta a resposta de uma abertura anterior da mesma conversa', async () => {
     const stale = deferred<WhatsAppMessage[]>();
     mocks.fetchConversationMessages.mockReturnValueOnce(stale.promise);
-    const { result, rerender } = renderHook(({ id }) => useCustomerSupportMessages({ selectedConversation: conversation(id), onClearUnread: vi.fn() }), { initialProps: { id: 'a' } });
+    const { result, rerender } = renderHook(({ id }) => useCustomerSupportMessages({ selectedConversation: conversation(id) }), { initialProps: { id: 'a' } });
     rerender({ id: 'b' });
     await waitFor(() => expect(result.current.messages).toHaveLength(80));
     rerender({ id: 'a' });
@@ -362,7 +336,7 @@ describe('Paginação do histórico', () => {
 
   it('recupera o estado de paginação quando a primeira consulta falha', async () => {
     mocks.fetchConversationMessages.mockRejectedValueOnce(new Error('Falha inicial.'));
-    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation(), onClearUnread: vi.fn() }));
+    const { result } = renderHook(() => useCustomerSupportMessages({ selectedConversation: conversation() }));
     await waitFor(() => expect(result.current.messagesError).toBe('Falha inicial.'));
     expect(result.current.isLoadingMessages).toBe(false);
     await act(() => result.current.refreshMessages());

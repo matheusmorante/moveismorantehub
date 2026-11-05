@@ -162,6 +162,24 @@ export class ApiUsageTracker {
       .split('T')[0];
 
     try {
+      const { data, error } = await supabase.rpc('get_api_usage_monthly_total', {
+        p_service: serviceId,
+        p_start_date: startOfMonth,
+        p_end_date: endOfMonth,
+        p_environment: environment,
+      });
+      const total =
+        typeof data === 'number'
+          ? data
+          : typeof data === 'string' && data.trim()
+            ? Number(data)
+            : Number.NaN;
+      if (!error && Number.isFinite(total)) return total;
+    } catch {
+      // Preserve the existing reads if the aggregate RPC is temporarily unavailable.
+    }
+
+    try {
       let query = supabase
         .from('api_usage_daily')
         .select('total_requests')

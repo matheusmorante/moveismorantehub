@@ -4,6 +4,7 @@ import { getProductKind } from '../../pages/utils/productKindRules';
 import { useZodForm, flattenFormErrors } from '@/hooks/useZodForm';
 import {
   PRODUCT_AUTOCOMPLETE_DEBOUNCE_MS,
+  PRODUCT_AUTOCOMPLETE_MAX_SUGGESTIONS,
   productAutocompleteFormSchema,
 } from '../../../../shared-utils/productAutocompleteFormSchema';
 import { withTimeout } from '../../../../shared-utils/withTimeout';
@@ -231,7 +232,7 @@ export function useProductAutocomplete({
 
         if (active) {
           setSearchError('');
-          setSuggestions(items.slice(0, 5));
+          setSuggestions(items.slice(0, PRODUCT_AUTOCOMPLETE_MAX_SUGGESTIONS));
         }
         }, (errors) => { if (active) setSearchError(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados da busca.'); });
       } catch {

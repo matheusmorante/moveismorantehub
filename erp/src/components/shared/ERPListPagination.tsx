@@ -5,6 +5,7 @@ import './ERPListPagination.css';
 export interface ERPListPaginationProps {
   readonly page: number;
   readonly pageSize: number;
+  readonly fixedPageSize?: number;
   readonly totalItems: number;
   readonly onPageChange: (page: number) => void;
   readonly onPageSizeChange?: (pageSize: number) => void;
@@ -37,6 +38,7 @@ export const getERPListPageItems = (page: number, totalPages: number): PageItem[
 
 export const ERPListPagination: React.FC<ERPListPaginationProps> = ({
   page,
+  fixedPageSize,
   totalItems,
   onPageChange,
   itemLabel = 'registros',
@@ -47,7 +49,9 @@ export const ERPListPagination: React.FC<ERPListPaginationProps> = ({
   const rootRef = useRef<HTMLDivElement>(null);
   const onPageChangeRef = useRef(onPageChange);
 
-  const safePageSize = ERP_LIST_PAGE_SIZES[0];
+  const safePageSize = typeof fixedPageSize === 'number' && Number.isFinite(fixedPageSize) && fixedPageSize >= 1
+    ? Math.floor(fixedPageSize)
+    : ERP_LIST_PAGE_SIZES[0];
   const safeTotalItems = Number.isFinite(totalItems) ? Math.max(0, Math.floor(totalItems)) : 0;
   const totalPages = Math.max(1, Math.ceil(safeTotalItems / safePageSize));
   const safePage = Number.isFinite(page) ? Math.min(totalPages, Math.max(1, Math.floor(page))) : 1;

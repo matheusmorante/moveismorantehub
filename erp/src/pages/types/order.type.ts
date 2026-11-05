@@ -19,6 +19,8 @@ export type AssistanceItem = {
 };
 
 export type Order = {
+  /** Leitura compacta: hidratar pelo ID antes de editar, salvar ou executar ações. */
+  __orderSummary?: boolean;
   /** Marcador de rastreabilidade exclusivo de pedidos sintéticos de teste. */
   syntheticFixture?: { scenarioKey: string; version: 1; payloadHash?: string };
   /** Marcador explícito do domínio já persistido em order_data.is_test. */

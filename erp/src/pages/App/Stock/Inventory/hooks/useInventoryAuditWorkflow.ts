@@ -10,6 +10,7 @@ import {
   createInventoryAuditItemsFromScope,
   restoreInventoryAuditItems,
 } from '../domain/inventoryAuditItemMappers';
+import { buildInventoryAuditObservation } from '../domain/inventoryAuditObservation';
 import { getEmployeeDisplayName } from '../utils/employeeDisplayName';
 import { useInventoryAuditData } from './useInventoryAuditData';
 import {
@@ -497,38 +498,14 @@ export const useInventoryAuditWorkflow = (
       const responsible = employees.find(
         (employee) => String(employee.id) === scopeConfig.responsibleId
       );
-      const auditObservation = {
-        inventoryAudit: true,
-        inventoryCode: code,
-        status: 'completed',
-        name: scopeConfig.name,
-        hasStages: scopeConfig.hasStages,
-        responsibleId: scopeConfig.responsibleId,
-        scopeType: scopeConfig.scopeType,
-        supplierId: scopeConfig.supplierId,
+      const auditObservation = buildInventoryAuditObservation({
+        code,
+        items: values.items,
         responsibleName: responsible
           ? getEmployeeDisplayName(responsible)
           : scopeConfig.responsibleName || editingSession?.responsibleName || '',
-        items: values.items.map(
-          ({
-            productId,
-            variationId,
-            name,
-            systemStock,
-            physicalCount,
-            assignedSupplier,
-            countedAt,
-          }) => ({
-            productId,
-            variationId,
-            name,
-            systemStock,
-            physicalCount,
-            assignedSupplier,
-            countedAt,
-          })
-        ),
-      };
+        scopeConfig,
+      });
       attempted = true;
       const confirmed = await withTimeout(finalizeWebInventory(auditId, code, auditObservation, values.adjustments).then(() => true),
         30_000, false, 'inventario:concluir');

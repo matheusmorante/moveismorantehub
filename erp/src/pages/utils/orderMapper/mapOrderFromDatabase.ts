@@ -120,7 +120,7 @@ export function mapOrderFromDatabase(row: OrderDatabaseRow): Order {
   };
 
   const mappedOrder = capitalizeOrder(orderDomain);
-  if (row.order_data && typeof row.order_data === 'object' && !Array.isArray(row.order_data)) {
+  if (!mappedOrder.__orderSummary && row.order_data && typeof row.order_data === 'object' && !Array.isArray(row.order_data)) {
     setPersistedOrderDataSnapshot(mappedOrder, rawLegacy);
   }
   return mappedOrder;

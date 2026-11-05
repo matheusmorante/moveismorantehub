@@ -1,5 +1,9 @@
 # Dashboard: matriz de indicadores e otimização
 
+> Atualização de 04/11/2026 — estoque: as leituras diretas de produtos/variações descritas neste histórico foram substituídas por uma RPC de contagens e até oito itens. [Resumo de estoque no servidor e evidências](produtos-alertas-resumo-estoque-2026-11-04.md).
+
+> Atualização de 04/11/2026: o caminho de pedidos detalhados descrito neste histórico foi substituído por uma RPC compacta. Ver [correção da carga massiva e evidências atuais](dashboard-carga-compacta-2026-11-04.md).
+
 ## Resposta ao alerta de consultas do catálogo
 
 A troca de período não deve baixar milhares de linhas de `product_analytics`. O painel do catálogo agora usa uma chamada agregada independente do período e uma chave TanStack Query por usuário e papéis, com validade de cinco minutos. No teste de navegador, houve zero requisições diretas a `product_analytics` e uma chamada ao RPC de métricas, reutilizada ao trocar o período. Essa é uma cache em memória no cliente; após recarregar ou expirar a validade, o RPC calcula os totais novamente.

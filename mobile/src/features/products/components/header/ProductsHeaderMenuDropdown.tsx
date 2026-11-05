@@ -2,13 +2,10 @@ import React from 'react';
 import { Modal, TouchableOpacity, View, Text } from 'react-native';
 import {
   PlusCircle,
-  Tag,
-  Settings,
   Eye,
   EyeOff,
   GitMerge,
   Trash2,
-  Globe2,
   MessageCircle,
 } from 'lucide-react-native';
 import { styles } from './ProductsHeader.styles';
@@ -20,11 +17,8 @@ interface ProductsHeaderMenuDropdownProps {
   onClose: () => void;
   dark: boolean;
   mode: ProductListMode;
-  availableModes: ProductListMode[];
   canCreateProduct: boolean;
   canCreateComposition: boolean;
-  canOpenConfigs: boolean;
-  canViewMetaCatalog: boolean;
   canViewWhatsAppMarketplace: boolean;
   showDeactivated: boolean;
   showDeactivatedToggle: boolean;
@@ -33,14 +27,10 @@ interface ProductsHeaderMenuDropdownProps {
   canViewTrash: boolean;
   onNewProduct: () => void;
   onNewComposition?: () => void;
-  onModeChange?: (mode: ProductListMode) => void;
-  onOpenConfigs: () => void;
-  onOpenMetaCatalog?: () => void;
   onOpenWhatsAppMarketplace?: () => void;
   onToggleDeactivated: () => void;
   onToggleMergedProducts?: () => void;
   onToggleTrash?: () => void;
-  onOpenFilters: () => void;
 }
 
 /**
@@ -52,11 +42,8 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
   onClose,
   dark,
   mode,
-  availableModes,
   canCreateProduct,
   canCreateComposition,
-  canOpenConfigs,
-  canViewMetaCatalog,
   canViewWhatsAppMarketplace,
   showDeactivated,
   showDeactivatedToggle,
@@ -65,14 +52,10 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
   canViewTrash,
   onNewProduct,
   onNewComposition,
-  onModeChange,
-  onOpenConfigs,
-  onOpenMetaCatalog,
   onOpenWhatsAppMarketplace,
   onToggleDeactivated,
   onToggleMergedProducts,
   onToggleTrash,
-  onOpenFilters,
 }) => {
   return (
     <Modal
@@ -125,50 +108,6 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
             )}
 
             {!showTrash && <View style={styles.menuDivider} />}
-
-            {!showTrash && onModeChange && availableModes.includes('categories') && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  onClose();
-                  onModeChange('categories');
-                }}
-              >
-                <Tag size={18} color="#2563eb" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>
-                  Ambientes e Categorias
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {!showTrash && canOpenConfigs && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  onClose();
-                  onOpenConfigs();
-                }}
-              >
-                <Settings size={18} color="#475569" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>
-                  Configurações de Produto
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            {!showTrash && canViewMetaCatalog && onOpenMetaCatalog && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  onClose();
-                  onOpenMetaCatalog();
-                }}
-                accessibilityRole="button"
-              >
-                <Globe2 size={18} color="#2563eb" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>Catálogo Meta</Text>
-              </TouchableOpacity>
-            )}
 
             {!showTrash && canViewWhatsAppMarketplace && onOpenWhatsAppMarketplace && (
               <TouchableOpacity
@@ -240,18 +179,6 @@ export const ProductsHeaderMenuDropdown: React.FC<ProductsHeaderMenuDropdownProp
               </TouchableOpacity>
             )}
 
-            {mode !== 'categories' && (canCreateProduct || canCreateComposition) && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  onClose();
-                  onOpenFilters();
-                }}
-              >
-                <Settings size={18} color="#2563eb" />
-                <Text style={[styles.menuItemText, dark && styles.light]}>Filtros avançados</Text>
-              </TouchableOpacity>
-            )}
           </View>
         )}
       </TouchableOpacity>

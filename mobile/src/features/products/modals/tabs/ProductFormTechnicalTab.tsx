@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import {
-  getApplicableProductTechnicalFields,
   getProductTechnicalDependencyChain,
   getProductTechnicalFieldDisplayName,
   getMobileProductTechnicalSearchMatches,
@@ -26,7 +25,6 @@ import {
   isMobileVariableTechnicalField,
   isProductTechnicalFieldRequired,
   isProductTechnicalFieldRequiredForCatalog,
-  isProductTechnicalFieldApplicableByCategory,
   removeProductCharacteristicAttribute,
   upsertProductCharacteristicAttribute,
   resolveMobileVariableTechnicalFieldNames,
@@ -68,6 +66,11 @@ import {
 import { ProductAiCharacteristicsAssistant } from '../components/ProductAiCharacteristicsAssistant';
 import { ProductTechnicalFieldInput } from './ProductTechnicalFieldInput';
 import { ProductTechnicalFieldsLoadStatus } from './ProductTechnicalFieldsLoadStatus';
+import {
+  normalizeName,
+  normalizeSearchTerm,
+  resolveVisibleProductTechnicalFields,
+} from './productTechnicalTabFieldVisibility';
 import { useProductTechnicalTabValues } from './useProductTechnicalTabValues';
 import { styles } from './productFormTechnicalTab.styles';
 
@@ -80,14 +83,6 @@ interface Props {
   requiredFieldsOnly?: boolean;
   isSingleVariation?: boolean;
 }
-
-const normalizeName = (name: string) => name.trim().toLocaleLowerCase('pt-BR');
-const normalizeSearchTerm = (value: string) =>
-  value
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pt-BR');
 
 export const ProductFormTechnicalTab: React.FC<Props> = ({
   formData,
@@ -151,56 +146,17 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
   }, [categoryIds, isVariationEditing, technicalFieldsRefreshKey]);
 
   const visibleTechnicalFields = useMemo(() => {
-    const values = { ...parentTechnicalValues, ...ownTechnicalValues };
-    const visible = getApplicableProductTechnicalFields(
+    return resolveVisibleProductTechnicalFields({
       technicalFields,
       categoryIds,
-      values,
+      parentTechnicalValues,
+      ownTechnicalValues,
       manualFieldNames,
-      selectedCategoryName
-    );
-    const existingNames = new Set(visible.map((field) => normalizeName(field.name)));
-    const preservedLegacyFields = Object.keys(values)
-      .filter(
-        (name) =>
-          !isExcludedProductTechnicalField(name) &&
-          isProductTechnicalFieldApplicableByCategory({ name }, categoryIds, selectedCategoryName) &&
-          !existingNames.has(normalizeName(name))
-      )
-      .map((name) => ({
-        id: `legacy:${name}`,
-        name,
-        data_type: 'text',
-        unit: '',
-        options: [],
-        isRequired: isProductTechnicalFieldRequired(
-          { name },
-          categoryIds,
-          selectedCategoryName
-        ),
-      }));
-    const allVisibleFields = [...visible, ...preservedLegacyFields];
-    if (parentData) {
-      const fieldsByName = new Map<string, any>();
-      [...allVisibleFields, ...technicalFields].forEach((field) => {
-        if (
-          !isProductTechnicalFieldApplicableByCategory(
-            field,
-            categoryIds,
-            selectedCategoryName
-          )
-        ) return;
-        if (!isVariableField(field.name)) return;
-        const key = normalizeSearchTerm(field.name);
-        if (!fieldsByName.has(key)) fieldsByName.set(key, field);
-      });
-      return [...fieldsByName.values()];
-    }
-    return requiredFieldsOnly
-      ? allVisibleFields.filter((field) =>
-          isProductTechnicalFieldRequired(field, categoryIds, selectedCategoryName)
-        )
-      : allVisibleFields;
+      selectedCategoryName,
+      requiredFieldsOnly,
+      parentData,
+      isVariableField,
+    });
   }, [
     technicalFields,
     categoryIds,

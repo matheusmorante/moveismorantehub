@@ -24,7 +24,7 @@ interface ProductGridProps {
 
 /**
  * Grid de produtos da loja virtual do catálogo digital.
- * Coordenador declarativo que conecta query de produtos, filtragem local e paginação.
+ * Coordenador declarativo que conecta query de produtos, apresentação e paginação.
  */
 export function ProductGrid({ filters }: ProductGridProps) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -62,7 +62,7 @@ export function ProductGrid({ filters }: ProductGridProps) {
   const rawDbProducts = catalogData?.results || [];
   const totalProducts = catalogData?.total || 0;
 
-  // 2. Refinamento de filtros e ordenação local
+  // 2. Resultados já filtrados e ordenados pelo servidor
   const { allProducts } = useCatalogProductsFiltering({
     rawDbProducts,
     filters,

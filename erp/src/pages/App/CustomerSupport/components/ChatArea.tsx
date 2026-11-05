@@ -111,6 +111,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const roles = profile ? getProfileRoles(profile) : [];
   const canSend = canPerform('sendCustomerSupportMessages', roles);
   const canShareCommercialInfo = canPerform('viewCustomerCommercialInfo', roles);
+  const canCreateOrders = canPerform('createEditOrders', roles);
   const configuredPhoneNumberId = getSettings().whatsappConfig?.phoneNumberId;
   const isChannelConnected = Boolean(
     configuredPhoneNumberId && configuredPhoneNumberId === conversation.businessPhoneNumberId,
@@ -218,6 +219,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         displayName={displayName}
         canSend={canSend}
         canShareCommercialInfo={canShareCommercialInfo}
+        canCreateOrders={canCreateOrders}
         shareOrderRequest={shareOrderRequest?.conversationId === conversation.id
           ? { record: shareOrderRequest.record, requestId: shareOrderRequest.requestId }
           : null}
@@ -232,6 +234,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         onComposerModeChange={setComposerMode}
         insertedSnippet={insertedSnippet}
         onAddInternalNote={onAddInternalNote}
+        internalComments={messages.filter((message) => message.messageType === 'internal_note')}
         onOpenSnippets={() => setIsSnippetsModalOpen(true)}
         catalogSpaceRef={catalogSpaceRef}
       />

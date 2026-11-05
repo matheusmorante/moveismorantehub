@@ -1,0 +1,31 @@
+id: supabase-explicit-projection
+language: TypeScript
+severity: warning
+message: "Revise `.select('*')`: consultas Supabase devem trazer apenas os campos necessários ao consumidor."
+note: "Prefira projeções explícitas e carregue detalhes sob demanda. Um snapshot completo pode justificar a leitura ampla quando todos os campos são realmente necessários (por exemplo, para operação offline); documente essa necessidade."
+rule:
+  any:
+    - pattern: $CLIENT.from($TABLE).select('*')
+    - pattern: $CLIENT.from($TABLE).select("*")
+files:
+  - erp/src/**/*.ts
+  - erp/src/**/*.tsx
+  - mobile/src/**/*.ts
+  - mobile/src/**/*.tsx
+  - digital-catalog/src/**/*.ts
+  - digital-catalog/src/**/*.tsx
+  - api/**/*.ts
+  - api/**/*.tsx
+  - shared-utils/**/*.ts
+  - shared-utils/**/*.tsx
+  - src/**/*.ts
+  - src/**/*.tsx
+ignores:
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/coverage/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"

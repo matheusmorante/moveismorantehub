@@ -34,6 +34,7 @@ export const BottomNavTabItem: React.FC<BottomNavTabItemProps> = ({
       }}
       accessibilityRole="button"
       accessibilityLabel={isAgent ? 'Assistente, beta' : tab.label}
+      accessibilityState={{ disabled: Boolean(isDisabled) }}
     >
       {isAgent ? (
         <View style={styles.agentPrimaryContent}>

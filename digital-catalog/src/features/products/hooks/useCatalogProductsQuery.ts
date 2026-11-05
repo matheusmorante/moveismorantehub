@@ -12,9 +12,10 @@ import { hasPublicCatalogItem, isPublicCatalogVariation } from '../product-visib
 import {
   CATALOG_PRODUCT_PAGE_SIZE,
   isCatalogSearchLongEnough,
-  orderCatalogSearchResultsByIds,
 } from '../product-search-suggestions';
-import { getCachedStoreStyleSettings } from '@/lib/store-settings-cache';
+import { getCachedStoreStyleSettings, invalidateStoreStyleSettings } from '@/lib/store-settings-cache';
+import { catalogCategoriesQuery } from '@/lib/catalog-menu-queries';
+import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
 
 export interface CatalogFilters {
   envs?: string[];
@@ -41,8 +42,12 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
     const channel = new BroadcastChannel('catalog-updates');
     const handleMessage = (event: MessageEvent) => {
       if (event.data === 'catalog-updated') {
+        invalidateStoreStyleSettings();
         queryClient.invalidateQueries({ queryKey: ['catalog-products'] });
         queryClient.invalidateQueries({ queryKey: ['catalog-categories'] });
+        queryClient.invalidateQueries({ queryKey: ['catalog-category-relationships'] });
+        queryClient.invalidateQueries({ queryKey: ['catalog-environment-categories'] });
+        queryClient.invalidateQueries({ queryKey: ['catalog-opportunities'] });
       }
     };
     channel.addEventListener('message', handleMessage);
@@ -52,15 +57,7 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
     };
   }, [queryClient]);
 
-  const { data: dbCategoriesList = [] } = useQuery({
-    queryKey: ['catalog-categories'],
-    queryFn: async () => {
-      const { data } = await supabase.from('categories').select('id, name, slug, type');
-      return data || [];
-    },
-    staleTime: 10 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-  });
+  const { data: dbCategoriesList = [] } = useQuery(catalogCategoriesQuery);
 
   const {
     data: catalogData,
@@ -71,14 +68,14 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
       'catalog-products',
       currentPage,
       debouncedSearch,
-      filters?.minPrice,
-      filters?.maxPrice,
-      filters?.type,
-      filters?.sortBy,
-      filters?.envs,
-      filters?.cats,
+      filters?.minPrice ?? 0,
+      filters?.maxPrice ?? 10000,
+      filters?.type || 'all',
+      filters?.sortBy || 'newest',
+      [...(filters?.envs || [])].sort(),
+      [...(filters?.cats || [])].sort(),
     ],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (debouncedSearch.trim() && !isCatalogSearchLongEnough(debouncedSearch)) {
         return { results: [], total: 0, cardStyle: null };
       }
@@ -86,22 +83,31 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
       let allowedCategoryIds: string[] = [];
 
       if (filters?.envs && filters.envs.length > 0) {
-        const { data: rels } = await supabase
+        const { data: rels, error: relationshipError } = await queryClient.fetchQuery({
+          queryKey: ['catalog-environment-categories', filters.envs], staleTime: 10 * 60 * 1000,
+          queryFn: () => withAbortTimeout(supabase
           .from('category_relationships')
           .select('child_id')
-          .in('parent_id', filters.envs);
+          .in('parent_id', filters.envs!), 'catalogo:categorias-ambiente', 15_000),
+        });
+        if (relationshipError) throw relationshipError;
 
         allowedCategoryIds = [...filters.envs, ...(rels?.map((r) => r.child_id) || [])];
       }
 
       let resolvedOppId = filters?.type || 'all';
+      if (resolvedOppId === 'promocao') resolvedOppId = 'promotion';
       if (
         resolvedOppId &&
         resolvedOppId !== 'all' &&
         resolvedOppId !== 'salvados' &&
         resolvedOppId !== 'promotion'
       ) {
-        const { data: dbOpps } = await supabase.from('opportunities').select('id, name, slug');
+        const { data: dbOpps, error: opportunityError } = await queryClient.fetchQuery({
+          queryKey: ['catalog-opportunities'], staleTime: 10 * 60 * 1000,
+          queryFn: () => withAbortTimeout(supabase.from('opportunities').select('id, name, slug'), 'catalogo:oportunidades', 15_000),
+        });
+        if (opportunityError) throw opportunityError;
         if (dbOpps) {
           const matchedOpp = dbOpps.find(
             (o: any) =>
@@ -113,165 +119,25 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
         }
       }
 
-      const selectedCategoryIds = Array.from(
-        new Set([...(filters?.cats || []), ...allowedCategoryIds].filter(Boolean))
-      );
       const searchTerm = isCatalogSearchLongEnough(debouncedSearch) ? debouncedSearch.trim() : '';
 
-      let searchProductIds: string[] | null = null;
-      let searchResultCount: number | null = null;
-      if (searchTerm) {
-        const { data: searchRows, error: searchError } = await supabase.rpc(
-          'search_catalog_product_page',
-          {
-            p_search: searchTerm,
-            p_category_ids: filters?.cats?.length ? filters.cats : null,
-            p_environment_category_ids: allowedCategoryIds.length ? allowedCategoryIds : null,
-            p_type: resolvedOppId,
-            p_min_price: filters?.minPrice ?? 0,
-            p_max_price: filters?.maxPrice ?? 10000,
-            p_page: currentPage,
-            p_page_size: ITEMS_PER_PAGE,
-            p_sort_by: filters?.sortBy || 'newest',
-          }
-        );
-        if (searchError) throw searchError;
-        searchProductIds = (searchRows || []).map(
-          (row: { product_id: string }) => row.product_id
-        );
-        searchResultCount = Number(searchRows?.[0]?.total_count || 0);
-      }
-
-      function buildProductsQuery(
-        hasDeletedAt: boolean,
-        hasOpportunities: boolean,
-        productIds?: string[]
-      ) {
-        let q: any = supabase.from('products');
-
-        const productCategoriesSelect = productIds
-          ? 'product_categories(category_id, categories(name))'
-          : selectedCategoryIds.length > 0
-            ? 'product_categories!inner(category_id, categories(name))'
-            : 'product_categories(category_id, categories(name))';
-        const selColumns =
-          `
-          id, name, slug, price, promo_price, description, code, opportunity_id, is_salvado, status,
-          product_images(image_url, is_main),
-          product_variations(id, name, sku, price, promo_price, image_url, attributes, use_parent_price, use_parent_promo_price, use_parent_name, status, active),
-          ${productCategoriesSelect}
-        ` +
-          (hasOpportunities
-            ? `, opportunities(name, slug, badge_color, border_color, border_style, badge_animation, title_color)`
-            : ``);
-
-        q = q.select(selColumns, { count: 'exact' });
-        q = q.eq('status', 'published');
-
-        if (hasDeletedAt) {
-          q = q.is('deleted_at', null);
-        }
-
-        if (productIds) {
-          q = q.in('id', productIds);
-        }
-
-        if (!productIds && selectedCategoryIds.length > 0) {
-          q = q.in('product_categories.category_id', selectedCategoryIds);
-        }
-
-        if (!productIds && resolvedOppId === 'salvados') {
-          q = q.eq('is_salvado', true);
-        } else if (!productIds && resolvedOppId === 'promotion') {
-          q = q.not('promo_price', 'is', null);
-        } else if (!productIds && resolvedOppId && resolvedOppId !== 'all') {
-          q = q.eq('opportunity_id', resolvedOppId);
-        }
-
-        if (!productIds && (filters?.minPrice ?? 0) > 0) q = q.gte('price', filters!.minPrice);
-        if (!productIds && (filters?.maxPrice ?? 10000) < 10000)
-          q = q.lte('price', filters!.maxPrice);
-
-        const sortBy = filters?.sortBy || 'newest';
-        if (sortBy === 'price-asc') q = q.order('price', { ascending: true });
-        else if (sortBy === 'price-desc') q = q.order('price', { ascending: false });
-        else if (sortBy === 'title-asc') q = q.order('name', { ascending: true });
-        else q = q.order('created_at', { ascending: false });
-
-        if (productIds) return q;
-        const from = (currentPage - 1) * ITEMS_PER_PAGE;
-        return q.range(from, from + ITEMS_PER_PAGE - 1);
-      }
-
       const stylePromise = getCachedStoreStyleSettings();
-
-      let hasDeletedAt = true;
-      let hasOpportunities = true;
-      let data: any[] | null = null;
-      let error: any = null;
-      let count: number | null = null;
-      if (searchProductIds) {
-        count = searchResultCount;
-        if (searchProductIds.length > 0) {
-          const result = await buildProductsQuery(
-            hasDeletedAt,
-            hasOpportunities,
-            searchProductIds
-          );
-          data = result.data;
-          error = result.error;
-        } else {
-          data = [];
-        }
-      } else {
-        const result = await buildProductsQuery(hasDeletedAt, hasOpportunities);
-        data = result.data;
-        error = result.error;
-        count = result.count;
+      const { data: page, error } = await withAbortTimeout(supabase.rpc('catalog_product_card_page', {
+        p_search: searchTerm,
+        p_category_ids: filters?.cats?.length ? filters.cats : null,
+        p_environment_category_ids: allowedCategoryIds.length ? allowedCategoryIds : null,
+        p_type: resolvedOppId,
+        p_min_price: filters?.minPrice ?? 0,
+        p_max_price: filters?.maxPrice ?? 10000,
+        p_page: currentPage,
+        p_page_size: ITEMS_PER_PAGE,
+        p_sort_by: filters?.sortBy || 'newest',
+      }), 'catalogo:vitrine', 15_000, signal);
+      if (error) throw error;
+      if (!Array.isArray(page?.products) || !Number.isFinite(Number(page?.total))) {
+        throw new Error('Não foi possível carregar a vitrine.');
       }
-
-      if (error) {
-        console.warn(
-          'Erro ao buscar produtos, tentando com fallback de compatibilidade de schema:',
-          error
-        );
-
-        if (error.code === '42703' && error.message?.includes('deleted_at')) {
-          hasDeletedAt = false;
-        }
-        if (error.code === '42P01' && error.message?.includes('opportunities')) {
-          hasOpportunities = false;
-        }
-
-        const secondAttempt = await buildProductsQuery(
-          hasDeletedAt,
-          hasOpportunities,
-          searchProductIds !== null ? searchProductIds : undefined
-        );
-
-        if (secondAttempt.error) {
-          if (secondAttempt.error.code === '42703' || secondAttempt.error.code === '42P01') {
-            const thirdAttempt = await buildProductsQuery(
-              false,
-              false,
-              searchProductIds !== null ? searchProductIds : undefined
-            );
-            if (thirdAttempt.error) throw thirdAttempt.error;
-            data = thirdAttempt.data;
-            count = thirdAttempt.count;
-            hasOpportunities = false;
-          } else {
-            throw secondAttempt.error;
-          }
-        } else {
-          data = secondAttempt.data;
-          count = secondAttempt.count;
-        }
-      }
-
-      const rawProducts = searchProductIds
-        ? orderCatalogSearchResultsByIds(data || [], searchProductIds)
-        : data || [];
+      const rawProducts = page.products;
       let results: any[] = [];
 
       for (const p of rawProducts) {
@@ -355,7 +221,7 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
         loadedCardStyle = { ...defaultStoreDesignSettings, ...styleData } as StoreDesignSettings;
       }
 
-      const total = searchProductIds ? searchResultCount || 0 : count || 0;
+      const total = Number(page.total);
       return { results, total, cardStyle: loadedCardStyle };
     },
     staleTime: 2 * 60 * 1000,

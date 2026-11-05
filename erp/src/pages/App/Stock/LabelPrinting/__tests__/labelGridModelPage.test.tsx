@@ -44,7 +44,7 @@ function Page() {
   const state = useLabelPrintingState();
   return <>
     <button onClick={() => { state.setEditingGridModel(null); state.setGridModalOpen(true); }}>Novo modelo</button>
-    <button onClick={() => { const current = state.customLayouts.find((model) => model.id === id)!; state.selectLayout(current); state.setEditingGridModel(current); state.setGridModalOpen(true); }}>Editar original</button>
+    <button onClick={async () => { const current = await state.ensureLayoutModel(state.customLayouts.find((model) => model.id === id)!); await state.selectLayout(current); state.setEditingGridModel(current); state.setGridModalOpen(true); }}>Editar original</button>
     <button onClick={() => { state.setGridModalOpen(false); state.setEditingGridModel(null); }}>Fechar externamente</button>
     <button onClick={() => state.setSelectedCategory('logos')}>Trocar categoria</button>
     <span aria-label="Modelos">{JSON.stringify(state.customLayouts)}</span>
@@ -57,13 +57,14 @@ const stored = (): GridModel[] => JSON.parse(window.localStorage.getItem('custom
 async function open(edit = true, expectedCount = 1) {
   const view = render(<MemoryRouter initialEntries={['/stock/labels?cat=identificacao']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Page /></MemoryRouter>);
   await waitFor(() => expect(models()).toHaveLength(expectedCount));
-  fireEvent.click(screen.getByText(edit ? 'Editar original' : 'Novo modelo'));
+  await act(async () => { fireEvent.click(screen.getByText(edit ? 'Editar original' : 'Novo modelo')); });
   return view;
 }
 beforeEach(() => {
   vi.clearAllMocks(); window.localStorage.clear(); vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   transport.query.mockReset().mockResolvedValue({ data: [{ ...mapModelToDb(source), id }], error: null });
   transport.write.mockReset().mockImplementation(async (payload, target) => ack(payload, target));
+  let readRows: any[] = [];
   vi.mocked(supabase.from).mockImplementation((table) => {
     if (table !== 'label_layouts') throw new Error(`Transporte inesperado: ${table}`);
     let payload: Payload | undefined, target = '';
@@ -71,8 +72,12 @@ beforeEach(() => {
       update: (value: Payload) => { payload = value; return query; },
       insert: (values: Payload[]) => { payload = values[0]; return query; },
       eq: (_field: string, value: string) => { target = value; return query; },
-      select: () => payload ? query : transport.query(),
-      single: () => transport.write(payload!, target),
+      select: () => query,
+      then: (resolve: (response: Response) => unknown) => transport.query().then((response) => {
+        if (Array.isArray(response.data)) readRows = response.data;
+        return resolve(response);
+      }),
+      single: () => payload ? transport.write(payload, target) : Promise.resolve({ data: readRows.find((row) => row.id === target), error: null, status: 200 }),
     };
     return query as never;
   });
@@ -161,7 +166,7 @@ describe('salvar modelo pela página, editor, resolver e serviço reais', () => 
     await open(); fireEvent.click(screen.getByText('Salvar Modelo'));
     await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('não foi confirmada'));
     expect(models()[0].rows).toBe(source.rows); expect((screen.getByText('Salvar Modelo') as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByLabelText('Fechar editor de grade de etiqueta')); fireEvent.click(screen.getByText('Editar original'));
+    fireEvent.click(screen.getByLabelText('Fechar editor de grade de etiqueta')); await act(async () => { fireEvent.click(screen.getByText('Editar original')); });
     expect((screen.getByText('Salvar Modelo') as HTMLButtonElement).disabled).toBe(true); expect(screen.getByRole('alert').textContent).toContain('Recarregue');
     expect(transport.write).toHaveBeenCalledTimes(1);
   });

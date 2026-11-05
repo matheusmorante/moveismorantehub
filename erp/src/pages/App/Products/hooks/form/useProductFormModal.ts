@@ -6,6 +6,7 @@ import { createProductVariationFormSchema } from '../../../../../../../shared-ut
 import type Person from '@/pages/types/person.type';
 import type Product from '@/pages/types/product.type';
 import { serializeProductFormForDirtyCheck } from '../../utils/form/productFormDirtyCheck';
+import { getProductDraftSnapshotWithoutPendingVariation } from '../../utils/form/productDraftSnapshot';
 import type { Variation } from '@/pages/types/product.type';
 import { fetchGroupsAndCategories } from '@/pages/utils/categoryService';
 import { subscribeToPeople } from '@/pages/utils/personService';
@@ -152,16 +153,13 @@ export function useProductFormModal({
   );
   const autoSaveDraft = draft.autoSaveDraft;
   const autoSaveStatus = draft.autoSaveStatus;
-  const getDraftSnapshotWithoutPendingVariation = useCallback(() => {
-    const current = latestFormDataRef.current;
-    const pendingId = pendingNewVariationIdRef.current;
-    return pendingId
-      ? {
-          ...current,
-          variations: current.variations?.filter((item) => String(item.id) !== String(pendingId)),
-        }
-      : current;
-  }, [pendingNewVariationIdRef]);
+  const getDraftSnapshotWithoutPendingVariation = useCallback(
+    () => getProductDraftSnapshotWithoutPendingVariation(
+      latestFormDataRef.current,
+      pendingNewVariationIdRef.current
+    ),
+    [pendingNewVariationIdRef]
+  );
   const scheduleDraftAutoSave = useCallback(() => {
     if (!isDraftProduct) return;
     if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);

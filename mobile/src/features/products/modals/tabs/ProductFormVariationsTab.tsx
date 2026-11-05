@@ -29,6 +29,7 @@ import {
   calculateProductDiscountFromPercent,
   calculateProductDiscountFromPromoPrice,
   deriveProductDiscountFields,
+  toOptionalProductDiscountNumber,
 } from '../../../../../../shared-utils/productDiscountFields';
 import { resolveProductVariationPricing } from '../../../../../../shared-utils/productVariationPricing';
 import { generateVariationSku } from '../../domain/productSku';
@@ -58,6 +59,8 @@ import { variationToSimpleConfirmationSchema } from '../../../../../../shared-ut
 import { isSingleProductVariationFormMode } from '../../../../../../shared-utils/productVariationMode';
 
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
+import { CurrencyInput } from '../../../../components/shared/CurrencyInput';
+import { PercentInput } from '../../../../components/shared/PercentInput';
 import { getMobileProductVariationTabs } from './productVariationTabs';
 import type { VariationTabId } from './productVariationTabs';
 
@@ -331,7 +334,7 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
   const updateVariationPricing = (
     idx: number,
     field: 'price' | 'discountPercent' | 'discountFixed' | 'promoPrice',
-    value: string
+    value: number | null
   ) => {
     setFormData((prev) => {
       const vars = [...(prev.variations || [])];
@@ -351,67 +354,67 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
       let next = current;
 
       if (field === 'discountPercent') {
-        const percent = Number(value.replace(',', '.'));
-        const discount = calculateProductDiscountFromPercent(regularPrice, percent);
+        const discount = value === null
+          ? { discountFixed: '', promoPrice: undefined }
+          : calculateProductDiscountFromPercent(regularPrice, value);
         next = {
           ...current,
-          discountPercent: value,
-          discountFixed: discount.discountFixed,
+          discountPercent: value ?? undefined,
+          discountFixed: toOptionalProductDiscountNumber(discount.discountFixed) ?? undefined,
           promoPrice: discount.promoPrice,
         };
       } else if (field === 'discountFixed') {
-        const fixed = parseLocalizedPrice(value);
+        const fixed = value ?? 0;
         const discount = calculateProductDiscountFromFixed(regularPrice, fixed);
         next = {
           ...current,
-          discountFixed: value,
-          discountPercent: discount.discountPercent,
+          discountFixed: value ?? undefined,
+          discountPercent: toOptionalProductDiscountNumber(discount.discountPercent) ?? undefined,
           promoPrice: discount.promoPrice,
         };
       } else if (field === 'promoPrice') {
         const discount = calculateProductDiscountFromPromoPrice(
           regularPrice,
-          parseLocalizedPrice(value)
+          value ?? 0
         );
         next = {
           ...current,
           promoPrice: discount.promoPrice,
-          discountPercent: discount.discountPercent,
-          discountFixed: discount.discountFixed,
+          discountPercent: toOptionalProductDiscountNumber(discount.discountPercent) ?? undefined,
+          discountFixed: toOptionalProductDiscountNumber(discount.discountFixed) ?? undefined,
         };
       } else {
-        const price = parseLocalizedPrice(value);
-        const percent = String(current.discountPercent ?? inheritedDiscount.discountPercent);
-        const fixedRaw = String(current.discountFixed ?? '');
+        const price = value ?? 0;
+        const percent =
+          toOptionalProductDiscountNumber(current.discountPercent) ??
+          toOptionalProductDiscountNumber(inheritedDiscount.discountPercent);
+        const fixed = toOptionalProductDiscountNumber(current.discountFixed);
         if (price <= 0) {
           next = {
             ...current,
-            price: value,
-            discountPercent: '',
-            discountFixed: '',
+            price,
+            discountPercent: undefined,
+            discountFixed: undefined,
             promoPrice: undefined,
           };
-        } else if (percent) {
-          const discount = calculateProductDiscountFromPercent(
-            price,
-            Number(percent.replace(',', '.'))
-          );
+        } else if (percent !== null) {
+          const discount = calculateProductDiscountFromPercent(price, percent);
           next = {
             ...current,
-            price: value,
+            price,
             discountPercent: percent,
-            discountFixed: discount.discountFixed,
+            discountFixed: toOptionalProductDiscountNumber(discount.discountFixed) ?? undefined,
             promoPrice: discount.promoPrice,
           };
-        } else if (fixedRaw.trim()) {
-          next = { ...current, price: value };
+        } else if (fixed !== null) {
+          next = { ...current, price };
         } else {
           const discount = calculateProductDiscountFromPromoPrice(price, currentPromoPrice);
           next = {
             ...current,
-            price: value,
-            discountPercent: discount.discountPercent,
-            discountFixed: discount.discountFixed,
+            price,
+            discountPercent: toOptionalProductDiscountNumber(discount.discountPercent) ?? undefined,
+            discountFixed: toOptionalProductDiscountNumber(discount.discountFixed) ?? undefined,
             promoPrice: discount.promoPrice,
           };
         }
@@ -594,8 +597,8 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                   ];
             const catalogPublished = formData.status === 'published';
             const derivedDiscount = deriveProductDiscountFields(regularPrice, promoPrice);
-            const discountPercent = derivedDiscount.discountPercent;
-            const discountFixed = derivedDiscount.discountFixed;
+            const discountPercent = toOptionalProductDiscountNumber(derivedDiscount.discountPercent);
+            const discountFixed = toOptionalProductDiscountNumber(derivedDiscount.discountFixed);
             return (
               <View
                 key={v.id || v.sku || `${v.name || 'variacao'}-${idx}`}
@@ -1076,13 +1079,10 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 <Text style={[styles.label, dark && styles.dimText]}>
                                   Preço de Venda
                                 </Text>
-                                <FormTextInput
-                                  value={String(
-                                    effectivePricing.unitPrice ?? ''
-                                  )}
-                                  onChangeText={(val) => updateVariationPricing(idx, 'price', val)}
+                                <CurrencyInput
+                                  value={parseLocalizedPrice(effectivePricing.unitPrice)}
+                                  onChangeValue={(value) => updateVariationPricing(idx, 'price', value)}
                                   editable={v.syncUnitPrice === false}
-                                  keyboardType="numeric"
                                   placeholder="Herdado do pai"
                                   style={[
                                     styles.input,
@@ -1097,11 +1097,12 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 <Text style={[styles.label, dark && styles.dimText]}>
                                   Desconto (%)
                                 </Text>
-                                <FormTextInput
-                                  value={String(discountPercent)}
-                                  onChangeText={(val) => updateVariationPricing(idx, 'discountPercent', val)}
+                                <PercentInput
+                                  value={discountPercent}
+                                  onChangeValue={(value) => updateVariationPricing(idx, 'discountPercent', value)}
                                   editable={v.syncPromoPrice === false}
-                                  keyboardType="numeric"
+                                  min={0}
+                                  max={100}
                                   placeholder="0"
                                   style={[
                                     styles.input,
@@ -1116,11 +1117,10 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 <Text style={[styles.label, dark && styles.dimText]}>
                                   Desconto (R$)
                                 </Text>
-                                <FormTextInput
-                                  value={String(discountFixed)}
-                                  onChangeText={(val) => updateVariationPricing(idx, 'discountFixed', val)}
+                                <CurrencyInput
+                                  value={discountFixed}
+                                  onChangeValue={(value) => updateVariationPricing(idx, 'discountFixed', value)}
                                   editable={v.syncPromoPrice === false}
-                                  keyboardType="numeric"
                                   placeholder="0,00"
                                   style={[
                                     styles.input,
@@ -1135,13 +1135,12 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                                 <Text style={[styles.label, dark && styles.dimText]}>
                                   Preço Promocional
                                 </Text>
-                                <FormTextInput
-                                  value={String(
-                                    effectivePricing.promoPrice ?? ''
-                                  )}
-                                  onChangeText={(val) => updateVariationPricing(idx, 'promoPrice', val)}
+                                <CurrencyInput
+                                  value={effectivePricing.promoPrice == null
+                                    ? null
+                                    : parseLocalizedPrice(effectivePricing.promoPrice)}
+                                  onChangeValue={(value) => updateVariationPricing(idx, 'promoPrice', value)}
                                   editable={v.syncPromoPrice === false}
-                                  keyboardType="numeric"
                                   placeholder="Sem desconto"
                                   style={[
                                     styles.input,

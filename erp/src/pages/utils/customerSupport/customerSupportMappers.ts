@@ -79,5 +79,6 @@ export function mapRowToMessage(row: any): WhatsAppMessage {
     authorAvatar,
     authorRole,
     rawPayload: row.raw_payload,
+    changedAt: row.changed_at || undefined,
   };
 }

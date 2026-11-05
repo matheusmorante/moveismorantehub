@@ -2512,7 +2512,6 @@ async function recoverNormalSale(db, command, reconcileFn) {
 var import_node_crypto5 = require("node:crypto");
 
 // api/nfe/fiscalXmlAudit.ts
-var import_node_crypto4 = require("node:crypto");
 var import_xml_crypto2 = require("xml-crypto");
 
 // erp/src/pages/utils/nfe/serviceFiscalComposition.ts
@@ -3007,17 +3006,8 @@ var allDescendants = (node, name) => {
   return result;
 };
 
-// api/nfe/fiscalXmlAudit.ts
-var FiscalXmlAuditError = class extends Error {
-  mismatches;
-  constructor(mismatches) {
-    const detail = mismatches.map(({ field, expected, actual }) => `${field}: esperado ${expected}; encontrado ${actual}`).join("\n");
-    super(`O XML assinado diverge do snapshot fiscal confirmado:
-${detail}`);
-    this.name = "FiscalXmlAuditError";
-    this.mismatches = mismatches;
-  }
-};
+// api/nfe/fiscalPreviewFingerprint.ts
+var import_node_crypto4 = require("node:crypto");
 function fiscalPreviewFingerprint(snapshot, document, identity, signedXml) {
   const frozenFacts = { ...snapshot };
   delete frozenFacts.capturedAt;
@@ -3033,6 +3023,18 @@ function fiscalPreviewFingerprint(snapshot, document, identity, signedXml) {
     })
   ).digest("hex");
 }
+
+// api/nfe/fiscalXmlAudit.ts
+var FiscalXmlAuditError = class extends Error {
+  mismatches;
+  constructor(mismatches) {
+    const detail = mismatches.map(({ field, expected, actual }) => `${field}: esperado ${expected}; encontrado ${actual}`).join("\n");
+    super(`O XML assinado diverge do snapshot fiscal confirmado:
+${detail}`);
+    this.name = "FiscalXmlAuditError";
+    this.mismatches = mismatches;
+  }
+};
 function normalizeTaxId(value) {
   return normalizeFiscalIdentifier(value);
 }
@@ -5043,7 +5045,7 @@ var INTERSTATE_OUTBOUND_FISCAL_MATRIX_RULES = [
   }
 ];
 
-// api/nfe/interstate-outbound-fiscal-matrix/resolver.ts
+// api/nfe/interstate-outbound-fiscal-matrix/ruleValidation.ts
 var requiredFacts = [
   "environment",
   "model",
@@ -5122,6 +5124,8 @@ var approvalIsComplete = (rule) => Boolean(
     (key) => key === "destinationUf" && rule.criteria.destinationUf == null ? rule.reviewedWildcards?.includes(key) : Object.hasOwn(rule.criteria, key) || rule.reviewedWildcards?.includes(key)
   ) && Boolean(rule.xmlEvidence?.trim()) && Boolean(rule.testEvidence?.trim()) && rule.sourceReferences.length > 0 && rule.sourceReferences.every((source) => Boolean(source.trim())) && normativeSourcesAreScoped(rule) && rule.pendingReview.length === 0 && treatmentIsComplete(rule.treatment)
 );
+
+// api/nfe/interstate-outbound-fiscal-matrix/resolver.ts
 function validateInterstateExemptIe(destinationUf, recipientIeStatus) {
   if (recipientIeStatus === "exempt" && destinationUf) {
     const ufUpper = destinationUf.toUpperCase().trim();

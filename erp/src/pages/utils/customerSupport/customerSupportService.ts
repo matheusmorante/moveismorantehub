@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+export { fetchInitialConversationMessagePage, fetchConversationMessageChanges } from './customerSupportMessageSync';
 import {
   WhatsAppConversation,
   WhatsAppMessage,

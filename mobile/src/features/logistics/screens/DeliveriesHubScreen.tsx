@@ -23,6 +23,8 @@ import type { AssemblyHandlingOption } from '../../../utils/aiSummaryHelper';
 import { addDaysToLocalDateString, getLocalDateString } from '../../../utils/orderUtils';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
 import { supabase } from '../../../services/supabaseClient';
+import { useScopedOrderSchedule } from '../hooks/useScopedOrderSchedule';
+import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
 
 export type DeliveriesSubTab = 'today' | 'schedule' | 'assemblies' | 'map';
 
@@ -63,7 +65,7 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
       if (active && Array.isArray(cached?.data)) setHandlingOptions(cached.data);
 
       try {
-        const { data, error } = await supabase.from('settings').select('*').limit(1);
+        const { data, error } = await withAbortTimeout(supabase.from('settings').select('data').eq('id', 'app').limit(1), 'operacoes:opcoes-manuseio', 15_000);
         if (active && !error && data?.length) {
           const settings = data[0]?.data || data[0];
           const options = [
@@ -97,13 +99,16 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
     stats,
     loading,
     refreshing,
+    showingOffline,
+    error,
     onRefresh,
   } = useDeliveryRoute(scheduleDateScope);
+  const summaryAssemblies = useScopedOrderSchedule('assembly_mobile', { dateScope: scheduleDateScope }, 'assemblies_orders', activeTab === 'today');
   const todayDate = getLocalDateString(new Date());
   const tomorrowDate = addDaysToLocalDateString(todayDate, 1);
   const assemblyTasks = useMemo(
-    () => getAssemblyTasks(orders, handlingOptions),
-    [orders, handlingOptions]
+    () => getAssemblyTasks(summaryAssemblies.orders, handlingOptions),
+    [summaryAssemblies.orders, handlingOptions]
   );
   const visibleAssemblyTasks = useMemo(
     () =>
@@ -139,6 +144,8 @@ export const DeliveriesHubScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
+      {showingOffline ? <Text style={styles.loadingText}>Sem conexão. Exibindo os pedidos salvos neste aparelho.</Text> : null}
+      {error ? <Text accessibilityRole="alert" style={styles.loadingText}>{error}</Text> : null}
       {/* Barra de abas de Operações */}
       <View style={[styles.headerContainer, isDarkMode && styles.headerContainerDark]}>
         <View style={styles.titleRow}>

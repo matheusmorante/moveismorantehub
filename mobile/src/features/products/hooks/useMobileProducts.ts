@@ -28,6 +28,7 @@ import {
   shouldClearMobileProductListSnapshot,
 } from '../domain/mobileProductListRequest';
 import { toMobileProductActivationCandidate } from '../domain/mobileProductActivationCandidate';
+import { applyMobileProductActiveStatusToList } from '../domain/mobileProductActiveStatus';
 import { applyMobileProductCatalogStatusToList } from '../domain/mobileProductListCatalogStatus';
 import { fetchMobileProductsPage } from '../services/mobileProductFetchService';
 import {
@@ -393,41 +394,13 @@ export function useMobileProducts(
         Boolean(targetVariation?.isVirtual)
       );
       setProducts((prev) =>
-        prev.map((p) => {
-          if (p.id !== targetProd.id) return p;
-          if (targetVariation?.isVirtual) {
-            const nextVars = (p.allVariations || []).map((variation: any) =>
-              String(variation.id) === String(targetVariation.id)
-                ? { ...variation, active: next }
-                : variation
-            );
-            return {
-              ...p,
-              allVariations: nextVars,
-              variations: nextVars,
-              active: next,
-            };
-          }
-          if (isVariation) {
-            const nextVars = (p.allVariations || []).map((v: any) =>
-              String(v.id) === String(targetVariation.id) ? { ...v, active: next } : v
-            );
-            return {
-              ...p,
-              allVariations: nextVars,
-              active: nextVars.some((v: any) => v.active !== false),
-            };
-          }
-          const nextVars = (p.allVariations || []).map((variation: any) =>
-            variation.isVirtual ? { ...variation, active: next } : variation
-          );
-          return {
-            ...p,
-            active: next,
-            allVariations: nextVars,
-            variations: nextVars,
-          };
-        })
+        applyMobileProductActiveStatusToList(
+          prev,
+          targetProd.id,
+          next,
+          isVariation,
+          targetVariation,
+        )
       );
       void loadProducts(true, currentPage);
     } catch (err) {

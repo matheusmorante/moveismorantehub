@@ -63,7 +63,7 @@ const OperationPanel: React.FC<OperationPanelProps> = ({ data }) => (
       <OpCard
         id="op-open"
         label="Em Aberto"
-        count={data.openOrders.length}
+        count={data.openOrders}
         icon="bi-bag-check-fill"
         color="text-blue-600"
         iconBg="bg-blue-50 dark:bg-blue-950/40"
@@ -72,7 +72,7 @@ const OperationPanel: React.FC<OperationPanelProps> = ({ data }) => (
       <OpCard
         id="op-scheduled"
         label="Agendados"
-        count={data.scheduledOrders.length}
+        count={data.scheduledOrders}
         icon="bi-calendar-event-fill"
         color="text-indigo-600"
         iconBg="bg-indigo-50 dark:bg-indigo-950/40"
@@ -81,7 +81,7 @@ const OperationPanel: React.FC<OperationPanelProps> = ({ data }) => (
       <OpCard
         id="op-today"
         label="Entregas Hoje"
-        count={data.deliveriesToday.length}
+        count={data.deliveriesToday}
         icon="bi-truck-front-fill"
         color="text-teal-600"
         iconBg="bg-teal-50 dark:bg-teal-950/40"
@@ -90,7 +90,7 @@ const OperationPanel: React.FC<OperationPanelProps> = ({ data }) => (
       <OpCard
         id="op-late"
         label="Atrasadas"
-        count={data.lateDeliveries.length}
+        count={data.lateDeliveries}
         icon="bi-alarm-fill"
         color="text-rose-600"
         iconBg="bg-rose-50 dark:bg-rose-950/40"
@@ -100,7 +100,7 @@ const OperationPanel: React.FC<OperationPanelProps> = ({ data }) => (
       <OpCard
         id="op-assembly"
         label="Montagens"
-        count={data.pendingAssemblies.length}
+        count={data.pendingAssemblies}
         icon="bi-tools"
         color="text-amber-600"
         iconBg="bg-amber-50 dark:bg-amber-950/40"

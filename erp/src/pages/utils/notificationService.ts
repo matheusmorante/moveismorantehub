@@ -1,9 +1,10 @@
 import { supabase } from '@/pages/utils/supabaseConfig';
 import Product from '../types/product.type';
-import Order from '../types/order.type';
-import { getSettings } from '@/pages/utils/settingsService';
-import { excludeTestOrders } from '../../../../shared-utils/testArtifactQueries';
+import { getSettings, subscribeToSettings } from '@/pages/utils/settingsService';
+import { fetchServerOrderPage } from '../../../../shared-utils/orderListServerQuery';
 import { isIdentifiedTestArtifact } from '../../../../shared-utils/testArtifactPolicy';
+import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
+import { subscribeToOrderChanges } from './orderSyncQueries/sharedOrdersRealtime';
 
 export type NotificationSeverity = 'critical' | 'warning' | 'info';
 export type NotificationCategory = 'stock' | 'order' | 'system' | 'match';
@@ -20,7 +21,6 @@ export interface AppNotification {
   read?: boolean;
 }
 
-const TABLE_NAME = 'products';
 const READ_KEY = 'pdv_notifications_read';
 
 const getReadIds = (): Set<string> => {
@@ -36,12 +36,14 @@ export const markAsRead = (id: string) => {
   const readIds = getReadIds();
   readIds.add(id);
   localStorage.setItem(READ_KEY, JSON.stringify(Array.from(readIds)));
+  publishNotifications();
 };
 
 export const markAllAsRead = (ids: string[]) => {
   const readIds = getReadIds();
   ids.forEach((id) => readIds.add(id));
   localStorage.setItem(READ_KEY, JSON.stringify(Array.from(readIds)));
+  publishNotifications();
 };
 
 /**
@@ -169,15 +171,15 @@ const buildMatchNotifications = async (products: Product[]): Promise<AppNotifica
   const notifications: AppNotification[] = [];
 
   // Busca matches pendentes de notificação
-  const { data: matches, error } = await supabase
+  const { data: matches, error } = await withAbortTimeout(supabase
     .from('desire_matches')
-    .select('*, customer_desires(*)')
-    .eq('notified', false);
+    .select('id,product_id,created_at,customer_desires(customer_name)')
+    .eq('notified', false), 'alertas:interesses', 15_000);
 
   if (error || !matches) return [];
 
   matches.forEach((m) => {
-    const desire = m.customer_desires;
+    const desire = Array.isArray(m.customer_desires) ? m.customer_desires[0] : m.customer_desires;
     const product = products.find((p) => p.id === String(m.product_id));
 
     if (desire && product) {
@@ -199,23 +201,19 @@ const buildMatchNotifications = async (products: Product[]): Promise<AppNotifica
   return notifications;
 };
 
-const buildOrderNotifications = (orders: Order[]): AppNotification[] => {
+const buildOrderNotifications = (draftCount: number): AppNotification[] => {
   const readIds = getReadIds();
   const notifications: AppNotification[] = [];
 
-  const draftOrders = orders.filter(
-    (o) => !o.deleted && o.status === 'draft' && !isIdentifiedTestArtifact(o)
-  );
-
-  if (draftOrders.length > 0) {
-    const id = `draft_orders_alert_${draftOrders.length}`;
+  if (draftCount > 0) {
+    const id = `draft_orders_alert_${draftCount}`;
     notifications.push({
       id,
       title: 'Pedidos em Rascunho',
       description:
-        draftOrders.length === 1
+        draftCount === 1
           ? `Existe 1 pedido em rascunho aguardando finalização.`
-          : `Existem ${draftOrders.length} pedidos em rascunho aguardando finalização.`,
+          : `Existem ${draftCount} pedidos em rascunho aguardando finalização.`,
       severity: 'info',
       category: 'order',
       icon: 'bi-file-earmark-text-fill',
@@ -232,22 +230,38 @@ const buildOrderNotifications = (orders: Order[]): AppNotification[] => {
  * Subscribe to all system notifications.
  * Returns an unsubscribe function.
  */
-export const subscribeToNotifications = (callback: (notifications: AppNotification[]) => void) => {
-  const fetchAndNotify = async () => {
+const notificationSubscribers = new Set<(notifications: AppNotification[]) => void>();
+let notificationSnapshot: AppNotification[] = [];
+let notificationRequest: Promise<void> | null = null;
+let notificationGeneration = 0;
+let notificationFetchedAt = 0;
+let notificationStop: (() => void) | null = null;
+let notificationNeedsRefresh = false;
+const publishNotifications = () => {
+  const read = getReadIds();
+  const snapshot = notificationSnapshot.map((entry) => ({ ...entry, read: read.has(entry.id) }));
+  notificationSubscribers.forEach((subscriber) => subscriber(snapshot));
+};
+
+const fetchAndNotify = async () => {
+  if (notificationRequest) return notificationRequest;
+  const generation = notificationGeneration;
+  notificationRequest = (async () => {
+    try {
     // Fetch Products
-    const { data: pData, error: pError } = await supabase
-      .from(TABLE_NAME)
-      .select('*')
-      .is('deleted_at', null)
-      .eq('active', true);
+    const { data: pData, error: pError } = await withAbortTimeout(supabase.rpc('notification_product_summaries', {
+      p_conditions: getSettings().stockNotificationConditions || ['novo'],
+    }), 'alertas:produtos', 15_000);
 
-    // Fetch Orders - somente status para notificações de rascunho (campo mínimo)
-    const orderQuery = excludeTestOrders(
-      supabase.from('orders').select('id, order_data->status'),
-    );
-    const { data: oData, error: oError } = await orderQuery.limit(500);
-
-    if (pError || oError) return;
+    // O alerta usa apenas a contagem já filtrada, sem baixar pedidos candidatos.
+    let draftCount: number;
+    try {
+      const page = await fetchServerOrderPage(supabase, {
+        filters: { includeAllTypes: true, isDraft: true }, page: 1, pageSize: 1, mode: 'erp',
+      });
+      draftCount = page.total;
+    } catch { return; }
+    if (pError || !Array.isArray(pData)) return;
 
     const products: Product[] = (pData || []).filter((d: any) => !isIdentifiedTestArtifact(d)).map((d: any) => ({
       id: String(d.id),
@@ -265,16 +279,8 @@ export const subscribeToNotifications = (callback: (notifications: AppNotificati
       notificationConfig: d.notification_config,
     }));
 
-    const orders: Order[] = (oData || []).map((row: any) => {
-      try {
-        return { ...(row.order_data || {}), id: String(row.id) } as Order;
-      } catch (_e) {
-        return { id: String(row.id) } as any;
-      }
-    });
-
     const productNotifs = buildProductNotifications(products);
-    const orderNotifs = buildOrderNotifications(orders);
+    const orderNotifs = buildOrderNotifications(draftCount);
     const matchNotifs = await buildMatchNotifications(products);
 
     const allNotifications = [...productNotifs, ...orderNotifs, ...matchNotifs];
@@ -285,13 +291,65 @@ export const subscribeToNotifications = (callback: (notifications: AppNotificati
       return (order[a.severity] || 3) - (order[b.severity] || 3);
     });
 
-    callback(allNotifications);
-  };
+    if (generation === notificationGeneration) { notificationSnapshot = allNotifications; notificationFetchedAt = Date.now(); }
+    } catch (error) {
+      console.warn('[Alertas] Não foi possível atualizar os alertas:', error);
+    } finally {
+      if (generation === notificationGeneration) {
+        notificationRequest = null; publishNotifications();
+        if (notificationNeedsRefresh) { notificationNeedsRefresh = false; void fetchAndNotify(); }
+      }
+    }
+  })();
+  return notificationRequest;
+};
 
-  // Busca inicial (sem realtime para economizar conexões)
-  fetchAndNotify();
-
+export const subscribeToNotifications = (callback: (notifications: AppNotification[]) => void) => {
+  notificationSubscribers.add(callback);
+  if (!notificationStop) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (notificationRequest) notificationNeedsRefresh = true;
+        else void fetchAndNotify();
+      }, 750);
+    };
+    const focus = () => { if (document.visibilityState === 'visible') refresh(); };
+    const channel = supabase.channel('notification-snapshot-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_variations' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'desire_matches' }, refresh)
+      .subscribe((status) => { if (status === 'SUBSCRIBED' && notificationFetchedAt) refresh(); });
+    let conditionKey = JSON.stringify(getSettings().stockNotificationConditions || ['novo']);
+    const stopSettings = subscribeToSettings((settings) => {
+      const key = JSON.stringify(settings.stockNotificationConditions || ['novo']);
+      if (key !== conditionKey) { conditionKey = key; refresh(); }
+    });
+    const stopOrders = subscribeToOrderChanges(refresh);
+    const auth = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') {
+        notificationGeneration += 1; notificationSnapshot = []; notificationRequest = null; notificationFetchedAt = 0;
+        notificationNeedsRefresh = false;
+        publishNotifications(); if (event === 'SIGNED_IN') refresh();
+      }
+    });
+    document.addEventListener('visibilitychange', focus);
+    window.addEventListener('focus', focus);
+    notificationStop = () => {
+      if (timer) clearTimeout(timer);
+      stopSettings(); stopOrders(); auth.data.subscription.unsubscribe(); void supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', focus); window.removeEventListener('focus', focus);
+    };
+  }
+  if (notificationFetchedAt) publishNotifications();
+  if (!notificationFetchedAt || Date.now() - notificationFetchedAt > 30_000) void fetchAndNotify();
   return () => {
-    // Realtime desabilitado para economizar conexões e tráfego
+    notificationSubscribers.delete(callback);
+    if (!notificationSubscribers.size) {
+      notificationStop?.(); notificationStop = null; notificationGeneration += 1;
+      notificationRequest = null; notificationSnapshot = []; notificationFetchedAt = 0;
+      notificationNeedsRefresh = false;
+    }
   };
 };

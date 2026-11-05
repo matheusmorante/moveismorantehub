@@ -3,10 +3,10 @@ import { getFixedLabelTextSize } from '../utils/fixedLabelTextSize';
 import type {
   Opportunity,
   PriceLabelArtEditorModalProps,
-  PriceLabelLayerKey,
 } from '../types/PriceLabelArtEditorTypes';
 import { usePriceLabelHistory } from './usePriceLabelHistory';
 import { buildPriceLabelStateSnapshot } from './priceLabelStateSnapshot';
+import { usePriceLabelEditorTransientState } from './usePriceLabelEditorTransientState';
 
 export function usePriceLabelState(
   initialProduct: PriceLabelArtEditorModalProps['initialProduct'],
@@ -163,19 +163,7 @@ export function usePriceLabelState(
   const [bgColor, setBgColor] = useState<string>(defaultBgColor);
 
   // Estado de Seleção e Menus
-  const [selectedElement, setSelectedElement] = useState<PriceLabelLayerKey>(null);
-  const [selectedElements, setSelectedElements] = useState<Set<PriceLabelLayerKey>>(new Set());
-  const [isArtConfigLoading, setIsArtConfigLoading] = useState(true);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
-  const lastQueuedSnapshotRef = useRef('');
-  const latestRequestedSnapshotRef = useRef('');
-  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
-  const [isCenterMenuOpen, setIsCenterMenuOpen] = useState(false);
-  const [isOppSelectModalOpen, setIsOppSelectModalOpen] = useState(false);
-  const [isLayersModalOpen, setIsLayersModalOpen] = useState(false);
-  const [showColorPickerDropdown, setShowColorPickerDropdown] = useState(false);
-  const pendingGradientColorRef = useRef<string | null>(null);
+  const editorTransientState = usePriceLabelEditorTransientState();
 
   // Sistema de Histórico (Undo / Redo)
   const isApplyingHistoryRef = useRef<boolean>(false);
@@ -838,27 +826,6 @@ export function usePriceLabelState(
     defaultBgColor,
     bgColor,
     setBgColor,
-    selectedElement,
-    setSelectedElement,
-    selectedElements,
-    setSelectedElements,
-    isArtConfigLoading,
-    setIsArtConfigLoading,
-    autoSaveStatus,
-    setAutoSaveStatus,
-    lastQueuedSnapshotRef,
-    latestRequestedSnapshotRef,
-    saveQueueRef,
-    isFileMenuOpen,
-    setIsFileMenuOpen,
-    isCenterMenuOpen,
-    setIsCenterMenuOpen,
-    isOppSelectModalOpen,
-    setIsOppSelectModalOpen,
-    isLayersModalOpen,
-    setIsLayersModalOpen,
-    showColorPickerDropdown,
-    setShowColorPickerDropdown,
-    pendingGradientColorRef,
+    ...editorTransientState,
   };
 }

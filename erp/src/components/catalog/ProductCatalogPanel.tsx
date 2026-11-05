@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query';
+import ProductImage from '@/components/ProductImage';
 import './ProductCatalogPanel.css';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { requestConfirmation } from '@/components/shared/confirmationService';
 import { flattenCategories, type CategoryOption, type CategoryRelation } from './productCatalogCategoryTree';
-import { ProductCatalogCategoryRail } from './ProductCatalogCategoryRail';
 import { buildProductCatalogUrl } from '../../../../shared-utils/productCatalogLinks';
 import {
   productCatalogFiltersSchema,
@@ -27,7 +27,7 @@ import {
   type CatalogItem,
 } from './productCatalogPresentation';
 import { ProductCatalogPreview, type ProductCatalogPreviewTab } from './ProductCatalogPreview';
-import { ProductCatalogSelectionSummary } from './ProductCatalogSelectionSummary';
+import { createProductCatalogSelectionActions } from './productCatalogSelection';
 import {
   itemKey,
   makeCatalogItem,
@@ -52,9 +52,6 @@ interface ProductCatalogPanelProps {
   availableSpaceRef?: React.RefObject<HTMLElement | null>;
 }
 
-const scopeKey = (scope: Pick<BulkScope, 'filters'>) =>
-  JSON.stringify([scope.filters.categoryId, scope.filters.search.trim().toLocaleLowerCase(), scope.filters.brand]);
-
 export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
   isOpen,
   onClose,
@@ -69,7 +66,6 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
   const [previewTab, setPreviewTab] = useState<PreviewTab>('cards');
   const [selectedItems, setSelectedItems] = useState<Map<string, CatalogItem>>(() => new Map());
   const [bulkScope, setBulkScope] = useState<BulkScope | null>(null);
-  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [filters, setFilters] = useState<ProductCatalogFiltersInput>({ categoryId: null, search: '', brand: '' });
   const [selectionError, setSelectionError] = useState('');
   const [prepared, setPrepared] = useState<ProductCatalogPrepareInput | null>(null);
@@ -86,16 +82,11 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
   const rawFilters = useWatch({ control: filterForm.control });
   const search = rawFilters.search || '';
   const categoryId = rawFilters.categoryId || '';
-  const brand = rawFilters.brand || '';
   const applyFilters = useCallback(() => {
     void filterForm.handleSubmit((values) => setFilters(values))();
   }, [filterForm.handleSubmit]);
   const updateCategoryFilter = (value: string) => {
     filterForm.setValue('categoryId', value || null, { shouldDirty: true, shouldValidate: true });
-    applyFilters();
-  };
-  const updateBrandFilter = (value: string) => {
-    filterForm.setValue('brand', value, { shouldDirty: true, shouldValidate: true });
     applyFilters();
   };
   const prepareForm = useForm<z.input<typeof productCatalogPrepareSchema>, unknown, ProductCatalogPrepareInput>({
@@ -113,7 +104,7 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
     const measurePresentation = () => {
       const viewportWidth = window.visualViewport?.width || window.innerWidth;
       const contentWidth = availableSpace?.getBoundingClientRect().width || viewportWidth;
-      if (viewportWidth < 640) {
+      if (viewportWidth < 768) {
         setPresentation('fullscreen');
         return;
       }
@@ -164,7 +155,6 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
   });
   const categories = (metadataQuery.data?.categories || []) as CategoryOption[];
   const relations = (metadataQuery.data?.relations || []) as CategoryRelation[];
-  const brands = metadataQuery.data?.brands || [];
   const flattenedCategories = useMemo(() => flattenCategories(categories, relations), [categories, relations]);
   const selectedCategory = categories.find((category) => category.id === categoryId);
   const catalogQuery = useInfiniteQuery({
@@ -191,8 +181,35 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
   const isSearchDebouncing = search.trim() !== filters.search;
   const isLoading = metadataQuery.isLoading || catalogQuery.isLoading;
   const isLoadingNext = catalogQuery.isFetchingNextPage;
-  const metadataError = metadataQuery.isError ? 'Não foi possível carregar categorias e filtros. Tente atualizar.' : '';
+  const metadataError = metadataQuery.isError ? 'Não foi possível carregar as categorias. Tente atualizar.' : '';
   const error = selectionError || metadataError || (catalogQuery.isError ? 'Não foi possível carregar os produtos. Tente novamente.' : '');
+
+  const variationProductBatches = useMemo(() => {
+    return pages.flatMap((page) => {
+      const productIds = page.products.filter((product) => product.hasVariations).map((product) => product.id);
+      return productIds.length ? [productIds] : [];
+    });
+  }, [pages]);
+  const productDetailsQueries = useQueries({
+    queries: variationProductBatches.map((productIds) => ({
+      queryKey: [
+        'customer-support-catalog-product-details',
+        ...supportCatalogCacheContext(),
+        metadataQuery.data?.userId || 'anonymous',
+        productIds,
+      ],
+      queryFn: ({ signal }) => fetchSupportCatalogProductDetails(productIds, signal),
+      enabled: isOpen && mode === 'picker',
+      staleTime: CACHE_TIME,
+      gcTime: CACHE_TIME,
+      retry: 1,
+    })),
+  });
+  const productDetailsById = useMemo(
+    () => new Map(productDetailsQueries.flatMap((query) => query.data || []).map((details) => [details.productId, details] as const)),
+    [productDetailsQueries],
+  );
+  const hasProductDetailsError = productDetailsQueries.some((query) => query.isError);
 
   useEffect(() => {
     const root = catalogListRef.current;
@@ -213,24 +230,25 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
     excludedProductIds: [],
   }), [filters, selectedCategory?.name, total]);
 
-  const hasMatchingBulkScope = Boolean(
-    bulkScope && scopeKey(bulkScope) === scopeKey(currentScope)
-  );
-  const expandedProductIsVisible = Boolean(expandedProductId && products.some((product) => product.id === expandedProductId));
-  const productDetailsQuery = useQuery({
-    queryKey: [
-      'customer-support-catalog-product-details',
-      ...supportCatalogCacheContext(),
-      metadataQuery.data?.userId || 'anonymous',
-      expandedProductId,
-    ],
-    queryFn: ({ signal }) => fetchSupportCatalogProductDetails([expandedProductId!], signal),
-    enabled: isOpen && mode === 'picker' && expandedProductIsVisible && !hasMatchingBulkScope,
-    staleTime: CACHE_TIME,
-    gcTime: CACHE_TIME,
-    retry: 1,
+  const {
+    hasMatchingBulkScope,
+    selectedCount,
+    toggleBulkSelection,
+    toggleProduct,
+    clearSelection,
+    clearBulkSelection,
+    toggleProductCard,
+  } = createProductCatalogSelectionActions({
+    selectedItems,
+    setSelectedItems,
+    bulkScope,
+    setBulkScope,
+    currentScope,
+    total,
+    setSelectionError,
+    setPrepared,
+    clearPreparedItemsError: () => prepareForm.clearErrors('items'),
   });
-  const selectedCount = Math.max(0, (bulkScope?.total || 0) - (bulkScope?.excludedProductIds.length || 0)) + selectedItems.size;
   const onPrepare = prepareForm.handleSubmit((values) => {
     setPrepared(values);
     setHidePrices(values.hidePrices);
@@ -238,68 +256,6 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
     setPreviewFeedback('');
     setMode('preview');
   });
-
-  const toggleBulkSelection = () => {
-    if (hasMatchingBulkScope) {
-      setBulkScope(null);
-      setPrepared(null);
-      return;
-    }
-    if (bulkScope) {
-      setSelectionError('Remova a seleção em lote atual antes de selecionar outra lista inteira.');
-      return;
-    }
-    if (total === 0) return;
-    setBulkScope({ ...currentScope });
-    setSelectionError('');
-    setPrepared(null);
-  };
-
-  const toggleBulkProduct = (productId: string) => {
-    if (!bulkScope || !hasMatchingBulkScope) return;
-    const isExcluded = bulkScope.excludedProductIds.includes(productId);
-    if (!isExcluded && bulkScope.excludedProductIds.length >= 100) {
-      setSelectionError('Você pode remover até 100 produtos desta seleção em lote. Refine os filtros para remover um grupo maior.');
-      return;
-    }
-    setBulkScope((current) => current ? {
-      ...current,
-      excludedProductIds: isExcluded
-        ? current.excludedProductIds.filter((id) => id !== productId)
-        : [...current.excludedProductIds, productId],
-    } : null);
-    setSelectedItems((current) => new Map(Array.from(current.entries()).filter(([, item]) => item.productId !== productId)));
-    setPrepared(null);
-    setSelectionError('');
-  };
-
-  const toggleProduct = (item: CatalogItem, productId = item.productId) => {
-    if (hasMatchingBulkScope && bulkScope) {
-      toggleBulkProduct(productId);
-      return;
-    }
-    const key = itemKey(item);
-    if (!selectedItems.has(key) && selectedItems.size >= 500) {
-      setSelectionError('A seleção individual chegou ao limite de 500 itens. Selecione uma lista completa por categoria.');
-      return;
-    }
-    setSelectedItems((previous) => {
-      const next = new Map(previous);
-      if (next.has(key)) next.delete(key);
-      else next.set(key, item);
-      return next;
-    });
-    setPrepared(null);
-    setSelectionError('');
-  };
-
-  const clearSelection = () => {
-    setSelectedItems(new Map());
-    setBulkScope(null);
-    setSelectionError('');
-    setPrepared(null);
-    prepareForm.clearErrors('items');
-  };
 
   const handlePrepare = () => {
     prepareForm.setValue('items', Array.from(selectedItems.values()));
@@ -320,7 +276,6 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
     hidePrices,
   });
   const messageItemCount = Math.max(0, (preparedSelection.bulkScope?.total || 0) - (preparedSelection.bulkScope?.excludedProductIds.length || 0)) + preparedSelection.items.length;
-  const selectedItemsPreview = Array.from(selectedItems.entries()).slice(0, 8);
   const nativeProductCount = preparedSelection.items.length;
   const nativeDisabledReason = preparedSelection.bulkScope
     ? 'Seleções por categoria inteira devem ser compartilhadas por link.'
@@ -411,13 +366,38 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
           <>
             <div className="catalog-picker-container min-h-0 flex-1">
               <div className="catalog-picker-layout">
-                <ProductCatalogCategoryRail
-                  categories={flattenedCategories}
-                  categoryId={categoryId}
-                  total={total}
-                  onSelectCategory={updateCategoryFilter}
-                />
-
+                <aside className="catalog-category-sidebar" aria-labelledby="support-catalog-categories-title">
+                  <h3 id="support-catalog-categories-title" className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Categorias</h3>
+                  <div className="catalog-category-options" role="radiogroup" aria-labelledby="support-catalog-categories-title">
+                    <label className={`catalog-category-option ${!categoryId ? 'is-selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="support-catalog-category-sidebar"
+                        className="sr-only"
+                        checked={!categoryId}
+                        onChange={() => updateCategoryFilter('')}
+                      />
+                      <span>Todas as categorias</span>
+                    </label>
+                    {flattenedCategories.map(({ category, depth }) => (
+                      <label
+                        key={category.id}
+                        className={`catalog-category-option ${categoryId === category.id ? 'is-selected' : ''}`}
+                        style={{ paddingInlineStart: `${0.75 + depth * 0.8}rem` }}
+                      >
+                        <input
+                          type="radio"
+                          name="support-catalog-category-sidebar"
+                          className="sr-only"
+                          value={category.id}
+                          checked={categoryId === category.id}
+                          onChange={() => updateCategoryFilter(category.id)}
+                        />
+                        <span className="truncate">{category.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </aside>
                 <section className="catalog-results-pane" aria-label="Produtos do catálogo">
                   <div className="catalog-filter-toolbar">
                     <label className="flex h-10 min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 dark:border-slate-700 dark:bg-slate-900">
@@ -434,52 +414,56 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
                     </label>
                     <div className="catalog-filter-selects">
                       <label className="sr-only" htmlFor="support-catalog-category">Categoria</label>
-                      <select id="support-catalog-category" value={categoryId} onChange={(event) => updateCategoryFilter(event.target.value)} className="catalog-mobile-category h-10 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900">
+                      <select id="support-catalog-category" value={categoryId} onChange={(event) => updateCategoryFilter(event.target.value)} className="catalog-category-filter h-10 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900">
                         <option value="">Todas as categorias</option>
                         {flattenedCategories.map(({ category, depth }) => (
                           <option key={category.id} value={category.id}>{`${'　'.repeat(depth)}${depth ? '↳ ' : ''}${category.name}`}</option>
                         ))}
                       </select>
-                      <label className="sr-only" htmlFor="support-catalog-brand">Marca</label>
-                      <select id="support-catalog-brand" value={brand} onChange={(event) => updateBrandFilter(event.target.value)} className="h-10 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900">
-                        <option value="">Todas as marcas</option>
-                        {brands.map((brandName) => <option key={brandName} value={brandName}>{brandName}</option>)}
-                      </select>
                     </div>
                     {metadataError && <p role="status" className="text-xs text-amber-700 dark:text-amber-300">{metadataError}</p>}
-                    {metadataQuery.isLoading && <p className="text-xs text-slate-400">Carregando categorias e marcas…</p>}
+                    {metadataQuery.isLoading && <p className="text-xs text-slate-400">Carregando categorias…</p>}
                     {metadataQuery.isError && <button type="button" onClick={() => void metadataQuery.refetch()} className="text-left text-xs font-semibold text-amber-700 underline dark:text-amber-300">Tentar carregar filtros novamente</button>}
-                    <button
-                      type="button"
-                      onClick={toggleBulkSelection}
-                      disabled={isSearchDebouncing || (!hasMatchingBulkScope && (total === 0 || isLoading || Boolean(bulkScope)))}
-                      className={`flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${hasMatchingBulkScope ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'}`}
-                    >
-                      <i className={`bi ${hasMatchingBulkScope ? 'bi-check-square-fill' : 'bi-check2-square'}`} aria-hidden="true" />
-                      {hasMatchingBulkScope
-                        ? `Lista selecionada (${Math.max(0, (bulkScope?.total || 0) - (bulkScope?.excludedProductIds.length || 0))}) · remover seleção`
-                        : bulkScope
-                          ? 'Remova a seleção em lote atual para escolher outra lista'
-                          : `Selecionar todos desta ${categoryId ? 'categoria' : 'lista'} (${total})`}
-                    </button>
                     {bulkScope && !hasMatchingBulkScope && (
                       <div className="flex items-center justify-between gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
                         <span>Seleção em lote mantida: {Math.max(0, bulkScope.total - bulkScope.excludedProductIds.length)} produtos · {bulkScope.categoryName}. Você pode selecionar itens avulsos neste filtro.</span>
-                        <button type="button" onClick={() => { setBulkScope(null); setPrepared(null); }} aria-label="Remover seleção em lote" className="shrink-0 underline">Remover</button>
+                        <button type="button" onClick={clearBulkSelection} aria-label="Remover seleção em lote" className="shrink-0 underline">Remover</button>
                       </div>
                     )}
                   </div>
 
                   <div className="catalog-products-pane">
-                    <div className="flex shrink-0 items-center justify-between px-5 py-3 text-xs text-slate-500 dark:text-slate-400">
-                      <span>{isSearchDebouncing ? 'Atualizando pesquisa…' : `${total} produto${total === 1 ? '' : 's'} encontrado${total === 1 ? '' : 's'}`}</span>
-                      <span>Preços públicos atuais</span>
+                    <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-5 py-3 text-xs text-slate-500 dark:text-slate-400">
+                      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                        <span>{isSearchDebouncing ? 'Atualizando pesquisa…' : `${total} produto${total === 1 ? '' : 's'} encontrado${total === 1 ? '' : 's'}`}</span>
+                        <button
+                          type="button"
+                          onClick={toggleBulkSelection}
+                          disabled={isSearchDebouncing || (!hasMatchingBulkScope && (total === 0 || isLoading || Boolean(bulkScope)))}
+                          aria-pressed={hasMatchingBulkScope}
+                          className={`inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1 py-1 text-[11px] font-semibold transition-colors hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-emerald-300 ${hasMatchingBulkScope ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-600 dark:text-blue-400'}`}
+                        >
+                          <i className={`bi ${hasMatchingBulkScope ? 'bi-check2-square' : 'bi-check2-all'}`} aria-hidden="true" />
+                          {hasMatchingBulkScope
+                            ? `Desfazer seleção (${Math.max(0, (bulkScope?.total || 0) - (bulkScope?.excludedProductIds.length || 0))})`
+                            : bulkScope
+                              ? 'Outra seleção em lote ativa'
+                              : `Selecionar ${categoryId ? 'categoria' : 'todos'} (${total})`}
+                        </button>
+                      </div>
+                      <span className="shrink-0">Preços públicos atuais</span>
                     </div>
                     <div ref={catalogListRef} className="catalog-product-list">
                       {error && (
                         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
                           <p>{error}</p>
                           {catalogQuery.isError && <button type="button" onClick={() => void catalogQuery.refetch()} className="mt-2 font-semibold underline">Tentar novamente</button>}
+                        </div>
+                      )}
+                      {hasProductDetailsError && (
+                        <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                          <p>Não foi possível carregar algumas variações.</p>
+                          <button type="button" onClick={() => void Promise.all(productDetailsQueries.map((query) => query.refetch()))} className="mt-2 font-semibold underline">Tentar carregar novamente</button>
                         </div>
                       )}
                       {isLoading && Array.from({ length: 6 }, (_, index) => (
@@ -489,30 +473,63 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
                         </div>
                       ))}
                       {products.map((product) => {
-                        const supportsVariants = Boolean(product.hasVariations);
-                        const isExpanded = expandedProductId === product.id;
-                        const productDetails = isExpanded
-                          ? productDetailsQuery.data?.find((details) => details.productId === product.id)
-                          : null;
-                        const publicVariations = supportsVariants
-                          ? productDetails?.variations || []
-                          : product.variations || [];
-                        const simpleItem = supportsVariants ? null : makeCatalogItem(product, publicVariations[0]);
+                        if (product.hasVariations) {
+                          const productDetails = productDetailsById.get(product.id);
+                          const detailsQueryIndex = variationProductBatches.findIndex((batch) => batch.includes(product.id));
+                          const detailsQuery = productDetailsQueries[detailsQueryIndex];
+                          if (!productDetails || productDetails.variations.length === 0) {
+                            return (
+                              <div key={`variations-${product.id}`} role={detailsQuery?.isLoading ? 'status' : detailsQuery?.isError ? 'alert' : undefined} className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-500 dark:border-slate-700">
+                                {detailsQuery?.isLoading ? 'Carregando variações…' : detailsQuery?.isError ? 'Variações indisponíveis no momento.' : 'Nenhuma variação ativa disponível.'}
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <React.Fragment key={`variations-${product.id}`}>
+                              {productDetails.variations.map((variation) => {
+                                const item = makeCatalogItem(product, variation);
+                                if (!item) return null;
+                                const variationLabel = item.variationName || (variation.sku ? `SKU ${variation.sku}` : 'Variação');
+                                const isBulkProduct = hasMatchingBulkScope && Boolean(bulkScope)
+                                  && !bulkScope!.excludedProductIds.includes(product.id);
+                                const isSelected = isBulkProduct || selectedItems.has(itemKey(item));
+                                const image = productImageOf(product, variation);
+                                return (
+                                  <article key={itemKey(item)} className={`catalog-product-card rounded-2xl border p-3 transition-colors ${isSelected ? 'border-emerald-400 bg-emerald-50/60 dark:border-emerald-700 dark:bg-emerald-950/20' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}>
+                                    <label className="flex min-w-0 cursor-pointer items-start gap-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        disabled={isSearchDebouncing}
+                                        onChange={() => toggleProduct(item, product.id)}
+                                        aria-label={`${isBulkProduct ? 'Remover todas as variações de' : 'Selecionar'} ${product.title || product.name} · ${variationLabel}`}
+                                        className="mt-1 h-4 w-4 accent-emerald-600 disabled:cursor-not-allowed"
+                                      />
+                                      {image ? (
+                                        <ProductImage src={image} size="thumbnail" alt="" loading="lazy" decoding="async" className="h-16 w-16 shrink-0 rounded-xl bg-slate-100 object-cover dark:bg-slate-800" />
+                                      ) : (
+                                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 dark:bg-slate-800"><i className="bi bi-image" aria-hidden="true" /></div>
+                                      )}
+                                      <div className="min-w-0 flex-1">
+                                        <h3 className="line-clamp-2 text-sm font-semibold">{variationLabel}</h3>
+                                        <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{product.title || product.name} · {product.category || 'Sem categoria'}{product.brand ? ` · ${product.brand}` : ''}</p>
+                                        {variation.sku && <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">SKU {variation.sku}</p>}
+                                        <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">{formatPrice(item.price)}</p>
+                                      </div>
+                                    </label>
+                                  </article>
+                                );
+                              })}
+                            </React.Fragment>
+                          );
+                        }
+
+                        const simpleItem = makeCatalogItem(product, product.variations?.[0]);
                         const isBulkProduct = hasMatchingBulkScope && Boolean(bulkScope)
                           && !bulkScope!.excludedProductIds.includes(product.id);
-                        const selectedManualItemCount = Array.from(selectedItems.values()).filter((item) => item.productId === product.id).length;
-                        const isSelected = isBulkProduct || selectedManualItemCount > 0
-                          || Boolean(simpleItem && selectedItems.has(itemKey(simpleItem)));
-                        const image = productImageOf(product, supportsVariants ? undefined : publicVariations[0]);
-                        const toggleThisProduct = () => {
-                          if (hasMatchingBulkScope && bulkScope) {
-                            const isExcluded = bulkScope.excludedProductIds.includes(product.id);
-                            if (isExcluded && selectedManualItemCount > 0) {
-                              setSelectedItems((current) => new Map(Array.from(current.entries()).filter(([, item]) => item.productId !== product.id)));
-                              setPrepared(null);
-                            } else toggleBulkProduct(product.id);
-                          } else if (simpleItem) toggleProduct(simpleItem, product.id);
-                        };
+                        const isSelected = isBulkProduct || Boolean(simpleItem && selectedItems.has(itemKey(simpleItem)));
+                        const image = productImageOf(product, product.variations?.[0]);
                         return (
                           <article key={product.id} className={`catalog-product-card rounded-2xl border p-3 transition-colors ${isSelected ? 'border-emerald-400 bg-emerald-50/60 dark:border-emerald-700 dark:bg-emerald-950/20' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}>
                             <div className="flex gap-3">
@@ -520,51 +537,23 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
-                                  disabled={isSearchDebouncing || (!hasMatchingBulkScope && (supportsVariants || !simpleItem || (!isSelected && selectedItems.size >= 500)))}
-                                  onChange={toggleThisProduct}
+                                  disabled={isSearchDebouncing || (!simpleItem || (!isSelected && selectedItems.size >= 500))}
+                                  onChange={() => toggleProductCard(product.id, isSelected ? 1 : 0, simpleItem)}
                                   aria-label={`${hasMatchingBulkScope ? 'Incluir ou remover' : 'Selecionar'} ${product.name || 'produto'}`}
                                   className="mt-1 h-4 w-4 accent-emerald-600 disabled:cursor-not-allowed"
                                 />
                                 {image ? (
-                                  <img src={image} alt="" loading="lazy" decoding="async" className="h-16 w-16 shrink-0 rounded-xl bg-slate-100 object-cover dark:bg-slate-800" />
+                                  <ProductImage src={image} size="thumbnail" alt="" loading="lazy" decoding="async" className="h-16 w-16 shrink-0 rounded-xl bg-slate-100 object-cover dark:bg-slate-800" />
                                 ) : (
                                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 dark:bg-slate-800"><i className="bi bi-image" aria-hidden="true" /></div>
                                 )}
                                 <div className="min-w-0 flex-1">
                                   <h3 className="line-clamp-2 text-sm font-semibold">{product.title || product.name}</h3>
                                   <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{product.category || 'Sem categoria'}{product.brand ? ` · ${product.brand}` : ''}</p>
-                                  {!supportsVariants && <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">{formatPrice(priceOf(product, publicVariations[0]))}</p>}
+                                  <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">{formatPrice(priceOf(product, product.variations?.[0]))}</p>
                                 </div>
                               </label>
-                              {supportsVariants && !hasMatchingBulkScope && (
-                                <button type="button" aria-expanded={isExpanded} onClick={() => setExpandedProductId((current) => current === product.id ? null : product.id)} className="shrink-0 pt-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 underline dark:text-emerald-300">
-                                  {isExpanded ? 'Ocultar variações' : 'Escolher variação'}
-                                </button>
-                              )}
-                              {supportsVariants && hasMatchingBulkScope && <span className="shrink-0 pt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Produto</span>}
                             </div>
-                            {supportsVariants && hasMatchingBulkScope && <p className="mt-2 border-t border-slate-100 pt-2 text-xs text-slate-500 dark:border-slate-800">Todas as variações ativas entram juntas nesta seleção.</p>}
-                            {supportsVariants && isExpanded && !hasMatchingBulkScope && (
-                              <div className="mt-3 grid gap-1 border-t border-slate-100 pt-2 dark:border-slate-800">
-                                {productDetailsQuery.isLoading && <p role="status" className="animate-pulse rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-500 dark:bg-slate-800">Carregando variações…</p>}
-                                {productDetailsQuery.isError && <div role="alert" className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">Não foi possível carregar as variações. <button type="button" onClick={() => void productDetailsQuery.refetch()} className="font-semibold underline">Tentar novamente</button></div>}
-                                {publicVariations.map((variation) => {
-                                  const item = makeCatalogItem(product, variation);
-                                  if (!item) return null;
-                                  const selected = selectedItems.has(itemKey(item));
-                                  const attributes = Array.isArray(variation.attributes) ? variation.attributes : [];
-                                  const variationLabel = variation.name || attributes.map((attribute: any) => String(attribute?.value || '')).filter(Boolean).join(' / ') || 'Variação';
-                                  return (
-                                    <label key={variation.id} className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs ${selected ? 'bg-emerald-100/80 dark:bg-emerald-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                                      <input type="checkbox" checked={selected} disabled={isSearchDebouncing} onChange={() => toggleProduct(item, product.id)} className="h-4 w-4 accent-emerald-600 disabled:cursor-not-allowed disabled:opacity-50" />
-                                      <span className="min-w-0 flex-1 truncate">{variationLabel}</span>
-                                      <span className="font-semibold">{formatPrice(item.price)}</span>
-                                    </label>
-                                  );
-                                })}
-                                {!productDetailsQuery.isLoading && !productDetailsQuery.isError && publicVariations.length === 0 && <p className="px-2 py-2 text-xs text-slate-500">Nenhuma variação ativa disponível.</p>}
-                              </div>
-                            )}
                           </article>
                         );
                       })}
@@ -577,25 +566,6 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
 
                 </section>
 
-                <ProductCatalogSelectionSummary
-                  bulkScope={bulkScope}
-                  selectedCount={selectedCount}
-                  selectedItemsPreview={selectedItemsPreview}
-                  selectedItemCount={selectedItems.size}
-                  onClearSelection={clearSelection}
-                  onUndoBulkSelection={() => {
-                    setBulkScope(null);
-                    setPrepared(null);
-                  }}
-                  onRemoveItem={(key) => {
-                    setSelectedItems((current) => {
-                      const next = new Map(current);
-                      next.delete(key);
-                      return next;
-                    });
-                    setPrepared(null);
-                  }}
-                />
               </div>
             </div>
 

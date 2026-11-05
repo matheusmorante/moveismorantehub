@@ -10,6 +10,8 @@ import {
 } from '@/pages/utils/orderHistoryService';
 import OrderPagination from '../OrderHistoryList/OrderPagination';
 import { matchesSearchText } from '@/pages/utils/textUtils';
+import { loadCompleteOrder } from '@/pages/utils/orderDetailsLoader';
+import { toast } from 'react-toastify';
 
 export interface OrderSelectionModalProps {
   orders?: Order[];
@@ -282,7 +284,10 @@ const OrderSelectionModal: React.FC<OrderSelectionModalProps> = ({
                       <td className="px-4 py-4 text-center">
                         <button
                           type="button"
-                          onClick={() => onSelect(o)}
+                          onClick={() => {
+                            setLoading(true);
+                            void loadCompleteOrder(o).then(onSelect).catch((cause) => toast.error(cause instanceof Error ? cause.message : 'Não foi possível carregar o pedido.')).finally(() => setLoading(false));
+                          }}
                           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-sm active:scale-95 hover:shadow-md hover:shadow-blue-500/20"
                         >
                           Selecionar

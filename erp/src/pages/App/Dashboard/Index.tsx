@@ -17,7 +17,6 @@ import AlertsPanel from './components/AlertsPanel';
 import { ChartContainer } from './components/DashboardCharts';
 import ApiUsageSummaryCard from './components/ApiUsageSummaryCard';
 import DigitalCatalogPanel from './components/DigitalCatalogPanel';
-import { isDashboardSaleOrder } from './dashboardRevenue';
 import { toLocalDateInputValue } from './dashboardDateRanges';
 
 const PERIODS: { label: string; value: Period }[] = [
@@ -54,14 +53,15 @@ export default function Dashboard() {
     stats,
     prevStats,
     salesOverTime,
-    filteredOrders,
-    allActiveOrders,
+    operational: operationalCounts,
+    productRankings,
+    logistics,
     recentOrders,
     geoMapOrders,
   } = useDashboardData(period, customStartDate, customEndDate, specificMonth);
-  const operational = useDashboardOperational(allActiveOrders);
+  const operational = useDashboardOperational(operationalCounts);
   const stockData = useDashboardStock();
-  const productsData = useDashboardProducts(filteredOrders);
+  const productsData = useDashboardProducts(productRankings);
   const periodSubtitle = period === 'specific_month'
     ? `Mês específico · ${new Date(`${specificMonth}-01T00:00:00`).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`
     : PERIODS.find((p) => p.value === period)?.label || '';
@@ -203,7 +203,7 @@ export default function Dashboard() {
           {/* ── Mapa e logística ── */}
           <div className="grid min-w-0 grid-cols-1 gap-4 pb-16 sm:gap-6 lg:grid-cols-3">
             <div className="min-w-0 lg:col-span-2"><GeoMapPanel orders={geoMapOrders} /></div>
-            <div>{loading ? <PanelSkeleton rows={4} /> : <LogisticsPanel filteredOrders={filteredOrders} allActiveOrders={allActiveOrders} />}</div>
+            <div>{loading ? <PanelSkeleton rows={4} /> : <LogisticsPanel data={logistics} />}</div>
           </div>
         </>
       )}

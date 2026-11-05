@@ -1,5 +1,9 @@
 # Migração de todos os formulários — 14/10/2026
 
+## Complemento de 04/11 — seleção e edição do modelo de etiqueta
+
+`LabelModelManagerModal` executa `useZodForm(labelModelSelectionFormSchema)` antes de selecionar um modelo ou abrir sua edição. O contrato valida a identidade e a ação; os valores parseados localizam o modelo vigente e só então carregam a arte completa. Erros impedem a abertura/seleção e aparecem no modal. Os 19 testes de página dos modelos/comandos passaram, e Playwright confirmou a seleção pela interface com leitura leve da lista. Isto registra somente este caminho; o inventário global mantém as demais pendências. [Implementação e limites](../auditorias/egress-cargas-compactas-2026-11-04.md).
+
 ## Complemento de 23/10 — busca interna da Central
 
 `erp/src/pages/App/CustomerSupport/components/chat/ChatInChatSearch.tsx` agora é proprietário de uma busca submetida com `react-hook-form` e `zodResolver(supportMessageSearchSchema)`. O schema explícito compartilhado aplica trim e máximo de 100 caracteres; o valor parseado segue ao hook de busca e erros impedem a consulta, com feedback visível. Limpar também passa pelo resolver. Testes RTL e Playwright somente leitura na porta 5173 comprovaram recusa de 101 caracteres e busca válida pela UI da fixture própria. [Implementação, provas e limites](../integracoes/central-de-atendimento-papeis-busca-historico-2026-10-23.md). Este recorte não conclui os outros proprietários dos inventários.

@@ -1,6 +1,8 @@
 import { supabase } from '../supabaseClient';
 import { toPersonStockOriginsRow } from '../../../../shared-utils/personStockOrigins';
 import { ITEMS_PER_PAGE } from './stockPagination';
+import { fetchServerOrderPage } from '../../../../shared-utils/orderListServerQuery';
+import { withAbortTimeout } from '../../../../shared-utils/withAbortTimeout';
 import type { SupplierDeletionCounts } from '../../../../shared-utils/supplierDeletion';
 import {
   buildNormalizedWordsRegex,
@@ -196,51 +198,19 @@ export const fetchSupplierPurchaseHistory = async (
 ) => {
   const name = supplier.name.trim();
   if (!name) return { data: [], count: 0 };
-  const namePattern = buildPostgrestAccentInsensitivePattern(name, 'exact');
-  const emptyValue = postgrestValue('');
-  const exactPersonField = (column: string, jsonPath: string, value: string) =>
-    `or(${column}.eq.${postgrestValue(value)},and(or(${column}.is.null,${column}.eq.${emptyValue}),${jsonPath}.eq.${postgrestValue(value)}))`;
-  const identityFilters = [
-    'or(deleted.eq.false,deleted.is.null)',
-    `or(customer_name.imatch.${namePattern},and(or(customer_name.is.null,customer_name.eq.${emptyValue}),order_data->customerData->>fullName.imatch.${namePattern}))`,
-  ];
-  if (supplier.phone)
-    identityFilters.push(
-      exactPersonField('customer_phone', 'order_data->customerData->>phone', supplier.phone)
-    );
-  if (supplier.email)
-    identityFilters.push(
-      exactPersonField('customer_email', 'order_data->customerData->>email', supplier.email)
-    );
-  const from = page * ITEMS_PER_PAGE;
-  const to = from + ITEMS_PER_PAGE - 1;
-  const pageQuery = supabase
-    .from('orders')
-    .select(
-      'id, created_at, customer_name, customer_phone, customer_email, status, order_type, delivery_method, total_amount, payments_total:order_data->paymentsSummary->>totalOrderValue, order_items(description)',
-      { count: 'exact' }
-    )
-    .or(`and(${identityFilters.join(',')})`)
-    .order('created_at', { ascending: false })
-    .range(from, to);
-  const summaryQuery =
-    page === 0
-      ? supabase.rpc('get_supplier_purchase_history_totals', {
-          p_supplier_name: name,
-          p_supplier_phone: supplier.phone?.trim() || null,
-          p_supplier_email: supplier.email?.trim() || null,
-        })
-      : null;
-  const [pageResult, summaryResult] = await Promise.all([pageQuery, summaryQuery]);
-  if (pageResult.error) throw pageResult.error;
-  let totalSpent: number | undefined;
-  if (summaryResult?.error) {
-    console.error(
-      'Não foi possível calcular o total gasto no histórico do fornecedor:',
-      summaryResult.error
-    );
-  } else if (summaryResult?.data) {
-    totalSpent = Number(summaryResult.data[0]?.total_spent ?? 0);
-  }
-  return { data: pageResult.data || [], count: pageResult.count || 0, totalSpent };
+  const filters = { includeAllTypes: true, showTestOrders: true, customerExactName: name,
+    customerPhone: supplier.phone || '', customerEmail: supplier.email || '',
+    multiSort: [{ key: 'createdAt', order: 'desc' }] };
+  const request = (customerContactMode: string) => fetchServerOrderPage(supabase, {
+    filters: { ...filters, customerContactMode }, page: page + 1, pageSize: ITEMS_PER_PAGE, mode: 'erp',
+  });
+  let selected = await request('strict');
+  if (!selected.total) selected = await request('any');
+  if (!selected.ids.length) return { data: [], count: selected.total, totalSpent: selected.totalAmount };
+  const { data, error } = await withAbortTimeout(supabase.from('orders')
+    .select('id,created_at,customer_name,status,order_type,delivery_method,total_amount,payments_total:order_data->paymentsSummary->>totalOrderValue,order_items(description)')
+    .in('id', selected.ids), 'app:historico-do-fornecedor', 15_000);
+  if (error) throw error;
+  const byId = new Map((data || []).map((row: any) => [String(row.id), row]));
+  return { data: selected.ids.flatMap((id) => byId.has(id) ? [byId.get(id)] : []), count: selected.total, totalSpent: selected.totalAmount };
 };

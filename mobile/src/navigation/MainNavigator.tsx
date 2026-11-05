@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Platform } from 'react-native';
+import * as Updates from 'expo-updates';
 import { useAuth } from '../contexts/AuthContext';
 import { useAppNotifications } from '../contexts/NotificationContext';
 
@@ -42,6 +43,9 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
     handleLogout,
   } = useAuth();
   const { notifications, unreadCount, handleOpenNotificationsModal } = useAppNotifications();
+  const isBetaApp =
+    Updates.channel === 'preview' || process.env.EXPO_PUBLIC_APP_BETA === 'true';
+  const canAccessProducts = canSeeProducts && !isBetaApp;
 
   const [currentTab, setCurrentTab] = useState(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -60,9 +64,13 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
 
   const assemblySubTab: 'all' | 'internal' | 'outside' = 'all';
   const [deliveriesSubTab, setDeliveriesSubTab] = useState<'today' | 'map'>('today');
-  const activeTab = currentTab === 'agente' && !isAdmin ? 'entregas' : currentTab;
+  const activeTab =
+    (currentTab === 'agente' && !isAdmin) || (currentTab === 'produtos' && !canAccessProducts)
+      ? 'entregas'
+      : currentTab;
 
   const handleTabChange = (newTab: string, url: string) => {
+    if (newTab === 'produtos' && !canAccessProducts) return;
     if (newTab === 'estoque') {
       void url;
       setCurrentTab('estoque');
@@ -97,24 +105,8 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
             } as Record<string, string>
           )[activeTab] || 'Morante';
 
-  const handleSelectNotificationOrderWrapper = async (order: any) => {
-    if (!order?.__notificationOrderReference) {
-      setAppSelectedOrder(order);
-      return;
-    }
-
-    try {
-      // @ts-ignore (import supabase if needed, but it's not imported here yet)
-      const { supabase } = require('../services/supabaseClient');
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', order.id)
-        .maybeSingle();
-      if (!error && data) setAppSelectedOrder(data);
-    } catch (error) {
-      console.warn('[Notifications] Não foi possível carregar o pedido:', error);
-    }
+  const handleSelectNotificationOrderWrapper = (order: any) => {
+    setAppSelectedOrder(order);
   };
 
   const handleNavigateToDeliveriesMap = useCallback(() => {
@@ -147,7 +139,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
         );
 
       case 'produtos':
-        if (canSeeProducts) {
+        if (canAccessProducts) {
           return (
             <NativeProductsScreen
               isDarkMode={isDarkMode}
@@ -253,6 +245,7 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({ isDarkMode, setIsD
         currentTab={activeTab}
         canSeeReports={canSeeReports}
         canSeeProducts={canSeeProducts}
+        isBetaApp={isBetaApp}
         canSeeFinance={canSeeFinance}
         isAdmin={isAdmin}
         handleTabChange={handleTabChange}

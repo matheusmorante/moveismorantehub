@@ -1,0 +1,1039 @@
+{
+  "audit": "Egress ERP e app — leitura de 04/11/2026",
+  "project_ref": "hkoxhourxwlddgsfdgws",
+  "window": {
+    "start": "2026-11-03T20:31:45.000Z",
+    "end": "2026-11-04T20:31:45.000Z"
+  },
+  "limitations": [
+    "Bytes de respostas registrados por navegadores ERP; não são a medição faturável do Supabase.",
+    "A telemetria do ERP mistura produção e desenvolvimento; o esquema não guarda origin/release.",
+    "O app nativo não registra response_bytes nessa tabela; suas medições usam contagens de gateway e amostras agregadas atuais.",
+    "Nenhum corpo, credencial, token, identidade de operador ou objeto de Storage foi exportado."
+  ],
+  "telemetry": {
+    "totals": {
+      "module": "ERP",
+      "requests": 7326,
+      "measured_bytes": 271229602,
+      "measured_responses": 7218,
+      "first_record": "2026-11-03 20:33:22.157274+00",
+      "last_record": "2026-11-04 20:31:15.604493+00"
+    },
+    "topTables": [
+      {
+        "module": "ERP",
+        "table_name": "orders",
+        "operation_type": "SELECT",
+        "requests": 512,
+        "rows": 59327,
+        "measured_bytes": 91845540,
+        "measured_responses": 502,
+        "unknown_responses": 0
+      },
+      {
+        "module": "ERP",
+        "table_name": "products",
+        "operation_type": "SELECT",
+        "requests": 425,
+        "rows": 41596,
+        "measured_bytes": 64668370,
+        "measured_responses": 417,
+        "unknown_responses": 40
+      },
+      {
+        "module": "ERP",
+        "table_name": "get_dashboard_orders_by_effective_date",
+        "operation_type": "RPC",
+        "requests": 81,
+        "rows": 26615,
+        "measured_bytes": 54470322,
+        "measured_responses": 81,
+        "unknown_responses": 6
+      },
+      {
+        "module": "ERP",
+        "table_name": "whatsapp_messages",
+        "operation_type": "SELECT",
+        "requests": 861,
+        "rows": 34662,
+        "measured_bytes": 27288808,
+        "measured_responses": 861,
+        "unknown_responses": 3
+      },
+      {
+        "module": "ERP",
+        "table_name": "customer_support_list_conversations",
+        "operation_type": "RPC",
+        "requests": 321,
+        "rows": 15952,
+        "measured_bytes": 11470871,
+        "measured_responses": 321,
+        "unknown_responses": 0
+      },
+      {
+        "module": "ERP",
+        "table_name": "settings",
+        "operation_type": "SELECT",
+        "requests": 92,
+        "rows": 92,
+        "measured_bytes": 5132762,
+        "measured_responses": 92,
+        "unknown_responses": 0
+      },
+      {
+        "module": "ERP",
+        "table_name": "people",
+        "operation_type": "SELECT",
+        "requests": 780,
+        "rows": 10579,
+        "measured_bytes": 4721490,
+        "measured_responses": 777,
+        "unknown_responses": 1
+      },
+      {
+        "module": "ERP",
+        "table_name": "product_variations",
+        "operation_type": "SELECT",
+        "requests": 207,
+        "rows": 19745,
+        "measured_bytes": 3660169,
+        "measured_responses": 197,
+        "unknown_responses": 13
+      },
+      {
+        "module": "ERP",
+        "table_name": "label_layouts",
+        "operation_type": "SELECT",
+        "requests": 12,
+        "rows": 48,
+        "measured_bytes": 2551980,
+        "measured_responses": 12,
+        "unknown_responses": 0
+      },
+      {
+        "module": "ERP",
+        "table_name": "inventory_moves",
+        "operation_type": "SELECT",
+        "requests": 141,
+        "rows": 4080,
+        "measured_bytes": 1201855,
+        "measured_responses": 140,
+        "unknown_responses": 5
+      }
+    ],
+    "top_five_bytes": 249743911,
+    "top_five_share": 92.08,
+    "screens": [
+      {
+        "table_name": "orders",
+        "screen": "/sales-order",
+        "action": "GET orders",
+        "requests": 210,
+        "rows": 18885,
+        "bytes": 59639138,
+        "avg_measured_bytes": "283996",
+        "first_record": "2026-11-04 01:05:43.026627+00",
+        "last_record": "2026-11-04 20:30:01.584232+00"
+      },
+      {
+        "table_name": "get_dashboard_orders_by_effective_date",
+        "screen": "/",
+        "action": "POST get_dashboard_orders_by_effective_date",
+        "requests": 81,
+        "rows": 26615,
+        "bytes": 54470322,
+        "avg_measured_bytes": "672473",
+        "first_record": "2026-11-03 22:15:36.256495+00",
+        "last_record": "2026-11-04 20:25:43.524335+00"
+      },
+      {
+        "table_name": "whatsapp_messages",
+        "screen": "/atendimento",
+        "action": "GET whatsapp_messages",
+        "requests": 861,
+        "rows": 34662,
+        "bytes": 27288808,
+        "avg_measured_bytes": "31694",
+        "first_record": "2026-11-04 16:20:09.278248+00",
+        "last_record": "2026-11-04 19:45:15.680234+00"
+      },
+      {
+        "table_name": "products",
+        "screen": "/",
+        "action": "GET products",
+        "requests": 161,
+        "rows": 26161,
+        "bytes": 24953631,
+        "avg_measured_bytes": "160991",
+        "first_record": "2026-11-03 22:15:36.256495+00",
+        "last_record": "2026-11-04 20:25:43.524335+00"
+      },
+      {
+        "table_name": "orders",
+        "screen": "/",
+        "action": "GET orders",
+        "requests": 191,
+        "rows": 16647,
+        "bytes": 22279987,
+        "avg_measured_bytes": "123094",
+        "first_record": "2026-11-03 22:15:36.256495+00",
+        "last_record": "2026-11-04 20:25:43.524335+00"
+      },
+      {
+        "table_name": "customer_support_list_conversations",
+        "screen": "/atendimento",
+        "action": "POST customer_support_list_conversations",
+        "requests": 321,
+        "rows": 15952,
+        "bytes": 11470871,
+        "avg_measured_bytes": "35735",
+        "first_record": "2026-11-04 16:20:09.278248+00",
+        "last_record": "2026-11-04 19:45:15.680234+00"
+      },
+      {
+        "table_name": "products",
+        "screen": "/sales-order",
+        "action": "GET products",
+        "requests": 62,
+        "rows": 2372,
+        "bytes": 8932689,
+        "avg_measured_bytes": "144076",
+        "first_record": "2026-11-04 01:35:49.012515+00",
+        "last_record": "2026-11-04 20:30:01.584232+00"
+      },
+      {
+        "table_name": "orders",
+        "screen": "/delivery-schedule",
+        "action": "GET orders",
+        "requests": 73,
+        "rows": 5894,
+        "bytes": 7394714,
+        "avg_measured_bytes": "101297",
+        "first_record": "2026-11-03 21:23:24.645159+00",
+        "last_record": "2026-11-04 18:22:35.018713+00"
+      },
+      {
+        "table_name": "products",
+        "screen": "/settings",
+        "action": "GET products",
+        "requests": 12,
+        "rows": 1944,
+        "bytes": 7221492,
+        "avg_measured_bytes": "601791",
+        "first_record": "2026-11-04 14:34:00.866543+00",
+        "last_record": "2026-11-04 19:39:10.855258+00"
+      },
+      {
+        "table_name": "products",
+        "screen": "/products",
+        "action": "GET products",
+        "requests": 116,
+        "rows": 4697,
+        "bytes": 6443032,
+        "avg_measured_bytes": "56026",
+        "first_record": "2026-11-04 00:01:37.748331+00",
+        "last_record": "2026-11-04 20:17:57.022751+00"
+      },
+      {
+        "table_name": "products",
+        "screen": "/estoque/etiquetas",
+        "action": "GET products",
+        "requests": 48,
+        "rows": 1412,
+        "bytes": 6043203,
+        "avg_measured_bytes": "128579",
+        "first_record": "2026-11-04 12:32:34.484927+00",
+        "last_record": "2026-11-04 16:05:36.724159+00"
+      },
+      {
+        "table_name": "products",
+        "screen": "/delivery-schedule",
+        "action": "GET products",
+        "requests": 7,
+        "rows": 1134,
+        "bytes": 4212540,
+        "avg_measured_bytes": "601791",
+        "first_record": "2026-11-03 21:23:24.645159+00",
+        "last_record": "2026-11-04 18:12:35.155745+00"
+      },
+      {
+        "table_name": "products",
+        "screen": "/atendimento",
+        "action": "GET products",
+        "requests": 6,
+        "rows": 972,
+        "bytes": 3610746,
+        "avg_measured_bytes": "601791",
+        "first_record": "2026-11-04 17:32:37.401661+00",
+        "last_record": "2026-11-04 19:13:49.921605+00"
+      },
+      {
+        "table_name": "products",
+        "screen": "/products/meta-catalog",
+        "action": "GET products",
+        "requests": 8,
+        "rows": 2420,
+        "bytes": 2594064,
+        "avg_measured_bytes": "324258",
+        "first_record": "2026-11-03 23:02:00.844279+00",
+        "last_record": "2026-11-03 23:36:37.965936+00"
+      },
+      {
+        "table_name": "label_layouts",
+        "screen": "/estoque/etiquetas",
+        "action": "GET label_layouts",
+        "requests": 11,
+        "rows": 44,
+        "bytes": 2339315,
+        "avg_measured_bytes": "212665",
+        "first_record": "2026-11-04 12:32:34.484927+00",
+        "last_record": "2026-11-04 16:05:36.724159+00"
+      },
+      {
+        "table_name": "orders",
+        "screen": "/sales-order/edit/:id",
+        "action": "GET orders",
+        "requests": 3,
+        "rows": 401,
+        "bytes": 1700871,
+        "avg_measured_bytes": "566957",
+        "first_record": "2026-11-04 18:06:09.810408+00",
+        "last_record": "2026-11-04 18:06:09.810408+00"
+      },
+      {
+        "table_name": "settings",
+        "screen": "/sales-order",
+        "action": "GET settings",
+        "requests": 24,
+        "rows": 24,
+        "bytes": 1339632,
+        "avg_measured_bytes": "55818",
+        "first_record": "2026-11-04 01:25:43.156821+00",
+        "last_record": "2026-11-04 20:30:01.584232+00"
+      },
+      {
+        "table_name": "settings",
+        "screen": "/settings",
+        "action": "POST settings",
+        "requests": 18,
+        "rows": 0,
+        "bytes": 1005268,
+        "avg_measured_bytes": "55848",
+        "first_record": "2026-11-04 02:08:02.455799+00",
+        "last_record": "2026-11-04 02:33:26.419721+00"
+      },
+      {
+        "table_name": "settings",
+        "screen": "/",
+        "action": "GET settings",
+        "requests": 16,
+        "rows": 16,
+        "bytes": 891196,
+        "avg_measured_bytes": "55700",
+        "first_record": "2026-11-03 23:01:59.905106+00",
+        "last_record": "2026-11-04 17:22:37.381457+00"
+      },
+      {
+        "table_name": "settings",
+        "screen": "/estoque/etiquetas",
+        "action": "GET settings",
+        "requests": 13,
+        "rows": 13,
+        "bytes": 726193,
+        "avg_measured_bytes": "55861",
+        "first_record": "2026-11-04 12:32:34.484927+00",
+        "last_record": "2026-11-04 16:05:36.724159+00"
+      },
+      {
+        "table_name": "settings",
+        "screen": "/settings",
+        "action": "GET settings",
+        "requests": 13,
+        "rows": 13,
+        "bytes": 725935,
+        "avg_measured_bytes": "55841",
+        "first_record": "2026-11-04 02:08:02.455799+00",
+        "last_record": "2026-11-04 19:39:10.855258+00"
+      },
+      {
+        "table_name": "products",
+        "screen": "/products/categories",
+        "action": "GET products",
+        "requests": 2,
+        "rows": 480,
+        "bytes": 634226,
+        "avg_measured_bytes": "317113",
+        "first_record": "2026-11-04 01:29:59.303762+00",
+        "last_record": "2026-11-04 01:29:59.303762+00"
+      },
+      {
+        "table_name": "settings",
+        "screen": "/delivery-schedule",
+        "action": "GET settings",
+        "requests": 7,
+        "rows": 7,
+        "bytes": 390769,
+        "avg_measured_bytes": "55824",
+        "first_record": "2026-11-03 21:23:24.645159+00",
+        "last_record": "2026-11-04 18:12:35.155745+00"
+      },
+      {
+        "table_name": "settings",
+        "screen": "/atendimento",
+        "action": "GET settings",
+        "requests": 6,
+        "rows": 6,
+        "bytes": 335166,
+        "avg_measured_bytes": "55861",
+        "first_record": "2026-11-04 17:32:37.401661+00",
+        "last_record": "2026-11-04 19:13:49.921605+00"
+      },
+      {
+        "table_name": "orders",
+        "screen": "/settings",
+        "action": "GET orders",
+        "requests": 12,
+        "rows": 6000,
+        "bytes": 284856,
+        "avg_measured_bytes": "23738",
+        "first_record": "2026-11-04 14:34:00.866543+00",
+        "last_record": "2026-11-04 19:39:10.855258+00"
+      },
+      {
+        "table_name": "settings",
+        "screen": "/products",
+        "action": "GET settings",
+        "requests": 5,
+        "rows": 5,
+        "bytes": 278789,
+        "avg_measured_bytes": "55758",
+        "first_record": "2026-11-04 01:05:43.026627+00",
+        "last_record": "2026-11-04 12:42:33.106496+00"
+      },
+      {
+        "table_name": "settings",
+        "screen": "/products/meta-catalog",
+        "action": "GET settings",
+        "requests": 4,
+        "rows": 4,
+        "bytes": 222412,
+        "avg_measured_bytes": "55603",
+        "first_record": "2026-11-03 23:02:00.844279+00",
+        "last_record": "2026-11-03 23:36:37.965936+00"
+      },
+      {
+        "table_name": "label_layouts",
+        "screen": "/mobile/etiquetas",
+        "action": "GET label_layouts",
+        "requests": 1,
+        "rows": 4,
+        "bytes": 212665,
+        "avg_measured_bytes": "212665",
+        "first_record": "2026-11-03 23:30:50.203979+00",
+        "last_record": "2026-11-03 23:30:50.203979+00"
+      }
+    ]
+  },
+  "gateway": {
+    "services": [
+      {
+        "declared_bytes": 156246,
+        "measured": 42,
+        "requests": 56,
+        "service": "Storage"
+      },
+      {
+        "declared_bytes": 142557,
+        "measured": 7512,
+        "requests": 21147,
+        "service": "REST"
+      },
+      {
+        "declared_bytes": 3129,
+        "measured": 34,
+        "requests": 756,
+        "service": "Auth"
+      },
+      {
+        "declared_bytes": 0,
+        "measured": 0,
+        "requests": 125,
+        "service": "Realtime"
+      }
+    ],
+    "clients": [
+      {
+        "client_family": "Browser",
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "declared_bytes": 25996,
+        "origin_host": "localhost:5173",
+        "requests": 5223
+      },
+      {
+        "client_family": "Browser",
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "declared_bytes": 12354,
+        "origin_host": "morantehub.vercel.app",
+        "requests": 3801
+      },
+      {
+        "client_family": "Node",
+        "client_library": "supabase-js-node/2.105.3",
+        "declared_bytes": 53194,
+        "origin_host": "",
+        "requests": 3714
+      },
+      {
+        "client_family": "Node",
+        "client_library": "supabase-js/2.118.0; runtime=node; runtime-version=24.22.2",
+        "declared_bytes": 10313,
+        "origin_host": "",
+        "requests": 2824
+      },
+      {
+        "client_family": "Browser",
+        "client_library": "",
+        "declared_bytes": 70,
+        "origin_host": "morantehub.vercel.app",
+        "requests": 1629
+      },
+      {
+        "client_family": "Node",
+        "client_library": "supabase-js/2.118.0; runtime=node; runtime-version=22.18.0",
+        "declared_bytes": 16631,
+        "origin_host": "",
+        "requests": 1578
+      },
+      {
+        "client_family": "Browser",
+        "client_library": "supabase-js-web/2.101.1",
+        "declared_bytes": 25632,
+        "origin_host": "localhost:8081",
+        "requests": 1206
+      },
+      {
+        "client_family": "Browser",
+        "client_library": "",
+        "declared_bytes": 0,
+        "origin_host": "localhost:5173",
+        "requests": 875
+      },
+      {
+        "client_family": "Browser",
+        "client_library": "supabase-js-web/2.105.3",
+        "declared_bytes": 6,
+        "origin_host": "www.moveismorante.com.br",
+        "requests": 448
+      },
+      {
+        "client_family": "Browser",
+        "client_library": "",
+        "declared_bytes": 156246,
+        "origin_host": "www.moveismorante.com.br",
+        "requests": 361
+      },
+      {
+        "client_family": "Browser",
+        "client_library": "",
+        "declared_bytes": 0,
+        "origin_host": "localhost:8081",
+        "requests": 140
+      },
+      {
+        "client_family": "Browser",
+        "client_library": "",
+        "declared_bytes": 0,
+        "origin_host": "",
+        "requests": 124
+      },
+      {
+        "client_family": "okhttp",
+        "client_library": "supabase-js-react-native/2.101.1",
+        "declared_bytes": 776,
+        "origin_host": "",
+        "requests": 59
+      },
+      {
+        "client_family": "Other",
+        "client_library": "supabase-js-deno/2.38.4",
+        "declared_bytes": 665,
+        "origin_host": "",
+        "requests": 33
+      },
+      {
+        "client_family": "Other",
+        "client_library": "supabase-js-web/2.105.3",
+        "declared_bytes": 0,
+        "origin_host": "www.moveismorante.com.br",
+        "requests": 33
+      },
+      {
+        "client_family": "Other",
+        "client_library": "supabase-js-deno/2.45.1",
+        "declared_bytes": 49,
+        "origin_host": "",
+        "requests": 29
+      },
+      {
+        "client_family": "okhttp",
+        "client_library": "",
+        "declared_bytes": 0,
+        "origin_host": "",
+        "requests": 4
+      },
+      {
+        "client_family": "Browser",
+        "client_library": "",
+        "declared_bytes": 0,
+        "origin_host": "accounts.google.com",
+        "requests": 3
+      }
+    ],
+    "app_reads": [
+      {
+        "client": "App nativo",
+        "errors": 0,
+        "method": "GET",
+        "requests": 11,
+        "returned_rows": 3300,
+        "route": "orders"
+      },
+      {
+        "client": "App nativo",
+        "errors": 0,
+        "method": "GET",
+        "requests": 5,
+        "returned_rows": 250,
+        "route": "app_notifications"
+      },
+      {
+        "client": "App nativo",
+        "errors": 0,
+        "method": "GET",
+        "requests": 20,
+        "returned_rows": 20,
+        "route": "settings"
+      },
+      {
+        "client": "App nativo",
+        "errors": 0,
+        "method": "GET",
+        "requests": 4,
+        "returned_rows": 4,
+        "route": "app_release_current"
+      },
+      {
+        "client": "App nativo",
+        "errors": 0,
+        "method": "GET",
+        "requests": 1,
+        "returned_rows": 2,
+        "route": "team_locations"
+      },
+      {
+        "client": "App nativo",
+        "errors": 7,
+        "method": "GET",
+        "requests": 7,
+        "returned_rows": 0,
+        "route": "profiles"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 158,
+        "returned_rows": 47400,
+        "route": "orders"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 155,
+        "returned_rows": 7750,
+        "route": "app_notifications"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 2,
+        "returned_rows": 1259,
+        "route": "category_attributes"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 1,
+        "returned_rows": 555,
+        "route": "attribute_values"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 333,
+        "returned_rows": 333,
+        "route": "settings"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 1,
+        "returned_rows": 106,
+        "route": "attributes"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 13,
+        "returned_rows": 80,
+        "route": "inventory_moves"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 5,
+        "returned_rows": 74,
+        "route": "people"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 4,
+        "returned_rows": 60,
+        "route": "product_variations"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 1,
+        "returned_rows": 57,
+        "route": "category_relationships"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 2,
+        "returned_rows": 46,
+        "route": "categories"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 4,
+        "returned_rows": 20,
+        "route": "products"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 2,
+        "returned_rows": 10,
+        "route": "goods_receipts"
+      },
+      {
+        "client": "App web local",
+        "errors": 0,
+        "method": "GET",
+        "requests": 5,
+        "returned_rows": 5,
+        "route": "sefaz_nsu_control"
+      },
+      {
+        "client": "App web local",
+        "errors": 246,
+        "method": "GET",
+        "requests": 246,
+        "returned_rows": 0,
+        "route": "profiles"
+      }
+    ],
+    "legacy_dashboard_after_compact_migration": [
+      {
+        "client_library": "",
+        "origin_host": "morantehub.vercel.app",
+        "requests": 19,
+        "status": "200"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "morantehub.vercel.app",
+        "requests": 18,
+        "status": "200"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "morantehub.vercel.app",
+        "requests": 1,
+        "status": "500"
+      }
+    ],
+    "projection_groups": [
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "localhost:5173",
+        "projection_group": "order_snapshot",
+        "requests": 243,
+        "rows": 57105,
+        "table_name": "orders"
+      },
+      {
+        "client_library": "supabase-js-web/2.101.1",
+        "origin_host": "localhost:8081",
+        "projection_group": "order_snapshot",
+        "requests": 158,
+        "rows": 47400,
+        "table_name": "orders"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "morantehub.vercel.app",
+        "projection_group": "order_snapshot",
+        "requests": 239,
+        "rows": 27249,
+        "table_name": "orders"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "localhost:5173",
+        "projection_group": "all_columns",
+        "requests": 107,
+        "rows": 17334,
+        "table_name": "products"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "morantehub.vercel.app",
+        "projection_group": "dashboard_stock_fields",
+        "requests": 85,
+        "rows": 13685,
+        "table_name": "products"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "localhost:5173",
+        "projection_group": "dashboard_stock_fields",
+        "requests": 69,
+        "rows": 11109,
+        "table_name": "products"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "morantehub.vercel.app",
+        "projection_group": "orders_full_list",
+        "requests": 105,
+        "rows": 8379,
+        "table_name": "orders"
+      },
+      {
+        "client_library": "supabase-js-web/2.101.1",
+        "origin_host": "localhost:8081",
+        "projection_group": "order_snapshot",
+        "requests": 155,
+        "rows": 7750,
+        "table_name": "app_notifications"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "localhost:5173",
+        "projection_group": "other",
+        "requests": 63,
+        "rows": 6611,
+        "table_name": "products"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "morantehub.vercel.app",
+        "projection_group": "all_columns",
+        "requests": 34,
+        "rows": 5508,
+        "table_name": "products"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "morantehub.vercel.app",
+        "projection_group": "other",
+        "requests": 205,
+        "rows": 3987,
+        "table_name": "products"
+      },
+      {
+        "client_library": "supabase-js-react-native/2.101.1",
+        "origin_host": "",
+        "projection_group": "order_snapshot",
+        "requests": 11,
+        "rows": 3300,
+        "table_name": "orders"
+      },
+      {
+        "client_library": "supabase-js-node/2.105.3",
+        "origin_host": "",
+        "projection_group": "other",
+        "requests": 1834,
+        "rows": 1830,
+        "table_name": "products"
+      },
+      {
+        "client_library": "supabase-js-web/2.105.3",
+        "origin_host": "www.moveismorante.com.br",
+        "projection_group": "other",
+        "requests": 116,
+        "rows": 1342,
+        "table_name": "products"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=node; runtime-version=24.22.2",
+        "origin_host": "",
+        "projection_group": "other",
+        "requests": 181,
+        "rows": 1181,
+        "table_name": "orders"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "localhost:5173",
+        "projection_group": "orders_full_list",
+        "requests": 36,
+        "rows": 512,
+        "table_name": "orders"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=node; runtime-version=22.18.0",
+        "origin_host": "",
+        "projection_group": "other",
+        "requests": 70,
+        "rows": 497,
+        "table_name": "orders"
+      },
+      {
+        "client_library": "supabase-js-react-native/2.101.1",
+        "origin_host": "",
+        "projection_group": "order_snapshot",
+        "requests": 5,
+        "rows": 250,
+        "table_name": "app_notifications"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=web",
+        "origin_host": "morantehub.vercel.app",
+        "projection_group": "all_columns",
+        "requests": 36,
+        "rows": 36,
+        "table_name": "orders"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=node; runtime-version=22.18.0",
+        "origin_host": "",
+        "projection_group": "other",
+        "requests": 32,
+        "rows": 34,
+        "table_name": "products"
+      },
+      {
+        "client_library": "supabase-js-web/2.101.1",
+        "origin_host": "localhost:8081",
+        "projection_group": "other",
+        "requests": 4,
+        "rows": 20,
+        "table_name": "products"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=node; runtime-version=24.22.2",
+        "origin_host": "",
+        "projection_group": "order_snapshot",
+        "requests": 96,
+        "rows": 4,
+        "table_name": "orders"
+      },
+      {
+        "client_library": "",
+        "origin_host": "",
+        "projection_group": "other",
+        "requests": 1,
+        "rows": 0,
+        "table_name": "products"
+      },
+      {
+        "client_library": "supabase-js/2.118.0; runtime=node; runtime-version=22.18.0",
+        "origin_host": "",
+        "projection_group": "order_snapshot",
+        "requests": 35,
+        "rows": 0,
+        "table_name": "orders"
+      }
+    ]
+  },
+  "payload_samples": {
+    "products_for_global_notifications": {
+      "products": 162,
+      "full_json_bytes": 628524,
+      "notification_fields_with_test_metadata_json_bytes": 250155
+    },
+    "mobile_notifications": {
+      "sample_notifications": 50,
+      "current_json_bytes": 263104,
+      "without_order_snapshot_json_bytes": 18901
+    },
+    "mobile_logistics": {
+      "sample_orders": 300,
+      "current_projection_json_bytes": 1137416
+    },
+    "label_layouts": {
+      "rows": 4,
+      "total_json_bytes": 213559,
+      "preview_bytes": 162197,
+      "artwork_bytes": 39291
+    },
+    "settings_largest_keys": [
+      {
+        "key": "aiPrompts",
+        "json_bytes": 42716
+      },
+      {
+        "key": "rolePermissions",
+        "json_bytes": 2854
+      },
+      {
+        "key": "whatsappTemplates",
+        "json_bytes": 1458
+      },
+      {
+        "key": "channelBaseDescriptions",
+        "json_bytes": 1139
+      },
+      {
+        "key": "deliveryHandlingOptions",
+        "json_bytes": 992
+      },
+      {
+        "key": "deliveryReminderAutomation",
+        "json_bytes": 792
+      },
+      {
+        "key": "pickupHandlingOptions",
+        "json_bytes": 575
+      },
+      {
+        "key": "fiscalDecisions",
+        "json_bytes": 467
+      }
+    ]
+  },
+  "calculations": {
+    "notification_product_projection_reduction_pct": 60.2,
+    "mobile_notification_snapshot_reduction_pct": 92.82
+  }
+}
+

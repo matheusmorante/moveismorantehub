@@ -1,5 +1,11 @@
 # Fonte do guia prático do estoque
 
+## Atualização de 04/11/2026 — roteiros práticos revisados
+
+O guia tem 44 páginas: consulta rápida (29 a 35) e exemplos ilustrados (36 a 44) de recebimento, inventário, etiquetas, compras e avarias. A revisão cortou repetições e manteve os alertas operacionais.
+
+Os exemplos usam capturas sem dados reais. O escaneamento é ilustrado por imagem gerada; a etiqueta é fictícia e não escaneável. Consultar a chave no Portal não importa itens: é preciso importar o XML completo. Sem NF, a foto do pedido pode ser anexada em Anexos.
+
 ## Atualização de 04/11/2026
 
 Nas páginas 17 e 18, o pareamento da estação de impressão avançada é feito no ERP em **Estoque > Etiquetas de Preço**. A tela de etiquetas de identificação não mostra mais o painel de conexão.
@@ -20,7 +26,7 @@ O botão **Ver detalhes da NF** não aparece mais em cada item de Gerenciar vín
 
 ## Atualização de 03/11/2026
 
-O guia agora tem 35 páginas. A capa leva aos roteiros visuais das páginas 28 a 34, com letras maiores, passos curtos, desenhos e links internos para recebimento, etiquetas, inventário, compras, indisponibilidades e ajuda. A página 35 reúne orientações para nota incompleta, vínculos pendentes e nota em uso. No papel, os números de página permitem a mesma navegação. O documento detalhado anterior mantém sua numeração de 1 a 27.
+Na edição de 03/11, o guia passou a ter 35 páginas. Na atualização de 04/11, o mapa da página 28 ganhou links diretos para exemplos completos nas páginas 36 a 44. As páginas 29 a 35 mantêm roteiros curtos e ajuda; o documento detalhado anterior mantém sua numeração de 1 a 27.
 
 As páginas 3, 13, 29 e 32 informam que **Com pedido de compra** está desativado como Beta no ERP e no app. O pedido serve à conferência; para registrar a entrada, escolha o caminho com nota ou sem nota conforme a entrega. O caminho sem nota não vincula o pedido automaticamente. A página 13 foi simplificada e encaminha as dúvidas sobre NF para a página 35. No mesmo trecho, foi corrigida a orientação anterior: um recebimento **Recebido** pode ser alterado; em **Estornado**, é necessário desfazer o estorno antes de alterar, observando que isso reativa a entrada. As notas históricas abaixo que descrevem a opção por pedido como disponível foram superadas por esta revisão.
 
@@ -106,7 +112,7 @@ No app, o atalho abre o PDF pelo endereço do ERP (`WEB_URL`) no leitor/navegado
 
 - `gerar_guia.py`: texto do tutorial, paginação, tabelas, ilustrações e marcações vetoriais sobre os prints.
 - `roteiros_visuais.py`: páginas de consulta rápida, ilustrações em vetor e links internos do PDF.
-- `imagens/`: capturas dos controles reais do ERP. `capturas.json` registra dimensões e alvos numerados. Não inserir credenciais, chaves de NF-e, CNPJ, fornecedores ou documentos reais em novas imagens.
+  - `imagens/`: capturas dos controles do ERP e a captura de inventário do app. `capturas.json` registra dimensões e alvos numerados. Não inserir credenciais, chaves de NF-e, CNPJ ou documentos reais em novas imagens.
 - `previews.tsx`: componentes reais com dados fictícios para fotografar escolhas que exigiriam salvar uma operação real. Não é rota do produto e não deve ser publicada. Seus callbacks não gravam operações; a tela `supplier-search` reproduz o campo de pesquisa de fornecedor para manter a captura atualizada.
 - `manifesto.json`: páginas e imagens efetivamente usadas na última geração.
 

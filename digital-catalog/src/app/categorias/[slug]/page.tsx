@@ -6,11 +6,13 @@ import { ProductFilter } from '@/features/products/components/product-filter';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ChevronRight, Home, X } from 'lucide-react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { catalogCategoriesQuery, catalogRelationshipsQuery } from '@/lib/catalog-menu-queries';
 import { FilterContent } from '@/features/products/components/filter-sidebar';
 
 export default function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
+  const queryClient = useQueryClient();
   const [categories, setCategories] = useState<any[]>([]);
   const [relationships, setRelationships] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -52,13 +54,13 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
   useEffect(() => {
     async function loadData() {
       const [catRes, relRes] = await Promise.all([
-        supabase.from('categories').select('id, name, slug, type').order('name'),
-        supabase.from('category_relationships').select('parent_id, child_id'),
+        queryClient.fetchQuery(catalogCategoriesQuery),
+        queryClient.fetchQuery(catalogRelationshipsQuery),
       ]);
 
-      const loadedCats = catRes.data || [];
+      const loadedCats = catRes || [];
       setCategories(loadedCats);
-      setRelationships(relRes.data || []);
+      setRelationships(relRes || []);
 
       // Encontrar a categoria pelo slug com normalização inteligente (plural/singular/sinônimos)
       const SLUG_MAPPINGS: Record<string, string> = {
@@ -91,7 +93,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
       setLoadingData(false);
     }
     loadData();
-  }, [slug]);
+  }, [slug, queryClient]);
 
   return (
     <div className="container mx-auto px-6 md:px-12 py-8 md:py-12 flex flex-col items-center">

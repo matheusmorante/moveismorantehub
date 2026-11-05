@@ -1,4 +1,3 @@
-import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,8 +11,8 @@ import {
 import { Calendar as CalendarIcon, ChevronDown, ChevronRight } from 'lucide-react-native';
 import { supabase } from '../../../services/supabaseClient';
 import { offlineStorageService } from '../../../services/offline/offlineStorageService';
-import { OrderRepository } from '../../../repositories/OrderRepository';
-import { subscribeToLogisticsChanges } from '../../../services/logisticsRealtimeService';
+import { useScopedOrderSchedule } from '../../logistics/hooks/useScopedOrderSchedule';
+import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
 import type { AssemblyHandlingOption } from '../../../utils/aiSummaryHelper';
 import { addDaysToLocalDateString, getLocalDateString } from '../../../utils/orderUtils';
 import type { AssemblyTask } from '../assemblyTasks';
@@ -106,24 +105,24 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
   dateScope,
   handlingOptions: sharedHandlingOptions,
 }) => {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [loadedHandlingOptions, setLoadedHandlingOptions] = useState<AssemblyHandlingOption[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [locationFilter, setLocationFilter] = useState<AssemblyLocationFilter>(initialSubTab);
+  const todayKey = getLocalDateString(new Date());
+  const { orders, loading, refreshing, showingOffline, error, counts, onRefresh: refreshOrders } =
+    useScopedOrderSchedule('assembly_mobile', { dateScope, location: locationFilter, startDate: todayKey }, ASSEMBLIES_CACHE_KEY);
   const hasExternalHandlingOptions = sharedHandlingOptions !== undefined;
 
   useEffect(() => setLocationFilter(initialSubTab), [initialSubTab]);
 
   const fetchSettings = async () => {
     try {
-      const { data, error } = await supabase.from('settings').select('*').limit(1);
+      const { data, error } = await withAbortTimeout(supabase.from('settings').select('delivery:data->deliveryHandlingOptions,pickup:data->pickupHandlingOptions').eq('id', 'app').limit(1), 'montagens:opcoes-manuseio', 15_000);
       if (!error && data?.length) {
-        const settings = data[0]?.data || data[0];
+        const settings = data[0] as { delivery?: AssemblyHandlingOption[]; pickup?: AssemblyHandlingOption[] };
         const opts = [
-          ...(settings.deliveryHandlingOptions || []),
-          ...(settings.pickupHandlingOptions || []),
+          ...(Array.isArray(settings.delivery) ? settings.delivery : []),
+          ...(Array.isArray(settings.pickup) ? settings.pickup : []),
         ];
         setLoadedHandlingOptions(opts);
         await offlineStorageService
@@ -142,90 +141,13 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
     } catch {}
   };
 
-  const loadOfflineAssembliesFallback = async () => {
-    try {
-      const [assembliesCached, logisticsCached, repoOrders] = await Promise.all([
-        offlineStorageService.getWorkingSet<any[]>(ASSEMBLIES_CACHE_KEY).catch(() => null),
-        offlineStorageService.getWorkingSet<any[]>('logistics_orders').catch(() => null),
-        OrderRepository.list().catch(() => []),
-      ]);
-
-      const byId = new Map<string, any>();
-      if (Array.isArray(assembliesCached?.data)) {
-        for (const o of assembliesCached.data) {
-          if (o?.id) byId.set(o.id, o);
-        }
-      }
-      if (Array.isArray(logisticsCached?.data)) {
-        for (const o of logisticsCached.data) {
-          if (o?.id && !byId.has(o.id)) byId.set(o.id, o);
-        }
-      }
-      for (const local of repoOrders) {
-        if (local?.id) {
-          const existing = byId.get(local.id);
-          if (!existing || local.isPendingLocal) {
-            byId.set(local.id, {
-              ...existing,
-              id: local.id,
-              status: local.status,
-              created_at: local.updatedAt,
-              customer_name: local.customerName,
-              order_data: local.orderData,
-            });
-          }
-        }
-      }
-
-      const merged = Array.from(byId.values());
-      if (merged.length > 0) {
-        setOrders(merged);
-      }
-    } catch {}
-  };
-
-  const fetchAssemblies = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await excludeTestOrders(
-        supabase
-          .from('orders')
-          .select(
-            'id, status, created_at, order_data, deleted, scheduled_date, delivery_method, order_number, order_index, customer_name'
-          )
-      )
-        .or('order_data->>deleted.is.null,order_data->>deleted.eq.false')
-        .order('created_at', { ascending: false })
-        .limit(300);
-
-      if (!error && data) {
-        setOrders(data);
-        await offlineStorageService.cacheWorkingSet(ASSEMBLIES_CACHE_KEY, data).catch(() => {});
-      } else {
-        await loadOfflineAssembliesFallback();
-      }
-    } catch (error) {
-      console.warn('[NativeAssemblies] Erro ao buscar montagens, usando cache local:', error);
-      await loadOfflineAssembliesFallback();
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
   useEffect(() => {
-    fetchAssemblies();
-    if (!hasExternalHandlingOptions) fetchSettings();
-    return subscribeToLogisticsChanges(() => {
-      fetchAssemblies();
-      if (!hasExternalHandlingOptions) fetchSettings();
-    });
+    if (!hasExternalHandlingOptions) void fetchSettings();
   }, [hasExternalHandlingOptions]);
 
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchAssemblies();
-    if (!hasExternalHandlingOptions) fetchSettings();
+    refreshOrders();
+    if (!hasExternalHandlingOptions) void fetchSettings();
   };
 
   const handlingOptions = sharedHandlingOptions ?? loadedHandlingOptions;
@@ -233,7 +155,6 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
     () => getAssemblyTasks(orders, handlingOptions),
     [orders, handlingOptions]
   );
-  const todayKey = getLocalDateString(new Date());
   const tomorrowKey = addDaysToLocalDateString(todayKey, 1);
   const periodTasks = useMemo(
     () =>
@@ -256,11 +177,11 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
         ),
     [allTasks, dateScope, todayKey, tomorrowKey]
   );
-  const locationCounts = {
+  const locationCounts = showingOffline ? {
     all: periodTasks.length,
     internal: periodTasks.filter((task) => !task.isOutside).length,
     outside: periodTasks.filter((task) => task.isOutside).length,
-  };
+  } : { all: counts.all || 0, internal: counts.internal || 0, outside: counts.outside || 0 };
   const tasks = periodTasks.filter(
     (task) =>
       locationFilter === 'all' ||
@@ -317,6 +238,8 @@ export const NativeAssembliesScreen: React.FC<Props> = ({
 
   return (
     <View style={[styles.container, isDarkMode && styles.containerDark]}>
+      {showingOffline ? <Text style={styles.emptyText}>Sem conexão. Exibindo os pedidos salvos neste aparelho.</Text> : null}
+      {error ? <Text accessibilityRole="alert" style={styles.emptyText}>{error}</Text> : null}
       {loading && !refreshing ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#7c3aed" />

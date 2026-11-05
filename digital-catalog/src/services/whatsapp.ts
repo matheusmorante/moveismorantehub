@@ -46,6 +46,7 @@ export const sendCartInterest = (items: CartItem[], totalPrice: number) => {
 
   items.forEach((item) => {
     message += `- ${item.name} (${item.quantity}x) - ${formatCurrency(item.price * item.quantity)}\n`;
+    if (item.stock != null && item.stock < item.quantity) message += '  Disponibilidade sob consulta.\n';
   });
 
   message += `\nTotal: ${formatCurrency(totalPrice)}`;

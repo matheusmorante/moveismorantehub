@@ -328,7 +328,7 @@ export const ProductNcmSelector: React.FC<ProductNcmSelectorProps> = ({
                 </span>
                 <p
                   title={formatNcmSubtitle(item.official_description, item.internal_description)}
-                  className="text-[10px] text-slate-500 line-clamp-2"
+                  className="text-[10px] text-slate-500 whitespace-normal"
                 >
                   {formatNcmSubtitle(item.official_description, item.internal_description)}
                 </p>

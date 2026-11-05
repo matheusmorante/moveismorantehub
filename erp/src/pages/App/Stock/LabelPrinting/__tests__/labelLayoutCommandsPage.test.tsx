@@ -9,6 +9,7 @@ import { useLabelPrintingState } from '../hooks/useLabelPrintingState';
 import { ModalsSection } from '../sections/ModalsSection';
 import { mapModelToDb } from '../services/labelLayoutMapper';
 import type { GridModel } from '../types/LabelGridModelTypes';
+import * as confirmationService from '@/components/shared/confirmationService';
 import { DEFAULT_LAYOUT_MODELS } from '../utils/LabelConstants';
 
 vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { from: vi.fn() } }));
@@ -156,7 +157,7 @@ describe('comandos de modelos pela fachada e seção reais', () => {
   });
 
   it('usa o proprietário real no gerenciador e só remove a linha depois da confirmação', async () => {
-    const confirmation = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmation = vi.spyOn(confirmationService, 'requestConfirmation').mockResolvedValue(true);
     const pending = deferred<Response>(); transport.remove.mockReturnValueOnce(pending.promise);
     await openPage(); fireEvent.click(screen.getByText('Abrir gerenciador'));
     const dialog = screen.getByRole('dialog'), submit = within(dialog).getAllByTitle('Excluir Modelo')[0] as HTMLButtonElement;

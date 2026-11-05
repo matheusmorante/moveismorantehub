@@ -6,7 +6,6 @@ import { CircuitBreakerError } from '@/services/monitoring';
 
 const mocks = vi.hoisted(() => ({
   fetchOrdersPage: vi.fn(),
-  fetchOrdersForClientFiltering: vi.fn(),
   fetchOrderFiscalBadgeStatuses: vi.fn(),
   subscribeToOrderChanges: vi.fn(),
   commitStatusUpdate: vi.fn(),
@@ -22,7 +21,6 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../../utils/orderHistoryService', () => ({
   fetchOrdersPage: mocks.fetchOrdersPage,
-  fetchOrdersForClientFiltering: mocks.fetchOrdersForClientFiltering,
   subscribeToOrderChanges: mocks.subscribeToOrderChanges,
   updateOrder: mocks.updateOrder,
   undoReturn: vi.fn(),
@@ -263,7 +261,7 @@ describe('useOrderHistory query state', () => {
     ).toBe(true);
   });
 
-  it('resets the page and loads fiscal badges in supported batches when the page size grows', async () => {
+  it('mantém o limite de 15 pedidos ao tentar alterar o tamanho da página', async () => {
     const orders = Array.from({ length: 65 }, (_, index) => ({ id: `order-${index + 1}` }));
     mocks.fetchOrdersPage.mockImplementation(async (_page: number, size: number) => ({
       orders: orders.slice(0, size),
@@ -279,21 +277,23 @@ describe('useOrderHistory query state', () => {
     mocks.fetchOrderFiscalBadgeStatuses.mockClear();
 
     act(() => result.current.setItemsPerPage(100));
-    await waitFor(() => expect(result.current.orders).toHaveLength(65));
+    await waitFor(() => expect(result.current.currentPage).toBe(1));
 
-    expect(result.current.currentPage).toBe(1);
-    expect(mocks.fetchOrdersPage).toHaveBeenLastCalledWith(1, 100, undefined, expect.anything());
-    expect(mocks.fetchOrderFiscalBadgeStatuses.mock.calls.map(([ids]) => ids.length)).toEqual([30, 30, 5]);
+    expect(result.current.itemsPerPage).toBe(15);
+    expect(result.current.orders).toHaveLength(15);
+    expect(mocks.fetchOrdersPage.mock.calls.every(([, size]) => size === 15)).toBe(true);
   });
 
-  it('reuses globally filtered candidate orders when changing pages', async () => {
+  it('solicita ao servidor a página correspondente aos filtros', async () => {
     const candidates = Array.from({ length: 30 }, (_, index) => ({
       id: `filtered-order-${index + 1}`,
       date: '15/01/2025',
       orderType: 'sale',
       paymentsSummary: { totalOrderValue: 100 },
     }));
-    mocks.fetchOrdersForClientFiltering.mockResolvedValue(candidates);
+    mocks.fetchOrdersPage.mockImplementation(async (page: number, size: number) => ({
+      orders: candidates.slice((page - 1) * size, page * size), total: candidates.length,
+    }));
     mocks.fetchOrderFiscalBadgeStatuses.mockResolvedValue({});
     mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
     const filters = {
@@ -306,18 +306,17 @@ describe('useOrderHistory query state', () => {
     });
 
     await waitFor(() => expect(result.current.orders).toHaveLength(15));
-    expect(mocks.fetchOrdersForClientFiltering).toHaveBeenCalledOnce();
+    expect(mocks.fetchOrdersPage).toHaveBeenCalledOnce();
 
     act(() => result.current.setCurrentPage(2));
 
-    await waitFor(() => expect(result.current.orders).toHaveLength(15));
-    expect(result.current.orders.map((order) => order.id)).toEqual(
+    await waitFor(() => expect(result.current.orders.map((order) => order.id)).toEqual(
       candidates.slice(15).map((order) => order.id)
-    );
-    expect(mocks.fetchOrdersForClientFiltering).toHaveBeenCalledOnce();
+    ));
+    expect(mocks.fetchOrdersPage).toHaveBeenLastCalledWith(2, 15, filters, expect.objectContaining({ throwOnError: true }));
   });
 
-  it('refresh invalida e recarrega o cache de candidatos globais', async () => {
+  it('refresh invalida e recarrega a página filtrada', async () => {
     const firstCandidate = {
       id: 'order-before-refresh',
       date: '15/01/2025',
@@ -325,9 +324,9 @@ describe('useOrderHistory query state', () => {
       paymentsSummary: { totalOrderValue: 100 },
     };
     const refreshedCandidate = { ...firstCandidate, id: 'order-after-refresh' };
-    mocks.fetchOrdersForClientFiltering
-      .mockResolvedValueOnce([firstCandidate])
-      .mockResolvedValueOnce([refreshedCandidate]);
+    mocks.fetchOrdersPage
+      .mockResolvedValueOnce({ orders: [firstCandidate], total: 1 })
+      .mockResolvedValueOnce({ orders: [refreshedCandidate], total: 1 });
     mocks.fetchOrderFiscalBadgeStatuses.mockResolvedValue({});
     mocks.subscribeToOrderChanges.mockReturnValue(vi.fn());
     const filters = {
@@ -340,7 +339,7 @@ describe('useOrderHistory query state', () => {
     });
 
     await waitFor(() => expect(result.current.orders[0]?.id).toBe('order-before-refresh'));
-    expect(mocks.fetchOrdersForClientFiltering).toHaveBeenCalledOnce();
+    expect(mocks.fetchOrdersPage).toHaveBeenCalledOnce();
 
     let refreshComplete!: Promise<void>;
     act(() => {
@@ -349,7 +348,7 @@ describe('useOrderHistory query state', () => {
 
     await waitFor(() => expect(result.current.orders[0]?.id).toBe('order-after-refresh'));
     await expect(refreshComplete).resolves.toBeUndefined();
-    expect(mocks.fetchOrdersForClientFiltering).toHaveBeenCalledTimes(2);
+    expect(mocks.fetchOrdersPage).toHaveBeenCalledTimes(2);
   });
 
   it('resolve refresh quando a recarga termina com a mesma lista', async () => {
@@ -359,9 +358,9 @@ describe('useOrderHistory query state', () => {
       orderType: 'sale',
       paymentsSummary: { totalOrderValue: 100 },
     };
-    let resolveRefreshFetch!: (orders: typeof candidate[]) => void;
-    mocks.fetchOrdersForClientFiltering
-      .mockResolvedValueOnce([candidate])
+    let resolveRefreshFetch!: (result: { orders: typeof candidate[]; total: number }) => void;
+    mocks.fetchOrdersPage
+      .mockResolvedValueOnce({ orders: [candidate], total: 1 })
       .mockImplementationOnce(
         () =>
           new Promise((resolve) => {
@@ -380,7 +379,7 @@ describe('useOrderHistory query state', () => {
     });
 
     await waitFor(() => expect(result.current.orders[0]?.id).toBe(candidate.id));
-    expect(mocks.fetchOrdersForClientFiltering).toHaveBeenCalledOnce();
+    expect(mocks.fetchOrdersPage).toHaveBeenCalledOnce();
 
     let refreshComplete!: Promise<void>;
     act(() => {
@@ -391,13 +390,13 @@ describe('useOrderHistory query state', () => {
     void refreshComplete.then(() => {
       refreshSettled = true;
     });
-    await waitFor(() => expect(mocks.fetchOrdersForClientFiltering).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mocks.fetchOrdersPage).toHaveBeenCalledTimes(2));
     expect(refreshSettled).toBe(false);
 
-    await act(async () => resolveRefreshFetch([candidate]));
+    await act(async () => resolveRefreshFetch({ orders: [candidate], total: 1 }));
     await expect(refreshComplete).resolves.toBeUndefined();
     expect(result.current.orders[0]?.id).toBe(candidate.id);
-    expect(mocks.fetchOrdersForClientFiltering).toHaveBeenCalledTimes(2);
+    expect(mocks.fetchOrdersPage).toHaveBeenCalledTimes(2);
   });
 
   it('volta à última página válida quando o total diminui após refresh', async () => {

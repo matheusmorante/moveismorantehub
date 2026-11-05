@@ -5,6 +5,7 @@ import {
   calculateProductDiscountFromPercent,
   calculateProductDiscountFromPromoPrice,
   deriveProductDiscountFields,
+  toOptionalProductDiscountNumber,
 } from '../../../../../../../shared-utils/productDiscountFields';
 import { resolveProductVariationPricing } from '../../../../../../../shared-utils/productVariationPricing';
 
@@ -19,8 +20,8 @@ export function useVariationPricing({
   setFormData,
   parentProduct,
 }: UseVariationPricingOptions) {
-  const [varDiscountPercent, setVarDiscountPercent] = useState('');
-  const [varDiscountFixed, setVarDiscountFixed] = useState('');
+  const [varDiscountPercent, setVarDiscountPercent] = useState<number | null>(null);
+  const [varDiscountFixed, setVarDiscountFixed] = useState<number | null>(null);
 
   const updateOwnPricing = (fields: Partial<Variation>) => {
     setFormData((previous) =>
@@ -44,84 +45,79 @@ export function useVariationPricing({
     );
   };
 
-  const getEffectiveDiscountPercent = () => getEffectiveDiscountFields().discountPercent;
-  const getEffectiveDiscountFixed = () => getEffectiveDiscountFields().discountFixed;
+  const getEffectiveDiscountPercent = () =>
+    toOptionalProductDiscountNumber(getEffectiveDiscountFields().discountPercent);
+  const getEffectiveDiscountFixed = () =>
+    toOptionalProductDiscountNumber(getEffectiveDiscountFields().discountFixed);
 
-  const handlePriceChange = (valStr: string) => {
+  const handlePriceChange = (newPrice: number) => {
     if (!formData) return;
-    const newPrice = parseFloat(valStr) || 0;
     updateOwnPricing({ unitPrice: newPrice });
 
     const orig = newPrice;
     if (orig <= 0) {
-      setVarDiscountPercent('');
-      setVarDiscountFixed('');
+      setVarDiscountPercent(null);
+      setVarDiscountFixed(null);
       updateOwnPromoPricing({ promoPrice: undefined });
       return;
     }
 
-    if (varDiscountPercent) {
-      const pct = parseFloat(varDiscountPercent);
-      if (!isNaN(pct)) {
-        const discount = calculateProductDiscountFromPercent(orig, pct);
-        setVarDiscountFixed(discount.discountFixed);
-        setFormData((prev) => (prev ? { ...prev, promoPrice: discount.promoPrice } : null));
-      }
+    if (varDiscountPercent !== null && Number.isFinite(varDiscountPercent)) {
+      const discount = calculateProductDiscountFromPercent(orig, varDiscountPercent);
+      setVarDiscountFixed(toOptionalProductDiscountNumber(discount.discountFixed));
+      setFormData((prev) => (prev ? { ...prev, promoPrice: discount.promoPrice } : null));
     }
   };
 
-  const handleDiscountPercentChange = (valStr: string) => {
+  const handleDiscountPercentChange = (percent: number | null) => {
     if (!formData) return;
-    setVarDiscountPercent(valStr);
+    setVarDiscountPercent(percent);
     const orig = Number(formData.syncUnitPrice ? parentProduct.unitPrice : formData.unitPrice || 0);
-    if (orig <= 0 || valStr === '') {
-      setVarDiscountFixed('');
+    if (orig <= 0 || percent === null) {
+      setVarDiscountFixed(null);
       updateOwnPromoPricing({ promoPrice: undefined });
       return;
     }
 
-    const pct = parseFloat(valStr);
-    if (isNaN(pct) || pct < 0) {
-      setVarDiscountFixed('');
+    if (!Number.isFinite(percent) || percent < 0) {
+      setVarDiscountFixed(null);
       updateOwnPromoPricing({ promoPrice: undefined });
       return;
     }
 
-    const discount = calculateProductDiscountFromPercent(orig, pct);
-    setVarDiscountFixed(discount.discountFixed);
+    const discount = calculateProductDiscountFromPercent(orig, percent);
+    setVarDiscountFixed(toOptionalProductDiscountNumber(discount.discountFixed));
     updateOwnPromoPricing({ promoPrice: discount.promoPrice });
   };
 
-  const handleDiscountFixedChange = (valStr: string) => {
+  const handleDiscountFixedChange = (fixed: number) => {
     if (!formData) return;
-    setVarDiscountFixed(valStr);
+    setVarDiscountFixed(fixed);
     const orig = Number(formData.syncUnitPrice ? parentProduct.unitPrice : formData.unitPrice || 0);
-    if (orig <= 0 || valStr === '') {
-      setVarDiscountPercent('');
+    if (orig <= 0) {
+      setVarDiscountPercent(null);
       updateOwnPromoPricing({ promoPrice: undefined });
       return;
     }
 
-    const fixed = parseFloat(valStr);
-    if (isNaN(fixed) || fixed < 0) {
-      setVarDiscountPercent('');
+    if (!Number.isFinite(fixed) || fixed < 0) {
+      setVarDiscountPercent(null);
       updateOwnPromoPricing({ promoPrice: undefined });
       return;
     }
 
     const discount = calculateProductDiscountFromFixed(orig, fixed);
-    setVarDiscountPercent(discount.discountPercent);
+    setVarDiscountPercent(toOptionalProductDiscountNumber(discount.discountPercent));
     updateOwnPromoPricing({ promoPrice: discount.promoPrice });
   };
 
-  const handlePromoPriceFieldChange = (valStr: string) => {
+  const handlePromoPriceFieldChange = (promoPrice: number) => {
     if (!formData) return;
     const orig = Number(formData.syncUnitPrice ? parentProduct.unitPrice : formData.unitPrice || 0);
-    const promo = parseFloat(valStr) || 0;
-    const discount = calculateProductDiscountFromPromoPrice(orig, promo);
+    const discount = calculateProductDiscountFromPromoPrice(orig, promoPrice);
     updateOwnPromoPricing({ promoPrice: discount.promoPrice });
-    setVarDiscountFixed(discount.discountFixed);
-    setVarDiscountPercent(discount.discountPercent);
+    setVarDiscountFixed(toOptionalProductDiscountNumber(discount.discountFixed));
+    setVarDiscountPercent(toOptionalProductDiscountNumber(discount.discountPercent));
   };
 
   return {

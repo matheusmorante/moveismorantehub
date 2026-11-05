@@ -127,8 +127,8 @@ export function useVariationForm({
     variation: formData ? { ...formData } : {
       id: '', sku: '', name: '', stock: 0, unitPrice: 0, active: false, attributes: [],
     },
-    discountPercent: '',
-    discountFixed: '',
+    discountPercent: null,
+    discountFixed: null,
   });
 
   const {

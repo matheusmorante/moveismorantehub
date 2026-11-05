@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Modal } from 'react-native';
+import { View, Modal, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { OrderDetailsBody } from '../OrderDetailsBody';
 import { DeliveryPreparationScreen } from '../../features/orders/screens/DeliveryPreparationScreen';
 import { deliveryFlowService } from '../../features/orders/services/deliveryFlowService';
@@ -39,6 +39,7 @@ export const OrderDetailsModal: React.FC<Props> = ({
     setPreparingDelivery,
     canStartDelivery,
     topInset,
+    detailsLoading, detailsError, retryDetails,
   } = useOrderDetailsModal({ order, userRole });
 
   const markPreparationStarted = React.useCallback(
@@ -54,11 +55,12 @@ export const OrderDetailsModal: React.FC<Props> = ({
   );
 
   React.useEffect(() => {
-    if (!order?._openDeliveryPreparation || !order?.id) return;
-    markPreparationStarted(order);
-  }, [markPreparationStarted, order?.id, order?._openDeliveryPreparation]);
+    if (!order?._openDeliveryPreparation || !detailedOrder?.id || detailsLoading || detailsError) return;
+    markPreparationStarted(detailedOrder);
+  }, [markPreparationStarted, detailedOrder, order?._openDeliveryPreparation, detailsLoading, detailsError]);
 
   const handleStartDelivery = () => {
+    if (detailsLoading || detailsError) return;
     const targetOrder = detailedOrder || order;
     const nestedData =
       targetOrder?.order_data && typeof targetOrder.order_data === 'object'
@@ -99,7 +101,16 @@ export const OrderDetailsModal: React.FC<Props> = ({
           isDarkMode && styles.modalContainerDark,
         ]}
       >
-        {preparingDelivery ? (
+        {detailsLoading || detailsError ? (
+          <>
+            <OrderDetailsModalHeader order={detailedOrder} isDarkMode={isDarkMode} onClose={onClose} />
+            <View style={{ padding: 24, gap: 12 }}>
+              {detailsLoading && <ActivityIndicator color="#2563eb" />}
+              <Text style={{ color: isDarkMode ? '#e2e8f0' : '#334155' }}>{detailsLoading ? 'Carregando pedido…' : detailsError}</Text>
+              {detailsError ? <TouchableOpacity onPress={retryDetails} accessibilityRole="button"><Text style={{ color: '#2563eb' }}>Tentar novamente</Text></TouchableOpacity> : null}
+            </View>
+          </>
+        ) : preparingDelivery ? (
           <DeliveryPreparationScreen
             order={detailedOrder}
             isDarkMode={isDarkMode}

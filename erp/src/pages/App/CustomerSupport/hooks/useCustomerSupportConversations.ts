@@ -15,8 +15,6 @@ interface UseCustomerSupportConversationsParams {
 
 const PAGE_SIZE = 50;
 
-export type CustomerSupportRealtimeStatus = 'connected' | 'reconnecting' | 'disconnected';
-
 export function useCustomerSupportConversations({
   agentId = null,
   folderCriteria = null,
@@ -25,11 +23,10 @@ export function useCustomerSupportConversations({
   const [conversations, setConversations] = useState<WhatsAppConversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null);
   const [filter, setFilter] = useState<ConversationFilter>('all');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  const sortOrder: SortOrder = 'newest';
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshingConversations, setIsRefreshingConversations] = useState(false);
-  const [realtimeStatus, setRealtimeStatus] = useState<CustomerSupportRealtimeStatus>('reconnecting');
   const [totalCount, setTotalCount] = useState(0);
   const [conversationsError, setConversationsError] = useState('');
   const [counts, setCounts] = useState({ all: 0, mine: 0, unassigned: 0, unread: 0 });
@@ -40,8 +37,6 @@ export function useCustomerSupportConversations({
   const requestIdRef = useRef(0);
   const pendingRequestRef = useRef<number | null>(null);
   const moreRequestRef = useRef<number | null>(null);
-  const realtimeRetryCountRef = useRef(0);
-  const reconnectRealtimeRef = useRef<(() => void) | null>(null);
   const queryKey = JSON.stringify([filter, agentId, folderCriteria, canViewCommercialInfo, sortOrder]);
   const activeQueryKeyRef = useRef(queryKey);
   activeQueryKeyRef.current = queryKey;
@@ -174,22 +169,13 @@ export function useCustomerSupportConversations({
     };
   }, [loadConversations]);
 
-  const reconnectRealtime = useCallback(() => reconnectRealtimeRef.current?.(), []);
-
   useEffect(() => {
     let active = true;
     let channelGeneration = 0;
     let channel: ReturnType<typeof supabase.channel> | null = null;
-    realtimeRetryCountRef.current = 0;
-    setRealtimeStatus('reconnecting');
-    const setupChannel = (manual = false) => {
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    const setupChannel = () => {
       if (!active) return;
-      if (manual) {
-        realtimeRetryCountRef.current = 0;
-        setRealtimeStatus('reconnecting');
-      } else if (realtimeRetryCountRef.current < 3) {
-        setRealtimeStatus('reconnecting');
-      }
       const generation = ++channelGeneration;
       const isCurrent = () => active && generation === channelGeneration;
       if (channel) void supabase.removeChannel(channel);
@@ -201,23 +187,18 @@ export function useCustomerSupportConversations({
         })
         .subscribe((status) => {
           if (!isCurrent()) return;
-          if (status === 'SUBSCRIBED') {
-            realtimeRetryCountRef.current = 0;
-            setRealtimeStatus('connected');
-          } else if (status === 'CLOSED') {
-            realtimeRetryCountRef.current = 3;
-            setRealtimeStatus('disconnected');
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            realtimeRetryCountRef.current += 1;
-            setRealtimeStatus(realtimeRetryCountRef.current >= 3 ? 'disconnected' : 'reconnecting');
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+          if (status === 'SUBSCRIBED') void loadConversations(true);
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            reconnectTimer = setTimeout(setupChannel, 3000);
           }
         });
     };
-    reconnectRealtimeRef.current = () => setupChannel(true);
     setupChannel();
     return () => {
       active = false;
-      reconnectRealtimeRef.current = null;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       if (channel) void supabase.removeChannel(channel);
     };
   }, [loadConversations]);
@@ -230,13 +211,10 @@ export function useCustomerSupportConversations({
     filter,
     setFilter,
     sortOrder,
-    setSortOrder,
     isLoadingConversations,
     isLoadingMore,
     conversationsError,
     isRefreshingConversations,
-    realtimeStatus,
-    reconnectRealtime,
     loadConversations,
     loadMoreConversations,
     totalCount,

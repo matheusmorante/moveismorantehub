@@ -19,9 +19,9 @@ import {
   mergeCharacteristicGroups,
 } from '@/pages/utils/technicalValuesService';
 import { AttributeManagementModal } from '../modals/attributes/AttributeManagementModal';
-import { VariationTechnicalFieldItem } from './VariationTechnicalFieldItem';
 import { VariationTechnicalSearchControl } from './VariationTechnicalSearchControl';
 import { VariationTechnicalDescriptionSection } from './VariationTechnicalDescriptionSection';
+import { VariationTechnicalFieldGroups } from './VariationTechnicalFieldGroups';
 import { getDefaultShowNameForVariationOverride } from '../../../../../../../shared-utils/productVariationAttributeDefaults';
 import {
   removeProductVariationTechnicalAttribute,
@@ -453,43 +453,20 @@ export const VariationTechnicalTab: React.FC<VariationTechnicalTabProps> = ({
             Nenhuma característica cadastrada.
           </div>
         ) : (
-          <div className="flex flex-col gap-6 pt-1">
-            {fieldGroups.map((group, index) => (
-              <React.Fragment key={group.title}>
-                {index === requiredFieldGroups.length && searchControl}
-                <section
-                  aria-labelledby={`variation-technical-group-${group.title}`}
-                  className="flex flex-col gap-3"
-                >
-                  <h4
-                    id={`variation-technical-group-${group.title}`}
-                    className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 pb-2"
-                  >
-                    {group.title}
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {group.fields.map((field) => (
-                      <VariationTechnicalFieldItem
-                        key={field.id}
-                        field={field}
-                        parentNormalizedValues={parentNormalizedValues}
-                        variationAttributeValues={variationAttributeValues}
-                        dependencyValues={dependencyValues}
-                        formDataTechnicalValues={formData.technicalValues}
-                        isManual={manualFieldNames.includes(field.name)}
-                        isVariable
-                        isSingleVariation={isSingleVariation}
-                        onSetOverride={handleSetOverride}
-                        onRemoveManualField={handleRemoveManualField}
-                        onOpenAttributeModal={() => setIsAttributeModalOpen(true)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              </React.Fragment>
-            ))}
-            {fieldGroups.length === requiredFieldGroups.length && searchControl}
-          </div>
+          <VariationTechnicalFieldGroups
+            fieldGroups={fieldGroups}
+            requiredGroupCount={requiredFieldGroups.length}
+            searchControl={searchControl}
+            parentNormalizedValues={parentNormalizedValues}
+            variationAttributeValues={variationAttributeValues}
+            dependencyValues={dependencyValues}
+            formDataTechnicalValues={formData.technicalValues}
+            manualFieldNames={manualFieldNames}
+            isSingleVariation={isSingleVariation}
+            onSetOverride={handleSetOverride}
+            onRemoveManualField={handleRemoveManualField}
+            onOpenAttributeModal={() => setIsAttributeModalOpen(true)}
+          />
         )}
       </div>
 

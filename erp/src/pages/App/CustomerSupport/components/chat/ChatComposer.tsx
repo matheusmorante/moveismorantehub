@@ -14,6 +14,7 @@ import type { ProductCatalogPrepareInput } from '../../../../../../../shared-uti
 import type { ProductCatalogSendSelection } from '../../../../../../../shared-utils/productCatalogFormSchemas';
 import type { WhatsAppConversation, WhatsAppMessage } from '../../types';
 import { ProductCatalogPanel } from '@/components/catalog/ProductCatalogPanel';
+import NewSaleOrder from '@/pages/App/SalesOrder/pages/NewSaleOrder';
 import { getSettings } from '@/pages/utils/settingsService';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import {
@@ -28,19 +29,13 @@ import type {
 import { ChatAudioRecordingControls, RecordedAudioPreview } from './ChatAudioRecordingPanels';
 import { ChatComposerAttachmentList } from './ChatComposerAttachmentList';
 import { ChatComposerAttachmentMenu } from './ChatComposerAttachmentMenu';
+import { createChatAudioRecordingActions } from './chatComposerAudioRecording';
 import {
   formatFileSize,
   MAX_ATTACHMENTS,
   MAX_FILE_SIZE,
   normalizedFileType,
 } from './chatComposerAttachmentFiles';
-import {
-  formatSelectedMessage,
-  formatSelectedMessageLines,
-  WHATSAPP_FORMATS,
-  WHATSAPP_LINE_FORMATS,
-  type WhatsAppLineFormatKind,
-} from './chatMessageFormatting';
 import { SupportOrderPickerDialog } from './SupportOrderPickerDialog';
 import {
   createOrderSummaryPdf,
@@ -56,6 +51,7 @@ interface ChatComposerProps {
   displayName?: string;
   canSend?: boolean;
   canShareCommercialInfo?: boolean;
+  canCreateOrders?: boolean;
   shareOrderRequest?: { record: SupportOrderSummary; requestId: string } | null;
   onShareOrderRequestHandled?: (requestId: string) => void;
   careWindowOpen?: boolean;
@@ -68,6 +64,7 @@ interface ChatComposerProps {
   onComposerModeChange?: (mode: 'whatsapp' | 'comment') => void;
   insertedSnippet?: InsertedSnippet | null;
   onAddInternalNote?: (text: string) => Promise<boolean | void>;
+  internalComments?: WhatsAppMessage[];
   onOpenSnippets: () => void;
   catalogSpaceRef?: React.RefObject<HTMLElement | null>;
 }
@@ -105,6 +102,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   displayName = 'Cliente',
   canSend = false,
   canShareCommercialInfo = false,
+  canCreateOrders = false,
   shareOrderRequest = null,
   onShareOrderRequestHandled,
   careWindowOpen = false,
@@ -117,6 +115,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   onComposerModeChange,
   insertedSnippet,
   onAddInternalNote,
+  internalComments = [],
   onOpenSnippets,
   catalogSpaceRef,
 }) => {
@@ -124,6 +123,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const [newOrderType, setNewOrderType] = useState<'sale' | 'budget' | null>(null);
   const [isOrderPickerOpen, setIsOrderPickerOpen] = useState(false);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [orders, setOrders] = useState<SupportOrderSummary[]>([]);
@@ -200,7 +200,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     const { record, requestId } = shareOrderRequest;
     requestedOrderRef.current = record;
     setOrders((current) => [record, ...current.filter((order) => order.id !== record.id)]);
-    setOrderFilter('quotes');
+    setOrderFilter(isQuoteOrder(record) ? 'quotes' : 'orders');
     setSelectedOrderId(record.id);
     setOrderValue('orderId', record.id, { shouldDirty: true, shouldValidate: true });
     setOrdersError('');
@@ -278,7 +278,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     setOrders([]);
     setOrdersError('');
     setIsLoadingOrders(true);
-    getCustomerOrders(supabase, conversation.customerId)
+    getCustomerOrders(supabase, conversation.customerId, orderFilter)
       .then((data) => {
         if (!active) return;
         const requestedOrder = requestedOrderRef.current;
@@ -289,7 +289,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       .catch(() => { if (active) setOrdersError('Não foi possível carregar os documentos deste cliente.'); })
       .finally(() => { if (active) setIsLoadingOrders(false); });
     return () => { active = false; };
-  }, [isOrderPickerOpen, conversation.customerId]);
+  }, [isOrderPickerOpen, conversation.customerId, orderFilter]);
 
   const currentAttachments = () => watchDraft('attachments') || [];
   const releaseAttachment = (attachment: SupportChatComposerAttachment | undefined) => {
@@ -328,7 +328,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
       shouldDirty: true,
       shouldValidate: true,
     });
-    setSendFeedback('Anexo removido do rascunho.');
+    setSendFeedback('');
   };
 
   const addFiles = (incoming: FileList | File[], kind: 'media' | 'document', customKind?: 'order' | 'quote'): boolean => {
@@ -454,134 +454,29 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     });
   };
 
-  const applyMessageFormatting = (prefix: string, suffix: string) => {
-    const textarea = textareaRef.current;
-    const start = textarea?.selectionStart ?? message.length;
-    const end = textarea?.selectionEnd ?? message.length;
-    const formatted = formatSelectedMessage(message, start, end, prefix, suffix);
-
-    setDraftValue('message', formatted.message, { shouldDirty: true, shouldValidate: true });
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(formatted.selectionStart, formatted.selectionEnd);
-    });
-  };
-
-  const applyMessageLineFormatting = (kind: WhatsAppLineFormatKind) => {
-    const textarea = textareaRef.current;
-    const start = textarea?.selectionStart ?? message.length;
-    const end = textarea?.selectionEnd ?? message.length;
-    const formatted = formatSelectedMessageLines(message, start, end, kind);
-
-    setDraftValue('message', formatted.message, { shouldDirty: true, shouldValidate: true });
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(formatted.selectionStart, formatted.selectionEnd);
-    });
-  };
-
-  const stopRecordingStream = () => {
-    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
-    recordingStreamRef.current = null;
-    recordingRef.current = null;
-  };
-
-  const cancelRecording = () => {
-    const recorder = recordingRef.current;
-    if (recorder && recorder.state !== 'inactive') {
-      recorder.ondataavailable = null;
-      recorder.onstop = null;
-      recorder.stop();
-    }
-    stopRecordingStream();
-    recordingChunksRef.current = [];
-    setIsRecording(false);
-    setIsRecordingPaused(false);
-    setRecordingSeconds(0);
-    setRecordingError('');
-    const existing = currentAudioAttachmentRef.current;
-    if (existing) removeAttachment(existing);
-    setAudioPreview(null);
-  };
-
-  const startRecording = async () => {
-    setRecordingError('');
-    setSendError('');
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-      setRecordingError('Este navegador não oferece gravação de áudio. Anexe um arquivo OGG, MP3 ou M4A.');
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const supportedMime = ['audio/ogg;codecs=opus', 'audio/mp4', 'audio/aac']
-        .find((mimeType) => MediaRecorder.isTypeSupported(mimeType));
-      const recorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime } : undefined);
-      recordingStreamRef.current = stream;
-      recordingRef.current = recorder;
-      recordingChunksRef.current = [];
-      setRecordingSeconds(0);
-      setIsRecordingPaused(false);
-      setIsRecording(true);
-      recorder.ondataavailable = (event) => {
-        if (event.data.size) recordingChunksRef.current.push(event.data);
-      };
-      recorder.onerror = () => {
-        setRecordingError('A gravação foi interrompida. Confira a permissão do microfone e tente novamente.');
-        stopRecordingStream();
-        setIsRecording(false);
-      };
-      recorder.onstop = () => {
-        const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
-        const fileType = normalizedFileType(new File([blob], 'gravacao', { type: blob.type }));
-        const fileName = `audio-atendimento.${blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'm4a' : blob.type.includes('mpeg') ? 'mp3' : 'webm'}`;
-        const id = makeId();
-        const url = URL.createObjectURL(blob);
-        objectUrlsRef.current.add(url);
-        const file = new File([blob], fileName, { type: blob.type || 'audio/webm' });
-        const addition: SupportChatComposerAttachment = {
-          kind: 'audio', id, label: 'Áudio gravado',
-          detail: `${formatDuration(recordingSeconds)} · ${formatFileSize(file.size)}`,
-          fileName,
-          mimeType: file.type,
-          previewUrl: url,
-        };
-        currentAudioAttachmentRef.current = id;
-        setAudioPreview({ url, type: file.type, name: fileName });
-        setIsRecording(false);
-        setIsRecordingPaused(false);
-        stopRecordingStream();
-        recordingChunksRef.current = [];
-        if (fileType?.label !== 'Áudio') {
-          setRecordingError('A gravação deste navegador está em WebM, formato não aceito pela API do WhatsApp. Você pode anexar áudio OGG, MP3 ou M4A.');
-        }
-        appendAttachments([addition], new Map([[id, file]]));
-      };
-      recorder.start(500);
-    } catch (error) {
-      const denied = error instanceof DOMException && (error.name === 'NotAllowedError' || error.name === 'SecurityError');
-      setRecordingError(denied
-        ? 'Permita o acesso ao microfone no navegador para gravar um áudio.'
-        : 'Não foi possível iniciar a gravação. Confira o microfone e tente novamente.');
-      stopRecordingStream();
-      setIsRecording(false);
-    }
-  };
-
-  const stopRecording = () => {
-    if (recordingRef.current?.state !== 'inactive') recordingRef.current?.stop();
-  };
-
-  const toggleRecordingPause = () => {
-    const recorder = recordingRef.current;
-    if (!recorder) return;
-    if (recorder.state === 'recording') {
-      recorder.pause();
-      setIsRecordingPaused(true);
-    } else if (recorder.state === 'paused') {
-      recorder.resume();
-      setIsRecordingPaused(false);
-    }
-  };
+  const {
+    cancelRecording,
+    startRecording,
+    stopRecording,
+    toggleRecordingPause,
+  } = createChatAudioRecordingActions({
+    recordingRef,
+    recordingStreamRef,
+    recordingChunksRef,
+    currentAudioAttachmentRef,
+    objectUrlsRef,
+    recordingSeconds,
+    setIsRecording,
+    setIsRecordingPaused,
+    setRecordingSeconds,
+    setRecordingError,
+    setSendError,
+    setAudioPreview,
+    makeId,
+    formatDuration,
+    removeAttachment,
+    appendAttachments,
+  });
 
   const addCatalogSelection = (selection: ProductCatalogPrepareInput, catalogUrl: string | null) => {
     appendAttachments([{
@@ -669,7 +564,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     isSendingRef.current = true;
     setIsSending(true);
     setSendError('');
-    setSendFeedback('Enviando…');
+    setSendFeedback('');
     let pendingText = draft.message.trim();
     let pendingReplyToWamid = replyTarget?.apiMessageId || undefined;
     let replyWasSent = false;
@@ -780,6 +675,26 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
             <span className="flex items-center gap-1.5"><i className="bi bi-lock-fill text-amber-600" />Comentário interno da equipe</span>
             <button type="button" onClick={() => setComposerMode('whatsapp')} className="text-[11px] text-amber-700 underline dark:text-amber-300">Voltar ao atendimento</button>
           </div>
+          <div aria-label="Comentários internos salvos" className="max-h-36 space-y-2 overflow-y-auto">
+            {canShareCommercialInfo && conversation.internalNotes?.trim() && (
+              <article className="rounded-xl border border-amber-200 bg-white/80 p-2.5 dark:border-amber-800/60 dark:bg-slate-900/60">
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">Anotação interna salva</p>
+                <p className="whitespace-pre-wrap break-words text-xs text-slate-700 dark:text-slate-200">{conversation.internalNotes}</p>
+              </article>
+            )}
+            {[...internalComments].sort((left, right) => right.timestamp.localeCompare(left.timestamp)).map((comment) => (
+              <article key={comment.id} className="rounded-xl border border-amber-200 bg-white/80 p-2.5 dark:border-amber-800/60 dark:bg-slate-900/60">
+                <div className="mb-1 flex items-center justify-between gap-2 text-[10px] text-amber-800 dark:text-amber-300">
+                  <span className="font-bold">{comment.authorName || 'Equipe'}</span>
+                  <time dateTime={comment.timestamp}>{new Date(comment.timestamp).toLocaleString('pt-BR')}</time>
+                </div>
+                <p className="whitespace-pre-wrap break-words text-xs text-slate-700 dark:text-slate-200">{comment.textContent}</p>
+              </article>
+            ))}
+            {(!canShareCommercialInfo || !conversation.internalNotes?.trim()) && internalComments.length === 0 && (
+              <p className="rounded-xl border border-dashed border-amber-200 px-3 py-2 text-xs text-amber-800/80 dark:border-amber-800/60 dark:text-amber-300/80">Nenhum comentário interno salvo nesta conversa.</p>
+            )}
+          </div>
           <textarea
             {...registerComment('comment')}
             onKeyDown={(event) => {
@@ -829,6 +744,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               menuRef={attachmentMenuRef}
               isOpen={isAttachmentMenuOpen}
               canShareCommercialInfo={canShareCommercialInfo}
+              canCreateOrders={canCreateOrders}
               hasCustomer={Boolean(conversation.customerId)}
               onToggle={() => {
                 setIsAttachmentMenuOpen((open) => !open);
@@ -850,6 +766,14 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
                 setIsAttachmentMenuOpen(false);
                 setIsOrderPickerOpen(true);
               }}
+              onNewSalesOrder={() => {
+                setIsAttachmentMenuOpen(false);
+                setNewOrderType('sale');
+              }}
+              onNewBudget={() => {
+                setIsAttachmentMenuOpen(false);
+                setNewOrderType('budget');
+              }}
               onAddStoreContact={addStoreContact}
               onOpenSnippets={quickReplyAction}
             />
@@ -865,38 +789,6 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               {audioPreview && (
                 <RecordedAudioPreview audioUrl={audioPreview.url} onDiscard={cancelRecording} />
               )}
-
-              <div role="toolbar" aria-label="Formatação de texto do WhatsApp" className="mb-1 flex items-center gap-0.5 px-1">
-                {WHATSAPP_FORMATS.map((format) => (
-                  <button
-                    key={format.name}
-                    type="button"
-                    aria-label={`Aplicar ${format.name.toLowerCase()}`}
-                    title={format.title}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => applyMessageFormatting(format.prefix, format.suffix)}
-                    disabled={!canSend || !careWindowOpen || !isChannelConnected || isOutcomeUncertain}
-                    className={`flex h-6 min-w-7 items-center justify-center rounded-md px-1.5 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 ${format.className}`}
-                  >
-                    {format.label}
-                  </button>
-                ))}
-                {WHATSAPP_LINE_FORMATS.map((format) => (
-                  <button
-                    key={format.name}
-                    type="button"
-                    aria-label={`Aplicar ${format.name.toLowerCase()}`}
-                    title={format.title}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => applyMessageLineFormatting(format.kind)}
-                    disabled={!canSend || !careWindowOpen || !isChannelConnected || isOutcomeUncertain}
-                    className="flex h-6 min-w-7 items-center justify-center rounded-md px-1.5 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                  >
-                    {format.label}
-                  </button>
-                ))}
-                <span title="Combine negrito, itálico e tachado envolvendo o mesmo texto, por exemplo *_~texto~_*." className="ml-1 hidden truncate text-[10px] text-slate-400 sm:inline">*negrito* · _itálico_ · ~tachado~ · *_combina_* · `código` · ```monoespaçado```</span>
-              </div>
 
               <textarea
                 {...messageField}
@@ -925,7 +817,7 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
               <button type="button" aria-label="Inserir emoji" aria-expanded={isEmojiMenuOpen} title="Inserir emoji" onClick={() => { setIsEmojiMenuOpen((open) => !open); setIsAttachmentMenuOpen(false); }} className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-amber-500 dark:text-slate-400 dark:hover:bg-slate-800"><i className="bi bi-emoji-smile text-lg" /></button>
               {isEmojiMenuOpen && <div role="menu" aria-label="Emojis" className="absolute bottom-11 right-10 z-40 grid w-52 grid-cols-6 gap-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-700 dark:bg-slate-900">{EMOJIS.map((emoji) => <button key={emoji} type="button" aria-label={`Inserir ${emoji}`} onClick={() => insertEmoji(emoji)} className="rounded-lg p-1 text-xl hover:bg-slate-100 dark:hover:bg-slate-800">{emoji}</button>)}</div>}
               {message.trim() || attachments.length > 0 ? (
-                <button type="submit" disabled={effectiveSendDisabled} title={isSending ? 'Enviando…' : 'Enviar mensagem'} aria-label="Enviar mensagem" className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"><i className={`bi ${isSending ? 'bi-arrow-repeat animate-spin' : 'bi-send-fill'} text-sm`} /></button>
+                <button type="submit" disabled={effectiveSendDisabled} title="Enviar mensagem" aria-label="Enviar mensagem" className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"><i className="bi bi-send-fill text-sm" /></button>
               ) : (
                 <button type="button" disabled={!sendAllowed || isSending} title="Gravar áudio" aria-label="Gravar áudio" onClick={() => void startRecording()} className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-45 dark:text-slate-400 dark:hover:bg-slate-800"><i className="bi bi-mic-fill text-lg" /></button>
               )}
@@ -970,7 +862,13 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
         <SupportOrderPickerDialog
           customerId={conversation.customerId}
           orderFilter={orderFilter}
-          onOrderFilterChange={setOrderFilter}
+          onOrderFilterChange={(filter) => {
+            if (filter === orderFilter) return;
+            requestedOrderRef.current = null;
+            setSelectedOrderId('');
+            setOrderValue('orderId', '', { shouldDirty: true, shouldValidate: false });
+            setOrderFilter(filter);
+          }}
           isLoading={isLoadingOrders}
           error={ordersError}
           orders={orders}
@@ -988,6 +886,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           onClose={() => setIsOrderPickerOpen(false)}
           onSubmit={(event) => { event.preventDefault(); void submitOrderDocument(); }}
         />
+      )}
+
+      {newOrderType && (
+        <NewSaleOrder orderType={newOrderType} onClose={() => setNewOrderType(null)} />
       )}
     </div>
   );

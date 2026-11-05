@@ -34,3 +34,8 @@ Qualquer alteração efetuada nos arquivos fiscais (`api/nfe/`, componentes do m
 * **Watchdogs e Timeouts:** Proteger consultas assíncronas essenciais com `withTimeout` (ex: `AuthContext.tsx`, carregamento de perfil). O estado `loading` nunca deve travar indefinidamente.
 * **Feedback Visual Transparente:** Exibir spinners animados e banners de status durante qualquer operação demorada (transmissão, consulta SEFAZ, reconciliação). O modal nunca deve fechar silenciosamente sem resultado.
 * **Acessibilidade WCAG AAA:** Textos sobre avisos (amarelo/ouro) devem obrigatoriamente usar fontes escuras de alto contraste (`#3b1900` sobre `#f59e0b` no tema claro) para garantir legibilidade impecável.
+
+## 4. Consumo do Supabase
+
+* Em toda mudança de consulta, SQL/RPC ou carregamento de dados, siga as seções 24–25 de `AGENTS.md` e revise `rules/supabase/supabase-consumption.yml`: reduza requisições, trabalho do banco e bytes transferidos sem perder resultados, permissões, atualização de preços/estoque ou modo offline.
+* Diferencie volume de chamadas de egress; medições de payload não são cobrança oficial.

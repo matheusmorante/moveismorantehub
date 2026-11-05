@@ -11,16 +11,12 @@ import { deriveProductDiscountFields } from '../../../../../shared-utils/product
 import { withOwnInboundVariationCost } from '../../../../../shared-utils/inboundQuickRegisterRules';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import {
-  Check,
   ChevronLeft,
-  ChevronRight,
-  Save,
   X,
 } from 'lucide-react-native';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -94,6 +90,7 @@ import {
   type ProductFormReadinessItem,
 } from './ProductFormReadinessChecklist';
 import { ProductFormTabNavigation } from './ProductFormTabNavigation';
+import { ProductFormStepFooter } from './ProductFormStepFooter';
 import { TABS, type TabId } from './productFormTabs';
 import { INITIAL_FORM } from './productFormInitialState';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
@@ -1400,53 +1397,17 @@ export const ProductFormScreen: React.FC<Props> = ({
             </Text>
           )}
 
-          {/* ── Footer de Ações ── */}
-          <View style={[styles.footer, dark && styles.darkFooter]}>
-            {isDraftProduct && (
-              <TouchableOpacity
-                onPress={() => handleSubmit(true)}
-                disabled={saving || autoSaveStatus === 'saving'}
-                style={[styles.draftBtn, dark && styles.darkBtn]}
-              >
-                <Save size={15} color={dark ? '#94a3b8' : '#64748b'} />
-                <Text style={[styles.draftBtnText, dark && styles.dimText]}>Salvar rascunho</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              onPress={handleRequestClose}
-              disabled={saving || autoSaveStatus === 'saving'}
-              style={[styles.discardBtn, dark && styles.darkBtn]}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.discardBtnText, dark && styles.dimText]}>
-                {isDraftProduct ? 'Cancelar' : 'Descartar alterações'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={isLastStep ? () => handleSubmit(false) : handleNextStep}
-              disabled={saving || autoSaveStatus === 'saving'}
-              style={[styles.saveBtn, isLastStep && styles.finalSaveBtn]}
-              accessibilityRole="button"
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <>
-                  {isLastStep ? <Check size={16} color="#ffffff" /> : null}
-                  <Text style={styles.saveBtnText}>
-                    {isLastStep
-                      ? product
-                        ? 'Salvar alterações'
-                        : 'Cadastrar produto'
-                      : 'Próxima etapa'}
-                  </Text>
-                  {!isLastStep ? <ChevronRight size={16} color="#ffffff" /> : null}
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+          <ProductFormStepFooter
+            dark={dark}
+            isDraftProduct={isDraftProduct}
+            handleSubmit={handleSubmit}
+            saving={saving}
+            autoSaveStatus={autoSaveStatus}
+            handleRequestClose={handleRequestClose}
+            isLastStep={isLastStep}
+            handleNextStep={handleNextStep}
+            product={product}
+          />
         </KeyboardAvoidingView>
       </View>
     </Modal>

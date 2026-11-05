@@ -9,13 +9,14 @@ import {
   getOrderAssemblyTasks,
 } from './assemblyListHelpers';
 
-export function useAssemblyListQuery() {
+export function useAssemblyListQuery(filters: Record<string, unknown> = {}) {
   const [assemblies, setAssemblies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<AppSettings>(getSettings());
   const [settingsLoaded, setSettingsLoaded] = useState(false);
-  const fetchInProgress = useRef(false);
-  const refetchRequested = useRef(false);
+  const sequence = useRef(0);
+  const controller = useRef<AbortController | null>(null);
+  const filtersKey = JSON.stringify(filters);
   const settingsRef = useRef(settings);
 
   useEffect(() => {
@@ -28,17 +29,16 @@ export function useAssemblyListQuery() {
   }, []);
 
   const fetchAllAssemblies = useCallback(async () => {
-    if (fetchInProgress.current) {
-      refetchRequested.current = true;
-      return;
-    }
-    fetchInProgress.current = true;
+    const current = ++sequence.current;
+    controller.current?.abort();
+    const request = new AbortController(); controller.current = request;
     setLoading(true);
     try {
       const [ordersResult, showcaseData] = await Promise.all([
-        fetchAssemblyOrderRows(),
-        getShowcaseAssemblies(),
+        fetchAssemblyOrderRows(JSON.parse(filtersKey), request.signal),
+        getShowcaseAssemblies(undefined, JSON.parse(filtersKey), request.signal),
       ]);
+      if (current !== sequence.current || request.signal.aborted) return;
 
       const showcaseTasks = showcaseData.map((assembly) => ({
         id: assembly.id || '',
@@ -64,20 +64,19 @@ export function useAssemblyListQuery() {
 
       setAssemblies(unified);
     } catch (error) {
-      console.error('Erro ao buscar montagens:', error);
-      toast.error('Erro ao carregar lista de montagens.');
-    } finally {
-      fetchInProgress.current = false;
-      setLoading(false);
-      if (refetchRequested.current) {
-        refetchRequested.current = false;
-        void fetchAllAssemblies();
+      if (current === sequence.current && !request.signal.aborted) {
+        setAssemblies([]);
+        console.error('Erro ao buscar montagens:', error);
+        toast.error('Erro ao carregar lista de montagens.');
       }
+    } finally {
+      if (current === sequence.current) setLoading(false);
     }
-  }, []);
+  }, [filtersKey]);
 
   useEffect(() => {
     if (settingsLoaded) fetchAllAssemblies();
+    return () => { sequence.current += 1; controller.current?.abort(); };
   }, [fetchAllAssemblies, settings, settingsLoaded]);
 
   useEffect(() => {

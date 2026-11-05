@@ -7,6 +7,7 @@ import { getSettings, saveSettings, subscribeToSettings } from '../../../../util
 import {
   deleteRemoteLabelLayout,
   fetchRemoteLabelLayouts,
+  loadCompleteLabelModel,
 } from '../services/labelLayoutService';
 import {
   applyPresetToConfig,
@@ -87,6 +88,8 @@ export const useLabelLayouts = ({
   const [layoutPreferenceError, setLayoutPreferenceError] = useState('');
   const [layoutsLoading, setLayoutsLoading] = useState(true), [layoutsQueryError, setLayoutsQueryError] = useState('');
   const [layoutsBusy, setLayoutsBusy] = useState(false), [layoutsError, setLayoutsError] = useState(''), [layoutsBlocked, setLayoutsBlocked] = useState(false);
+  const [layoutHydrating, setLayoutHydrating] = useState(false);
+  const selectionRequest = useRef(0);
   const mutationLock = useRef(false), replayBlocked = useRef(false), mounted = useRef(false), mutationRevision = useRef(0);
   const layoutsRef = useRef(customLayouts), hiddenIdsRef = useRef(hiddenDefaultIds);
   layoutsRef.current = customLayouts; hiddenIdsRef.current = hiddenDefaultIds;
@@ -121,11 +124,14 @@ export const useLabelLayouts = ({
     let active = true; const revision = mutationRevision.current;
     const fetchCustomLayouts = async () => {
       try {
-        const { data, error } = await fetchRemoteLabelLayouts();
+        const { data, error } = await fetchRemoteLabelLayouts({ summary: true });
         if (!active || revision !== mutationRevision.current) return;
         const saved = getCustomLabelLayouts() ?? layoutsRef.current;
         const layouts = data && !error
-          ? [...data, ...saved.filter((model) => model.id.startsWith('custom_') && !data.some((remote) => remote.id === model.id))]
+          ? [...data.map((model) => {
+              const cached = saved.find((entry) => entry.id === model.id && !entry.__layoutSummary && entry.remoteUpdatedAt && entry.remoteUpdatedAt === model.remoteUpdatedAt);
+              return cached || model;
+            }), ...saved.filter((model) => model.id.startsWith('custom_') && !data.some((remote) => remote.id === model.id))]
           : saved;
         layoutsRef.current = layouts; setCustomLayouts(layouts);
         if (error) setLayoutsQueryError('Não foi possível consultar os modelos na nuvem. A lista local foi preservada; recarregue para tentar novamente.');
@@ -149,8 +155,24 @@ export const useLabelLayouts = ({
     }
   }, [config.layoutId, config.artConfig, savedArtConfigs]);
 
+  const ensureLayoutModel = useCallback(async (model: GridModel) => {
+    if (!model.__layoutSummary) return model;
+    const cached = layoutsRef.current.find((entry) => entry.id === model.id && !entry.__layoutSummary && entry.remoteUpdatedAt === model.remoteUpdatedAt);
+    if (cached) return cached;
+    const revision = mutationRevision.current;
+    const full = await loadCompleteLabelModel(model);
+    if (!mounted.current || revision !== mutationRevision.current) throw new Error('O modelo mudou durante o carregamento. Selecione-o novamente.');
+    if (model.__layoutSummary) {
+      const updated = layoutsRef.current.map((entry) => entry.id === full.id ? full : entry);
+      layoutsRef.current = updated; setCustomLayouts(updated); saveCustomLabelLayouts(updated);
+    }
+    return full;
+  }, []);
+
   const selectLayout = useCallback(
-    (model: GridModel) => {
+    (source: GridModel): Promise<boolean> => {
+      const request = ++selectionRequest.current;
+      const apply = (model: GridModel) => {
       setCurrentModel(model);
       if (model.type === 'round') {
         setLastSelectedRoundModelId(model.id);
@@ -159,8 +181,18 @@ export const useLabelLayouts = ({
       }
 
       setConfig((prefConfig) => mapModelToLabelConfig(model, prefConfig, savedArtConfigs));
+      };
+      if (!source.__layoutSummary) { apply(source); setLayoutHydrating(false); return Promise.resolve(true); }
+      setLayoutHydrating(true); setLayoutsQueryError('');
+      return ensureLayoutModel(source).then((model) => {
+        if (!mounted.current || request !== selectionRequest.current) return false;
+        apply(model); return true;
+      }).catch((cause) => {
+        if (mounted.current && request === selectionRequest.current) setLayoutsQueryError(cause instanceof Error ? cause.message : 'Não foi possível carregar o modelo.');
+        return false;
+      }).finally(() => { if (mounted.current && request === selectionRequest.current) setLayoutHydrating(false); });
     },
-    [savedArtConfigs]
+    [savedArtConfigs, ensureLayoutModel]
   );
 
   const applyPresetWithConfig = useCallback((preset: LabelPreset, baseConfig: LabelConfig) => {
@@ -212,7 +244,9 @@ export const useLabelLayouts = ({
     // Se categoria ou tipo mudou, ou se não há modelo ativo compatível
     const isCurrentModelValid = layoutModels.some((m) => m.id === currentConfig.layoutId);
 
-    if (categoryChanged || typeChanged || !isCurrentModelValid) {
+    const currentRemote = layoutModels.find((model) => model.id === currentConfig.layoutId);
+    const needsHydration = currentRemote?.__layoutSummary && currentRemote.remoteUpdatedAt !== currentModel?.remoteUpdatedAt;
+    if (categoryChanged || typeChanged || !isCurrentModelValid || needsHydration) {
       let targetModel: GridModel | undefined;
 
       if (cat === 'precos') {
@@ -236,17 +270,18 @@ export const useLabelLayouts = ({
       if (!targetModel) {
         targetModel = layoutModels[0];
       }
+      if (needsHydration && !categoryChanged && !typeChanged) targetModel = currentRemote;
 
       if (
         targetModel &&
         (currentConfig.layoutId !== targetModel.id ||
           currentConfig.category !== cat ||
-          currentConfig.type !== type)
+          currentConfig.type !== type || needsHydration)
       ) {
         selectLayout(targetModel);
       }
     }
-  }, [catFromUrl, selectedCategory, config.type, defaultLayoutIds, layoutModels, selectLayout]);
+  }, [catFromUrl, selectedCategory, config.type, defaultLayoutIds, layoutModels, selectLayout, currentModel]);
 
   const report = (message: string) => { if (mounted.current) { setLayoutsError(message); toast.error(message); } };
   const invalid = (current: () => boolean, errors: Parameters<typeof flattenFormErrors>[0]) => { if (current()) report(Object.values(flattenFormErrors(errors))[0] || 'Confira os dados do modelo.'); };
@@ -268,6 +303,8 @@ export const useLabelLayouts = ({
   };
   const createCopy = async (model: GridModel, category: CategoryType | undefined, name: string, current: () => boolean) => {
     if (!current()) return false;
+    model = await ensureLayoutModel(model);
+    if (!current()) return false;
     const result = await saveGridModelWithFallback({ newModel: { ...model, id: '', baseModelId: undefined, name, category },
       editingGridModel: null, customLayouts: layoutsRef.current, isCurrent: current, getCurrentLayouts: () => layoutsRef.current });
     if (!current()) return false;
@@ -283,6 +320,10 @@ export const useLabelLayouts = ({
 
   // The editor owns the RHF form and passes its parsed, frozen snapshot here.
   const handleSaveGridModel = (newModel: GridModel, stillCurrent?: () => boolean): Promise<boolean> => runMutation(async (current) => {
+    if (!current()) return false;
+    if (newModel.__layoutSummary) throw new Error('Carregue a arte completa antes de salvar.');
+    // Full designs are required only here to preserve duplicate-design checks.
+    await Promise.all(layoutsRef.current.filter((model) => model.__layoutSummary).map(ensureLayoutModel));
     if (!current()) return false;
     const editing = editingGridModel;
     if (editing?.category && selectedCategory && editing.category !== selectedCategory) throw new Error('O modelo pertence a outra categoria. Feche o editor e selecione o modelo novamente.');
@@ -355,7 +396,6 @@ export const useLabelLayouts = ({
     const allModels = [...DEFAULT_LAYOUT_MODELS, ...customLayouts];
     const model = allModels.find((m) => m.id === modelId);
     if (model) {
-      setCurrentModel(model);
       selectLayout(model);
 
       if (model.type === 'round') {
@@ -387,7 +427,6 @@ export const useLabelLayouts = ({
           ));
 
     if (targetModel) {
-      setCurrentModel(targetModel);
       selectLayout(targetModel);
     }
   };
@@ -430,8 +469,9 @@ export const useLabelLayouts = ({
     applyPresetWithConfig,
     modelToDelete,
     setModelToDelete,
-    layoutsBusy,
-    layoutsLoading,
+    ensureLayoutModel,
+    layoutsBusy: layoutsBusy || layoutHydrating,
+    layoutsLoading: layoutsLoading || layoutHydrating,
     layoutsQueryError,
     layoutPreferenceError,
     layoutsError,

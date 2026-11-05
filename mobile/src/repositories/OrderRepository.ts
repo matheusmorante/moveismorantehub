@@ -170,7 +170,7 @@ export const OrderRepository = {
     }
   },
 
-  async saveLocal(order: LocalOrder): Promise<void> {
+  async saveLocal(order: LocalOrder, options: { preservePending?: boolean } = {}): Promise<void> {
     try {
       await this.init();
       const db = await getSQLiteDatabase();
@@ -184,7 +184,7 @@ export const OrderRepository = {
         await db.runAsync(
           `UPDATE orders_local 
          SET status = ?, order_type = ?, customer_name = ?, total_amount = ?, order_data = ?, version = ?, updated_at = ?, synced_at = ?, is_pending_local = ?
-         WHERE id = ?`,
+         WHERE id = ?${options.preservePending ? ' AND is_pending_local = 0' : ''}`,
           [
             order.status,
             order.orderType || null,

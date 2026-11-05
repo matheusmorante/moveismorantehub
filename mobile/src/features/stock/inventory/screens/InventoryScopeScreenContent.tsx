@@ -41,10 +41,7 @@ import {
   resolveInventoryScopeCopy,
   type InventoryScopeCopySource,
 } from '../services/inventoryScopeCopy';
-import {
-  getAssignedInventoryScopeSupplier,
-  getInventoryScopeSupplierNames,
-} from '../services/inventoryScopeSuppliers';
+import { createInventoryScopeItemSnapshot } from '../services/inventoryScopeItemSnapshot';
 import {
   buildInventoryScopeProductParents,
   searchInventoryScopeProductParents,
@@ -235,24 +232,9 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
                   (id) => String(id) === String(supplierId)
                 )
           );
-          const items: ScopeConfiguration['itemsSnapshot'] = selectedProducts.map((product) => {
-            const supplierNames = getInventoryScopeSupplierNames(product, suppliers);
-            const assignedSupplier = getAssignedInventoryScopeSupplier(product, suppliers);
-
-            return {
-              productId: String(product.id),
-              variationId: product.variation_id ? String(product.variation_id) : undefined,
-              name: product.name || product.description || 'Produto',
-              supplierNames,
-              assignedSupplier,
-              systemStock: Number(product.stock ?? 0),
-              unit: product.unit || 'UN',
-              sku: product.sku || product.code || '',
-              code: product.code || '',
-              barcode: product.barcode || '',
-              isActive: product.active !== false,
-            };
-          });
+          const items: ScopeConfiguration['itemsSnapshot'] = selectedProducts.map((product) =>
+            createInventoryScopeItemSnapshot(product, suppliers)
+          );
 
           if (items.length === 0) {
             throw new Error(

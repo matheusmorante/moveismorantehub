@@ -5,6 +5,7 @@ import { mapDbToModel, mapModelToDb } from './labelLayoutMapper';
 import { labelLayoutDeleteFormSchema, labelRemoteLayoutDraftSchema, labelRemoteLayoutRecordSchema, LabelLayoutUnconfirmedError } from '../../../../../../../shared-utils/labelLayoutFormSchemas';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import { labelArtConfigInputSchema, labelLayoutArtworkCommandSchema, labelArtworkSaveFormSchema } from '../../../../../../../shared-utils/labelArtworkFormSchemas';
+import { DEFAULT_LAYOUT_MODELS } from '../utils/defaultLayoutModels';
 
 type LabelArtConfig = NonNullable<LabelConfig['artConfig']>;
 
@@ -60,17 +61,35 @@ export async function updateRemoteLabelLayoutArtwork(
 const parseLayout = (row: Parameters<typeof mapDbToModel>[0]): GridModel => {
   const id: unknown = row?.id;
   if (!(typeof id === 'string' && id.trim()) && !(typeof id === 'number' && Number.isSafeInteger(id) && id > 0)) throw new Error('Modelo sem identificação válida.');
-  return labelRemoteLayoutRecordSchema.parse(mapDbToModel(row));
+  return { ...labelRemoteLayoutRecordSchema.parse(mapDbToModel(row)),
+    remoteUpdatedAt: (row as typeof row & { updated_at?: string }).updated_at };
 };
 
-export async function fetchRemoteLabelLayouts(): Promise<RemoteLayoutResult<GridModel[]>> {
+const SUMMARY_COLUMNS = ['id', 'updated_at', ...Object.keys(mapModelToDb(DEFAULT_LAYOUT_MODELS[0]))
+  .filter((key) => !['art_config', 'preview_image', 'extra_fields', 'extra_fields_promo'].includes(key))].join(',');
+
+export async function fetchRemoteLabelLayouts(options: { summary?: boolean } = {}): Promise<RemoteLayoutResult<GridModel[]>> {
   try {
-    const response = await withTimeout(supabase.from('label_layouts').select('*'), 15_000, null, 'etiquetas:consultar-modelos');
+    const response = await withTimeout(supabase.from('label_layouts').select(options.summary ? SUMMARY_COLUMNS : '*'), 15_000, null, 'etiquetas:consultar-modelos');
     if (!response) throw new Error('A consulta dos modelos não foi confirmada.');
     if (response.error) return { data: null, error: response.error };
     if (!Array.isArray(response.data)) throw new Error('A consulta não retornou uma lista de modelos.');
-    return { data: response.data.map(parseLayout), error: null };
+    return { data: response.data.map((row) => ({ ...parseLayout(row as unknown as Parameters<typeof parseLayout>[0]), ...(options.summary ? { __layoutSummary: true } : {}) })), error: null };
   } catch (error) { return { data: null, error }; }
+}
+
+const pendingModels = new Map<string, Promise<GridModel>>();
+export function loadCompleteLabelModel(model: GridModel): Promise<GridModel> {
+  if (!model.__layoutSummary) return Promise.resolve(model);
+  const active = pendingModels.get(model.id);
+  if (active) return active;
+  const request = (async () => {
+    const response = await withTimeout(supabase.from('label_layouts').select('*').eq('id', model.id).single(), 15_000, null, 'etiquetas:carregar-modelo');
+    if (!response?.data || response.error || String(response.data.id) !== model.id) throw new Error('Não foi possível carregar a arte do modelo. Tente novamente.');
+    return parseLayout(response.data);
+  })().finally(() => { if (pendingModels.get(model.id) === request) pendingModels.delete(model.id); });
+  pendingModels.set(model.id, request);
+  return request;
 }
 
 type LayoutWriteResponse = { data?: unknown; error?: unknown; status?: number } | null;
@@ -103,6 +122,7 @@ const confirmLayout = (response: LayoutWriteResponse, payload: ReturnType<typeof
 export async function insertRemoteLabelLayout(
   model: GridModelDraft
 ): Promise<RemoteLayoutResult<GridModel>> {
+  if (model.__layoutSummary) return { data: null, error: new Error('Carregue a arte completa antes de salvar.') };
   const parsed = labelRemoteLayoutDraftSchema.safeParse(model);
   if (!parsed.success) return { data: null, error: parsed.error };
   const payload = mapModelToDb(parsed.data);
@@ -116,6 +136,7 @@ export async function updateRemoteLabelLayout(
   id: string,
   model: GridModelDraft
 ): Promise<RemoteLayoutResult<GridModel>> {
+  if (model.__layoutSummary) return { data: null, error: new Error('Carregue a arte completa antes de salvar.') };
   const selection = labelLayoutDeleteFormSchema.safeParse({ id });
   const parsed = labelRemoteLayoutDraftSchema.safeParse(model);
   if (!selection.success || !parsed.success) return { data: null, error: !selection.success ? selection.error : !parsed.success ? parsed.error : null };

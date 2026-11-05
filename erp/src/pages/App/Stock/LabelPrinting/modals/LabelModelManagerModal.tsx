@@ -6,6 +6,8 @@ import type { GridModel } from '../types/LabelGridModelTypes';
 import type { LabelConfig } from '../utils/LabelConstants';
 import { calculateLabelDimensions } from '../utils/calculateLabelDimensions';
 import { requestConfirmation } from '@/components/shared/confirmationService';
+import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
+import { labelModelSelectionFormSchema } from '../../../../../../../shared-utils/labelLayoutFormSchemas';
 
 interface LabelModelManagerModalProps {
   isOpen: boolean;
@@ -14,7 +16,8 @@ interface LabelModelManagerModalProps {
   layoutModels: GridModel[];
   customLayouts: GridModel[];
   config: LabelConfig;
-  selectLayout: (model: GridModel) => void;
+  selectLayout: (model: GridModel) => void | Promise<boolean>;
+  ensureLayoutModel?: (model: GridModel) => Promise<GridModel>;
   setEditingGridModel: (model: GridModel | null) => void;
   setGridModalOpen: (open: boolean) => void;
   handleDeleteLayout: (id: string, stillCurrent?: () => boolean) => Promise<boolean>;
@@ -30,6 +33,7 @@ const LabelModelManagerDialog: React.FC<LabelModelManagerModalProps> = ({
   customLayouts,
   config,
   selectLayout,
+  ensureLayoutModel = async (model) => model,
   setEditingGridModel,
   setGridModalOpen,
   handleDeleteLayout,
@@ -39,9 +43,31 @@ const LabelModelManagerDialog: React.FC<LabelModelManagerModalProps> = ({
 }) => {
   const mounted = useRef(false), locked = useRef(false);
   const [pending, setPending] = useState(false), [localError, setLocalError] = useState('');
+  const selectionForm = useZodForm(labelModelSelectionFormSchema, { modelId: '', action: 'select' });
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const busy = pending || isSaving;
   const close = () => { if (!locked.current && !isSaving) onClose(); };
+  const choose = async (model: GridModel, action: 'select' | 'edit') => {
+    if (locked.current || isSaving) return;
+    locked.current = true; setPending(true); setLocalError('');
+    try {
+      await selectionForm.validateAndRun({ modelId: model.id, action }, async (values) => {
+        const selected = layoutModels.find((entry) => entry.id === values.modelId);
+        if (!selected || !mounted.current) throw new Error('O modelo não está mais disponível.');
+        if (values.action === 'edit') {
+          const full = await ensureLayoutModel(selected);
+          if (!mounted.current) return;
+          setEditingGridModel(full); setGridModalOpen(true);
+        } else {
+          const confirmed = await selectLayout(selected);
+          if (!mounted.current) return;
+          if (confirmed === false) throw new Error('Não foi possível carregar a arte do modelo. Tente novamente.');
+          setGridModalOpen(false); onClose(); toast.success(`Modelo "${selected.name}" selecionado!`);
+        }
+      }, (errors) => setLocalError(Object.values(flattenFormErrors(errors))[0] || 'Selecione um modelo válido.'));
+    } catch (cause) { if (mounted.current) setLocalError(cause instanceof Error ? cause.message : 'Não foi possível carregar o modelo.'); }
+    finally { locked.current = false; if (mounted.current) setPending(false); }
+  };
   const remove = async (model: GridModel) => {
     if (locked.current || isSaving || blocked) return;
     locked.current = true; setPending(true); setLocalError('');
@@ -182,12 +208,7 @@ const LabelModelManagerDialog: React.FC<LabelModelManagerModalProps> = ({
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => {
-                        selectLayout(model);
-                        setGridModalOpen(false);
-                        close();
-                        toast.success(`Modelo "${model.name}" selecionado!`);
-                      }}
+                      onClick={() => void choose(model, 'select')}
                       className={`flex-1 py-2.5 px-3 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
                         isActive
                           ? 'bg-emerald-600 text-white shadow-md'
@@ -201,10 +222,7 @@ const LabelModelManagerDialog: React.FC<LabelModelManagerModalProps> = ({
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => {
-                        setEditingGridModel(model);
-                        setGridModalOpen(true);
-                      }}
+                      onClick={() => void choose(model, 'edit')}
                       className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 rounded-2xl transition-colors cursor-pointer"
                       title="Editar Especificações"
                     >

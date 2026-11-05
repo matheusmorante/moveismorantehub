@@ -61,7 +61,7 @@ const summarizeInternalDescriptions = (aliases: any[], priorityTerm?: string | n
     seenTerms.add(normalizedTerm);
     seenCategories.add(category);
     examples.push(term);
-    if (examples.length === 3) break;
+    if (examples.length === 8) break;
   }
 
   if (!examples.length) return null;

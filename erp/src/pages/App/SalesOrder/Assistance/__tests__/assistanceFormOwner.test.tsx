@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ save: vi.fn(), subscribe: vi.fn(), fetch: vi.fn(), settings: vi.fn() }));
-vi.mock('@/pages/utils/orderHistoryService', () => ({ saveOrder: mocks.save, subscribeToOrders: mocks.subscribe, fetchOrderById: mocks.fetch }));
+const mocks = vi.hoisted(() => ({ save: vi.fn(), fetchPage: vi.fn(), fetch: vi.fn(), settings: vi.fn() }));
+vi.mock('@/pages/utils/orderHistoryService', () => ({ saveOrder: mocks.save, fetchOrdersPage: mocks.fetchPage, fetchOrderById: mocks.fetch }));
 vi.mock('@/pages/utils/settingsService', () => ({ getSettings: mocks.settings }));
 vi.mock('react-toastify', () => ({ toast: { info: vi.fn(), warning: vi.fn(), error: vi.fn(), success: vi.fn() } }));
 import { useAssistanceOrderForm } from '../hooks/useAssistanceOrderForm';
@@ -10,11 +10,21 @@ const customer = { fullName: 'Cliente', phone: '', noPhone: true };
 const source = { id: 'sale-1', status: 'fulfilled', orderType: 'sale', customerData: customer, items: [] } as any;
 const draft = { id: 'ast-1', status: 'draft', orderType: 'assistance', customerData: customer, items: [], assistanceDescription: 'Descrição' } as any;
 const pending = <T,>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; };
-beforeEach(() => { vi.useFakeTimers(); vi.resetAllMocks(); mocks.subscribe.mockImplementation(callback => { callback([]); return vi.fn(); }); mocks.settings.mockReturnValue({ requiredFields: {} }); mocks.fetch.mockResolvedValue(null); });
+beforeEach(() => { vi.useFakeTimers(); vi.resetAllMocks(); mocks.fetchPage.mockResolvedValue({ orders: [], total: 0 }); mocks.settings.mockReturnValue({ requiredFields: {} }); mocks.fetch.mockResolvedValue(null); });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 const submit = async (result: { current: ReturnType<typeof useAssistanceOrderForm> }) => { await act(async () => { result.current.handleSave({ preventDefault: vi.fn() } as any); }); };
 
 describe('proprietário da assistência', () => {
+  it('busca a venda vinculada ao produto no servidor', async () => {
+    const sale = { ...source, items: [{ productId: 'produto-1', description: 'Produto' }] };
+    mocks.fetchPage.mockResolvedValueOnce({ orders: [sale], total: 1 });
+    const { result } = renderHook(() => useAssistanceOrderForm({
+      initialData: { matchedProductId: 'produto-1' }, onClose: vi.fn(), onSaveSuccess: vi.fn(),
+    }));
+    await act(async () => { await Promise.resolve(); });
+    expect(mocks.fetchPage).toHaveBeenCalledWith(1, 1, expect.objectContaining({ productId: 'produto-1' }), expect.any(Object));
+    expect(result.current.currentLinkedOrder?.id).toBe('sale-1');
+  });
   it('não repete gravação final durante uma gravação pendente', async () => {
     const save = pending<string>(); mocks.save.mockReturnValue(save.promise); const onClose = vi.fn();
     const { result } = renderHook(() => useAssistanceOrderForm({ order: draft, onClose, onSaveSuccess: vi.fn() }));

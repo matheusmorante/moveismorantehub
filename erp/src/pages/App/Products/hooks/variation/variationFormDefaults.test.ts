@@ -63,8 +63,8 @@ describe('variationFormDefaults', () => {
     expect(formData.unitPrice).toBe(500);
     expect(formData.costPrice).toBe(250);
     expect(formData.syncUnitPrice).toBe(true);
-    expect(discountFixed).toBe('');
-    expect(discountPercent).toBe('');
+    expect(discountFixed).toBe(null);
+    expect(discountPercent).toBe(null);
   });
 
   it('constrói dados iniciais a partir de variação existente calculando desconto', () => {
@@ -88,8 +88,8 @@ describe('variationFormDefaults', () => {
       []
     );
     expect(formData.id).toBe('var-1');
-    expect(discountFixed).toBe('100.00');
-    expect(discountPercent).toBe('20.0');
+    expect(discountFixed).toBe(100);
+    expect(discountPercent).toBe(20);
   });
 
   it('usa promoção própria para o desconto quando somente o preço regular é herdado', () => {
@@ -117,7 +117,7 @@ describe('variationFormDefaults', () => {
 
     expect(formData.unitPrice).toBe(500);
     expect(formData.promoPrice).toBe(300);
-    expect(discountFixed).toBe('200.00');
-    expect(discountPercent).toBe('40.0');
+    expect(discountFixed).toBe(200);
+    expect(discountPercent).toBe(40);
   });
 });

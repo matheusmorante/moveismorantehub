@@ -66,6 +66,7 @@ if (testArtifactScenarioKey) {
 }
 env.MORANTE_ENV_SOURCE = 'vercel-development';
 env.VERCEL_ENV = 'development';
+if (!mode) env.EXPO_PUBLIC_APP_BETA = 'true';
 env.VERCEL_PROJECT_ID = projectId;
 env.VERCEL_ORG_ID = orgId;
 

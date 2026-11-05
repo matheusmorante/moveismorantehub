@@ -14,6 +14,7 @@ import {
   type ProductIpiType,
 } from '../../../../../../../shared-utils/productPurchasePricing';
 import { resolveProductVariationPricing } from '../../../../../../../shared-utils/productVariationPricing';
+import { toOptionalProductDiscountNumber } from '../../../../../../../shared-utils/productDiscountFields';
 
 export function computeDefaultVariationName(
   parentProduct: Product,
@@ -53,8 +54,8 @@ export function buildInitialVariationFormData(
   parentImages: string[]
 ): {
   formData: Variation;
-  discountFixed: string;
-  discountPercent: string;
+  discountFixed: number | null;
+  discountPercent: number | null;
 } {
   const inheritedImages = parentImages.length > 0 ? parentImages : parentProduct.images || [];
   const defaultImages: string[] = isSingleVariation ? [...inheritedImages] : [];
@@ -94,13 +95,13 @@ export function buildInitialVariationFormData(
     const orig = Number(effectivePricing.unitPrice || 0);
     const promo = Number(effectivePricing.promoPrice || 0);
 
-    let discountFixed = '';
-    let discountPercent = '';
+    let discountFixed: number | null = null;
+    let discountPercent: number | null = null;
     if (orig > 0 && promo > 0 && promo < orig) {
       const fixed = orig - promo;
       const pct = (fixed / orig) * 100;
-      discountFixed = fixed.toFixed(2);
-      discountPercent = pct.toFixed(1);
+      discountFixed = toOptionalProductDiscountNumber(fixed.toFixed(2));
+      discountPercent = toOptionalProductDiscountNumber(pct.toFixed(1));
     }
 
     return { formData, discountFixed, discountPercent };
@@ -141,7 +142,7 @@ export function buildInitialVariationFormData(
     },
   };
 
-  return { formData, discountFixed: '', discountPercent: '' };
+  return { formData, discountFixed: null, discountPercent: null };
 }
 
 export function calculateEffectivePurchaseCost(

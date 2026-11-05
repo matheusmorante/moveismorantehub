@@ -41,10 +41,10 @@ const renderPricingTab = (
       formData={variation}
       setFormData={setFormData}
       parentProduct={parentProduct}
-      varDiscountPercent="16.7"
-      varDiscountFixed="20.00"
-      getEffectiveDiscountPercent={() => '20.0'}
-      getEffectiveDiscountFixed={() => '40.00'}
+      varDiscountPercent={16.7}
+      varDiscountFixed={20}
+      getEffectiveDiscountPercent={() => 20}
+      getEffectiveDiscountFixed={() => 40}
       handlePriceChange={vi.fn()}
       handleDiscountPercentChange={vi.fn()}
       handleDiscountFixedChange={vi.fn()}

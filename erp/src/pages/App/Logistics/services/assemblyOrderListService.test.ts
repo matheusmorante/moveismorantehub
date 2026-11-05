@@ -1,63 +1,45 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const mocks = vi.hoisted(() => ({
-  builder: { order: vi.fn() },
-  from: vi.fn(),
-  pages: [[{ id: '' }]],
-  rangeCalls: [[0, 0]],
-  failingPage: -1,
-  queryError: new Error('falha simulada'),
-}));
-
-vi.mock('@/pages/utils/supabaseConfig', () => ({
-  supabase: { from: mocks.from },
-}));
-
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn(), select: vi.fn(), in: vi.fn() }));
+vi.mock('@/pages/utils/supabaseConfig', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from } }));
 import { fetchAssemblyOrderRows } from './assemblyOrderListService';
 
-describe('fetchAssemblyOrderRows', () => {
+describe('montagens filtradas no servidor', () => {
   beforeEach(() => {
-    mocks.pages.length = 0;
-    mocks.rangeCalls.length = 0;
-    mocks.failingPage = -1;
-    mocks.queryError = new Error('falha simulada');
-    Object.assign(mocks.builder, {
-      select: vi.fn().mockReturnThis(),
-      or: vi.fn().mockReturnThis(),
-      order: vi.fn().mockReturnThis(),
-      range: vi.fn((from: number, to: number) => {
-        mocks.rangeCalls.push([from, to]);
-        return mocks.builder;
-      }),
-      then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => {
-        const pageIndex = mocks.rangeCalls.length - 1;
-        if (pageIndex === mocks.failingPage) {
-          return Promise.resolve({ data: null, error: mocks.queryError }).then(resolve, reject);
-        }
-        return Promise.resolve({ data: mocks.pages[pageIndex] || [], error: null }).then(resolve, reject);
-      },
+    vi.resetAllMocks();
+    mocks.from.mockReturnValue({ select: mocks.select });
+    mocks.select.mockReturnValue({ in: mocks.in });
+  });
+  it('carrega todos os resultados do escopo em lotes sem recortar a agenda', async () => {
+    const ids = Array.from({ length: 100 }, (_, index) => `matched-${index}`);
+    mocks.rpc.mockResolvedValueOnce({ data: { ids, total: 101 }, error: null })
+      .mockResolvedValueOnce({ data: [...ids].reverse().map((id) => ({ id, __orderSummary: true, order_data: { __orderSummary: true }, items: [{ description: 'Mesa', quantity: 1 }] })), error: null })
+      .mockResolvedValueOnce({ data: { ids: ['older'], total: 101 }, error: null })
+      .mockResolvedValueOnce({ data: [{ id: 'older', __orderSummary: true }], error: null });
+    mocks.in.mockResolvedValueOnce({ data: [...ids].reverse().map((id) => ({ id })), error: null })
+      .mockResolvedValueOnce({ data: [{ id: 'older' }], error: null });
+    const filters = { search: 'ana florenca', location: 'internal', startDate: '2026-11-04' };
+    const rows = await fetchAssemblyOrderRows(filters);
+    expect(rows.map((row) => row.id)).toEqual([...ids, 'older']);
+    expect(mocks.rpc).toHaveBeenCalledWith('list_order_schedule_ids', {
+      p_scope: 'assembly_web', p_filters: filters, p_page: 1, p_page_size: 100,
     });
-    mocks.from.mockReset().mockReturnValue(mocks.builder);
+    expect(mocks.rpc).toHaveBeenLastCalledWith('read_order_summaries', { p_ids: ['older'] });
+    expect(rows[0].order_data.items[0].description).toBe('Mesa');
   });
-
-  it('fetches older assembly candidates beyond the first page', async () => {
-    const recentRows = Array.from({ length: 50 }, (_, index) => ({ id: `recent-${index}` }));
-    const olderScheduledOrder = { id: 'older-scheduled-order' };
-    mocks.pages = [recentRows, [olderScheduledOrder]];
-
-    const rows = await fetchAssemblyOrderRows();
-
-    expect(rows).toHaveLength(51);
-    expect(rows.at(-1)).toEqual(olderScheduledOrder);
-    expect(mocks.rangeCalls).toEqual([[0, 49], [50, 99]]);
-    expect(mocks.builder.order).toHaveBeenLastCalledWith('id', { ascending: true });
+  it('não baixa candidatos quando o servidor retorna vazio', async () => {
+    mocks.rpc.mockResolvedValue({ data: { ids: [], total: 0 }, error: null });
+    expect(await fetchAssemblyOrderRows()).toEqual([]);
+    expect(mocks.from).not.toHaveBeenCalled();
   });
-
-  it('stops and surfaces database errors on later pages', async () => {
-    mocks.pages = [Array.from({ length: 50 }, (_, index) => ({ id: `recent-${index}` }))];
-    mocks.failingPage = 1;
-
-    await expect(fetchAssemblyOrderRows()).rejects.toBe(mocks.queryError);
-    expect(mocks.rangeCalls).toEqual([[0, 49], [50, 99]]);
+  it('propaga falhas e recusa resultados repetidos durante uma carga', async () => {
+    const error = new Error('indisponível');
+    mocks.rpc.mockResolvedValueOnce({ data: null, error });
+    await expect(fetchAssemblyOrderRows()).rejects.toBe(error);
+    const ids = Array.from({ length: 100 }, (_, index) => `matched-${index}`);
+    mocks.rpc.mockResolvedValueOnce({ data: { ids, total: 101 }, error: null })
+      .mockResolvedValueOnce({ data: ids.map((id) => ({ id, __orderSummary: true })), error: null })
+      .mockResolvedValueOnce({ data: { ids: [ids[0]], total: 101 }, error: null });
+    mocks.in.mockResolvedValueOnce({ data: ids.map((id) => ({ id })), error: null });
+    await expect(fetchAssemblyOrderRows()).rejects.toThrow('A agenda mudou');
   });
 });

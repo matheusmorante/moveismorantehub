@@ -3,7 +3,7 @@ import CustomerData from '@/pages/types/customerData.type';
 import Person from '@/pages/types/person.type';
 import Order from '@/pages/types/order.type';
 import { getRecentPeople, searchPeople } from '@/pages/utils/personService';
-import { getOrdersByCustomerInfo } from '@/pages/utils/orderSearchQueries';
+import { getOrdersByCustomerInfoPage } from '@/pages/utils/orderSearchQueries';
 import {
   canSearchCustomers,
   getCustomerSearchQuery,
@@ -55,19 +55,29 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = '' }
 
   // Debounced search
   useEffect(() => {
-    if (!search.trim() || search.trim().length < 2) return;
+    if (!canSearchCustomers(search)) {
+      setOrders([]);
+      setLoadingPeople(false);
+      setLoadingOrders(false);
+      return;
+    }
 
+    let active = true;
+    const controller = new AbortController();
     const delay = setTimeout(async () => {
       setLoadingPeople(true);
       setLoadingOrders(true);
       try {
         const [foundPeople, foundOrders] = await Promise.all([
           searchPeople(search, 'customers', 30),
-          getOrdersByCustomerInfo(search),
+          getOrdersByCustomerInfoPage(search, undefined, undefined, {
+            partialName: true, pageSize: 15, signal: controller.signal,
+          }),
         ]);
+        if (!active) return;
         setPeople(foundPeople);
         setOrders(
-          foundOrders.map((o) => ({
+          foundOrders.orders.map((o) => ({
             id: o.id,
             date: o.date,
             customerData: o.customerData,
@@ -75,14 +85,16 @@ const CustomerSearchModal = ({ onSelect, onClose, onAddNew, initialSearch = '' }
           }))
         );
       } catch (e) {
-        console.error('Erro ao pesquisar clientes:', e);
+        if (active) console.error('Erro ao pesquisar clientes:', e);
       } finally {
-        setLoadingPeople(false);
-        setLoadingOrders(false);
+        if (active) {
+          setLoadingPeople(false);
+          setLoadingOrders(false);
+        }
       }
     }, 350);
 
-    return () => clearTimeout(delay);
+    return () => { active = false; controller.abort(); clearTimeout(delay); };
   }, [search]);
 
   // Orders are now loaded in the search effect.

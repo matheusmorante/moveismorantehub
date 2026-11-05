@@ -24,6 +24,8 @@ const AssemblyListPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const isStandalone = window.location.pathname.includes('/assembly-schedule');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => { const timer = setTimeout(() => setDebouncedSearch(searchTerm), 350); return () => clearTimeout(timer); }, [searchTerm]);
   const hasInitialScrolled = useRef(false);
 
   // Modal states
@@ -31,7 +33,11 @@ const AssemblyListPage = () => {
   const [selectedAssembly, setSelectedAssembly] = useState<ShowcaseAssembly | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  const { assemblies, loading, refetchAssemblies } = useAssemblyListQuery();
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = getLocalDateKey(yesterday);
+  const { assemblies, loading, refetchAssemblies } = useAssemblyListQuery({
+    search: debouncedSearch, ...(isStandalone ? { location: 'internal', startDate: yesterdayKey } : {}),
+  });
 
   const handleDeleteShowcase = async (id: string) => {
     if (!await requestConfirmation({
@@ -68,10 +74,7 @@ const AssemblyListPage = () => {
   };
 
   const todayKey = getLocalDateKey(new Date());
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = getLocalDateKey(yesterday);
-  const normalizedSearchTerm = normalizeSearchTerm(searchTerm);
+  const normalizedSearchTerm = normalizeSearchTerm(debouncedSearch);
   const filteredAssemblies = assemblies.filter((item) => {
     if (isStandalone && item.origin === 'order' && item.isOutside) return false;
     if (isStandalone && item.date && item.date < yesterdayKey) return false;

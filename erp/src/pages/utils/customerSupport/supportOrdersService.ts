@@ -2,7 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { withTimeout } from '../../../../../shared-utils/withTimeout';
 import { supportCustomerRecordFiltersSchema } from '../../../../../shared-utils/customerSupportFormSchemas';
 
-export type SupportCustomerOrderGroup = 'sales' | 'budgets' | 'delivery' | 'assistance' | 'returns';
+export type SupportCustomerOrderGroup = 'all' | 'sales' | 'budgets' | 'delivery' | 'assistance' | 'returns';
 
 export interface SupportCustomerOrderPage {
   records: SupportOrderSummary[];
@@ -105,6 +105,7 @@ export function mapOrderToSupportSummary(row: any): SupportOrderSummary {
     deliveryFinishedAt: row.delivery_finished_at,
     itemsCount,
     itemsPreview,
+    orderType: String(row.order_type || row.order_data?.orderType || row.order_data?.order_type || 'sale'),
     createdAt: row.created_at || new Date().toISOString(),
     isCanceled,
     isCompleted,
@@ -143,18 +144,20 @@ function mapOrderToSupportRecordSummary(row: any): SupportOrderSummary {
 
 /**
  * Consulta pedidos de venda vinculados a um cliente no ERP.
- * Respeita a regra de Egress: carrega apenas colunas necessárias com limite de 20 registros.
+ * Filtra no servidor e retorna até 15 documentos recentes.
  */
 export async function getCustomerOrders(
   supabase: SupabaseClient,
-  customerId: string
+  customerId: string,
+  orderFilter: 'all' | 'orders' | 'quotes' = 'all',
 ): Promise<SupportOrderSummary[]> {
   if (!customerId) return [];
 
   let response;
   try {
-    response = await withTimeout<any>(supabase.rpc('customer_support_list_customer_orders', {
+    response = await withTimeout<any>(supabase.rpc('customer_support_list_customer_orders_filtered', {
       p_customer_id: customerId,
+      p_order_filter: orderFilter,
     }), 15_000, null, 'central:pedidos-cliente');
   } catch {
     throw new Error(SUPPORT_ORDERS_LOAD_ERROR);
@@ -169,7 +172,7 @@ export async function getCustomerOrders(
   return response.data.map(mapOrderToSupportSummary);
 }
 
-/** Consult customer sale, assistance or return records using permission-checked server paging. */
+/** Consult all customer commercial records using permission-checked server paging. */
 export async function getCustomerOrderRecordsPage(
   supabase: SupabaseClient,
   contactPhone: string,

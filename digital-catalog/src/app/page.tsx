@@ -1,6 +1,6 @@
 'use client';
 import { useState, useCallback, useEffect, Suspense, useMemo, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SlidersHorizontal, X, ArrowUpDown } from 'lucide-react';
 
 import { HeroBanner } from '@/components/layout';
@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/lib/supabase/client';
+import { catalogCategoriesQuery, catalogRelationshipsQuery } from '@/lib/catalog-menu-queries';
 import { ProductFilter } from '@/features/products/components/product-filter';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { storefrontFilterChangeFormSchema } from '../../../shared-utils/catalogFormSchemas';
@@ -52,12 +53,13 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const queryClient = useQueryClient();
   const { data: catalogMeta } = useQuery({
     queryKey: ['catalog-meta'],
     queryFn: async () => {
       const [catRes, relRes, oppRes] = await Promise.all([
-        supabase.from('categories').select('id, name, slug, type').order('name'),
-        supabase.from('category_relationships').select('parent_id, child_id'),
+        queryClient.fetchQuery(catalogCategoriesQuery),
+        queryClient.fetchQuery(catalogRelationshipsQuery),
         supabase
           .from('opportunities')
           .select(
@@ -66,8 +68,8 @@ function HomeContent() {
           .eq('active', true),
       ]);
       return {
-        categories: catRes.data || [],
-        relationships: relRes.data || [],
+        categories: catRes || [],
+        relationships: relRes || [],
         opportunities: oppRes.data || [],
       };
     },

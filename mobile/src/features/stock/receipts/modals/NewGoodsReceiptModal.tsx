@@ -15,6 +15,7 @@ import {
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { ReceiptRateioField, parseRateioInputValue } from './ReceiptRateioField';
 import type { RateioMode } from './ReceiptRateioField';
+import { ReceiptTotalSummary } from './ReceiptTotalSummary';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, CalendarDays, Check, LockKeyhole, X } from 'lucide-react-native';
 import {
@@ -1186,36 +1187,7 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
                 />
               </View>
 
-              <View
-                style={[
-                  styles.totalBox,
-                  {
-                    borderColor: '#a7f3d0',
-                    backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5',
-                  },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: isDarkMode ? '#a7f3d0' : '#047857',
-                    fontWeight: '900',
-                  }}
-                >
-                  Valor total do recebimento
-                </Text>
-                <Text
-                  style={{
-                    color: isDarkMode ? '#a7f3d0' : '#047857',
-                    fontWeight: '900',
-                    fontSize: 20,
-                  }}
-                >
-                  {new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  }).format(totalValue)}
-                </Text>
-              </View>
+              <ReceiptTotalSummary totalValue={totalValue} isDarkMode={isDarkMode} />
             </ScrollView>
 
             <View
@@ -1382,15 +1354,6 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     padding: 12,
     textAlignVertical: 'top',
-  },
-  totalBox: {
-    borderWidth: 1,
-    borderRadius: 15,
-    padding: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
   },
   footer: { borderTopWidth: 1, padding: 12, flexDirection: 'row', gap: 10 },
   cancelButton: {

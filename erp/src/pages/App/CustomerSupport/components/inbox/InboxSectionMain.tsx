@@ -8,9 +8,7 @@ interface InboxSectionMainProps {
   totalMine: number;
   totalUnassigned: number;
   totalUnread?: number;
-  activeCustomInbox: string | null;
   activeTeam: string | null;
-  onResetCustomAndTeam: () => void;
 }
 
 export const InboxSectionMain: React.FC<InboxSectionMainProps> = ({
@@ -20,15 +18,12 @@ export const InboxSectionMain: React.FC<InboxSectionMainProps> = ({
   totalMine,
   totalUnassigned,
   totalUnread = 0,
-  activeCustomInbox,
   activeTeam,
-  onResetCustomAndTeam,
 }) => {
   const isDefaultSelected = (targetFilter: ConversationFilter) =>
-    activeFilter === targetFilter && !activeCustomInbox && !activeTeam;
+    activeFilter === targetFilter && !activeTeam;
 
   const handleSelect = (filter: ConversationFilter) => {
-    onResetCustomAndTeam();
     onFilterChange(filter);
   };
 

@@ -1,43 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { requestConfirmation } from '@/components/shared/confirmationService';
-import { supportCustomerLinkSchema, type SupportCustomerLinkInput } from '../../../../../../shared-utils/customerSupportFormSchemas';
+import React, { useState, useEffect } from 'react';
 import { WhatsAppConversation, WhatsAppMessage } from '../types';
 import { formatPhoneForDisplay } from '@/pages/utils/customerSupport/phoneUtils';
 import { whatsappSupportGuard } from '@/pages/utils/customerSupport/whatsappSupportGuard';
 import {
   SupportOrderSummary,
+  type SupportCustomerOrderGroup,
 } from '@/pages/utils/customerSupport/supportOrdersService';
-import {
-  unlinkCustomer,
-  CustomerSummary,
-} from '@/pages/utils/customerSupport/customerMatchingService';
-import type { SupportCustomerOrderGroup } from '@/pages/utils/customerSupport/supportOrdersService';
-import { updateConversationNotes, updateConversationTag } from '@/pages/utils/customerSupport/customerSupportService';
-import { supabase } from '@/pages/utils/supabaseConfig';
-import { ManualLinkModal } from './ManualLinkModal';
 import { useAuth } from '@/context/AuthContext';
 import { canPerform } from '@/pages/utils/permissionService';
 import { getProfileRoles } from '@/pages/utils/accessRoles';
-import { CustomerDetailsTab } from './infoPanel/CustomerDetailsTab';
 import { CustomerOrderRecordsView } from './infoPanel/CustomerOrderRecordsView';
-import { CustomerConversationHistoryView } from './infoPanel/CustomerConversationHistoryView';
-import { CustomerNotesTab } from './infoPanel/CustomerNotesTab';
 import { CustomerMediaTab } from './infoPanel/CustomerMediaTab';
+import { CustomerOrderDetailsModal } from './infoPanel/CustomerOrderDetailsModal';
 
-type CustomerPanelView = 'profile' | 'orders' | 'budgets' | 'delivery' | 'assistance' | 'returns' | 'customerData' | 'history' | 'media' | 'notes';
+type CustomerPanelView = 'profile' | 'media';
 
-const VIEW_COPY: Record<Exclude<CustomerPanelView, 'profile'>, { title: string; description: string; icon: string }> = {
-  orders: { title: 'Pedidos', description: 'Compras realizadas e andamento', icon: 'bi-receipt' },
-  budgets: { title: 'Orçamentos', description: 'Propostas abertas, aprovadas e vencidas', icon: 'bi-file-earmark-text' },
-  delivery: { title: 'Entregas e montagens', description: 'Agendamentos e acompanhamento', icon: 'bi-truck' },
-  assistance: { title: 'Assistências técnicas', description: 'Garantias e solicitações', icon: 'bi-tools' },
-  returns: { title: 'Trocas e devoluções', description: 'Solicitações e retornos', icon: 'bi-arrow-return-left' },
-  customerData: { title: 'Dados cadastrais', description: 'Contatos e endereços', icon: 'bi-person-vcard' },
-  history: { title: 'Histórico de atividades', description: 'Relacionamento com o cliente', icon: 'bi-clock-history' },
-  media: { title: 'Mídias', description: 'Arquivos compartilhados', icon: 'bi-images' },
-  notes: { title: 'Observações internas', description: 'Anotações da equipe', icon: 'bi-chat-left-text' },
+const VIEW_COPY: Record<CustomerPanelView, { title: string; icon: string }> = {
+  profile: { title: 'Operações comerciais', icon: 'bi-receipt' },
+  media: { title: 'Mídias', icon: 'bi-images' },
 };
 
 export interface CustomerInfoPanelProps {
@@ -55,7 +35,6 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
   isOpen,
   isOverlay = false,
   onClose,
-  onConversationUpdated,
   onJumpToMessage,
   onShareBudget,
 }) => {
@@ -66,133 +45,36 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
   const canViewBudgets = canPerform('viewBudgets', roles);
   const canViewAssistance = canPerform('viewAssistanceOrders', roles);
   const canViewReturns = canPerform('viewReturns', roles);
-  const canViewDelivery = canPerform('viewDeliverySchedule', roles);
-  const canViewAssemblies = canPerform('viewAssemblyList', roles);
-  const canCreateBudget = canViewBudgets && canPerform('createEditOrders', roles);
   const canSendMessages = canPerform('sendCustomerSupportMessages', roles);
+  const customerRecordGroups: Array<{ group: SupportCustomerOrderGroup; title: string; icon: string }> = [
+    ...(canViewOrders ? [{ group: 'sales' as const, title: 'Pedidos de venda', icon: 'bi-receipt' }] : []),
+    ...(canViewAssistance ? [{ group: 'assistance' as const, title: 'Assistências', icon: 'bi-tools' }] : []),
+    ...(canViewReturns ? [{ group: 'returns' as const, title: 'Devoluções', icon: 'bi-arrow-return-left' }] : []),
+    ...(canViewBudgets ? [{ group: 'budgets' as const, title: 'Orçamentos', icon: 'bi-file-earmark-text' }] : []),
+  ];
 
   const [activeView, setActiveView] = useState<CustomerPanelView>('profile');
-  const [selectedOrder, setSelectedOrder] = useState<SupportOrderSummary | null>(null);
-  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
-  const [tags, setTags] = useState<string[]>(conversation.tags || []);
-  const [customerActionError, setCustomerActionError] = useState('');
-  const unlinkForm = useForm<SupportCustomerLinkInput>({ resolver: zodResolver(supportCustomerLinkSchema) });
-  const unlinkLock = useRef(false);
-
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [expandedOrderGroup, setExpandedOrderGroup] = useState<SupportCustomerOrderGroup | null>(null);
+  const [renderedOrderGroups, setRenderedOrderGroups] = useState<Set<SupportCustomerOrderGroup>>(() => new Set());
   const careWindow = whatsappSupportGuard.calculateCareWindow(conversation.lastCustomerMessageAt);
   const customer = conversation.customer;
-  const isLinked = Boolean(conversation.customerId && customer);
-
-  const displayName =
-    conversation.contactName?.trim() ||
-    formatPhoneForDisplay(conversation.contactPhone);
-
-  const initials = conversation.contactName?.trim()
-    ? conversation.contactName
-        .trim()
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0].toUpperCase())
-        .join('')
-    : null;
-
-  useEffect(() => {
-    setTags(conversation.tags || []);
-  }, [conversation.id, conversation.tags]);
+  const contactName = conversation.contactName?.trim() || customer?.fullName || 'Contato sem nome';
+  const contactPhone = conversation.contactPhone || customer?.phone;
 
   useEffect(() => {
     setActiveView('profile');
-    setSelectedOrder(null);
+    setSelectedOrderId(null);
+    setExpandedOrderGroup(null);
+    setRenderedOrderGroups(new Set());
   }, [conversation.id, conversation.customerId]);
 
   if (!isOpen) return null;
 
-  const handleUnlink = async () => {
-    if (unlinkLock.current) return;
-    unlinkLock.current = true;
-    unlinkForm.reset({ conversationId: conversation.id, customerId: conversation.customerId || '' });
-    setCustomerActionError('');
-    try {
-      await unlinkForm.handleSubmit(async (data) => {
-        if (!await requestConfirmation({
-          title: 'Desvincular cliente?',
-          message: 'Deseja realmente desvincular este cliente da conversa?',
-          confirmLabel: 'Desvincular',
-          type: 'warning',
-        })) return;
-        const res = await unlinkCustomer(supabase, data.conversationId);
-        if (!res.success) {
-          setCustomerActionError(res.error || 'Não foi possível desvincular o cliente.');
-          return;
-        }
-        onConversationUpdated({ customerId: null, customerLinkStatus: 'unlinked', customer: null, orders: [] });
-        setSelectedOrder(null);
-        setActiveView('profile');
-      }, () => setCustomerActionError('Conversa ou cliente inválido para desvincular.'))();
-    } catch {
-      setCustomerActionError('Não foi possível desvincular o cliente. Tente novamente.');
-    } finally {
-      unlinkLock.current = false;
-    }
-  };
-
-  const handleLinked = (linkedCustomer: CustomerSummary) => {
-    onConversationUpdated({
-      customerId: linkedCustomer.id,
-      customerLinkStatus: 'manually_linked',
-      customer: linkedCustomer,
-    });
-  };
-
-  const handleSaveNotes = async (notes: string, expectedNotes: string | null) => {
-    const saved = await updateConversationNotes(supabase, conversation.id, notes, expectedNotes);
-    if (saved) onConversationUpdated({ internalNotes: notes });
-    return saved;
-  };
-
-  const handleAddTag = async (newTag: string) => {
-    const nextTags = await updateConversationTag(supabase, conversation.id, newTag, false);
-    if (!nextTags) return false;
-    setTags(nextTags);
-    onConversationUpdated({ tags: nextTags });
-    return true;
-  };
-
-  const handleRemoveTag = async (tagToRemove: string) => {
-    const nextTags = await updateConversationTag(supabase, conversation.id, tagToRemove, true);
-    if (!nextTags) return false;
-    setTags(nextTags);
-    onConversationUpdated({ tags: nextTags });
-    return true;
-  };
-
   const openView = (view: CustomerPanelView) => {
-    setSelectedOrder(null);
     setActiveView(view);
   };
-  const goBack = () => {
-    if (selectedOrder) {
-      setSelectedOrder(null);
-      return;
-    }
-    setActiveView('profile');
-  };
-  const viewTitle = selectedOrder
-    ? `#${selectedOrder.orderNumber}`
-    : activeView === 'profile' ? 'Perfil do cliente' : VIEW_COPY[activeView].title;
-  const viewDescription = selectedOrder
-    ? 'Detalhes do registro comercial'
-    : activeView === 'profile' ? 'Informações comerciais e histórico' : VIEW_COPY[activeView].description;
-  const orderGroupByView: Partial<Record<CustomerPanelView, SupportCustomerOrderGroup>> = {
-    orders: 'sales',
-    budgets: 'budgets',
-    delivery: 'delivery',
-    assistance: 'assistance',
-    returns: 'returns',
-  };
-  const activeOrderGroup = orderGroupByView[activeView];
-
+  const viewDescription = `${contactName} · ${contactPhone ? formatPhoneForDisplay(contactPhone) : 'Telefone não informado'}`;
   return (
     <>
       <div
@@ -206,20 +88,13 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
         aria-labelledby="customer-info-panel-title"
         className={`absolute inset-y-0 right-0 ${isOverlay ? 'z-[60]' : 'z-50'} h-full w-full max-w-full shrink-0 animate-slide-left select-none flex flex-col border-l border-slate-200/90 bg-white shadow-xl transition-colors dark:border-slate-800 dark:bg-slate-900 sm:w-[420px] 2xl:w-[480px]`}
       >
-        {customerActionError && <p role="alert" className="p-3 text-xs text-red-600">{customerActionError}</p>}
         <div className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-3 dark:border-slate-800 sm:px-4">
           <div className="flex min-w-0 items-center gap-2">
-            {(activeView !== 'profile' || selectedOrder) ? (
-              <button type="button" onClick={goBack} aria-label={selectedOrder ? 'Voltar à lista' : 'Voltar ao perfil'} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
-                <i className="bi bi-arrow-left" aria-hidden="true" />
-              </button>
-            ) : (
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
-                <i className="bi bi-person-lines-fill" aria-hidden="true" />
-              </span>
-            )}
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+              <i className="bi bi-person-lines-fill" aria-hidden="true" />
+            </span>
             <div className="min-w-0">
-              <h3 id="customer-info-panel-title" className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{viewTitle}</h3>
+              <h3 id="customer-info-panel-title" className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">Perfil do cliente</h3>
               <p className="truncate text-[10px] text-slate-500 dark:text-slate-400">{viewDescription}</p>
             </div>
           </div>
@@ -228,122 +103,104 @@ export const CustomerInfoPanel: React.FC<CustomerInfoPanelProps> = ({
           </button>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3 border-b border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800/80 dark:bg-slate-800/30">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200/60 bg-gradient-to-tr from-slate-200 to-slate-100 text-sm font-bold text-slate-700 shadow-xs dark:border-slate-700 dark:from-slate-700 dark:to-slate-600 dark:text-slate-200">
-            {initials || <i className="bi bi-person text-base text-slate-400" />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <h4 className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{displayName}</h4>
-            <p className="font-mono text-xs text-slate-500 dark:text-slate-400">{formatPhoneForDisplay(conversation.contactPhone)}</p>
-          </div>
-          <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${isLinked ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-            {isLinked ? 'Cliente ERP' : 'Não vinculado'}
-          </span>
-        </div>
+        <nav aria-label="Seções do perfil do cliente" className="grid shrink-0 grid-cols-2 gap-2 border-b border-slate-100 p-3 dark:border-slate-800">
+          {(['profile', 'media'] as const).map((view) => (
+            <button
+              key={view}
+              type="button"
+              aria-current={activeView === view ? 'page' : undefined}
+              onClick={() => openView(view)}
+              className={`flex min-h-10 items-center gap-2 rounded-xl border px-3 py-2 text-left text-[10px] font-semibold transition-colors ${activeView === view
+                ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'}`}
+            >
+              <i className={`bi ${VIEW_COPY[view].icon} text-blue-600 dark:text-blue-400`} aria-hidden="true" />
+              <span>{VIEW_COPY[view].title}</span>
+            </button>
+          ))}
+        </nav>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-          {activeView === 'profile' && !selectedOrder && (
+          {activeView === 'profile' && (
             <div className="space-y-4 animate-fade-in">
-              {canViewCommercial && (
-                <section aria-label="Atalhos principais" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2">
-                  {([
-                    { view: 'budgets', allowed: canViewBudgets },
-                    { view: 'orders', allowed: canViewOrders },
-                    { view: 'delivery', allowed: canViewDelivery || canViewAssemblies },
-                    { view: 'assistance', allowed: canViewAssistance },
-                    { view: 'returns', allowed: canViewReturns },
-                  ] as const).filter(({ allowed }) => allowed).map(({ view }) => (
-                    <button key={view} type="button" onClick={() => openView(view)} className="group min-h-24 rounded-2xl border border-slate-200 bg-white p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-800 dark:hover:bg-blue-950/20">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400"><i className={`bi ${VIEW_COPY[view].icon}`} aria-hidden="true" /></span>
-                      <span className="mt-2 block text-xs font-bold text-slate-900 group-hover:text-blue-700 dark:text-slate-100 dark:group-hover:text-blue-300">{VIEW_COPY[view].title}</span>
-                      <span className="mt-0.5 block text-[10px] leading-snug text-slate-500 dark:text-slate-400">{VIEW_COPY[view].description}</span>
-                    </button>
-                  ))}
-                  </div>
-                  <div>
-                    <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Relacionamento</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(['customerData', 'history', 'notes', 'media'] as const).map((view) => (
-                        <button key={view} type="button" onClick={() => openView(view)} className="flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
-                          <i className={`bi ${VIEW_COPY[view].icon} text-blue-600 dark:text-blue-400`} aria-hidden="true" />{VIEW_COPY[view].title}
+              {canViewCommercial ? (
+                <section aria-label="Registros comerciais do cliente" className="space-y-4">
+                  {customerRecordGroups.map(({ group, title, icon }) => {
+                    const isExpanded = expandedOrderGroup === group;
+                    const shouldRenderRecords = renderedOrderGroups.has(group);
+                    return (
+                      <section key={group} className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800">
+                        <button
+                          type="button"
+                          aria-expanded={isExpanded}
+                          onClick={() => {
+                            setExpandedOrderGroup(isExpanded ? null : group);
+                            if (!isExpanded) {
+                              setRenderedOrderGroups((current) => new Set(current).add(group));
+                            }
+                          }}
+                          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/60"
+                        >
+                          <span className="flex items-center gap-2">
+                            <i className={`bi ${icon} text-blue-600 dark:text-blue-400`} aria-hidden="true" />
+                            {title}
+                          </span>
+                          <i className={`bi bi-chevron-down text-[10px] transition-transform duration-300 ease-in-out ${isExpanded ? 'rotate-180' : ''}`} aria-hidden="true" />
                         </button>
-                      ))}
-                    </div>
-                  </div>
+                        <div
+                          className={`grid overflow-hidden transition-[grid-template-rows,opacity] duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'pointer-events-none grid-rows-[0fr] opacity-0'}`}
+                          onTransitionEnd={(event) => {
+                            if (event.target !== event.currentTarget || event.propertyName !== 'grid-template-rows' || isExpanded) return;
+                            setRenderedOrderGroups((current) => {
+                              if (!current.has(group)) return current;
+                              const next = new Set(current);
+                              next.delete(group);
+                              return next;
+                            });
+                          }}
+                        >
+                          <div className="min-h-0 overflow-hidden">
+                            {shouldRenderRecords && (
+                              <div className="border-t border-slate-100 p-3 dark:border-slate-800">
+                                <CustomerOrderRecordsView
+                                  contactPhone={conversation.contactPhone}
+                                  orderGroup={group}
+                                  canViewCommercial={canViewCommercial}
+                                  canShareBudget={canSendMessages && careWindow.isOpen}
+                                  onOpenRecord={(record) => setSelectedOrderId(record.id)}
+                                  onShareBudget={onShareBudget}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </section>
+                    );
+                  })}
                 </section>
+              ) : (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+                  <strong className="block font-bold">Dados comerciais restritos</strong>
+                  <p className="mt-1 text-[11px] leading-relaxed">É necessária a permissão de informações comerciais para consultar as operações deste cliente.</p>
+                </div>
               )}
-
-              {(!isLinked || !canViewCommercial) && <section>
-                <h4 className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">{isLinked ? 'Dados cadastrais' : 'Vínculo do cliente'}</h4>
-                <CustomerDetailsTab
-                  conversation={conversation}
-                  customer={customer}
-                  isLinked={isLinked}
-                  canViewCommercial={canViewCommercial}
-                  onOpenLinkModal={() => setIsLinkModalOpen(true)}
-                  onUnlink={handleUnlink}
-                  isUnlinking={unlinkForm.formState.isSubmitting}
-                />
-              </section>}
             </div>
           )}
 
-          {activeOrderGroup && (
-            <CustomerOrderRecordsView
-              key={activeView}
-              contactPhone={conversation.contactPhone}
-              orderGroup={activeOrderGroup}
-              isLinked={isLinked}
-              canViewCommercial={canViewCommercial}
-              canCreateBudget={canCreateBudget}
-              canShareBudget={canSendMessages && careWindow.isOpen}
-              onShareBudget={onShareBudget}
-              selectedRecord={selectedOrder}
-              onSelectRecord={setSelectedOrder}
-            />
+          {activeView === 'media' && (
+            canViewCommercial
+              ? <CustomerMediaTab conversationId={conversation.id} onJumpToMessage={onJumpToMessage} />
+              : <p className="text-xs text-amber-700 dark:text-amber-300">Dados comerciais restritos.</p>
           )}
-
-          {activeView === 'customerData' && (
-            <CustomerDetailsTab
-              conversation={conversation}
-              customer={customer}
-              isLinked={isLinked}
-              canViewCommercial={canViewCommercial}
-              onOpenLinkModal={() => setIsLinkModalOpen(true)}
-              onUnlink={handleUnlink}
-              isUnlinking={unlinkForm.formState.isSubmitting}
-            />
-          )}
-
-          {activeView === 'history' && <CustomerConversationHistoryView conversationId={conversation.id} />}
-
-          {activeView === 'notes' && (
-            <CustomerNotesTab
-              key={conversation.id}
-              careWindow={careWindow}
-              lastCustomerMessageAt={conversation.lastCustomerMessageAt}
-              initialNotes={conversation.internalNotes}
-              tags={tags}
-              onAddTag={handleAddTag}
-              onRemoveTag={handleRemoveTag}
-              onSaveNotes={handleSaveNotes}
-            />
-          )}
-
-          {activeView === 'media' && <CustomerMediaTab conversationId={conversation.id} onJumpToMessage={onJumpToMessage} />}
         </div>
-
-        {/* Modal de Vinculação Manual */}
-        {canViewCommercial && (
-          <ManualLinkModal
-            isOpen={isLinkModalOpen}
-            onClose={() => setIsLinkModalOpen(false)}
-            conversationId={conversation.id}
-            onLinked={handleLinked}
-          />
-        )}
       </aside>
+      {selectedOrderId && (
+        <CustomerOrderDetailsModal
+          key={selectedOrderId}
+          orderId={selectedOrderId}
+          onClose={() => setSelectedOrderId(null)}
+        />
+      )}
     </>
   );
 };

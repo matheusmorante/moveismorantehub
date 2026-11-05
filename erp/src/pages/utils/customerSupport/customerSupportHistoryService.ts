@@ -12,7 +12,7 @@ export const CONVERSATION_SELECT_COLUMNS =
   'id, business_phone_number_id, contact_phone, contact_wa_id, contact_name, customer_id, customer_link_status, last_message_text, last_message_at, last_customer_message_at, unread_count, is_archived, internal_notes, tags, assigned_to, created_at, updated_at';
 
 export const MESSAGE_SELECT_COLUMNS =
-  'id, conversation_id, api_message_id, direction, message_type, text_content, media_id, media_mime_type, media_url, media_filename, media_caption, reply_to_message_id, reply_to_wamid, status, error_code, failure_reason, raw_payload, timestamp, created_at';
+  'id, conversation_id, api_message_id, direction, message_type, text_content, media_id, media_mime_type, media_url, media_filename, media_caption, reply_to_message_id, reply_to_wamid, status, error_code, failure_reason, raw_payload, timestamp, created_at, changed_at';
 
 const MESSAGE_GLOBAL_SEARCH_COLUMNS =
   'id, conversation_id, direction, message_type, text_content, media_filename, media_caption, timestamp, created_at';

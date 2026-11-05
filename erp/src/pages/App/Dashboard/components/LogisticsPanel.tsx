@@ -1,9 +1,8 @@
 import React from 'react';
-import Order from '../../../types/order.type';
+import type { DashboardMetrics } from '../dashboardMetrics';
 
 interface LogisticsPanelProps {
-  filteredOrders: Order[];
-  allActiveOrders: Order[];
+  data: DashboardMetrics['logistics'];
 }
 
 const MetricLine: React.FC<{
@@ -21,37 +20,7 @@ const MetricLine: React.FC<{
   </div>
 );
 
-const LogisticsPanel: React.FC<LogisticsPanelProps> = ({ filteredOrders, allActiveOrders }) => {
-  const saleOrders = filteredOrders.filter(
-    (o) => ['scheduled', 'fulfilled'].includes(o.status || '') && o.orderType !== 'return'
-  );
-
-  const totalKm = saleOrders.reduce((acc, o) => {
-    const dist = o.shipping?.distance;
-    const v =
-      typeof dist === 'number' ? dist : parseFloat(String(dist || '0').replace(',', '.')) || 0;
-    return acc + v;
-  }, 0);
-
-  const fulfilled = filteredOrders.filter(
-    (o) => o.status === 'fulfilled' && o.orderType !== 'return'
-  ).length;
-  const pending = allActiveOrders.filter(
-    (o) => o.status === 'scheduled' && o.orderType !== 'return' && !!o.shipping?.scheduling?.date
-  ).length;
-
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const late = allActiveOrders.filter((o) => {
-    if (o.status !== 'scheduled' || !o.shipping?.scheduling?.date) return false;
-    try {
-      const d = new Date(o.shipping.scheduling.date + 'T00:00:00');
-      return d < today;
-    } catch {
-      return false;
-    }
-  }).length;
-
+const LogisticsPanel: React.FC<LogisticsPanelProps> = ({ data: { fulfilled, pending, late, totalKm } }) => {
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-5 space-y-1">
       <div className="flex items-center gap-2 mb-3">

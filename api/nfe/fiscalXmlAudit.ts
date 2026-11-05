@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { SignedXml } from 'xml-crypto';
 import {
   HOMOLOGATION_FIRST_ITEM_DESCRIPTION,
@@ -9,7 +8,6 @@ import { ZERO_OWN_ICMS_CSOSNS, zeroOwnIcmsGroup } from '../../shared-utils/fisca
 import {
   composeServiceFiscalValues,
 } from '../../erp/src/pages/utils/nfe/serviceFiscalComposition';
-import { canonicalFiscalCommand } from './normal-sale/attemptPolicy';
 import {
   composePaymentFeeVoutro,
   joinFiscalAdditionalInformation,
@@ -52,30 +50,7 @@ export class FiscalXmlAuditError extends Error {
   }
 }
 
-export function fiscalPreviewFingerprint(
-  snapshot: FiscalSnapshotCandidate,
-  document: FiscalDocument,
-  identity: { series: string; number: number; accessKey: string; issuedAt: string },
-  signedXml: string
-): string {
-  const frozenFacts = { ...snapshot } as Record<string, unknown>;
-  delete frozenFacts.capturedAt;
-  delete frozenFacts.persistedHash;
-  // The database stores this duplicate trace beside resolvedDocument.decisions.
-  // It is added only after preview, so it cannot participate in the preview fingerprint.
-  delete frozenFacts.decisionTrace;
-  const { snapshotHash: _snapshotHash, ...frozenDocument } = document;
-  return createHash('sha256')
-    .update(
-      canonicalFiscalCommand({
-        snapshot: frozenFacts,
-        document: frozenDocument,
-        identity,
-        signedXmlSha256: createHash('sha256').update(signedXml).digest('hex'),
-      })
-    )
-    .digest('hex');
-}
+export { fiscalPreviewFingerprint } from './fiscalPreviewFingerprint';
 
 import { normalizeFiscalIdentifier } from '../../shared-utils/fiscalIdentifiers.js';
 

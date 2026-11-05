@@ -1,0 +1,154 @@
+{
+  "date": "2026-11-04",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "scope": "Implementação das otimizações restantes de leitura; sem publicação dos clientes.",
+  "source": "Playwright UI, Vitest/RTL, metadados remotos somente leitura e logs de build/typecheck.",
+  "measurements": {
+    "ordersSame15Ids": {
+      "fullJsonBytes": 123413,
+      "summaryJsonBytes": 66816,
+      "reductionPercent": 45.86,
+      "comparedMismatches": 0,
+      "comparedFields": [
+        "customer",
+        "status",
+        "itemDescriptionsAndQuantities",
+        "total",
+        "paidAmount"
+      ],
+      "summaryRegisteredAsPersistedFiscalSnapshot": false,
+      "completeRegisteredAsPersistedFiscalSnapshot": true,
+      "script": "output/playwright/remaining-order-equivalence.js"
+    },
+    "orderDetailUi": {
+      "summaryRows": 15,
+      "fullDetailRequestedByChosenId": true,
+      "script": "output/playwright/remaining-orders-ui.js"
+    },
+    "supportIncremental": {
+      "responseBytes": 103,
+      "messagesReturned": 0,
+      "watermarkPresent": true,
+      "messageChannelScopedToSelectedConversation": true,
+      "script": "output/playwright/remaining-support-ui.js",
+      "writeGuard": "Bloqueio de mutações; autovínculo de contato simulado."
+    },
+    "labelModelsUi": {
+      "rows": 4,
+      "responseBytes": 10493,
+      "listRequestedHeavyFields": false,
+      "selectionConfirmed": true,
+      "fullArtReusedFromCache": true,
+      "previousDatabaseAggregatedJsonBytes": 213559,
+      "previousSizeIsNotIdenticalHttpRepresentation": true,
+      "script": "output/playwright/remaining-labels-ui.js"
+    },
+    "appNotifications": {
+      "rows": 50,
+      "databaseAggregatedJsonBytes": 19001
+    },
+    "productAlerts": {
+      "condition": "novo",
+      "rows": 103,
+      "databaseAggregatedJsonBytes": 99445,
+      "currentOperatorConditionsEmpty": true
+    },
+    "catalogDefaultPage": {
+      "parents": 15,
+      "total": 146,
+      "responseBytes": 25399,
+      "parentImagesAtMostOne": true,
+      "onlyPublishedVariations": true,
+      "fullDetailOpened": true,
+      "categoryReadResponses": 1,
+      "categoryResponseBytes": 5182,
+      "relationshipReadResponses": 1,
+      "relationshipResponseBytes": 6040,
+      "cardHttpAttempts": 2,
+      "completedCardResponses": 1,
+      "abortedCardAttempt": 1,
+      "script": "output/playwright/remaining-catalog-ui.js"
+    },
+    "catalogPricePage": {
+      "minPrice": 400,
+      "maxPrice": 600,
+      "parents": 15,
+      "total": 32,
+      "responseBytes": 18568,
+      "requests": 1,
+      "pricesOutsideRange": 0,
+      "script": "output/playwright/remaining-catalog-filters-ui.js"
+    }
+  },
+  "validation": {
+    "erpVitest": {
+      "passed": 146,
+      "files": 16,
+      "logs": [
+        "output/playwright/remaining-final-tests.log",
+        "output/playwright/remaining-label-page-tests.log"
+      ]
+    },
+    "mobileVitest": {
+      "passed": 14,
+      "files": 4,
+      "log": "output/playwright/remaining-mobile-tests-final.log"
+    },
+    "erpBuild": {
+      "passed": true,
+      "log": "output/playwright/remaining-erp-build-final.log"
+    },
+    "catalogTypecheck": {
+      "passed": true,
+      "log": "output/playwright/remaining-catalog-typecheck-final.log"
+    },
+    "mobileGlobalTypecheck": {
+      "passed": false,
+      "preexistingDiagnosticsRemain": true,
+      "diagnosticsInScopedChangedFiles": 0,
+      "log": "output/playwright/remaining-mobile-typecheck-final.log"
+    },
+    "erpGlobalTypecheck": {
+      "passed": false,
+      "preexistingDiagnosticsRemain": true
+    },
+    "nativeAndroidUiTested": false,
+    "realOperationalWritesTested": false,
+    "realFiscalActionsExecuted": false,
+    "fixtureDmlExecuted": false,
+    "externalMessagesSent": false,
+    "clientsDeployed": false,
+    "otaPublished": false
+  },
+  "migrations": [
+    "20261105000648_compact_notifications_message_changes",
+    "20261105000932_support_initial_message_page",
+    "20261105001647_compact_catalog_cards",
+    "20261105002327_order_read_summaries",
+    "20261105003459_notification_products_cart_quote",
+    "20261105004008_order_summary_payment_projection",
+    "20261105004845_public_catalog_product_detail",
+    "20261105010448_catalog_price_filters_before_paging"
+  ],
+  "acl": {
+    "allNewReadFunctionsSecurityInvoker": true,
+    "internalAnonExecution": false,
+    "publicAnonFunctions": [
+      "catalog_cart_quote",
+      "catalog_product_card_page",
+      "public_catalog_product_detail"
+    ]
+  },
+  "offline": {
+    "summaryAndFullSnapshotCachesSeparate": true,
+    "fullSnapshotRefresh": "Somente IDs selecionados ausentes ou com updated_at/version alterados; não sobrescreve edições locais pendentes.",
+    "serverQueryAfterReconnection": true
+  },
+  "limitations": [
+    "Amostras não representam cobrança nem economia mensal.",
+    "Bytes decodificados/JSON serializado, sem equivalência de compressão de rede.",
+    "Telemetria local em memória não cobre imagens fora de fetch, WebSocket Realtime ou R2.",
+    "Resta validar UI nativa com Maestro e comparar janela de produção após publicação.",
+    "Sem prova gravável de concorrência, efeitos fiscais ou persistência de mutações neste lote."
+  ]
+}

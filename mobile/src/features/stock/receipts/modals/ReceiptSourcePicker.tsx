@@ -29,6 +29,7 @@ import type { Invoice, InvoiceDateFilter, InvoiceDateFilterMode } from '../../ty
 import { fetchMobilePurchases, type MobilePurchase } from '../../purchases/mobilePurchaseService';
 import { InboundInvoiceMappingsModal } from '../../invoices/modals/InboundInvoiceMappingsModal';
 import { InvoiceImportModal } from '../../invoices/modals/invoice-import/InvoiceImportModal';
+import { invoiceReason, isInvoiceXmlIncomplete } from './receiptInvoiceEligibility';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import { extractNfeAccessKey } from '../../invoices/utils/accessKey';
 import * as stockService from '../../../../services/stockService';
@@ -111,21 +112,6 @@ export const ReceiptSourceOptions: React.FC<{
 };
 
 type SourceRow = { kind: 'invoice'; value: Invoice } | { kind: 'purchase'; value: MobilePurchase };
-
-function invoiceReason(invoice: Invoice): string | null {
-  if (!invoice.accessKey?.trim()) return 'Chave de acesso indisponível';
-  if (!Array.isArray(invoice.supplierStockOrigins) || !invoice.supplierStockOrigins.includes('normal'))
-    return 'Fornecedor sem estoque normal';
-  return null;
-}
-
-function isInvoiceXmlIncomplete(invoice: Invoice): boolean {
-  return Boolean(
-    invoice.isSummaryOnly ||
-      invoice.itemsCount === 0 ||
-      /<(?:[\w.-]+:)?resNFe\b/i.test(invoice.rawXml || ''),
-  );
-}
 
 interface PickerProps {
   kind: 'invoice' | 'purchase';

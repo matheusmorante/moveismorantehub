@@ -39,8 +39,6 @@ export function useInventoryMovesHistory({
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
 
-  const { formatOrderLabel, formatReversalReason } = useInventoryOrdersLookup();
-
   const selectedProduct =
     externalSelectedProduct !== undefined ? externalSelectedProduct : internalProduct;
   const selectedVariation =
@@ -170,6 +168,12 @@ export function useInventoryMovesHistory({
     const startIndex = (page - 1) * itemsPerPage;
     return filtered.slice(startIndex, startIndex + itemsPerPage);
   }, [filtered, page, itemsPerPage]);
+  const orderReferences = paginatedFiltered.flatMap((move) => [
+    move.relatedEntityId || '',
+    move.label?.replace(/^(Saída - )?Pedido\s*#/i, '') || '',
+    move.reversalReason?.match(/Cancelamento da venda\s*#?([a-zA-Z0-9_-]+)/i)?.[1] || '',
+  ]);
+  const { formatOrderLabel, formatReversalReason } = useInventoryOrdersLookup(orderReferences);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
 

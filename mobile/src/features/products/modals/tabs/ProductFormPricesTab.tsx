@@ -17,7 +17,7 @@ import {
   supplierProvidesStockOrigin,
 } from '../../../../../../shared-utils/productSupplierStockOrigin';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { Truck, DollarSign } from 'lucide-react-native';
+import { Truck } from 'lucide-react-native';
 import { saveSupplier as persistSupplier } from '../../../../services/stockService';
 import { SupplierFormModal } from '../../../stock/suppliers/SupplierFormModal';
 import { parseLocalizedNumber as parsePrice } from '../../domain/productNumbers';
@@ -29,10 +29,10 @@ import {
 } from './ProductFormSupplierSection';
 import { useProductFormSupplierSectionState } from '../../hooks/useProductFormSupplierSectionState';
 import { styles } from './productFormPricesTab.styles';
+import { ProductFormSalePricingSection } from './ProductFormSalePricingSection';
 
 import { CurrencyInput } from '../../../../components/shared/CurrencyInput';
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
-import { PercentInput } from '../../../../components/shared/PercentInput';
 interface Props {
   formData: any;
   setFormData: (fn: (prev: any) => any) => void;
@@ -396,76 +396,20 @@ export const ProductFormPricesTab: React.FC<Props> = ({
         </View>
       )}
 
-      {/* ─── Seção 2: Preços de Venda & Descontos ─── */}
-      <View style={[styles.card, dark && styles.darkCard]}>
-        <View style={styles.cardHeader}>
-          <DollarSign size={16} color="#16a34a" />
-          <Text style={[styles.cardTitle, dark && styles.lightText]}>
-            Precificação e Descontos{formData.hasVariations ? ' (Produto Pai)' : ''}
-          </Text>
-        </View>
-
-        <View style={styles.row}>
-          <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText, unitPriceError && styles.invalidLabel]}>
-              Preço de Venda (R$) {!formData.hasVariations && (
-                <Text style={{ color: '#ef4444' }}>*</Text>
-              )}
-            </Text>
-            <CurrencyInput
-              value={optionalNumber(formData.unitPrice)}
-              onChangeValue={handleUnitPriceChange}
-              onBlur={handleUnitPriceBlur}
-              prefix=""
-              accessibilityLabel="Preço de venda do produto"
-              accessibilityHint={unitPriceError ? 'Informe o Preço de Venda do produto na aba Estoque e Precificação.' : undefined}
-              placeholder="0,00"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText, unitPriceError && styles.invalidInput]}
-            />
-          </View>
-        </View>
-
-        <View style={styles.separator} />
-        <Text style={[styles.subLabel, dark && styles.dimText]}>Desconto Promocional</Text>
-        <View style={styles.row}>
-          <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText]}>% Desconto</Text>
-            <PercentInput
-              value={optionalNumber(formData.discountPercent)}
-              onChangeValue={handleDiscountPercentChange}
-              accessibilityLabel="Percentual de desconto"
-              placeholder="0,00"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-            />
-          </View>
-          <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText]}>R$ Desconto</Text>
-            <CurrencyInput
-              value={optionalNumber(formData.discountFixed)}
-              onChangeValue={handleDiscountFixedChange}
-              prefix=""
-              accessibilityLabel="Valor fixo de desconto em reais"
-              placeholder="0,00"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, dark && styles.lightText]}
-            />
-          </View>
-          <View style={styles.flex1}>
-            <Text style={[styles.label, dark && styles.dimText]}>Preço Promo (R$)</Text>
-            <CurrencyInput
-              value={optionalNumber(formData.promoPrice)}
-              onChangeValue={handlePromoChange}
-              prefix=""
-              accessibilityLabel="Preço promocional com desconto aplicado"
-              placeholder="0,00"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, dark && styles.darkInput, styles.promoInput]}
-            />
-          </View>
-        </View>
-      </View>
+      <ProductFormSalePricingSection
+        dark={dark}
+        hasVariations={formData.hasVariations}
+        unitPriceError={unitPriceError}
+        unitPrice={optionalNumber(formData.unitPrice)}
+        discountPercent={optionalNumber(formData.discountPercent)}
+        discountFixed={optionalNumber(formData.discountFixed)}
+        promoPrice={optionalNumber(formData.promoPrice)}
+        onUnitPriceChange={handleUnitPriceChange}
+        onUnitPriceBlur={handleUnitPriceBlur}
+        onDiscountPercentChange={handleDiscountPercentChange}
+        onDiscountFixedChange={handleDiscountFixedChange}
+        onPromoPriceChange={handlePromoChange}
+      />
 
       {!formData.hasVariations && (
         <View style={[styles.card, dark && styles.darkCard]}>

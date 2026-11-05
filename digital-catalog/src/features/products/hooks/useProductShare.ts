@@ -44,7 +44,7 @@ export function useProductShare({
     const measuresText = parts.join(' x ');
     const text = getProductShareText(
       displayTitle,
-      displayPrice,
+      displayPrice ?? 0,
       displayPromoPrice,
       shareUrl,
       oppName,

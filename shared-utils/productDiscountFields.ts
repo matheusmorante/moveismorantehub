@@ -42,6 +42,15 @@ const parseDiscountInput = (value: string | number): number => {
   return Number(normalized);
 };
 
+/** Converts the shared discount helper's display strings to numeric form state. */
+export function toOptionalProductDiscountNumber(
+  value: string | number | null | undefined
+): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = typeof value === 'number' ? value : parseDiscountInput(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 /** Keeps the ERP and mobile variation discount bounds on the same domain rule. */
 export function getProductDiscountValidationIssues(
   discountPercent: string | number | null | undefined,

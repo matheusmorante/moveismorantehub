@@ -1,9 +1,6 @@
 import { useState, useMemo } from 'react';
 import { isTestProduct } from '../../../../../../shared-utils/isTestProduct';
-import {
-  getAssignedInventoryScopeSupplier,
-  getInventoryScopeSupplierNames,
-} from '../services/inventoryScopeSuppliers';
+import { createInventoryScopeItemSnapshot } from '../services/inventoryScopeItemSnapshot';
 
 export interface ScopeProduct {
   id: string;
@@ -84,20 +81,7 @@ export const useInventoryScopeBuilder = (
         isTestProduct({ ...product, title: product.parent_name }) ||
         isTestProduct({ id: product.variation_id, name: product.name, sku: product.sku })
       ) return;
-      const supplierName = getInventoryScopeSupplierNames(product, suppliers);
-      items.push({
-        productId: String(product.id),
-        variationId: product.variation_id ? String(product.variation_id) : undefined,
-        name: product.name || product.description || 'Produto',
-        supplierNames: supplierName,
-        assignedSupplier: getAssignedInventoryScopeSupplier(product, suppliers),
-        systemStock: Number(product.stock ?? 0),
-        unit: product.unit || 'UN',
-        sku: product.sku || product.code || '',
-        code: product.code || '',
-        barcode: product.barcode || '',
-        isActive: product.active !== false,
-      });
+      items.push(createInventoryScopeItemSnapshot(product, suppliers));
     };
 
     if (scopeType === 'full' || scopeType === 'general') {

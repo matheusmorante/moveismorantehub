@@ -21,6 +21,7 @@ import { usePriceLabelCanvasInteractions } from './price-label-editor/usePriceLa
 import { usePriceLabelArtworkSession } from './price-label-editor/usePriceLabelArtworkSession';
 import type { ArtworkSaveGuard } from './price-label-editor/usePriceLabelArtworkSession';
 import { usePriceLabelElementFormatting } from './price-label-editor/usePriceLabelElementFormatting';
+import { usePriceLabelOpportunityColorSync } from './price-label-editor/usePriceLabelOpportunityColorSync';
 import type {
   PriceLabelArtEditorModalProps,
   PriceLabelLayerKey,
@@ -383,25 +384,20 @@ const PriceLabelArtEditorSession: React.FC<
     return [...baseOptions, { id: 'salvado', name: 'QUEIMA DOS SALVADOS' }];
   }, [dbOpportunities]);
 
-  // Sincroniza as cores dos elementos com a oportunidade
-  useEffect(() => {
-    if (!selectedOppId) return;
-    const baseColors = oppColorsMap.none || oppColorsMap.default || {};
-    const currentOppColors = { ...baseColors, ...(oppColorsMap[selectedOppId] || {}) };
-
-    setTitleColor(currentOppColors['title'] || '#000000');
-    setDeColor(currentOppColors['deText'] || '#000000');
-    setNormalPriceColor(currentOppColors['normalPrice'] || '#000000');
-    setPorColor(currentOppColors['porText'] || '#000000');
-    setCurrencyColor(currentOppColors['currencySymbol'] || '#000000');
-    setPriceColor(currentOppColors['promoPrice'] || '#1e3a8a');
-    setCentsColor(currentOppColors['cents'] || '#000000');
-    setInstallmentsColor(currentOppColors['installments'] || '#000000');
-    const savedBackground = currentOppColors['background'];
-    setBgColor(
-      savedBackground && savedBackground !== 'transparent' ? savedBackground : defaultBgColor
-    );
-  }, [selectedOppId, oppColorsMap, defaultBgColor, setBgColor, setCentsColor, setCurrencyColor, setDeColor, setInstallmentsColor, setNormalPriceColor, setPorColor, setPriceColor, setTitleColor]);
+  usePriceLabelOpportunityColorSync({
+    selectedOppId,
+    oppColorsMap,
+    defaultBgColor,
+    setTitleColor,
+    setDeColor,
+    setNormalPriceColor,
+    setPorColor,
+    setCurrencyColor,
+    setPriceColor,
+    setCentsColor,
+    setInstallmentsColor,
+    setBgColor,
+  });
 
   const activeTitleFontSize = titleFontSizeHundreds;
   const activeDeFontSize = deFontSizeHundreds;

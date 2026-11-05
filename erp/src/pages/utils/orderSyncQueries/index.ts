@@ -22,7 +22,6 @@ export {
 export {
   fetchOrdersPage,
   fetchFulfilledSalesOrdersPage,
-  fetchOrdersForClientFiltering,
 } from './orderListQueries';
 
 export { fetchScheduledAndDraftOrders } from './scheduledOrdersQuery';

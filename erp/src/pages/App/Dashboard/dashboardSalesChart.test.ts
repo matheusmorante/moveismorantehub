@@ -92,6 +92,17 @@ describe('agregação do gráfico do dashboard', () => {
     expect(parsed && [parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate()]).toEqual([2026, 11, 2]);
   });
 
+  it('monta o gráfico agregado sem pedidos detalhados e preenche intervalos vazios', () => {
+    const interval = { start: new Date(2026, 10, 1), end: new Date(2026, 10, 3, 23, 59, 59) };
+    expect(buildDashboardSalesChart([], interval, 'custom', [
+      { bucket: '2026-11-02T00:00:00', valor: -20, lucro: -5, orders: 0 },
+    ])).toEqual([
+      { name: '01/11/26', valor: 0, lucro: 0, orders: 0 },
+      { name: '02/11/26', valor: -20, lucro: -5, orders: 0 },
+      { name: '03/11/26', valor: 0, lucro: 0, orders: 0 },
+    ]);
+  });
+
   it('mantém a equivalência em volume e registra o custo dos dois cálculos', () => {
     const interval = { start: new Date(2026, 0, 1), end: new Date(2026, 5, 29, 23, 59, 59) };
     const sample = Array.from({ length: 3000 }, (_, index) =>

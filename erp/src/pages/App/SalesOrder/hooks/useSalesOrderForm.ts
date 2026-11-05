@@ -13,7 +13,6 @@ import { validateBase, validateOrder, ValidationErrors } from '@/pages/utils/val
 import Shipping from '@/pages/types/Shipping.type';
 import {
   getCurrentDatetimeLocal,
-  formatToStorageDate,
   parseStorageDateToLocal,
 } from './orderDateFormatting';
 import { useOrderCodeGenerator } from './useOrderCodeGenerator';
@@ -23,7 +22,11 @@ import { useOrderItemHandlingByDeliveryMethod } from './useOrderItemHandlingByDe
 import { useOrderAutoSave } from './useOrderAutoSave';
 import { useOrderCustomerSelection } from './useOrderCustomerSelection';
 import { useOrderFormStepNavigation } from './useOrderFormStepNavigation';
-import { buildSalesOrderSnapshot, prepareOrderForFormEditing } from './orderFormSnapshot';
+import {
+  buildCurrentOrder,
+  buildSalesOrderSnapshot,
+  prepareOrderForFormEditing,
+} from './orderFormSnapshot';
 import { useOrderFormSubmission } from './useOrderFormSubmission';
 import type { SchedulingSessionMemory } from '../ShippingComponents/Agendamento';
 import { requestConfirmation } from '@/components/shared/confirmationService';
@@ -285,36 +288,32 @@ export const useSalesOrderForm = (
     }
   }, []);
 
-  const currentOrder = useMemo((): Order => {
-    const firstHandling = resolveFirstItemHandlingType(items);
-    return {
-      id: currentOrderId,
-      orderIndex: orderIndex || undefined,
-      orderNumber: orderIndex || undefined,
-      orderType,
-      status: status as any,
-      items,
-      itemsSummary,
-      shipping: {
-        ...shipping,
-        orderType: firstHandling || shipping.orderType || '',
-      },
-      payments,
-      paymentsSummary,
-      customerData,
-      observation,
-      seller,
-      marketingOrigin,
-      date: formatToStorageDate(orderDate),
-      assistanceItems,
-      assistanceServiceValue,
-      assistanceCost,
-      linkedOrderId,
-      isButtonsClicked,
-      fiscalContext,
-      ...testModeFields,
-    };
-  }, [
+  const currentOrder = useMemo(
+    () =>
+      buildCurrentOrder({
+        currentOrderId,
+        orderIndex,
+        orderType,
+        status,
+        items,
+        itemsSummary,
+        shipping,
+        payments,
+        paymentsSummary,
+        customerData,
+        observation,
+        seller,
+        marketingOrigin,
+        orderDate,
+        assistanceItems,
+        assistanceServiceValue,
+        assistanceCost,
+        linkedOrderId,
+        isButtonsClicked,
+        fiscalContext,
+        testModeFields,
+      }),
+    [
     currentOrderId,
     orderIndex,
     items,
@@ -336,7 +335,8 @@ export const useSalesOrderForm = (
     orderType,
     testModeFields,
     fiscalContext,
-  ]);
+    ]
+  );
 
   const isValidForCompletion = useMemo(
     () => validateBase(getOrderData('scheduled')),

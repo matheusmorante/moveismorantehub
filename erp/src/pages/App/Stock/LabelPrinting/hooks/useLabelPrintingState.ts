@@ -242,6 +242,7 @@ export const useLabelPrintingState = () => {
     editingGridModel: layouts.editingGridModel,
     setEditingGridModel: layouts.setEditingGridModel,
     selectLayout: layouts.selectLayout,
+    ensureLayoutModel: layouts.ensureLayoutModel,
     selectModelId: layouts.selectModelId,
     handleTypeChange: layouts.handleTypeChange,
     handleDuplicateLayout: layouts.handleDuplicateLayout,
@@ -280,12 +281,12 @@ export const useLabelPrintingState = () => {
     handleReplaceProduct: queue.handleReplaceProduct,
     handleAddBlankLabel: queue.handleAddBlankLabel,
     isPrinting: queue.isPrinting,
-    printLabels: queue.handlePrintLabels,
-    printLabelsNormally: queue.handlePrintLabelsNormally,
+    printLabels: () => layouts.layoutsLoading ? toast.info('Aguarde o carregamento da arte do modelo.') : queue.handlePrintLabels(),
+    printLabelsNormally: () => layouts.layoutsLoading ? toast.info('Aguarde o carregamento da arte do modelo.') : queue.handlePrintLabelsNormally(),
 
     // Preview, Paginação e Download
     isDownloading: preview.isDownloading,
-    handleDownloadImage: preview.handleDownloadImage,
+    handleDownloadImage: () => layouts.layoutsLoading ? toast.info('Aguarde o carregamento da arte do modelo.') : preview.handleDownloadImage(),
     gridRef: preview.gridRef,
     cellImages: preview.cellImages,
     handleCellClick: preview.handleCellClick,

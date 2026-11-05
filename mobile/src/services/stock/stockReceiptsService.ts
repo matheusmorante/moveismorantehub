@@ -11,6 +11,7 @@ import {
   IN_USE_INVOICE_MESSAGE,
 } from '../../../../shared-utils/receiptInvoiceAvailability';
 import { mapInboundInvoiceListRow } from './invoices/inboundInvoiceMappers';
+import { mapGoodsReceiptItemsForRpc } from './goodsReceiptItemPayload';
 import {
   buildInboundInvoiceSearchFilter,
   getInvoiceDateBounds,
@@ -216,15 +217,7 @@ export const createMobileGoodsReceipt = async (receipt: NewMobileGoodsReceipt): 
       fiscal_discount: receipt.fiscalDiscount || 0,
       fiscal_other_expenses: receipt.fiscalOtherExpenses || 0,
     },
-    p_items: receipt.items.map((item) => ({
-      ...item,
-      freightFiscalUnit: item.freightFiscalUnit || 0,
-      freightNonFiscalUnit: item.freightNonFiscalUnit || 0,
-      discountUnit: item.discountUnit || 0,
-      otherExpensesFiscalUnit: item.otherExpensesFiscalUnit || 0,
-      otherExpensesNonFiscalUnit: item.otherExpensesNonFiscalUnit || 0,
-      additionalCostUnit: item.additionalCostUnit || 0,
-    })),
+    p_items: mapGoodsReceiptItemsForRpc(receipt.items),
   });
   let result = await withTimeout<any | null>(
     Promise.resolve(rpcPromise),
@@ -299,15 +292,7 @@ export const editMobileGoodsReceipt = async (
       fiscal_discount: receipt.fiscalDiscount || 0,
       fiscal_other_expenses: receipt.fiscalOtherExpenses || 0,
     },
-    p_items: receipt.items.map((item) => ({
-      ...item,
-      freightFiscalUnit: item.freightFiscalUnit || 0,
-      freightNonFiscalUnit: item.freightNonFiscalUnit || 0,
-      discountUnit: item.discountUnit || 0,
-      otherExpensesFiscalUnit: item.otherExpensesFiscalUnit || 0,
-      otherExpensesNonFiscalUnit: item.otherExpensesNonFiscalUnit || 0,
-      additionalCostUnit: item.additionalCostUnit || 0,
-    })),
+    p_items: mapGoodsReceiptItemsForRpc(receipt.items),
   });
   const result = await withTimeout<any | null>(
     Promise.resolve(rpcPromise),

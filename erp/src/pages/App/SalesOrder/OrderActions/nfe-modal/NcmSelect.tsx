@@ -258,7 +258,7 @@ export const NcmSelect: React.FC<NcmSelectProps> = ({
                   </div>
                   <p
                     title={formatNcmSubtitle(item.official_description, item.internal_description)}
-                    className="text-[10px] text-slate-600 dark:text-slate-300 font-semibold leading-tight mt-0.5 line-clamp-2"
+                    className="text-[10px] text-slate-600 dark:text-slate-300 font-semibold leading-tight mt-0.5 whitespace-normal"
                   >
                     {formatNcmSubtitle(item.official_description, item.internal_description)}
                   </p>

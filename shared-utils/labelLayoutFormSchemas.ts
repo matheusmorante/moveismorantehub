@@ -9,6 +9,7 @@ const checkPaper = (value: { paperSize: string; paperWidth?: number; paperHeight
 };
 export const labelGridModelSaveFormSchema = labelGridModelFormSchema.extend({ paperSize }).superRefine(checkPaper);
 export const labelLayoutDeleteFormSchema = z.object({ id: layoutId });
+export const labelModelSelectionFormSchema = z.object({ modelId: layoutId, action: z.enum(['select', 'edit']) });
 export const labelLayoutPreferenceFormSchema = z.object({ roundId: layoutId, rectId: layoutId });
 export const labelLayoutDefaultFormSchema = z.object({ modelId: layoutId, category: z.string().pipe(z.enum(['identificacao', 'precos', 'logos', 'posts'])), type: z.enum(['rect', 'round']) });
 export const labelRemoteLayoutDraftSchema = labelGridModelDraftFormSchema.extend({ paperSize, category: labelGridModelDraftFormSchema.shape.category.unwrap() }).superRefine(checkPaper);

@@ -1,4 +1,4 @@
-import { Blocks, ChevronRight, FolderTree, Package } from 'lucide-react-native';
+import { ChevronRight, FolderTree, Globe2, Package, Sliders } from 'lucide-react-native';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { ProductListMode } from '../components/header/ProductsHeaderModeSelector';
 
@@ -6,27 +6,54 @@ interface Props {
   availableModes: ProductListMode[];
   isDarkMode: boolean;
   selectMode: (mode: ProductListMode) => void;
+  canViewCharacteristics: boolean;
+  canViewMetaCatalog: boolean;
+  onOpenCharacteristics: () => void;
+  onOpenMetaCatalog: () => void;
 }
 
-export const ProductModulesMenu = ({ availableModes, isDarkMode, selectMode }: Props) => {
+export const ProductModulesMenu = ({
+  availableModes,
+  isDarkMode,
+  selectMode,
+  canViewCharacteristics,
+  canViewMetaCatalog,
+  onOpenCharacteristics,
+  onOpenMetaCatalog,
+}: Props) => {
   const productModules = [
     {
-      key: 'standard' as const,
+      key: 'products',
       title: 'Produtos',
-      description: 'Consulte e gerencie os produtos do catálogo.',
+      description: 'Consulte produtos e produtos compostos na mesma lista.',
       Icon: Package,
+      available: availableModes.includes('standard') || availableModes.includes('composition'),
+      onPress: () =>
+        selectMode(availableModes.includes('standard') ? 'standard' : 'composition'),
     },
     {
-      key: 'composition' as const,
-      title: 'Produto composto',
-      description: 'Acesse os produtos compostos cadastrados.',
-      Icon: Blocks,
+      key: 'characteristics',
+      title: 'Características',
+      description: 'Gerencie as características e os valores usados nos produtos.',
+      Icon: Sliders,
+      available: canViewCharacteristics,
+      onPress: onOpenCharacteristics,
     },
     {
-      key: 'categories' as const,
+      key: 'categories',
       title: 'Ambientes e Categorias',
       description: 'Organize os ambientes e as categorias de produtos.',
       Icon: FolderTree,
+      available: availableModes.includes('categories'),
+      onPress: () => selectMode('categories'),
+    },
+    {
+      key: 'meta-catalog',
+      title: 'Catálogo Meta',
+      description: 'Consulte a integração do catálogo com a Meta.',
+      Icon: Globe2,
+      available: canViewMetaCatalog,
+      onPress: onOpenMetaCatalog,
     },
   ];
 
@@ -37,12 +64,12 @@ export const ProductModulesMenu = ({ availableModes, isDarkMode, selectMode }: P
         Escolha a área que deseja consultar.
       </Text>
       {productModules
-        .filter(({ key }) => availableModes.includes(key))
-        .map(({ key, title, description, Icon }) => (
+        .filter(({ available }) => available)
+        .map(({ key, title, description, Icon, onPress }) => (
           <TouchableOpacity
             key={key}
             testID={`products-module-${key}`}
-            onPress={() => selectMode(key)}
+            onPress={onPress}
             activeOpacity={0.75}
             accessibilityRole="button"
             accessibilityLabel={`Abrir ${title}`}

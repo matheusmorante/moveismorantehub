@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createMeasuredSupabaseFetch } from '../../../../shared-utils/supabaseReadMetrics';
 
 const DEFAULT_SUPABASE_URL = 'https://hkoxhourxwlddgsfdgws.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY =
@@ -17,17 +18,19 @@ const fetchWithTimeout: typeof fetch = async (input, init) => {
     controller.abort(new DOMException('Supabase request timed out', 'TimeoutError'));
   }, REQUEST_TIMEOUT_MS);
 
-  if (init?.signal) {
-    init.signal.addEventListener('abort', () => controller.abort(), { once: true });
-  }
+  const parentSignal = init?.signal;
+  const abort = () => controller.abort(parentSignal?.reason);
+  if (parentSignal?.aborted) abort();
+  else parentSignal?.addEventListener('abort', abort, { once: true });
 
   try {
     return await fetch(input, { ...init, signal: controller.signal });
   } finally {
     globalThis.clearTimeout(timeoutId);
+    parentSignal?.removeEventListener('abort', abort);
   }
 };
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  global: { fetch: fetchWithTimeout },
+  global: { fetch: createMeasuredSupabaseFetch('catalog', process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || 'development', fetchWithTimeout) },
 });

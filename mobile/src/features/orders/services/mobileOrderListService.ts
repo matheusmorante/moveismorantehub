@@ -1,32 +1,11 @@
 import { supabase } from '../../../services/supabaseClient';
 import { OrderRepository } from '../../../repositories/OrderRepository';
-import { excludeTestOrders } from '../../../../../shared-utils/testArtifactQueries';
 import { isIdentifiedTestArtifact } from '../../../../../shared-utils/testArtifactPolicy';
-import { buildPostgrestAccentInsensitiveOrFilter } from '../../../../../shared-utils/searchText';
-
-const ORDER_LIST_VIEW_COLUMNS = [
-  'id',
-  'order_number',
-  'created_at',
-  'status',
-  'order_type',
-  'order_index',
-  'customer_name',
-  'total_value',
-  'delivery_method',
-  'scheduled_date',
-  'schedule_start_time',
-  'schedule_end_time',
-  'pending_scheduling',
-  'handling_type',
-  'delivery_status',
-  'delivery_arrived_at',
-  'delivery_started_at',
-  'unattended_reason',
-  'marketing_origin',
-  'is_stock_checked',
-  'item_handling',
-].join(',');
+import { fetchServerOrderPage } from '../../../../../shared-utils/orderListServerQuery';
+import { withAbortTimeout } from '../../../../../shared-utils/withAbortTimeout';
+import { fetchOrderSummaries } from '../../../../../shared-utils/orderSummaryQuery';
+import { offlineStorageService } from '../../../services/offline/offlineStorageService';
+import { refreshOfflineOrderSnapshots } from '../../../services/offline/orderSnapshotCache';
 
 import type {
   MobileOrderListItem,
@@ -183,7 +162,7 @@ const toListItem = (row: any): MobileOrderListItem => {
       ''
   ).trim();
   const orderStatus = row.status || data.status || 'scheduled';
-  const orderType = data.orderType || data.order_type || row.order_type || 'sale';
+  const orderType = row.order_type || data.orderType || data.order_type || 'sale';
   const totalValue = Number(
     row.total_amount ??
       data.paymentsSummary?.totalOrderValue ??
@@ -248,6 +227,7 @@ const toListItem = (row: any): MobileOrderListItem => {
     order_type: orderType,
     customer_name: customerName,
     total_value: totalValue,
+    version: row.version ?? undefined,
     is_stock_checked: isStockChecked,
     stock_processed: stockProcessed,
     stock_reversed: stockReversed,
@@ -295,33 +275,13 @@ const toListItem = (row: any): MobileOrderListItem => {
         deliveryMethod: data.deliveryMethod || row.delivery_method || '',
         scheduling: data.scheduling || {
           date: data.scheduledDate || row.scheduled_date || '',
-          startTime: row.schedule_start_time || '',
-          endTime: row.schedule_end_time || '',
+          startTime: row.scheduled_start_time || row.schedule_start_time || '',
+          endTime: row.scheduled_end_time || row.schedule_end_time || '',
           pendingScheduling: Boolean(row.pending_scheduling),
         },
       },
     },
   };
-};
-
-const isHiddenRow = (row: any): boolean =>
-  Boolean(row?.deleted || row?.order_data?.deleted);
-
-const matchesRequestedOrderType = (
-  row: any,
-  orderType: MobileOrderType,
-  status: string
-): boolean => {
-  const rowType = String(
-    row?.order_data?.orderType || row?.order_data?.order_type || row?.order_type || 'sale'
-  );
-  if (status === 'assistencias') {
-    return rowType === 'assistance';
-  }
-  if (orderType === 'sale') {
-    return rowType !== 'budget' && rowType !== 'assistance' && rowType !== 'return';
-  }
-  return rowType === orderType;
 };
 
 export const fetchMobileOrdersPage = async ({
@@ -330,140 +290,44 @@ export const fetchMobileOrdersPage = async ({
   search,
   status,
   orderType = 'sale',
+  signal,
 }: {
   page: number;
   pageSize: number;
   search: string;
   status: string;
   orderType?: MobileOrderType;
+  signal?: AbortSignal;
 }): Promise<{ items: MobileOrderListItem[]; total: number }> => {
-  const firstRow = (page - 1) * pageSize;
-  const lastRow = firstRow + pageSize - 1;
-  const effectiveOrderType: MobileOrderType =
-    status === 'assistencias' ? 'assistance' : orderType;
+  const selected = await fetchServerOrderPage(supabase, {
+    filters: { orderType, mobileSearch: search.trim(), mobileStatus: status },
+    page, pageSize, mode: 'mobile', signal,
+  });
+  if (selected.ids.length === 0) return { items: [], total: selected.total };
 
-  // 1. Tenta buscar da view otimizada order_list_items caso ela esteja disponível
-  try {
-    const baseViewQuery = supabase
-      .from('order_list_items')
-      .select(ORDER_LIST_VIEW_COLUMNS, { count: 'exact' })
-      .order('created_at', { ascending: false });
-    let query = excludeTestOrders(baseViewQuery) || baseViewQuery;
+  const data = await fetchOrderSummaries(supabase, selected.ids, signal);
 
-    if (effectiveOrderType === 'sale') {
-      query = query.neq('order_type', 'budget') || query;
-      if (typeof (query as any).not === 'function') {
-        query = (query as any).not('order_type', 'in', '(budget,assistance,return)') || query;
-      }
-    } else {
-      query = query.eq('order_type', effectiveOrderType) || query;
-    }
-
-    const term = search.trim().replace(/[,%()]/g, ' ');
-    if (term) {
-      query = query.or(buildPostgrestAccentInsensitiveOrFilter(
-        ['customer_name', 'order_number', 'order_index'],
-        term
-      )) || query;
-    }
-    if (status === 'agendados')
-      query = query.or('status.ilike.%scheduled%,status.ilike.%agendad%') || query;
-    if (status === 'concluidos')
-      query =
-        query.or(
-          'status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%'
-        ) || query;
-    if (status === 'cancelados')
-      query = query.or('status.ilike.%cancelled%,status.ilike.%cancelad%') || query;
-    if (status === 'rascunhos')
-      query = query.or('status.ilike.%draft%,status.ilike.%rascunh%') || query;
-    if (status === 'retiradas')
-      query =
-        query.or('delivery_method.ilike.%pickup%,delivery_method.ilike.%retirada%') || query;
-    query = query.range(firstRow, lastRow);
-
-    const { data, count, error } = await query;
-    if (!error && data) {
-      const visibleRows = data.filter(
-        (row: any) =>
-          !isHiddenRow(row) &&
-          !isIdentifiedTestArtifact(row) &&
-          matchesRequestedOrderType(row, orderType, status)
-      );
-      const items = visibleRows.map(toListItem);
-      await cacheOrders(items);
-      return {
-        items,
-        total: Math.max(0, (count || 0) - (data.length - visibleRows.length)),
-      };
-    }
-  } catch {
-    // Prossegue com fallback seguro para a tabela oficial orders
-  }
-
-  // 2. Fallback resiliente direto na tabela orders oficial (sempre existente e populada)
-  const baseOrdersQuery = supabase
-    .from('orders')
-    .select(
-      'id, order_number, status, order_type, customer_name, total_amount, created_at, updated_at, deleted, order_data',
-      { count: 'exact' }
-    )
-    .order('created_at', { ascending: false });
-  let query = excludeTestOrders(baseOrdersQuery) || baseOrdersQuery;
-
-  if (effectiveOrderType === 'sale') {
-    query = query.neq('order_type', 'budget') || query;
-    if (typeof (query as any).not === 'function') {
-      query = (query as any).not('order_type', 'in', '(budget,assistance,return)') || query;
-    }
-  } else {
-    query = query.eq('order_type', effectiveOrderType) || query;
-  }
-
-  const term = search.trim().replace(/[,%()]/g, ' ');
-  if (term) {
-    query = query.or(buildPostgrestAccentInsensitiveOrFilter(['customer_name', 'order_number'], term)) || query;
-  }
-  if (status === 'agendados')
-    query = query.or('status.ilike.%scheduled%,status.ilike.%agendad%') || query;
-  if (status === 'concluidos')
-    query =
-      query.or(
-        'status.ilike.%fulfilled%,status.ilike.%atendid%,status.ilike.%concluid%,status.ilike.%entreg%,status.ilike.%finaliz%'
-      ) || query;
-  if (status === 'cancelados')
-    query = query.or('status.ilike.%cancelled%,status.ilike.%cancelad%') || query;
-  if (status === 'rascunhos')
-    query = query.or('status.ilike.%draft%,status.ilike.%rascunh%') || query;
-  if (status === 'retiradas')
-    query =
-      query.or(
-        'order_data->shipping->>deliveryMethod.ilike.%pickup%,order_data->shipping->>deliveryMethod.ilike.%retirada%'
-      ) || query;
-  query = query.range(firstRow, lastRow);
-
-  const { data, count, error } = await query;
-  if (error) throw error;
-
-  const visibleRows = (data || []).filter(
-    (row: any) =>
-      !isHiddenRow(row) &&
-      !isIdentifiedTestArtifact(row) &&
-      matchesRequestedOrderType(row, orderType, status)
-  );
-  return {
-    items: await cacheOrders(visibleRows.map(toListItem)),
-    total: Math.max(0, (count || 0) - ((data || []).length - visibleRows.length)),
-  };
+  const byId = new Map((data || []).map((row: any) => [String(row.id), row]));
+  const items = selected.ids.flatMap((id) => {
+    const row = byId.get(id);
+    return row ? [toListItem(row)] : [];
+  });
+  await refreshOfflineOrderSnapshots(data, signal).catch((cause) => console.warn('[MobileOrders] Não foi possível atualizar os detalhes offline:', cause));
+  return { items: await cacheOrders(items), total: selected.total };
 };
 
 async function cacheOrders(items: MobileOrderListItem[]): Promise<MobileOrderListItem[]> {
   // Cache é um acelerador de leitura, não pode invalidar dados recebidos do ERP
   // enquanto a migração SQLite ainda está inicializando no primeiro carregamento.
   try {
+    const previous = await offlineStorageService.getWorkingSet<MobileOrderListItem[]>('order_list_summaries').catch(() => null);
+    const byId = new Map((previous?.data || []).map((item) => [item.id, item]));
+    items.forEach((item) => byId.set(item.id, item));
+    await offlineStorageService.cacheWorkingSet('order_list_summaries', [...byId.values()]);
+    // A summary must never replace an existing complete offline snapshot.
     await Promise.all(
       items.filter((item) => !isIdentifiedTestArtifact(item.order_data)).map((item) =>
-        OrderRepository.saveLocal({
+        item.order_data.__orderSummary ? Promise.resolve() : OrderRepository.saveLocal({
           id: item.id,
           status: item.status,
           orderType: item.order_type,
@@ -477,9 +341,10 @@ async function cacheOrders(items: MobileOrderListItem[]): Promise<MobileOrderLis
           updatedAt: item.created_at ?? new Date().toISOString(),
           syncedAt: new Date().toISOString(),
           isPendingLocal: false,
-        })
+        }, { preservePending: true })
       )
     );
+    return await OrderRepository.overlayPendingLocalOrders(items);
   } catch (error) {
     console.warn('[MobileOrders] Cache local indisponível; mantendo resposta remota:', error);
   }

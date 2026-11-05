@@ -2,20 +2,21 @@ import React from 'react';
 import type Product from '../../../../types/product.type';
 import type { Variation } from '../../../../types/product.type';
 import CurrencyInput from '@/components/CurrencyInput';
+import { PercentInput } from '@/components/PercentInput';
 import { resolveProductVariationPricing } from '../../../../../../../shared-utils/productVariationPricing';
 
 interface VariationPricingTabProps {
   readonly formData: Variation;
   readonly setFormData: React.Dispatch<React.SetStateAction<Variation | null>>;
   readonly parentProduct: Product;
-  readonly varDiscountPercent: string;
-  readonly varDiscountFixed: string;
-  readonly getEffectiveDiscountPercent: () => string;
-  readonly getEffectiveDiscountFixed: () => string;
-  readonly handlePriceChange: (valStr: string) => void;
-  readonly handleDiscountPercentChange: (valStr: string) => void;
-  readonly handleDiscountFixedChange: (valStr: string) => void;
-  readonly handlePromoPriceFieldChange: (valStr: string) => void;
+  readonly varDiscountPercent: number | null;
+  readonly varDiscountFixed: number | null;
+  readonly getEffectiveDiscountPercent: () => number | null;
+  readonly getEffectiveDiscountFixed: () => number | null;
+  readonly handlePriceChange: (value: number) => void;
+  readonly handleDiscountPercentChange: (value: number | null) => void;
+  readonly handleDiscountFixedChange: (value: number) => void;
+  readonly handlePromoPriceFieldChange: (value: number) => void;
   readonly updateCost?: (fields: Partial<Variation>) => void;
   readonly isSingleVariation?: boolean;
 }
@@ -107,7 +108,7 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
               aria-label="Preço de venda da variação"
               disabled={effectivePricing.inheritsUnitPrice}
               value={Number(effectivePricing.unitPrice || 0)}
-              onChange={(val) => handlePriceChange(String(val))}
+              onChange={handlePriceChange}
               className="w-full text-left px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-blue-600 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60"
             />
           </div>
@@ -120,30 +121,21 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
             >
               <span>Desconto (%)</span>
             </label>
-            <div className="relative">
-              <input
-                id="variation-discount-percent-input"
-                type="number"
-                min="0"
-                max="100"
-                aria-label="Desconto em percentual da variação"
-                disabled={effectivePricing.inheritsPromoPrice}
-                placeholder="0"
-                value={
-                  hasInheritedPrice
-                    ? getEffectiveDiscountPercent()
-                    : varDiscountPercent
-                }
-                onChange={(e) => handleDiscountPercentChange(e.target.value)}
-                className="w-full pl-1 pr-8 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-emerald-600 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60"
-              />
-              <span
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none"
-                aria-hidden="true"
-              >
-                %
-              </span>
-            </div>
+            <PercentInput
+              id="variation-discount-percent-input"
+              aria-label="Desconto em percentual da variação"
+              disabled={effectivePricing.inheritsPromoPrice}
+              min={0}
+              max={100}
+              placeholder="0"
+              value={
+                hasInheritedPrice
+                  ? getEffectiveDiscountPercent()
+                  : varDiscountPercent
+              }
+              onChangeValue={handleDiscountPercentChange}
+              className="w-full pl-1 pr-6 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-emerald-600 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60"
+            />
           </div>
 
           {/* Desconto R$ */}
@@ -163,7 +155,7 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
                   ? getEffectiveDiscountFixed()
                   : varDiscountFixed
               }
-              onChange={(val) => handleDiscountFixedChange(String(val))}
+              onChange={handleDiscountFixedChange}
               className="w-full text-left px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-emerald-600 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60"
             />
           </div>
@@ -181,7 +173,7 @@ export const VariationPricingTab: React.FC<VariationPricingTabProps> = ({
               aria-label="Preço promocional da variação"
               disabled={effectivePricing.inheritsPromoPrice}
               value={Number(effectivePricing.promoPrice || 0)}
-              onChange={(val) => handlePromoPriceFieldChange(String(val))}
+              onChange={handlePromoPriceFieldChange}
               className="w-full text-left px-1 py-2.5 bg-transparent border-b-2 border-t-0 border-x-0 border-slate-200 dark:border-slate-800 outline-none text-xs font-bold text-amber-600 focus:border-blue-600 dark:focus:border-blue-400 transition-all disabled:opacity-60"
             />
           </div>

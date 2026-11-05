@@ -1,0 +1,75 @@
+{
+  "date": "2026-11-04",
+  "projectRef": "hkoxhourxwlddgsfdgws",
+  "migration": "20261105013133_dashboard_stock_summary_compact_alerts",
+  "ui": {
+    "stockSummaryResponses": 1,
+    "responseBytes": 7153,
+    "rawProductReads": 0,
+    "rawVariationReads": 0,
+    "rawInventoryReads": 0,
+    "stockResponsesAfterPeriodChange": 1,
+    "readOnlyGuard": true
+  },
+  "comparison": {
+    "originalProjectionJsonBytes": 128257,
+    "originalProductRows": 161,
+    "originalActiveVariationRows": 121,
+    "originalMovementRows": 30,
+    "summaryJsonBytes": 7051,
+    "reductionPercent": 94.5,
+    "zeroStockCount": 131,
+    "lowStockCount": 0,
+    "displayedItems": 8,
+    "mismatches": 0,
+    "excludedTestProducts": 40,
+    "legacyZeroStockCountIncludingTests": 156,
+    "pendingInventoryPresent": false
+  },
+  "alerts": {
+    "products": 103,
+    "beforeDatabaseJsonBytes": 99445,
+    "afterDatabaseJsonBytes": 96597,
+    "afterClientJsonBytes": 93316,
+    "beforeVariations": 171,
+    "afterVariations": 165,
+    "expectedSignature": "e58f453a70686a2754075427e3ae7c9c",
+    "actualSignature": "e58f453a70686a2754075427e3ae7c9c"
+  },
+  "database": {
+    "securityInvoker": true,
+    "anonExecute": false,
+    "rlsChanged": false,
+    "newFunctionAdvisorWarnings": false,
+    "explainStockQueryMs": 26.999,
+    "explainCompleteFunctionMs": [
+      786.382,
+      55.984
+    ],
+    "readBlocks": 0,
+    "writtenBlocks": 0
+  },
+  "validation": {
+    "vitestPassed": 12,
+    "vitestFiles": 3,
+    "erpBuildPassed": true,
+    "erpBuildSeconds": 124,
+    "globalTypecheckClaimed": false,
+    "androidUiTested": false,
+    "realDataMutated": false,
+    "fixtureDml": false,
+    "clientsDeployed": false,
+    "otaPublished": false
+  },
+  "files": {
+    "uiProof": "output/playwright/product-stock-summary-ui.js",
+    "unitLog": "output/playwright/product-stock-summary-unit.log",
+    "buildLog": "output/playwright/product-stock-summary-build.log"
+  },
+  "limits": [
+    "Os 64,67 MB históricos abrangem outras consultas de produtos; a redução de 94,50% é desta consulta de estoque.",
+    "JSON serializado e corpo HTTP decodificado têm tamanhos distintos; a comparação percentual usa o mesmo método de serialização.",
+    "Sem previsão mensal, prova gravável de inventário em andamento ou teste de todos os perfis.",
+    "O app não tem esse agregado na navegação nativa; o arquivo estático StockSummaryScreen não possui chamadores."
+  ]
+}

@@ -12,8 +12,10 @@ function capitalizeName(name: string): string {
     .join(' ');
 }
 import type Order from '@/pages/types/order.type';
-import { subscribeToOrders } from '@/pages/utils/orderHistoryService';
+import { subscribeToOrderChanges } from '@/pages/utils/orderHistoryService';
 import { formatOrderCode } from '@/pages/utils/orderCode';
+import { supabase } from '@/pages/utils/supabaseConfig';
+import { withAbortTimeout } from '../../../../../../../shared-utils/withAbortTimeout';
 
 interface OrderCustomerLike extends Partial<Order> {
   readonly customerName?: string;
@@ -29,25 +31,43 @@ export interface InventoryOrdersLookupResult {
  * Hook para lookup rápido de pedidos de venda por ID ou código formatado,
  * permitindo enriquecer o histórico de estoque com dados do cliente e motivo de cancelamento.
  */
-export const useInventoryOrdersLookup = (): InventoryOrdersLookupResult => {
+export const useInventoryOrdersLookup = (references: string[] = []): InventoryOrdersLookupResult => {
   const [ordersMap, setOrdersMap] = useState<Record<string, Order>>({});
+  const referenceKey = JSON.stringify([...new Set(references.filter((value) => /^[a-z0-9_-]+$/i.test(value)))].sort());
 
   useEffect(() => {
-    const unsubscribe = subscribeToOrders((ordersList) => {
+    let controller: AbortController | undefined;
+    const load = async () => {
+      controller?.abort();
+      const request = new AbortController(); controller = request;
+      const keys: string[] = JSON.parse(referenceKey);
+      if (!keys.length) { setOrdersMap({}); return; }
+      const columns = 'id,order_number,order_index,customer_name,customer_data:order_data->customerData';
+      const codes = keys.filter((key) => /^\d+$/.test(key));
+      const queries = [supabase.from('orders').select(columns).in('id', keys)];
+      if (codes.length) queries.push(supabase.from('orders').select(columns).in('order_index', codes.map((value) => value.replace(/^0+/, '') || '0')));
+      const outcomes = await Promise.allSettled(queries.map((query) => withAbortTimeout(query, 'estoque:pedidos-referenciados', 15_000, request.signal)));
+      if (request.signal.aborted) return;
       const map: Record<string, Order> = {};
-      ordersList.forEach((order) => {
-        if (order.id) {
-          map[String(order.id)] = order;
-        }
-        const orderCode = formatOrderCode(order);
-        if (orderCode) {
-          map[orderCode] = order;
-        }
+      outcomes.forEach((outcome) => {
+        if (outcome.status !== 'fulfilled' || outcome.value.error) return;
+        (outcome.value.data || []).forEach((row: any) => {
+          const order = { id: String(row.id), orderNumber: row.order_number, orderIndex: row.order_index,
+            customerData: { ...row.customer_data, fullName: row.customer_name || row.customer_data?.fullName || '' } } as Order;
+          if (order.id) map[String(order.id)] = order;
+          const orderCode = formatOrderCode(order);
+          if (orderCode) map[orderCode] = order;
+          if (row.order_index != null) map[String(row.order_index)] = order;
+          if (row.order_number) map[String(row.order_number)] = order;
+        });
       });
       setOrdersMap(map);
-    });
-    return () => unsubscribe();
-  }, []);
+    };
+    setOrdersMap({});
+    void load();
+    const unsubscribe = subscribeToOrderChanges(() => void load());
+    return () => { controller?.abort(); unsubscribe(); };
+  }, [referenceKey]);
 
   const formatOrderLabel = useCallback(
     (orderIdOrCode: string): string | null => {

@@ -23,24 +23,41 @@ export const CustomerDetailsTab: React.FC<CustomerDetailsTabProps> = ({
   onUnlink,
   isUnlinking = false,
 }) => {
+  const contactSummary = (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900" aria-label="Contato da conversa">
+      <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contato da conversa</h4>
+      <dl className="mt-3 space-y-2 text-xs">
+        <div className="flex justify-between gap-3">
+          <dt className="text-slate-400">Nome:</dt>
+          <dd className="truncate text-right font-semibold text-slate-800 dark:text-slate-200">{conversation.contactName?.trim() || 'Não informado'}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-slate-400">Telefone:</dt>
+          <dd className="text-right font-mono text-slate-800 dark:text-slate-200">{conversation.contactPhone ? formatPhoneForDisplay(conversation.contactPhone) : 'Não informado'}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-slate-400">Vínculo:</dt>
+          <dd className="text-right font-semibold text-slate-800 dark:text-slate-200">{isLinked ? 'Cliente ERP' : 'Não vinculado'}</dd>
+        </div>
+      </dl>
+    </section>
+  );
+
   if (!canViewCommercial) {
     return (
       <div className="space-y-4 animate-fade-in">
+        {contactSummary}
         <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-200">
           <strong className="block font-bold">Dados comerciais restritos</strong>
           <p className="mt-1 text-[11px] leading-relaxed">É necessária a permissão de informações comerciais para consultar o cadastro ou alterar o vínculo deste cliente.</p>
-        </div>
-        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Metadados do WhatsApp</span>
-          <div className="flex justify-between"><span className="text-slate-400">Nome de Perfil:</span><span className="font-semibold text-slate-800 dark:text-slate-200">{conversation.contactName || 'Não informado'}</span></div>
-          <div className="flex justify-between"><span className="text-slate-400">Telefone:</span><span className="font-mono text-[11px] text-slate-800 dark:text-slate-200">{formatPhoneForDisplay(conversation.contactPhone)}</span></div>
         </div>
       </div>
     );
   }
   return (
     <div className="space-y-4 animate-fade-in">
-      {isLinked && customer ? (
+      {contactSummary}
+      {isLinked && customer && (
         <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 space-y-3">
           <div className="flex items-center justify-between">
             <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-bold uppercase tracking-wider">
@@ -111,55 +128,8 @@ export const CustomerDetailsTab: React.FC<CustomerDetailsTabProps> = ({
             </button>
           </div>
         </div>
-      ) : (
-        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-center">
-          <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-2 text-lg">
-            <i className="bi bi-person-x"></i>
-          </div>
-          <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-            {conversation.customerLinkStatus === 'ambiguous'
-              ? 'Telefone associado a múltiplos clientes'
-              : 'Contato não identificado no ERP'}
-          </h4>
-          <p className="text-[11px] text-amber-700/90 dark:text-amber-300/80 mt-1 mb-3 leading-relaxed">
-            {conversation.customerLinkStatus === 'ambiguous'
-              ? 'Existem dois ou mais cadastros com este telefone. Selecione manualmente o cliente correto.'
-              : 'Nenhum cadastro de cliente foi localizado com este número de telefone.'}
-          </p>
-          <button
-            type="button"
-            onClick={onOpenLinkModal}
-            className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
-          >
-            Pesquisar e Vincular Cliente
-          </button>
-        </div>
       )}
 
-      {/* Informações da Linha WhatsApp */}
-      <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-          Metadados do WhatsApp
-        </span>
-        <div className="flex justify-between">
-          <span className="text-slate-400">Nome de Perfil:</span>
-          <span className="font-semibold text-slate-800 dark:text-slate-200">
-            {conversation.contactName || 'Não informado'}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-slate-400">WhatsApp ID:</span>
-          <span className="font-mono text-[11px] text-slate-800 dark:text-slate-200">
-            {conversation.contactWaId}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-slate-400">Telefone Formatado:</span>
-          <span className="font-mono text-[11px] text-slate-800 dark:text-slate-200">
-            {formatPhoneForDisplay(conversation.contactPhone)}
-          </span>
-        </div>
-      </div>
     </div>
   );
 };

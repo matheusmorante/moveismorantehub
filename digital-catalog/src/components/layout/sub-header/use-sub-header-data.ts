@@ -1,54 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { catalogCategoriesQuery, catalogRelationshipsQuery } from '@/lib/catalog-menu-queries';
 import type { Category, Relationship } from './types';
 
-function fetchMenuData() {
-  return Promise.all([
-    supabase.from('categories').select('id, name, slug, type').order('name'),
-    supabase.from('category_relationships').select('parent_id, child_id'),
-  ]);
-}
-
-let pendingMenuData: ReturnType<typeof fetchMenuData> | null = null;
-
-function loadMenuData() {
-  // Os menus compartilham somente a carga em andamento, sem reter dados após ela.
-  if (!pendingMenuData) {
-    pendingMenuData = fetchMenuData().finally(() => {
-      pendingMenuData = null;
-    });
-  }
-  return pendingMenuData;
-}
-
 export function useSubHeaderData() {
-  const [environments, setEnvironments] = useState<Category[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [relationships, setRelationships] = useState<Relationship[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const [catRes, relRes] = await loadMenuData();
-        if (catRes.data) {
-          setEnvironments(catRes.data.filter((c: Category) => c.type === 'environment'));
-          setCategories(catRes.data.filter((c: Category) => c.type === 'category'));
-        }
-        if (relRes.data) setRelationships(relRes.data);
-      } finally {
-        setIsLoaded(true);
-      }
-    }
-    load();
-  }, []);
+  const { data: allCategories = [], isLoading } = useQuery(catalogCategoriesQuery);
+  const { data: relationships = [], isLoading: relationshipsLoading } = useQuery(catalogRelationshipsQuery);
+  const environments = allCategories.filter((c: Category) => c.type === 'environment');
+  const categories = allCategories.filter((c: Category) => c.type === 'category');
 
   function getCategoriesForEnv(envId: string): Category[] {
     const linkedIds = relationships.filter((r) => r.parent_id === envId).map((r) => r.child_id);
     return categories.filter((c) => linkedIds.includes(c.id));
   }
 
-  return { environments, getCategoriesForEnv, isLoaded };
+  return { environments, getCategoriesForEnv, isLoaded: !isLoading && !relationshipsLoading };
 }

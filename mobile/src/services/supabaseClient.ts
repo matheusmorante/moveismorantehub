@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import { createMeasuredSupabaseFetch } from '../../../shared-utils/supabaseReadMetrics';
 
 export const SUPABASE_URL = 'https://hkoxhourxwlddgsfdgws.supabase.co';
 export const SUPABASE_ANON_KEY =
@@ -11,6 +13,7 @@ export const NOTIFICATION_SOUND_URL = 'https://morantehub.vercel.app/levelup.mp3
 const authStorage = Platform.OS === 'web' ? undefined : AsyncStorage;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  global: { fetch: createMeasuredSupabaseFetch('app', `${Constants.expoConfig?.version || 'dev'}:${process.env.EXPO_PUBLIC_APP_BETA === 'true' ? 'beta' : 'production'}`, (input, init) => fetch(input, init)) },
   auth: {
     storage: authStorage,
     persistSession: true,

@@ -82,7 +82,7 @@ describe('searchMobileProductCompositionCandidates', () => {
     expect(fetchProductsPage).not.toHaveBeenCalled();
   });
 
-  it('mantém até 15 sugestões, como o autocomplete ERP', async () => {
+  it('limita a cinco sugestões, como o autocomplete ERP', async () => {
     fetchProductsPage.mockResolvedValue({
       total: 20,
       data: Array.from({ length: 20 }, (_, index) => ({
@@ -96,9 +96,9 @@ describe('searchMobileProductCompositionCandidates', () => {
 
     const candidates = await searchMobileProductCompositionCandidates('Produto');
 
-    expect(candidates).toHaveLength(15);
+    expect(candidates).toHaveLength(5);
     expect(candidates[0].id).toBe('product-1');
-    expect(candidates[14].id).toBe('product-15');
+    expect(candidates[4].id).toBe('product-5');
   });
 
   it('encerra a busca em 10 segundos e permite exibir o estado de erro', async () => {

@@ -8,7 +8,7 @@ import { labelRemoteLayoutDraftSchema, LabelLayoutUnconfirmedError } from '../..
  * Compara o conteúdo completo; nomes/identidade não definem o design.
  */
 export const isIdenticalGridModel = (m1: GridModel, m2: GridModel): boolean => {
-  const content = (model: GridModel) => JSON.stringify({ ...model, id: undefined, name: undefined, baseModelId: undefined },
+  const content = (model: GridModel) => JSON.stringify({ ...model, id: undefined, name: undefined, baseModelId: undefined, remoteUpdatedAt: undefined, __layoutSummary: undefined },
     (_key, value) => value && typeof value === 'object' && !Array.isArray(value)
       ? Object.fromEntries(Object.entries(value).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)) : value);
   return content(m1) === content(m2);

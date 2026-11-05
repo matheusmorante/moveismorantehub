@@ -42,7 +42,6 @@ export interface SupportCatalogPage {
 export interface SupportCatalogMetadata {
   categories: Array<{ id: string; name: string; slug: string }>;
   relations: Array<{ parent_id: string; child_id: string }>;
-  brands: string[];
   userId: string | null;
 }
 
@@ -85,12 +84,10 @@ export const fetchSupportCatalogMetadata = async (signal: AbortSignal): Promise<
     const metadata = metadataResult.data as {
       categories?: SupportCatalogMetadata['categories'];
       relations?: SupportCatalogMetadata['relations'];
-      brands?: string[];
     } | null;
     return {
       categories: metadata?.categories || [],
       relations: metadata?.relations || [],
-      brands: metadata?.brands || [],
       userId: sessionResult.data.session?.user.id || null,
     };
   } finally {

@@ -5,7 +5,7 @@ import type Item from '@/pages/types/items.type';
 import type { AssistanceItem } from '@/pages/types/order.type';
 type Scheduling = NonNullable<Order['shipping']>['scheduling'];
 import { toast } from 'react-toastify';
-import { subscribeToOrders, fetchOrderById, saveOrder } from '@/pages/utils/orderHistoryService';
+import { fetchOrderById, fetchOrdersPage, saveOrder } from '@/pages/utils/orderHistoryService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { createAssistanceOrderFormSchema, assistanceOrderDraftFormSchema, assistanceSavedIdSchema, assistanceLinkedOrderLookupSchema } from '@/../../shared-utils/orderDomainValidation';
@@ -70,7 +70,6 @@ export const useAssistanceOrderForm = ({
   const [assistanceServiceValue, setAssistanceServiceValue] = useState(
     order?.assistanceServiceValue || 0
   );
-  const [saleOrders, setSaleOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
@@ -89,28 +88,26 @@ export const useAssistanceOrderForm = ({
   const [isCustomerSearchOpen, setIsCustomerSearchOpen] = useState(false);
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
 
-  // Order stream and auto-match by initialData
+  // Busca a venda do produto no servidor; não baixa uma amostra de todos os pedidos.
   useEffect(() => {
-    const unsubscribe = subscribeToOrders((data) => {
-      const filtered = data.filter((o) => o.orderType !== 'assistance' && !o.deleted);
-      setSaleOrders(filtered);
-
-      if (
-        initialData?.matchedProductId &&
-        !isEditing &&
-        !initialDataFetched.current &&
-        filtered.length > 0 &&
-        !sourceOrder
-      ) {
-        const matched = filtered.find((o) =>
-          o.items.some((item) => item.productId === initialData.matchedProductId)
-        );
+    const productId = initialData?.matchedProductId;
+    if (!productId || isEditing || initialDataFetched.current || sourceOrder) return;
+    const controller = new AbortController();
+    void fetchOrdersPage(1, 1, {
+      productId,
+      multiSort: [{ key: 'createdAt', order: 'desc' }],
+    }, { throwOnError: true, signal: controller.signal })
+      .then(async ({ orders }) => {
+        if (controller.signal.aborted) return;
+        const matched = orders[0]?.id ? await fetchOrderById(orders[0].id) : null;
+        if (controller.signal.aborted) return;
         if (matched) {
+          setSelectedLinkedOrder(matched);
           setLinkedOrderId(matched.id || '');
           setIsLinked(true);
           setSeller(matched.seller || '');
           setCustomerData(matched.customerData || EMPTY_CUSTOMER);
-          const item = matched.items.find((i) => i.productId === initialData.matchedProductId);
+          const item = matched.items.find((i) => i.productId === productId);
           if (item) {
             setSelectedAssistanceItems([
               {
@@ -124,10 +121,12 @@ export const useAssistanceOrderForm = ({
           initialDataFetched.current = true;
           toast.info(`Vínculo automático: Pedido #${matched.id} detectado.`);
         }
-      }
-    });
-    return () => unsubscribe();
-  }, [initialData, isEditing, sourceOrder]);
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) console.error('[Assistência] Falha ao localizar venda do produto:', error);
+      });
+    return () => controller.abort();
+  }, [initialData?.matchedProductId, isEditing, sourceOrder]);
 
   const [linkedOrderLoading, setLinkedOrderLoading] = useState(false);
   const [linkedOrderError, setLinkedOrderError] = useState('');
@@ -138,7 +137,7 @@ export const useAssistanceOrderForm = ({
     let accepting = true;
     const isCurrent = () => accepting && active.current;
     setLinkedOrderError('');
-    const available = sourceOrder?.id === linkedOrderId ? sourceOrder : saleOrders.find(item => item.id === linkedOrderId);
+    const available = sourceOrder?.id === linkedOrderId ? sourceOrder : undefined;
     if (!linkedOrderId) { setSelectedLinkedOrder(null); setLinkedOrderLoading(false); return; }
     if (available) { setSelectedLinkedOrder(available); setLinkedOrderLoading(false); return; }
     if (selectedLinkedOrder?.id === linkedOrderId) { setLinkedOrderLoading(false); return; }
@@ -153,7 +152,7 @@ export const useAssistanceOrderForm = ({
     })().catch(() => { if (isCurrent()) setLinkedOrderError('Não foi possível consultar a venda vinculada. Tente novamente.'); })
       .finally(() => { if (isCurrent()) setLinkedOrderLoading(false); });
     return () => { accepting = false; };
-  }, [linkedOrderId, saleOrders, selectedLinkedOrder?.id, sourceOrder, lookupRevision]);
+  }, [linkedOrderId, selectedLinkedOrder?.id, sourceOrder, lookupRevision]);
   const retryLinkedOrder = () => { if (!writeInFlight.current && !manualPending.current) setLookupRevision(value => value + 1); };
 
   const currentLinkedOrder = useMemo(() => {
@@ -163,8 +162,8 @@ export const useAssistanceOrderForm = ({
     if (selectedLinkedOrder && selectedLinkedOrder.id === linkedOrderId) {
       return selectedLinkedOrder;
     }
-    return saleOrders.find((o) => o.id === linkedOrderId);
-  }, [sourceOrder, selectedLinkedOrder, saleOrders, linkedOrderId]);
+    return undefined;
+  }, [sourceOrder, selectedLinkedOrder, linkedOrderId]);
 
   const handleChangeScheduling = (key: string, value: any) => {
     setScheduling((prev: any) => {

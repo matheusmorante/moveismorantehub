@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase/client';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { submittedSearchFormSchema } from '@/shared-utils/lookupFormSchemas';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
+import { catalogCategoriesQuery } from '@/lib/catalog-menu-queries';
 import {
   filterPublicCatalogSuggestions,
   isCatalogSearchLongEnough,
@@ -69,18 +71,7 @@ export function useSearch() {
   };
 
   // Caching local de categorias para busca instantânea sem acento
-  const [allDbCategories, setAllDbCategories] = useState<any[]>([]);
-
-  useEffect(() => {
-    async function loadAllCategories() {
-      const { data } = await supabase
-        .from('categories')
-        .select('id, name, slug, type')
-        .order('name');
-      if (data) setAllDbCategories(data);
-    }
-    loadAllCategories();
-  }, []);
+  const { data: allDbCategories = [] } = useQuery(catalogCategoriesQuery);
 
   // Busca sugestões em tempo real ao digitar (Debounce)
   useEffect(() => {

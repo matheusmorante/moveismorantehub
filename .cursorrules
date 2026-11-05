@@ -17,3 +17,7 @@
   Sempre renderize banners de progresso com spinners durante operações assíncronas. Nunca feche modais silenciosamente após consultas da SEFAZ.
 - ACESSIBILIDADE WCAG AAA:
   Toasts de aviso devem manter contraste estrito (> 9:1 com texto escuro sobre amarelo no tema claro).
+
+## 3. Consumo do Supabase
+- Em toda mudança de consulta, SQL/RPC ou carregamento de dados, siga as seções 24–25 de `AGENTS.md` e revise `rules/supabase/supabase-consumption.yml`: reduza requisições, trabalho do banco e bytes transferidos sem perder resultados, permissões, atualização de preços/estoque ou modo offline.
+- Diferencie volume de chamadas de egress; medições de payload não são cobrança oficial.

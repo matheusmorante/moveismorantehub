@@ -161,11 +161,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[9px] font-bold shrink-0">
                 Ambiguidade
               </span>
-            ) : (
-              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-medium shrink-0">
-                Não identificado
-              </span>
-            )}
+            ) : null}
 
             {/* Status Badge */}
             {currentStatus === 'closed' ? (

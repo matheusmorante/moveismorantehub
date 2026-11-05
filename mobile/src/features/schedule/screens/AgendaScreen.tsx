@@ -37,7 +37,7 @@ export const AgendaScreen: React.FC<Props> = ({
 
   const [activeFilter, setActiveFilter] = useState<AgendaFilterType>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const { orders, events, loading, refreshing, onRefresh, reload } = useAgendaData();
+  const { orders, events, loading, refreshing, showingOffline, error, onRefresh, reload } = useAgendaData(activeFilter);
 
   // Agrupamento de itens por data (Entregas, Retiradas, Montagens e Eventos)
   const sections = useMemo(() => {
@@ -200,6 +200,8 @@ export const AgendaScreen: React.FC<Props> = ({
         </View>
       </View>
 
+      {showingOffline ? <Text style={styles.loadingText}>Sem conexão. Exibindo os pedidos salvos neste aparelho.</Text> : null}
+      {error ? <Text accessibilityRole="alert" style={styles.loadingText}>{error}</Text> : null}
       {/* Lista da Agenda */}
       {loading ? (
         <View style={styles.centerLoading}>

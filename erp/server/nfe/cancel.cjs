@@ -1535,27 +1535,6 @@ function getFiscalCancellationPolicy(input) {
 // api/nfe/fiscalXmlAudit.ts
 var import_xml_crypto2 = require("xml-crypto");
 
-// api/nfe/normal-sale/attemptPolicy.ts
-function saoPauloEmissionTimestamp(iso) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) throw new Error("Data fiscal inv\xE1lida.");
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/Sao_Paulo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-      timeZoneName: "longOffset"
-    }).formatToParts(date).map(({ type, value }) => [type, value])
-  );
-  const offset = parts.timeZoneName.replace("GMT", "") || "+00:00";
-  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
-}
-
 // api/nfe/normal-sale/values.ts
 var obj = (value) => {
   if (!value || typeof value !== "object" || Array.isArray(value))
@@ -1754,6 +1733,27 @@ function getOrderPaymentDueDate(payment, shipping) {
 }
 function getOrderPaymentActualDate(payment) {
   return parseDateOnly(payment.paymentDate);
+}
+
+// api/nfe/normal-sale/attemptPolicy.ts
+function saoPauloEmissionTimestamp(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) throw new Error("Data fiscal inv\xE1lida.");
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+      timeZoneName: "longOffset"
+    }).formatToParts(date).map(({ type, value }) => [type, value])
+  );
+  const offset = parts.timeZoneName.replace("GMT", "") || "+00:00";
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${offset}`;
 }
 
 // shared-utils/fiscalItemSelections.ts
@@ -2495,16 +2495,7 @@ function assertSignedFiscalXmlMatchesSnapshot(snapshot, document, xml, identity,
   if (mismatches.length) throw new FiscalXmlAuditError(mismatches);
 }
 
-// api/nfe/orderEditFiscalAudit.ts
-var objectValue2 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
-var normalizeText = (value) => String(value ?? "").trim();
-var normalizeTaxId2 = (value) => normalizeFiscalIdentifier(value);
-var moneyMatches = (left, right) => {
-  const a = Number(left);
-  const b = Number(right);
-  return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= 5e-3;
-};
-var sameValue = (left, right) => normalizeText(left) === normalizeText(right);
+// api/nfe/order-edit-audit/fiscalOrderEditProjection.ts
 function projectOrderDataForFiscalEdit(current, submitted) {
   const allowed = [
     "items",
@@ -2597,6 +2588,17 @@ function hasPotentialFiscalOrderEdit(current, proposed) {
   });
   return JSON.stringify(fields(current)) !== JSON.stringify(fields(proposed));
 }
+
+// api/nfe/orderEditFiscalAudit.ts
+var objectValue2 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : {};
+var normalizeText = (value) => String(value ?? "").trim();
+var normalizeTaxId2 = (value) => normalizeFiscalIdentifier(value);
+var moneyMatches = (left, right) => {
+  const a = Number(left);
+  const b = Number(right);
+  return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= 5e-3;
+};
+var sameValue = (left, right) => normalizeText(left) === normalizeText(right);
 function assertAuthorizedFiscalSnapshot(snapshot, document) {
   if (!document.emission_request_id || !document.xml_nfe)
     throw new Error("A nota autorizada n\xE3o possui v\xEDnculo t\xE9cnico e XML \xEDntegro para auditoria.");

@@ -88,7 +88,7 @@ export const createProductVariationFormSchema = (parent: Partial<Product>, isSin
 /** The displayed discount is part of the submit intent, even if preview math clamps it. */
 export const createProductVariationSubmissionSchema = (parent: Partial<Product>, isSingleVariation = false) => z.object({
   variation: createProductVariationFormSchema(parent, isSingleVariation),
-  discountPercent: z.string(), discountFixed: z.string(),
+  discountPercent: z.number().nullable(), discountFixed: z.number().nullable(),
 }).superRefine((values, context) => {
   if (isSingleVariation || values.variation.syncUnitPrice) return;
   getProductDiscountValidationIssues(

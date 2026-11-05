@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createCategoryEnvironmentFixtures } from './categoryEnvironmentFixtures';
+import { createCategoryEnvironmentRouteMocks } from './categoryEnvironmentRouteMocks';
 
 /**
  * Suíte E2E Playwright Permanente — Módulo Ambientes e Categorias
@@ -31,35 +31,16 @@ test.describe('Suíte Permanente E2E: Ambientes e Categorias', () => {
     let consoleErrors: string[] = [];
     let pageErrors: string[] = [];
 
-    // Estado dinâmico do mock para cada execução isolada de teste
-    let currentEnvironments: any[] = [];
-    let currentCategories: any[] = [];
-    let currentRelationships: { parent_id: string; child_id: string }[] = [];
-    let currentProductCategories: { product_id: string; category_id: string }[] = [];
-    let currentCategoryAttributes: { category_id: string; attribute_id: string; is_required: boolean }[] = [];
-    let productVariationMutationCount = 0;
+    let categoryEnvironmentMocks: ReturnType<typeof createCategoryEnvironmentRouteMocks>;
     let restRequestCount = 0;
-    const availableAttributes = [
-        { id: 'attr-cor', name: 'Cor' },
-        { id: 'attr-material', name: 'Material' },
-        { id: 'attr-dimensoes', name: 'Dimens\u00f5es' }
-    ];
 
     test.beforeEach(async ({ page }) => {
         consoleErrors = [];
         pageErrors = [];
         const testRunId = `TEST_AUT_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
 
-        // Reset da base de dados
-        currentCategoryAttributes = [];
-        productVariationMutationCount = 0;
         restRequestCount = 0;
-        const fixtures = createCategoryEnvironmentFixtures(testRunId);
-        currentEnvironments = fixtures.environments;
-        currentCategories = fixtures.categories;
-        currentRelationships = fixtures.relationships;
-        currentProductCategories = fixtures.productCategories;
-
+        categoryEnvironmentMocks = createCategoryEnvironmentRouteMocks(testRunId);
         page.on('console', msg => {
             if (msg.type() === 'error') {
                 consoleErrors.push(msg.text());
@@ -75,199 +56,7 @@ test.describe('Suíte Permanente E2E: Ambientes e Categorias', () => {
         });
 
         // Mock State Store do Supabase
-        await page.route('**/rest/v1/categories*', async route => {
-            const req = route.request();
-            const method = req.method().toUpperCase();
-            const url = req.url();
-
-            if (method === 'GET' || method === 'HEAD') {
-                if (url.includes('type=eq.environment')) {
-                    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(currentEnvironments) });
-                } else if (url.includes('type=eq.category')) {
-                    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(currentCategories) });
-                } else {
-                    await route.fulfill({
-                        status: 200,
-                        contentType: 'application/json',
-                        body: JSON.stringify([...currentEnvironments, ...currentCategories])
-                    });
-                }
-            } else if (method === 'POST') {
-                const postData = req.postDataJSON();
-                const items = Array.isArray(postData) ? postData : [postData];
-                const inserted = items.map((item: any, idx: number) => ({
-                    id: item.id || `created-${Date.now()}-${idx}`,
-                    name: item.name,
-                    slug: item.slug || `slug-${Date.now()}`,
-                    type: item.type || 'category'
-                }));
-
-                inserted.forEach(item => {
-                    if (item.type === 'environment') {
-                        currentEnvironments.push(item);
-                    } else {
-                        currentCategories.push(item);
-                    }
-                });
-
-                await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(inserted) });
-            } else if (method === 'PATCH') {
-                const patchData = req.postDataJSON();
-                const matchId = url.match(/id=eq\.([^&]+)/);
-                if (matchId) {
-                    const targetId = decodeURIComponent(matchId[1]);
-                    const envIndex = currentEnvironments.findIndex(e => e.id === targetId);
-                    if (envIndex >= 0) {
-                        currentEnvironments[envIndex] = { ...currentEnvironments[envIndex], ...patchData };
-                    }
-                    const catIndex = currentCategories.findIndex(c => c.id === targetId);
-                    if (catIndex >= 0) {
-                        currentCategories[catIndex] = { ...currentCategories[catIndex], ...patchData };
-                    }
-                }
-                await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-            } else if (method === 'DELETE') {
-                const matchId = url.match(/id=eq\.([^&]+)/);
-                if (matchId) {
-                    const targetId = decodeURIComponent(matchId[1]);
-                    currentEnvironments = currentEnvironments.filter(e => e.id !== targetId);
-                    currentCategories = currentCategories.filter(c => c.id !== targetId);
-                }
-                await route.fulfill({ status: 204, body: '' });
-            } else {
-                await route.continue();
-            }
-        });
-
-        await page.route('**/rest/v1/category_relationships*', async route => {
-            const req = route.request();
-            const method = req.method().toUpperCase();
-            const url = req.url();
-
-            if (method === 'GET' || method === 'HEAD') {
-                const isHead = method === 'HEAD' || req.headers()['prefer']?.includes('count=exact') || url.includes('count=exact');
-                if (url.includes('parent_id=eq.')) {
-                    const match = url.match(/parent_id=eq\.([^&]+)/);
-                    const pid = match ? decodeURIComponent(match[1]) : '';
-                    const filtered = currentRelationships.filter(r => r.parent_id === pid);
-                    if (isHead) {
-                        await route.fulfill({
-                            status: 200,
-                            headers: { 'content-range': `0-${filtered.length}/${filtered.length}` },
-                            body: JSON.stringify(filtered)
-                        });
-                        return;
-                    }
-                    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(filtered) });
-                    return;
-                }
-
-                await route.fulfill({
-                    status: 200,
-                    contentType: 'application/json',
-                    body: JSON.stringify(currentRelationships)
-                });
-            } else if (method === 'POST') {
-                const postData = req.postDataJSON();
-                const items = Array.isArray(postData) ? postData : [postData];
-                items.forEach(it => currentRelationships.push(it));
-                await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(items) });
-            } else if (method === 'DELETE') {
-                const matchParent = url.match(/parent_id=eq\.([^&]+)/);
-                const matchChild = url.match(/child_id=eq\.([^&]+)/);
-
-                if (matchParent && matchChild) {
-                    const pId = decodeURIComponent(matchParent[1]);
-                    const cId = decodeURIComponent(matchChild[1]);
-                    currentRelationships = currentRelationships.filter(r => !(r.parent_id === pId && r.child_id === cId));
-                } else if (matchParent) {
-                    const pId = decodeURIComponent(matchParent[1]);
-                    currentRelationships = currentRelationships.filter(r => r.parent_id !== pId);
-                } else if (matchChild) {
-                    const cId = decodeURIComponent(matchChild[1]);
-                    currentRelationships = currentRelationships.filter(r => r.child_id !== cId);
-                }
-                await route.fulfill({ status: 204, body: '' });
-            } else {
-                await route.continue();
-            }
-        });
-
-        await page.route('**/rest/v1/product_categories*', async route => {
-            const req = route.request();
-            const method = req.method().toUpperCase();
-            const url = req.url();
-            const matchCat = url.match(/category_id=eq\.([^&]+)/);
-
-            if (matchCat) {
-                const cId = decodeURIComponent(matchCat[1]);
-                const filtered = currentProductCategories.filter(pc => pc.category_id === cId);
-                await route.fulfill({
-                    status: 200,
-                    headers: { 'content-range': `0-${filtered.length}/${filtered.length}` },
-                    contentType: 'application/json',
-                    body: JSON.stringify(filtered)
-                });
-                return;
-            }
-
-            await route.fulfill({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify(currentProductCategories)
-            });
-        });
-
-        await page.route('**/rest/v1/products*', async route => {
-            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-        });
-
-        await page.route('**/rest/v1/product_variations*', async route => {
-            if (!['GET', 'HEAD'].includes(route.request().method().toUpperCase())) {
-                productVariationMutationCount++;
-            }
-            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
-        });
-
-        await page.route('**/rest/v1/attributes*', async route => {
-            await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(availableAttributes) });
-        });
-
-        await page.route('**/rest/v1/category_attributes*', async route => {
-            const req = route.request();
-            const method = req.method().toUpperCase();
-            const url = req.url();
-
-            if (method === 'GET' || method === 'HEAD') {
-                const matchCat = url.match(/category_id=eq\.([^&]+)/);
-                if (matchCat) {
-                    const cId = decodeURIComponent(matchCat[1]);
-                    const filtered = currentCategoryAttributes.filter(ca => ca.category_id === cId);
-                    // enriquece com o objeto attributes
-                    const enriched = filtered.map(ca => ({
-                        ...ca,
-                        attributes: availableAttributes.find(a => a.id === ca.attribute_id) || null
-                    }));
-                    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(enriched) });
-                    return;
-                }
-                await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(currentCategoryAttributes) });
-            } else if (method === 'POST') {
-                const postData = req.postDataJSON();
-                const items = Array.isArray(postData) ? postData : [postData];
-                items.forEach((it: any) => currentCategoryAttributes.push(it));
-                await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(items) });
-            } else if (method === 'DELETE') {
-                const matchCat = url.match(/category_id=eq\.([^&]+)/);
-                if (matchCat) {
-                    const cId = decodeURIComponent(matchCat[1]);
-                    currentCategoryAttributes = currentCategoryAttributes.filter(ca => ca.category_id !== cId);
-                }
-                await route.fulfill({ status: 204, body: '' });
-            } else {
-                await route.continue();
-            }
-        });
+        await categoryEnvironmentMocks.install(page);
 
         await page.goto(`/registrations/product-categories?${AUTH_QUERY}`, { waitUntil: 'domcontentloaded' });
     });
@@ -736,10 +525,10 @@ test.describe('Suíte Permanente E2E: Ambientes e Categorias', () => {
         await expect(page.getByPlaceholder(/ex: sofá/i)).not.toBeVisible({ timeout: 5000 });
 
         // Verificar que o category_attribute foi persistido no mock
-        const createdCategory = currentCategories.find(category => category.name.toUpperCase() === 'ESTANTE COM COR');
+        const createdCategory = categoryEnvironmentMocks.currentCategories.find(category => category.name.toUpperCase() === 'ESTANTE COM COR');
         expect(createdCategory).toBeDefined();
-        expect(currentCategoryAttributes.filter(ca => ca.category_id === createdCategory?.id)).toHaveLength(2);
-        expect(currentRelationships.filter(rel => rel.child_id === createdCategory?.id)).toHaveLength(2);
+        expect(categoryEnvironmentMocks.currentCategoryAttributes.filter(ca => ca.category_id === createdCategory?.id)).toHaveLength(2);
+        expect(categoryEnvironmentMocks.currentRelationships.filter(rel => rel.child_id === createdCategory?.id)).toHaveLength(2);
 
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.getByTestId('tab-view-categoria').click();
@@ -754,9 +543,9 @@ test.describe('Suíte Permanente E2E: Ambientes e Categorias', () => {
     // ==========================================
     test('Cenário 22 — Editar Categoria: remove e adiciona obrigatoriedade sem alterar valores dos Produtos', async ({ page }) => {
         // Pre-populate: SOFÁ já tem "Cor" vinculado
-        const sofaId = currentCategories.find((c: any) => c.name.includes('SOFÁ'))?.id;
+        const sofaId = categoryEnvironmentMocks.currentCategories.find((c: any) => c.name.includes('SOFÁ'))?.id;
         if (sofaId) {
-            currentCategoryAttributes.push({ category_id: sofaId, attribute_id: 'attr-cor', is_required: true });
+            categoryEnvironmentMocks.currentCategoryAttributes.push({ category_id: sofaId, attribute_id: 'attr-cor', is_required: true });
         }
 
         // Ir para aba categorias e editar o SOFÁ
@@ -789,9 +578,9 @@ test.describe('Suíte Permanente E2E: Ambientes e Categorias', () => {
 
         // Confirmar que o vínculo foi removido no mock
         if (sofaId) {
-            expect(currentCategoryAttributes.filter(ca => ca.category_id === sofaId && ca.attribute_id === 'attr-cor')).toHaveLength(0);
-            expect(currentCategoryAttributes.filter(ca => ca.category_id === sofaId && ca.attribute_id === 'attr-material')).toHaveLength(1);
+            expect(categoryEnvironmentMocks.currentCategoryAttributes.filter(ca => ca.category_id === sofaId && ca.attribute_id === 'attr-cor')).toHaveLength(0);
+            expect(categoryEnvironmentMocks.currentCategoryAttributes.filter(ca => ca.category_id === sofaId && ca.attribute_id === 'attr-material')).toHaveLength(1);
         }
-        expect(productVariationMutationCount, 'Alterar obrigatoriedade não pode editar valores das variações').toBe(0);
+        expect(categoryEnvironmentMocks.productVariationMutationCount, 'Alterar obrigatoriedade não pode editar valores das variações').toBe(0);
     });
 });

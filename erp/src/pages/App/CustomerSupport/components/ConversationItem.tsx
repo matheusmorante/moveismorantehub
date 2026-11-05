@@ -46,31 +46,8 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
 
   const timeFormatted = formatTimeAgo(conversation.lastMessageAt);
 
-  const isCustomerLinked = Boolean(conversation.customerId);
   const hasOrders = (conversation.orders?.length || 0) > 0;
   const currentStatus = conversation.status || (conversation.isArchived ? 'closed' : 'open');
-
-  // Iniciais para o avatar do contato
-  const initials = conversation.contactName?.trim()
-    ? conversation.contactName
-        .trim()
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0].toUpperCase())
-        .join('')
-    : null;
-
-  // Atendente atribuído (avatar no canto inferior direito do item como no print)
-  const assignedName = conversation.assignedProfile?.fullName;
-  const assignedInitials = assignedName
-    ? assignedName
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0].toUpperCase())
-        .join('')
-    : null;
 
   return (
     <div
@@ -90,28 +67,15 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
           : 'bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 shadow-xs'
       }`}
     >
-      {/* Avatar do Contato (48px) com Badge do Canal WhatsApp */}
-      <div className="relative shrink-0">
-        <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 text-xs shadow-xs border border-slate-200/60 dark:border-slate-700">
-          {initials || <i className="bi bi-person text-base text-slate-400"></i>}
-        </div>
-
-        {/* Badge do WhatsApp com indicador de canal */}
-        <span
-          title="Canal WhatsApp"
-          className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] border-2 border-white dark:border-slate-900 shadow-xs"
-        >
-          <i className="bi bi-whatsapp"></i>
-        </span>
-      </div>
-
       {/* Conteúdo da Conversa */}
       <div className="flex-1 min-w-0 flex flex-col justify-center">
         {/* Linha 1: Nome e Horário */}
         <div className="flex items-center justify-between gap-1 mb-0.5">
-          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
-            {displayName}
-          </h4>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h4 className="min-w-0 truncate text-sm font-bold text-slate-900 dark:text-slate-100">
+              {displayName}
+            </h4>
+          </div>
           <span
             className={`text-[11px] font-medium shrink-0 ${
               conversation.unreadCount > 0
@@ -145,7 +109,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
         </div>
 
         {/* Linha 3: Identificadores de Status e Atendente Responsável */}
-        <div className="flex items-center justify-between gap-1 mt-2">
+        <div className="flex items-center gap-1 mt-2">
           <div className="flex items-center gap-1.5 overflow-hidden flex-wrap">
             {/* Status da conversa */}
             {currentStatus === 'closed' ? (
@@ -160,13 +124,6 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
               </span>
             ) : null}
 
-            {isCustomerLinked && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-semibold border border-blue-200/60 dark:border-blue-800/60">
-                <i className="bi bi-person-check-fill text-[9px]"></i>
-                ERP
-              </span>
-            )}
-
             {hasOrders && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-[10px] font-semibold border border-purple-200/60 dark:border-purple-800/60">
                 <i className="bi bi-bag-fill text-[9px]"></i>
@@ -175,22 +132,6 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
             )}
           </div>
 
-          {/* Avatar do Atendente Responsável (Canto inferior direito do card como no print) */}
-          {assignedInitials ? (
-            <div
-              title={`Atribuído a: ${assignedName}`}
-              className="w-5 h-5 rounded-full bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center text-[9px] font-bold shrink-0 shadow-xs border border-white dark:border-slate-800"
-            >
-              {assignedInitials}
-            </div>
-          ) : (
-            <div
-              title="Sem atendente atribuído (Fila geral)"
-              className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center text-[9px] shrink-0"
-            >
-              <i className="bi bi-person-dash"></i>
-            </div>
-          )}
         </div>
       </div>
     </div>
