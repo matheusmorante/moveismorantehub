@@ -6,6 +6,7 @@ import type {
 import { usePriceLabelHistory } from './usePriceLabelHistory';
 import { buildPriceLabelStateSnapshot } from './priceLabelStateSnapshot';
 import { usePriceLabelEditorTransientState } from './usePriceLabelEditorTransientState';
+import { usePriceLabelTitleState } from './usePriceLabelTitleState';
 import { applyPriceLabelMagnitudeSnapshot } from './priceLabelMagnitudeSnapshot';
 import { applyPriceLabelSnapshot } from './priceLabelSnapshotRestoration';
 
@@ -32,18 +33,28 @@ export function usePriceLabelState(
   const [oppColorsMap, setOppColorsMap] = useState<Record<string, Record<string, string>>>({});
 
   // 1. TÍTULO NO CABEÇALHO DA ETIQUETA
-  const [title, setTitle] = useState(
-    initialProduct?.name || config.text || 'COLCHÃO DE ESPUMA D28 LARGURA 88'
-  );
-  const [showTitle, setShowTitle] = useState(true);
-  const [titleFontSizeTens, setTitleFontSizeTens] = useState<number>(14);
-  const [titleFontSizeHundreds, setTitleFontSizeHundreds] = useState<number>(14);
-  const [titleFontSizeThousands, setTitleFontSizeThousands] = useState<number>(14);
-  const [titleColor, setTitleColor] = useState('#000000');
-  const [titleFontFamily, setTitleFontFamily] = useState<string>('Inter, system-ui, sans-serif');
-  const [titlePos, setTitlePos] = useState({ x: 0, y: 0 });
-  const [titleRotation, setTitleRotation] = useState<number>(0);
-  const [titleWidth, setTitleWidth] = useState<number>(520);
+  const {
+    title,
+    setTitle,
+    showTitle,
+    setShowTitle,
+    titleFontSizeTens,
+    setTitleFontSizeTens,
+    titleFontSizeHundreds,
+    setTitleFontSizeHundreds,
+    titleFontSizeThousands,
+    setTitleFontSizeThousands,
+    titleColor,
+    setTitleColor,
+    titleFontFamily,
+    setTitleFontFamily,
+    titlePos,
+    setTitlePos,
+    titleRotation,
+    setTitleRotation,
+    titleWidth,
+    setTitleWidth,
+  } = usePriceLabelTitleState(initialProduct, config);
 
   // 2. TEXTO "DE"
   const [deText, setDeText] = useState('De');

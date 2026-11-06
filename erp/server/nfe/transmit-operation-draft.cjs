@@ -2420,9 +2420,6 @@ function parseAuthorizedInvoiceLines(xml) {
   });
 }
 
-// api/nfe/fiscalXmlAudit.ts
-var import_xml_crypto2 = require("xml-crypto");
-
 // shared-utils/fiscalIcmsGroups.ts
 var CSOSN_CODES = ["101", "102", "103", "201", "202", "203", "300", "400", "500", "900"];
 
@@ -2453,7 +2450,8 @@ var allDescendants = (node, name) => {
   return result;
 };
 
-// api/nfe/fiscalXmlAudit.ts
+// api/nfe/fiscalXmlSignatureAudit.ts
+var import_xml_crypto2 = require("xml-crypto");
 function assertNfeSignature(xml, expectedCertificatePem) {
   const parseErrors = [];
   const parsed = createStrictXmlParser(parseErrors).parseFromString(xml, "application/xml");

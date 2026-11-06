@@ -1,4 +1,4 @@
-import { useEffect, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
 import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import {
   fetchMobileProductTechnicalFields,
@@ -22,24 +22,41 @@ export function useProductTechnicalFieldsLoader({
   setLoadingFields,
   setTechnicalFieldsError,
 }: Args) {
+  const requestRef = useRef<{
+    isVariationEditing: boolean;
+    refreshKey: number;
+    promise: Promise<MobileProductTechnicalField[] | null>;
+    confirmed: boolean;
+  } | null>(null);
+  const categoryKey = [...categoryIds].sort().join(',');
+
   useEffect(() => {
+    let request = requestRef.current;
+    if (!request || request.isVariationEditing !== isVariationEditing || request.refreshKey !== refreshKey) {
+      request = {
+        isVariationEditing,
+        refreshKey,
+        promise: isVariationEditing
+          ? withTimeout(fetchMobileProductTechnicalFields(), 15_000, null, 'variacao:caracteristicas')
+          : fetchMobileProductTechnicalFields(),
+        confirmed: false,
+      };
+      requestRef.current = request;
+    }
+    if (request.confirmed) return;
+    const currentRequest = request;
     let mounted = true;
     const load = async () => {
       setLoadingFields(true);
       setTechnicalFieldsError(null);
       try {
-        const fields = isVariationEditing
-          ? await withTimeout(
-              fetchMobileProductTechnicalFields(),
-              15_000,
-              null,
-              'variacao:caracteristicas'
-            )
-          : await fetchMobileProductTechnicalFields();
+        const fields = await currentRequest.promise;
         if (!mounted) return;
         if (!fields) throw new Error('Consulta de características não confirmada.');
+        currentRequest.confirmed = true;
         setTechnicalFields(fields);
       } catch (error) {
+        if (requestRef.current === currentRequest) requestRef.current = null;
         if (!mounted) return;
         console.warn('[ProductFormTechnicalTab] Falha ao carregar características do ERP:', error);
         setTechnicalFieldsError(
@@ -54,7 +71,7 @@ export function useProductTechnicalFieldsLoader({
       mounted = false;
     };
   }, [
-    categoryIds,
+    categoryKey,
     isVariationEditing,
     refreshKey,
     setTechnicalFields,

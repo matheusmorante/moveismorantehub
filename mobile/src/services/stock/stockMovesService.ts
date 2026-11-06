@@ -86,12 +86,10 @@ export const fetchStockMoves = async (
       : Promise.resolve({ data: [] }),
   ]);
   const directVariations = productVariations || [];
-  const canonicalIdsFromProductVariations = [
-    ...new Set(directVariations.map((variation: any) => String(variation.id))),
-  ];
-  const variationIdsToLoad = [
-    ...new Set([...canonicalVariationIds, ...canonicalIdsFromProductVariations]),
-  ];
+  const variationById = new Map(
+    directVariations.map((row: any) => [String(row.id), row])
+  );
+  const variationIdsToLoad = canonicalVariationIds.filter((id) => !variationById.has(id));
   const { data: canonicalVariations } = variationIdsToLoad.length
     ? await supabase
         .from('product_variations')
@@ -99,9 +97,7 @@ export const fetchStockMoves = async (
         .in('id', variationIdsToLoad)
     : { data: [] as any[] };
   const productById = new Map((products || []).map((row: any) => [String(row.id), row]));
-  const variationById = new Map(
-    (canonicalVariations || []).map((row: any) => [String(row.id), row])
-  );
+  (canonicalVariations || []).forEach((row: any) => variationById.set(String(row.id), row));
   const firstVariationByProduct = new Map<string, any>();
   directVariations.forEach((variation: any) => {
     const productKey = String(variation.product_id || '');

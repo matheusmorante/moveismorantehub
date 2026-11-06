@@ -83,6 +83,7 @@ import {
 import { ProductFormTabNavigation } from './ProductFormTabNavigation';
 import { ProductFormStepFooter } from './ProductFormStepFooter';
 import { useProductFormValidationFeedback } from './useProductFormValidationFeedback';
+import { useProductFormSwipeNavigation } from './useProductFormSwipeNavigation';
 import { TABS, type TabId } from './productFormTabs';
 import { INITIAL_FORM } from './productFormInitialState';
 import { getNextSequentialProductCode } from '../services/mobileProductCodeService';
@@ -938,37 +939,6 @@ export const ProductFormScreen: React.FC<Props> = ({
     ]
   );
 
-  const touchStartX = useRef<number>(0);
-  const touchStartY = useRef<number>(0);
-
-  const handleTouchStart = (e: any) => {
-    touchStartX.current = e.nativeEvent.pageX;
-    touchStartY.current = e.nativeEvent.pageY;
-  };
-
-  const handleTouchEnd = (e: any) => {
-    const endX = e.nativeEvent.pageX;
-    const endY = e.nativeEvent.pageY;
-    const deltaX = endX - touchStartX.current;
-    const deltaY = endY - touchStartY.current;
-
-    // Se gesto for horizontal (deltaX > 60px) e pouco vertical (deltaY < 60px)
-    if (Math.abs(deltaX) > 60 && Math.abs(deltaY) < 60) {
-      const currentIdx = enabledTabs.findIndex((t) => t.id === activeTab);
-      if (deltaX < 0) {
-        // Deslizar para a esquerda -> Próxima aba
-        if (currentIdx >= 0 && currentIdx < enabledTabs.length - 1) {
-          handleTabChange(enabledTabs[currentIdx + 1].id);
-        }
-      } else {
-        // Deslizar para a direita -> Aba anterior
-        if (currentIdx > 0) {
-          handleTabChange(enabledTabs[currentIdx - 1].id);
-        }
-      }
-    }
-  };
-
   const handleTabChange = (tabId: TabId) => {
     if (isTabDisabled(tabId)) return;
     setActiveTab(tabId);
@@ -977,6 +947,12 @@ export const ProductFormScreen: React.FC<Props> = ({
       tabScrollRef.current?.scrollTo({ x: idx * 90, animated: true });
     }
   };
+
+  const { handleTouchStart, handleTouchEnd } = useProductFormSwipeNavigation({
+    activeTab,
+    enabledTabs,
+    onTabChange: handleTabChange,
+  });
 
   const activeStepIndex = enabledTabs.findIndex((tab) => tab.id === activeTab);
   const isLastStep = activeStepIndex < 0 || activeStepIndex === enabledTabs.length - 1;

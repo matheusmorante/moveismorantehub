@@ -4,7 +4,6 @@ import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
 import {
   Alert,
   Modal,
-  Image as RNImage,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -18,10 +17,7 @@ import {
   Network,
   X,
   Check,
-  Camera,
-  Pencil,
   Sparkles,
-  Trash2,
 } from 'lucide-react-native';
 import { parseLocalizedNumber as parseLocalizedPrice } from '../../domain/productNumbers';
 import {
@@ -44,7 +40,6 @@ import { ProductVariationPricingPanel } from './ProductVariationPricingPanel';
 import { ProductVariationPhotosEditor } from '../components/ProductVariationPhotosEditor';
 import { ProductFormCompositionTab } from './ProductFormCompositionTab';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MergedBadge } from '../../components/MergedBadge';
 import { styles } from './productFormVariationsTab.styles';
 import { inheritMobileSimpleVariationFromParent } from '../../domain/productVariationParentSync';
 import { replaceMobileProductImageGlobally } from '../../domain/mobileProductImageOrdering';
@@ -63,6 +58,7 @@ import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { getMobileProductVariationTabs } from './productVariationTabs';
 import type { VariationTabId } from './productVariationTabs';
 import { ProductVariationTabNavigation } from './ProductVariationTabNavigation';
+import { ProductVariationSummaryCard } from './ProductVariationSummaryCard';
 
 interface Props {
   formData: any;
@@ -571,7 +567,6 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                 return { ...previous, variations: nextVariations };
               });
             const isOpen = expanded === idx;
-            const variationImage = Array.isArray(v.images) ? v.images[0] : null;
             const openVariation = () => {
               setOpenReadiness(null);
               setExpanded(idx);
@@ -604,126 +599,18 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                 key={v.id || v.sku || `${v.name || 'variacao'}-${idx}`}
                 style={[styles.varItem, dark && styles.darkCard]}
               >
-                {/* Header da variação */}
-                <View style={styles.varHeader}>
-                  <TouchableOpacity
-                    onPress={openVariation}
-                    style={[styles.variationThumbnail, dark && styles.darkVariationThumbnail]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Editar detalhes da variação ${v.name || v.sku}`}
-                  >
-                    {variationImage ? (
-                      <RNImage
-                        source={{ uri: variationImage }}
-                        style={styles.variationImage}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <Camera size={17} color={dark ? '#94a3b8' : '#94a3b8'} />
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={openVariation}
-                    style={styles.varHeaderLeft}
-                    accessibilityRole="button"
-                  >
-                    <View style={styles.varSkuRow}>
-                      <View style={[styles.skuBadge, dark && styles.darkSkuBadge]}>
-                        <Text style={[styles.varSku, dark && styles.lightText]}>{v.sku}</Text>
-                      </View>
-                      {Boolean(
-                        v.is_merged ||
-                        v.isMerged ||
-                        v.merged_to_variation_id ||
-                        v.mergedToVariationId
-                      ) && (
-                        <MergedBadge
-                          targetVariationId={v.merged_to_variation_id || v.mergedToVariationId}
-                          dark={dark}
-                          size="xs"
-                        />
-                      )}
-                    </View>
-                    <Text style={styles.variationNameLabel}>NOME DA VARIAÇÃO</Text>
-                    <Text style={[styles.varAttr, dark && styles.lightText]}>
-                      {v.name || 'Variação'}
-                    </Text>
-                  </TouchableOpacity>
-                  <View style={styles.varHeaderRight}>
-                    <Text style={styles.variationPriceLabel}>PREÇO VENDA</Text>
-                    {hasDiscount && (
-                      <Text style={styles.varRegularPrice}>
-                        R$ {regularPrice.toFixed(2).replace('.', ',')}
-                      </Text>
-                    )}
-                    <Text style={styles.varPrice}>
-                      R$ {finalPrice.toFixed(2).replace('.', ',')}
-                    </Text>
-                  </View>
-                  <View style={styles.varHeaderActions}>
-                    <TouchableOpacity
-                      onPress={openVariation}
-                      style={[styles.editVariationButton, dark && styles.darkEditVariationButton]}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Editar características da variação ${v.name || v.sku}`}
-                    >
-                      <Pencil size={16} color={dark ? '#cbd5e1' : '#64748b'} />
-                    </TouchableOpacity>
-                    {(() => {
-                      const isVariationMerged = Boolean(
-                        v.is_merged ||
-                        v.isMerged ||
-                        v.merged_to_variation_id ||
-                        v.mergedToVariationId
-                      );
-                      const variationId = String(v.id || '');
-                      const usageStatus = shouldCheckVariationUsage && variationId
-                        ? variationUsageById[variationId]
-                        : false;
-                      const isUsageBlocked = Boolean(
-                        shouldCheckVariationUsage && variationId && usageStatus !== false
-                      );
-                      const isDeleteDisabled =
-                        variations.length <= 1 || isVariationMerged || isUsageBlocked;
-                      return (
-                        <TouchableOpacity
-                          onPress={() => void handleRemove(idx)}
-                          disabled={isDeleteDisabled}
-                          style={[
-                            styles.editVariationButton,
-                            dark && styles.darkEditVariationButton,
-                            isDeleteDisabled && styles.removeVariationDisabled,
-                          ]}
-                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                          accessibilityRole="button"
-                          accessibilityLabel={
-                            variations.length <= 1
-                              ? 'A última variação não pode ser removida'
-                              : isVariationMerged
-                              ? 'Esta variação está mesclada e não pode ser removida'
-                              : isUsageBlocked && usageStatus === undefined
-                              ? `Verificando vínculos de estoque e vendas da variação ${v.name || v.sku}`
-                              : isUsageBlocked
-                              ? 'A variação possui vínculos de histórico ou não foi possível verificá-los'
-                              : `Remover variação ${v.name || v.sku}`
-                          }
-                        >
-                          <Trash2 size={16} color={isDeleteDisabled ? '#94a3b8' : '#dc2626'} />
-                        </TouchableOpacity>
-                      );
-                    })()}
-                  </View>
-                </View>
-                {shouldCheckVariationUsage &&
-                  Boolean(v.id) &&
-                  variationUsageById[String(v.id)] !== false && (
-                    <Text style={[styles.variationDeletionStatus, dark && styles.darkVariationDeletionStatus]}>
-                      {variationUsageById[String(v.id)] === undefined
-                        ? 'Verificando vínculos de estoque e vendas…'
-                        : 'Esta variação possui vínculos de histórico ou não foi possível verificá-los.'}
-                    </Text>
-                  )}
+                <ProductVariationSummaryCard
+                  variation={v}
+                  variationCount={variations.length}
+                  shouldCheckVariationUsage={shouldCheckVariationUsage}
+                  variationUsage={variationUsageById[String(v.id || '')]}
+                  dark={dark}
+                  hasDiscount={hasDiscount}
+                  regularPrice={regularPrice}
+                  finalPrice={finalPrice}
+                  onOpen={openVariation}
+                  onRemove={() => handleRemove(idx)}
+                />
 
                 {/* Modal de edição da variação, equivalente ao ERP */}
                 {isOpen && (

@@ -15,6 +15,7 @@ import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { ReceiptRateioField, parseRateioInputValue } from './ReceiptRateioField';
 import type { RateioMode } from './ReceiptRateioField';
 import { ReceiptTotalSummary } from './ReceiptTotalSummary';
+import { ReceiptSubmissionFooter } from './ReceiptSubmissionFooter';
 import { styles } from './newGoodsReceiptModal.styles';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, CalendarDays, Check, LockKeyhole, X } from 'lucide-react-native';
@@ -1154,31 +1155,16 @@ export const NewGoodsReceiptModal: React.FC<Props> = ({
               <ReceiptTotalSummary totalValue={totalValue} isDarkMode={isDarkMode} />
             </ScrollView>
 
-            <View
-              style={[
-                styles.footer,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-            >
-              <TouchableOpacity
-                onPress={safeClose}
-                disabled={saving}
-                style={[styles.cancelButton, { borderColor: colors.border }]}
-              >
-                <Text style={{ color: colors.muted, fontWeight: '800' }}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => void handleConfirm()}
-                disabled={saving || resumeSourceLoading || Boolean(resumeSourceError) || hasIncompleteItems}
-                style={[styles.confirmButton, (resumeSourceLoading || resumeSourceError || hasIncompleteItems) && styles.confirmButtonDisabled]}
-              >
-                {saving || resumeSourceLoading ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.confirmText}>{isEditingReceipt ? 'Salvar alteração' : 'Confirmar recebimento'}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            <ReceiptSubmissionFooter
+              colors={colors}
+              saving={saving}
+              resumeSourceLoading={resumeSourceLoading}
+              resumeSourceError={resumeSourceError}
+              hasIncompleteItems={hasIncompleteItems}
+              isEditingReceipt={isEditingReceipt}
+              onCancel={safeClose}
+              onConfirm={() => void handleConfirm()}
+            />
           </>
         )}
       </KeyboardAvoidingView>

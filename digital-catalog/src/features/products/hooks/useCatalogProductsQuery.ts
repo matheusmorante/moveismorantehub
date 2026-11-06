@@ -41,8 +41,10 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
     if (typeof window === 'undefined') return;
     const channel = new BroadcastChannel('catalog-updates');
     const handleMessage = (event: MessageEvent) => {
-      if (event.data === 'catalog-updated') {
-        invalidateStoreStyleSettings();
+      const message = event.data;
+      if (message === 'catalog-updated' || message?.type === 'catalog-updated') {
+        // Avisos antigos ou sem escopo continuam atualizando também a aparência.
+        if (message?.scope !== 'products') invalidateStoreStyleSettings();
         queryClient.invalidateQueries({ queryKey: ['catalog-products'] });
         queryClient.invalidateQueries({ queryKey: ['catalog-categories'] });
         queryClient.invalidateQueries({ queryKey: ['catalog-category-relationships'] });

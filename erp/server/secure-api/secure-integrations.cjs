@@ -889,7 +889,7 @@ function getBearerToken(req) {
   const header = Array.isArray(req.headers.authorization) ? req.headers.authorization[0] : req.headers.authorization;
   return /^Bearer\s+(\S+)$/i.exec(String(header || ""))?.[1] || "";
 }
-async function authenticateErpRequest(req, res) {
+async function authenticateErpRequest(req, res, options = {}) {
   const token = getBearerToken(req);
   if (!token) {
     res.status(401).json({ error: "Sess\xE3o inv\xE1lida. Entre novamente." });
@@ -923,7 +923,7 @@ async function authenticateErpRequest(req, res) {
     res.status(403).json({ error: "Perfil sem acesso ao servi\xE7o." });
     return null;
   }
-  const { data: settings, error: settingsError } = await userDb.from("settings").select("data->rolePermissions").eq("id", "app").maybeSingle();
+  const { data: settings, error: settingsError } = await userDb.from("settings").select(options.includeWhatsAppConfig ? "data->rolePermissions,whatsappConfig:data->whatsappConfig" : "data->rolePermissions").eq("id", "app").maybeSingle();
   if (settingsError) {
     res.status(503).json({ error: "N\xE3o foi poss\xEDvel validar as permiss\xF5es." });
     return null;
@@ -932,7 +932,8 @@ async function authenticateErpRequest(req, res) {
     userId: auth.user.id,
     roles,
     userDb,
-    rolePermissions: settings?.rolePermissions || {}
+    rolePermissions: (settings && "rolePermissions" in settings ? settings.rolePermissions : null) || {},
+    ...options.includeWhatsAppConfig ? { whatsappConfig: settings && "whatsappConfig" in settings ? settings.whatsappConfig : void 0 } : {}
   };
 }
 function hasErpPermission(context, permission) {
@@ -1442,7 +1443,9 @@ async function handleMetaGraph(req, res) {
   if (bodySize(req.body) > MAX_META_REQUEST_BYTES) {
     return res.status(413).json({ error: "Solicita\xE7\xE3o excede o tamanho permitido." });
   }
-  const context = await authenticateErpRequest(req, res);
+  const context = await authenticateErpRequest(req, res, {
+    includeWhatsAppConfig: req.body?.operation !== "verify_app_credentials" && req.body?.operation !== "ensure_smb_message_echoes_subscription"
+  });
   if (!context) return;
   const body = req.body;
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -1485,9 +1488,7 @@ async function handleMetaGraph(req, res) {
     if (!appId || !appSecret) {
       return res.status(503).json({ error: "Verifica\xE7\xE3o da inscri\xE7\xE3o do webhook indispon\xEDvel no servidor." });
     }
-    const { data: settings2, error: settingsError2 } = await context.userDb.from("settings").select("whatsappConfig:data->whatsappConfig").eq("id", "app").maybeSingle();
-    if (settingsError2) return res.status(503).json({ error: "N\xE3o foi poss\xEDvel carregar a configura\xE7\xE3o Meta." });
-    const configuredWabaId = getMetaGraphSettings(settings2?.whatsappConfig).wabaId;
+    const configuredWabaId = getMetaGraphSettings(context.whatsappConfig).wabaId;
     if (typeof configuredWabaId !== "string" || !configuredWabaId.trim()) {
       return res.status(503).json({ error: "WABA n\xE3o configurado no sistema." });
     }
@@ -1542,11 +1543,9 @@ async function handleMetaGraph(req, res) {
       clearTimeout(timeout2);
     }
   }
-  const { data: settings, error: settingsError } = await context.userDb.from("settings").select("whatsappConfig:data->whatsappConfig").eq("id", "app").maybeSingle();
-  if (settingsError) return res.status(503).json({ error: "N\xE3o foi poss\xEDvel carregar a configura\xE7\xE3o Meta." });
   let planEntries;
   try {
-    const metaSettings = getMetaGraphSettings(settings?.whatsappConfig);
+    const metaSettings = getMetaGraphSettings(context.whatsappConfig);
     if (body.operation === "sync_catalog_batch") {
       planEntries = ["whatsapp", "ads"].map((target) => ({
         target,

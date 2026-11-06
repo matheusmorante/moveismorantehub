@@ -138,16 +138,10 @@ describe('POST /api/meta-graph verify_waba_subscription', () => {
   });
 
   it('consulta o WABA configurado e retorna somente o status booleano', async () => {
-    const query = {
-      select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn().mockResolvedValue({
-        data: { whatsappConfig: { wabaId: '2345678901' } }, error: null,
-      }),
-    };
-    query.select.mockReturnValue(query);
-    query.eq.mockReturnValue(query);
-    const from = vi.fn().mockReturnValue(query);
+    const from = vi.fn();
     authMocks.authenticateErpRequest.mockResolvedValue({
       userId: 'operator-unit', roles: ['manager'], rolePermissions: {}, userDb: { from },
+      whatsappConfig: { wabaId: '2345678901' },
     });
     const graph = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       data: [{ whatsapp_business_api_data: { id: appId, name: 'não expor este nome' } }],
@@ -161,25 +155,20 @@ describe('POST /api/meta-graph verify_waba_subscription', () => {
     expect(JSON.stringify(res.body)).not.toContain(appSecret);
     expect(JSON.stringify(res.body)).not.toContain(metaToken);
     expect(JSON.stringify(res.body)).not.toContain('não expor este nome');
-    expect(from).toHaveBeenCalledWith('settings');
-    expect(query.select).toHaveBeenCalledWith('whatsappConfig:data->whatsappConfig');
-    expect(query.eq).toHaveBeenCalledWith('id', 'app');
+    expect(from).not.toHaveBeenCalled();
+    expect(authMocks.authenticateErpRequest).toHaveBeenCalledWith(
+      expect.any(Object), expect.any(Object), { includeWhatsAppConfig: true },
+    );
     const [url, request] = graph.mock.calls[0] as [URL, RequestInit];
     expect(url.origin + url.pathname).toBe('https://graph.facebook.com/v26.0/2345678901/subscribed_apps');
     expect(request.headers).toEqual({ Authorization: `Bearer ${metaToken}` });
   });
 
   it('falha fechado quando o WABA não está configurado ou não pode ser lido', async () => {
-    const query = {
-      select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn().mockResolvedValue({
-        data: { whatsappConfig: { wabaId: '' } }, error: null,
-      }),
-    };
-    query.select.mockReturnValue(query);
-    query.eq.mockReturnValue(query);
-    const from = vi.fn().mockReturnValue(query);
+    const from = vi.fn();
     authMocks.authenticateErpRequest.mockResolvedValue({
       userId: 'operator-unit', roles: ['manager'], rolePermissions: {}, userDb: { from },
+      whatsappConfig: { wabaId: '' },
     });
     const graph = vi.fn();
     vi.stubGlobal('fetch', graph);

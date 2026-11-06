@@ -60,7 +60,10 @@ async function handleMetaGraph(req: VercelRequest, res: VercelResponse) {
     return res.status(413).json({ error: 'Solicitação excede o tamanho permitido.' });
   }
 
-  const context = await authenticateErpRequest(req, res);
+  const context = await authenticateErpRequest(req, res, {
+    includeWhatsAppConfig: req.body?.operation !== 'verify_app_credentials'
+      && req.body?.operation !== 'ensure_smb_message_echoes_subscription',
+  });
   if (!context) return;
   const body = req.body;
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
@@ -107,13 +110,7 @@ async function handleMetaGraph(req: VercelRequest, res: VercelResponse) {
       return res.status(503).json({ error: 'Verificação da inscrição do webhook indisponível no servidor.' });
     }
 
-    const { data: settings, error: settingsError } = await context.userDb
-      .from('settings')
-      .select('whatsappConfig:data->whatsappConfig')
-      .eq('id', 'app')
-      .maybeSingle();
-    if (settingsError) return res.status(503).json({ error: 'Não foi possível carregar a configuração Meta.' });
-    const configuredWabaId = getMetaGraphSettings(settings?.whatsappConfig).wabaId;
+    const configuredWabaId = getMetaGraphSettings(context.whatsappConfig).wabaId;
     if (typeof configuredWabaId !== 'string' || !configuredWabaId.trim()) {
       return res.status(503).json({ error: 'WABA não configurado no sistema.' });
     }
@@ -179,16 +176,9 @@ async function handleMetaGraph(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  const { data: settings, error: settingsError } = await context.userDb
-    .from('settings')
-    .select('whatsappConfig:data->whatsappConfig')
-    .eq('id', 'app')
-    .maybeSingle();
-  if (settingsError) return res.status(503).json({ error: 'Não foi possível carregar a configuração Meta.' });
-
   let planEntries: Array<{ target: MetaCatalogTarget; plan: MetaGraphProxyPlan }>;
   try {
-    const metaSettings = getMetaGraphSettings(settings?.whatsappConfig);
+    const metaSettings = getMetaGraphSettings(context.whatsappConfig);
     if (body.operation === 'sync_catalog_batch') {
       planEntries = (['whatsapp', 'ads'] as const).map((target) => ({
         target,

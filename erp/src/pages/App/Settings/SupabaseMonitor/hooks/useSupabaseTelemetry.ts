@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/pages/utils/supabaseConfig';
 import { useAuth } from '@/context/AuthContext';
-import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
+import { withAbortTimeout } from '../../../../../../../shared-utils/withAbortTimeout';
 import {
   TelemetryRow,
   GlobalStats,
@@ -10,10 +11,7 @@ import {
 } from '../types/supabaseMonitor.types';
 
 export function useSupabaseTelemetry() {
-  const { isAdmin } = useAuth();
-  const [data, setData] = useState<TelemetryRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const { isAdmin, user } = useAuth();
   const [period, setPeriod] = useState<PeriodType>('1h');
 
   // Drill-Down States
@@ -22,42 +20,29 @@ export function useSupabaseTelemetry() {
   const [activeTable, setActiveTable] = useState<string | null>(null);
   const [activeAction, setActiveAction] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isAdmin) return;
-    let mounted = true;
-    const controller = new AbortController();
+  const { data = [], isFetching: loading, isError: error } = useQuery({
+    queryKey: ['supabase-telemetry', user?.id, isAdmin, period],
+    enabled: isAdmin && Boolean(user?.id),
+    staleTime: 30_000,
+    gcTime: 30_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: async ({ signal }): Promise<TelemetryRow[]> => {
+      const now = new Date();
+      const fromDate = new Date();
+      if (period === '15m') fromDate.setMinutes(now.getMinutes() - 15);
+      else if (period === '1h') fromDate.setHours(now.getHours() - 1);
+      else if (period === '24h') fromDate.setHours(now.getHours() - 24);
+      else if (period === '7d') fromDate.setDate(now.getDate() - 7);
 
-    const fetchTelemetry = async () => {
-      setLoading(true);
-      setError(false);
-      try {
-        const now = new Date();
-        const fromDate = new Date();
-        if (period === '15m') fromDate.setMinutes(now.getMinutes() - 15);
-        else if (period === '1h') fromDate.setHours(now.getHours() - 1);
-        else if (period === '24h') fromDate.setHours(now.getHours() - 24);
-        else if (period === '7d') fromDate.setDate(now.getDate() - 7);
-
-        const query = supabase.rpc('get_aggregated_telemetry_v2', {
-          p_start_date: fromDate.toISOString(),
-        }).abortSignal(controller.signal);
-        const result = await withTimeout<{ data: TelemetryRow[] | null; error: unknown } | null>(
-          query, 12000, null, 'consulta da telemetria'
-        );
-        if (!result || result.error) throw result?.error || new Error('Tempo de consulta esgotado.');
-        if (mounted) setData(result.data || []);
-      } catch (err) {
-        console.error('Error fetching telemetry', err);
-        if (mounted) setError(true);
-      } finally {
-        controller.abort();
-        if (mounted) setLoading(false);
-      }
-    };
-
-    void fetchTelemetry();
-    return () => { mounted = false; controller.abort(); };
-  }, [period, isAdmin]);
+      const result = await withAbortTimeout(supabase.rpc('get_aggregated_telemetry_v2', {
+        p_start_date: fromDate.toISOString(),
+      }), 'consulta da telemetria', 12_000, signal);
+      if (result.error) throw result.error;
+      return result.data || [];
+    },
+  });
 
   const globalStats = useMemo<GlobalStats>(() => {
     let totalReqs = 0;

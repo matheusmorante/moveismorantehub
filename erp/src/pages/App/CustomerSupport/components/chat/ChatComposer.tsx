@@ -31,6 +31,11 @@ import { ChatComposerAttachmentMenu } from './ChatComposerAttachmentMenu';
 import { createChatAudioRecordingActions } from './chatComposerAudioRecording';
 import { toCatalogSendSelection } from './chatComposerCatalogSelection';
 import {
+  CHAT_COMPOSER_UNSUPPORTED_AUDIO_ERROR,
+  getChatComposerSendPreflightError,
+  isSupportedChatComposerAudioMimeType,
+} from './chatComposerSendValidation';
+import {
   MAX_ATTACHMENTS,
   normalizedFileType,
   prepareChatComposerFileAttachments,
@@ -459,39 +464,10 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     })) return;
 
     // Valida o lote inteiro antes da primeira chamada externa para evitar envios parciais previsíveis.
-    let plannedText = draft.message.trim();
-    for (const attachment of draft.attachments) {
-      if (attachment.kind === 'catalog') {
-        if (attachment.selection.deliveryMode === 'native' && plannedText.length > 1024) {
-          setSendError('A mensagem que acompanha os cards do WhatsApp deve ter até 1024 caracteres.');
-          return;
-        }
-        if (plannedText.length > 4096) {
-          setSendError('A mensagem excede o limite de 4096 caracteres.');
-          return;
-        }
-        plannedText = '';
-        continue;
-      }
-      if (attachment.kind === 'contact') {
-        plannedText = '';
-        continue;
-      }
-      const file = fileByAttachmentIdRef.current.get(attachment.id);
-      const fileInfo = file ? normalizedFileType(file) : null;
-      if (!file || !fileInfo) {
-        setSendError(`O arquivo “${attachment.label}” não está mais disponível ou não é aceito pelo WhatsApp.`);
-        return;
-      }
-      if (fileInfo.label === 'Áudio' && !['audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio/ogg'].includes(fileInfo.mimeType)) {
-        setSendError('A API do WhatsApp aceita áudio OGG, MP3, M4A, AAC ou AMR. Esta gravação precisa ser convertida antes do envio.');
-        return;
-      }
-      if (fileInfo.label === 'Áudio') plannedText = '';
-      else if (plannedText.length > 1024) {
-        setSendError('A legenda do anexo pode ter até 1024 caracteres.');
-        return;
-      } else plannedText = '';
+    const preflightError = getChatComposerSendPreflightError(draft, fileByAttachmentIdRef.current);
+    if (preflightError) {
+      setSendError(preflightError);
+      return;
     }
 
     isSendingRef.current = true;
@@ -556,8 +532,8 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
           if (!file) throw new Error(`O arquivo “${attachment.label}” não está mais disponível. Remova e anexe novamente.`);
           const fileInfo = normalizedFileType(file);
           if (!fileInfo) throw new Error(`O formato de “${attachment.label}” não é aceito pelo WhatsApp.`);
-          if (fileInfo.label === 'Áudio' && !['audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio/ogg'].includes(fileInfo.mimeType)) {
-            throw new Error('A API do WhatsApp aceita áudio OGG, MP3, M4A, AAC ou AMR. Esta gravação precisa ser convertida antes do envio.');
+          if (fileInfo.label === 'Áudio' && !isSupportedChatComposerAudioMimeType(fileInfo.mimeType)) {
+            throw new Error(CHAT_COMPOSER_UNSUPPORTED_AUDIO_ERROR);
           }
           const supportsCaption = fileInfo.label !== 'Áudio';
           if (!supportsCaption && pendingText) await sendText(pendingText);

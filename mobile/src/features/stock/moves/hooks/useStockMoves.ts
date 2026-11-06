@@ -121,10 +121,10 @@ export const useStockMoves = () => {
     (periodLabel: string, customRange?: { startDate: string; endDate: string }) => {
       const nextPeriod =
         periodLabel === 'Personalizado' && customRange ? customRange : getPeriodRange(periodLabel);
-      setPeriod(nextPeriod);
-      void loadMoves(0, productId, nextPeriod, variationId);
+      // O efeito de período é o único responsável por iniciar esta carga.
+      setPeriod({ ...nextPeriod });
     },
-    [loadMoves, productId, variationId]
+    []
   );
 
   const goToPage = useCallback(

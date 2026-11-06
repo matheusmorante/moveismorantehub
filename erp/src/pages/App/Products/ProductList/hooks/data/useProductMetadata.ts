@@ -1,95 +1,65 @@
 import React from 'react';
-import type Product from '@/pages/types/product.type';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/context/AuthContext';
 import {
+  collectProductMetadataIds,
+  emptyProductNameMaps,
   fetchProductOpportunityMap,
   fetchProductSupplierMap,
+  resolveProductMetadata,
+  type ProductMetadataSource,
+  type ProductNameMaps,
 } from '../../../services/productCatalogMetadataService';
 
-interface ProductMetadataSource extends Product {
-  readonly main_supplier_id?: string | null;
-  readonly supplier_id?: string | null;
-  readonly supplier_ids?: readonly string[] | null;
-  readonly supplierName?: string | null;
-  readonly supplier?: { readonly name?: string | null } | null;
-}
+const ProductMetadataContext = React.createContext<ProductNameMaps>(emptyProductNameMaps);
 
-export interface UseProductMetadataResult {
-  readonly oppName: string | null;
-  readonly supplierNames: readonly string[];
-}
-
-/**
- * Hook para carregar dinamicamente o nome da oportunidade e fornecedores de um produto.
- */
-export function useProductMetadata(product: ProductMetadataSource): UseProductMetadataResult {
-  const [oppName, setOppName] = React.useState<string | null>(
-    product.opportunityName || product.opportunity?.name || null
-  );
-  const [supplierNames, setSupplierNames] = React.useState<readonly string[]>([]);
+export function ProductMetadataProvider({ products, children }: {
+  products: readonly ProductMetadataSource[];
+  children: React.ReactNode;
+}) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { opportunityIds, supplierIds } = collectProductMetadataIds(products);
+  const opportunityKey = opportunityIds.join(',');
+  const supplierKey = supplierIds.join(',');
+  const opportunities = useQuery({
+    queryKey: ['product-page-metadata', user?.id, 'opportunities', opportunityKey],
+    enabled: Boolean(user?.id && opportunityIds.length),
+    staleTime: 0, gcTime: 0, retry: false, refetchOnWindowFocus: true,
+    queryFn: ({ signal }) => fetchProductOpportunityMap(opportunityIds, signal),
+  });
+  const suppliers = useQuery({
+    queryKey: ['product-page-metadata', user?.id, 'suppliers', supplierKey],
+    enabled: Boolean(user?.id && supplierIds.length),
+    staleTime: 0, gcTime: 0, retry: false, refetchOnWindowFocus: true,
+    queryFn: ({ signal }) => fetchProductSupplierMap(supplierIds, signal),
+  });
+  const previousProducts = React.useRef(products);
+  React.useEffect(() => {
+    if (previousProducts.current === products) return;
+    previousProducts.current = products;
+    if (!user?.id) return;
+    if (opportunityKey) void opportunities.refetch({ cancelRefetch: false });
+    if (supplierKey) void suppliers.refetch({ cancelRefetch: false });
+  }, [products, user?.id, opportunityKey, supplierKey, opportunities.refetch, suppliers.refetch]);
 
   React.useEffect(() => {
-    let isMounted = true;
-    if (product.opportunityId) {
-      fetchProductOpportunityMap().then((map) => {
-        if (isMounted && map && product.opportunityId && map[product.opportunityId]) {
-          setOppName(map[product.opportunityId]);
-        }
-      });
-    } else {
-      setOppName(product.opportunityName || product.opportunity?.name || null);
-    }
-    return () => {
-      isMounted = false;
+    const refreshNames = (event: Event) => {
+      const collection = (event as CustomEvent<{ collectionName?: string }>).detail?.collectionName;
+      if (collection && collection !== 'suppliers' && collection !== 'supplier') return;
+      void queryClient.invalidateQueries({ queryKey: ['product-page-metadata', user?.id, 'suppliers'] });
     };
-  }, [product.opportunityId, product.opportunityName, product.opportunity]);
+    window.addEventListener('people_updated', refreshNames);
+    return () => window.removeEventListener('people_updated', refreshNames);
+  }, [queryClient, user?.id]);
 
-  const supplierIdsKey = React.useMemo(() => {
-    const rawIds = [
-      product.mainSupplierId,
-      product.supplierId,
-      product.main_supplier_id,
-      product.supplier_id,
-      ...(product.supplierIds || product.supplier_ids || []),
-    ];
-    return Array.from(new Set(rawIds.filter(Boolean)))
-      .map(String)
-      .sort()
-      .join(',');
-  }, [
-    product.mainSupplierId,
-    product.supplierId,
-    product.main_supplier_id,
-    product.supplier_id,
-    product.supplierIds,
-    product.supplier_ids,
-  ]);
+  const value: ProductNameMaps = user?.id ? {
+    opportunities: opportunities.data || emptyProductNameMaps.opportunities,
+    suppliers: suppliers.data || emptyProductNameMaps.suppliers,
+  } : emptyProductNameMaps;
+  return React.createElement(ProductMetadataContext.Provider, { value }, children);
+}
 
-  React.useEffect(() => {
-    let isMounted = true;
-    const sIds = supplierIdsKey ? supplierIdsKey.split(',') : [];
-
-    if (sIds.length > 0) {
-      fetchProductSupplierMap().then((map) => {
-        if (!isMounted) return;
-        const resolvedNames: string[] = [];
-        sIds.forEach((id) => {
-          if (map && map[id]) resolvedNames.push(map[id]);
-        });
-        if (resolvedNames.length === 0) {
-          const fallback = product.supplierName || product.supplier?.name || null;
-          if (fallback) resolvedNames.push(fallback);
-        }
-        setSupplierNames(Array.from(new Set(resolvedNames)));
-      });
-    } else {
-      const fallback = product.supplierName || product.supplier?.name || null;
-      setSupplierNames(fallback ? [fallback] : []);
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [supplierIdsKey, product.supplierName, product.supplier]);
-
-  return { oppName, supplierNames };
+export function useProductMetadata(product: ProductMetadataSource) {
+  return resolveProductMetadata(product, React.useContext(ProductMetadataContext), true);
 }

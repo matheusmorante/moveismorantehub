@@ -1,74 +1,74 @@
-import { useState, useEffect } from 'react';
+import { createContext, createElement, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
+import { useAuth } from '../../../contexts/AuthContext';
+import { connectivityService } from '../../../services/offline/connectivityService';
 import {
+  collectProductMetadataIds,
+  emptyProductNameMaps,
   fetchProductOpportunityMap,
   fetchProductSupplierMap,
+  resolveProductMetadata,
+  type ProductMetadataSource,
+  type ProductNameMaps,
 } from '../services/mobileProductMetadataService';
 
-export function useMobileProductMetadata(product: any) {
-  const [oppName, setOppName] = useState<string | null>(
-    product.opportunityName || product.opportunity?.name || null
-  );
-  const [supplierNames, setSupplierNames] = useState<string[]>([]);
+const ProductMetadataContext = createContext<ProductNameMaps>(emptyProductNameMaps);
+type Props = { products: readonly ProductMetadataSource[]; children?: ReactNode };
+
+function PageProductMetadata({ products, children }: Props) {
+  const [maps, setMaps] = useState(emptyProductNameMaps);
+  const [online, setOnline] = useState(connectivityService.connected);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const inFlight = useRef(new Map<string, Promise<Record<string, string>>>());
+  const { opportunityIds, supplierIds } = collectProductMetadataIds(products);
+  const idsKey = JSON.stringify([opportunityIds, supplierIds]);
 
   useEffect(() => {
-    let mounted = true;
-    const oppId = product.opportunity_id || product.opportunityId;
-    if (oppId) {
-      fetchProductOpportunityMap().then((map) => {
-        if (mounted && map[oppId]) setOppName(map[oppId]);
+    const stopConnectivity = connectivityService.subscribe(setOnline);
+    let previousState = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && previousState !== 'active') setRefreshKey((key) => key + 1);
+      previousState = nextState;
+    });
+    return () => { stopConnectivity(); subscription.remove(); };
+  }, []);
+
+  useEffect(() => {
+    if (!online) return;
+    let current = true;
+    const request = (key: string, load: () => Promise<Record<string, string>>) => {
+      const existing = inFlight.current.get(key);
+      if (existing) return existing;
+      const pending = load().finally(() => {
+        if (inFlight.current.get(key) === pending) inFlight.current.delete(key);
       });
-    } else {
-      setOppName(product.opportunityName || product.opportunity?.name || null);
-    }
-
-    const rawIds = [
-      product.mainSupplierId,
-      product.supplierId,
-      product.main_supplier_id,
-      product.supplier_id,
-      ...(product.supplierIds || product.supplier_ids || []),
-    ];
-    const sIds = Array.from(new Set(rawIds.filter(Boolean))).map(String);
-
-    if (sIds.length > 0) {
-      fetchProductSupplierMap().then((map) => {
-        if (!mounted) return;
-        const names: string[] = [];
-        sIds.forEach((id) => {
-          if (map && map[id]) names.push(map[id]);
-        });
-        if (names.length === 0) {
-          const fallback =
-            product.supplierName ||
-            product.supplier_name ||
-            product.supplier?.name ||
-            product.supplier;
-          if (fallback) names.push(String(fallback));
-        }
-        setSupplierNames(Array.from(new Set(names)));
-      });
-    } else {
-      const fallback =
-        product.supplierName || product.supplier_name || product.supplier?.name || product.supplier;
-      setSupplierNames(fallback ? [String(fallback)] : []);
-    }
-
-    return () => {
-      mounted = false;
+      inFlight.current.set(key, pending);
+      return pending;
     };
-  }, [
-    product.opportunity_id,
-    product.opportunityId,
-    product.mainSupplierId,
-    product.supplierId,
-    product.main_supplier_id,
-    product.supplier_id,
-    JSON.stringify(product.supplierIds || product.supplier_ids || []),
-    product.supplierName,
-    product.supplier_name,
-    product.supplier?.name,
-    product.supplier,
-  ]);
+    const loadMap = (kind: keyof ProductNameMaps, ids: string[], fetcher: typeof fetchProductSupplierMap) => {
+      void request(JSON.stringify([kind, ids]), () => fetcher(ids)).then((map) => {
+        if (current) setMaps((previous) => ({ ...previous, [kind]: map }));
+      }).catch(() => {
+        // Mantém nomes locais e os fallbacks; a próxima atualização pode tentar novamente.
+      });
+    };
+    loadMap('opportunities', opportunityIds, fetchProductOpportunityMap);
+    loadMap('suppliers', supplierIds, fetchProductSupplierMap);
+    return () => { current = false; };
+  }, [products, idsKey, refreshKey, online]);
 
-  return { oppName, supplierNames };
+  return createElement(ProductMetadataContext.Provider, { value: maps }, children);
+}
+
+export function MobileProductMetadataProvider({ products, children }: Props) {
+  const { userProfile } = useAuth();
+  if (!userProfile?.id) {
+    return createElement(ProductMetadataContext.Provider, { value: emptyProductNameMaps }, children);
+  }
+  // Remontar por conta impede que nomes ou promessas da sessão anterior sejam reaproveitados.
+  return createElement(PageProductMetadata, { key: userProfile.id, products }, children);
+}
+
+export function useMobileProductMetadata(product: ProductMetadataSource) {
+  return resolveProductMetadata(product, useContext(ProductMetadataContext));
 }

@@ -6,6 +6,7 @@ export interface AuthenticatedErpRequest {
   roles: string[];
   userDb: SupabaseClient;
   rolePermissions: Record<string, unknown>;
+  whatsappConfig?: unknown;
 }
 
 const DEFAULT_PERMISSION_ROLES: Record<string, string[]> = {
@@ -27,7 +28,8 @@ function getBearerToken(req: VercelRequest): string {
 
 export async function authenticateErpRequest(
   req: VercelRequest,
-  res: VercelResponse
+  res: VercelResponse,
+  options: { includeWhatsAppConfig?: boolean } = {}
 ): Promise<AuthenticatedErpRequest | null> {
   const token = getBearerToken(req);
   if (!token) {
@@ -74,7 +76,9 @@ export async function authenticateErpRequest(
 
   const { data: settings, error: settingsError } = await userDb
     .from('settings')
-    .select('data->rolePermissions')
+    .select(options.includeWhatsAppConfig
+      ? 'data->rolePermissions,whatsappConfig:data->whatsappConfig'
+      : 'data->rolePermissions')
     .eq('id', 'app')
     .maybeSingle();
   if (settingsError) {
@@ -86,7 +90,12 @@ export async function authenticateErpRequest(
     userId: auth.user.id,
     roles,
     userDb,
-    rolePermissions: (settings?.rolePermissions as Record<string, unknown>) || {},
+    rolePermissions: (settings && 'rolePermissions' in settings
+      ? settings.rolePermissions as Record<string, unknown>
+      : null) || {},
+    ...(options.includeWhatsAppConfig
+      ? { whatsappConfig: settings && 'whatsappConfig' in settings ? settings.whatsappConfig : undefined }
+      : {}),
   };
 }
 

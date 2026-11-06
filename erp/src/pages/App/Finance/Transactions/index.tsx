@@ -11,6 +11,7 @@ import { withTimeout } from '../../../../../../shared-utils/withTimeout';
 import { ERPListPagination } from '@/components/shared/ERPListPagination';
 import { useAuth } from '@/context/AuthContext';
 import { TransactionDetailsModal } from './TransactionDetailsModal';
+import { TransactionSummaryCards } from './TransactionSummaryCards';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -225,9 +226,6 @@ export default function Transactions() {
     )
   );
 
-  // Calcula Totais
-  const saldoPeriodo = incomeTotal - expenseTotal;
-
   const openNewTransaction = () => {
     setEditingTransaction(null);
     setFormData({ type: 'expense', amount: 0, date: financialToday(), description: '', payment_method: '', category_id: '', category_name: '', purpose: 'BUSINESS', vehicle_id: '', collaborator_id: '', collaborator_name: '', account_id: 'Caixa Geral', origin: 'MANUAL', notes: '' });
@@ -303,57 +301,11 @@ export default function Transactions() {
           </div>
         </div>
 
-        {/* Cards de Resumo Rápido */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 flex items-center justify-center">
-                <i className="bi bi-arrow-up-circle-fill text-xl"></i>
-              </div>
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">
-                Entradas (Filtro)
-              </h3>
-            </div>
-            <p className="text-2xl font-black text-slate-800 dark:text-slate-100">
-              {formatCurrency(incomeTotal)}
-            </p>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/20 text-rose-600 flex items-center justify-center">
-                <i className="bi bi-arrow-down-circle-fill text-xl"></i>
-              </div>
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">
-                Saídas (Filtro)
-              </h3>
-            </div>
-            <p className="text-2xl font-black text-slate-800 dark:text-slate-100">
-              {formatCurrency(expenseTotal)}
-            </p>
-          </div>
-
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-              <i className="bi bi-wallet2 text-6xl text-blue-600"></i>
-            </div>
-            <div className="flex items-center gap-4 mb-4">
-              <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center ${saldoPeriodo >= 0 ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/20'} `}
-              >
-                <i className="bi bi-cash-stack text-xl"></i>
-              </div>
-              <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">
-                Saldo Período
-              </h3>
-            </div>
-            <p
-              className={`text-2xl font-black ${saldoPeriodo >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-amber-600 dark:text-amber-500'}`}
-            >
-              {formatCurrency(saldoPeriodo)}
-            </p>
-          </div>
-        </div>
+        <TransactionSummaryCards
+          incomeTotal={incomeTotal}
+          expenseTotal={expenseTotal}
+          formatCurrency={formatCurrency}
+        />
 
         <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 overflow-hidden transition-all flex-col flex h-full">
           <div className="p-6 border-b border-slate-50 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">

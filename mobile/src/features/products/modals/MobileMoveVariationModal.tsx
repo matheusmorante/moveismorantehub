@@ -33,6 +33,7 @@ import { MobileMoveVariationAttributesEditor } from './MobileMoveVariationAttrib
 import { MobileMoveVariationValidationNotice } from './MobileMoveVariationValidationNotice';
 import { MobileMoveVariationFamilySelector } from './MobileMoveVariationFamilySelector';
 import { MobileMoveVariationFooter } from './MobileMoveVariationFooter';
+import { MobileMoveVariationStatusNotices } from './MobileMoveVariationStatusNotices';
 import {
   getMobileVariationFamilyName,
   getMobileVariationFamilySuggestions,
@@ -476,32 +477,13 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
           >
-            {mutationBlocked ? (
-              <View style={styles.conflict}>
-                <Text style={styles.conflictTitle}>Confirme o cadastro antes de continuar</Text>
-                <Text style={styles.conflictText}>
-                  {operationError || operationGuard.error} Feche esta janela, atualize a lista e confira a variação antes de tentar novamente. O movimento seguirá bloqueado nesta sessão.
-                </Text>
-              </View>
-            ) : null}
-            {queryReady && !queryError ? (
-              isOnlyVariation ? (
-                <View style={styles.warning}>
-                  <Text style={styles.warningTitle}>Esta é a única variação deste produto.</Text>
-                  <Text style={styles.warningText}>
-                    Ao movê-la, o produto pai de origem ficará sem variações e será removido. A
-                    variação e seu histórico permanecerão.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.info}>
-                  <Text style={styles.infoText}>
-                    O nome passará a usar o novo produto pai e os valores das características. As fotos
-                    vinculadas à variação acompanham a mudança.
-                  </Text>
-                </View>
-              )
-            ) : null}
+            <MobileMoveVariationStatusNotices
+              mutationBlocked={mutationBlocked}
+              blockedMessage={operationError || operationGuard.error}
+              queryReady={queryReady}
+              queryError={queryError}
+              isOnlyVariation={isOnlyVariation}
+            />
 
             <MobileMoveVariationFamilySelector
               dark={dark}

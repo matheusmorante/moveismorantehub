@@ -15,7 +15,7 @@ export const LIGHT_COLUMNS =
   'id, name, marketplace_title, code, description, observations, brand, category_id, category, condition, product_kind, is_salvado, opportunity_id, width, height, depth, unit_price, price, cost_price, freight_type, freight_cost, ipi_percent, final_purchase_price, promo_price, initial_stock, stock, min_stock, unit, active, is_draft, status, deleted, supplier_id, main_supplier_id, supplier_ids, images, has_variations, item_type, created_at, updated_at, slug, featured, is_combo, combo_items, technical_specs';
 export const LIGHT_COLUMNS_WITH_CATS =
   LIGHT_COLUMNS +
-  ', product_categories(*, categories(*)), product_variations(*), product_images(*), category_details:categories!products_category_id_fkey(id, name)';
+  ', product_categories(*, categories(*)), product_variations(*), product_images(image_url,is_main), category_details:categories!products_category_id_fkey(id, name)';
 
 /** Saldo de um produto composto é a quantidade de kits montáveis com o estoque atual dos componentes. */
 export const applyCompositionAvailability = async (products: Product[]): Promise<Product[]> => {

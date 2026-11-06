@@ -226,7 +226,13 @@ const PersonPage = ({
       <PersonFormModal
         isOpen={isFormModalOpen}
         onClose={closeForm}
-        onSuccess={() => {
+        onSuccess={(savedPerson) => {
+          // O serviço já invalida esta coleção após salvar; outro refresh reinicia a carga.
+          if (
+            collectionName === 'suppliers' &&
+            (editingPerson?.type || collectionName) === collectionName &&
+            savedPerson.type === collectionName
+          ) return;
           listRef.current?.refresh();
           trashListRef.current?.refresh();
         }}

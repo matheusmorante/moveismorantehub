@@ -325,7 +325,7 @@ export function useAdminProductSave({
           completed.current = true;
           toast.success('Produto salvo com sucesso!');
           const channel = new BroadcastChannel('catalog-updates');
-          channel.postMessage('catalog-updated');
+          channel.postMessage({ type: 'catalog-updated', scope: 'products' });
           channel.close();
           onOpenChange(false);
           onSuccess?.();

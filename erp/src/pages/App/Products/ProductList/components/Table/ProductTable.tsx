@@ -18,6 +18,7 @@ import { MergeVariationModal } from '../../modals/MergeVariationModal';
 import { MergeDuplicateProductModal } from '../../modals/MergeDuplicateProductModal';
 import { useAuth } from '@/context/AuthContext';
 import { shouldHideCatalogPublicationStatus } from '@/pages/utils/accessRoles';
+import { ProductMetadataProvider } from '../../hooks/data/useProductMetadata';
 
 interface ProductTableProps {
   readonly products: readonly Product[];
@@ -221,6 +222,7 @@ const ProductTable = ({
   }, [products]);
 
   return (
+    <ProductMetadataProvider products={products}>
     <div className="flex flex-col gap-4">
       {/* Bulk Actions Toolbar */}
       {!readOnly && canDeleteProducts && selectedProducts.length > 0 && (
@@ -411,6 +413,7 @@ const ProductTable = ({
         onMerged={() => onRefresh?.()}
       />
     </div>
+    </ProductMetadataProvider>
   );
 };
 

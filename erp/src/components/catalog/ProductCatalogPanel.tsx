@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query';
-import ProductImage from '@/components/ProductImage';
 import './ProductCatalogPanel.css';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,7 +21,6 @@ import {
   supportCatalogCacheContext,
 } from './supportCatalogService';
 import {
-  formatPrice,
   generateCatalogPdf,
   type CatalogItem,
 } from './productCatalogPresentation';
@@ -34,9 +32,8 @@ import { getProductCatalogPresentation, type CatalogPresentation } from './produ
 import {
   itemKey,
   makeCatalogItem,
-  priceOf,
-  productImageOf,
 } from './productCatalogItems';
+import { ProductCatalogSingleProductCard, ProductCatalogVariationCard } from './ProductCatalogProductCards';
 
 const CACHE_TIME = 5 * 60 * 1000;
 const SEARCH_DEBOUNCE = 350;
@@ -436,35 +433,20 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
                               {productDetails.variations.map((variation) => {
                                 const item = makeCatalogItem(product, variation);
                                 if (!item) return null;
-                                const variationLabel = item.variationName || (variation.sku ? `SKU ${variation.sku}` : 'Variação');
                                 const isBulkProduct = hasMatchingBulkScope && Boolean(bulkScope)
                                   && !bulkScope!.excludedProductIds.includes(product.id);
                                 const isSelected = isBulkProduct || selectedItems.has(itemKey(item));
-                                const image = productImageOf(product, variation);
                                 return (
-                                  <article key={itemKey(item)} className={`catalog-product-card rounded-2xl border p-3 transition-colors ${isSelected ? 'border-emerald-400 bg-emerald-50/60 dark:border-emerald-700 dark:bg-emerald-950/20' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}>
-                                    <label className="flex min-w-0 cursor-pointer items-start gap-3">
-                                      <input
-                                        type="checkbox"
-                                        checked={isSelected}
-                                        disabled={isSearchDebouncing}
-                                        onChange={() => toggleProduct(item, product.id)}
-                                        aria-label={`${isBulkProduct ? 'Remover todas as variações de' : 'Selecionar'} ${product.title || product.name} · ${variationLabel}`}
-                                        className="mt-1 h-4 w-4 accent-emerald-600 disabled:cursor-not-allowed"
-                                      />
-                                      {image ? (
-                                        <ProductImage src={image} size="thumbnail" alt="" loading="lazy" decoding="async" className="h-16 w-16 shrink-0 rounded-xl bg-slate-100 object-cover dark:bg-slate-800" />
-                                      ) : (
-                                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 dark:bg-slate-800"><i className="bi bi-image" aria-hidden="true" /></div>
-                                      )}
-                                      <div className="min-w-0 flex-1">
-                                        <h3 className="line-clamp-2 text-sm font-semibold">{variationLabel}</h3>
-                                        <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{product.title || product.name} · {product.category || 'Sem categoria'}{product.brand ? ` · ${product.brand}` : ''}</p>
-                                        {variation.sku && <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">SKU {variation.sku}</p>}
-                                        <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">{formatPrice(item.price)}</p>
-                                      </div>
-                                    </label>
-                                  </article>
+                                  <ProductCatalogVariationCard
+                                    key={itemKey(item)}
+                                    product={product}
+                                    variation={variation}
+                                    item={item}
+                                    isBulkProduct={isBulkProduct}
+                                    isSelected={isSelected}
+                                    disabled={isSearchDebouncing}
+                                    onToggle={() => toggleProduct(item, product.id)}
+                                  />
                                 );
                               })}
                             </React.Fragment>
@@ -475,32 +457,15 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
                         const isBulkProduct = hasMatchingBulkScope && Boolean(bulkScope)
                           && !bulkScope!.excludedProductIds.includes(product.id);
                         const isSelected = isBulkProduct || Boolean(simpleItem && selectedItems.has(itemKey(simpleItem)));
-                        const image = productImageOf(product, product.variations?.[0]);
                         return (
-                          <article key={product.id} className={`catalog-product-card rounded-2xl border p-3 transition-colors ${isSelected ? 'border-emerald-400 bg-emerald-50/60 dark:border-emerald-700 dark:bg-emerald-950/20' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}>
-                            <div className="flex gap-3">
-                              <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  disabled={isSearchDebouncing || (!simpleItem || (!isSelected && selectedItems.size >= 500))}
-                                  onChange={() => toggleProductCard(product.id, isSelected ? 1 : 0, simpleItem)}
-                                  aria-label={`${hasMatchingBulkScope ? 'Incluir ou remover' : 'Selecionar'} ${product.name || 'produto'}`}
-                                  className="mt-1 h-4 w-4 accent-emerald-600 disabled:cursor-not-allowed"
-                                />
-                                {image ? (
-                                  <ProductImage src={image} size="thumbnail" alt="" loading="lazy" decoding="async" className="h-16 w-16 shrink-0 rounded-xl bg-slate-100 object-cover dark:bg-slate-800" />
-                                ) : (
-                                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 dark:bg-slate-800"><i className="bi bi-image" aria-hidden="true" /></div>
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <h3 className="line-clamp-2 text-sm font-semibold">{product.title || product.name}</h3>
-                                  <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{product.category || 'Sem categoria'}{product.brand ? ` · ${product.brand}` : ''}</p>
-                                  <p className="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">{formatPrice(priceOf(product, product.variations?.[0]))}</p>
-                                </div>
-                              </label>
-                            </div>
-                          </article>
+                          <ProductCatalogSingleProductCard
+                            key={product.id}
+                            product={product}
+                            hasMatchingBulkScope={hasMatchingBulkScope}
+                            isSelected={isSelected}
+                            disabled={isSearchDebouncing || (!simpleItem || (!isSelected && selectedItems.size >= 500))}
+                            onToggle={() => toggleProductCard(product.id, isSelected ? 1 : 0, simpleItem)}
+                          />
                         );
                       })}
                       {!isLoading && products.length === 0 && !error && <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700">Nenhum produto ativo disponível com esses filtros.</div>}

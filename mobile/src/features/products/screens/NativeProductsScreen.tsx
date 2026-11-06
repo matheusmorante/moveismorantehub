@@ -27,6 +27,7 @@ import { MobileProductPagination } from '../components/MobileProductPagination';
 import { ProductsHeader } from '../components/ProductsHeader';
 import type { ProductListMode } from '../components/header/ProductsHeaderModeSelector';
 import { useMobileProducts } from '../hooks/useMobileProducts';
+import { MobileProductMetadataProvider } from '../hooks/useMobileProductMetadata';
 import {
   getMobileCompositionEmptyHint,
   shouldShowMobileProductPagination,
@@ -464,7 +465,8 @@ export const NativeProductsScreen: React.FC<Props> = ({
               )}
             </View>
           ) : (
-            productsHook.products.map((product) => (
+            <MobileProductMetadataProvider products={productsHook.products}>
+            {productsHook.products.map((product) => (
               <MobileProductCard
                 key={product.id}
                 product={product}
@@ -499,7 +501,8 @@ export const NativeProductsScreen: React.FC<Props> = ({
                     : undefined
                 }
               />
-            ))
+            ))}
+            </MobileProductMetadataProvider>
           )}
 
           {shouldShowMobileProductPagination(

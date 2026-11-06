@@ -185,10 +185,15 @@ export function QuickRegisterVariationModal({
         parentCategoryIds = full.categoryIds ?? [];
         if (current && active.current) setParentProduct(full);
       } catch (failure) {
-        if (current && active.current) setError(failure instanceof Error ? failure.message : 'Não foi possível consultar o produto pai.');
+        if (current && active.current) {
+          setError(failure instanceof Error ? failure.message : 'Não foi possível consultar o produto pai.');
+          setTechnicalLoading(false);
+        }
+        return;
       } finally {
         if (current && active.current) setParentLoading(false);
       }
+      if (!current || !active.current) return;
       try {
         const definitions = await withTimeout(fetchTechnicalFieldDefinitions('variation-form', { categoryIds: parentCategoryIds }), 15000, null, 'entrada:caracteristicas-variacao');
         if (definitions && current && active.current) setTechnicalDefinitions(definitions);
