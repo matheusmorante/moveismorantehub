@@ -170,10 +170,12 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
           for (const v of variations) {
             const varPrice =
               v.use_parent_price === false && v.price ? parseFloat(v.price) : p.price;
+            const parentPromoPrice = Number(p.promo_price) > 0 ? Number(p.promo_price) : null;
+            const variationPromoPrice = Number(v.promo_price) > 0 ? Number(v.promo_price) : null;
             const varPromoPrice =
-              v.use_parent_promo_price === false && v.promo_price
-                ? parseFloat(v.promo_price)
-                : p.promo_price;
+              v.use_parent_promo_price === false
+                ? variationPromoPrice ?? parentPromoPrice
+                : parentPromoPrice ?? variationPromoPrice;
             const varImg =
               (v.image_url && v.image_url.includes(',')
                 ? v.image_url.split(',')[0]
