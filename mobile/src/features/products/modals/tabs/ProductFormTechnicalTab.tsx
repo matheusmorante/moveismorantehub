@@ -58,16 +58,13 @@ import {
   isSofaCategoryName,
   isSofaRequiredCharacteristic,
 } from '../../../../../../shared-utils/productTechnicalFieldScope';
-import { withTimeout } from '../../../../../../shared-utils/withTimeout';
-import {
-  fetchMobileProductTechnicalFields,
-  type MobileProductTechnicalField,
-} from '../../services/mobileProductTechnicalService';
+import type { MobileProductTechnicalField } from '../../services/mobileProductTechnicalService';
 import { ProductAiCharacteristicsAssistant } from '../components/ProductAiCharacteristicsAssistant';
 import { ProductTechnicalFieldInput } from './ProductTechnicalFieldInput';
 import { ProductTechnicalFieldScopeControl } from './ProductTechnicalFieldScopeControl';
 import { ProductTechnicalFieldsLoadStatus } from './ProductTechnicalFieldsLoadStatus';
 import { ProductTechnicalFieldSearchControl } from './ProductTechnicalFieldSearchControl';
+import { useProductTechnicalFieldsLoader } from './useProductTechnicalFieldsLoader';
 import {
   normalizeName,
   normalizeSearchTerm,
@@ -113,38 +110,14 @@ export const ProductFormTechnicalTab: React.FC<Props> = ({
     isSimpleProduct,
   } = useProductTechnicalTabValues({ formData, parentData, technicalFields });
 
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      setLoadingFields(true);
-      setTechnicalFieldsError(null);
-      try {
-        const fields = isVariationEditing
-          ? await withTimeout(
-              fetchMobileProductTechnicalFields(),
-              15_000,
-              null,
-              'variacao:caracteristicas'
-            )
-          : await fetchMobileProductTechnicalFields();
-        if (!mounted) return;
-        if (!fields) throw new Error('Consulta de características não confirmada.');
-        setTechnicalFields(fields);
-      } catch (error) {
-        if (!mounted) return;
-        console.warn('[ProductFormTechnicalTab] Falha ao carregar características do ERP:', error);
-        setTechnicalFieldsError(
-          'Não foi possível carregar as características. Consulte novamente.'
-        );
-      } finally {
-        if (mounted) setLoadingFields(false);
-      }
-    };
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, [categoryIds, isVariationEditing, technicalFieldsRefreshKey]);
+  useProductTechnicalFieldsLoader({
+    categoryIds,
+    isVariationEditing,
+    refreshKey: technicalFieldsRefreshKey,
+    setTechnicalFields,
+    setLoadingFields,
+    setTechnicalFieldsError,
+  });
 
   const visibleTechnicalFields = useMemo(() => {
     return resolveVisibleProductTechnicalFields({

@@ -41,7 +41,10 @@ describe('Financial list pagination', () => {
       expect(await screen.findByText('Item 1')).toBeTruthy();
       expect(screen.queryByText('Item 16')).toBeNull();
       fireEvent.click(screen.getByRole('button', { name: 'Página 2' }));
-      expect(screen.getByText('Item 16')).toBeTruthy();
+      if (_name === 'movimentações') {
+        await waitFor(() => expect(financeService.getTransactionPage).toHaveBeenCalledWith(expect.anything(), 2));
+      }
+      expect(await screen.findByText('Item 16')).toBeTruthy();
       fireEvent.change(screen.getByPlaceholderText(/Buscar/), { target: { value: 'Item 1' } });
       await waitFor(() => expect(screen.getByText('Item 1')).toBeTruthy());
       expect(screen.queryByText('Item 20')).toBeNull();

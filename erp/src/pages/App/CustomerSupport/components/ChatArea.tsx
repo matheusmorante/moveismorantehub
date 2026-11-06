@@ -52,6 +52,12 @@ export interface ChatAreaProps {
   onShareOrderRequestHandled?: (requestId: string) => void;
 }
 
+interface SelectedSupportMessage {
+  message: WhatsAppMessage;
+  canReply: boolean;
+  canForward: boolean;
+}
+
 export const ChatArea: React.FC<ChatAreaProps> = ({
   conversation,
   teamMembers,
@@ -92,6 +98,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [isSnippetsModalOpen, setIsSnippetsModalOpen] = useState(false);
   const [replyTarget, setReplyTarget] = useState<WhatsAppMessage | null>(null);
   const [forwardMessage, setForwardMessage] = useState<WhatsAppMessage | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<SelectedSupportMessage | null>(null);
   const [insertedSnippet, setInsertedSnippet] = useState<{ id: number; text: string } | null>(null);
   const snippetRevision = useRef(0);
   const catalogSpaceRef = useRef<HTMLDivElement>(null);
@@ -112,6 +119,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const canSend = canPerform('sendCustomerSupportMessages', roles);
   const canShareCommercialInfo = canPerform('viewCustomerCommercialInfo', roles);
   const canCreateOrders = canPerform('createEditOrders', roles);
+  const isMessageSelectionMode = Boolean(selectedMessage && canSend);
   const configuredPhoneNumberId = getSettings().whatsappConfig?.phoneNumberId;
   const isChannelConnected = Boolean(
     configuredPhoneNumberId && configuredPhoneNumberId === conversation.businessPhoneNumberId,
@@ -135,60 +143,120 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   const currentStatus = conversation.status || (conversation.isArchived ? 'closed' : 'open');
   const currentUserName = profile?.full_name || user?.email || 'Atendente';
+  const selectedMessagePreview = selectedMessage?.message.textContent?.trim()
+    || selectedMessage?.message.mediaCaption?.trim()
+    || (selectedMessage?.message.messageType === 'image' ? 'Foto'
+      : selectedMessage?.message.messageType === 'video' ? 'Vídeo'
+        : selectedMessage?.message.messageType === 'audio' ? 'Áudio'
+          : selectedMessage?.message.messageType === 'document' ? 'Documento'
+            : selectedMessage?.message.messageType === 'sticker' ? 'Figurinha'
+              : 'Mensagem');
+
+  useEffect(() => {
+    setSelectedMessage(null);
+  }, [conversation.id]);
 
   return (
     <div ref={catalogSpaceRef} className="@container/chat flex-1 flex flex-col min-w-0 min-h-0 h-full bg-[#efeae2]/80 dark:bg-[#0b141a] relative overflow-hidden select-none transition-colors">
       {/* Textura sutil de fundo estilo WhatsApp Web */}
       <div className="absolute inset-0 opacity-[0.04] dark:opacity-[0.03] pointer-events-none bg-[radial-gradient(#128c7e_1px,transparent_1px)] [background-size:20px_20px]" />
 
-      {/* 1. Header Fixo da Conversa Ativa */}
-      <ChatHeader
-        conversation={conversation}
-        displayName={displayName}
-        formattedPhone={formattedPhone}
-        initials={initials}
-        careWindow={careWindow}
-        currentStatus={currentStatus}
-        isSearchingInChat={isSearchingInChat}
-        composerMode={composerMode}
-        onToggleInternalComment={() => setComposerMode((mode) => {
-          if (mode === 'whatsapp') setReplyTarget(null);
-          return mode === 'comment' ? 'whatsapp' : 'comment';
-        })}
-        onToggleSearchInChat={() => {
-          setIsSearchingInChat((prev) => !prev);
-          if (isSearchingInChat) setInChatSearch('');
-        }}
-        onToggleInfoPanel={onToggleInfoPanel}
-        isTimelineOpen={isTimelineOpen}
-        onToggleTimeline={onToggleTimeline}
-        onBackMobile={onBackMobile}
-        onClosePanel={onClosePanel}
-        onToggleArchive={onToggleArchive}
-        onToggleReadStatus={onToggleReadStatus}
-        teamMembers={teamMembers}
-        isLoadingAgents={isLoadingAgents}
-        agentsError={agentsError}
-        onReloadAgents={onReloadAgents}
-        onAssign={onAssign}
-        onUpdateStatus={onUpdateStatus}
-        currentUserId={profile?.id || user?.id}
-        currentUserName={currentUserName}
-      />
+      {selectedMessage && canSend && (
+        <div className="relative z-20 flex min-h-14 shrink-0 items-center gap-2 border-b border-emerald-100 bg-white/95 px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-[#202c33] sm:px-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Mensagem selecionada</p>
+            <p className="truncate text-xs text-slate-600 dark:text-slate-300" title={selectedMessagePreview}>{selectedMessagePreview}</p>
+          </div>
+          <button
+            type="button"
+            disabled={!selectedMessage.canReply}
+            onClick={() => {
+              setComposerMode('whatsapp');
+              setReplyTarget(selectedMessage.message);
+              setSelectedMessage(null);
+            }}
+            aria-label="Responder mensagem selecionada"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-emerald-950/40"
+          >
+            <i className="bi bi-reply-fill" aria-hidden="true" />
+            Responder
+          </button>
+          <button
+            type="button"
+            disabled={!selectedMessage.canForward}
+            onClick={() => {
+              setForwardMessage(selectedMessage.message);
+              setSelectedMessage(null);
+            }}
+            aria-label="Encaminhar mensagem selecionada"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-emerald-950/40"
+          >
+            <i className="bi bi-forward-fill" aria-hidden="true" />
+            Encaminhar
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedMessage(null)}
+            aria-label="Cancelar seleção da mensagem"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            <i className="bi bi-x-lg text-xs" aria-hidden="true" />
+          </button>
+        </div>
+      )}
 
-      {/* 2. Barra de Busca Interna (se ativada) */}
-      {isSearchingInChat && (
-        <ChatInChatSearch
-          searchQuery={inChatSearch}
-          onSearchChange={(query) => {
-            setInChatSearch(query);
-            setSearchRevision((revision) => revision + 1);
-          }}
-          onClose={() => {
-            setIsSearchingInChat(false);
-            setInChatSearch('');
-          }}
-        />
+      {!isMessageSelectionMode && (
+        <>
+          {/* 1. Header Fixo da Conversa Ativa */}
+          <ChatHeader
+            conversation={conversation}
+            displayName={displayName}
+            formattedPhone={formattedPhone}
+            initials={initials}
+            careWindow={careWindow}
+            currentStatus={currentStatus}
+            isSearchingInChat={isSearchingInChat}
+            composerMode={composerMode}
+            onToggleInternalComment={() => setComposerMode((mode) => {
+              if (mode === 'whatsapp') setReplyTarget(null);
+              return mode === 'comment' ? 'whatsapp' : 'comment';
+            })}
+            onToggleSearchInChat={() => {
+              setIsSearchingInChat((prev) => !prev);
+              if (isSearchingInChat) setInChatSearch('');
+            }}
+            onToggleInfoPanel={onToggleInfoPanel}
+            isTimelineOpen={isTimelineOpen}
+            onToggleTimeline={onToggleTimeline}
+            onBackMobile={onBackMobile}
+            onClosePanel={onClosePanel}
+            onToggleArchive={onToggleArchive}
+            onToggleReadStatus={onToggleReadStatus}
+            teamMembers={teamMembers}
+            isLoadingAgents={isLoadingAgents}
+            agentsError={agentsError}
+            onReloadAgents={onReloadAgents}
+            onAssign={onAssign}
+            onUpdateStatus={onUpdateStatus}
+            currentUserId={profile?.id || user?.id}
+            currentUserName={currentUserName}
+          />
+
+          {/* 2. Barra de Busca Interna (se ativada) */}
+          {isSearchingInChat && (
+            <ChatInChatSearch
+              searchQuery={inChatSearch}
+              onSearchChange={(query) => {
+                setInChatSearch(query);
+                setSearchRevision((revision) => revision + 1);
+              }}
+              onClose={() => {
+                setIsSearchingInChat(false);
+                setInChatSearch('');
+              }}
+            />
+          )}
+        </>
       )}
 
       {/* 3. Área Central de Mensagens com Rolagem Independente */}
@@ -205,8 +273,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         hasOlderMessages={hasOlderMessages}
         isLoadingOlderMessages={isLoadingOlderMessages}
         onLoadOlderMessages={onLoadOlderMessages}
-        onReplyMessage={canSend ? (message) => { setComposerMode('whatsapp'); setReplyTarget(message); } : undefined}
-        onForwardMessage={canSend ? setForwardMessage : undefined}
+        selectedMessageId={isMessageSelectionMode ? selectedMessage?.message.id : undefined}
+        onSelectMessage={canSend ? (message, capabilities) => {
+          setSelectedMessage((current) => current?.message.id === message.id
+            ? null
+            : { message, ...capabilities });
+        } : undefined}
         onResolveReplyTarget={onResolveReplyTarget}
         onJumpToMessage={onJumpToMessage}
         jumpToMessageId={jumpToMessageId}

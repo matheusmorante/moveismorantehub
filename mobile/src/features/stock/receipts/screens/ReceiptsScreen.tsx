@@ -14,12 +14,7 @@ import {
 import {
   Box,
   MoreVertical,
-  Pencil,
-  Play,
   Plus,
-  Printer,
-  RotateCcw,
-  Trash2,
 } from 'lucide-react-native';
 import { useReceipts } from '../hooks/useReceipts';
 import { NewGoodsReceiptModal } from '../modals/NewGoodsReceiptModal';
@@ -27,6 +22,7 @@ import type { Invoice } from '../../types/stock.types';
 import { ReceiptDetailsModal } from '../modals/ReceiptDetailsModal';
 import { ReceiptMovementDetailsModal } from '../modals/ReceiptMovementDetailsModal';
 import { ReceiptCard } from './ReceiptCard';
+import { ReceiptActionsMenu } from './ReceiptActionsMenu';
 import {
   useReceiptUnreverseAvailability,
   type ReceiptUnreverseCheck,
@@ -114,6 +110,51 @@ export const ReceiptsScreen: React.FC<Props> = ({
     : !receiptMenuHasLinkedProducts
       ? 'Este recebimento não tem produtos vinculados para etiquetar.'
       : undefined;
+
+  const handlePrintReceiptLabels = () => {
+    if (!receiptMenuCanPrintLabels) return;
+    const receiptId = String(receiptMenu.id);
+    setReceiptMenu(null);
+    openLabels({ category: 'identificacao', receiptId });
+  };
+
+  const handleResumeReceiptDraft = () => {
+    setReceiptToEdit(null);
+    setReceiptToResume(receiptMenu);
+    setReceiptMenu(null);
+    setIsNewReceiptOpen(true);
+  };
+
+  const handleDiscardReceiptDraft = () => {
+    setReceiptMenu(null);
+    setReceiptActionDialog({ kind: 'confirm', action: 'discard', receipt: receiptMenu });
+  };
+
+  const handleEditReceivedReceipt = () => {
+    setReceiptToResume(null);
+    setReceiptToEdit(receiptMenu);
+    setReceiptMenu(null);
+    setIsNewReceiptOpen(true);
+  };
+
+  const handleExplainEstornadoEdit = () => {
+    setReceiptMenu(null);
+    setReceiptActionDialog({
+      kind: 'error',
+      title: 'Alteração indisponível',
+      message: 'Para alterar este recebimento, primeiro desfaça o estorno. Quando ele voltar ao status Recebido, você poderá alterá-lo.',
+    });
+  };
+
+  const handleReverseReceipt = () => {
+    setReceiptMenu(null);
+    setReceiptActionDialog({ kind: 'confirm', action: 'reverse', receipt: receiptMenu });
+  };
+
+  const handleUnreverseReceipt = () => {
+    setReceiptMenu(null);
+    setReceiptActionDialog({ kind: 'confirm', action: 'unreverse', receipt: receiptMenu });
+  };
 
   const handleManageInUseInvoice = async (fiscalKey: string) => {
     try {
@@ -315,149 +356,24 @@ export const ReceiptsScreen: React.FC<Props> = ({
           </View>
         </View>
       </Modal>
-      <Modal
-        visible={Boolean(receiptMenu)}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setReceiptMenu(null)}
-      >
-        <View style={styles.receiptMenuOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setReceiptMenu(null)}
-            accessibilityRole="button"
-            accessibilityLabel="Fechar opções do recebimento"
-          />
-          <View style={[styles.receiptMenuCard, isDarkMode && styles.menuDark]}>
-            <Text style={[styles.receiptMenuTitle, isDarkMode && styles.textDark]}>
-              Ações do recebimento
-            </Text>
-            {receiptMenu?.status === 'received' && !isReceiptDraft(receiptMenu) ? (
-              <TouchableOpacity
-                style={[styles.menuItem, !receiptMenuCanPrintLabels && { opacity: 0.5 }]}
-                onPress={() => {
-                  if (!receiptMenuCanPrintLabels) return;
-                  const receiptId = String(receiptMenu.id);
-                  setReceiptMenu(null);
-                  openLabels({ category: 'identificacao', receiptId });
-                }}
-                disabled={!receiptMenuCanPrintLabels}
-                accessibilityRole="button"
-                accessibilityLabel="Imprimir etiquetas de identificação"
-                accessibilityState={{ disabled: !receiptMenuCanPrintLabels }}
-                accessibilityHint={receiptMenuCanPrintLabels ? undefined : receiptMenuPrintHint}
-              >
-                <Printer size={17} color={receiptMenuCanPrintLabels ? '#2563eb' : '#64748b'} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.menuText, isDarkMode && styles.textDark]}>Imprimir etiquetas de identificação</Text>
-                  {!receiptMenuCanPrintLabels && receiptMenuPrintHint ? (
-                    <Text style={[styles.receiptMenuHint, isDarkMode && styles.receiptMenuHintDark]}>
-                      {receiptMenuPrintHint}
-                    </Text>
-                  ) : null}
-                </View>
-              </TouchableOpacity>
-            ) : null}
-            {isReceiptDraft(receiptMenu) ? (
-              <>
-                <TouchableOpacity
-                  style={[styles.menuItem, styles.resumeMenuItem]}
-                  onPress={() => {
-                    setReceiptToEdit(null);
-                    setReceiptToResume(receiptMenu);
-                    setReceiptMenu(null);
-                    setIsNewReceiptOpen(true);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Retomar cadastramento"
-                >
-                  <Play size={17} color="#2563eb" />
-                  <Text style={[styles.menuText, isDarkMode && styles.textDark]}>Retomar cadastramento</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setReceiptMenu(null);
-                    setReceiptActionDialog({ kind: 'confirm', action: 'discard', receipt: receiptMenu });
-                  }}
-                  disabled={isReceiptActionRunning}
-                  accessibilityRole="button"
-                  accessibilityLabel="Descartar rascunho"
-                >
-                  <Trash2 size={17} color="#dc2626" />
-                  <Text style={[styles.menuText, styles.dangerMenuText]}>Descartar rascunho</Text>
-                </TouchableOpacity>
-              </>
-            ) : receiptMenu?.status === 'received' ? (
-              <>
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setReceiptToResume(null);
-                    setReceiptToEdit(receiptMenu);
-                    setReceiptMenu(null);
-                    setIsNewReceiptOpen(true);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Alterar recebimento"
-                >
-                  <Pencil size={17} color="#2563eb" />
-                  <Text style={[styles.menuText, isDarkMode && styles.textDark]}>Alterar recebimento</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setReceiptMenu(null);
-                    setReceiptActionDialog({ kind: 'confirm', action: 'reverse', receipt: receiptMenu });
-                  }}
-                  disabled={isReceiptActionRunning}
-                  accessibilityRole="button"
-                  accessibilityLabel="Estornar recebimento"
-                >
-                  <RotateCcw size={17} color="#dc2626" />
-                  <Text style={[styles.menuText, styles.dangerMenuText]}>Estornar recebimento</Text>
-                </TouchableOpacity>
-              </>
-            ) : receiptMenu?.status === 'estornado' ? (
-              <>
-              <TouchableOpacity
-                style={[styles.menuItem, { opacity: 0.5 }]}
-                onPress={() => {
-                  setReceiptMenu(null);
-                  setReceiptActionDialog({
-                    kind: 'error',
-                    title: 'Alteração indisponível',
-                    message: 'Para alterar este recebimento, primeiro desfaça o estorno. Quando ele voltar ao status Recebido, você poderá alterá-lo.',
-                  });
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Alterar recebimento"
-                accessibilityHint="Exibe por que a alteração está indisponível enquanto o recebimento está estornado."
-              >
-                <Pencil size={17} color={isDarkMode ? '#94a3b8' : '#64748b'} />
-                <Text style={[styles.menuText, isDarkMode && styles.textDark]}>Alterar recebimento</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.menuItem, unreverseBlocked && { opacity: 0.5 }]}
-                onPress={() => {
-                  setReceiptMenu(null);
-                  setReceiptActionDialog({ kind: 'confirm', action: 'unreverse', receipt: receiptMenu });
-                }}
-                disabled={isReceiptActionRunning || unreverseBlocked}
-                accessibilityRole="button"
-                accessibilityLabel="Desfazer estorno"
-                accessibilityState={{ disabled: isReceiptActionRunning || unreverseBlocked }}
-                accessibilityHint={unreverseBlocked ? unreverseReason : undefined}
-              >
-                <RotateCcw size={17} color="#059669" />
-                <Text style={[styles.menuText, styles.successMenuText]}>Desfazer estorno</Text>
-              </TouchableOpacity>
-              {unreverseBlocked && <Text style={{ color: isDarkMode ? '#cbd5e1' : '#64748b', fontSize: 12, paddingHorizontal: 14, paddingBottom: 8 }}>{unreverseReason}</Text>}
-              </>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
+      <ReceiptActionsMenu
+        receipt={receiptMenu}
+        isDarkMode={isDarkMode}
+        isDraft={isReceiptDraft(receiptMenu)}
+        canPrintLabels={receiptMenuCanPrintLabels}
+        printHint={receiptMenuPrintHint}
+        isReceiptActionRunning={isReceiptActionRunning}
+        unreverseBlocked={unreverseBlocked}
+        unreverseReason={unreverseReason}
+        onClose={() => setReceiptMenu(null)}
+        onPrintLabels={handlePrintReceiptLabels}
+        onResumeDraft={handleResumeReceiptDraft}
+        onDiscardDraft={handleDiscardReceiptDraft}
+        onEditReceived={handleEditReceivedReceipt}
+        onExplainEditBlocked={handleExplainEstornadoEdit}
+        onReverse={handleReverseReceipt}
+        onUnreverse={handleUnreverseReceipt}
+      />
       <Modal
         visible={receiptActionDialog !== null}
         transparent

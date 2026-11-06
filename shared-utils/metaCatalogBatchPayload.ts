@@ -28,6 +28,7 @@ export interface MetaCatalogBatchSource {
   opportunityName?: string | null;
   opportunity_name?: string | null;
   opportunities?: { name?: string | null } | null;
+  activeCampaignNames?: readonly string[] | null;
   condition?: string | null;
   is_salvado?: boolean | null;
   url?: string | null;
@@ -72,6 +73,32 @@ export const formatMetaCatalogDecimalPrice = (value: unknown): string => {
   const number = Number(value);
   if (Number.isNaN(number)) return '';
   return number.toFixed(2).replace('.', ',');
+};
+
+/**
+ * Meta supports custom_label_0 through custom_label_4, so campaign membership
+ * uses `internal_label`, which Meta recommends for product-set labels. It
+ * expects a comma-separated list with each label wrapped in single quotes.
+ * Empty arrays deliberately clear labels from a previously synchronized item.
+ */
+export const serializeMetaCatalogInternalLabels = (
+  labels: readonly string[] | null | undefined
+): string | undefined => {
+  if (!Array.isArray(labels)) return undefined;
+
+  const normalizedLabels = Array.from(
+    new Set(
+      labels
+        .map((label) => String(label || '').trim())
+        .filter(Boolean)
+        .map((label) => (label.length > 110 ? label.slice(0, 110) : label))
+    )
+  );
+  const escapedLabels = normalizedLabels.map((label) =>
+    `'${label.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+  );
+
+  return `[${escapedLabels.join(',')}]`;
 };
 
 export const sanitizeMetaCatalogImageUrl = (
@@ -208,6 +235,7 @@ export const buildMetaCatalogBatchPayload = (
         custom_label_1: formatMetaCatalogDecimalPrice(currentPrice),
         custom_label_2: oldPriceFormatted,
         custom_label_3: opportunityName || undefined,
+        internal_label: serializeMetaCatalogInternalLabels(product.activeCampaignNames),
         color: product.color || undefined,
         size: product.size || undefined,
         material: product.material || undefined,

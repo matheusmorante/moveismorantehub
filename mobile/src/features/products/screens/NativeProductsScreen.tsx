@@ -31,14 +31,9 @@ import {
   getMobileCompositionEmptyHint,
   shouldShowMobileProductPagination,
 } from '../domain/mobileProductListPresentation';
-import { MobileMergeVariationModal } from '../modals/MobileMergeVariationModal';
-import { MobileMoveVariationModal } from '../modals/MobileMoveVariationModal';
-import { MobileProductDetailsModal } from '../modals/MobileProductDetailsModal';
-import { AttributesManagerModal } from '../modals/AttributesManagerModal';
-import { ProductFormModal } from '../modals/ProductFormModal';
-import { ProductLinkedOrdersModal } from '../modals/ProductLinkedOrdersModal';
 import { NativeMetaCatalogScreen } from './NativeMetaCatalogScreen';
 import { ProductModulesMenu } from './ProductModulesMenu';
+import { ProductScreenOverlays } from './ProductScreenOverlays';
 import { copyMobileProductImages } from '../services/mobileProductPhotoService';
 import {
   canShowMobileLinkedProductOrders,
@@ -524,55 +519,50 @@ export const NativeProductsScreen: React.FC<Props> = ({
         </ScrollView>
       )}
 
-      {/* Tela Fullscreen de Criação / Edição de Produto */}
-      <ProductFormModal
-        visible={showFormModal && canEditProducts}
-        product={editingProduct}
-        initialData={newProductInitialData}
-        dark={isDarkMode}
-        onClose={handleProductFormClose}
-        onSave={handleProductFormSave}
-        onAutoSave={handleProductFormAutoSave}
-      />
-      {loadingProductForEdit && (
-        <View style={[styles.editLoadingOverlay, isDarkMode && styles.dark]}>
-          <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.loading}>Carregando variações do produto…</Text>
-        </View>
-      )}
-
-      <AttributesManagerModal
-        visible={showAttributesModal && canViewCharacteristics}
-        dark={isDarkMode}
-        onClose={() => setShowAttributesModal(false)}
-      />
-      <ProductLinkedOrdersModal
-        visible={Boolean(ordersProduct) && canViewLinkedProductOrders}
-        dark={isDarkMode}
-        product={ordersProduct}
-        onClose={() => setOrdersProduct(null)}
-      />
-      <MobileProductDetailsModal
-        visible={Boolean(detailsProduct) && canViewDetails}
-        dark={isDarkMode}
-        product={detailsProduct}
-        onClose={() => setDetailsProduct(null)}
-      />
-      <MobileMoveVariationModal
-        visible={Boolean(variationToMove) && canEditProducts && !isLabelOnlyProfile}
-        dark={isDarkMode}
-        variation={variationToMove?.variation || null}
-        parentProduct={variationToMove?.parentProduct || null}
-        onClose={() => setVariationToMove(null)}
-        onMoved={productsHook.refresh}
-      />
-      <MobileMergeVariationModal
-        visible={Boolean(variationToMerge) && canEditProducts && !isLabelOnlyProfile}
-        dark={isDarkMode}
-        variation={variationToMerge?.variation || null}
-        parentProduct={variationToMerge?.parentProduct || null}
-        onClose={() => setVariationToMerge(null)}
-        onMerged={productsHook.refresh}
+      <ProductScreenOverlays
+        productForm={{
+          visible: showFormModal && canEditProducts,
+          product: editingProduct,
+          initialData: newProductInitialData,
+          dark: isDarkMode,
+          onClose: handleProductFormClose,
+          onSave: handleProductFormSave,
+          onAutoSave: handleProductFormAutoSave,
+        }}
+        loadingProductForEdit={loadingProductForEdit}
+        attributesManager={{
+          visible: showAttributesModal && canViewCharacteristics,
+          dark: isDarkMode,
+          onClose: () => setShowAttributesModal(false),
+        }}
+        linkedOrders={{
+          visible: Boolean(ordersProduct) && canViewLinkedProductOrders,
+          dark: isDarkMode,
+          product: ordersProduct,
+          onClose: () => setOrdersProduct(null),
+        }}
+        productDetails={{
+          visible: Boolean(detailsProduct) && canViewDetails,
+          dark: isDarkMode,
+          product: detailsProduct,
+          onClose: () => setDetailsProduct(null),
+        }}
+        moveVariation={{
+          visible: Boolean(variationToMove) && canEditProducts && !isLabelOnlyProfile,
+          dark: isDarkMode,
+          variation: variationToMove?.variation || null,
+          parentProduct: variationToMove?.parentProduct || null,
+          onClose: () => setVariationToMove(null),
+          onMoved: productsHook.refresh,
+        }}
+        mergeVariation={{
+          visible: Boolean(variationToMerge) && canEditProducts && !isLabelOnlyProfile,
+          dark: isDarkMode,
+          variation: variationToMerge?.variation || null,
+          parentProduct: variationToMerge?.parentProduct || null,
+          onClose: () => setVariationToMerge(null),
+          onMerged: productsHook.refresh,
+        }}
       />
     </View>
   );

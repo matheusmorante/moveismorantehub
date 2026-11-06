@@ -22,6 +22,10 @@ export type Variation = {
   stock: number;
   unitPrice: number;
   promoPrice?: number; // Preço promocional
+  promotionId?: string;
+  promotionName?: string;
+  promotionDiscountPercent?: number;
+  promotionFinalPrice?: number;
   costPrice?: number;
   active: boolean;
   status?: 'draft' | 'published' | 'hidden';
@@ -127,6 +131,10 @@ export type Product = {
   opportunity?: { id: string; name: string; badge_color?: string } | null;
   unitPrice: number;
   promoPrice?: number; // Preço promocional
+  promotionId?: string;
+  promotionName?: string;
+  promotionDiscountPercent?: number;
+  promotionFinalPrice?: number;
   costPrice?: number; // Preço de custo base
   freightType?: 'fixed' | 'percentage' | 'none';
   freightCost?: number;

@@ -126,6 +126,7 @@ export const PurchaseOrderItemsView = ({
     const item = items[index];
     return (
       <ProductAutocomplete
+        includeTrashEligibility={false}
         supplierId={supplierId || undefined}
         multiline={multiline}
         value={item.description || ''}

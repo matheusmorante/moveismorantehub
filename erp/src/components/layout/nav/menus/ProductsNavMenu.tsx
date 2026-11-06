@@ -30,6 +30,15 @@ export const ProductsNavMenu: React.FC<Required<NavMenuProps>> = ({
           onClick={close}
         />
       )}
+      {permissions.canManagePromotions && (
+        <DropdownItem
+          to="/products/promotions"
+          icon="bi-megaphone-fill"
+          title="Promoções"
+          description="Campanhas e descontos por período"
+          onClick={close}
+        />
+      )}
       {(permissions.canViewProductCharacteristics || permissions.canViewProductCategories) && (
         <>
           {permissions.canViewProductCharacteristics && (

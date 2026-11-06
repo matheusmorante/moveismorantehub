@@ -6,6 +6,11 @@ export interface SelectedProductPricing {
   discountType: 'fixed' | 'percentage';
   finalUnitPrice: number;
   hasDiscount: boolean;
+  productDiscountAmount: number;
+  promotionDiscountPercent?: number;
+  promotionDiscountAmount: number;
+  promotionId?: string;
+  promotionName?: string;
 }
 
 /**
@@ -24,6 +29,8 @@ export const getSelectedProductPricing = (
       discountType: 'fixed',
       finalUnitPrice: 0,
       hasDiscount: false,
+      productDiscountAmount: 0,
+      promotionDiscountAmount: 0,
     };
   }
 
@@ -58,23 +65,39 @@ export const getSelectedProductPricing = (
       ? Math.max(0, Math.round(Number(rawPromoPrice) * 100) / 100)
       : 0;
 
-  // Há desconto se o preço promocional for maior que zero e estritamente menor que o preço de tabela
-  if (promoPrice > 0 && promoPrice < unitPrice) {
-    const discountValue = Math.round((unitPrice - promoPrice) * 100) / 100;
-    return {
-      unitPrice,
-      unitDiscount: discountValue,
-      discountType: 'fixed',
-      finalUnitPrice: promoPrice,
-      hasDiscount: true,
-    };
-  }
-
+  // A campanha é sucessiva: aplica seu percentual sobre o preço depois da
+  // promoção fixa já cadastrada no produto ou na variação.
+  const productPrice = promoPrice > 0 && promoPrice < unitPrice ? promoPrice : unitPrice;
+  const rawCampaignPercent = Number(
+    variation?.promotionDiscountPercent ?? product?.promotionDiscountPercent ?? 0
+  );
+  const promotionDiscountPercent =
+    Number.isFinite(rawCampaignPercent) && rawCampaignPercent > 0 && rawCampaignPercent <= 100
+      ? rawCampaignPercent
+      : 0;
+  const calculatedCampaignPrice =
+    Math.round((productPrice * (1 - promotionDiscountPercent / 100) + Number.EPSILON) * 100) / 100;
+  const rawCampaignPrice = Number(
+    variation?.promotionFinalPrice ?? product?.promotionFinalPrice
+  );
+  const campaignPrice =
+    promotionDiscountPercent > 0 && Number.isFinite(rawCampaignPrice) && rawCampaignPrice >= 0
+      ? Math.round((rawCampaignPrice + Number.EPSILON) * 100) / 100
+      : calculatedCampaignPrice;
+  const finalUnitPrice = campaignPrice;
+  const unitDiscount = Math.max(0, Math.round((unitPrice - finalUnitPrice + Number.EPSILON) * 100) / 100);
+  const productDiscountAmount = Math.max(0, Math.round((unitPrice - productPrice + Number.EPSILON) * 100) / 100);
+  const promotionDiscountAmount = Math.max(0, Math.round((productPrice - finalUnitPrice + Number.EPSILON) * 100) / 100);
   return {
     unitPrice,
-    unitDiscount: 0,
+    unitDiscount,
     discountType: 'fixed',
-    finalUnitPrice: unitPrice,
-    hasDiscount: false,
+    finalUnitPrice,
+    hasDiscount: unitDiscount > 0,
+    productDiscountAmount,
+    promotionDiscountPercent: promotionDiscountPercent || undefined,
+    promotionDiscountAmount,
+    promotionId: variation?.promotionId ?? product?.promotionId,
+    promotionName: variation?.promotionName ?? product?.promotionName,
   };
 };

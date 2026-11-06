@@ -8,6 +8,7 @@ import {
   formatMetaCatalogDecimalPrice as formatDecimalPrice,
   META_CATALOG_BATCH_LIMIT,
   META_CATALOG_FALLBACK_IMAGE_URL,
+  serializeMetaCatalogInternalLabels,
   sanitizeMetaCatalogImageUrl as sanitizeImageUrl,
 } from '../../../../../shared-utils/metaCatalogBatchPayload';
 import { waitForMetaCatalogBatchHandles } from '../../../../../shared-utils/metaCatalogBatchStatus';
@@ -49,7 +50,7 @@ export const metaCatalogService = {
       if (!response.ok || data.error) {
         console.error('[MetaCatalogService] Erro Meta API:', data.error || data);
         const errorMsg = data.error
-          ? metaErrorHandler.parseMetaErrorMessage(data.error)
+          ? metaErrorHandler.parseMetaErrorMessage(data.error, { apiArea: 'catalog' })
           : `Erro HTTP ${response.status}`;
         throw new Error(errorMsg);
       }
@@ -179,6 +180,9 @@ export const metaCatalogService = {
                   custom_label_1: formatDecimalPrice(currentPrice),
                   custom_label_2: oldPriceFormatted,
                   custom_label_3: oppName || undefined,
+                  internal_label: serializeMetaCatalogInternalLabels(
+                    product.activeCampaignNames ?? product.active_campaign_names
+                  ),
                   color: product.color || undefined,
                   size: product.size || undefined,
                   material: product.material || undefined,
@@ -199,7 +203,7 @@ export const metaCatalogService = {
       if (!response.ok || data.error) {
         console.error('[MetaCatalogService] Erro no Batch Sync:', data.error || data);
         if (data.error) {
-          throw new Error(metaErrorHandler.parseMetaErrorMessage(data.error));
+          throw new Error(metaErrorHandler.parseMetaErrorMessage(data.error, { apiArea: 'catalog' }));
         }
         throw new Error('Erro desconhecido ao sincronizar com a Meta.');
       }
@@ -254,7 +258,19 @@ export const metaCatalogService = {
       if (!response.ok || data.error) {
         console.error('[MetaCatalogService] Erro no Lote Meta API:', data.error || data);
         if (data.error) {
-          throw new Error(metaErrorHandler.parseMetaErrorMessage(data.error));
+          const catalogLabel = data.failed_catalog === 'ads'
+            ? 'Meta Ads'
+            : data.failed_catalog === 'whatsapp'
+              ? 'WhatsApp'
+              : null;
+          const failurePrefix = catalogLabel
+            ? data.partial_success
+              ? `Este lote foi aceito por outro catálogo, mas falhou no catálogo ${catalogLabel}. `
+              : `Falha no catálogo ${catalogLabel}. `
+            : '';
+          throw new Error(
+            `${failurePrefix}${metaErrorHandler.parseMetaErrorMessage(data.error, { apiArea: 'catalog' })}`
+          );
         }
         throw new Error('Erro no envio em lote da Meta API.');
       }

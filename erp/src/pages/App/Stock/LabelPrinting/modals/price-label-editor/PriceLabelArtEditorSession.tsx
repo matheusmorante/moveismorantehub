@@ -5,6 +5,7 @@ import { usePriceLabelState } from '../../hooks/usePriceLabelState';
 import { usePriceLabelTestValues } from '../../hooks/usePriceLabelTestValues';
 import { usePriceLabelEditorKeyboardShortcuts } from '../../hooks/usePriceLabelEditorKeyboardShortcuts';
 import { usePriceLabelLayerSelection } from '../../hooks/usePriceLabelLayerSelection';
+import { usePriceLabelLayerModalSelection } from '../../hooks/usePriceLabelLayerModalSelection';
 import { PriceLabelLayersModal } from '../PriceLabelLayersModal';
 import { PriceLabelOpportunityModal } from '../PriceLabelOpportunityModal';
 import { PriceLabelDataFillModal } from '../PriceLabelDataFillModal';
@@ -541,6 +542,13 @@ export const PriceLabelArtEditorSession: React.FC<
     showInstallments,
   });
 
+  const handleLayerModalSelect = usePriceLabelLayerModalSelection({
+    previousSelectedRef: prevSelectedRef,
+    setSelectedElement,
+    setSelectedElements,
+    setIsLayersModalOpen,
+  });
+
   const priceLabelLayers = useMemo(
     () =>
       buildPriceLabelLayers({
@@ -987,30 +995,7 @@ export const PriceLabelArtEditorSession: React.FC<
           layers={priceLabelLayers}
           selectedElements={selectedElements}
           selectedElement={selectedElement}
-          onSelectLayer={(key, isShift) => {
-            if (isShift) {
-              setSelectedElements((prev) => {
-                const next = new Set(prev);
-                if (next.has(key)) next.delete(key);
-                else next.add(key);
-                if (next.size > 0) {
-                  const arr = Array.from(next);
-                  const last = arr[arr.length - 1];
-                  setSelectedElement(last);
-                  prevSelectedRef.current = last;
-                } else {
-                  setSelectedElement(null);
-                  prevSelectedRef.current = null;
-                }
-                return next;
-              });
-            } else {
-              setSelectedElement(key);
-              setSelectedElements(new Set([key]));
-              prevSelectedRef.current = key;
-              setIsLayersModalOpen(false);
-            }
-          }}
+          onSelectLayer={handleLayerModalSelect}
           onCenterElement={handleCenterElement}
         />
 

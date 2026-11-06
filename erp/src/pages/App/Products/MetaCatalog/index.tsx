@@ -17,18 +17,22 @@ export default function MetaCatalog() {
   const [loadingStats, setLoadingStats] = useState(true);
 
   React.useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setStats(await fetchMetaCatalogStats());
-      } catch (err) {
-        console.error('Erro ao calcular estatísticas do catálogo Meta:', err);
-      } finally {
-        setLoadingStats(false);
-      }
-    };
+    let active = true;
+    fetchMetaCatalogStats()
+      .then((nextStats) => {
+        if (active) setStats(nextStats);
+      })
+      .catch((err) => {
+        if (active) console.error('Erro ao calcular estatísticas do catálogo Meta:', err);
+      })
+      .finally(() => {
+        if (active) setLoadingStats(false);
+      });
 
-    fetchStats();
-  }, [isSyncing]);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleGraphApiSync = async () => {
     if (!isAdmin) {
@@ -38,7 +42,7 @@ export default function MetaCatalog() {
     try {
       setIsSyncing(true);
       setSyncProgress({ processed: 0, total: 0 });
-      toast.info('Iniciando busca e sincronização de todos os produtos... 🔄');
+      toast.info('Iniciando a sincronização dos produtos com os catálogos Meta... 🔄');
 
       const { whatsappGraphService } = await import('@/pages/utils/whatsappGraphService');
 
@@ -56,7 +60,7 @@ export default function MetaCatalog() {
       );
 
       toast.success(
-        `Sincronização concluída! ${res.count} itens processados no Meta Catalog via Graph API. 🎉`
+        `Sincronização concluída! ${res.count} itens enviados aos catálogos do WhatsApp e do Meta Ads via Graph API. 🎉`
       );
     } catch (err: any) {
       console.error('Erro no sync Meta Graph API:', err);

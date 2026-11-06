@@ -19,6 +19,10 @@ interface RawVariationItem {
   syncCostPrice?: boolean;
   unitPrice?: number;
   promoPrice?: number;
+  promotionId?: string;
+  promotionName?: string;
+  promotionDiscountPercent?: number;
+  promotionFinalPrice?: number;
   costPrice?: number;
   stock?: number;
   minStock?: number;
@@ -129,6 +133,10 @@ function buildVariationListRow(
       effectivePricing.promoPrice === null || effectivePricing.promoPrice === undefined
         ? undefined
         : Number(effectivePricing.promoPrice),
+    promotionId: variation.promotionId,
+    promotionName: variation.promotionName,
+    promotionDiscountPercent: variation.promotionDiscountPercent,
+    promotionFinalPrice: variation.promotionFinalPrice,
     costPrice:
       variation.syncCostPrice ||
       typeof variation.costPrice === 'undefined' ||

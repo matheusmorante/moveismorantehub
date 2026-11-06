@@ -14,6 +14,7 @@ export interface DesktopNavPermissions {
 
   // Produtos
   canViewProducts: boolean;
+  canManagePromotions: boolean;
   canViewProductCharacteristics: boolean;
   canViewProductCategories: boolean;
   canViewProductReconciliation: boolean;
@@ -75,12 +76,14 @@ export function useDesktopNavPermissions(profile: UserProfile | null): DesktopNa
 
     // Produtos
     const canViewProducts = canPerform('viewProducts', roles);
+    const canManagePromotions = canPerform('managePromotions', roles);
     const canViewProductCharacteristics = canPerform('viewProductCharacteristics', roles);
     const canViewProductCategories = canPerform('viewProductCategories', roles);
     const canViewProductReconciliation = canPerform('viewProductReconciliation', roles);
     const canViewMetaCatalog = canPerform('viewMetaCatalog', roles);
     const canViewProductMenu =
       canViewProducts ||
+      canManagePromotions ||
       canViewProductCharacteristics ||
       canViewProductCategories ||
       canViewProductReconciliation ||
@@ -155,6 +158,7 @@ export function useDesktopNavPermissions(profile: UserProfile | null): DesktopNa
       canViewDashboard,
       canViewCustomerSupport,
       canViewProducts,
+      canManagePromotions,
       canViewProductCharacteristics,
       canViewProductCategories,
       canViewProductReconciliation,

@@ -14,6 +14,7 @@ import WarrantyTermPage from './pages/WarrantyTermPage';
 import DeliverySchedule from './pages/App/DeliverySchedule';
 import OrderPage from './pages/OrderPage';
 import Products from './pages/App/Products/Index';
+import PromotionsPage from './pages/App/Products/Promotions/PromotionsPage';
 import Categories from './pages/App/Products/Categories/Index';
 import SupplierReconciliation from './pages/App/Products/Reconciliation/SupplierReconciliation';
 import Settings from './pages/App/Settings';
@@ -297,6 +298,11 @@ function Router() {
                 </PermissionRoute>
               }
             />
+            <Route element={<PermissionRoute action="managePromotions" />}>
+              <Route path="/products/promotions" element={<PromotionsPage />} />
+              <Route path="/products/promotions/new" element={<PromotionsPage />} />
+              <Route path="/products/promotions/:id/edit" element={<PromotionsPage />} />
+            </Route>
             <Route path="/registrations/products" element={<Navigate to="/products" replace />} />
             <Route path="/products/compositions" element={<Navigate to="/products" replace />} />
             <Route element={<PermissionRoute action="viewProductReconciliation" />}>

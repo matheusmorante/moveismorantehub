@@ -19,6 +19,7 @@ export interface ChannelCatalogVariationRow {
   parentTypeName: string;
   parentLine: string;
   parentCode: string;
+  activeCampaignNames?: readonly string[];
   rawParent: { unit_price?: number; images?: string[]; [key: string]: unknown };
   rawVariation: unknown;
 }
@@ -95,5 +96,6 @@ export function buildChannelCatalogSyncPayload(row: ChannelCatalogVariationRow) 
     images: row.varImage ? [row.varImage] : row.rawParent.images || [],
     stock: row.varStock,
     active: row.varActive && row.varStock > 0,
+    activeCampaignNames: row.activeCampaignNames || [],
   };
 }

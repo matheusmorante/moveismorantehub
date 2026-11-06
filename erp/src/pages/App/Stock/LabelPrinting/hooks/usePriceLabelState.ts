@@ -7,6 +7,7 @@ import { usePriceLabelHistory } from './usePriceLabelHistory';
 import { buildPriceLabelStateSnapshot } from './priceLabelStateSnapshot';
 import { usePriceLabelEditorTransientState } from './usePriceLabelEditorTransientState';
 import { applyPriceLabelMagnitudeSnapshot } from './priceLabelMagnitudeSnapshot';
+import { applyPriceLabelSnapshot } from './priceLabelSnapshotRestoration';
 
 export function usePriceLabelState(
   initialProduct: PriceLabelArtEditorModalProps['initialProduct'],
@@ -259,11 +260,11 @@ export function usePriceLabelState(
       defaultBgColor,
     );
 
-  const applySnapshot = (s: any, preserveLayout = false) => {
-    if (!s) return;
-    isApplyingHistoryRef.current = true;
-    const currentLayout = preserveLayout
-      ? {
+  const applySnapshot = (s: any, preserveLayout = false) =>
+    applyPriceLabelSnapshot({
+      snapshot: s,
+      preserveLayout,
+      getCurrentLayout: () => ({
           titlePos,
           dePos,
           normalPricePos,
@@ -298,69 +299,16 @@ export function usePriceLabelState(
           installmentsFontSizeTens,
           installmentsFontSizeHundreds,
           installmentsFontSizeThousands,
-        }
-      : null;
-
-    if (s.oppColorsMap && typeof s.oppColorsMap === 'object') setOppColorsMap(s.oppColorsMap);
-    if (s.magnitudeTemplates) setMagnitudeTemplates(s.magnitudeTemplates);
-    if (s.selectedOppId) setSelectedOppId(s.selectedOppId);
-
-    const targetMag = s.selectedMagnitude || selectedMagnitude || 'hundreds';
-    setSelectedMagnitude(targetMag);
-    if (s.magnitudeTemplates && s.magnitudeTemplates[targetMag]) {
-      applyMagnitudeSnapshot(s.magnitudeTemplates[targetMag]);
-    } else {
-      applyMagnitudeSnapshot(s);
-    }
-
-    if (currentLayout) {
-      const fixedTitleSize = currentLayout.titleFontSizeHundreds;
-      const fixedDeSize = currentLayout.deFontSizeHundreds;
-      const fixedNormalPriceSize = currentLayout.normalPriceFontSizeHundreds;
-      const fixedPorSize = currentLayout.porFontSizeHundreds;
-      const fixedCurrencySize = currentLayout.currencyFontSizeHundreds;
-      const fixedCentsSize = currentLayout.centsFontSizeHundreds;
-      const fixedInstallmentsSize = currentLayout.installmentsFontSizeHundreds;
-      setTitlePos(currentLayout.titlePos);
-      setDePos(currentLayout.dePos);
-      setNormalPricePos(currentLayout.normalPricePos);
-      setPorPos(currentLayout.porPos);
-      setCurrencyPos(currentLayout.currencyPos);
-      setPromoPricePos(currentLayout.promoPricePos);
-      setCentsPos(currentLayout.centsPos);
-      setInstallmentsPos(currentLayout.installmentsPos);
-      setDePricePorGroupPos(currentLayout.dePricePorGroupPos);
-      setTitleFontSizeTens(fixedTitleSize);
-      setTitleFontSizeHundreds(fixedTitleSize);
-      setTitleFontSizeThousands(fixedTitleSize);
-      setDeFontSizeTens(fixedDeSize);
-      setDeFontSizeHundreds(fixedDeSize);
-      setDeFontSizeThousands(fixedDeSize);
-      setNormalPriceFontSizeTens(fixedNormalPriceSize);
-      setNormalPriceFontSizeHundreds(fixedNormalPriceSize);
-      setNormalPriceFontSizeThousands(fixedNormalPriceSize);
-      setPorFontSizeTens(fixedPorSize);
-      setPorFontSizeHundreds(fixedPorSize);
-      setPorFontSizeThousands(fixedPorSize);
-      setCurrencyFontSizeTens(fixedCurrencySize);
-      setCurrencyFontSizeHundreds(fixedCurrencySize);
-      setCurrencyFontSizeThousands(fixedCurrencySize);
-      setScaleTens(currentLayout.scaleTens);
-      setScaleHundreds(currentLayout.scaleHundreds);
-      setScaleThousands(currentLayout.scaleThousands);
-      setScaleTenThousands(currentLayout.scaleTenThousands);
-      setCentsFontSizeTens(fixedCentsSize);
-      setCentsFontSizeHundreds(fixedCentsSize);
-      setCentsFontSizeThousands(fixedCentsSize);
-      setInstallmentsFontSizeTens(fixedInstallmentsSize);
-      setInstallmentsFontSizeHundreds(fixedInstallmentsSize);
-      setInstallmentsFontSizeThousands(fixedInstallmentsSize);
-    }
-
-    setTimeout(() => {
-      isApplyingHistoryRef.current = false;
-    }, 50);
-  };
+      }),
+      selectedMagnitude,
+      setSelectedMagnitude,
+      setMagnitudeTemplates,
+      setOppColorsMap,
+      setSelectedOppId,
+      applyMagnitudeSnapshot,
+      setters: magnitudeSnapshotSetters,
+      isApplyingHistoryRef,
+    });
 
   // TROCA DE ORDEM DE GRANDEZA (COM SALVAMENTO E CARREGAMENTO INDEPENDENTE DE LAYOUT)
   const handleSwitchMagnitude = (newMag: 'tens' | 'hundreds' | 'thousands') => {

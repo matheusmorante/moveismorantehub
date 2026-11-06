@@ -23,6 +23,10 @@ export interface CardVariationItem {
   status?: Product['status'];
   images?: string[];
   attributes?: readonly ProductListVariationAttribute[];
+  promotionId?: string;
+  promotionName?: string;
+  promotionDiscountPercent?: number;
+  promotionFinalPrice?: number;
 }
 
 export interface ProductCardVariationListProps {

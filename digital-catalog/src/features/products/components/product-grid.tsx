@@ -158,9 +158,11 @@ export function ProductGrid({ filters }: ProductGridProps) {
                 slug: product.slug,
                 price: product.price,
                 promo_price: product.promo_price,
+                promotion_price: product.promotion_price,
+                campaign: product.campaign,
                 category: product.product_categories?.[0]?.categories?.name || 'Móvel',
                 image: mainImg,
-                promotion: !!product.promo_price,
+                promotion: !!product.promo_price || product.promotion_price != null,
                 opportunity: product.opportunities
                   ? {
                       name: product.opportunities.name,

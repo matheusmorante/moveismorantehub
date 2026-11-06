@@ -4,6 +4,10 @@ import { requestConfirmation } from '@/components/shared/confirmationService';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { getSettings } from '@/pages/utils/settingsService';
 import { buildChannelCatalogSyncPayload } from '../../channelCatalogRows';
+import {
+  fetchActiveCampaignLabelIndex,
+  type ActiveCampaignLabelIndex,
+} from '@/pages/App/Products/MetaCatalog/services/metaCatalogDataService';
 import { VariationRow, CatalogCollectionItem, ChannelFilter } from '../types';
 import {
   fetchLightweightCollections,
@@ -83,8 +87,15 @@ export function useChannelCatalog() {
     setActionLoading(row.varId + '_wa');
     try {
       if (newValue) {
+        const activeCampaignLabels = await fetchActiveCampaignLabelIndex([row.parentId]);
         await whatsappGraphService.syncProductToCatalog(
-          buildChannelCatalogSyncPayload(row),
+          buildChannelCatalogSyncPayload({
+            ...row,
+            activeCampaignNames:
+              activeCampaignLabels.variationNames.get(row.varId) ||
+              activeCampaignLabels.productNames.get(row.parentId) ||
+              [],
+          }),
           'UPDATE'
         );
       } else {
@@ -137,10 +148,26 @@ export function useChannelCatalog() {
     setLoading(true);
     let count = 0;
     let errors = 0;
+    let activeCampaignLabels: ActiveCampaignLabelIndex;
+    try {
+      activeCampaignLabels = await fetchActiveCampaignLabelIndex(
+        Array.from(new Set(toSync.map((row) => row.parentId)))
+      );
+    } catch (error: any) {
+      setLoading(false);
+      toast.error(error.message || 'Não foi possível carregar as campanhas ativas.');
+      return;
+    }
     for (const r of toSync) {
       try {
         await whatsappGraphService.syncProductToCatalog(
-          buildChannelCatalogSyncPayload(r),
+          buildChannelCatalogSyncPayload({
+            ...r,
+            activeCampaignNames:
+              activeCampaignLabels.variationNames.get(r.varId) ||
+              activeCampaignLabels.productNames.get(r.parentId) ||
+              [],
+          }),
           'UPDATE'
         );
         await persistVariationSync(r, 'whatsappSync', true);

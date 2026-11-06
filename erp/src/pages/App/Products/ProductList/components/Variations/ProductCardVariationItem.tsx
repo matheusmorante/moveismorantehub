@@ -84,11 +84,14 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
   const effectivePromoPrice = Number(effectivePricing.promoPrice ?? 0);
 
   const hasPromo = Boolean(
-    effectivePromoPrice &&
-      Number(effectivePromoPrice) > 0 &&
-      Number(effectivePromoPrice) < Number(effectiveUnitPrice)
+    v.promotionId ||
+      (effectivePromoPrice && Number(effectivePromoPrice) > 0 && Number(effectivePromoPrice) < Number(effectiveUnitPrice))
   );
-  const displayPrice = hasPromo ? effectivePromoPrice : effectiveUnitPrice;
+  const displayPrice = v.promotionId
+    ? Number(v.promotionFinalPrice || 0)
+    : hasPromo
+      ? effectivePromoPrice
+      : effectiveUnitPrice;
 
   const variationImages =
     v.images && v.images.length > 0
@@ -167,6 +170,7 @@ export const ProductCardVariationItem: React.FC<ProductCardVariationItemProps> =
           <span className="text-xs font-black text-slate-700 dark:text-slate-200">
             {formatCurrency(displayPrice)}
           </span>
+          {v.promotionName ? <span className="max-w-36 truncate text-[9px] font-bold text-blue-600 dark:text-blue-400" title={v.promotionName}>Promoção: {v.promotionName}</span> : null}
           <span className="text-[9px] font-bold text-slate-400 mt-0.5">
             Estoque: {v.stock ?? 0}
           </span>

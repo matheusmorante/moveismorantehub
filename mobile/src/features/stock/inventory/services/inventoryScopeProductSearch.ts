@@ -2,7 +2,7 @@ import { matchesSearchText } from '../../../../../../shared-utils/searchText';
 import type { ScopeProduct } from '../hooks/useInventoryScopeBuilder';
 import type { SearchableProduct } from '../modals/InventoryProductSearchModal';
 
-interface InventoryScopeProductParent {
+export interface InventoryScopeProductParent {
   id: string;
   name: string;
   code: string;

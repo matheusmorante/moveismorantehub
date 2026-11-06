@@ -1,5 +1,10 @@
+import type { z } from 'zod';
+import type { supportChatComposerDraftSchema } from '../../../../../../../shared-utils/customerSupportFormSchemas';
+
 export const MAX_ATTACHMENTS = 50;
 export const MAX_FILE_SIZE = 4 * 1024 * 1024;
+
+export type ChatComposerAttachment = z.input<typeof supportChatComposerDraftSchema>['attachments'][number];
 
 const FILE_TYPES: Record<string, { mimeType: string; label: string }> = {
   jpg: { mimeType: 'image/jpeg', label: 'Imagem' },
@@ -30,4 +35,48 @@ export const formatFileSize = (size: number) => {
 export const normalizedFileType = (file: File) => {
   const extension = file.name.split('.').pop()?.toLowerCase() || '';
   return FILE_TYPES[extension] || null;
+};
+
+export const prepareChatComposerFileAttachments = (
+  incoming: FileList | File[],
+  kind: 'media' | 'document',
+  customKind: 'order' | 'quote' | undefined,
+  makeId: () => string,
+  onPreviewCreated: (url: string) => void,
+) => {
+  const additions: ChatComposerAttachment[] = [];
+  const fileMap = new Map<string, File>();
+  const validationMessages: string[] = [];
+
+  for (const file of Array.from(incoming)) {
+    const classification = normalizedFileType(file);
+    if (file.size > MAX_FILE_SIZE) {
+      validationMessages.push(`${file.name}: o limite é 4 MB.`);
+      continue;
+    }
+    if (!classification || (kind === 'media' && !['Imagem', 'Vídeo'].includes(classification.label))
+      || (kind === 'document' && !['Documento', 'Áudio'].includes(classification.label))) {
+      validationMessages.push(`${file.name}: formato não aceito pelo WhatsApp.`);
+      continue;
+    }
+    const id = makeId();
+    const mimeType = file.type || classification.mimeType;
+    const previewUrl = (classification.label === 'Imagem' || classification.label === 'Vídeo' || classification.label === 'Áudio')
+      ? URL.createObjectURL(file)
+      : undefined;
+    if (previewUrl) onPreviewCreated(previewUrl);
+    const attachmentKind: ChatComposerAttachment['kind'] = customKind || (classification.label === 'Áudio' ? 'audio' : kind);
+    additions.push({
+      kind: attachmentKind,
+      id,
+      label: customKind ? `${customKind === 'quote' ? 'Orçamento' : 'Pedido'} em PDF` : file.name,
+      detail: `${formatFileSize(file.size)} · ${classification.label}`,
+      fileName: file.name,
+      mimeType,
+      ...(previewUrl ? { previewUrl } : {}),
+    });
+    fileMap.set(id, file);
+  }
+
+  return { additions, fileMap, validationMessages };
 };

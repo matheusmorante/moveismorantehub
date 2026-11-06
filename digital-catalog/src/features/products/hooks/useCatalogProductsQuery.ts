@@ -158,9 +158,12 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
               }
             : null);
 
+        const { promotion: campaign, ...publicProduct } = p;
         const mappedProduct = {
-          ...p,
+          ...publicProduct,
           opportunities: finalOpportunities,
+          campaign: campaign || null,
+          promotion_price: campaign?.final_price ?? undefined,
         };
 
         if (allVariations.length > 0) {
@@ -205,6 +208,8 @@ export function useCatalogProductsQuery(filters: CatalogFilters | undefined, cur
               sku: v.sku || p.code || '',
               price: varPrice,
               promo_price: varPromoPrice,
+              campaign: v.promotion || mappedProduct.campaign || null,
+              promotion_price: v.promotion?.final_price ?? mappedProduct.campaign?.final_price ?? undefined,
               image_url: varImg,
               slug: `${p.slug}?var=${v.id}`,
               is_variation: true,

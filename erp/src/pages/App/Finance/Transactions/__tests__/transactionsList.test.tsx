@@ -42,7 +42,7 @@ describe('Transactions list', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
 
-    expect(await screen.findByText('Nenhuma movimentação no período.')).not.toBeNull();
+    expect(await screen.findByText('Nenhuma movimentação encontrada com esses filtros.')).not.toBeNull();
     expect(mocks.getTransactionPage).toHaveBeenCalledTimes(2);
   });
 });

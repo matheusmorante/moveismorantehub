@@ -62,6 +62,7 @@ import { isSingleProductVariationFormMode } from '../../../../../../shared-utils
 import { FormTextInput } from '../../../../components/shared/FormTextInput';
 import { getMobileProductVariationTabs } from './productVariationTabs';
 import type { VariationTabId } from './productVariationTabs';
+import { ProductVariationTabNavigation } from './ProductVariationTabNavigation';
 
 interface Props {
   formData: any;
@@ -812,47 +813,17 @@ export const ProductFormVariationsTab: React.FC<Props> = ({
                             </Text>
                           </TouchableOpacity>}
                         </View>
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          contentContainerStyle={styles.variationTabs}
-                          accessibilityRole="tablist"
-                        >
-                          {variationTabs.map(({ id, label, Icon }) => {
-                            const selected = activeVariationTab === id;
-                            const isInheritedDataTab =
-                              isSingleExistingVariation &&
-                              inheritedDataTabs.includes(id) &&
-                              !(isComposition && id === 'compostos');
-                            return (
-                              <TouchableOpacity
-                                key={id}
-                                onPress={() => setActiveVariationTab(id)}
-                                accessibilityRole="tab"
-                                accessibilityState={{ selected }}
-                                style={[
-                                  styles.variationTab,
-                                  selected && styles.activeVariationTab,
-                                  isInheritedDataTab && styles.inheritedDataTab,
-                                ]}
-                              >
-                                <Icon
-                                  size={14}
-                                  color={selected ? '#2563eb' : dark ? '#94a3b8' : '#64748b'}
-                                />
-                                <Text
-                                  style={[
-                                    styles.variationTabText,
-                                    dark && styles.dimText,
-                                    selected && styles.activeVariationTabText,
-                                  ]}
-                                >
-                                  {label}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </ScrollView>
+                        <ProductVariationTabNavigation
+                          tabs={variationTabs}
+                          activeTab={activeVariationTab}
+                          dark={dark}
+                          isInheritedDataTab={(id) =>
+                            isSingleExistingVariation &&
+                            inheritedDataTabs.includes(id) &&
+                            !(isComposition && id === 'compostos')
+                          }
+                          onTabChange={setActiveVariationTab}
+                        />
                       </View>
                       <View style={{ flex: 1, position: 'relative' }}>
                         <ScrollView

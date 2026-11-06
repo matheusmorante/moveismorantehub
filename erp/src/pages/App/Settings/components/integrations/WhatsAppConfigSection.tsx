@@ -446,10 +446,12 @@ export default function WhatsAppConfigSection({ settings, onChange }: WhatsAppCo
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            A sincronização disponível é feita manualmente pela Graph API na página Produtos &gt;
-            Catálogo Meta. O feed CSV legado não deve ser cadastrado como fonte de dados no
-            Commerce Manager nem usado para confirmar publicação ou remoção. Confira os itens
-            diretamente no Catálogo Meta pelo retailer_id ou SKU.
+            Use Produtos &gt; Catálogo Meta para a carga completa inicial ou para reenviar todos os
+            produtos. Depois, alterações e remoções feitas no ERP e no aplicativo seguem pela
+            Graph API para o catálogo do WhatsApp e para o catálogo de criativos do Meta Ads (ID
+            3884846918337684). O feed CSV legado não deve ser cadastrado no Commerce Manager nem
+            usado para confirmar publicação ou remoção; confira os itens no catálogo pelo
+            retailer_id ou SKU.
           </p>
         </div>
       </div>

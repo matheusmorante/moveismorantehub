@@ -9,6 +9,7 @@ interface CardPriceStockProps {
   readonly isLowStock: boolean;
   readonly stock?: number;
   readonly unit?: string;
+  readonly promotionName?: string;
 }
 
 export const CardPriceStock: React.FC<CardPriceStockProps> = ({
@@ -19,6 +20,7 @@ export const CardPriceStock: React.FC<CardPriceStockProps> = ({
   isLowStock,
   stock,
   unit,
+  promotionName,
 }) => {
   return (
     <div className="flex justify-between items-end border-t border-slate-50 dark:border-slate-800/50 pt-2.5">
@@ -31,6 +33,7 @@ export const CardPriceStock: React.FC<CardPriceStockProps> = ({
         <span className="text-base font-black text-blue-600 dark:text-blue-400">
           {formatCurrency(currentPrice)}
         </span>
+        {promotionName ? <span className="mt-0.5 max-w-40 truncate text-[9px] font-bold text-blue-600 dark:text-blue-400" title={promotionName}>Promoção: {promotionName}</span> : null}
       </div>
 
       {itemType !== 'service' && (

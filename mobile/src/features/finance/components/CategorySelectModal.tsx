@@ -1,8 +1,15 @@
 import { FormTextInput } from '../../../components/shared/FormTextInput';
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, FlatList } from 'react-native';
-import { X, Search, Check, Folder } from 'lucide-react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  StyleSheet,
+  FlatList,
+} from 'react-native';
+import { X, Search, Check, Folder, ChevronDown, ChevronRight, Tag } from 'lucide-react-native';
 import type { FinancialCategory } from '../../../services/mobileFinanceService';
 import { sortCategoriesWithOthersAtEnd } from '../../../services/financial/mobileCategoryService';
 import { matchesSearchText } from '../../../../../shared-utils/searchText';
@@ -17,12 +24,43 @@ interface Props {
   isDarkMode?: boolean;
 }
 
-const normalize = (str: string): string => {
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
+interface CategoryTreeRow {
+  category: FinancialCategory;
+  depth: number;
+  ancestors: string[];
+  hasChildren: boolean;
+}
+
+const buildCategoryTreeRows = (categories: FinancialCategory[]): CategoryTreeRow[] => {
+  const ordered = sortCategoriesWithOthersAtEnd(categories);
+  const categoryById = new Map(ordered.map((category) => [category.id, category]));
+  const orderById = new Map(ordered.map((category, index) => [category.id, index]));
+  const childrenByParent = new Map<string, FinancialCategory[]>();
+
+  ordered.forEach((category) => {
+    if (!category.parent_id || !categoryById.has(category.parent_id)) return;
+    const children = childrenByParent.get(category.parent_id) || [];
+    children.push(category);
+    childrenByParent.set(category.parent_id, children);
+  });
+
+  const rows: CategoryTreeRow[] = [];
+  const visited = new Set<string>();
+  const visit = (category: FinancialCategory, depth: number, ancestors: string[]) => {
+    if (visited.has(category.id)) return;
+    visited.add(category.id);
+    const children = (childrenByParent.get(category.id) || []).sort(
+      (a, b) => (orderById.get(a.id) ?? 0) - (orderById.get(b.id) ?? 0)
+    );
+    rows.push({ category, depth, ancestors, hasChildren: children.length > 0 });
+    children.forEach((child) => visit(child, depth + 1, [...ancestors, category.id]));
+  };
+
+  ordered
+    .filter((category) => !category.parent_id || !categoryById.has(category.parent_id))
+    .forEach((root) => visit(root, 0, []));
+  ordered.forEach((category) => visit(category, 0, []));
+  return rows;
 };
 
 export const CategorySelectModal: React.FC<Props> = ({
@@ -36,24 +74,82 @@ export const CategorySelectModal: React.FC<Props> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const [searchText, setSearchText] = useState(initialSearchText);
+  const [draftCategoryId, setDraftCategoryId] = useState(selectedCategoryId);
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set());
 
-  React.useEffect(() => {
-    if (visible) {
-      setSearchText(initialSearchText);
-    }
-  }, [visible, initialSearchText]);
+  const treeRows = useMemo(() => buildCategoryTreeRows(categories), [categories]);
+  const parentCategoryIds = useMemo(
+    () => treeRows.filter((row) => row.hasChildren).map((row) => row.category.id),
+    [treeRows]
+  );
 
-  const filteredCategories = useMemo(() => {
-    let result = categories;
-    if (searchText.trim()) {
-      const term = normalize(searchText);
-      result = categories.filter((c) => matchesSearchText(c.name, term));
+  useEffect(() => {
+    if (!visible) return;
+    setSearchText(initialSearchText);
+    setDraftCategoryId(selectedCategoryId);
+    setExpandedCategoryIds(new Set(parentCategoryIds));
+  }, [visible, initialSearchText, selectedCategoryId, parentCategoryIds]);
+
+  useEffect(() => {
+    const query = searchText.trim();
+    if (!visible || !query) return;
+    const ancestorsOfMatches = new Set(
+      treeRows
+        .filter((row) => matchesSearchText(row.category.name, query))
+        .flatMap((row) => row.ancestors)
+    );
+    if (ancestorsOfMatches.size === 0) return;
+    setExpandedCategoryIds((current) => {
+      const next = new Set(current);
+      ancestorsOfMatches.forEach((ancestor) => next.add(ancestor));
+      return next.size === current.size ? current : next;
+    });
+  }, [searchText, treeRows, visible]);
+
+  const visibleRows = useMemo(() => {
+    const query = searchText.trim();
+    if (!query) {
+      return treeRows.filter((row) => row.ancestors.every((ancestor) => expandedCategoryIds.has(ancestor)));
     }
-    return sortCategoriesWithOthersAtEnd(result);
-  }, [categories, searchText]);
+
+    const matchingIds = new Set(
+      treeRows
+        .filter((row) => matchesSearchText(row.category.name, query))
+        .map((row) => row.category.id)
+    );
+    const includedIds = new Set(matchingIds);
+    treeRows.forEach((row) => {
+      if (!matchingIds.has(row.category.id)) return;
+      row.ancestors.forEach((ancestor) => {
+        includedIds.add(ancestor);
+      });
+    });
+
+    return treeRows.filter(
+      (row) => includedIds.has(row.category.id)
+        && row.ancestors.every((ancestor) => expandedCategoryIds.has(ancestor))
+    );
+  }, [expandedCategoryIds, searchText, treeRows]);
+
+  const selectedCategory = categories.find((category) => category.id === draftCategoryId);
+  const toggleExpanded = (categoryId: string) => {
+    setExpandedCategoryIds((current) => {
+      const next = new Set(current);
+      if (next.has(categoryId)) next.delete(categoryId);
+      else next.add(categoryId);
+      return next;
+    });
+  };
+
+  const confirmSelection = () => {
+    const category = categories.find((item) => item.id === draftCategoryId);
+    if (!category) return;
+    onSelectCategory(category);
+    onClose();
+  };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View
         style={[
           styles.overlay,
@@ -61,20 +157,16 @@ export const CategorySelectModal: React.FC<Props> = ({
         ]}
       >
         <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
-          {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
               <Folder size={18} color={isDarkMode ? '#60a5fa' : '#3b82f6'} />
-              <Text style={[styles.title, isDarkMode && styles.titleDark]}>
-                Selecionar Categoria
-              </Text>
+              <Text style={[styles.title, isDarkMode && styles.titleDark]}>Selecionar Categoria</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fechar seletor de categoria" onPress={onClose} style={styles.closeBtn}>
               <X size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} />
             </TouchableOpacity>
           </View>
 
-          {/* Search Input */}
           <View style={[styles.searchContainer, isDarkMode && styles.searchContainerDark]}>
             <Search size={16} color={isDarkMode ? '#94a3b8' : '#64748b'} />
             <FormTextInput
@@ -83,69 +175,106 @@ export const CategorySelectModal: React.FC<Props> = ({
               placeholderTextColor={isDarkMode ? '#64748b' : '#94a3b8'}
               value={searchText}
               onChangeText={setSearchText}
-              autoFocus={true}
+              autoFocus
               clearButtonMode="while-editing"
+              accessibilityLabel="Pesquisar categorias e subcategorias"
             />
             {searchText.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchText('')} style={styles.clearSearchBtn}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Limpar pesquisa" onPress={() => setSearchText('')} style={styles.clearSearchBtn}>
                 <X size={14} color={isDarkMode ? '#94a3b8' : '#64748b'} />
               </TouchableOpacity>
             )}
           </View>
 
-          {/* List */}
           <FlatList
-            data={filteredCategories}
-            keyExtractor={(item) => item.id}
+            style={styles.list}
+            data={visibleRows}
+            keyExtractor={(row) => row.category.id}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={[styles.emptyText, isDarkMode && styles.emptyTextDark]}>
-                  Nenhuma categoria encontrada para "{searchText}".
+                  Nenhuma categoria encontrada para “{searchText}”.
                 </Text>
               </View>
             }
             renderItem={({ item }) => {
-              const isSelected = item.id === selectedCategoryId;
+              const isSelected = item.category.id === draftCategoryId;
+              const isExpanded = expandedCategoryIds.has(item.category.id);
               return (
-                <TouchableOpacity
-                  testID={`cat-item-${item.name}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Categoria ${item.name}`}
-                  style={[
-                    styles.itemRow,
-                    isDarkMode && styles.itemRowDark,
-                    isSelected &&
-                      (isDarkMode ? styles.itemRowSelectedDark : styles.itemRowSelected),
-                  ]}
-                  onPress={() => {
-                    onSelectCategory(item);
-                    onClose();
-                  }}
-                  {...({
-                    onClick: () => {
-                      onSelectCategory(item);
-                      onClose();
-                    },
-                  } as any)}
-                >
-                  <Text
+                <View style={[styles.row, item.depth > 0 && styles.childRow]}>
+                  <View style={[styles.treeBranch, { width: item.depth * 18 }]} />
+                  {item.hasChildren ? (
+                    <TouchableOpacity
+                      testID={`cat-expand-${item.category.name}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${isExpanded ? 'Recolher' : 'Expandir'} ${item.category.name}`}
+                      onPress={() => toggleExpanded(item.category.id)}
+                      style={styles.expandButton}
+                      hitSlop={6}
+                    >
+                      {isExpanded
+                        ? <ChevronDown size={17} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+                        : <ChevronRight size={17} color={isDarkMode ? '#94a3b8' : '#64748b'} />}
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.expandSpacer} />
+                  )}
+
+                  <TouchableOpacity
+                    testID={`cat-item-${item.category.name}`}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={`${item.depth > 0 ? 'Subcategoria' : 'Categoria'} ${item.category.name}`}
                     style={[
-                      styles.itemText,
-                      item.parent_id && styles.childCategoryText,
-                      item.name === 'Despesas Operacionais' && styles.parentCategoryText,
-                      isDarkMode && styles.itemTextDark,
-                      isSelected && styles.itemTextSelected,
+                      styles.optionButton,
+                      item.depth > 0 && styles.childOptionButton,
+                      isSelected && (isDarkMode ? styles.optionSelectedDark : styles.optionSelected),
                     ]}
+                    onPress={() => setDraftCategoryId(item.category.id)}
                   >
-                    {item.parent_id ? `↳ ${item.name}` : item.name}
-                  </Text>
-                  {isSelected && <Check size={18} color="#3b82f6" />}
-                </TouchableOpacity>
+                    {item.depth === 0
+                      ? <Folder size={16} color={isSelected ? '#2563eb' : isDarkMode ? '#93c5fd' : '#64748b'} />
+                      : <Tag size={14} color={isSelected ? '#2563eb' : isDarkMode ? '#94a3b8' : '#94a3b8'} />}
+                    <Text
+                      numberOfLines={2}
+                      style={[
+                        styles.optionText,
+                        item.depth === 0 && styles.parentOptionText,
+                        isDarkMode && styles.optionTextDark,
+                        isSelected && styles.optionTextSelected,
+                      ]}
+                    >
+                      {item.category.name}
+                    </Text>
+                    <View style={[styles.radio, isSelected && styles.radioSelected, isDarkMode && styles.radioDark]}>
+                      {isSelected && <View style={styles.radioDot} />}
+                    </View>
+                  </TouchableOpacity>
+                </View>
               );
             }}
           />
+
+          <View style={[styles.footer, isDarkMode && styles.footerDark]}>
+            <View style={styles.selectedSummary}>
+              <Text style={[styles.selectedLabel, isDarkMode && styles.selectedLabelDark]}>Selecionado</Text>
+              <Text numberOfLines={1} style={[styles.selectedValue, isDarkMode && styles.selectedValueDark]}>
+                {selectedCategory?.name || 'Nenhuma categoria'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Confirmar seleção de categoria"
+              onPress={confirmSelection}
+              disabled={!selectedCategory}
+              style={[styles.confirmButton, !selectedCategory && styles.confirmButtonDisabled]}
+            >
+              <Check size={17} color="#ffffff" />
+              <Text style={styles.confirmButtonText}>Confirmar seleção</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -164,8 +293,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingTop: 16,
     paddingHorizontal: 16,
-    paddingBottom: 24,
-    height: '75%',
+    paddingBottom: 12,
+    height: '82%',
   },
   modalContentDark: {
     backgroundColor: '#0f172a',
@@ -219,43 +348,142 @@ const styles = StyleSheet.create({
   clearSearchBtn: {
     padding: 4,
   },
-  listContent: {
-    paddingVertical: 6,
+  list: {
+    flex: 1,
+    minHeight: 0,
   },
-  itemRow: {
+  listContent: {
+    paddingVertical: 4,
+  },
+  row: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  itemRowDark: {
-    backgroundColor: 'transparent',
+  childRow: {
+    marginTop: 1,
   },
-  itemRowSelected: {
+  treeBranch: {
+    alignSelf: 'stretch',
+  },
+  expandButton: {
+    width: 30,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  expandSpacer: {
+    width: 30,
+    height: 38,
+  },
+  optionButton: {
+    flex: 1,
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  childOptionButton: {
+    borderLeftWidth: 1,
+    borderLeftColor: '#e2e8f0',
+    marginLeft: 2,
+    paddingLeft: 12,
+  },
+  optionSelected: {
     backgroundColor: '#eff6ff',
   },
-  itemRowSelectedDark: {
-    backgroundColor: '#1e3a8a33',
+  optionSelectedDark: {
+    backgroundColor: '#1e3a8a55',
   },
-  itemText: {
-    fontSize: 14,
+  optionText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '500',
     color: '#334155',
   },
-  childCategoryText: {
-    paddingLeft: 14,
-  },
-  parentCategoryText: {
+  parentOptionText: {
     fontWeight: '700',
   },
-  itemTextDark: {
+  optionTextDark: {
     color: '#cbd5e1',
   },
-  itemTextSelected: {
+  optionTextSelected: {
     color: '#2563eb',
+    fontWeight: '700',
+  },
+  radio: {
+    width: 18,
+    height: 18,
+    borderWidth: 1.5,
+    borderColor: '#94a3b8',
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioDark: {
+    borderColor: '#64748b',
+  },
+  radioSelected: {
+    borderColor: '#2563eb',
+  },
+  radioDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#2563eb',
+  },
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    paddingTop: 10,
+    marginTop: 6,
+    gap: 10,
+  },
+  footerDark: {
+    borderTopColor: '#334155',
+  },
+  selectedSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  selectedLabel: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  selectedLabelDark: {
+    color: '#94a3b8',
+  },
+  selectedValue: {
+    flex: 1,
+    color: '#0f172a',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  selectedValueDark: {
+    color: '#f8fafc',
+  },
+  confirmButton: {
+    minHeight: 44,
+    borderRadius: 11,
+    backgroundColor: '#2563eb',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.45,
+  },
+  confirmButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
     fontWeight: '700',
   },
   emptyContainer: {

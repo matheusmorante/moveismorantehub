@@ -3,7 +3,14 @@ import { authenticateErpRequest, hasErpPermission } from './_lib/authenticatedEr
 import { verifyMetaAppCredentials } from '../server/secure-api/verifyMetaAppCredentials.js';
 import { verifyWhatsAppWebhookSubscription } from '../server/secure-api/verifyWhatsAppWebhookSubscription.js';
 import { ensureWhatsAppEchoWebhookSubscription } from '../server/secure-api/ensureWhatsAppEchoWebhookSubscription.js';
-import { planMetaGraphRequest, type MetaGraphSettings } from '../src/pages/utils/metaService/metaGraphProxyPolicy.js';
+import {
+  createMetaCatalogBatchHandle,
+  parseMetaCatalogBatchHandle,
+  planMetaGraphRequest,
+  type MetaCatalogTarget,
+  type MetaGraphProxyPlan,
+  type MetaGraphSettings,
+} from '../src/pages/utils/metaService/metaGraphProxyPolicy.js';
 
 const MAX_META_REQUEST_BYTES = 1_000_000;
 const MAX_GEMINI_REQUEST_BYTES = 1_000_000;
@@ -179,13 +186,38 @@ async function handleMetaGraph(req: VercelRequest, res: VercelResponse) {
     .maybeSingle();
   if (settingsError) return res.status(503).json({ error: 'Não foi possível carregar a configuração Meta.' });
 
-  let plan;
+  let planEntries: Array<{ target: MetaCatalogTarget; plan: MetaGraphProxyPlan }>;
   try {
-    plan = planMetaGraphRequest(body, getMetaGraphSettings(settings?.whatsappConfig));
+    const metaSettings = getMetaGraphSettings(settings?.whatsappConfig);
+    if (body.operation === 'sync_catalog_batch') {
+      planEntries = (['whatsapp', 'ads'] as const).map((target) => ({
+        target,
+        plan: planMetaGraphRequest({ ...body, catalogTarget: target }, metaSettings),
+      }));
+    } else if (body.operation === 'check_catalog_batch') {
+      const batch = parseMetaCatalogBatchHandle(body.handle);
+      planEntries = batch.catalogTargets.map((target, index) => ({
+        target,
+        plan: planMetaGraphRequest({
+          ...body,
+          handle: batch.handles[index],
+          catalogTarget: target,
+        }, metaSettings),
+      }));
+    } else {
+      planEntries = [{
+        target: 'whatsapp',
+        plan: planMetaGraphRequest(body, metaSettings),
+      }];
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Solicitação inválida.';
     return res.status(message.includes('política da empresa') ? 403 : 400).json({ error: message });
   }
+  planEntries = planEntries.filter((entry, index, all) =>
+    all.findIndex((candidate) => candidate.plan.path === entry.plan.path) === index
+  );
+  const plan = planEntries[0].plan;
   if (!hasErpPermission(context, plan.permission)) {
     return res.status(403).json({ error: 'Sem permissão para esta operação Meta.' });
   }
@@ -193,17 +225,123 @@ async function handleMetaGraph(req: VercelRequest, res: VercelResponse) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);
   try {
-    const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${plan.path}`, {
-      method: plan.method,
-      headers: {
-        Authorization: `Bearer ${metaToken}`,
-        ...(plan.body ? { 'Content-Type': 'application/json' } : {}),
-      },
-      ...(plan.body ? { body: JSON.stringify(plan.body) } : {}),
-      signal: controller.signal,
-    });
-    const data = await response.json().catch(() => ({}));
-    return res.status(response.status).json(data);
+    const outcomes = await Promise.allSettled(planEntries.map(async ({ plan: requestPlan, target }) => {
+      const response = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${requestPlan.path}`, {
+        method: requestPlan.method,
+        headers: {
+          Authorization: `Bearer ${metaToken}`,
+          ...(requestPlan.body ? { 'Content-Type': 'application/json' } : {}),
+        },
+        ...(requestPlan.body ? { body: JSON.stringify(requestPlan.body) } : {}),
+        signal: controller.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      return { target, response, data };
+    }));
+
+    const isCatalogWrite = body.operation === 'sync_catalog_batch';
+    const isCatalogStatusCheck = body.operation === 'check_catalog_batch';
+    const includePartialResult = isCatalogWrite || (isCatalogStatusCheck && planEntries.length > 1);
+    const rejectedIndex = outcomes.findIndex((outcome) => outcome.status === 'rejected');
+    if (rejectedIndex >= 0) {
+      const partialSuccess = outcomes.some((outcome) =>
+        outcome.status === 'fulfilled' && outcome.value.response.ok && !outcome.value.data?.error
+      );
+      return res.status(controller.signal.aborted ? 504 : 502).json({
+        error: {
+          message: controller.signal.aborted
+            ? 'A solicitação à Meta demorou demais.'
+            : 'Não foi possível concluir a operação em um dos catálogos Meta.',
+        },
+        ...(includePartialResult
+          ? { partial_success: partialSuccess, failed_catalog: planEntries[rejectedIndex].target }
+          : {}),
+      });
+    }
+
+    const graphResults = outcomes.flatMap((outcome) =>
+      outcome.status === 'fulfilled' ? [outcome.value] : []
+    );
+    const failedIndex = graphResults.findIndex((result) => !result.response.ok || result.data?.error);
+    if (failedIndex >= 0) {
+      const failed = graphResults[failedIndex];
+      const errorPayload = failed.data && typeof failed.data === 'object' && !Array.isArray(failed.data)
+        ? failed.data
+        : { error: { message: 'A Meta recusou a solicitação.' } };
+      return res.status(failed.response.status).json({
+        ...errorPayload,
+        ...(includePartialResult
+          ? {
+              partial_success: graphResults.some((result) =>
+                result.response.ok && !result.data?.error
+              ),
+              failed_catalog: failed.target,
+            }
+          : {}),
+      });
+    }
+
+    if (isCatalogWrite) {
+      const whatsappHandles = Array.isArray(graphResults.find((result) => result.target === 'whatsapp')?.data?.handles)
+        ? graphResults.find((result) => result.target === 'whatsapp')?.data.handles as unknown[]
+        : [];
+      const adsHandles = Array.isArray(graphResults.find((result) => result.target === 'ads')?.data?.handles)
+        ? graphResults.find((result) => result.target === 'ads')?.data.handles as unknown[]
+        : [];
+      const validHandles = (values: unknown[]) => values.filter(
+        (handle): handle is string => typeof handle === 'string' && /^[A-Za-z0-9_=-]{1,512}$/.test(handle)
+      );
+      const wh = validHandles(whatsappHandles);
+      const ads = validHandles(adsHandles);
+      const combinedHandles = Array.from({ length: Math.max(wh.length, ads.length) }, (_, index) => {
+        const whatsappHandle = wh[index];
+        const adsHandle = ads[index];
+        if (whatsappHandle && adsHandle) return createMetaCatalogBatchHandle(whatsappHandle, adsHandle);
+        if (whatsappHandle) return `wa:${whatsappHandle}`;
+        if (adsHandle) return `ads:${adsHandle}`;
+        return null;
+      }).filter((handle): handle is string => typeof handle === 'string');
+      return res.status(200).json({ handles: combinedHandles });
+    }
+
+    if (isCatalogStatusCheck) {
+      const requestedHandle = String(body.handle || '').trim();
+      const statusRows = graphResults.flatMap((result) => {
+        const responseData = result.data?.data;
+        const rows = Array.isArray(responseData)
+          ? responseData
+          : responseData && typeof responseData === 'object'
+            ? [responseData]
+            : [result.data];
+        return rows.filter((row) => row && typeof row === 'object' && !Array.isArray(row));
+      });
+      const statusValues = statusRows.map((row) => String((row as Record<string, unknown>).status || '').toLowerCase());
+      const errors = statusRows.flatMap((row) => {
+        const rowErrors = (row as Record<string, unknown>).errors;
+        return Array.isArray(rowErrors) ? rowErrors : [];
+      });
+      const errorsTotal = statusRows.reduce((total, row) => {
+        const value = Number((row as Record<string, unknown>).errors_total_count ?? 0);
+        return total + (Number.isFinite(value) ? value : 0);
+      }, 0);
+      const failedStatus = statusValues.find((status) =>
+        ['failed', 'error', 'cancelled', 'canceled', 'expired'].includes(status)
+      );
+      const pendingStatus = statusValues.find((status) => status && status !== 'finished');
+      const allFinished = statusValues.length === planEntries.length
+        && statusValues.every((value) => value === 'finished');
+      const status = failedStatus || (allFinished ? 'finished' : pendingStatus || 'in_progress');
+      return res.status(200).json({
+        data: [{
+          handle: requestedHandle,
+          status,
+          errors_total_count: errorsTotal,
+          errors,
+        }],
+      });
+    }
+
+    return res.status(graphResults[0].response.status).json(graphResults[0].data);
   } catch {
     return res.status(controller.signal.aborted ? 504 : 502).json({
       error: controller.signal.aborted ? 'A solicitação à Meta demorou demais.' : 'Não foi possível consultar a Meta.',

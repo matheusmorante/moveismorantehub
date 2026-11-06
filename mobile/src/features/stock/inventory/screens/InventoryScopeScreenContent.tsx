@@ -9,7 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Check, Search, X } from 'lucide-react-native';
+import { X } from 'lucide-react-native';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { connectivityService } from '../../../../services/offline/connectivityService';
 import { flattenFormErrors, useZodForm } from '../../../../hooks/useZodForm';
@@ -36,6 +36,10 @@ import type { SearchableProduct } from '../modals/InventoryProductSearchModal';
 import { InventoryProductSearchModal } from '../modals/InventoryProductSearchModal';
 import { InventoryScopeTypeSelector } from '../components/InventoryScopeTypeSelector';
 import { InventoryResponsibleSelector } from '../components/InventoryResponsibleSelector';
+import {
+  InventoryProductScopeStepContent,
+  InventoryProductScopeStepFooter,
+} from './InventoryProductScopeStep';
 import { styles } from './inventoryScopeScreenContent.styles';
 import {
   resolveInventoryScopeCopy,
@@ -357,70 +361,17 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
             </TouchableOpacity>
           </View>
         ) : isSelectingProduct ? (
-          <View style={{ gap: 16 }}>
-            <View>
-              <Text style={{ color: textPrimary, fontSize: 18, fontWeight: '800' }}>
-                Etapa 1 · Escolha o produto pai
-              </Text>
-              <Text style={{ color: muted, fontSize: 13, lineHeight: 19, marginTop: 5 }}>
-                Pesquise nos produtos ativos do ERP. A próxima etapa mostrará as variações para contar.
-              </Text>
-            </View>
-            {!selectedProduct && (
-              <TouchableOpacity
-                testID="scope-product-parent-search"
-                accessibilityRole="button"
-                accessibilityLabel="Buscar produto pai ativo"
-                onPress={() => setIsProductSearchOpen(true)}
-                style={[styles.productSearchBox, { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: border }]}
-              >
-                <Search size={19} color={muted} />
-                <Text style={[styles.productSearchInput, { color: muted }]}>Nome ou código do produto...</Text>
-              </TouchableOpacity>
-            )}
-            {selectedProduct && (
-              <View style={[styles.selectedProductCard, { backgroundColor: isDarkMode ? '#2e1065' : '#f5f3ff', borderColor: isDarkMode ? '#6d28d9' : '#c4b5fd' }]}>
-                <View style={styles.selectedProductIcon}><Check size={18} color="#ffffff" /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: textPrimary, fontSize: 15, fontWeight: '800' }} numberOfLines={2}>
-                    {selectedProduct.name}
-                  </Text>
-                  <Text style={{ color: muted, fontSize: 12, marginTop: 3 }}>
-                    {selectedProduct.variationCount} variações ativas
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  testID="scope-product-parent-clear"
-                  accessibilityRole="button"
-                  accessibilityLabel={`Desselecionar ${selectedProduct.name}`}
-                  onPress={() => {
-                    setSelectedProductId('');
-                  }}
-                  style={styles.clearSelectedProductButton}
-                >
-                  <X size={20} color={isDarkMode ? '#ddd6fe' : '#6d28d9'} />
-                </TouchableOpacity>
-              </View>
-            )}
-            {!selectedProduct && (isLoadingProductCatalog ? (
-              <View style={styles.productCatalogLoading}>
-                <ActivityIndicator size="large" color="#7c3aed" />
-                <Text style={{ color: muted, marginTop: 10 }}>Carregando produtos ativos...</Text>
-              </View>
-            ) : productCatalogError ? (
-              <View style={[styles.errorBox, { backgroundColor: surface, borderColor: border }]}>
-                <Text style={{ color: textPrimary, textAlign: 'center' }}>{productCatalogError}</Text>
-                <TouchableOpacity onPress={() => void beginProductSelection()} style={styles.retryButton}>
-                  <Text style={styles.retryText}>Tentar novamente</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null)}
-            {!isLoadingProductCatalog && !productCatalogError && productParents.length === 0 && (
-              <Text style={{ color: '#b45309', fontSize: 13, fontWeight: '700', textAlign: 'center', padding: 16 }}>
-                Não há produtos ativos com variações disponíveis para contar.
-              </Text>
-            )}
-          </View>
+          <InventoryProductScopeStepContent
+            isDarkMode={isDarkMode}
+            colors={{ border, muted, surface, textPrimary }}
+            isLoadingProductCatalog={isLoadingProductCatalog}
+            productCatalogError={productCatalogError}
+            productParentsCount={productParents.length}
+            selectedProduct={selectedProduct}
+            onRetryProductCatalog={() => void beginProductSelection()}
+            onOpenSearch={() => setIsProductSearchOpen(true)}
+            onClearSelection={() => setSelectedProductId('')}
+          />
         ) : (
           <>
             {copyError && (
@@ -458,30 +409,19 @@ export const InventoryScopeScreenContent: React.FC<Props> = ({
       </ScrollView>
 
       {isSelectingProduct && (
-        <View style={[styles.productStepFooter, { backgroundColor: surface, borderTopColor: border }]}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            disabled={isLoadingProductCatalog || loadingData}
-            onPress={() => {
-              setIsSelectingProduct(false);
-              setSelectedProductId('');
-              setIsProductSearchOpen(false);
-              setProductCatalogError('');
-            }}
-            style={[styles.productBackButton, { borderColor: border }]}
-          >
-            <Text style={{ color: textPrimary, fontWeight: '700' }}>Voltar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            testID="scope-product-next-btn"
-            accessibilityRole="button"
-            disabled={!selectedProduct || isLoadingProductCatalog || loadingData}
-            onPress={continueWithProduct}
-            style={[styles.productNextButton, (!selectedProduct || isLoadingProductCatalog || loadingData) && { opacity: 0.5 }]}
-          >
-            <Text style={styles.productNextButtonText}>Próxima etapa</Text>
-          </TouchableOpacity>
-        </View>
+        <InventoryProductScopeStepFooter
+          colors={{ border, muted, surface, textPrimary }}
+          loadingData={loadingData}
+          isLoadingProductCatalog={isLoadingProductCatalog}
+          selectedProduct={selectedProduct}
+          onBack={() => {
+            setIsSelectingProduct(false);
+            setSelectedProductId('');
+            setIsProductSearchOpen(false);
+            setProductCatalogError('');
+          }}
+          onContinue={continueWithProduct}
+        />
       )}
 
       {isSelectingProduct && !isLoadingProductCatalog && !productCatalogError && (

@@ -11,28 +11,30 @@ import {
   restoreInventoryAuditItems,
 } from '../domain/inventoryAuditItemMappers';
 import { buildInventoryAuditDraftSnapshot } from '../domain/inventoryAuditDraftSnapshot';
-import { buildInventoryAuditObservation } from '../domain/inventoryAuditObservation';
 import { getEmployeeDisplayName } from '../utils/employeeDisplayName';
 import { useInventoryAuditData } from './useInventoryAuditData';
+import {
+  useInventoryAuditFinalization,
+  type InventoryAuditWorkflowDraft,
+  type InventoryAuditWorkflowOwner,
+  type InventoryAuditWorkflowScopeConfig,
+} from './useInventoryAuditFinalization';
 import {
   deleteWebInventoryDraft,
   getWebInventoryDraft,
   saveWebInventoryDraft,
 } from '../services/inventoryLocalDrafts';
 import { listReservedLocalInventoryCodes } from '../services/listReservedLocalInventoryCodes';
-import { finalizeWebInventory } from '../services/finalizeWebInventory';
 import { getInventorySubmission } from '../services/inventoryOutbox';
 import { ensureOfflineInventoryCatalogSynced } from '../services/offlineInventoryCatalog';
 import { flattenFormErrors, useZodForm } from '@/hooks/useZodForm';
 import { withTimeout } from '../../../../../../../shared-utils/withTimeout';
 import {
-  inventoryAuditCompletionSchema,
   inventoryAuditDraftSchema,
   inventoryAuditScopeSchema,
 } from '../../../../../../../shared-utils/inventoryAuditFormSchemas';
 import {
   initializeGeneralInventoryCounts,
-  prepareSupplierStageReviewItems,
   resetSupplierStageItems,
   startSupplierStageItems,
 } from '../../../../../../../shared-utils/inventorySupplierStages';
@@ -62,16 +64,9 @@ export const useInventoryAuditWorkflow = (
   const [isSaving, setIsSaving] = useState(false);
   const [operationError, setOperationError] = useState('');
   const [isRestoring, setIsRestoring] = useState(true);
-  const [scopeConfig, setScopeConfig] = useState<{
-    name: string;
-    responsibleId: string;
-    responsibleName?: string;
-    hasStages?: boolean;
-    scopeType?: string;
-    supplierId?: string;
-  } | null>(null);
+  const [scopeConfig, setScopeConfig] = useState<InventoryAuditWorkflowScopeConfig | null>(null);
 
-  const draftRef = useRef<{ id?: string; code?: string; markerMoveId?: string; date?: string }>({});
+  const draftRef = useRef<InventoryAuditWorkflowDraft>({});
   const latestItemsRef = useRef<AuditItem[]>([]);
   const frozenSubmissionRef = useRef(false);
   const scannedLabelsRef = useRef<Set<string>>(new Set());
@@ -80,7 +75,7 @@ export const useInventoryAuditWorkflow = (
   const writeErrorRef = useRef<unknown>(null);
   const initializedSessionRef = useRef<string | null>(null);
   const ownerKey = JSON.stringify([isOpen, editingSession?.id || 'new']);
-  const owner = useRef({ key: ownerKey, open: isOpen, draftUncertain: false, finalized: false });
+  const owner = useRef<InventoryAuditWorkflowOwner>({ key: ownerKey, open: isOpen, draftUncertain: false, finalized: false });
   if (owner.current.key !== ownerKey) owner.current = { key: ownerKey, open: isOpen, draftUncertain: false, finalized: false };
   const renderOwner = owner.current;
   const readyOwner = useRef<typeof owner.current | null>(null);
@@ -108,10 +103,6 @@ export const useInventoryAuditWorkflow = (
   const { validateAndRun: validateScope } = useZodForm(inventoryAuditScopeSchema, {
     type: 'full', name: '', supplierId: '', responsibleId: '', itemsSnapshot: [],
   });
-  const { validateAndRun: validateCompletion } = useZodForm(inventoryAuditCompletionSchema, {
-    id: '', code: '', items: [], adjustments: [],
-  });
-
   const getDraftSnapshot = useCallback((nextItems: AuditItem[]) => {
     return buildInventoryAuditDraftSnapshot(
       draftRef.current,
@@ -169,6 +160,25 @@ export const useInventoryAuditWorkflow = (
     if (!completed) throw new Error('A gravação local ainda não foi confirmada.');
     if (writeErrorRef.current) throw writeErrorRef.current;
   }, []);
+
+  const handleFinalize = useInventoryAuditFinalization({
+    renderOwner,
+    readyOwner,
+    uncertainCompletion,
+    owner,
+    isCurrent,
+    beginOperation,
+    finishOperation,
+    scopeConfig,
+    frozenSubmissionRef,
+    draftRef,
+    flushLocalWrites,
+    latestItemsRef,
+    employees,
+    editingSession,
+    setOperationError,
+    onClose,
+  });
 
   const startSupplierStage = useCallback(async (supplierName: string) => {
     if (frozenSubmissionRef.current) throw new Error('A submissão já está congelada.');
@@ -454,76 +464,6 @@ export const useInventoryAuditWorkflow = (
     );
     await flushLocalWrites();
     return isCurrent(captured) ? count : null;
-  };
-
-  const handleFinalize = async (
-    itemsWithAdjustment: Array<AuditItem & { reconciledExpected: number; difference: number }>
-  ) => {
-    if (!isCurrent(renderOwner) || readyOwner.current !== renderOwner || renderOwner.finalized) return false;
-    if (!scopeConfig || uncertainCompletion.current === owner.current) {
-      setOperationError('Confira a submissão salva e reabra o inventário antes de tentar concluir.'); return false;
-    }
-    const captured = beginOperation();
-    if (!captured) return false;
-    const previouslyFrozen = frozenSubmissionRef.current;
-    frozenSubmissionRef.current = true;
-    let attempted = false, timedOut = false, succeeded = false;
-    try {
-      await flushLocalWrites();
-      if (!isCurrent(captured)) return false;
-      return await validateCompletion({
-        id: draftRef.current.id || '', code: draftRef.current.code || '',
-        items: prepareSupplierStageReviewItems(latestItemsRef.current, Boolean(scopeConfig.hasStages)),
-        adjustments: itemsWithAdjustment.map((item) => ({ ...item, physicalCount: item.physicalCount! })),
-      }, async (values) => {
-      if (!isCurrent(captured)) return false;
-      const auditId = values.id;
-      const code = values.code;
-      const responsible = employees.find(
-        (employee) => String(employee.id) === scopeConfig.responsibleId
-      );
-      const auditObservation = buildInventoryAuditObservation({
-        code,
-        items: values.items,
-        responsibleName: responsible
-          ? getEmployeeDisplayName(responsible)
-          : scopeConfig.responsibleName || editingSession?.responsibleName || '',
-        scopeConfig,
-      });
-      attempted = true;
-      const confirmed = await withTimeout(finalizeWebInventory(auditId, code, auditObservation, values.adjustments).then(() => true),
-        30_000, false, 'inventario:concluir');
-      if (!isCurrent(captured)) return false;
-      if (!confirmed) { timedOut = true; throw new Error('Conclusão sem confirmação.'); }
-      succeeded = true;
-      captured.finalized = true;
-
-      toast.success(
-        `Inventário #${code} finalizado! ${values.items.length} produto(s) contados e ${values.adjustments.length} ajuste(s) lançados no estoque. ✨`
-      );
-      onClose();
-      return true;
-      }, (errors) => {
-        if (!isCurrent(captured)) return;
-        const message = Object.values(flattenFormErrors(errors))[0] || 'Confira as contagens do inventário.';
-        setOperationError(message); toast.error(message);
-      });
-    } catch {
-      if (!isCurrent(captured)) return false;
-      const lookup = attempted && draftRef.current.id ? await withTimeout(getInventorySubmission(draftRef.current.id)
-        .then((pending) => ({ pending })).catch(() => null), 5_000, null, 'inventario:conferir-submissao') : { pending: null };
-      if (!isCurrent(captured)) return false;
-      frozenSubmissionRef.current = previouslyFrozen || timedOut || !lookup || Boolean(lookup.pending);
-      if (timedOut || !lookup) uncertainCompletion.current = captured;
-      const message = timedOut || !lookup ? 'A conclusão não foi confirmada. Confira a submissão salva e reabra o inventário antes de repetir.'
-        : lookup.pending
-          ? 'Submissão salva neste navegador. Retome o inventário para tentar enviar novamente.'
-          : 'Erro ao processar as movimentações de inventário.';
-      setOperationError(message); toast.error(message); return false;
-    } finally {
-      if (isCurrent(captured) && !attempted && !succeeded) frozenSubmissionRef.current = previouslyFrozen;
-      finishOperation(captured);
-    }
   };
 
   const hasChanges = items.some((i) => i.physicalCount !== null);

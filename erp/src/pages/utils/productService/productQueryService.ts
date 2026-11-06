@@ -157,7 +157,7 @@ export const fetchProductsPage = async (
   page: number,
   pageSize: number,
   options?: ProductQueryFilterOptions,
-  requestOptions: { throwOnError?: boolean } = {}
+  requestOptions: { throwOnError?: boolean; includeTrashEligibility?: boolean } = {}
 ): Promise<{ data: Product[]; total: number }> => {
   try {
     const from = (page - 1) * pageSize;
@@ -204,42 +204,86 @@ export const fetchProductsPage = async (
       string,
       { can_trash: boolean; trash_block_reason: string | null }
     >();
+    const campaignByProduct = new Map<string, any>();
+    const campaignByVariation = new Map<string, any>();
 
     if (productUuids.length > 0) {
-      try {
-        const { data: eligibilityData, error: eligibilityError } = await withAbortTimeout(
-          supabase.rpc('get_products_trash_eligibility', { p_product_ids: productUuids }),
-          'products:trash-eligibility',
-        );
+      const [eligibilityResult, campaignResult] = await Promise.allSettled([
+        requestOptions.includeTrashEligibility === false
+          ? Promise.resolve({ data: [], error: null })
+          : withAbortTimeout(
+              supabase.rpc('get_products_trash_eligibility', { p_product_ids: productUuids }),
+              'products:trash-eligibility',
+            ),
+        withAbortTimeout(
+          supabase
+            .from('active_campaign_prices')
+            .select('product_id, variation_id, promotion_id, promotion_name, promotion_discount_percent, final_price')
+            .in('product_id', productUuids),
+          'products:active-campaign-prices',
+        ),
+      ]);
 
-        if (!eligibilityError && Array.isArray(eligibilityData)) {
-          eligibilityData.forEach((item: any) => {
-            if (item.product_id) {
-              eligibilityMap.set(String(item.product_id), {
-                can_trash: Boolean(item.can_trash),
-                trash_block_reason: item.trash_block_reason || null,
-              });
-            }
-          });
+      if (eligibilityResult.status === 'fulfilled' && !eligibilityResult.value.error && Array.isArray(eligibilityResult.value.data)) {
+        eligibilityResult.value.data.forEach((item: any) => {
+          if (item.product_id) {
+            eligibilityMap.set(String(item.product_id), {
+              can_trash: Boolean(item.can_trash),
+              trash_block_reason: item.trash_block_reason || null,
+            });
+          }
+        });
+      } else if (eligibilityResult.status === 'rejected') {
+        console.warn('[ProductService] Falha ao verificar elegibilidade de lixeira em lote:', eligibilityResult.reason);
+      }
+
+      if (campaignResult.status === 'fulfilled' && !campaignResult.value.error) {
+        for (const campaign of campaignResult.value.data || []) {
+          if (campaign.variation_id) campaignByVariation.set(String(campaign.variation_id), campaign);
+          else campaignByProduct.set(String(campaign.product_id), campaign);
         }
-      } catch (err) {
-        console.warn('[ProductService] Falha ao verificar elegibilidade de lixeira em lote:', err);
+      } else {
+        throw campaignResult.status === 'rejected'
+          ? campaignResult.reason
+          : campaignResult.value.error;
       }
     }
 
     const mapped: Product[] = (data || []).map((p: any, idx: number) => {
       const product = mapFromDB(p, idx);
+      const productCampaign = campaignByProduct.get(String(product.id || ''));
+      const currentProduct = productCampaign
+        ? {
+            ...product,
+            promotionId: String(productCampaign.promotion_id),
+            promotionName: String(productCampaign.promotion_name || ''),
+            promotionDiscountPercent: Number(productCampaign.promotion_discount_percent || 0),
+            promotionFinalPrice: Number(productCampaign.final_price || 0),
+          }
+        : product;
+      currentProduct.variations = currentProduct.variations?.map((variation) => {
+        const campaign = campaignByVariation.get(String(variation.id));
+        return campaign
+          ? {
+              ...variation,
+              promotionId: String(campaign.promotion_id),
+              promotionName: String(campaign.promotion_name || ''),
+              promotionDiscountPercent: Number(campaign.promotion_discount_percent || 0),
+              promotionFinalPrice: Number(campaign.final_price || 0),
+            }
+          : variation;
+      });
       const eligibility = product.id ? eligibilityMap.get(product.id) : undefined;
       if (eligibility) {
-        product.can_trash = eligibility.can_trash;
-        product.trash_block_reason = eligibility.trash_block_reason;
+        currentProduct.can_trash = eligibility.can_trash;
+        currentProduct.trash_block_reason = eligibility.trash_block_reason;
       } else {
-        product.can_trash = false;
-        product.trash_block_reason = product.isDraft
+        currentProduct.can_trash = false;
+        currentProduct.trash_block_reason = currentProduct.isDraft
           ? 'Rascunhos devem ser descartados diretamente'
           : 'Validando elegibilidade...';
       }
-      return product;
+      return currentProduct;
     });
 
     return {

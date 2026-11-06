@@ -34,6 +34,8 @@ export function useProductPageDisplayState({
   const displayTitle =
     activeVariation && !isParentName && activeVariation.name ? activeVariation.name : product?.name || '';
 
+  const displayPromotion = activeVariation?.promotion || product?.promotion || null;
+
   const isParentPrice = activeVariation ? activeVariation.use_parent_price !== false : true;
   const displayPrice =
     activeVariation && !isParentPrice && activeVariation.price
@@ -41,12 +43,13 @@ export function useProductPageDisplayState({
       : product?.price;
 
   const isParentPromo = activeVariation ? activeVariation.use_parent_promo_price !== false : true;
-  const displayPromoPrice =
+  const regularPromoPrice =
     activeVariation && !isParentPromo
       ? activeVariation.promo_price
         ? parseFloat(activeVariation.promo_price)
         : null
       : product?.promo_price;
+  const displayPromoPrice = displayPromotion?.final_price ?? regularPromoPrice;
 
   const isParentDesc = activeVariation ? activeVariation.use_parent_description !== false : true;
   const rawDescription =
@@ -228,6 +231,7 @@ export function useProductPageDisplayState({
     displayTitle,
     displayPrice,
     displayPromoPrice,
+    displayPromotion,
     displayDescription,
     displayWidth,
     displayDepth,

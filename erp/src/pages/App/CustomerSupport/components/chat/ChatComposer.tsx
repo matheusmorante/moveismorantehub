@@ -31,11 +31,11 @@ import { ChatComposerAttachmentMenu } from './ChatComposerAttachmentMenu';
 import { createChatAudioRecordingActions } from './chatComposerAudioRecording';
 import { toCatalogSendSelection } from './chatComposerCatalogSelection';
 import {
-  formatFileSize,
   MAX_ATTACHMENTS,
-  MAX_FILE_SIZE,
   normalizedFileType,
+  prepareChatComposerFileAttachments,
 } from './chatComposerAttachmentFiles';
+import type { ChatComposerAttachment as SupportChatComposerAttachment } from './chatComposerAttachmentFiles';
 import { SupportOrderPickerDialog } from './SupportOrderPickerDialog';
 import {
   createOrderSummaryPdf,
@@ -43,7 +43,6 @@ import {
   isQuoteOrder,
 } from './supportOrderSummaryPdf';
 
-type SupportChatComposerAttachment = z.input<typeof supportChatComposerDraftSchema>['attachments'][number];
 type InsertedSnippet = { id: number; text: string };
 
 interface ChatComposerProps {
@@ -307,40 +306,14 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
   };
 
   const addFiles = (incoming: FileList | File[], kind: 'media' | 'document', customKind?: 'order' | 'quote'): boolean => {
-    const files = Array.from(incoming);
-    if (!files.length) return false;
-    const additions: SupportChatComposerAttachment[] = [];
-    const fileMap = new Map<string, File>();
-    const validationMessages: string[] = [];
-    for (const file of files) {
-      const classification = normalizedFileType(file);
-      if (file.size > MAX_FILE_SIZE) {
-        validationMessages.push(`${file.name}: o limite é 4 MB.`);
-        continue;
-      }
-      if (!classification || (kind === 'media' && !['Imagem', 'Vídeo'].includes(classification.label))
-        || (kind === 'document' && !['Documento', 'Áudio'].includes(classification.label))) {
-        validationMessages.push(`${file.name}: formato não aceito pelo WhatsApp.`);
-        continue;
-      }
-      const id = makeId();
-      const mimeType = file.type || classification.mimeType;
-      const previewUrl = (classification.label === 'Imagem' || classification.label === 'Vídeo' || classification.label === 'Áudio')
-        ? URL.createObjectURL(file)
-        : undefined;
-      if (previewUrl) objectUrlsRef.current.add(previewUrl);
-      const attachmentKind = customKind || (classification.label === 'Áudio' ? 'audio' : kind);
-      additions.push({
-        kind: attachmentKind,
-        id,
-        label: customKind ? `${customKind === 'quote' ? 'Orçamento' : 'Pedido'} em PDF` : file.name,
-        detail: `${formatFileSize(file.size)} · ${classification.label}`,
-        fileName: file.name,
-        mimeType,
-        ...(previewUrl ? { previewUrl } : {}),
-      });
-      fileMap.set(id, file);
-    }
+    if (!incoming.length) return false;
+    const { additions, fileMap, validationMessages } = prepareChatComposerFileAttachments(
+      incoming,
+      kind,
+      customKind,
+      makeId,
+      (url) => objectUrlsRef.current.add(url),
+    );
     const wasAdded = additions.length > 0 && appendAttachments(additions, fileMap);
     if (validationMessages.length) setSendError(validationMessages.slice(0, 2).join(' '));
     if (kind === 'media' && photoInputRef.current) photoInputRef.current.value = '';

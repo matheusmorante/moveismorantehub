@@ -32,6 +32,7 @@ import {
 import { MobileMoveVariationAttributesEditor } from './MobileMoveVariationAttributesEditor';
 import { MobileMoveVariationValidationNotice } from './MobileMoveVariationValidationNotice';
 import { MobileMoveVariationFamilySelector } from './MobileMoveVariationFamilySelector';
+import { MobileMoveVariationFooter } from './MobileMoveVariationFooter';
 import {
   getMobileVariationFamilyName,
   getMobileVariationFamilySuggestions,
@@ -559,28 +560,15 @@ export const MobileMoveVariationModal: React.FC<Props> = ({
             />
           </ScrollView>
 
-          <View style={[styles.footer, dark && styles.borderDark]}>
-            <TouchableOpacity
-              onPress={onClose}
-              disabled={saving || Boolean(operationGuard.active)}
-              style={[styles.footerButton, styles.cancelButton]}
-              accessibilityRole="button"
-            >
-              <Text style={styles.cancelText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => void handleMove()}
-              disabled={!canConfirm}
-              style={[
-                styles.footerButton,
-                styles.confirmButton,
-                !canConfirm && styles.disabledButton,
-              ]}
-              accessibilityRole="button"
-            >
-              <Text style={styles.confirmText}>{mutationBlocked ? 'Movimento sem confirmação' : buttonLabel}</Text>
-            </TouchableOpacity>
-          </View>
+          <MobileMoveVariationFooter
+            dark={dark}
+            closeDisabled={saving || Boolean(operationGuard.active)}
+            confirmDisabled={!canConfirm}
+            mutationBlocked={mutationBlocked}
+            buttonLabel={buttonLabel}
+            onClose={onClose}
+            onConfirm={() => void handleMove()}
+          />
         </View>
       </KeyboardAvoidingView>
     </Modal>

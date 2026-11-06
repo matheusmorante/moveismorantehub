@@ -65,7 +65,7 @@ describe('financial form resolver submits', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Novo Lançamento' }));
     fireEvent.change(screen.getByPlaceholderText('Descrição'), { target: { value: 'Test' } });
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '12' } });
-    await screen.findByRole('option', { name: 'Expense category' });
+    await within(screen.getByRole('dialog')).findByRole('option', { name: 'Expense category' });
     fireEvent.change(screen.getByRole('combobox', { name: 'Forma de pagamento' }), { target: { value: 'PIX' } });
     fireEvent.change(screen.getByDisplayValue('Selecione uma categoria'), { target: { value: 'category-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Registrar' }));

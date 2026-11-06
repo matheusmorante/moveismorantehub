@@ -95,6 +95,15 @@ export const PRODUCT_PERMISSION_AREA: ProductPermissionArea = {
       defaultRoles: ['manager', 'stockist', 'seller'],
     },
     {
+      id: 'managePromotions',
+      submodule: 'Promoções',
+      capability: 'edit',
+      label: 'Gerenciar promoções',
+      description: 'Criar campanhas e programar descontos temporários dos produtos.',
+      icon: 'bi-megaphone-fill',
+      defaultRoles: ['manager'],
+    },
+    {
       id: 'deleteProducts',
       submodule: 'Cadastro de produtos',
       capability: 'delete',

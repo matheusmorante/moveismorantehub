@@ -43,6 +43,43 @@ export interface ReceiptOrigin {
   items: MobileReceiptItem[];
 }
 
+export const normalizeReceiptDraftItem = (raw: any): MobileReceiptItem => {
+  const snapshot = raw?.item_snapshot && typeof raw.item_snapshot === 'object'
+    ? raw.item_snapshot
+    : {};
+  const quantity = Number(raw?.quantity ?? snapshot.quantity ?? 0);
+  const baseCost = Number(raw?.base_cost ?? snapshot.baseCost ?? snapshot.unitCost ?? 0);
+  const unitCost = Number(raw?.unit_cost ?? snapshot.unitCost ?? baseCost);
+  const discountFiscalUnit = raw?.discount_fiscal_unit ?? snapshot.discountFiscalUnit;
+  const freightFiscalUnit = raw?.freight_fiscal_unit ?? snapshot.freightFiscalUnit;
+  return {
+    ...snapshot,
+    receiptItemId: raw?.id || snapshot.receiptItemId,
+    productId: String(raw?.product_id || snapshot.productId || ''),
+    variationId: raw?.variation_id || snapshot.variationId || undefined,
+    description: String(raw?.description || snapshot.description || 'Produto'),
+    quantity,
+    baseCost,
+    unitCost,
+    totalCost: Number(snapshot.totalCost ?? (quantity * unitCost).toFixed(2)),
+    ...(freightFiscalUnit == null ? {} : { freightFiscalUnit: Number(freightFiscalUnit) }),
+    freightNonFiscalUnit: Number(raw?.freight_non_fiscal_unit ?? snapshot.freightNonFiscalUnit ?? 0),
+    discountUnit: Number(raw?.discount_unit ?? snapshot.discountUnit ?? 0),
+    ...(discountFiscalUnit == null ? {} : { discountFiscalUnit: Number(discountFiscalUnit) }),
+    discountNonFiscalUnit: Number(
+      raw?.discount_non_fiscal_unit ?? snapshot.discountNonFiscalUnit ?? 0,
+    ),
+    freightUnit: Number(raw?.freight_unit ?? snapshot.freightUnit ?? 0),
+    otherExpensesFiscalUnit: Number(
+      raw?.other_expenses_fiscal_unit ?? snapshot.otherExpensesFiscalUnit ?? 0,
+    ),
+    otherExpensesNonFiscalUnit: Number(
+      raw?.other_expenses_non_fiscal_unit ?? snapshot.otherExpensesNonFiscalUnit ?? 0,
+    ),
+    additionalCostUnit: Number(raw?.additional_cost_unit ?? snapshot.additionalCostUnit ?? 0),
+  };
+};
+
 const number = (value: unknown) => {
   const parsed = Number(value ?? 0);
   if (!Number.isFinite(parsed) || parsed < 0)

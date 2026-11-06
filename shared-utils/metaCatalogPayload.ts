@@ -25,6 +25,7 @@ export interface MetaCatalogProductSource {
   product_kind?: string | null;
   material?: string | null;
   condition?: string | null;
+  activeCampaignNames?: readonly string[] | null;
   product_categories?: Array<{
     categories?: { name?: string | null; type?: string | null } | null;
   }> | null;
@@ -50,6 +51,7 @@ export interface MetaCatalogVariationSource {
   use_parent_promo_price?: boolean | null;
   use_parent_name?: boolean | null;
   use_parent_description?: boolean | null;
+  activeCampaignNames?: readonly string[] | null;
 }
 
 export interface MetaCatalogOpportunitySource {
@@ -83,6 +85,7 @@ export interface MetaCatalogItem {
   url?: string;
   isVariation?: boolean;
   productId?: string;
+  activeCampaignNames?: readonly string[];
 }
 
 export const META_CATALOG_GLOBAL_PREFIX = `🚚📦 Entrega rápida (1 a 5 dias úteis) para Curitiba e Região, consulte conosco a disponibilidade e o valor do frete
@@ -385,6 +388,7 @@ export function buildMetaCatalogItems(
           sales_price: varPrice,
           promo_price: varPromo > 0 && varPromo < varPrice ? varPromo : undefined,
           opportunityName: opportunity?.name || undefined,
+          activeCampaignNames: variation.activeCampaignNames || [],
           stock: variation.stock !== undefined ? variation.stock : parent.stock,
           active: true,
           status: 'published',
@@ -429,6 +433,7 @@ export function buildMetaCatalogItems(
         sales_price: parentPrice,
         promo_price: parentPromo > 0 && parentPromo < parentPrice ? parentPromo : undefined,
         opportunityName: opportunity?.name || undefined,
+        activeCampaignNames: parent.activeCampaignNames || [],
         stock: parent.stock,
         active: true,
         status: 'published',

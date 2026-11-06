@@ -4,18 +4,17 @@ import { parseVariationAttributes } from '@/pages/utils/productService/productVa
 import type { SelectableCatalogItem } from './productSearchDeepFetch';
 
 interface ProductSearchOptions {
-  /** A RPC não retorna o tipo nem o marcador de composição de products; busca esses campos para classificar cadastros antigos. */
+  /** Mantido para compatibilidade; a RPC agora retorna a classificação no mesmo lote da busca. */
   resolveProductItemTypes?: boolean;
 }
 
 export const useProductSearch_new = (
   priceType: 'unit' | 'cost' = 'unit',
-  options?: ProductSearchOptions
+  _options?: ProductSearchOptions
 ) => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [filtered, setFiltered] = useState<SelectableCatalogItem[]>([]);
-  const resolveProductItemTypes = options?.resolveProductItemTypes ?? false;
 
   useEffect(() => {
     let isMounted = true;
@@ -35,7 +34,7 @@ export const useProductSearch_new = (
       setLoading(true);
       try {
         const searchResults = [await supabase
-          .rpc('search_catalog_shallow', { p_query: term, p_limit: 15 })
+          .rpc('search_catalog_with_campaign_prices', { p_query: term, p_limit: 15 })
           .abortSignal(controller.signal)];
 
         const failedSearch = searchResults.find(({ error }) => error);
@@ -55,34 +54,6 @@ export const useProductSearch_new = (
         );
 
         if (isMounted && !controller.signal.aborted) {
-          const productItemTypeById = new Map<string, string>();
-          const productIsComboById = new Map<string, boolean>();
-          const productIds = resolveProductItemTypes
-            ? Array.from(new Set(data.map((row: any) => row.product_id).filter(Boolean)))
-            : [];
-
-          if (productIds.length > 0) {
-            try {
-              const { data: products, error: productsError } = await supabase
-                .from('products')
-                .select('id, item_type, is_combo')
-                .in('id', productIds)
-                .abortSignal(controller.signal);
-
-              if (productsError) {
-                console.error('[useProductSearch_new] Erro ao identificar tipos de produto:', productsError);
-              } else {
-                for (const product of products ?? []) {
-                  productItemTypeById.set(String(product.id), product.item_type || 'product');
-                  productIsComboById.set(String(product.id), product.is_combo === true);
-                }
-              }
-            } catch {
-              if (controller.signal.aborted) return;
-              // A classificação é complementar; resultados de composições próprias da RPC continuam válidos.
-            }
-          }
-
           const variationIds = Array.from(
             new Set(
               data
@@ -120,9 +91,8 @@ export const useProductSearch_new = (
 
           const mapped: SelectableCatalogItem[] = data.map((row: any) => {
             const isComp = row.entity_type.startsWith('composition');
-            const productItemType =
-              row.item_type || productItemTypeById.get(String(row.product_id));
-            const isCombo = productIsComboById.get(String(row.product_id)) === true;
+            const productItemType = row.product_item_type || 'product';
+            const isCombo = row.product_is_combo === true;
             const isProductComposition =
               isComp || productItemType === 'composition' || isCombo;
             const hasVar = row.entity_type.includes('variation');
@@ -135,6 +105,13 @@ export const useProductSearch_new = (
               category: row.category,
               unitPrice: Number(row.unit_price || 0),
               costPrice: Number(row.cost_price || 0),
+              promoPrice: row.product_promo_price == null ? undefined : Number(row.product_promo_price),
+              promotionId: row.promotion_id || undefined,
+              promotionName: row.promotion_name || undefined,
+              promotionDiscountPercent: row.promotion_discount_percent == null
+                ? undefined
+                : Number(row.promotion_discount_percent),
+              promotionFinalPrice: row.promotion_id ? Number(row.final_unit_price || 0) : undefined,
               isComposition: isProductComposition,
               isCombo,
               itemType: isProductComposition ? 'composition' : productItemType || 'product',
@@ -148,6 +125,13 @@ export const useProductSearch_new = (
                 sku: row.sku,
                 unitPrice: Number(row.unit_price || 0),
                 costPrice: Number(row.cost_price || 0),
+                promoPrice: row.product_promo_price == null ? undefined : Number(row.product_promo_price),
+                promotionId: row.promotion_id || undefined,
+                promotionName: row.promotion_name || undefined,
+                promotionDiscountPercent: row.promotion_discount_percent == null
+                  ? undefined
+                  : Number(row.promotion_discount_percent),
+                promotionFinalPrice: row.promotion_id ? Number(row.final_unit_price || 0) : undefined,
                 attributes: isComp
                   ? []
                   : parseVariationAttributes(attributesByVariationId.get(row.variation_id)),
@@ -179,7 +163,7 @@ export const useProductSearch_new = (
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [search, resolveProductItemTypes]);
+  }, [search]);
 
   return {
     search,

@@ -16,8 +16,11 @@ export interface MessageBubbleProps {
   contactName?: string;
   reactions?: string[];
   quotedMessage?: WhatsAppMessage;
-  onReplyMessage?: (message: WhatsAppMessage) => void;
-  onForwardMessage?: (message: WhatsAppMessage) => void;
+  isSelected?: boolean;
+  onSelectMessage?: (
+    message: WhatsAppMessage,
+    capabilities: { canReply: boolean; canForward: boolean }
+  ) => void;
   onResolveReplyTarget?: (reference: { conversationId: string; messageId: string | null; apiMessageId: string | null }) => Promise<WhatsAppMessage | null>;
   onJumpToMessage?: (message: WhatsAppMessage) => void;
 }
@@ -27,8 +30,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   contactName,
   reactions = [],
   quotedMessage,
-  onReplyMessage,
-  onForwardMessage,
+  isSelected = false,
+  onSelectMessage,
   onResolveReplyTarget,
   onJumpToMessage,
 }) => {
@@ -101,6 +104,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
+  const handleMessageClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!onSelectMessage || (!canReply && !canForward)) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest('button, a, input, textarea, select, video, audio, img, [role="button"]')) return;
+    onSelectMessage(message, { canReply, canForward });
+  };
+
   // 1. Eventos de Sistema / Automação (Centralizados na timeline)
   if (isSystemEvent) {
     return <SystemEventBubble message={message} timeFormatted={timeFormatted} />;
@@ -143,31 +153,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       )}
 
       <div
+        onClick={handleMessageClick}
+        data-message-selected={isSelected || undefined}
         className={`group/message relative max-w-[85%] sm:max-w-[72%] md:max-w-[62%] rounded-2xl px-3.5 py-2.5 shadow-xs text-xs leading-relaxed select-text transition-all ${
           isInbound
             ? 'bg-white dark:bg-[#202c33] text-slate-800 dark:text-slate-100 rounded-tl-xs border border-slate-200/50 dark:border-slate-700/50'
             : 'bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-slate-100 rounded-tr-xs border border-emerald-200/60 dark:border-emerald-700/50'
-        }`}
+        } ${onSelectMessage && (canReply || canForward) ? 'cursor-pointer' : ''} ${isSelected ? 'ring-2 ring-emerald-600 ring-offset-2 ring-offset-[#efeae2] dark:ring-offset-[#0b141a]' : ''}`}
       >
-        {(onReplyMessage || (onForwardMessage && canForward)) && (
-          <div className="absolute -top-3 right-2 z-10 flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/message:opacity-100 sm:focus-within:opacity-100">
-            {onReplyMessage && canReply && (
-              <button type="button" title="Responder esta mensagem" aria-label="Responder esta mensagem"
-                onClick={() => onReplyMessage(message)}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-emerald-950">
-                <i className="bi bi-reply-fill text-sm" />
-              </button>
-            )}
-            {onForwardMessage && canForward && (
-              <button type="button" title="Encaminhar mensagem" aria-label="Encaminhar mensagem"
-                onClick={() => onForwardMessage(message)}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-emerald-950">
-                <i className="bi bi-forward-fill text-sm" />
-              </button>
-            )}
-          </div>
-        )}
-
         {/* Caixa de Mensagem Respondida (Quote / Reply) */}
         {(message.replyToWamid || message.replyToMessageId) && (
           <div className="mb-2 p-2 rounded-xl bg-black/5 dark:bg-white/10 border-l-4 border-emerald-600 dark:border-emerald-400 text-[11px] text-slate-600 dark:text-slate-300">

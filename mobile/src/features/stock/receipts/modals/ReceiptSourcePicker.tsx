@@ -5,7 +5,6 @@ import {
   Alert,
   Linking,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -16,9 +15,6 @@ import {
   Calendar,
   ChevronDown,
   ChevronRight,
-  FileText,
-  Pencil,
-  ShoppingCart,
 } from 'lucide-react-native';
 import { receiptSourceSearchSchema } from '../../../../../../shared-utils/receiptFormSchemas';
 import { invoiceListFormSchema } from '../../../../../../shared-utils/listingFormSchemas';
@@ -39,84 +35,17 @@ import {
   InvoicePeriodFilterModal,
   periodOptions,
 } from '../../invoices/screens/invoices-screen/InvoicePeriodFilterModal';
+import { ReceiptSourceOptions, type ReceiptSourceColors } from './ReceiptSourceOptions';
+import { styles } from './receiptSourcePicker.styles';
 
-type SourceKind = 'manual' | 'invoice' | 'purchase';
-interface Colors {
-  bg: string;
-  surface: string;
-  border: string;
-  text: string;
-  muted: string;
-}
-
-export const ReceiptSourceOptions: React.FC<{
-  colors: Colors;
-  onSelect: (source: SourceKind) => void;
-}> = ({ colors, onSelect }) => {
-  const options = [
-    {
-      kind: 'manual' as const,
-      title: 'Sem nota fiscal',
-      description: 'Registrar recebimento sem nota fiscal',
-      Icon: Pencil,
-    },
-    {
-      kind: 'invoice' as const,
-      title: 'Com nota fiscal de entrada',
-      description: 'Preencher a partir da NF-e',
-      Icon: FileText,
-    },
-    {
-      kind: 'purchase' as const,
-      title: 'Com pedido de compra',
-      description: 'Receber itens de um pedido existente',
-      Icon: ShoppingCart,
-    },
-  ];
-  return (
-    <ScrollView contentContainerStyle={styles.content}>
-      <Text style={[styles.intro, { color: colors.muted }]}>
-        Escolha como deseja iniciar o recebimento.
-      </Text>
-      {options.map(({ kind, title, description, Icon }) => (
-        <TouchableOpacity
-          key={kind}
-          onPress={() => onSelect(kind)}
-          disabled={kind === 'purchase'}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: kind === 'purchase' }}
-          style={[
-            styles.option,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-            kind === 'purchase' && styles.disabled,
-          ]}
-        >
-          <View style={styles.optionIcon}>
-            <Icon size={20} color="#059669" />
-          </View>
-          <View style={styles.grow}>
-            <Text style={[styles.optionTitle, { color: colors.text }]}>{title}</Text>
-            <Text style={[styles.description, { color: colors.muted }]}>{description}</Text>
-          </View>
-          {kind === 'purchase' ? (
-            <View style={styles.betaBadge}>
-              <Text style={styles.betaBadgeText}>Beta</Text>
-            </View>
-          ) : (
-            <ChevronRight size={18} color={colors.muted} />
-          )}
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  );
-};
+export { ReceiptSourceOptions };
 
 type SourceRow = { kind: 'invoice'; value: Invoice } | { kind: 'purchase'; value: MobilePurchase };
 
 interface PickerProps {
   kind: 'invoice' | 'purchase';
   isDarkMode: boolean;
-  colors: Colors;
+  colors: ReceiptSourceColors;
   onSelectInvoice: (invoice: Invoice) => Promise<void>;
   onSelectPurchase: (purchase: MobilePurchase) => void | Promise<void>;
   onManageInUseInvoice: (fiscalKey: string) => void | Promise<void>;
@@ -612,124 +541,3 @@ export const ReceiptSourcePicker: React.FC<PickerProps> = ({
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  grow: { flex: 1 },
-  content: { padding: 16, gap: 10 },
-  emptyContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
-  intro: { fontSize: 13, lineHeight: 19, marginBottom: 4 },
-  emptyText: { textAlign: 'center' },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
-  },
-  betaBadge: {
-    borderRadius: 7,
-    backgroundColor: '#fef3c7',
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-  },
-  betaBadgeText: {
-    color: '#b45309',
-    fontSize: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  unavailable: {
-    backgroundColor: 'rgba(15, 23, 42, 0.12)',
-    borderColor: '#cbd5e1',
-  },
-  unavailableDark: {
-    backgroundColor: 'rgba(15, 23, 42, 0.46)',
-    borderColor: '#475569',
-  },
-  dimmedContent: { opacity: 0.4 },
-  optionBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  actionColumn: { alignItems: 'flex-end', gap: 6 },
-  actionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
-  actionReason: { marginTop: 0, textAlign: 'right' },
-  actionButton: {
-    minHeight: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 12,
-  },
-  actionButtonText: { color: '#ffffff', fontSize: 11, fontWeight: '900' },
-  inUseText: { color: '#047857', fontSize: 12, fontWeight: '900' },
-  inUseTextDark: { color: '#34d399' },
-  optionIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#d1fae5',
-  },
-  optionTitle: { fontSize: 14, fontWeight: '800' },
-  description: { fontSize: 12, marginTop: 3 },
-  reason: { color: '#d97706', fontSize: 11, fontWeight: '700', marginTop: 4 },
-  disabled: { opacity: 0.5 },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    minHeight: 42,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-  },
-  searchButton: {
-    backgroundColor: '#059669',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  searchButtonText: { color: '#ffffff', fontWeight: '800', fontSize: 12 },
-  dateFilterContainer: { gap: 8, paddingHorizontal: 12, paddingBottom: 4 },
-  datePickerButton: {
-    width: '100%',
-    minHeight: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderRadius: 9,
-    paddingHorizontal: 10,
-  },
-  dateFilterButton: {
-    minHeight: 42,
-    alignSelf: 'flex-end',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-  },
-  dateFilterText: { fontSize: 11, fontWeight: '600' },
-  dateFilterValue: { fontSize: 12, fontWeight: '800' },
-  dateInput: { minWidth: 118, minHeight: 40, borderWidth: 1, borderRadius: 9, paddingHorizontal: 10, fontSize: 12 },
-  dateRange: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dateRangeLabel: { fontSize: 11, fontWeight: '700' },
-  dateRangeInput: { flex: 1, minWidth: 0 },
-  loading: { margin: 24 },
-  message: { padding: 24, alignItems: 'center', gap: 12 },
-  retry: { color: '#2563eb', fontWeight: '800' },
-  pagination: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  pageAction: { color: '#2563eb', fontWeight: '800' },
-});

@@ -352,26 +352,26 @@ export const financeService = {
   async createTransaction(
     transaction: Omit<FinancialTransaction, 'id' | 'created_at' | 'updated_at'>
   ) {
-    transaction = financialTransactionWriteSchema.parse(transaction);
+    const parsedTransaction = financialTransactionWriteSchema.parse(transaction);
     let catName = '';
     let categoryNature: ResultNature | undefined;
-    if (transaction.category_id) {
+    if (parsedTransaction.category_id) {
       const { data: cat, error: categoryError } = await supabase
         .from('financial_categories')
         .select('name,type,result_nature')
-        .eq('id', transaction.category_id)
+        .eq('id', parsedTransaction.category_id)
         .maybeSingle();
       if (categoryError) throw categoryError;
       if (!cat) throw new Error('Categoria financeira indisponível.');
-      if (cat.type !== transaction.type) throw new Error('Categoria incompatível com a movimentação.');
+      if (cat.type !== parsedTransaction.type) throw new Error('Categoria incompatível com a movimentação.');
       if (cat?.name) catName = cat.name;
       categoryNature = cat.result_nature || undefined;
     }
 
     const payload = {
-      ...transaction,
-      category_name: catName || transaction.category_name || null,
-      result_nature: transaction.result_nature || categoryNature || determineResultNature(catName, transaction.type),
+      ...parsedTransaction,
+      category_name: catName || parsedTransaction.category_name || null,
+      result_nature: parsedTransaction.result_nature || categoryNature || determineResultNature(catName, parsedTransaction.type),
     };
 
     const { data, error, status } = await supabase

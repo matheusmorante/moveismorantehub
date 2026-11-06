@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from 'react-toastify';
 import { financeService } from '@/pages/services/financeService';
 import { FinancialTransaction, FinancialCategory } from '../../../types/finance.type';
@@ -41,6 +41,23 @@ const directTransactionFormSchema = financialTransactionWriteSchema.extend({
   }
 });
 
+type TransactionFormData = {
+  type: 'income' | 'expense';
+  amount: number;
+  date: string;
+  description: string;
+  payment_method: string;
+  category_id: string;
+  category_name: string;
+  purpose: 'BUSINESS' | 'PERSONAL_PARTNER';
+  vehicle_id: string;
+  collaborator_id: string;
+  collaborator_name: string;
+  account_id: string;
+  origin: NonNullable<FinancialTransaction['origin']>;
+  notes: string;
+};
+
 export default function Transactions() {
   const { isAdmin, profile, user } = useAuth();
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
@@ -70,7 +87,7 @@ export default function Transactions() {
   const operation = useFinancialOperation();
   const saving = operation.busy;
   const closeModal = () => { if (!operation.isBusy()) setIsModalOpen(false); };
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<TransactionFormData>({
     type: 'expense' as 'income' | 'expense',
     amount: 0,
     date: financialToday(),
@@ -94,6 +111,14 @@ export default function Transactions() {
   }, [search]);
 
   const selectedCategory = categories.find((category) => category.id === formData.category_id);
+  const categoriesById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories]
+  );
+  const getCategoryParentName = (categoryId?: string | null) => {
+    const parentId = categoryId ? categoriesById.get(categoryId)?.parent_id : null;
+    return parentId ? categoriesById.get(parentId)?.name : undefined;
+  };
   const needsCollaborator = formData.type === 'expense' && requiresCollaborator(selectedCategory?.name);
   const needsVehicle = formData.type === 'expense' && requiresVehicle(selectedCategory?.name);
 
@@ -372,7 +397,7 @@ export default function Transactions() {
               <option value="">Todas as categorias</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
-                  {category.parent_id ? `↳ ${category.name}` : category.name}
+                  {category.parent_id ? `　${category.name}` : category.name}
                 </option>
               ))}
             </select>
@@ -460,7 +485,10 @@ export default function Transactions() {
                         </span>
                         {transaction.category_id && (
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 inline-block">
-                            {transaction.category_name || categories.find((c) => c.id === transaction.category_id)?.name ||
+                            {getCategoryParentName(transaction.category_id)
+                              ? `${getCategoryParentName(transaction.category_id)} · `
+                              : ''}
+                            {transaction.category_name || categoriesById.get(transaction.category_id)?.name ||
                               'Outros'}
                           </span>
                         )}
@@ -634,7 +662,7 @@ export default function Transactions() {
                 <option value="">Selecione uma categoria</option>
                 {availableCategories.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.parent_id ? `↳ ${category.name}` : category.name}
+                    {category.parent_id ? `　${category.name}` : category.name}
                   </option>
                 ))}
               </select>
@@ -711,7 +739,7 @@ export default function Transactions() {
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h2 id="transaction-details-title" className="text-xl font-black text-slate-900 dark:text-slate-100">Detalhes da movimentação</h2>
-                <p className="mt-1 text-sm text-slate-500">#{selectedTransaction.id.slice(0, 8)} · {formatToBRDate(selectedTransaction.date)}</p>
+                <p className="mt-1 text-sm text-slate-500">#{selectedTransaction.id.slice(0, 8)}</p>
               </div>
               <button type="button" aria-label="Fechar detalhes" onClick={() => setSelectedTransaction(null)} className="rounded-lg px-3 py-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">×</button>
             </div>
@@ -723,8 +751,10 @@ export default function Transactions() {
             </div>
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {[
-                ['Categoria', selectedTransaction.category_name || categories.find((category) => category.id === selectedTransaction.category_id)?.name || 'Sem categoria'],
+                ['Categoria', selectedTransaction.category_name || categoriesById.get(selectedTransaction.category_id || '')?.name || 'Sem categoria'],
+                ['Categoria pai', getCategoryParentName(selectedTransaction.category_id) || '—'],
                 ['Natureza', selectedTransaction.result_nature === 'NAO_AFETA_RESULTADO' ? 'Não afeta resultado' : selectedTransaction.result_nature === 'RECEITA' ? 'Receita' : 'Despesa'],
+                ['Data e horário', `${formatToBRDate(selectedTransaction.date)}${selectedTransaction.transaction_time ? ` às ${selectedTransaction.transaction_time.slice(0, 5)}` : ''}`],
                 ['Tipo', selectedTransaction.type === 'income' ? 'Entrada' : 'Saída'],
                 ['Forma de pagamento', selectedTransaction.payment_method || 'Não informada'],
                 ['Conta / Caixa', selectedTransaction.account_id || 'Caixa Geral'],

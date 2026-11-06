@@ -58,8 +58,8 @@ import {
   type MobileVariationRegistrationIssue,
 } from '../domain/productRegistrationRules';
 import {
-  prepareMobileProductSaveState,
-} from '../domain/productSaveState';
+  buildMobileProductSavePayload,
+} from '../domain/productSavePayload';
 import { verifyAndConfirmMobilePublishedCatalogEdit } from '../domain/mobilePublishedCatalogConfirmation';
 import {
   createMobileProductDraftSaveQueue,
@@ -598,37 +598,19 @@ export const ProductFormScreen: React.FC<Props> = ({
       if (productCode && !validated.code) {
         setFormDataRaw((previous: any) => ({ ...previous, code: productCode }));
       }
-      const isSalvado = validated.productKind === 'salvado' || validated.condition === 'salvado';
-      const isUsado = validated.productKind === 'usado' || validated.condition === 'usado';
-      const saveState = prepareMobileProductSaveState(product, validated, saveAsDraft);
-      const productDataForSave = { ...validated };
-      delete productDataForSave.categoryNames;
       const savedProductId = serverProductIdRef.current;
       const savedProductVersion = serverProductVersionRef.current;
 
-      return {
-        ...productDataForSave,
-        ...(savedProductId
-          ? {
-              id: savedProductId,
-              updated_at: savedProductVersion,
-              updatedAt: savedProductVersion,
-            }
-          : {}),
-        code: productCode,
-        ...operation,
-        clientProductId: savedProductId || product?.id || clientProductIdRef.current,
-        productKind: isSalvado ? 'salvado' : isUsado ? 'usado' : 'normal',
-        condition: isSalvado ? 'salvado' : isUsado ? 'usado' : 'novo',
-        isDraft: saveState.isDraft,
-        active: saveState.active,
-        status: saveState.status,
-        hasVariations:
-          validated.itemType !== 'service' &&
-          (Boolean(validated.hasVariations) ||
-            (Array.isArray(validated.variations) && validated.variations.length > 1)),
-        variations: saveState.variations,
-      };
+      return buildMobileProductSavePayload({
+        validated,
+        product,
+        productCode,
+        operation,
+        savedProductId,
+        savedProductVersion,
+        clientProductId: clientProductIdRef.current,
+        saveAsDraft,
+      });
     },
     [getSaveOperation, product]
   );

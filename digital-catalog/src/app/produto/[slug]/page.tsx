@@ -17,7 +17,7 @@ interface Props {
 // Função para buscar dados compartilhada entre generateMetadata e o componente
 const getProductData = cache(async (slug: string) => {
   const [prodRes, styleRes] = await Promise.all([
-    supabase.rpc('public_catalog_product_detail', { p_slug: slug }),
+    supabase.rpc('public_catalog_product_detail_with_campaign', { p_slug: slug }),
     getCachedStoreStyleSettings(),
   ]);
 

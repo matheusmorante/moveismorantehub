@@ -41,6 +41,8 @@ interface ProductAutocompleteProps {
   productsOnly?: boolean;
   /** Inclui produtos e variações desativados; variações fundidas continuam ocultas. */
   includeDeactivated?: boolean;
+  /** Mantém a verificação de lixeira por padrão; seletores sem ação de exclusão podem dispensá-la. */
+  includeTrashEligibility?: boolean;
   allowedProductKinds?: readonly ProductKind[];
   excludedProductLinks?: readonly ProductAutocompleteExcludedLink[];
   products?: Product[];
@@ -79,6 +81,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   parentsOnly = false,
   productsOnly = false,
   includeDeactivated = false,
+  includeTrashEligibility = true,
   allowedProductKinds,
   excludedProductLinks,
   products: localProducts,
@@ -108,6 +111,7 @@ const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     variationsOnly,
     compositionsOnly,
     includeDeactivated,
+    includeTrashEligibility,
     allowedProductKinds,
     excludedProductLinks,
     localProducts,

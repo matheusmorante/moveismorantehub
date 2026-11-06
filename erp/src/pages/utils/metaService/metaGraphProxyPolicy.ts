@@ -1,3 +1,5 @@
+import { META_ADS_CREATIVE_CATALOG_ID } from '../../../../../shared-utils/metaCatalogIds';
+
 export type MetaGraphOperation =
   | 'sender_status'
   | 'connection_test'
@@ -17,6 +19,7 @@ export interface MetaGraphProxyInput {
   phoneNumberId?: unknown;
   wabaId?: unknown;
   catalogId?: unknown;
+  catalogTarget?: unknown;
   productSetId?: unknown;
   handle?: unknown;
   payload?: unknown;
@@ -33,6 +36,13 @@ export interface MetaGraphSettings {
   phoneNumberId?: unknown;
   wabaId?: unknown;
   catalogId?: unknown;
+}
+
+export type MetaCatalogTarget = 'whatsapp' | 'ads';
+
+export interface MetaCatalogBatchHandleParts {
+  catalogTargets: readonly MetaCatalogTarget[];
+  handles: readonly string[];
 }
 
 const numericId = (value: unknown): string => {
@@ -54,6 +64,57 @@ const configuredResourceId = (requested: unknown, configured: unknown): string =
   }
   return configuredValue;
 };
+
+function getCatalogTarget(value: unknown): MetaCatalogTarget {
+  if (value === undefined || value === null) return 'whatsapp';
+  if (value === 'whatsapp' || value === 'ads') return value;
+  throw new Error('Destino do catálogo Meta inválido.');
+}
+
+function getCatalogId(target: MetaCatalogTarget, settings: MetaGraphSettings): string {
+  return target === 'ads'
+    ? configuredId(META_ADS_CREATIVE_CATALOG_ID)
+    : configuredId(settings.catalogId);
+}
+
+function getBatchHandle(value: unknown): string {
+  const handle = typeof value === 'string' ? value.trim() : '';
+  if (!/^[A-Za-z0-9_=-]{1,512}$/.test(handle)) {
+    throw new Error('Identificador do lote inválido.');
+  }
+  return handle;
+}
+
+export function createMetaCatalogBatchHandle(
+  whatsappHandle: string,
+  adsHandle: string
+): string {
+  return `both:${getBatchHandle(whatsappHandle)}|${getBatchHandle(adsHandle)}`;
+}
+
+export function parseMetaCatalogBatchHandle(
+  value: unknown,
+  defaultTarget: MetaCatalogTarget = 'whatsapp'
+): MetaCatalogBatchHandleParts {
+  const handle = typeof value === 'string' ? value.trim() : '';
+  const combined = /^both:([A-Za-z0-9_=-]{1,512})\|([A-Za-z0-9_=-]{1,512})$/.exec(handle);
+  if (combined) {
+    return {
+      catalogTargets: ['whatsapp', 'ads'],
+      handles: [combined[1], combined[2]],
+    };
+  }
+
+  const scoped = /^(wa|ads):(.+)$/.exec(handle);
+  if (scoped) {
+    return {
+      catalogTargets: [scoped[1] === 'ads' ? 'ads' : 'whatsapp'],
+      handles: [getBatchHandle(scoped[2])],
+    };
+  }
+
+  return { catalogTargets: [defaultTarget], handles: [getBatchHandle(handle)] };
+}
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -167,29 +228,35 @@ export function planMetaGraphRequest(
       return {
         permission: 'viewChannelCatalog',
         method: 'GET',
-        path: `${configuredResourceId(input.catalogId, settings.catalogId)}/products?fields=id,retailer_id,name,description,price,currency,image_url,url,visibility,is_hidden`,
+        path: `${configuredResourceId(input.catalogId, getCatalogId(getCatalogTarget(input.catalogTarget), settings))}/products?fields=id,retailer_id,name,description,price,currency,image_url,url,visibility,is_hidden`,
       };
     case 'sync_catalog_batch':
       return {
         permission: 'productConfig',
         method: 'POST',
-        path: `${configuredId(settings.catalogId)}/items_batch`,
+        path: `${getCatalogId(getCatalogTarget(input.catalogTarget), settings)}/items_batch`,
         body: validateCatalogBatch(input.payload),
       };
     case 'check_catalog_batch': {
-      const handle = typeof input.handle === 'string' ? input.handle.trim() : '';
-      if (!/^[A-Za-z0-9_=-]{1,512}$/.test(handle)) throw new Error('Identificador do lote inválido.');
+      const requestedTarget = input.catalogTarget === undefined
+        ? undefined
+        : getCatalogTarget(input.catalogTarget);
+      const batch = parseMetaCatalogBatchHandle(input.handle, requestedTarget);
+      const target = requestedTarget ?? batch.catalogTargets[0];
+      const targetIndex = batch.catalogTargets.indexOf(target);
+      if (targetIndex < 0) throw new Error('Destino do lote Meta não corresponde ao identificador.');
+      const handle = batch.handles[targetIndex];
       return {
         permission: 'productConfig',
         method: 'GET',
-        path: `${configuredId(settings.catalogId)}/check_batch_request_status?handle=${encodeURIComponent(handle)}`,
+        path: `${getCatalogId(target, settings)}/check_batch_request_status?handle=${encodeURIComponent(handle)}`,
       };
     }
     case 'list_product_sets':
       return {
         permission: 'viewChannelCatalog',
         method: 'GET',
-        path: `${configuredId(settings.catalogId)}/product_sets?fields=id,name,filter`,
+        path: `${getCatalogId(getCatalogTarget(input.catalogTarget), settings)}/product_sets?fields=id,name,filter`,
       };
     case 'delete_product_set':
       return {

@@ -3,6 +3,7 @@ import { getSettings } from '@/pages/utils/settingsService';
 import { whatsappGraphService } from '@/pages/utils/whatsappGraphService';
 import { isTestProduct } from '../hmlTestData';
 import {
+  fetchActiveCampaignLabelIndex,
   fetchMetaCatalogSyncSources,
   type MetaCatalogSyncSources,
 } from '@/pages/App/Products/MetaCatalog/services/metaCatalogDataService';
@@ -85,6 +86,7 @@ export async function syncProductToMetaCatalog(
       { data: product, error: prodErr },
       { data: variations, error: varErr },
       { data: opportunities },
+      activeCampaignLabels,
     ] = await Promise.all([
       supabase
         .from('products')
@@ -100,6 +102,7 @@ export async function syncProductToMetaCatalog(
         )
         .eq('product_id', productId),
       fetchCachedOpportunities(),
+      fetchActiveCampaignLabelIndex([productId]),
     ]);
 
     if (prodErr || !product) {
@@ -110,9 +113,15 @@ export async function syncProductToMetaCatalog(
       return { success: true, count: 0 };
     }
 
-    const varList = (variations || []) as MetaCatalogVariationSource[];
+    const varList = ((variations || []) as MetaCatalogVariationSource[]).map((variation) => ({
+      ...variation,
+      activeCampaignNames: activeCampaignLabels.variationNames.get(variation.id) || [],
+    }));
     const itemsToSend = buildProductMetaCatalogSyncItems(
-      product as MetaCatalogProductSource,
+      {
+        ...(product as MetaCatalogProductSource),
+        activeCampaignNames: activeCampaignLabels.productNames.get(productId) || [],
+      },
       varList,
       (opportunities || []) as MetaCatalogOpportunitySource[]
     );

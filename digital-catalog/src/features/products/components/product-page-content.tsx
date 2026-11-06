@@ -58,6 +58,7 @@ export default function ProductPageContent({
     displayTitle,
     displayPrice,
     displayPromoPrice,
+    displayPromotion,
     displayDescription,
     displayWidth,
     displayDepth,
@@ -90,7 +91,7 @@ export default function ProductPageContent({
     addItem({
       id: activeVariation ? `${product.id}-${activeVariation.id}` : product.id,
       name: displayTitle,
-      price: displayPromoPrice || displayPrice,
+      price: displayPromoPrice ?? displayPrice,
       image: displayImages[0],
       quantity: 1,
     });
@@ -190,9 +191,13 @@ export default function ProductPageContent({
 
             <div className="bg-gray-50/50 p-4 sm:p-6 rounded-2xl border border-gray-100 space-y-5">
               <PaymentInfo
-                price={displayPromoPrice || displayPrice}
-                originalPrice={displayPromoPrice ? displayPrice : undefined}
+                price={displayPromoPrice ?? displayPrice}
+                originalPrice={displayPromoPrice != null ? displayPrice : undefined}
               />
+              {displayPromotion ? <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-blue-900">
+                <p className="text-xs font-extrabold">Promoção: {displayPromotion.name} · {displayPromotion.discount_percent}% adicional</p>
+                {displayPromotion.conditions ? <p className="mt-1 whitespace-pre-line text-[11px]">{displayPromotion.conditions}</p> : null}
+              </div> : null}
 
               <ProductVariantSelector
                 product={product}

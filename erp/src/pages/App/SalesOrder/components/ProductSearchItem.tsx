@@ -2,6 +2,7 @@ import React from 'react';
 import Product, { Variation } from '@/pages/types/product.type';
 import { formatCurrency } from '@/pages/utils/formatters';
 import { getSelectedProductDisplayName } from '@/pages/utils/productVariationDefaults';
+import { getSelectedProductPricing } from '@/pages/utils/productPricing';
 
 interface ProductSearchItemProps {
   product: Product;
@@ -16,13 +17,14 @@ export const ProductSearchItem = ({
   priceType,
   onClick,
 }: ProductSearchItemProps) => {
+  const pricing = getSelectedProductPricing(product, variation);
   const price = variation
     ? priceType === 'cost'
       ? variation.costPrice || product.costPrice || 0
-      : variation.unitPrice || product.unitPrice || 0
+      : pricing.finalUnitPrice
     : priceType === 'cost'
       ? product.costPrice || 0
-      : product.unitPrice || 0;
+      : pricing.finalUnitPrice;
 
   const title = getSelectedProductDisplayName(product, variation);
 
@@ -45,9 +47,11 @@ export const ProductSearchItem = ({
         </div>
       </div>
       <div className="text-right">
+        {priceType === 'unit' && pricing.hasDiscount ? <span className="block text-[10px] font-semibold text-slate-400 line-through">{formatCurrency(pricing.unitPrice)}</span> : null}
         <span className="text-xs sm:text-sm font-black text-emerald-600 dark:text-emerald-400">
           {formatCurrency(price)}
         </span>
+        {priceType === 'unit' && pricing.promotionId ? <span className="mt-0.5 block max-w-36 truncate text-[9px] font-bold text-blue-600 dark:text-blue-400" title={pricing.promotionName || 'Promoção ativa'}>{pricing.promotionName || `${pricing.promotionDiscountPercent}% de desconto`}</span> : null}
       </div>
     </div>
   );

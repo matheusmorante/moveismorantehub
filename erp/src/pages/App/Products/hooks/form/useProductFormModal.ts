@@ -35,6 +35,7 @@ import { useProductFormPricing } from './useProductFormPricing';
 import { useProductFormSubmit } from './useProductFormSubmit';
 import { useProductFormSync } from './useProductFormSync';
 import { useProductFormVariations } from './useProductFormVariations';
+import { useProductFormKeyboardShortcuts } from './useProductFormKeyboardShortcuts';
 import { replaceProductImageGlobally } from '../../components/tabs/images/productImageOrdering';
 import { inheritSimpleProductVariationFromParent } from '../../../../../../../shared-utils/simpleProductVariationInheritance';
 
@@ -326,53 +327,20 @@ export function useProductFormModal({
     setIsDiscardChangesConfirmOpen,
   });
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (typeof document !== 'undefined' && document.querySelector('.swal2-container')) {
-          return;
-        }
-        if (isDiscardChangesConfirmOpen) {
-          cancelDiscardChanges();
-          return;
-        }
-        if (saveResult) {
-          setSaveResult(null);
-          return;
-        }
-        if (isCategorySearchOpen) {
-          setIsCategorySearchOpen(false);
-          return;
-        }
-        if (isConversionModalOpen) {
-          setIsConversionModalOpen(false);
-          return;
-        }
-        if (variations.editingVariationId) {
-          return;
-        }
-        handleCloseWithAutoSave();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        if (variations.editingVariationId) return;
-        handleSubmit();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [
+  useProductFormKeyboardShortcuts({
     isOpen,
     isCategorySearchOpen,
     isConversionModalOpen,
     isDiscardChangesConfirmOpen,
     variations,
     saveResult,
-    handleCloseWithAutoSave,
+    setSaveResult,
+    setIsCategorySearchOpen,
+    setIsConversionModalOpen,
     cancelDiscardChanges,
+    handleCloseWithAutoSave,
     handleSubmit,
-  ]);
+  });
 
   const handleCategorySelect = useCallback(
     (cid: string) => {

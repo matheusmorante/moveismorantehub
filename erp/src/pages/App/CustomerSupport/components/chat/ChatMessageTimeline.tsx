@@ -14,8 +14,11 @@ interface ChatMessageTimelineProps {
   hasOlderMessages?: boolean;
   isLoadingOlderMessages?: boolean;
   onLoadOlderMessages?: () => Promise<number>;
-  onReplyMessage?: (message: WhatsAppMessage) => void;
-  onForwardMessage?: (message: WhatsAppMessage) => void;
+  selectedMessageId?: string | null;
+  onSelectMessage?: (
+    message: WhatsAppMessage,
+    capabilities: { canReply: boolean; canForward: boolean }
+  ) => void;
   onResolveReplyTarget?: (reference: { conversationId: string; messageId: string | null; apiMessageId: string | null }) => Promise<WhatsAppMessage | null>;
   onJumpToMessage?: (message: WhatsAppMessage) => void;
   jumpToMessageId?: string | null;
@@ -117,8 +120,8 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
   isLoadingOlderMessages = false,
   error = '',
   onLoadOlderMessages,
-  onReplyMessage,
-  onForwardMessage,
+  selectedMessageId = null,
+  onSelectMessage,
   onResolveReplyTarget,
   onJumpToMessage,
   jumpToMessageId = null,
@@ -255,8 +258,8 @@ export const ChatMessageTimeline: React.FC<ChatMessageTimelineProps> = ({
                   reactions={msg.apiMessageId ? reactionProjection.reactionsByWamid.get(msg.apiMessageId) : undefined}
                   quotedMessage={(msg.replyToMessageId ? messagesById.get(msg.replyToMessageId) : undefined)
                     || (msg.replyToWamid ? messagesByApiId.get(msg.replyToWamid) : undefined)}
-                  onReplyMessage={onReplyMessage}
-                  onForwardMessage={onForwardMessage}
+                  isSelected={msg.id === selectedMessageId}
+                  onSelectMessage={onSelectMessage}
                   onResolveReplyTarget={onResolveReplyTarget}
                   onJumpToMessage={onJumpToMessage}
                 />

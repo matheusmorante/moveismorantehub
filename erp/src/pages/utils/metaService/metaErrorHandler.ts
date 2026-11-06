@@ -22,7 +22,7 @@ export const metaErrorHandler = {
    */
   parseMetaErrorMessage: (
     error: MetaErrorPayload,
-    options?: { templateName?: string; recipientPhone?: string }
+    options?: { templateName?: string; recipientPhone?: string; apiArea?: 'catalog' | 'whatsapp' }
   ): string => {
     const code = error.code;
     const details = error.error_data?.details || '';
@@ -77,7 +77,14 @@ export const metaErrorHandler = {
 
     // 7. Acesso bloqueado / permissão ausente (#200)
     if (code === 200 || baseMsg.includes('blocked') || baseMsg.includes('Permissions error')) {
-      return "Acesso à API Bloqueado: Verifique se o Token permanente tem as permissões 'whatsapp_business_messaging' e 'catalog_management' no Gerenciador de Negócios da Meta.";
+      const guidance = options?.apiArea === 'catalog'
+        ? 'Confirme se a integração pode gerenciar o catálogo indicado e se o token tem acesso a esse ativo no Meta Business.'
+        : 'Confirme se o token tem as permissões exigidas para esta operação e acesso ao ativo da Meta.';
+      const subcode = error.error_subcode ? `/${error.error_subcode}` : '';
+      const displayDetails = [error.error_user_title, error.error_user_msg, details]
+        .filter((value): value is string => Boolean(value?.trim()))
+        .join(' — ');
+      return `Acesso à API Bloqueado (código ${code}${subcode}). ${guidance} Resposta da Meta: ${baseMsg}${displayDetails ? ` — ${displayDetails}` : ''}`;
     }
 
     const fullMsg = details ? `${baseMsg}: ${details}` : `${baseMsg}${userTitle}${userMsg}`;

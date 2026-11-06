@@ -28,6 +28,7 @@ import {
 } from './productCatalogPresentation';
 import { ProductCatalogPreview, type ProductCatalogPreviewTab } from './ProductCatalogPreview';
 import { ProductCatalogCategorySidebar } from './ProductCatalogCategorySidebar';
+import { ProductCatalogFilterToolbar } from './ProductCatalogFilterToolbar';
 import { createProductCatalogSelectionActions } from './productCatalogSelection';
 import { getProductCatalogPresentation, type CatalogPresentation } from './productCatalogPresentationMode';
 import {
@@ -362,38 +363,20 @@ export const ProductCatalogPanel: React.FC<ProductCatalogPanelProps> = ({
                   onCategoryChange={updateCategoryFilter}
                 />
                 <section className="catalog-results-pane" aria-label="Produtos do catálogo">
-                  <div className="catalog-filter-toolbar">
-                    <label className="flex h-10 min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 dark:border-slate-700 dark:bg-slate-900">
-                      <i className="bi bi-search text-slate-400" aria-hidden="true" />
-                      <input
-                        {...filterForm.register('search')}
-                        value={search}
-                        maxLength={100}
-                        placeholder="Pesquisar produtos..."
-                        aria-label="Pesquisar produtos do catálogo"
-                        className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
-                      />
-                      {search && <button type="button" aria-label="Limpar pesquisa" onClick={() => filterForm.setValue('search', '', { shouldDirty: true, shouldValidate: true })} className="text-slate-400 hover:text-slate-700"><i className="bi bi-x-circle-fill" /></button>}
-                    </label>
-                    <div className="catalog-filter-selects">
-                      <label className="sr-only" htmlFor="support-catalog-category">Categoria</label>
-                      <select id="support-catalog-category" value={categoryId} onChange={(event) => updateCategoryFilter(event.target.value)} className="catalog-category-filter h-10 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-900">
-                        <option value="">Todas as categorias</option>
-                        {flattenedCategories.map(({ category, depth }) => (
-                          <option key={category.id} value={category.id}>{`${'　'.repeat(depth)}${depth ? '↳ ' : ''}${category.name}`}</option>
-                        ))}
-                      </select>
-                    </div>
-                    {metadataError && <p role="status" className="text-xs text-amber-700 dark:text-amber-300">{metadataError}</p>}
-                    {metadataQuery.isLoading && <p className="text-xs text-slate-400">Carregando categorias…</p>}
-                    {metadataQuery.isError && <button type="button" onClick={() => void metadataQuery.refetch()} className="text-left text-xs font-semibold text-amber-700 underline dark:text-amber-300">Tentar carregar filtros novamente</button>}
-                    {bulkScope && !hasMatchingBulkScope && (
-                      <div className="flex items-center justify-between gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
-                        <span>Seleção em lote mantida: {Math.max(0, bulkScope.total - bulkScope.excludedProductIds.length)} produtos · {bulkScope.categoryName}. Você pode selecionar itens avulsos neste filtro.</span>
-                        <button type="button" onClick={clearBulkSelection} aria-label="Remover seleção em lote" className="shrink-0 underline">Remover</button>
-                      </div>
-                    )}
-                  </div>
+                  <ProductCatalogFilterToolbar
+                    filterForm={filterForm}
+                    search={search}
+                    categoryId={categoryId}
+                    flattenedCategories={flattenedCategories}
+                    onCategoryChange={updateCategoryFilter}
+                    metadataError={metadataError}
+                    isMetadataLoading={metadataQuery.isLoading}
+                    hasMetadataError={metadataQuery.isError}
+                    onRetryMetadata={() => void metadataQuery.refetch()}
+                    bulkScope={bulkScope}
+                    hasMatchingBulkScope={hasMatchingBulkScope}
+                    onClearBulkSelection={clearBulkSelection}
+                  />
 
                   <div className="catalog-products-pane">
                     <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-5 py-3 text-xs text-slate-500 dark:text-slate-400">

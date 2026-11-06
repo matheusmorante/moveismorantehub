@@ -23,7 +23,8 @@ export const fetchAllProductSearchResults = async (
   supplierId?: string,
   includeDeactivated = false,
   maxResults = 25,
-  itemType?: 'composition'
+  itemType?: 'composition',
+  includeTrashEligibility = true
 ) => {
   const trimmed = search.trim();
   if (!trimmed) return [];
@@ -34,7 +35,7 @@ export const fetchAllProductSearchResults = async (
     isDraft: false,
     supplierId,
     itemType,
-  }, { throwOnError: true });
+  }, { throwOnError: true, includeTrashEligibility });
 
   if (!result || !Array.isArray(result.data)) throw new Error('A busca de produtos não foi confirmada.');
   return result.data;
